@@ -2,111 +2,35 @@
 
 public sealed class CustomOperation : ChangeOperation
 {
-    private readonly Action<OperationExecutionContext> _apply;
-    private readonly Action<OperationExecutionContext> _revert;
+    private readonly Action _apply;
+    private readonly Action _revert;
 
-    public CustomOperation(
-        Action<OperationExecutionContext> apply,
-        Action<OperationExecutionContext> revert,
-        string? description = null)
+    public CustomOperation(Action apply, Action revert)
     {
         _apply = apply ?? throw new ArgumentNullException(nameof(apply));
         _revert = revert ?? throw new ArgumentNullException(nameof(revert));
-        Description = description;
     }
 
-    public string? Description { get; }
-
-    /// <summary>Set only when both delegates leave state unchanged whenever they throw.</summary>
-    public bool FailureIsAtomic { get; set; }
-
-    public override ChangeOperationFailureState FailureState => FailureIsAtomic
-        ? ChangeOperationFailureState.Unchanged : ChangeOperationFailureState.Unknown;
-
-    public override void Apply(OperationExecutionContext context)
+    public override void Apply()
     {
-        _apply(context);
+        _apply();
     }
 
-    public override void Revert(OperationExecutionContext context)
+    public override void Revert()
     {
-        _revert(context);
+        _revert();
     }
 
     public static CustomOperation Create(
         Action doAction,
         Action undoAction,
-        OperationSequenceGenerator sequenceGenerator,
-        string? description = null)
+        OperationSequenceGenerator sequenceGenerator)
     {
         ArgumentNullException.ThrowIfNull(doAction);
         ArgumentNullException.ThrowIfNull(undoAction);
         ArgumentNullException.ThrowIfNull(sequenceGenerator);
 
-        return new CustomOperation(
-            _ => doAction(),
-            _ => undoAction(),
-            description)
+        return new CustomOperation(doAction, undoAction)
         { SequenceNumber = sequenceGenerator.GetNext() };
-    }
-
-    public static StateCapturingOperationBuilder<TState> CaptureState<TState>(
-        Func<TState> captureState,
-        Action<TState> applyState,
-        OperationSequenceGenerator sequenceGenerator,
-        string? description = null)
-    {
-        ArgumentNullException.ThrowIfNull(captureState);
-        ArgumentNullException.ThrowIfNull(applyState);
-        ArgumentNullException.ThrowIfNull(sequenceGenerator);
-
-        return new StateCapturingOperationBuilder<TState>(
-            captureState,
-            applyState,
-            sequenceGenerator,
-            description);
-    }
-
-    internal static CustomOperation CreateStateTransition<TState>(
-        Action<TState> applyState,
-        TState fromState,
-        TState toState,
-        OperationSequenceGenerator sequenceGenerator,
-        string? description)
-    {
-        return new CustomOperation(
-            _ => applyState(toState),
-            _ => applyState(fromState),
-            description)
-        { SequenceNumber = sequenceGenerator.GetNext() };
-    }
-}
-
-public sealed class StateCapturingOperationBuilder<TState>
-{
-    private readonly Func<TState> _captureState;
-    private readonly Action<TState> _applyState;
-    private readonly OperationSequenceGenerator _sequenceGenerator;
-    private readonly string? _description;
-    private readonly TState _beforeState;
-
-    internal StateCapturingOperationBuilder(
-        Func<TState> captureState,
-        Action<TState> applyState,
-        OperationSequenceGenerator sequenceGenerator,
-        string? description)
-    {
-        _captureState = captureState;
-        _applyState = applyState;
-        _sequenceGenerator = sequenceGenerator;
-        _description = description;
-        _beforeState = captureState();
-    }
-
-    public CustomOperation Complete()
-    {
-        var afterState = _captureState();
-        return CustomOperation.CreateStateTransition(
-            _applyState, _beforeState, afterState, _sequenceGenerator, _description);
     }
 }

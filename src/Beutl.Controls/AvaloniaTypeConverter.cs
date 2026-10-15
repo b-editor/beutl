@@ -50,7 +50,7 @@ public static class AvaloniaTypeConverter
         return new Graphics.Point((float)point.X, (float)point.Y);
     }
 
-    public static PixelFormat? ToAvaPixelFormat(this BitmapColorType colorType)
+    private static PixelFormat? ToAvaPixelFormat(this BitmapColorType colorType)
     {
         return colorType switch
         {
@@ -62,7 +62,7 @@ public static class AvaloniaTypeConverter
         };
     }
 
-    public static AlphaFormat? ToAvaAlphaFormat(this BitmapAlphaType alphaType)
+    private static AlphaFormat? ToAvaAlphaFormat(this BitmapAlphaType alphaType)
     {
         return alphaType switch
         {

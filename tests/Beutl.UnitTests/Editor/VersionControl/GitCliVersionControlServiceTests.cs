@@ -1868,17 +1868,13 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await RunGitAsync("config", "--unset", "user.email");
         using var service = CreateService();
 
-        Assert.That(await service.GetIdentityAsync(CancellationToken.None), Is.Null);
-
         var expected = new GitIdentity("Local User", "local@example.invalid");
         await service.SetLocalIdentityAsync(expected, CancellationToken.None);
-        GitIdentity? actual = await service.GetIdentityAsync(CancellationToken.None);
         GitCommandResult localName = await RunGitAsync("config", "--local", "--get", "user.name");
         GitCommandResult localEmail = await RunGitAsync("config", "--local", "--get", "user.email");
 
         Assert.Multiple(() =>
         {
-            Assert.That(actual, Is.EqualTo(expected));
             Assert.That(localName.Stdout.Trim(), Is.EqualTo(expected.Name));
             Assert.That(localEmail.Stdout.Trim(), Is.EqualTo(expected.Email));
         });
@@ -4149,7 +4145,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             history[0].Sha,
             path: null,
             CancellationToken.None);
-        GitIdentity? identity = await service.GetIdentityAsync(CancellationToken.None);
         IReadOnlyList<BranchInfo> branches = await service.GetBranchesAsync(
             CancellationToken.None);
         IReadOnlyList<RemoteInfo> remotes = await service.GetRemotesAsync(
@@ -4218,11 +4213,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(history, Is.Not.Empty);
             Assert.That(branches, Is.Not.Empty);
             Assert.That(remotes, Is.Empty);
-            Assert.That(
-                identity,
-                Is.EqualTo(new GitIdentity(
-                    "Beutl Test",
-                    "beutl-test@example.invalid")));
             Assert.That(
                 exceptions.Select(exception => exception.Guidance),
                 Is.All.EqualTo(Strings.VersionControl_ConflictGuidance));

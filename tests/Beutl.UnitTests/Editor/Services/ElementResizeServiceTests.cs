@@ -40,6 +40,13 @@ public class ElementResizeServiceTests
         _harness.Dispose();
     }
 
+    // The delta window the timeline view reads for roll and slide drags.
+    private (TimeSpan Min, TimeSpan Max) TrimDeltaBounds(params ElementTrimPair[] pairs)
+    {
+        var constraints = ElementResizeService.CreateTrimConstraints(_scene, pairs);
+        return (constraints.Min, constraints.Max);
+    }
+
     private Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0)
         => _harness.AddElement(start, length, zIndex);
 
@@ -620,7 +627,7 @@ public class ElementResizeServiceTests
         int before = _history.UndoCount;
 
         var pair = new ElementTrimPair(front, back);
-        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [pair]);
+        (TimeSpan _, TimeSpan max) = TrimDeltaBounds(pair);
         bool applied = _service.Roll(_scene, [pair], TimeSpan.FromSeconds(5));
         using var resource = (DrawableGroup.Resource)group.ToResource(
             new CompositionContext(front.Range.End - TimeSpan.FromMilliseconds(100)));
@@ -682,7 +689,7 @@ public class ElementResizeServiceTests
         var pair = new ElementTrimPair(front, back);
         if (!slide)
         {
-            (_, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [pair]);
+            (_, TimeSpan max) = TrimDeltaBounds(pair);
             Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(expectedRoom)));
         }
 
@@ -741,7 +748,7 @@ public class ElementResizeServiceTests
         _history.Commit();
         int before = _history.UndoCount;
         var pair = new ElementTrimPair(front, back);
-        (_, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [pair]);
+        (_, TimeSpan max) = TrimDeltaBounds(pair);
 
         bool applied = RollOrSlide(front, middle, back, TimeSpan.FromSeconds(4));
 
@@ -1347,20 +1354,6 @@ public class ElementResizeServiceTests
         });
     }
 
-    [Test]
-    public void GetTrimDeltaBounds_NullArguments_Throw()
-    {
-        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
-        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
-
-        Assert.Multiple(() =>
-        {
-            Assert.Throws<ArgumentNullException>(() => _service.GetTrimDeltaBounds(null!, [new ElementTrimPair(front, back)]));
-            Assert.Throws<ArgumentNullException>(() => _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(null!, back)]));
-            Assert.Throws<ArgumentNullException>(() => _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, null!)]));
-        });
-    }
-
     [TestCase(false)]
     [TestCase(true)]
     public void RollOrSlide_TimeControllerBeforeVideo_DoesNotBlockLaterSource(bool slide)
@@ -1391,12 +1384,12 @@ public class ElementResizeServiceTests
     }
 
     [Test]
-    public void GetTrimDeltaBounds_NoSourceMedia_BoundsByMinFrameLengths()
+    public void TrimDeltaBounds_NoSourceMedia_BoundsByMinFrameLengths()
     {
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
         Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
 
-        (TimeSpan min, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+        (TimeSpan min, TimeSpan max) = TrimDeltaBounds(new ElementTrimPair(front, back));
 
         TimeSpan minDuration = TimeSpan.FromSeconds(1d / 30);
         Assert.Multiple(() =>
@@ -1514,7 +1507,7 @@ public class ElementResizeServiceTests
     }
 
     [Test]
-    public void GetTrimDeltaBounds_SourceBackedFront_MaxClampedToSourceTail()
+    public void TrimDeltaBounds_SourceBackedFront_MaxClampedToSourceTail()
     {
         // Same shape as Roll_PositiveDelta_ClampedByFrontSourceTail: 3s source, 2s clip →
         // 1s of tail; the bounds must report the same +1s ceiling the Roll commit applies.
@@ -1523,13 +1516,13 @@ public class ElementResizeServiceTests
         front.Objects.Add(new SourceVideo { Source = { CurrentValue = frontSource } });
         Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10));
 
-        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+        (TimeSpan _, TimeSpan max) = TrimDeltaBounds(new ElementTrimPair(front, back));
 
         Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(1)));
     }
 
     [Test]
-    public void GetTrimDeltaBounds_BackInPoint_MinClampedToSourceHead()
+    public void TrimDeltaBounds_BackInPoint_MinClampedToSourceHead()
     {
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
         Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2));
@@ -1537,13 +1530,13 @@ public class ElementResizeServiceTests
         video.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(0.5);
         back.Objects.Add(video);
 
-        (TimeSpan min, TimeSpan _) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+        (TimeSpan min, TimeSpan _) = TrimDeltaBounds(new ElementTrimPair(front, back));
 
         Assert.That(min, Is.EqualTo(TimeSpan.FromSeconds(-0.5)));
     }
 
     [Test]
-    public void GetTrimDeltaBounds_NegativeBackOffset_WindowStillSpansZero()
+    public void TrimDeltaBounds_NegativeBackOffset_WindowStillSpansZero()
     {
         // A negative media offset is invalid state owned elsewhere, but the bounds contract
         // (Min ≤ 0 ≤ Max) must hold structurally.
@@ -1553,7 +1546,7 @@ public class ElementResizeServiceTests
         video.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(-1);
         back.Objects.Add(video);
 
-        (TimeSpan min, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+        (TimeSpan min, TimeSpan max) = TrimDeltaBounds(new ElementTrimPair(front, back));
 
         Assert.Multiple(() =>
         {
@@ -1563,12 +1556,12 @@ public class ElementResizeServiceTests
     }
 
     [Test]
-    public void GetTrimDeltaBounds_SubFrameClip_ReturnsZeroWindow()
+    public void TrimDeltaBounds_SubFrameClip_ReturnsZeroWindow()
     {
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromMilliseconds(1));
         Element back = AddElement(TimeSpan.FromMilliseconds(1), TimeSpan.FromSeconds(2));
 
-        (TimeSpan min, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+        (TimeSpan min, TimeSpan max) = TrimDeltaBounds(new ElementTrimPair(front, back));
 
         Assert.Multiple(() =>
         {
@@ -1578,9 +1571,9 @@ public class ElementResizeServiceTests
     }
 
     [Test]
-    public void GetTrimDeltaBounds_EmptyPairs_ReturnsZeroWindow()
+    public void TrimDeltaBounds_EmptyPairs_ReturnsZeroWindow()
     {
-        (TimeSpan min, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, []);
+        (TimeSpan min, TimeSpan max) = TrimDeltaBounds();
 
         Assert.Multiple(() =>
         {
@@ -1590,15 +1583,14 @@ public class ElementResizeServiceTests
     }
 
     [Test]
-    public void GetTrimDeltaBounds_MultiplePairs_ReturnsIntersection()
+    public void TrimDeltaBounds_MultiplePairs_ReturnsIntersection()
     {
         Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
         Element backA = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 0);
         Element frontB = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(5), zIndex: 1);
         Element backB = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1), zIndex: 1);
 
-        (TimeSpan min, TimeSpan max) = _service.GetTrimDeltaBounds(
-            _scene, [new ElementTrimPair(frontA, backA), new ElementTrimPair(frontB, backB)]);
+        (TimeSpan min, TimeSpan max) = TrimDeltaBounds(new ElementTrimPair(frontA, backA), new ElementTrimPair(frontB, backB));
 
         TimeSpan minDuration = TimeSpan.FromSeconds(1d / 30);
         Assert.Multiple(() =>

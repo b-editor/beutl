@@ -136,7 +136,9 @@ public sealed class AiJobCompletionNotifierTests
             [new AiJobCompletionRegistration(
                 new AiJobKindId("vendor.upscale"),
                 new CustomCompletionPresenter())],
-            []);
+            [],
+            null,
+            null);
         using var snapshots = new Subject<AiJobMonitorSnapshot>();
         using var notifier = new AiJobCompletionNotifier(
             snapshots,
@@ -172,7 +174,9 @@ public sealed class AiJobCompletionNotifierTests
             [new AiJobCompletionRegistration(
                 AiJobKinds.Video,
                 new ThrowingCompletionPresenter())],
-            []);
+            [],
+            null,
+            null);
         using var snapshots = new Subject<AiJobMonitorSnapshot>();
         using var notifier = new AiJobCompletionNotifier(snapshots, jobKinds, resultHandlers, () => { });
         AiJob running = CreateJob(AiJobStatuses.Running);

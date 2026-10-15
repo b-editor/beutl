@@ -1,6 +1,5 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Layout;
 using Avalonia.Xaml.Interactivity;
 
 using Beutl.Animation;
@@ -17,8 +16,7 @@ public partial class InlineAnimationLayerHeader : UserControl
         InitializeComponent();
         Interaction.GetBehaviors(this).Add(new _DragBehavior()
         {
-            DragControl = border,
-            Orientation = Orientation.Vertical
+            DragControl = border
         });
     }
 

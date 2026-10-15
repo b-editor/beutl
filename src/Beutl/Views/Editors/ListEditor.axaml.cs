@@ -1,6 +1,5 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Layout;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
@@ -16,11 +15,6 @@ namespace Beutl.Views.Editors;
 
 public sealed class ListEditorDragBehavior : GenericDragBehavior
 {
-    public ListEditorDragBehavior()
-    {
-        Orientation = Orientation.Vertical;
-    }
-
     // The reorder handle can be the item's expander toggle, so the press and the pointer capture stay with it and
     // only a release that ends a drag is handled here.
     protected override bool CapturesPointer => false;

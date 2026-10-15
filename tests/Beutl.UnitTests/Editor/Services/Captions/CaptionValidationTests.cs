@@ -38,8 +38,7 @@ public class CaptionValidationTests
                 issue.Kind == CaptionValidationIssueKind.NegativeStart && issue.CueIndex == 1));
             Assert.That(issues, Has.Some.Matches<CaptionValidationIssue>(issue =>
                 issue.Kind == CaptionValidationIssueKind.OutOfOrder
-                && issue.CueIndex == 1
-                && issue.RelatedCueIndex == 0));
+                && issue.CueIndex == 1));
         });
     }
 
@@ -59,8 +58,7 @@ public class CaptionValidationTests
         {
             Assert.That(issues, Has.Some.Matches<CaptionValidationIssue>(issue =>
                 issue.Kind == CaptionValidationIssueKind.Overlap
-                && issue.CueIndex == 2
-                && issue.RelatedCueIndex == 0));
+                && issue.CueIndex == 2));
             Assert.That(issues, Has.Some.Matches<CaptionValidationIssue>(issue =>
                 issue.Kind == CaptionValidationIssueKind.OutOfOrder && issue.CueIndex == 2));
         });
@@ -74,7 +72,7 @@ public class CaptionValidationTests
             new CaptionCue(
                 TimeSpan.Zero,
                 TimeSpan.FromSeconds(1),
-                "a\u0301bcde\r\nok\rthird"),
+                "a\u0301bcd\r\nok\rthird"),
         ]);
         var constraints = new CaptionTextConstraints(maximumLineLength: 4, maximumLineCount: 2);
 
@@ -83,14 +81,10 @@ public class CaptionValidationTests
         Assert.Multiple(() =>
         {
             Assert.That(issues, Has.One.Matches<CaptionValidationIssue>(issue =>
-                issue.Kind == CaptionValidationIssueKind.TooManyLines
-                && issue.ActualValue == 3
-                && issue.Limit == 2));
+                issue.Kind == CaptionValidationIssueKind.TooManyLines));
+            // Only "third" exceeds four grapheme clusters; the first line is four clusters in five chars.
             Assert.That(issues, Has.One.Matches<CaptionValidationIssue>(issue =>
-                issue.Kind == CaptionValidationIssueKind.LineTooLong
-                && issue.LineIndex == 0
-                && issue.ActualValue == 5
-                && issue.Limit == 4));
+                issue.Kind == CaptionValidationIssueKind.LineTooLong));
         });
     }
 

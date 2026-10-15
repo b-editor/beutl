@@ -565,7 +565,7 @@ public class EnginePropertyOperationObserverTests
         property.Animation = new KeyFrameAnimation<float>();
 
         var animationOps = receivedOperations.Where(op =>
-            op is IPropertyPathProvider ppp && ppp.PropertyPath.Contains("Animation")).ToList();
+            op is UpdatePropertyValueOperation<IAnimation<float>> update && update.PropertyPath.Contains("Animation")).ToList();
         Assert.That(animationOps, Is.Empty);
     }
 
@@ -584,7 +584,7 @@ public class EnginePropertyOperationObserverTests
         property.Expression = new TestExpression<float>(50f);
 
         var expressionOps = receivedOperations.Where(op =>
-            op is IPropertyPathProvider ppp && ppp.PropertyPath.Contains("Expression")).ToList();
+            op is UpdatePropertyValueOperation<IExpression<float>> update && update.PropertyPath.Contains("Expression")).ToList();
         Assert.That(expressionOps, Is.Empty);
     }
 

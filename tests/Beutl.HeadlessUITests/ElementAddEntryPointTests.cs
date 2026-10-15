@@ -409,7 +409,7 @@ public class ElementAddEntryPointTests
         (EditViewModel editor, TimelineTabViewModel timeline) = await OpenEditorForNewScene("storage-drop-layers");
         var handler = new LayeredFileSourceHandler(companions);
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        await using var registration = adder.SourceHandlers.Register(new ElementSourceHandlerRegistration(handler, ElementSourceHandlerRegistrationMode.Replace));
+        await using var registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler, ElementSourceHandlerRegistrationMode.Replace);
         string[] sources = rejectFirst
             ? [CreatePngFile(editor, "rejected.png"), CreatePngFile(editor, "first.png"), CreatePngFile(editor, "second.png")]
             : [CreatePngFile(editor, "first.png"), CreatePngFile(editor, "second.png")];
@@ -458,7 +458,7 @@ public class ElementAddEntryPointTests
         await using var scope = new CloudStorageIncrementalTests.StorageScope();
         await scope.LoadFirstAsync(CloudStorageTests.Response(name: outcome == "unsupported" ? "rejected.png" : "dropped.bin", fileSize: 8));
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        await using var registration = adder.SourceHandlers.Register(new ElementSourceHandlerRegistration(new LayeredFileSourceHandler(false), ElementSourceHandlerRegistrationMode.Replace));
+        await using var registration = PackageSourceHandlers.Register(editor.ExtensionProvider, new LayeredFileSourceHandler(false), ElementSourceHandlerRegistrationMode.Replace);
         var source = new CloudStorageView { DataContext = scope.ViewModel };
         Control target = playerTarget ? new PlayerView { DataContext = editor.Player } : new TimelineTabView { DataContext = timeline };
         editor.Player.CurrentFrame.Value = TimeSpan.FromSeconds(4);
@@ -565,9 +565,7 @@ public class ElementAddEntryPointTests
         EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;
         var handler = new BlockingFileSourceHandler();
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        _ = adder.SourceHandlers.Register(new ElementSourceHandlerRegistration(
-            handler,
-            ElementSourceHandlerRegistrationMode.Replace));
+        await using IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler, ElementSourceHandlerRegistrationMode.Replace);
         var view = new PlayerView();
         var description = new ElementDescription(
             TimeSpan.Zero,
@@ -652,8 +650,6 @@ public class ElementAddEntryPointTests
 
     private sealed class FailingElementAdder(Exception failure) : IElementAdder
     {
-        public IElementSourceHandlerRegistry SourceHandlers => null!;
-
         public ValueTask<ElementAddResult> AddAsync(
             IReadOnlyList<ElementDescription> descriptions,
             CancellationToken cancellationToken)

@@ -55,18 +55,10 @@ public sealed class InMemoryClipboardGateway : IClipboardGateway
         _entries.Clear();
         foreach (ClipboardEntry entry in entries)
         {
-            if (entry.Text is not null) _entries[entry.Format] = entry.Text;
+            _entries[entry.Format] = entry.Text;
         }
 
         OnSetAsync?.Invoke();
         return Task.FromResult(true);
-    }
-
-    public Task ClearAsync()
-    {
-        _entries.Clear();
-        _filePaths = null;
-        _bitmapPng = null;
-        return Task.CompletedTask;
     }
 }

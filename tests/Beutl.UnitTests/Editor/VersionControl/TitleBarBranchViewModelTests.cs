@@ -25,7 +25,7 @@ public class TitleBarBranchViewModelTests
         };
         service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>())).ReturnsAsync(current);
         service.Setup(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([new BranchInfo("main", true, null), new BranchInfo("external", false, null)]);
+            .ReturnsAsync([new BranchInfo("main", true), new BranchInfo("external", false)]);
         service.Raise(x => x.StatusChanged += null, service.Object, current);
         await viewModel.Initialization;
         Assert.That(viewModel.Branches.Select(x => x.Name), Is.EqualTo(new[] { "main", "external" }));
@@ -33,7 +33,7 @@ public class TitleBarBranchViewModelTests
         current = current with { NotificationSequence = 2 };
         service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>())).ReturnsAsync(current);
         service.Setup(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([new BranchInfo("main", true, null)]);
+            .ReturnsAsync([new BranchInfo("main", true)]);
         service.Raise(x => x.StatusChanged += null, service.Object, current);
         await viewModel.Initialization;
         Assert.That(viewModel.Branches.Select(x => x.Name), Is.EqualTo(new[] { "main" }));
@@ -93,12 +93,12 @@ public class TitleBarBranchViewModelTests
             .Returns(blockBranches ? Task.FromResult(old) : statusRead.Task)
             .ReturnsAsync(current);
         service.SetupSequence(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()))
-            .Returns(blockBranches ? branchRead.Task : Task.FromResult<IReadOnlyList<BranchInfo>>([new("new", true, null)]))
-            .ReturnsAsync([new BranchInfo("new", true, null)]);
+            .Returns(blockBranches ? branchRead.Task : Task.FromResult<IReadOnlyList<BranchInfo>>([new("new", true)]))
+            .ReturnsAsync([new BranchInfo("new", true)]);
         Task refresh = viewModel.PrepareFlyoutAsync();
         service.Raise(x => x.StatusChanged += null, service.Object, current);
         statusRead.TrySetResult(old);
-        branchRead.TrySetResult([new BranchInfo("old", true, null)]);
+        branchRead.TrySetResult([new BranchInfo("old", true)]);
         await refresh;
         await viewModel.Initialization.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.That(viewModel.Branches.Select(x => x.Name), Is.EqualTo(new[] { "new" }));
@@ -361,13 +361,13 @@ public class TitleBarBranchViewModelTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(
             [
-                new BranchInfo("main", true, null),
-                new BranchInfo("old", false, null),
+                new BranchInfo("main", true),
+                new BranchInfo("old", false),
             ])
             .ReturnsAsync(
             [
-                new BranchInfo("main", true, null),
-                new BranchInfo("feature", false, null),
+                new BranchInfo("main", true),
+                new BranchInfo("feature", false),
             ]);
         using var viewModel = CreateViewModel(service.Object);
         await viewModel.Initialization;
@@ -390,8 +390,8 @@ public class TitleBarBranchViewModelTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(
             [
-                new BranchInfo("main", true, "origin/main"),
-                new BranchInfo("feature", false, null, IsRemote: true),
+                new BranchInfo("main", true),
+                new BranchInfo("feature", false, IsRemote: true),
             ]);
         using var viewModel = CreateViewModel(service.Object);
         await viewModel.Initialization;
@@ -419,7 +419,7 @@ public class TitleBarBranchViewModelTests
             .ReturnsAsync(new WorkspaceStatus("stale", 1, 0, [], false));
         service.SetupSequence(item => item.GetBranchesAsync(
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync([new BranchInfo("main", true, null)])
+            .ReturnsAsync([new BranchInfo("main", true)])
             .Returns(() =>
             {
                 branchReadStarted.TrySetResult();
@@ -434,7 +434,7 @@ public class TitleBarBranchViewModelTests
             item => item.StatusChanged += null,
             service.Object,
             new WorkspaceStatus("fresh", 0, 2, [], false));
-        releaseBranchRead.SetResult([new BranchInfo("stale", true, null)]);
+        releaseBranchRead.SetResult([new BranchInfo("stale", true)]);
         await refresh;
 
         Assert.That(viewModel.DisplayText.Value, Is.EqualTo("fresh ↓2"));
@@ -501,13 +501,13 @@ public class TitleBarBranchViewModelTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(
             [
-                new BranchInfo("main", true, null),
-                new BranchInfo("feature", false, null),
+                new BranchInfo("main", true),
+                new BranchInfo("feature", false),
             ])
             .ReturnsAsync(
             [
-                new BranchInfo("main", false, null),
-                new BranchInfo("feature", true, null),
+                new BranchInfo("main", false),
+                new BranchInfo("feature", true),
             ]);
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
         coordinator.Setup(item => item.SwitchBranchAsync(
@@ -770,8 +770,8 @@ public class TitleBarBranchViewModelTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(
             [
-                new BranchInfo("main", true, null),
-                new BranchInfo("feature", false, null),
+                new BranchInfo("main", true),
+                new BranchInfo("feature", false),
             ]);
         return service;
     }

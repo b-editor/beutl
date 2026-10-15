@@ -29,7 +29,6 @@ public sealed class CaptionDocumentSerializer
             [
                 new CaptionDiagnostic(
                     CaptionDiagnosticKinds.InvalidUtf8,
-                    null,
                     $"The input is not valid UTF-8: {ex.Message}"),
             ]);
         }

@@ -254,7 +254,8 @@ public sealed partial class ObjectTemplateService
         }
     }
 
-    public void RestoreItems()
+    // Internal as a test seam: tests reload the items after changing the template files.
+    internal void RestoreItems()
     {
         try
         {

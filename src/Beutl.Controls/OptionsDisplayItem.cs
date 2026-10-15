@@ -204,7 +204,7 @@ public class OptionsDisplayItem : TemplatedControl
         }
     }
 
-    protected virtual async void OnIsExpandedChanged(AvaloniaPropertyChangedEventArgs e)
+    private async void OnIsExpandedChanged(AvaloniaPropertyChangedEventArgs e)
     {
         if (ContentTransition != null && Content is Visual visualContent)
         {

@@ -11,10 +11,9 @@ public class HistoryManagerTests
     public void PartialHistoryFailure_RetryDoesNotRepeatSuccessfulOperations(bool redo)
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        void RecordAtomic(Action apply, Action revert) => manager.Record(new CustomOperation(_ => apply(), _ => revert())
+        void RecordAtomic(Action apply, Action revert) => manager.Record(new AtomicOperation(apply, revert)
         {
             SequenceNumber = _sequenceGenerator.GetNext(),
-            FailureIsAtomic = true,
         });
         int value = 2;
         bool fail = true;
@@ -51,7 +50,7 @@ public class HistoryManagerTests
     public void UnknownPartialFailure_PreservesHistoryAndAllowsReplayOfNewEdits(bool redo, bool jump)
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        CreateValueOperation(manager, 1, 0, "Earlier operation");
+        CreateValueOperation(manager, 1, 0);
         manager.Commit("Earlier operation");
         HistoryTransaction earlier = manager.PeekUndo()!;
         var failure = new IOException("partial mutation");
@@ -61,7 +60,7 @@ public class HistoryManagerTests
         _root.Value = 2;
         manager.Commit("unsafe operation");
         HistoryTransaction unsafeTransaction = manager.PeekUndo()!;
-        CreateValueOperation(manager, 3, 2, "Later operation");
+        CreateValueOperation(manager, 3, 2);
         manager.Commit("Later operation");
         HistoryTransaction later = manager.PeekUndo()!;
         HistoryEntry[] entries = manager.GetEntriesSnapshot();
@@ -112,7 +111,7 @@ public class HistoryManagerTests
         Assert.That(_root.Value, Is.EqualTo(survivingValue));
         Assert.That(manager.Entries, Is.EqualTo(entries));
 
-        CreateValueOperation(manager, 10, survivingValue, "New edit");
+        CreateValueOperation(manager, 10, survivingValue);
         Assert.DoesNotThrow(() => manager.Commit("New edit"));
         Assert.That(states[^1], Is.EqualTo(new HistoryState(true, false, boundary + 1, 0)));
         Assert.That(manager.Entries.Take(boundary + 1), Is.EqualTo(entries.Take(boundary + 1)));
@@ -126,7 +125,7 @@ public class HistoryManagerTests
         Assert.That(manager.Redo(), Is.True);
         Assert.That(_root.Value, Is.EqualTo(10));
 
-        CreateValueOperation(manager, 20, 10, "Another edit");
+        CreateValueOperation(manager, 20, 10);
         manager.Commit("Another edit");
         Assert.That(manager.WouldJumpToMove(boundary), Is.True);
         Assert.That(manager.JumpTo(boundary), Is.True);
@@ -142,9 +141,9 @@ public class HistoryManagerTests
     public void UnknownPendingFailure_PreservesBothStacksAndNotifies(string action)
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        CreateValueOperation(manager, 1, 0, "Undo entry");
+        CreateValueOperation(manager, 1, 0);
         manager.Commit("Undo entry");
-        CreateValueOperation(manager, 2, 1, "Redo entry");
+        CreateValueOperation(manager, 2, 1);
         manager.Commit("Redo entry");
         manager.Undo();
         HistoryEntry[] entries = manager.GetEntriesSnapshot();
@@ -181,7 +180,7 @@ public class HistoryManagerTests
         Assert.That(manager.JumpTo(0), Is.False);
         Assert.That(manager.JumpTo(2), Is.False);
 
-        CreateValueOperation(manager, 10, 1, "New edit");
+        CreateValueOperation(manager, 10, 1);
         Assert.DoesNotThrow(() => manager.Commit("New edit"));
         Assert.That(manager.Undo(), Is.True);
         Assert.That(_root.Value, Is.EqualTo(1));
@@ -198,7 +197,7 @@ public class HistoryManagerTests
         manager.Commit("unsafe operation");
         Assert.Throws<HistoryReplayException>(() => manager.Undo());
 
-        CreateValueOperation(manager, 10, 0, "Pending edit");
+        CreateValueOperation(manager, 10, 0);
         Assert.That(manager.WouldJumpToMove(0), Is.False);
         Assert.That(manager.JumpTo(0), Is.False);
         Assert.That(manager.HasPendingOperations, Is.True);
@@ -223,7 +222,7 @@ public class HistoryManagerTests
             Assert.That(manager.Undo(), Is.False);
         }
 
-        CreateValueOperation(manager, 10, 0, "New edit");
+        CreateValueOperation(manager, 10, 0);
         manager.Commit("New edit");
         Assert.That(manager.JumpTo(1), Is.False);
         Assert.That(manager.JumpTo(2), Is.True);
@@ -231,7 +230,7 @@ public class HistoryManagerTests
         manager.Clear();
         Assert.That(manager.Entries.Single().IsInitial, Is.True);
         Assert.That(manager.CurrentIndex, Is.Zero);
-        CreateValueOperation(manager, 20, 0, "Edit after clear");
+        CreateValueOperation(manager, 20, 0);
         manager.Commit("Edit after clear");
         Assert.That(manager.Undo(), Is.True);
         Assert.That(_root.Value, Is.Zero);
@@ -243,10 +242,9 @@ public class HistoryManagerTests
     public void AtomicUndoFailureKeepsHistory()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        manager.Record(new CustomOperation(_ => { }, _ => throw new InvalidOperationException("probe"))
+        manager.Record(new AtomicOperation(() => { }, () => throw new InvalidOperationException("probe"))
         {
             SequenceNumber = _sequenceGenerator.GetNext(),
-            FailureIsAtomic = true,
         });
         manager.Commit("probe");
         Assert.Throws<InvalidOperationException>(() => manager.Undo());
@@ -257,10 +255,9 @@ public class HistoryManagerTests
     public void AtomicRedoFailureKeepsHistory()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        manager.Record(new CustomOperation(_ => throw new InvalidOperationException("probe"), _ => { })
+        manager.Record(new AtomicOperation(() => throw new InvalidOperationException("probe"), () => { })
         {
             SequenceNumber = _sequenceGenerator.GetNext(),
-            FailureIsAtomic = true,
         });
         manager.Commit("probe");
         manager.Undo();
@@ -273,10 +270,9 @@ public class HistoryManagerTests
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         int value = 2;
-        manager.Record(new CustomOperation(_ => { }, _ => throw new InvalidOperationException("failure"))
+        manager.Record(new AtomicOperation(() => { }, () => throw new InvalidOperationException("failure"))
         {
             SequenceNumber = _sequenceGenerator.GetNext(),
-            FailureIsAtomic = true,
         });
         manager.Record(() => value = 2, () => value = 1);
         manager.Commit("partial");
@@ -394,11 +390,10 @@ public class HistoryManagerTests
         var operation = CustomOperation.Create(
             () => _root.Value = 100,
             () => _root.Value = 0,
-            _sequenceGenerator,
-            "Set Value");
+            _sequenceGenerator);
 
         manager.Record(operation);
-        operation.Apply(new OperationExecutionContext(_root));
+        operation.Apply();
         Assert.That(_root.Value, Is.EqualTo(100));
 
         manager.Rollback();
@@ -415,7 +410,7 @@ public class HistoryManagerTests
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         bool failFirstRevert = true;
-        var operation = CustomOperation.Create(
+        var operation = new AtomicOperation(
             () => _root.Value = 100,
             () =>
             {
@@ -425,11 +420,9 @@ public class HistoryManagerTests
                     throw new InvalidOperationException("Injected revert failure");
                 }
                 _root.Value = 0;
-            },
-            _sequenceGenerator,
-            "Retryable revert");
-        operation.FailureIsAtomic = true;
-        operation.Apply(new OperationExecutionContext(_root));
+            })
+        { SequenceNumber = _sequenceGenerator.GetNext() };
+        operation.Apply();
         manager.Record(operation);
 
         Assert.Throws<InvalidOperationException>(() => manager.Rollback());
@@ -456,10 +449,9 @@ public class HistoryManagerTests
         var operation = CustomOperation.Create(
             () => _root.Value = 100,
             () => _root.Value = 0,
-            _sequenceGenerator,
-            "Set Value");
+            _sequenceGenerator);
 
-        operation.Apply(new OperationExecutionContext(_root));
+        operation.Apply();
         manager.Record(operation);
         manager.Commit("Set Value");
 
@@ -493,10 +485,9 @@ public class HistoryManagerTests
         var operation = CustomOperation.Create(
             () => _root.Value = 100,
             () => _root.Value = 0,
-            _sequenceGenerator,
-            "Set Value");
+            _sequenceGenerator);
 
-        operation.Apply(new OperationExecutionContext(_root));
+        operation.Apply();
         manager.Record(operation);
         manager.Commit("Set Value");
         manager.Undo();
@@ -601,9 +592,8 @@ public class HistoryManagerTests
             var operation = CustomOperation.Create(
                 () => _root.Value = 100,
                 () => _root.Value = 0,
-                _sequenceGenerator,
-                "Set Value");
-            operation.Apply(new OperationExecutionContext(_root));
+                _sequenceGenerator);
+            operation.Apply();
             manager.Record(operation);
         }, "Transaction");
 
@@ -627,9 +617,8 @@ public class HistoryManagerTests
                 var operation = CustomOperation.Create(
                     () => _root.Value = 100,
                     () => _root.Value = 0,
-                    _sequenceGenerator,
-                    "Set Value");
-                operation.Apply(new OperationExecutionContext(_root));
+                    _sequenceGenerator);
+                operation.Apply();
                 manager.Record(operation);
                 throw new InvalidOperationException("Test exception");
             }, "Transaction");
@@ -646,14 +635,13 @@ public class HistoryManagerTests
     public void ExecuteInTransaction_CommitsPendingOperationsSeparately()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        CreateValueOperation(manager, targetValue: 1, previousValue: 0, description: "Pending");
+        CreateValueOperation(manager, targetValue: 1, previousValue: 0);
 
         manager.ExecuteInTransaction(
             () => CreateValueOperation(
                 manager,
                 targetValue: 2,
-                previousValue: 1,
-                description: "Isolated"),
+                previousValue: 1),
             "Isolated");
 
         using (Assert.EnterMultipleScope())
@@ -674,15 +662,14 @@ public class HistoryManagerTests
     public void ExecuteInTransaction_RollsBackOnlyItsOwnFailedOperations()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        CreateValueOperation(manager, targetValue: 1, previousValue: 0, description: "Pending");
+        CreateValueOperation(manager, targetValue: 1, previousValue: 0);
 
         Assert.Throws<InvalidOperationException>(() => manager.ExecuteInTransaction(() =>
         {
             CreateValueOperation(
                 manager,
                 targetValue: 2,
-                previousValue: 1,
-                description: "Isolated");
+                previousValue: 1);
             throw new InvalidOperationException("isolated mutation failed");
         }, "Isolated"));
 
@@ -750,8 +737,7 @@ public class HistoryManagerTests
             CreateValueOperation(
                 manager,
                 targetValue: 1,
-                previousValue: 0,
-                description: "Isolated");
+                previousValue: 0);
             if (commit)
                 manager.Commit("Nested");
             else
@@ -780,8 +766,7 @@ public class HistoryManagerTests
             () => CreateValueOperation(
                 manager,
                 targetValue: 1,
-                previousValue: 0,
-                description: "Isolated"),
+                previousValue: 0),
             "Isolated"));
 
         using (Assert.EnterMultipleScope())
@@ -800,13 +785,12 @@ public class HistoryManagerTests
         var operation = CustomOperation.Create(
             () => _root.Value = 1,
             () => throw new InvalidOperationException("revert failed"),
-            _sequenceGenerator,
-            "Throwing revert");
+            _sequenceGenerator);
 
         AggregateException? exception = Assert.Throws<AggregateException>(() =>
             manager.ExecuteInTransaction(() =>
             {
-                operation.Apply(new OperationExecutionContext(_root));
+                operation.Apply();
                 manager.Record(operation);
                 throw new InvalidOperationException("mutation failed");
             }, "Isolated"));
@@ -831,9 +815,9 @@ public class HistoryManagerTests
     public void ExecuteInTransaction_FailedRollbackRestrictsReplayUnlessCompleted(ChangeOperationFailureState failureState)
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        CreateValueOperation(manager, 1, 0, "Undo entry");
+        CreateValueOperation(manager, 1, 0);
         manager.Commit("Undo entry");
-        CreateValueOperation(manager, 2, 1, "Redo entry");
+        CreateValueOperation(manager, 2, 1);
         manager.Commit("Redo entry");
         manager.Undo();
         HistoryEntry[] entries = manager.GetEntriesSnapshot();
@@ -892,7 +876,7 @@ public class HistoryManagerTests
         Assert.That(manager.JumpTo(2), Is.False);
         int survivingValue = failureState == ChangeOperationFailureState.Unknown ? 4 : 5;
         Assert.That(_root.Value, Is.EqualTo(survivingValue));
-        CreateValueOperation(manager, 10, survivingValue, "New edit");
+        CreateValueOperation(manager, 10, survivingValue);
         manager.Commit("New edit");
         Assert.That(manager.Undo(), Is.True);
         Assert.That(_root.Value, Is.EqualTo(survivingValue));
@@ -905,9 +889,19 @@ public class HistoryManagerTests
     {
         public override ChangeOperationFailureState FailureState => failureState;
 
-        public override void Apply(OperationExecutionContext context) => throw new NotSupportedException();
+        public override void Apply() => throw new NotSupportedException();
 
-        public override void Revert(OperationExecutionContext context) => revert();
+        public override void Revert() => revert();
+    }
+
+    // Leaves the state unchanged whenever its delegates throw, so history may retry it.
+    private sealed class AtomicOperation(Action apply, Action revert) : ChangeOperation
+    {
+        public override ChangeOperationFailureState FailureState => ChangeOperationFailureState.Unchanged;
+
+        public override void Apply() => apply();
+
+        public override void Revert() => revert();
     }
 
     [Test]
@@ -929,8 +923,7 @@ public class HistoryManagerTests
                 () => CreateValueOperation(
                     manager,
                     targetValue: 1,
-                    previousValue: 0,
-                    description: "Isolated"),
+                    previousValue: 0),
                 "Isolated"));
         }
         finally
@@ -1042,7 +1035,7 @@ public class HistoryManagerTests
     public void ExecuteInTransaction_GuardsPendingEntryPublication()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        CreateValueOperation(manager, targetValue: 1, previousValue: 0, description: "Pending");
+        CreateValueOperation(manager, targetValue: 1, previousValue: 0);
         int reentrantAttempts = 0;
         INotifyCollectionChanged entries = manager.Entries;
         NotifyCollectionChangedEventHandler handler = (_, args) =>
@@ -1060,8 +1053,7 @@ public class HistoryManagerTests
                 () => CreateValueOperation(
                     manager,
                     targetValue: 2,
-                    previousValue: 1,
-                    description: "Isolated"),
+                    previousValue: 1),
                 "Isolated"));
         }
         finally
@@ -1085,7 +1077,7 @@ public class HistoryManagerTests
         bool useAtomicSubscription)
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        CreateValueOperation(manager, targetValue: 1, previousValue: 0, description: "Pending");
+        CreateValueOperation(manager, targetValue: 1, previousValue: 0);
         bool injected = false;
         INotifyCollectionChanged entries = manager.Entries;
         NotifyCollectionChangedEventHandler handler = (_, args) =>
@@ -1096,8 +1088,7 @@ public class HistoryManagerTests
                 CreateValueOperation(
                     manager,
                     targetValue: 2,
-                    previousValue: 1,
-                    description: "Entry publication");
+                    previousValue: 1);
             }
         };
         IDisposable? subscription = null;
@@ -1110,8 +1101,7 @@ public class HistoryManagerTests
             manager.ExecuteInTransaction(() => CreateValueOperation(
                 manager,
                 targetValue: 3,
-                previousValue: 2,
-                description: "Callback"), "Callback");
+                previousValue: 2), "Callback");
         }
         finally
         {
@@ -1179,17 +1169,15 @@ public class HistoryManagerTests
                 var first = CustomOperation.Create(
                     () => firstValue = 1,
                     () => firstValue = 0,
-                    _sequenceGenerator,
-                    "First");
-                first.Apply(new OperationExecutionContext(_root));
+                    _sequenceGenerator);
+                first.Apply();
                 manager.Record(first);
 
                 var second = CustomOperation.Create(
                     () => secondValue = 1,
                     () => throw new InvalidOperationException("second revert failed"),
-                    _sequenceGenerator,
-                    "Second");
-                second.Apply(new OperationExecutionContext(_root));
+                    _sequenceGenerator);
+                second.Apply();
                 manager.Record(second);
                 throw new InvalidOperationException("mutation failed");
             }, "Isolated"));
@@ -1215,8 +1203,7 @@ public class HistoryManagerTests
 
         manager.Record(
             () => { doExecuted = true; _root.Value = 100; },
-            () => { _root.Value = 0; },
-            "Custom Action");
+            () => { _root.Value = 0; });
         manager.Commit("Test");
 
         Assert.Multiple(() =>
@@ -1330,9 +1317,8 @@ public class HistoryManagerTests
             var operation = CustomOperation.Create(
                 () => _root.Value = value,
                 () => _root.Value = prevValue,
-                _sequenceGenerator,
-                $"Set to {value}");
-            operation.Apply(new OperationExecutionContext(_root));
+                _sequenceGenerator);
+            operation.Apply();
             manager.Record(operation);
             manager.Commit($"Step {i}");
         }
@@ -1361,18 +1347,16 @@ public class HistoryManagerTests
         return CustomOperation.Create(
             () => { },
             () => { },
-            _sequenceGenerator,
-            "Test Operation");
+            _sequenceGenerator);
     }
 
-    private CustomOperation CreateValueOperation(HistoryManager manager, int targetValue, int previousValue, string description)
+    private CustomOperation CreateValueOperation(HistoryManager manager, int targetValue, int previousValue)
     {
         var op = CustomOperation.Create(
             () => _root.Value = targetValue,
             () => _root.Value = previousValue,
-            _sequenceGenerator,
-            description);
-        op.Apply(new OperationExecutionContext(_root));
+            _sequenceGenerator);
+        op.Apply();
         manager.Record(op);
         return op;
     }
@@ -1402,7 +1386,7 @@ public class HistoryManagerTests
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
-        CreateValueOperation(manager, 100, 0, "Set");
+        CreateValueOperation(manager, 100, 0);
         manager.Commit("First");
 
         Assert.Multiple(() =>
@@ -1420,15 +1404,15 @@ public class HistoryManagerTests
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
-        CreateValueOperation(manager, 100, 0, "Step1");
+        CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
-        CreateValueOperation(manager, 200, 100, "Step2");
+        CreateValueOperation(manager, 200, 100);
         manager.Commit("Step2");
 
         manager.Undo();
         Assert.That(manager.Entries.Count, Is.EqualTo(3));
 
-        CreateValueOperation(manager, 50, 100, "Replacement");
+        CreateValueOperation(manager, 50, 100);
         manager.Commit("Replacement");
 
         Assert.Multiple(() =>
@@ -1444,9 +1428,9 @@ public class HistoryManagerTests
     public void Clear_ShouldLeaveSingleInitialEntry()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        CreateValueOperation(manager, 100, 0, "Step1");
+        CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
-        CreateValueOperation(manager, 200, 100, "Step2");
+        CreateValueOperation(manager, 200, 100);
         manager.Commit("Step2");
 
         manager.Clear();
@@ -1464,7 +1448,7 @@ public class HistoryManagerTests
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
-        CreateValueOperation(manager, 100, 0, "Step1");
+        CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
 
         int countBefore = manager.UndoCount;
@@ -1484,7 +1468,7 @@ public class HistoryManagerTests
     public void JumpTo_ToCurrentIndex_ShouldReturnFalseAndNotNotify()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        CreateValueOperation(manager, 100, 0, "Step1");
+        CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
 
         HistoryState? receivedState = null;
@@ -1504,11 +1488,11 @@ public class HistoryManagerTests
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
-        CreateValueOperation(manager, 100, 0, "Step1");
+        CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
-        CreateValueOperation(manager, 200, 100, "Step2");
+        CreateValueOperation(manager, 200, 100);
         manager.Commit("Step2");
-        CreateValueOperation(manager, 300, 200, "Step3");
+        CreateValueOperation(manager, 300, 200);
         manager.Commit("Step3");
 
         bool moved = manager.JumpTo(0);
@@ -1527,11 +1511,11 @@ public class HistoryManagerTests
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
-        CreateValueOperation(manager, 100, 0, "Step1");
+        CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
-        CreateValueOperation(manager, 200, 100, "Step2");
+        CreateValueOperation(manager, 200, 100);
         manager.Commit("Step2");
-        CreateValueOperation(manager, 300, 200, "Step3");
+        CreateValueOperation(manager, 300, 200);
         manager.Commit("Step3");
 
         manager.JumpTo(0);
@@ -1553,15 +1537,14 @@ public class HistoryManagerTests
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
-        CreateValueOperation(manager, 100, 0, "Committed");
+        CreateValueOperation(manager, 100, 0);
         manager.Commit("Committed");
 
         var pending = CustomOperation.Create(
             () => _root.Value = 999,
             () => _root.Value = 100,
-            _sequenceGenerator,
-            "Pending");
-        pending.Apply(new OperationExecutionContext(_root));
+            _sequenceGenerator);
+        pending.Apply();
         manager.Record(pending);
 
         bool moved = manager.JumpTo(0);
@@ -1571,7 +1554,7 @@ public class HistoryManagerTests
             Assert.That(moved, Is.True);
             Assert.That(_root.Value, Is.EqualTo(0));
             // The uncommitted operation must not survive into a future commit.
-            CreateValueOperation(manager, 50, 0, "AfterJump");
+            CreateValueOperation(manager, 50, 0);
             manager.Commit("AfterJump");
             Assert.That(manager.PeekUndo()?.OperationCount, Is.EqualTo(1));
         });
@@ -1582,7 +1565,7 @@ public class HistoryManagerTests
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
-        CreateValueOperation(manager, 100, 0, "Step1");
+        CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
 
         bool moved = manager.JumpTo(0);
@@ -1642,21 +1625,6 @@ public class HistoryManagerTests
         });
     }
 
-    [Test]
-    public void HistoryEntry_Subtypes_AreSealedDiscriminatedUnion()
-    {
-        var initial = HistoryEntry.CreateInitial();
-        var transactional = HistoryEntry.FromTransaction(new HistoryTransaction(7));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(initial, Is.InstanceOf<InitialHistoryEntry>());
-            Assert.That(transactional, Is.InstanceOf<TransactionHistoryEntry>());
-            Assert.That(initial.TransactionId, Is.Null);
-            Assert.That(transactional.TransactionId, Is.EqualTo(7L));
-        });
-    }
-
     #endregion
 
     #region JumpTo Failure / Disposal Tests
@@ -1667,15 +1635,15 @@ public class HistoryManagerTests
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
 
-        CreateValueOperation(manager, 100, 0, "Step1");
+        CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
-        CreateValueOperation(manager, 200, 100, "Step2");
+        CreateValueOperation(manager, 200, 100);
         manager.Commit("Step2");
 
         // Faulty's first Apply (the explicit pre-record call) succeeds; any
         // subsequent Apply (e.g. via Redo / JumpTo forward) throws.
         bool firstApply = true;
-        var faulty = CustomOperation.Create(
+        var faulty = new AtomicOperation(
             () =>
             {
                 if (firstApply)
@@ -1686,11 +1654,9 @@ public class HistoryManagerTests
                 }
                 throw new InvalidOperationException("Boom");
             },
-            () => _root.Value = 200,
-            _sequenceGenerator,
-            "Faulty");
-        faulty.FailureIsAtomic = true;
-        faulty.Apply(new OperationExecutionContext(_root));
+            () => _root.Value = 200)
+        { SequenceNumber = _sequenceGenerator.GetNext() };
+        faulty.Apply();
         manager.Record(faulty);
         manager.Commit("Faulty");
 
@@ -1723,19 +1689,17 @@ public class HistoryManagerTests
 
         // _undoStack (bottom -> top): Faulty, Step2, Step3
         // JumpTo(0) reverts Step3 (ok) -> Step2 (ok) -> Faulty (throws).
-        var faulty = CustomOperation.Create(
+        var faulty = new AtomicOperation(
             () => _root.Value = 100,
-            () => throw new InvalidOperationException("Boom"),
-            _sequenceGenerator,
-            "Faulty");
-        faulty.FailureIsAtomic = true;
-        faulty.Apply(new OperationExecutionContext(_root));
+            () => throw new InvalidOperationException("Boom"))
+        { SequenceNumber = _sequenceGenerator.GetNext() };
+        faulty.Apply();
         manager.Record(faulty);
         manager.Commit("Faulty");
 
-        CreateValueOperation(manager, 200, 100, "Step2");
+        CreateValueOperation(manager, 200, 100);
         manager.Commit("Step2");
-        CreateValueOperation(manager, 300, 200, "Step3");
+        CreateValueOperation(manager, 300, 200);
         manager.Commit("Step3");
 
         HistoryState? observed = null;
@@ -1759,7 +1723,7 @@ public class HistoryManagerTests
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
-        CreateValueOperation(manager, 100, 0, "Committed");
+        CreateValueOperation(manager, 100, 0);
         manager.Commit("Committed");
 
         // Pending op whose revert throws; it must not survive into the next commit.
@@ -1767,14 +1731,13 @@ public class HistoryManagerTests
         var pending = CustomOperation.Create(
             () => _root.Value = 999,
             () => throw new InvalidOperationException("PendingRevertFailed"),
-            _sequenceGenerator,
-            "Pending");
-        pending.Apply(new OperationExecutionContext(_root));
+            _sequenceGenerator);
+        pending.Apply();
         manager.Record(pending);
 
         Assert.Throws<HistoryReplayException>(() => manager.JumpTo(0));
 
-        CreateValueOperation(manager, 50, 999, "After");
+        CreateValueOperation(manager, 50, 999);
         manager.Commit("After");
 
         Assert.That(manager.PeekUndo()?.OperationCount, Is.EqualTo(1));
@@ -1785,16 +1748,16 @@ public class HistoryManagerTests
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
-        CreateValueOperation(manager, 100, 0, "Step1");
+        CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
-        CreateValueOperation(manager, 200, 100, "Step2");
+        CreateValueOperation(manager, 200, 100);
         manager.Commit("Step2");
-        CreateValueOperation(manager, 300, 200, "Step3");
+        CreateValueOperation(manager, 300, 200);
         manager.Commit("Step3");
 
         // Jump back, then commit -> redo stack collapses, entries truncate.
         manager.JumpTo(1);
-        CreateValueOperation(manager, 50, 100, "Replacement");
+        CreateValueOperation(manager, 50, 100);
         manager.Commit("Replacement");
 
         int previousValue = _root.Value;
@@ -1816,7 +1779,7 @@ public class HistoryManagerTests
     public void GetEntriesSnapshot_ReturnsLockSafeCopy()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        CreateValueOperation(manager, 100, 0, "Step1");
+        CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
 
         HistoryEntry[] snapshot = manager.GetEntriesSnapshot();
@@ -1829,7 +1792,7 @@ public class HistoryManagerTests
         });
 
         // Mutating the manager must not affect the snapshot reference.
-        CreateValueOperation(manager, 200, 100, "Step2");
+        CreateValueOperation(manager, 200, 100);
         manager.Commit("Step2");
         Assert.That(snapshot.Length, Is.EqualTo(2));
         Assert.That(manager.Entries.Count, Is.EqualTo(3));
@@ -1839,7 +1802,7 @@ public class HistoryManagerTests
     public void SubscribeEntries_ReturnsCurrentSnapshotAndForwardsLaterChanges()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        CreateValueOperation(manager, 100, 0, "Step1");
+        CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
 
         var received = new List<NotifyCollectionChangedAction>();
@@ -1854,7 +1817,7 @@ public class HistoryManagerTests
                 Assert.That(currentIndex, Is.EqualTo(1));
             });
 
-            CreateValueOperation(manager, 200, 100, "Step2");
+            CreateValueOperation(manager, 200, 100);
             manager.Commit("Step2");
 
             Assert.That(received, Does.Contain(NotifyCollectionChangedAction.Add));
@@ -1896,7 +1859,7 @@ public class HistoryManagerTests
 
         sub.Dispose();
 
-        CreateValueOperation(manager, 1, 0, "AfterUnsubscribe");
+        CreateValueOperation(manager, 1, 0);
         manager.Commit("AfterUnsubscribe");
 
         Assert.That(callCount, Is.EqualTo(0));
@@ -1915,9 +1878,9 @@ public class HistoryManagerTests
     public void Clear_DoesNotEmitResetEvent()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        CreateValueOperation(manager, 100, 0, "Step1");
+        CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
-        CreateValueOperation(manager, 200, 100, "Step2");
+        CreateValueOperation(manager, 200, 100);
         manager.Commit("Step2");
 
         var actions = new List<NotifyCollectionChangedAction>();
@@ -1933,626 +1896,6 @@ public class HistoryManagerTests
         Assert.That(actions, Does.Not.Contain(NotifyCollectionChangedAction.Reset));
         Assert.That(manager.Entries.Count, Is.EqualTo(1));
         Assert.That(manager.Entries[0].IsInitial, Is.True);
-    }
-
-    #endregion
-
-    #region BeginRecordingScope Tests
-
-    [Test]
-    public void BeginRecordingScope_ShouldReturnValidScope()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-
-        using var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value => _root.Value = value,
-            "Test Scope");
-
-        Assert.That(scope, Is.Not.Null);
-    }
-
-    [Test]
-    public void BeginRecordingScope_ShouldThrowArgumentNullException_WhenCaptureStateIsNull()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-
-        Assert.Throws<ArgumentNullException>(() =>
-            manager.BeginRecordingScope<int>(
-                null!,
-                value => _root.Value = value,
-                "Test"));
-    }
-
-    [Test]
-    public void BeginRecordingScope_ShouldThrowArgumentNullException_WhenApplyStateIsNull()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-
-        Assert.Throws<ArgumentNullException>(() =>
-            manager.BeginRecordingScope(
-                () => _root.Value,
-                null!,
-                "Test"));
-    }
-
-    [Test]
-    public void BeginRecordingScope_ShouldThrowObjectDisposedException_WhenManagerIsDisposed()
-    {
-        var manager = new HistoryManager(_root, _sequenceGenerator);
-        manager.Dispose();
-
-        Assert.Throws<ObjectDisposedException>(() =>
-            manager.BeginRecordingScope(
-                () => _root.Value,
-                value => _root.Value = value,
-                "Test"));
-    }
-
-    [Test]
-    public void RecordingScope_Complete_ShouldRecordOperation()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        _root.Value = 10;
-
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value => _root.Value = value,
-            "Set Value"))
-        {
-            _root.Value = 50;
-            scope.Complete();
-        }
-        manager.Commit("Test");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(manager.CanUndo, Is.True);
-            Assert.That(manager.UndoCount, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public void RecordingScope_Complete_ShouldCaptureBeforeAndAfterState()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        _root.Value = 10;
-
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value => _root.Value = value,
-            "Set Value"))
-        {
-            _root.Value = 50;
-            scope.Complete();
-        }
-        manager.Commit("Test");
-
-        // Value should still be 50 after complete
-        Assert.That(_root.Value, Is.EqualTo(50));
-
-        // Undo should restore to 10
-        manager.Undo();
-        Assert.That(_root.Value, Is.EqualTo(10));
-
-        // Redo should restore to 50
-        manager.Redo();
-        Assert.That(_root.Value, Is.EqualTo(50));
-    }
-
-    [Test]
-    public void RecordingScope_Cancel_ShouldNotRecordOperation()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        _root.Value = 10;
-
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value => _root.Value = value,
-            "Set Value"))
-        {
-            _root.Value = 50;
-            scope.Cancel();
-        }
-        manager.Commit("Test");
-
-        // No operation recorded since we cancelled
-        Assert.That(manager.CanUndo, Is.False);
-        Assert.That(_root.Value, Is.EqualTo(50)); // Value was still changed
-    }
-
-    [Test]
-    public void RecordingScope_Dispose_ShouldAutoCompleteIfNotCancelled()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        _root.Value = 10;
-
-        // Using statement will auto-dispose and auto-complete
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value => _root.Value = value,
-            "Set Value"))
-        {
-            _root.Value = 50;
-            // No explicit Complete() or Cancel()
-        }
-        manager.Commit("Test");
-
-        // Should have auto-completed
-        Assert.Multiple(() =>
-        {
-            Assert.That(manager.CanUndo, Is.True);
-            Assert.That(_root.Value, Is.EqualTo(50));
-        });
-
-        // Verify undo works
-        manager.Undo();
-        Assert.That(_root.Value, Is.EqualTo(10));
-    }
-
-    [Test]
-    public void RecordingScope_Dispose_ShouldNotRecordAfterCancel()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        _root.Value = 10;
-
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value => _root.Value = value,
-            "Set Value"))
-        {
-            _root.Value = 50;
-            scope.Cancel();
-            // Dispose will be called but should not record
-        }
-        manager.Commit("Test");
-
-        Assert.That(manager.CanUndo, Is.False);
-    }
-
-    [Test]
-    public void RecordingScope_DoubleComplete_ShouldOnlyRecordOnce()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        _root.Value = 10;
-
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value => _root.Value = value,
-            "Set Value"))
-        {
-            _root.Value = 50;
-            scope.Complete();
-            scope.Complete(); // Second call should be ignored
-        }
-        manager.Commit("Test");
-
-        // Should only have one operation
-        Assert.That(manager.UndoCount, Is.EqualTo(1));
-    }
-
-    [Test]
-    public void RecordingScope_CompleteAfterCancel_ShouldNotRecord()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        _root.Value = 10;
-
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value => _root.Value = value,
-            "Set Value"))
-        {
-            _root.Value = 50;
-            scope.Cancel();
-            scope.Complete(); // Should be ignored after cancel
-        }
-        manager.Commit("Test");
-
-        Assert.That(manager.CanUndo, Is.False);
-    }
-
-    [Test]
-    public void RecordingScope_WithComplexState_ShouldCaptureCorrectly()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        var state = new TestState { Value1 = 1, Value2 = "A" };
-
-        using (var scope = manager.BeginRecordingScope(
-            () => new TestState { Value1 = state.Value1, Value2 = state.Value2 },
-            s => { state.Value1 = s.Value1; state.Value2 = s.Value2; },
-            "Change State"))
-        {
-            state.Value1 = 100;
-            state.Value2 = "Z";
-            scope.Complete();
-        }
-        manager.Commit("Test");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(state.Value1, Is.EqualTo(100));
-            Assert.That(state.Value2, Is.EqualTo("Z"));
-        });
-
-        // Undo
-        manager.Undo();
-        Assert.Multiple(() =>
-        {
-            Assert.That(state.Value1, Is.EqualTo(1));
-            Assert.That(state.Value2, Is.EqualTo("A"));
-        });
-
-        // Redo
-        manager.Redo();
-        Assert.Multiple(() =>
-        {
-            Assert.That(state.Value1, Is.EqualTo(100));
-            Assert.That(state.Value2, Is.EqualTo("Z"));
-        });
-    }
-
-    [Test]
-    public void RecordingScope_WithNullDescription_ShouldWork()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        _root.Value = 10;
-
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value => _root.Value = value))
-        {
-            _root.Value = 50;
-            scope.Complete();
-        }
-        manager.Commit("Test");
-
-        Assert.That(manager.CanUndo, Is.True);
-    }
-
-    [Test]
-    public void RecordingScope_NoStateChange_ShouldStillRecord()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        _root.Value = 10;
-
-        // No actual state change
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value => _root.Value = value,
-            "No Change"))
-        {
-            // Don't change anything
-            scope.Complete();
-        }
-        manager.Commit("Test");
-
-        // Operation is still recorded (even if state didn't change)
-        Assert.That(manager.CanUndo, Is.True);
-    }
-
-    [Test]
-    public void RecordingScope_MultipleScopes_ShouldWorkIndependently()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        _root.Value = 0;
-        var state2 = new { Value = 0 };
-        int value2 = 0;
-
-        // First scope
-        using (var scope1 = manager.BeginRecordingScope(
-            () => _root.Value,
-            v => _root.Value = v,
-            "First"))
-        {
-            _root.Value = 10;
-            scope1.Complete();
-        }
-
-        // Second scope
-        using (var scope2 = manager.BeginRecordingScope(
-            () => value2,
-            v => value2 = v,
-            "Second"))
-        {
-            value2 = 20;
-            scope2.Complete();
-        }
-
-        manager.Commit("Test");
-
-        Assert.That(manager.UndoCount, Is.EqualTo(1)); // Both in same transaction
-
-        // Undo should revert both
-        manager.Undo();
-        Assert.Multiple(() =>
-        {
-            Assert.That(_root.Value, Is.EqualTo(0));
-            Assert.That(value2, Is.EqualTo(0));
-        });
-    }
-
-    [Test]
-    public void RecordingScope_IntegrationWithOtherOperations_ShouldWork()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        _root.Value = 0;
-
-        // Mix scope with regular operations
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            v => _root.Value = v,
-            "Scope Op"))
-        {
-            _root.Value = 10;
-            scope.Complete();
-        }
-
-        // Add another operation directly
-        var operation = CustomOperation.Create(
-            () => _root.Value = 100,
-            () => _root.Value = 10,
-            _sequenceGenerator,
-            "Direct Op");
-        operation.Apply(new OperationExecutionContext(_root));
-        manager.Record(operation);
-
-        manager.Commit("Combined");
-
-        Assert.That(_root.Value, Is.EqualTo(100));
-        Assert.That(manager.UndoCount, Is.EqualTo(1));
-
-        // Undo should revert all operations in the transaction
-        manager.Undo();
-        Assert.That(_root.Value, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void RecordingScope_WithReferenceTypeState_ShouldCaptureSnapshot()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        var data = new List<int> { 1, 2, 3 };
-
-        using (var scope = manager.BeginRecordingScope(
-            () => data.ToList(), // Capture a snapshot
-            state => { data.Clear(); data.AddRange(state); },
-            "Modify List"))
-        {
-            data.Add(4);
-            data.Add(5);
-            scope.Complete();
-        }
-        manager.Commit("Test");
-
-        Assert.That(data, Is.EqualTo(new[] { 1, 2, 3, 4, 5 }));
-
-        // Undo
-        manager.Undo();
-        Assert.That(data, Is.EqualTo(new[] { 1, 2, 3 }));
-
-        // Redo
-        manager.Redo();
-        Assert.That(data, Is.EqualTo(new[] { 1, 2, 3, 4, 5 }));
-    }
-
-    [Test]
-    public void RecordingScope_CaptureStateThrows_ShouldPropagateException()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-
-        // Exception during initial state capture
-        Assert.Throws<InvalidOperationException>(() =>
-            manager.BeginRecordingScope<int>(
-                () => throw new InvalidOperationException("Capture failed"),
-                value => _root.Value = value,
-                "Test"));
-    }
-
-    [Test]
-    public void RecordingScope_ApplyStateInUndo_ShouldWork()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        int applyCount = 0;
-        _root.Value = 10;
-
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value =>
-            {
-                applyCount++;
-                _root.Value = value;
-            },
-            "Test"))
-        {
-            _root.Value = 50;
-            scope.Complete();
-        }
-        manager.Commit("Test");
-
-        // Reset counter
-        applyCount = 0;
-
-        // Undo should call applyState with beforeState
-        manager.Undo();
-        Assert.Multiple(() =>
-        {
-            Assert.That(applyCount, Is.EqualTo(1));
-            Assert.That(_root.Value, Is.EqualTo(10));
-        });
-
-        // Redo should call applyState with afterState
-        manager.Redo();
-        Assert.Multiple(() =>
-        {
-            Assert.That(applyCount, Is.EqualTo(2));
-            Assert.That(_root.Value, Is.EqualTo(50));
-        });
-    }
-
-    [Test]
-    public void RecordingScope_WithNestedScopes_ShouldWorkCorrectly()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        _root.Value = 0;
-        int value2 = 0;
-
-        // Nested scopes
-        using (var outer = manager.BeginRecordingScope(
-            () => _root.Value,
-            v => _root.Value = v,
-            "Outer"))
-        {
-            _root.Value = 10;
-
-            using (var inner = manager.BeginRecordingScope(
-                () => value2,
-                v => value2 = v,
-                "Inner"))
-            {
-                value2 = 20;
-                inner.Complete();
-            }
-
-            outer.Complete();
-        }
-
-        manager.Commit("Test");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(_root.Value, Is.EqualTo(10));
-            Assert.That(value2, Is.EqualTo(20));
-        });
-
-        // Undo both
-        manager.Undo();
-        Assert.Multiple(() =>
-        {
-            Assert.That(_root.Value, Is.EqualTo(0));
-            Assert.That(value2, Is.EqualTo(0));
-        });
-    }
-
-    [Test]
-    public void RecordingScope_WithNullableValueType_ShouldWork()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        int? nullableValue = null;
-
-        using (var scope = manager.BeginRecordingScope(
-            () => nullableValue,
-            v => nullableValue = v,
-            "Set Nullable"))
-        {
-            nullableValue = 42;
-            scope.Complete();
-        }
-        manager.Commit("Test");
-
-        Assert.That(nullableValue, Is.EqualTo(42));
-
-        manager.Undo();
-        Assert.That(nullableValue, Is.Null);
-
-        manager.Redo();
-        Assert.That(nullableValue, Is.EqualTo(42));
-    }
-
-    [Test]
-    public void RecordingScope_WithNullReferenceType_ShouldWork()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        string? stringValue = null;
-
-        using (var scope = manager.BeginRecordingScope(
-            () => stringValue,
-            v => stringValue = v,
-            "Set String"))
-        {
-            stringValue = "Hello";
-            scope.Complete();
-        }
-        manager.Commit("Test");
-
-        Assert.That(stringValue, Is.EqualTo("Hello"));
-
-        manager.Undo();
-        Assert.That(stringValue, Is.Null);
-    }
-
-    [Test]
-    public void RecordingScope_SeparateTransactions_ShouldBeIndependent()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        _root.Value = 0;
-
-        // First transaction
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            v => _root.Value = v,
-            "First"))
-        {
-            _root.Value = 10;
-            scope.Complete();
-        }
-        manager.Commit("First Transaction");
-
-        // Second transaction
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            v => _root.Value = v,
-            "Second"))
-        {
-            _root.Value = 20;
-            scope.Complete();
-        }
-        manager.Commit("Second Transaction");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(manager.UndoCount, Is.EqualTo(2));
-            Assert.That(_root.Value, Is.EqualTo(20));
-        });
-
-        // Undo second
-        manager.Undo();
-        Assert.That(_root.Value, Is.EqualTo(10));
-
-        // Undo first
-        manager.Undo();
-        Assert.That(_root.Value, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void RecordingScope_UndoRedoMultipleTimes_ShouldMaintainCorrectState()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        _root.Value = 0;
-
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            v => _root.Value = v,
-            "Test"))
-        {
-            _root.Value = 100;
-            scope.Complete();
-        }
-        manager.Commit("Test");
-
-        // Multiple undo/redo cycles
-        for (int i = 0; i < 3; i++)
-        {
-            manager.Undo();
-            Assert.That(_root.Value, Is.EqualTo(0), $"Undo cycle {i}");
-
-            manager.Redo();
-            Assert.That(_root.Value, Is.EqualTo(100), $"Redo cycle {i}");
-        }
-    }
-
-    private class TestState
-    {
-        public int Value1 { get; set; }
-        public string Value2 { get; set; } = string.Empty;
     }
 
     #endregion

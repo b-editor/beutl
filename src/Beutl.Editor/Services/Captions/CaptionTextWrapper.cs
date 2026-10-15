@@ -21,18 +21,6 @@ public static class CaptionTextWrapper
         return string.Join('\n', output);
     }
 
-    /// <summary>
-    /// Wraps all content and reports whether the result also fits the maximum line count.
-    /// </summary>
-    public static bool TryWrap(
-        string text,
-        CaptionTextConstraints constraints,
-        out string wrappedText)
-    {
-        wrappedText = Wrap(text, constraints);
-        return CaptionTextUtilities.GetLines(wrappedText).Length <= constraints.MaximumLineCount;
-    }
-
     private static void WrapLine(string line, int maximumLineLength, List<string> output)
     {
         string remaining = line;

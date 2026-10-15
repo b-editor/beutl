@@ -18,8 +18,6 @@ public class SingleFlightAsyncOperationTests
             await release.Task;
         });
 
-        Assert.That(op.InFlight, Is.Not.Null);
-
         // A second caller skips the body and returns without awaiting the owner.
         bool second = await op.TryRunAsync(() =>
         {
@@ -77,19 +75,21 @@ public class SingleFlightAsyncOperationTests
         Assert.That(first, Is.True);
         Assert.That(second, Is.True);
         Assert.That(runs, Is.EqualTo(2));
-        Assert.That(op.InFlight, Is.Null);
     }
 
     [Test]
-    public void RunOrJoinAsync_OwnerThrows_PropagatesToOwnerAndResetsGate()
+    public async Task RunOrJoinAsync_OwnerThrows_PropagatesToOwnerAndResetsGate()
     {
         var op = new SingleFlightAsyncOperation();
+        int runs = 0;
 
         Assert.That(
             async () => await op.RunOrJoinAsync(() => throw new InvalidOperationException("boom")),
             Throws.TypeOf<InvalidOperationException>());
 
-        Assert.That(op.InFlight, Is.Null);
+        // The gate is open again, so the next caller runs instead of skipping.
+        Assert.That(await op.TryRunAsync(() => { runs++; return Task.CompletedTask; }), Is.True);
+        Assert.That(runs, Is.EqualTo(1));
     }
 
     [Test]

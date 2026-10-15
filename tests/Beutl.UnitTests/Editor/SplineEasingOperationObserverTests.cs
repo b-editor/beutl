@@ -314,7 +314,7 @@ public class SplineEasingOperationObserverTests
 
         using (PublishingSuppression.Enter())
         {
-            operation.Apply(new OperationExecutionContext(_parent));
+            operation.Apply();
         }
 
         Assert.That(easing.X1, Is.EqualTo(0.5f));
@@ -336,7 +336,7 @@ public class SplineEasingOperationObserverTests
 
         using (PublishingSuppression.Enter())
         {
-            operation.Revert(new OperationExecutionContext(_parent));
+            operation.Revert();
         }
 
         Assert.That(easing.X1, Is.EqualTo(0.25f));

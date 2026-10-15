@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using Beutl.Api.Services;
 using Beutl.Editor.Services.Captions;
 
 namespace Beutl.UnitTests.Editor.Services.Captions;
@@ -7,7 +8,11 @@ namespace Beutl.UnitTests.Editor.Services.Captions;
 public class CaptionDocumentSerializerTests
 {
     private readonly CaptionDocumentSerializer _serializer =
-        CaptionCatalog.CreateDefault("Default").Serializer;
+        CaptionCatalog.ComposeWithDefaultElementFactory(
+            "Default",
+            [],
+            new ExtensionProvider(),
+            new DefaultTextCaptionElementFactory(Beutl.Media.FontFamily.Default)).Serializer;
 
     [Test]
     public void Import_InvalidUtf8_ReturnsFailureWithoutThrowing()
@@ -21,7 +26,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Document, Is.Null);
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(error =>
-                error.Kind == CaptionDiagnosticKinds.InvalidUtf8 && error.LineNumber is null));
+                error.Kind == CaptionDiagnosticKinds.InvalidUtf8));
         });
     }
 
@@ -324,8 +329,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.Document![0].Speaker, Is.EqualTo(expectedSpeaker));
             Assert.That(result.Document[0].Text, Is.EqualTo(expectedText));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
-                && diagnostic.LineNumber == 4));
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         }
     }
 
@@ -347,8 +351,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.Document![0].Text, Is.EqualTo(expectedText));
             Assert.That(result.Document[0].Language, Is.EqualTo(expectedLanguage));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
-                && diagnostic.LineNumber == 4));
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         }
     }
 
@@ -364,8 +367,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Document![0].Text, Is.EqualTo("text"));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
-                && diagnostic.LineNumber == 3));
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         }
     }
 
@@ -385,8 +387,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Document![0].Text, Is.EqualTo(expectedText));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
-                && diagnostic.LineNumber == 4));
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         }
     }
 
@@ -415,9 +416,8 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.Document![0].Text, Is.EqualTo("text"));
             Assert.That(
                 result.Diagnostics.Where(diagnostic =>
-                    diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup)
-                    .Select(diagnostic => diagnostic.LineNumber),
-                Is.EqualTo(new int?[] { 3, 6, 10 }));
+                    diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup),
+                Has.Exactly(3).Items);
         }
     }
 
@@ -504,8 +504,7 @@ public class CaptionDocumentSerializerTests
                 "ja-JP",
                 Metadata(CaptionMetadataKeys.AssStyle, "Narration"))));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
-                && diagnostic.LineNumber == 6));
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         });
     }
 
@@ -524,8 +523,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Document![0].Text, Is.EqualTo(expectedText));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
-                && diagnostic.LineNumber == 3));
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         }
     }
 
@@ -551,8 +549,7 @@ public class CaptionDocumentSerializerTests
                 result.Document![0].Metadata.GetValueOrDefault(CaptionMetadataKeys.AssStyle),
                 Is.EqualTo("Narration"));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
-                && diagnostic.LineNumber == 3));
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         }
     }
 

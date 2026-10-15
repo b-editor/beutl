@@ -18,8 +18,7 @@ public enum HistogramCategory
     Rgb = 1,
     Hue = 2,
     Luminance = 4,
-    Saturation = 8,
-    All = Rgb | Hue | Luminance | Saturation
+    Saturation = 8
 }
 
 public sealed class CurveVisualizationRenderer
@@ -112,7 +111,7 @@ public sealed class CurveVisualizationRenderer
 
     public event EventHandler? Updated;
 
-    public void UpdateHistogram(Ref<Bitmap>? sourceBitmapRef, HistogramCategory categories = HistogramCategory.All)
+    public void UpdateHistogram(Ref<Bitmap>? sourceBitmapRef, HistogramCategory categories)
     {
         if (categories == HistogramCategory.None)
             return;

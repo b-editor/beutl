@@ -20,7 +20,6 @@ public class ColorPaletteItemTests
             Color = Colors.Red,
             BorderBrush = Brushes.Black,
             BorderBrushPointerOver = null,
-            BorderBrushPressed = null,
             BorderThickness = new Thickness(1, 2, 3, 4),
             CornerRadius = new CornerRadius(2, 4, 6, 8),
         };

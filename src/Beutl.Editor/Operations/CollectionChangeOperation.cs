@@ -6,7 +6,7 @@ using Beutl.NodeGraph;
 
 namespace Beutl.Editor.Operations;
 
-public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyPathProvider
+public abstract class CollectionChangeOperation<T> : ChangeOperation
 {
     private ChangeOperationFailureState _failureState;
     public override ChangeOperationFailureState FailureState => _failureState;
@@ -14,13 +14,13 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
     private void ExecuteWithFailureState(IList<T> list, bool revert, Action mutation)
     {
         _failureState = ChangeOperationFailureState.Unknown;
-        if (this is not (MoveCollectionItemOperation<T> or MoveCollectionRangeOperation<T>))
+        if (this is not MoveCollectionRangeOperation<T>)
         {
             mutation();
             return;
         }
 
-        // These sealed move implementations can be evaluated on a private List first.
+        // The sealed move implementation can be evaluated on a private List first.
         // Invalid/stale indices therefore fail before removing anything from the live list.
         _failureState = ChangeOperationFailureState.Unchanged;
         T[] before = list.ToArray();
@@ -129,15 +129,15 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
         }
     }
 
-    public override void Apply(OperationExecutionContext context) => Execute(revert: false);
+    public override void Apply() => Execute(revert: false);
 
-    protected abstract void ApplyToEngineProperty(IListProperty<T> listProperty);
+    protected virtual void ApplyToEngineProperty(IListProperty<T> listProperty) => ApplyTo(listProperty);
 
     protected abstract void ApplyTo(IList<T> list);
 
-    public override void Revert(OperationExecutionContext context) => Execute(revert: true);
+    public override void Revert() => Execute(revert: true);
 
-    protected abstract void RevertToEngineProperty(IListProperty<T> listProperty);
+    protected virtual void RevertToEngineProperty(IListProperty<T> listProperty) => RevertTo(listProperty);
 
     protected abstract void RevertTo(IList<T> list);
 }

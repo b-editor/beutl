@@ -5,10 +5,6 @@ namespace Beutl.Editor.Services;
 
 public interface IBufferStatus
 {
-    IReadOnlyReactiveProperty<TimeSpan> StartTime { get; }
-
-    IReadOnlyReactiveProperty<TimeSpan> EndTime { get; }
-
     IReadOnlyReactiveProperty<double> Start { get; }  // pixel
 
     IReadOnlyReactiveProperty<double> End { get; }    // pixel

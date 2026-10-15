@@ -4,8 +4,6 @@ namespace Beutl.Editor.Services.Captions;
 
 public sealed class SrtCaptionCodec : ICaptionDecoder, ICaptionEncoder
 {
-    public CaptionFormatId Format => CaptionFormats.Srt;
-
     public CaptionImportResult Decode(string content)
     {
         ArgumentNullException.ThrowIfNull(content);
@@ -23,13 +21,10 @@ public sealed class SrtCaptionCodec : ICaptionDecoder, ICaptionEncoder
             if (index >= lines.Length)
                 break;
 
-            int blockLine = index + 1;
             string timingLine;
-            int timingLineNumber;
             if (lines[index].Contains("-->", StringComparison.Ordinal))
             {
                 timingLine = lines[index];
-                timingLineNumber = index + 1;
                 index++;
             }
             else
@@ -38,7 +33,6 @@ public sealed class SrtCaptionCodec : ICaptionDecoder, ICaptionEncoder
                 {
                     errors.Add(new CaptionDiagnostic(
                         CaptionDiagnosticKinds.InvalidStructure,
-                        blockLine,
                         "Expected a numeric SRT cue identifier or timing line."));
                     SkipBlock(lines, ref index);
                     continue;
@@ -49,20 +43,17 @@ public sealed class SrtCaptionCodec : ICaptionDecoder, ICaptionEncoder
                 {
                     errors.Add(new CaptionDiagnostic(
                         CaptionDiagnosticKinds.InvalidStructure,
-                        blockLine,
                         "The SRT cue is missing its timing line."));
                     SkipBlock(lines, ref index);
                     continue;
                 }
 
                 timingLine = lines[index];
-                timingLineNumber = index + 1;
                 index++;
             }
 
             bool timingIsValid = TryParseTiming(
                 timingLine,
-                timingLineNumber,
                 errors,
                 out TimeSpan start,
                 out TimeSpan end);
@@ -116,7 +107,6 @@ public sealed class SrtCaptionCodec : ICaptionDecoder, ICaptionEncoder
 
     private static bool TryParseTiming(
         string line,
-        int lineNumber,
         List<CaptionDiagnostic> errors,
         out TimeSpan start,
         out TimeSpan end)
@@ -131,7 +121,6 @@ public sealed class SrtCaptionCodec : ICaptionDecoder, ICaptionEncoder
         {
             errors.Add(new CaptionDiagnostic(
                 CaptionDiagnosticKinds.InvalidTiming,
-                lineNumber,
                 "The SRT timing must use HH:MM:SS,mmm and have an end after its start."));
             return false;
         }

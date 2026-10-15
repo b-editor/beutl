@@ -202,7 +202,7 @@ internal abstract record RemoteOpResult
 }
 
 // IsRemote marks a branch that so far exists only on origin; switching to it creates the local branch.
-public sealed record BranchInfo(string Name, bool IsCurrent, string? UpstreamName, bool IsRemote = false);
+public sealed record BranchInfo(string Name, bool IsCurrent, bool IsRemote = false);
 
 public sealed record RemoteInfo(string Name, string Url);
 

@@ -2,7 +2,6 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Layout;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Controls;
 using Beutl.Controls.Behaviors;
@@ -24,7 +23,7 @@ public sealed partial class EngineObjectPropertyView : UserControl
         InitializeComponent();
         Interaction.SetBehaviors(this,
         [
-            new _DragBehavior() { Orientation = Orientation.Vertical, DragControl = dragBorder },
+            new _DragBehavior() { DragControl = dragBorder },
         ]);
         AddHandler(DragDrop.DragOverEvent, DragOver);
         AddHandler(DragDrop.DropEvent, Drop);

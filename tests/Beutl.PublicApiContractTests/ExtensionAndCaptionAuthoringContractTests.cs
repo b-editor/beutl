@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Api.Services;
 using Beutl.Editor.Models;
-using Beutl.Editor.Services;
 using Beutl.Editor.Services.AI;
 using Beutl.Editor.Services.Captions;
 using Beutl.Extensibility;
@@ -26,25 +25,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
             Assert.That(
                 typeof(ExtensionDescriptor).GetProperties().Select(property => property.PropertyType),
                 Does.Not.Contain(typeof(Type)).And.Not.Contain(typeof(Extension)));
-            Assert.That(
-                typeof(ElementSourceHandlerDescriptor).GetProperties()
-                    .Select(property => property.PropertyType),
-                Does.Not.Contain(typeof(Type)).And.Not.Contain(typeof(IElementSourceHandler)));
-        }
-    }
-
-    [Test]
-    public async Task CaptionCatalogSurface_DoesNotExposeMutableRegistries()
-    {
-        await using CaptionCatalog catalog = CaptionCatalog.CreateDefault("Default");
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(catalog.Codecs, Is.InstanceOf<ICaptionCodecProvider>());
-            Assert.That(catalog.Codecs, Is.Not.InstanceOf<CaptionCodecRegistry>());
-            Assert.That(catalog.Templates, Is.InstanceOf<ICaptionTemplateProvider>());
-            Assert.That(catalog.Templates, Is.Not.InstanceOf<CaptionTemplateRegistry>());
-            Assert.That(typeof(CaptionDocumentSerializer).GetProperty("Codecs"), Is.Null);
         }
     }
 
@@ -53,21 +33,17 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
     {
         var format = new CaptionFormatId("vendor.caption");
         var codec = new CustomCaptionCodec();
-        var descriptorRegistration = new CaptionCodecDescriptorRegistration(
-            new CaptionCodecDescriptor(format, [".vendor-caption"]));
-        var decoderRegistration = new CaptionDecoderRegistration(format, codec);
-        var encoderRegistration = new CaptionEncoderRegistration(format, codec);
         var descriptorExtension = new CustomCaptionCodecDescriptorExtension(
-            descriptorRegistration);
-        var decoderExtension = new CustomCaptionDecoderExtension(decoderRegistration);
-        var encoderExtension = new CustomCaptionEncoderExtension(encoderRegistration);
-        await using var registry = new CaptionCodecRegistry();
-        await using ICaptionCodecDescriptorRegistration descriptor = registry.Register(
-            descriptorRegistration);
-        await using ICaptionDecoderRegistration decoder = registry.Register(
-            decoderRegistration);
-        await using ICaptionEncoderRegistration encoder = registry.Register(
-            encoderRegistration);
+            new CaptionCodecDescriptorRegistration(
+                new CaptionCodecDescriptor(format, [".vendor-caption"])));
+        var decoderExtension = new CustomCaptionDecoderExtension(
+            new CaptionDecoderRegistration(format, codec));
+        var encoderExtension = new CustomCaptionEncoderExtension(
+            new CaptionEncoderRegistration(format, codec));
+        await using var registry = new CaptionCodecRegistry(
+            descriptorExtension.Registrations,
+            decoderExtension.Registrations,
+            encoderExtension.Registrations);
 
         using (Assert.EnterMultipleScope())
         {
@@ -90,38 +66,12 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
     }
 
     [Test]
-    public async Task CustomElementSource_CanDelegateLengthToItsHandler()
-    {
-        var handler = new CustomSourceHandler();
-        await using var registry = new ElementSourceHandlerRegistry();
-        await using IElementSourceHandlerRegistration registration = registry.Register(
-            new ElementSourceHandlerRegistration(handler));
-        var description = new ElementDescription(
-            TimeSpan.Zero,
-            null,
-            0,
-            new CustomSource());
-
-        Assert.That(description.Length, Is.Null);
-        Assert.That(registry.Handlers, Is.SameAs(registry.Handlers));
-        Assert.That(registry.Handlers.Single().SourceTypeName, Is.EqualTo(typeof(CustomSource).AssemblyQualifiedName));
-        Assert.That(registry.TryAcquire(typeof(CustomSource), out IElementSourceHandlerLease? lease), Is.True);
-        using (lease)
-        {
-            Assert.That(lease!.Handler, Is.SameAs(handler));
-        }
-    }
-
-    [Test]
     public void MetadataTypes_CanBeCreatedByExternalProviderImplementations()
     {
         var extension = new ExtensionDescriptor(
             new ExtensionId(Guid.NewGuid()),
             "Example.Extension, Example.Package");
         IExtensionProvider provider = new MetadataExtensionProvider(extension);
-        var handler = new ElementSourceHandlerDescriptor(
-            "Example.Source, Example.Package",
-            order: 10);
         var captionFormat = new CaptionFormatId("example");
         var codecDescriptor = new CaptionCodecDescriptor(
             captionFormat,
@@ -141,7 +91,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(handler.SourceTypeName, Is.EqualTo("Example.Source, Example.Package"));
             Assert.That(codecDescriptor.Order, Is.EqualTo(20));
             Assert.That(codec.FileExtensions, Is.EqualTo(new[] { ".example" }));
             Assert.That(template.Name, Is.EqualTo("Example template"));
@@ -193,44 +142,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
             Assert.That(translation.CharacterCount, Is.EqualTo(123));
             Assert.That(translation.Model, Is.EqualTo(model));
         }
-    }
-
-    [Test]
-    public async Task AiJobResultCapabilities_CanBeRegisteredAndResolvedIndependently()
-    {
-        var kind = new AiJobKindId("vendor.result");
-        var capabilities = new CustomAiJobResultCapabilities();
-        await using var registry = new AiJobResultRegistry(
-            [new AiJobPresentationRegistration(kind, capabilities)],
-            [new AiJobCompletionRegistration(kind, capabilities)],
-            [new AiJobResultApplicatorRegistration(kind, capabilities)]);
-
-        Assert.That(registry.TryAcquirePresenter(kind, out IAiJobPresenterLease? presenter), Is.True);
-        using (presenter)
-        {
-            Assert.That(presenter!.Presenter, Is.SameAs(capabilities));
-        }
-
-        Assert.That(registry.TryAcquireCompletionPresenter(
-            kind,
-            out IAiJobCompletionPresenterLease? completion), Is.True);
-        using (completion)
-        {
-            Assert.That(completion!.Presenter, Is.SameAs(capabilities));
-        }
-
-        Assert.That(registry.TryAcquireApplicator(
-            kind,
-            out IAiJobResultApplicatorLease? applicator), Is.True);
-        using (applicator)
-        {
-            Assert.That(applicator!.Applicator, Is.SameAs(capabilities));
-        }
-
-        Assert.That(
-            typeof(AiJobResultRegistry).Assembly.GetType(
-                "Beutl.Editor.Services.AI.IAiJobResultHandler"),
-            Is.Null);
     }
 
     [Test]
@@ -356,8 +267,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
         }
     }
 
-    private sealed record CustomSource : ElementSource;
-
     private sealed class CustomCapabilitySchemaExtension(
         params AiOperationCapabilitySchemaRegistration[] registrations)
         : AiOperationCapabilitySchemaExtension
@@ -388,44 +297,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
             lease = null;
             return false;
         }
-    }
-
-    private sealed class CustomSourceHandler : IElementSourceHandler
-    {
-        public Type SourceType => typeof(CustomSource);
-
-        public ValueTask<ElementSourcePreflightResult> PreflightAsync(
-            ElementSourcePreflightContext context,
-            CancellationToken cancellationToken)
-            => throw new NotSupportedException();
-
-        public ValueTask<ElementSourceMaterializationResult> MaterializeAsync(
-            ElementSourceMaterializationContext context,
-            IElementSourcePreflight preflight,
-            CancellationToken cancellationToken)
-            => throw new NotSupportedException();
-    }
-
-    private sealed class CustomAiJobResultCapabilities :
-        IAiJobPresenter,
-        IAiJobCompletionPresenter,
-        IAiJobResultApplicator
-    {
-        public AiJobPresentation Present(AiJob job, AiJobStatusSemantics status)
-            => new("Vendor", "Ready", "Result", string.Empty, false);
-
-        public AiJobCompletionPresentation? CreateCompletion(
-            AiJob job,
-            AiJobStatusSemantics status)
-            => null;
-
-        public bool CanApply(AiJob job, AiJobStatusSemantics status) => true;
-
-        public Task ApplyAsync(
-            AiJob job,
-            IAiJobResultContext context,
-            CancellationToken cancellationToken)
-            => Task.CompletedTask;
     }
 
     private sealed class CustomAiJobBehavior :

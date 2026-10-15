@@ -28,8 +28,6 @@ public interface IProjectVersionControlService
     Task<IReadOnlyList<RemoteInfo>> GetRemotesAsync(
         CancellationToken cancellationToken);
 
-    Task<GitIdentity?> GetIdentityAsync(CancellationToken cancellationToken);
-
     event EventHandler<WorkspaceStatus>? StatusChanged;
 }
 

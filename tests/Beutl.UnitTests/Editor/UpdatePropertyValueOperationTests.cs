@@ -12,7 +12,6 @@ namespace Beutl.UnitTests.Editor;
 public class UpdatePropertyValueOperationTests
 {
     private TestCoreObject _root = null!;
-    private OperationExecutionContext _context = null!;
     private OperationSequenceGenerator _sequenceGenerator = null!;
 
     [SetUp]
@@ -20,7 +19,6 @@ public class UpdatePropertyValueOperationTests
     {
         Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
         _root = new TestCoreObject();
-        _context = new OperationExecutionContext(_root);
         _sequenceGenerator = new OperationSequenceGenerator();
     }
 
@@ -77,7 +75,7 @@ public class UpdatePropertyValueOperationTests
         _root.Value = 0;
         var op = CreateOp(_root, "Value", 42, 0);
 
-        op.Apply(_context);
+        op.Apply();
 
         Assert.That(_root.Value, Is.EqualTo(42));
     }
@@ -88,7 +86,7 @@ public class UpdatePropertyValueOperationTests
         _root.Title = "original";
         var op = CreateOp<string?>(_root, "Title", "modified", "original");
 
-        op.Apply(_context);
+        op.Apply();
 
         Assert.That(_root.Title, Is.EqualTo("modified"));
     }
@@ -99,7 +97,7 @@ public class UpdatePropertyValueOperationTests
         _root.Title = "original";
         var op = CreateOp<string?>(_root, "Title", null, "original");
 
-        op.Apply(_context);
+        op.Apply();
 
         Assert.That(_root.Title, Is.Null);
     }
@@ -110,7 +108,7 @@ public class UpdatePropertyValueOperationTests
         _root.Title = null;
         var op = CreateOp<string?>(_root, "Title", "new value", null);
 
-        op.Apply(_context);
+        op.Apply();
 
         Assert.That(_root.Title, Is.EqualTo("new value"));
     }
@@ -125,7 +123,7 @@ public class UpdatePropertyValueOperationTests
         _root.Title = "modified";
         var op = CreateOp<string?>(_root, "Title", "modified", "original");
 
-        op.Revert(_context);
+        op.Revert();
 
         Assert.That(_root.Title, Is.EqualTo("original"));
     }
@@ -136,7 +134,7 @@ public class UpdatePropertyValueOperationTests
         _root.Title = "value";
         var op = CreateOp<string?>(_root, "Title", "value", null);
 
-        op.Revert(_context);
+        op.Revert();
 
         Assert.That(_root.Title, Is.Null);
     }
@@ -147,9 +145,9 @@ public class UpdatePropertyValueOperationTests
         _root.Value = 10;
         var op = CreateOp(_root, "Value", 50, 10);
 
-        op.Apply(_context);
+        op.Apply();
         Assert.That(_root.Value, Is.EqualTo(50));
-        op.Revert(_context);
+        op.Revert();
 
         Assert.That(_root.Value, Is.EqualTo(10));
     }
@@ -163,10 +161,9 @@ public class UpdatePropertyValueOperationTests
     {
         var engineObj = new TestEngineObject();
         engineObj.FloatValue.CurrentValue = 0f;
-        var context = new OperationExecutionContext(engineObj);
         var op = CreateOp<float>(engineObj, "FloatValue", 50f, 0f);
 
-        op.Apply(context);
+        op.Apply();
 
         Assert.That(engineObj.FloatValue.CurrentValue, Is.EqualTo(50f));
     }
@@ -176,10 +173,9 @@ public class UpdatePropertyValueOperationTests
     {
         var engineObj = new TestAnimatableEngineObject();
         var animation = new KeyFrameAnimation<float>();
-        var context = new OperationExecutionContext(engineObj);
         var op = CreateOp<IAnimation<float>?>(engineObj, "FloatValue.Animation", animation, null);
 
-        op.Apply(context);
+        op.Apply();
 
         Assert.That(engineObj.FloatValue.Animation, Is.SameAs(animation));
     }
@@ -189,10 +185,9 @@ public class UpdatePropertyValueOperationTests
     {
         var engineObj = new TestAnimatableEngineObject();
         var expression = new TestExpression<float>(100f);
-        var context = new OperationExecutionContext(engineObj);
         var op = CreateOp<IExpression<float>?>(engineObj, "FloatValue.Expression", expression, null);
 
-        op.Apply(context);
+        op.Apply();
 
         Assert.That(engineObj.FloatValue.Expression, Is.SameAs(expression));
     }
@@ -202,10 +197,9 @@ public class UpdatePropertyValueOperationTests
     {
         // Tests that "Parent.Child.FloatValue" correctly identifies "FloatValue" as the property name
         var engineObj = new TestEngineObject();
-        var context = new OperationExecutionContext(engineObj);
         var op = CreateOp<float>(engineObj, "Parent.Child.FloatValue", 75f, 0f);
 
-        op.Apply(context);
+        op.Apply();
 
         Assert.That(engineObj.FloatValue.CurrentValue, Is.EqualTo(75f));
     }
@@ -214,10 +208,9 @@ public class UpdatePropertyValueOperationTests
     public void Apply_WithNonExistentEngineProperty_ShouldThrowInvalidOperationException()
     {
         var engineObj = new TestEngineObject();
-        var context = new OperationExecutionContext(engineObj);
         var op = CreateOp<float>(engineObj, "NonExistentProperty", 50f, 0f);
 
-        Assert.Throws<InvalidOperationException>(() => op.Apply(context));
+        Assert.Throws<InvalidOperationException>(() => op.Apply());
     }
 
     #endregion
@@ -231,10 +224,9 @@ public class UpdatePropertyValueOperationTests
         var newAnimation = new KeyFrameAnimation<float>();
         var oldAnimation = new KeyFrameAnimation<float>();
         engineObj.FloatValue.Animation = newAnimation;
-        var context = new OperationExecutionContext(engineObj);
         var op = CreateOp<IAnimation<float>?>(engineObj, "FloatValue.Animation", newAnimation, oldAnimation);
 
-        op.Revert(context);
+        op.Revert();
 
         Assert.That(engineObj.FloatValue.Animation, Is.SameAs(oldAnimation));
     }
@@ -245,10 +237,9 @@ public class UpdatePropertyValueOperationTests
         var engineObj = new TestAnimatableEngineObject();
         var animation = new KeyFrameAnimation<float>();
         engineObj.FloatValue.Animation = animation;
-        var context = new OperationExecutionContext(engineObj);
         var op = CreateOp<IAnimation<float>?>(engineObj, "FloatValue.Animation", animation, null);
 
-        op.Revert(context);
+        op.Revert();
 
         Assert.That(engineObj.FloatValue.Animation, Is.Null);
     }
@@ -260,10 +251,9 @@ public class UpdatePropertyValueOperationTests
         var newExpression = new TestExpression<float>(100f);
         var oldExpression = new TestExpression<float>(50f);
         engineObj.FloatValue.Expression = newExpression;
-        var context = new OperationExecutionContext(engineObj);
         var op = CreateOp<IExpression<float>?>(engineObj, "FloatValue.Expression", newExpression, oldExpression);
 
-        op.Revert(context);
+        op.Revert();
 
         Assert.That(engineObj.FloatValue.Expression, Is.SameAs(oldExpression));
     }
@@ -273,12 +263,11 @@ public class UpdatePropertyValueOperationTests
     {
         var engineObj = new TestEngineObject();
         engineObj.FloatValue.CurrentValue = 10f;
-        var context = new OperationExecutionContext(engineObj);
         var op = CreateOp<float>(engineObj, "FloatValue", 100f, 10f);
 
-        op.Apply(context);
+        op.Apply();
         Assert.That(engineObj.FloatValue.CurrentValue, Is.EqualTo(100f));
-        op.Revert(context);
+        op.Revert();
 
         Assert.That(engineObj.FloatValue.CurrentValue, Is.EqualTo(10f));
     }
@@ -364,10 +353,9 @@ public class UpdatePropertyValueOperationTests
         // "Parent.Child.FloatValue.Animation" should identify "FloatValue" as property name
         var engineObj = new TestAnimatableEngineObject();
         var animation = new KeyFrameAnimation<float>();
-        var context = new OperationExecutionContext(engineObj);
         var op = CreateOp<IAnimation<float>?>(engineObj, "Parent.Child.FloatValue.Animation", animation, null);
 
-        op.Apply(context);
+        op.Apply();
 
         Assert.That(engineObj.FloatValue.Animation, Is.SameAs(animation));
     }
@@ -378,10 +366,9 @@ public class UpdatePropertyValueOperationTests
         // "Parent.Child.FloatValue.Expression" should identify "FloatValue" as property name
         var engineObj = new TestAnimatableEngineObject();
         var expression = new TestExpression<float>(100f);
-        var context = new OperationExecutionContext(engineObj);
         var op = CreateOp<IExpression<float>?>(engineObj, "Parent.Child.FloatValue.Expression", expression, null);
 
-        op.Apply(context);
+        op.Apply();
 
         Assert.That(engineObj.FloatValue.Expression, Is.SameAs(expression));
     }
@@ -398,7 +385,7 @@ public class UpdatePropertyValueOperationTests
         _root.Items = list;
         var op = CreateOp<CoreList<int>?>(_root, "Items", newList, list);
 
-        op.Apply(_context);
+        op.Apply();
 
         Assert.That(_root.Items, Is.SameAs(newList));
     }
@@ -411,7 +398,7 @@ public class UpdatePropertyValueOperationTests
         _root.Items = newList;
         var op = CreateOp<CoreList<int>?>(_root, "Items", newList, oldList);
 
-        op.Revert(_context);
+        op.Revert();
 
         Assert.That(_root.Items, Is.SameAs(oldList));
     }
@@ -421,11 +408,10 @@ public class UpdatePropertyValueOperationTests
     {
         // SimpleProperty (non-animatable) doesn't support Animation
         var engineObj = new TestEngineObject();
-        var context = new OperationExecutionContext(engineObj);
         var op = CreateOp<IAnimation?>(engineObj, "FloatValue.Animation", null, null);
 
         // Should not throw, but also shouldn't do anything
-        Assert.DoesNotThrow(() => op.Apply(context));
+        Assert.DoesNotThrow(() => op.Apply());
     }
 
     #endregion
@@ -502,8 +488,8 @@ public class UpdatePropertyValueOperationTests
 
     private class TestChangeOperation : ChangeOperation
     {
-        public override void Apply(OperationExecutionContext context) { }
-        public override void Revert(OperationExecutionContext context) { }
+        public override void Apply() { }
+        public override void Revert() { }
     }
 
     private class TestExpression<T> : IExpression<T>

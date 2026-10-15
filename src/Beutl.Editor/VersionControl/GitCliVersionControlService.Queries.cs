@@ -453,7 +453,7 @@ internal sealed partial class GitCliVersionControlService
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         GitCommandResult result = await runner.RunAsync(
             repository,
-            ["for-each-ref", "--format=%(refname)%00%(HEAD)%00%(upstream:lstrip=2)%00%(symref)",
+            ["for-each-ref", "--format=%(refname)%00%(HEAD)%00%(symref)",
                 "refs/heads/", OriginRefPrefix],
             GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false);
@@ -464,16 +464,15 @@ internal sealed partial class GitCliVersionControlService
         foreach (string record in result.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
             string[] fields = record.TrimEnd('\r').Split('\0');
-            if (fields.Length != 4)
+            if (fields.Length != 3)
             {
                 continue;
             }
             if (fields[0].StartsWith("refs/heads/", StringComparison.Ordinal))
             {
-                locals.Add(new BranchInfo(fields[0]["refs/heads/".Length..], fields[1].Trim() == "*",
-                    string.IsNullOrEmpty(fields[2]) ? null : fields[2]));
+                locals.Add(new BranchInfo(fields[0]["refs/heads/".Length..], fields[1].Trim() == "*"));
             }
-            else if (fields[0].StartsWith(OriginRefPrefix, StringComparison.Ordinal) && fields[3].Length == 0)
+            else if (fields[0].StartsWith(OriginRefPrefix, StringComparison.Ordinal) && fields[2].Length == 0)
             {
                 remotes.Add(fields[0][OriginRefPrefix.Length..]);
             }
@@ -481,7 +480,7 @@ internal sealed partial class GitCliVersionControlService
 
         var localNames = locals.Select(static branch => branch.Name).ToHashSet(StringComparer.Ordinal);
         return [.. locals, .. remotes.Where(name => name.Length > 0 && !localNames.Contains(name))
-            .Select(static name => new BranchInfo(name, false, null, IsRemote: true))];
+            .Select(static name => new BranchInfo(name, false, IsRemote: true))];
     }
 
     private async Task<IReadOnlyList<RemoteInfo>> GetRemotesCoreAsync(

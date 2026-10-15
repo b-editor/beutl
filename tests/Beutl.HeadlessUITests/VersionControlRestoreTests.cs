@@ -920,7 +920,6 @@ public class VersionControlRestoreTests
         var discovery = new PullCycleTestBackend(null, session.Repository, MainTip);
         var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            Identity = null,
             RetirementResult = new CommitResult.SkippedNoIdentity(),
         };
         VersionControlCoordinator coordinator = session.Start(
@@ -3162,8 +3161,8 @@ public class VersionControlRestoreTests
                         AvailabilityOverride = locator.LocateAsync,
                         Branches =
                         [
-                            new BranchInfo("main", true, null),
-                            new BranchInfo("configuration-ready", false, null),
+                            new BranchInfo("main", true),
+                            new BranchInfo("configuration-ready", false),
                         ],
                         EnsureHygieneStarted = candidate is not null ? hygieneStarted : null,
                         EnsureHygieneRelease = candidate is not null ? releaseHygiene.Task : null,
@@ -3238,8 +3237,8 @@ public class VersionControlRestoreTests
                 AvailabilityOverride = locator.LocateAsync,
                 Branches =
                 [
-                    new BranchInfo("main", true, null),
-                    new BranchInfo("config-change", false, null),
+                    new BranchInfo("main", true),
+                    new BranchInfo("config-change", false),
                 ],
                 SwitchBranchStarted = branchStarted,
                 SwitchBranchRelease = releaseBranch.Task,
@@ -4025,8 +4024,8 @@ public class VersionControlRestoreTests
                 RunsExclusiveOperationsOnThreadPool = true,
                 Branches =
                 [
-                    new BranchInfo("main", true, null),
-                    new BranchInfo("other", false, null),
+                    new BranchInfo("main", true),
+                    new BranchInfo("other", false),
                 ],
                 PullResult = new RemoteOpResult.Success(),
             };
@@ -4188,8 +4187,8 @@ public class VersionControlRestoreTests
                 HasConflicts: false),
             Branches =
             [
-                new BranchInfo("main", true, null),
-                new BranchInfo("feature", false, null),
+                new BranchInfo("main", true),
+                new BranchInfo("feature", false),
             ],
         };
         bool? projectWasOpenDuringPrefetch = null;
@@ -4470,10 +4469,10 @@ public class VersionControlRestoreTests
         };
         backend.EnqueueBranchSnapshot(
             [
-                new BranchInfo("main", true, null),
-                new BranchInfo("target", false, null),
+                new BranchInfo("main", true),
+                new BranchInfo("target", false),
             ]);
-        backend.EnqueueBranchSnapshot([new BranchInfo("main", true, null)]);
+        backend.EnqueueBranchSnapshot([new BranchInfo("main", true)]);
         var config = new VersionControlConfig();
         VersionControlCoordinator coordinator = session.Start(
             config,
@@ -7789,9 +7788,6 @@ public class VersionControlRestoreTests
 
         public CommitResult? RetirementResult { get; set; } = new CommitResult.NoChanges();
 
-        public GitIdentity? Identity { get; set; } =
-            new("Version Control Test", "version-control@example.invalid");
-
         public Exception? CommitAllFailure { get; set; }
 
         public Action<SnapshotKind>? CommitAllObserver { get; init; }
@@ -7802,7 +7798,7 @@ public class VersionControlRestoreTests
         public Exception? RestoreProjectTreeFailure { get; set; }
 
         public IReadOnlyList<BranchInfo> Branches { get; init; } =
-            [new BranchInfo("main", true, null)];
+            [new BranchInfo("main", true)];
 
         public TaskCompletionSource? EnsureHygieneStarted { get; init; }
 
@@ -8080,7 +8076,6 @@ public class VersionControlRestoreTests
             if (options.Identity is not null)
             {
                 _hasIdentity = true;
-                Identity = options.Identity;
             }
 
             InitializeStarted?.TrySetResult();
@@ -8183,7 +8178,6 @@ public class VersionControlRestoreTests
             RecordBackendCall();
             SetLocalIdentityCalls++;
             _hasIdentity = true;
-            Identity = identity;
             return Task.CompletedTask;
         }
 
@@ -8263,11 +8257,6 @@ public class VersionControlRestoreTests
             CancellationToken cancellationToken)
         {
             return Task.FromResult<IReadOnlyList<RemoteInfo>>([]);
-        }
-
-        public Task<GitIdentity?> GetIdentityAsync(CancellationToken cancellationToken)
-        {
-            return Task.FromResult(Identity);
         }
 
         public Task<bool> CanCreateBranchAsync(

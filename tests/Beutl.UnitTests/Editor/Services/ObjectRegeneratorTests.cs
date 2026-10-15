@@ -145,11 +145,12 @@ public class ObjectRegeneratorTests
         Element front = harness.AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
         var (_, image, nested) = AddAiNodes(front);
         harness.History.Commit("Setup");
+        Element[] childrenBefore = [.. harness.Scene.Children];
 
-        SplitOutcome outcome = new ElementStructureService(harness.History)
+        new ElementStructureService(harness.History)
             .Split(harness.Scene, [front], TimeSpan.FromSeconds(4));
 
-        var (backImage, backNested) = FindAiNodes(outcome.NewElements.Single());
+        var (backImage, backNested) = FindAiNodes(harness.Scene.Children.Except(childrenBefore).Single());
         Assert.Multiple(() =>
         {
             Assert.That(backImage.RequestKeySeed, Is.Not.EqualTo(image.RequestKeySeed));

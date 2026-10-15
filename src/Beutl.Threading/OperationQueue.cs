@@ -39,23 +39,19 @@ internal sealed class OperationQueue
         return false;
     }
 
-    public int Count(DispatchPriority minPriority)
+    public bool Any(DispatchPriority minPriority)
     {
-        int count = 0;
-
         lock (_lock)
         {
             for (DispatchPriority priority = DispatchPriority.High; priority >= minPriority; --priority)
             {
-                count += _queuedOperations[(int)priority].Count;
+                if (_queuedOperations[(int)priority].Count > 0)
+                {
+                    return true;
+                }
             }
         }
 
-        return count;
-    }
-
-    public bool Any(DispatchPriority minPriority)
-    {
-        return Count(minPriority) > 0;
+        return false;
     }
 }

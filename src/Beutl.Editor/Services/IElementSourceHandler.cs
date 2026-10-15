@@ -1,7 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using Beutl.Api.Services;
-using Beutl.Collections;
 using Beutl.Editor.Models;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
@@ -84,13 +83,6 @@ public sealed class ElementMaterializationResource : IAsyncDisposable
                 resource.Dispose();
                 return ValueTask.CompletedTask;
             });
-    }
-
-    public static ElementMaterializationResource TemporaryAsync(IAsyncDisposable resource)
-    {
-        ArgumentNullException.ThrowIfNull(resource);
-        return new ElementMaterializationResource(
-            resource.DisposeAsync);
     }
 
     public ValueTask DisposeAsync()
@@ -221,33 +213,8 @@ public interface IElementSourceHandlerLease : IDisposable
     IElementSourceHandler Handler { get; }
 }
 
-/// <summary>
-/// Describes an active source handler without retaining its package-owned implementation or source
-/// <see cref="Type"/>. Resolve executable handlers through <see cref="IElementSourceHandlerRegistry.TryAcquire"/>.
-/// </summary>
-public sealed class ElementSourceHandlerDescriptor
-{
-    public ElementSourceHandlerDescriptor(string sourceTypeName, int order)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sourceTypeName);
-        SourceTypeName = sourceTypeName.Trim();
-        Order = order;
-    }
-
-    public string SourceTypeName { get; }
-
-    public int Order { get; }
-}
-
 public interface IElementSourceHandlerRegistry
 {
-    /// <summary>
-    /// Gets metadata for the active handlers without retaining package-owned instances.
-    /// </summary>
-    ICoreReadOnlyList<ElementSourceHandlerDescriptor> Handlers { get; }
-
-    IElementSourceHandlerRegistration Register(ElementSourceHandlerRegistration registration);
-
     bool TryAcquire(
         Type sourceType,
         [NotNullWhen(true)] out IElementSourceHandlerLease? lease);
@@ -260,14 +227,13 @@ public enum ElementSourceHandlerRegistrationMode
 }
 
 /// <summary>
-/// Registers a handler with explicit collision and deterministic enumeration semantics.
+/// Registers a handler with explicit collision semantics.
 /// </summary>
 public sealed class ElementSourceHandlerRegistration
 {
     public ElementSourceHandlerRegistration(
         IElementSourceHandler handler,
-        ElementSourceHandlerRegistrationMode mode = ElementSourceHandlerRegistrationMode.Add,
-        int order = 0)
+        ElementSourceHandlerRegistrationMode mode = ElementSourceHandlerRegistrationMode.Add)
     {
         ArgumentNullException.ThrowIfNull(handler);
         if (!Enum.IsDefined(mode))
@@ -275,12 +241,9 @@ public sealed class ElementSourceHandlerRegistration
 
         Handler = handler;
         Mode = mode;
-        Order = order;
     }
 
     public IElementSourceHandler Handler { get; }
 
     public ElementSourceHandlerRegistrationMode Mode { get; }
-
-    public int Order { get; }
 }

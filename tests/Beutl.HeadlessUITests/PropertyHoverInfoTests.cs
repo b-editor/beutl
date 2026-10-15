@@ -17,7 +17,6 @@ using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.Editors;
 using Moq;
-using Reactive.Bindings;
 using TextBlock = Avalonia.Controls.TextBlock;
 
 namespace Beutl.HeadlessUITests;
@@ -25,15 +24,6 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class PropertyHoverInfoTests
 {
-    [Test]
-    public void LegacyEditorInterfaceKeepsItsDescriptionTooltip()
-    {
-        INavigationButtonViewModel legacy = new LegacyNavigationButtonViewModel();
-
-        Assert.That(legacy.HoverInfo, Is.SameAs(legacy.Description));
-        Assert.That(legacy.HoverInfo.Value, Is.EqualTo("Legacy description"));
-    }
-
     [AvaloniaTest]
     public void PropertyEditorHeadersShowHoverInfoWithoutChangingVisibleDescription()
     {
@@ -148,15 +138,5 @@ public class PropertyHoverInfoTests
         Directory.CreateDirectory(directory);
         using var image = window.CaptureRenderedFrame();
         image?.Save(Path.Combine(directory, $"{name}.png"), PngBitmapEncoderOptions.Default);
-    }
-
-    private sealed class LegacyNavigationButtonViewModel : INavigationButtonViewModel
-    {
-        public string Header => "Legacy";
-        public ReactivePropertySlim<string?> Description { get; } = new("Legacy description");
-        public ReadOnlyReactivePropertySlim<bool> CanEdit => null!;
-        public ReadOnlyReactivePropertySlim<bool> IsSet => null!;
-        public ReadOnlyReactivePropertySlim<bool> IsNotSetAndCanWrite => null!;
-        public bool CanWrite => false;
     }
 }

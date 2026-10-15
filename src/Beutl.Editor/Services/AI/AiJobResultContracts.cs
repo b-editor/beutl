@@ -217,21 +217,6 @@ public interface IAiJobResultApplicatorLease : IDisposable
     IAiJobResultApplicator Applicator { get; }
 }
 
-/// <summary>Owns one list-presentation registration and drains its active leases on disposal.</summary>
-public interface IAiJobPresentationRegistration : IAsyncDisposable
-{
-}
-
-/// <summary>Owns one completion-presentation registration and drains its active leases on disposal.</summary>
-public interface IAiJobCompletionRegistration : IAsyncDisposable
-{
-}
-
-/// <summary>Owns one result-application registration and drains its active leases on disposal.</summary>
-public interface IAiJobResultApplicatorRegistration : IAsyncDisposable
-{
-}
-
 /// <summary>
 /// Resolves presentation, completion notification, and application through independent slots.
 /// Replacing one capability leaves the other two unchanged.
@@ -250,14 +235,6 @@ public sealed class AiJobResultRegistry : IAsyncDisposable
         IAiJobResultApplicator,
         AiJobResultApplicatorRegistration,
         AiJobResultApplicatorExtension> _applicators;
-
-    public AiJobResultRegistry(
-        IEnumerable<AiJobPresentationRegistration> presentations,
-        IEnumerable<AiJobCompletionRegistration> completions,
-        IEnumerable<AiJobResultApplicatorRegistration> applicators)
-        : this(presentations, completions, applicators, null, null)
-    {
-    }
 
     internal AiJobResultRegistry(
         IEnumerable<AiJobPresentationRegistration> presentations,
@@ -315,15 +292,6 @@ public sealed class AiJobResultRegistry : IAsyncDisposable
                     AiJobResultCapability.Application,
                     exception));
     }
-
-    public IAiJobPresentationRegistration Register(AiJobPresentationRegistration registration)
-        => new PresentationRegistration(_presenters.Register(registration));
-
-    public IAiJobCompletionRegistration Register(AiJobCompletionRegistration registration)
-        => new CompletionRegistration(_completionPresenters.Register(registration));
-
-    public IAiJobResultApplicatorRegistration Register(AiJobResultApplicatorRegistration registration)
-        => new ApplicatorRegistration(_applicators.Register(registration));
 
     public bool TryAcquirePresenter(
         AiJobKindId kind,
@@ -422,24 +390,6 @@ public sealed class AiJobResultRegistry : IAsyncDisposable
         public IAiJobResultApplicator Applicator => inner.Capability;
 
         public void Dispose() => inner.Dispose();
-    }
-
-    private sealed class PresentationRegistration(
-        IAiJobSlotRegistration inner) : IAiJobPresentationRegistration
-    {
-        public ValueTask DisposeAsync() => inner.DisposeAsync();
-    }
-
-    private sealed class CompletionRegistration(
-        IAiJobSlotRegistration inner) : IAiJobCompletionRegistration
-    {
-        public ValueTask DisposeAsync() => inner.DisposeAsync();
-    }
-
-    private sealed class ApplicatorRegistration(
-        IAiJobSlotRegistration inner) : IAiJobResultApplicatorRegistration
-    {
-        public ValueTask DisposeAsync() => inner.DisposeAsync();
     }
 }
 

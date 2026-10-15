@@ -199,7 +199,7 @@ public class VersionControlTabViewTests
 
             await view.HandleBranchFlyoutOpeningAsync();
             using var invalidBranch = new TitleBarBranchItemViewModel(
-                new BranchInfo(string.Empty, false, null),
+                new BranchInfo(string.Empty, false),
                 viewModel.IsBusy);
             var invalidBranchButton = new Button { DataContext = invalidBranch };
             await view.HandleBranchClickAsync(invalidBranchButton);

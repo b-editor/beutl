@@ -18,11 +18,11 @@ public sealed class HistoryTransaction
 
     internal bool HasUncertainFailure { get; private set; }
 
-    private void ExecuteOperation(OperationExecutionContext context, int index, bool apply)
+    private void ExecuteOperation(int index, bool apply)
     {
         try
         {
-            if (apply) _operations[index].Apply(context); else _operations[index].Revert(context);
+            if (apply) _operations[index].Apply(); else _operations[index].Revert();
             _applied[index] = apply;
         }
         catch
@@ -78,23 +78,23 @@ public sealed class HistoryTransaction
         }
     }
 
-    internal void Apply(OperationExecutionContext context)
+    internal void Apply()
     {
         ThrowIfUncertainFailure();
         for (int i = 0; i < _operations.Count; i++)
         {
             if (_applied[i]) continue;
-            ExecuteOperation(context, i, apply: true);
+            ExecuteOperation(i, apply: true);
         }
     }
 
-    internal void Revert(OperationExecutionContext context)
+    internal void Revert()
     {
         ThrowIfUncertainFailure();
         for (int i = _operations.Count - 1; i >= 0; i--)
         {
             if (!_applied[i]) continue;
-            ExecuteOperation(context, i, apply: false);
+            ExecuteOperation(i, apply: false);
         }
     }
 

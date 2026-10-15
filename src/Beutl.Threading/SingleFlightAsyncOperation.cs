@@ -8,22 +8,6 @@ public sealed class SingleFlightAsyncOperation
     private Task? _inFlight;
 
     /// <summary>
-    /// Gets a task that completes when the in-flight run finishes, or <see langword="null"/> if
-    /// none is in flight. It is a completion signal, not the operation's own task, so it never
-    /// faults even when the operation throws.
-    /// </summary>
-    public Task? InFlight
-    {
-        get
-        {
-            lock (_gate)
-            {
-                return _inFlight;
-            }
-        }
-    }
-
-    /// <summary>
     /// Runs <paramref name="operation"/> if none is in flight; otherwise returns immediately without
     /// running or awaiting the in-flight run.
     /// </summary>

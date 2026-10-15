@@ -8,28 +8,27 @@ namespace Beutl.UnitTests.Editor;
 
 public class CollectionChangeOperationTests
 {
-    private OperationExecutionContext _context = null!;
 
     [SetUp]
     public void Setup()
     {
         var root = new TestCoreObjectWithList();
-        _context = new OperationExecutionContext(root);
     }
 
-    #region InsertCollectionItemOperation Tests
+    #region Failure Classification Tests
 
     [Test]
     public void CompletedValueMove_DoesNotUseCoarseValueEqualityToClassifyFailure()
     {
         var owner = new TestValueListOwner();
         owner.Items.AddRange([new EqualValue(2), new EqualValue(1)]);
-        var operation = new MoveCollectionItemOperation<EqualValue>
+        var operation = new MoveCollectionRangeOperation<EqualValue>
         {
             Object = owner,
             PropertyPath = "Items",
             OldIndex = 0,
             NewIndex = 1,
+            Count = 1,
             SequenceNumber = 1,
         };
         using var history = new Beutl.Editor.HistoryManager(owner, new Beutl.Editor.OperationSequenceGenerator());
@@ -68,15 +67,13 @@ public class CollectionChangeOperationTests
         }
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void StaleMoveDestination_DoesNotMutateTheCollectionWhenRetried(bool range)
+    [TestCase(1)]
+    [TestCase(2)]
+    public void StaleMoveDestination_DoesNotMutateTheCollectionWhenRetried(int count)
     {
         var owner = new TestCoreObjectWithList();
         owner.Items.AddRange(["A", "B", "C"]);
-        ChangeOperation operation = range
-            ? new MoveCollectionRangeOperation<string> { Object = owner, PropertyPath = "Items", OldIndex = 5, NewIndex = 0, Count = 2, SequenceNumber = 1 }
-            : new MoveCollectionItemOperation<string> { Object = owner, PropertyPath = "Items", OldIndex = 5, NewIndex = 0, SequenceNumber = 1 };
+        var operation = new MoveCollectionRangeOperation<string> { Object = owner, PropertyPath = "Items", OldIndex = 5, NewIndex = 0, Count = count, SequenceNumber = 1 };
         using var history = new Beutl.Editor.HistoryManager(owner, new Beutl.Editor.OperationSequenceGenerator());
         history.Record(operation);
         history.Commit("stale move");
@@ -92,12 +89,13 @@ public class CollectionChangeOperationTests
     {
         var owner = new TestCoreObjectWithList();
         owner.Items.AddRange(["B", "C", "A"]);
-        var operation = new MoveCollectionItemOperation<string>
+        var operation = new MoveCollectionRangeOperation<string>
         {
             Object = owner,
             PropertyPath = "Items",
             OldIndex = 0,
             NewIndex = 2,
+            Count = 1,
             SequenceNumber = 1,
         };
         using var history = new Beutl.Editor.HistoryManager(owner, new Beutl.Editor.OperationSequenceGenerator());
@@ -118,176 +116,6 @@ public class CollectionChangeOperationTests
         Assert.That(owner.Items, Is.EqualTo(new[] { "B", "C", "A" }));
     }
 
-    [Test]
-    public void InsertCollectionItemOperation_ApplyTo_ShouldInsertItemAtIndex()
-    {
-        var owner = new TestCoreObjectWithList();
-        owner.Items.AddRange(["A", "B", "C"]);
-
-        var operation = new InsertCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            Item = "X",
-            Index = 1,
-            SequenceNumber = 1
-        };
-
-        operation.Apply(_context);
-
-        Assert.That(owner.Items, Has.Count.EqualTo(4));
-        Assert.That(owner.Items[1], Is.EqualTo("X"));
-        Assert.That(owner.Items, Is.EqualTo(new[] { "A", "X", "B", "C" }));
-    }
-
-    [Test]
-    public void InsertCollectionItemOperation_ApplyTo_WhenIndexNegative_ShouldAddToEnd()
-    {
-        var owner = new TestCoreObjectWithList();
-        owner.Items.AddRange(["A", "B"]);
-
-        var operation = new InsertCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            Item = "X",
-            Index = -1,
-            SequenceNumber = 1
-        };
-
-        operation.Apply(_context);
-
-        Assert.That(owner.Items, Has.Count.EqualTo(3));
-        Assert.That(owner.Items[2], Is.EqualTo("X"));
-    }
-
-    [Test]
-    public void InsertCollectionItemOperation_ApplyTo_WhenIndexGreaterThanCount_ShouldAddToEnd()
-    {
-        var owner = new TestCoreObjectWithList();
-        owner.Items.AddRange(["A", "B"]);
-
-        var operation = new InsertCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            Item = "X",
-            Index = 100,
-            SequenceNumber = 1
-        };
-
-        operation.Apply(_context);
-
-        Assert.That(owner.Items, Has.Count.EqualTo(3));
-        Assert.That(owner.Items[2], Is.EqualTo("X"));
-    }
-
-    [Test]
-    public void InsertCollectionItemOperation_RevertTo_ShouldRemoveItemAtIndex()
-    {
-        var owner = new TestCoreObjectWithList();
-        owner.Items.AddRange(["A", "X", "B", "C"]);
-
-        var operation = new InsertCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            Item = "X",
-            Index = 1,
-            SequenceNumber = 1
-        };
-
-        operation.Revert(_context);
-
-        Assert.That(owner.Items, Has.Count.EqualTo(3));
-        Assert.That(owner.Items, Is.EqualTo(new[] { "A", "B", "C" }));
-    }
-
-    [Test]
-    public void InsertCollectionItemOperation_Items_ShouldReturnSingleItem()
-    {
-        var owner = new TestCoreObjectWithList();
-        var operation = new InsertCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            Item = "X",
-            Index = 0,
-            SequenceNumber = 1
-        };
-
-        var items = ((ICollectionChangeOperation)operation).Items;
-
-        Assert.That(items, Is.EqualTo(new object?[] { "X" }));
-    }
-
-    [Test]
-    public void InsertCollectionItemOperation_ApplyToEngineProperty_ShouldInsertItemAtIndex()
-    {
-        var owner = new TestEngineObjectWithList();
-        owner.Items.Add("A");
-        owner.Items.Add("B");
-
-        var operation = new InsertCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            Item = "X",
-            Index = 1,
-            SequenceNumber = 1
-        };
-
-        operation.Apply(_context);
-
-        Assert.That(owner.Items.Count, Is.EqualTo(3));
-        Assert.That(owner.Items[1], Is.EqualTo("X"));
-    }
-
-    [Test]
-    public void InsertCollectionItemOperation_ApplyToEngineProperty_WhenIndexOutOfRange_ShouldAddToEnd()
-    {
-        var owner = new TestEngineObjectWithList();
-        owner.Items.Add("A");
-
-        var operation = new InsertCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            Item = "X",
-            Index = -1,
-            SequenceNumber = 1
-        };
-
-        operation.Apply(_context);
-
-        Assert.That(owner.Items.Count, Is.EqualTo(2));
-        Assert.That(owner.Items[1], Is.EqualTo("X"));
-    }
-
-    [Test]
-    public void InsertCollectionItemOperation_RevertToEngineProperty_ShouldRemoveItemAtIndex()
-    {
-        var owner = new TestEngineObjectWithList();
-        owner.Items.Add("A");
-        owner.Items.Add("X");
-        owner.Items.Add("B");
-
-        var operation = new InsertCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            Item = "X",
-            Index = 1,
-            SequenceNumber = 1
-        };
-
-        operation.Revert(_context);
-
-        Assert.That(owner.Items.Count, Is.EqualTo(2));
-        Assert.That(owner.Items[0], Is.EqualTo("A"));
-        Assert.That(owner.Items[1], Is.EqualTo("B"));
-    }
-
     #endregion
 
     #region InsertCollectionRangeOperation Tests
@@ -306,7 +134,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        operation.Apply(_context);
+        operation.Apply();
 
         Assert.That(list, Is.EqualTo(new[] { "A", "B", "C", "D" }));
     }
@@ -325,7 +153,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        operation.Revert(_context);
+        operation.Revert();
 
         Assert.That(list, Is.EqualTo(new[] { "A", "D" }));
     }
@@ -345,7 +173,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        operation.Apply(_context);
+        operation.Apply();
 
         Assert.That(owner.Items, Is.EqualTo(new[] { "A", "B", "X", "Y" }));
     }
@@ -365,7 +193,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        operation.Apply(_context);
+        operation.Apply();
 
         Assert.That(owner.Items, Is.EqualTo(new[] { "A", "B", "X", "Y" }));
     }
@@ -391,118 +219,6 @@ public class CollectionChangeOperationTests
 
     #endregion
 
-    #region RemoveCollectionItemOperation Tests
-
-    [Test]
-    public void RemoveCollectionItemOperation_ApplyTo_ShouldRemoveItemAtIndex()
-    {
-        var owner = new TestCoreObjectWithList();
-        owner.Items.AddRange(["A", "B", "C"]);
-
-        var operation = new RemoveCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            Item = "B",
-            Index = 1,
-            SequenceNumber = 1
-        };
-
-        operation.Apply(_context);
-
-        Assert.That(owner.Items, Has.Count.EqualTo(2));
-        Assert.That(owner.Items, Is.EqualTo(new[] { "A", "C" }));
-    }
-
-    [Test]
-    public void RemoveCollectionItemOperation_RevertTo_ShouldInsertItemAtIndex()
-    {
-        var owner = new TestCoreObjectWithList();
-        owner.Items.AddRange(["A", "C"]);
-
-        var operation = new RemoveCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            Item = "B",
-            Index = 1,
-            SequenceNumber = 1
-        };
-
-        operation.Revert(_context);
-
-        Assert.That(owner.Items, Has.Count.EqualTo(3));
-        Assert.That(owner.Items, Is.EqualTo(new[] { "A", "B", "C" }));
-    }
-
-    [Test]
-    public void RemoveCollectionItemOperation_Items_ShouldReturnSingleItem()
-    {
-        var owner = new TestCoreObjectWithList();
-        var operation = new RemoveCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            Item = "X",
-            Index = 0,
-            SequenceNumber = 1
-        };
-
-        var items = ((ICollectionChangeOperation)operation).Items;
-
-        Assert.That(items, Is.EqualTo(new object?[] { "X" }));
-    }
-
-    [Test]
-    public void RemoveCollectionItemOperation_ApplyToEngineProperty_ShouldRemoveItemAtIndex()
-    {
-        var owner = new TestEngineObjectWithList();
-        owner.Items.Add("A");
-        owner.Items.Add("B");
-        owner.Items.Add("C");
-
-        var operation = new RemoveCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            Item = "B",
-            Index = 1,
-            SequenceNumber = 1
-        };
-
-        operation.Apply(_context);
-
-        Assert.That(owner.Items.Count, Is.EqualTo(2));
-        Assert.That(owner.Items[0], Is.EqualTo("A"));
-        Assert.That(owner.Items[1], Is.EqualTo("C"));
-    }
-
-    [Test]
-    public void RemoveCollectionItemOperation_RevertToEngineProperty_ShouldInsertItemAtIndex()
-    {
-        var owner = new TestEngineObjectWithList();
-        owner.Items.Add("A");
-        owner.Items.Add("C");
-
-        var operation = new RemoveCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            Item = "B",
-            Index = 1,
-            SequenceNumber = 1
-        };
-
-        operation.Revert(_context);
-
-        Assert.That(owner.Items.Count, Is.EqualTo(3));
-        Assert.That(owner.Items[0], Is.EqualTo("A"));
-        Assert.That(owner.Items[1], Is.EqualTo("B"));
-        Assert.That(owner.Items[2], Is.EqualTo("C"));
-    }
-
-    #endregion
-
     #region RemoveCollectionRangeOperation Tests
 
     [TestCaseSource(nameof(ListOwners))]
@@ -519,7 +235,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        operation.Apply(_context);
+        operation.Apply();
 
         Assert.That(list, Is.EqualTo(new[] { "A", "D" }));
     }
@@ -538,7 +254,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        operation.Revert(_context);
+        operation.Revert();
 
         Assert.That(list, Is.EqualTo(new[] { "A", "B", "C", "D" }));
     }
@@ -564,116 +280,6 @@ public class CollectionChangeOperationTests
 
     #endregion
 
-    #region MoveCollectionItemOperation Tests
-
-    [Test]
-    public void MoveCollectionItemOperation_ApplyTo_ShouldMoveItem()
-    {
-        var owner = new TestCoreObjectWithList();
-        owner.Items.AddRange(["A", "B", "C", "D"]);
-
-        var operation = new MoveCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            OldIndex = 0,
-            NewIndex = 2,
-            SequenceNumber = 1
-        };
-
-        operation.Apply(_context);
-
-        Assert.That(owner.Items, Is.EqualTo(new[] { "B", "C", "A", "D" }));
-    }
-
-    [Test]
-    public void MoveCollectionItemOperation_RevertTo_ShouldMoveItemBack()
-    {
-        var owner = new TestCoreObjectWithList();
-        owner.Items.AddRange(["B", "C", "A", "D"]);
-
-        var operation = new MoveCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            OldIndex = 0,
-            NewIndex = 2,
-            SequenceNumber = 1
-        };
-
-        operation.Revert(_context);
-
-        Assert.That(owner.Items, Is.EqualTo(new[] { "A", "B", "C", "D" }));
-    }
-
-    [Test]
-    public void MoveCollectionItemOperation_Items_ShouldReturnEmptyCollection()
-    {
-        var owner = new TestCoreObjectWithList();
-        var operation = new MoveCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            OldIndex = 0,
-            NewIndex = 2,
-            SequenceNumber = 1
-        };
-
-        var items = ((ICollectionChangeOperation)operation).Items;
-
-        Assert.That(items, Is.Empty);
-    }
-
-    [Test]
-    public void MoveCollectionItemOperation_ApplyToEngineProperty_ShouldMoveItem()
-    {
-        var owner = new TestEngineObjectWithList();
-        owner.Items.Add("A");
-        owner.Items.Add("B");
-        owner.Items.Add("C");
-
-        var operation = new MoveCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            OldIndex = 0,
-            NewIndex = 2,
-            SequenceNumber = 1
-        };
-
-        operation.Apply(_context);
-
-        Assert.That(owner.Items[0], Is.EqualTo("B"));
-        Assert.That(owner.Items[1], Is.EqualTo("C"));
-        Assert.That(owner.Items[2], Is.EqualTo("A"));
-    }
-
-    [Test]
-    public void MoveCollectionItemOperation_RevertToEngineProperty_ShouldMoveItemBack()
-    {
-        var owner = new TestEngineObjectWithList();
-        owner.Items.Add("B");
-        owner.Items.Add("C");
-        owner.Items.Add("A");
-
-        var operation = new MoveCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            OldIndex = 0,
-            NewIndex = 2,
-            SequenceNumber = 1
-        };
-
-        operation.Revert(_context);
-
-        Assert.That(owner.Items[0], Is.EqualTo("A"));
-        Assert.That(owner.Items[1], Is.EqualTo("B"));
-        Assert.That(owner.Items[2], Is.EqualTo("C"));
-    }
-
-    #endregion
-
     #region MoveCollectionRangeOperation Tests
 
     [TestCaseSource(nameof(ListOwners))]
@@ -691,7 +297,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        operation.Apply(_context);
+        operation.Apply();
 
         Assert.That(list, Is.EqualTo(new[] { "C", "D", "E", "A", "B" }));
     }
@@ -711,7 +317,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        operation.Revert(_context);
+        operation.Revert();
 
         Assert.That(list, Is.EqualTo(new[] { "A", "B", "C", "D", "E" }));
     }
@@ -732,7 +338,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        operation.Apply(_context);
+        operation.Apply();
 
         Assert.That(owner.Items, Is.EqualTo(new[] { "A", "D", "E", "B", "C" }));
     }
@@ -765,16 +371,16 @@ public class CollectionChangeOperationTests
     {
         var owner = new TestCoreObjectWithScalarProperty();
 
-        var operation = new InsertCollectionItemOperation<string>
+        var operation = new InsertCollectionRangeOperation<string>
         {
             Object = owner,
             PropertyPath = "Title",
-            Item = "X",
+            Items = ["X"],
             Index = 0,
             SequenceNumber = 1
         };
 
-        Assert.Throws<InvalidOperationException>(() => operation.Apply(_context));
+        Assert.Throws<InvalidOperationException>(() => operation.Apply());
     }
 
     [Test]
@@ -783,16 +389,16 @@ public class CollectionChangeOperationTests
         // A plain CoreObject without the property is silently skipped.
         var owner = new TestCoreObjectWithList();
 
-        var operation = new InsertCollectionItemOperation<string>
+        var operation = new InsertCollectionRangeOperation<string>
         {
             Object = owner,
             PropertyPath = "NonExistentProperty",
-            Item = "X",
+            Items = ["X"],
             Index = 0,
             SequenceNumber = 1
         };
 
-        Assert.DoesNotThrow(() => operation.Apply(_context));
+        Assert.DoesNotThrow(() => operation.Apply());
     }
 
     [Test]
@@ -800,16 +406,16 @@ public class CollectionChangeOperationTests
     {
         var owner = new TestCoreObjectWithScalarProperty();
 
-        var operation = new InsertCollectionItemOperation<string>
+        var operation = new InsertCollectionRangeOperation<string>
         {
             Object = owner,
             PropertyPath = "Title",
-            Item = "X",
+            Items = ["X"],
             Index = 0,
             SequenceNumber = 1
         };
 
-        Assert.Throws<InvalidOperationException>(() => operation.Revert(_context));
+        Assert.Throws<InvalidOperationException>(() => operation.Revert());
     }
 
     [Test]
@@ -817,16 +423,16 @@ public class CollectionChangeOperationTests
     {
         var owner = new TestEngineObjectWithScalarProperty();
 
-        var operation = new InsertCollectionItemOperation<string>
+        var operation = new InsertCollectionRangeOperation<string>
         {
             Object = owner,
             PropertyPath = "Title",
-            Item = "X",
+            Items = ["X"],
             Index = 0,
             SequenceNumber = 1
         };
 
-        Assert.Throws<InvalidOperationException>(() => operation.Apply(_context));
+        Assert.Throws<InvalidOperationException>(() => operation.Apply());
     }
 
     [Test]
@@ -834,52 +440,16 @@ public class CollectionChangeOperationTests
     {
         var owner = new TestEngineObjectWithList();
 
-        var operation = new InsertCollectionItemOperation<string>
+        var operation = new InsertCollectionRangeOperation<string>
         {
             Object = owner,
             PropertyPath = "NonExistentProperty",
-            Item = "X",
+            Items = ["X"],
             Index = 0,
             SequenceNumber = 1
         };
 
-        Assert.Throws<InvalidOperationException>(() => operation.Apply(_context));
-    }
-
-    [Test]
-    public void CollectionChangeOperation_PropertyPath_ShouldBeAccessible()
-    {
-        var owner = new TestCoreObjectWithList();
-        var operation = new InsertCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            Item = "X",
-            Index = 0,
-            SequenceNumber = 1
-        };
-
-        var propertyPath = ((IPropertyPathProvider)operation).PropertyPath;
-
-        Assert.That(propertyPath, Is.EqualTo("Items"));
-    }
-
-    [Test]
-    public void CollectionChangeOperation_Object_ShouldBeAccessible()
-    {
-        var owner = new TestCoreObjectWithList();
-        var operation = new InsertCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            Item = "X",
-            Index = 0,
-            SequenceNumber = 1
-        };
-
-        var obj = ((ICollectionChangeOperation)operation).Object;
-
-        Assert.That(obj, Is.SameAs(owner));
+        Assert.Throws<InvalidOperationException>(() => operation.Apply());
     }
 
     #endregion
@@ -887,157 +457,20 @@ public class CollectionChangeOperationTests
     #region NodeMember Tests
 
     [Test]
-    public void InsertCollectionItemOperation_ApplyToNodeMember_ShouldInsertItemAtIndex()
-    {
-        var list = new CoreList<string>(["A", "B", "C"]);
-        var adapter = new NodePropertyAdapter<CoreList<string>>("Property", list, null);
-        var nodeMember = new DefaultNodeMember<CoreList<string>>();
-        nodeMember.SetProperty(adapter);
-
-        var operation = new InsertCollectionItemOperation<string>
-        {
-            Object = nodeMember,
-            PropertyPath = "Property",
-            Item = "X",
-            Index = 1,
-            SequenceNumber = 1
-        };
-
-        operation.Apply(_context);
-
-        Assert.That(list, Has.Count.EqualTo(4));
-        Assert.That(list[1], Is.EqualTo("X"));
-        Assert.That(list, Is.EqualTo(new[] { "A", "X", "B", "C" }));
-    }
-
-    [Test]
-    public void InsertCollectionItemOperation_RevertToNodeMember_ShouldRemoveItemAtIndex()
-    {
-        var list = new CoreList<string>(["A", "X", "B", "C"]);
-        var adapter = new NodePropertyAdapter<CoreList<string>>("Property", list, null);
-        var nodeMember = new DefaultNodeMember<CoreList<string>>();
-        nodeMember.SetProperty(adapter);
-
-        var operation = new InsertCollectionItemOperation<string>
-        {
-            Object = nodeMember,
-            PropertyPath = "Property",
-            Item = "X",
-            Index = 1,
-            SequenceNumber = 1
-        };
-
-        operation.Revert(_context);
-
-        Assert.That(list, Has.Count.EqualTo(3));
-        Assert.That(list, Is.EqualTo(new[] { "A", "B", "C" }));
-    }
-
-    [Test]
-    public void RemoveCollectionItemOperation_ApplyToNodeMember_ShouldRemoveItemAtIndex()
-    {
-        var list = new CoreList<string>(["A", "B", "C"]);
-        var adapter = new NodePropertyAdapter<CoreList<string>>("Property", list, null);
-        var nodeMember = new DefaultNodeMember<CoreList<string>>();
-        nodeMember.SetProperty(adapter);
-
-        var operation = new RemoveCollectionItemOperation<string>
-        {
-            Object = nodeMember,
-            PropertyPath = "Property",
-            Item = "B",
-            Index = 1,
-            SequenceNumber = 1
-        };
-
-        operation.Apply(_context);
-
-        Assert.That(list, Has.Count.EqualTo(2));
-        Assert.That(list, Is.EqualTo(new[] { "A", "C" }));
-    }
-
-    [Test]
-    public void RemoveCollectionItemOperation_RevertToNodeMember_ShouldInsertItemAtIndex()
-    {
-        var list = new CoreList<string>(["A", "C"]);
-        var adapter = new NodePropertyAdapter<CoreList<string>>("Property", list, null);
-        var nodeMember = new DefaultNodeMember<CoreList<string>>();
-        nodeMember.SetProperty(adapter);
-
-        var operation = new RemoveCollectionItemOperation<string>
-        {
-            Object = nodeMember,
-            PropertyPath = "Property",
-            Item = "B",
-            Index = 1,
-            SequenceNumber = 1
-        };
-
-        operation.Revert(_context);
-
-        Assert.That(list, Has.Count.EqualTo(3));
-        Assert.That(list, Is.EqualTo(new[] { "A", "B", "C" }));
-    }
-
-    [Test]
-    public void MoveCollectionItemOperation_ApplyToNodeMember_ShouldMoveItem()
-    {
-        var list = new CoreList<string>(["A", "B", "C", "D"]);
-        var adapter = new NodePropertyAdapter<CoreList<string>>("Property", list, null);
-        var nodeMember = new DefaultNodeMember<CoreList<string>>();
-        nodeMember.SetProperty(adapter);
-
-        var operation = new MoveCollectionItemOperation<string>
-        {
-            Object = nodeMember,
-            PropertyPath = "Property",
-            OldIndex = 0,
-            NewIndex = 2,
-            SequenceNumber = 1
-        };
-
-        operation.Apply(_context);
-
-        Assert.That(list, Is.EqualTo(new[] { "B", "C", "A", "D" }));
-    }
-
-    [Test]
-    public void MoveCollectionItemOperation_RevertToNodeMember_ShouldMoveItemBack()
-    {
-        var list = new CoreList<string>(["B", "C", "A", "D"]);
-        var adapter = new NodePropertyAdapter<CoreList<string>>("Property", list, null);
-        var nodeMember = new DefaultNodeMember<CoreList<string>>();
-        nodeMember.SetProperty(adapter);
-
-        var operation = new MoveCollectionItemOperation<string>
-        {
-            Object = nodeMember,
-            PropertyPath = "Property",
-            OldIndex = 0,
-            NewIndex = 2,
-            SequenceNumber = 1
-        };
-
-        operation.Revert(_context);
-
-        Assert.That(list, Is.EqualTo(new[] { "A", "B", "C", "D" }));
-    }
-
-    [Test]
     public void CollectionChangeOperation_Apply_WhenNodeMemberPropertyIsNull_ShouldThrowInvalidOperationException()
     {
         var nodeMember = new DefaultNodeMember<CoreList<string>>();
 
-        var operation = new InsertCollectionItemOperation<string>
+        var operation = new InsertCollectionRangeOperation<string>
         {
             Object = nodeMember,
             PropertyPath = "Property",
-            Item = "X",
+            Items = ["X"],
             Index = 0,
             SequenceNumber = 1
         };
 
-        Assert.Throws<InvalidOperationException>(() => operation.Apply(_context));
+        Assert.Throws<InvalidOperationException>(() => operation.Apply());
     }
 
     [Test]
@@ -1047,16 +480,16 @@ public class CollectionChangeOperationTests
         var nodeMember = new DefaultNodeMember<CoreList<string>>();
         nodeMember.SetProperty(adapter);
 
-        var operation = new InsertCollectionItemOperation<string>
+        var operation = new InsertCollectionRangeOperation<string>
         {
             Object = nodeMember,
             PropertyPath = "Property",
-            Item = "X",
+            Items = ["X"],
             Index = 0,
             SequenceNumber = 1
         };
 
-        Assert.Throws<InvalidOperationException>(() => operation.Apply(_context));
+        Assert.Throws<InvalidOperationException>(() => operation.Apply());
     }
 
     [Test]
@@ -1068,17 +501,17 @@ public class CollectionChangeOperationTests
         var nodeMember = new DefaultNodeMember<CoreList<string>>();
         nodeMember.SetProperty(adapter);
 
-        var operation = new InsertCollectionItemOperation<string>
+        var operation = new InsertCollectionRangeOperation<string>
         {
             Object = nodeMember,
             PropertyPath = "OtherProperty",
-            Item = "X",
+            Items = ["X"],
             Index = 0,
             SequenceNumber = 1
         };
 
         // Act & Assert
-        Assert.Throws<InvalidOperationException>(() => operation.Apply(_context));
+        Assert.Throws<InvalidOperationException>(() => operation.Apply());
     }
 
     #endregion

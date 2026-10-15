@@ -10,7 +10,7 @@ public sealed class UpdateNodeMemberOperation(
     string propertyPath,
     object? newValue,
     object? oldValue)
-    : ChangeOperation, IPropertyPathProvider, IMergableChangeOperation
+    : ChangeOperation, IMergableChangeOperation
 {
     public INodeMember NodeMember { get; set; } = nodeMember;
 
@@ -40,12 +40,12 @@ public sealed class UpdateNodeMemberOperation(
         NodeMember.Property?.SetValue(value);
     }
 
-    public override void Apply(OperationExecutionContext context)
+    public override void Apply()
     {
         UpdateValue(NewValue);
     }
 
-    public override void Revert(OperationExecutionContext context)
+    public override void Revert()
     {
         UpdateValue(OldValue);
     }

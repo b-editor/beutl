@@ -496,19 +496,6 @@ internal sealed partial class GitCliVersionControlService :
             cancellationToken);
     }
 
-    public Task<GitIdentity?> GetIdentityAsync(CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        return RunSerializedAsync(
-            async () =>
-            {
-                RepositoryInfo repository = GetRepository();
-                IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
-                return await GetIdentityCoreAsync(repository, runner, cancellationToken).ConfigureAwait(false);
-            },
-            cancellationToken);
-    }
-
     public Task SetLocalIdentityAsync(
         GitIdentity identity,
         CancellationToken cancellationToken)

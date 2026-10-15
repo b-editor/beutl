@@ -8,40 +8,30 @@ public sealed class EditorHostView : ContentControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        if (DataContext is null)
+        if (DataContext is not IEditorContext viewModel)
         {
-            Content = new TextBlock
-            {
-                Text = $"""
-                        Error:
-                            {MessageStrings.EditorContextNull}
-                        """
-            };
+            Content = null;
             return;
         }
 
-        Control? control = null;
-        if (DataContext is IEditorContext viewModel)
+        if (viewModel.Extension.TryCreateEditor(viewModel.Object, out Control? control))
         {
-            if (viewModel.Extension.TryCreateEditor(viewModel.Object, out control))
-            {
-                var cm = AppHelper.GetContextCommandManager?.Invoke();
-                cm?.Attach(control, viewModel.Extension);
+            var cm = AppHelper.GetContextCommandManager?.Invoke();
+            cm?.Attach(control, viewModel.Extension);
 
-                control.DataContext = viewModel;
-            }
-
-            control ??= new TextBlock()
-            {
-                Text = $"""
-                           Error:
-                               {string.Format(MessageStrings.FailedToOpenFileWithExtension, viewModel.Extension.DisplayName, viewModel.Object.Uri)}
-
-                           Message:
-                               {MessageStrings.EditorContextAlreadyCreated}
-                        """
-            };
+            control.DataContext = viewModel;
         }
+
+        control ??= new TextBlock()
+        {
+            Text = $"""
+                       Error:
+                           {string.Format(MessageStrings.FailedToOpenFileWithExtension, viewModel.Extension.DisplayName, viewModel.Object.Uri)}
+
+                       Message:
+                           {MessageStrings.EditorContextAlreadyCreated}
+                    """
+        };
 
         Content = control;
     }

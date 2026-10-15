@@ -13,6 +13,7 @@ using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.AI;
+using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Language;
 using Beutl.Media;
@@ -73,13 +74,15 @@ public sealed class AiJobCenterTests
     private static readonly byte[] s_png = Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
     private AiJobKindRegistry _jobKinds = null!;
+    private ExtensionProvider _resultExtensions = null!;
     private AiJobResultRegistry _resultHandlers = null!;
 
     [SetUp]
     public void SetUp()
     {
         _jobKinds = AiRetryTestContext.CreateBuiltInJobKinds();
-        _resultHandlers = BuiltInAiJobResultCapabilities.CreateRegistry();
+        _resultExtensions = new ExtensionProvider();
+        _resultHandlers = BuiltInAiJobResultCapabilities.CreateRegistry(_resultExtensions);
     }
 
     [TearDown]
@@ -88,6 +91,10 @@ public sealed class AiJobCenterTests
         await _resultHandlers.DisposeAsync();
         await _jobKinds.DisposeAsync();
     }
+
+    // Registers test result capabilities the way a package does.
+    private void AddResultCapabilities(params Extension[] extensions)
+        => _resultExtensions.AddExtensions(1, extensions);
 
     [Test]
     public void Item_ParsesRetainedInputAndNormalizesServerTokens()
@@ -128,10 +135,10 @@ public sealed class AiJobCenterTests
         var kind = new AiJobKindId("vendor.throwing");
         await using IAiJobStatusResolverRegistration kindRegistration = _jobKinds.Register(
             new AiJobStatusResolverRegistration(kind, new AiJobStatusMap([])));
-        await using IAiJobPresentationRegistration handlerRegistration = _resultHandlers.Register(
+        AddResultCapabilities(new TestPresentationExtension(
             new AiJobPresentationRegistration(
                 kind,
-                new ThrowingPresenter()));
+                new ThrowingPresenter())));
 
         using var item = new AiJobItemViewModel(
             CreateJob("vendor.throwing", "unknown", ParseInput("{ \"prompt\": \"safe\" }")),
@@ -148,10 +155,10 @@ public sealed class AiJobCenterTests
         var kind = new AiJobKindId("vendor.invalid-presentation");
         await using IAiJobStatusResolverRegistration kindRegistration = _jobKinds.Register(
             new AiJobStatusResolverRegistration(kind, new AiJobStatusMap([])));
-        await using IAiJobPresentationRegistration handlerRegistration = _resultHandlers.Register(
+        AddResultCapabilities(new TestPresentationExtension(
             new AiJobPresentationRegistration(
                 kind,
-                new NullPresentationPresenter()));
+                new NullPresentationPresenter())));
 
         using var item = new AiJobItemViewModel(
             CreateJob(
@@ -175,11 +182,11 @@ public sealed class AiJobCenterTests
     public async Task Item_PresentationReplacementRetainsBuiltInResultApplication()
     {
         var presenter = new IndependentResultCapabilities();
-        await using IAiJobPresentationRegistration registration = _resultHandlers.Register(
+        AddResultCapabilities(new TestPresentationExtension(
             new AiJobPresentationRegistration(
                 AiJobKinds.Image,
                 presenter,
-                AiJobResultRegistrationMode.Replace));
+                AiJobResultRegistrationMode.Replace)));
 
         using var item = new AiJobItemViewModel(
             CreateJob(
@@ -203,8 +210,8 @@ public sealed class AiJobCenterTests
         var kind = new AiJobKindId("vendor.preview-only");
         await using IAiJobStatusResolverRegistration kindRegistration = _jobKinds.Register(
             new AiJobStatusResolverRegistration(kind, new AiJobStatusMap([])));
-        await using IAiJobPresentationRegistration presentationRegistration = _resultHandlers.Register(
-            new AiJobPresentationRegistration(kind, new PreviewOnlyPresenter()));
+        AddResultCapabilities(new TestPresentationExtension(
+            new AiJobPresentationRegistration(kind, new PreviewOnlyPresenter())));
 
         using var item = new AiJobItemViewModel(
             CreateJob(
@@ -873,14 +880,15 @@ public sealed class AiJobCenterTests
                         new AiJobOutcomeId("vendor.ready"))),
             ]),
             retryHandler);
-        await using IAiJobPresentationRegistration presentationRegistration = _resultHandlers.Register(
-            new AiJobPresentationRegistration(
-                new AiJobKindId("vendor.upscale"),
-                resultCapabilities));
-        await using IAiJobResultApplicatorRegistration applicationRegistration = _resultHandlers.Register(
-            new AiJobResultApplicatorRegistration(
-                new AiJobKindId("vendor.upscale"),
-                resultCapabilities));
+        AddResultCapabilities(
+            new TestPresentationExtension(
+                new AiJobPresentationRegistration(
+                    new AiJobKindId("vendor.upscale"),
+                    resultCapabilities)),
+            new TestApplicatorExtension(
+                new AiJobResultApplicatorRegistration(
+                    new AiJobKindId("vendor.upscale"),
+                    resultCapabilities)));
         using var viewModel = CreateJobCenter(editor, clients);
         using var item = new AiJobItemViewModel(
             CreateJob(
@@ -992,14 +1000,15 @@ public sealed class AiJobCenterTests
         }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         var resultCapabilities = new IndependentResultCapabilities();
-        await using IAiJobPresentationRegistration presentationRegistration = _resultHandlers.Register(
-            new AiJobPresentationRegistration(
-                new AiJobKindId("vendor.independent"),
-                resultCapabilities));
-        await using IAiJobResultApplicatorRegistration applicationRegistration = _resultHandlers.Register(
-            new AiJobResultApplicatorRegistration(
-                new AiJobKindId("vendor.independent"),
-                resultCapabilities));
+        AddResultCapabilities(
+            new TestPresentationExtension(
+                new AiJobPresentationRegistration(
+                    new AiJobKindId("vendor.independent"),
+                    resultCapabilities)),
+            new TestApplicatorExtension(
+                new AiJobResultApplicatorRegistration(
+                    new AiJobKindId("vendor.independent"),
+                    resultCapabilities)));
         using var viewModel = CreateJobCenter(editor, clients);
         using var item = new AiJobItemViewModel(
             CreateJob(
@@ -1262,10 +1271,10 @@ public sealed class AiJobCenterTests
                         new AiJobStatusId("ready"),
                         new AiJobStatusSemantics(true, false, new AiJobOutcomeId("ready"))),
                 ])));
-        await using IAiJobResultApplicatorRegistration resultRegistration = _resultHandlers.Register(
+        AddResultCapabilities(new TestApplicatorExtension(
             new AiJobResultApplicatorRegistration(
                 new AiJobKindId("vendor.blocking-result"),
-                blocking));
+                blocking)));
         using var item = new AiJobItemViewModel(CreateJob("vendor.blocking-result", "ready", ParseInput("{\"prompt\":\"x\"}"), url: "https://beutl.beditor.net/api/contents/x"), registry, _resultHandlers);
         Task operation = viewModel.AddToSceneAsync(item);
         await blocking.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
@@ -2196,6 +2205,20 @@ public sealed class AiJobCenterTests
             Started.TrySetResult();
             await Release.Task;
         }
+    }
+
+    private sealed class TestPresentationExtension(
+        params AiJobPresentationRegistration[] registrations) : AiJobPresentationExtension
+    {
+        public override IReadOnlyCollection<AiJobPresentationRegistration> Registrations { get; } =
+            registrations;
+    }
+
+    private sealed class TestApplicatorExtension(
+        params AiJobResultApplicatorRegistration[] registrations) : AiJobResultApplicatorExtension
+    {
+        public override IReadOnlyCollection<AiJobResultApplicatorRegistration> Registrations { get; } =
+            registrations;
     }
 
     private sealed class ThrowingPresenter : IAiJobPresenter
