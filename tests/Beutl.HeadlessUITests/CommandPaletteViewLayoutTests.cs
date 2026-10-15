@@ -94,7 +94,7 @@ public class CommandPaletteViewLayoutTests
         var provider = new ExtensionProvider();
         provider.AddExtensions(-45009, [extension]);
         var editor = new EditorService(provider);
-        var manager = new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry());
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore());
         manager.Register(extension);
         var handler = new Handler(async execution =>
             await execution.Interaction!.ShowInputAsync(new ContextCommandInputOptions { Prompt = "Prompt message" }));

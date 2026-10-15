@@ -341,10 +341,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
         Register(() => new DiscoverService(this));
         Register(() => _extensionProvider);
         Register(() => new ContextCommandSettingsStore());
-        Register(() => new ContextCommandHandlerRegistry());
-        Register(() => new ContextCommandManager(
-            GetResource<ContextCommandSettingsStore>(),
-            GetResource<ContextCommandHandlerRegistry>()));
+        Register(() => new ContextCommandManager(GetResource<ContextCommandSettingsStore>()));
         Register(() => new InstalledPackageRepository());
         Register(() => new AcceptedLicenseManager());
         Register(() => new PackageChangesQueue());

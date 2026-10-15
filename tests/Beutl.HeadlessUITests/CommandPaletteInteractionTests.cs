@@ -30,7 +30,7 @@ public sealed class CommandPaletteInteractionTests
         var provider = new ExtensionProvider();
         var editor = new EditorService(provider);
         provider.AddExtensions(packageId, [extension]);
-        var manager = new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry());
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore());
         manager.Register(extension);
         var service = new CommandPaletteService(manager, new FixedHandlerProvider(null), () => null, editor, provider);
         return (provider, service, new CommandPaletteViewModel(service, editor));
