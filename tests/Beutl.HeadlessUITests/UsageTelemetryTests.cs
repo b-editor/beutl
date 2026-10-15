@@ -282,8 +282,8 @@ public sealed class UsageTelemetryTests
         element.Objects.Add(video);
         element.Objects.Add(sound);
         scene.Children.Add(element);
-        var application = new BeutlApplication();
-        application.Items.Add(scene);
+        var application = new BeutlApplication { Project = new Project() };
+        application.Project!.Items.Add(scene);
         TimeRange originalRange = element.Range;
         using var tracked = new TrackedHistory(scene);
         tracked.Tracker.ActivateTool(new object(), "Timeline");

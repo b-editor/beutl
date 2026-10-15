@@ -1,8 +1,6 @@
 ﻿namespace Beutl;
 
-public interface IStaticProperty : ICoreProperty
+public interface IStaticProperty
 {
-    bool CanRead { get; }
-
     bool CanWrite { get; }
 }

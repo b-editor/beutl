@@ -14,9 +14,8 @@ public class CorePropertyMetadata<T> : CorePropertyMetadata
 
     public CorePropertyMetadata(
         Optional<T> defaultValue = default,
-        bool shouldSerialize = true,
         params Attribute[] attributes)
-        : base(shouldSerialize, attributes)
+        : base(attributes)
     {
         _defaultValue = defaultValue;
         UpdatedAttributes();

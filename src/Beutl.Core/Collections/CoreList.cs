@@ -123,12 +123,6 @@ public class CoreList<T> : ICoreList<T>
         set => Inner.Capacity = value;
     }
 
-    [Obsolete("Use 'GetMarshal'.")]
-    public Span<T> AsSpan()
-    {
-        return CollectionsMarshal.AsSpan(Inner);
-    }
-
     public virtual void Add(T item)
     {
         int index = Inner.Count;

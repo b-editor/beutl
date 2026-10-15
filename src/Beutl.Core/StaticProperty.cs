@@ -15,8 +15,6 @@ public class StaticProperty<TOwner, T>(string name, Func<TOwner, T> getter, Acti
 
     public Action<TOwner, T>? Setter { get; } = setter;
 
-    public bool CanRead => true;
-
     public bool CanWrite => Setter != null;
 
     internal override void RouteSetTypedValue(ICoreObject o, T? value)

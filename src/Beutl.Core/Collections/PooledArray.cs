@@ -3,50 +3,6 @@ using System.Collections;
 
 namespace Beutl.Collections;
 
-public static class PooledArrayExtensions
-{
-    public static PooledArray<T> ToPooledArray<T>(this IEnumerable<T> source)
-    {
-        if (source is ICollection<T> collectionoft)
-        {
-            var array = new PooledArray<T>(collectionoft.Count);
-            collectionoft.CopyTo(array._array, 0);
-            return array;
-        }
-        else if (source.TryGetNonEnumeratedCount(out int count))
-        {
-            var array = new PooledArray<T>(count);
-            int index = 0;
-            foreach (T item in source)
-            {
-                array[index++] = item;
-            }
-
-            return array;
-        }
-        else
-        {
-            T[] array = ArrayPool<T>.Shared.Rent(4);
-            int index = 0;
-            foreach (T item in source)
-            {
-                if (index >= array.Length)
-                {
-                    T[] tmp = ArrayPool<T>.Shared.Rent(array.Length * 2);
-                    Array.Copy(array, tmp, array.Length);
-                    ArrayPool<T>.Shared.Return(array, true);
-                    array = tmp;
-                }
-
-                array[index] = item;
-                index++;
-            }
-
-            return new PooledArray<T>(array, index);
-        }
-    }
-}
-
 public struct PooledArray<T> : IDisposable, IEnumerable<T>
 {
     internal readonly T[] _array;
@@ -54,13 +10,6 @@ public struct PooledArray<T> : IDisposable, IEnumerable<T>
     public PooledArray(int length)
     {
         _array = ArrayPool<T>.Shared.Rent(length);
-        Length = length;
-        IsDisposed = false;
-    }
-
-    internal PooledArray(T[] array, int length)
-    {
-        _array = array;
         Length = length;
         IsDisposed = false;
     }

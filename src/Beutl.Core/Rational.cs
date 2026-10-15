@@ -24,9 +24,6 @@ public readonly partial struct Rational(long numerator, long denominator)
 
     public long Denominator { get; } = denominator;
 
-    [Obsolete("Use Rational.IsNaN")]
-    public bool IsIndeterminate => Denominator == 0 && Numerator == 0;
-
     public override bool Equals(object? obj)
     {
         return obj is Rational rational && Equals(rational);
@@ -172,53 +169,6 @@ public readonly partial struct Rational(long numerator, long denominator)
         }
 
         if (value < 0.0)
-        {
-            numerator *= -1;
-        }
-
-        return new Rational(numerator, denominator).Simplify();
-    }
-
-    public static Rational FromSingle(float value, bool bestPrecision = true)
-    {
-        if (float.IsNaN(value))
-        {
-            return NaN;
-        }
-
-        if (float.IsPositiveInfinity(value))
-        {
-            return PositiveInfinity;
-        }
-
-        if (float.IsNegativeInfinity(value))
-        {
-            return NegativeInfinity;
-        }
-
-        long numerator = 1;
-        long denominator = 1;
-
-        float val = MathF.Abs(value);
-        float df = numerator / (float)denominator;
-        float epsilon = bestPrecision ? float.Epsilon : .000001f;
-
-        while (MathF.Abs(df - val) > epsilon)
-        {
-            if (df < val)
-            {
-                numerator++;
-            }
-            else
-            {
-                denominator++;
-                numerator = (long)(val * denominator);
-            }
-
-            df = numerator / (float)denominator;
-        }
-
-        if (value < 0.0F)
         {
             numerator *= -1;
         }

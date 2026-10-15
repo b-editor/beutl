@@ -2,7 +2,6 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using Beutl.Collections;
 
 using Microsoft.Extensions.Logging;
 
@@ -29,11 +28,6 @@ public class BeutlApplication : Hierarchical, IHierarchicalRoot
         s_version = att?.Value ?? "1.0.0";
     }
 
-    public BeutlApplication()
-    {
-        Items = new HierarchicalList<ProjectItem>(this);
-    }
-
     public static BeutlApplication Current { get; } = new();
 
     public static string Version => s_version;
@@ -48,8 +42,6 @@ public class BeutlApplication : Hierarchical, IHierarchicalRoot
         get => _project;
         set => SetAndRaise(ProjectProperty, ref _project, value);
     }
-
-    public ICoreList<ProjectItem> Items { get; }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
