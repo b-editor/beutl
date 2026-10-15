@@ -111,7 +111,7 @@ public sealed class AiJobKindRegistry : IAiJobKindRegistry, IAsyncDisposable
                 statusResolvers,
                 static registration => registration.Kind,
                 static registration => registration.Resolver,
-                static registration => ToSlotMode(registration.Mode),
+                static registration => registration.Mode,
                 static (kind, capability) => new AiJobStatusResolverRegistration(kind, capability),
                 static extension => extension.Registrations,
                 extensionProvider,
@@ -126,7 +126,7 @@ public sealed class AiJobKindRegistry : IAiJobKindRegistry, IAsyncDisposable
                 refreshHandlers,
                 static registration => registration.Kind,
                 static registration => registration.Handler,
-                static registration => ToSlotMode(registration.Mode),
+                static registration => registration.Mode,
                 static (kind, capability) => new AiJobRefreshHandlerRegistration(kind, capability),
                 static extension => extension.Registrations,
                 extensionProvider,
@@ -141,7 +141,7 @@ public sealed class AiJobKindRegistry : IAiJobKindRegistry, IAsyncDisposable
                 retryHandlers,
                 static registration => registration.Kind,
                 static registration => registration.Handler,
-                static registration => ToSlotMode(registration.Mode),
+                static registration => registration.Mode,
                 static (kind, capability) => new AiJobRetryHandlerRegistration(kind, capability),
                 static extension => extension.Registrations,
                 extensionProvider,
@@ -249,11 +249,6 @@ public sealed class AiJobKindRegistry : IAiJobKindRegistry, IAsyncDisposable
             _refreshHandlers.DisposeAsync().AsTask(),
             _retryHandlers.DisposeAsync().AsTask());
     }
-
-    private static AiJobSlotRegistrationMode ToSlotMode(AiJobBehaviorRegistrationMode mode)
-        => mode == AiJobBehaviorRegistrationMode.Replace
-            ? AiJobSlotRegistrationMode.Replace
-            : AiJobSlotRegistrationMode.Add;
 
     private static void ReportFailure(
         Extension extension,

@@ -4,12 +4,6 @@ using Beutl.Extensibility;
 
 namespace Beutl.Api.Services;
 
-internal enum AiJobSlotRegistrationMode
-{
-    Add,
-    Replace,
-}
-
 internal interface IAiJobSlotRegistration : IAsyncDisposable
 {
 }
@@ -20,10 +14,10 @@ internal sealed class AiJobSlotRegistry<TCapability, TRegistration, TExtension>
     where TRegistration : class
     where TExtension : Extension
 {
-    private static readonly AiJobSlotRegistrationMode[] s_compositionPhases =
+    private static readonly AiJobBehaviorRegistrationMode[] s_compositionPhases =
     [
-        AiJobSlotRegistrationMode.Add,
-        AiJobSlotRegistrationMode.Replace,
+        AiJobBehaviorRegistrationMode.Add,
+        AiJobBehaviorRegistrationMode.Replace,
     ];
 
     private readonly Dictionary<AiJobKindId, List<Registration>> _registrations = [];
@@ -34,7 +28,7 @@ internal sealed class AiJobSlotRegistry<TCapability, TRegistration, TExtension>
     private readonly object _gate = new();
     private readonly Func<TRegistration, AiJobKindId> _getKind;
     private readonly Func<TRegistration, TCapability> _getCapability;
-    private readonly Func<TRegistration, AiJobSlotRegistrationMode> _getMode;
+    private readonly Func<TRegistration, AiJobBehaviorRegistrationMode> _getMode;
     private readonly Func<AiJobKindId, TCapability, TRegistration> _createRegistration;
     private readonly Func<TExtension, IReadOnlyCollection<TRegistration>?> _getExtensionRegistrations;
     private readonly Action<TExtension, Exception>? _reportFailure;
@@ -46,7 +40,7 @@ internal sealed class AiJobSlotRegistry<TCapability, TRegistration, TExtension>
         IEnumerable<TRegistration> hostRegistrations,
         Func<TRegistration, AiJobKindId> getKind,
         Func<TRegistration, TCapability> getCapability,
-        Func<TRegistration, AiJobSlotRegistrationMode> getMode,
+        Func<TRegistration, AiJobBehaviorRegistrationMode> getMode,
         Func<AiJobKindId, TCapability, TRegistration> createRegistration,
         Func<TExtension, IReadOnlyCollection<TRegistration>?> getExtensionRegistrations,
         IExtensionRegistry? extensionProvider,
@@ -77,7 +71,7 @@ internal sealed class AiJobSlotRegistry<TCapability, TRegistration, TExtension>
         ArgumentNullException.ThrowIfNull(registration);
         AiJobKindId kind = _getKind(registration);
         TCapability capability = _getCapability(registration);
-        AiJobSlotRegistrationMode mode = _getMode(registration);
+        AiJobBehaviorRegistrationMode mode = _getMode(registration);
 
         lock (_gate)
         {
@@ -140,7 +134,7 @@ internal sealed class AiJobSlotRegistry<TCapability, TRegistration, TExtension>
         TRegistration registration,
         AiJobKindId kind,
         TCapability capability,
-        AiJobSlotRegistrationMode mode)
+        AiJobBehaviorRegistrationMode mode)
     {
         if (!_registrations.TryGetValue(kind, out List<Registration>? registrations))
         {
@@ -149,13 +143,13 @@ internal sealed class AiJobSlotRegistry<TCapability, TRegistration, TExtension>
         }
 
         bool exists = registrations.Count > 0;
-        if (mode == AiJobSlotRegistrationMode.Add && exists)
+        if (mode == AiJobBehaviorRegistrationMode.Add && exists)
         {
             throw new ArgumentException(
                 $"An AI job capability for '{_getKind(registration)}' is already registered. Use Replace explicitly.",
                 nameof(registration));
         }
-        if (mode == AiJobSlotRegistrationMode.Replace && !exists)
+        if (mode == AiJobBehaviorRegistrationMode.Replace && !exists)
         {
             throw new ArgumentException(
                 $"An AI job capability for '{_getKind(registration)}' cannot be replaced because it is not registered.",
@@ -364,7 +358,7 @@ internal sealed class AiJobSlotRegistry<TCapability, TRegistration, TExtension>
         (TExtension Extension, TRegistration[] Registrations) candidate,
         int phaseIndex)
     {
-        AiJobSlotRegistrationMode mode = s_compositionPhases[phaseIndex];
+        AiJobBehaviorRegistrationMode mode = s_compositionPhases[phaseIndex];
         TRegistration[] phase = candidate.Registrations
             .Where(registration => _getMode(registration) == mode)
             .ToArray();
@@ -399,7 +393,7 @@ internal sealed class AiJobSlotRegistry<TCapability, TRegistration, TExtension>
                 ownedByExtension.Add(extension, []);
         }
 
-        foreach (AiJobSlotRegistrationMode mode in s_compositionPhases)
+        foreach (AiJobBehaviorRegistrationMode mode in s_compositionPhases)
         {
             foreach ((TExtension extension, TRegistration[] registrations) in candidates)
             {

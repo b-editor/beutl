@@ -256,6 +256,9 @@ public interface IAiJobRetryHandler
         CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// Controls collision handling for each AI job behavior, job result and capability-schema registration.
+/// </summary>
 public enum AiJobBehaviorRegistrationMode
 {
     Add,

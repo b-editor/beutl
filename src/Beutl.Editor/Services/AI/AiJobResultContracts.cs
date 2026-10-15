@@ -89,13 +89,6 @@ public interface IAiJobResultApplicator
         CancellationToken cancellationToken);
 }
 
-/// <summary>Controls collision handling independently for each result capability.</summary>
-public enum AiJobResultRegistrationMode
-{
-    Add,
-    Replace,
-}
-
 /// <summary>Identifies one independently registered editor-side AI result capability.</summary>
 public enum AiJobResultCapability
 {
@@ -110,7 +103,7 @@ public sealed class AiJobPresentationRegistration
     public AiJobPresentationRegistration(
         AiJobKindId kind,
         IAiJobPresenter presenter,
-        AiJobResultRegistrationMode mode = AiJobResultRegistrationMode.Add)
+        AiJobBehaviorRegistrationMode mode = AiJobBehaviorRegistrationMode.Add)
     {
         AiJobResultContractValidation.Validate(kind, mode);
         Kind = kind;
@@ -122,7 +115,7 @@ public sealed class AiJobPresentationRegistration
 
     public IAiJobPresenter Presenter { get; }
 
-    public AiJobResultRegistrationMode Mode { get; }
+    public AiJobBehaviorRegistrationMode Mode { get; }
 }
 
 /// <summary>Registers completion notification presentation for one AI job kind.</summary>
@@ -131,7 +124,7 @@ public sealed class AiJobCompletionRegistration
     public AiJobCompletionRegistration(
         AiJobKindId kind,
         IAiJobCompletionPresenter presenter,
-        AiJobResultRegistrationMode mode = AiJobResultRegistrationMode.Add)
+        AiJobBehaviorRegistrationMode mode = AiJobBehaviorRegistrationMode.Add)
     {
         AiJobResultContractValidation.Validate(kind, mode);
         Kind = kind;
@@ -143,7 +136,7 @@ public sealed class AiJobCompletionRegistration
 
     public IAiJobCompletionPresenter Presenter { get; }
 
-    public AiJobResultRegistrationMode Mode { get; }
+    public AiJobBehaviorRegistrationMode Mode { get; }
 }
 
 /// <summary>Registers result application for one AI job kind.</summary>
@@ -152,7 +145,7 @@ public sealed class AiJobResultApplicatorRegistration
     public AiJobResultApplicatorRegistration(
         AiJobKindId kind,
         IAiJobResultApplicator applicator,
-        AiJobResultRegistrationMode mode = AiJobResultRegistrationMode.Add)
+        AiJobBehaviorRegistrationMode mode = AiJobBehaviorRegistrationMode.Add)
     {
         AiJobResultContractValidation.Validate(kind, mode);
         Kind = kind;
@@ -164,7 +157,7 @@ public sealed class AiJobResultApplicatorRegistration
 
     public IAiJobResultApplicator Applicator { get; }
 
-    public AiJobResultRegistrationMode Mode { get; }
+    public AiJobBehaviorRegistrationMode Mode { get; }
 }
 
 /// <summary>
@@ -250,7 +243,7 @@ public sealed class AiJobResultRegistry : IAsyncDisposable
                 presentations,
                 static registration => registration.Kind,
                 static registration => registration.Presenter,
-                static registration => ToSlotMode(registration.Mode),
+                static registration => registration.Mode,
                 static (kind, capability) => new AiJobPresentationRegistration(kind, capability),
                 static extension => extension.Registrations,
                 extensionProvider,
@@ -266,7 +259,7 @@ public sealed class AiJobResultRegistry : IAsyncDisposable
                 completions,
                 static registration => registration.Kind,
                 static registration => registration.Presenter,
-                static registration => ToSlotMode(registration.Mode),
+                static registration => registration.Mode,
                 static (kind, capability) => new AiJobCompletionRegistration(kind, capability),
                 static extension => extension.Registrations,
                 extensionProvider,
@@ -282,7 +275,7 @@ public sealed class AiJobResultRegistry : IAsyncDisposable
                 applicators,
                 static registration => registration.Kind,
                 static registration => registration.Applicator,
-                static registration => ToSlotMode(registration.Mode),
+                static registration => registration.Mode,
                 static (kind, capability) => new AiJobResultApplicatorRegistration(kind, capability),
                 static extension => extension.Registrations,
                 extensionProvider,
@@ -363,11 +356,6 @@ public sealed class AiJobResultRegistry : IAsyncDisposable
             exception));
     }
 
-    private static AiJobSlotRegistrationMode ToSlotMode(AiJobResultRegistrationMode mode)
-        => mode == AiJobResultRegistrationMode.Replace
-            ? AiJobSlotRegistrationMode.Replace
-            : AiJobSlotRegistrationMode.Add;
-
     private sealed class PresenterLease(
         AiJobSlotLease<IAiJobPresenter> inner) : IAiJobPresenterLease
     {
@@ -395,7 +383,7 @@ public sealed class AiJobResultRegistry : IAsyncDisposable
 
 internal static class AiJobResultContractValidation
 {
-    public static void Validate(AiJobKindId kind, AiJobResultRegistrationMode mode)
+    public static void Validate(AiJobKindId kind, AiJobBehaviorRegistrationMode mode)
     {
         if (string.IsNullOrWhiteSpace(kind.Value))
             throw new ArgumentException("An AI job kind identifier is required.", nameof(kind));

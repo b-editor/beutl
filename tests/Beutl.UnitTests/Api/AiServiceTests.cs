@@ -1564,7 +1564,7 @@ public sealed partial class AiCapabilityServiceTests
                         new AiOperationCapabilitySchemaRegistration(
                             AiOperations.VideoGeneration,
                             AiModelCapabilitySchema.Generic,
-                            AiOperationCapabilitySchemaRegistrationMode.Replace)),
+                            AiJobBehaviorRegistrationMode.Replace)),
                 ]);
                 return null;
             }

@@ -186,7 +186,7 @@ public sealed class AiJobCenterTests
             new AiJobPresentationRegistration(
                 AiJobKinds.Image,
                 presenter,
-                AiJobResultRegistrationMode.Replace)));
+                AiJobBehaviorRegistrationMode.Replace)));
 
         using var item = new AiJobItemViewModel(
             CreateJob(
