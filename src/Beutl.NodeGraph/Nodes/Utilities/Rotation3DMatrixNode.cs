@@ -1,6 +1,5 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
-using Beutl.NodeGraph.Composition;
 
 namespace Beutl.NodeGraph.Nodes.Utilities;
 
@@ -33,7 +32,7 @@ public partial class Rotation3DMatrixNode : MatrixNode
 
     public partial class Resource
     {
-        protected override Matrix GetMatrix(GraphCompositionContext context, MatrixNode node)
+        protected override Matrix GetMatrix()
         {
             return Rotation3DTransform.CreateMatrix(
                 RotationX, RotationY, RotationZ,

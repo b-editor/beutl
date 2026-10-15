@@ -212,7 +212,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
         var context = new CompositionContext(host.CurrentTime);
         using var snapshot = new GraphSnapshot();
         snapshot.Build(model, context);
-        snapshot.Evaluate(CompositionTarget.Graphics, context);
+        snapshot.Evaluate(context);
         GraphSnapshot? owner = FindOwningSnapshot(snapshot, model, node);
         int slot = owner?.FindSlotIndex(node) ?? -1;
         if (owner?.GetResource(slot) is not { } resource || owner.GetContext(slot) is not { } nodeContext)

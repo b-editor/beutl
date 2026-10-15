@@ -65,7 +65,7 @@ public sealed class SceneNodeTests
         using var snapshot = new GraphSnapshot();
         var context = new CompositionContext(TimeSpan.FromSeconds(3));
         snapshot.Build(model, context);
-        snapshot.Evaluate(CompositionTarget.Graphics, context);
+        snapshot.Evaluate(context);
         var resource = (SceneNode.Resource)snapshot.GetResource(snapshot.FindSlotIndex(node))!;
         Assert.That(resource.Output, Is.Not.Null);
 
@@ -224,7 +224,7 @@ public sealed class SceneNodeTests
         using var snapshot = new GraphSnapshot();
         var context = new CompositionContext(time);
         snapshot.Build(model, context);
-        snapshot.Evaluate(CompositionTarget.Graphics, context);
+        snapshot.Evaluate(context);
         var resource = (SceneNode.Resource)snapshot.GetResource(snapshot.FindSlotIndex(node))!;
         return resource.SceneResource?.Frame?.Objects.Length ?? -1;
     }

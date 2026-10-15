@@ -803,7 +803,7 @@ public class ProxySourceEnumeratorTests
         {
             using var snapshot = new GraphSnapshot();
             snapshot.Build(graph, CompositionContext.Default);
-            snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+            snapshot.Evaluate(CompositionContext.Default);
         }
         IExpression? expressionBeforeWalk = brush.Source.Expression;
         Element element = ElementWith(drawable);

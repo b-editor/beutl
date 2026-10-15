@@ -165,7 +165,8 @@ public partial class GraphModel : EngineObject
             && (entry.Count > 1 || entry.Port != input);
     }
 
-    public INodePort? FindNodePort(Guid id)
+    // For tests, which find a restored port by its Id.
+    internal INodePort? FindNodePort(Guid id)
     {
         foreach (GraphNode node in Nodes.GetMarshal().Value)
         {

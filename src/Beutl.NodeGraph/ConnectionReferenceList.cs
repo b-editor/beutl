@@ -3,7 +3,7 @@ using Beutl.Serialization;
 
 namespace Beutl.NodeGraph;
 
-// The connection list OutputPort, ListOutputPort and ListInputPort keep: membership by Id and its
+// The connection list OutputPort and ListInputPort keep: membership by Id and its
 // "Connections" serialized form.
 internal static class ConnectionReferenceList
 {

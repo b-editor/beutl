@@ -16,8 +16,6 @@ public interface IItemValue : IDisposable
 
     bool TryCopyFrom(IPropertyAdapter source);
 
-    void SetFromObject(object? value);
-
     object? GetBoxed();
 
     bool TryLoadFromAnimation(IAnimation animation, TimeSpan time);

@@ -56,14 +56,14 @@ public sealed class GraphSnapshotTests
         }
         using var snapshot = new GraphSnapshot();
         snapshot.Build(model, CompositionContext.Default);
-        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        snapshot.Evaluate(CompositionContext.Default);
         Assert.That(probe.EvaluationCount, Is.Zero, "A valid cycle must still be blocked.");
 
         invalidate();
         Assert.That(factory.CanConnectInput(nested), Is.False);
         snapshot.MarkDirty();
         snapshot.Build(model, CompositionContext.Default);
-        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        snapshot.Evaluate(CompositionContext.Default);
 
         Assert.Multiple(() =>
         {
@@ -78,7 +78,7 @@ public sealed class GraphSnapshotTests
         Assert.That(factory.CanConnectInput(nested), Is.True);
         snapshot.MarkDirty();
         snapshot.Build(model, CompositionContext.Default);
-        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        snapshot.Evaluate(CompositionContext.Default);
         Assert.That(probe.EvaluationCount, Is.EqualTo(1), "Restoring the edge must restore cycle detection.");
         Assert.That(invalid.Status, Is.EqualTo(ConnectionStatus.Error));
         Assert.That(valid.Status, Is.EqualTo(ConnectionStatus.Error));
@@ -104,7 +104,7 @@ public sealed class GraphSnapshotTests
         graph.Connect(probe.Input, (IOutputPort)group.Items.Single(p => p.Name == "Output"));
         using var snapshot = new GraphSnapshot();
         snapshot.Build(graph, CompositionContext.Default);
-        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        snapshot.Evaluate(CompositionContext.Default);
         Assert.That(probe.LastThickness, Is.EqualTo(17f));
 
         var brush = new SolidColorBrush();
@@ -119,7 +119,7 @@ public sealed class GraphSnapshotTests
         var nested = Find(factory, brush.Opacity);
         var connection = group.Group.Connect(nested, value);
 
-        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        snapshot.Evaluate(CompositionContext.Default);
 
         Assert.Multiple(() =>
         {
@@ -131,7 +131,7 @@ public sealed class GraphSnapshotTests
         group.Group.Disconnect(connection);
         brush.Opacity.CurrentValue = 80f;
         group.Group.Nodes.Remove(source);
-        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        snapshot.Evaluate(CompositionContext.Default);
         Assert.That(probe.LastThickness, Is.EqualTo(17f));
         Assert.That(probe.LastOpacity, Is.EqualTo(80f));
     }
@@ -174,8 +174,8 @@ public sealed class GraphSnapshotTests
         };
 
         snapshot.Build(model, firstContext);
-        snapshot.Evaluate(CompositionTarget.Graphics, firstContext);
-        snapshot.Evaluate(CompositionTarget.Graphics, secondContext);
+        snapshot.Evaluate(firstContext);
+        snapshot.Evaluate(secondContext);
 
         Assert.Multiple(() =>
         {

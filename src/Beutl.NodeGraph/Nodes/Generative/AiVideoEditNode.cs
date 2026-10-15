@@ -12,7 +12,7 @@ namespace Beutl.NodeGraph.Nodes.Generative;
 /// Edits, extends or drives the motion of a clip with the AI tab's video editing tasks.
 /// Any clip in the graph can be the source — including one a video node just generated.
 /// </summary>
-public sealed partial class AiVideoEditNode : GenerativeNode, IPromptLibraryTarget
+public sealed partial class AiVideoEditNode : GenerativeNode, IPromptInputNode
 {
     public AiVideoEditNode()
     {
@@ -67,14 +67,6 @@ public sealed partial class AiVideoEditNode : GenerativeNode, IPromptLibraryTarg
     public InputPort<AiMotionOrientation> Orientation { get; }
 
     public InputPort<AiMotionQuality> Quality { get; }
-
-    public GenerativeOperation PromptOperation => Operation;
-
-    public bool CanApplyPrompt => Prompt.Connection.IsNull;
-
-    public string ComposePrompt() => Prompt.Property?.GetValue()?.Trim() ?? string.Empty;
-
-    public void ApplyPrompt(string prompt) => Prompt.Property?.SetValue(prompt);
 
     protected internal override GenerativeRequest BuildRequest(GraphNode.Resource resource, GraphCompositionContext context)
     {

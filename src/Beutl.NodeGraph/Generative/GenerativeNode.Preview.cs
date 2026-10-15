@@ -16,7 +16,6 @@ public abstract partial class GenerativeNode
 
         UpdateBusy();
         _statusMonitor?.Value = FormatStatus();
-        StatusChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Shows a picture in the preview monitor; the monitor takes ownership.</summary>

@@ -365,7 +365,7 @@ public partial class GroupNode : GraphNode
                 }
             }
 
-            _innerSnapshot.Evaluate(context.Target, context);
+            _innerSnapshot.Evaluate(context);
 
             var outCount = node.Group.Output?.Items.Count ?? 0;
             if (groupOutputSlotIndex >= 0)

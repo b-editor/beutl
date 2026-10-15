@@ -18,8 +18,7 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
     {
         NodeGraphFilterEffect.Resource? graphResource = GraphResource;
         var model = graphResource?.Model;
-        var lastTime = graphResource?.LastTime;
-        if (graphResource == null || !graphResource.IsEnabled || model == null || lastTime == null)
+        if (graphResource == null || !graphResource.IsEnabled || model == null)
         {
             context.PassThrough();
             return;
@@ -36,12 +35,12 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
         {
             if (inputHasMultipleConsumers)
                 binding.PrepareInputForFanOut();
-            _compositionContext.Time = lastTime.Value;
+            _compositionContext.Time = graphResource.LastTime;
             _compositionContext.PreferProxy = graphResource.PreferProxy;
             _compositionContext.PreferredProxyPreset = graphResource.PreferredProxyPreset;
             _compositionContext.DisableResourceShare = graphResource.DisableResourceShare;
             _compositionContext.TargetDomain = context.TargetDomain;
-            graphResource.Snapshot.Evaluate(CompositionTarget.Graphics, _compositionContext);
+            graphResource.Snapshot.Evaluate(_compositionContext);
 
             var outputRenderNodes = new List<RenderNode>();
             graphResource.Snapshot.CollectOutputRenderNodes(model, outputRenderNodes);

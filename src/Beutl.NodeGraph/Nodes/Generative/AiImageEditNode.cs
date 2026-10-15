@@ -7,7 +7,7 @@ using Beutl.NodeGraph.Generative;
 namespace Beutl.NodeGraph.Nodes.Generative;
 
 /// <summary>Edits a picture with the AI tab's edit tasks. Any picture in the graph can be the source.</summary>
-public sealed partial class AiImageEditNode : GenerativeNode, IPromptLibraryTarget
+public sealed partial class AiImageEditNode : GenerativeNode, IPromptInputNode
 {
     public AiImageEditNode()
     {
@@ -48,14 +48,6 @@ public sealed partial class AiImageEditNode : GenerativeNode, IPromptLibraryTarg
     public InputPort<string> Prompt { get; }
 
     public InputPort<AiOutpaintExpansion> OutpaintExpansion { get; }
-
-    public GenerativeOperation PromptOperation => Operation;
-
-    public bool CanApplyPrompt => Prompt.Connection.IsNull;
-
-    public string ComposePrompt() => Prompt.Property?.GetValue()?.Trim() ?? string.Empty;
-
-    public void ApplyPrompt(string prompt) => Prompt.Property?.SetValue(prompt);
 
     protected internal override GenerativeRequest BuildRequest(GraphNode.Resource resource, GraphCompositionContext context)
     {

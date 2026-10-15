@@ -195,7 +195,7 @@ public class TextBlockTests
         graph.Nodes.Add(node);
         using var snapshot = new GraphSnapshot();
         snapshot.Build(graph, CompositionContext.Default);
-        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        snapshot.Evaluate(CompositionContext.Default);
         var resource = (TextNode.Resource)snapshot.GetResource(snapshot.FindSlotIndex(node))!;
 
         Assert.That(node.Object.TextAlignment.CurrentValue, Is.EqualTo(TextAlignment.Center));
