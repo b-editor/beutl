@@ -2,7 +2,6 @@
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
-using Avalonia.Platform.Storage;
 using Beutl.Editor;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
@@ -57,7 +56,6 @@ public sealed class OutputProfileOrderTests
 
     private sealed class OrderOutputExtension : OutputExtension
     {
-        public override FilePickerFileType GetFilePickerFileType() => new("Test output");
         public override bool IsSupported(Type type) => true;
         public override bool TryCreateControl(IEditorContext editor, IOutputContext context, IOutputExecutionController execution,
             [NotNullWhen(true)] out Control? control)

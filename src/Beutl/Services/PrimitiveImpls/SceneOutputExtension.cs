@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
 using Avalonia.Controls;
-using Avalonia.Platform.Storage;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
@@ -16,11 +15,6 @@ public sealed class SceneOutputExtension : OutputExtension
     public override string Name => "Scene Output";
 
     public override string DisplayName => "Scene Output";
-
-    public override FilePickerFileType GetFilePickerFileType()
-    {
-        return SceneEditorExtension.CreateSceneFileType();
-    }
 
     public override bool TryCreateContext(
         IEditorContext editorContext,

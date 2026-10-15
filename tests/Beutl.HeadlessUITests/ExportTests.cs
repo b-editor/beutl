@@ -1194,8 +1194,6 @@ public class ExportTests
 
         public List<IOutputExecutionController> Controllers { get; } = [];
 
-        public override FilePickerFileType GetFilePickerFileType() => new("Test output");
-
         public override bool TryCreateControl(
             IEditorContext editorContext,
             IOutputContext context,

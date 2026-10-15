@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
-using Avalonia.Platform.Storage;
 using Beutl.Extensibility;
 using Reactive.Bindings;
 
@@ -34,9 +33,6 @@ public sealed class OutputExtensionAuthoringContractTests
 
     private sealed class TestOutputExtension : OutputExtension
     {
-        public override FilePickerFileType GetFilePickerFileType()
-            => new("Contract output") { Patterns = ["*.contract"] };
-
         public override bool TryCreateContext(
             IEditorContext editorContext,
             [NotNullWhen(true)] out IOutputContext? context)

@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
-using Avalonia.Platform.Storage;
 
 using Reactive.Bindings;
 
@@ -65,8 +64,6 @@ public interface ISupportOutputPreset
 
 public abstract class OutputExtension : Extension
 {
-    public abstract FilePickerFileType GetFilePickerFileType();
-
     /// <summary>Creates the control for one output profile.</summary>
     /// <remarks>
     /// The control must use <paramref name="execution"/> for start and cancellation requests. A new
