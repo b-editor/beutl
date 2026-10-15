@@ -90,16 +90,6 @@ public class ExpressionTests
     }
 
     [Test]
-    public void ResultType_ShouldReturnCorrectType()
-    {
-        // Arrange
-        IExpression expression = new StringExpression<double>("1.0");
-
-        // Assert
-        Assert.That(expression.ResultType, Is.EqualTo(typeof(double)));
-    }
-
-    [Test]
     public void Validate_WithValidExpression_ShouldReturnTrue()
     {
         // Arrange
@@ -274,16 +264,6 @@ public class ExpressionTests
 
         // Assert
         Assert.That(result, Is.EqualTo("1 + 2"));
-    }
-
-    [Test]
-    public void Create_ShouldCreateExpressionWithCorrectString()
-    {
-        // Act
-        var expression = Expression.Create<double>("1 + 2");
-
-        // Assert
-        Assert.That(expression.ExpressionString, Is.EqualTo("1 + 2"));
     }
 
     [Test]

@@ -103,7 +103,7 @@ public class InvalidNestedInputExpressionTests
         node.Object.Brush.CurrentValue = brush;
         graph.Nodes.Add(node);
         var connection = graph.Connect(Find(node, brush.Opacity), Source(graph, 12f, "Opacity"));
-        var expression = Expression.Create<float>("73");
+        var expression = new StringExpression<float>("73");
         brush.Opacity.Expression = expression;
         node.Object.Brush.Expression = Expression.CreateReference<Brush>(Guid.NewGuid());
 
@@ -124,7 +124,7 @@ public class InvalidNestedInputExpressionTests
         graph.Nodes.Add(node);
         IOutputPort source = Source(graph, 12f, "Opacity");
         using var history = new HistoryHarness(graph);
-        var expression = Expression.Create<float>("73");
+        var expression = new StringExpression<float>("73");
         brush.Opacity.Expression = expression;
         history.History.Commit("Set expression");
 
@@ -148,7 +148,7 @@ public class InvalidNestedInputExpressionTests
         var brush = new SolidColorBrush();
         node.Object.Brush.CurrentValue = brush;
         graph.Nodes.Add(node);
-        brush.Opacity.Expression = Expression.Create<float>("73");
+        brush.Opacity.Expression = new StringExpression<float>("73");
         INestedInputPort port = Find(node, brush.Opacity);
         graph.Connect(port, Source(graph, 12f, "Opacity"));
 

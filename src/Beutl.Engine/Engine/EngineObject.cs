@@ -342,20 +342,6 @@ public class EngineObject : Hierarchical, INotifyEdited
         }
     }
 
-    protected void RegisterProperty(IProperty property)
-    {
-        if (!_properties.Contains(property))
-        {
-            _properties.Add(property);
-            property.Edited += OnPropertyEdited;
-        }
-
-        if (_displayProperties?.Contains(property) == false)
-        {
-            _displayProperties.Add(property);
-        }
-    }
-
     protected void RegisterProperty(IProperty property, int index)
     {
         if (!_properties.Contains(property))
@@ -389,30 +375,6 @@ public class EngineObject : Hierarchical, INotifyEdited
         EnsureDisplayProperties();
         _displayProperties.Remove(property);
         _displayProperties.Insert(Math.Min(index, _displayProperties.Count), property);
-    }
-
-    protected void MovePropertyBefore(IProperty property, IProperty target)
-        => MovePropertyNextTo(property, target, offset: 0);
-
-    protected void MovePropertyAfter(IProperty property, IProperty target)
-        => MovePropertyNextTo(property, target, offset: 1);
-
-    // A target that is not displayed sends the property to the end.
-    private void MovePropertyNextTo(IProperty property, IProperty target, int offset)
-    {
-        EnsureDisplayProperties();
-        _displayProperties.Remove(property);
-        int targetIndex = _displayProperties.IndexOf(target);
-        if (targetIndex >= 0)
-            _displayProperties.Insert(targetIndex + offset, property);
-        else
-            _displayProperties.Add(property);
-    }
-
-    protected void ReorderProperties(params IProperty[] ordered)
-    {
-        EnsureDisplayProperties();
-        _displayProperties = [.. ordered, .. _displayProperties.Except(ordered)];
     }
 
     [MemberNotNull(nameof(_displayProperties))]

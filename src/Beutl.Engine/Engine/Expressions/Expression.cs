@@ -6,11 +6,6 @@ namespace Beutl.Engine.Expressions;
 
 public static class Expression
 {
-    public static StringExpression<T> Create<T>(string expressionString)
-    {
-        return new StringExpression<T>(expressionString);
-    }
-
     public static bool TryParse<T>(string expressionString, [NotNullWhen(true)] out StringExpression<T>? expression,
         [NotNullWhen(false)] out string? error)
     {
@@ -28,11 +23,6 @@ public static class Expression
         where T : CoreObject
     {
         return new ReferenceExpression<T>(objectId);
-    }
-
-    public static ReferenceExpression<T> CreateReference<T>(Guid objectId, string propertyPath)
-    {
-        return new ReferenceExpression<T>(objectId, propertyPath);
     }
 
     public static IExpression<T>? CreateFromNode<T>(JsonNode node)

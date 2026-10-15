@@ -166,7 +166,7 @@ public class FormerPersistedNameTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 32 });
         source.Width.Animation = animation;
-        source.Width.Expression = Expression.Create<float>("5");
+        source.Width.Expression = new StringExpression<float>("5");
         source.Tags.Add("a");
         JsonObject json = CoreSerializer.SerializeToJsonObject(source);
         RenameKey(json, nameof(MemberHolder.Width), "FormerWidth");

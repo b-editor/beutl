@@ -705,7 +705,7 @@ public sealed class ExportSourceValidatorTests
         var animation = new KeyFrameAnimation<VideoSource?>();
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = MakeVideoSource(missingKey) });
         drawable.Source.Animation = animation;
-        drawable.Source.Expression = Beutl.Engine.Expressions.Expression.CreateReference<VideoSource>(referenced.Id, "Source");
+        drawable.Source.Expression = new Beutl.Engine.Expressions.ReferenceExpression<VideoSource>(referenced.Id, "Source");
 
         Element referencedElement = ElementWith(_root, referenced);
         Element element = ElementWith(_root, drawable);
@@ -928,7 +928,7 @@ public sealed class ExportSourceValidatorTests
         // CurrentValue holds a missing file; the expression self-cycles back to the Target property. The
         // render evaluates the expression to DefaultValue (null) on cycle, so the missing file never opens.
         presenter.Target.CurrentValue = VideoDrawable(missingCurrent);
-        presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(presenter.Id, "Target");
+        presenter.Target.Expression = new Beutl.Engine.Expressions.ReferenceExpression<Drawable>(presenter.Id, "Target");
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(ElementWith(_root, presenter));
@@ -1200,7 +1200,7 @@ public sealed class ExportSourceValidatorTests
         holder.Fill.CurrentValue = holderBrush;
 
         var refShape = new RectShape();
-        refShape.Fill.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Brush>(holder.Id, "Fill");
+        refShape.Fill.Expression = new Beutl.Engine.Expressions.ReferenceExpression<Brush>(holder.Id, "Fill");
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
         scene.Children.Add(ElementWith(_root, refShape));

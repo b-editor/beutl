@@ -579,15 +579,15 @@ public class TimelineMediaDurationTests
         using var configuration = new EditorConfigScope();
         SourceVideo video = CreateDurationVideo();
         EngineObject root = video;
-        if (kind == "source") video.Source.Expression = Expression.Create<VideoSource?>("null");
+        if (kind == "source") video.Source.Expression = new StringExpression<VideoSource?>("null");
         if (kind == "presenter")
             root = new DrawablePresenter
             {
-                Target = { CurrentValue = video, Expression = Expression.Create<Drawable?>("null") }
+                Target = { CurrentValue = video, Expression = new StringExpression<Drawable?>("null") }
             };
         ElementViewModel model = await OpenElement(root, lengthSeconds: 2);
         if (kind == "controller")
-            model.Model.Objects.Add(new DrawableTimeController { Speed = { Expression = Expression.Create<float>("200") } });
+            model.Model.Objects.Add(new DrawableTimeController { Speed = { Expression = new StringExpression<float>("200") } });
         var editor = (EditViewModel)model.Timeline.EditorContext;
         editor.HistoryManager.Commit();
         int undo = editor.HistoryManager.UndoCount;

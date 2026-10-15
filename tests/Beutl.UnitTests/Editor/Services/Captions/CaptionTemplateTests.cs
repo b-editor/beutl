@@ -97,7 +97,7 @@ public class CaptionTemplateTests
             FilterEffect = { CurrentValue = new Blur { Sigma = { CurrentValue = new Size(2, 3) } } },
         };
         source.Opacity.Animation = new KeyFrameAnimation<float>();
-        source.Text.Expression = Expression.Create<string?>("\"Expression text\"");
+        source.Text.Expression = new StringExpression<string?>("\"Expression text\"");
         ObjectTemplateItem item = ObjectTemplateItem.CreateFromInstance(source, "Outlined caption");
         CaptionTemplateRegistrationSet template = TextBlockCaptionTemplateAdapter.TryCreate(item)!;
         var context = new CaptionElementContext(4, "Caption", new Point(0, 200));

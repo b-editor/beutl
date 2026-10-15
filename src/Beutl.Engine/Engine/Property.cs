@@ -16,17 +16,6 @@ public static class Property
         return property;
     }
 
-    public static IProperty<T> CreateAnimatable<T>(
-        T defaultValue,
-        params ValidationAttribute[] validationAttributes)
-    {
-        var validator = validationAttributes.Length > 0
-            ? new MultipleValidator<T>(ConvertValidators<T>(validationAttributes))
-            : null;
-
-        return CreateAnimatable(defaultValue, validator);
-    }
-
     public static IProperty<T> Create<T>(
         T defaultValue = default(T)!,
         IValidator<T>? validator = null)
@@ -34,17 +23,6 @@ public static class Property
         var property = new SimpleProperty<T>(defaultValue, validator);
 
         return property;
-    }
-
-    public static IProperty<T> Create<T>(
-        T defaultValue,
-        params ValidationAttribute[] validationAttributes)
-    {
-        var validator = validationAttributes.Length > 0
-            ? new MultipleValidator<T>(ConvertValidators<T>(validationAttributes))
-            : null;
-
-        return Create(defaultValue, validator);
     }
 
     /// <summary>
@@ -56,18 +34,6 @@ public static class Property
         IValidator<T>? validator = null)
     {
         return new SimpleProperty<T>(defaultValue, validator) { SupportsExpression = false };
-    }
-
-    /// <inheritdoc cref="CreateWithoutExpression{T}(T, IValidator{T})"/>
-    public static IProperty<T> CreateWithoutExpression<T>(
-        T defaultValue,
-        params ValidationAttribute[] validationAttributes)
-    {
-        var validator = validationAttributes.Length > 0
-            ? new MultipleValidator<T>(ConvertValidators<T>(validationAttributes))
-            : null;
-
-        return CreateWithoutExpression(defaultValue, validator);
     }
 
     public static IListProperty<T> CreateList<T>()

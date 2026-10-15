@@ -770,7 +770,7 @@ public class TrimTimeControllerTests
         var video = CreateVideo(20);
         Element element = AddElement(0, 2, video);
         var controller = new DrawableTimeController();
-        controller.Speed.Expression = Expression.Create<float>("200");
+        controller.Speed.Expression = new StringExpression<float>("200");
         element.Objects.Add(controller);
         var linkedVideo = CreateVideo(20);
         Element linked = AddElement(5, 2, linkedVideo);
@@ -793,7 +793,7 @@ public class TrimTimeControllerTests
         var video = CreateVideo(20);
         Element element = AddElement(0, 2, video);
         var controller = CreateController(video);
-        controller.OffsetPosition.Expression = Expression.Create<TimeSpan>("TimeSpan.FromSeconds(3)");
+        controller.OffsetPosition.Expression = new StringExpression<TimeSpan>("TimeSpan.FromSeconds(3)");
         Element controlled = AddElement(0, 2, controller);
         Assert.That(ReadPosition(controller, 1), Is.EqualTo(4));
 
@@ -806,7 +806,7 @@ public class TrimTimeControllerTests
     public void Slip_VideoSpeedExpression_RejectsUnevaluatedMapping()
     {
         var video = CreateVideo(20);
-        video.Speed.Expression = Expression.Create<float>("200");
+        video.Speed.Expression = new StringExpression<float>("200");
         video.Speed.Animation = new KeyFrameAnimation<float>();
         Element element = AddElement(0, 2, video);
         Assert.That(ReadPosition(video, 1), Is.EqualTo(2));
@@ -872,7 +872,7 @@ public class TrimTimeControllerTests
         var frontVideo = CreateVideo(20);
         Element front = AddElement(0, 2, frontVideo);
         var controller = new DrawableTimeController();
-        controller.Reverse.Expression = Expression.Create<bool>("true");
+        controller.Reverse.Expression = new StringExpression<bool>("true");
         front.Objects.Add(controller);
         Element? middle = mode == "slide" ? _harness.AddElement(Seconds(2), Seconds(1)) : null;
         var backVideo = CreateVideo(20);
@@ -901,7 +901,7 @@ public class TrimTimeControllerTests
     public void Slip_UnconsumedControllerExpression_DoesNotBlockLaterVideo()
     {
         var controller = new DrawableTimeController();
-        controller.Speed.Expression = Expression.Create<float>("200");
+        controller.Speed.Expression = new StringExpression<float>("200");
         Element element = AddElement(0, 2, controller);
         var video = CreateVideo(20);
         element.Objects.Add(video);
@@ -1178,7 +1178,7 @@ public class TrimTimeControllerTests
         var controller = CreateController(first);
         Element element = AddElement(0, 2, controller);
         var portal = new PortalObject { Count = { CurrentValue = 1 } };
-        if (expressionCount) portal.Count.Expression = Expression.Create<int>("1");
+        if (expressionCount) portal.Count.Expression = new StringExpression<int>("1");
         element.Objects.Insert(0, portal);
         var linkedVideo = CreateVideo(10);
         Element linked = AddElement(0, 2, linkedVideo);
