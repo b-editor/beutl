@@ -12,6 +12,10 @@ public class SceneGapTests
     private static List<SceneGap> Gaps(Scene scene)
         => scene.EnumerateGaps().ToList();
 
+    // The range the timeline searches: the whole scene.
+    private static TimeRange SceneRange(Scene scene)
+        => new(scene.Start, scene.Duration);
+
     [Test]
     public void EnumerateGaps_NoElements_ReturnsEmpty()
     {
@@ -528,7 +532,7 @@ public class SceneGapTests
         harness.AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         harness.AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1));
 
-        TimeRange? gap = scene.FindNextGap(TimeSpan.FromSeconds(1))?.Range;
+        TimeRange? gap = scene.FindNextGap(TimeSpan.FromSeconds(1), SceneRange(scene))?.Range;
 
         Assert.That(gap, Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3))));
     }
@@ -540,7 +544,7 @@ public class SceneGapTests
         Scene scene = harness.Scene;
         harness.AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
 
-        TimeRange? gap = scene.FindNextGap(TimeSpan.FromSeconds(5))?.Range;
+        TimeRange? gap = scene.FindNextGap(TimeSpan.FromSeconds(5), SceneRange(scene))?.Range;
 
         Assert.That(gap, Is.Null);
     }
@@ -554,7 +558,7 @@ public class SceneGapTests
         harness.AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1));
         harness.AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(1));
 
-        TimeRange? gap = scene.FindNextGap(TimeSpan.FromSeconds(4))?.Range;
+        TimeRange? gap = scene.FindNextGap(TimeSpan.FromSeconds(4), SceneRange(scene))?.Range;
 
         Assert.That(gap, Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(4))));
     }
@@ -567,7 +571,7 @@ public class SceneGapTests
         harness.AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         harness.AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1));
 
-        TimeRange? gap = scene.FindPreviousGap(TimeSpan.FromSeconds(6))?.Range;
+        TimeRange? gap = scene.FindPreviousGap(TimeSpan.FromSeconds(6), SceneRange(scene))?.Range;
 
         Assert.That(gap, Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3))));
     }
@@ -579,7 +583,7 @@ public class SceneGapTests
         Scene scene = harness.Scene;
         harness.AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
 
-        TimeRange? gap = scene.FindPreviousGap(TimeSpan.FromSeconds(1))?.Range;
+        TimeRange? gap = scene.FindPreviousGap(TimeSpan.FromSeconds(1), SceneRange(scene))?.Range;
 
         Assert.That(gap, Is.Null);
     }
@@ -596,7 +600,7 @@ public class SceneGapTests
         harness.AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(89), zIndex: 1);
         harness.AddElement(TimeSpan.FromSeconds(91), TimeSpan.FromSeconds(1), zIndex: 1);
 
-        TimeRange? gap = scene.FindPreviousGap(TimeSpan.FromSeconds(201))?.Range;
+        TimeRange? gap = scene.FindPreviousGap(TimeSpan.FromSeconds(201), SceneRange(scene))?.Range;
 
         Assert.That(gap, Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(80), TimeSpan.FromSeconds(120))));
     }
@@ -613,7 +617,7 @@ public class SceneGapTests
         harness.AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), zIndex: 1);
         harness.AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1), zIndex: 1);
 
-        TimeRange? gap = scene.FindNextGap(TimeSpan.Zero)?.Range;
+        TimeRange? gap = scene.FindNextGap(TimeSpan.Zero, SceneRange(scene))?.Range;
 
         Assert.That(gap, Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3))));
     }
@@ -630,7 +634,7 @@ public class SceneGapTests
         harness.AddElement(TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(1), zIndex: 1);
         harness.AddElement(TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(1), zIndex: 1);
 
-        TimeRange? gap = scene.FindPreviousGap(TimeSpan.FromSeconds(20))?.Range;
+        TimeRange? gap = scene.FindPreviousGap(TimeSpan.FromSeconds(20), SceneRange(scene))?.Range;
 
         Assert.That(gap, Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(9), TimeSpan.FromSeconds(3))));
     }
@@ -651,7 +655,7 @@ public class SceneGapTests
         Assert.Multiple(() =>
         {
             Assert.That(scene.FindNextGap(TimeSpan.Zero, range)?.Range, Is.EqualTo(rawGap));
-            Assert.That(scene.FindNextGap(TimeSpan.Zero)?.Range, Is.EqualTo(rawGap));
+            Assert.That(scene.FindNextGap(TimeSpan.Zero, SceneRange(scene))?.Range, Is.EqualTo(rawGap));
         });
     }
 
