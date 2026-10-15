@@ -18,22 +18,11 @@ public class WaveformControl : HdrScopeControlBase
         AvaloniaProperty.RegisterDirect<WaveformControl, WaveformMode>(
             nameof(Mode), o => o.Mode, (o, v) => o.Mode = v, WaveformMode.Luma);
 
-    public static readonly DirectProperty<WaveformControl, float> ThicknessProperty =
-        AvaloniaProperty.RegisterDirect<WaveformControl, float>(
-            nameof(Thickness), o => o.Thickness, (o, v) => o.Thickness = v, 5f);
-
-    public static readonly DirectProperty<WaveformControl, float> GainProperty =
-        AvaloniaProperty.RegisterDirect<WaveformControl, float>(
-            nameof(Gain), o => o.Gain, (o, v) => o.Gain = v, 10.0f);
-
-    public static readonly DirectProperty<WaveformControl, bool> ShowGridProperty =
-        AvaloniaProperty.RegisterDirect<WaveformControl, bool>(
-            nameof(ShowGrid), o => o.ShowGrid, (o, v) => o.ShowGrid = v, true);
+    private const float Thickness = 5f;
+    private const float Gain = 10.0f;
+    private const bool ShowGrid = true;
 
     private WaveformMode _mode = WaveformMode.Luma;
-    private float _thickness = 5f;
-    private float _gain = 10.0f;
-    private bool _showGrid = true;
 
     // Cached gridStrength array (invalidated on height/hdrRange change)
     private float[]? _cachedGridStrength;
@@ -46,7 +35,7 @@ public class WaveformControl : HdrScopeControlBase
 
     static WaveformControl()
     {
-        AffectsRender<WaveformControl>(ModeProperty, ThicknessProperty, GainProperty, ShowGridProperty);
+        AffectsRender<WaveformControl>(ModeProperty);
         ModeProperty.Changed.AddClassHandler<WaveformControl>((o, _) => o.Refresh());
     }
 
@@ -56,24 +45,6 @@ public class WaveformControl : HdrScopeControlBase
     {
         get => _mode;
         set => SetAndRaise(ModeProperty, ref _mode, value);
-    }
-
-    public float Thickness
-    {
-        get => _thickness;
-        set => SetAndRaise(ThicknessProperty, ref _thickness, value);
-    }
-
-    public float Gain
-    {
-        get => _gain;
-        set => SetAndRaise(GainProperty, ref _gain, value);
-    }
-
-    public bool ShowGrid
-    {
-        get => _showGrid;
-        set => SetAndRaise(ShowGridProperty, ref _showGrid, value);
     }
 
     protected override string[]? VerticalAxisLabels =>
