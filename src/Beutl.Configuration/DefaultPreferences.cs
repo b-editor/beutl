@@ -36,23 +36,6 @@ public sealed class DefaultPreferences : IPreferences
         Load();
     }
 
-    public bool ContainsKey(string key)
-    {
-        return _preferences.ContainsKey(key);
-    }
-
-    public void Remove(string key)
-    {
-        _preferences.TryRemove(key, out _);
-        Save();
-    }
-
-    public void Clear()
-    {
-        _preferences.Clear();
-        Save();
-    }
-
     public void Set<T>(string key, T value)
     {
         CheckIsSupportedType<T>();
