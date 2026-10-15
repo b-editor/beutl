@@ -91,11 +91,9 @@ public sealed record AiContentMetadata
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(extension);
         string normalized = extension.StartsWith('.') ? extension : $".{extension}";
-        if (normalized.Length is < 2 or > 11
-            || normalized.Skip(1).Any(character => !char.IsAsciiLetterOrDigit(character)))
-        {
-            throw new ArgumentException("The file extension is invalid.", nameof(extension));
-        }
+        // Checked before lowering, which turns a few non-ASCII letters such as the Kelvin sign into ASCII ones.
+        if (!System.Text.Ascii.IsValid(normalized))
+            throw new AiException("The AI content uses an unsupported file format.");
 
         normalized = normalized.ToLowerInvariant();
         if (normalized is not (

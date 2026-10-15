@@ -1915,6 +1915,14 @@ public sealed partial class AiCapabilityServiceTests
         }
     }
 
+    [TestCase("payload.mp-4")]
+    [TestCase("payload.mp4mp4mp4mp4")]
+    [TestCase("payload.m\u212Av")]
+    public void ContentMetadata_RejectsAnInvalidFileNameExtensionAsAiException(string fileName)
+    {
+        Assert.Throws<AiException>(() => new AiContentMetadata(fileName, null).GetFileExtension());
+    }
+
     [Test]
     public async Task JobClient_IsPureAsyncHistoryAndDeleteClient()
     {
