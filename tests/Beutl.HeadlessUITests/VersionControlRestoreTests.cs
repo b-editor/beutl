@@ -920,7 +920,6 @@ public class VersionControlRestoreTests
         var discovery = new PullCycleTestBackend(null, session.Repository, MainTip);
         var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            Identity = null,
             RetirementResult = new CommitResult.SkippedNoIdentity(),
         };
         VersionControlCoordinator coordinator = session.Start(
@@ -7789,9 +7788,6 @@ public class VersionControlRestoreTests
 
         public CommitResult? RetirementResult { get; set; } = new CommitResult.NoChanges();
 
-        public GitIdentity? Identity { get; set; } =
-            new("Version Control Test", "version-control@example.invalid");
-
         public Exception? CommitAllFailure { get; set; }
 
         public Action<SnapshotKind>? CommitAllObserver { get; init; }
@@ -8080,7 +8076,6 @@ public class VersionControlRestoreTests
             if (options.Identity is not null)
             {
                 _hasIdentity = true;
-                Identity = options.Identity;
             }
 
             InitializeStarted?.TrySetResult();
@@ -8183,7 +8178,6 @@ public class VersionControlRestoreTests
             RecordBackendCall();
             SetLocalIdentityCalls++;
             _hasIdentity = true;
-            Identity = identity;
             return Task.CompletedTask;
         }
 
@@ -8263,11 +8257,6 @@ public class VersionControlRestoreTests
             CancellationToken cancellationToken)
         {
             return Task.FromResult<IReadOnlyList<RemoteInfo>>([]);
-        }
-
-        public Task<GitIdentity?> GetIdentityAsync(CancellationToken cancellationToken)
-        {
-            return Task.FromResult(Identity);
         }
 
         public Task<bool> CanCreateBranchAsync(
