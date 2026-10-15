@@ -235,12 +235,6 @@ public class TimelineTabViewModelTests
 
     private sealed class TestBufferStatus : IBufferStatus
     {
-        public IReadOnlyReactiveProperty<TimeSpan> StartTime { get; } =
-            new ReactivePropertySlim<TimeSpan>(TimeSpan.Zero);
-
-        public IReadOnlyReactiveProperty<TimeSpan> EndTime { get; } =
-            new ReactivePropertySlim<TimeSpan>(TimeSpan.Zero);
-
         public IReadOnlyReactiveProperty<double> Start { get; } = new ReactivePropertySlim<double>(0);
 
         public IReadOnlyReactiveProperty<double> End { get; } = new ReactivePropertySlim<double>(0);

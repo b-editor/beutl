@@ -51,10 +51,6 @@ public sealed class BufferStatusViewModel : IBufferStatus, IDisposable
 
     public ReactivePropertySlim<TimeSpan> EndTime { get; } = new();
 
-    IReadOnlyReactiveProperty<TimeSpan> IBufferStatus.StartTime => StartTime;
-
-    IReadOnlyReactiveProperty<TimeSpan> IBufferStatus.EndTime => EndTime;
-
     public ReadOnlyReactivePropertySlim<double> Start { get; }
 
     IReadOnlyReactiveProperty<double> IBufferStatus.Start => Start;

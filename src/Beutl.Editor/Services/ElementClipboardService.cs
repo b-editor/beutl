@@ -47,15 +47,15 @@ public sealed class ElementClipboardService : IElementClipboardService
         string singleJson = CoreSerializer.SerializeToJsonString(elements[0]);
         var entries = new List<ClipboardEntry>(3)
         {
-            new(BeutlClipboardFormats.Element, singleJson, null),
-            new(BeutlClipboardFormats.Text, singleJson, null),
+            new(BeutlClipboardFormats.Element, singleJson),
+            new(BeutlClipboardFormats.Text, singleJson),
         };
 
         if (elements.Count > 1)
         {
             JsonNode multiNode = new JsonArray(
                 elements.Select(JsonNode (e) => CoreSerializer.SerializeToJsonObject(e)).ToArray());
-            entries.Add(new ClipboardEntry(BeutlClipboardFormats.Elements, multiNode.ToJsonString(), null));
+            entries.Add(new ClipboardEntry(BeutlClipboardFormats.Elements, multiNode.ToJsonString()));
         }
 
         return await _clipboard.SetAsync(entries);

@@ -100,16 +100,10 @@ public class ClipboardPipelineTests
             _entries.Clear();
             foreach (ClipboardEntry entry in entries)
             {
-                if (entry.Text is not null) _entries[entry.Format] = entry.Text;
+                _entries[entry.Format] = entry.Text;
             }
 
             return Task.FromResult(true);
-        }
-
-        public Task ClearAsync()
-        {
-            _entries.Clear();
-            return Task.CompletedTask;
         }
     }
 }

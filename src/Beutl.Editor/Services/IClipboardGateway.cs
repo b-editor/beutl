@@ -24,8 +24,6 @@ public interface IClipboardGateway
     /// cannot paste back.
     /// </summary>
     Task<bool> SetAsync(IReadOnlyList<ClipboardEntry> entries);
-
-    Task ClearAsync();
 }
 
-public readonly record struct ClipboardEntry(string Format, string? Text, ReadOnlyMemory<byte>? Bytes);
+public readonly record struct ClipboardEntry(string Format, string Text);
