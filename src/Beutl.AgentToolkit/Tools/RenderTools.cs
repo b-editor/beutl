@@ -496,41 +496,22 @@ public sealed partial class RenderTools(
             return normalizedScale;
         }
 
-        double maximumScaleLimit = Math.Min(
-            frameSize.Width > 0
-                ? maxDimension / (double)frameSize.Width
-                : double.PositiveInfinity,
-            frameSize.Height > 0
-                ? maxDimension / (double)frameSize.Height
-                : double.PositiveInfinity);
-        float maximumScale = (float)maximumScaleLimit;
-        while (!RootOutputExtentFits(frameSize, maximumScale, maxDimension))
-        {
-            maximumScale = MathF.BitDecrement(maximumScale);
-        }
-
-        float nextScale = MathF.BitIncrement(maximumScale);
-        while (float.IsFinite(nextScale) && RootOutputExtentFits(frameSize, nextScale, maxDimension))
-        {
-            maximumScale = nextScale;
-            nextScale = MathF.BitIncrement(maximumScale);
-        }
-
+        // The hint is in thousandths strictly below the exact limit, so it is up to 0.001 lower and a retry with it
+        // passes despite float rounding. A frame side over 1000 times the limit leaves no such scale.
+        long maximumScaleThousandths = (1000L * maxDimension - 1) / Math.Max(frameSize.Width, frameSize.Height);
+        string maximumScaleText = (maximumScaleThousandths / 1000.0).ToString("0.###", CultureInfo.InvariantCulture);
         string requestedExtent = $"{FormatDeviceExtent(requestedWidth)}x{FormatDeviceExtent(requestedHeight)}";
-        string maximumScaleText = maximumScale.ToString("G9", CultureInfo.InvariantCulture);
         throw new ReconcileException(new ToolError(
             ErrorCode.ValidationRejected,
             $"{toolName} renderScale {normalizedScale.ToString("G9", CultureInfo.InvariantCulture)} requests an output extent of {requestedExtent} pixels. "
             + $"Each output axis is limited to {maxDimension} pixels; "
-            + $"the maximum usable renderScale for frame {frameSize.Width}x{frameSize.Height} is {maximumScaleText}.",
+            + (maximumScaleThousandths > 0
+                ? $"the maximum usable renderScale for frame {frameSize.Width}x{frameSize.Height} is {maximumScaleText}."
+                : $"frame {frameSize.Width}x{frameSize.Height} needs a renderScale below 0.001."),
             "renderScale",
-            $"Use renderScale <= {maximumScaleText} for this frame size."));
-    }
-
-    private static bool RootOutputExtentFits(PixelSize frameSize, float renderScale, int maxDimension)
-    {
-        return GetRootDeviceExtent(frameSize.Width, renderScale) <= maxDimension
-               && GetRootDeviceExtent(frameSize.Height, renderScale) <= maxDimension;
+            maximumScaleThousandths > 0
+                ? $"Use renderScale <= {maximumScaleText} for this frame size."
+                : "Use a renderScale below 0.001 for this frame size."));
     }
 
     private static float GetRootDeviceExtent(int logicalExtent, float renderScale)
