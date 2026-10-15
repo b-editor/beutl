@@ -9,7 +9,7 @@ This subtree is the **rendering / scene-graph core**. Nothing else in the soluti
 - `Graphics3D/` — 3D pipeline, mesh / material / camera
 - `Animation/` — `IAnimation<T>` / animators / easing; integer animators round to even, and the 32/64-bit ones compute in double and saturate, with `Int64` / `UInt64` returning the endpoints directly (see `cd6c40b5b`)
 - `Audio/` — sample-rate-agnostic audio graph
-- `Composition/` — per-frame composition (`ICompositor`, `CompositionContext`)
+- `Composition/` — per-frame composition (`CompositionContext`, `CompositionFrame`)
 - `Engine/` — `EngineObject`, the property system (`IProperty<T>`), expressions, and resource reconciliation
 - `Media/Proxy/` — MIT-side proxy metadata, resolver, queue, eviction, and value types. Concrete FFmpeg generation stays outside Engine.
 

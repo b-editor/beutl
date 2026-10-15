@@ -26,9 +26,6 @@ public readonly struct CompositionEligibility
     /// <summary>Gets a snapshot in which no objects are eligible.</summary>
     public static CompositionEligibility Empty => default;
 
-    /// <summary>Gets the number of eligible object identities.</summary>
-    public int Count => _objects?.Count ?? 0;
-
     /// <summary>Determines whether the snapshot contains the exact <paramref name="obj"/> instance.</summary>
     public bool Contains(EngineObject obj)
     {
