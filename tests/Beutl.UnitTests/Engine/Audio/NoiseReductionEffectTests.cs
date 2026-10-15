@@ -225,7 +225,7 @@ public class NoiseReductionEffectTests
         // 313 ticks are 1.5 samples at 48 kHz; upstream nodes truncate this start to sample 1.
         var context = new AudioProcessContext(
             new TimeRange(TimeSpan.FromTicks(313), AudioProcessContext.GetDurationForSampleCount(4800, SampleRate)),
-            SampleRate, new AnimationSampler(), null);
+            SampleRate, null);
         using AudioBuffer output = node.Process(context);
         using AudioBuffer expected = new SignalSource(s_signal).Process(context);
 

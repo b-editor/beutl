@@ -48,7 +48,6 @@ internal static class AudioLatency
                     context.TimeRange.Start,
                     AudioProcessContext.GetDurationForSampleCount(drainSamples, context.SampleRate)),
                 context.SampleRate,
-                context.AnimationSampler,
                 context.OriginalTimeRange);
 
         using AudioBuffer drained = node.Flush(drainContext);

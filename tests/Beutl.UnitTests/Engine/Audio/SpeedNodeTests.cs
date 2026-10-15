@@ -36,12 +36,11 @@ public class SpeedNodeTests
     // during playback.
     private static List<float> RenderChunks(SpeedNode node, int sampleRate, int channel, params double[] startSeconds)
     {
-        var sampler = new AnimationSampler();
         var samples = new List<float>();
         foreach (double start in startSeconds)
         {
             var range = new TimeRange(TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(1));
-            using AudioBuffer buffer = node.Process(new AudioProcessContext(range, sampleRate, sampler, null));
+            using AudioBuffer buffer = node.Process(new AudioProcessContext(range, sampleRate, null));
             samples.AddRange(buffer.GetChannelData(channel).ToArray());
         }
 
@@ -101,16 +100,14 @@ public class SpeedNodeTests
         using var node = new SpeedNode { Speed = StaticSpeed(50f) };
         node.AddInput(new RampInputNode(sr));
 
-        var sampler = new AnimationSampler();
-
         // Warm up at the start, then seek far ahead to output [10s, 11s).
         using (AudioBuffer _ = node.Process(
-                   new AudioProcessContext(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), sr, sampler, null)))
+                   new AudioProcessContext(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), sr, null)))
         {
         }
 
         using AudioBuffer seeked = node.Process(
-            new AudioProcessContext(new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(1)), sr, sampler, null));
+            new AudioProcessContext(new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(1)), sr, null));
 
         Span<float> left = seeked.GetChannelData(0);
         // Output sample 10500 -> source 5250 -> value 52.5. Without re-anchoring it would continue from
@@ -151,7 +148,6 @@ public class SpeedNodeTests
             new AudioProcessContext(
                 new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
                 sampleRate,
-                new AnimationSampler(),
                 null));
 
         Assert.That(input.Requests.Count, Is.GreaterThan(minRequests));
@@ -223,13 +219,12 @@ public class SpeedNodeTests
 
         using var node = new SpeedNode { Speed = speed };
         node.AddInput(new FlushRampInputNode(sampleRate));
-        var sampler = new AnimationSampler();
         var duration = TimeSpan.FromSeconds((double)sampleCount / sampleRate);
 
         using AudioBuffer _ = node.Process(
-            new AudioProcessContext(new TimeRange(TimeSpan.Zero, duration), sampleRate, sampler, null));
+            new AudioProcessContext(new TimeRange(TimeSpan.Zero, duration), sampleRate, null));
         using AudioBuffer tail = node.Flush(
-            new AudioProcessContext(new TimeRange(duration, duration), sampleRate, sampler, null));
+            new AudioProcessContext(new TimeRange(duration, duration), sampleRate, null));
 
         Span<float> left = tail.GetChannelData(0);
         double totalSlope = 0;
@@ -321,9 +316,8 @@ public class SpeedNodeTests
         using var node = new SpeedNode { Speed = StaticSpeed(50f) };
         node.AddInput(new FiniteRampInputNode(sr, sourceLength));
 
-        var sampler = new AnimationSampler();
         using AudioBuffer buffer = node.Process(
-            new AudioProcessContext(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), sr, sampler, null));
+            new AudioProcessContext(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), sr, null));
 
         Span<float> left = buffer.GetChannelData(0);
         // All finite, no NaN/Inf leaking from the resampler flush.
@@ -356,11 +350,10 @@ public class SpeedNodeTests
         var speedProp = StaticSpeed(50f);
         using var node = new SpeedNode { Speed = speedProp };
         node.AddInput(new RampInputNode(sr));
-        var sampler = new AnimationSampler();
 
         // Build up the streaming cursor/filter state over one contiguous half-speed chunk.
         using (AudioBuffer _ = node.Process(
-                   new AudioProcessContext(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), sr, sampler, null)))
+                   new AudioProcessContext(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), sr, null)))
         {
         }
 
@@ -368,7 +361,7 @@ public class SpeedNodeTests
         speedProp.CurrentValue = 200f;
 
         using AudioBuffer after = node.Process(
-            new AudioProcessContext(new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)), sr, sampler, null));
+            new AudioProcessContext(new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)), sr, null));
 
         Span<float> left = after.GetChannelData(0);
         // Output sample i -> source position (1 + i/sr) * 2 s -> ramp value (sourcePos * sr) * 0.01.
@@ -393,11 +386,10 @@ public class SpeedNodeTests
         var reused = new PassthroughNode();
         reused.AddInput(new RampInputNode(sr));
         node.AddInput(reused);
-        var sampler = new AnimationSampler();
 
         // Build up resampler filter state from the loud ramp source over one contiguous chunk.
         using (AudioBuffer _ = node.Process(
-                   new AudioProcessContext(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), sr, sampler, null)))
+                   new AudioProcessContext(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), sr, null)))
         {
         }
 
@@ -406,7 +398,7 @@ public class SpeedNodeTests
         reused.AddInput(new FixedLatencyNode(0));
 
         using AudioBuffer after = node.Process(
-            new AudioProcessContext(new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)), sr, sampler, null));
+            new AudioProcessContext(new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)), sr, null));
 
         Span<float> left = after.GetChannelData(0);
         for (int i = 0; i < left.Length; i++)
@@ -422,11 +414,10 @@ public class SpeedNodeTests
         const int sr = 1000;
         using var node = new SpeedNode { Speed = StaticSpeed(50f) };
         node.AddInput(new RampInputNode(sr));
-        var sampler = new AnimationSampler();
 
         // Build up resampler filter state from the loud ramp source over one contiguous chunk.
         using (AudioBuffer _ = node.Process(
-                   new AudioProcessContext(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), sr, sampler, null)))
+                   new AudioProcessContext(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), sr, null)))
         {
         }
 
@@ -435,7 +426,7 @@ public class SpeedNodeTests
         node.AddInput(new FixedLatencyNode(0));
 
         using AudioBuffer after = node.Process(
-            new AudioProcessContext(new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)), sr, sampler, null));
+            new AudioProcessContext(new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)), sr, null));
 
         Span<float> left = after.GetChannelData(0);
         for (int i = 0; i < left.Length; i++)

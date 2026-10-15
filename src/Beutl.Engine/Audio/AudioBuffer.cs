@@ -83,35 +83,6 @@ public sealed class AudioBuffer : IDisposable
         return pcm;
     }
 
-    public void Clear()
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        _memory.Span.Clear();
-    }
-
-    public void CopyTo(AudioBuffer destination)
-    {
-        ThrowIfIncompatibleDestination(destination);
-        if (destination.SampleCount != SampleCount)
-            throw new ArgumentException("Sample counts must match.", nameof(destination));
-
-        _memory.CopyTo(destination._memory);
-    }
-
-    public void CopyTo(AudioBuffer destination, int offset)
-    {
-        ThrowIfIncompatibleDestination(destination);
-        if (offset < 0 || offset + SampleCount > destination.SampleCount)
-            throw new ArgumentOutOfRangeException(nameof(offset), "Offset is out of range for the destination buffer.");
-
-        for (int ch = 0; ch < ChannelCount; ch++)
-        {
-            var src = GetChannelData(ch);
-            var dest = destination.GetChannelData(ch).Slice(offset, SampleCount);
-            src.CopyTo(dest);
-        }
-    }
-
     public void CopyTo(AudioBuffer destination, int offset, int count)
     {
         ThrowIfIncompatibleDestination(destination);
@@ -130,7 +101,7 @@ public sealed class AudioBuffer : IDisposable
         }
     }
 
-    // Shared CopyTo preconditions: both buffers alive and the destination in the same format.
+    // CopyTo preconditions: both buffers alive and the destination in the same format.
     private void ThrowIfIncompatibleDestination(AudioBuffer destination)
     {
         ArgumentNullException.ThrowIfNull(destination);

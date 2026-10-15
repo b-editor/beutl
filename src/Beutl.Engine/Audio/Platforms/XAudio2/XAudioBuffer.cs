@@ -18,7 +18,7 @@ public sealed unsafe class XAudioBuffer : IDisposable
 
     public Vortice.XAudio2.AudioBuffer Buffer { get; }
 
-    public int SizeInBytes { get; private set; }
+    private int SizeInBytes { get; set; }
 
     public WaveFormat? Format { get; private set; }
 

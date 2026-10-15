@@ -111,7 +111,11 @@ internal sealed class BufferReplayNode(AudioBuffer buffer) : AudioNode
     public override AudioBuffer Process(AudioProcessContext context)
     {
         var copy = new AudioBuffer(buffer.SampleRate, buffer.ChannelCount, buffer.SampleCount);
-        buffer.CopyTo(copy);
+        for (int ch = 0; ch < buffer.ChannelCount; ch++)
+        {
+            buffer.GetChannelData(ch).CopyTo(copy.GetChannelData(ch));
+        }
+
         return copy;
     }
 }
@@ -272,7 +276,7 @@ internal static class AudioTestContexts
 {
     public static AudioProcessContext CreateContext(
         TimeSpan start, TimeSpan duration, int sampleRate = AudioTestBuffers.DefaultSampleRate)
-        => new(new TimeRange(start, duration), sampleRate, new AnimationSampler(), null);
+        => new(new TimeRange(start, duration), sampleRate, null);
 
     /// <summary>Lasts exactly <paramref name="count"/> samples.</summary>
     public static AudioProcessContext Exact(TimeSpan start, int count, int sampleRate)
@@ -289,7 +293,7 @@ internal static class AudioTestContexts
         => new(new TimeRange(
                 TimeSpan.FromTicks((long)Math.Ceiling(startSample * (double)TimeSpan.TicksPerSecond / sampleRate)),
                 ExactDuration(count, sampleRate)),
-            sampleRate, new AnimationSampler(), null)
+            sampleRate, null)
         {
             ProcessEndTime = end
         };

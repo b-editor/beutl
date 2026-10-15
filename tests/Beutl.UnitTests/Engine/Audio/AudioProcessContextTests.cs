@@ -1,5 +1,4 @@
-﻿using Beutl.Animation;
-using Beutl.Audio.Graph;
+﻿using Beutl.Audio.Graph;
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Audio;
@@ -40,7 +39,7 @@ public class AudioProcessContextTests
         var range = new TimeRange(TimeSpan.FromSeconds(0.5), TimeSpan.FromMilliseconds(123.456));
         const int sampleRate = 48000;
 
-        var instance = new AudioProcessContext(range, sampleRate, new AnimationSampler(), null);
+        var instance = new AudioProcessContext(range, sampleRate, null);
 
         Assert.That(AudioProcessContext.GetSampleCount(range, sampleRate),
             Is.EqualTo(instance.GetSampleCount()));
@@ -174,7 +173,7 @@ public class AudioProcessContextTests
         var previousEnd = TimeSpan.FromSeconds(1);
         var context = new AudioProcessContext(
             new TimeRange(previousEnd + TimeSpan.FromTicks(tickOffset), TimeSpan.FromSeconds(0.1)),
-            48000, new AnimationSampler(), null);
+            48000, null);
 
         Assert.That(context.ContinuesFrom(previousEnd), Is.EqualTo(expected));
     }
@@ -184,7 +183,7 @@ public class AudioProcessContextTests
     {
         var context = new AudioProcessContext(
             new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(0.1)),
-            48000, new AnimationSampler(), null);
+            48000, null);
 
         Assert.That(context.ContinuesFrom(TimeSpan.FromSeconds(1)), Is.False);
     }

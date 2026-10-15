@@ -3,9 +3,9 @@ using Beutl.Media;
 
 namespace Beutl.Animation;
 
-public sealed class AnimationSampler
+public static class AnimationSampler
 {
-    public void SampleBuffer<T>(
+    public static void SampleBuffer<T>(
         IProperty<T> property,
         TimeRange range,
         int sampleRate,

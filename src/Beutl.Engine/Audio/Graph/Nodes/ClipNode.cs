@@ -55,7 +55,6 @@ public class ClipNode : AudioNode
         var clippedContext = new AudioProcessContext(
             newRange.SubtractStart(Start),
             context.SampleRate,
-            context.AnimationSampler,
             context.OriginalTimeRange)
         {
             ProcessEndTime = context.ProcessEndTime is { } parentEnd
@@ -106,7 +105,6 @@ public class ClipNode : AudioNode
         var drainContext = new AudioProcessContext(
             new TimeRange(_lastProcessedLocalEnd ?? Duration, context.TimeRange.Duration),
             context.SampleRate,
-            context.AnimationSampler,
             context.OriginalTimeRange);
 
         var result = Inputs[0].Flush(drainContext);
@@ -134,7 +132,6 @@ public class ClipNode : AudioNode
                 Duration,
                 AudioProcessContext.GetDurationForSampleCount(drainCount, context.SampleRate)),
             context.SampleRate,
-            context.AnimationSampler,
             context.OriginalTimeRange);
 
         using var tail = Inputs[0].Flush(drainContext);

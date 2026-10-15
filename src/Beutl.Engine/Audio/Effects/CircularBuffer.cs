@@ -30,10 +30,6 @@ public sealed unsafe class CircularBuffer<T> : IDisposable
         Dispose(false);
     }
 
-    public int Length => _length;
-
-    public int WriteIndex => _writeIndex;
-
     public T Read(int samplesBack)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -65,22 +61,6 @@ public sealed unsafe class CircularBuffer<T> : IDisposable
             _buffer[i] = default(T);
         }
         _writeIndex = 0;
-    }
-
-    public void FillWithValue(T value)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        for (int i = 0; i < _length; i++)
-        {
-            _buffer[i] = value;
-        }
-    }
-
-    public Span<T> GetInternalBuffer()
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        return new Span<T>(_buffer, _length);
     }
 
     private void Dispose(bool disposing)

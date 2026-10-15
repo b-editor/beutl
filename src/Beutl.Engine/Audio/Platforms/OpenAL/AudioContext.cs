@@ -22,31 +22,9 @@ public sealed unsafe class AudioContext : IDisposable
 
     public bool IsDisposed { get; private set; }
 
-    public bool IsCurrent => _alc.GetCurrentContext() == _context;
+    private bool IsCurrent => _alc.GetCurrentContext() == _context;
 
-    public float Gain
-    {
-        get
-        {
-            ThrowIfDisposed();
-            MakeCurrent();
-            _al.GetListenerProperty(ListenerFloat.Gain, out float v);
-
-            VerifyError();
-
-            return v;
-        }
-        set
-        {
-            ThrowIfDisposed();
-            MakeCurrent();
-            _al.SetListenerProperty(ListenerFloat.Gain, value);
-
-            VerifyError();
-        }
-    }
-
-    public void VerifyAudioError()
+    private void VerifyAudioError()
     {
         var error = _al.GetError();
 
@@ -56,7 +34,7 @@ public sealed unsafe class AudioContext : IDisposable
         }
     }
 
-    public void VerifyContextError()
+    private void VerifyContextError()
     {
         var alcError = _alc.GetError(_device);
 
@@ -66,7 +44,7 @@ public sealed unsafe class AudioContext : IDisposable
         }
     }
 
-    public void VerifyError()
+    private void VerifyError()
     {
         VerifyAudioError();
         VerifyContextError();
@@ -96,17 +74,8 @@ public sealed unsafe class AudioContext : IDisposable
         _alc.MakeContextCurrent(null);
         _alc.DestroyContext(_context);
         _alc.CloseDevice(_device);
-        GC.SuppressFinalize(this);
 
         IsDisposed = true;
-    }
-
-    public uint GenBuffer()
-    {
-        uint buf = _al.GenBuffer();
-        VerifyAudioError();
-
-        return buf;
     }
 
     public uint[] GenBuffers(int count)
@@ -131,11 +100,6 @@ public sealed unsafe class AudioContext : IDisposable
         {
             _al.DeleteBuffers(handle.Length, ptr);
         }
-    }
-
-    public void DeleteBuffer(uint handle)
-    {
-        _al.DeleteBuffer(handle);
     }
 
     public void DeleteSource(uint handle)
@@ -169,12 +133,6 @@ public sealed unsafe class AudioContext : IDisposable
         VerifyAudioError();
     }
 
-    public void GetBuffer(uint bid, GetBufferInteger param, out int value)
-    {
-        _al.GetBufferProperty(bid, param, out value);
-        VerifyAudioError();
-    }
-
     public void SourcePlay(uint handle)
     {
         _al.SourcePlay(handle);
@@ -184,12 +142,6 @@ public sealed unsafe class AudioContext : IDisposable
     public void SourceStop(uint handle)
     {
         _al.SourceStop(handle);
-        VerifyAudioError();
-    }
-
-    public void SourcePause(uint handle)
-    {
-        _al.SourcePause(handle);
         VerifyAudioError();
     }
 

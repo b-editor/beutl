@@ -1,14 +1,12 @@
 ﻿using System.Runtime.CompilerServices;
-using Beutl.Animation;
 using Beutl.Audio.Graph;
 using Beutl.Composition;
 using Beutl.Media;
 
 namespace Beutl.Audio.Composing;
 
-public partial class Composer : IComposer
+public partial class Composer : IDisposable
 {
-    private readonly AnimationSampler _animationSampler = new();
     private readonly ConditionalWeakTable<Sound, AudioNodeEntry> _audioCache = [];
     private readonly List<AudioNodeEntry> _currentEntry = new();
 
@@ -162,7 +160,7 @@ public partial class Composer : IComposer
             {
                 _lastEligibility = eligibility ?? CompositionEligibility.Empty;
 
-                var context = new AudioProcessContext(range, SampleRate, _animationSampler, range);
+                var context = new AudioProcessContext(range, SampleRate, range);
                 var entries = GetRetainedEntries();
                 bool contiguous = _previousRange is { } previous
                     && IsContiguous(previous.End, range.Start);
@@ -237,7 +235,7 @@ public partial class Composer : IComposer
             foreach (var item in _currentEntry)
             {
                 if (item.OutputNodes is not { } outputNodes) continue;
-                var processContext = new AudioProcessContext(range, SampleRate, _animationSampler, range);
+                var processContext = new AudioProcessContext(range, SampleRate, range);
                 foreach (var outputNode in outputNodes)
                 {
                     buffers.Add(outputNode.Process(processContext));
@@ -303,7 +301,7 @@ public partial class Composer : IComposer
             if (GetEntryLatency(entry, outputNodes, SampleRate) <= 0)
                 continue;
 
-            var flushContext = new AudioProcessContext(range, SampleRate, _animationSampler, range);
+            var flushContext = new AudioProcessContext(range, SampleRate, range);
             int sampleCount = flushContext.GetSampleCount();
             DrainEntryTails(entry, outputNodes, flushContext, sampleCount, buffers);
         }
@@ -435,22 +433,6 @@ public partial class Composer : IComposer
     }
 
     /// <summary>
-    /// Invalidates the cache, forcing recreation on next use.
-    /// </summary>
-    public void InvalidateCache()
-    {
-        foreach (var kvp in _audioCache)
-        {
-            kvp.Value.Dispose();
-        }
-
-        _audioCache.Clear();
-
-        // Invalidation also clears previous-window state so disposed graphs cannot be flushed.
-        ResetWindowState();
-    }
-
-    /// <summary>
     /// Composes a sound with caching support and differential updates.
     /// </summary>
     protected void ComposeSound(Sound.Resource resource, TimeRange timeRange)
@@ -494,25 +476,6 @@ public partial class Composer : IComposer
         if (_audioCache.TryGetValue(sound, out var entry))
         {
             entry.IsDirty = true;
-        }
-    }
-
-    /// <summary>
-    /// Cleans up cache entries for the given sounds.
-    /// </summary>
-    protected void CleanupSoundHandlers(IEnumerable<Sound> sounds)
-    {
-        foreach (var sound in sounds)
-        {
-            if (_audioCache.TryGetValue(sound, out var entry))
-            {
-                if (entry.EditedHandler != null)
-                {
-                    sound.Edited -= entry.EditedHandler;
-                }
-
-                _audioCache.Remove(sound);
-            }
         }
     }
 

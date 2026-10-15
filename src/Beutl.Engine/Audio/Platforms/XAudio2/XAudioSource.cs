@@ -19,11 +19,6 @@ public sealed class XAudioSource : IDisposable
         _createSourceVoice = createSourceVoice;
     }
 
-    public int BuffersQueued
-    {
-        get { lock (_lifetimeGate) return (int?)_sourceVoice?.State.BuffersQueued ?? -1; }
-    }
-
     public ulong SamplesPlayed
     {
         get { lock (_lifetimeGate) return _sourceVoice?.State.SamplesPlayed ?? 0UL; }
@@ -45,12 +40,6 @@ public sealed class XAudioSource : IDisposable
     {
         try { voice?.DestroyVoice(); }
         finally { voice?.Dispose(); }
-    }
-
-    public bool IsPlaying()
-    {
-        lock (_lifetimeGate)
-            return _sourceVoice?.State.BuffersQueued > 0;
     }
 
     public void Play()
@@ -77,11 +66,5 @@ public sealed class XAudioSource : IDisposable
 
             _sourceVoice.SubmitSourceBuffer(buffer.Buffer);
         }
-    }
-
-    public void Flush()
-    {
-        lock (_lifetimeGate)
-            _sourceVoice?.FlushSourceBuffers();
     }
 }

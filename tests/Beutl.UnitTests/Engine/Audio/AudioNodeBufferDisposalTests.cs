@@ -225,7 +225,7 @@ public class AudioNodeBufferDisposalTests
     {
         var a = new CapturingInputNode(SampleRate, 2, SampleCount, 0.25f);
         var b = new CapturingInputNode(SampleRate, 2, SampleCount, 0.5f);
-        using var node = new MixerNode { Gains = [1f, 1f] };
+        using var node = new MixerNode();
         node.AddInput(a);
         node.AddInput(b);
 
