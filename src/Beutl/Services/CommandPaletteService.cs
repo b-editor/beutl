@@ -123,8 +123,8 @@ public sealed class CommandPaletteService
 
             // スナップショット時に解決したハンドラーを Execute / CanExecute / StateChanged 全てで共有し、
             // 列挙時と実行時で別インスタンスへ向くケースを防ぐ。タブ切替時は RebuildSnapshot で再列挙される。
-            // ランタイムでハンドラーを解決できないコマンド（例: ContextCommandAttribute 方式のみで
-            // 実装されたもの）はパレットから実行する手段がないため列挙対象から除外する。
+            // ランタイムでハンドラーを解決できないコマンドはパレットから実行する手段がないため
+            // 列挙対象から除外する。
             IContextCommandHandler? snapshotHandler = _handlerProvider.Resolve(entry.ExtensionType);
             if (snapshotHandler is null)
             {

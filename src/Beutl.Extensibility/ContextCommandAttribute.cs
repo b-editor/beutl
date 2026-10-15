@@ -73,12 +73,6 @@ public class ContextCommandExecution
     public bool IsFromTextInput => ContextCommandInput.IsFromTextInput(KeyEventArgs);
 }
 
-[AttributeUsage(AttributeTargets.Method)]
-public class ContextCommandAttribute : Attribute
-{
-    public string? Name { get; set; }
-}
-
 public enum ContextCommandScope
 {
     /// <summary>The command is handled by an open editor or tool context.</summary>
