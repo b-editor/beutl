@@ -77,7 +77,7 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
 
     public static bool IsPositive(Rational value)
     {
-        return long.IsPositive(value.Numerator) ^ long.IsPositive(value.Denominator);
+        return long.IsPositive(value.Numerator) == long.IsPositive(value.Denominator);
     }
 
     public static bool IsRealNumber(Rational value)
