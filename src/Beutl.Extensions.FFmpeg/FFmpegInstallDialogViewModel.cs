@@ -37,8 +37,6 @@ public class FFmpegInstallDialogViewModel : IDisposable
 
     public ReactiveProperty<bool> IsCompleted { get; } = new(false);
 
-    public ReactiveProperty<bool> IsSuccess { get; } = new(false);
-
     public ReactiveProperty<string> CloseButtonText { get; } = new(Beutl.Language.Strings.Cancel);
 
     public string InstallMethodDescription => InstallMethod switch
@@ -79,7 +77,6 @@ public class FFmpegInstallDialogViewModel : IDisposable
     private void OnCompleted(bool success)
     {
         IsCompleted.Value = true;
-        IsSuccess.Value = success;
         CloseButtonText.Value = Beutl.Language.Strings.Close;
         _logger.LogInformation("FFmpeg installation completed: {Success}", success);
     }
@@ -99,7 +96,6 @@ public class FFmpegInstallDialogViewModel : IDisposable
         ProgressMax.Dispose();
         IsIndeterminate.Dispose();
         IsCompleted.Dispose();
-        IsSuccess.Dispose();
         CloseButtonText.Dispose();
     }
 }
