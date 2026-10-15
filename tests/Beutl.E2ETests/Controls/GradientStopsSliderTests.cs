@@ -29,29 +29,21 @@ public class GradientStopsSliderTests
             added.Add(e.Object);
             stops.Insert(e.Index, e.Object);
         };
-        var window = new Window { Content = slider, Width = 420, Height = 120 };
-        try
-        {
-            window.Show();
-            HeadlessTestHelpers.Settle();
-            ItemsControl items = slider.GetVisualDescendants().OfType<ItemsControl>().Single(c => c.Name == "ItemsControl");
-            // The slider maps x to x / (width - 18), the track left after a thumb's width.
-            double dragWidth = items.Bounds.Width - 18;
-            Point click = items.TranslatePoint(new Point(dragWidth * 0.75, items.Bounds.Height / 2), window)!.Value;
+        using var host = new ControlHost(slider, 420, 120);
+        Window window = host.Window;
+        ItemsControl items = slider.GetVisualDescendants().OfType<ItemsControl>().Single(c => c.Name == "ItemsControl");
+        // The slider maps x to x / (width - 18), the track left after a thumb's width.
+        double dragWidth = items.Bounds.Width - 18;
+        Point click = items.TranslatePoint(new Point(dragWidth * 0.75, items.Bounds.Height / 2), window)!.Value;
 
-            window.MouseDown(click, MouseButton.Left);
-            window.MouseUp(click, MouseButton.Left);
-            HeadlessTestHelpers.Settle();
+        window.MouseDown(click, MouseButton.Left);
+        window.MouseUp(click, MouseButton.Left);
+        HeadlessTestHelpers.Settle();
 
-            GradientStop stop = added.Single();
-            Assert.That(stop.Offset, Is.EqualTo(0.75).Within(1e-6));
-            // Halfway between black and white in linear light.
-            Assert.That(stop.Color, Is.EqualTo(Color.FromRgb(188, 188, 188)));
-        }
-        finally
-        {
-            window.Close();
-        }
+        GradientStop stop = added.Single();
+        Assert.That(stop.Offset, Is.EqualTo(0.75).Within(1e-6));
+        // Halfway between black and white in linear light.
+        Assert.That(stop.Color, Is.EqualTo(Color.FromRgb(188, 188, 188)));
     }
 
     // A click there lands on the stops' thumbs, so the color is resolved directly.

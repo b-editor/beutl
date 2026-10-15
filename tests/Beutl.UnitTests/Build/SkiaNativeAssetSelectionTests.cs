@@ -95,36 +95,11 @@ public class SkiaNativeAssetSelectionTests
 
     private static async Task<(int ExitCode, string Output)> RunDotNet(string repository, params string[] arguments)
     {
-        var start = new ProcessStartInfo("dotnet")
-        {
-            WorkingDirectory = repository,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-        };
+        var start = new ProcessStartInfo("dotnet") { WorkingDirectory = repository };
         foreach (string argument in arguments)
             start.ArgumentList.Add(argument);
-        using Process process = Process.Start(start)!;
-        Task<string> stdout = process.StandardOutput.ReadToEndAsync();
-        Task<string> stderr = process.StandardError.ReadToEndAsync();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(1));
-        try
-        {
-            await process.WaitForExitAsync(timeout.Token);
-            return (process.ExitCode, await stdout + await stderr);
-        }
-        catch (OperationCanceledException error) when (timeout.IsCancellationRequested)
-        {
-            if (!process.HasExited)
-                process.Kill(entireProcessTree: true);
-            await process.WaitForExitAsync();
-            throw new TimeoutException("dotnet " + string.Join(' ', arguments) + " timed out.\n" + await stdout + await stderr, error);
-        }
-        finally
-        {
-            if (!process.HasExited)
-                process.Kill(entireProcessTree: true);
-        }
+        (int exitCode, string output, string error) = await TestProcesses.RunAsync(start, TimeSpan.FromMinutes(1));
+        return (exitCode, output + error);
     }
 
     private sealed class PublishFixture : IDisposable

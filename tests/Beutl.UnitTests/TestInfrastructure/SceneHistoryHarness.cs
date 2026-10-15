@@ -12,14 +12,11 @@ public sealed class HistoryHarness : IDisposable
 {
     public HistoryHarness(CoreObject root)
     {
-        Root = root;
         Sequence = new OperationSequenceGenerator();
         History = new HistoryManager(root, Sequence);
         Observer = new CoreObjectOperationObserver(null, root, Sequence);
         History.Subscribe(Observer);
     }
-
-    public CoreObject Root { get; }
 
     public OperationSequenceGenerator Sequence { get; }
 
@@ -46,21 +43,17 @@ public sealed class SceneHistoryHarness : IDisposable
     /// Prefix for the temp directory, kept per-fixture so concurrent runs do not collide and so the
     /// directory name stays recognizable in a crash dump.
     /// </param>
-    /// <param name="width">Scene frame width.</param>
-    /// <param name="height">Scene frame height.</param>
     /// <param name="start">Scene start; <see langword="null"/> leaves the property default.</param>
     /// <param name="duration">Scene duration; <see langword="null"/> leaves the property default.</param>
     public SceneHistoryHarness(
         string namePrefix,
-        int width = 100,
-        int height = 100,
         TimeSpan? start = null,
         TimeSpan? duration = null)
     {
         BasePath = Path.Combine(Path.GetTempPath(), $"{namePrefix}_{Guid.NewGuid():N}");
         Directory.CreateDirectory(BasePath);
 
-        Scene = new Scene(width, height, string.Empty)
+        Scene = new Scene(100, 100, string.Empty)
         {
             Uri = new Uri(Path.Combine(BasePath, "test.scene")),
         };
@@ -74,11 +67,7 @@ public sealed class SceneHistoryHarness : IDisposable
 
     public Scene Scene { get; }
 
-    public OperationSequenceGenerator Sequence => _history.Sequence;
-
     public HistoryManager History => _history.History;
-
-    public CoreObjectOperationObserver Observer => _history.Observer;
 
     /// <summary>
     /// Creates an <see cref="Element"/> backed by a fresh layer file under <see cref="BasePath"/> and

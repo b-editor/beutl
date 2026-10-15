@@ -5,7 +5,6 @@ using Avalonia.Data;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media;
-using Avalonia.Platform;
 using Beutl.Controls;
 using Beutl.Media.Source;
 using Beutl.Testing.Headless;
@@ -26,10 +25,10 @@ public class BitmapViewSourceLifetimeTests
         var view = new BitmapView { Stretch = Stretch.Fill };
         using var binding = view.Bind(BitmapView.SourceProperty,
             new ReflectionBinding(nameof(FrameSource.Frame)) { Source = source });
-        var window = new Window { Content = view, Width = 64, Height = 32, Background = Brushes.Black };
+        var host = new ControlHost(new Window { Content = view, Width = 64, Height = 32, Background = Brushes.Black });
+        Window window = host.Window;
         try
         {
-            window.Show();
             AssertCenterPixel(window, red: true);
 
             // Leave the UI dispatcher occupied until the posted binding value has expired.
@@ -57,7 +56,7 @@ public class BitmapViewSourceLifetimeTests
         {
             source.Frame = null;
             HeadlessTestHelpers.Settle();
-            window.Close();
+            host.Dispose();
         }
     }
 
@@ -68,10 +67,10 @@ public class BitmapViewSourceLifetimeTests
         using var expired = CreateFrame(SKColors.Green, 64, 32);
         using var next = CreateFrame(SKColors.Blue, 32, 16);
         var view = new BitmapView { Source = first, Stretch = Stretch.Fill };
-        var window = new Window { Content = view, Width = 64, Height = 32, Background = Brushes.Black };
+        var host = new ControlHost(new Window { Content = view, Width = 64, Height = 32, Background = Brushes.Black });
+        Window window = host.Window;
         try
         {
-            window.Show();
             AssertCenterPixel(window, red: true);
 
             // The player disposes superseded refs on the playback thread. A queued binding can
@@ -93,7 +92,7 @@ public class BitmapViewSourceLifetimeTests
         finally
         {
             view.Source = null;
-            window.Close();
+            host.Dispose();
         }
     }
 
@@ -167,18 +166,8 @@ public class BitmapViewSourceLifetimeTests
         Assert.That(ReadCenterPixel(frame), Is.EqualTo(red ? (255, 0, 0) : (0, 0, 255)));
     }
 
-    private static unsafe (int R, int G, int B) ReadCenterPixel(Avalonia.Media.Imaging.WriteableBitmap frame)
-    {
-        using var framebuffer = frame.Lock();
-        byte* pixel = (byte*)framebuffer.Address
-                      + frame.PixelSize.Height / 2 * framebuffer.RowBytes
-                      + frame.PixelSize.Width / 2 * 4;
-        if (framebuffer.Format == PixelFormat.Rgba8888)
-            return (pixel[0], pixel[1], pixel[2]);
-
-        Assert.That(framebuffer.Format, Is.EqualTo(PixelFormat.Bgra8888));
-        return (pixel[2], pixel[1], pixel[0]);
-    }
+    private static (int R, int G, int B) ReadCenterPixel(Avalonia.Media.Imaging.WriteableBitmap frame)
+        => HeadlessTestHelpers.ReadPixel(frame, new PixelPoint(frame.PixelSize.Width / 2, frame.PixelSize.Height / 2));
 
     private sealed class FrameSource : INotifyPropertyChanged
     {

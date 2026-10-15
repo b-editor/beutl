@@ -9,8 +9,6 @@ using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 
-using SkiaSharp;
-
 namespace Beutl.UnitTests.Benchmarks.Rendering;
 
 public sealed class RenderPipelineBenchmarkNodeTests
@@ -213,7 +211,7 @@ public sealed class RenderPipelineBenchmarkNodeTests
             MaxWorkingScale = 1,
             CacheOptions = RenderCacheOptions.Enabled,
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
     private static bool CompilesCustomEffectSegmentIsland(FilterEffect effect)
     {
@@ -243,22 +241,4 @@ public sealed class RenderPipelineBenchmarkNodeTests
             throw;
         }
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize);
-    }
-
-    private sealed class CpuRenderTarget(PixelSize size)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                    size.Width,
-                    size.Height,
-                    SKColorType.RgbaF16,
-                    SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear()))
-                ?? throw new InvalidOperationException("Could not create the CPU benchmark-test surface."),
-            size.Width,
-            size.Height);
 }

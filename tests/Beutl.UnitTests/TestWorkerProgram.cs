@@ -1,4 +1,5 @@
 ﻿using Beutl.UnitTests.Api;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests;
 
@@ -74,31 +75,17 @@ internal static class TestWorkerProgram
         TimeSpan timeout,
         params string[] arguments)
     {
-        var start = new System.Diagnostics.ProcessStartInfo("dotnet")
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-        };
+        var start = new System.Diagnostics.ProcessStartInfo("dotnet");
         start.ArgumentList.Add("exec");
         start.ArgumentList.Add(typeof(TestWorkerProgram).Assembly.Location);
         foreach (string argument in arguments) start.ArgumentList.Add(argument);
         configureStartInfo?.Invoke(start);
-        using var process = System.Diagnostics.Process.Start(start)!;
-        Task<string> stdout = process.StandardOutput.ReadToEndAsync();
-        Task<string> stderr = process.StandardError.ReadToEndAsync();
-        try { await process.WaitForExitAsync().WaitAsync(timeout); }
-        catch
-        {
-            if (!process.HasExited) process.Kill(entireProcessTree: true);
-            await process.WaitForExitAsync();
-            throw;
-        }
-        string output = await stdout + await stderr;
+        (int exitCode, string stdout, string stderr) = await TestProcesses.RunAsync(start, timeout);
+        string output = stdout + stderr;
         if (expectSuccess)
-            Assert.That(process.ExitCode, Is.Zero, output);
+            Assert.That(exitCode, Is.Zero, output);
         else
-            Assert.That(process.ExitCode, Is.Not.Zero, "The worker should have failed. " + output);
+            Assert.That(exitCode, Is.Not.Zero, "The worker should have failed. " + output);
         return output;
     }
 }

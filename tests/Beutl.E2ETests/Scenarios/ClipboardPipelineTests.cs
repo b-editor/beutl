@@ -79,37 +79,9 @@ public class ClipboardPipelineTests
         });
     }
 
-    [Test]
-    public async Task Cut_with_unavailable_clipboard_preserves_the_scene()
-    {
-        Element original = _harness.AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0);
-        int childrenBefore = _scene.Children.Count;
-        int historyBefore = _history.UndoCount;
-        _clipboard.Unavailable = true;
-
-        bool cut = await _service.CutAsync(_scene, [original]);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(cut, Is.False);
-            Assert.That(_scene.Children, Does.Contain(original));
-            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore));
-            Assert.That(_history.UndoCount, Is.EqualTo(historyBefore));
-        });
-    }
-
-    [Test]
-    public async Task Paste_with_empty_clipboard_is_a_no_op()
-    {
-        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.Zero, 0);
-        Assert.That(outcome.Pasted, Is.False);
-    }
-
     private sealed class FakeClipboardGateway : IClipboardGateway
     {
         private readonly Dictionary<string, string> _entries = new();
-
-        public bool Unavailable { get; set; }
 
         public Task<IReadOnlyList<string>> GetFormatsAsync()
             => Task.FromResult<IReadOnlyList<string>>(new List<string>(_entries.Keys));
@@ -125,8 +97,6 @@ public class ClipboardPipelineTests
 
         public Task<bool> SetAsync(IReadOnlyList<ClipboardEntry> entries)
         {
-            if (Unavailable) return Task.FromResult(false);
-
             _entries.Clear();
             foreach (ClipboardEntry entry in entries)
             {

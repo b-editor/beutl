@@ -307,6 +307,7 @@ public class ElementStructureServiceTests
         {
             Assert.That(outcome.Created, Is.True);
             Assert.That(_scene.Groups.Count, Is.EqualTo(groupsBefore + 1));
+            Assert.That(_scene.Groups[^1], Does.Contain(e1.Id).And.Contain(e2.Id));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }

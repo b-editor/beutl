@@ -2,15 +2,7 @@
 
   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
 
-  <PropertyGroup>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>
-
-  <!-- coverlet.collector shared across every real test project (gated on IsTestProject so non-test
-       executables skip it). Beutl.UnitTests declares its own, so it is excluded here to avoid a
-       duplicate under central package management. -->
-  <ItemGroup Condition="'$(IsTestProject)' == 'true' And '$(MSBuildProjectName)' != 'Beutl.UnitTests'">
+  <ItemGroup Condition="'$(IsTestProject)' == 'true'">
     <PackageReference Include="coverlet.collector">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
