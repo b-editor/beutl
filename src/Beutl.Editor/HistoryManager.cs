@@ -661,18 +661,6 @@ public sealed partial class HistoryManager : IDisposable
         Record(operation);
     }
 
-    public RecordingScope<TState> BeginRecordingScope<TState>(
-        Func<TState> captureState,
-        Action<TState> applyState,
-        string? description = null)
-    {
-        ThrowIfDisposed();
-        ArgumentNullException.ThrowIfNull(captureState);
-        ArgumentNullException.ThrowIfNull(applyState);
-
-        return new RecordingScope<TState>(this, captureState, applyState, _sequenceGenerator, description);
-    }
-
     private void NotifyStateChanged()
     {
         _stateChanged.OnNext(new HistoryState(CanUndo, CanRedo, UndoCount, RedoCount));
