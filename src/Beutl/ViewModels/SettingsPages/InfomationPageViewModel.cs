@@ -1,6 +1,4 @@
-﻿#pragma warning disable CS0436
-
-using System.Reflection;
+﻿using System.Reflection;
 using Avalonia.Controls;
 
 using Beutl.Controls.Navigation;
