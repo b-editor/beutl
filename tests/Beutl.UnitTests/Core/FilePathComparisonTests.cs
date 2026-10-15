@@ -545,6 +545,26 @@ public class FilePathComparisonTests
     }
 
     [Test]
+    public void ResolveCanonicalPath_SymbolicLinkCycle_StopsAtTheHopLimit()
+    {
+        string root = CreateWorkDirectoryRoot();
+        try
+        {
+            string first = Path.Combine(root, "first");
+            SymbolicLinks.CreateOrIgnore(first, "second");
+            SymbolicLinks.CreateOrIgnore(Path.Combine(root, "second"), "first");
+
+            IOException? failure = Assert.Throws<IOException>(() => FilePathComparison.ResolveCanonicalPath(first));
+
+            Assert.That(failure!.Message, Does.Contain("exceeds the symbolic-link resolution limit"));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Test]
     public void ResolveCanonicalPath_PlainExistingPath_ReturnsCanonicalFullPath()
     {
         string root = CreateWorkDirectoryRoot();

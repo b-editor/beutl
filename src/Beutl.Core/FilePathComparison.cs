@@ -138,10 +138,6 @@ public static partial class FilePathComparison
         (string root, IEnumerable<string> unresolvedComponents) =
             GetUnresolvedAbsolutePath(path);
         var components = new Queue<string>(unresolvedComponents);
-        var visitedStates = new HashSet<string>(StringComparer.Ordinal)
-        {
-            CreateResolutionState(root, components),
-        };
         string resolved = root;
         int linkHops = 0;
 
@@ -202,12 +198,6 @@ public static partial class FilePathComparison
 
             IEnumerable<string> targetComponents = SplitComponents(target, targetRoot);
             components = new Queue<string>(targetComponents.Concat(components));
-            string state = CreateResolutionState(resolved, components);
-            if (!visitedStates.Add(state))
-            {
-                throw new IOException(
-                    $"A symbolic-link cycle was found while resolving '{path}'.");
-            }
         }
 
         return Path.TrimEndingDirectorySeparator(Path.GetFullPath(resolved));
@@ -292,11 +282,6 @@ public static partial class FilePathComparison
         return path[root.Length..].Split(
             [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
             StringSplitOptions.RemoveEmptyEntries);
-    }
-
-    private static string CreateResolutionState(string resolved, IEnumerable<string> components)
-    {
-        return string.Join('\0', new[] { resolved }.Concat(components));
     }
 
     private static string? TryGetLinkTarget(string path)
