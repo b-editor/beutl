@@ -336,10 +336,7 @@ public readonly struct Size(float width, float height)
 
     public static Size Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider)
     {
-        using var tokenizer = new RefUtf8StringTokenizer(utf8Text, provider ?? CultureInfo.InvariantCulture, exceptionMessage: "Invalid Size.");
-        return new Size(
-            tokenizer.ReadSingle(),
-            tokenizer.ReadSingle());
+        return Utf8TextParser.Parse<Size>(utf8Text, provider);
     }
 
     public static bool TryParse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider, out Size result)

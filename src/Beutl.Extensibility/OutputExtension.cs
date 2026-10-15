@@ -1,13 +1,12 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
-using Avalonia.Platform.Storage;
 
 using Reactive.Bindings;
 
 namespace Beutl.Extensibility;
 
-/// <summary>Provides the settings, progress, and complete execution body for one output profile.</summary>
+/// <summary>Provides the settings and complete execution body for one output profile.</summary>
 public interface IOutputContext : IDisposable, IJsonSerializable
 {
     OutputExtension Extension { get; }
@@ -15,10 +14,6 @@ public interface IOutputContext : IDisposable, IJsonSerializable
     CoreObject Object { get; }
 
     IReactiveProperty<string> Name { get; }
-
-    IReadOnlyReactiveProperty<bool> IsIndeterminate { get; }
-
-    IReadOnlyReactiveProperty<double> Progress { get; }
 
     /// <summary>Runs the complete output operation.</summary>
     /// <remarks>
@@ -65,8 +60,6 @@ public interface ISupportOutputPreset
 
 public abstract class OutputExtension : Extension
 {
-    public abstract FilePickerFileType GetFilePickerFileType();
-
     /// <summary>Creates the control for one output profile.</summary>
     /// <remarks>
     /// The control must use <paramref name="execution"/> for start and cancellation requests. A new

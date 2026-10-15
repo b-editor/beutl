@@ -611,7 +611,7 @@ public sealed class GenerativeGraphRunnerTests
         using (var snapshot = new GraphSnapshot())
         {
             snapshot.Build(model, CompositionContext.Default);
-            snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+            snapshot.Evaluate(CompositionContext.Default);
         }
 
         Assert.That(node.IsStale, Is.False);

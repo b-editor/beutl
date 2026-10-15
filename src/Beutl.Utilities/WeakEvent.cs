@@ -8,17 +8,6 @@ public class WeakEvent<TSender, TEventArgs> : WeakEvent where TEventArgs : Event
 
     readonly ConditionalWeakTable<object, Subscription> _subscriptions = [];
 
-    internal WeakEvent(
-        Action<TSender, EventHandler<TEventArgs>> subscribe,
-        Action<TSender, EventHandler<TEventArgs>> unsubscribe)
-    {
-        _subscribe = (t, s) =>
-        {
-            subscribe(t, s);
-            return () => unsubscribe(t, s);
-        };
-    }
-
     internal WeakEvent(Func<TSender, EventHandler<TEventArgs>, Action> subscribe)
     {
         _subscribe = subscribe;
@@ -172,27 +161,8 @@ public class WeakEvent<TSender, TEventArgs> : WeakEvent where TEventArgs : Event
 public class WeakEvent
 {
     public static WeakEvent<TSender, TEventArgs> Register<TSender, TEventArgs>(
-        Action<TSender, EventHandler<TEventArgs>> subscribe,
-        Action<TSender, EventHandler<TEventArgs>> unsubscribe) where TSender : class where TEventArgs : EventArgs
-    {
-        return new WeakEvent<TSender, TEventArgs>(subscribe, unsubscribe);
-    }
-
-    public static WeakEvent<TSender, TEventArgs> Register<TSender, TEventArgs>(
         Func<TSender, EventHandler<TEventArgs>, Action> subscribe) where TSender : class where TEventArgs : EventArgs
     {
         return new WeakEvent<TSender, TEventArgs>(subscribe);
-    }
-
-    public static WeakEvent<TSender, EventArgs> Register<TSender>(
-        Action<TSender, EventHandler> subscribe,
-        Action<TSender, EventHandler> unsubscribe) where TSender : class
-    {
-        return Register<TSender, EventArgs>((s, h) =>
-        {
-            void handler(object? _, EventArgs e) => h(s, e);
-            subscribe(s, handler);
-            return () => unsubscribe(s, handler);
-        });
     }
 }

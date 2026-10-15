@@ -241,12 +241,6 @@ public class FileBrowserFavoritesStoreTests
 
         public int SetCount { get; private set; }
 
-        public bool ContainsKey(string key) => _values.ContainsKey(key);
-
-        public void Remove(string key) => _values.Remove(key);
-
-        public void Clear() => _values.Clear();
-
         public void Set<T>(string key, T value)
         {
             SetCount++;

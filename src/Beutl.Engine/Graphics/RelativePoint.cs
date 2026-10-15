@@ -205,34 +205,7 @@ public readonly struct RelativePoint(Point point, RelativeUnit unit)
 
     public static RelativePoint Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider)
     {
-        provider ??= CultureInfo.InvariantCulture;
-        using (var tokenizer = new RefUtf8StringTokenizer(utf8Text, provider, exceptionMessage: "Invalid RelativePoint."))
-        {
-            ReadOnlySpan<byte> x = tokenizer.ReadString();
-            ReadOnlySpan<byte> y = tokenizer.ReadString();
-
-            RelativeUnit unit = RelativeUnit.Absolute;
-            float scale = 1.0f;
-
-            ReadOnlySpan<byte> percentChar = "%"u8;
-            if (x.EndsWith(percentChar))
-            {
-                if (!y.EndsWith(percentChar))
-                {
-                    throw new FormatException("If one coordinate is relative, both must be.");
-                }
-
-                x = x[..^1];
-                y = y[..^1];
-                unit = RelativeUnit.Relative;
-                scale = 0.01f;
-            }
-
-            return new RelativePoint(
-                float.Parse(x, provider: provider) * scale,
-                float.Parse(y, provider: provider) * scale,
-                unit);
-        }
+        return Utf8TextParser.Parse<RelativePoint>(utf8Text, provider);
     }
 
     public static bool TryParse(ReadOnlySpan<byte> utf8Text, out RelativePoint result)

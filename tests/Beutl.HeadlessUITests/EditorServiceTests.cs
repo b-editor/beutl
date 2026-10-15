@@ -594,12 +594,6 @@ public sealed class EditorServiceTests
 
         public IReactiveProperty<string> Name { get; } = new ReactivePropertySlim<string>("Output");
 
-        public IReadOnlyReactiveProperty<bool> IsIndeterminate { get; }
-            = new ReactivePropertySlim<bool>();
-
-        public IReadOnlyReactiveProperty<double> Progress { get; }
-            = new ReactivePropertySlim<double>();
-
         public async Task RunAsync(CancellationToken cancellationToken)
         {
             Started.TrySetResult();

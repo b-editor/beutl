@@ -6,29 +6,6 @@ namespace Beutl.UnitTests.Language;
 [TestFixture]
 public class LocalizeServiceTests
 {
-    [TestCase("en-US", true)]
-    [TestCase("ja-JP", true)]
-    [TestCase("zh-CN", true)]
-    [TestCase("ko-KR", true)]
-    [TestCase("es", true)]
-    [TestCase("es-ES", true)]
-    [TestCase("es-MX", true)]
-    [TestCase("fr-FR", false)]
-    [TestCase("de-DE", false)]
-    [TestCase("en-GB", false)]
-    public void IsSupportedCulture_matches_exact_and_parent_cultures(string name, bool expected)
-    {
-        var ci = CultureInfo.GetCultureInfo(name);
-
-        Assert.That(LocalizeService.Instance.IsSupportedCulture(ci), Is.EqualTo(expected));
-    }
-
-    [Test]
-    public void IsSupportedCulture_rejects_invariant_culture()
-    {
-        Assert.That(LocalizeService.Instance.IsSupportedCulture(CultureInfo.InvariantCulture), Is.False);
-    }
-
     [Test]
     public void SupportedCultures_returns_all_supported_cultures()
     {
@@ -40,7 +17,9 @@ public class LocalizeServiceTests
     [TestCase("es-MX", "es")]
     [TestCase("es-ES", "es")]
     [TestCase("es", "es")]
+    [TestCase("en-US", "en-US")]
     [TestCase("ja-JP", "ja-JP")]
+    [TestCase("ko-KR", "ko-KR")]
     [TestCase("zh-CN", "zh-CN")]
     public void ResolveSupportedCulture_maps_a_culture_onto_the_entry_the_picker_holds(string name, string expected)
     {
@@ -51,7 +30,9 @@ public class LocalizeServiceTests
     }
 
     [TestCase("fr-FR")]
+    [TestCase("de-DE")]
     [TestCase("en-GB")]
+    [TestCase("")] // The invariant culture.
     public void ResolveSupportedCulture_returns_null_for_an_unsupported_culture(string name)
     {
         Assert.That(LocalizeService.Instance.ResolveSupportedCulture(CultureInfo.GetCultureInfo(name)), Is.Null);

@@ -18,8 +18,6 @@ public sealed class AgentHostInstanceRegistry(string directory)
     public static string GetDefaultDirectory(string profileDirectory)
         => Path.Combine(profileDirectory, DirectoryName);
 
-    public string Location => directory;
-
     public AgentHostInstanceLease Register(string instanceId, Uri endpointUri, long toolsVersion = 0)
     {
         using Process process = Process.GetCurrentProcess();

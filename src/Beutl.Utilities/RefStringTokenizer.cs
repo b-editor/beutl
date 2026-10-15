@@ -37,8 +37,6 @@ public ref struct RefStringTokenizer
         }
     }
 
-    public readonly ReadOnlySpan<char> CurrentToken => _tokenIndex < 0 ? default : _s.Slice(_tokenIndex, _tokenLength);
-
     public readonly void Dispose()
     {
         if (_index != _length)

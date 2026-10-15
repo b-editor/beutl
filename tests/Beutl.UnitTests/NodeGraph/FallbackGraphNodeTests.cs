@@ -60,7 +60,7 @@ public class FallbackGraphNodeTests
         });
         using var snapshot = new GraphSnapshot();
         snapshot.Build(restored, CompositionContext.Default);
-        Assert.DoesNotThrow(() => snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default));
+        Assert.DoesNotThrow(() => snapshot.Evaluate(CompositionContext.Default));
         // A healthy endpoint must still be able to disconnect an unresolved peer.
         Assert.DoesNotThrow(() => restored.Disconnect(restored.AllConnections.Single()));
         Assert.That(((OutputNode)restored.Nodes[1]).InputPort.Connection.IsNull, Is.True);

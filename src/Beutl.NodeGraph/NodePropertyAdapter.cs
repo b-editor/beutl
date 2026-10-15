@@ -14,7 +14,8 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
     private readonly ReactivePropertySlim<T?> _rxProperty = new();
     private IAnimation<T>? _animation;
 
-    public NodePropertyAdapter(string name, T? value, IAnimation<T>? animation)
+    // For tests, which start an adapter with a value or an animation.
+    internal NodePropertyAdapter(string name, T? value, IAnimation<T>? animation)
     {
         Name = name;
         Animation = animation;

@@ -58,7 +58,7 @@ public class GraphTraversalTests
 
         using var snapshot = new GraphSnapshot();
         snapshot.Build(first.Group, CompositionContext.Default);
-        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        snapshot.Evaluate(CompositionContext.Default);
 
         Assert.Multiple(() =>
         {

@@ -304,13 +304,7 @@ public readonly struct Vector(float x, float y)
 
     public static Vector Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider = null)
     {
-        using (var tokenizer = new RefUtf8StringTokenizer(utf8Text, provider ?? CultureInfo.InvariantCulture, exceptionMessage: "Invalid Vector."))
-        {
-            return new Vector(
-                tokenizer.ReadSingle(),
-                tokenizer.ReadSingle()
-            );
-        }
+        return Utf8TextParser.Parse<Vector>(utf8Text, provider);
     }
 
     public static bool TryParse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider, out Vector result)

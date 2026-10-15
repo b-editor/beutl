@@ -19,7 +19,6 @@ public sealed class LiveMcpBroker
 {
     public const string ListInstancesToolName = "list_instances";
     private const string InstanceIdArgument = "instanceId";
-    private const string SceneIdArgument = "sceneId";
     private const string SessionArgument = "session";
 
     private static readonly TimeSpan s_defaultWatchInterval = TimeSpan.FromSeconds(2);
@@ -228,7 +227,7 @@ public sealed class LiveMcpBroker
         bool hasInstanceId = arguments is not null && arguments.TryGetValue(InstanceIdArgument, out id);
         if (!hasInstanceId)
         {
-            if (arguments is not null && arguments.ContainsKey(SceneIdArgument))
+            if (arguments is not null && arguments.ContainsKey(AgentHostSceneRouting.SceneIdArgument))
                 return SceneWithoutInstance();
             if (!IsLocalTool(context.Server, request.Name))
                 return LiveOnly(request.Name);
@@ -314,7 +313,7 @@ public sealed class LiveMcpBroker
             // reject sceneId as an unknown argument.
             if (AgentHostSceneRouting.AcceptsScene(tool.Name))
             {
-                properties[SceneIdArgument] = new JsonObject
+                properties[AgentHostSceneRouting.SceneIdArgument] = new JsonObject
                 {
                     ["type"] = "string",
                     ["description"] = "Live only: ID of the target scene in that instance (from list_scenes there). Pass it together with instanceId; omit it for headless file sessions."

@@ -26,14 +26,14 @@ public sealed class ExpressionNodeTests
                 using var snapshot = new GraphSnapshot();
                 snapshot.Build(model, CompositionContext.Default);
 
-                snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+                snapshot.Evaluate(CompositionContext.Default);
 
                 Assert.That(node.ErrorMonitor.Value, Does.Contain("synchronous").And.Contain("await"));
                 var resource = (ExpressionNode.Resource)snapshot.GetResource(snapshot.FindSlotIndex(node))!;
                 Assert.That(resource.Output, Is.Null);
 
                 node.Expression.Property.SetValue("21 * 2");
-                snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+                snapshot.Evaluate(CompositionContext.Default);
 
                 Assert.That(node.ErrorMonitor.Value, Is.Null);
                 Assert.That(resource.Output, Is.EqualTo(42));
