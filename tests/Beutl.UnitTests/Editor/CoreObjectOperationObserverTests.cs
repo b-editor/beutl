@@ -450,7 +450,7 @@ public class CoreObjectOperationObserverTests
 
         // HierarchicalParent changes should not be published
         var hierarchicalParentOps = receivedOperations
-            .Where(op => op is IPropertyPathProvider ppp && ppp.PropertyPath == "HierarchicalParent")
+            .Where(op => op is UpdatePropertyValueOperation<IHierarchical> update && update.PropertyPath == "HierarchicalParent")
             .ToList();
         Assert.That(hierarchicalParentOps, Is.Empty);
     }
@@ -673,7 +673,7 @@ public class CoreObjectOperationObserverTests
         adapter.SetValue(50f);
 
         var propertyOps = receivedOperations.Where(op =>
-            op is IPropertyPathProvider ppp && ppp.PropertyPath == "Property").ToList();
+            op is UpdateNodeMemberOperation update && update.PropertyPath == "Property").ToList();
         Assert.That(propertyOps, Is.Empty);
     }
 

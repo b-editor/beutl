@@ -51,7 +51,7 @@ public class InvalidNestedInputExpressionTests
         var recordedExpressions = new List<ChangeOperation>();
         using var subscription = history.Observer.Operations.Subscribe(operation =>
         {
-            if (!RecordingSuppression.IsSuppressed && operation is IPropertyPathProvider path
+            if (!RecordingSuppression.IsSuppressed && operation is UpdatePropertyValueOperation<IExpression<float>> path
                 && path.PropertyPath.EndsWith(".Expression", StringComparison.Ordinal))
                 recordedExpressions.Add(operation);
         });

@@ -6,7 +6,7 @@ using Beutl.NodeGraph;
 
 namespace Beutl.Editor.Operations;
 
-public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyPathProvider
+public abstract class CollectionChangeOperation<T> : ChangeOperation
 {
     private ChangeOperationFailureState _failureState;
     public override ChangeOperationFailureState FailureState => _failureState;
