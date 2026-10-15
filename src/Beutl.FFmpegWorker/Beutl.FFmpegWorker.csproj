@@ -6,7 +6,7 @@
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
     <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
-    <DefineConstants>$(DefineConstants);FFMPEG_BUILD_IN;BEUTL_FFMPEG_WORKER</DefineConstants>
+    <DefineConstants>$(DefineConstants);BEUTL_FFMPEG_WORKER</DefineConstants>
     <SelfContained>false</SelfContained>
     <DesktopExeRids>true</DesktopExeRids>
   </PropertyGroup>
