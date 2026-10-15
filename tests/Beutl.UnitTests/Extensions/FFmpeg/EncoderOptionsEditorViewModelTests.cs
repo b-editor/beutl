@@ -23,7 +23,7 @@ public sealed class EncoderOptionsEditorViewModelTests
     public void PackageDiscoveryLoadsTheSpecializedOptionsEditor()
     {
         var provider = new ExtensionProvider();
-        var commands = new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry());
+        var commands = new ContextCommandManager(new ContextCommandSettingsStore());
         var manager = new PackageManager(new InstalledPackageRepository(), provider, commands, apiApplication: null!);
         var loaded = manager.LoadPackageExtensions([typeof(FFmpegEncoderSpecializedPropertyExtension)]);
         var extension = (PropertyEditorExtension)loaded.Single();

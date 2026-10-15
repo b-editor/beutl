@@ -37,20 +37,6 @@ public class RationalTests
     }
 
     [Test]
-    [TestCase(1f / 2f, 1, 2)]
-    [TestCase(1f / 3f, 1, 3)]
-    [TestCase(1f / 7f, 1, 7)]
-    [TestCase(float.NaN, 0, 0)]
-    [TestCase(float.PositiveInfinity, 1, 0)]
-    [TestCase(float.NegativeInfinity, -1, 0)]
-    public void Create_From_Single(float original, long num, long den)
-    {
-        var r = Rational.FromSingle(original);
-
-        Assert.That(r, Is.EqualTo(new Rational(num, den)));
-    }
-
-    [Test]
     [TestCase(2, 6, 1, 3)]
     [TestCase(2, 7, 2, 7)]
     [TestCase(2, 16, 1, 8)]

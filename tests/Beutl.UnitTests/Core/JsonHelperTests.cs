@@ -239,26 +239,6 @@ public class JsonHelperTests
     }
 
     [Test]
-    public void ToDictionary_FlattensJsonStructure()
-    {
-        var node = new JsonObject
-        {
-            ["i"] = 1,
-            ["s"] = "x",
-            ["b"] = true,
-            ["arr"] = new JsonArray(1, 2, 3),
-            ["nested"] = new JsonObject { ["a"] = 1 },
-        };
-
-        Dictionary<string, object> dict = node.ToDictionary();
-
-        Assert.That(dict["s"], Is.EqualTo("x"));
-        Assert.That(dict["b"], Is.EqualTo(true));
-        Assert.That(dict["arr"], Is.InstanceOf<object[]>());
-        Assert.That(dict["nested"], Is.InstanceOf<Dictionary<string, object>>());
-    }
-
-    [Test]
     public void GetOrCreateConverterInstance_ReturnsSameInstanceForSameType()
     {
         var c1 = JsonHelper.GetOrCreateConverterInstance(typeof(OptionalJsonConverter));

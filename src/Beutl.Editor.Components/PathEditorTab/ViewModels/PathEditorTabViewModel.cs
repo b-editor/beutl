@@ -36,7 +36,6 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IP
             .DisposeWith(_disposables);
 
         var chain = PathFigureContextChain.Create(FigureContext, _disposables);
-        Context = chain.Context;
         PathGeometry = chain.PathGeometry;
         PathFigure = chain.PathFigure;
         Element = chain.Element;
@@ -98,8 +97,6 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IP
 
     public IReactiveProperty<IPathFigureEditorContext?> FigureContext { get; } =
         new ReactiveProperty<IPathFigureEditorContext?>();
-
-    public ReadOnlyReactivePropertySlim<IGeometryEditorContext?> Context { get; }
 
     public ReadOnlyReactivePropertySlim<EngineResourceHandle<PathGeometry.Resource>?> GeometryResource { get; }
 

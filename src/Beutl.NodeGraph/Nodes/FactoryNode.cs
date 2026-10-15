@@ -25,7 +25,7 @@ public partial class FactoryNode<T> : GraphNode
             .Accessor(o => o.Object, (o, v) => o.Object = v)
             .Register();
 
-        Hierarchy<FactoryNode<T>>(ObjectProperty);
+        Hierarchy(ObjectProperty);
     }
 
     [NotAutoSerialized]

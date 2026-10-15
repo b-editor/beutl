@@ -342,19 +342,6 @@ public abstract class ScopeControlBase : Control
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected static void PlotPoint(Span<uint> dest, int stride, int x, int y, uint color)
-    {
-        int height = dest.Length / stride;
-        if ((uint)x >= (uint)stride || (uint)y >= (uint)height) return;
-
-        int idx = y * stride + x;
-        uint existing = dest[idx];
-        byte existingA = (byte)(existing >> 24);
-        byte newA = (byte)(color >> 24);
-        dest[idx] = newA > existingA ? color : BlendAdd(existing, color);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected static uint BlendAdd(uint dst, uint src)
     {
         byte db = (byte)(dst);

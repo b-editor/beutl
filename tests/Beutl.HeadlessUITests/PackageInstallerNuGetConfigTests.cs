@@ -79,7 +79,7 @@ public sealed partial class PackageInstallerNuGetConfigTests
         byte[] original = File.ReadAllBytes(ConfigPath);
         PackageIdentity identity = CreateLocalPackage();
         using var client = new HttpClient();
-        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
         PackageInstallContext context = installer.PrepareForInstall(identity.Id, identity.Version.ToString());
 
         await installer.ResolveDependencies(context, NuGet.Common.NullLogger.Instance);
@@ -105,7 +105,7 @@ public sealed partial class PackageInstallerNuGetConfigTests
         if (previousConfig is not null)
             File.WriteAllText(ConfigPath, previousConfig);
         using var client = new HttpClient();
-        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
 
         var provider = new PackageSourceProvider(new Settings(Helper.AppRoot, "nuget.config"));
         PackageSource localSource = provider.LoadPackageSources().Single(source => source.Name == "Beutl Local Packages");
@@ -140,7 +140,7 @@ public sealed partial class PackageInstallerNuGetConfigTests
         string linkTarget = relativeTarget ? Path.GetRelativePath(Helper.AppRoot, targetPath) : targetPath;
         CreateSymbolicLinkOrIgnore(ConfigPath, linkTarget);
         using var client = new HttpClient();
-        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
 
         Assert.Multiple(() =>
         {
@@ -165,7 +165,7 @@ public sealed partial class PackageInstallerNuGetConfigTests
         try
         {
             using var client = new HttpClient();
-            await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+            await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
 
             AssertDefaultSource();
         }
@@ -188,7 +188,7 @@ public sealed partial class PackageInstallerNuGetConfigTests
         File.SetLastWriteTimeUtc(ConfigPath, DateTime.UtcNow.AddMinutes(-10));
         DateTime lastWriteTime = File.GetLastWriteTimeUtc(ConfigPath);
         using var client = new HttpClient();
-        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
 
         Assert.Multiple(() =>
         {
@@ -222,7 +222,7 @@ public sealed partial class PackageInstallerNuGetConfigTests
         byte[] original = Encoding.GetEncoding(encodingName).GetBytes(config);
         File.WriteAllBytes(ConfigPath, original);
         using var client = new HttpClient();
-        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
 
         await AssertLocalPackageResolves(installer);
 
@@ -244,7 +244,7 @@ public sealed partial class PackageInstallerNuGetConfigTests
         File.WriteAllText(ConfigPath, ConfigWithStaleSource);
         File.SetUnixFileMode(ConfigPath, mode);
         using var client = new HttpClient();
-        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
 
         await AssertLocalPackageResolves(installer);
 
@@ -269,7 +269,7 @@ public sealed partial class PackageInstallerNuGetConfigTests
         configFile.SetAccessControl(security);
         string expected = configFile.GetAccessControl(AccessControlSections.Access).GetSecurityDescriptorSddlForm(AccessControlSections.Access);
         using var client = new HttpClient();
-        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
 
         await AssertLocalPackageResolves(installer);
 
@@ -291,7 +291,7 @@ public sealed partial class PackageInstallerNuGetConfigTests
         string linkTarget = relativeTarget ? Path.GetRelativePath(Helper.AppRoot, targetPath) : targetPath;
         CreateSymbolicLinkOrIgnore(ConfigPath, linkTarget);
         using var client = new HttpClient();
-        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
 
         await AssertLocalPackageResolves(installer);
 
@@ -318,7 +318,7 @@ public sealed partial class PackageInstallerNuGetConfigTests
             SetUnixAcl("u::rw-,u:65534:r--,g::---,m::r--,o::---");
             string expected = ReadUnixAcl();
             using var client = new HttpClient();
-            await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+            await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
 
             await AssertLocalPackageResolves(installer);
 
@@ -339,7 +339,7 @@ public sealed partial class PackageInstallerNuGetConfigTests
         document.Save(ConfigPath);
         PackageIdentity identity = CreateLocalPackage();
         using var client = new HttpClient();
-        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
         PackageInstallContext context = installer.PrepareForInstall(identity.Id, identity.Version.ToString());
 
         await Assert.ThrowsAsync<NuGetResolverInputException>(() => installer.ResolveDependencies(context, NuGet.Common.NullLogger.Instance));

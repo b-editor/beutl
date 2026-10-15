@@ -218,7 +218,7 @@ public class TimelineTabViewModelTests
         public Scene Scene { get; } = scene;
 
         public IReactiveProperty<TimelineOptions> Options { get; } =
-            new ReactiveProperty<TimelineOptions>(new TimelineOptions(1, Vector2.Zero, 0));
+            new ReactiveProperty<TimelineOptions>(new TimelineOptions { MaxLayerCount = 0 });
 
         public IObservable<float> Scale => Options.Select(x => x.Scale);
 

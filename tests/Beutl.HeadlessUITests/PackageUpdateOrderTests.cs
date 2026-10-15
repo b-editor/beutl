@@ -130,7 +130,7 @@ public class PackageUpdateOrderTests
     private string InstallOldVersion(BeutlApiApplication app)
     {
         string directory = CreatePackage(_oldId);
-        app.GetResource<InstalledPackageRepository>().UpgradePackages(_oldId);
+        app.GetResource<InstalledPackageRepository>().UpgradePackagesAndDeferNotifications(_oldId)();
         app.GetResource<PackageInstaller>().InstallDataPackage(
             new LocalPackage { Name = _name, Version = "1.0.0", Tags = [PackageKinds.MaterialTag, PackageKinds.TemplateTag], InstalledPath = directory });
         return directory;

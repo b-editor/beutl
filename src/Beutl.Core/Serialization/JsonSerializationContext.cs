@@ -11,7 +11,6 @@ public partial class JsonSerializationContext(
     CoreSerializerOptions? options = null)
     : IJsonSerializationContext
 {
-    public readonly Dictionary<string, (Type DefinedType, Type ActualType)> _knownTypes = [];
     private List<(Guid, Action<ICoreSerializable>)>? _rootResolvers;
     private List<(Guid, Action<ICoreSerializable>)>? _resolvers;
     private Dictionary<Guid, ICoreSerializable>? _objects;
@@ -129,7 +128,6 @@ public partial class JsonSerializationContext(
     {
         CapturedValues?.Remove(name);
         _json[name] = node;
-        _knownTypes[name] = (definedType, actualType);
     }
 
     public void Populate(string name, ICoreSerializable obj)

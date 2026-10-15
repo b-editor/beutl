@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+using Beutl.Editor.Components.Helpers;
 using AvaPoint = Avalonia.Point;
 using AvaRect = Avalonia.Rect;
 using AvaSize = Avalonia.Size;
@@ -36,7 +37,6 @@ internal sealed class TransformHandlesOverlay : Control
 
     private static readonly Cursor s_cursorCorner1 = new(StandardCursorType.TopLeftCorner);
     private static readonly Cursor s_cursorCorner2 = new(StandardCursorType.TopRightCorner);
-    private static readonly Cursor s_cursorNS = new(StandardCursorType.SizeNorthSouth);
     private static readonly Cursor s_cursorWE = new(StandardCursorType.SizeWestEast);
     private static readonly Cursor s_cursorRotate = new(StandardCursorType.Hand);
     private static readonly Cursor s_cursorMove = new(StandardCursorType.SizeAll);
@@ -300,7 +300,7 @@ internal sealed class TransformHandlesOverlay : Control
         {
             HandleKind.TopLeft or HandleKind.BottomRight => s_cursorCorner1,
             HandleKind.TopRight or HandleKind.BottomLeft => s_cursorCorner2,
-            HandleKind.Top or HandleKind.Bottom => s_cursorNS,
+            HandleKind.Top or HandleKind.Bottom => Cursors.SizeNorthSouth,
             HandleKind.Left or HandleKind.Right => s_cursorWE,
             HandleKind.Rotate => s_cursorRotate,
             HandleKind.Center => s_cursorMove,

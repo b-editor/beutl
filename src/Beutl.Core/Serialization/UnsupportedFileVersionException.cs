@@ -13,12 +13,20 @@ namespace Beutl.Serialization;
 /// </remarks>
 public sealed class UnsupportedFileVersionException : Exception
 {
-    public UnsupportedFileVersionException(Uri uri, string requiredVersion)
+    /// <param name="uri">The file that was refused.</param>
+    /// <param name="requiredVersion">The minimum version of Beutl the file records, as written in it.</param>
+    /// <param name="isNewer">
+    /// <see langword="true"/> when <paramref name="requiredVersion"/> is a version above the running one;
+    /// <see langword="false"/> when it is not a version string this build can compare.
+    /// </param>
+    public UnsupportedFileVersionException(Uri uri, string requiredVersion, bool isNewer)
         : base(CreateMessage(
-            uri ?? throw new ArgumentNullException(nameof(uri)),
-            requiredVersion ?? throw new ArgumentNullException(nameof(requiredVersion))))
+            ToLocation(uri ?? throw new ArgumentNullException(nameof(uri))),
+            requiredVersion ?? throw new ArgumentNullException(nameof(requiredVersion)),
+            isNewer))
     {
         Uri = uri;
+        Location = ToLocation(uri);
         RequiredVersion = requiredVersion;
         DisplayVersion = ToDisplayVersion(requiredVersion);
     }
@@ -27,6 +35,11 @@ public sealed class UnsupportedFileVersionException : Exception
     /// Gets the file that was refused.
     /// </summary>
     public Uri Uri { get; }
+
+    /// <summary>
+    /// Gets <see cref="Uri"/> as the message names it: the local path of a file, or the URI itself.
+    /// </summary>
+    public string Location { get; }
 
     /// <summary>
     /// Gets the minimum version of Beutl the file records, as written in it.
@@ -65,16 +78,14 @@ public sealed class UnsupportedFileVersionException : Exception
             : core;
     }
 
-    private static string CreateMessage(Uri uri, string requiredVersion)
+    private static string ToLocation(Uri uri) => uri.IsFile ? uri.LocalPath : uri.ToString();
+
+    private static string CreateMessage(string location, string requiredVersion, bool isNewer)
     {
-        string file = uri.IsFile ? uri.LocalPath : uri.ToString();
         // Anything else is refused because it is not a version string this build can compare. It is not
         // repeated here: it is text from the file.
-        bool newer = NuGetVersion.TryParse(requiredVersion, out NuGetVersion? required)
-                     && NuGetVersion.TryParse(BeutlApplication.Version, out NuGetVersion? running)
-                     && VersionComparer.VersionRelease.Compare(required, running) > 0;
-        return newer && ToDisplayVersion(requiredVersion) is { } display
-            ? $"'{file}' requires Beutl {display} or later; this is Beutl {BeutlApplication.Version}."
-            : $"'{file}' records a minimum Beutl version that is not a version string, so Beutl {BeutlApplication.Version} cannot read it.";
+        return isNewer && ToDisplayVersion(requiredVersion) is { } display
+            ? $"'{location}' requires Beutl {display} or later; this is Beutl {BeutlApplication.Version}."
+            : $"'{location}' records a minimum Beutl version that is not a version string, so Beutl {BeutlApplication.Version} cannot read it.";
     }
 }

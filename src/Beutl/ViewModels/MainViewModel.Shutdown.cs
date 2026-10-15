@@ -268,15 +268,6 @@ public partial class MainViewModel
             _logger.LogWarning(ex, "Proxy media services failed to dispose during shutdown.");
         }
 
-        try
-        {
-            BeutlApplication.Current.Items.Clear();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to clear application services during shutdown.");
-        }
-
         await CompleteShutdownAsync();
     }
 

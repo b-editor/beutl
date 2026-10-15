@@ -8,7 +8,6 @@ using Avalonia.LogicalTree;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Beutl.Controls;
-using Beutl.Editor.Components.AudioVisualizerTab;
 using Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
 using Beutl.Editor.Components.AudioVisualizerTab.Views;
 using Beutl.Editor.Components.ColorGradingTab.ViewModels;
@@ -66,7 +65,7 @@ public class SelectorToolTabBarTests
         using var curves = new CurvesTabViewModel(editor);
         using var grading = new ColorGradingTabViewModel(editor);
         using var scopes = new ColorScopesTabViewModel(editor);
-        using var audio = new AudioVisualizerTabViewModel(editor, AudioVisualizerTabExtension.Instance);
+        using var audio = new AudioVisualizerTabViewModel(editor);
         var curvesView = new CurvesTabView { DataContext = curves };
         var gradingView = new ColorGradingTabView { DataContext = grading };
         var scopesView = new ColorScopesTabView { DataContext = scopes };

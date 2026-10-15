@@ -47,8 +47,7 @@ public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHiera
 
     public event EventHandler<HierarchyAttachmentEventArgs>? DetachedFromHierarchy;
 
-    protected static void Hierarchy<T>(params CoreProperty[] properties)
-        where T : Hierarchical
+    protected static void Hierarchy(params CoreProperty[] properties)
     {
         foreach (CoreProperty item in properties)
         {

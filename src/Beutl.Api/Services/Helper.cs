@@ -28,8 +28,8 @@ internal static class Helper
     {
         AppRoot = BeutlEnvironment.GetHomeDirectoryPath();
         LocalSourcePath = Path.Combine(AppRoot, "packageSource");
-        InstallPath = Path.Combine(AppRoot, "packages");
-        SideLoadsPath = Path.Combine(AppRoot, "sideloads");
+        InstallPath = BeutlEnvironment.GetPackagesDirectoryPath();
+        SideLoadsPath = BeutlEnvironment.GetSideloadsDirectoryPath();
 
         PackagePathResolver = new PackagePathResolver(InstallPath);
 

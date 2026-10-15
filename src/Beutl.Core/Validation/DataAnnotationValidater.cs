@@ -4,10 +4,6 @@ namespace Beutl.Validation;
 
 public sealed class DataAnnotationValidater<T> : IValidator<T>
 {
-    public DataAnnotationValidater()
-    {
-    }
-
     public DataAnnotationValidater(ValidationAttribute? attribute)
     {
         Attribute = attribute;

@@ -271,7 +271,7 @@ internal sealed class VideoAiJobResultCapabilities()
             AiContentMetadata? metadata = AiContentMetadata.Combine(
                 job.ContentMetadata,
                 download.Metadata);
-            string extension = metadata?.GetFileExtension(".mp4", "video") ?? ".mp4";
+            string extension = metadata?.GetFileExtension() ?? ".mp4";
 
             TimeSpan duration = TimeSpan.FromSeconds(AiJobResultInput.GetInt32(job, "durationSeconds") ?? 6);
             if (AiJobResultInput.GetString(job, "mode") is "edit" or "extend" or "motion")

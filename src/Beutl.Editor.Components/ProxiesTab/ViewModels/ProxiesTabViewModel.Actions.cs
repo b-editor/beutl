@@ -108,7 +108,7 @@ public sealed partial class ProxiesTabViewModel
         }
     }
 
-    public void CancelJob(Guid jobId)
+    private void CancelJob(Guid jobId)
     {
         _queue?.Cancel(jobId);
         RefreshJobs();

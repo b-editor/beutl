@@ -75,7 +75,7 @@ public class Element : Hierarchical, INotifyEdited
             .Accessor(o => o.ExitTransition, (o, v) => o.ExitTransition = v)
             .Register();
 
-        Hierarchy<Element>(EnterTransitionProperty, ExitTransitionProperty);
+        Hierarchy(EnterTransitionProperty, ExitTransitionProperty);
     }
 
     public Element()

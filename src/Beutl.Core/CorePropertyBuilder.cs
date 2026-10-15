@@ -13,21 +13,12 @@ public sealed class CorePropertyBuilder<[DynamicallyAccessedMembers(DynamicallyA
     private Optional<T> _defaultValue;
     private readonly PropertyInfo? _propertyInfo;
     private Attribute[] _attributes;
-    private List<string>? _formerNames;
 
-    public CorePropertyBuilder(string name, bool isAttached = false)
+    public CorePropertyBuilder(string name)
     {
         _name = name;
-
-        if (!isAttached)
-        {
-            _propertyInfo = typeof(TOwner).GetProperty(name) ?? throw new InvalidOperationException();
-            _attributes = _propertyInfo.GetCustomAttributes().ToArray();
-        }
-        else
-        {
-            _attributes = [];
-        }
+        _propertyInfo = typeof(TOwner).GetProperty(name) ?? throw new InvalidOperationException();
+        _attributes = _propertyInfo.GetCustomAttributes().ToArray();
     }
 
     public CorePropertyBuilder(Expression<Func<TOwner, T>> exp)
@@ -59,11 +50,7 @@ public sealed class CorePropertyBuilder<[DynamicallyAccessedMembers(DynamicallyA
     {
         CoreProperty<T>? property = null;
 
-        // Kept apart until now so that SetAttribute, which replaces the attributes, does not drop them.
-        Attribute[] attributes = _formerNames == null
-            ? _attributes
-            : [.. _attributes, .. _formerNames.Select(name => new FormerPersistedNameAttribute(name))];
-        var metadata = new CorePropertyMetadata<T>(_defaultValue, _getter == null || _setter != null, attributes);
+        var metadata = new CorePropertyMetadata<T>(_defaultValue, _attributes);
         if (_getter != null)
         {
             property = new StaticProperty<TOwner, T>(_name, _getter, _setter, metadata);
@@ -77,11 +64,6 @@ public sealed class CorePropertyBuilder<[DynamicallyAccessedMembers(DynamicallyA
         return property;
     }
 
-    public StaticProperty<TOwner, T> RegisterStatic()
-    {
-        return (StaticProperty<TOwner, T>)Register();
-    }
-
     public CorePropertyBuilder<T, TOwner> Accessor(Func<TOwner, T> getter, Action<TOwner, T>? setter = null)
     {
         _getter = getter;
@@ -92,12 +74,6 @@ public sealed class CorePropertyBuilder<[DynamicallyAccessedMembers(DynamicallyA
     public CorePropertyBuilder<T, TOwner> DefaultValue(T value)
     {
         _defaultValue = new Optional<T>(value);
-        return this;
-    }
-
-    public CorePropertyBuilder<T, TOwner> SetAttribute(params Attribute[] attributes)
-    {
-        _attributes = attributes;
         return this;
     }
 
@@ -114,7 +90,7 @@ public sealed class CorePropertyBuilder<[DynamicallyAccessedMembers(DynamicallyA
     public CorePropertyBuilder<T, TOwner> FormerPersistedName(string name)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        (_formerNames ??= []).Add(name);
+        _attributes = [.. _attributes, new FormerPersistedNameAttribute(name)];
         return this;
     }
 }

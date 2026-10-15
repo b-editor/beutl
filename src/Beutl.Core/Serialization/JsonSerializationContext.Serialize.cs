@@ -178,14 +178,12 @@ public partial class JsonSerializationContext
         {
             CaptureValue(name, value);
             _json[name] = null;
-            _knownTypes.Remove(name);
             return;
         }
 
         Type actualType = value.GetType();
         using var objects = CapturedValues is not null ? new SerializedObjectCapture() : null;
         _json[name] = Serialize(value, actualType, baseType, this);
-        _knownTypes[name] = (baseType, actualType);
         CaptureValue(name, value, objects);
     }
 
@@ -193,6 +191,5 @@ public partial class JsonSerializationContext
     {
         CapturedValues?.Remove(name);
         _json.Remove(name);
-        _knownTypes.Remove(name);
     }
 }

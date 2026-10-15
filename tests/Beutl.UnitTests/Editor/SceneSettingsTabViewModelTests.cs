@@ -124,7 +124,7 @@ public class SceneSettingsTabViewModelTests
         public Scene Scene { get; } = scene;
 
         public IReactiveProperty<TimelineOptions> Options { get; } = new ReactiveProperty<TimelineOptions>(
-            new TimelineOptions(1, Vector2.Zero, 4));
+            new TimelineOptions { MaxLayerCount = 4 });
 
         public IObservable<float> Scale => Options.Select(x => x.Scale);
 

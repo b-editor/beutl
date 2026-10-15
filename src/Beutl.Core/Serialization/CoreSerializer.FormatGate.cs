@@ -29,13 +29,16 @@ public static partial class CoreSerializer
         {
             if (minNode is not JsonValue minValue || !minValue.TryGetValue(out minAppVersion))
             {
-                throw new UnsupportedFileVersionException(uri, minNode.ToJsonString());
+                // Refused whatever it holds, but named as a newer version when its text reads as one.
+                string recorded = minNode.ToJsonString();
+                throw new UnsupportedFileVersionException(
+                    uri, recorded, FileFormat.Compare(recorded, BeutlApplication.Version) > 0);
             }
 
-            if (!NuGetVersion.TryParse(minAppVersion, out NuGetVersion? required)
-                || VersionComparer.VersionRelease.Compare(required, NuGetVersion.Parse(BeutlApplication.Version)) > 0)
+            int? order = FileFormat.Compare(minAppVersion, BeutlApplication.Version);
+            if (order is null or > 0)
             {
-                throw new UnsupportedFileVersionException(uri, minAppVersion);
+                throw new UnsupportedFileVersionException(uri, minAppVersion, order > 0);
             }
         }
 
@@ -225,9 +228,7 @@ public static partial class CoreSerializer
         {
             null => true,
             JsonValue value when value.TryGetValue(out string? recorded) =>
-                NuGetVersion.TryParse(recorded, out NuGetVersion? recordedVersion)
-                && NuGetVersion.TryParse(required, out NuGetVersion? requiredVersion)
-                && VersionComparer.VersionRelease.Compare(recordedVersion, requiredVersion) < 0,
+                FileFormat.Compare(recorded, required) < 0,
             _ => false,
         };
     }

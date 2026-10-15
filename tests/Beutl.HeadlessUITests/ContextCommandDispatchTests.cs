@@ -142,9 +142,7 @@ public class ContextCommandDispatchTests
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var handler = new AwaitableHandler(gate.Task);
         var extension = new AwaitableViewExtension();
-        var manager = new ContextCommandManager(
-            new ContextCommandSettingsStore(),
-            new ContextCommandHandlerRegistry());
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore());
         manager.Register(extension);
         var extensionProvider = new ExtensionProvider();
         var editorService = new EditorService(extensionProvider);

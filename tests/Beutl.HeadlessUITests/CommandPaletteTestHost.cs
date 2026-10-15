@@ -15,7 +15,7 @@ internal static class CommandPaletteTestHost
     {
         var provider = new ExtensionProvider();
         var editor = new EditorService(provider);
-        var manager = new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry());
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore());
         manager.Register(new PromptExtension());
         var service = new CommandPaletteService(
             manager, new FixedHandlerProvider(new Handler(execute)), () => null, editor, provider);

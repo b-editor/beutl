@@ -18,7 +18,6 @@ internal static class TestReset
         await DisposeOpenEditorTabsAsync();
 
         await TestShell.Project.CloseProjectAsync();
-        BeutlApplication.Current.Items.Clear();
         CaptionDraftStoreProvider.SetCurrentForTesting(new InMemoryCaptionDraftStore());
         HeadlessTestHelpers.Settle();
     }

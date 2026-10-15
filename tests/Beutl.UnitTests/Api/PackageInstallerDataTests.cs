@@ -18,7 +18,7 @@ public partial class PackageInstallerDataTests : PackageInstallerFixture
         LocalPackage current = CreateDataPackage(name, [PackageKinds.MaterialTag, PackageKinds.TemplateTag], "2.0.0",
             [("materials/item.txt", "new"), ("templates/item.txt", "new")]);
         _installer.InstallDataPackage(old);
-        _repository.UpgradePackages(new PackageIdentity(name, NuGetVersion.Parse("1.0.0")));
+        _repository.UpgradePackagesAndDeferNotifications(new PackageIdentity(name, NuGetVersion.Parse("1.0.0")))();
         string? staging = null;
         _installer.AfterDataInstallStep = step =>
         {
@@ -28,7 +28,7 @@ public partial class PackageInstallerDataTests : PackageInstallerFixture
             Directory.CreateDirectory(Path.Combine(staging, "install.json.tmp"));
         };
         using (var deployment = _installer.PrepareDataPackage(current, CancellationToken.None))
-            Assert.DoesNotThrow(() => deployment.Commit(() => _repository.UpgradePackages(new PackageIdentity(name, NuGetVersion.Parse("2.0.0")))));
+            Assert.DoesNotThrow(() => deployment.Commit(() => _repository.UpgradePackagesAndDeferNotifications(new PackageIdentity(name, NuGetVersion.Parse("2.0.0")))()));
         _installer.AfterDataInstallStep = null;
         Assert.That(staging, Is.Not.Null);
         Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "item.txt")), Is.EqualTo("new"));
@@ -75,7 +75,7 @@ public partial class PackageInstallerDataTests : PackageInstallerFixture
         const string name = "Beutl.Package.DataTest.CancelStaged";
         LocalPackage old = CreateDataPackage(name, PackageKinds.MaterialTag, "1.0.0", [("materials/data.txt", "old")]);
         LocalPackage current = CreateDataPackage(name, PackageKinds.MaterialTag, "2.0.0", [("materials/data.txt", "new")]);
-        _repository.AddPackage(new PackageIdentity(name, NuGetVersion.Parse("1.0.0")));
+        _repository.UpgradePackagesAndDeferNotifications(new PackageIdentity(name, NuGetVersion.Parse("1.0.0")))();
         _installer.InstallDataPackage(old);
         using var cancellation = new CancellationTokenSource();
         using (var deployment = _installer.PrepareDataPackage(current, cancellation.Token))
@@ -99,7 +99,7 @@ public partial class PackageInstallerDataTests : PackageInstallerFixture
         {
             deployment.Commit();
             cancellation.Cancel();
-            _repository.UpgradePackages(new PackageIdentity(name, NuGetVersion.Parse("1.0.0")));
+            _repository.UpgradePackagesAndDeferNotifications(new PackageIdentity(name, NuGetVersion.Parse("1.0.0")))();
         }
         Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "data.txt")), Is.EqualTo("committed"));
         Assert.That(_repository.ExistsPackage(name, "1.0.0"), Is.True);
@@ -115,7 +115,7 @@ public partial class PackageInstallerDataTests : PackageInstallerFixture
         const string name = "Beutl.Package.DataTest.InvalidOwner";
         LocalPackage package = CreateDataPackage(name, PackageKinds.MaterialTag, ("materials/new.txt", "package"));
         WriteNuspec(package, PackageKinds.MaterialTag);
-        _repository.AddPackage(new PackageIdentity(name, NuGetVersion.Parse("1.0.0")));
+        _repository.UpgradePackagesAndDeferNotifications(new PackageIdentity(name, NuGetVersion.Parse("1.0.0")))();
         string directory = MaterialsDirectoryOf(name);
         Directory.CreateDirectory(directory);
         string userFile = Path.Combine(directory, "mine.txt");
@@ -148,7 +148,7 @@ public partial class PackageInstallerDataTests : PackageInstallerFixture
         WriteNuspec(old, PackageKinds.MaterialTag);
         LocalPackage other = CreateDataPackage(name + ".Other", PackageKinds.MaterialTag, ("materials/other.txt", "other"));
         var otherId = new PackageIdentity(other.Name, NuGetVersion.Parse(other.Version));
-        foreach (var id in new[] { oldId, newId, otherId }) _repository.AddPackage(id);
+        RestoreRegistrations(oldId, newId, otherId);
         _installer.InstallDataPackage(current);
         _installer.InstallDataPackage(other);
         PackageIdentity[] removed = [newId, otherId];
@@ -184,7 +184,7 @@ public partial class PackageInstallerDataTests : PackageInstallerFixture
         var newId = new PackageIdentity(name, NuGetVersion.Parse("2.0.0"));
         LocalPackage old = CreateDataPackage(name, [PackageKinds.MaterialTag], "1.0.0", [("materials/a.png", "old")]);
         LocalPackage current = CreateDataPackage(name, [PackageKinds.MaterialTag], "2.0.0", [("materials/a.png", "new")]);
-        _repository.AddPackage(newId);
+        _repository.UpgradePackagesAndDeferNotifications(newId)();
         _installer.InstallDataPackage(current);
         _installer.Uninstall(new PackageUninstallContext(oldId, old.InstalledPath) { UnnecessaryPackages = [oldId] }, new Progress<double>());
         Assert.That(_repository.ExistsPackage(newId), Is.True);
@@ -276,8 +276,7 @@ public partial class PackageInstallerDataTests : PackageInstallerFixture
         LocalPackage old = CreateDataPackage(name, [PackageKinds.MaterialTag], "1.0.0", [("materials/a.png", "old")]);
         LocalPackage current = CreateDataPackage(name, [PackageKinds.MaterialTag], "2.0.0", [("materials/a.png", "new")]);
         WriteNuspec(old, PackageKinds.MaterialTag);
-        _repository.AddPackage(oldId);
-        _repository.AddPackage(newId);
+        RestoreRegistrations(oldId, newId);
         _installer.InstallDataPackage(current);
         File.WriteAllText(Path.Combine(MaterialsDirectoryOf(name), ".beutl-package-owner"),
             System.Text.Json.JsonSerializer.Serialize(new { Name = name, Version = ownerVersion }));
@@ -538,8 +537,7 @@ public partial class PackageInstallerDataTests : PackageInstallerFixture
         LocalPackage old = CreateDataPackage(Name, [PackageKinds.MaterialTag], "1.0.0", [("materials/a.png", "old")]);
         LocalPackage current = CreateDataPackage(Name, [PackageKinds.MaterialTag], "2.0.0", [("materials/a.png", "new")]);
         _installer.InstallDataPackage(current);
-        _repository.AddPackage(oldIdentity);
-        _repository.AddPackage(newIdentity);
+        _repository.UpgradePackagesAndDeferNotifications(newIdentity)();
 
         _installer.Clean(new PackageCleanContext([oldIdentity], 0), new Progress<double>());
 
@@ -562,7 +560,7 @@ public partial class PackageInstallerDataTests : PackageInstallerFixture
         var identity = new PackageIdentity(Name, NuGetVersion.Parse("1.0.0"));
         LocalPackage package = CreateDataPackage(Name, [PackageKinds.MaterialTag], "1.0.0", [("materials/a.png", "x")]);
         _installer.InstallDataPackage(package);
-        _repository.AddPackage(identity);
+        _repository.UpgradePackagesAndDeferNotifications(identity)();
 
         IReadOnlyList<string> failures;
         using (BlockDeletion(MaterialsDirectoryOf(Name)))
@@ -596,7 +594,7 @@ public partial class PackageInstallerDataTests : PackageInstallerFixture
         LocalPackage package = CreateDataPackage(
             identity.Id, PackageKinds.MaterialTag, ("materials/logo.png", "png"));
         _installer.InstallDataPackage(package);
-        _repository.UpgradePackages(identity);
+        _repository.UpgradePackagesAndDeferNotifications(identity)();
 
         RemovePackage(clean, identity, package.InstalledPath!, 1);
 
@@ -615,7 +613,7 @@ public partial class PackageInstallerDataTests : PackageInstallerFixture
         LocalPackage package = CreateDataPackage(
             identity.Id, PackageKinds.TemplateTag, ("templates/a.json", "{}"));
         _installer.InstallDataPackage(package);
-        _repository.UpgradePackages(identity);
+        _repository.UpgradePackagesAndDeferNotifications(identity)();
 
         string installedPath = package.InstalledPath;
         Directory.Delete(installedPath, recursive: true);
@@ -635,7 +633,7 @@ public partial class PackageInstallerDataTests : PackageInstallerFixture
         var identity = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
         LocalPackage package = CreateDataPackage(name, [PackageKinds.MaterialTag, PackageKinds.TemplateTag], "1.0.0",
             [("materials/item.txt", "material"), ("templates/item.json", "template")]);
-        _repository.AddPackage(identity);
+        _repository.UpgradePackagesAndDeferNotifications(identity)();
         _installer.InstallDataPackage(package);
         File.Delete(Path.Combine(MaterialsDirectoryOf(name), ".beutl-package-owner"));
         File.Delete(Path.Combine(TemplatesDirectoryOf(name), ".beutl-package-owner"));
@@ -644,7 +642,7 @@ public partial class PackageInstallerDataTests : PackageInstallerFixture
 
         LocalPackage other = CreateDataPackage(name + ".Other", PackageKinds.MaterialTag, ("materials/other.txt", "other"));
         var otherIdentity = new PackageIdentity(other.Name, NuGetVersion.Parse(other.Version));
-        _repository.AddPackage(otherIdentity);
+        _repository.UpgradePackagesAndDeferNotifications(otherIdentity)();
         _installer.InstallDataPackage(other);
 
         for (int attempt = 0; attempt < 2; attempt++)
@@ -701,14 +699,14 @@ public partial class PackageInstallerDataTests : PackageInstallerFixture
         var oldIdentity = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
         var newIdentity = new PackageIdentity(name, NuGetVersion.Parse("2.0.0"));
         LocalPackage old = CreateDataPackage(name, PackageKinds.MaterialTag, ("materials/item.txt", "legacy"));
-        _repository.AddPackage(oldIdentity);
+        _repository.UpgradePackagesAndDeferNotifications(oldIdentity)();
         _installer.InstallDataPackage(old);
         File.Delete(Path.Combine(MaterialsDirectoryOf(name), ".beutl-package-owner"));
         Directory.Delete(old.InstalledPath!, true);
 
         LocalPackage extension = CreateDataPackage(name, "effects", "2.0.0", []);
         using var deployment = _installer.PrepareDataPackage(extension, CancellationToken.None);
-        Assert.Throws<IOException>(() => deployment.Commit(() => _repository.UpgradePackages(newIdentity)));
+        Assert.Throws<IOException>(() => deployment.Commit(() => _repository.UpgradePackagesAndDeferNotifications(newIdentity)()));
         Assert.Multiple(() =>
         {
             Assert.That(_repository.ExistsPackage(oldIdentity), Is.True);

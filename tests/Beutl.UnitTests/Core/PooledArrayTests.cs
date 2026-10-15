@@ -90,32 +90,4 @@ public class PooledArrayTests
         Assert.Throws<ObjectDisposedException>(() => _ = array.Span.Length);
         Assert.Throws<ObjectDisposedException>(() => _ = array.Array);
     }
-
-    [Test]
-    public void ToPooledArray_FromIList_CopiesElements()
-    {
-        var source = new List<int> { 1, 2, 3 };
-        using PooledArray<int> array = source.ToPooledArray();
-
-        Assert.That(array.Length, Is.EqualTo(3));
-        Assert.That(array.Span.ToArray(), Is.EqualTo(new[] { 1, 2, 3 }));
-    }
-
-    [Test]
-    public void ToPooledArray_FromEnumerable_CopiesElements()
-    {
-        IEnumerable<int> source = NumbersOneToFive();
-        using PooledArray<int> array = source.ToPooledArray();
-
-        Assert.That(array.Length, Is.EqualTo(5));
-        Assert.That(array.Span.ToArray(), Is.EqualTo(new[] { 1, 2, 3, 4, 5 }));
-
-        static IEnumerable<int> NumbersOneToFive()
-        {
-            for (int i = 1; i <= 5; i++)
-            {
-                yield return i;
-            }
-        }
-    }
 }

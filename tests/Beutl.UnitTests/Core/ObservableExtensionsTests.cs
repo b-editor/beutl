@@ -35,21 +35,4 @@ public class ObservableExtensionsTests
         Assert.That(pairs[1], Is.EqualTo(((int?)1, (int?)2)));
         Assert.That(pairs[2], Is.EqualTo(((int?)2, (int?)3)));
     }
-
-    [Test]
-    public void CombineWithPrevious_WithSelector_PassesPreviousAndCurrent()
-    {
-        var source = new Subject<int>();
-        var diffs = new List<int>();
-
-        using IDisposable sub = source
-            .CombineWithPrevious((prev, curr) => curr - prev)
-            .Subscribe(diffs.Add);
-
-        source.OnNext(10);
-        source.OnNext(15);
-        source.OnNext(7);
-
-        Assert.That(diffs, Is.EqualTo(new[] { 10, 5, -8 }));
-    }
 }

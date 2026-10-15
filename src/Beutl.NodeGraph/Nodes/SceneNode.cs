@@ -22,7 +22,7 @@ public partial class SceneNode : GraphNode
             .Accessor(o => o.Object, (o, v) => o.Object = v)
             .Register();
 
-        Hierarchy<SceneNode>(ObjectProperty);
+        Hierarchy(ObjectProperty);
     }
 
     public SceneNode()

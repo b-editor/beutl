@@ -3,6 +3,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Beutl.Editor.Components.Helpers;
 
 namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
@@ -63,7 +64,7 @@ public abstract class HdrScopeControlBase : ScopeControlBase
 
         _previousCursor = Cursor;
         Cursor = DragAxis == Orientation.Vertical
-            ? new Cursor(StandardCursorType.SizeNorthSouth)
+            ? Cursors.SizeNorthSouth
             : new Cursor(StandardCursorType.SizeWestEast);
 
         ShowOverlay();

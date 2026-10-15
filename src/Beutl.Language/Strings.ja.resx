@@ -1564,9 +1564,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ProxyUnavailable" xml:space="preserve">
     <value>利用不可</value>
   </data>
-  <data name="ProxyStoreUnavailable" xml:space="preserve">
-    <value>プロキシストアを利用できません。</value>
-  </data>
   <data name="ProxyQueueUnavailable" xml:space="preserve">
     <value>プロキシキューを利用できません。</value>
   </data>
@@ -1596,9 +1593,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="ProxySelectedPlural" xml:space="preserve">
     <value>{0} 件選択</value>
-  </data>
-  <data name="ProxyStoreSummaryFormat" xml:space="preserve">
-    <value>プロジェクト {0} / ストア {1} / 上限 {2}</value>
   </data>
   <data name="ProxySourceInfoFormat" xml:space="preserve">
     <value>ソース {0} / {1}</value>

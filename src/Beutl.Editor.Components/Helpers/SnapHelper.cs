@@ -2,22 +2,15 @@
 
 namespace Beutl.Editor.Components.Helpers;
 
-public readonly record struct SnapResult(TimeSpan Time, TimeSpan? Snapped)
-{
-    public bool DidSnap => Snapped.HasValue;
-}
+public readonly record struct SnapResult(TimeSpan Time, bool DidSnap);
 
 public static class SnapHelper
 {
-    public const double DefaultThresholdPixel = 8;
+    private const double ThresholdPixel = 8;
 
-    public static SnapResult Snap(
-        TimeSpan time,
-        IEnumerable<TimeSpan> candidates,
-        float scale,
-        double thresholdPixel = DefaultThresholdPixel)
+    public static SnapResult Snap(TimeSpan time, IEnumerable<TimeSpan> candidates, float scale)
     {
-        TimeSpan threshold = thresholdPixel.PixelToTimeSpan(scale);
+        TimeSpan threshold = ThresholdPixel.PixelToTimeSpan(scale);
         TimeSpan bestDelta = TimeSpan.MaxValue;
         TimeSpan? best = null;
 
@@ -31,7 +24,7 @@ public static class SnapHelper
             }
         }
 
-        return best.HasValue ? new SnapResult(best.Value, best.Value) : new SnapResult(time, null);
+        return best.HasValue ? new SnapResult(best.Value, true) : new SnapResult(time, false);
     }
 
     public static IEnumerable<TimeSpan> CollectElementCandidates(

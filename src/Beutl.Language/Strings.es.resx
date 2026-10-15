@@ -1477,9 +1477,6 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="ProxyUnavailable" xml:space="preserve">
     <value>No disponible</value>
   </data>
-  <data name="ProxyStoreUnavailable" xml:space="preserve">
-    <value>El almacenamiento de proxies no está disponible.</value>
-  </data>
   <data name="ProxyQueueUnavailable" xml:space="preserve">
     <value>La cola de proxies no está disponible.</value>
   </data>
@@ -1509,9 +1506,6 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="ProxySelectedPlural" xml:space="preserve">
     <value>{0} seleccionados</value>
-  </data>
-  <data name="ProxyStoreSummaryFormat" xml:space="preserve">
-    <value>Proyecto {0} / Almacenamiento {1} / Límite {2}</value>
   </data>
   <data name="ProxySourceInfoFormat" xml:space="preserve">
     <value>Fuente {0} / {1}</value>

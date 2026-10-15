@@ -672,9 +672,7 @@ public class PackageManagerExtensionLifecycleTests
         out ContextCommandManager commandManager,
         out ExtensionProvider extensionProvider)
     {
-        commandManager = new ContextCommandManager(
-            new ContextCommandSettingsStore(),
-            new ContextCommandHandlerRegistry());
+        commandManager = new ContextCommandManager(new ContextCommandSettingsStore());
         extensionProvider = new ExtensionProvider();
 
         return new PackageManager(
@@ -688,9 +686,7 @@ public class PackageManagerExtensionLifecycleTests
         IExtensionRegistry extensionRegistry,
         out ContextCommandManager commandManager)
     {
-        commandManager = new ContextCommandManager(
-            new ContextCommandSettingsStore(),
-            new ContextCommandHandlerRegistry());
+        commandManager = new ContextCommandManager(new ContextCommandSettingsStore());
         return new PackageManager(
             new InstalledPackageRepository(),
             extensionRegistry,
