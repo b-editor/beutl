@@ -7,7 +7,6 @@ using Beutl.Animation;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
-using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Extensibility;
@@ -19,7 +18,6 @@ using Beutl.Media.Music;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
-using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
@@ -39,7 +37,8 @@ public class TimelineClosedElementActionsTests
     [AvaloniaTest]
     public async Task Menu_paste_adds_the_copied_element_at_the_playhead_with_the_timeline_closed()
     {
-        EditViewModel editor = await OpenEditorForNewScene("timeline-closed-paste");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("timeline-closed-paste");
         Element copied = await AddElementAsync(editor, () => new RectShape(), lengthSeconds: 4);
         CloseTimeline(editor);
         editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = copied;
@@ -65,7 +64,7 @@ public class TimelineClosedElementActionsTests
                 // The layer above the copied clip, which shows at the playhead.
                 Assert.That(pasted.ZIndex, Is.EqualTo(1));
                 Assert.That(pasted.Objects.OfType<RectShape>().Count(), Is.EqualTo(1));
-                Assert.That(notifications.Notifications, Is.Empty);
+                Assert.That(notifications.All, Is.Empty);
             });
         }
         finally
@@ -79,7 +78,8 @@ public class TimelineClosedElementActionsTests
     [AvaloniaTest]
     public async Task Choosing_a_new_video_matches_the_clip_length_with_the_timeline_closed()
     {
-        EditViewModel editor = await OpenEditorForNewScene("timeline-closed-media-length");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("timeline-closed-media-length");
         Element element = await AddElementAsync(editor, () => new SourceVideo(), lengthSeconds: 5);
         var video = element.Objects.OfType<SourceVideo>().Single();
         CloseTimeline(editor);
@@ -111,7 +111,8 @@ public class TimelineClosedElementActionsTests
     [AvaloniaTest]
     public async Task Edit_animation_in_inline_view_opens_the_closed_timeline_first()
     {
-        EditViewModel editor = await OpenEditorForNewScene("timeline-closed-inline-animation");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("timeline-closed-inline-animation");
         Element element = await AddElementAsync(editor, () => new RectShape(), lengthSeconds: 4);
         var shape = element.Objects.OfType<RectShape>().Single();
         CloseTimeline(editor);
@@ -149,24 +150,10 @@ public class TimelineClosedElementActionsTests
         }
     }
 
-    private static async Task<EditViewModel> OpenEditorForNewScene(string name)
-    {
-        await TestReset.ResetShellAsync();
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, location))!;
-        HeadlessTestHelpers.Settle();
-        TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().First());
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
-    }
-
     private static async Task<Element> AddElementAsync(EditViewModel editor, Func<EngineObject> create, double lengthSeconds)
     {
-        ElementAddResult result = await editor.GetRequiredService<IElementAdder>().AddAsync(
-            [new ElementDescription(TimeSpan.Zero, TimeSpan.FromSeconds(lengthSeconds), 0, new ElementSource.EngineObject(create))],
-            CancellationToken.None);
-        HeadlessTestHelpers.Settle();
+        ElementAddResult result = await TestShell.AddElementAsync(
+            editor, create, TimeSpan.Zero, TimeSpan.FromSeconds(lengthSeconds));
         Assert.That(result.IsSuccess, Is.True);
         return result.Items.Single().PrimaryElement;
     }
@@ -186,24 +173,9 @@ public class TimelineClosedElementActionsTests
     }
 
     private static NumberEditorViewModel<float> WidthEditor(ElementPropertyTabViewModel tab, RectShape shape)
-        => Editors(tab.Items[0].Properties).OfType<NumberEditorViewModel<float>>()
+        => PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
+            .OfType<NumberEditorViewModel<float>>()
             .Single(x => ReferenceEquals(x.PropertyAdapter.GetEngineProperty(), shape.Width));
-
-    private static IEnumerable<IPropertyEditorContext> Editors(IReadOnlyList<IPropertyEditorContext?> properties)
-    {
-        foreach (IPropertyEditorContext? property in properties)
-        {
-            if (property is PropertyEditorGroupContext group)
-            {
-                foreach (IPropertyEditorContext child in Editors(group.Properties))
-                    yield return child;
-            }
-            else if (property != null)
-            {
-                yield return property;
-            }
-        }
-    }
 
     // The services a property editor gets from the property tab it is shown in.
     private sealed class EditorServices(EditViewModel editor, Element element) : IPropertyEditorContextVisitor, IServiceProvider
@@ -218,19 +190,6 @@ public class TimelineClosedElementActionsTests
             if (serviceType == typeof(Element)) return element;
             return null;
         }
-    }
-
-    private sealed class NotificationCapture : INotificationServiceHandler, IDisposable
-    {
-        private readonly INotificationServiceHandler _previous = NotificationService.Handler;
-
-        public NotificationCapture() => NotificationService.Handler = this;
-
-        public List<Notification> Notifications { get; } = [];
-
-        public void Show(Notification notification) => Notifications.Add(notification);
-
-        public void Dispose() => NotificationService.Handler = _previous;
     }
 
     private sealed class TestVideoDecoder : IDecoderInfo

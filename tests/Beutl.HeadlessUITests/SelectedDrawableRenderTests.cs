@@ -6,7 +6,6 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 
 namespace Beutl.HeadlessUITests;
@@ -15,13 +14,6 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class SelectedDrawableRenderTests
 {
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
     // A 48x32 red rectangle with its top-left corner moved to (x, y).
     private static RectShape CreateRedRect(float x, float y)
         => new()
@@ -34,24 +26,12 @@ public class SelectedDrawableRenderTests
             Fill = { CurrentValue = new SolidColorBrush(Colors.Red) },
         };
 
-    private static async Task<EditViewModel> OpenEditor(string name)
-    {
-        Project project = (await TestShell.Project.CreateProject(
-            320, 240, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
     [AvaloniaTest]
     public async Task Shifted_selected_drawable_measure_matches_rasterization_and_caller_owns_result()
     {
         TestGpu.RequireAnyDevice();
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("selected-drawable-shifted");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("selected-drawable-shifted", 320, 240);
         var drawable = CreateRedRect(37, 29);
 
         PixelSize measuredSize = await editor.Player.MeasureSelectedDrawable(drawable);
@@ -116,7 +96,7 @@ public class SelectedDrawableRenderTests
     {
         TestGpu.RequireAnyDevice();
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("selected-drawable-off-frame");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("selected-drawable-off-frame", 320, 240);
         // The project frame is 320x240, so this sits entirely beyond its bottom-right corner.
         var drawable = CreateRedRect(400, 300);
 
@@ -143,7 +123,7 @@ public class SelectedDrawableRenderTests
     {
         TestGpu.RequireAnyDevice();
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("selected-drawable-straddling");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("selected-drawable-straddling", 320, 240);
         // Half of its width hangs past the frame's right edge at x = 320.
         var drawable = CreateRedRect(296, 100);
 
@@ -175,7 +155,7 @@ public class SelectedDrawableRenderTests
     public async Task Empty_selected_drawable_measure_matches_empty_rasterization()
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("selected-drawable-empty");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("selected-drawable-empty", 320, 240);
         var drawable = new RectShape
         {
             Width = { CurrentValue = 0 },
@@ -235,7 +215,7 @@ public class SelectedDrawableRenderTests
     {
         TestGpu.RequireAnyDevice();
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("selected-drawable-full-target-group");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("selected-drawable-full-target-group", 320, 240);
         var group = new DrawableGroup();
         group.Children.Add(CreateRedRect(37, 29));
 
@@ -262,7 +242,7 @@ public class SelectedDrawableRenderTests
     {
         TestGpu.RequireAnyDevice();
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("selected-drawable-full-target-only");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("selected-drawable-full-target-only", 320, 240);
         var drawable = new SelectedDrawableFullTargetDrawable();
 
         PixelSize measuredSize = await editor.Player.MeasureSelectedDrawable(drawable);
@@ -288,7 +268,7 @@ public class SelectedDrawableRenderTests
     {
         TestGpu.RequireAnyDevice();
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("selected-drawable-full-target-off-frame");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("selected-drawable-full-target-off-frame", 320, 240);
         var group = new DrawableGroup();
         group.Children.Add(new SelectedDrawableFullTargetDrawable());
         group.Children.Add(CreateRedRect(400, 300));
@@ -309,8 +289,8 @@ public class SelectedDrawableRenderTests
     {
         TestGpu.RequireAnyDevice();
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("selected-drawable-nested-scale");
-        string location = NewWorkspace("selected-drawable-nested-scale-source");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("selected-drawable-nested-scale", 320, 240);
+        string location = TestShell.NewWorkspace("selected-drawable-nested-scale-source");
         var innerScene = new Scene(64, 48, string.Empty)
         {
             Uri = new Uri(Path.Combine(location, "inner.scene"))
@@ -348,7 +328,7 @@ public class SelectedDrawableRenderTests
     {
         TestGpu.RequireAnyDevice();
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("selected-drawable-invalid-scale");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("selected-drawable-invalid-scale", 320, 240);
 
         foreach (float requested in new[] { float.NaN, 0f, -2f })
         {

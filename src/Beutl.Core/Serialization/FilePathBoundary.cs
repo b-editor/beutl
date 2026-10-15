@@ -7,13 +7,4 @@ internal static class PathBoundary
         : StringComparison.OrdinalIgnoreCase;
 
     public static StringComparison Comparison => s_comparison;
-
-    public static bool IsPathInsideRoot(string root, string candidate)
-        => FilePathComparison.IsSameOrDescendant(root, candidate);
-
-    public static string ResolveDeepestExistingTarget(string path)
-        => FilePathComparison.ResolveCanonicalPath(path);
-
-    public static string ResolveExistingPath(string path)
-        => FilePathComparison.ResolveCanonicalPath(path);
 }

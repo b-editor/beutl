@@ -26,7 +26,7 @@ internal static class JsonMcpConfigWriter
         Func<Stream, string, CancellationToken, Task>? writeContents = null)
     {
         // Replace the resolved target, preserving an existing config symlink.
-        string target = PathBoundary.ResolveDeepestExistingTarget(Path.GetFullPath(path));
+        string target = FilePathComparison.ResolveCanonicalPath(Path.GetFullPath(path));
         string text = File.Exists(target)
             ? await File.ReadAllTextAsync(target, cancellationToken).ConfigureAwait(false)
             : "";

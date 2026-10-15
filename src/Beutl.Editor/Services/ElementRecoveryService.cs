@@ -15,7 +15,7 @@ public static class ElementRecoveryService
     {
         ArgumentNullException.ThrowIfNull(element);
         ArgumentNullException.ThrowIfNull(history);
-        if (Scene.TryResumeElementPersistence(element) is not { } suppression) return false;
+        if (SceneRecovery.TryResumeElementPersistence(element) is not { } suppression) return false;
 
         try
         {

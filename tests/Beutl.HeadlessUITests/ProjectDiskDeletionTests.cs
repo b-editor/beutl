@@ -18,12 +18,7 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class ProjectDiskDeletionTests
 {
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "disk-deletion", name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
+    private static string NewWorkspace(string name) => TestShell.NewWorkspace(Path.Combine("disk-deletion", name));
 
     private static async Task<(string ProjectFile, string SceneFile)> CreateClosedProjectAsync(
         string name,
@@ -190,9 +185,7 @@ public class ProjectDiskDeletionTests
         string workspace = NewWorkspace("undeletable");
         (string projectFile, _) = await CreateClosedProjectAsync("stuck", workspace);
         string folder = Path.GetDirectoryName(projectFile)!;
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-        NotificationService.Handler = notifications;
+        using var notifications = new NotificationCapture();
         // What is inside the folder can go, but not the folder itself.
         File.SetUnixFileMode(workspace, UnixFileMode.UserRead | UnixFileMode.UserExecute);
         try
@@ -224,7 +217,6 @@ public class ProjectDiskDeletionTests
             File.SetUnixFileMode(
                 workspace,
                 UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            NotificationService.Handler = previousHandler;
         }
     }
 
@@ -241,36 +233,25 @@ public class ProjectDiskDeletionTests
                 return Task.FromResult(FAContentDialogResult.Primary);
             },
         };
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-        NotificationService.Handler = notifications;
-        try
-        {
-            await deletion.DeleteAsync(projectFile);
+        using var notifications = new NotificationCapture();
+        await deletion.DeleteAsync(projectFile);
 
-            Assert.Multiple(() =>
-            {
-                // Without its project file the folder can no longer be shown to be the project's own.
-                Assert.That(File.Exists(sceneFile), Is.True);
-                Assert.That(
-                    notifications.All.Select(notification => notification.Message),
-                    Does.Contain(MessageStrings.FileDoesNotExist));
-                Assert.That(GlobalConfiguration.Instance.ViewConfig.RecentProjects, Does.Not.Contain(projectFile));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            NotificationService.Handler = previousHandler;
-        }
+            // Without its project file the folder can no longer be shown to be the project's own.
+            Assert.That(File.Exists(sceneFile), Is.True);
+            Assert.That(
+                notifications.All.Select(notification => notification.Message),
+                Does.Contain(MessageStrings.FileDoesNotExist));
+            Assert.That(GlobalConfiguration.Instance.ViewConfig.RecentProjects, Does.Not.Contain(projectFile));
+        });
     }
 
     [AvaloniaTest]
     public async Task Refuses_to_delete_an_open_project()
     {
         await TestReset.ResetShellAsync();
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-        NotificationService.Handler = notifications;
+        using var notifications = new NotificationCapture();
         try
         {
             Project project = (await TestShell.Project.CreateProject(
@@ -293,7 +274,6 @@ public class ProjectDiskDeletionTests
         }
         finally
         {
-            NotificationService.Handler = previousHandler;
             await TestReset.ResetShellAsync();
         }
     }
@@ -312,9 +292,7 @@ public class ProjectDiskDeletionTests
                 return FAContentDialogResult.Primary;
             },
         };
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-        NotificationService.Handler = notifications;
+        using var notifications = new NotificationCapture();
         try
         {
             await deletion.DeleteAsync(projectFile);
@@ -330,7 +308,6 @@ public class ProjectDiskDeletionTests
         }
         finally
         {
-            NotificationService.Handler = previousHandler;
             await TestReset.ResetShellAsync();
         }
     }
@@ -350,26 +327,17 @@ public class ProjectDiskDeletionTests
                 return Task.FromResult(FAContentDialogResult.Primary);
             },
         };
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-        NotificationService.Handler = notifications;
-        try
-        {
-            await deletion.DeleteAsync(projectFile);
+        using var notifications = new NotificationCapture();
+        await deletion.DeleteAsync(projectFile);
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(File.Exists(projectFile), Is.True);
-                Assert.That(File.Exists(Path.Combine(folder, "copy", "copy.bep")), Is.True);
-                Assert.That(
-                    notifications.All.Select(notification => notification.Message),
-                    Does.Contain(MessageStrings.OperationFailed));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            NotificationService.Handler = previousHandler;
-        }
+            Assert.That(File.Exists(projectFile), Is.True);
+            Assert.That(File.Exists(Path.Combine(folder, "copy", "copy.bep")), Is.True);
+            Assert.That(
+                notifications.All.Select(notification => notification.Message),
+                Does.Contain(MessageStrings.OperationFailed));
+        });
     }
 
     [AvaloniaTest]
@@ -377,9 +345,7 @@ public class ProjectDiskDeletionTests
     {
         await TestReset.ResetShellAsync();
         (string projectFile, _) = await CreateClosedProjectAsync("exported", NewWorkspace("exporting"));
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-        NotificationService.Handler = notifications;
+        using var notifications = new NotificationCapture();
         // A running export keeps its output lease after the project it renders is closed.
         IDisposable export = TestShell.Editor.TryBeginOutputOperation()!;
         try
@@ -409,7 +375,6 @@ public class ProjectDiskDeletionTests
         finally
         {
             export.Dispose();
-            NotificationService.Handler = previousHandler;
         }
     }
 
@@ -525,9 +490,7 @@ public class ProjectDiskDeletionTests
     {
         await TestReset.ResetShellAsync();
         (_, string sceneFile) = await CreateClosedProjectAsync("reopened-scene", NewWorkspace("open-during-delete"));
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-        NotificationService.Handler = notifications;
+        using var notifications = new NotificationCapture();
         // The deletion runs off the UI thread while it holds this reservation, so the start page can
         // still ask to open a scene from the folder being deleted.
         IDisposable deletion = TestShell.Editor.TryBeginWorktreeMutation()!;
@@ -553,7 +516,6 @@ public class ProjectDiskDeletionTests
         finally
         {
             deletion.Dispose();
-            NotificationService.Handler = previousHandler;
             await TestReset.ResetShellAsync();
         }
     }
@@ -607,9 +569,7 @@ public class ProjectDiskDeletionTests
         var dialog = new CreateNewSceneViewModel(TestShell.Project, TestShell.Editor);
         dialog.Location.Value = location;
         dialog.Name.Value = "created";
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-        NotificationService.Handler = notifications;
+        using var notifications = new NotificationCapture();
         IDisposable deletion = TestShell.Editor.TryBeginWorktreeMutation()!;
         bool? mutationAdmittedDuringCreate = null;
         void OnTabsChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -648,7 +608,6 @@ public class ProjectDiskDeletionTests
         {
             tabs.CollectionChanged -= OnTabsChanged;
             deletion.Dispose();
-            NotificationService.Handler = previousHandler;
             await TestReset.ResetShellAsync();
         }
     }
@@ -656,28 +615,19 @@ public class ProjectDiskDeletionTests
     [AvaloniaTest]
     public async Task Reports_a_project_file_that_is_already_gone()
     {
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-        NotificationService.Handler = notifications;
-        try
-        {
-            var shown = new List<FAContentDialog>();
-            string missing = Path.Combine(NewWorkspace("missing"), "missing", "missing.bep");
+        using var notifications = new NotificationCapture();
+        var shown = new List<FAContentDialog>();
+        string missing = Path.Combine(NewWorkspace("missing"), "missing", "missing.bep");
 
-            await CreateDeletion(shown).DeleteAsync(missing);
+        await CreateDeletion(shown).DeleteAsync(missing);
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(shown, Is.Empty);
-                Assert.That(
-                    notifications.All.Select(notification => notification.Message),
-                    Does.Contain(MessageStrings.FileDoesNotExist));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            NotificationService.Handler = previousHandler;
-        }
+            Assert.That(shown, Is.Empty);
+            Assert.That(
+                notifications.All.Select(notification => notification.Message),
+                Does.Contain(MessageStrings.FileDoesNotExist));
+        });
     }
 
     [Test]
@@ -1005,12 +955,5 @@ public class ProjectDiskDeletionTests
             viewConfig.RecentFiles.Clear();
             viewConfig.RecentFiles.AddRange(savedRecentFiles);
         }
-    }
-
-    private sealed class CaptureNotificationHandler : INotificationServiceHandler
-    {
-        public System.Collections.Concurrent.ConcurrentQueue<Notification> All { get; } = new();
-
-        public void Show(Notification notification) => All.Enqueue(notification);
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System.Text.Json;
 
 using Beutl.Services.AI;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Beutl.HeadlessUITests;
 
@@ -50,7 +51,7 @@ public sealed class PersistentPromptLibraryTests
     [Test]
     public void RecentHistory_IsBoundedAndCoalescesNormalizedDuplicates()
     {
-        var timeProvider = new ManualTimeProvider(new DateTimeOffset(2026, 8, 9, 0, 0, 0, TimeSpan.Zero));
+        var timeProvider = new FakeTimeProvider(new DateTimeOffset(2026, 8, 9, 0, 0, 0, TimeSpan.Zero));
         var options = new PromptLibraryOptions { MaxRecentItems = 2 };
         var library = new PersistentPromptLibrary(_storagePath, options, timeProvider);
 
@@ -153,7 +154,6 @@ public sealed class PersistentPromptLibraryTests
     public async Task SeparateInstanceWaitsForTheCrossProcessWriteLock()
     {
         var library = new PersistentPromptLibrary(_storagePath);
-        Directory.CreateDirectory(Path.GetDirectoryName(_storagePath)!);
         using var heldLock = new FileStream(
             _storagePath + ".lock",
             FileMode.OpenOrCreate,
@@ -566,17 +566,5 @@ public sealed class PersistentPromptLibraryTests
         });
 
         Assert.That(File.Exists(_storagePath), Is.False);
-    }
-
-    private sealed class ManualTimeProvider(DateTimeOffset utcNow) : TimeProvider
-    {
-        private DateTimeOffset _utcNow = utcNow;
-
-        public override DateTimeOffset GetUtcNow() => _utcNow;
-
-        public void Advance(TimeSpan duration)
-        {
-            _utcNow += duration;
-        }
     }
 }

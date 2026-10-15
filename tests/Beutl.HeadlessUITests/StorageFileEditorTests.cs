@@ -344,6 +344,7 @@ public class StorageFileEditorTests
             HeadlessTestHelpers.Render();
             Assert.That(editor.Value?.FullName, Is.EqualTo(path));
             Assert.That(confirmations, Is.EqualTo(1));
+            storage.Verify(x => x.OpenFilePickerAsync(It.IsAny<FilePickerOpenOptions>()), Times.Once);
         }
         finally { window.Close(); }
     }

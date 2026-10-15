@@ -142,8 +142,7 @@ public class ProjectPackageExportTests
         try
         {
             config.EnableForNewProjects = false;
-            string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, "package-export-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(root);
+            string root = TestShell.NewWorkspace("package-export-" + Guid.NewGuid().ToString("N"));
             Project project = (await TestShell.Project.CreateProject(64, 64, 30, 44100, "Project", root))!;
             TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().Single());
             HeadlessTestHelpers.Settle();

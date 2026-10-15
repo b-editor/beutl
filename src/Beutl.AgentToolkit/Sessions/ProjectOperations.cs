@@ -179,7 +179,7 @@ public static class ProjectOperations
 
     private static string ResolveSidecarPath(Uri uri)
     {
-        return PathBoundary.ResolveDeepestExistingTarget(Path.GetFullPath(uri.LocalPath));
+        return FilePathComparison.ResolveCanonicalPath(Path.GetFullPath(uri.LocalPath));
     }
 
     private static void RehomeSidecarsOutsideProject(Project project, string projectDirectory, Scene scene)

@@ -3,12 +3,10 @@ using Avalonia.Headless.NUnit;
 using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.Graphics;
-using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Threading;
 using Beutl.ViewModels.Editors;
 using Moq;
-using AvaDispatcher = Avalonia.Threading.Dispatcher;
 
 namespace Beutl.HeadlessUITests;
 
@@ -90,12 +88,7 @@ public sealed class PathFigurePreviewLifetimeTests
         return property.Object;
     }
 
-    private static void DrainPreviewUpdates()
-    {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        RenderThread.Dispatcher.Invoke(static () => { }, DispatchPriority.Low, timeout.Token);
-        AvaDispatcher.UIThread.RunJobs();
-    }
+    private static void DrainPreviewUpdates() => RenderThreadDrain.Drain(TimeSpan.FromSeconds(5), DispatchPriority.Low);
 
     private sealed class CountingPointExpression : IExpression<Point>
     {

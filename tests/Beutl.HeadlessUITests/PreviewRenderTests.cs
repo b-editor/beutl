@@ -1,7 +1,5 @@
 ﻿using Avalonia.Headless.NUnit;
 using Beutl.Composition;
-using Beutl.Editor.Models;
-using Beutl.Editor.Services;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
@@ -9,7 +7,6 @@ using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
 using Beutl.Services;
-using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 
 namespace Beutl.HeadlessUITests;
@@ -19,37 +16,16 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class PreviewRenderTests
 {
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
     private static async Task<Scene> NewSceneWithRectangle(string name)
     {
-        Project project = (await TestShell.Project.CreateProject(
-            320, 240, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(2),
-            Layer: 0,
-            Source: new ElementSource.EngineObject(() => new RectShape
-            {
-                Width = { CurrentValue = 200 },
-                Height = { CurrentValue = 150 },
-                Fill = { CurrentValue = new SolidColorBrush(Colors.Red) }
-            }))], CancellationToken.None);
-        HeadlessTestHelpers.Settle();
-        return scene;
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync(name, 320, 240);
+        await TestShell.AddElementAsync(editor, () => new RectShape
+        {
+            Width = { CurrentValue = 200 },
+            Height = { CurrentValue = 150 },
+            Fill = { CurrentValue = new SolidColorBrush(Colors.Red) }
+        }, TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        return editor.Scene;
     }
 
     [AvaloniaTest]

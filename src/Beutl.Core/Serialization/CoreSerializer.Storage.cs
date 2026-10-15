@@ -241,7 +241,7 @@ public static partial class CoreSerializer
         }
 
         string destinationRoot = Path.TrimEndingDirectorySeparator(
-            PathBoundary.ResolveDeepestExistingTarget(
+            FilePathComparison.ResolveCanonicalPath(
                 authorizedRootPath
                 ?? Path.GetDirectoryName(rehomedUri.LocalPath)
                 ?? throw new JsonException("Rehomed element has no destination directory.")));
@@ -257,8 +257,8 @@ public static partial class CoreSerializer
             }
 
             string destination = Path.GetFullPath(Path.Combine(destinationRoot, relativePath));
-            string resolvedDestination = PathBoundary.ResolveDeepestExistingTarget(destination);
-            if (!PathBoundary.IsPathInsideRoot(destinationRoot, resolvedDestination))
+            string resolvedDestination = FilePathComparison.ResolveCanonicalPath(destination);
+            if (!FilePathComparison.IsSameOrDescendant(destinationRoot, resolvedDestination))
             {
                 throw new JsonException($"Retained sidecar escapes the Save As root: {relativePath}");
             }

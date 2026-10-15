@@ -496,8 +496,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         // Resolve both through symlinks before comparing: a lexical check would treat a recorded path
         // under a since-retargeted symlink as in-scope, and RemoveStaleFiles would then delete the
         // link's outside target.
-        string fullRoot = PathBoundary.ResolveDeepestExistingTarget(Path.GetFullPath(root));
-        string fullPath = PathBoundary.ResolveDeepestExistingTarget(Path.GetFullPath(path));
+        string fullRoot = FilePathComparison.ResolveCanonicalPath(Path.GetFullPath(root));
+        string fullPath = FilePathComparison.ResolveCanonicalPath(Path.GetFullPath(path));
         return fullPath.StartsWith(
             fullRoot.EndsWith(Path.DirectorySeparatorChar) ? fullRoot : fullRoot + Path.DirectorySeparatorChar,
             OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);

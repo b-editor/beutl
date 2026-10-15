@@ -15,7 +15,7 @@ internal static class CodexMcpConfigWriter
         Func<Stream, string, CancellationToken, Task>? writeContents = null)
     {
         // Replace the resolved target, preserving an existing config symlink.
-        path = PathBoundary.ResolveDeepestExistingTarget(Path.GetFullPath(path));
+        path = FilePathComparison.ResolveCanonicalPath(Path.GetFullPath(path));
         string text = File.Exists(path)
             ? await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false)
             : "";

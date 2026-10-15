@@ -28,6 +28,7 @@
     <PackageReference Include="Avalonia.Controls.WebView" />
     <PackageReference Include="Avalonia.Headless.NUnit" />
     <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
     <PackageReference Include="Moq" />
   </ItemGroup>
 

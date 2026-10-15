@@ -608,15 +608,7 @@ public class TimelineMediaDurationTests
 
     private static async Task<ElementViewModel> OpenElement(EngineObject media, double startSeconds = 1, double lengthSeconds = 1)
     {
-        await TestReset.ResetShellAsync();
-        string name = $"timeline-media-duration-{Guid.NewGuid():N}";
-        string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(directory);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, directory))!;
-        Scene scene = project.Items.OfType<Scene>().Single();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("timeline-media-duration");
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         ElementAddResult added = await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.FromSeconds(startSeconds), Length: TimeSpan.FromSeconds(lengthSeconds), Layer: 0,

@@ -11,7 +11,6 @@ using Beutl.Editor.Components.TerminalTab.ViewModels;
 using Beutl.Editor.Components.TerminalTab.Views;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Extensibility;
-using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -29,25 +28,6 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class TerminalTabLifecycleTests
 {
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
-    private static async Task<EditViewModel> OpenEditorForNewScene(string name)
-    {
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
     [AvaloniaTest]
     public async Task SwitchingToolTabs_ReusesTerminalViewAndShell()
     {
@@ -58,7 +38,7 @@ public class TerminalTabLifecycleTests
             Assert.Ignore("The Windows ConPTY path is not exercised by this headless test.");
         }
 
-        EditViewModel editor = await OpenEditorForNewScene("terminal-tab-lifecycle");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("terminal-tab-lifecycle");
         IToolDock bottomDock = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Bottom)!;
         var terminalContext = new TerminalTabViewModel(editor);
         Assert.That(editor.DockHost.OpenToolTab(terminalContext, bottomDock), Is.True);
@@ -78,7 +58,8 @@ public class TerminalTabLifecycleTests
             HeadlessTestHelpers.Render();
 
             TerminalControl firstTerminal = FindTerminal(view);
-            WaitUntil(() => firstTerminal.HasPtyConnection, "the terminal shell did not start");
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => firstTerminal.HasPtyConnection, TimeSpan.FromSeconds(5), "the terminal shell did not start");
             int pid = firstTerminal.Pid;
 
             editor.DockHost.Factory.SetActiveDockable(otherDockable);
@@ -115,7 +96,7 @@ public class TerminalTabLifecycleTests
     public async Task SwitchingToolTabs_RecreatesNonPersistentToolContent()
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("tool-tab-content-lifecycle");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("tool-tab-content-lifecycle");
         IToolDock bottomDock = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Bottom)!;
         var transientContext = new TransientToolContext();
         Assert.That(editor.DockHost.OpenToolTab(transientContext, bottomDock), Is.True);
@@ -162,7 +143,7 @@ public class TerminalTabLifecycleTests
             Assert.Ignore("The Windows ConPTY path is not exercised by this headless test.");
         }
 
-        EditViewModel editor = await OpenEditorForNewScene("terminal-tab-theme-resources");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("terminal-tab-theme-resources");
         IToolDock bottomDock = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Bottom)!;
         var terminalContext = new TerminalTabViewModel(editor);
         Assert.That(editor.DockHost.OpenToolTab(terminalContext, bottomDock), Is.True);
@@ -213,22 +194,6 @@ public class TerminalTabLifecycleTests
             .OfType<TerminalTabView>()
             .Single()
             .FindControl<TerminalControl>("Terminal")!;
-    }
-
-    private static void WaitUntil(Func<bool> condition, string failureMessage, int timeoutMs = 5000)
-    {
-        for (int elapsed = 0; elapsed < timeoutMs; elapsed += 50)
-        {
-            HeadlessTestHelpers.Settle();
-            if (condition())
-            {
-                return;
-            }
-
-            Thread.Sleep(50);
-        }
-
-        Assert.Fail(failureMessage);
     }
 
     private sealed class TransientToolContext : IToolContext
