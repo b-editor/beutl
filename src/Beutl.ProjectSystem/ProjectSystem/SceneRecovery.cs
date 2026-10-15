@@ -176,11 +176,7 @@ internal sealed partial class SceneRecovery(Scene scene)
                 property.ReplaceCurrentValue(migratedValue);
             }
 
-            if (property.Expression is IReferenceRewritable)
-            {
-                property.Expression = (IExpression?)rewriter.Rewrite(property.Expression);
-            }
-            else if (property.Expression is IReferenceExpression referenceExpression
+            if (property.Expression is IReferenceExpression referenceExpression
                 && rewriter.TryGetMigratedId(referenceExpression.ObjectId, out Guid migratedExpressionId)
                 && referenceExpression.Rebind(migratedExpressionId) is { } reboundExpression)
             {

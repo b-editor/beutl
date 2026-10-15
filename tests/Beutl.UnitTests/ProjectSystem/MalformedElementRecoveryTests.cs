@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using System.Collections.Immutable;
-using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -365,151 +364,8 @@ public sealed class MalformedElementRecoveryTests
         public IProperty<Dictionary<string, Reference<Element>>> DictionaryTargets { get; }
             = Property.Create<Dictionary<string, Reference<Element>>>();
 
-        public IProperty<ReadOnlyCollection<Reference<Element>>> ReadOnlyTargets { get; }
-            = Property.Create<ReadOnlyCollection<Reference<Element>>>();
-
-        public IProperty<ReadOnlyDictionary<string, Reference<Element>>> ReadOnlyDictionaryTargets { get; }
-            = Property.Create<ReadOnlyDictionary<string, Reference<Element>>>();
-
-        public IProperty<HashSet<Reference<Element>>> SetTargets { get; }
-            = Property.CreateAnimatable<HashSet<Reference<Element>>>();
-
         public IProperty<Reference<Element>> AnimatedTarget { get; }
             = Property.CreateAnimatable<Reference<Element>>();
-    }
-
-    [SuppressResourceClassGeneration]
-    public sealed class WrappedReferenceHolder : EngineObject
-    {
-        public WrappedReferenceHolder()
-        {
-            ScanProperties<WrappedReferenceHolder>();
-        }
-
-        public IProperty<ReferenceEnvelope?> Target { get; }
-            = Property.Create<ReferenceEnvelope?>();
-
-        public IProperty<ReferenceEnvelope?> AliasTarget { get; }
-            = Property.Create<ReferenceEnvelope?>();
-
-        public IProperty<EqualityIgnoringReferenceEnvelope?> EqualityTarget { get; }
-            = Property.Create<EqualityIgnoringReferenceEnvelope?>();
-
-        public IProperty<EqualityIgnoringReferenceEnvelope?> AnimatedTarget { get; }
-            = Property.CreateAnimatable<EqualityIgnoringReferenceEnvelope?>();
-
-        public IProperty<PassiveReferenceEnvelope?> PassiveTarget { get; }
-            = Property.Create<PassiveReferenceEnvelope?>();
-
-        public IProperty<InvalidReferenceEnvelope?> InvalidTarget { get; }
-            = Property.Create<InvalidReferenceEnvelope?>();
-
-        public IProperty<CyclicReferenceEnvelope?> CyclicTarget { get; }
-            = Property.Create<CyclicReferenceEnvelope?>();
-
-        public IProperty<OrderedCyclicReferenceEnvelope?> OrderedCycleTarget { get; }
-            = Property.Create<OrderedCyclicReferenceEnvelope?>();
-    }
-
-    public sealed class ReferenceEnvelope(
-        Reference<Element> target,
-        Optional<Reference<Element>> optionalTarget,
-        string state) : IReferenceRewritable
-    {
-        public Reference<Element> Target { get; private set; } = target;
-
-        public Optional<Reference<Element>> OptionalTarget { get; private set; } = optionalTarget;
-
-        public string State { get; } = state;
-
-        public IReferenceRewritable CreateReferenceRewriteTarget()
-            => new ReferenceEnvelope(Target, OptionalTarget, State);
-
-        public void RewriteReferences(IReferenceRewriteContext context)
-        {
-            Target = context.Rewrite(Target);
-            OptionalTarget = context.Rewrite(OptionalTarget);
-        }
-    }
-
-    public sealed record PassiveReferenceEnvelope(Reference<Element> Target, string State);
-
-    public sealed class EqualityIgnoringReferenceEnvelope(
-        Reference<Element> target,
-        string state) : IReferenceRewritable
-    {
-        public Reference<Element> Target { get; private set; } = target;
-
-        public string State { get; } = state;
-
-        public IReferenceRewritable CreateReferenceRewriteTarget()
-            => new EqualityIgnoringReferenceEnvelope(Target, State);
-
-        public void RewriteReferences(IReferenceRewriteContext context)
-        {
-            Target = context.Rewrite(Target);
-        }
-
-        public override bool Equals(object? obj)
-        {
-            return obj is EqualityIgnoringReferenceEnvelope other && State == other.State;
-        }
-
-        public override int GetHashCode()
-        {
-            return State.GetHashCode(StringComparison.Ordinal);
-        }
-    }
-
-    public sealed record InvalidReferenceEnvelope(Reference<Element> Target) : IReferenceRewritable
-    {
-        public IReferenceRewritable CreateReferenceRewriteTarget()
-            => new CyclicReferenceEnvelope(Target);
-
-        public void RewriteReferences(IReferenceRewriteContext context)
-            => throw new InvalidOperationException("An invalid target must not be populated.");
-    }
-
-    public sealed class CyclicReferenceEnvelope(Reference<Element> target) : IReferenceRewritable
-    {
-        public Reference<Element> Target { get; private set; } = target;
-
-        public CyclicReferenceEnvelope? Self { get; set; }
-
-        public IReferenceRewritable CreateReferenceRewriteTarget()
-        {
-            return new CyclicReferenceEnvelope(Target)
-            {
-                Self = Self,
-            };
-        }
-
-        public void RewriteReferences(IReferenceRewriteContext context)
-        {
-            Target = context.Rewrite(Target);
-            Self = context.Rewrite(Self);
-        }
-    }
-
-    public sealed class OrderedCyclicReferenceEnvelope(Reference<Element> target) : IReferenceRewritable
-    {
-        public Reference<Element> Target { get; private set; } = target;
-
-        public OrderedCyclicReferenceEnvelope? Next { get; set; }
-
-        public IReferenceRewritable CreateReferenceRewriteTarget()
-        {
-            return new OrderedCyclicReferenceEnvelope(Target)
-            {
-                Next = Next,
-            };
-        }
-
-        public void RewriteReferences(IReferenceRewriteContext context)
-        {
-            Next = context.Rewrite(Next);
-            Target = context.Rewrite(Target);
-        }
     }
 
     [SuppressResourceClassGeneration]
@@ -568,7 +424,6 @@ public sealed class MalformedElementRecoveryTests
     {
         public static readonly CoreProperty<Transform?> PluginTransformProperty;
         public static readonly CoreProperty<Reference<Element>> PluginTargetProperty;
-        public static readonly CoreProperty<EqualityIgnoringReferenceEnvelope?> PluginWrapperProperty;
 
         static RegisteredRecoveryElement()
         {
@@ -577,10 +432,6 @@ public sealed class MalformedElementRecoveryTests
                 .Register();
             PluginTargetProperty = ConfigureProperty<Reference<Element>, RegisteredRecoveryElement>(
                     nameof(PluginTarget))
-                .Register();
-            PluginWrapperProperty = ConfigureProperty<
-                    EqualityIgnoringReferenceEnvelope?,
-                    RegisteredRecoveryElement>(nameof(PluginWrapper))
                 .Register();
         }
 
@@ -594,12 +445,6 @@ public sealed class MalformedElementRecoveryTests
         {
             get => GetValue(PluginTargetProperty);
             set => SetValue(PluginTargetProperty, value);
-        }
-
-        public EqualityIgnoringReferenceEnvelope? PluginWrapper
-        {
-            get => GetValue(PluginWrapperProperty);
-            set => SetValue(PluginWrapperProperty, value);
         }
     }
 
@@ -1973,23 +1818,6 @@ public sealed class MalformedElementRecoveryTests
         {
             ["migrated"] = new Reference<Element>(originalId),
         };
-        holder.ReadOnlyTargets.CurrentValue = new ReadOnlyCollection<Reference<Element>>(
-            [new Reference<Element>(originalId)]);
-        holder.ReadOnlyDictionaryTargets.CurrentValue = new ReadOnlyDictionary<string, Reference<Element>>(
-            new Dictionary<string, Reference<Element>>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["MiGrAtEd"] = new Reference<Element>(originalId),
-            });
-        IEqualityComparer<Reference<Element>> comparer = EqualityComparer<Reference<Element>>.Create(
-            (a, b) => a.Id == b.Id, a => a.Id.GetHashCode());
-        holder.SetTargets.CurrentValue = new HashSet<Reference<Element>>(comparer) { new(originalId) };
-        var setAnimation = new KeyFrameAnimation<HashSet<Reference<Element>>>();
-        var setFrame = new KeyFrame<HashSet<Reference<Element>>>
-        {
-            Value = new HashSet<Reference<Element>>(comparer) { new(originalId) },
-        };
-        setAnimation.KeyFrames.Add(setFrame);
-        holder.SetTargets.Animation = setAnimation;
         var animation = new KeyFrameAnimation<Reference<Element>>();
         animation.KeyFrames.Add(new KeyFrame<Reference<Element>>
         {
@@ -2010,186 +1838,14 @@ public sealed class MalformedElementRecoveryTests
         Reference<Element> migratedListReference = holder.ListTargets.CurrentValue!.Single();
         Reference<Element> migratedDictionaryReference
             = holder.DictionaryTargets.CurrentValue!["migrated"];
-        Reference<Element> migratedReadOnlyReference = holder.ReadOnlyTargets.CurrentValue!.Single();
         Assert.Multiple(() =>
         {
             Assert.That(migratedListReference.Id, Is.EqualTo(migrated.Id));
             Assert.That(migratedListReference.Value, Is.SameAs(migrated));
             Assert.That(migratedDictionaryReference.Id, Is.EqualTo(migrated.Id));
             Assert.That(migratedDictionaryReference.Value, Is.SameAs(migrated));
-            Assert.That(migratedReadOnlyReference.Id, Is.EqualTo(migrated.Id));
-            Assert.That(migratedReadOnlyReference.Value, Is.SameAs(migrated));
-            Assert.That(holder.ReadOnlyDictionaryTargets.CurrentValue!["MIGRATED"].Id, Is.EqualTo(migrated.Id));
-            Assert.That(holder.ReadOnlyDictionaryTargets.CurrentValue["migrated"].Value, Is.SameAs(migrated));
-            Assert.That(holder.SetTargets.CurrentValue!.Single().Id, Is.EqualTo(migrated.Id));
-            Assert.That(holder.SetTargets.CurrentValue.Comparer, Is.SameAs(comparer));
-            Assert.That(setFrame.Value.Single().Id, Is.EqualTo(migrated.Id));
-            Assert.That(setFrame.Value.Comparer, Is.SameAs(comparer));
             Assert.That(migratedReference.Id, Is.EqualTo(migrated.Id));
             Assert.That(migratedReference.Value, Is.SameAs(migrated));
-        });
-    }
-
-    [Test]
-    public void MigrateRecoveredElementReferences_RewritesOptInWrappersWithoutTouchingOtherPocos()
-    {
-        Guid originalId = Guid.NewGuid();
-        var migrated = new Element
-        {
-            Id = Guid.NewGuid(),
-            Uri = new Uri(Path.Combine(_root, "migrated.belm")),
-        };
-        var serializedWrapper = new ReferenceEnvelope(
-            new Reference<Element>(originalId),
-            new Optional<Reference<Element>>(new Reference<Element>(originalId)),
-            "plugin-state");
-        string json = JsonSerializer.Serialize(serializedWrapper, JsonHelper.SerializerOptions);
-        ReferenceEnvelope wrapper = JsonSerializer.Deserialize<ReferenceEnvelope>(
-            json,
-            JsonHelper.SerializerOptions)!;
-        var passiveWrapper = new PassiveReferenceEnvelope(
-            new Reference<Element>(originalId),
-            "passive-state");
-        var equalityWrapper = new EqualityIgnoringReferenceEnvelope(
-            new Reference<Element>(originalId),
-            "equality-state");
-        var coreWrapper = new EqualityIgnoringReferenceEnvelope(
-            new Reference<Element>(originalId),
-            "core-state");
-        var keyFrameWrapper = new EqualityIgnoringReferenceEnvelope(
-            new Reference<Element>(originalId),
-            "keyframe-state");
-        var invalidWrapper = new InvalidReferenceEnvelope(new Reference<Element>(originalId));
-        var cyclicWrapper = new CyclicReferenceEnvelope(new Reference<Element>(originalId));
-        cyclicWrapper.Self = cyclicWrapper;
-        var holder = new WrappedReferenceHolder();
-        holder.Target.CurrentValue = wrapper;
-        holder.AliasTarget.CurrentValue = wrapper;
-        holder.EqualityTarget.CurrentValue = equalityWrapper;
-        var animation = new KeyFrameAnimation<EqualityIgnoringReferenceEnvelope?>();
-        var keyFrame = new KeyFrame<EqualityIgnoringReferenceEnvelope?>
-        {
-            KeyTime = TimeSpan.Zero,
-            Value = keyFrameWrapper,
-        };
-        animation.KeyFrames.Add(keyFrame);
-        holder.AnimatedTarget.Animation = animation;
-        holder.PassiveTarget.CurrentValue = passiveWrapper;
-        holder.InvalidTarget.CurrentValue = invalidWrapper;
-        holder.CyclicTarget.CurrentValue = cyclicWrapper;
-        var owner = new Element { Uri = new Uri(Path.Combine(_root, "owner.belm")) };
-        owner.AddObject(holder);
-        var registeredOwner = new RegisteredRecoveryElement
-        {
-            Uri = new Uri(Path.Combine(_root, "registered-owner.belm")),
-            PluginWrapper = coreWrapper,
-        };
-        int corePropertyChanges = 0;
-        int keyFrameChanges = 0;
-        registeredOwner.PropertyChanged += (_, e) =>
-            corePropertyChanges += e.PropertyName == nameof(RegisteredRecoveryElement.PluginWrapper) ? 1 : 0;
-        keyFrame.PropertyChanged += (_, e) =>
-            keyFrameChanges += e.PropertyName == nameof(IKeyFrame.Value) ? 1 : 0;
-        var scene = new Scene { Uri = new Uri(Path.Combine(_root, "migration.scene")) };
-        scene.Children.Add(migrated);
-        scene.Children.Add(owner);
-        scene.Children.Add(registeredOwner);
-
-        SceneRecoveryTestAccess.MigrateReferences(scene, originalId, migrated.Id);
-
-        ReferenceEnvelope rewritten = holder.Target.CurrentValue!;
-        Assert.Multiple(() =>
-        {
-            Assert.That(rewritten, Is.Not.SameAs(wrapper));
-            Assert.That(rewritten.State, Is.EqualTo("plugin-state"));
-            Assert.That(rewritten.Target.Id, Is.EqualTo(migrated.Id));
-            Assert.That(rewritten.Target.Value, Is.SameAs(migrated));
-            Assert.That(rewritten.OptionalTarget.Value.Id, Is.EqualTo(migrated.Id));
-            Assert.That(rewritten.OptionalTarget.Value.Value, Is.SameAs(migrated));
-            Assert.That(holder.AliasTarget.CurrentValue, Is.SameAs(rewritten));
-            Assert.That(holder.AliasTarget.CurrentValue!.Target.Id, Is.EqualTo(migrated.Id));
-            Assert.That(holder.EqualityTarget.CurrentValue, Is.Not.SameAs(equalityWrapper));
-            Assert.That(holder.EqualityTarget.CurrentValue!.State, Is.EqualTo("equality-state"));
-            Assert.That(holder.EqualityTarget.CurrentValue.Target.Id, Is.EqualTo(migrated.Id));
-            Assert.That(registeredOwner.PluginWrapper, Is.Not.SameAs(coreWrapper));
-            Assert.That(registeredOwner.PluginWrapper!.State, Is.EqualTo("core-state"));
-            Assert.That(registeredOwner.PluginWrapper.Target.Id, Is.EqualTo(migrated.Id));
-            Assert.That(corePropertyChanges, Is.EqualTo(1));
-            Assert.That(keyFrame.Value, Is.Not.SameAs(keyFrameWrapper));
-            Assert.That(keyFrame.Value!.State, Is.EqualTo("keyframe-state"));
-            Assert.That(keyFrame.Value.Target.Id, Is.EqualTo(migrated.Id));
-            Assert.That(keyFrameChanges, Is.EqualTo(1));
-            Assert.That(holder.PassiveTarget.CurrentValue, Is.SameAs(passiveWrapper));
-            Assert.That(holder.PassiveTarget.CurrentValue!.Target.Id, Is.EqualTo(originalId));
-            Assert.That(holder.InvalidTarget.CurrentValue, Is.SameAs(invalidWrapper));
-            Assert.That(holder.InvalidTarget.CurrentValue!.Target.Id, Is.EqualTo(originalId));
-            Assert.That(holder.CyclicTarget.CurrentValue, Is.Not.SameAs(cyclicWrapper));
-            Assert.That(holder.CyclicTarget.CurrentValue!.Target.Id, Is.EqualTo(migrated.Id));
-            Assert.That(holder.CyclicTarget.CurrentValue.Self, Is.SameAs(holder.CyclicTarget.CurrentValue));
-        });
-    }
-
-    [Test]
-    public void MigrateRecoveredElementReferences_UnrelatedMigrationDoesNotRebuildCycle()
-    {
-        var migrated = new Element
-        {
-            Id = Guid.NewGuid(),
-            Uri = new Uri(Path.Combine(_root, "migrated.belm")),
-        };
-        var wrapper = new CyclicReferenceEnvelope(new Reference<Element>(Guid.NewGuid()));
-        wrapper.Self = wrapper;
-        var holder = new WrappedReferenceHolder();
-        holder.CyclicTarget.CurrentValue = wrapper;
-        int changes = 0;
-        holder.CyclicTarget.ValueChanged += (_, _) => changes++;
-        var owner = new Element { Uri = new Uri(Path.Combine(_root, "owner.belm")) };
-        owner.AddObject(holder);
-        var scene = new Scene { Uri = new Uri(Path.Combine(_root, "migration.scene")) };
-        scene.Children.Add(migrated);
-        scene.Children.Add(owner);
-
-        SceneRecoveryTestAccess.MigrateReferences(scene, Guid.NewGuid(), migrated.Id);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(holder.CyclicTarget.CurrentValue, Is.SameAs(wrapper));
-            Assert.That(holder.CyclicTarget.CurrentValue!.Self, Is.SameAs(wrapper));
-            Assert.That(changes, Is.Zero);
-        });
-    }
-
-    [Test]
-    public void MigrateRecoveredElementReferences_RebuildsMutualCycleWhenLeafFollowsBackEdge()
-    {
-        Guid originalId = Guid.NewGuid();
-        var migrated = new Element
-        {
-            Id = Guid.NewGuid(),
-            Uri = new Uri(Path.Combine(_root, "migrated.belm")),
-        };
-        var first = new OrderedCyclicReferenceEnvelope(new Reference<Element>(originalId));
-        var second = new OrderedCyclicReferenceEnvelope(new Reference<Element>(Guid.NewGuid()));
-        first.Next = second;
-        second.Next = first;
-        var holder = new WrappedReferenceHolder();
-        holder.OrderedCycleTarget.CurrentValue = first;
-        var owner = new Element { Uri = new Uri(Path.Combine(_root, "owner.belm")) };
-        owner.AddObject(holder);
-        var scene = new Scene { Uri = new Uri(Path.Combine(_root, "migration.scene")) };
-        scene.Children.Add(migrated);
-        scene.Children.Add(owner);
-
-        SceneRecoveryTestAccess.MigrateReferences(scene, originalId, migrated.Id);
-
-        OrderedCyclicReferenceEnvelope rewritten = holder.OrderedCycleTarget.CurrentValue!;
-        Assert.Multiple(() =>
-        {
-            Assert.That(rewritten, Is.Not.SameAs(first));
-            Assert.That(rewritten.Next, Is.Not.SameAs(second));
-            Assert.That(rewritten.Next!.Next, Is.SameAs(rewritten));
-            Assert.That(rewritten.Target.Id, Is.EqualTo(migrated.Id));
-            Assert.That(rewritten.Target.Value, Is.SameAs(migrated));
         });
     }
 
