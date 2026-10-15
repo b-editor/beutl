@@ -2,6 +2,7 @@
 
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
@@ -125,7 +126,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             maxTotalBytes,
             result => NotificationService.ShowInformation(
                 NotificationTitle,
-                $"Evicted {result.RemovedCount} proxy file(s), reclaimed {FormatBytes(result.ReclaimedBytes)}."),
+                $"Evicted {result.RemovedCount} proxy file(s), reclaimed {MediaFileInfo.FormatFileSize(result.ReclaimedBytes)}."),
             minFreeDiskBytes: DefaultMinFreeDiskBytes,
             openProjectSourceProvider: CollectOpenProjectSources,
             isGenerationActive: (source, preset) => queue.IsGenerating(source, preset));
@@ -447,20 +448,6 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     private static readonly object s_openProjectSourcesLock = new();
     private static Project? s_openProjectSourcesProject;
     private static IReadOnlySet<string>? s_openProjectSources;
-
-    private static string FormatBytes(long bytes)
-    {
-        string[] units = ["B", "KB", "MB", "GB", "TB"];
-        double value = bytes;
-        int unit = 0;
-        while (value >= 1024 && unit < units.Length - 1)
-        {
-            value /= 1024;
-            unit++;
-        }
-
-        return $"{value:0.#} {units[unit]}";
-    }
 
     // Runs a disk-pressure sweep synchronously in the queue's dispatch path, right before the inner
     // generator writes, and forwards the inner generator's availability signal unchanged.

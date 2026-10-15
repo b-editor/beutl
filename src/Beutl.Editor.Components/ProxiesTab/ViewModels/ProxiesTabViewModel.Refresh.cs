@@ -3,6 +3,7 @@ using System.ComponentModel;
 using Avalonia.Threading;
 using Beutl.Composition;
 using Beutl.Configuration;
+using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Media.Proxy;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
@@ -212,9 +213,9 @@ public sealed partial class ProxiesTabViewModel
         HashSet<string> paths = [.. Clips.Select(static c => c.Source.AbsolutePath)];
         long projectBytes = _store.GetTotalBytes(paths);
         long totalBytes = _store.GetTotalBytes();
-        ProjectUsageText.Value = FormatBytes(projectBytes);
-        StoreUsageText.Value = FormatBytes(totalBytes);
-        StoreCapText.Value = FormatBytes(_storeCapInfo?.MaxTotalBytes ?? _config.MaxTotalBytes);
+        ProjectUsageText.Value = MediaFileInfo.FormatFileSize(projectBytes);
+        StoreUsageText.Value = MediaFileInfo.FormatFileSize(totalBytes);
+        StoreCapText.Value = MediaFileInfo.FormatFileSize(_storeCapInfo?.MaxTotalBytes ?? _config.MaxTotalBytes);
     }
 
     internal void UpdateClipSummary()

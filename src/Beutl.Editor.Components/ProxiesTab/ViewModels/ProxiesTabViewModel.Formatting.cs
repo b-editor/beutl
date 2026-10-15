@@ -5,20 +5,6 @@ namespace Beutl.Editor.Components.ProxiesTab.ViewModels;
 
 public sealed partial class ProxiesTabViewModel
 {
-    internal static string FormatBytes(long bytes)
-    {
-        string[] units = ["B", "KB", "MB", "GB", "TB"];
-        double value = bytes;
-        int unit = 0;
-        while (value >= 1024 && unit < units.Length - 1)
-        {
-            value /= 1024;
-            unit++;
-        }
-
-        return $"{value:0.#} {units[unit]}";
-    }
-
     internal static string FormatSize(PixelSize size)
     {
         return $"{size.Width}x{size.Height}";
