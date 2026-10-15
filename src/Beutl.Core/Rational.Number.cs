@@ -77,6 +77,10 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
 
     public static bool IsPositive(Rational value)
     {
+        // Zero is positive whatever the sign of its denominator; NaN (0/0) is not.
+        if (value.Numerator == 0)
+            return value.Denominator != 0;
+
         return long.IsPositive(value.Numerator) == long.IsPositive(value.Denominator);
     }
 

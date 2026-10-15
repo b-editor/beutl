@@ -76,8 +76,12 @@ public class RationalArithmeticTests
         Assert.That(Rational.IsPositive(new Rational(1, 2)), Is.True);
         Assert.That(Rational.IsPositive(new Rational(-1, -2)), Is.True);
         Assert.That(Rational.IsPositive(new Rational(0, 1)), Is.True);
+        Assert.That(Rational.IsPositive(new Rational(0, -1)), Is.True);
+        Assert.That(Rational.IsPositive(Rational.PositiveInfinity), Is.True);
         Assert.That(Rational.IsPositive(new Rational(-1, 2)), Is.False);
         Assert.That(Rational.IsPositive(new Rational(1, -2)), Is.False);
+        Assert.That(Rational.IsPositive(Rational.NegativeInfinity), Is.False);
+        Assert.That(Rational.IsPositive(Rational.NaN), Is.False);
     }
 
     [Test]
