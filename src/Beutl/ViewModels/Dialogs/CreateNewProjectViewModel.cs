@@ -14,11 +14,11 @@ public sealed class CreateNewProjectViewModel
 {
     private readonly ILogger _logger = Log.CreateLogger<CreateNewProjectViewModel>();
     private readonly ProjectService _projectService;
-    private readonly IProjectVersionControlInitializer? _versionControlInitializer;
+    private readonly IProjectVersionControlInitializer _versionControlInitializer;
 
     internal CreateNewProjectViewModel(
         ProjectService projectService,
-        IProjectVersionControlInitializer? versionControlInitializer)
+        IProjectVersionControlInitializer versionControlInitializer)
     {
         _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
         _versionControlInitializer = versionControlInitializer;
@@ -52,7 +52,6 @@ public sealed class CreateNewProjectViewModel
             // it still has to wait for Git.
             INewProjectVersionControlSetup? versionControl =
                 initializeVersionControl
-                && _versionControlInitializer is not null
                     ? _versionControlInitializer.BeginNewProject()
                     : null;
             try
@@ -117,13 +116,6 @@ public sealed class CreateNewProjectViewModel
 
     private async Task DetectGitAsync()
     {
-        if (_versionControlInitializer is null)
-        {
-            TrackHistory.Value = false;
-            IsGitAvailable.Value = false;
-            return;
-        }
-
         try
         {
             GitAvailability availability = await _versionControlInitializer.GetAvailabilityAsync(
