@@ -244,9 +244,6 @@ public class ListProperty<T> : IListProperty<T>
         remove => _items.Detached -= value;
     }
 
-    [Obsolete("Use 'GetMarshal'.")]
-    public Span<T> AsSpan() => _items.AsSpan();
-
     public CoreListMarshal<T> GetMarshal() => _items.GetMarshal();
 
     public void AddRange(IEnumerable<T> items) => _items.AddRange(items);

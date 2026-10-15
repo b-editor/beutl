@@ -69,40 +69,6 @@ public class HierarchicalExtensionsTests
     }
 
     [Test]
-    public void FindHierarchicalParent_Type_FindsAncestor()
-    {
-        var root = new TestHierarchicalRoot();
-        var leaf = new TestNode();
-        root.HierarchicalChildren.Add(leaf);
-
-        IHierarchical? found = ((IHierarchical)leaf).FindHierarchicalParent(typeof(TestHierarchicalRoot));
-
-        Assert.That(found, Is.SameAs(root));
-        Assert.That(((IHierarchical)leaf).FindHierarchicalParent(typeof(IHierarchicalRoot)), Is.SameAs(root));
-        Assert.That(((IHierarchical)leaf).FindHierarchicalParent(typeof(string)), Is.Null);
-    }
-
-    [Test]
-    public void FindHierarchicalParent_Type_IncludeSelf_ReturnsSelfWhenMatching()
-    {
-        var leaf = new TestNode();
-
-        IHierarchical? found = ((IHierarchical)leaf).FindHierarchicalParent(typeof(TestNode), includeSelf: true);
-
-        Assert.That(found, Is.SameAs(leaf));
-    }
-
-    [Test]
-    public void FindRequiredHierarchicalParent_Type_NoMatch_Throws()
-    {
-        var root = new TestNode();
-
-        Assert.That(
-            () => ((IHierarchical)root).FindRequiredHierarchicalParent(typeof(TestHierarchicalRoot)),
-            Throws.TypeOf<HierarchyException>());
-    }
-
-    [Test]
     public void FindHierarchicalRoot_FromLeaf_FindsRoot()
     {
         var root = new TestHierarchicalRoot();

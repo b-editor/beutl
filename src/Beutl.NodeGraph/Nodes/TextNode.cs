@@ -17,7 +17,7 @@ public partial class TextNode : GraphNode
             .Accessor(o => o.Object, (o, v) => o.Object = v)
             .Register();
 
-        Hierarchy<TextNode>(ObjectProperty);
+        Hierarchy(ObjectProperty);
     }
 
     public TextNode()

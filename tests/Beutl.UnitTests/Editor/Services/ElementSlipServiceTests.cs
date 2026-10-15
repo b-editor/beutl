@@ -1057,8 +1057,8 @@ public class ElementSlipServiceTests
     [Test]
     public void Slip_NestedLinkedMedia_ClampsToTightestSampledWindowAndOffset()
     {
-        var app = new BeutlApplication();
-        app.Items.Add(_scene);
+        var app = new BeutlApplication { Project = new Project() };
+        app.Project!.Items.Add(_scene);
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
         var videoSource = CreateVideoSource(5);
         var video = new SourceVideo

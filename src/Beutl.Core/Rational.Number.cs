@@ -180,11 +180,6 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
         return Parse(s, NumberStyles.Integer, provider);
     }
 
-    public static Rational Parse(ReadOnlySpan<char> s)
-    {
-        return Parse(s);
-    }
-
     public static Rational Parse(string s)
     {
         return Parse(s, null);

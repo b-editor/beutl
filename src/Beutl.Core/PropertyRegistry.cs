@@ -85,51 +85,6 @@ public static class PropertyRegistry
         }
     }
 
-    public static CoreProperty? FindRegistered(int id)
-    {
-        lock (s_properties)
-        {
-            return id < s_properties.Count ? s_properties[id] : null;
-        }
-    }
-
-    public static bool IsRegistered(Type type, CoreProperty property)
-    {
-        static bool ContainsProperty(IReadOnlyList<CoreProperty> properties, CoreProperty property)
-        {
-            int propertiesCount = properties.Count;
-
-            for (int i = 0; i < propertiesCount; i++)
-            {
-                if (properties[i] == property)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        lock (s_properties)
-        {
-            ArgumentNullException.ThrowIfNull(type);
-            ArgumentNullException.ThrowIfNull(property);
-
-            return ContainsProperty(GetRegistered(type), property);
-        }
-    }
-
-    public static bool IsRegistered(object o, CoreProperty property)
-    {
-        lock (s_properties)
-        {
-            ArgumentNullException.ThrowIfNull(o);
-            ArgumentNullException.ThrowIfNull(property);
-
-            return IsRegistered(o.GetType(), property);
-        }
-    }
-
     public static void Register(Type type, CoreProperty property)
     {
         lock (s_properties)

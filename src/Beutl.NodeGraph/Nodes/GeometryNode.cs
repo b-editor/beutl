@@ -26,7 +26,7 @@ public partial class GeometryNode<T> : GraphNode
             .Accessor(o => o.Object, (o, v) => o.Object = v)
             .Register();
 
-        Hierarchy<GeometryNode<T>>(ObjectProperty);
+        Hierarchy(ObjectProperty);
     }
 
     [NotAutoSerialized]

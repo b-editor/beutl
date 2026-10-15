@@ -61,23 +61,6 @@ public static class JsonHelper
         }
     }
 
-    public static void JsonSave(this IJsonSerializable serializable, string filename)
-    {
-        var json = new JsonObject();
-
-        serializable.WriteToJson(json);
-
-        json.JsonSave(filename);
-    }
-
-    public static void JsonRestore(this IJsonSerializable serializable, string filename)
-    {
-        if (JsonRestore(filename) is JsonObject obj)
-        {
-            serializable.ReadFromJson(obj);
-        }
-    }
-
     public static void JsonSave(this JsonNode node, string filename)
         => JsonSave(node, filename, unixFileMode: null);
 
@@ -205,35 +188,6 @@ public static class JsonHelper
     public static void WriteDiscriminator(this JsonNode obj, Type type)
     {
         obj["$type"] = TypeFormat.ToString(type);
-    }
-
-    private static Dictionary<string, object> ParseJson(string json)
-    {
-        Dictionary<string, JsonElement> dic = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json)!;
-
-        return dic.ToDictionary(x => x.Key, x => ParseJsonElement(x.Value)!);
-    }
-
-    private static object? ParseJsonElement(JsonElement elem)
-    {
-        return elem.ValueKind switch
-        {
-            JsonValueKind.String => elem.GetString(),
-            JsonValueKind.Number => elem.GetDouble(),
-            JsonValueKind.False => false,
-            JsonValueKind.True => true,
-            JsonValueKind.Array => elem.EnumerateArray().Select(e => ParseJsonElement(e)).ToArray(),
-            JsonValueKind.Null => null,
-            JsonValueKind.Object => ParseJson(elem.GetRawText()),
-            _ => throw new NotSupportedException(),
-        };
-    }
-
-    public static Dictionary<string, object> ToDictionary(this JsonNode json)
-    {
-        Dictionary<string, JsonElement> dic = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json)!;
-
-        return dic.ToDictionary(x => x.Key, x => ParseJsonElement(x.Value)!);
     }
 
     public static bool TryGetPropertyValueAsJsonValue<T>(this JsonObject obj, string propertyName, [NotNullWhen(true)] out T? value)

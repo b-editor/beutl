@@ -29,9 +29,6 @@ public interface ICoreList<T> : IObservableList<T>, ICoreReadOnlyList<T>, ICoreL
 
     public event Action<T>? Detached;
 
-    [Obsolete("Use 'GetMarshal'.")]
-    Span<T> AsSpan();
-
     CoreListMarshal<T> GetMarshal();
 
     void AddRange(IEnumerable<T> items);

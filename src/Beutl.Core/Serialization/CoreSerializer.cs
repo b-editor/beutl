@@ -124,12 +124,6 @@ public static partial class CoreSerializer
         }
     }
 
-    public static string SerializeToJsonString<T>(T obj, CoreSerializerOptions? options = null)
-        where T : ICoreSerializable
-    {
-        return ConvertToJsonString(SerializeToJsonObject(obj, options));
-    }
-
     public static string SerializeToJsonString(ICoreSerializable obj, CoreSerializerOptions? options = null)
     {
         return ConvertToJsonString(SerializeToJsonObject(obj, options));

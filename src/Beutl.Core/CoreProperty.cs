@@ -9,7 +9,7 @@ using Beutl.Serialization;
 namespace Beutl;
 
 [JsonConverter(typeof(CorePropertyJsonConverter))]
-public abstract class CoreProperty : ICoreProperty
+public abstract class CoreProperty
 {
     private static int s_nextId = 0;
     private readonly ICorePropertyMetadata _defaultMetadata;
@@ -74,13 +74,6 @@ public abstract class CoreProperty : ICoreProperty
 
     protected abstract IObservable<CorePropertyChangedEventArgs> GetChanged();
 
-    public TMetadata GetMetadata<T, TMetadata>()
-        where T : ICoreObject
-        where TMetadata : ICorePropertyMetadata
-    {
-        return GetMetadata<TMetadata>(typeof(T));
-    }
-
     public TMetadata GetMetadata<TMetadata>(Type type)
         where TMetadata : ICorePropertyMetadata
     {
@@ -93,13 +86,6 @@ public abstract class CoreProperty : ICoreProperty
 
             return GetMetadataWithOverrides<TMetadata>(type) ?? throw new InvalidOperationException();
         }
-    }
-
-    public bool TryGetMetadata<T, TMetadata>([NotNullWhen(true)] out TMetadata? result)
-        where T : ICoreObject
-        where TMetadata : ICorePropertyMetadata
-    {
-        return TryGetMetadata(typeof(T), out result);
     }
 
     public bool TryGetMetadata<TMetadata>(Type type, [NotNullWhen(true)] out TMetadata? result)
@@ -215,11 +201,6 @@ public class CoreProperty<T>(
          where TOverride : ICoreObject
     {
         OverrideMetadata<TOverride>(new CorePropertyMetadata<T>(defaultValue));
-    }
-
-    public void OverrideMetadata(Type type, Optional<T> defaultValue)
-    {
-        OverrideMetadata(type, new CorePropertyMetadata<T>(defaultValue));
     }
 
     internal override bool HasObservers => _changed.HasObservers;

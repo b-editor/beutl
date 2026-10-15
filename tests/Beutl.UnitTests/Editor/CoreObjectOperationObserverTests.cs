@@ -765,7 +765,6 @@ public class CoreObjectOperationObserverTests
         {
             NotTrackedValueProperty = ConfigureProperty<string?, TestCoreObjectWithNotTrackedProperty>(nameof(NotTrackedValue))
                 .Accessor(o => o.NotTrackedValue, (o, v) => o.NotTrackedValue = v)
-                .SetAttribute(new NotTrackedAttribute())
                 .Register();
 
             TrackedValueProperty = ConfigureProperty<string?, TestCoreObjectWithNotTrackedProperty>(nameof(TrackedValue))
@@ -773,6 +772,7 @@ public class CoreObjectOperationObserverTests
                 .Register();
         }
 
+        [NotTracked]
         public string? NotTrackedValue
         {
             get => _notTrackedValue;
