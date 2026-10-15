@@ -24,7 +24,7 @@ final class Writer {
 
         let writer: AVAssetWriter
         do {
-            writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
+            writer = try AVAssetWriter(outputURL: url, fileType: Self.fileType(for: url))
         } catch {
             throw BeutlAVFError.writerFailed(error.localizedDescription)
         }
@@ -32,6 +32,15 @@ final class Writer {
 
         try configureVideo(config: videoConfig)
         try configureAudio(config: audioConfig)
+    }
+
+    // The container follows the extension the encoder accepts (AVFFileExtensions.Encodable).
+    private static func fileType(for url: URL) -> AVFileType {
+        switch url.pathExtension.lowercased() {
+        case "mov": return .mov
+        case "m4v": return .m4v
+        default: return .mp4
+        }
     }
 
     func start() throws {

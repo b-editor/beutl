@@ -2,7 +2,16 @@
 
 internal static class AVFFileExtensions
 {
-    // The video containers the decoder opens and the encoder writes.
+    // The containers AVAssetWriter writes, each with its own file type (Writer.swift).
+    public static IEnumerable<string> Encodable()
+    {
+        yield return ".mp4";
+        yield return ".mov";
+        yield return ".m4v";
+    }
+
+    // The video containers the decoder opens. It keeps the longer list: earlier versions of the encoder wrote
+    // MP4 data under all of these names.
     public static IEnumerable<string> Video()
     {
         yield return ".mp4";
