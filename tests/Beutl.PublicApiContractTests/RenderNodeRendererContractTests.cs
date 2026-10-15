@@ -2,7 +2,6 @@
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.PublicApiContractTests;
 
@@ -177,13 +176,12 @@ public sealed class RenderNodeRendererContractTests
     [Test]
     public void Operations_AcceptCompletePerCallRequestsOnOnePersistentRenderer()
     {
-        var factory = new TrackingTargetFactory(static size => new CpuRenderTarget(size));
         using DelegateNode root = SourceNode(new Rect(0, 0, 8, 6));
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled
-        }, factory);
+        });
         RenderNodeRenderRequest leftRequest = renderer.DefaultRequest with
         {
             RequestedRegion = new Rect(0, 0, 4, 6),
@@ -224,7 +222,6 @@ public sealed class RenderNodeRendererContractTests
         float executionMaxWorkingScale = 0;
         RenderRequestPurpose executionPurpose = default;
         RenderIntent executionIntent = default;
-        var factory = new TrackingTargetFactory(static size => new CpuRenderTarget(size));
 
         using var root = new DelegateNode(context =>
         {
@@ -248,7 +245,7 @@ public sealed class RenderNodeRendererContractTests
             OutputScale = 8,
             MaxWorkingScale = 3,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, factory);
+        });
 
         RenderNodeMeasurement measurement = renderer.Measure();
         bool hitInside = renderer.HitTest(new Point(5, 6));
@@ -302,12 +299,6 @@ public sealed class RenderNodeRendererContractTests
             Assert.That(executionIntent, Is.EqualTo(RenderIntent.Delivery));
             Assert.That(destination.IsDisposed, Is.False);
             Assert.That(destinationTarget.IsDisposed, Is.False);
-            Assert.That(factory.Allocations, Is.Not.Empty);
-            Assert.That(factory.Allocations, Has.All.Matches<RenderTargetAllocationDescriptor>(allocation =>
-                allocation.PixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float
-                && allocation.GraphicsContext is null
-                && allocation.GraphicsContextHandle == 0
-                && allocation.GraphicsBackend is null));
         });
     }
 
@@ -352,7 +343,6 @@ public sealed class RenderNodeRendererContractTests
         var bounds = new Rect(0, 0, 10, 10);
         int recordings = 0;
         int executions = 0;
-        var factory = new TrackingTargetFactory(static size => new CpuRenderTarget(size));
         using var root = new DelegateNode(context =>
         {
             recordings++;
@@ -364,7 +354,7 @@ public sealed class RenderNodeRendererContractTests
         {
             Intent = RenderIntent.Preview,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, factory);
+        });
         using var target = new CpuRenderTarget(new PixelSize(20, 20));
         using var destination = new ImmediateCanvas(target, RenderIntent.Preview);
 
@@ -379,7 +369,6 @@ public sealed class RenderNodeRendererContractTests
         {
             Assert.That(recordings, Is.EqualTo(1));
             Assert.That(executions, Is.Zero);
-            Assert.That(factory.Requests, Is.Empty);
             Assert.That(destination.IsDisposed, Is.False);
             Assert.That(target.IsDisposed, Is.False);
         });
@@ -389,7 +378,6 @@ public sealed class RenderNodeRendererContractTests
     public void Render_SingularDestinationTransformRejectsAFullTargetAccess()
     {
         int executions = 0;
-        var factory = new TrackingTargetFactory(static size => new CpuRenderTarget(size));
         using var root = new DelegateNode(context =>
         {
             RenderFragmentHandle command = context.TargetCommand(
@@ -405,7 +393,7 @@ public sealed class RenderNodeRendererContractTests
         {
             Intent = RenderIntent.Preview,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, factory);
+        });
         using var target = new CpuRenderTarget(new PixelSize(20, 20));
         using var destination = new ImmediateCanvas(target, RenderIntent.Preview);
 
@@ -420,7 +408,6 @@ public sealed class RenderNodeRendererContractTests
         Assert.Multiple(() =>
         {
             Assert.That(executions, Is.Zero);
-            Assert.That(factory.Requests, Is.Empty);
             Assert.That(destination.IsDisposed, Is.False);
             Assert.That(target.IsDisposed, Is.False);
         });
@@ -430,7 +417,6 @@ public sealed class RenderNodeRendererContractTests
     public void Render_SingularDestinationTransformPreservesAnEmptyTargetCommand()
     {
         int executions = 0;
-        var factory = new TrackingTargetFactory(static size => new CpuRenderTarget(size));
         using var root = new DelegateNode(context =>
         {
             RenderFragmentHandle command = context.TargetCommand(
@@ -446,7 +432,7 @@ public sealed class RenderNodeRendererContractTests
         {
             Intent = RenderIntent.Preview,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, factory);
+        });
         using var target = new CpuRenderTarget(new PixelSize(20, 20));
         using var destination = new ImmediateCanvas(target, RenderIntent.Preview);
 
@@ -458,7 +444,6 @@ public sealed class RenderNodeRendererContractTests
         Assert.Multiple(() =>
         {
             Assert.That(executions, Is.EqualTo(1));
-            Assert.That(factory.Requests, Is.Empty);
             Assert.That(destination.IsDisposed, Is.False);
             Assert.That(target.IsDisposed, Is.False);
         });
@@ -532,7 +517,6 @@ public sealed class RenderNodeRendererContractTests
     {
         var bounds = new Rect(10.25f, 20.25f, 3.5f, 2.5f);
         PixelRect expectedDeviceBounds = PixelRect.FromRect(bounds, 2);
-        var factory = new TrackingTargetFactory(static size => new CpuRenderTarget(size));
 
         using var root = SourceNode(bounds);
         var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
@@ -540,7 +524,7 @@ public sealed class RenderNodeRendererContractTests
             Intent = RenderIntent.Preview,
             OutputScale = 2,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, factory);
+        });
 
         RenderNodeRasterization rasterization = renderer.Rasterize();
         Bitmap bitmap = rasterization.Bitmap!;
@@ -553,18 +537,10 @@ public sealed class RenderNodeRendererContractTests
             Assert.That(rasterization.IsEmpty, Is.False);
             Assert.That(bitmap.Width, Is.EqualTo(expectedDeviceBounds.Width));
             Assert.That(bitmap.Height, Is.EqualTo(expectedDeviceBounds.Height));
-            Assert.That(factory.Requests, Does.Contain(expectedDeviceBounds.Size));
-            Assert.That(factory.Allocations, Has.All.Matches<RenderTargetAllocationDescriptor>(allocation =>
-                allocation.PixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float
-                && allocation.GraphicsContext is null
-                && allocation.GraphicsContextHandle is null or 0
-                && allocation.GraphicsBackend is null));
         });
 
         renderer.Dispose();
         Assert.That(bitmap.IsDisposed, Is.False, "Renderer disposal does not dispose an already returned rasterization.");
-        Assert.That(factory.Targets, Is.Not.Empty);
-        Assert.That(factory.Targets, Has.All.Matches<CpuRenderTarget>(target => target.IsDisposed));
 
         rasterization.Dispose();
         rasterization.Dispose();
@@ -572,16 +548,15 @@ public sealed class RenderNodeRendererContractTests
     }
 
     [Test]
-    public void Rasterize_ReturnsNormalEmptyResultsWithoutAllocatingOrExecuting()
+    public void Rasterize_ReturnsNormalEmptyResultsWithoutExecuting()
     {
-        var factory = new TrackingTargetFactory(static size => new CpuRenderTarget(size));
         int executions = 0;
 
         using var emptyRoot = new DelegateNode(static _ => { });
         using (var renderer = new RenderNodeRenderer(emptyRoot, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
-        }, factory))
+        }))
         using (RenderNodeRasterization result = renderer.Rasterize())
         {
             Assert.Multiple(() =>
@@ -604,7 +579,7 @@ public sealed class RenderNodeRendererContractTests
         {
             Intent = RenderIntent.Preview,
             RequestedRegion = emptySelection,
-        }, factory))
+        }))
         using (RenderNodeRasterization result = renderer.Rasterize())
         {
             Assert.Multiple(() =>
@@ -618,109 +593,6 @@ public sealed class RenderNodeRendererContractTests
         Assert.Multiple(() =>
         {
             Assert.That(executions, Is.Zero);
-            Assert.That(factory.Requests, Is.Empty);
-        });
-    }
-
-    [Test]
-    public void TargetFactory_InvalidReturnIsOwnedDisposedAndRejected()
-    {
-        var bounds = new Rect(0, 0, 4, 3);
-        CpuRenderTarget? invalid = null;
-        var factory = new TrackingTargetFactory(size =>
-        {
-            invalid = new CpuRenderTarget(new PixelSize(size.Width + 1, size.Height));
-            return invalid;
-        });
-
-        using var root = SourceNode(bounds);
-        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, factory);
-
-        Assert.That(() => renderer.Rasterize(), Throws.TypeOf<InvalidOperationException>());
-        Assert.Multiple(() =>
-        {
-            Assert.That(invalid, Is.Not.Null);
-            Assert.That(invalid!.IsDisposed, Is.True);
-            Assert.That(invalid.DisposeCalls, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public void TargetFactory_ReusedLiveTargetIsRejectedAndDisposedWithRendererExactlyOnce()
-    {
-        var bounds = new Rect(0, 0, 4, 3);
-        var shared = new CpuRenderTarget(new PixelSize(4, 3));
-        var factory = new TrackingTargetFactory(_ => shared);
-
-        using var root = SourceNode(bounds);
-        var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, factory);
-
-        Assert.That(() => renderer.Rasterize(), Throws.TypeOf<InvalidOperationException>());
-        Assert.That(shared.IsDisposed, Is.False,
-            "The accepted first allocation remains owned by the renderer pool after request failure.");
-        renderer.Dispose();
-        Assert.Multiple(() =>
-        {
-            Assert.That(shared.IsDisposed, Is.True);
-            Assert.That(shared.DisposeCalls, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public void TargetFactory_BorrowedDestinationAliasIsRejectedWithoutDisposingDestination()
-    {
-        var bounds = new Rect(0, 0, 4, 3);
-        using var destinationTarget = new CpuRenderTarget(new PixelSize(4, 3));
-        using var destination = new ImmediateCanvas(destinationTarget, RenderIntent.Preview);
-        var factory = new TrackingTargetFactory(_ => destinationTarget);
-
-        using var root = SourceNode(bounds);
-        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, factory);
-
-        Assert.That(() => renderer.Render(destination), Throws.TypeOf<InvalidOperationException>());
-        Assert.Multiple(() =>
-        {
-            Assert.That(destinationTarget.IsDisposed, Is.False);
-            Assert.That(destinationTarget.DisposeCalls, Is.Zero);
-        });
-    }
-
-    [Test]
-    public void TargetFactory_IncompatibleSurfaceFormatIsOwnedDisposedAndRejected()
-    {
-        var bounds = new Rect(0, 0, 4, 3);
-        CpuRenderTarget? incompatible = null;
-        var factory = new TrackingTargetFactory(size =>
-        {
-            incompatible = new CpuRenderTarget(size, SKColorType.Rgba8888);
-            return incompatible;
-        });
-
-        using var root = SourceNode(bounds);
-        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, factory);
-
-        Assert.That(() => renderer.Rasterize(), Throws.TypeOf<InvalidOperationException>());
-        Assert.Multiple(() =>
-        {
-            Assert.That(incompatible, Is.Not.Null);
-            Assert.That(incompatible!.IsDisposed, Is.True);
-            Assert.That(incompatible.DisposeCalls, Is.EqualTo(1));
         });
     }
 
@@ -835,28 +707,5 @@ public sealed class RenderNodeRendererContractTests
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             });
         return renderer.Measure();
-    }
-
-    private sealed class TrackingTargetFactory(Func<PixelSize, RenderTarget?> create) : IRenderTargetFactory
-    {
-        public List<PixelSize> Requests { get; } = [];
-
-        public List<RenderTargetAllocationDescriptor> Allocations { get; } = [];
-
-        public List<CpuRenderTarget> Targets { get; } = [];
-
-        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
-        {
-            PixelSize deviceSize = allocation.DeviceSize;
-            Allocations.Add(allocation);
-            Requests.Add(deviceSize);
-            RenderTarget? result = create(deviceSize);
-            if (result is CpuRenderTarget tracking)
-            {
-                Targets.Add(tracking);
-            }
-
-            return result;
-        }
     }
 }

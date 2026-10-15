@@ -65,7 +65,7 @@ public readonly record struct BufferDimensionBudget
     /// <see cref="EngineCeiling"/>.
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxDimension"/> is not positive.</exception>
-    public static BufferDimensionBudget Named(int maxDimension)
+    internal static BufferDimensionBudget Named(int maxDimension)
     {
         if (maxDimension <= 0)
         {

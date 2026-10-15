@@ -18,13 +18,13 @@ public partial class RenderTarget : IDisposable
 
     private RenderTarget(SKSurfaceCounter<SKSurface> surface, int width, int height,
         SKSurfaceCounter<ITexture2D>? texture = null,
-        RenderTargetPixelFormat? knownPixelFormat = null)
+        bool hasKnownPixelFormat = false)
     {
         _surface = surface;
         Width = width;
         Height = height;
         _texture = texture;
-        KnownPixelFormat = knownPixelFormat;
+        HasKnownPixelFormat = hasKnownPixelFormat;
     }
 
     /// <summary>
@@ -81,9 +81,10 @@ public partial class RenderTarget : IDisposable
 
     internal ITexture2D? Texture => _texture?.Value;
 
-    // Only the engine's own surface creation paths can establish this without reading pixels.
-    // Arbitrary surfaces supplied by subclasses and null targets still need format validation.
-    internal RenderTargetPixelFormat? KnownPixelFormat { get; }
+    // Whether the engine's own surface creation made this a linear-premultiplied RGBA16F surface. Only those
+    // paths can establish it without reading pixels; arbitrary surfaces supplied by subclasses and null
+    // targets still need format validation.
+    internal bool HasKnownPixelFormat { get; }
 
     /// <summary>
     /// Whether <see cref="Create"/> would attach a new target to a graphics context rather than raster it on
@@ -190,9 +191,7 @@ public partial class RenderTarget : IDisposable
                 width,
                 height,
                 textureRef,
-                context is null or VulkanContext or CompositeContext
-                    ? RenderTargetPixelFormat.LinearPremultipliedRgba16Float
-                    : null);
+                context is null or VulkanContext or CompositeContext);
             try
             {
                 if (!result.HasTransparentContents)
@@ -274,7 +273,7 @@ public partial class RenderTarget : IDisposable
         }
     }
 
-    public static RenderTarget CreateNull(int width, int height)
+    internal static RenderTarget CreateNull(int width, int height)
     {
         var surface = SKSurface.CreateNull(width, height);
         return new RenderTarget(new SKSurfaceCounter<SKSurface>(surface), width, height);
@@ -453,7 +452,7 @@ public partial class RenderTarget : IDisposable
     {
         _surface.AddRef();
         _texture?.AddRef();
-        return new RenderTarget(_surface, Width, Height, _texture, KnownPixelFormat)
+        return new RenderTarget(_surface, Width, Height, _texture, HasKnownPixelFormat)
         {
             _hasTransparentContents = _hasTransparentContents,
         };

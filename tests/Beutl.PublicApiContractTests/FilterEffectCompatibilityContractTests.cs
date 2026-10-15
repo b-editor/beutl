@@ -251,7 +251,7 @@ public sealed class FilterEffectCompatibilityContractTests
             Intent = RenderIntent.Preview,
             OutputScale = 2,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        });
         return renderer.Rasterize();
     }
 

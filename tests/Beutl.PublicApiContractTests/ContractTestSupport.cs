@@ -67,12 +67,6 @@ internal sealed class CpuRenderTarget : RenderTarget
     }
 }
 
-internal sealed class CpuTargetFactory : IRenderTargetFactory
-{
-    public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-        => new CpuRenderTarget(allocation.DeviceSize);
-}
-
 internal sealed class DelegateNode(Action<RenderNodeContext> process) : RenderNode
 {
     public override void Process(RenderNodeContext context) => process(context);

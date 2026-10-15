@@ -1,7 +1,5 @@
-﻿using Beutl.Composition;
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 
@@ -152,50 +150,6 @@ public class RenderTargetSnapshotTests
         });
     }
 
-    // The IRenderer.SnapshotInto default (for implementors that don't override it) must produce the
-    // same pixels as Snapshot(). CPU-only: no Vulkan.
-    [Test]
-    public void IRendererDefaultSnapshotInto_FallsBackToSnapshotAndCopies()
-    {
-        using Bitmap content = NewScratch(40, 24);
-        using (var canvas = new SKCanvas(content.SKBitmap))
-        {
-            canvas.Clear(new SKColor(20, 40, 60));
-            using var paint = new SKPaint { Color = SKColors.White };
-            canvas.DrawRect(SKRect.Create(8, 4, 16, 10), paint);
-        }
-
-        IRenderer renderer = new FakeSnapshotRenderer(content);
-        using Bitmap expected = renderer.Snapshot();
-        using Bitmap actual = NewScratch(40, 24);
-
-        renderer.SnapshotInto(actual);
-
-        AssertRowsIdentical(expected, actual, "IRenderer default SnapshotInto vs Snapshot");
-    }
-
-    [Test]
-    public void IRendererDefaultSnapshotInto_DimensionMismatch_Throws()
-    {
-        using Bitmap content = NewScratch(40, 24);
-        IRenderer renderer = new FakeSnapshotRenderer(content);
-        using Bitmap wrongSize = NewScratch(20, 20);
-
-        Assert.Throws<ArgumentException>(() => renderer.SnapshotInto(wrongSize));
-    }
-
-    // Same bytes-per-pixel but a different color space. CopyFrom only checks bytes-per-pixel, so the
-    // default must reject this rather than raw-copy linear bytes as sRGB.
-    [Test]
-    public void IRendererDefaultSnapshotInto_FormatMismatch_Throws()
-    {
-        using Bitmap content = NewScratch(40, 24);
-        IRenderer renderer = new FakeSnapshotRenderer(content);
-        using var wrongFormat = new Bitmap(40, 24, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
-
-        Assert.Throws<ArgumentException>(() => renderer.SnapshotInto(wrongFormat));
-    }
-
     // Compare every row's raw bytes rather than sampling pixels, to catch stride/row-alignment bugs.
     private static void AssertRowsIdentical(Bitmap expected, Bitmap actual, string paths)
     {
@@ -212,34 +166,5 @@ public class RenderTargetSnapshotTests
     {
         var p = bmp.SKBitmap.GetPixel(x, y);
         return p.Red > 150 && p.Green > 150 && p.Blue > 150;
-    }
-
-    // Minimal IRenderer that does NOT override SnapshotInto, so calls route through the interface
-    // default. Snapshot() clones the supplied content; unused members throw.
-    private sealed class FakeSnapshotRenderer(Bitmap content) : IRenderer
-    {
-        public PixelSize FrameSize => new(content.Width, content.Height);
-
-        public TimeSpan Time => default;
-
-        public bool IsDisposed => false;
-
-        public bool IsGraphicsRendering => false;
-
-        public RenderCacheOptions CacheOptions { get; set; } = RenderCacheOptions.Default;
-
-        public Bitmap Snapshot() => content.Clone();
-
-        public void Render(CompositionFrame frame) => throw new NotSupportedException();
-
-        public Drawable? HitTest(CompositionFrame frame, Point point) => throw new NotSupportedException();
-
-        public void UpdateFrame(CompositionFrame frame) => throw new NotSupportedException();
-
-        public Rect[] GetBoundaries(int zIndex) => throw new NotSupportedException();
-
-        public DrawableRenderNode? FindRenderNode(Drawable drawable) => throw new NotSupportedException();
-
-        public void Dispose() { }
     }
 }

@@ -1097,7 +1097,7 @@ public class Renderer : IRenderer
         });
     }
 
-    public static ImmediateCanvas GetInternalCanvas(Renderer renderer)
+    internal static ImmediateCanvas GetInternalCanvas(Renderer renderer)
     {
         return renderer._immediateCanvas;
     }

@@ -77,7 +77,7 @@ internal sealed partial class RenderTargetPool
         // Snapshot is a GPU read, not a metadata query: on Vulkan it changes Skia's private image
         // layout before a native pass writes the target. Trust the engine's recorded creation format;
         // retain inspection for caller-supplied surfaces whose format is not known.
-        if (target.KnownPixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float)
+        if (target.HasKnownPixelFormat)
             return surface;
 
         using SKImage? image = surface.Snapshot();

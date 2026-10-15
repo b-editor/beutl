@@ -43,7 +43,7 @@ public sealed class RasterFootprintContractTests
             OutputScale = density,
             MaxWorkingScale = density,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        });
         using (renderer.Rasterize())
         {
         }

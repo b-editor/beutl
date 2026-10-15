@@ -442,7 +442,7 @@ public sealed class ShaderAuthoringContractTests
         {
             Intent = RenderIntent.Preview,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        });
         return renderer.Rasterize();
     }
 

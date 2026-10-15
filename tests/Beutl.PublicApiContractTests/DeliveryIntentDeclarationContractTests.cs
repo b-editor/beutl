@@ -1,8 +1,6 @@
 ﻿using System.Reflection;
 using System.Runtime.CompilerServices;
-using Beutl.Composition;
 using Beutl.Graphics;
-using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using SkiaSharp;
@@ -13,8 +11,6 @@ namespace Beutl.PublicApiContractTests;
 [TestFixture]
 public sealed class DeliveryIntentDeclarationContractTests
 {
-    private static readonly Rect s_domain = new(0, 0, 100, 100);
-
     [Test]
     public void TheRendererConstructor_RequiresAnExplicitIntent()
     {
@@ -124,76 +120,9 @@ public sealed class DeliveryIntentDeclarationContractTests
         });
     }
 
-    // Rasterize has no destination canvas to promote the intent from, so the request it was handed is the
-    // only thing that can carry Delivery into execution: a delivery rasterization fails on an intermediate a
-    // preview would have dropped.
-    [Test]
-    public void AnExplicitDeliveryIntent_SurvivesToRasterize()
-    {
-        using FilterEffect.Resource resource = CreateStrokeEffectResource();
-        using FilterEffectRenderNode previewNode = CreateScene(resource, s_domain);
-        using var previewRenderer = new RenderNodeRenderer(
-            previewNode,
-            CreateRequest(RenderIntent.Preview),
-            new FailSecondTargetFactory());
-        using RenderNodeRasterization dropped = previewRenderer.Rasterize();
-
-        using FilterEffectRenderNode deliveryNode = CreateScene(resource, s_domain);
-        using var deliveryRenderer = new RenderNodeRenderer(
-            deliveryNode,
-            CreateRequest(RenderIntent.Delivery),
-            new FailSecondTargetFactory());
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(dropped.Bitmap, Is.Not.Null, "a preview drops the intermediate and still ships a frame");
-            Assert.That(
-                () =>
-                {
-                    using RenderNodeRasterization unexpected = deliveryRenderer.Rasterize();
-                },
-                Throws.InvalidOperationException);
-        });
-    }
-
-    private static RenderNodeRenderRequest CreateRequest(RenderIntent intent)
-        => new()
-        {
-            Intent = intent,
-            TargetDomain = s_domain,
-            OutputScale = 1,
-            MaxWorkingScale = intent == RenderIntent.Delivery ? float.PositiveInfinity : 2,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            Purpose = RenderRequestPurpose.Frame,
-        };
-
-    private static FilterEffect.Resource CreateStrokeEffectResource()
-    {
-        var pen = new Pen
-        {
-            Thickness = { CurrentValue = 9 },
-            Brush = { CurrentValue = Brushes.OrangeRed },
-        };
-        var effect = new StrokeEffect
-        {
-            Pen = { CurrentValue = pen },
-        };
-        return effect.ToResource(CompositionContext.Default);
-    }
-
     private static PropertyInfo RequireProperty(Type type, string name)
         => type.GetProperty(name, BindingFlags.Public | BindingFlags.Instance)
            ?? throw new InvalidOperationException($"{type.Name} declares no public '{name}'.");
-
-    private sealed class FailSecondTargetFactory : IRenderTargetFactory
-    {
-        private int _createCalls;
-
-        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
-            => _createCalls++ == 1
-                ? null
-                : RenderTarget.Create(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
 
     private static ParameterInfo RequireParameter(Type type, string name)
     {

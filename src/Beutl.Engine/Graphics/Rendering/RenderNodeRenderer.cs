@@ -29,10 +29,6 @@ public sealed class RenderNodeRenderer : IDisposable
     /// <summary>Creates a renderer for a caller-owned root node.</summary>
     /// <param name="root">The non-null caller-owned root recorded for every request.</param>
     /// <param name="defaultRequest">The non-null default request copied for the renderer lifetime.</param>
-    /// <param name="targetFactory">
-    /// The optional caller-owned factory for renderer-owned intermediate targets, or <see langword="null"/>
-    /// to use the engine's current-backend RGBA16F allocator.
-    /// </param>
     /// <exception cref="ArgumentNullException">
     /// <paramref name="root"/> or <paramref name="defaultRequest"/> is <see langword="null"/>.
     /// </exception>
@@ -42,10 +38,22 @@ public sealed class RenderNodeRenderer : IDisposable
     /// <exception cref="ArgumentException">
     /// A configured target domain or requested region is not finite, or the target domain is empty.
     /// </exception>
-    public RenderNodeRenderer(
+    public RenderNodeRenderer(RenderNode root, RenderNodeRenderRequest defaultRequest)
+        : this(root, defaultRequest, targetFactory: null)
+    {
+    }
+
+    /// <summary>Creates a renderer whose intermediate targets come from <paramref name="targetFactory"/>.</summary>
+    /// <param name="root">The non-null caller-owned root recorded for every request.</param>
+    /// <param name="defaultRequest">The non-null default request copied for the renderer lifetime.</param>
+    /// <param name="targetFactory">
+    /// The optional caller-owned factory for renderer-owned intermediate targets, or <see langword="null"/>
+    /// to use the engine's current-backend RGBA16F allocator. A test seam; see <see cref="IRenderTargetFactory"/>.
+    /// </param>
+    internal RenderNodeRenderer(
         RenderNode root,
         RenderNodeRenderRequest defaultRequest,
-        IRenderTargetFactory? targetFactory = null)
+        IRenderTargetFactory? targetFactory)
     {
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(defaultRequest);

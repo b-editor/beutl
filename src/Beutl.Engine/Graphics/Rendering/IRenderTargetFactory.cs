@@ -1,7 +1,11 @@
 ﻿namespace Beutl.Graphics.Rendering;
 
 /// <summary>Creates fresh linear-premultiplied RGBA16F targets requested by a renderer.</summary>
-public interface IRenderTargetFactory
+/// <remarks>
+/// A test seam: production renderers always use the engine's allocator, and tests pass a factory to inject
+/// CPU targets or allocation failures.
+/// </remarks>
+internal interface IRenderTargetFactory
 {
     /// <summary>Creates a target satisfying the exact allocation requirements.</summary>
     /// <param name="allocation">The size, format, backend, and device/context requirements.</param>

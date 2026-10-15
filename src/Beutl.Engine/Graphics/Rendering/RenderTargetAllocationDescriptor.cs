@@ -19,10 +19,6 @@ public readonly record struct RenderTargetAllocationDescriptor
     /// <summary>Gets the exact positive device-pixel size.</summary>
     public PixelSize DeviceSize { get; }
 
-    /// <summary>Gets the required pixel format.</summary>
-    public RenderTargetPixelFormat PixelFormat =>
-        RenderTargetPixelFormat.LinearPremultipliedRgba16Float;
-
     /// <summary>
     /// Gets the borrowed Skia context for a context-bound GPU request, or <see langword="null"/> for a
     /// CPU request or a target-less request whose backend is not bound yet.
@@ -38,7 +34,4 @@ public readonly record struct RenderTargetAllocationDescriptor
     /// <see langword="null"/> when a target-less request has not bound a backend yet.
     /// </summary>
     public nint? GraphicsContextHandle { get; }
-
-    /// <summary>Gets the required GPU backend, or <see langword="null"/> when no GPU context is bound.</summary>
-    public GRBackend? GraphicsBackend => GraphicsContext?.Backend;
 }

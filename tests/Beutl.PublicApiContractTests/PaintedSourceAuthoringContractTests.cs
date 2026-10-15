@@ -191,8 +191,7 @@ public sealed class PaintedSourceAuthoringContractTests
                 OutputScale = 1,
                 TargetDomain = targetDomain,
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            },
-            new CpuTargetFactory());
+            });
 
     private static RenderNodeMeasurement Measure(RenderNode node)
     {

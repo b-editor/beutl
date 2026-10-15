@@ -777,10 +777,8 @@ public sealed class RenderTargetPoolTests
                     observation.ContextMatchedExpectation));
                 Assert.That(factory.Observations[0].HasGraphicsContext, Is.False);
                 Assert.That(factory.Observations[0].GraphicsContextHandle, Is.Null);
-                Assert.That(factory.Observations[0].GraphicsBackend, Is.Null);
                 Assert.That(factory.Observations[1].HasGraphicsContext, Is.True);
                 Assert.That(factory.Observations[1].GraphicsContextHandle, Is.EqualTo(firstContext.Handle));
-                Assert.That(factory.Observations[1].GraphicsBackend, Is.EqualTo(firstContext.Backend));
             });
         });
     }
@@ -1032,7 +1030,6 @@ public sealed class RenderTargetPoolTests
             Observations.Add(new AllocationObservation(
                 allocation.GraphicsContext is not null,
                 allocation.GraphicsContextHandle,
-                allocation.GraphicsBackend,
                 ReferenceEquals(allocation.GraphicsContext, ExpectedContext)));
             PixelSize size = allocation.DeviceSize;
             if (allocation.GraphicsContext is null)
@@ -1054,7 +1051,6 @@ public sealed class RenderTargetPoolTests
     private readonly record struct AllocationObservation(
         bool HasGraphicsContext,
         nint? GraphicsContextHandle,
-        GRBackend? GraphicsBackend,
         bool ContextMatchedExpectation);
 
     private sealed class TrackingRenderTarget : RenderTarget
