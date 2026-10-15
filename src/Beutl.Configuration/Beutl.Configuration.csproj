@@ -1,8 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="System.Management" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
   </ItemGroup>
   <ItemGroup>

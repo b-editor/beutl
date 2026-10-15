@@ -89,7 +89,8 @@ public sealed class EditorConfig : ConfigurationBase
             .DefaultValue(false)
             .Register();
 
-        ulong memSize = SystemMemoryCapacity.GetTotalBytes();
+        // The memory the GC may use: the physical memory, or a container's or job's limit when one is set.
+        ulong memSize = (ulong)GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
         double memSizeInMG = memSize / (1024d * 1024d);
 
         FrameCacheMaxSizeProperty = ConfigureProperty<double, EditorConfig>(nameof(FrameCacheMaxSize))
