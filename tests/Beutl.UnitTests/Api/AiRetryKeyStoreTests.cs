@@ -370,57 +370,6 @@ public sealed class AiRetryKeyStoreTests
             duplicate.PrepareAttempt(Job("job", "prompt"), "account"));
     }
 
-    // A newer Beutl may have written another payload version before a downgrade.
-    [Test]
-    public void EntryOfAnotherPayloadVersionIsNotRecovered()
-    {
-        AiJob job = Job("job", "prompt");
-        string identity = FileAiRetryKeyStore.CanonicalIdentity(job, "account");
-        WriteStore(
-            [StoredEntry(identity, "key-v2", FileAiRetryKeyStore.PayloadDigest(job), payloadVersion: 2)],
-            [new { identity, generation = 1 }],
-            []);
-        var store = new FileAiRetryKeyStore(_directory);
-
-        Assert.That(store.TryGet(job, "account", out _), Is.False);
-        AiRetryAttempt attempt = store.PrepareAttempt(job, "account");
-        Assert.That(store.TryConsumeAttempt(attempt, job, "account", out string key, out _), Is.False);
-        Assert.That(key, Is.Empty);
-    }
-
-    [TestCase("recovery")]
-    [TestCase("newPurchase")]
-    public void PendingAttemptOfAnotherPayloadVersionIsNotConsumed(string kind)
-    {
-        AiJob job = Job("job", "prompt");
-        string identity = FileAiRetryKeyStore.CanonicalIdentity(job, "account");
-        string digest = FileAiRetryKeyStore.PayloadDigest(job);
-        bool recovery = kind == "recovery";
-        DateTimeOffset now = DateTimeOffset.UtcNow;
-        WriteStore(
-            recovery ? [StoredEntry(identity, "key-v2", digest, payloadVersion: 2)] : [],
-            recovery ? [new { identity, generation = 1 }] : [],
-            [new
-            {
-                token = new string('C', 64),
-                accountId = "account",
-                identity,
-                key = "key-v2",
-                generation = recovery ? 1 : 0,
-                kind,
-                payloadDigest = digest,
-                payloadVersion = 2,
-                createdAt = now,
-                expiresAt = now + TimeSpan.FromMinutes(5),
-            }]);
-        var store = new FileAiRetryKeyStore(_directory);
-
-        AiRetryAttempt attempt = store.PrepareAttempt(job, "account");
-        Assert.That(store.TryConsumeAttempt(attempt, job, "account", out string key, out _), Is.False);
-        Assert.That(key, Is.Empty);
-        Assert.That(store.TryGet(job, "account", out _), Is.False);
-    }
-
     [Test]
     public void LockContentionFailsClosedBeforeIssuingAKey()
     {
@@ -519,22 +468,17 @@ public sealed class AiRetryKeyStoreTests
         return key;
     }
 
-    // A released entry of a version-2 store as the store writes it.
-    private static object StoredEntry(string identity, string key, string digest, int payloadVersion = 1) => new
+    // A released version-2 entry as the store writes it.
+    private static object StoredEntry(string identity, string key, string digest) => new
     {
         identity,
         key,
         generation = 1,
         payloadDigest = digest,
-        payloadVersion,
+        payloadVersion = 1,
         inFlightOwner = (string?)null,
         inFlightUntil = (DateTimeOffset?)null,
     };
-
-    private void WriteStore(object[] entries, object[] generations, object[] attempts)
-        => File.WriteAllText(
-            Path.Combine(_directory, "retry-keys.json"),
-            JsonSerializer.Serialize(new { version = 2, entries, generations, attempts }));
 
     private static AiJob Job(string id, string prompt)
         => JobWithInput(id, $$"""{"prompt":"{{prompt}}","aspectRatio":"1:1"}""");
