@@ -15,7 +15,4 @@ public readonly struct BoundingBox
 
     public Vector3 Min { get; }
     public Vector3 Max { get; }
-
-    public Vector3 Center => (Min + Max) * 0.5f;
-    public Vector3 Size => Max - Min;
 }

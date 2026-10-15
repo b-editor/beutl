@@ -127,7 +127,7 @@ public sealed class DirectSkiaFilterReplayTests
         Rect sourceBounds = new(default, source.FrameSize.ToSize(1));
         using var node = new FilterEffectRenderNode(
             CreateBlurGroup().ToResource(CompositionContext.Default));
-        node.AddChild(new ImageSourceRenderNode(source, Brushes.Resource.White, null));
+        node.AddChild(new ImageSourceRenderNode(source, Brushes.Resource.White));
         using RenderNodeRenderer renderer = CreateRenderer(node);
 
         using RenderNodeRasterization actual = renderer.Rasterize();
@@ -135,7 +135,7 @@ public sealed class DirectSkiaFilterReplayTests
         using Bitmap expected = RenderNestedSkiaReference(
             expectedBounds,
             layerBounds: null,
-            canvas => canvas.DrawImageSource(source, Brushes.Resource.White, null));
+            canvas => canvas.DrawImageSource(source, Brushes.Resource.White));
 
         Assert.Multiple(() =>
         {
@@ -161,13 +161,13 @@ public sealed class DirectSkiaFilterReplayTests
         const float sourceDensity = 1;
         const float destinationDensity = 2;
         using ImageSource.Resource source = CreateImageSourceResource();
-        using var image = new ImageSourceRenderNode(source, Brushes.Resource.White, null);
+        using var image = new ImageSourceRenderNode(source, Brushes.Resource.White);
         using RenderNodeRenderer sourceRenderer = CreateRenderer(image);
         Assert.That(sourceRenderer.Measure().EffectiveScale, Is.EqualTo(EffectiveScale.At(sourceDensity)));
 
         using var node = new FilterEffectRenderNode(
             CreateBlurGroup().ToResource(CompositionContext.Default));
-        node.AddChild(new ImageSourceRenderNode(source, Brushes.Resource.White, null));
+        node.AddChild(new ImageSourceRenderNode(source, Brushes.Resource.White));
         using RenderNodeRenderer renderer = CreateRenderer(
             node,
             outputDensity: destinationDensity,
@@ -691,7 +691,7 @@ public sealed class DirectSkiaFilterReplayTests
         bool synchronizeSource,
         Action copyCallback)
     {
-        RenderNode current = new ImageSourceRenderNode(source, Brushes.Resource.White, null);
+        RenderNode current = new ImageSourceRenderNode(source, Brushes.Resource.White);
         FilterEffectRenderNode? outer = null;
         for (int i = 0; i < DeepAlternatingPairCount; i++)
         {

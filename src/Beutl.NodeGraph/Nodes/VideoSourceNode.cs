@@ -64,11 +64,11 @@ public sealed partial class VideoSourceNode : GraphNode
 
             if (_cachedOutput == null)
             {
-                _cachedOutput = new VideoSourceRenderNode(_sourceResource, frame, Brushes.Resource.White, null);
+                _cachedOutput = new VideoSourceRenderNode(_sourceResource, frame, Brushes.Resource.White);
             }
             else
             {
-                _cachedOutput.Update(_sourceResource, frame, Brushes.Resource.White, null);
+                _cachedOutput.Update(_sourceResource, frame, Brushes.Resource.White);
             }
 
             Output = _cachedOutput;

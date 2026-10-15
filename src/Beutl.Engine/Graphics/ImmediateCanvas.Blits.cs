@@ -9,21 +9,6 @@ public partial class ImmediateCanvas
     /// <summary>How far a mapped coordinate may sit from a device-pixel boundary and still count as on it.</summary>
     private const float PixelAlignmentTolerance = 0.0001f;
 
-    public void DrawSurface(SKSurface surface, Point point)
-    {
-        VerifyAccess();
-        VerifyNativeTargetOperation();
-        PrepareBlitPaint(antialias: true);
-
-        Canvas.DrawSurface(surface, point.X, point.Y, GetPointBlitSampling(), _sharedFillPaint);
-
-        if (!CanConsumeWithoutFlush(surface))
-        {
-            surface.Flush(true, true);
-            RecordFlush(ImmediateCanvasFlushKind.SourceSurface);
-        }
-    }
-
     public void DrawRenderTarget(RenderTarget renderTarget, Point point)
     {
         VerifyAccess();
@@ -233,28 +218,5 @@ public partial class ImmediateCanvas
 
         var src = SKRect.Create(image.Width, image.Height);
         Canvas.DrawImage(image, src, dest.ToSKRect(), s_compositeSampling, _sharedFillPaint);
-    }
-
-    // Draw a surface into its own logical footprint (pixel size / density) at the given origin.
-    public void DrawSurfaceScaled(SKSurface surface, Point origin, float scale)
-    {
-        VerifyAccess();
-        VerifyNativeTargetOperation();
-        PrepareBlitPaint(antialias: true);
-
-        // Released before the flush below, so Skia can skip the copy it schedules for the snapshot.
-        using (SurfaceSnapshot.Lease snapshot = SurfaceSnapshot.Take(surface))
-        {
-            SKImage image = snapshot.Image;
-            var src = SKRect.Create(image.Width, image.Height);
-            var dest = SKRect.Create((float)origin.X, (float)origin.Y, image.Width / scale, image.Height / scale);
-            Canvas.DrawImage(image, src, dest, s_compositeSampling, _sharedFillPaint);
-        }
-
-        if (!CanConsumeWithoutFlush(surface))
-        {
-            surface.Flush(true, true);
-            RecordFlush(ImmediateCanvasFlushKind.SourceSurface);
-        }
     }
 }

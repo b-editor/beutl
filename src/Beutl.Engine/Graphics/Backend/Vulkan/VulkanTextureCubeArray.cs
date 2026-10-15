@@ -56,4 +56,11 @@ internal sealed class VulkanTextureCubeArray : VulkanLayeredTexture, ITextureCub
         ThrowIfDisposed();
         TransitionLayer(arrayIndex * 6 + (uint)faceIndex, ImageLayout.ShaderReadOnlyOptimal);
     }
+
+    /// <summary>Throws unless <paramref name="faceIndex"/> names one of a cube's six faces.</summary>
+    internal static void ThrowIfFaceOutOfRange(int faceIndex)
+    {
+        if (faceIndex < 0 || faceIndex >= 6)
+            throw new ArgumentOutOfRangeException(nameof(faceIndex), "Face index must be 0-5");
+    }
 }

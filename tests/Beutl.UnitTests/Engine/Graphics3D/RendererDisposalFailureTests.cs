@@ -101,8 +101,6 @@ public sealed class RendererDisposalFailureTests
             .Returns(() => CreateOwned<ITextureArray>(owners).Object);
         context.Setup(c => c.CreateTextureCubeArray(It.IsAny<int>(), It.IsAny<uint>(), It.IsAny<TextureFormat>()))
             .Returns(() => CreateOwned<ITextureCubeArray>(owners).Object);
-        context.Setup(c => c.CreateTextureCube(It.IsAny<int>(), It.IsAny<TextureFormat>()))
-            .Returns(() => CreateOwned<ITextureCube>(owners).Object);
         context.Setup(c => c.CreateBuffer(It.IsAny<ulong>(), It.IsAny<BufferUsage>(), It.IsAny<MemoryProperty>()))
             .Returns((ulong size, BufferUsage _, MemoryProperty _) => new OwnedBuffer(size, AddOwner(owners, nameof(IBuffer))));
         context.Setup(c => c.CreateRenderPass3D(It.IsAny<IReadOnlyList<TextureFormat>>(), It.IsAny<TextureFormat?>(),

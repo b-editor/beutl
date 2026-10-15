@@ -21,11 +21,6 @@ public sealed class CurveMap : IEquatable<CurveMap>
 
     public ImmutableArray<CurveControlPoint> Points { get; }
 
-    public CurveMap WithPoints(IEnumerable<CurveControlPoint> points)
-    {
-        return new CurveMap(points);
-    }
-
     public float Evaluate(float t)
     {
         if (Points.Length == 0)

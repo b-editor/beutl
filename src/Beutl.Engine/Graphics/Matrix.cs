@@ -582,15 +582,6 @@ public readonly struct Matrix(
         return true;
     }
 
-    public static Matrix ComposeTransform(Vector translate, Vector scale, Vector skew, float angle)
-    {
-        return Identity
-            .Prepend(CreateTranslation(translate))
-            .Prepend(CreateRotation(angle))
-            .Prepend(CreateSkew(skew.X, skew.Y))
-            .Prepend(CreateScale(scale));
-    }
-
     static void ITupleConvertible<Matrix, float>.ConvertTo(Matrix self, Span<float> tuple)
     {
         tuple[0] = self.M11;

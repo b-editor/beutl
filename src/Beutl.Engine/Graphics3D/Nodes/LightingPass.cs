@@ -12,7 +12,7 @@ namespace Beutl.Graphics3D.Nodes;
 /// Samples the G-Buffer and applies PBR lighting to produce the final lit image.
 /// Supports shadow mapping for directional, spot, and point lights.
 /// </summary>
-public sealed class LightingPass : GraphicsNode3D
+public sealed class LightingPass : RenderNode3D
 {
     private readonly ITexture2D _depthTexture;
 
@@ -40,33 +40,9 @@ public sealed class LightingPass : GraphicsNode3D
 
     protected override void OnInitialize(int width, int height)
     {
-        CreateLightingResources(width, height);
-    }
-
-    protected override void OnResize(int width, int height)
-    {
-        CreateLightingResources(width, height);
-    }
-
-    private void CreateLightingResources(int width, int height)
-    {
         // This pass allocates the extent it is handed, so the device limit is asked here, before anything
-        // is disposed: a refused resize keeps the resources it had.
+        // is allocated.
         DeviceExtentLimits.ThrowIfCannotAttach(Context, width, height);
-        BeginReplacingResources();
-
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        OutputTexture?.Dispose();
-        _pipeline?.Dispose();
-        _descriptorSet?.Dispose();
-        _cameraUniformBuffer?.Dispose();
-        _lightsBuffer?.Dispose();
-        _shadowBuffer?.Dispose();
-        _gBufferSampler?.Dispose();
-        _shadowSampler?.Dispose();
-        _dummyShadowArray?.Dispose();
-        _dummyShadowCubeArray?.Dispose();
 
         OutputTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
 

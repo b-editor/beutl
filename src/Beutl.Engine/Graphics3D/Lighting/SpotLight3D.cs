@@ -79,13 +79,4 @@ public partial class SpotLight3D : Light3D
     [Range(0f, float.MaxValue)]
     [NumberStep(10, 1)]
     public IProperty<float> Range { get; } = Property.CreateAnimatable(5000f);
-
-    /// <summary>
-    /// Gets the normalized direction for use in shaders.
-    /// </summary>
-    public Vector3 GetNormalizedDirection(Resource resource)
-    {
-        var dir = resource.Direction;
-        return dir == Vector3.Zero ? Vector3.UnitY : Vector3.Normalize(dir);
-    }
 }

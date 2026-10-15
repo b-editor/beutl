@@ -303,10 +303,20 @@ public sealed class ColorFilterShaderParityTests
         ColorMatrix.CreateSaturateMatrix(0.35f, saturate);
         yield return new TestCaseData("saturate0.35", saturate).SetName("Asymmetric_Saturate");
 
-        // Carries a non-zero translation column, so a dropped offset uniform changes the result.
-        float[] contrast = new float[ColorMatrixShader.SkiaColorMatrixLength];
-        ColorMatrix.CreateContrast(35f, contrast);
-        yield return new TestCaseData("contrast35", contrast).SetName("Offset_Contrast");
+        // Carries a non-zero translation column, so a dropped offset uniform changes the result: a contrast of
+        // +35, which scales each color channel by 1.35 squared about mid-grey.
+        float contrastScale = 1.35f * 1.35f;
+        float contrastOffset = 0.5f * (1f - contrastScale);
+        yield return new TestCaseData(
+                "contrast35",
+                new float[]
+                {
+                    contrastScale, 0f, 0f, 0f, contrastOffset,
+                    0f, contrastScale, 0f, 0f, contrastOffset,
+                    0f, 0f, contrastScale, 0f, contrastOffset,
+                    0f, 0f, 0f, 1f, 0f,
+                })
+            .SetName("Offset_Contrast");
 
         // Luminance-to-alpha writes only the alpha row, so a transpose would leak it into the color rows.
         float[] luminance = new float[ColorMatrixShader.SkiaColorMatrixLength];

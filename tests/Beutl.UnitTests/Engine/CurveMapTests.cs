@@ -54,16 +54,6 @@ public class CurveMapTests
     }
 
     [Test]
-    public void WithPoints_ReturnsNewInstance()
-    {
-        var curve = CurveMap.Default;
-        var updated = curve.WithPoints([new(0f, 0.5f), new(1f, 0.5f)]);
-
-        Assert.That(updated, Is.Not.SameAs(curve));
-        Assert.That(updated.Evaluate(0.5f), Is.EqualTo(0.5f).Within(1e-6));
-    }
-
-    [Test]
     public void EvaluateBezier_PassesThroughEndpoints()
     {
         var p0 = new CurveControlPoint(new Point(0f, 0f), default, new Point(0.3f, 0f));
@@ -173,17 +163,6 @@ public class CurveControlPointTests
         var updated = original.WithRightHandle(new Point(0.2f, 0f));
 
         Assert.That(updated.RightHandle.X, Is.EqualTo(0.2f));
-    }
-
-    [Test]
-    public void WithSymmetricHandles_LeftIsNegated()
-    {
-        var p = new CurveControlPoint(0.5f, 0.5f).WithSymmetricHandles(new Point(0.1f, 0.05f));
-
-        Assert.That(p.RightHandle.X, Is.EqualTo(0.1f));
-        Assert.That(p.RightHandle.Y, Is.EqualTo(0.05f));
-        Assert.That(p.LeftHandle.X, Is.EqualTo(-0.1f));
-        Assert.That(p.LeftHandle.Y, Is.EqualTo(-0.05f));
     }
 
     [Test]

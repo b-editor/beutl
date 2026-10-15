@@ -11,8 +11,6 @@ public partial class CubeFile : IEquatable<CubeFile>
     private static readonly Regex s_domainMinReg = DomainMinRegex();
     private static readonly Regex s_domainMaxReg = DomainMaxRegex();
 
-    public required string Title { get; init; }
-
     public required CubeFileDimension Dimention { get; init; }
 
     public required int Size { get; init; }
@@ -23,121 +21,12 @@ public partial class CubeFile : IEquatable<CubeFile>
 
     public required Vector3[] Data { get; init; }
 
-    private int Near(float x)
-    {
-        return Math.Min((int)x, Size - 1);
-    }
-
-    // https://shizenkarasuzon.hatenablog.com/entry/2020/08/13/185223#1DLUT%E3%81%A83DLUT
-    public Vector3 TrilinearInterplate(byte v0, byte v1, byte v2)
-    {
-        Span<byte> pos = stackalloc byte[3];
-        Span<float> delta = stackalloc float[3];
-        int lut_size = Size;
-        int lut_size_2 = lut_size * lut_size;
-
-        pos[0] = (byte)(v0 * lut_size / 256);
-        pos[1] = (byte)(v1 * lut_size / 256);
-        pos[2] = (byte)(v2 * lut_size / 256);
-
-        delta[0] = v0 * lut_size / 256.0f - pos[0];
-        delta[1] = v1 * lut_size / 256.0f - pos[1];
-        delta[2] = v2 * lut_size / 256.0f - pos[2];
-
-        Span<Vector3> vertex_color = stackalloc Vector3[8];
-        Span<Vector3> surf_color = stackalloc Vector3[4];
-        Span<Vector3> line_color = stackalloc Vector3[2];
-        Vector3 out_color;
-
-        int index = pos[0] + pos[1] * lut_size + pos[2] * lut_size_2;
-
-        Span<int> next_index =
-        [
-            1,
-            lut_size,
-            lut_size_2
-        ];
-
-        if (index % lut_size == lut_size - 1)
-        {
-            next_index[0] = 0;
-        }
-        if (index / lut_size % lut_size == lut_size - 1)
-        {
-            next_index[1] = 0;
-        }
-        if (index / lut_size_2 % lut_size == lut_size - 1)
-        {
-            next_index[2] = 0;
-        }
-
-        // https://en.wikipedia.org/wiki/Trilinear_interpolation
-        vertex_color[0] = Data[index];
-        vertex_color[1] = Data[index + next_index[0]];
-        vertex_color[2] = Data[index + next_index[0] + next_index[1]];
-        vertex_color[3] = Data[index + next_index[1]];
-        vertex_color[4] = Data[index + next_index[2]];
-        vertex_color[5] = Data[index + next_index[0] + next_index[2]];
-        vertex_color[6] = Data[index + next_index[0] + next_index[1] + next_index[2]];
-        vertex_color[7] = Data[index + next_index[1] + next_index[2]];
-
-        surf_color[0] = vertex_color[0] * (1.0f - delta[2]) + vertex_color[4] * delta[2];
-        surf_color[1] = vertex_color[1] * (1.0f - delta[2]) + vertex_color[5] * delta[2];
-        surf_color[2] = vertex_color[2] * (1.0f - delta[2]) + vertex_color[6] * delta[2];
-        surf_color[3] = vertex_color[3] * (1.0f - delta[2]) + vertex_color[7] * delta[2];
-
-        line_color[0] = surf_color[0] * (1.0f - delta[0]) + surf_color[1] * delta[0];
-        line_color[1] = surf_color[2] * (1.0f - delta[0]) + surf_color[3] * delta[0];
-
-        out_color = line_color[0] * (1.0f - delta[1]) + line_color[1] * delta[1];
-
-        return out_color;
-    }
-
-    private Vector3 LinearInterplate(float p)
-    {
-        Vector3 near = Data[Near(p)];
-        Vector3 neighbor = Data[Near(p + 1)];
-        if (near == neighbor)
-        {
-            return near;
-        }
-        else
-        {
-            float progress = p - Near(p);
-
-            return ((neighbor - near) * progress) + near;
-        }
-    }
-
-    public void ToLUT(float strength, byte[] r, byte[] g, byte[] b)
-    {
-        if (Dimention != CubeFileDimension.OneDimension)
-            throw new InvalidOperationException("ToLUTメソッドは1D LUTでのみ使えます。");
-
-        if (r.Length != 256 || g.Length != 256 || b.Length != 256)
-            throw new ArgumentException("配列の長さが無効です。");
-
-        int size = Size;
-        for (int i = 0; i < 256; i++)
-        {
-            float p = i * size / 256f;
-            Vector3 v = LinearInterplate(p);
-
-            float add = i * (1 - strength);
-            r[i] = (byte)((((v.X * 255) + 0.5) * strength) + add);
-            g[i] = (byte)((((v.Y * 255) + 0.5) * strength) + add);
-            b[i] = (byte)((((v.Z * 255) + 0.5) * strength) + add);
-        }
-    }
-
     public static CubeFile FromStream(Stream stream)
     {
         using var reader = new StreamReader(stream);
         int i = 0;
         ReadInfo(
             reader,
-            out string? title,
             out CubeFileDimension dim,
             out int size,
             out Vector3 min,
@@ -168,7 +57,6 @@ public partial class CubeFile : IEquatable<CubeFile>
 
         return new CubeFile
         {
-            Title = title,
             Dimention = dim,
             Size = size,
             Min = min,
@@ -177,9 +65,8 @@ public partial class CubeFile : IEquatable<CubeFile>
         };
     }
 
-    private static void ReadInfo(StreamReader reader, out string title, out CubeFileDimension dim, out int size, out Vector3 min, out Vector3 max)
+    private static void ReadInfo(StreamReader reader, out CubeFileDimension dim, out int size, out Vector3 min, out Vector3 max)
     {
-        title = string.Empty;
         dim = CubeFileDimension.ThreeDimension;
         size = 33;
         min = new(0, 0, 0);
@@ -222,9 +109,8 @@ public partial class CubeFile : IEquatable<CubeFile>
                 }
                 else if (s_titleReg.IsMatch(line))
                 {
+                    // The title is not kept, but it still counts towards the header lines the scan stops after.
                     titleFound = true;
-                    Match match = s_titleReg.Match(line);
-                    title = match.Groups["text"].Value;
                 }
                 else if (s_domainMaxReg.IsMatch(line))
                 {
@@ -278,6 +164,6 @@ public partial class CubeFile : IEquatable<CubeFile>
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(Title, Dimention, Size, Min, Max, Data);
+        return HashCode.Combine(Dimention, Size, Min, Max, Data);
     }
 }

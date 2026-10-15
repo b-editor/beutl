@@ -1,5 +1,4 @@
 ﻿using System.Runtime.ExceptionServices;
-using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
@@ -121,8 +120,6 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             objects,
             lights,
             bounds,
-            scene.Time,
-            scene.DisableResourceShare,
             scene.BackgroundColor,
             scene.AmbientColor,
             scene.AmbientIntensity,
@@ -230,8 +227,6 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         Object3D.Resource[] Objects,
         Light3D.Resource[] Lights,
         Rect Bounds,
-        TimeSpan Time,
-        bool DisableResourceShare,
         Color BackgroundColor,
         Color AmbientColor,
         float AmbientIntensity,
@@ -347,10 +342,6 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 
         renderer.SurfaceDensity = density;
         renderer.Render(
-            new CompositionContext(snapshot.Time)
-            {
-                DisableResourceShare = snapshot.DisableResourceShare,
-            },
             snapshot.Camera,
             snapshot.Objects,
             snapshot.Lights,

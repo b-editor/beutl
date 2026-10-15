@@ -67,7 +67,7 @@ public class HitTestRenderScaleTests
             using var renderer = new Renderer3D(ctx);
             renderer.Initialize(deviceWidth, deviceHeight);
             renderer.SurfaceDensity = scale; // mirrors Scene3DRenderNode: device surface is ceil(logical × scale)
-            renderer.Render(context, camera, objects, lights, Colors.Black, Colors.White, 0.1f);
+            renderer.Render(camera, objects, lights, Colors.Black, Colors.White, 0.1f);
 
             var logicalCenter = new Point(LogicalWidth / 2f, LogicalHeight / 2f);
             Object3D.Resource hit = renderer.HitTestWithPath(logicalCenter).Last();

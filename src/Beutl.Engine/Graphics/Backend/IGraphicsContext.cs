@@ -42,13 +42,6 @@ public interface IGraphicsContext : IDisposable
     ITexture2D CreateTexture2D(int width, int height, TextureFormat format);
 
     /// <summary>
-    /// Creates a cube map texture (for point light shadow maps).
-    /// </summary>
-    /// <param name="size">The size (width and height) of each cube face.</param>
-    /// <param name="format">The texture format.</param>
-    ITextureCube CreateTextureCube(int size, TextureFormat format);
-
-    /// <summary>
     /// Creates a 2D texture array (for multiple shadow maps).
     /// </summary>
     /// <param name="width">The width of each layer.</param>
@@ -155,14 +148,6 @@ public interface IGraphicsContext : IDisposable
     /// <param name="source">The source texture.</param>
     /// <param name="destination">The destination texture.</param>
     void CopyTexture(ITexture2D source, ITexture2D destination);
-
-    /// <summary>
-    /// Copies a 2D texture to a specific face of a cube map.
-    /// </summary>
-    /// <param name="source">The source 2D texture.</param>
-    /// <param name="destination">The destination cube map texture.</param>
-    /// <param name="faceIndex">The cube face index (0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z).</param>
-    void CopyTextureToCubeFace(ITexture2D source, ITextureCube destination, int faceIndex);
 
     /// <summary>
     /// Copies a 2D texture to a specific layer of a texture array.

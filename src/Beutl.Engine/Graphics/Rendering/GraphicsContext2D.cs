@@ -284,45 +284,45 @@ public sealed class GraphicsContext2D(
         CompleteRecordingOperation(wasFaulted);
     }
 
-    public void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
+    public void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill)
         => DrawNode(
-            (Source: source, Fill: fill, Pen: pen),
+            (Source: source, Fill: fill),
             static p =>
             {
-                ThrowIfUnusable(p.Source, p.Fill, p.Pen, nameof(source));
-                return new ImageSourceRenderNode(p.Source, p.Fill, p.Pen);
+                ThrowIfUnusable(p.Source, p.Fill, null, nameof(source));
+                return new ImageSourceRenderNode(p.Source, p.Fill);
             },
             static (node, p) =>
             {
-                ThrowIfUnusable(p.Source, p.Fill, p.Pen, nameof(source));
-                return node.Update(p.Source, p.Fill, p.Pen);
+                ThrowIfUnusable(p.Source, p.Fill, null, nameof(source));
+                return node.Update(p.Source, p.Fill);
             });
 
-    public void DrawVideoSource(VideoSource.Resource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen)
+    public void DrawVideoSource(VideoSource.Resource source, TimeSpan frame, Brush.Resource? fill)
     {
         bool wasFaulted = BeginRecordingOperation();
-        ThrowIfDisposed(fill, pen);
+        ThrowIfDisposed(fill, null);
         ArgumentNullException.ThrowIfNull(source);
         ObjectDisposedException.ThrowIf(source.IsDisposed, source);
 
         Rational rate = source.FrameRate;
         double frameNum = frame.TotalSeconds * (rate.Numerator / (double)rate.Denominator);
-        DrawVideoSource(source, (int)frameNum, fill, pen);
+        DrawVideoSource(source, (int)frameNum, fill);
         CompleteRecordingOperation(wasFaulted);
     }
 
-    public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
+    public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill)
         => DrawNode(
-            (Source: source, Frame: frame, Fill: fill, Pen: pen),
+            (Source: source, Frame: frame, Fill: fill),
             static p =>
             {
-                ThrowIfUnusable(p.Source, p.Fill, p.Pen, nameof(source));
-                return new VideoSourceRenderNode(p.Source, p.Frame, p.Fill, p.Pen);
+                ThrowIfUnusable(p.Source, p.Fill, null, nameof(source));
+                return new VideoSourceRenderNode(p.Source, p.Frame, p.Fill);
             },
             static (node, p) =>
             {
-                ThrowIfUnusable(p.Source, p.Fill, p.Pen, nameof(source));
-                return node.Update(p.Source, p.Frame, p.Fill, p.Pen);
+                ThrowIfUnusable(p.Source, p.Fill, null, nameof(source));
+                return node.Update(p.Source, p.Frame, p.Fill);
             });
 
     public void DrawEllipse(Rect rect, Brush.Resource? fill, Pen.Resource? pen)

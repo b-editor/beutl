@@ -4,16 +4,16 @@ using Beutl.Media.Source;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
-    : BrushRenderNode(fill, pen)
+public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Resource? fill)
+    : BrushRenderNode(fill, null)
 {
     public (ImageSource.Resource Resource, int Version)? Source { get; private set; } = source.Capture();
 
-    public Rect Bounds { get; private set; } = PenHelper.GetBounds(new Rect(default, source.FrameSize.ToSize(1)), pen);
+    public Rect Bounds { get; private set; } = new(default, source.FrameSize.ToSize(1));
 
-    public bool Update(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
+    public bool Update(ImageSource.Resource source, Brush.Resource? fill)
     {
-        bool changed = Update(fill, pen);
+        bool changed = Update(fill, null);
         if (!source.Compare(Source))
         {
             Source = source.Capture();
@@ -22,7 +22,7 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
 
         if (changed && Source.HasValue)
         {
-            Bounds = PenHelper.GetBounds(new Rect(default, Source.Value.Resource.FrameSize.ToSize(1)), Pen?.Resource);
+            Bounds = new Rect(default, Source.Value.Resource.FrameSize.ToSize(1));
         }
 
         if (changed)
@@ -44,15 +44,14 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
 
         ImageSource.Resource source = sourceSnapshot.Resource;
         Brush.Resource? fill = Fill?.Resource;
-        Pen.Resource? pen = Pen?.Resource;
         RenderResource<ImageSource.Resource> sourceResource = context.Borrow(source);
 
         context.Publish(context.PaintedSource(
             state: source,
-            draw: static (canvas, fill, pen, state) =>
-                canvas.DrawImageSource(state, fill, pen),
+            draw: static (canvas, fill, _, state) =>
+                canvas.DrawImageSource(state, fill),
             fill: fill,
-            pen: pen,
+            pen: null,
             outputBounds: bounds,
             hitTest: RenderHitTestContract.Custom(HitTest),
             scale: RenderScaleContract.Custom(static _ => 1f),
@@ -65,6 +64,6 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
         if (Source is not { } source)
             return false;
         Rect fillBounds = new(default, source.Resource.FrameSize.ToSize(1));
-        return PenHelper.HitTestFramedContent(fillBounds, Fill?.Resource is not null, Pen?.Resource, point);
+        return Fill?.Resource is not null && fillBounds.ContainsExclusive(point);
     }
 }

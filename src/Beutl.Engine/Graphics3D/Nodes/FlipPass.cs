@@ -7,7 +7,7 @@ namespace Beutl.Graphics3D.Nodes;
 /// Flip pass for correcting vertical orientation.
 /// Renders the input texture with flipped Y coordinates to resolve coordinate system differences.
 /// </summary>
-public sealed class FlipPass : GraphicsNode3D
+public sealed class FlipPass : RenderNode3D
 {
     private IPipeline3D? _pipeline;
     private IDescriptorSet? _descriptorSet;
@@ -27,28 +27,9 @@ public sealed class FlipPass : GraphicsNode3D
 
     protected override void OnInitialize(int width, int height)
     {
-        CreateResources(width, height);
-    }
-
-    protected override void OnResize(int width, int height)
-    {
-        CreateResources(width, height);
-    }
-
-    private void CreateResources(int width, int height)
-    {
         // This pass allocates the extent it is handed, so the device limit is asked here, before anything
-        // is disposed: a refused resize keeps the resources it had.
+        // is allocated.
         DeviceExtentLimits.ThrowIfCannotAttach(Context, width, height);
-        BeginReplacingResources();
-
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        OutputTexture?.Dispose();
-        _depthTexture?.Dispose();
-        _pipeline?.Dispose();
-        _descriptorSet?.Dispose();
-        _sampler?.Dispose();
 
         OutputTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
         _depthTexture = Context.CreateTexture2D(width, height, TextureFormat.Depth32Float);

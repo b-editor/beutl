@@ -23,19 +23,6 @@ public partial class OrthographicCamera : Camera3D
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Width { get; } = Property.CreateAnimatable(1920f);
 
-    /// <inheritdoc />
-    public override Matrix4x4 GetProjectionMatrix(Camera3D.Resource resource, float aspectRatio)
-    {
-        var orthoResource = (Resource)resource;
-        float width = orthoResource.Width;
-        float height = width / aspectRatio;
-        return Matrix4x4.CreateOrthographic(
-            width,
-            height,
-            resource.NearPlane,
-            resource.FarPlane);
-    }
-
     public new partial class Resource : Camera3D.Resource
     {
         /// <inheritdoc />

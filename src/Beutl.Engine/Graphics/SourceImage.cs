@@ -36,7 +36,7 @@ public partial class SourceImage : Drawable
         var r = (Resource)resource;
         if (r.Source != null)
         {
-            context.DrawImageSource(r.Source, Brushes.Resource.White, null);
+            context.DrawImageSource(r.Source, Brushes.Resource.White);
         }
     }
 }

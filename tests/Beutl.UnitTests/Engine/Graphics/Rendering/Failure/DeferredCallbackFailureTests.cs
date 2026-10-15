@@ -13,16 +13,12 @@ public sealed class DeferredCallbackFailureTests
     private static readonly Rect s_bounds = new(0, 0, 8, 8);
 
     [TestCase(GuardedCanvasViolation.AuthorDispose)]
-    [TestCase(GuardedCanvasViolation.Snapshot)]
-    [TestCase(GuardedCanvasViolation.NestedDraw)]
-    [TestCase(GuardedCanvasViolation.SaveLayer)]
     [TestCase(GuardedCanvasViolation.OpacityLayer)]
     [TestCase(GuardedCanvasViolation.BlendLayer)]
     [TestCase(GuardedCanvasViolation.MaskLayer)]
     [TestCase(GuardedCanvasViolation.PaintLayer)]
     [TestCase(GuardedCanvasViolation.NativeTarget)]
     [TestCase(GuardedCanvasViolation.HiddenAllocation)]
-    [TestCase(GuardedCanvasViolation.HiddenFlush)]
     public void GuardedCallbackCanvas_RejectsAuthorEscapeHatchesWithoutLeakingTargets(
         GuardedCanvasViolation violation)
     {
@@ -232,16 +228,12 @@ public sealed class DeferredCallbackFailureTests
     public enum GuardedCanvasViolation
     {
         AuthorDispose,
-        Snapshot,
-        NestedDraw,
-        SaveLayer,
         OpacityLayer,
         BlendLayer,
         MaskLayer,
         PaintLayer,
         NativeTarget,
         HiddenAllocation,
-        HiddenFlush,
     }
 
     public enum OpaqueTopology
@@ -330,28 +322,18 @@ public sealed class DeferredCallbackFailureTests
                 {
                     CallbackEntries++;
                     using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
-                    using SKSurface hiddenSurface = SKSurface.Create(new SKImageInfo(1, 1));
-                    output.Canvas.Use(canvas => InvokeViolation(canvas, hiddenSurface));
+                    output.Canvas.Use(InvokeViolation);
                     session.Publish(output);
                 })));
         }
 
 
-        private void InvokeViolation(ImmediateCanvas canvas, SKSurface hiddenSurface)
+        private void InvokeViolation(ImmediateCanvas canvas)
         {
             switch (violation)
             {
                 case GuardedCanvasViolation.AuthorDispose:
                     canvas.Dispose();
-                    break;
-                case GuardedCanvasViolation.Snapshot:
-                    _ = canvas.Snapshot();
-                    break;
-                case GuardedCanvasViolation.NestedDraw:
-                    canvas.DrawNode(this);
-                    break;
-                case GuardedCanvasViolation.SaveLayer:
-                    canvas.PushLayer().Dispose();
                     break;
                 case GuardedCanvasViolation.OpacityLayer:
                     canvas.PushOpacity(0.5f).Dispose();
@@ -375,9 +357,6 @@ public sealed class DeferredCallbackFailureTests
                     using (canvas.CreateExecutionView())
                     {
                     }
-                    break;
-                case GuardedCanvasViolation.HiddenFlush:
-                    canvas.DrawSurface(hiddenSurface, default);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();

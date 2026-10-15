@@ -36,7 +36,7 @@ public abstract partial class Mesh : EngineObject
         /// The index count the buffers currently on the device were built from.
         /// </summary>
         /// <remarks>
-        /// <see cref="IndexCount"/> answers for the mesh as it is now, which is not what the device holds
+        /// <see cref="GetIndices"/> answers for the mesh as it is now, which is not what the device holds
         /// until an upload has run for it. Drawing the live count against last upload's buffers reads past
         /// their end whenever the topology grew.
         /// </remarks>
@@ -80,18 +80,6 @@ public abstract partial class Mesh : EngineObject
             {
                 EnsureCached();
                 return _cachedVertices?.Length ?? 0;
-            }
-        }
-
-        /// <summary>
-        /// Gets the number of indices.
-        /// </summary>
-        public int IndexCount
-        {
-            get
-            {
-                EnsureCached();
-                return _cachedIndices?.Length ?? 0;
             }
         }
 

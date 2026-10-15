@@ -93,13 +93,11 @@ internal sealed class ShadowManager : IDisposable
     /// <param name="lights">The light resources.</param>
     /// <param name="objects">The objects to render shadows for.</param>
     /// <param name="sceneCenter">Center of the scene for directional light shadows.</param>
-    /// <param name="sceneRadius">Radius of the scene for directional light shadows.</param>
     /// <returns>A mapping of light index to shadow info index.</returns>
     public Dictionary<int, int> RenderShadows(
         IReadOnlyList<Light3D.Resource> lights,
         IReadOnlyList<Object3D.Resource> objects,
-        Vector3 sceneCenter,
-        float sceneRadius)
+        Vector3 sceneCenter)
     {
         var lightToShadowIndex = new Dictionary<int, int>();
         _activeShadowCount2D = 0;
@@ -124,7 +122,7 @@ internal sealed class ShadowManager : IDisposable
                     if (_activeShadowCount2D >= MaxShadowMaps2D)
                         continue;
 
-                    shadowInfo = RenderDirectionalLightShadow(directionalLight, objects, sceneCenter, sceneRadius);
+                    shadowInfo = RenderDirectionalLightShadow(directionalLight, objects, sceneCenter);
                     shadowInfo.ShadowMapIndex = _activeShadowCount2D;
                     shadowInfo.ShadowType = (int)ShadowType.Map2D;
                     _activeShadowCount2D++;
@@ -169,11 +167,10 @@ internal sealed class ShadowManager : IDisposable
     private ShadowInfo RenderDirectionalLightShadow(
         DirectionalLight3D.Resource light,
         IReadOnlyList<Object3D.Resource> objects,
-        Vector3 sceneCenter,
-        float sceneRadius)
+        Vector3 sceneCenter)
     {
         var shadowPass = _shadowPasses2D[_activeShadowCount2D];
-        shadowPass.SetupForDirectionalLight(light, sceneCenter, sceneRadius);
+        shadowPass.SetupForDirectionalLight(light, sceneCenter);
         ExecuteAndCopyToArray(shadowPass, objects);
 
         return new ShadowInfo

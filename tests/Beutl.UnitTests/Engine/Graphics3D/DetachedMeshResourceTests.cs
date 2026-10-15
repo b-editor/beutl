@@ -48,14 +48,14 @@ public sealed class DetachedMeshResourceTests
         using var emptied = new ModelMesh.Resource { Vertices = [], Indices = [] };
         emptied.VertexBuffer = new StubBuffer(1);
         emptied.IndexBuffer = new StubBuffer(1);
-        emptied.UploadedIndexCount = cube.IndexCount;
+        emptied.UploadedIndexCount = cube.GetIndices().Length;
         emptied.BuffersDirty = true;
 
         MeshBufferUploadHelper.Ensure(context, emptied);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(populated.UploadedIndexCount, Is.EqualTo(cube.IndexCount));
+            Assert.That(populated.UploadedIndexCount, Is.EqualTo(cube.GetIndices().Length));
             Assert.That(emptied.UploadedIndexCount, Is.Zero);
             Assert.That(emptied.VertexBuffer, Is.Null);
             Assert.That(emptied.IndexBuffer, Is.Null);
@@ -90,7 +90,7 @@ public sealed class DetachedMeshResourceTests
             Assert.That(plane.VertexCount, Is.EqualTo(12));
             Assert.That(sphere.VertexCount, Is.EqualTo(45));
             Assert.That(model.VertexCount, Is.EqualTo(24));
-            Assert.That(model.IndexCount, Is.EqualTo(cube.IndexCount));
+            Assert.That(model.GetIndices().Length, Is.EqualTo(cube.GetIndices().Length));
         }
     }
 

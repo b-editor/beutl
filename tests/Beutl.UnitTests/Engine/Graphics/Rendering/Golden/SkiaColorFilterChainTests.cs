@@ -89,7 +89,11 @@ public sealed class SkiaColorFilterChainTests
     {
         public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
         {
-            context.ColorMatrix(ColorMatrix.CreateBrightness(Brightness));
+            context.ColorMatrix(new ColorMatrix(
+                Brightness, 0, 0, 0, 0,
+                0, Brightness, 0, 0, 0,
+                0, 0, Brightness, 0, 0,
+                0, 0, 0, 1, 0));
             if (followWithBlur)
                 context.Blur(new Size(3, 3));
         }

@@ -9,10 +9,8 @@ namespace Beutl.UnitTests.Engine.Graphics3D;
 [TestFixture]
 public sealed class DisposedRendererAllocationTests
 {
-    [TestCase(true, 32)]
-    [TestCase(false, 32)]
-    [TestCase(false, 16)]
-    public void ADisposedPass_RefusesInitializationOrResizeBeforeAllocating(bool initialize, int size)
+    [Test]
+    public void ADisposedPass_RefusesInitializationBeforeAllocating()
     {
         Mock<IGraphicsContext> context = LooseDevice();
         using var pass = new FlipPass(context.Object, context.Object.CreateShaderCompiler());
@@ -22,15 +20,7 @@ public sealed class DisposedRendererAllocationTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(
-                () =>
-                {
-                    if (initialize)
-                        pass.Initialize(size, size);
-                    else
-                        pass.Resize(size, size);
-                },
-                Throws.InstanceOf<ObjectDisposedException>());
+            Assert.That(() => pass.Initialize(32, 32), Throws.InstanceOf<ObjectDisposedException>());
             AssertNeverAllocated(context);
             Assert.That((pass.Width, pass.Height), Is.EqualTo((16, 16)),
                 "a disposed pass must not commit an extent for resources that it cannot release again");
@@ -72,7 +62,7 @@ public sealed class DisposedRendererAllocationTests
             Times.Never,
             "new textures would be stranded because Dispose has already completed");
         context.Verify(
-            c => c.CreateTextureCube(It.IsAny<int>(), It.IsAny<TextureFormat>()),
+            c => c.CreateTextureCubeArray(It.IsAny<int>(), It.IsAny<uint>(), It.IsAny<TextureFormat>()),
             Times.Never);
     }
 }

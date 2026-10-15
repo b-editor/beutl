@@ -1,7 +1,5 @@
-﻿using Beutl.Composition;
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Shapes;
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
@@ -266,37 +264,6 @@ public class ImmediateCanvasDensityTests
                     Assert.That(canvas.Transform, Is.EqualTo(m));
                 }
             }
-        });
-    }
-
-    // DrawDrawable must pass the logical viewport, not the device buffer size, to the build context.
-    [Test]
-    public void DrawDrawable_CentresAgainstLogicalViewport_NotDeviceSize()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            var shape = new RectShape();
-            shape.Width.CurrentValue = 10;
-            shape.Height.CurrentValue = 10;
-            shape.AlignmentX.CurrentValue = AlignmentX.Center;
-            shape.AlignmentY.CurrentValue = AlignmentY.Center;
-            shape.Fill.CurrentValue = Brushes.White;
-            using Drawable.Resource resource = shape.ToResource(CompositionContext.Default);
-
-            using var target = RenderTarget.Create(100, 100)!; // device = ceil(50 logical x 2)
-            using (var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 2f, logicalSize: new Size(50, 50)))
-            {
-                canvas.Clear(Colors.Black);
-                canvas.DrawDrawable(resource);
-            }
-
-            using Bitmap snap = target.Snapshot();
-            // logical centre (25,25) -> device (50,50); the 10-logical shape occupies device (40,40)-(60,60).
-            Assert.That(IsWhite(snap, 50, 50), Is.True,
-                "the shape should centre against the LOGICAL 50x50 viewport (device centre)");
-            Assert.That(IsWhite(snap, 95, 95), Is.False,
-                "if DrawDrawable used the device size as the viewport, the shape would drift toward the corner");
         });
     }
 

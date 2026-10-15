@@ -39,7 +39,7 @@ public sealed class DeviceExtentLimitTests
     }
 
     [Test]
-    public void ACubePastTheCubeLimit_IsRefusedBeforeTheDriver()
+    public void ACubeArrayPastTheCubeLimit_IsRefusedBeforeTheDriver()
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
@@ -48,7 +48,7 @@ public sealed class DeviceExtentLimitTests
             Assume.That(limit, Is.GreaterThan(0));
 
             InvalidOperationException? refusal = Assert.Throws<InvalidOperationException>(
-                () => context.CreateTextureCube(limit + 1, TextureFormat.Depth32Float)?.Dispose());
+                () => context.CreateTextureCubeArray(limit + 1, 1, TextureFormat.Depth32Float)?.Dispose());
 
             Assert.That(refusal!.Message, Does.Contain(limit.ToString()));
         });

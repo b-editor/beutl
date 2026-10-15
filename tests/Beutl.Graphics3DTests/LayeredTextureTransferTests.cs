@@ -13,12 +13,10 @@ public sealed class LayeredTextureTransferTests
 
     public enum TextureKind
     {
-        Cube,
         Array,
         CubeArray,
     }
 
-    [TestCase(TextureKind.Cube)]
     [TestCase(TextureKind.Array)]
     [TestCase(TextureKind.CubeArray)]
     public void CopyToColorLayer_PreservesPixels(TextureKind kind)
@@ -32,9 +30,6 @@ public sealed class LayeredTextureTransferTests
             using IDisposable texture = CreateTexture(context, kind, out Image image, out uint layer);
             switch (texture)
             {
-                case ITextureCube cube:
-                    context.CopyTextureToCubeFace(source, cube, (int)layer);
-                    break;
                 case ITextureArray array:
                     context.CopyTextureToArrayLayer(source, array, (int)layer);
                     break;
@@ -52,11 +47,6 @@ public sealed class LayeredTextureTransferTests
     {
         switch (kind)
         {
-            case TextureKind.Cube:
-                var cube = (VulkanTextureCube)context.CreateTextureCube(Size, TextureFormat.RGBA8Unorm);
-                image = cube.ImageHandle;
-                layer = 4;
-                return cube;
             case TextureKind.Array:
                 var array = (VulkanTextureArray)context.CreateTextureArray(Size, Size, 2, TextureFormat.RGBA8Unorm);
                 image = array.ImageHandle;

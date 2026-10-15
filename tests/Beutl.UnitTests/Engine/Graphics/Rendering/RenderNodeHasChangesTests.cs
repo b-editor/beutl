@@ -98,8 +98,8 @@ public class RenderNodeHasChangesTests
         imageSource.ReadFrom(TestMediaHelper.CreateTestImageUri(100, 100, Colors.White));
         var resource = (ImageSource.Resource)imageSource.ToResource(CompositionContext.Default);
         var fill = Brushes.Resource.White;
-        var node = new ImageSourceRenderNode(resource, fill, null);
-        return new NoOpUpdateCase(node, () => node.Update(resource, fill, null));
+        var node = new ImageSourceRenderNode(resource, fill);
+        return new NoOpUpdateCase(node, () => node.Update(resource, fill));
     }
 
     private static NoOpUpdateCase VideoSourceCase()
@@ -108,8 +108,8 @@ public class RenderNodeHasChangesTests
         videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30), 300)));
         var resource = (VideoSource.Resource)videoSource.ToResource(CompositionContext.Default);
         var fill = Brushes.Resource.White;
-        var node = new VideoSourceRenderNode(resource, 0, fill, null);
-        return new NoOpUpdateCase(node, () => node.Update(resource, 0, fill, null));
+        var node = new VideoSourceRenderNode(resource, 0, fill);
+        return new NoOpUpdateCase(node, () => node.Update(resource, 0, fill));
     }
 
     private static NoOpUpdateCase Scene3DCase()

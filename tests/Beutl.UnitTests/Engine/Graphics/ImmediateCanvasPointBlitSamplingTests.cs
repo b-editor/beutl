@@ -5,9 +5,9 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics;
 
-// DrawRenderTarget and DrawSurface blit a surface at a point. While the canvas keeps the device axes at unit
-// scale the blit copies pixels, even at a fractional offset or under a flip; under a scale or a rotation it
-// must resample, like a scaled image draw, instead of dropping and duplicating source pixels.
+// DrawRenderTarget blits a surface at a point. While the canvas keeps the device axes at unit scale the blit
+// copies pixels, even at a fractional offset or under a flip; under a scale or a rotation it must resample,
+// like a scaled image draw, instead of dropping and duplicating source pixels.
 [TestFixture]
 public class ImmediateCanvasPointBlitSamplingTests
 {
@@ -54,30 +54,6 @@ public class ImmediateCanvasPointBlitSamplingTests
         using RenderTarget source = CreateCheckerboard();
 
         using Bitmap actual = Render(matrix, canvas => canvas.DrawRenderTarget(source, s_offset));
-        using Bitmap copied = RenderReference(matrix, source, s_nearest);
-
-        Assert.That(SamePixels(actual, copied), Is.True);
-    }
-
-    [Test]
-    public void DrawSurface_ResamplesUnderARotation()
-    {
-        Matrix matrix = CreateMatrix(Transform.Rotation);
-        using RenderTarget source = CreateCheckerboard();
-
-        using Bitmap actual = Render(matrix, canvas => canvas.DrawSurface(source.Value, s_offset));
-        using Bitmap resampled = RenderReference(matrix, source, s_linear);
-
-        Assert.That(SamePixels(actual, resampled), Is.True);
-    }
-
-    [Test]
-    public void DrawSurface_CopiesPixelsAtAFractionalOffset()
-    {
-        Matrix matrix = CreateMatrix(Transform.FractionalTranslation);
-        using RenderTarget source = CreateCheckerboard();
-
-        using Bitmap actual = Render(matrix, canvas => canvas.DrawSurface(source.Value, s_offset));
         using Bitmap copied = RenderReference(matrix, source, s_nearest);
 
         Assert.That(SamePixels(actual, copied), Is.True);

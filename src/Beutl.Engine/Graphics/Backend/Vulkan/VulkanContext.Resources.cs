@@ -29,14 +29,6 @@ internal sealed unsafe partial class VulkanContext
         return texture;
     }
 
-    public ITextureCube CreateTextureCube(int size, TextureFormat format)
-    {
-        ThrowIfCannotMakeAttachableImage(MaxCubeFaceDimension, size, size);
-
-        var usage = GetLayeredTextureUsage(format);
-        return new VulkanTextureCube(this, size, format, usage);
-    }
-
     public ITextureArray CreateTextureArray(int width, int height, uint arraySize, TextureFormat format)
     {
         ThrowIfCannotMakeAttachableImage(MaxImageDimension2D, width, height);
@@ -54,7 +46,7 @@ internal sealed unsafe partial class VulkanContext
     }
 
     /// <summary>
-    /// The usage of a cube, array or cube-array texture. A layered depth texture, unlike a 2D one, is not a copy
+    /// The usage of an array or cube-array texture. A layered depth texture, unlike a 2D one, is not a copy
     /// source.
     /// </summary>
     private static ImageUsageFlags GetLayeredTextureUsage(TextureFormat format)
@@ -300,7 +292,7 @@ internal sealed unsafe partial class VulkanContext
     /// in <see cref="ImageLayout.Undefined"/>.
     /// </summary>
     /// <param name="resourceName">
-    /// Names the image in the thrown message, e.g. <c>"cube map image"</c>.
+    /// Names the image in the thrown message, e.g. <c>"cube map array image"</c>.
     /// </param>
     internal unsafe Image CreateTextureImage(
         TextureFormat format,
@@ -344,7 +336,7 @@ internal sealed unsafe partial class VulkanContext
     /// is destroyed and nothing stays allocated, so the caller never has to unwind a partial binding.
     /// </summary>
     /// <param name="resourceName">
-    /// Names the image in the thrown message, e.g. <c>"cube map image"</c>.
+    /// Names the image in the thrown message, e.g. <c>"cube map array image"</c>.
     /// </param>
     internal unsafe DeviceMemory AllocateAndBindImageMemory(
         Image image,

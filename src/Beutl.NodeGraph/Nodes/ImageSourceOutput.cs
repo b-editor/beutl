@@ -34,9 +34,9 @@ internal sealed class ImageSourceOutput : IDisposable
         }
 
         if (_renderNode is null)
-            _renderNode = new ImageSourceRenderNode(_sourceResource, Brushes.Resource.White, null);
+            _renderNode = new ImageSourceRenderNode(_sourceResource, Brushes.Resource.White);
         else
-            _renderNode.Update(_sourceResource, Brushes.Resource.White, null);
+            _renderNode.Update(_sourceResource, Brushes.Resource.White);
         return _renderNode;
     }
 

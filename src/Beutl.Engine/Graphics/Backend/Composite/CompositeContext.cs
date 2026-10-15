@@ -72,11 +72,6 @@ internal sealed class CompositeContext : IGraphicsContext
         return Vulkan.CreateTexture2D(width, height, format);
     }
 
-    public ITextureCube CreateTextureCube(int size, TextureFormat format)
-    {
-        return Vulkan.CreateTextureCube(size, format);
-    }
-
     public ITextureArray CreateTextureArray(int width, int height, uint arraySize, TextureFormat format)
     {
         return Vulkan.CreateTextureArray(width, height, arraySize, format);
@@ -148,11 +143,6 @@ internal sealed class CompositeContext : IGraphicsContext
     public void CopyTexture(ITexture2D source, ITexture2D destination)
     {
         Vulkan.CopyTexture(source, destination);
-    }
-
-    public void CopyTextureToCubeFace(ITexture2D source, ITextureCube destination, int faceIndex)
-    {
-        Vulkan.CopyTextureToCubeFace(source, destination, faceIndex);
     }
 
 

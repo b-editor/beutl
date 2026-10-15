@@ -56,7 +56,7 @@ public sealed class OpaqueRenderDescriptionDirectReplayTests
         var imageSource = new ImageSource();
         imageSource.ReadFrom(TestMediaHelper.CreateTestImageUri(24, 16, Colors.White));
         using ImageSource.Resource source = imageSource.ToResource(CompositionContext.Default);
-        using var node = new ImageSourceRenderNode(source, Brushes.Resource.White, null);
+        using var node = new ImageSourceRenderNode(source, Brushes.Resource.White);
 
         RecordSingleOpaqueSource(node, static (reference, description) =>
         {

@@ -20,7 +20,7 @@ public class SnapshotBackdropRenderNode : RenderNode, IBackdrop, IBuiltInBackdro
             // Un-scale by the capture's density, not the replay canvas's density.
             if (fallback.Density == 1f)
             {
-                canvas.DrawBitmap(fallback.Bitmap, Brushes.Resource.White, null);
+                canvas.DrawBitmap(fallback.Bitmap, Brushes.Resource.White);
             }
             else
             {

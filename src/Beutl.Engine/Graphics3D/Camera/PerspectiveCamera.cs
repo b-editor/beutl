@@ -24,18 +24,6 @@ public partial class PerspectiveCamera : Camera3D
     [Range(1f, 179f), NumberStep(1, 0.1)]
     public IProperty<float> FieldOfView { get; } = Property.CreateAnimatable(60f);
 
-    /// <inheritdoc />
-    public override Matrix4x4 GetProjectionMatrix(Camera3D.Resource resource, float aspectRatio)
-    {
-        var perspectiveResource = (Resource)resource;
-        float fovRadians = perspectiveResource.FieldOfView * MathF.PI / 180f;
-        return Matrix4x4.CreatePerspectiveFieldOfView(
-            fovRadians,
-            aspectRatio,
-            resource.NearPlane,
-            resource.FarPlane);
-    }
-
     public new partial class Resource : Camera3D.Resource
     {
         /// <inheritdoc />

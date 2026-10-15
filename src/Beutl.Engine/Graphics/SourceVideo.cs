@@ -144,8 +144,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
             context.DrawVideoSource(
                 r.Source,
                 (int)Math.Round(frameNum, MidpointRounding.AwayFromZero),
-                Brushes.Resource.White,
-                null);
+                Brushes.Resource.White);
             r.RenderedPosition = r.RequestedPosition;
         }
     }

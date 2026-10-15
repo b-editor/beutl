@@ -147,7 +147,7 @@ public class MaterialTextureColorSpaceTests
 
             try
             {
-                renderer.Render(composition, cameraResource, objects, lights, Colors.Black, Colors.White, 0.6f);
+                renderer.Render(cameraResource, objects, lights, Colors.Black, Colors.White, 0.6f);
                 return renderer.DownloadPixels();
             }
             finally

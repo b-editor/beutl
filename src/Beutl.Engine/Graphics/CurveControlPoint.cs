@@ -65,9 +65,6 @@ public readonly struct CurveControlPoint : IEquatable<CurveControlPoint>
 
     public CurveControlPoint WithRightHandle(Point rightHandle) => new(Point, LeftHandle, rightHandle);
 
-    public CurveControlPoint WithSymmetricHandles(Point rightHandle)
-        => new(Point, new Point(-rightHandle.X, -rightHandle.Y), rightHandle);
-
     public bool Equals(CurveControlPoint other)
     {
         return Point == other.Point && LeftHandle == other.LeftHandle && RightHandle == other.RightHandle;

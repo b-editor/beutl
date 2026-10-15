@@ -1,6 +1,5 @@
 ﻿using System.Numerics;
 using Beutl.Collections.Pooled;
-using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics3D.Camera;
@@ -17,7 +16,7 @@ namespace Beutl.Graphics3D;
 /// Deferred 3D renderer using G-Buffer for lighting calculations.
 /// Coordinates shadow, geometry, and lighting passes.
 /// </summary>
-internal sealed class Renderer3D : IRenderer3D
+internal sealed class Renderer3D : IDisposable
 {
     private readonly IGraphicsContext _context;
     private readonly IShaderCompiler _shaderCompiler;
@@ -216,7 +215,6 @@ internal sealed class Renderer3D : IRenderer3D
     }
 
     public void Render(
-        CompositionContext compositionContext,
         Camera3D.Resource camera,
         IReadOnlyList<Object3D.Resource> objects,
         IReadOnlyList<Light3D.Resource> lights,
@@ -241,15 +239,15 @@ internal sealed class Renderer3D : IRenderer3D
         using var transparentObjects = new PooledList<TransparentObjectEntry>();
         SeparateObjectsByTransparency(objects, camera, opaqueObjects, transparentObjects);
 
-        var (sceneCenter, sceneRadius) = CalculateSceneBounds(objects);
+        Vector3 sceneCenter = CalculateSceneCenter(objects);
 
-        var lightToShadowIndex = _shadowManager.RenderShadows(lights, objects, sceneCenter, sceneRadius);
+        var lightToShadowIndex = _shadowManager.RenderShadows(lights, objects, sceneCenter);
         var shadowUbo = _shadowManager.GetShadowUBO();
 
         using var lightDataList = new PooledList<LightData>();
         CollectLightData(lights, lightToShadowIndex, lightDataList);
 
-        _geometryPass.Execute(compositionContext, camera, opaqueObjects, aspectRatio, lightDataList, ambientColor, ambientIntensity, SurfaceDensity);
+        _geometryPass.Execute(camera, opaqueObjects, aspectRatio, lightDataList, ambientColor, ambientIntensity, SurfaceDensity);
         _geometryPass.PrepareForSampling();
 
         _lightingPass.BindGBuffer(_geometryPass);
@@ -262,7 +260,7 @@ internal sealed class Renderer3D : IRenderer3D
         if (transparentObjects.Count > 0)
         {
             _transparentPass.SetColorTexture(_lightingPass.OutputTexture!);
-            _transparentPass.Execute(compositionContext, camera, transparentObjects, lightDataList, ambientColor, ambientIntensity, aspectRatio, SurfaceDensity);
+            _transparentPass.Execute(camera, transparentObjects, lightDataList, ambientColor, ambientIntensity, aspectRatio, SurfaceDensity);
             _transparentPass.PrepareForSampling();
             colorOutput = _transparentPass.OutputTexture;
         }
@@ -272,7 +270,6 @@ internal sealed class Renderer3D : IRenderer3D
             _gizmoPass.SetColorTexture(colorOutput!);
             _gizmoPass.Execute(
                 camera,
-                gizmoTarget,
                 GetWorldPosition(objects, gizmoTarget),
                 GetWorldOrientation(objects, gizmoTarget),
                 gizmoMode,
@@ -372,10 +369,10 @@ internal sealed class Renderer3D : IRenderer3D
     }
 
     /// <summary>
-    /// Calculates the bounding sphere of all visible objects in the scene.
+    /// Calculates the center of the bounds of all visible objects in the scene.
     /// Used for directional light shadow mapping.
     /// </summary>
-    private static (Vector3 Center, float Radius) CalculateSceneBounds(IReadOnlyList<Object3D.Resource> objects)
+    private static Vector3 CalculateSceneCenter(IReadOnlyList<Object3D.Resource> objects)
     {
         var min = new Vector3(float.MaxValue);
         var max = new Vector3(float.MinValue);
@@ -403,11 +400,9 @@ internal sealed class Renderer3D : IRenderer3D
         });
 
         if (min.X == float.MaxValue)
-            return (Vector3.Zero, 1f);
+            return Vector3.Zero;
 
-        var center = (min + max) * 0.5f;
-        var radius = Math.Max(Vector3.Distance(min, max) * 0.5f, 1f);
-        return (center, radius);
+        return (min + max) * 0.5f;
     }
 
     /// <summary>
@@ -501,19 +496,12 @@ internal sealed class Renderer3D : IRenderer3D
         return _outputTexture?.CreateSkiaSurface();
     }
 
-    public byte[] DownloadPixels()
+    /// <summary>
+    /// Downloads the rendered pixels from GPU to CPU memory. For tests, which read what was drawn.
+    /// </summary>
+    internal byte[] DownloadPixels()
     {
         return _outputTexture?.DownloadPixels() ?? [];
-    }
-
-    public Object3D.Resource? HitTest(Point screenPoint)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        if (_lastCamera == null || _lastObjects == null || _lastObjects.Count == 0)
-            return null;
-
-        return HitTester3D.HitTest(ToDevice(screenPoint), Width, Height, _lastCamera, _lastObjects);
     }
 
     /// <summary>

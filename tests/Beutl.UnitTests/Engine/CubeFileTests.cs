@@ -16,37 +16,7 @@ public class CubeFileTests
 
         return new CubeFile
         {
-            Title = "identity-1d",
             Dimention = CubeFileDimension.OneDimension,
-            Size = size,
-            Min = Vector3.Zero,
-            Max = Vector3.One,
-            Data = data,
-        };
-    }
-
-    private static CubeFile MakeIdentity3D(int size = 2)
-    {
-        var data = new Vector3[size * size * size];
-        for (int z = 0; z < size; z++)
-        {
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    int index = x + y * size + z * size * size;
-                    data[index] = new Vector3(
-                        x / (float)(size - 1),
-                        y / (float)(size - 1),
-                        z / (float)(size - 1));
-                }
-            }
-        }
-
-        return new CubeFile
-        {
-            Title = "identity-3d",
-            Dimention = CubeFileDimension.ThreeDimension,
             Size = size,
             Min = Vector3.Zero,
             Max = Vector3.One,
@@ -77,79 +47,6 @@ public class CubeFileTests
     }
 
     [Test]
-    public void ToLUT_OnNonOneDimension_Throws()
-    {
-        CubeFile cube = MakeIdentity3D();
-        var r = new byte[256];
-        var g = new byte[256];
-        var b = new byte[256];
-        Assert.Throws<InvalidOperationException>(() => cube.ToLUT(1f, r, g, b));
-    }
-
-    [Test]
-    public void ToLUT_InvalidArrayLength_Throws()
-    {
-        CubeFile cube = MakeIdentity1D();
-        var r = new byte[100];
-        var g = new byte[256];
-        var b = new byte[256];
-        Assert.Throws<ArgumentException>(() => cube.ToLUT(1f, r, g, b));
-    }
-
-    [Test]
-    public void ToLUT_IdentityWithFullStrength_ProducesIdentity()
-    {
-        CubeFile cube = MakeIdentity1D(size: 256);
-        var r = new byte[256];
-        var g = new byte[256];
-        var b = new byte[256];
-
-        cube.ToLUT(1f, r, g, b);
-
-        // 完全恒等LUTかつstrength=1の場合、各チャネルは入力と等しくなる
-        for (int i = 0; i < 256; i++)
-        {
-            Assert.That(r[i], Is.EqualTo((byte)i));
-            Assert.That(g[i], Is.EqualTo((byte)i));
-            Assert.That(b[i], Is.EqualTo((byte)i));
-        }
-    }
-
-    [Test]
-    public void ToLUT_StrengthZero_ReturnsLinearRamp()
-    {
-        // strength=0 のとき LUT 値の寄与 (v*255 * strength) はゼロになり、
-        // パススルー項 add = i*(1-0) = i だけが残るため、出力はリニアランプ
-        CubeFile cube = MakeIdentity1D(size: 256);
-        var r = new byte[256];
-        var g = new byte[256];
-        var b = new byte[256];
-
-        cube.ToLUT(0f, r, g, b);
-
-        for (int i = 0; i < 256; i++)
-        {
-            Assert.That(r[i], Is.EqualTo((byte)i));
-            Assert.That(g[i], Is.EqualTo((byte)i));
-            Assert.That(b[i], Is.EqualTo((byte)i));
-        }
-    }
-
-    [Test]
-    public void TrilinearInterplate_Endpoints_ReturnCornerValues()
-    {
-        CubeFile cube = MakeIdentity3D(size: 2);
-
-        Vector3 black = cube.TrilinearInterplate(0, 0, 0);
-        Assert.Multiple(() =>
-        {
-            Assert.That(black.X, Is.EqualTo(0f));
-            Assert.That(black.Y, Is.EqualTo(0f));
-            Assert.That(black.Z, Is.EqualTo(0f));
-        });
-    }
-
-    [Test]
     public void FromStream_Parses1DCubeHeader()
     {
         const string content =
@@ -168,7 +65,6 @@ public class CubeFileTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(cube.Title, Is.EqualTo("Test1D"));
             Assert.That(cube.Dimention, Is.EqualTo(CubeFileDimension.OneDimension));
             Assert.That(cube.Size, Is.EqualTo(4));
             Assert.That(cube.Data, Has.Length.EqualTo(4));

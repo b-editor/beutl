@@ -7,19 +7,18 @@ namespace Beutl.Graphics.Rendering;
 public sealed class VideoSourceRenderNode(
     VideoSource.Resource source,
     int frame,
-    Brush.Resource? fill,
-    Pen.Resource? pen)
-    : BrushRenderNode(fill, pen)
+    Brush.Resource? fill)
+    : BrushRenderNode(fill, null)
 {
     public (VideoSource.Resource Resource, int Version)? Source { get; private set; } = source.Capture();
 
     public int Frame { get; private set; } = frame;
 
-    public Rect Bounds { get; private set; } = PenHelper.GetBounds(new Rect(default, source.LogicalFrameSize.ToSize(1)), pen);
+    public Rect Bounds { get; private set; } = new(default, source.LogicalFrameSize.ToSize(1));
 
-    public bool Update(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
+    public bool Update(VideoSource.Resource source, int frame, Brush.Resource? fill)
     {
-        bool changed = Update(fill, pen);
+        bool changed = Update(fill, null);
         if (!source.Compare(Source))
         {
             Source = source.Capture();
@@ -28,7 +27,7 @@ public sealed class VideoSourceRenderNode(
 
         if (changed && Source.HasValue)
         {
-            Bounds = PenHelper.GetBounds(new Rect(default, Source.Value.Resource.LogicalFrameSize.ToSize(1)), Pen?.Resource);
+            Bounds = new Rect(default, Source.Value.Resource.LogicalFrameSize.ToSize(1));
         }
 
         if (Frame != frame)
@@ -57,16 +56,15 @@ public sealed class VideoSourceRenderNode(
         int frame = Frame;
         VideoSource.Resource source = sourceSnapshot.Resource;
         Brush.Resource? fill = Fill?.Resource;
-        Pen.Resource? pen = Pen?.Resource;
         float supplyDensity = source.SupplyDensity;
         RenderResource<VideoSource.Resource> sourceResource = context.Borrow(source);
 
         context.Publish(context.PaintedSource(
             state: (source, frame),
-            draw: static (canvas, fill, pen, state) =>
-                canvas.DrawVideoSource(state.source, state.frame, fill, pen),
+            draw: static (canvas, fill, _, state) =>
+                canvas.DrawVideoSource(state.source, state.frame, fill),
             fill: fill,
-            pen: pen,
+            pen: null,
             outputBounds: bounds,
             hitTest: RenderHitTestContract.Custom(HitTest),
             scale: RenderScaleContract.Custom(
@@ -81,6 +79,6 @@ public sealed class VideoSourceRenderNode(
         if (Source is not { } source)
             return false;
         Rect fillBounds = new(default, source.Resource.LogicalFrameSize.ToSize(1));
-        return PenHelper.HitTestFramedContent(fillBounds, Fill?.Resource is not null, Pen?.Resource, point);
+        return Fill?.Resource is not null && fillBounds.ContainsExclusive(point);
     }
 }

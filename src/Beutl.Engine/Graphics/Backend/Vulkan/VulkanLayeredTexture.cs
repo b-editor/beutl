@@ -4,7 +4,7 @@ using Silk.NET.Vulkan;
 namespace Beutl.Graphics.Backend.Vulkan;
 
 /// <summary>
-/// The image, view and per-layer layout tracking shared by the array, cube and cube-array textures, which
+/// The image, view and per-layer layout tracking shared by the array and cube-array textures, which
 /// differ only in how many layers they hold, how their full view samples them and how a face maps to a layer.
 /// </summary>
 internal abstract unsafe class VulkanLayeredTexture : IVulkanContextResource
@@ -13,7 +13,7 @@ internal abstract unsafe class VulkanLayeredTexture : IVulkanContextResource
     private readonly ImageLayout[] _layerLayouts;
     private bool _disposed;
 
-    /// <param name="resourceName">Names the image in a thrown message, e.g. <c>"cube map image"</c>.</param>
+    /// <param name="resourceName">Names the image in a thrown message, e.g. <c>"cube map array image"</c>.</param>
     protected VulkanLayeredTexture(
         VulkanContext context,
         int width,

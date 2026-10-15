@@ -75,29 +75,6 @@ internal sealed unsafe partial class VulkanContext
         vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
     }
 
-    public unsafe void CopyTextureToCubeFace(ITexture2D source, ITextureCube destination, int faceIndex)
-    {
-        VulkanTextureCube.ThrowIfFaceOutOfRange(faceIndex);
-
-        var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
-        var vulkanDest = RequireOwned<VulkanTextureCube>(destination, nameof(destination));
-
-        vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
-        vulkanDest.TransitionFaceToTransferDestination(faceIndex);
-
-        RecordCopyToArrayLayer(
-            vulkanSource.ImageHandle,
-            vulkanDest.ImageHandle,
-            GetCopyAspectMask(source.Format),
-            (uint)faceIndex,
-            (uint)source.Width,
-            (uint)source.Height);
-
-        vulkanDest.TransitionFaceToSampled(faceIndex);
-
-        vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
-    }
-
     public unsafe void CopyTextureToArrayLayer(ITexture2D source, ITextureArray destination, int layerIndex)
     {
         if (layerIndex < 0 || layerIndex >= (int)destination.ArraySize)
@@ -128,7 +105,7 @@ internal sealed unsafe partial class VulkanContext
     {
         if (arrayIndex < 0 || arrayIndex >= (int)destination.ArraySize)
             throw new ArgumentOutOfRangeException(nameof(arrayIndex), $"Array index must be 0-{destination.ArraySize - 1}");
-        VulkanTextureCube.ThrowIfFaceOutOfRange(faceIndex);
+        VulkanTextureCubeArray.ThrowIfFaceOutOfRange(faceIndex);
 
         var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
         var vulkanDest = RequireOwned<VulkanTextureCubeArray>(destination, nameof(destination));

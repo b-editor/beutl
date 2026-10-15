@@ -1,5 +1,4 @@
 ﻿using System.Numerics;
-using Beutl.Composition;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics3D.Lighting;
 
@@ -27,7 +26,6 @@ public readonly struct RenderContext3D
         Vector3 cameraPosition,
         Vector3 ambientColor,
         IReadOnlyList<LightData> lights,
-        CompositionContext compositionContext,
         float surfaceDensity = 1f)
     {
         GraphicsContext = graphicsContext;
@@ -38,7 +36,6 @@ public readonly struct RenderContext3D
         CameraPosition = cameraPosition;
         AmbientColor = ambientColor;
         Lights = lights;
-        CompositionContext = compositionContext;
         SurfaceDensity = surfaceDensity;
     }
 
@@ -83,13 +80,7 @@ public readonly struct RenderContext3D
     public IReadOnlyList<LightData> Lights { get; }
 
     /// <summary>
-    /// Gets the composition context for texture source rendering.
-    /// May be null if not provided during 3D rendering.
-    /// </summary>
-    public CompositionContext CompositionContext { get; }
-
-    /// <summary>
-    /// The surface render density (device px per logical unit), mirroring <see cref="IRenderer3D.SurfaceDensity"/>.
+    /// The surface render density (device px per logical unit) the renderer draws this pass at.
     /// Forwarded to <see cref="Textures.TextureSource.Resource.GetTexture"/> so a re-rasterizable texture source
     /// can rasterize at this density instead of a fixed pixel count.
     /// </summary>

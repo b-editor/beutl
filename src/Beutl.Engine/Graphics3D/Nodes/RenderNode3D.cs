@@ -1,36 +1,48 @@
 ﻿using System.Runtime.ExceptionServices;
 using Beutl.Graphics.Backend;
+using Beutl.Media;
 
 namespace Beutl.Graphics3D.Nodes;
 
 /// <summary>
-/// Abstract base class for all 3D rendering nodes.
+/// Abstract base class for the 3D render passes: geometry, lighting, shadow and post-process.
 /// </summary>
 public abstract class RenderNode3D : IDisposable
 {
     private bool _disposed;
 
-    protected RenderNode3D(IGraphicsContext context)
+    protected RenderNode3D(IGraphicsContext context, IShaderCompiler shaderCompiler)
     {
         Context = context ?? throw new ArgumentNullException(nameof(context));
+        ShaderCompiler = shaderCompiler ?? throw new ArgumentNullException(nameof(shaderCompiler));
     }
 
-    public bool IsDisposed => _disposed;
-
     public IGraphicsContext Context { get; }
+
+    protected IShaderCompiler ShaderCompiler { get; }
 
     public int Width { get; protected set; }
 
     public int Height { get; protected set; }
 
     /// <summary>
-    /// Allocates this node's resources for an extent.
+    /// Gets the render pass for this node.
+    /// </summary>
+    public IRenderPass3D? RenderPass { get; protected set; }
+
+    /// <summary>
+    /// Gets the framebuffer for this node.
+    /// </summary>
+    public IFramebuffer3D? Framebuffer { get; protected set; }
+
+    /// <summary>
+    /// Allocates this node's resources for an extent. A node is initialized once; a new extent takes new nodes.
     /// </summary>
     /// <remarks>
     /// A node that allocates the extent it is handed refuses one past what <see cref="Context"/> can
     /// attach before allocating, and reports it as <see cref="InvalidOperationException"/>; a node with a
     /// fixed-size allocation ignores the extent and is bounded by the context instead. The extent is
-    /// committed only once the node has allocated, so a refused or failed allocation is retryable.
+    /// committed only once the node has allocated, so a refused allocation commits none.
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">
     /// A dimension is zero or negative. Refused here, before the node is asked, because a node with a
@@ -48,52 +60,37 @@ public abstract class RenderNode3D : IDisposable
         Height = height;
     }
 
-    /// <summary>
-    /// Reallocates this node's resources for a new extent.
-    /// </summary>
-    /// <remarks>
-    /// The extent is committed only once the node has reallocated, so a refused resize keeps the extent
-    /// its resources still describe and a later request for a different size is not mistaken for a no-op.
-    /// A node that has to dispose those resources before it can replace them calls
-    /// <see cref="BeginReplacingResources"/> first, so a replacement that fails part-way leaves no extent
-    /// behind for the next request to be mistaken for.
-    /// </remarks>
-    /// <exception cref="ArgumentOutOfRangeException">A dimension is zero or negative.</exception>
-    public virtual void Resize(int width, int height)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
-
-        if (Width == width && Height == height)
-            return;
-
-        OnResize(width, height);
-        Width = width;
-        Height = height;
-    }
-
-    /// <summary>
-    /// Forgets the extent this node holds resources for, ahead of disposing them to make room for new ones.
-    /// </summary>
-    /// <remarks>
-    /// Call it after any refusal that leaves the old resources intact and before the first dispose. Until
-    /// <see cref="Initialize"/> or <see cref="Resize"/> commits the new extent the node reports none, so a
-    /// replacement that throws after disposing is not skipped as a no-op when the old size is asked for
-    /// again, which would leave disposed resources in use. (0, 0) cannot collide with a held extent,
-    /// since <see cref="Initialize"/> and <see cref="Resize"/> accept only positive ones.
-    /// </remarks>
-    protected void BeginReplacingResources()
-    {
-        Width = 0;
-        Height = 0;
-    }
-
     protected abstract void OnInitialize(int width, int height);
 
-    protected abstract void OnResize(int width, int height);
-
     protected abstract void OnDispose();
+
+    /// <summary>
+    /// Begins the render pass and returns a scope that ends it on every path out of the body.
+    /// </summary>
+    /// <remarks>
+    /// The pass records into the context-wide batch and holds a render-pass scope on it, so a body that
+    /// throws would otherwise leave the batch with an unterminated render pass and divert every later
+    /// transfer in the process to its own submission.
+    /// </remarks>
+    protected PassScope UsePass(scoped Span<Color> clearColors, float clearDepth = 1.0f)
+    {
+        RenderPass?.Begin(Framebuffer!, clearColors, clearDepth);
+        return new PassScope(this);
+    }
+
+    /// <summary>Ends the render pass begun by <see cref="UsePass"/>.</summary>
+    protected readonly ref struct PassScope(RenderNode3D owner)
+    {
+        public void Dispose() => owner.RenderPass?.End();
+    }
+
+    /// <summary>
+    /// Prepares the framebuffer for sampling by other passes.
+    /// </summary>
+    public void PrepareForSampling()
+    {
+        Framebuffer?.PrepareForSampling();
+    }
 
     internal static void DisposeResources(ReadOnlySpan<IDisposable?> resources)
     {

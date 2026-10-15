@@ -336,16 +336,6 @@ public static class HitTester3D
     }
 
     /// <summary>
-    /// Tests if a ray intersects with a mesh.
-    /// </summary>
-    /// <param name="ray">The ray to test.</param>
-    /// <param name="mesh">The mesh to test against.</param>
-    /// <param name="distance">The distance to the closest intersection point.</param>
-    /// <returns>True if the ray intersects the mesh.</returns>
-    public static bool RayIntersectsMesh(Ray3D ray, Mesh.Resource mesh, out float distance)
-        => RayIntersectsMesh(ray, mesh, cullBackFaces: false, mirrored: false, out distance);
-
-    /// <summary>
     /// Tests if a ray intersects with a mesh, skipping triangles that face away from the ray when
     /// <paramref name="cullBackFaces"/> is set, as rendering does for one-sided materials.
     /// </summary>

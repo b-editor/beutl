@@ -96,7 +96,7 @@ public class Renderer3DTests
                 byte[] lastFrame = [];
                 for (int frame = 0; frame < frames; frame++)
                 {
-                    renderer.Render(composition, cameraResource, objects, [], Colors.Black, Colors.White, 1f);
+                    renderer.Render(cameraResource, objects, [], Colors.Black, Colors.White, 1f);
 
                     // Render rewrites the lighting and flip passes' descriptor sets, which invalidates an earlier frame
                     // still recording into the same command buffer, so every frame is submitted before the next one.
@@ -180,9 +180,9 @@ public class Renderer3DTests
                     else objects.Add((Object3D.Resource)sphere.ToResource(composition));
                 }
                 if (grouped) objects.Add((Object3D.Resource)group.ToResource(composition));
-                renderer.Render(composition, cameraResource, objects, [], Colors.Black, Colors.White, 1f);
+                renderer.Render(cameraResource, objects, [], Colors.Black, Colors.White, 1f);
                 renderer.Resize(96, 96);
-                renderer.Render(composition, cameraResource, objects, [], Colors.Black, Colors.White, 1f);
+                renderer.Render(cameraResource, objects, [], Colors.Black, Colors.White, 1f);
                 byte[] pixels = renderer.DownloadPixels();
                 Assert.That(IsLit(pixels), Is.True);
                 return pixels;
@@ -268,7 +268,6 @@ public class Renderer3DTests
                 sceneResources.AddRange(lights);
 
                 renderer.Render(
-                    renderContext,
                     cameraResource,
                     objects,
                     lights,
@@ -561,7 +560,6 @@ public class Renderer3DTests
                 sceneResources.AddRange(lights);
 
                 renderer.Render(
-                    renderContext,
                     cameraResource,
                     objects,
                     lights,

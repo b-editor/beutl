@@ -51,26 +51,6 @@ public partial class ImmediateCanvas
         return PushState(new CanvasPushedState.SKCanvasPushedState(count));
     }
 
-    public PushedState PushLayer(Rect limit = default)
-    {
-        VerifyAccess();
-        VerifyHiddenLayerOperation();
-        int count;
-        if (limit == default)
-        {
-            count = Canvas.SaveLayer();
-        }
-        else
-        {
-            using (var paint = new SKPaint())
-            {
-                count = Canvas.SaveLayer(limit.ToSKRect(), paint);
-            }
-        }
-
-        return PushState(new CanvasPushedState.LayerPushedState(count));
-    }
-
     internal PushedState PushPaint(SKPaint paint, Rect? rect = null)
     {
         VerifyAccess();

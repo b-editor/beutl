@@ -8,55 +8,7 @@ namespace Beutl.Graphics;
 
 public partial class ImmediateCanvas
 {
-    public void DrawDrawable(Drawable.Resource drawable)
-    {
-        VerifyAccess();
-        VerifyNestedExecutionOperation();
-        using var node = new DrawableRenderNode(drawable);
-        using var context = new GraphicsContext2D(node, LogicalSize, _currentDensity);
-        drawable.RequireOriginal().Render(context, drawable);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            CreateNestedRenderRequest());
-        renderer.Render(this);
-    }
-
-    public void DrawNode(RenderNode node)
-    {
-        VerifyAccess();
-        VerifyNestedExecutionOperation();
-        using var renderer = new RenderNodeRenderer(
-            node,
-            CreateNestedRenderRequest());
-        renderer.Render(this);
-    }
-
-    /// <summary>The request a nested render is drawn with: this canvas's intent, density and working-scale ceiling.</summary>
-    private RenderNodeRenderRequest CreateNestedRenderRequest()
-        => new()
-        {
-            Intent = Intent,
-            OutputScale = _currentDensity,
-            MaxWorkingScale = MaxWorkingScale,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
-        };
-
-    public void DrawBackdrop(IBackdrop backdrop)
-    {
-        VerifyAccess();
-        VerifyNestedExecutionOperation();
-        backdrop.Draw(this);
-    }
-
-    public IBackdrop Snapshot()
-    {
-        VerifyAccess();
-        VerifyNestedExecutionOperation();
-        // Use SurfaceDensity (not Density, which PushDeviceSpace lowers to 1) so the backdrop un-scales correctly.
-        return new TmpBackdrop(_renderTarget.Snapshot(), SurfaceDensity);
-    }
-
-    public void DrawBitmap(Bitmap bmp, Brush.Resource? fill, Pen.Resource? pen)
+    public void DrawBitmap(Bitmap bmp, Brush.Resource? fill)
     {
         ObjectDisposedException.ThrowIf(bmp.IsDisposed, bmp);
 
@@ -66,7 +18,6 @@ public partial class ImmediateCanvas
         VerifyPixelOperation();
         VerifyCallbackResource(bmp, nameof(bmp));
         VerifyCallbackResource(fill, nameof(fill));
-        VerifyCallbackResource(pen, nameof(pen));
         var size = new Size(bmp.Width, bmp.Height);
         ConfigureFillPaint(new(size), fill);
 
@@ -110,28 +61,28 @@ public partial class ImmediateCanvas
             VerifyCallbackResource(source, nameof(source));
     }
 
-    public void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
+    public void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill)
     {
         VerifySourceOperation(source);
         var bitmap = source.Bitmap;
         if (bitmap != null)
         {
             if (_executionToken is null)
-                DrawBitmap(bitmap, fill, pen);
+                DrawBitmap(bitmap, fill);
             else
-                _executionToken.AuthorizeResource(bitmap, () => DrawBitmap(bitmap, fill, pen));
+                _executionToken.AuthorizeResource(bitmap, () => DrawBitmap(bitmap, fill));
         }
     }
 
-    public void DrawVideoSource(VideoSource.Resource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen)
+    public void DrawVideoSource(VideoSource.Resource source, TimeSpan frame, Brush.Resource? fill)
     {
         VerifySourceOperation(source);
         Rational rate = source.FrameRate;
         double frameNum = frame.TotalSeconds * (rate.Numerator / (double)rate.Denominator);
-        DrawVideoSource(source, (int)frameNum, fill, pen);
+        DrawVideoSource(source, (int)frameNum, fill);
     }
 
-    public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
+    public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill)
     {
         VerifySourceOperation(source);
         if (source.Read(frame, out var bitmapRef))
@@ -142,7 +93,7 @@ public partial class ImmediateCanvas
                 {
                     if (source.ProxyResolution == null)
                     {
-                        DrawBitmap(bitmapRef.Value, fill, pen);
+                        DrawBitmap(bitmapRef.Value, fill);
                     }
                     else
                     {

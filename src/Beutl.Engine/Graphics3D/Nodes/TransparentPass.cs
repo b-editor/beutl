@@ -1,5 +1,4 @@
 ﻿using System.Numerics;
-using Beutl.Composition;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Meshes;
@@ -12,7 +11,7 @@ namespace Beutl.Graphics3D.Nodes;
 /// Draws transparent objects over the lit scene from LightingPass with alpha blending.
 /// Uses the depth buffer from GeometryPass for depth testing (without writing).
 /// </summary>
-public sealed class TransparentPass : GraphicsNode3D
+public sealed class TransparentPass : RenderNode3D
 {
     private readonly ITexture2D _depthTexture;
     private ITexture2D? _colorInput;
@@ -39,24 +38,9 @@ public sealed class TransparentPass : GraphicsNode3D
 
     protected override void OnInitialize(int width, int height)
     {
-        CreateResources(width, height);
-    }
-
-    protected override void OnResize(int width, int height)
-    {
-        CreateResources(width, height);
-    }
-
-    private void CreateResources(int width, int height)
-    {
         // This pass allocates the extent it is handed, so the device limit is asked here, before anything
-        // is disposed: a refused resize keeps the resources it had.
+        // is allocated.
         DeviceExtentLimits.ThrowIfCannotAttach(Context, width, height);
-        BeginReplacingResources();
-
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        OutputTexture?.Dispose();
 
         OutputTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
 
@@ -75,7 +59,6 @@ public sealed class TransparentPass : GraphicsNode3D
     /// <summary>
     /// Executes the transparent pass, rendering transparent objects over the lit scene.
     /// </summary>
-    /// <param name="compositionContext">The 2D render context (for texture rendering).</param>
     /// <param name="camera">The camera resource.</param>
     /// <param name="transparentObjects">List of transparent objects sorted by distance (far to near).</param>
     /// <param name="lights">The list of lights in the scene.</param>
@@ -83,7 +66,6 @@ public sealed class TransparentPass : GraphicsNode3D
     /// <param name="ambientIntensity">The ambient light intensity.</param>
     /// <param name="aspectRatio">The aspect ratio of the viewport.</param>
     public void Execute(
-        CompositionContext compositionContext,
         Camera.Camera3D.Resource camera,
         IReadOnlyList<TransparentObjectEntry> transparentObjects,
         IReadOnlyList<LightData> lights,
@@ -112,7 +94,6 @@ public sealed class TransparentPass : GraphicsNode3D
             camera.Position,
             ambientColor.ToLinearPremultiplied().AsVector3() * ambientIntensity,
             lights,
-            compositionContext,
             surfaceDensity);
 
         Span<Color> clearColors = [Colors.Transparent];

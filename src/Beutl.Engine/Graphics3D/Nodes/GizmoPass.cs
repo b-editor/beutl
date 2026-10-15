@@ -11,7 +11,7 @@ namespace Beutl.Graphics3D.Nodes;
 /// Gizmo pass for rendering 3D manipulation gizmos.
 /// Renders directly to the lighting pass output texture, over the scene, depth testing only against itself.
 /// </summary>
-public sealed class GizmoPass : GraphicsNode3D
+public sealed class GizmoPass : RenderNode3D
 {
     private readonly ITexture2D _depthTexture;
     private ITexture2D? _colorTexture;
@@ -32,8 +32,6 @@ public sealed class GizmoPass : GraphicsNode3D
     private IBuffer? _scaleVertexBuffer;
     private IBuffer? _scaleIndexBuffer;
     private int _scaleIndexCount;
-
-    private bool _geometryInitialized;
 
     public GizmoPass(IGraphicsContext context, IShaderCompiler shaderCompiler, ITexture2D depthTexture)
         : base(context, shaderCompiler)
@@ -72,21 +70,8 @@ public sealed class GizmoPass : GraphicsNode3D
         InitializeGeometry();
     }
 
-    protected override void OnResize(int width, int height)
-    {
-        // Framebuffer will be recreated when SetColorTexture is called
-        // Nothing to do here as we don't own the color texture
-    }
-
     private void CreateGizmoResources()
     {
-        // Dispose old resources
-        _pipeline?.Dispose();
-        _descriptorSet?.Dispose();
-        _uniformBuffer?.Dispose();
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-
         // Create render pass (single color attachment with depth)
         // Color is loaded to draw over the scene. Depth is cleared so the gizmo stays visible inside the
         // object it is attached to, while its own handles still occlude each other. This is the last pass to
@@ -125,9 +110,6 @@ public sealed class GizmoPass : GraphicsNode3D
 
     private void InitializeGeometry()
     {
-        if (_geometryInitialized)
-            return;
-
         GizmoMesh.CreateTranslateGizmo(out var translateVertices, out var translateIndices);
         _translateVertexBuffer = CreateVertexBuffer(translateVertices);
         _translateIndexBuffer = CreateIndexBuffer(translateIndices);
@@ -142,8 +124,6 @@ public sealed class GizmoPass : GraphicsNode3D
         _scaleVertexBuffer = CreateVertexBuffer(scaleVertices);
         _scaleIndexBuffer = CreateIndexBuffer(scaleIndices);
         _scaleIndexCount = scaleIndices.Length;
-
-        _geometryInitialized = true;
     }
 
     private IBuffer CreateVertexBuffer(GizmoVertex[] vertices)
@@ -167,16 +147,12 @@ public sealed class GizmoPass : GraphicsNode3D
     /// </summary>
     public void Execute(
         Camera.Camera3D.Resource camera,
-        Object3D.Resource? gizmoTarget,
         Vector3 position,
         Quaternion orientation,
         GizmoMode gizmoMode,
         float aspectRatio)
     {
         if (Framebuffer == null || RenderPass == null || _pipeline == null || _descriptorSet == null)
-            return;
-
-        if (gizmoTarget == null || gizmoMode == GizmoMode.None)
             return;
 
         IBuffer? vertexBuffer = null;

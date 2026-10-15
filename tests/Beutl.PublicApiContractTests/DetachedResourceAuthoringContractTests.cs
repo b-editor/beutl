@@ -52,7 +52,6 @@ public sealed class DetachedResourceAuthoringContractTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(detached.VertexCount, Is.EqualTo(3));
-            Assert.That(detached.IndexCount, Is.EqualTo(3));
             Assert.That(detached.GetBoundingBox().Max.X, Is.EqualTo(3));
         }
     }

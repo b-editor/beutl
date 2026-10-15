@@ -25,15 +25,6 @@ public partial class DirectionalLight3D : Light3D
     public IProperty<Vector3> Direction { get; } = Property.CreateAnimatable(new Vector3(0.5f, 1, 1));
 
     /// <summary>
-    /// Gets the normalized light direction for use in shaders.
-    /// </summary>
-    public Vector3 GetNormalizedDirection(Resource resource)
-    {
-        var dir = resource.Direction;
-        return dir == Vector3.Zero ? Vector3.UnitY : Vector3.Normalize(dir);
-    }
-
-    /// <summary>
     /// Gets the maximum distance from the camera at which shadows are rendered.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.DirectionalLight3D_ShadowDistance), ResourceType = typeof(GraphicsStrings))]

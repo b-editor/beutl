@@ -466,7 +466,7 @@ public class GraphicsContext2DTests
         imageSource.ReadFrom(imageUri);
         using var imageResource = imageSource.ToResource(CompositionContext.Default);
 
-        context.DrawImageSource(imageResource, Brushes.Resource.White, null);
+        context.DrawImageSource(imageResource, Brushes.Resource.White);
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<ImageSourceRenderNode>());
@@ -483,7 +483,7 @@ public class GraphicsContext2DTests
         videoSource.ReadFrom(new Uri(videoPath));
         using var videoResource = videoSource.ToResource(CompositionContext.Default);
 
-        context.DrawVideoSource(videoResource, TimeSpan.Zero, Brushes.Resource.White, null);
+        context.DrawVideoSource(videoResource, TimeSpan.Zero, Brushes.Resource.White);
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<VideoSourceRenderNode>());

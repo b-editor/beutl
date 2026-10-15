@@ -266,8 +266,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
                 Assert.That(() => canvas.Clear(Colors.Red), Throws.Nothing);
                 canvas.Pop(0);
                 Assert.That(canvas.Transform.Transform(facade.LogicalOrigin), Is.EqualTo(default(Point)));
-                Assert.That(() => canvas.PushLayer(), Throws.TypeOf<InvalidOperationException>());
-                Assert.That(() => canvas.DrawNode(null!), Throws.TypeOf<InvalidOperationException>());
+                Assert.That(() => canvas.PushOpacity(0.5f), Throws.TypeOf<InvalidOperationException>());
                 Assert.That(() => RenderTarget.GetRenderTarget(canvas), Throws.TypeOf<InvalidOperationException>());
                 Assert.That(() => canvas.Dispose(), Throws.TypeOf<InvalidOperationException>());
             });
@@ -404,7 +403,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
             canvas =>
             {
                 replayCount++;
-                using (canvas.PushLayer())
+                using (canvas.PushOpacity(0.5f))
                 {
                     canvas.Clear(Colors.Blue);
                 }
@@ -414,7 +413,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
         facade.Use(canvas =>
         {
             Assert.That(() => canvas.Clear(), Throws.TypeOf<InvalidOperationException>());
-            Assert.That(() => canvas.PushLayer(), Throws.TypeOf<InvalidOperationException>());
+            Assert.That(() => canvas.PushOpacity(0.5f), Throws.TypeOf<InvalidOperationException>());
             using (canvas.PushTransform(Matrix.CreateTranslation(2, 3)))
             {
                 session.ReplayInput();

@@ -36,30 +36,6 @@ public abstract partial class Camera3D : EngineObject
     [Range(0.001f, float.MaxValue), NumberStep(1, 0.1)]
     public IProperty<float> FarPlane { get; } = Property.CreateAnimatable(10000f);
 
-    /// <summary>
-    /// Gets the view matrix for this camera.
-    /// </summary>
-    public Matrix4x4 GetViewMatrix(Resource resource)
-    {
-        return resource.GetViewMatrix();
-    }
-
-    /// <summary>
-    /// Gets the projection matrix for this camera.
-    /// </summary>
-    /// <param name="resource">The resource containing evaluated property values.</param>
-    /// <param name="aspectRatio">The aspect ratio of the render target.</param>
-    /// <returns>The projection matrix.</returns>
-    public abstract Matrix4x4 GetProjectionMatrix(Resource resource, float aspectRatio);
-
-    /// <summary>
-    /// Gets the combined view-projection matrix.
-    /// </summary>
-    public Matrix4x4 GetViewProjectionMatrix(Resource resource, float aspectRatio)
-    {
-        return GetViewMatrix(resource) * GetProjectionMatrix(resource, aspectRatio);
-    }
-
     public abstract partial class Resource
     {
         /// <summary>

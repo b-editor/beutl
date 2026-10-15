@@ -11,7 +11,7 @@ namespace Beutl.Graphics3D.Nodes;
 /// Geometry pass for deferred rendering.
 /// Renders objects to the G-Buffer (Position, Normal+Metallic, Albedo+Roughness, Emission+AO, Depth).
 /// </summary>
-public sealed class GeometryPass : GraphicsNode3D
+public sealed class GeometryPass : RenderNode3D
 {
     // G-Buffer formats
     public static readonly TextureFormat[] GBufferFormats =
@@ -62,19 +62,11 @@ public sealed class GeometryPass : GraphicsNode3D
         _defaultMaterialResource = _defaultMaterial.ToResource(new CompositionContext(TimeSpan.Zero));
     }
 
-    protected override void OnResize(int width, int height)
-    {
-        CreateGBuffer(width, height);
-    }
-
     private void CreateGBuffer(int width, int height)
     {
         // This pass allocates the extent it is handed, so the device limit is asked here, before anything
-        // is disposed: a refused resize keeps the resources it had.
+        // is allocated.
         DeviceExtentLimits.ThrowIfCannotAttach(Context, width, height);
-        BeginReplacingResources();
-
-        DisposeGBuffer();
 
         PositionTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
         NormalMetallicTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
@@ -93,7 +85,6 @@ public sealed class GeometryPass : GraphicsNode3D
     /// Executes the geometry pass, rendering all objects to the G-Buffer.
     /// </summary>
     public void Execute(
-        CompositionContext compositionContext,
         Camera.Camera3D.Resource camera,
         IReadOnlyList<Object3D.Resource> objects,
         float aspectRatio,
@@ -114,7 +105,6 @@ public sealed class GeometryPass : GraphicsNode3D
             camera.Position,
             ambientColor.ToLinearPremultiplied().AsVector3() * ambientIntensity,
             lightDataList,
-            compositionContext,
             surfaceDensity);
 
         // Clear values; LightingPass discards the background, marked by position alpha 0.
@@ -134,12 +124,6 @@ public sealed class GeometryPass : GraphicsNode3D
                     MeshDrawHelper.DrawWithMaterial(renderContext3D, obj, worldMatrix, _defaultMaterialResource);
             });
         }
-    }
-
-    private void DisposeGBuffer()
-    {
-        DisposeResources([Framebuffer, RenderPass, PositionTexture, NormalMetallicTexture,
-            AlbedoRoughnessTexture, EmissionAOTexture, DepthTexture]);
     }
 
     protected override void OnDispose()

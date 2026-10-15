@@ -8,7 +8,7 @@ namespace Beutl.Graphics3D.Nodes;
 /// <summary>
 /// Shadow pass for rendering directional and spot light shadow maps.
 /// </summary>
-public sealed class ShadowPass : GraphicsNode3D
+public sealed class ShadowPass : RenderNode3D
 {
     /// <summary>
     /// Default shadow map resolution.
@@ -45,6 +45,8 @@ void main() {
 ";
 
     private readonly ShadowCasterPipelines _pipelines = new();
+    // The dummy color attachment the framebuffer requires.
+    private ITexture2D? _dummyColorTexture;
     private byte[]? _vertexShaderSpirv;
     private byte[]? _fragmentShaderSpirv;
 
@@ -60,11 +62,6 @@ void main() {
     /// Gets the shadow depth texture.
     /// </summary>
     public ITexture2D? ShadowDepthTexture { get; private set; }
-
-    /// <summary>
-    /// Gets the dummy color texture (required for framebuffer).
-    /// </summary>
-    public ITexture2D? DummyColorTexture { get; private set; }
 
     /// <summary>
     /// Gets the light view matrix.
@@ -84,43 +81,27 @@ void main() {
     protected override void OnInitialize(int width, int height)
     {
         // Shadow pass uses its own fixed size
-        CreateShadowMap(DefaultShadowMapSize, DefaultShadowMapSize);
+        CreateShadowMap();
         CompileShaders();
         CreatePipeline();
     }
 
-    protected override void OnResize(int width, int height)
+    private void CreateShadowMap()
     {
-    }
+        const int size = DefaultShadowMapSize;
 
-    /// <summary>
-    /// Resizes the shadow map to a custom size.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">
-    /// The size exceeds what the device can attach. The current shadow map is kept.
-    /// </exception>
-    public void ResizeShadowMap(int size)
-    {
-        CreateShadowMap(size, size);
-    }
-
-    private void CreateShadowMap(int width, int height)
-    {
         // The extent this pass allocates is the shadow map size, not the width and height Initialize was
-        // handed, so the device limit is asked here. Refuse before disposing, so a refused resize keeps
-        // the map it had.
-        DeviceExtentLimits.ThrowIfCannotAttach(Context, width, height);
+        // handed, so the device limit is asked here, before anything is allocated.
+        DeviceExtentLimits.ThrowIfCannotAttach(Context, size, size);
 
-        DisposeShadowMap();
+        ShadowDepthTexture = Context.CreateTexture2D(size, size, TextureFormat.Depth32Float);
 
-        ShadowDepthTexture = Context.CreateTexture2D(width, height, TextureFormat.Depth32Float);
-
-        DummyColorTexture = Context.CreateTexture2D(width, height, TextureFormat.R8Unorm);
+        _dummyColorTexture = Context.CreateTexture2D(size, size, TextureFormat.R8Unorm);
 
         RenderPass = Context.CreateRenderPass3D(ShadowPassFormats, TextureFormat.Depth32Float);
         Framebuffer = Context.CreateFramebuffer3D(
             RenderPass,
-            [DummyColorTexture],
+            [_dummyColorTexture],
             ShadowDepthTexture);
     }
 
@@ -142,7 +123,7 @@ void main() {
     /// <summary>
     /// Sets up the shadow pass for a directional light.
     /// </summary>
-    public void SetupForDirectionalLight(DirectionalLight3D.Resource light, Vector3 sceneCenter, float sceneRadius)
+    public void SetupForDirectionalLight(DirectionalLight3D.Resource light, Vector3 sceneCenter)
     {
         var direction = NormalizeLightDirection(light.Direction);
 
@@ -235,14 +216,9 @@ void main() {
         MeshDrawHelper.Draw(RenderPass!, meshResource);
     }
 
-    private void DisposeShadowMap()
-    {
-        DisposeResources([Framebuffer, RenderPass, ShadowDepthTexture, DummyColorTexture]);
-    }
-
     protected override void OnDispose()
     {
         DisposeResources([_pipelines.OneSided, _pipelines.DoubleSided, Framebuffer,
-            RenderPass, ShadowDepthTexture, DummyColorTexture]);
+            RenderPass, ShadowDepthTexture, _dummyColorTexture]);
     }
 }

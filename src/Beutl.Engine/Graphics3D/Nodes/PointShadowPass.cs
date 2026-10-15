@@ -11,7 +11,7 @@ namespace Beutl.Graphics3D.Nodes;
 /// Shadow pass for rendering point light shadow cube maps.
 /// Renders 6 faces for omnidirectional shadows.
 /// </summary>
-public sealed class PointShadowPass : GraphicsNode3D
+public sealed class PointShadowPass : RenderNode3D
 {
     /// <summary>
     /// Default cube face size for point light shadow maps.
@@ -106,72 +106,27 @@ void main() {
     }
 
     /// <summary>
-    /// Gets the shadow cube map texture.
-    /// </summary>
-    public ITextureCube? ShadowCubeTexture { get; private set; }
-
-    /// <summary>
     /// Gets the depth textures for each cube face (for copying to cube array).
     /// </summary>
     internal IReadOnlyList<ITexture2D?> FaceDepthTextures => _faceDepthTextures;
 
-    /// <summary>
-    /// Gets the light position for this shadow.
-    /// </summary>
-    public Vector3 LightPosition => _lightPosition;
-
-    /// <summary>
-    /// Gets the far plane distance for depth linearization.
-    /// </summary>
-    public float FarPlane => _farPlane;
-
-    /// <summary>
-    /// Gets the light view matrices for each cube face.
-    /// </summary>
-    public IReadOnlyList<Matrix4x4> LightViewMatrices => _lightViewMatrices;
-
-    /// <summary>
-    /// Gets the light projection matrix (same for all faces).
-    /// </summary>
-    public Matrix4x4 LightProjectionMatrix => _lightProjectionMatrix;
-
     protected override void OnInitialize(int width, int height)
     {
-        CreateShadowCubeMap(DefaultCubeFaceSize);
+        CreateFaceResources();
         CompileShaders();
         CreatePipeline();
         CreateLightDataBuffer();
     }
 
-    protected override void OnResize(int width, int height)
+    private void CreateFaceResources()
     {
-    }
+        const int faceSize = DefaultCubeFaceSize;
 
-    /// <summary>
-    /// Resizes the shadow cube map to a custom face size.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">
-    /// The face exceeds what the device can make of a cube map or render through a 2D attachment. The
-    /// current cube map is kept.
-    /// </exception>
-    public void ResizeShadowMap(int faceSize)
-    {
-        CreateShadowCubeMap(faceSize);
-    }
-
-    private void CreateShadowCubeMap(int faceSize)
-    {
         // The extent this pass allocates is the face size, not the width and height Initialize was handed,
-        // so the device limit is asked here. Each face is drawn into a 2D attachment and copied into the
-        // cube, so it has to fit the cube limit and the attachment limit both. Refuse before disposing, so
-        // a refused resize keeps the map it had.
+        // so the device limit is asked here, before anything is allocated. Each face is drawn into a 2D
+        // attachment and copied into a face of the shadow manager's cube array, so it has to fit the cube
+        // limit and the attachment limit both.
         DeviceExtentLimits.ThrowIfCannotAttachCubeFaces(Context, faceSize);
-
-        DisposeFaceResources();
-        RenderPass?.Dispose();
-        ShadowCubeTexture?.Dispose();
-
-        ShadowCubeTexture = Context.CreateTextureCube(faceSize, TextureFormat.Depth32Float);
 
         RenderPass = Context.CreateRenderPass3D(s_shadowPassFormats, TextureFormat.Depth32Float);
 
@@ -188,15 +143,6 @@ void main() {
         }
     }
 
-    private void DisposeFaceResources()
-    {
-        IDisposable?[] resources = [.. _faceFramebuffers, .. _faceDummyTextures, .. _faceDepthTextures];
-        Array.Clear(_faceFramebuffers);
-        Array.Clear(_faceDummyTextures);
-        Array.Clear(_faceDepthTextures);
-        DisposeResources(resources);
-    }
-
     private void CompileShaders()
     {
         _vertexShaderSpirv = ShaderCompiler.CompileToSpirv(PointShadowVertexShader, ShaderStage.Vertex);
@@ -207,9 +153,6 @@ void main() {
     {
         if (RenderPass == null || _vertexShaderSpirv == null || _fragmentShaderSpirv == null)
             return;
-
-        _descriptorSet?.Dispose();
-        _doubleSidedDescriptorSet?.Dispose();
 
         var descriptorBindings = new DescriptorBinding[]
         {
@@ -223,17 +166,10 @@ void main() {
         };
         _descriptorSet = Context.CreateDescriptorSet(_pipelines.OneSided!, poolSizes);
         _doubleSidedDescriptorSet = Context.CreateDescriptorSet(_pipelines.DoubleSided!, poolSizes);
-
-        if (_lightDataBuffer != null)
-        {
-            _descriptorSet.UpdateBuffer(0, _lightDataBuffer);
-            _doubleSidedDescriptorSet.UpdateBuffer(0, _lightDataBuffer);
-        }
     }
 
     private void CreateLightDataBuffer()
     {
-        _lightDataBuffer?.Dispose();
         _lightDataBuffer = MaterialGpuResources.CreateUniformBuffer<LightDataUBO>(Context);
 
         _descriptorSet?.UpdateBuffer(0, _lightDataBuffer);
@@ -300,7 +236,7 @@ void main() {
     {
         var framebuffer = _faceFramebuffers[faceIndex];
         var depthTexture = _faceDepthTextures[faceIndex];
-        if (framebuffer == null || depthTexture == null || ShadowCubeTexture == null)
+        if (framebuffer == null || depthTexture == null)
             return;
 
         var lightVP = _lightViewMatrices[faceIndex] * _lightProjectionMatrix;
@@ -323,8 +259,6 @@ void main() {
         {
             RenderPass.End();
         }
-
-        Context.CopyTextureToCubeFace(depthTexture, ShadowCubeTexture, faceIndex);
     }
 
     private void RenderMesh(Object3D.Resource obj, Matrix4x4 lightVP, Matrix4x4 worldMatrix)
@@ -346,6 +280,6 @@ void main() {
     {
         DisposeResources([_pipelines.OneSided, _pipelines.DoubleSided, _descriptorSet,
             _doubleSidedDescriptorSet, _lightDataBuffer, .. _faceFramebuffers,
-            .. _faceDummyTextures, .. _faceDepthTextures, RenderPass, ShadowCubeTexture]);
+            .. _faceDummyTextures, .. _faceDepthTextures, RenderPass]);
     }
 }

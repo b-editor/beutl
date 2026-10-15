@@ -52,7 +52,7 @@ public class ProxyVideoLogicalSizeTests
         var source = new VideoSource();
         source.ReadFrom(new Uri(scope.OriginalPath));
         using var resource = source.ToResource(new CompositionContext(TimeSpan.Zero) { PreferProxy = true });
-        using var node = new VideoSourceRenderNode(resource, frame: 0, Brushes.Resource.White, null);
+        using var node = new VideoSourceRenderNode(resource, frame: 0, Brushes.Resource.White);
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
@@ -78,7 +78,7 @@ public class ProxyVideoLogicalSizeTests
         var source = new VideoSource();
         source.ReadFrom(new Uri(path));
         using var resource = source.ToResource(new CompositionContext(TimeSpan.Zero) { PreferProxy = false });
-        using var node = new VideoSourceRenderNode(resource, frame: 0, Brushes.Resource.White, null);
+        using var node = new VideoSourceRenderNode(resource, frame: 0, Brushes.Resource.White);
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
@@ -170,7 +170,7 @@ public class ProxyVideoLogicalSizeTests
             using (var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1f))
             {
                 canvas.Clear(Colors.Black);
-                canvas.DrawVideoSource(resource, 1, Brushes.Resource.White, null);
+                canvas.DrawVideoSource(resource, 1, Brushes.Resource.White);
             }
 
             using Bitmap snapshot = target.Snapshot();

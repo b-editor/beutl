@@ -150,14 +150,6 @@ public class MatrixTests
     }
 
     [Test]
-    public void ComposeTransform_RoundTripsTranslation()
-    {
-        Matrix m = Matrix.ComposeTransform(new Vector(5, 6), Vector.One, Vector.Zero, 0);
-        Assert.That(m.M31, Is.EqualTo(5).Within(1e-5f));
-        Assert.That(m.M32, Is.EqualTo(6).Within(1e-5f));
-    }
-
-    [Test]
     public void ToString_NonPerspective_UsesShortForm()
     {
         Matrix m = Matrix.CreateTranslation(2, 3);

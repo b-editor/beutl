@@ -684,7 +684,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
                 bitmap.GetPixelSpan<Half>(), sourceScene, size);
             using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1, 1, new Size(size.Width, size.Height));
             canvas.Clear();
-            canvas.DrawBitmap(bitmap, Brushes.Resource.White, null);
+            canvas.DrawBitmap(bitmap, Brushes.Resource.White);
         }
         return new BenchmarkMaterializedSourceNode(target, bounds);
     }
