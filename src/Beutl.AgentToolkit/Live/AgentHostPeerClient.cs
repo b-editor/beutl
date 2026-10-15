@@ -18,8 +18,6 @@ public sealed class AgentHostPeerClient(AgentHostInstanceRegistry registry, Agen
     public const string InstanceHeader = "X-Beutl-Instance-Id";
     private static readonly TimeSpan s_connectionTimeout = TimeSpan.FromSeconds(2);
 
-    public AgentHostInstanceRegistry Registry => registry;
-
     public AgentHostInstanceRegistration? Find(string instanceId)
         => registry.Read().FirstOrDefault(entry => entry.InstanceId == instanceId);
 

@@ -31,7 +31,7 @@ internal static class AgentHostSceneRouter
                 return LiveToolRouting.EditSchema(tool, (schema, properties) =>
                 {
                     properties.Remove("session");
-                    properties["sceneId"] = new JsonObject
+                    properties[AgentHostSceneRouting.SceneIdArgument] = new JsonObject
                     {
                         ["type"] = "string",
                         ["description"] = "Target scene ID from list_scenes or open_project/create_project/add_scene. Pass it on every scene call. The visible editor selection stays unchanged. Closed scenes receive an unselected background tab for normal history and save lifecycle; no attach or shared selected scene is used."
@@ -42,7 +42,7 @@ internal static class AgentHostSceneRouter
                         var required = schema["required"] as JsonArray;
                         if (required is null)
                             schema["required"] = required = new JsonArray();
-                        required.Add("sceneId");
+                        required.Add(AgentHostSceneRouting.SceneIdArgument);
                     }
                 });
             }).ToArray();
@@ -56,7 +56,8 @@ internal static class AgentHostSceneRouter
             if (!required && !s_optional.Contains(original.Name))
                 return await next(context, cancellationToken).ConfigureAwait(false);
 
-            if (original.Arguments is not { } arguments || !arguments.TryGetValue("sceneId", out JsonElement id))
+            if (original.Arguments is not { } arguments
+                || !arguments.TryGetValue(AgentHostSceneRouting.SceneIdArgument, out JsonElement id))
                 return required ? InvalidTarget() : await next(context, cancellationToken).ConfigureAwait(false);
             if (id.ValueKind != JsonValueKind.String || !Guid.TryParse(id.GetString(), out Guid sceneId)
                 || sceneId == Guid.Empty)
@@ -67,7 +68,7 @@ internal static class AgentHostSceneRouter
                 return InvalidTarget("Live MCP uses sceneId on each call; remove the session argument.");
 
             var localArguments = new Dictionary<string, JsonElement>(arguments, StringComparer.Ordinal);
-            localArguments.Remove("sceneId");
+            localArguments.Remove(AgentHostSceneRouting.SceneIdArgument);
             if (original.Name == "add_scene")
                 localArguments["session"] = JsonSerializer.SerializeToElement(sceneId.ToString());
 
@@ -89,7 +90,7 @@ internal static class AgentHostSceneRouter
                 Text = JsonSerializer.Serialize(ToolResult<object?>.Failure(
                     ErrorCode.ValidationRejected,
                     message ?? "Pass a valid sceneId on every scene tool call.",
-                    "sceneId", "Call list_scenes on the target instance to discover scene IDs."), s_jsonOptions)
+                    AgentHostSceneRouting.SceneIdArgument, "Call list_scenes on the target instance to discover scene IDs."), s_jsonOptions)
             }]
         };
 }

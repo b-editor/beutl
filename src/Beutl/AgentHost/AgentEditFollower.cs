@@ -1,6 +1,7 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
 using Avalonia.Threading;
+using Beutl.AgentToolkit.Live;
 using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Editor;
@@ -94,7 +95,7 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
         filters.AddCallToolFilter(next => async (context, cancellationToken) =>
         {
             if (context.Params is not { Name: "render_still", Arguments: { } arguments }
-                || !arguments.TryGetValue("sceneId", out JsonElement id)
+                || !arguments.TryGetValue(AgentHostSceneRouting.SceneIdArgument, out JsonElement id)
                 || id.ValueKind != JsonValueKind.String
                 || !Guid.TryParse(id.GetString(), out Guid sceneId)
                 || context.Services?.GetService<AgentEditFollower>() is not { IsEnabled: true } follower)
