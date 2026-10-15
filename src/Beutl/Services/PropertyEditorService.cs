@@ -387,6 +387,14 @@ public static class PropertyEditorService
                         static (editor, p) => editor.CreateEditor(p));
                     if (control != null)
                     {
+                        // TryCreateControlCore prepares the editors it creates, so only these need it here.
+                        ApplyFileFilters(context, control as Control);
+
+                        if (control is IPropertyEditorContextVisitor visitor)
+                        {
+                            context.Accept(visitor);
+                        }
+
                         return true;
                     }
                 }
@@ -413,13 +421,6 @@ public static class PropertyEditorService
             }
             finally
             {
-                ApplyFileFilters(context, control as Control);
-
-                if (control is IPropertyEditorContextVisitor visitor)
-                {
-                    context.Accept(visitor);
-                }
-
                 if (control is PropertyEditor pe)
                 {
                     pe.EditorStyle = PropertyEditorStyle.ListItem;
