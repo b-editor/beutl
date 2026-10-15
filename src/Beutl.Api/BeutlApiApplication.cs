@@ -341,10 +341,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
         Register(() => new DiscoverService(this));
         Register(() => _extensionProvider);
         Register(() => new ContextCommandSettingsStore());
-        Register(() => new ContextCommandHandlerRegistry());
-        Register(() => new ContextCommandManager(
-            GetResource<ContextCommandSettingsStore>(),
-            GetResource<ContextCommandHandlerRegistry>()));
+        Register(() => new ContextCommandManager(GetResource<ContextCommandSettingsStore>()));
         Register(() => new InstalledPackageRepository());
         Register(() => new AcceptedLicenseManager());
         Register(() => new PackageChangesQueue());
@@ -399,18 +396,9 @@ public partial class BeutlApiApplication : IAsyncDisposable
             GetResource<AiJobChangeNotifier>().Changes,
             TimeSpan.FromSeconds(5)));
         Register(CreatePackageInstaller);
-        Register(() =>
-        {
-            // Unload diagnostics take a heavy ClrMD self-snapshot and write a dump; they are a development-only aid,
-            // so Release builds wire null and neither snapshot, dump, nor log on an unload failure.
-            ILoadContextUnloadDiagnostics? unloadDiagnostics = null;
-#if DEBUG
-            unloadDiagnostics = new ClrmdLoadContextUnloadDiagnostics();
-#endif
-            return new PackageManager(
-                GetResource<InstalledPackageRepository>(), GetResource<ExtensionProvider>(),
-                GetResource<ContextCommandManager>(), this, unloadDiagnostics);
-        });
+        Register(() => new PackageManager(
+            GetResource<InstalledPackageRepository>(), GetResource<ExtensionProvider>(),
+            GetResource<ContextCommandManager>(), this));
     }
 
     private void Register<T>(Func<T> factory)

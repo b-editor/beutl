@@ -11,14 +11,6 @@ public partial class BeutlApiApplication
 {
     private static string UserFilePath => Path.Combine(Helper.AppRoot, UserFileName);
 
-    public void SaveUser()
-    {
-        if (_authenticatedUser.Value is { } user)
-        {
-            SaveUser(user);
-        }
-    }
-
     private void SaveUser(AuthenticatedUser user)
     {
         lock (_authenticationGate)

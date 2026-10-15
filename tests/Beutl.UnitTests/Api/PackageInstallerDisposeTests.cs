@@ -568,7 +568,7 @@ public sealed class PackageInstallerDisposeTests
         {
         }
 
-        protected override long DrainDeadlineMilliseconds => 500;
+        internal override long DrainDeadlineMilliseconds => 500;
     }
 
     private sealed class BlockingHandler : HttpMessageHandler

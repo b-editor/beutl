@@ -64,11 +64,4 @@
     <EmbeddedResource Include="..\..\src\Beutl.Controls\Assets\Fonts\NotoSansSC\NotoSansSC-Regular.otf" LogicalName="NotoSansSC-Regular.otf" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(Configuration)' != 'Debug'">
-    <!-- Beutl.Api compiles the ClrMD unload diagnostics only in Debug. -->
-    <Compile Remove="Api\ClrmdUnloadDiagnosticsTests.cs" />
-    <Compile Remove="Api\UnloadDiagnosticsDumpRetentionTests.cs" />
-    <Compile Remove="Api\UnloadDiagnosticsReportTests.cs" />
-  </ItemGroup>
-
 </Project>

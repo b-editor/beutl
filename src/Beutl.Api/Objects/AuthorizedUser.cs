@@ -24,26 +24,6 @@ public class AuthenticatedUser(
         }
     }
 
-    public string RefreshToken
-    {
-        get
-        {
-            lock (_stateGate)
-                return _response.RefreshToken;
-        }
-    }
-
-    public DateTimeOffset Expiration
-    {
-        get
-        {
-            lock (_stateGate)
-                return _response.Expiration;
-        }
-    }
-
-    public bool IsExpired => Expiration < DateTimeOffset.UtcNow;
-
     public AsyncLock Lock => clients.Lock;
 
     public ValueTask RefreshAsync(

@@ -19,17 +19,6 @@ public class LibraryService(BeutlApiApplication clients) : IBeutlApiResource
         return new Package(owner, package, clients);
     }
 
-    public async Task<Profile> GetProfile(string name, CancellationToken cancellationToken)
-    {
-        using CancellationTokenSource lifetimeCts = clients.CreateLifetimeLinkedTokenSource(cancellationToken);
-        CancellationToken token = lifetimeCts.Token;
-        token.ThrowIfCancellationRequested();
-        using Activity? activity = clients.ActivitySource.StartActivity("LibraryService.GetProfile", ActivityKind.Client);
-        ProfileResponse response = await clients.Users.GetUser(name, token);
-        token.ThrowIfCancellationRequested();
-        return new Profile(response, clients);
-    }
-
     public async Task<Package[]> GetPackages(
         CancellationToken cancellationToken,
         int start = 0,

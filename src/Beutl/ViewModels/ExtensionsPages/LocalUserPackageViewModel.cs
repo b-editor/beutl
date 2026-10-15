@@ -23,7 +23,7 @@ public sealed class LocalUserPackageViewModel : IUserPackageViewModel
         Package = package;
         _packageIdentity = new PackageIdentity(package.Name, new NuGetVersion(package.Version));
         DisplayName = new ReactivePropertySlim<string>(package.DisplayName);
-        LogoUrl = new ReactivePropertySlim<string>(package.Logo);
+        LogoUrl = new ReactivePropertySlim<string>(string.Empty);
 
         _handler = new PackageOperationHandler(app, editorService, projectService);
 

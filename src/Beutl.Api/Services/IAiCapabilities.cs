@@ -84,8 +84,7 @@ public interface IAiCaptionTranslationService : IBeutlApiResource
 
 public interface IAiVideoService : IBeutlApiResource
 {
-    Task<AiVideoGenerationResult> CreateFromSourceAsync(AiSourceVideoRequest request, CancellationToken cancellationToken)
-        => throw new NotSupportedException();
+    Task<AiVideoGenerationResult> CreateFromSourceAsync(AiSourceVideoRequest request, CancellationToken cancellationToken);
 
     Task<AiVideoGenerationResult> CreateAsync(
         AiVideoGenerationRequest request,

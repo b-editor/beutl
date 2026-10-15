@@ -63,8 +63,6 @@ public class LocalPackage
 
     public string ShortDescription { get; set; } = string.Empty;
 
-    public string Logo { get; set; } = string.Empty;
-
     // VersionRange
     public string? TargetVersion { get; set; }
 

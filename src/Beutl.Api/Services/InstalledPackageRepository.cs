@@ -36,9 +36,6 @@ public class InstalledPackageRepository : IBeutlApiResource
         return _packages.Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name));
     }
 
-    public void UpgradePackages(PackageIdentity package)
-        => UpgradePackagesAndDeferNotifications(package)();
-
     internal Action UpgradePackagesAndDeferNotifications(PackageIdentity package)
     {
         _logger.LogInformation("Upgrading package: {PackageId} to version: {PackageVersion}", package.Id, package.Version);
@@ -85,61 +82,6 @@ public class InstalledPackageRepository : IBeutlApiResource
                 catch (Exception ex) { failure(ex); }
             }
         }
-    }
-
-    public void AddPackage(string name, string version)
-    {
-        _logger.LogInformation("Adding package: {PackageName} with version: {PackageVersion}", name, version);
-        var package = new PackageIdentity(name, new NuGetVersion(version));
-        string? installedPath = Helper.PackagePathResolver.GetInstalledPath(package);
-        if (!Directory.Exists(installedPath))
-        {
-            _logger.LogError("Directory not found for package: {PackageName} with version: {PackageVersion}", name, version);
-            throw new DirectoryNotFoundException();
-        }
-
-        if (_packages.Add(package))
-        {
-            _resolvedBeutlVersions[package.Id] = BeutlApplication.Version;
-            Save();
-            _subject.OnNext((package, true));
-        }
-
-        _logger.LogInformation("Added package: {PackageName} with version: {PackageVersion}", name, version);
-    }
-
-    public void AddPackage(PackageIdentity package)
-    {
-        _logger.LogInformation("Adding package: {PackageId} with version: {PackageVersion}", package.Id, package.Version);
-        string? installedPath = Helper.PackagePathResolver.GetInstalledPath(package);
-        if (!Directory.Exists(installedPath))
-        {
-            _logger.LogError("Directory not found for package: {PackageId} with version: {PackageVersion}", package.Id, package.Version);
-            throw new DirectoryNotFoundException();
-        }
-
-        if (_packages.Add(package))
-        {
-            _resolvedBeutlVersions[package.Id] = BeutlApplication.Version;
-            Save();
-            _subject.OnNext((package, true));
-        }
-        _logger.LogInformation("Added package: {PackageId} with version: {PackageVersion}", package.Id, package.Version);
-    }
-
-    public void RemovePackage(string name, string version)
-    {
-        _logger.LogInformation("Removing package: {PackageName} with version: {PackageVersion}", name, version);
-        var nugetVersion = new NuGetVersion(version);
-        PackageIdentity? package = _packages.FirstOrDefault(
-            x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name) && x.Version == nugetVersion);
-        if (package != null && _packages.Remove(package))
-        {
-            _resolvedBeutlVersions.Remove(name);
-            Save();
-            _subject.OnNext((package, false));
-        }
-        _logger.LogInformation("Removed package: {PackageName} with version: {PackageVersion}", name, version);
     }
 
     public void RemovePackage(PackageIdentity package)
@@ -189,9 +131,9 @@ public class InstalledPackageRepository : IBeutlApiResource
         return _packages.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name));
     }
 
-    public IObservable<bool> GetObservable(string name, string? version = null)
+    public IObservable<bool> GetObservable(string name)
     {
-        return new ObserverIsolatingObservable<bool>(new _Observable(this, name, version), ReportObserverFailure);
+        return new ObserverIsolatingObservable<bool>(new _Observable(this, name), ReportObserverFailure);
     }
 
     public IObservable<PackageIdentity?> GetPackageObservable(string name)
@@ -272,30 +214,17 @@ public class InstalledPackageRepository : IBeutlApiResource
     {
         private readonly InstalledPackageRepository _repository;
         private readonly string _name;
-        private readonly PackageIdentity? _packageIdentity;
         private IDisposable? _disposable;
 
-        public _Observable(InstalledPackageRepository repository, string name, string? version)
+        public _Observable(InstalledPackageRepository repository, string name)
         {
             _repository = repository;
             _name = name;
-
-            if (version is { })
-            {
-                _packageIdentity = new PackageIdentity(name, new NuGetVersion(version));
-            }
         }
 
         protected override void Subscribed(IObserver<bool> observer, bool first)
         {
-            if (_packageIdentity is { })
-            {
-                observer.OnNext(_repository.ExistsPackage(_packageIdentity));
-            }
-            else
-            {
-                observer.OnNext(_repository.ExistsPackage(_name));
-            }
+            observer.OnNext(_repository.ExistsPackage(_name));
         }
 
         protected override void Deinitialize()
@@ -312,14 +241,7 @@ public class InstalledPackageRepository : IBeutlApiResource
 
         private void OnReceived((PackageIdentity Package, bool Exists) obj)
         {
-            if (_packageIdentity != null)
-            {
-                if (PackageIdentity.Comparer.Equals(_packageIdentity, obj.Package))
-                {
-                    PublishNext(obj.Exists);
-                }
-            }
-            else if (StringComparer.OrdinalIgnoreCase.Equals(obj.Package.Id, _name))
+            if (StringComparer.OrdinalIgnoreCase.Equals(obj.Package.Id, _name))
             {
                 // Per-event Exists is unreliable for name-only observers; re-evaluate the aggregate.
                 PublishNext(_repository.ExistsPackage(_name));

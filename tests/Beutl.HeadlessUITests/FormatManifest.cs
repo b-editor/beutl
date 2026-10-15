@@ -318,7 +318,7 @@ internal static partial class FormatManifest
         {
             foreach (ContextCommandDefinition definition in extension.ContextCommands)
             {
-                keymap.Add(ContextCommandHandlerRegistry.GetFullName(extension.GetType(), definition.Name));
+                keymap.Add(ContextCommandManager.GetFullName(extension.GetType(), definition.Name));
             }
         }
 

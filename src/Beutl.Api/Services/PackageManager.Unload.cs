@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using Beutl.Extensibility;
-using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using Telemetry = Beutl.Api.Services.PackageManagementActivitySource;
 
@@ -62,14 +61,11 @@ public sealed partial class PackageManager
     {
         using (Activity? activity = Telemetry.ActivitySource.StartActivity("Unload"))
         {
-            PackageUnloadResult? result = await UnloadCoreAsync(activity, package);
-            if (result is null)
+            WeakReference? weakReference = await UnloadCoreAsync(activity, package);
+            if (weakReference is null)
             {
                 return false;
             }
-
-            WeakReference weakReference = result.LoadContextReference;
-            string[] assemblyNames = result.AssemblyNames;
 
             for (int i = 0; weakReference.IsAlive && (i < 10); i++)
             {
@@ -79,23 +75,14 @@ public sealed partial class PackageManager
                 await Task.Delay(100).ConfigureAwait(false);
             }
 
-            bool unloaded = !weakReference.IsAlive;
-            if (!unloaded && unloadDiagnostics is { } diagnostics && assemblyNames.Length > 0)
-            {
-                activity?.AddEvent(new ActivityEvent("Prompting for unload diagnostics"));
-                // Ask before snapshotting: the ClrMD self-snapshot is heavy, so the developer decides whether it runs.
-                PromptCaptureUnloadDiagnostics(diagnostics, package.Name, assemblyNames);
-            }
-
-            return unloaded;
+            return !weakReference.IsAlive;
         }
     }
 
-    private async ValueTask<PackageUnloadResult?> UnloadCoreAsync(
+    private async ValueTask<WeakReference?> UnloadCoreAsync(
         Activity? activity,
         LocalPackage package)
     {
-        string[] assemblyNames = [];
         activity?.SetTag("PackageName", package.Name);
 
         if (!_loadedPackages.TryGetValue(package.LocalId, out LoadedPackageInfo? info))
@@ -160,14 +147,11 @@ public sealed partial class PackageManager
 
         if (info.LoadContext is { } loadContext)
         {
-            assemblyNames = CaptureAssemblyNames(package, loadContext);
             TryUnloadLoadContext(package, loadContext);
         }
 
         // https://learn.microsoft.com/ja-jp/dotnet/standard/assembly/unloadability#use-a-custom-collectible-assemblyloadcontext
-        return new PackageUnloadResult(
-            new WeakReference(info.LoadContext, trackResurrection: true),
-            assemblyNames);
+        return new WeakReference(info.LoadContext, trackResurrection: true);
     }
 
     private ExtensionRemoval? RemovePackageRegistrations(
@@ -262,103 +246,6 @@ public sealed partial class PackageManager
         }
     }
 
-    private string[] CaptureAssemblyNames(LocalPackage package, PluginLoadContext loadContext)
-    {
-        try
-        {
-            // Capture only the assembly names as strings; never retain the assemblies/types, or the later
-            // diagnostics pass would itself root the context it is meant to diagnose.
-            return [.. loadContext.Assemblies
-                .Select(a => a.GetName().Name)
-                .OfType<string>()
-                .Distinct(StringComparer.OrdinalIgnoreCase)];
-        }
-        catch (Exception ex)
-        {
-            // Best-effort like TryUnloadLoadContext: a reflection failure here must not break the unload flow.
-            _logger.LogWarning(ex, "Failed to capture assembly names for unload diagnostics of {PackageName}.", package.Name);
-            return [];
-        }
-    }
-
-    private sealed record PackageUnloadResult(
-        WeakReference LoadContextReference,
-        string[] AssemblyNames);
-
     private static bool SupportsLiveUnload(Extension extension)
         => extension is ILiveUnloadExtension;
-
-    // Test seam: a unit test substitutes this to assert the capture opens the written dump path without launching a
-    // real process. Production leaves it as OpenDumpFile.
-    internal Action<string> DumpOpener
-    {
-        get => _dumpOpener ??= OpenDumpFile;
-        set => _dumpOpener = value;
-    }
-
-    // Diagnostics are wired only in Debug builds (BeutlApiApplication injects null in Release), so [Conditional]
-    // strips this prompt the same way, keeping the offer in step with the capture it would trigger.
-    [Conditional("DEBUG")]
-    internal void PromptCaptureUnloadDiagnostics(
-        ILoadContextUnloadDiagnostics diagnostics, string packageName, string[] assemblyNames)
-    {
-        NotificationService.ShowWarning(
-            $"Failed to unload '{packageName}'",
-            "The extension's load context is still alive. Capture a diagnostics dump to find what is keeping the "
-            + "assemblies loaded?",
-            expiration: TimeSpan.FromSeconds(30),
-            actions:
-            [
-                // Offload: the ClrMD self-snapshot is heavy and must not block the UI thread the click runs on.
-                new NotificationAction(
-                    "Capture dump",
-                    () => { _ = Task.Run(() => CaptureAndOpenUnloadDump(diagnostics, packageName, assemblyNames)); })
-            ]);
-    }
-
-    // Synchronous so a test can drive it directly; production reaches it from the prompt action's Task.Run. Contained
-    // because CaptureUnloadFailure is a public interface a third-party implementation could throw from.
-    internal void CaptureAndOpenUnloadDump(
-        ILoadContextUnloadDiagnostics diagnostics, string packageName, string[] assemblyNames)
-    {
-        try
-        {
-            string? dumpPath = diagnostics.CaptureUnloadFailure(packageName, assemblyNames);
-            if (!string.IsNullOrEmpty(dumpPath))
-            {
-                DumpOpener(dumpPath);
-            }
-            else
-            {
-                // The capture ran but produced nothing (context already collected / another capture holds the gate /
-                // snapshotting unsupported). The click already dismissed the prompt, so acknowledge it or it looks dead.
-                NotifyDiagnosticsUnavailable(packageName);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Unload diagnostics capture threw for {PackageName}.", packageName);
-        }
-    }
-
-    private static void NotifyDiagnosticsUnavailable(string packageName)
-    {
-        NotificationService.ShowInformation(
-            $"No dump captured for '{packageName}'",
-            "The load context was already collected, another capture is in progress, or snapshotting is "
-            + "unavailable. See the log for details.");
-    }
-
-    private void OpenDumpFile(string dumpPath)
-    {
-        try
-        {
-            // UseShellExecute routes to the OS handler (ShellExecute / open / xdg-open) to open the .txt on any platform.
-            Process.Start(new ProcessStartInfo(dumpPath) { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to open unload diagnostics dump at {DumpPath}.", dumpPath);
-        }
-    }
 }

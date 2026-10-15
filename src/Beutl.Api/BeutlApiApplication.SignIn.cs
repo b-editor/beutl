@@ -95,13 +95,4 @@ public partial class BeutlApiApplication
         }
         return user;
     }
-
-    public static void OpenAccountSettings()
-    {
-        Process.Start(new ProcessStartInfo($"{BaseUrl}/account/manage")
-        {
-            UseShellExecute = true,
-            Verb = "open",
-        });
-    }
 }

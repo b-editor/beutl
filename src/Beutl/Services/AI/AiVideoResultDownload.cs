@@ -27,7 +27,7 @@ internal static class AiVideoResultDownload
             }
 
             AiContentMetadata? metadata = AiContentMetadata.Combine(declaredMetadata, download.Metadata);
-            string extension = metadata?.GetFileExtension(".mp4", "video") ?? ".mp4";
+            string extension = metadata?.GetFileExtension() ?? ".mp4";
             string completedPath = Path.ChangeExtension(stagingPath, extension);
             File.Move(stagingPath, completedPath);
             ownedPath = completedPath;

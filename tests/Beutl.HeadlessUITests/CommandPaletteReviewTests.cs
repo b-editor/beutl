@@ -164,7 +164,7 @@ public sealed class CommandPaletteReviewTests
         var extension = (ViewExtension)Activator.CreateInstance(type)!;
         var provider = new ExtensionProvider();
         provider.AddExtensions(-43004, [extension]);
-        var manager = new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry());
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore());
         manager.Register(extension);
         var service = new CommandPaletteService(manager, new FixedHandlerProvider(new Handler(_ => Task.CompletedTask)), () => null, new EditorService(provider), provider);
         IReadOnlyList<PaletteCommand> snapshot = service.EnumerateCommands();
