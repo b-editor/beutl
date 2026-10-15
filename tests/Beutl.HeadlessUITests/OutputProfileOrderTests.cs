@@ -2,7 +2,6 @@
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
-using Avalonia.Platform.Storage;
 using Beutl.Editor;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
@@ -57,7 +56,6 @@ public sealed class OutputProfileOrderTests
 
     private sealed class OrderOutputExtension : OutputExtension
     {
-        public override FilePickerFileType GetFilePickerFileType() => new("Test output");
         public override bool IsSupported(Type type) => true;
         public override bool TryCreateControl(IEditorContext editor, IOutputContext context, IOutputExecutionController execution,
             [NotNullWhen(true)] out Control? control)
@@ -74,8 +72,6 @@ public sealed class OutputProfileOrderTests
         public OutputExtension Extension => extension;
         public CoreObject Object => value;
         public IReactiveProperty<string> Name { get; } = new ReactivePropertySlim<string>("");
-        public IReadOnlyReactiveProperty<bool> IsIndeterminate { get; } = new ReactivePropertySlim<bool>();
-        public IReadOnlyReactiveProperty<double> Progress { get; } = new ReactivePropertySlim<double>();
         public Task RunAsync(CancellationToken cancellationToken) => Task.CompletedTask;
         public void ReadFromJson(JsonObject json) => Name.Value = json["Name"]!.GetValue<string>();
         public void WriteToJson(JsonObject json) => json["Name"] = Name.Value;

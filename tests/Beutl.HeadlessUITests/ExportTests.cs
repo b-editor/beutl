@@ -65,12 +65,6 @@ public class ExportTests
 
         public IReactiveProperty<string> Name { get; } = new ReactivePropertySlim<string>(fileName);
 
-        public IReadOnlyReactiveProperty<bool> IsIndeterminate { get; }
-            = new ReactivePropertySlim<bool>();
-
-        public IReadOnlyReactiveProperty<double> Progress { get; }
-            = new ReactivePropertySlim<double>();
-
         public int DisposeCount => Volatile.Read(ref _disposeCount);
 
         public int RunCount => Volatile.Read(ref _runCount);
@@ -1193,8 +1187,6 @@ public class ExportTests
         public List<IOutputContext> Contexts { get; } = [];
 
         public List<IOutputExecutionController> Controllers { get; } = [];
-
-        public override FilePickerFileType GetFilePickerFileType() => new("Test output");
 
         public override bool TryCreateControl(
             IEditorContext editorContext,
