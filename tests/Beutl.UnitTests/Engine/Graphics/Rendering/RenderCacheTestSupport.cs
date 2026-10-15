@@ -1,4 +1,5 @@
-﻿using Beutl.Composition;
+﻿using System.Reflection;
+using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -73,7 +74,20 @@ internal static class RenderCacheTestSupport
         return new RenderNodeCachePublication(
             cache,
             CreateCacheIdentity(bounds, name),
-            [new RenderNodeCachedValue(target, bounds, EffectiveScale.At(1))]);
+            [new RenderNodeCachedValue(target, bounds, EffectiveScale.At(1), PixelRect.FromRect(bounds, 1))]);
+    }
+
+    /// <summary>
+    /// Reads back the identity the cache last published. The cache shares it only with the renderer that
+    /// resolved it, so a test reads it here to check it or to look the published values up through the
+    /// production lookup.
+    /// </summary>
+    public static RenderOutputCacheIdentity CurrentCacheIdentity(this RenderNodeCache cache)
+    {
+        object storage = typeof(RenderNodeCache)
+            .GetField("_storage", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(cache)!;
+        return (RenderOutputCacheIdentity)storage.GetType().GetProperty("Identity")!.GetValue(storage)!;
     }
 
     /// <summary>Drives a cache to the stable-request count at which it may capture.</summary>
@@ -83,6 +97,23 @@ internal static class RenderCacheTestSupport
     {
         for (int index = 0; index < count; index++)
             cache.RecordSuccessfulStableRequest();
+    }
+
+    /// <summary>
+    /// Asserts that a cache has recorded no stable request yet: it admits a capture only after all
+    /// <see cref="RenderNodeCache.StableRequestCount"/> of them. It records those requests, so call it where the
+    /// rest of the test no longer reads this cache's warm-up.
+    /// </summary>
+    public static void AssertWarmupRestarted(this RenderNodeCache cache)
+    {
+        for (int recorded = 1; recorded < RenderNodeCache.StableRequestCount; recorded++)
+        {
+            cache.RecordSuccessfulStableRequest();
+            Assert.That(cache.CanCapture, Is.False, $"capture admitted after {recorded} stable requests");
+        }
+
+        cache.RecordSuccessfulStableRequest();
+        Assert.That(cache.CanCapture, Is.True);
     }
 
     /// <summary>

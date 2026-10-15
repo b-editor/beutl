@@ -195,8 +195,6 @@ public class SceneDrawableScaleTests
             Assert.That(sceneNode.Cache.CanCapture, Is.False, "the changing child invalidates its ancestors");
             Assert.That(changing.Cache.CanCapture, Is.False, "the changing child restarts warm-up each frame");
             Assert.That(stable.Cache.CanCapture, Is.True, "the unchanged child retains its warm-up");
-            Assert.That(stable.Cache.SuccessfulStableRequestCount,
-                Is.GreaterThanOrEqualTo(RenderNodeCache.StableRequestCount));
         });
 
         root.Dispose();

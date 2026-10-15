@@ -161,8 +161,9 @@ public class RenderNodeCacheHelperTest
         Assert.Multiple(() =>
         {
             Assert.That(node.HasChanges, Is.True);
-            Assert.That(node.Cache.SuccessfulStableRequestCount, Is.Zero);
+            Assert.That(node.Cache.CanCapture, Is.False);
         });
+        node.Cache.AssertWarmupRestarted();
     }
 
     [Test]
@@ -200,8 +201,9 @@ public class RenderNodeCacheHelperTest
             Assert.That(node.HasChanges, Is.False,
                 "The successful request, not the state setter, consumes the invalidation signal.");
             Assert.That(node.Cache.IsCached, Is.False);
-            Assert.That(node.Cache.SuccessfulStableRequestCount, Is.Zero);
+            Assert.That(node.Cache.CanCapture, Is.False);
         });
+        node.Cache.AssertWarmupRestarted();
     }
 
     [Test]
