@@ -65,12 +65,6 @@ public class ExportTests
 
         public IReactiveProperty<string> Name { get; } = new ReactivePropertySlim<string>(fileName);
 
-        public IReadOnlyReactiveProperty<bool> IsIndeterminate { get; }
-            = new ReactivePropertySlim<bool>();
-
-        public IReadOnlyReactiveProperty<double> Progress { get; }
-            = new ReactivePropertySlim<double>();
-
         public int DisposeCount => Volatile.Read(ref _disposeCount);
 
         public int RunCount => Volatile.Read(ref _runCount);

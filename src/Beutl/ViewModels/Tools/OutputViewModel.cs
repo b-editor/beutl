@@ -38,9 +38,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     private static readonly object s_reportedFailureKey = new();
     private readonly EditViewModel _editViewModel;
     private readonly ILogger _logger = Log.CreateLogger<OutputViewModel>();
-    private readonly ReactiveProperty<bool> _isIndeterminate = new();
     private readonly ReactiveProperty<bool> _isEncoding = new();
-    private readonly ReactivePropertySlim<double> _progress = new();
     private readonly ReadOnlyObservableCollection<ControllableEncodingExtension> _encoders;
     private readonly CompositeDisposable _disposable = [];
     private string? _activeDestination;
@@ -199,11 +197,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public ReactiveProperty<bool> WasCancelled { get; } = new();
 
-    public IReadOnlyReactiveProperty<bool> IsIndeterminate => _isIndeterminate;
-
     public IReadOnlyReactiveProperty<bool> IsEncoding => _isEncoding;
-
-    IReadOnlyReactiveProperty<double> IOutputContext.Progress => _progress;
 
     public FilePickerFileType[] GetFilePickerFileTypes()
     {

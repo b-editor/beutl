@@ -72,8 +72,6 @@ public sealed class OutputProfileOrderTests
         public OutputExtension Extension => extension;
         public CoreObject Object => value;
         public IReactiveProperty<string> Name { get; } = new ReactivePropertySlim<string>("");
-        public IReadOnlyReactiveProperty<bool> IsIndeterminate { get; } = new ReactivePropertySlim<bool>();
-        public IReadOnlyReactiveProperty<double> Progress { get; } = new ReactivePropertySlim<double>();
         public Task RunAsync(CancellationToken cancellationToken) => Task.CompletedTask;
         public void ReadFromJson(JsonObject json) => Name.Value = json["Name"]!.GetValue<string>();
         public void WriteToJson(JsonObject json) => json["Name"] = Name.Value;

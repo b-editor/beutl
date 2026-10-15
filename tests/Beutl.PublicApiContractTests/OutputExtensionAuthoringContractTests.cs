@@ -62,12 +62,6 @@ public sealed class OutputExtensionAuthoringContractTests
 
         public IReactiveProperty<string> Name { get; } = new ReactivePropertySlim<string>("Contract output");
 
-        public IReadOnlyReactiveProperty<bool> IsIndeterminate { get; }
-            = new ReactivePropertySlim<bool>();
-
-        public IReadOnlyReactiveProperty<double> Progress { get; }
-            = new ReactivePropertySlim<double>();
-
         public Task RunAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
         public void Dispose()
