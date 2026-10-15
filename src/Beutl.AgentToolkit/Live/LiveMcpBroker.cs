@@ -22,7 +22,6 @@ public sealed class LiveMcpBroker
     private const string SessionArgument = "session";
 
     private static readonly TimeSpan s_defaultWatchInterval = TimeSpan.FromSeconds(2);
-    private static readonly TimeSpan s_maxRetryDelay = TimeSpan.FromMinutes(1);
 
     private readonly AgentHostInstanceRegistry _registry;
     private readonly Func<string> _tokenProvider;
@@ -32,9 +31,6 @@ public sealed class LiveMcpBroker
     private AgentHostPeerClient? _peers;
     private McpServer? _server;
     private string[]? _advertisedKeys;
-    // Editors that did not answer tools/list, with the next time the watcher asks the client to
-    // list again. The delay doubles from one interval up to a minute until the editor answers.
-    private readonly Dictionary<string, (int Attempts, DateTime NextAt)> _unreachable = new(StringComparer.Ordinal);
 
     public LiveMcpBroker(AgentHostInstanceRegistry registry, Func<string> tokenProvider, ILogger? logger = null)
     {
@@ -106,19 +102,6 @@ public sealed class LiveMcpBroker
                     changed = _advertisedKeys is not null && !current.SequenceEqual(_advertisedKeys);
                     if (changed)
                         _advertisedKeys = current;
-                    DateTime now = DateTime.UtcNow;
-                    foreach ((string id, (int attempts, DateTime nextAt)) in _unreachable.ToArray())
-                    {
-                        if (!current.Any(key => key.StartsWith(id + ":", StringComparison.Ordinal)))
-                            _unreachable.Remove(id);
-                        else if (nextAt <= now)
-                        {
-                            changed = true;
-                            long delay = Math.Min(interval.Ticks * (1L << Math.Min(attempts, 16)), s_maxRetryDelay.Ticks);
-                            _unreachable[id] = (attempts + 1, now + TimeSpan.FromTicks(delay));
-                        }
-                    }
-
                     server = _server;
                 }
 
@@ -170,7 +153,6 @@ public sealed class LiveMcpBroker
         }
 
         IReadOnlyList<AgentHostInstanceRegistration> registrations = _registry.Read();
-        var unreachable = new List<string>();
 
         // Tools that exist only inside an editor (scene discovery, AI generation, extension tools)
         // always need an instanceId. Every running instance is asked, oldest first, so a package
@@ -183,10 +165,7 @@ public sealed class LiveMcpBroker
             for (int i = 0; i < ordered.Length; i++)
             {
                 if (remote[i] is not { } listed)
-                {
-                    unreachable.Add(ordered[i].InstanceId);
                     continue;
-                }
 
                 foreach (Tool tool in listed)
                 {
@@ -196,16 +175,11 @@ public sealed class LiveMcpBroker
             }
         }
 
+        // An editor that did not answer is listed again only once the registry changes or the client lists
+        // again on its own.
         lock (_lock)
         {
             _advertisedKeys = registrations.Select(AdvertisedKey).Order(StringComparer.Ordinal).ToArray();
-            // An editor that did not answer is asked for again: the watcher announces a tools change
-            // with growing delays until the editor answers or exits, so a transient failure never
-            // leaves its tools out of the client's list for good.
-            foreach (string id in _unreachable.Keys.Where(id => !unreachable.Contains(id)).ToArray())
-                _unreachable.Remove(id);
-            foreach (string id in unreachable)
-                _unreachable.TryAdd(id, (0, DateTime.UtcNow));
         }
 
         local.Tools = tools;

@@ -187,7 +187,7 @@ public sealed class LiveMcpBrokerTests
     }
 
     [Test]
-    public async Task Watcher_keeps_asking_for_an_editor_that_does_not_answer_with_growing_delays()
+    public async Task Watcher_does_not_announce_an_editor_that_does_not_answer_again()
     {
         await using InProcessAgentToolkitServer server = await StartServerAsync(Registry, () => "test-token");
         using var changes = new SemaphoreSlim(0);
@@ -220,9 +220,8 @@ public sealed class LiveMcpBrokerTests
             using AgentHostInstanceLease lease = registry.Register(Guid.NewGuid().ToString("N"), new Uri($"http://127.0.0.1:{port}/mcp"));
             Assert.That(await changes.WaitAsync(TimeSpan.FromSeconds(10)), Is.True, "A starting editor is announced.");
             Assert.That((await server.Client.ListToolsAsync()).Select(tool => tool.Name), Does.Not.Contain("list_scenes"));
-            // Without any registry change, the watcher keeps asking the client to list again.
-            for (int i = 0; i < 3; i++)
-                Assert.That(await changes.WaitAsync(TimeSpan.FromSeconds(10)), Is.True, $"Retry {i + 1} is announced.");
+            // Its tools come back only when the registry changes or the client lists again.
+            Assert.That(await changes.WaitAsync(TimeSpan.FromMilliseconds(300)), Is.False, "Nothing else is announced.");
         }
         finally
         {
