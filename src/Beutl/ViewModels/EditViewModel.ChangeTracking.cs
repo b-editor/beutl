@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Editor.Infrastructure;
 using Beutl.Editor.Operations;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
@@ -319,7 +320,7 @@ public partial class EditViewModel
 
         if (obj is Element element)
         {
-            string propertyName = GetPropertyNameFromPath(propertyPath);
+            string propertyName = PropertyPathHelper.GetPropertyNameFromPath(propertyPath);
             if (propertyName == nameof(Element.Start) || propertyName == nameof(Element.Length))
             {
                 TimeRange currentRange = element.Range;
@@ -342,7 +343,7 @@ public partial class EditViewModel
         // via audio-driven visualizers); only lock is editor-only and cache-neutral.
         if (obj is TimelineLayer layer)
         {
-            string propertyName = GetPropertyNameFromPath(propertyPath);
+            string propertyName = PropertyPathHelper.GetPropertyNameFromPath(propertyPath);
             // ZIndex is absent because a layer's ZIndex only changes in
             // LayerMoveService.ApplyMove, whose Element.ZIndex writes already
             // invalidate the same frame ranges via the Element branch above.
@@ -370,17 +371,6 @@ public partial class EditViewModel
         }
 
         return null;
-    }
-
-    private static string GetPropertyNameFromPath(string propertyPath)
-    {
-        if (propertyPath.Contains('.'))
-        {
-            string[] parts = propertyPath.Split('.');
-            return parts[^1];
-        }
-
-        return propertyPath;
     }
 
     private static Element? FindElementFromObject(CoreObject obj)
