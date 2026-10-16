@@ -1,5 +1,6 @@
 ﻿using Beutl.Api.Services;
 using Beutl.Services.AI;
+using Beutl.Testing.Headless;
 using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
@@ -8,22 +9,18 @@ internal static class AiRetryTestContext
 {
     public static AiRetryAttemptContext Create()
         => new(
-            new FileAiRetryKeyStore(Path.Combine(
-                Path.GetTempPath(),
-                "Beutl.HeadlessUITests",
-                "retry-keys",
-                Guid.NewGuid().ToString("N"))),
+            new FileAiRetryKeyStore(TestDirectory("retry-keys")),
             () => new AiAuthenticatedRequestIdentity("headless-account", User: null),
             allowSyntheticIdentity: true);
 
     public static AiRequestRecoveryContext CreateForm()
         => new(
-            new FileAiRequestRecoveryStore(Path.Combine(
-                Path.GetTempPath(),
-                "Beutl.HeadlessUITests",
-                "ai-request-recovery",
-                Guid.NewGuid().ToString("N"))),
+            new FileAiRequestRecoveryStore(TestDirectory("ai-request-recovery")),
             () => new AiAuthenticatedRequestIdentity("test-user", User: null));
+
+    // A new folder under the test home, which the assembly's teardown deletes; the stores create it.
+    private static string TestDirectory(string name)
+        => Path.Combine(BeutlHomeIsolation.CurrentHome!, name, Guid.NewGuid().ToString("N"));
 
     // The built-in job kinds over generation services that the tests never call.
     public static AiJobKindRegistry CreateBuiltInJobKinds()
