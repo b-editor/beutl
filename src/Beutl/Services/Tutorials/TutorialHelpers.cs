@@ -37,10 +37,7 @@ public static class TutorialHelpers
         Project? currentProject = projectService.CurrentProject.Value;
         if (currentProject == null)
         {
-            // ~/.beutl/tmp/tutorials フォルダに保存
-            string tutorialDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".beutl", "tmp", "tutorials");
+            string tutorialDir = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "tutorials");
             Directory.CreateDirectory(tutorialDir);
 
             string fullProjectName = $"{projectName}_{DateTime.Now:yyyyMMddHHmmss}";
