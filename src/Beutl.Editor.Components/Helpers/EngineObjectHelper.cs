@@ -175,7 +175,10 @@ public static class EngineObjectHelper
                     }
                     catch (Exception disposeFailure)
                     {
-                        ex.Data["EngineVersionedResourceDisposeFailure"] = disposeFailure;
+                        s_logger.LogWarning(
+                            disposeFailure,
+                            "Releasing the versioned resource for '{Object}' failed.",
+                            obj);
                     }
 
                     try
