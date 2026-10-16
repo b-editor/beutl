@@ -211,6 +211,7 @@ public partial class MainViewModel
         }
         try
         {
+            _menuSubscriptions.Dispose();
             _aiJobCompletionNotifier.Dispose();
             CommandPalette.Dispose();
             TabSwitcher.Dispose();

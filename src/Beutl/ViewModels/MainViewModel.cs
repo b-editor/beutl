@@ -179,6 +179,10 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
         ToolTabExtensions = list1;
         EditorExtensions = list2;
         ToolWindowExtensions = list4;
+
+        MenuBar.OpenToolTab.Subscribe(OpenToolTab);
+        MenuBar.SwitchEditor.Subscribe(SwitchEditor);
+        MenuItems = CreateMenuItems();
     }
 
     public bool IsDebuggerAttached { get; } = Debugger.IsAttached;
