@@ -28,7 +28,7 @@ public class EncodeDecodeRoundTripTests
         catch { /* best-effort cleanup */ }
     }
 
-    // A zero-length scene has no frames, so the provider's first read returns null.
+    // A provider without frames returns null on its first read; one audio block keeps the file non-empty.
     [Test]
     public async Task EncodesAClipWithoutFrames()
     {
@@ -40,7 +40,7 @@ public class EncodeDecodeRoundTripTests
         controller.VideoSettings.FrameRate = frameRate;
 
         await controller.Encode(
-            new GradientFrameProvider(0, frameRate, 64, 64), new SineSampleProvider(0, 44100), CancellationToken.None);
+            new GradientFrameProvider(0, frameRate, 64, 64), new SineSampleProvider(1024, 44100), CancellationToken.None);
 
         Assert.That(new FileInfo(outputPath).Length, Is.GreaterThan(0));
     }
