@@ -130,6 +130,7 @@ internal partial class VersionControlCoordinator
             ActivationContext? previousActivation = _activation;
             _activation = activation;
             TransitionOwnedService(service, service, projectRoot, previousActivation);
+            WarnIfRepositoryIsNotWatched(service);
             CancelActivation(previousActivation);
             _ = ActivateRepositoryAsync(activation);
             return activation;
@@ -210,6 +211,7 @@ internal partial class VersionControlCoordinator
             if (IsCurrentActivation(activation))
             {
                 TransitionOwnedService(trackedService, trackedService, activation.ProjectRoot, activation);
+                WarnIfRepositoryIsNotWatched(trackedService);
             }
         }
         catch (OperationCanceledException) when (activation.CancellationToken.IsCancellationRequested)
@@ -355,5 +357,16 @@ internal partial class VersionControlCoordinator
     {
         return await service.HasVersionTrackingOptInAsync(repository, cancellationToken)
                || await ConfirmAdoptExistingRepositoryAsync(repository, cancellationToken);
+    }
+
+    private void WarnIfRepositoryIsNotWatched(IProjectVersionControlBackend service)
+    {
+        if (service.RepositoryWatcherFailure is { } failure)
+        {
+            PublishNotification(() =>
+                NotificationService.ShowWarning(
+                    Strings.VersionControl,
+                    string.Format(Strings.VersionControl_RepositoryNotWatchedFormat, GetErrorText(failure))));
+        }
     }
 }
