@@ -33,6 +33,7 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
         var expected = new List<T>(before);
         if (revert) RevertTo(expected); else ApplyTo(expected);
         _failureState = ChangeOperationFailureState.Unknown;
+        _relocation = null;
         try
         {
             mutation();
@@ -51,6 +52,9 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
             throw;
         }
     }
+
+    private void AddRelocation(string relocation)
+        => _relocation = _relocation is null ? relocation : $"{_relocation}, {relocation}";
 
     private void LogRelocation()
     {
@@ -100,15 +104,25 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
             found.Add(at);
         }
 
-        _relocation = $"removed {items.Length} item(s) at {string.Join(", ", found)} instead of index {index}";
+        AddRelocation($"removed {items.Length} item(s) at {string.Join(", ", found)} instead of index {index}");
         foreach (int at in found.Reverse()) list.RemoveAt(at);
     }
 
     private protected int GetInsertionIndex(IList<T> list, int index)
     {
         if (index >= 0 && index <= list.Count) return index;
-        _relocation = $"inserted at {list.Count} instead of index {index}";
+        AddRelocation($"inserted at {list.Count} instead of index {index}");
         return list.Count;
+    }
+
+    // Where a block of count items ends up, kept within the list's length.
+    private protected int GetMoveDestination(IList<T> list, int index, int count)
+    {
+        int last = Math.Max(list.Count - count, 0);
+        if (index >= 0 && index <= last) return index;
+        int destination = Math.Clamp(index, 0, last);
+        AddRelocation($"moved to {destination} instead of index {index}");
+        return destination;
     }
 
     private protected int FindBlock(IList<T> list, int index, T[] items)
@@ -121,7 +135,7 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
             throw new InvalidOperationException($"Replay of {PropertyPath} cannot find the items to move.");
         }
 
-        _relocation = $"moved {items.Length} item(s) from {at} instead of index {index}";
+        AddRelocation($"moved {items.Length} item(s) from {at} instead of index {index}");
         return at;
     }
 

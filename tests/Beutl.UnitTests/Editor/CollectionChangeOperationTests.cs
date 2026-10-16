@@ -3,6 +3,7 @@ using Beutl.Editor;
 using Beutl.Editor.Operations;
 using Beutl.Engine;
 using Beutl.NodeGraph;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -591,6 +592,58 @@ public class CollectionChangeOperationTests
         operation.Revert();
 
         Assert.That(list, Is.EqualTo(new[] { "A", "B", "C", "D" }));
+    }
+
+    // Moving A from 1 to 4 in [X, A, B, C, D] is redone after X was removed without a record.
+    [TestCase(false)]
+    [TestCase(true)]
+    public void MoveRedo_KeepsADestinationPastTheEndInTheList(bool engineProperty)
+    {
+        CoreObject owner;
+        ICoreList<string> list;
+        if (engineProperty)
+        {
+            var engineOwner = new TestEngineObjectWithList();
+            (owner, list) = (engineOwner, engineOwner.Items);
+        }
+        else
+        {
+            var coreOwner = new TestCoreObjectWithList();
+            (owner, list) = (coreOwner, coreOwner.Items);
+        }
+
+        foreach (string item in new[] { "X", "A", "B", "C", "D" }) list.Add(item);
+        using var harness = new HistoryHarness(owner);
+        list.Move(1, 4);
+        harness.History.Commit("Move");
+        Assert.That(harness.History.Undo(), Is.True);
+        using (harness.History.SuppressRecording())
+        {
+            list.Remove("X");
+        }
+
+        Assert.That(harness.History.Redo(), Is.True);
+        Assert.That(list, Is.EqualTo(new[] { "B", "C", "D", "A" }));
+    }
+
+    [TestCaseSource(nameof(ListOwners))]
+    public void MoveCollectionRangeOperation_RevertTo_KeepsADestinationPastTheEndInTheList(CreateListOwner create)
+    {
+        (CoreObject owner, string propertyPath, IList<string> list) = create(["A", "B", "C"]);
+        var operation = new MoveCollectionRangeOperation<string>
+        {
+            Object = owner,
+            PropertyPath = propertyPath,
+            OldIndex = 4,
+            NewIndex = 1,
+            Count = 1,
+            MovedItems = ["A"],
+            SequenceNumber = 1
+        };
+
+        operation.Revert();
+
+        Assert.That(list, Is.EqualTo(new[] { "B", "C", "A" }));
     }
 
     [TestCaseSource(nameof(ListOwners))]
