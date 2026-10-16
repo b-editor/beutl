@@ -2,8 +2,10 @@
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Language;
 using Beutl.Services;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
@@ -110,6 +112,24 @@ public sealed class MainMenuBuilderTests
         NativeMenuItem NativePresets() => NativeMenu.GetMenu(macWindow)!.Items.OfType<NativeMenuItem>()
             .Single(item => item.Header == Strings.View).Menu!.Items.OfType<NativeMenuItem>()
             .Single(item => item.Header == Strings.ApplyDockLayout);
+    }
+
+    // A shortcut that names no window command would leave its entry without one.
+    [AvaloniaTest]
+    public void Every_menu_shortcut_names_a_window_command()
+    {
+        string[] commands = [.. Entries(TestShell.MainViewModel.MenuItems).Select(item => item.GestureCommand).OfType<string>()];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(commands, Is.Not.Empty);
+            Assert.That(
+                commands.Where(command => GetCommandGestureExtension.GetKeyGesture(typeof(MainViewExtension), command) is null),
+                Is.Empty);
+        });
+
+        static IEnumerable<MainMenuItem> Entries(IEnumerable<MainMenuItem> items)
+            => items.SelectMany(item => Entries(item.Items ?? []).Prepend(item));
     }
 
     // "Header:Command" per entry, depth first.
