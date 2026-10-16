@@ -22,6 +22,25 @@ namespace Beutl.HeadlessUITests;
 public class NodeGraphNavigationLayoutTests
 {
     [AvaloniaTest]
+    public async Task Navigating_into_a_nested_group_keeps_each_breadcrumb_on_its_own_graph()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("node-navigation-nested");
+        var graph = new GraphModel();
+        var outer = new GroupNode();
+        graph.Nodes.Add(outer);
+        var inner = new GroupNode();
+        outer.Group.Nodes.Add(inner);
+        using var model = new NodeGraphTabViewModel(editor);
+        model.Model.Value = graph;
+
+        model.NavigateTo(inner.Group);
+
+        Assert.That(model.Items.Select(item => item.NodeGraph), Is.EqualTo(new GraphModel[] { graph, outer.Group, inner.Group }));
+        model.NavigateTo(1);
+        Assert.That(model.NodeGraph.Value!.NodeGraph, Is.SameAs(outer.Group));
+    }
+
+    [AvaloniaTest]
     [TestCase(320)]
     [TestCase(640)]
     public async Task Navigation_does_not_overlap_the_graph(int width)
