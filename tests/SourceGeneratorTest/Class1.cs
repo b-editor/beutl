@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-using Beutl.Engine;
+﻿using Beutl.Engine;
 
 namespace SourceGeneratorTest;
 
@@ -27,9 +25,6 @@ public partial class Derived2 : Derived
 
 public partial class Derived3 : Derived
 {
-    // Listっぽいもの、Listで終わる型に対して
-    public List<Derived> Children { get; } = [];
-
     // EngineObjectの派生型に対して
     public IProperty<Derived> Child { get; } = Property.Create(new Derived());
 
