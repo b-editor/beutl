@@ -7,8 +7,6 @@ internal static class PromptLibraryProvider
     private static readonly object s_gate = new();
     private static readonly Dictionary<string, PersistentPromptLibrary> s_libraries = new(StringComparer.Ordinal);
     private static string s_root = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "ai-prompts");
-    private static string s_legacy = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "ai-prompts.json");
-    private static string s_migrationMarker = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "ai-prompts.migrated");
 
     internal static void ConfigureRootForTests(string root)
     {
@@ -16,9 +14,6 @@ internal static class PromptLibraryProvider
         {
             s_libraries.Clear();
             s_root = Path.GetFullPath(root);
-            string home = Path.GetDirectoryName(s_root)!;
-            s_legacy = Path.Combine(home, "ai-prompts.json");
-            s_migrationMarker = Path.Combine(home, "ai-prompts.migrated");
         }
     }
 
@@ -59,15 +54,6 @@ internal static class PromptLibraryProvider
                 {
                     if (s_libraries.TryGetValue(accountKey, out PersistentPromptLibrary? cached))
                         return cached;
-                    using FileStream migrationLock = AcquireMigrationLock();
-                    // ReadMigrationOwner yields null or a full account key. A marker naming another
-                    // account means the legacy prompts already went there; this one starts its own file.
-                    string? migrationOwner = ReadMigrationOwner();
-                    if (migrationOwner is null
-                        || StringComparer.OrdinalIgnoreCase.Equals(migrationOwner, accountKey))
-                    {
-                        PrepareLegacyMigration(migrationOwner, accountKey, path);
-                    }
 
                     var library = new PersistentPromptLibrary(path);
                     s_libraries[accountKey] = library;
@@ -76,156 +62,6 @@ internal static class PromptLibraryProvider
             }
         }
 
-        private static void PrepareLegacyMigration(string? migrationOwner, string accountKey, string path)
-        {
-            if (File.Exists(s_legacy) && !File.Exists(path))
-            {
-                try
-                {
-                    if (migrationOwner is null)
-                        WriteMigrationMarker(accountKey);
-                    DurableMove(s_legacy, path, overwrite: false);
-                }
-                catch (IOException ex)
-                {
-                    throw new IOException("Prompt library legacy migration is pending; retry for the owning account.", ex);
-                }
-            }
-            else if (migrationOwner is not null
-                && StringComparer.OrdinalIgnoreCase.Equals(migrationOwner, accountKey)
-                && !File.Exists(s_legacy) && !File.Exists(path))
-            {
-                throw new IOException("Prompt library migration owner data is missing.");
-            }
-            else if (migrationOwner is null
-                && !File.Exists(s_legacy)
-                && File.Exists(path))
-            {
-                try
-                {
-                    WriteMigrationMarker(accountKey);
-                }
-                catch (IOException ex)
-                {
-                    throw new IOException("Prompt library migration marker publication is pending.", ex);
-                }
-            }
-            else if (migrationOwner is null && File.Exists(s_legacy))
-            {
-                throw new IOException("Prompt library legacy migration is unavailable.");
-            }
-        }
-
-        private static void WriteMigrationMarker(string accountKey)
-        {
-            string temporary = s_migrationMarker + $".{Guid.NewGuid():N}.tmp";
-            try
-            {
-                var options = new FileStreamOptions
-                {
-                    Mode = FileMode.CreateNew,
-                    Access = FileAccess.Write,
-                    Share = FileShare.None,
-                    Options = FileOptions.WriteThrough,
-                };
-                if (!OperatingSystem.IsWindows())
-                    options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-                using (FileStream stream = new(temporary, options))
-                using (var writer = new StreamWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true))
-                {
-                    writer.Write(accountKey);
-                    writer.Flush();
-                    stream.Flush(flushToDisk: true);
-                }
-                DurableMove(temporary, s_migrationMarker, overwrite: false);
-            }
-            finally
-            {
-                try { File.Delete(temporary); }
-                catch (IOException) { }
-                catch (UnauthorizedAccessException) { }
-            }
-        }
-
-        private static FileStream AcquireMigrationLock()
-        {
-            string path = s_migrationMarker + ".lock";
-            try
-            {
-                return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-            }
-            catch (IOException ex)
-            {
-                throw new IOException("Prompt library migration is busy; retry later.", ex);
-            }
-        }
-
-        private static void DurableMove(string source, string destination, bool overwrite)
-        {
-            if (OperatingSystem.IsWindows())
-            {
-                const uint replace = 0x1;
-                const uint writeThrough = 0x8;
-                if (!MoveFileEx(source, destination, writeThrough | (overwrite ? replace : 0)))
-                    throw new IOException("Prompt migration rename failed.", new System.ComponentModel.Win32Exception(System.Runtime.InteropServices.Marshal.GetLastWin32Error()));
-            }
-            else
-            {
-                File.Move(source, destination, overwrite);
-                SyncDirectory(Path.GetDirectoryName(source)!);
-                string destinationDirectory = Path.GetDirectoryName(destination)!;
-                if (!StringComparer.Ordinal.Equals(
-                        Path.GetFullPath(destinationDirectory),
-                        Path.GetFullPath(Path.GetDirectoryName(source)!)))
-                    SyncDirectory(destinationDirectory);
-            }
-        }
-
-        private static void SyncDirectory(string path)
-        {
-            int fd = UnixOpen(path, 0);
-            if (fd < 0)
-                throw new IOException("Unable to open migration directory.");
-            try
-            {
-                if (UnixFsync(fd) != 0)
-                    throw new IOException("Unable to fsync migration directory.");
-            }
-            finally
-            {
-                _ = UnixClose(fd);
-            }
-        }
-
-        [System.Runtime.InteropServices.DllImport("libc", EntryPoint = "open", SetLastError = true)]
-        private static extern int UnixOpen(string path, int flags);
-
-        [System.Runtime.InteropServices.DllImport("libc", EntryPoint = "fsync", SetLastError = true)]
-        private static extern int UnixFsync(int fd);
-
-        [System.Runtime.InteropServices.DllImport("libc", EntryPoint = "close", SetLastError = true)]
-        private static extern int UnixClose(int fd);
-
-        [System.Runtime.InteropServices.DllImport("kernel32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode, SetLastError = true)]
-        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
-        private static extern bool MoveFileEx(string existingFileName, string newFileName, uint flags);
-
-        private static string? ReadMigrationOwner()
-        {
-            if (!File.Exists(s_migrationMarker))
-                return null;
-            try
-            {
-                string value = File.ReadAllText(s_migrationMarker).Trim();
-                if (value.Length != 64 || value.Any(c => !Uri.IsHexDigit(c)))
-                    throw new InvalidDataException("Prompt migration marker is invalid.");
-                return value;
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                throw new IOException("Prompt migration marker cannot be read.", ex);
-            }
-        }
         public IReadOnlyList<PromptHistoryEntry> History => Library?.History ?? Array.Empty<PromptHistoryEntry>();
         public IReadOnlyList<PromptTemplate> Templates => Library?.Templates ?? Array.Empty<PromptTemplate>();
         public PromptHistoryEntry Record(PromptTaskKind k, string p) => Require().Record(k, p);
