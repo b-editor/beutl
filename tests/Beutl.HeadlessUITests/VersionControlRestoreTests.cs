@@ -2796,7 +2796,7 @@ public class VersionControlRestoreTests
 
                                 return GitAvailability.NotInstalled;
                             }
-                            : locator.LocateAsync,
+                        : locator.LocateAsync,
                     };
                 },
                 locator);
@@ -2877,13 +2877,15 @@ public class VersionControlRestoreTests
                                 firstProbeStarted.TrySetResult();
                                 await releaseFirstProbe.Task.WaitAsync(cancellationToken);
                                 return GitAvailability.NotInstalled;
-                            },
+                            }
+                            ,
                             3 => async cancellationToken =>
                             {
                                 latestActivationStarted.TrySetResult();
                                 await releaseLatestActivation.Task.WaitAsync(cancellationToken);
                                 return await locator.LocateAsync(cancellationToken);
-                            },
+                            }
+                            ,
                             _ => locator.LocateAsync,
                         },
                         InitializeStarted = untrackedIndex switch
