@@ -30,15 +30,6 @@ public class NodeMemberViewModel : IDisposable
         GraphNodeViewModel = nodeViewModel;
     }
 
-    ~NodeMemberViewModel()
-    {
-        if (!_disposedValue)
-        {
-            OnDispose();
-            _disposedValue = true;
-        }
-    }
-
     public ReadOnlyReactiveProperty<string> Name { get; }
 
     public INodeMember? Model { get; }
@@ -55,7 +46,6 @@ public class NodeMemberViewModel : IDisposable
         {
             OnDispose();
             _disposedValue = true;
-            GC.SuppressFinalize(this);
         }
     }
 
