@@ -42,8 +42,6 @@ public sealed partial class MainView : UserControl
         AddHandler(KeyDownEvent, TabSwitcherOverlay.HandleKeyDown, RoutingStrategies.Tunnel);
         AddHandler(KeyUpEvent, TabSwitcherOverlay.HandleKeyUp, RoutingStrategies.Tunnel, handledEventsToo: true);
 
-        recentFiles.ItemsSource = _rawRecentFileItems;
-        recentProjects.ItemsSource = _rawRecentProjItems;
         ((Avalonia.Controls.Primitives.PopupFlyoutBase)OpenNotificationsButton.Flyout!).Opening += OnNotificationsFlyoutOpening;
         if (OperatingSystem.IsMacOS())
         {
@@ -94,7 +92,7 @@ public sealed partial class MainView : UserControl
         if (DataContext is MainViewModel viewModel)
         {
             InitializeCommands(viewModel);
-            InitializeRecentItems(viewModel);
+            MainMenuBuilder.AddMenus(MenuBar, viewModel.MenuBar.MenuItems, _disposables);
         }
     }
 
@@ -350,7 +348,7 @@ public sealed partial class MainView : UserControl
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 
-    private async void OpenSettingsDialog(object? sender, RoutedEventArgs e)
+    private async void OpenSettingsDialog()
     {
         await ShowSettingsDialogAsync(static dialogViewModel => dialogViewModel.GoToAccountSettingsPage());
     }

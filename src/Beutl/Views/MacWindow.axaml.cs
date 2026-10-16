@@ -1,5 +1,4 @@
 ﻿using System.Collections.ObjectModel;
-using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Beutl.Helpers;
@@ -15,6 +14,7 @@ namespace Beutl.Views;
 public sealed partial class MacWindow : Window
 {
     private readonly ToolWindowLauncher _toolWindowLauncher = new();
+    private readonly CompositeDisposable _menuDisposables = [];
     private readonly MainWindowCloseGuard _closeGuard;
     private MacOSTitleBar? _titleBar;
 
@@ -41,49 +41,16 @@ public sealed partial class MacWindow : Window
 
         if (DataContext is MainViewModel viewModel)
         {
-            InitializeRecentItems(viewModel);
             InitExtMenuItems(viewModel);
         }
     }
 
-    private void InitializeRecentItems(MainViewModel viewModel)
+    protected override void OnDataContextChanged(EventArgs e)
     {
-        void AddItem(NativeMenu list, string item, ICommand command)
-        {
-            var menuItem = new NativeMenuItem { Command = command, CommandParameter = item, Header = item };
-            list.Add(menuItem);
-        }
-
-        void RemoveItem(NativeMenu list, string item)
-        {
-            for (int i = list.Items.Count - 1; i >= 0; i--)
-            {
-                if (list.Items[i] is NativeMenuItem menuItem
-                    && menuItem.Header is string header
-                    && header == item)
-                {
-                    list.Items.Remove(menuItem);
-                }
-            }
-        }
-
-        var rootMenu = NativeMenu.GetMenu(this)!;
-        var fileMenu = FindMenuItem(rootMenu, Strings.File);
-        NativeMenu? recentFiles = FindMenuItem(fileMenu?.Menu, Strings.RecentFiles)?.Menu;
-        NativeMenu? recentProj = FindMenuItem(fileMenu?.Menu, Strings.RecentProjects)?.Menu;
-
-        if (recentFiles != null && recentProj != null)
-        {
-            viewModel.MenuBar.RecentFileItems.ForEachItem(
-                item => AddItem(recentFiles, item, viewModel.MenuBar.OpenRecentFile),
-                item => RemoveItem(recentFiles, item),
-                recentFiles.Items.Clear);
-
-            viewModel.MenuBar.RecentProjectItems.ForEachItem(
-                item => AddItem(recentProj, item, viewModel.MenuBar.OpenRecentProject),
-                item => RemoveItem(recentProj, item),
-                recentProj.Items.Clear);
-        }
+        base.OnDataContextChanged(e);
+        _menuDisposables.Clear();
+        if (DataContext is MainViewModel viewModel)
+            MainMenuBuilder.AddMenus(NativeMenu.GetMenu(this)!, viewModel.MenuBar.MenuItems, _menuDisposables);
     }
 
     // Resolved by header so a menu edit cannot shift these.

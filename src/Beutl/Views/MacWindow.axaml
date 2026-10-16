@@ -2,11 +2,9 @@
         xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:h="using:Beutl.Editor.Components.Helpers"
         xmlns:lang="using:Beutl.Language"
         xmlns:local="using:Beutl.Views"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:p="clr-namespace:Beutl.Services.PrimitiveImpls"
         xmlns:ui="using:FluentAvalonia.UI.Controls"
         xmlns:vm="using:Beutl.ViewModels"
         Title="{Binding WindowTitle.Value}"
@@ -18,77 +16,6 @@
         mc:Ignorable="d">
     <NativeMenu.Menu>
         <NativeMenu>
-            <NativeMenuItem Header="{x:Static lang:Strings.File}">
-                <NativeMenu>
-                    <NativeMenuItem Header="{x:Static lang:Strings.CreateNew}">
-                        <NativeMenu>
-                            <NativeMenuItem Command="{CompiledBinding MenuBar.CreateNewProject}"
-                                            Gesture="{h:GetCommandGesture CreateNewProject,
-                                                                          ExtensionType={x:Type p:MainViewExtension}}"
-                                            Header="{x:Static lang:Strings.CreateNewProject}" />
-                            <NativeMenuItem Command="{CompiledBinding MenuBar.NewScene}"
-                                            Gesture="{h:GetCommandGesture CreateNewFile,
-                                                                          ExtensionType={x:Type p:MainViewExtension}}"
-                                            Header="{x:Static lang:Strings.CreateNewScene}" />
-                        </NativeMenu>
-                    </NativeMenuItem>
-                    <NativeMenuItemSeparator />
-                    <NativeMenuItem Header="{x:Static lang:Strings.Open}">
-                        <NativeMenu>
-                            <NativeMenuItem Command="{CompiledBinding MenuBar.OpenProject}"
-                                            Gesture="{h:GetCommandGesture OpenProject,
-                                                                          ExtensionType={x:Type p:MainViewExtension}}"
-                                            Header="{x:Static lang:Strings.Project}" />
-                            <NativeMenuItem Command="{CompiledBinding MenuBar.OpenFile}"
-                                            Gesture="{h:GetCommandGesture OpenFile,
-                                                                          ExtensionType={x:Type p:MainViewExtension}}"
-                                            Header="{x:Static lang:Strings.File}" />
-                        </NativeMenu>
-                    </NativeMenuItem>
-                    <NativeMenuItemSeparator />
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.CloseFile}" Header="{x:Static lang:Strings.Close}" />
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.CloseProject}"
-                                    Header="{x:Static lang:Strings.CloseProject}" />
-                    <NativeMenuItemSeparator />
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.Save}"
-                                    Gesture="{h:GetCommandGesture Save,
-                                                                  ExtensionType={x:Type p:MainViewExtension}}"
-                                    Header="{x:Static lang:Strings.Save}" />
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.SaveAll}"
-                                    Gesture="{h:GetCommandGesture SaveAll,
-                                                                  ExtensionType={x:Type p:MainViewExtension}}"
-                                    Header="{x:Static lang:Strings.SaveAll}" />
-                    <NativeMenuItemSeparator />
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.ExportProject}"
-                                    Header="{x:Static lang:Strings.ExportProject}" />
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.ImportProject}" Header="{x:Static lang:Strings.ImportProject}" />
-                    <NativeMenuItemSeparator />
-                    <NativeMenuItem Header="{x:Static lang:Strings.RecentFiles}">
-                        <NativeMenu />
-                    </NativeMenuItem>
-                    <NativeMenuItem Header="{x:Static lang:Strings.RecentProjects}">
-                        <NativeMenu />
-                    </NativeMenuItem>
-
-                    <NativeMenuItemSeparator />
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.Exit}"
-                                    Gesture="{h:GetCommandGesture Exit,
-                                                                  ExtensionType={x:Type p:MainViewExtension}}"
-                                    Header="{x:Static lang:Strings.Exit}" />
-                </NativeMenu>
-            </NativeMenuItem>
-            <NativeMenuItem Header="{x:Static lang:Strings.Edit}">
-                <NativeMenu>
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.Undo}"
-                                    Gesture="{h:GetCommandGesture Undo,
-                                                                  ExtensionType={x:Type p:MainViewExtension}}"
-                                    Header="{x:Static lang:Strings.Undo}" />
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.Redo}"
-                                    Gesture="{h:GetCommandGesture Redo,
-                                                                  ExtensionType={x:Type p:MainViewExtension}}"
-                                    Header="{x:Static lang:Strings.Redo}" />
-                </NativeMenu>
-            </NativeMenuItem>
             <NativeMenuItem Header="{x:Static lang:Strings.View}">
                 <NativeMenu>
                     <NativeMenuItem Header="{x:Static lang:Strings.Editors}">

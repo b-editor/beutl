@@ -1,7 +1,5 @@
 ﻿using System.Collections.ObjectModel;
-using System.Windows.Input;
 using Avalonia;
-using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
@@ -29,9 +27,6 @@ namespace Beutl.Views;
 
 public partial class MainView
 {
-    private readonly AvaloniaList<MenuItem> _rawRecentFileItems = [];
-    private readonly AvaloniaList<MenuItem> _rawRecentProjItems = [];
-
     private void InitializeCommands(MainViewModel viewModel)
     {
         viewModel.VersionControlCoordinator.RequestIdentityAsync = RequestGitIdentityAsync;
@@ -74,6 +69,7 @@ public partial class MainView
 
         viewModel.MenuBar.ExportProject.Subscribe(OnExportProject).AddTo(_disposables);
         viewModel.MenuBar.ImportProject.Subscribe(OnImportProject).AddTo(_disposables);
+        viewModel.MenuBar.ShowSettings.Subscribe(OpenSettingsDialog).AddTo(_disposables);
 
         InitializeDockLayoutPresetMenu(viewModel);
         viewModel.MenuBar.ShowAiJobs.Subscribe(viewModel.OpenAiJobCenter).AddTo(_disposables);
@@ -215,42 +211,6 @@ public partial class MainView
         return focused is not MenuItem && focused?.IsAttachedToVisualTree() == true
             ? focused
             : this;
-    }
-
-    private void InitializeRecentItems(MainViewModel viewModel)
-    {
-        void AddItem(AvaloniaList<MenuItem> list, string item, ICommand command)
-        {
-            var menuItem = new MenuItem();
-            menuItem.Command = command;
-            menuItem.CommandParameter = item;
-            menuItem.Header = item;
-            list.Add(menuItem);
-        }
-
-        void RemoveItem(AvaloniaList<MenuItem> list, string item)
-        {
-            for (int i = list.Count - 1; i >= 0; i--)
-            {
-                MenuItem menuItem = list[i];
-                if (menuItem.Header is string header && header == item)
-                {
-                    list.Remove(menuItem);
-                }
-            }
-        }
-
-        viewModel.MenuBar.RecentFileItems.ForEachItem(
-                item => AddItem(_rawRecentFileItems, item, viewModel.MenuBar.OpenRecentFile),
-                item => RemoveItem(_rawRecentFileItems, item),
-                _rawRecentFileItems.Clear)
-            .AddTo(_disposables);
-
-        viewModel.MenuBar.RecentProjectItems.ForEachItem(
-                item => AddItem(_rawRecentProjItems, item, viewModel.MenuBar.OpenRecentProject),
-                item => RemoveItem(_rawRecentProjItems, item),
-                _rawRecentProjItems.Clear)
-            .AddTo(_disposables);
     }
 
     private static async Task<bool> ConfirmDeleteElementAsync(string name)
