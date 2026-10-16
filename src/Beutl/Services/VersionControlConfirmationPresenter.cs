@@ -56,16 +56,6 @@ internal sealed class VersionControlConfirmationPresenter(Dispatcher dispatcher)
             cancellationToken);
     }
 
-    internal Task<bool> ShowStaleLockConfirmationAsync(
-        RepositoryLockInfo lockInfo,
-        CancellationToken cancellationToken)
-    {
-        return ShowConfirmationAsync(
-            Strings.VersionControl,
-            $"{Strings.VersionControl_StaleLockConfirmation}\n\n{lockInfo.LockPath}",
-            cancellationToken);
-    }
-
     internal async Task ShowConflictMarkerWarningAsync(string markerFile)
     {
         await dispatcher.InvokeAsync(

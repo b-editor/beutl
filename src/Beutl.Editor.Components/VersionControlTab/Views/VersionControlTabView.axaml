@@ -148,16 +148,7 @@
                             Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
                             CornerRadius="4"
                             IsVisible="{Binding HasRecoverableLock.Value}">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                            <TextBlock VerticalAlignment="Center"
-                                       Text="{Binding StaleLockGuidance.Value}"
-                                       TextWrapping="Wrap" />
-                            <Button Grid.Column="1"
-                                    IsVisible="{Binding CanRemoveStaleLock.Value}"
-                                    usage:UsageTracking.Feature="VersionControl.RemoveStaleLockCommand"
-                                    Command="{Binding RemoveStaleLockCommand}"
-                                    Content="{x:Static lang:Strings.VersionControl_RemoveStaleLock}" />
-                        </Grid>
+                        <TextBlock Text="{Binding StaleLockGuidance.Value}" TextWrapping="Wrap" />
                     </Border>
                 </StackPanel>
 

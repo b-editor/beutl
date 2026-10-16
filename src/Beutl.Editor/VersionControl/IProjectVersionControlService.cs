@@ -107,16 +107,6 @@ internal interface IRepositoryLockRecoveryService
 {
     RepositoryLockInfo? RecoverableLock { get; }
 
-    /// <summary>Removes the exact lock offer that the caller inspected and confirmed.</summary>
-    /// <param name="expectedLock">
-    /// The same instance obtained from <see cref="RecoverableLock"/> or
-    /// <see cref="RecoverableLockAvailable"/>. An equal copy or a superseded offer is rejected.
-    /// </param>
-    /// <param name="cancellationToken">Cancels the operation before deletion begins.</param>
-    Task<bool> RemoveRecoverableLockAsync(
-        RepositoryLockInfo expectedLock,
-        CancellationToken cancellationToken);
-
     event EventHandler<RepositoryLockInfo>? RecoverableLockAvailable;
 }
 

@@ -1714,7 +1714,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Stale_lock_failure_is_exposed_and_removed_only_on_request()
+    public async Task Stale_lock_failure_is_exposed_and_the_lock_left_in_place()
     {
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{}\n");
         string lockPath = Path.Combine(Root, ".git", "index.lock");
@@ -1740,35 +1740,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(service.RecoverableLock, Is.EqualTo(lockInfo));
             Assert.That(File.Exists(lockPath), Is.True);
         });
-
-        Assert.That(
-            await service.RemoveRecoverableLockAsync(
-                new RepositoryLockInfo(lockInfo.LockPath, lockInfo.LastWriteTimeUtc),
-                CancellationToken.None),
-            Is.False);
-        Assert.That(File.Exists(lockPath), Is.True);
-
-        bool removed = await service.RemoveRecoverableLockAsync(
-            lockInfo,
-            CancellationToken.None);
-        Assert.Multiple(() =>
-        {
-            Assert.That(removed, Is.EqualTo(OperatingSystem.IsWindows()));
-            Assert.That(File.Exists(lockPath), Is.EqualTo(!OperatingSystem.IsWindows()));
-        });
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.That(
-                await service.CommitAllAsync(
-                    "beutl: snapshot on save",
-                    SnapshotKind.Save,
-                    CancellationToken.None),
-                Is.TypeOf<CommitResult.Committed>());
-        }
     }
 
     [Test]
-    public async Task Stale_current_branch_lock_failure_offers_one_click_recovery()
+    public async Task Stale_current_branch_lock_failure_is_exposed()
     {
         await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{}\n");
@@ -1798,14 +1773,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 Is.True);
             Assert.That(service.RecoverableLock, Is.EqualTo(lockInfo));
             Assert.That(File.Exists(lockPath), Is.True);
-        });
-        bool removed = await service.RemoveRecoverableLockAsync(
-            lockInfo,
-            CancellationToken.None);
-        Assert.Multiple(() =>
-        {
-            Assert.That(removed, Is.EqualTo(OperatingSystem.IsWindows()));
-            Assert.That(File.Exists(lockPath), Is.EqualTo(!OperatingSystem.IsWindows()));
         });
     }
 
@@ -6202,11 +6169,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
             => null;
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => false;
     }
 
     private sealed class BlockingStatusRunner : IGitCliRunner
@@ -6237,11 +6199,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
             => null;
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => false;
     }
 
     private sealed class BlockingInitializationRunner(IGitCliRunner inner) : DelegatingGitCliRunner(inner)
@@ -6430,11 +6387,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
             => null;
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => false;
     }
 
     private sealed class FailingPostMutationStatusRunner(IGitCliRunner inner) : DelegatingGitCliRunner(inner)
@@ -6582,11 +6534,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
             => null;
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => false;
     }
 
     private sealed class RemoteLockFailureRunner(
@@ -6627,11 +6574,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             LockProbeCalls++;
             return LockInfo;
         }
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo candidate)
-            => false;
     }
 
     private sealed class FailingInitialCommitRunner(
@@ -6669,11 +6611,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
             => recoverableLock ?? inner.GetRecoverableRepositoryLock(repository);
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
     }
 
     private static bool IsCommitCommand(IReadOnlyList<string> arguments)
@@ -6884,11 +6821,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
             => null;
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => false;
     }
 
     private sealed class MergeAfterFirstStatusRunner(

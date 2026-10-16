@@ -1555,36 +1555,7 @@ public class GitCliRunnerTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Equivalent_lock_info_does_not_carry_the_deletion_capability()
-    {
-        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
-        string lockPath = Path.Combine(Root, ".git", "index.lock");
-        await File.WriteAllTextAsync(lockPath, "stale");
-        File.SetLastWriteTimeUtc(
-            lockPath,
-            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
-        GitCliRunner runner = CreateLockRecoveryRunner(new FakeTimeProvider(now));
-        RepositoryLockInfo offered = runner.GetRecoverableRepositoryLock(Repository)!;
-        var copy = new RepositoryLockInfo(offered.LockPath, offered.LastWriteTimeUtc);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(copy.LockPath, Is.EqualTo(offered.LockPath));
-            Assert.That(copy.LastWriteTimeUtc, Is.EqualTo(offered.LastWriteTimeUtc));
-            Assert.That(copy, Is.Not.SameAs(offered));
-            Assert.That(
-                runner.RemoveRecoverableRepositoryLock(Repository, copy),
-                Is.False);
-            Assert.That(File.Exists(lockPath), Is.True);
-        });
-
-        Assert.That(
-            runner.RemoveRecoverableRepositoryLock(Repository, offered),
-            Is.True);
-    }
-
-    [Test]
-    public async Task Stale_repository_lock_is_recoverable_only_after_explicit_removal()
+    public async Task Stale_repository_lock_is_reported_and_left_in_place()
     {
         var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
         var timeProvider = new FakeTimeProvider(now);
@@ -1610,15 +1581,10 @@ public class GitCliRunnerTests : RealGitTestRepository
             Assert.That(recoverable, Is.Not.Null);
             Assert.That(File.Exists(lockPath), Is.True);
         });
-
-        Assert.That(
-            runner.RemoveRecoverableRepositoryLock(Repository, recoverable!),
-            Is.True);
-        Assert.That(File.Exists(lockPath), Is.False);
     }
 
     [Test]
-    public async Task Stale_configuration_lock_is_recoverable_only_after_explicit_removal()
+    public async Task Stale_configuration_lock_is_reported_and_left_in_place()
     {
         var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
         var timeProvider = new FakeTimeProvider(now);
@@ -1646,16 +1612,11 @@ public class GitCliRunnerTests : RealGitTestRepository
                 Is.True);
             Assert.That(File.Exists(lockPath), Is.True);
         });
-
-        Assert.That(
-            runner.RemoveRecoverableRepositoryLock(Repository, recoverable!),
-            Is.True);
-        Assert.That(File.Exists(lockPath), Is.False);
     }
 
     [TestCase(false)]
     [TestCase(true)]
-    public async Task Stale_current_branch_ref_lock_is_recoverable(bool useLinkedWorktree)
+    public async Task Stale_current_branch_ref_lock_is_reported(bool useLinkedWorktree)
     {
         await CommitFileAsync("project.beutl", "base", "initial");
         RepositoryInfo repository = Repository;
@@ -1687,10 +1648,6 @@ public class GitCliRunnerTests : RealGitTestRepository
         Assert.That(
             FilePathComparison.AreSameCanonicalPath(recoverable!.LockPath, lockPath),
             Is.True);
-        Assert.That(
-            runner.RemoveRecoverableRepositoryLock(repository, recoverable),
-            Is.True);
-        Assert.That(File.Exists(lockPath), Is.False);
     }
 
     [Test]
@@ -1805,7 +1762,7 @@ public class GitCliRunnerTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Stale_linked_worktree_HEAD_lock_is_removed_only_with_matching_identity()
+    public async Task Stale_linked_worktree_HEAD_lock_is_reported()
     {
         await CommitFileAsync("project.beutl", "base", "initial");
         string worktreeRoot = CreateTemporaryDirectory();
@@ -1822,25 +1779,14 @@ public class GitCliRunnerTests : RealGitTestRepository
         var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
         var timeProvider = new FakeTimeProvider(now);
         await File.WriteAllTextAsync(lockPath, "stale");
-        DateTime firstTimestamp = (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(2)).UtcDateTime;
-        File.SetLastWriteTimeUtc(lockPath, firstTimestamp);
+        File.SetLastWriteTimeUtc(
+            lockPath,
+            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(2)).UtcDateTime);
         GitCliRunner runner = CreateLockRecoveryRunner(timeProvider);
 
-        RepositoryLockInfo first = runner.GetRecoverableRepositoryLock(worktree)!;
-        Assert.That(first.LockPath, Is.EqualTo(Path.GetFullPath(lockPath)));
+        RepositoryLockInfo? lockInfo = runner.GetRecoverableRepositoryLock(worktree);
 
-        DateTime replacementTimestamp = firstTimestamp.AddMinutes(1);
-        File.SetLastWriteTimeUtc(lockPath, replacementTimestamp);
-        Assert.That(
-            runner.RemoveRecoverableRepositoryLock(worktree, first),
-            Is.False);
-        Assert.That(File.Exists(lockPath), Is.True);
-
-        RepositoryLockInfo replacement = runner.GetRecoverableRepositoryLock(worktree)!;
-        Assert.That(
-            runner.RemoveRecoverableRepositoryLock(worktree, replacement),
-            Is.True);
-        Assert.That(File.Exists(lockPath), Is.False);
+        Assert.That(lockInfo?.LockPath, Is.EqualTo(Path.GetFullPath(lockPath)));
     }
 
     [Test]
@@ -1884,271 +1830,8 @@ public class GitCliRunnerTests : RealGitTestRepository
             Is.True);
     }
 
-    [Test]
-    public async Task Failed_stale_lock_deletion_is_reported_without_throwing()
-    {
-        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
-        var timeProvider = new FakeTimeProvider(now);
-        string lockPath = Path.Combine(Root, ".git", "index.lock");
-        await File.WriteAllTextAsync(lockPath, "");
-        File.SetLastWriteTimeUtc(
-            lockPath,
-            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
-        GitCliRunner runner = CreateLockRecoveryRunner(
-            timeProvider,
-            deleteLockFileConditionally: static (_, _) =>
-                throw new IOException("simulated delete failure"));
-        RepositoryLockInfo lockInfo = runner.GetRecoverableRepositoryLock(Repository)!;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                runner.RemoveRecoverableRepositoryLock(Repository, lockInfo),
-                Is.False);
-            Assert.That(File.Exists(lockPath), Is.True);
-        });
-    }
-
-    [Test]
-    public async Task Unsupported_conditional_deletion_refuses_to_remove_a_stale_lock()
-    {
-        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
-        string lockPath = Path.Combine(Root, ".git", "index.lock");
-        await File.WriteAllTextAsync(lockPath, "stale");
-        File.SetLastWriteTimeUtc(
-            lockPath,
-            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
-        bool deleteCalled = false;
-        var runner = new GitCliRunner(
-            GitPath,
-            TimeSpan.FromSeconds(10),
-            IsolatedGitEnvironment,
-            new FakeTimeProvider(now),
-            supportsConditionalLockDeletion: false,
-            readLockFileSnapshot: ReadTestLockFileSnapshot,
-            deleteLockFileConditionally: (_, _) =>
-            {
-                deleteCalled = true;
-                File.Delete(lockPath);
-                return true;
-            });
-        RepositoryLockInfo lockInfo = runner.GetRecoverableRepositoryLock(Repository)!;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                runner.RemoveRecoverableRepositoryLock(Repository, lockInfo),
-                Is.False);
-            Assert.That(deleteCalled, Is.False);
-            Assert.That(File.Exists(lockPath), Is.True);
-        });
-    }
-
-    [TestCase(true, true, false)]
-    [TestCase(false, true, true)]
-    [TestCase(true, false, true)]
-    public async Task Stale_lock_offer_reports_whether_it_requires_manual_removal(
-        bool supportsConditionalLockDeletion,
-        bool hasFileIdentity,
-        bool expectedRequiresManualRemoval)
-    {
-        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
-        string lockPath = Path.Combine(Root, ".git", "index.lock");
-        await File.WriteAllTextAsync(lockPath, "stale");
-        File.SetLastWriteTimeUtc(
-            lockPath,
-            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
-
-        RepositoryLockFileSnapshot? ReadSnapshot(string path)
-        {
-            RepositoryLockFileSnapshot? snapshot = ReadTestLockFileSnapshot(path);
-            return hasFileIdentity || snapshot is not { } value
-                ? snapshot
-                : value with { Identity = null };
-        }
-
-        var runner = new GitCliRunner(
-            GitPath,
-            TimeSpan.FromSeconds(10),
-            IsolatedGitEnvironment,
-            new FakeTimeProvider(now),
-            supportsConditionalLockDeletion: supportsConditionalLockDeletion,
-            readLockFileSnapshot: ReadSnapshot,
-            deleteLockFileConditionally: TryDeleteTestLockFileConditionally);
-        RepositoryLockInfo lockInfo = runner.GetRecoverableRepositoryLock(Repository)!;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                lockInfo.RequiresManualRemoval,
-                Is.EqualTo(expectedRequiresManualRemoval));
-            Assert.That(
-                runner.RemoveRecoverableRepositoryLock(Repository, lockInfo),
-                Is.EqualTo(!expectedRequiresManualRemoval));
-        });
-    }
-
-    [Test]
-    public async Task Default_runner_requires_manual_lock_removal_outside_windows()
-    {
-        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
-        string lockPath = Path.Combine(Root, ".git", "index.lock");
-        await File.WriteAllTextAsync(lockPath, "stale");
-        File.SetLastWriteTimeUtc(
-            lockPath,
-            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
-        var runner = new GitCliRunner(
-            GitPath,
-            TimeSpan.FromSeconds(10),
-            IsolatedGitEnvironment,
-            new FakeTimeProvider(now));
-
-        RepositoryLockInfo lockInfo = runner.GetRecoverableRepositoryLock(Repository)!;
-
-        Assert.That(
-            lockInfo.RequiresManualRemoval,
-            Is.EqualTo(!OperatingSystem.IsWindows()));
-    }
-
-    [Test]
-    public async Task Replacement_between_recheck_and_conditional_delete_is_not_removed()
-    {
-        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
-        string lockPath = Path.Combine(Root, ".git", "index.lock");
-        await File.WriteAllTextAsync(lockPath, "stale");
-        File.SetLastWriteTimeUtc(
-            lockPath,
-            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
-        DateTime staleTimestamp = File.GetLastWriteTimeUtc(lockPath);
-        var staleIdentity = new RepositoryLockFileIdentity(1, 1);
-        var replacementIdentity = new RepositoryLockFileIdentity(1, 2);
-        RepositoryLockFileIdentity currentIdentity = staleIdentity;
-        bool deleteAttempted = false;
-
-        RepositoryLockFileSnapshot? ReadSnapshot(string path)
-        {
-            if (!File.Exists(path))
-            {
-                return null;
-            }
-
-            return new RepositoryLockFileSnapshot(
-                new DateTimeOffset(File.GetLastWriteTimeUtc(path), TimeSpan.Zero),
-                currentIdentity);
-        }
-
-        bool TryDeleteAfterReplacement(string path, RepositoryLockFileSnapshot expected)
-        {
-            deleteAttempted = true;
-            File.Delete(path);
-            File.WriteAllText(path, "active replacement");
-            File.SetLastWriteTimeUtc(path, staleTimestamp);
-            currentIdentity = replacementIdentity;
-            if (ReadSnapshot(path) != expected)
-            {
-                return false;
-            }
-
-            File.Delete(path);
-            return true;
-        }
-
-        var runner = new GitCliRunner(
-            GitPath,
-            TimeSpan.FromSeconds(10),
-            IsolatedGitEnvironment,
-            new FakeTimeProvider(now),
-            supportsConditionalLockDeletion: true,
-            readLockFileSnapshot: ReadSnapshot,
-            deleteLockFileConditionally: TryDeleteAfterReplacement);
-        RepositoryLockInfo lockInfo = runner.GetRecoverableRepositoryLock(Repository)!;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                runner.RemoveRecoverableRepositoryLock(Repository, lockInfo),
-                Is.False);
-            Assert.That(deleteAttempted, Is.True);
-            Assert.That(File.Exists(lockPath), Is.True);
-            Assert.That(File.ReadAllText(lockPath), Is.EqualTo("active replacement"));
-        });
-    }
-
-    [Test]
-    public async Task Windows_file_identity_rejects_a_replacement_with_the_same_timestamp()
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("The production conditional-delete primitive is Windows-specific.");
-        }
-
-        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
-        string lockPath = Path.Combine(Root, ".git", "index.lock");
-        string retiredPath = Path.Combine(Root, ".git", "retired-index.lock");
-        await File.WriteAllTextAsync(lockPath, "stale");
-        File.SetLastWriteTimeUtc(
-            lockPath,
-            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
-        var runner = new GitCliRunner(
-            GitPath,
-            TimeSpan.FromSeconds(10),
-            IsolatedGitEnvironment,
-            new FakeTimeProvider(now));
-        RepositoryLockInfo stale = runner.GetRecoverableRepositoryLock(Repository)!;
-
-        File.Move(lockPath, retiredPath);
-        await File.WriteAllTextAsync(lockPath, "active replacement");
-        File.SetLastWriteTimeUtc(lockPath, stale.LastWriteTimeUtc.UtcDateTime);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                runner.RemoveRecoverableRepositoryLock(Repository, stale),
-                Is.False);
-            Assert.That(File.Exists(lockPath), Is.True);
-            Assert.That(File.ReadAllText(lockPath), Is.EqualTo("active replacement"));
-        });
-    }
-
-    private GitCliRunner CreateLockRecoveryRunner(
-        TimeProvider timeProvider,
-        Func<string, RepositoryLockFileSnapshot, bool>? deleteLockFileConditionally = null)
-    {
-        return new GitCliRunner(
-            GitPath,
-            TimeSpan.FromSeconds(10),
-            IsolatedGitEnvironment,
-            timeProvider,
-            supportsConditionalLockDeletion: true,
-            readLockFileSnapshot: ReadTestLockFileSnapshot,
-            deleteLockFileConditionally: deleteLockFileConditionally
-                                         ?? TryDeleteTestLockFileConditionally);
-    }
-
-    private static RepositoryLockFileSnapshot? ReadTestLockFileSnapshot(string path)
-    {
-        if (!File.Exists(path))
-        {
-            return null;
-        }
-
-        return new RepositoryLockFileSnapshot(
-            new DateTimeOffset(File.GetLastWriteTimeUtc(path), TimeSpan.Zero),
-            new RepositoryLockFileIdentity(1, 1));
-    }
-
-    private static bool TryDeleteTestLockFileConditionally(
-        string path,
-        RepositoryLockFileSnapshot expected)
-    {
-        if (ReadTestLockFileSnapshot(path) != expected)
-        {
-            return false;
-        }
-
-        File.Delete(path);
-        return true;
-    }
+    private GitCliRunner CreateLockRecoveryRunner(TimeProvider timeProvider)
+        => new(GitPath, TimeSpan.FromSeconds(10), IsolatedGitEnvironment, timeProvider);
 
     private static async Task<int?> WaitForRecordedProcessIdAsync(string pidPath, int attempts = 100)
     {

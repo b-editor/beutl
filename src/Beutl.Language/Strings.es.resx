@@ -2813,20 +2813,8 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
   <data name="VersionControl_Offline" xml:space="preserve">
     <value>No se pudo conectar con el remoto. Comprueba tu conexión de red e inténtalo de nuevo.</value>
   </data>
-  <data name="VersionControl_StaleLockGuidance" xml:space="preserve">
-    <value>Un bloqueo obsoleto del repositorio de Git impide las operaciones de control de versiones.</value>
-  </data>
-  <data name="VersionControl_RemoveStaleLock" xml:space="preserve">
-    <value>Eliminar bloqueo obsoleto</value>
-  </data>
-  <data name="VersionControl_StaleLockConfirmation" xml:space="preserve">
-    <value>Git dejó un bloqueo del repositorio hace más de 10 minutos y Beutl no tiene ningún proceso de Git activo. ¿Eliminar el bloqueo obsoleto?</value>
-  </data>
-  <data name="VersionControl_StaleLockRemoved" xml:space="preserve">
-    <value>Se ha eliminado el bloqueo obsoleto del repositorio de Git. Vuelve a intentar la operación de control de versiones.</value>
-  </data>
   <data name="VersionControl_StaleLockManualRemovalRequiredFormat" xml:space="preserve">
-    <value>Beutl no puede eliminar este bloqueo de Git de forma segura en el sistema de archivos actual. Cierra las herramientas externas de Git, comprueba que no haya procesos de Git en ejecución y elimina {0} manualmente antes de reintentar.</value>
+    <value>Un bloqueo obsoleto del repositorio de Git impide las operaciones de control de versiones. Cierra las herramientas externas de Git, comprueba que no haya procesos de Git en ejecución y elimina {0} manualmente antes de reintentar.</value>
   </data>
   <data name="VersionControl_WorktreeOperationInProgress" xml:space="preserve">
     <value>El control de versiones está actualizando los archivos del proyecto. Espera a que termine la operación e inténtalo de nuevo.</value>

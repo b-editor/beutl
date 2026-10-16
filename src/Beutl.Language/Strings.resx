@@ -2603,20 +2603,8 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="VersionControl_Offline" xml:space="preserve">
     <value>The remote could not be reached. Check your network connection and try again.</value>
   </data>
-  <data name="VersionControl_StaleLockGuidance" xml:space="preserve">
-    <value>A stale Git repository lock is blocking version control operations.</value>
-  </data>
-  <data name="VersionControl_RemoveStaleLock" xml:space="preserve">
-    <value>Remove Stale Lock</value>
-  </data>
-  <data name="VersionControl_StaleLockConfirmation" xml:space="preserve">
-    <value>Git left a repository lock more than 10 minutes ago, and Beutl has no active Git process. Remove the stale lock?</value>
-  </data>
-  <data name="VersionControl_StaleLockRemoved" xml:space="preserve">
-    <value>The stale Git repository lock was removed. Retry the version control operation.</value>
-  </data>
   <data name="VersionControl_StaleLockManualRemovalRequiredFormat" xml:space="preserve">
-    <value>Beutl cannot safely remove this Git lock on the current filesystem. Close external Git tools, verify that no Git process is running, then remove {0} manually and retry.</value>
+    <value>A stale Git repository lock is blocking version control operations. Close external Git tools, verify that no Git process is running, then remove {0} manually and retry.</value>
   </data>
   <data name="VersionControl_WorktreeOperationInProgress" xml:space="preserve">
     <value>Project files are being updated by version control. Wait for the operation to finish, then try again.</value>

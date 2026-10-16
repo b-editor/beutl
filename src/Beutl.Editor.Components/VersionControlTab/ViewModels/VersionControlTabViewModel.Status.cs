@@ -440,23 +440,15 @@ internal partial class VersionControlTabViewModel
         });
     }
 
-    // A lock Beutl cannot remove gets the manual-removal steps instead of a remove action that
-    // could never succeed.
     private void ShowRecoverableLock(RepositoryLockInfo? lockInfo)
     {
-        StaleLockGuidance.Value = lockInfo is { RequiresManualRemoval: true }
-            ? FormatStaleLockManualRemovalGuidance(lockInfo)
-            : Strings.VersionControl_StaleLockGuidance;
-        CanRemoveStaleLock.Value = lockInfo is { RequiresManualRemoval: false };
+        StaleLockGuidance.Value = lockInfo is null
+            ? string.Empty
+            : string.Format(
+                CultureInfo.CurrentCulture,
+                Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
+                lockInfo.LockPath);
         HasRecoverableLock.Value = lockInfo is not null;
-    }
-
-    private static string FormatStaleLockManualRemovalGuidance(RepositoryLockInfo lockInfo)
-    {
-        return string.Format(
-            CultureInfo.CurrentCulture,
-            Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
-            lockInfo.LockPath);
     }
 
     private void ApplyStatus(WorkspaceStatus status)

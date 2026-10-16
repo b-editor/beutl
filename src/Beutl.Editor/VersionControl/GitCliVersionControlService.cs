@@ -460,35 +460,6 @@ internal sealed partial class GitCliVersionControlService :
             cancellationToken);
     }
 
-    public Task<bool> RemoveRecoverableLockAsync(
-        RepositoryLockInfo expectedLock,
-        CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        ArgumentNullException.ThrowIfNull(expectedLock);
-        return RunSerializedAsync(
-            async () =>
-            {
-                RepositoryInfo repository = GetRepository();
-                IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken)
-                    .ConfigureAwait(false);
-                RepositoryLockInfo? lockInfo = RecoverableLock;
-                if (!ReferenceEquals(lockInfo, expectedLock))
-                {
-                    return false;
-                }
-
-                bool removed = runner.RemoveRecoverableRepositoryLock(repository, expectedLock);
-                if (removed)
-                {
-                    RecoverableLock = null;
-                }
-
-                return removed;
-            },
-            cancellationToken);
-    }
-
     public void Dispose()
     {
         Task retirement = RetireAsync(finalSnapshot: null);

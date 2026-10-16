@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Beutl.Editor.VersionControl;
@@ -45,14 +44,6 @@ internal sealed record GitCommandOptions(
     public static GitCommandOptions Network { get; } = new(GitCommandExecutionKind.Network);
 }
 
-internal readonly record struct RepositoryLockFileIdentity(
-    uint VolumeSerialNumber,
-    ulong FileIndex);
-
-internal readonly record struct RepositoryLockFileSnapshot(
-    DateTimeOffset LastWriteTimeUtc,
-    RepositoryLockFileIdentity? Identity);
-
 internal interface IGitCliRunner
 {
     Task<GitCommandResult> RunAsync(
@@ -63,10 +54,6 @@ internal interface IGitCliRunner
         IProgress<string>? stderrProgress = null);
 
     RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository);
-
-    bool RemoveRecoverableRepositoryLock(
-        RepositoryInfo repository,
-        RepositoryLockInfo lockInfo);
 }
 
 internal sealed partial class GitCliRunner : IGitCliRunner
@@ -111,11 +98,6 @@ internal sealed partial class GitCliRunner : IGitCliRunner
     private readonly IReadOnlyDictionary<string, string?>? _environmentOverrides;
     private readonly TimeProvider _timeProvider;
     private readonly Func<string, string> _readAllText;
-    private readonly bool _supportsConditionalLockDeletion;
-    private readonly Func<string, RepositoryLockFileSnapshot?> _readLockFileSnapshot;
-    private readonly Func<string, RepositoryLockFileSnapshot, bool> _deleteLockFileConditionally;
-    private readonly ConditionalWeakTable<RepositoryLockInfo, RepositoryLockFileIdentityBox>
-        _lockFileIdentities = new();
     private int _activeProcesses;
 
     internal GitCliRunner(string gitPath)
@@ -133,9 +115,6 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         IReadOnlyDictionary<string, string?>? environmentOverrides,
         TimeProvider? timeProvider = null,
         Func<string, string>? readAllText = null,
-        bool? supportsConditionalLockDeletion = null,
-        Func<string, RepositoryLockFileSnapshot?>? readLockFileSnapshot = null,
-        Func<string, RepositoryLockFileSnapshot, bool>? deleteLockFileConditionally = null,
         TimeSpan? stopGracePeriod = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gitPath);
@@ -155,14 +134,6 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         _environmentOverrides = environmentOverrides;
         _timeProvider = timeProvider ?? TimeProvider.System;
         _readAllText = readAllText ?? File.ReadAllText;
-        _supportsConditionalLockDeletion = supportsConditionalLockDeletion
-                                           ?? OperatingSystem.IsWindows();
-        _readLockFileSnapshot = readLockFileSnapshot
-                                ?? (OperatingSystem.IsWindows()
-                                    ? TryReadWindowsLockFileSnapshot
-                                    : TryReadPortableLockFileSnapshot);
-        _deleteLockFileConditionally = deleteLockFileConditionally
-                                       ?? TryDeleteWindowsLockFileConditionally;
     }
 
     public bool HasActiveProcess => Volatile.Read(ref _activeProcesses) > 0;

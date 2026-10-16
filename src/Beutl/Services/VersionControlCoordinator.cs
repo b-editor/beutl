@@ -102,7 +102,6 @@ internal sealed partial class VersionControlCoordinator :
         ConfirmPullAsync = _prompts.ShowPullConfirmationAsync;
         ConfirmUseEnclosingRepositoryAsync = _prompts.ShowEnclosingRepositoryConfirmationAsync;
         ConfirmAdoptExistingRepositoryAsync = ShowAdoptExistingRepositoryConfirmationAsync;
-        ConfirmRemoveStaleLockAsync = _prompts.ShowStaleLockConfirmationAsync;
         ConfirmUntrackReservedPathsAsync = _prompts.ShowUntrackReservedPathsConfirmationAsync;
         WarnConflictMarkersAsync = _prompts.ShowConflictMarkerWarningAsync;
         RequestIdentityAsync = static _ => Task.FromResult<GitIdentity?>(null);
@@ -144,10 +143,6 @@ internal sealed partial class VersionControlCoordinator :
 
     internal Func<RepositoryInfo, CancellationToken, Task<bool>>
         ConfirmAdoptExistingRepositoryAsync
-    { get; set; }
-
-    internal Func<RepositoryLockInfo, CancellationToken, Task<bool>>
-        ConfirmRemoveStaleLockAsync
     { get; set; }
 
     internal Func<IReadOnlyList<string>, CancellationToken, Task<bool>>
