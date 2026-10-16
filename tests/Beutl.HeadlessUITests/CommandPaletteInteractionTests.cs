@@ -483,7 +483,7 @@ public sealed class CommandPaletteInteractionTests
         }
     }
 
-    private sealed class ClosedToolExtension : ToolTabExtension, IContextCommandHandler, IContextCommandStateNotifier
+    private sealed class ClosedToolExtension : ToolTabExtension, IContextCommandStateNotifier
     {
         private readonly Subject<Unit> _stateChanged = new();
 
@@ -501,18 +501,24 @@ public sealed class CommandPaletteInteractionTests
 
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
         [
-            new("Global", "Closed tool command") { Id = "test.global", Scope = ContextCommandScope.Extension },
-            new("Local", "Open tool command") { Id = "test.local" }
+            new("Global", "Closed tool command")
+            {
+                Id = "test.global",
+                Scope = ContextCommandScope.Extension,
+                CanExecute = _ => Enabled,
+                ExecuteAsync = execution =>
+                {
+                    Executions++;
+                    Execution = execution;
+                    return Operation;
+                }
+            },
+            new ContextCommandDefinition<IToolContext>("Local", "Open tool command")
+            {
+                Id = "test.local",
+                ExecuteOnAsync = (_, _) => Task.CompletedTask
+            }
         ];
-
-        public Task ExecuteAsync(ContextCommandExecution execution)
-        {
-            Executions++;
-            Execution = execution;
-            return Operation;
-        }
-
-        public bool CanExecute(ContextCommandExecution execution) => Enabled;
 
         public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
         {

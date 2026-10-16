@@ -17,6 +17,17 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class ContextCommandDispatchTests
 {
+    // The commands that the app and its built-in extensions register all run from their definitions.
+    [AvaloniaTest]
+    public void Every_registered_command_has_a_handler()
+    {
+        ContextCommandDefinition[] definitions = [.. TestShell.MainViewModel.ContextCommandManager.GetDefinitions()
+            .Select(entry => entry.Definition)];
+
+        Assert.That(definitions.Where(definition => definition.HasHandler).Select(definition => definition.Id),
+            Is.EquivalentTo(definitions.Select(definition => definition.Id)));
+    }
+
     [AvaloniaTest]
     public async Task Asynchronous_menu_command_returns_its_complete_operation()
     {
@@ -176,11 +187,15 @@ public class ContextCommandDispatchTests
     {
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
         [
-            new ContextCommandDefinition("AwaitableCommand", "Awaitable Command") { Id = "test.awaitableCommand" },
+            new ContextCommandDefinition<AwaitableHandler>("AwaitableCommand", "Awaitable Command")
+            {
+                Id = "test.awaitableCommand",
+                ExecuteOnAsync = (handler, execution) => handler.ExecuteAsync(execution)
+            },
         ];
     }
 
-    private sealed class AwaitableHandler(Task operation) : IContextCommandHandler
+    private sealed class AwaitableHandler(Task operation)
     {
         public ContextCommandExecution? LastExecution { get; private set; }
 

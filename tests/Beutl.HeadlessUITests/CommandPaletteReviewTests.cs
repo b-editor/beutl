@@ -173,12 +173,16 @@ public sealed class CommandPaletteReviewTests
         return (service, snapshot, new WeakReference(type.Assembly));
     }
 
-    public class CollectibleCommandExtensionBase : ViewExtension, IContextCommandHandler
+    public class CollectibleCommandExtensionBase : ViewExtension
     {
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
         [
-            new("Collectible", "Collectible command") { Id = "test.collectible", Scope = ContextCommandScope.Extension }
+            new("Collectible", "Collectible command")
+            {
+                Id = "test.collectible",
+                Scope = ContextCommandScope.Extension,
+                ExecuteAsync = static _ => Task.CompletedTask
+            }
         ];
-        public Task ExecuteAsync(ContextCommandExecution execution) => Task.CompletedTask;
     }
 }

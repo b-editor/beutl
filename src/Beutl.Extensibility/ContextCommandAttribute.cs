@@ -4,18 +4,6 @@ using Avalonia.Input;
 
 namespace Beutl.Extensibility;
 
-public interface IContextCommandHandler
-{
-    /// <summary>
-    /// Executes a context command and completes when the command's operation has finished.
-    /// </summary>
-    /// <param name="execution">The context command invocation.</param>
-    /// <returns>A task representing the complete command operation.</returns>
-    Task ExecuteAsync(ContextCommandExecution execution);
-
-    bool CanExecute(ContextCommandExecution execution) => true;
-}
-
 // CanExecute の判定が状態変化に応じて変わる場合に実装する optional インターフェース。
 // CommandPalette はスナップショット中のハンドラーが提供する CanExecuteChanged を購読し、
 // 通知を受け取った時点でフィルタ結果を再評価する。
@@ -33,7 +21,7 @@ public interface IContextCommandStateNotifier
 public interface IContextCommandEditorStateNotifier
 {
     /// <summary>
-    /// Returns a sequence that signals when <see cref="IContextCommandHandler.CanExecute"/> may have changed
+    /// Returns a sequence that signals when <see cref="ContextCommandDefinition.CanExecute"/> may have changed
     /// for <paramref name="editorContext"/>. It may signal on any thread and as often as every frame.
     /// </summary>
     IObservable<Unit> GetCanExecuteChanged(IEditorContext editorContext);
@@ -79,8 +67,8 @@ public enum ContextCommandScope
     Context,
 
     /// <summary>
-    /// The command is handled by the registered ViewExtension implementing IContextCommandHandler,
-    /// including when its editor or tool tab is closed. The palette does not create a tab context.
+    /// The command is handled by its definition's ExecuteAsync, including when its editor or tool tab is closed.
+    /// The palette does not create a tab context.
     /// </summary>
     Extension
 }

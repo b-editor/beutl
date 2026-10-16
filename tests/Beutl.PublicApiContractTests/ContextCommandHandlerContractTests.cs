@@ -10,10 +10,17 @@ public sealed class ContextCommandHandlerContractTests
     {
         var completion = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        var handler = new PluginContextCommandHandler(completion.Task);
+        var definition = new ContextCommandDefinition("PluginCommand")
+        {
+            Id = "test.pluginCommand",
+            Scope = ContextCommandScope.Extension,
+            ExecuteAsync = _ => completion.Task
+        };
         var execution = new ContextCommandExecution("PluginCommand");
 
-        Task operation = handler.ExecuteAsync(execution);
+        Task operation = definition.RunAsync(null, execution);
+
+        Assert.That(operation, Is.SameAs(completion.Task));
     }
 
     [Test]
@@ -21,7 +28,8 @@ public sealed class ContextCommandHandlerContractTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(typeof(IContextCommandHandler).GetMethod("Execute"), Is.Null);
+            Assert.That(typeof(ContextCommandDefinition).GetMethod("Run"), Is.Null);
+            Assert.That(typeof(ContextCommandDefinition).GetProperty("Execute"), Is.Null);
             Assert.That(typeof(ContextCommandExecution).GetProperty("Completion"), Is.Null);
         });
     }
@@ -54,10 +62,5 @@ public sealed class ContextCommandHandlerContractTests
             IReadOnlyList<ContextCommandPickItem<T>> items, ContextCommandPickOptions? options = null,
             CancellationToken cancellationToken = default)
             => Task.FromResult(items.FirstOrDefault());
-    }
-
-    private sealed class PluginContextCommandHandler(Task operation) : IContextCommandHandler
-    {
-        public Task ExecuteAsync(ContextCommandExecution execution) => operation;
     }
 }

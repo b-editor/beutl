@@ -199,23 +199,13 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
                 continue;
 
             var execution = new ContextCommandExecution(entry.Definition.Name) { KeyEventArgs = args };
-            if (entry.Definition.HasHandler)
-            {
-                if (!entry.Definition.CanRun(context, execution))
-                    continue;
+            if (!entry.Definition.CanRun(context, execution))
+                continue;
 
-                // A command that runs uses the key; its handler can give it back.
-                args.Handled = true;
-                await entry.Definition.RunAsync(context, execution);
-                return;
-            }
-
-            // Commands without a handler on their definition still go to the context by name.
-            if (context is IContextCommandHandler handler && handler.CanExecute(execution))
-            {
-                await handler.ExecuteAsync(execution);
-                return;
-            }
+            // A command that runs uses the key; its handler can give it back.
+            args.Handled = true;
+            await entry.Definition.RunAsync(context, execution);
+            return;
         }
     }
 

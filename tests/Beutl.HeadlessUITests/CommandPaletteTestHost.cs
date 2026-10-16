@@ -34,11 +34,20 @@ internal static class CommandPaletteTestHost
     {
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
         [
-            new("Prompt", "Prompt command") { Id = "test.prompt" }
+            HandlerCommand("Prompt", "Prompt command", "test.prompt")
         ];
     }
 
-    public sealed class Handler(Func<ContextCommandExecution, Task> execute) : IContextCommandHandler
+    // A command that runs on a Handler context.
+    public static ContextCommandDefinition<Handler> HandlerCommand(
+        string name, string displayName, string id, ContextCommandKeyGesture[]? keyGestures = null)
+        => new(name, displayName, null, keyGestures)
+        {
+            Id = id,
+            ExecuteOnAsync = (handler, execution) => handler.ExecuteAsync(execution)
+        };
+
+    public sealed class Handler(Func<ContextCommandExecution, Task> execute)
     {
         public Task ExecuteAsync(ContextCommandExecution execution) => execute(execution);
     }

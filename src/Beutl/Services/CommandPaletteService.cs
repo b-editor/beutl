@@ -93,7 +93,7 @@ public sealed class CommandPaletteService
                 bool hasStateNotifier;
                 using (lease)
                 {
-                    if (!entry.Definition.HasHandler && lease.Extension is not IContextCommandHandler)
+                    if (!entry.Definition.HasHandler)
                         continue;
                     hasStateNotifier = lease.Extension is IContextCommandStateNotifier
                         || (activeContext is not null && lease.Extension is IContextCommandEditorStateNotifier);
@@ -128,7 +128,7 @@ public sealed class CommandPaletteService
             // 列挙対象から除外する。
             object? snapshotContext = _handlerProvider.Resolve(entry.ExtensionType);
             ContextCommandDefinition definition = entry.Definition;
-            if (snapshotContext is null || (!definition.HasHandler && snapshotContext is not IContextCommandHandler))
+            if (snapshotContext is null || !definition.HasHandler)
             {
                 continue;
             }
@@ -143,14 +143,14 @@ public sealed class CommandPaletteService
                 Description: entry.Definition.Description,
                 CategoryName: category,
                 KeyGesture: gesture,
-                CanExecute: () => CanRun(definition, context, CreateExecution(commandName, activeContext, null)),
+                CanExecute: () => definition.CanRun(context, CreateExecution(commandName, activeContext, null)),
                 ExecuteAsync: interaction =>
                 {
                     // スロットル窓や状態変化で表示と実行可否がずれる可能性があるため、
                     // 実行直前にもう一度 CanExecute を確認してから Execute する。
                     var execution = CreateExecution(commandName, activeContext, interaction);
-                    return CanRun(definition, context, execution)
-                        ? RunAsync(definition, context, execution)
+                    return definition.CanRun(context, execution)
+                        ? definition.RunAsync(context, execution)
                         : Task.CompletedTask;
                 })
             {
@@ -206,17 +206,6 @@ public sealed class CommandPaletteService
         };
     }
 
-    // A definition with a handler runs the command; the others still go to the context by name.
-    private static bool CanRun(ContextCommandDefinition definition, object? context, ContextCommandExecution execution)
-        => definition.HasHandler
-            ? definition.CanRun(context, execution)
-            : context is IContextCommandHandler handler && handler.CanExecute(execution);
-
-    private static Task RunAsync(ContextCommandDefinition definition, object? context, ContextCommandExecution execution)
-        => definition.HasHandler
-            ? definition.RunAsync(context, execution)
-            : ((IContextCommandHandler)context!).ExecuteAsync(execution);
-
     private bool CanExecuteExtension(ExtensionId id, ContextCommandDefinition definition, IEditorContext? editorContext)
     {
         if (!_extensionProvider.TryAcquire<ViewExtension>(id, out var lease))
@@ -224,8 +213,7 @@ public sealed class CommandPaletteService
 
         using (lease)
         {
-            object? context = definition.HasHandler ? null : lease.Extension;
-            return CanRun(definition, context, CreateExecution(definition.Name, editorContext, null));
+            return definition.CanRun(null, CreateExecution(definition.Name, editorContext, null));
         }
     }
 
@@ -239,10 +227,9 @@ public sealed class CommandPaletteService
         // Keep the extension alive until its entire asynchronous operation (including prompts) ends.
         using (lease)
         {
-            object? context = definition.HasHandler ? null : lease.Extension;
             var execution = CreateExecution(definition.Name, editorContext, interaction);
-            if (CanRun(definition, context, execution))
-                await RunAsync(definition, context, execution);
+            if (definition.CanRun(null, execution))
+                await definition.RunAsync(null, execution);
         }
     }
 
