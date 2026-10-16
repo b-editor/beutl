@@ -1435,6 +1435,51 @@ public sealed partial class AiCapabilityServiceTests
     }
 
     [Test]
+    public async Task ModelCatalog_DoesNotPublishAResponseAfterTheAccountChanges()
+    {
+        int fetches = 0;
+        using var handler = new ThreadPoolResponseHandler(() =>
+        {
+            Interlocked.Increment(ref fetches);
+            return TestHttp.Json(HttpStatusCode.OK, """
+                {
+                  "operations": {
+                    "image.generate": { "models": [{ "id": "image/model", "isDefault": true }] }
+                  }
+                }
+                """);
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        ApiTestAuthentication.SignIn(app);
+        using var catalog = CatalogService(app, new StepTimeProvider());
+
+        // GetAsync resumes on this context once the response is back, so the account changes just before publication.
+        Task<AiModelCatalog> request;
+        SynchronizationContext? previous = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(
+            new BeforeContinuationContext(() => ApiTestAuthentication.SignIn(app)));
+        try
+        {
+            request = catalog.GetAsync(CancellationToken.None);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previous);
+        }
+
+        AiModelCatalog stale = await request.WaitAsync(TimeSpan.FromSeconds(5));
+        AiModelCatalog current = await catalog.GetAsync(CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(stale, Is.SameAs(AiModelCatalog.Empty));
+            Assert.That(current.ModelsFor(AiOperations.ImageGeneration), Is.Not.Empty);
+            Assert.That(fetches, Is.EqualTo(2));
+        }
+    }
+
+    [Test]
     public async Task ModelCatalog_ReadsWhichFramesAndSizesEachModelTakes()
     {
         using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """
@@ -1959,6 +2004,34 @@ public sealed partial class AiCapabilityServiceTests
             lock (_reports)
                 _reports.Add(value);
         }
+    }
+
+    // Answers on a thread-pool thread, so the request completes without resuming on the caller's context.
+    private sealed class ThreadPoolResponseHandler(Func<HttpResponseMessage> respond) : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            await Task.Delay(1, cancellationToken).ConfigureAwait(false);
+            HttpResponseMessage response = respond();
+            response.RequestMessage = request;
+            return response;
+        }
+    }
+
+    // Runs an action before the first callback posted to it.
+    private sealed class BeforeContinuationContext(Action before) : SynchronizationContext
+    {
+        private int _ran;
+
+        public override void Post(SendOrPostCallback d, object? state)
+            => ThreadPool.QueueUserWorkItem(_ =>
+            {
+                if (Interlocked.Exchange(ref _ran, 1) == 0)
+                    before();
+                d(state);
+            });
     }
 
     // Freshness is measured, not waited for.
