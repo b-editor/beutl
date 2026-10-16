@@ -27,10 +27,10 @@ public sealed class AfterLoadingExtensionsTask : StartupTask
 
     internal static void ShowFailures(IReadOnlyList<(LocalPackage, Exception)> failures)
     {
-        foreach ((LocalPackage package, Exception exception) in failures)
+        foreach ((_, Exception exception) in failures)
         {
             if (exception is PackageApiMismatchException mismatch)
-                ShowMismatch(package, mismatch);
+                ShowMismatch(ExtensionsStrings.PackageNotLoaded, mismatch);
         }
 
         (LocalPackage, Exception)[] others = [.. failures.Where(failure => failure.Item2 is not PackageApiMismatchException)];
@@ -44,11 +44,13 @@ public sealed class AfterLoadingExtensionsTask : StartupTask
     }
 
     // A package built for another Beutl version is named, with the APIs it uses that this Beutl lacks.
-    private static void ShowMismatch(LocalPackage package, PackageApiMismatchException mismatch)
+    // titleFormat says what did not happen to it: the load, the install or the update.
+    internal static void ShowMismatch(string titleFormat, PackageApiMismatchException mismatch)
     {
+        LocalPackage package = mismatch.Package;
         string examples = string.Join(", ", mismatch.Problems.Take(3).Select(problem => problem.Api));
         NotificationService.ShowError(
-            string.Format(ExtensionsStrings.PackageNotLoaded, string.IsNullOrEmpty(package.DisplayName) ? package.Name : package.DisplayName),
+            string.Format(titleFormat, string.IsNullOrEmpty(package.DisplayName) ? package.Name : package.DisplayName),
             package.TargetVersion is { } target
                 ? string.Format(ExtensionsStrings.PackageUsesMissingApisForVersion, target, mismatch.Problems.Count, BeutlApplication.Version, examples)
                 : string.Format(ExtensionsStrings.PackageUsesMissingApis, mismatch.Problems.Count, BeutlApplication.Version, examples),

@@ -166,6 +166,12 @@
   <data name="PackageNotLoaded" xml:space="preserve">
     <value>未加载 {0}</value>
   </data>
+  <data name="PackageNotInstalled" xml:space="preserve">
+    <value>未安装 {0}</value>
+  </data>
+  <data name="PackageNotUpdated" xml:space="preserve">
+    <value>未更新 {0}</value>
+  </data>
   <data name="PackageUsesMissingApisForVersion" xml:space="preserve">
     <value>它是为 Beutl {0} 构建的，使用了 Beutl {2} 中没有的 {1} 个 API，例如 {3}。</value>
   </data>

@@ -1,6 +1,9 @@
 ﻿using System.IO.Compression;
 using System.Text;
 using Beutl.Api.Services;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Emit;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 
@@ -64,6 +67,54 @@ internal static class TestPackages
             writer.Write("local payload");
         }
         return identity;
+    }
+
+    // A .nupkg whose assembly uses Beutl.Extensibility.NotInHost, a type the host lacks. The cleanup gets what
+    // building and installing it creates.
+    public static byte[] CreateIncompatibleNupkg(PackageIdentity identity, ICollection<string> cleanup)
+    {
+        string root = Directory.CreateTempSubdirectory("beutl-incompatible-").FullName;
+        cleanup.Add(root);
+        cleanup.Add(Helper.GetNupkgFilePath(identity.Id, identity.Version.ToString()));
+        cleanup.Add(Helper.PackagePathResolver.GetInstallPath(identity));
+        string extensibility = Compile(root, "Beutl.Extensibility", "namespace Beutl.Extensibility; public class NotInHost { }");
+        string assembly = Compile(Path.Combine(root, "plugin"), "Incompatible",
+            "public class Uses { public System.Type Type = typeof(Beutl.Extensibility.NotInHost); }", extensibility);
+        string framework = Helper.GetFrameworkName().GetShortFolderName();
+        using var stream = new MemoryStream();
+        using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            using (StreamWriter writer = new(archive.CreateEntry($"{identity.Id}.nuspec").Open(), new UTF8Encoding(false)))
+            {
+                writer.Write($$"""
+                    <?xml version="1.0" encoding="utf-8"?>
+                    <package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+                      <metadata>
+                        <id>{{identity.Id}}</id>
+                        <version>{{identity.Version}}</version>
+                        <authors>tester</authors>
+                        <description>Uses an API the host lacks</description>
+                        <dependencies><group targetFramework="{{framework}}" /></dependencies>
+                      </metadata>
+                    </package>
+                    """);
+            }
+            archive.CreateEntryFromFile(assembly, $"lib/{framework}/Incompatible.dll");
+        }
+        return stream.ToArray();
+    }
+
+    private static string Compile(string directory, string name, string source, params string[] references)
+    {
+        string path = Path.Combine(Directory.CreateDirectory(directory).FullName, $"{name}.dll");
+        EmitResult result = CSharpCompilation.Create(
+                name,
+                [CSharpSyntaxTree.ParseText(source)],
+                [MetadataReference.CreateFromFile(typeof(object).Assembly.Location), .. references.Select(reference => MetadataReference.CreateFromFile(reference))],
+                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .Emit(path);
+        Assert.That(result.Success, Is.True, () => string.Join(Environment.NewLine, result.Diagnostics));
+        return path;
     }
 
     // Deletes the files and folders at paths, and empties the list. A path whose folder does not exist, such as

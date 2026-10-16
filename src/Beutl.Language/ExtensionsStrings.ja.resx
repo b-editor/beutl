@@ -161,6 +161,12 @@ URLが不審な場合、開かないことをお勧めします。</value>
   <data name="PackageNotLoaded" xml:space="preserve">
     <value>{0} を読み込みませんでした</value>
   </data>
+  <data name="PackageNotInstalled" xml:space="preserve">
+    <value>{0} をインストールしませんでした</value>
+  </data>
+  <data name="PackageNotUpdated" xml:space="preserve">
+    <value>{0} を更新しませんでした</value>
+  </data>
   <data name="PackageUsesMissingApisForVersion" xml:space="preserve">
     <value>Beutl {0} 向けに作られており、Beutl {2} にない API を {1} 個使っています（{3} など）。</value>
   </data>

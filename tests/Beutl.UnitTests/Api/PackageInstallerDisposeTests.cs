@@ -492,6 +492,21 @@ public sealed class PackageInstallerDisposeTests
     }
 
     [Test]
+    public async Task InstallThatFailsTheApiCheckDoesNotPublishFallback()
+    {
+        var installer = CreateInstaller(ownsHttpClient: false);
+        int fallbackCount = 0;
+
+        Task operation = installer.TrackInstallOperationWithShutdownFallbackAsync(
+            () => Task.FromException(new PackageApiMismatchException(new LocalPackage { Name = "Old" }, [])),
+            () => Interlocked.Increment(ref fallbackCount));
+
+        await Assert.ThrowsAsync<PackageApiMismatchException>(() => operation);
+        Assert.That(fallbackCount, Is.Zero);
+        await installer.DisposeAsync();
+    }
+
+    [Test]
     public async Task NormalInstallCancellationDoesNotPublishShutdownFallback()
     {
         var installer = CreateInstaller(ownsHttpClient: false);

@@ -166,6 +166,12 @@ To force installation, use the CLI tool.</value>
   <data name="PackageNotLoaded" xml:space="preserve">
     <value>{0} was not loaded</value>
   </data>
+  <data name="PackageNotInstalled" xml:space="preserve">
+    <value>{0} was not installed</value>
+  </data>
+  <data name="PackageNotUpdated" xml:space="preserve">
+    <value>{0} was not updated</value>
+  </data>
   <data name="PackageUsesMissingApisForVersion" xml:space="preserve">
     <value>It was built for Beutl {0} and uses {1} APIs that Beutl {2} lacks, such as {3}.</value>
   </data>

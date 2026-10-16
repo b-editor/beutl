@@ -4,6 +4,7 @@ using Beutl.Api.Services;
 using Beutl.Editor.VersionControl;
 using Beutl.Logging;
 using Beutl.Services;
+using Beutl.Services.StartupTasks;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging;
@@ -85,7 +86,31 @@ internal class PackageOperationHandler
         await _packageInstaller.ResolveDependencies(context, null, cancellationToken).ConfigureAwait(false);
 
         cancellationToken.ThrowIfCancellationRequested();
-        await ActivateInstalledPackageAsync(packageId, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await ActivateInstalledPackageAsync(packageId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (PackageApiMismatchException)
+        {
+            // The version would fail the same check again, so neither it nor its download is kept.
+            DeleteVersionFiles([packageId], s_logger);
+            DeleteDownload(context.NuGetPackageFile);
+            throw;
+        }
+    }
+
+    // A download left in the local source would be listed as a local package.
+    private static void DeleteDownload(string? file)
+    {
+        try
+        {
+            if (file is not null)
+                File.Delete(file);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            s_logger.LogWarning(ex, "Failed to remove the download {File}.", file);
+        }
     }
 
     // Installs right away, or queues the install for the next launch when that fails. Cancellation of
@@ -121,6 +146,11 @@ internal class PackageOperationHandler
         {
             throw;
         }
+        catch (PackageApiMismatchException mismatch)
+        {
+            logger.LogWarning(mismatch, "The package was not installed.");
+            AfterLoadingExtensionsTask.ShowMismatch(ExtensionsStrings.PackageNotInstalled, mismatch);
+        }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Immediate install failed, falling back to queue.");
@@ -143,6 +173,7 @@ internal class PackageOperationHandler
         // Activation replaces the old registration, so note now which versions it replaces.
         PackageIdentity[] oldVersions =
             [.. _installedPackageRepository.GetLocalPackages(packageName).Where(version => !version.Equals(packageId))];
+        LocalPackage[] loaded = _packageManager.FindLoadedPackage(packageName);
         try
         {
             if (!await UnloadPackages(packageName))
@@ -158,6 +189,13 @@ internal class PackageOperationHandler
             // The old version is still installed, so there is nothing to queue.
             throw;
         }
+        catch (PackageApiMismatchException mismatch)
+        {
+            logger.LogWarning(mismatch, "The package was not updated.");
+            await LoadAgainAsync(loaded, logger);
+            AfterLoadingExtensionsTask.ShowMismatch(ExtensionsStrings.PackageNotUpdated, mismatch);
+            return;
+        }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Immediate update failed, falling back to queue.");
@@ -166,8 +204,26 @@ internal class PackageOperationHandler
             return;
         }
 
-        DeleteOldVersionFiles(oldVersions, logger);
+        DeleteVersionFiles(oldVersions, logger);
         PackageNotifications.Updated(packageId.Id);
+    }
+
+    // Loads the versions that an abandoned update unloaded from their files, as the next launch would.
+    private async Task LoadAgainAsync(IEnumerable<LocalPackage> unloaded, ILogger logger)
+    {
+        foreach (LocalPackage old in unloaded)
+        {
+            try
+            {
+                using PackageFolderReader reader = new(old.InstalledPath!);
+                var package = new LocalPackage(reader.NuspecReader) { InstalledPath = old.InstalledPath };
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => _packageManager.Load(package));
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to load {PackageId} {PackageVersion} again.", old.Name, old.Version);
+            }
+        }
     }
 
     internal async Task ActivateInstalledPackageAsync(PackageIdentity packageId, CancellationToken cancellationToken)
@@ -250,9 +306,8 @@ internal class PackageOperationHandler
         return UninstallWithFallback(packageName);
     }
 
-    // Removes the versions an update replaced. The new version is already installed and registered,
-    // so a version that cannot be removed only leaves files behind for a later clean-up.
-    private void DeleteOldVersionFiles(IEnumerable<PackageIdentity> versions, ILogger logger)
+    // Removes versions that are no longer used. One that cannot be removed only leaves files behind for a later clean-up.
+    private void DeleteVersionFiles(IEnumerable<PackageIdentity> versions, ILogger logger)
     {
         foreach (PackageIdentity item in versions)
         {
@@ -267,8 +322,7 @@ internal class PackageOperationHandler
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to remove {PackageId} {PackageVersion} after the update.",
-                    item.Id, item.Version);
+                logger.LogWarning(ex, "Failed to remove {PackageId} {PackageVersion}.", item.Id, item.Version);
             }
         }
     }
