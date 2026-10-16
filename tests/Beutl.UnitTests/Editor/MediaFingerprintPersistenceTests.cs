@@ -105,7 +105,7 @@ public class MediaFingerprintPersistenceTests
         {
             Assert.That(path, Is.EqualTo(Path.Combine(_root, "media-fingerprints.json")));
             Assert.That(sceneFile.ContainsKey("MediaFingerprints"), Is.False);
-            Assert.That(sceneFile.Select(pair => pair.Key).TakeLast(2), Is.EqualTo(new[] { "MediaFingerprintFile", "$type" }));
+            Assert.That(sceneFile.Select(pair => pair.Key).TakeLast(3), Is.EqualTo(new[] { "MediaFingerprintFile", "$type", "minAppVersion" }));
             Assert.That(sceneFile["MediaFingerprintFile"]!.GetValue<string>(), Is.EqualTo("media-fingerprints.json"));
             Assert.That(file.Select(pair => pair.Key), Is.EqualTo(new[] { "Version", "Fingerprints", "$type" }));
             Assert.That(file["Version"]!.GetValue<int>(), Is.EqualTo(1));
