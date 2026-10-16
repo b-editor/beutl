@@ -3532,108 +3532,22 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
-    public async Task Failed_stale_lock_removal_keeps_the_lock_visible_and_warns_with_its_path()
+    public async Task Stale_lock_warns_with_the_manual_removal_guidance()
     {
         using var notifications = new NotificationCapture();
         await using var session = await FakeVersionControlSession.CreateAsync(
-            "version-control-lock-manual-removal");
-        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
-        {
-            RemoveRecoverableLockResult = false,
-        };
+            "version-control-lock-manual-removal-only");
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
         VersionControlCoordinator coordinator = session.Start(
             GlobalConfiguration.Instance.VersionControlConfig,
             _ => backend);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-        coordinator.ConfirmRemoveStaleLockAsync = (_, _) => Task.FromResult(true);
         var lockInfo = new RepositoryLockInfo(
             Path.Combine(session.Root, ".git", "index.lock"),
             DateTimeOffset.UtcNow);
 
         backend.RaiseRecoverableLock(lockInfo);
         await WaitUntilAsync(() =>
-            backend.RemoveRecoverableLockCalls == 1
-            && notifications.All.Any(notification =>
-                notification.Type == NotificationType.Warning));
-
-        Notification warning = notifications.All.Single(notification =>
-            notification.Type == NotificationType.Warning);
-        Assert.Multiple(() =>
-        {
-            Assert.That(backend.RecoverableLock, Is.EqualTo(lockInfo));
-            Assert.That(warning.Message, Does.Contain(lockInfo.LockPath));
-        });
-    }
-
-    [AvaloniaTest]
-    public async Task Removable_stale_lock_is_removed_only_after_consent()
-    {
-        using var notifications = new NotificationCapture();
-        await using var session = await FakeVersionControlSession.CreateAsync(
-            "version-control-lock-removal-consent");
-        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
-        {
-            RemoveRecoverableLockResult = true,
-        };
-        VersionControlCoordinator coordinator = session.Start(
-            GlobalConfiguration.Instance.VersionControlConfig,
-            _ => backend);
-        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-        int confirmationCount = 0;
-        coordinator.ConfirmRemoveStaleLockAsync = (_, _) =>
-        {
-            Interlocked.Increment(ref confirmationCount);
-            return Task.FromResult(true);
-        };
-        var lockInfo = new RepositoryLockInfo(
-            Path.Combine(session.Root, ".git", "index.lock"),
-            DateTimeOffset.UtcNow,
-            requiresManualRemoval: false);
-
-        backend.RaiseRecoverableLock(lockInfo);
-        await WaitUntilAsync(() =>
-            notifications.All.Any(notification =>
-                notification.Message == Strings.VersionControl_StaleLockRemoved));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(Volatile.Read(ref confirmationCount), Is.EqualTo(1));
-            Assert.That(backend.RemoveRecoverableLockCalls, Is.EqualTo(1));
-            Assert.That(backend.RecoverableLock, Is.Null);
-            Assert.That(
-                notifications.All.Any(notification =>
-                    notification.Type == NotificationType.Warning),
-                Is.False);
-        });
-    }
-
-    [AvaloniaTest]
-    public async Task Stale_lock_requiring_manual_removal_warns_without_asking_for_consent()
-    {
-        using var notifications = new NotificationCapture();
-        await using var session = await FakeVersionControlSession.CreateAsync(
-            "version-control-lock-manual-removal-only");
-        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
-        {
-            RemoveRecoverableLockResult = true,
-        };
-        VersionControlCoordinator coordinator = session.Start(
-            GlobalConfiguration.Instance.VersionControlConfig,
-            _ => backend);
-        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-        int confirmationCount = 0;
-        coordinator.ConfirmRemoveStaleLockAsync = (_, _) =>
-        {
-            Interlocked.Increment(ref confirmationCount);
-            return Task.FromResult(true);
-        };
-        var lockInfo = new RepositoryLockInfo(
-            Path.Combine(session.Root, ".git", "index.lock"),
-            DateTimeOffset.UtcNow,
-            requiresManualRemoval: true);
-
-        backend.RaiseRecoverableLock(lockInfo);
-        await WaitUntilAsync(() =>
             notifications.All.Any(notification =>
                 notification.Type == NotificationType.Warning));
 
@@ -3641,8 +3555,6 @@ public class VersionControlRestoreTests
             notification.Type == NotificationType.Warning);
         Assert.Multiple(() =>
         {
-            Assert.That(Volatile.Read(ref confirmationCount), Is.Zero);
-            Assert.That(backend.RemoveRecoverableLockCalls, Is.Zero);
             Assert.That(backend.RecoverableLock, Is.SameAs(lockInfo));
             Assert.That(
                 warning.Message,
@@ -3650,96 +3562,6 @@ public class VersionControlRestoreTests
                     System.Globalization.CultureInfo.CurrentCulture,
                     Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
                     lockInfo.LockPath)));
-        });
-    }
-
-    [AvaloniaTest]
-    public async Task Stale_lock_confirmation_is_not_reused_for_an_equal_replacement_offer()
-    {
-        var confirmationStarted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseConfirmation = new TaskCompletionSource<bool>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        await using var session = await FakeVersionControlSession.CreateAsync(
-            "version-control-lock-offer-generation");
-
-        try
-        {
-            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
-            {
-                RemoveRecoverableLockResult = true,
-            };
-            VersionControlCoordinator coordinator = session.Start(
-                GlobalConfiguration.Instance.VersionControlConfig,
-                _ => backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-            int confirmationCount = 0;
-            coordinator.ConfirmRemoveStaleLockAsync = async (_, _) =>
-            {
-                if (Interlocked.Increment(ref confirmationCount) == 1)
-                {
-                    confirmationStarted.TrySetResult();
-                    return await releaseConfirmation.Task;
-                }
-
-                return false;
-            };
-            string lockPath = Path.Combine(session.Root, ".git", "index.lock");
-            DateTimeOffset timestamp = DateTimeOffset.UtcNow;
-            var firstOffer = new RepositoryLockInfo(lockPath, timestamp);
-            var replacementOffer = new RepositoryLockInfo(lockPath, timestamp);
-
-            backend.RaiseRecoverableLock(firstOffer);
-            await confirmationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            backend.RaiseRecoverableLock(replacementOffer);
-            releaseConfirmation.TrySetResult(true);
-            await WaitUntilAsync(() => Volatile.Read(ref confirmationCount) == 2);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(firstOffer.LockPath, Is.EqualTo(replacementOffer.LockPath));
-                Assert.That(
-                    firstOffer.LastWriteTimeUtc,
-                    Is.EqualTo(replacementOffer.LastWriteTimeUtc));
-                Assert.That(firstOffer, Is.Not.SameAs(replacementOffer));
-                Assert.That(backend.RecoverableLock, Is.SameAs(replacementOffer));
-                Assert.That(backend.RemoveRecoverableLockCalls, Is.Zero);
-            });
-        }
-        finally
-        {
-            releaseConfirmation.TrySetResult(false);
-        }
-    }
-
-    [AvaloniaTest]
-    public async Task Async_disposal_cancels_and_joins_an_active_lock_recovery_prompt()
-    {
-        var confirmation = new BlockingPrompt<bool>();
-        await using var session = await FakeVersionControlSession.CreateAsync(
-            "version-control-lock-recovery-disposal");
-        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
-        VersionControlCoordinator coordinator = session.Start(
-            GlobalConfiguration.Instance.VersionControlConfig,
-            _ => backend);
-        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-        coordinator.ConfirmRemoveStaleLockAsync = (_, cancellationToken) =>
-            confirmation.AnswerAsync(cancellationToken);
-
-        backend.RaiseRecoverableLock(new RepositoryLockInfo(
-            Path.Combine(session.Root, ".git", "index.lock"),
-            DateTimeOffset.UtcNow));
-        await confirmation.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-        Task disposal = coordinator.DisposeAsync().AsTask();
-        await disposal.WaitAsync(TimeSpan.FromSeconds(5));
-        await confirmation.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(backend.RemoveRecoverableLockCalls, Is.Zero);
-            Assert.That(coordinator.CurrentService, Is.Null);
-            Assert.That(session.EditorService.ProjectVersionControlService.Value, Is.Null);
         });
     }
 
@@ -7915,10 +7737,6 @@ public class VersionControlRestoreTests
 
         public int RetirementCalls => Volatile.Read(ref _retirementCalls);
 
-        public int RemoveRecoverableLockCalls { get; private set; }
-
-        public bool RemoveRecoverableLockResult { get; init; }
-
         public int CallsAfterRetirement { get; private set; }
 
         public void EnqueueBranchSnapshot(IReadOnlyList<BranchInfo> branches)
@@ -8224,21 +8042,6 @@ public class VersionControlRestoreTests
             {
                 _exclusiveGate.Release();
             }
-        }
-
-        public Task<bool> RemoveRecoverableLockAsync(
-            RepositoryLockInfo expectedLock,
-            CancellationToken cancellationToken)
-        {
-            RemoveRecoverableLockCalls++;
-            if (RemoveRecoverableLockResult
-                && ReferenceEquals(RecoverableLock, expectedLock))
-            {
-                RecoverableLock = null;
-                return Task.FromResult(true);
-            }
-
-            return Task.FromResult(false);
         }
 
         public Task<IReadOnlyList<CommitInfo>> GetHistoryAsync(

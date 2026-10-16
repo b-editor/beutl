@@ -1035,11 +1035,6 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
             => null;
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => false;
     }
 
     private sealed class TruncatingCustomAttributeRunner : IGitCliRunner
@@ -1070,11 +1065,6 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
             => null;
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => false;
     }
 
     public enum CheckAttributeFault

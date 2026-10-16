@@ -2813,20 +2813,8 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="VersionControl_Offline" xml:space="preserve">
     <value>无法连接远程。请检查网络连接后重试。</value>
   </data>
-  <data name="VersionControl_StaleLockGuidance" xml:space="preserve">
-    <value>过期的 Git 仓库锁阻止了版本控制操作。</value>
-  </data>
-  <data name="VersionControl_RemoveStaleLock" xml:space="preserve">
-    <value>移除过期锁</value>
-  </data>
-  <data name="VersionControl_StaleLockConfirmation" xml:space="preserve">
-    <value>Git 仓库锁已存在超过 10 分钟，且 Beutl 没有正在运行的 Git 进程。要移除过期锁吗？</value>
-  </data>
-  <data name="VersionControl_StaleLockRemoved" xml:space="preserve">
-    <value>已移除过期的 Git 仓库锁。请重试版本控制操作。</value>
-  </data>
   <data name="VersionControl_StaleLockManualRemovalRequiredFormat" xml:space="preserve">
-    <value>Beutl 无法在当前文件系统上安全移除此 Git 锁。请关闭外部 Git 工具，确认没有 Git 进程运行，然后手动删除 {0} 并重试。</value>
+    <value>过期的 Git 仓库锁阻止了版本控制操作。请关闭外部 Git 工具，确认没有 Git 进程运行，然后手动删除 {0} 并重试。</value>
   </data>
   <data name="VersionControl_WorktreeOperationInProgress" xml:space="preserve">
     <value>版本控制正在更新项目文件。请等待操作完成后重试。</value>

@@ -157,31 +157,6 @@ internal partial class VersionControlTabViewModel
         });
     }
 
-    internal async Task RemoveStaleLockAsync()
-    {
-        if (_lockRecoveryService is null)
-        {
-            return;
-        }
-
-        RepositoryLockInfo? expectedLock = _lockRecoveryService.RecoverableLock;
-        if (expectedLock is null)
-        {
-            return;
-        }
-
-        bool removed = await _lockRecoveryService.RemoveRecoverableLockAsync(
-            expectedLock,
-            CancellationToken.None);
-        RepositoryLockInfo? remainingLock = _lockRecoveryService.RecoverableLock;
-        CanRemoveStaleLock.Value = remainingLock is { RequiresManualRemoval: false };
-        HasRecoverableLock.Value = remainingLock is not null;
-        if (!removed && remainingLock is not null)
-        {
-            StaleLockGuidance.Value = FormatStaleLockManualRemovalGuidance(remainingLock);
-        }
-    }
-
     internal Task RunCommandAsync(Func<Task> operation, string commandName)
     {
         return VersionControlCommandBoundary.RunAsync(operation, _logger, commandName);
