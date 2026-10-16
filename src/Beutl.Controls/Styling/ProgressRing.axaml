@@ -110,19 +110,6 @@
                 </Animation>
             </Style.Animations>
         </Style>
-
-        <Style Selector="^[IsEnabled=True] /template/ Ellipse#Track">
-            <Style.Animations>
-                <Animation IterationCount="INFINITE" Duration="0:0:1">
-                    <KeyFrame Cue="0%">
-                        <Setter Property="Opacity" Value="0.99" />
-                    </KeyFrame>
-                    <KeyFrame Cue="100%">
-                        <Setter Property="Opacity" Value="1" />
-                    </KeyFrame>
-                </Animation>
-            </Style.Animations>
-        </Style>
     </ControlTheme>
 
 </ResourceDictionary>
