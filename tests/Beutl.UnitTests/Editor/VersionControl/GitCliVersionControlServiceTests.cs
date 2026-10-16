@@ -3457,24 +3457,22 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
-    [TestCase("CaseAlias", "casealias")]
-    [TestCase("CaseParent", "caseparent/child")]
-    [TestCase("CaseParent/child", "caseparent")]
-    public async Task CanCreateBranchAsync_rejects_case_aliases_when_loose_refs_share_the_same_storage_path(
+    [TestCase("CaseAlias", "casealias", false)]
+    [TestCase("CaseParent", "caseparent/child", false)]
+    [TestCase("CaseParent/child", "caseparent", false)]
+    [TestCase("PackedAlias", "packedalias", true)]
+    [TestCase("PackedParent", "packedparent/child", true)]
+    [TestCase("PackedParent/child", "packedparent", true)]
+    public async Task CanCreateBranchAsync_rejects_case_aliases_on_any_ref_storage(
         string existingName,
-        string candidateName)
+        string candidateName,
+        bool packRefs)
     {
         await CommitFileAsync("project.bep", "current\n", "current");
         await RunGitAsync("branch", existingName);
-        string aliasedExistingPath = Path.Combine(
-            Root,
-            ".git",
-            "refs",
-            "heads",
-            existingName.ToLowerInvariant().Replace('/', Path.DirectorySeparatorChar));
-        if (!Path.Exists(aliasedExistingPath))
+        if (packRefs)
         {
-            Assert.Ignore("The repository ref storage is case-sensitive for this branch name.");
+            await RunGitAsync("pack-refs", "--all", "--prune");
         }
 
         using var service = CreateService();
@@ -3492,39 +3490,28 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
-    [TestCase("PackedAlias", "packedalias")]
-    [TestCase("PackedParent", "packedparent/child")]
-    [TestCase("PackedParent/child", "packedparent")]
-    public async Task CanCreateBranchAsync_rejects_case_aliases_against_packed_refs_on_case_insensitive_storage(
-        string existingName,
-        string candidateName)
+    [Test]
+    public async Task CreateBranchAsync_leaves_a_collision_with_a_stray_ref_file_to_git_switch()
     {
+        // The name check compares branch names only, so Git reports a file in refs/heads that is no branch.
         await CommitFileAsync("project.bep", "current\n", "current");
-        await RunGitAsync("branch", existingName);
-        await RunGitAsync("pack-refs", "--all", "--prune");
-        string refsDirectory = Path.Combine(Root, ".git", "refs");
-        if (!Directory.Exists(Path.Combine(Root, ".GIT")))
-        {
-            Assert.Ignore("The repository ref storage is case-sensitive.");
-        }
-
-        string looseExistingPath = Path.Combine(
-            refsDirectory,
-            "heads",
-            existingName.Replace('/', Path.DirectorySeparatorChar));
-        Assert.That(File.Exists(looseExistingPath), Is.False);
-
+        string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await File.WriteAllTextAsync(Path.Combine(Root, ".git", "refs", "heads", "stray"), "not a ref\n");
         using var service = CreateService();
+
         bool canCreate = await service.ExecuteExclusiveAsync(
-            transaction => transaction.CanCreateBranchAsync(
-                candidateName,
-                CancellationToken.None),
+            transaction => transaction.CanCreateBranchAsync("stray/child", CancellationToken.None),
             CancellationToken.None);
+        GitOperationException? failure = await Assert.ThrowsAsync<GitOperationException>(
+            async () => await service.ExecuteExclusiveAsync(
+                transaction => transaction.CreateBranchAsync("stray/child", head, CancellationToken.None),
+                CancellationToken.None));
 
         GitCommandResult currentBranch = await RunGitAsync("branch", "--show-current");
         Assert.Multiple(() =>
         {
-            Assert.That(canCreate, Is.False);
+            Assert.That(canCreate, Is.True);
+            Assert.That(failure!.Message, Does.Contain("cannot lock ref"));
             Assert.That(currentBranch.Stdout.Trim(), Is.EqualTo("main"));
         });
     }

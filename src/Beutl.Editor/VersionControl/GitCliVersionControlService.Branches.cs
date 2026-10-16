@@ -29,27 +29,12 @@ internal sealed partial class GitCliVersionControlService
             IEnumerable<BranchInfo> branches = (await GetBranchesCoreAsync(cancellationToken)
                     .ConfigureAwait(false))
                 .Where(static branch => !branch.IsRemote);
-            StringComparison branchNameComparison = await UsesCaseInsensitiveFilesRefStorageAsync(
-                    repository,
-                    runner,
-                    cancellationToken)
-                .ConfigureAwait(false)
-                ? StringComparison.OrdinalIgnoreCase
-                : StringComparison.Ordinal;
-            if (branches.Any(branch => BranchNamesConflict(
-                    branch.Name,
-                    name,
-                    branchNameComparison)))
-            {
-                return false;
-            }
-
-            return !await HasLooseBranchPathCollisionAsync(
-                    repository,
-                    runner,
-                    name,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            // A case-insensitive volume cannot hold two loose refs that differ only in case, so case
+            // variants are refused on every storage. git switch -c reports any other collision itself.
+            return !branches.Any(branch => BranchNamesConflict(
+                branch.Name,
+                name,
+                StringComparison.OrdinalIgnoreCase));
         }
         catch (GitOperationException)
         {
@@ -300,124 +285,5 @@ internal sealed partial class GitCliVersionControlService
         return string.Equals(existingName, candidateName, comparison)
                || existingName.StartsWith($"{candidateName}/", comparison)
                || candidateName.StartsWith($"{existingName}/", comparison);
-    }
-
-    private static async Task<bool> UsesCaseInsensitiveFilesRefStorageAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            GitCommandResult storage = await runner.RunAsync(
-                repository,
-                ["config", "--local", "--get", "extensions.refStorage"],
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
-            if (!string.Equals(
-                    storage.Stdout.Trim(),
-                    "files",
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-        }
-        catch (GitOperationException ex) when (ex.ExitCode == 1)
-        {
-            // The traditional files backend omits extensions.refStorage.
-        }
-
-        string headsDirectory = await ResolveGitPathAsync(
-                repository,
-                runner,
-                "refs/heads",
-                cancellationToken)
-            .ConfigureAwait(false);
-        return IsDirectoryStorageCaseInsensitive(headsDirectory);
-    }
-
-    private static bool IsDirectoryStorageCaseInsensitive(string directory)
-    {
-        try
-        {
-            DirectoryInfo? current = new DirectoryInfo(directory);
-            while (current is not null && !current.Exists)
-            {
-                current = current.Parent;
-            }
-
-            while (current?.Parent is not null)
-            {
-                string aliasName = current.Name.ToUpperInvariant();
-                if (string.Equals(aliasName, current.Name, StringComparison.Ordinal))
-                {
-                    aliasName = current.Name.ToLowerInvariant();
-                }
-
-                if (!string.Equals(aliasName, current.Name, StringComparison.Ordinal))
-                {
-                    string aliasPath = Path.Combine(current.Parent.FullName, aliasName);
-                    if (!Directory.Exists(aliasPath))
-                    {
-                        return false;
-                    }
-
-                    bool distinctAliasExists = current.Parent
-                        .EnumerateDirectories()
-                        .Any(candidate => string.Equals(
-                            candidate.Name,
-                            aliasName,
-                            StringComparison.Ordinal));
-                    return !distinctAliasExists;
-                }
-
-                current = current.Parent;
-            }
-
-            return OperatingSystem.IsWindows();
-        }
-        catch (Exception ex)
-            when (ex is IOException
-                  or UnauthorizedAccessException
-                  or NotSupportedException)
-        {
-            // Conservatively reject case aliases when the files backend cannot be inspected.
-            return true;
-        }
-    }
-
-    private static async Task<bool> HasLooseBranchPathCollisionAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        string candidateName,
-        CancellationToken cancellationToken)
-    {
-        string headsDirectory = await ResolveGitPathAsync(
-                repository,
-                runner,
-                "refs/heads",
-                cancellationToken)
-            .ConfigureAwait(false);
-        string candidatePath = Path.Combine(
-            headsDirectory,
-            candidateName.Replace('/', Path.DirectorySeparatorChar));
-        if (Path.Exists(candidatePath))
-        {
-            return true;
-        }
-
-        string? parent = Path.GetDirectoryName(candidatePath);
-        while (parent is not null
-               && !string.Equals(parent, headsDirectory, StringComparison.Ordinal))
-        {
-            if (File.Exists(parent))
-            {
-                return true;
-            }
-
-            parent = Path.GetDirectoryName(parent);
-        }
-
-        return false;
     }
 }
