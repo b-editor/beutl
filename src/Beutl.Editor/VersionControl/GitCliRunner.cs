@@ -115,7 +115,6 @@ internal sealed partial class GitCliRunner : IGitCliRunner
     private readonly bool _supportsConditionalLockDeletion;
     private readonly Func<string, RepositoryLockFileSnapshot?> _readLockFileSnapshot;
     private readonly Func<string, RepositoryLockFileSnapshot, bool> _deleteLockFileConditionally;
-    private readonly Func<string, IEnumerable<string>> _enumerateFileSystemEntries;
     private readonly ConditionalWeakTable<RepositoryLockInfo, RepositoryLockFileIdentityBox>
         _lockFileIdentities = new();
     private int _activeProcesses;
@@ -138,7 +137,6 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         bool? supportsConditionalLockDeletion = null,
         Func<string, RepositoryLockFileSnapshot?>? readLockFileSnapshot = null,
         Func<string, RepositoryLockFileSnapshot, bool>? deleteLockFileConditionally = null,
-        Func<string, IEnumerable<string>>? enumerateFileSystemEntries = null,
         TimeSpan? stopGracePeriod = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gitPath);
@@ -166,11 +164,6 @@ internal sealed partial class GitCliRunner : IGitCliRunner
                                     : TryReadPortableLockFileSnapshot);
         _deleteLockFileConditionally = deleteLockFileConditionally
                                        ?? TryDeleteWindowsLockFileConditionally;
-        _enumerateFileSystemEntries = enumerateFileSystemEntries
-                                      ?? (static path => Directory.EnumerateFileSystemEntries(
-                                          path,
-                                          "*",
-                                          SearchOption.TopDirectoryOnly));
     }
 
     public bool HasActiveProcess => Volatile.Read(ref _activeProcesses) > 0;
