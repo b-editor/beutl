@@ -22,7 +22,7 @@
                  ItemsSource="{Binding AllItems}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <StackPanel DataContext="{Binding Value}" Spacing="2">
+                    <StackPanel Spacing="2">
                         <TextBlock Text="{Binding FullDisplayName}" TextTrimming="{x:Static TextTrimming.LeadingCharacterEllipsis}" />
                         <WrapPanel Orientation="Horizontal">
                             <WrapPanel.Styles>

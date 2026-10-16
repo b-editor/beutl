@@ -85,9 +85,9 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
 
     public List<LibraryItemViewModel> Nodes { get; }
 
-    public CoreList<KeyValuePair<int, LibraryItemViewModel>> AllItems { get; }
+    public CoreList<LibraryItemViewModel> AllItems { get; }
 
-    public ReactiveCollection<KeyValuePair<int, LibraryItemViewModel>> SearchResult { get; } = [];
+    public ReactiveCollection<LibraryItemViewModel> SearchResult { get; } = [];
 
 
     public int SelectedTab { get; set; } = 2;
@@ -96,20 +96,20 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
     public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes
         => GlobalConfiguration.Instance.EditorConfig.LibraryTabDisplayModes;
 
-    private List<KeyValuePair<int, LibraryItemViewModel>> CreateAllItems(int capacity = 0)
+    private List<LibraryItemViewModel> CreateAllItems(int capacity = 0)
     {
-        var allItems = new List<KeyValuePair<int, LibraryItemViewModel>>(capacity);
+        var allItems = new List<LibraryItemViewModel>(capacity);
         AddAllItems(allItems, LibraryItems);
         AddAllItems(allItems, Nodes);
         return allItems;
     }
 
-    private static void AddAllItems(List<KeyValuePair<int, LibraryItemViewModel>> allItems,
+    private static void AddAllItems(List<LibraryItemViewModel> allItems,
         IEnumerable<LibraryItemViewModel> items)
     {
         foreach (LibraryItemViewModel innerItem in items)
         {
-            allItems.Add(new(0, innerItem));
+            allItems.Add(innerItem);
             AddAllItems(allItems, innerItem.Children);
         }
     }
@@ -222,23 +222,23 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         {
             token.ThrowIfCancellationRequested();
             PublishSearchResult([], searchVersion, cancellationToken);
-            KeyValuePair<int, LibraryItemViewModel>[] items = AllItems.ToArray();
-            KeyValuePair<int, LibraryItemViewModel>[] results = await Task.Run(() =>
+            LibraryItemViewModel[] items = AllItems.ToArray();
+            LibraryItemViewModel[] results = await Task.Run(() =>
             {
                 var matches = new List<KeyValuePair<int, LibraryItemViewModel>>();
                 Regex[] regices = RegexHelper.CreateRegexes(str);
-                foreach (KeyValuePair<int, LibraryItemViewModel> item in items)
+                foreach (LibraryItemViewModel item in items)
                 {
                     token.ThrowIfCancellationRequested();
-                    int score = item.Value.Match(regices);
+                    int score = item.Match(regices);
                     token.ThrowIfCancellationRequested();
                     if (score > 0)
                     {
-                        matches.Add(new(score, item.Value));
+                        matches.Add(new(score, item));
                     }
                 }
 
-                return matches.OrderByDescending(x => x.Key).ToArray();
+                return matches.OrderByDescending(x => x.Key).Select(x => x.Value).ToArray();
             }, token);
             token.ThrowIfCancellationRequested();
             PublishSearchResult(results, searchVersion, cancellationToken);
@@ -254,7 +254,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         }
     }
 
-    private void PublishSearchResult(IReadOnlyList<KeyValuePair<int, LibraryItemViewModel>> results,
+    private void PublishSearchResult(IReadOnlyList<LibraryItemViewModel> results,
         int searchVersion, CancellationToken cancellationToken)
     {
         void Publish()
@@ -263,7 +263,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
                 return;
 
             SearchResult.Clear();
-            foreach (KeyValuePair<int, LibraryItemViewModel> item in results)
+            foreach (LibraryItemViewModel item in results)
             {
                 if (IsStale())
                     return;
