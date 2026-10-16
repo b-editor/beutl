@@ -114,8 +114,7 @@ public class GradingColorEditor : PropertyEditor
 
         _flyoutActive = true;
 
-        if (IsLivePreviewEnabled)
-            _oldValue = _value;
+        _oldValue = _value;
     }
 
     private void OnFlyoutColorChanged(GradingColorPickerFlyout sender, (GradingColor OldValue, GradingColor NewValue) args)
