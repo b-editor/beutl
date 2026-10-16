@@ -71,14 +71,17 @@ public class RationalArithmeticTests
     }
 
     [Test]
-    public void IsPositive_ReflectsCurrentImplementation()
+    public void IsPositive_RespectsSignOfNumeratorAndDenominator()
     {
-        // Implementation uses XOR of long.IsPositive(num) and long.IsPositive(den);
-        // i.e. exactly one of them is non-negative.
-        Assert.That(Rational.IsPositive(new Rational(-1, 2)), Is.True);
-        Assert.That(Rational.IsPositive(new Rational(1, -2)), Is.True);
-        Assert.That(Rational.IsPositive(new Rational(-1, -2)), Is.False);
-        Assert.That(Rational.IsPositive(new Rational(1, 2)), Is.False);
+        Assert.That(Rational.IsPositive(new Rational(1, 2)), Is.True);
+        Assert.That(Rational.IsPositive(new Rational(-1, -2)), Is.True);
+        Assert.That(Rational.IsPositive(new Rational(0, 1)), Is.True);
+        Assert.That(Rational.IsPositive(new Rational(0, -1)), Is.True);
+        Assert.That(Rational.IsPositive(Rational.PositiveInfinity), Is.True);
+        Assert.That(Rational.IsPositive(new Rational(-1, 2)), Is.False);
+        Assert.That(Rational.IsPositive(new Rational(1, -2)), Is.False);
+        Assert.That(Rational.IsPositive(Rational.NegativeInfinity), Is.False);
+        Assert.That(Rational.IsPositive(Rational.NaN), Is.False);
     }
 
     [Test]
