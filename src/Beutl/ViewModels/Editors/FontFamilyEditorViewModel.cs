@@ -32,7 +32,7 @@ public sealed class FontFamilyEditorViewModel(IPropertyAdapter<FontFamily?> prop
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<FontFamily?> args)
+        if (e.Expect<FontFamily?>(sender) is { } args)
         {
             SetValue(args.OldValue, args.NewValue);
         }

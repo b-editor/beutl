@@ -207,7 +207,7 @@ public sealed class FileThumbnailService
         {
             try
             {
-                return DecoderRegistry.OpenMediaFile(filePath, new MediaOptions(mode));
+                return DecoderRegistry.OpenMediaFile(filePath, new MediaOptions(mode) { IsBackground = true });
             }
             catch
             {
@@ -326,7 +326,7 @@ public sealed class FileThumbnailService
 
             try
             {
-                var options = new MediaOptions(MediaMode.Video);
+                var options = new MediaOptions(MediaMode.Video) { IsBackground = true };
                 using var reader = DecoderRegistry.OpenMediaFile(filePath, options);
                 if (reader == null || !reader.HasVideo)
                     return null;

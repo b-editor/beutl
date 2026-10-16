@@ -57,7 +57,7 @@ public sealed class GradingColorEditorViewModel : ValueEditorViewModel<GradingCo
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<GradingColor> args)
+        if (e.Expect<GradingColor>(sender) is { } args)
         {
             SetValue(args.OldValue, args.NewValue);
         }

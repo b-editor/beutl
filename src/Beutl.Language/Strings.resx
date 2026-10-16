@@ -2417,6 +2417,9 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="VersionControl_ActivationFailedFormat" xml:space="preserve">
     <value>Version control could not be enabled for this project. {0}</value>
   </data>
+  <data name="VersionControl_RepositoryNotWatchedFormat" xml:space="preserve">
+    <value>Beutl cannot watch this project folder, so version control shows changes made outside Beutl only after its next operation. {0}</value>
+  </data>
   <data name="VersionControl_BranchFormat" xml:space="preserve">
     <value>Branch: {0}</value>
   </data>

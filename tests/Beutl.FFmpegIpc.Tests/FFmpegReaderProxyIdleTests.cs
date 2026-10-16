@@ -337,7 +337,7 @@ public class FFmpegReaderProxyIdleTests
             Acceleration = FFmpegDecodingSettings.AccelerationOptions.D3D11VA,
             ForceSrgbGamma = false,
         };
-        var decoderInfo = new FFmpegDecoderInfo(settings, () => _worker.Connection, _tracker);
+        var decoderInfo = new FFmpegDecoderInfo(settings, _ => _worker.Connection, _tracker);
 
         using var reader = decoderInfo.Open("clip.mp4", new MediaOptions(MediaMode.Video)) as FFmpegReaderProxy;
 
@@ -359,7 +359,7 @@ public class FFmpegReaderProxyIdleTests
     public void DecoderInfo_Reopen_SendsTheCurrentDecodingSettings()
     {
         var settings = new FFmpegDecodingSettings { ThreadCount = 2 };
-        var decoderInfo = new FFmpegDecoderInfo(settings, () => _worker.Connection, _tracker);
+        var decoderInfo = new FFmpegDecoderInfo(settings, _ => _worker.Connection, _tracker);
         using var reader = (FFmpegReaderProxy)decoderInfo.Open("clip.mp4", new MediaOptions(MediaMode.Video))!;
         Assert.That(_worker.OpenRequests.TryDequeue(out _), Is.True);
 
@@ -369,6 +369,29 @@ public class FFmpegReaderProxyIdleTests
 
         Assert.That(_worker.OpenRequests.TryDequeue(out OpenFileRequest? reopenRequest), Is.True);
         Assert.That(reopenRequest!.ThreadCount, Is.EqualTo(6));
+    }
+
+    // The options pick the worker, so a background reader whose worker exits reopens on the background worker.
+    [Test]
+    public void DecoderInfo_ReopensWithTheOpenOptions_AfterTheWorkerExits()
+    {
+        using var restartedWorker = new FakeWorker(firstReaderId: 9);
+        var connected = new List<MediaOptions>();
+        var decoderInfo = new FFmpegDecoderInfo(new FFmpegDecodingSettings(), options =>
+        {
+            connected.Add(options);
+            return connected.Count == 1 ? _worker.Connection : restartedWorker.Connection;
+        }, _tracker);
+        var background = new MediaOptions(MediaMode.Video) { IsBackground = true };
+        using var reader = (FFmpegReaderProxy)decoderInfo.Open("clip.mp4", background)!;
+
+        _worker.Exit();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ReadFirstByte(reader, 1), Is.EqualTo(FakeWorker.PixelValue(9, 1)));
+            Assert.That(connected, Is.EqualTo(new[] { background, background }));
+        });
     }
 
     // The idle budget counts the ring buffer the worker allocated: HDR slots take 8 bytes per pixel, and
@@ -680,7 +703,7 @@ public class FFmpegReaderProxyIdleTests
     public void DecoderInfo_Open_GivesUpOnAWorkerThatDoesNotAnswer_AndClosesTheLateReader()
     {
         var decoderInfo = new FFmpegDecoderInfo(
-            new FFmpegDecodingSettings(), () => _worker.Connection, _tracker, TimeSpan.FromSeconds(3));
+            new FFmpegDecodingSettings(), _ => _worker.Connection, _tracker, TimeSpan.FromSeconds(3));
         _worker.ReleaseOpens.Reset();
         try
         {

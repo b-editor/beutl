@@ -56,7 +56,7 @@ public sealed class CornerRadiusEditorViewModel : ValueEditorViewModel<Media.Cor
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<(float TopLeft, float TopRight, float BottomRight, float BottomLeft)> args)
+        if (e.Expect<(float TopLeft, float TopRight, float BottomRight, float BottomLeft)>(sender) is { } args)
         {
             SetValue(new Media.CornerRadius(args.OldValue.TopLeft, args.OldValue.TopRight, args.OldValue.BottomRight, args.OldValue.BottomLeft),
                      new Media.CornerRadius(args.NewValue.TopLeft, args.NewValue.TopRight, args.NewValue.BottomRight, args.NewValue.BottomLeft));

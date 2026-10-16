@@ -54,9 +54,9 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
 
         editor.AddDisposableHandler(
                 PropertyEditor.ValueConfirmedEvent,
-                (_, e) =>
+                (s, e) =>
                 {
-                    if (e is PropertyEditorValueChangedEventArgs<T> args)
+                    if (e.Expect<T>(s) is { } args)
                     {
                         SetValue(args.OldValue, args.NewValue);
                     }
@@ -72,9 +72,9 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
 
         editor.AddDisposableHandler(
                 PropertyEditor.ValueConfirmedEvent,
-                (_, e) =>
+                (s, e) =>
                 {
-                    if (e is PropertyEditorValueChangedEventArgs<T> args)
+                    if (e.Expect<T>(s) is { } args)
                     {
                         SetValue(args.OldValue, args.NewValue);
                     }

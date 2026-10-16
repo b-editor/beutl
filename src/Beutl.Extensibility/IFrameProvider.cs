@@ -17,5 +17,5 @@ public interface IFrameProvider : IDisposable
 
     public Rational FrameRate { get; }
 
-    public ValueTask<Bitmap> RenderFrame(long frame);
+    public ValueTask<Bitmap?> ReadNextFrame();
 }

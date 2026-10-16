@@ -28,6 +28,23 @@ public class EncodeDecodeRoundTripTests
         catch { /* best-effort cleanup */ }
     }
 
+    // A zero-length scene has no frames, so the provider's first read returns null.
+    [Test]
+    public async Task EncodesAClipWithoutFrames()
+    {
+        string outputPath = Path.Combine(_workDir, "empty.mp4");
+        var controller = new AVFEncodingController(outputPath);
+        var frameRate = new Rational(30, 1);
+        controller.VideoSettings.DestinationSize = new PixelSize(64, 64);
+        controller.VideoSettings.SourceSize = new PixelSize(64, 64);
+        controller.VideoSettings.FrameRate = frameRate;
+
+        await controller.Encode(
+            new GradientFrameProvider(0, frameRate, 64, 64), new SineSampleProvider(0, 44100), CancellationToken.None);
+
+        Assert.That(new FileInfo(outputPath).Length, Is.GreaterThan(0));
+    }
+
     [Test]
     public async Task EncodesThenDecodesShortClip()
     {

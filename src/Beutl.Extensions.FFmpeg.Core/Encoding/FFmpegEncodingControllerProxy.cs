@@ -54,6 +54,7 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
         SharedMemoryBuffer[] audioBuffers = [audioBuffer0, audioBuffer1];
 
         // メッセージループ: Workerからの要求に応答
+        long nextFrame = 0;
         try
         {
             while (!cancellationToken.IsCancellationRequested)
@@ -70,7 +71,12 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                                 ?? throw new InvalidOperationException("Missing payload for RequestFrame");
                             if (frameReq.BufferIndex is not (0 or 1))
                                 throw new InvalidOperationException($"Invalid BufferIndex: {frameReq.BufferIndex}");
-                            using var bitmap = await frameProvider.RenderFrame(frameReq.FrameIndex);
+                            if (frameReq.FrameIndex != nextFrame)
+                                throw new InvalidOperationException(
+                                    $"The worker asked for frame {frameReq.FrameIndex}, but the next frame is {nextFrame}.");
+                            using var bitmap = await frameProvider.ReadNextFrame()
+                                ?? throw new InvalidOperationException($"The frame provider ended before frame {nextFrame}.");
+                            nextFrame++;
 
                             // BufferIndex で指定されたバッファに書き込み (ダブルバッファリング)
                             var targetVideoBuffer = videoBuffers[frameReq.BufferIndex];

@@ -33,7 +33,7 @@ public sealed class StorageFileEditorViewModel : BaseEditorViewModel<FileInfo>
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<FileInfo> args)
+        if (e.Expect<FileInfo>(sender) is { } args)
         {
             SetValue(Value.Value, args.NewValue);
         }

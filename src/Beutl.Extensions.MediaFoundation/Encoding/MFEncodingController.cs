@@ -88,7 +88,8 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
             long audioTime = audioStream >= 0 ? GetTimestamp(sample, samples.SampleRate) : long.MaxValue;
             if (frame < frameCount && (sample >= sampleCount || videoTime <= audioTime))
             {
-                using var bitmap = await frames.RenderFrame(frame);
+                using var bitmap = await frames.ReadNextFrame()
+                    ?? throw new InvalidOperationException("The frame provider ended before its frame count.");
                 cancellationToken.ThrowIfCancellationRequested();
                 WriteVideoFrame(writer, videoStream, bitmap, videoTime,
                     GetTimestamp(frame + 1, rateNumerator, rateDenominator) - videoTime);

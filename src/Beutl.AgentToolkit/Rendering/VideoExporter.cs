@@ -75,8 +75,8 @@ public sealed class VideoExporter(EncoderRegistration encoders)
                 ? Disposable.Empty
                 : frameProgress.Subscribe(time => onFrameProgress(
                     // The provider derives frame times from integer ticks, so the product lands
-                    // just under the frame number; round rather than truncate. RenderFrame emits
-                    // this signal before returning the requested bitmap, so only preceding frames
+                    // just under the frame number; round rather than truncate. ReadNextFrame emits
+                    // this signal before returning the frame, so only preceding frames
                     // are complete at this point.
                     Math.Min((long)Math.Round(time.TotalSeconds * ratePerSecond), frameProvider.FrameCount),
                     frameProvider.FrameCount));
