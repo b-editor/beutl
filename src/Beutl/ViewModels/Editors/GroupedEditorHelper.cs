@@ -45,19 +45,19 @@ internal static class GroupedEditorHelper
         BaseEditorViewModel<TItem?> vm,
         ReactivePropertySlim<bool> isExpanded,
         bool isGroup,
-        Action<TItem> addItem,
-        Action<TItem> changeItem)
+        Action<TItem, string?> addItem,
+        Action<TItem, string?> changeItem)
         where TItem : class
     {
-        // A group adds the template, an ordinary edit; otherwise changeItem replaces the value.
+        // A group adds the template, an ordinary edit; otherwise changeItem replaces the value. Both commit the
+        // edit under the name they are given.
         if (!(isGroup ? vm.IsElementEditable : vm.CanReplaceContent)) return false;
         if (template.CreateInstance() is not TItem instance) return false;
         isExpanded.Value = true;
         if (isGroup)
-            addItem(instance);
+            addItem(instance, CommandNames.ApplyTemplate);
         else
-            changeItem(instance);
-        vm.Commit(CommandNames.ApplyTemplate);
+            changeItem(instance, CommandNames.ApplyTemplate);
         return true;
     }
 }

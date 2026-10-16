@@ -125,10 +125,10 @@ public abstract class GroupableEditorViewModel<T, TGroup, TFallback> : ValueEdit
         NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), Group.Value, Properties.Value);
     }
 
-    protected void ChangeValue(T instance)
+    protected void ChangeValue(T instance, string? commandName = null)
     {
         IsExpanded.Value = true;
-        SetValue(Value.Value, instance);
+        SetValue(Value.Value, instance, commandName);
     }
 
     protected override ICoreSerializable? GetCopyTarget()
@@ -153,14 +153,14 @@ public abstract class GroupableEditorViewModel<T, TGroup, TFallback> : ValueEdit
             AddItem, ChangeValue);
     }
 
-    public void AddItem(T instance)
+    public void AddItem(T instance, string? commandName = null)
     {
         if (!IsElementEditable) return;
         if (Value.Value is TGroup group)
         {
             IsExpanded.Value = true;
             ChildrenOf(group).Add(instance);
-            Commit();
+            Commit(commandName);
 
             if (Group.Value is { } listEditor)
             {
