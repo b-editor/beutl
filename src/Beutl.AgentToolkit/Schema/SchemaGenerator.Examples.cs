@@ -107,36 +107,6 @@ public sealed partial class SchemaGenerator
                     typeof(SineEaseInOut)),
                 ["starter", "empty-scene", "motion", "ribbon", "typography", "gradient", "effect"]),
             new ExampleSpec(
-                CreateOrbitalRadarExample(),
-                [
-                    KnownLibraryItemFormats.Drawable,
-                    KnownLibraryItemFormats.EngineObject,
-                    KnownLibraryItemFormats.Brush,
-                    KnownLibraryItemFormats.FilterEffect,
-                    KnownLibraryItemFormats.Transform,
-                    KnownLibraryItemFormats.Pen,
-                    KnownLibraryItemFormats.Easing
-                ],
-                ExampleTypes(
-                    typeof(Element),
-                    typeof(RectShape),
-                    typeof(EllipseShape),
-                    typeof(TextBlock),
-                    typeof(LinearGradientBrush),
-                    typeof(SolidColorBrush),
-                    typeof(Pen),
-                    typeof(FilterEffectGroup),
-                    typeof(Blur),
-                    typeof(DropShadow),
-                    typeof(TransformGroup),
-                    typeof(TranslateTransform),
-                    typeof(RotationTransform),
-                    typeof(KeyFrameAnimation<float>),
-                    typeof(KeyFrame<float>),
-                    typeof(CubicEaseOut),
-                    typeof(SineEaseInOut)),
-                ["starter", "empty-scene", "motion", "orbital", "radar", "rings", "pen", "glow"]),
-            new ExampleSpec(
                 CreateSplitScreenTypographyExample(),
                 [
                     KnownLibraryItemFormats.Drawable,

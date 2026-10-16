@@ -202,7 +202,7 @@ public sealed class ReadDocumentTests
             Assert.That(defaultSchema.Value!.Types, Is.Not.Empty);
             Assert.That(defaultSchema.Value.Examples, Is.Empty);
             Assert.That(schemaWithExamples.IsSuccess, Is.True, schemaWithExamples.Error?.Message);
-            Assert.That(schemaWithExamples.Value!.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-motion-graphics"));
+            Assert.That(schemaWithExamples.Value!.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-kinetic-ribbon-title"));
         });
     }
 
@@ -217,7 +217,7 @@ public sealed class ReadDocumentTests
         ToolResult<ListExamplesResponse> defaultMotionList = tools.ListExamples(category: "motion");
         ToolResult<ListExamplesResponse> motionList = tools.ListExamples(category: "motion", includeStarters: true);
         string selectedName = list.Value!.Examples
-            .Single(example => example.Name == "create-empty-scene-split-screen-typography")
+            .Single(example => example.Name == "create-empty-scene-split-screen-type-system")
             .Name;
         ToolResult<GetExamplesResponse> skeleton = tools.GetExamples(name: "insert-new-element-skeleton");
         ToolResult<GetExamplesResponse> defaultExamples = tools.GetExamples(category: "motion");

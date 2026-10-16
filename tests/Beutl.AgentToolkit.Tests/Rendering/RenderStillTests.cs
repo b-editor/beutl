@@ -180,7 +180,7 @@ public sealed class RenderStillTests
     }
 
     [Test]
-    public async Task Empty_scene_motion_graphics_example_renders_visible_text()
+    public async Task Empty_scene_kinetic_ribbon_starter_renders_visible_text()
     {
         string dir = TestWorkspace.CreateDirectory();
         string withTextPath = Path.Combine(dir, "with-text.png");
@@ -195,7 +195,7 @@ public sealed class RenderStillTests
         DeclarativeExample example = new SchemaGenerator()
             .Generate(typeFilter: nameof(TextBlock))
             .Examples
-            .Single(item => item.Name == "create-empty-scene-motion-graphics");
+            .Single(item => item.Name == "create-empty-scene-kinetic-ribbon-title");
         JsonObject current = session.Documents.Read(scene);
         JsonObject desired = (JsonObject)MergePatchApplier.Apply(current, example.Patch)!;
 
@@ -214,7 +214,7 @@ public sealed class RenderStillTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(scene.Children, Has.Count.EqualTo(3));
+            Assert.That(scene.Children, Has.Count.EqualTo(example.Patch["Elements"]!.AsArray().Count));
             Assert.That(CountDifferingPixels(withTextPath, withoutTextPath), Is.GreaterThan(500));
         });
     }

@@ -89,7 +89,7 @@ public sealed class SchemaGenerationTests
         TypeDescriptor nodeGraphFilterEffect = schema.Types.Single(type => type.Type == typeof(NodeGraphFilterEffect).FullName);
         TypeDescriptor graphModel = schema.Types.Single(type => type.Type == typeof(GraphModel).FullName);
         TypeDescriptor fake = schema.Types.Single(type => type.Type == typeof(FakeExtensionDrawable).FullName);
-        string emptySceneExample = schema.Examples.Single(example => example.Name == "create-empty-scene-motion-graphics").Patch.ToJsonString();
+        string emptySceneExample = schema.Examples.Single(example => example.Name == "create-empty-scene-kinetic-ribbon-title").Patch.ToJsonString();
         string brushEffectExample = schema.Examples.Single(example => example.Name == "apply-gradient-fill-and-effect-chain").Patch.ToJsonString();
         string newAnimatedTextExample = schema.Examples.Single(example => example.Name == "insert-new-animated-text-keyframes").Patch.ToJsonString();
         string geometryShapeExample = schema.Examples.Single(example => example.Name == "insert-new-geometry-shape-path").Patch.ToJsonString();
@@ -108,8 +108,8 @@ public sealed class SchemaGenerationTests
         IReadOnlyList<DeclarativeExample> fillExamples = generator.GenerateExamples(categoryFilter: "fill");
         IReadOnlyList<DeclarativeExample> motionExamples = generator.GenerateExamples(categoryFilter: "motion");
         IReadOnlyList<DeclarativeExampleSummary> exampleSummaries = generator.ListExamples(typeFilter: nameof(TextBlock));
-        IReadOnlyList<DeclarativeExample> namedExamples = generator.GenerateExamples(nameFilter: "create-empty-scene-orbital-radar");
-        textBlockSchema.Examples.Single(example => example.Name == "create-empty-scene-motion-graphics").Patch["Duration"] = "00:00:01";
+        IReadOnlyList<DeclarativeExample> namedExamples = generator.GenerateExamples(nameFilter: "create-empty-scene-orbital-radar-map");
+        textBlockSchema.Examples.Single(example => example.Name == "create-empty-scene-kinetic-ribbon-title").Patch["Duration"] = "00:00:01";
 
         Assert.Multiple(() =>
         {
@@ -182,26 +182,26 @@ public sealed class SchemaGenerationTests
             Assert.That(portalClear.UsageHint, Does.Contain("flow"));
             Assert.That(audioSchema.Types.Any(type => type.Type == typeof(DelayEffect).FullName), Is.True);
             Assert.That(audioSchema.Examples, Is.Empty);
-            Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-motion-graphics"));
-            Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-orbital-radar"));
-            Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-split-screen-typography"));
+            Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-kinetic-ribbon-title"));
+            Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-orbital-radar-map"));
+            Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-split-screen-type-system"));
             Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("apply-gradient-fill-and-effect-chain"));
-            Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-motion-graphics"));
-            Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-orbital-radar"));
-            Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-split-screen-typography"));
+            Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-kinetic-ribbon-title"));
+            Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-orbital-radar-map"));
+            Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-split-screen-type-system"));
             Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("insert-new-animated-text-keyframes"));
-            Assert.That(freshTextBlockSchema.Examples.Single(example => example.Name == "create-empty-scene-motion-graphics").Patch["Duration"]!.GetValue<string>(), Is.EqualTo("00:00:08"));
+            Assert.That(freshTextBlockSchema.Examples.Single(example => example.Name == "create-empty-scene-kinetic-ribbon-title").Patch["Duration"]!.GetValue<string>(), Is.EqualTo("00:00:08"));
             Assert.That(compactVisualEffectSchema.Types.Any(type => type.Type == typeof(FilterEffectGroup).FullName), Is.True);
             Assert.That(compactVisualEffectSchema.Types.All(type => type.Properties.Count == 0), Is.True);
             Assert.That(compactVisualEffectSchema.Examples, Is.Empty);
-            Assert.That(fillExamples.Select(example => example.Name), Does.Contain("create-empty-scene-orbital-radar"));
-            Assert.That(fillExamples.Select(example => example.Name), Does.Contain("create-empty-scene-split-screen-typography"));
+            Assert.That(fillExamples.Select(example => example.Name), Does.Contain("create-empty-scene-orbital-radar-map"));
+            Assert.That(fillExamples.Select(example => example.Name), Does.Contain("create-empty-scene-split-screen-type-system"));
             Assert.That(fillExamples.Select(example => example.Name), Does.Contain("apply-gradient-fill-and-effect-chain"));
             Assert.That(motionExamples.Select(example => example.Name), Does.Contain("create-empty-scene-liquid-gradient-system"));
             Assert.That(motionExamples.Select(example => example.Name), Does.Contain("create-empty-scene-data-bar-dashboard"));
             Assert.That(motionExamples.Select(example => example.Name), Does.Contain("create-empty-scene-glitch-cutout-collage"));
             Assert.That(exampleSummaries.Count(example => example.Tags.Contains("empty-scene")), Is.GreaterThanOrEqualTo(3));
-            Assert.That(exampleSummaries.Single(example => example.Name == "create-empty-scene-orbital-radar").Tags, Does.Contain("orbital"));
+            Assert.That(exampleSummaries.Single(example => example.Name == "create-empty-scene-orbital-radar-map").Tags, Does.Contain("orbital"));
             Assert.That(namedExamples, Has.Count.EqualTo(1));
             Assert.That(namedExamples.Single().Patch.ToJsonString(), Does.Contain("Orbit map"));
         });
@@ -323,7 +323,7 @@ public sealed class SchemaGenerationTests
             Assert.That(TransformGroupsUseCanonicalOrder(dataRender.Patch), Is.True);
             Assert.That(TransformGroupsUseCanonicalOrder(glitchRender.Patch), Is.True);
             Assert.That(TransformGroupsUseCanonicalOrder(new SchemaGenerator()
-                .GenerateExamples(nameFilter: "create-empty-scene-orbital-radar")
+                .GenerateExamples(nameFilter: "create-empty-scene-orbital-radar-map")
                 .Single()
                 .Patch), Is.True);
         });
