@@ -1,0 +1,25 @@
+﻿using System.Numerics;
+using Beutl.Collections;
+using Beutl.Graphics.Effects;
+using Beutl.Media;
+using Beutl.Views.Editors;
+
+namespace Beutl.HeadlessUITests;
+
+[TestFixture]
+public sealed class PropertyEditorMenuTypeAliasTests
+{
+    // The copied GetProperty<T> code must compile, so T is written as C# names it.
+    [Test]
+    [TestCase(typeof(float), "float")]
+    [TestCase(typeof(int?), "int?")]
+    [TestCase(typeof(Vector3[]), "System.Numerics.Vector3[]")]
+    [TestCase(typeof(StrokeEffect.StrokeStyles), "Beutl.Graphics.Effects.StrokeEffect.StrokeStyles")]
+    [TestCase(typeof(ICoreList<GradientStop>), "Beutl.Collections.ICoreList<Beutl.Media.GradientStop>")]
+    [TestCase(typeof(Dictionary<string, List<int>>),
+        "System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<int>>")]
+    public void Types_are_named_as_in_CSharp_code(Type type, string expected)
+    {
+        Assert.That(PropertyEditorMenu.GetTypeAlias(type), Is.EqualTo(expected));
+    }
+}

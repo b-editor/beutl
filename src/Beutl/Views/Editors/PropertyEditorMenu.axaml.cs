@@ -205,10 +205,24 @@ public sealed partial class PropertyEditorMenu : UserControl
         }
     }
 
-    private static string GetTypeAlias(Type type)
+    // The type as C# code names it without usings: keywords, "Outer.Inner" for a nested type and the type
+    // arguments in angle brackets, where Type.FullName gives "Outer+Inner" and "List`1[[...]]".
+    internal static string GetTypeAlias(Type type)
     {
-        return CSharpTypeKeywords.TryGetCSharpKeyword(type, out string? keyword)
-            ? keyword
-            : type.FullName ?? type.Name;
+        if (Nullable.GetUnderlyingType(type) is { } underlying)
+            return $"{GetTypeAlias(underlying)}?";
+        if (type.IsArray)
+            return $"{GetTypeAlias(type.GetElementType()!)}[{new string(',', type.GetArrayRank() - 1)}]";
+        if (CSharpTypeKeywords.TryGetCSharpKeyword(type, out string? keyword))
+            return keyword;
+
+        string name = type.Name;
+        int tick = name.IndexOf('`');
+        if (tick >= 0)
+            name = $"{name[..tick]}<{string.Join(", ", type.GetGenericArguments().Select(GetTypeAlias))}>";
+
+        if (type.IsNested)
+            return $"{GetTypeAlias(type.DeclaringType!)}.{name}";
+        return type.Namespace is { } ns ? $"{ns}.{name}" : name;
     }
 }
