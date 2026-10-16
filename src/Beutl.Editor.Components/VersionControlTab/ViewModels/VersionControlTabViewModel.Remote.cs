@@ -381,14 +381,18 @@ internal partial class VersionControlTabViewModel
     {
         return result switch
         {
-            RemoteOpResult.AuthFailed authFailed => authFailed.Guidance,
-            RemoteOpResult.Diverged => Strings.VersionControl_Diverged,
-            RemoteOpResult.Offline => Strings.VersionControl_Offline,
+            RemoteOpResult.AuthFailed authFailed => WithStderr(authFailed.Guidance, authFailed.Stderr),
+            RemoteOpResult.Diverged diverged => WithStderr(Strings.VersionControl_Diverged, diverged.Stderr),
+            RemoteOpResult.Offline offline => WithStderr(Strings.VersionControl_Offline, offline.Stderr),
             RemoteOpResult.RepositoryDirty => Strings.VersionControl_RepositoryDirty,
             RemoteOpResult.Failed failed => failed.Stderr,
             _ => string.Empty,
         };
     }
+
+    // Git's own error says what failed, so the guidance never hides it.
+    private static string WithStderr(string guidance, string stderr)
+        => string.IsNullOrWhiteSpace(stderr) ? guidance : $"{guidance}\n{stderr.Trim()}";
 
     private static Task ShowRemoteResultNotificationAsync(RemoteOpResult result)
     {

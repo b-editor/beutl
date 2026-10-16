@@ -655,6 +655,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         {
             Assert.That(pull, Is.TypeOf<RemoteOpResult.Diverged>());
             Assert.That(push, Is.TypeOf<RemoteOpResult.Diverged>());
+            Assert.That((push as RemoteOpResult.Diverged)?.Stderr, Does.Contain("[rejected]"));
             Assert.That(
                 (RunGitAsync("rev-parse", "HEAD").GetAwaiter().GetResult()).Stdout.Trim(),
                 Is.EqualTo(localHeadBefore));
@@ -797,6 +798,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
 
         Assert.That(result, Is.TypeOf<RemoteOpResult.AuthFailed>());
         Assert.That(((RemoteOpResult.AuthFailed)result).Guidance, Is.Not.Empty);
+        Assert.That(((RemoteOpResult.AuthFailed)result).Stderr, Is.EqualTo(stderr));
     }
 
     [TestCase("fatal: unable to access 'https://example.invalid/': Could not resolve host")]
@@ -806,7 +808,18 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         RemoteOpResult result = GitCliVersionControlService.MapRemoteFailure(
             new GitOperationException(128, stderr));
 
-        Assert.That(result, Is.TypeOf<RemoteOpResult.Offline>());
+        Assert.That(result, Is.EqualTo(new RemoteOpResult.Offline(stderr)));
+    }
+
+    // Git ends every SSH failure with this line, so it says nothing about the network.
+    [TestCase("Host key verification failed.\r\nfatal: Could not read from remote repository.\n")]
+    [TestCase("ERROR: Repository not found.\nfatal: Could not read from remote repository.\n")]
+    public void Ssh_failures_after_reaching_the_host_are_not_offline(string stderr)
+    {
+        RemoteOpResult result = GitCliVersionControlService.MapRemoteFailure(
+            new GitOperationException(128, stderr));
+
+        Assert.That(result, Is.EqualTo(new RemoteOpResult.Failed(stderr)));
     }
 
     [Test]

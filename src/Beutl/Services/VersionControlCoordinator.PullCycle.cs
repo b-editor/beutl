@@ -1,4 +1,5 @@
-﻿using Beutl.Editor.VersionControl;
+﻿using Beutl.Editor.Components.VersionControlTab.ViewModels;
+using Beutl.Editor.VersionControl;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
@@ -240,24 +241,10 @@ internal partial class VersionControlCoordinator
                     ? GetErrorText(ex)
                     : string.Format(
                         Strings.VersionControl_RecoveryFailed,
-                        GetRemoteOperationError(result),
+                        VersionControlTabViewModel.GetRemoteResultMessage(result),
                         GetErrorText(ex)));
         }
 
         return result;
-    }
-
-    private static string GetRemoteOperationError(RemoteOpResult result)
-    {
-        return result switch
-        {
-            RemoteOpResult.AuthFailed failed => failed.Guidance,
-            RemoteOpResult.Failed failed => failed.Stderr,
-            RemoteOpResult.Diverged => Strings.VersionControl_Diverged,
-            RemoteOpResult.Offline => Strings.VersionControl_Offline,
-            RemoteOpResult.RepositoryDirty => Strings.VersionControl_RepositoryDirty,
-            RemoteOpResult.Success => string.Empty,
-            _ => throw new ArgumentOutOfRangeException(nameof(result)),
-        };
     }
 }

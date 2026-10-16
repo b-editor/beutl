@@ -517,7 +517,7 @@ public class VersionControlTabViewTests
             Notification notification;
             using (var notificationHandler = new NotificationCapture())
             {
-                await viewModel.ShowRemoteResultAsync(new RemoteOpResult.Offline());
+                await viewModel.ShowRemoteResultAsync(new RemoteOpResult.Offline(string.Empty));
                 notification = notificationHandler.All.Single();
             }
 
