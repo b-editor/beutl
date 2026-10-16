@@ -17,6 +17,7 @@ public class ElementFallbackJsonTests
     [AvaloniaTest]
     public async Task A_fallback_drawable_shows_its_json()
     {
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync($"fallback-json-{Guid.NewGuid():N}");
         var fallback = new FallbackDrawable
         {
