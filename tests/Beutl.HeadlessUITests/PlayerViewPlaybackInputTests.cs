@@ -308,6 +308,45 @@ public partial class PlayerViewPlaybackInputTests
         }
     }
 
+    [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task The_wheel_dollies_the_camera(bool selectedScene)
+    {
+        EditViewModel editor = await OpenEditor();
+        Scene3D scene = await Add3DScene(editor);
+        var camera = scene.Camera.CurrentValue!;
+        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value =
+            selectedScene ? editor.Scene.Children.Single() : null;
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+        try
+        {
+            await PreparePreview(view, window);
+            editor.Player.IsMoveMode.Value = false;
+            editor.Player.IsCameraMode.Value = true;
+            Vector3 position = camera.Position.CurrentValue;
+            Vector3 target = camera.Target.CurrentValue;
+
+            window.MouseWheel(PreviewCenter(view, window), new Vector(0, 1));
+
+            Vector3 movement = camera.Position.CurrentValue - position;
+            Assert.Multiple(() =>
+            {
+                Assert.That(movement, Is.Not.EqualTo(Vector3.Zero), "The wheel must move the camera.");
+                Assert.That(Vector3.Distance(camera.Target.CurrentValue - target, movement), Is.LessThan(1e-3f),
+                    "The target moves with the camera.");
+            });
+
+            editor.HistoryManager.Undo();
+            Assert.That(camera.Position.CurrentValue, Is.EqualTo(position));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private static async Task<Scene3D> Add3DScene(EditViewModel editor)
     {
         TestGpu.RequireAnyDevice();
