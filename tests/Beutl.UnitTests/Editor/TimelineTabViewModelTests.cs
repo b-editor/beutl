@@ -140,6 +140,18 @@ public class TimelineTabViewModelTests
         });
     }
 
+    // The options belong to the whole editor, so a layer count applied after the tab closed must not reach it.
+    [Test]
+    public void LayerCountChange_AfterDispose_LeavesTheClosedTabAlone()
+    {
+        TimelineTabViewModel viewModel = CreateViewModel();
+        IReactiveProperty<TimelineOptions> options = viewModel.Options;
+        viewModel.Dispose();
+
+        Assert.DoesNotThrow(() => options.Value = options.Value with { MaxLayerCount = 5 });
+        Assert.That(viewModel.LayerHeaders, Is.Empty);
+    }
+
     // Dragging a layer header moves the clips and the TimelineLayer models in one history entry. Undo and redo
     // rewrite only the models, so the headers must keep Number == row and show the model on their row at every
     // step, and every clip must belong to the header of its row.
