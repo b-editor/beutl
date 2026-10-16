@@ -59,26 +59,17 @@ public partial class KeyModifierMonitor : FAAppWindow
             or Key.DbeSbcsChar;
     }
 
-    private static string GetKeyName(Key key)
+    private static string GetKeyName(KeyEventArgs e)
     {
-        return key switch
+        return e.Key switch
         {
             Key.LeftCtrl or Key.RightCtrl => "Ctrl",
             Key.LeftShift or Key.RightShift => "Shift",
             Key.LeftAlt or Key.RightAlt => "Alt",
-            Key.OemComma => ",",
-            Key.Oem1 => "1",
-            Key.Oem102 => "3",
-            Key.Oem2 => "2",
-            Key.Oem3 => "3",
-            Key.Oem4 => "4",
-            Key.Oem5 => "5",
-            Key.Oem6 => "6",
-            Key.Oem7 => "7",
-            Key.Oem8 => "8",
-            Key.OemMinus => "-",
-            Key.OemPeriod => ".",
-            _ => key.ToString(),
+            // What the key types in the current layout, such as ";" for Oem1 on a US keyboard.
+            _ when e.KeySymbol is { } symbol && !string.IsNullOrWhiteSpace(symbol) && !char.IsControl(symbol, 0)
+                => symbol.ToUpperInvariant(),
+            _ => e.Key.ToString(),
         };
     }
 
@@ -138,7 +129,7 @@ public partial class KeyModifierMonitor : FAAppWindow
         {
             btn = new Button()
             {
-                Content = GetKeyName(e.Key)
+                Content = GetKeyName(e)
             };
             _buttons.Add(e.Key, btn);
         }
