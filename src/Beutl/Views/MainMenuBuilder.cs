@@ -43,16 +43,17 @@ internal static class MainMenuBuilder
             Command = item.Command,
             CommandParameter = item.CommandParameter,
             InputGesture = GetGesture(item),
-            Icon = item.Icon is { } icon ? new FluentIcon { Icon = icon } : null
+            Icon = item.Icon is { } icon ? new FluentIcon { Icon = icon } : item.IconSource
         };
+        if (item.IsVisible is { } isVisible)
+            disposables.Add(isVisible.Subscribe(visible => menuItem.IsVisible = visible));
         if (item.Items is { } items)
         {
             // As in the former XAML, a followed list's entries join the logical tree only when its submenu opens.
             IList children = items is INotifyCollectionChanged
                 ? (IList)(menuItem.ItemsSource = new AvaloniaList<Control>())
                 : menuItem.Items;
-            Follow<Control>(
-                items, child => CreateMenuItem(child, disposables), children.Insert, children.RemoveAt, disposables);
+            Follow<Control>(items, CreateMenuItem, children.Insert, children.RemoveAt, disposables);
         }
 
         return menuItem;
@@ -72,13 +73,13 @@ internal static class MainMenuBuilder
             CommandParameter = item.CommandParameter,
             Gesture = GetGesture(item)
         };
+        if (item.IsVisible is { } isVisible)
+            disposables.Add(isVisible.Subscribe(visible => menuItem.IsVisible = visible));
         if (item.Items is { } items)
         {
             var menu = new NativeMenu();
             menuItem.Menu = menu;
-            Follow(
-                items, child => CreateNativeMenuItem(child, disposables), menu.Items.Insert, menu.Items.RemoveAt,
-                disposables);
+            Follow(items, CreateNativeMenuItem, menu.Items.Insert, menu.Items.RemoveAt, disposables);
         }
 
         return menuItem;
@@ -90,21 +91,23 @@ internal static class MainMenuBuilder
 
     // Applies each change in place: rebuilding on every change made each open view recreate all its entries.
     private static void Follow<T>(
-        IReadOnlyList<MainMenuItem> items, Func<MainMenuItem, T?> create, Action<int, T> insert, Action<int> removeAt,
-        CompositeDisposable disposables)
+        IReadOnlyList<MainMenuItem> items, Func<MainMenuItem, CompositeDisposable, T?> create, Action<int, T> insert,
+        Action<int> removeAt, CompositeDisposable disposables)
         where T : class
     {
-        int shown = 0;
+        // The subscriptions of each shown entry, which end when the entry goes.
+        var shown = new List<CompositeDisposable>();
 
         // create skips window-only entries, which only fixed lists have, so a change's index is also the target's.
         void Insert(int index, IEnumerable added)
         {
             foreach (MainMenuItem item in added)
             {
-                if (create(item) is { } created)
+                var entry = new CompositeDisposable();
+                if (create(item, entry) is { } created)
                 {
-                    insert(index++, created);
-                    shown++;
+                    insert(index, created);
+                    shown.Insert(index++, entry);
                 }
             }
         }
@@ -112,18 +115,20 @@ internal static class MainMenuBuilder
         void RemoveAt(int index)
         {
             removeAt(index);
-            shown--;
+            shown[index].Dispose();
+            shown.RemoveAt(index);
         }
 
         Insert(0, items);
+        disposables.Add(Disposable.Create(() => shown.ForEach(entry => entry.Dispose())));
         if (items is INotifyCollectionChanged changes)
         {
             NotifyCollectionChangedEventHandler handler = (_, e) =>
             {
                 if (e.Action == NotifyCollectionChangedAction.Reset)
                 {
-                    while (shown > 0)
-                        RemoveAt(shown - 1);
+                    while (shown.Count > 0)
+                        RemoveAt(shown.Count - 1);
                     Insert(0, items);
                     return;
                 }

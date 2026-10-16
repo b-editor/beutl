@@ -42,7 +42,6 @@ public sealed partial class MenuBarViewModel
             .WithSubscribe(OnUndo);
         Redo = new AsyncReactiveCommand(IsProjectOpened)
             .WithSubscribe(OnRedo);
-        MenuItems = CreateMenuItems();
     }
 
     public AsyncReactiveCommand Undo { get; }

@@ -1,5 +1,4 @@
-﻿using System.Collections.ObjectModel;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Chrome;
 using Avalonia.Input;
@@ -18,13 +17,10 @@ using Beutl.Threading;
 using Beutl.ViewModels;
 using Beutl.ViewModels.SettingsPages;
 using Beutl.Views.Tutorial;
-using DynamicData;
-using DynamicData.Binding;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
 using Microsoft.Extensions.Logging;
 using NuGet.Versioning;
-using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views;
 
@@ -92,7 +88,7 @@ public sealed partial class MainView : UserControl
         if (DataContext is MainViewModel viewModel)
         {
             InitializeCommands(viewModel);
-            MainMenuBuilder.AddMenus(MenuBar, viewModel.MenuBar.MenuItems, _disposables);
+            MainMenuBuilder.AddMenus(MenuBar, viewModel.MenuItems, _disposables);
         }
     }
 
@@ -122,11 +118,6 @@ public sealed partial class MainView : UserControl
             Titlebar.Margin = new Thickness(0, 0, OperatingSystem.IsWindows() ? 140 : 0, 0);
             WindowDecorationProperties.SetElementRole(Titlebar, WindowDecorationsElementRole.TitleBar);
             NotificationPanel.Margin = new(0, titleBar.Height + 8, 8, 0);
-        }
-
-        if (DataContext is MainViewModel viewModel)
-        {
-            InitExtMenuItems(viewModel);
         }
 
         StartupNotificationService.ShowTelemetryConsent(GlobalConfiguration.Instance.TelemetryConfig);
@@ -213,115 +204,9 @@ public sealed partial class MainView : UserControl
         }
     }
 
-    private void InitExtMenuItems(MainViewModel viewModel)
+    private async void OpenToolWindow(ToolWindowExtension extension)
     {
-        MenuItem CreateToolTabMenuItem(ToolTabExtension item)
-        {
-            var menuItem = new MenuItem() { Header = item.Header, DataContext = item };
-
-            menuItem.Click += (s, e) =>
-            {
-                if (s is MenuItem { DataContext: ToolTabExtension ext })
-                {
-                    ExtensionMenuActions.OpenToolTab(viewModel, ext);
-                }
-            };
-
-            return menuItem;
-        }
-
-        viewModel.ToolTabExtensions.ToObservableChangeSet()
-            .ObserveOnUIDispatcher()
-            .Filter(i => i.Header != null)
-            .Cast(CreateToolTabMenuItem)
-            .Bind(out ReadOnlyObservableCollection<MenuItem>? list1)
-            .Subscribe()
-            .DisposeWith(_disposables);
-
-        toolTabMenuItem.ItemsSource = list1;
-
-        MenuItem CreateEditorMenuItem(EditorExtension item)
-        {
-            var menuItem = new MenuItem()
-            {
-                Header = item.DisplayName,
-                DataContext = item,
-                IsVisible = false,
-                Icon = item.GetIcon()
-            };
-
-            menuItem.Click += async (s, e) =>
-            {
-                EditorTabItem? selectedTab = viewModel.EditorService.SelectedTabItem.Value;
-                if (s is MenuItem { DataContext: EditorExtension editorExtension }
-                    && selectedTab != null)
-                {
-                    await ExtensionMenuActions.SwitchEditorAsync(viewModel, selectedTab, editorExtension);
-                }
-            };
-
-            return menuItem;
-        }
-
-        viewModel.EditorExtensions.ToObservableChangeSet()
-            .ObserveOnUIDispatcher()
-            .Cast(CreateEditorMenuItem)
-            .Bind(out ReadOnlyObservableCollection<MenuItem>? list2)
-            .Subscribe()
-            .DisposeWith(_disposables);
-
-        editorTabMenuItem.ItemsSource = list2;
-
-        viewMenuItem.SubmenuOpened += (s, e) =>
-        {
-            EditorTabItem? selectedTab = viewModel.EditorService.SelectedTabItem.Value;
-            if (selectedTab != null)
-            {
-                foreach (MenuItem item in list2.OfType<MenuItem>())
-                {
-                    if (item.DataContext is EditorExtension editorExtension)
-                    {
-                        item.IsVisible = editorExtension.IsSupported(selectedTab.FilePath.Value);
-                    }
-                }
-            }
-        };
-
-        MenuItem CreateToolWindowMenuItem(ToolWindowExtension item)
-        {
-            var menuItem = new MenuItem()
-            {
-                Header = item.DisplayName,
-                DataContext = item,
-                Icon = item.GetIcon()
-            };
-
-            menuItem.Click += async (s, e) =>
-            {
-                if (s is MenuItem { DataContext: ToolWindowExtension ext })
-                {
-                    await OpenToolWindowAsync(ext);
-                }
-            };
-
-            return menuItem;
-        }
-
-        var toolWindowSource = viewModel.ToolWindowExtensions.ToObservableChangeSet()
-            .ObserveOnUIDispatcher()
-            .Transform<ToolWindowExtension, MenuItem>(CreateToolWindowMenuItem);
-
-        toolWindowSource
-            .Bind(out ReadOnlyObservableCollection<MenuItem>? toolWindowMenuItems)
-            .Subscribe()
-            .DisposeWith(_disposables);
-
-        toolWindowMenuItem.ItemsSource = toolWindowMenuItems;
-    }
-
-    private Task OpenToolWindowAsync(ToolWindowExtension extension)
-    {
-        return _toolWindowLauncher.OpenAsync(extension, () => TopLevel.GetTopLevel(this) as Window);
+        await _toolWindowLauncher.OpenAsync(extension, () => TopLevel.GetTopLevel(this) as Window);
     }
 
     private async void GoToInformationPage(object? sender, RoutedEventArgs e) => await GoToInformationPageAsync();

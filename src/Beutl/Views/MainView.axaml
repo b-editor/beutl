@@ -43,17 +43,6 @@
             <Menu x:Name="MenuBar"
                   Grid.Column="1"
                   WindowDecorationProperties.ElementRole="User">
-                <MenuItem x:Name="viewMenuItem" Header="{x:Static lang:Strings.View}">
-                    <MenuItem x:Name="editorTabMenuItem" Header="{x:Static lang:Strings.Editors}" />
-                    <MenuItem x:Name="toolTabMenuItem" Header="{x:Static lang:Strings.Tools}" />
-                    <Separator />
-                    <MenuItem Command="{CompiledBinding MenuBar.ResetDockLayout}"
-                              Header="{x:Static lang:Strings.ResetDockLayout}" />
-                    <MenuItem x:Name="dockLayoutPresetMenuItem" Header="{x:Static lang:Strings.ApplyDockLayout}" />
-                    <MenuItem Command="{CompiledBinding MenuBar.OpenDockLayoutTab}"
-                              Header="{x:Static lang:Strings.ManageDockLayouts}" />
-                </MenuItem>
-                <MenuItem x:Name="toolWindowMenuItem" Header="{x:Static lang:Strings.Tools}" />
                 <MenuItem Header="{x:Static lang:Strings.Scene}">
                     <MenuItem Command="{CompiledBinding MenuBar.NewScene}" Header="{x:Static lang:Strings.CreateNew}" />
                     <MenuItem Command="{CompiledBinding MenuBar.RemoveFromProject}" Header="{x:Static lang:Strings.Remove}" />

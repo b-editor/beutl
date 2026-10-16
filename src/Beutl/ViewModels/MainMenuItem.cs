@@ -1,4 +1,5 @@
 ﻿using System.Windows.Input;
+using FluentAvalonia.UI.Controls;
 using FluentIcons.Common;
 
 namespace Beutl.ViewModels;
@@ -20,6 +21,11 @@ public sealed class MainMenuItem(string? header)
 
     // The native menu shows no icons.
     public Icon? Icon { get; init; }
+
+    // An extension's own icon, used when Icon is null.
+    public FAIconSource? IconSource { get; init; }
+
+    public IObservable<bool>? IsVisible { get; init; }
 
     // A list that raises CollectionChanged is followed.
     public IReadOnlyList<MainMenuItem>? Items { get; init; }

@@ -16,27 +16,6 @@
         mc:Ignorable="d">
     <NativeMenu.Menu>
         <NativeMenu>
-            <NativeMenuItem Header="{x:Static lang:Strings.View}">
-                <NativeMenu>
-                    <NativeMenuItem Header="{x:Static lang:Strings.Editors}">
-                        <NativeMenu />
-                    </NativeMenuItem>
-                    <NativeMenuItem Header="{x:Static lang:Strings.Tools}">
-                        <NativeMenu />
-                    </NativeMenuItem>
-                    <NativeMenuItemSeparator />
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.ResetDockLayout}"
-                                    Header="{x:Static lang:Strings.ResetDockLayout}" />
-                    <NativeMenuItem Header="{x:Static lang:Strings.ApplyDockLayout}">
-                        <NativeMenu />
-                    </NativeMenuItem>
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.OpenDockLayoutTab}"
-                                    Header="{x:Static lang:Strings.ManageDockLayouts}" />
-                </NativeMenu>
-            </NativeMenuItem>
-            <NativeMenuItem Header="{x:Static lang:Strings.Tools}">
-                <NativeMenu />
-            </NativeMenuItem>
             <NativeMenuItem Header="{x:Static lang:Strings.Scene}">
                 <NativeMenu>
                     <NativeMenuItem Command="{CompiledBinding MenuBar.NewScene}" Header="{x:Static lang:Strings.CreateNew}" />

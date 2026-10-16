@@ -67,9 +67,9 @@ public class NewSceneEntryPointTests
 
             MenuItem fileNewScene = view.GetLogicalDescendants().OfType<MenuItem>()
                 .Single(item => Equals(item.Header, Strings.CreateNewScene));
-            NativeMenu macFileMenu = MacWindow.FindMenuItem(NativeMenu.GetMenu(macWindow), Strings.File)!.Menu!;
-            NativeMenu macNewMenu = MacWindow.FindMenuItem(macFileMenu, Strings.CreateNew)!.Menu!;
-            NativeMenuItem macNewScene = MacWindow.FindMenuItem(macNewMenu, Strings.CreateNewScene)!;
+            NativeMenu macFileMenu = FindMenuItem(NativeMenu.GetMenu(macWindow)!, Strings.File).Menu!;
+            NativeMenu macNewMenu = FindMenuItem(macFileMenu, Strings.CreateNew).Menu!;
+            NativeMenuItem macNewScene = FindMenuItem(macNewMenu, Strings.CreateNewScene);
 
             // The start screen catches the dialog's failure to open in the headless host
             EditorHostFallback startScreen = view.GetVisualDescendants().OfType<EditorHostFallback>().Single();
@@ -97,4 +97,7 @@ public class NewSceneEntryPointTests
             await TestReset.ResetShellAsync();
         }
     }
+
+    private static NativeMenuItem FindMenuItem(NativeMenu menu, string header)
+        => menu.Items.OfType<NativeMenuItem>().First(item => item.Header == header);
 }
