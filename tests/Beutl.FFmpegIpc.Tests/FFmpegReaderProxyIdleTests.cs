@@ -951,7 +951,6 @@ public class FFmpegReaderProxyIdleTests
                 Width = width,
                 Height = height,
                 BytesPerPixel = BytesPerPixel,
-                DataLength = length,
                 SlotDataOffset = 0,
                 SharedMemoryName = newName,
                 RingBufferSlotSize = newSlotSize,

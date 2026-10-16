@@ -201,7 +201,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         Volatile.Write(ref _memoryBytes, _ringSlotSize * _ringSlotCount);
 
         // 共有メモリから読み取り（Worker側でリサイズされた場合は名前が変わる）
-        EnsureVideoBuffer(response, response.SharedMemoryName);
+        EnsureVideoBuffer(response.SharedMemoryName);
 
         // 色空間情報は差分送信: Worker側から送られた場合のみキャッシュを更新
         if (response.TransferFn != null && response.ToXyzD50 != null)
@@ -555,16 +555,14 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
             ExceptionDispatchInfo.Throw(cause);
     }
 
-    private void EnsureVideoBuffer(ReadVideoResponse response, string? newShmName)
+    private void EnsureVideoBuffer(string? newShmName)
     {
         bool nameChanged = newShmName != null;
         if (nameChanged)
             _videoShmName = newShmName;
 
-        // リングバッファの場合: 全体サイズで確保
-        long requiredCapacity = _ringSlotCount > 0
-            ? _ringSlotSize * _ringSlotCount
-            : response.DataLength;
+        // A video reader always has a ring buffer, so the whole ring is mapped.
+        long requiredCapacity = _ringSlotSize * _ringSlotCount;
 
         if (!nameChanged && _videoBuffer != null && _videoBuffer.Capacity >= requiredCapacity)
             return;
