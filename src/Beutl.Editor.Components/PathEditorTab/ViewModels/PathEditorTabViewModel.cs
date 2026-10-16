@@ -29,11 +29,6 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IP
     {
         EditorContext = editorContext;
         _clock = editorContext.GetRequiredService<IEditorClock>();
-        var player = editorContext.GetRequiredService<IPreviewPlayer>();
-
-        IsPlaying = player.IsPlaying
-            .ToReadOnlyReactiveProperty()
-            .DisposeWith(_disposables);
 
         var chain = PathFigureContextChain.Create(FigureContext, _disposables);
         PathGeometry = chain.PathGeometry;
@@ -169,8 +164,6 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IP
     }
 
     public IReadOnlyReactiveProperty<bool> IsClosed { get; }
-
-    public ReadOnlyReactiveProperty<bool> IsPlaying { get; }
 
     public IReactiveProperty<bool> Symmetry { get; } = new ReactiveProperty<bool>(true);
 
