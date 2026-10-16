@@ -112,37 +112,39 @@ internal sealed partial class PackageApiChecker
         var bases = new List<ChainType>();
         while (bases.Count < MaxBaseDepth)
         {
-            EntityHandle handle = type.Definition.BaseType;
-            if (handle.IsNil)
+            if (type.Definition.BaseType.IsNil)
             {
                 return (bases, true);
             }
 
-            // A generic base type's signatures use its own type parameters, so they are decoded with its arguments.
-            SigType[]? context = null;
-            if (handle.Kind == HandleKind.TypeSpecification)
-            {
-                (handle, context) = Instantiation(type.Reader, (TypeSpecificationHandle)handle, type.Context);
-            }
-
-            if (handle.Kind == HandleKind.TypeDefinition)
-            {
-                type = type with { Handle = (TypeDefinitionHandle)handle, Context = context };
-            }
-            else if (handle.Kind == HandleKind.TypeReference
-                     && Resolve(type.Reader, (TypeReferenceHandle)handle) is { State: LookupState.Found } found)
-            {
-                type = new ChainType(found.Module!.Reader, found.Handle, found.Module, context);
-            }
-            else
+            if (Named(type, type.Definition.BaseType) is not { } next)
             {
                 return (bases, false);
             }
 
-            bases.Add(type);
+            bases.Add(type = next);
         }
 
         return (bases, false);
+    }
+
+    // The type that owner names as a base type or interface, or null if it is outside the package and the host.
+    private ChainType? Named(ChainType owner, EntityHandle handle)
+    {
+        // A generic type's signatures use its own type parameters, so they are decoded with its arguments.
+        SigType[]? context = null;
+        if (handle.Kind == HandleKind.TypeSpecification)
+        {
+            (handle, context) = Instantiation(owner.Reader, (TypeSpecificationHandle)handle, owner.Context);
+        }
+
+        return handle.Kind switch
+        {
+            HandleKind.TypeDefinition => owner with { Handle = (TypeDefinitionHandle)handle, Context = context },
+            HandleKind.TypeReference when Resolve(owner.Reader, (TypeReferenceHandle)handle) is { State: LookupState.Found } found
+                => new ChainType(found.Module!.Reader, found.Handle, found.Module, context),
+            _ => null,
+        };
     }
 
     // The generic type that an instantiation names, with its type arguments decoded in context.

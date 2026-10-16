@@ -11,6 +11,7 @@ public sealed partial class PackageApiCheckerTests
             public virtual int GetLatency(int sampleRate) => 0;
             public virtual void Reset() { }
             public abstract void Process(float[] samples);
+            public abstract Effect Clone();
             protected virtual void OnChanged() { }
         }
         public abstract class Filter<T>
@@ -29,6 +30,7 @@ public sealed partial class PackageApiCheckerTests
             public virtual void Reset() { }
             public abstract void Process(float[] samples);
             public abstract void Flush();
+            public abstract Effect Clone();
             protected virtual void OnChanged() { }
         }
         public abstract class Filter<T>
@@ -45,11 +47,13 @@ public sealed partial class PackageApiCheckerTests
             public override int GetLatency(int sampleRate) => 1;
             public override void Reset() { }
             public override void Process(float[] samples) { }
+            public override Echo Clone() => new();
             protected override void OnChanged() { }
         }
         internal sealed class Quiet : Effect
         {
             public override void Process(float[] samples) { }
+            public override Quiet Clone() => this;
         }
         public abstract class Partial : Effect;
         public sealed class Doubler : Filter<int>
@@ -86,6 +90,7 @@ public sealed partial class PackageApiCheckerTests
                 public override int GetLatency(int sampleRate, int channels) => 1;
                 public override void Process(float[] samples) { }
                 public override void Flush() { }
+                public override HostLib.Effect Clone() => this;
             }
             """, Compile("v2", "HostLib", "2.0.0.0", EffectsV2));
 

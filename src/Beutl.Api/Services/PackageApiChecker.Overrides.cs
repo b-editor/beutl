@@ -42,7 +42,7 @@ internal sealed partial class PackageApiChecker
 
             if ((type.Attributes & TypeAttributes.Abstract) == 0)
             {
-                CheckAbstractMethods(self, bases);
+                CheckAbstractMethods([self, .. bases]);
             }
         }
     }
@@ -63,10 +63,11 @@ internal sealed partial class PackageApiChecker
     }
 
     // Walks from the package type up, so an abstract host method counts as implemented once a nearer type overrides it.
-    private void CheckAbstractMethods(ChainType self, List<ChainType> bases)
+    private void CheckAbstractMethods(List<ChainType> types)
     {
+        HashSet<MethodTarget> explicitOverrides = ExplicitTargets(types);
         var overridden = new HashSet<(string Name, string Key)>();
-        foreach (ChainType type in bases.Prepend(self))
+        foreach (ChainType type in types)
         {
             MetadataReader reader = type.Reader;
             foreach (MethodDefinitionHandle handle in type.Definition.GetMethods())
@@ -77,41 +78,50 @@ internal sealed partial class PackageApiChecker
                     continue;
                 }
 
+                string name = reader.GetString(method.Name);
                 MethodSignature<SigType> signature = method.DecodeSignature(_provider, type.Context);
-                (string Name, string Key) id = (reader.GetString(method.Name), Key(signature));
                 if ((method.Attributes & MethodAttributes.Abstract) == 0)
                 {
-                    overridden.Add(id);
+                    overridden.Add((name, Key(signature)));
                 }
-                else if (type.Module != null && !overridden.Contains(id))
+                else if (type.Module != null
+                         && !overridden.Contains((name, Key(signature)))
+                         && !explicitOverrides.Contains(new(reader, type.Handle, name, Key(method.DecodeSignature(_provider, null)))))
                 {
                     _problems.Add(new(
                         PackageApiProblemKind.UnimplementedMethod,
                         type.Module.Name,
-                        $"{FullName(reader, type.Handle)}.{id.Name}{Display(signature)}"));
-                }
-            }
-
-            // An explicit override, such as one with a covariant return type, names the base method it replaces.
-            foreach (MethodImplementationHandle handle in type.Definition.GetMethodImplementations())
-            {
-                if (Declaration(type, bases, reader.GetMethodImplementation(handle).MethodDeclaration) is { } id)
-                {
-                    overridden.Add(id);
+                        $"{FullName(reader, type.Handle)}.{name}{Display(signature)}"));
                 }
             }
         }
     }
 
-    // The name and signature key of the base method that an explicit override names, in the base type's context.
-    private (string Name, string Key)? Declaration(ChainType owner, List<ChainType> bases, EntityHandle declaration)
+    // The methods that the explicit overrides and implementations of these types name.
+    private HashSet<MethodTarget> ExplicitTargets(IEnumerable<ChainType> types)
     {
-        MetadataReader reader = owner.Reader;
+        var targets = new HashSet<MethodTarget>();
+        foreach (ChainType type in types)
+        {
+            foreach (MethodImplementationHandle handle in type.Definition.GetMethodImplementations())
+            {
+                if (Target(type.Reader, type.Reader.GetMethodImplementation(handle).MethodDeclaration) is { } target)
+                {
+                    targets.Add(target);
+                }
+            }
+        }
+
+        return targets;
+    }
+
+    // An explicit override names its base method; generic arguments are left out, so it compares to the definition.
+    private MethodTarget? Target(MetadataReader reader, EntityHandle declaration)
+    {
         if (declaration.Kind == HandleKind.MethodDefinition)
         {
             MethodDefinition method = reader.GetMethodDefinition((MethodDefinitionHandle)declaration);
-            ChainType declaringType = bases.Find(candidate => candidate.Reader == reader && candidate.Handle == method.GetDeclaringType());
-            return (reader.GetString(method.Name), Key(method.DecodeSignature(_provider, declaringType.Context)));
+            return new(reader, method.GetDeclaringType(), reader.GetString(method.Name), Key(method.DecodeSignature(_provider, null)));
         }
 
         if (declaration.Kind != HandleKind.MemberReference)
@@ -120,9 +130,21 @@ internal sealed partial class PackageApiChecker
         }
 
         MemberReference member = reader.GetMemberReference((MemberReferenceHandle)declaration);
-        SigType[]? context = member.Parent.Kind == HandleKind.TypeSpecification
-            ? Instantiation(reader, (TypeSpecificationHandle)member.Parent, owner.Context).Arguments
+        EntityHandle parent = member.Parent.Kind == HandleKind.TypeSpecification
+            ? Instantiation(reader, (TypeSpecificationHandle)member.Parent, null).Type
+            : member.Parent;
+        (MetadataReader Reader, TypeDefinitionHandle Handle)? type = parent.Kind switch
+        {
+            HandleKind.TypeDefinition => (reader, (TypeDefinitionHandle)parent),
+            HandleKind.TypeReference when Resolve(reader, (TypeReferenceHandle)parent) is { State: LookupState.Found } found
+                => (found.Module!.Reader, found.Handle),
+            _ => null,
+        };
+        return type is { } owner
+            ? new(owner.Reader, owner.Handle, reader.GetString(member.Name), Key(member.DecodeMethodSignature(_provider, null)))
             : null;
-        return (reader.GetString(member.Name), Key(member.DecodeMethodSignature(_provider, context)));
     }
+
+    // A method by its declaring type definition, name and signature key.
+    private readonly record struct MethodTarget(MetadataReader Reader, TypeDefinitionHandle Type, string Name, string Key);
 }
