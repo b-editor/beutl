@@ -14,26 +14,6 @@ public sealed partial class TimelineTabViewModel
     {
         _logger.LogInformation("Reading TimelineViewModel state from JSON.");
 
-        if (json.TryGetPropertyValue(nameof(LayerHeaders), out JsonNode? layersNode)
-            && layersNode is JsonArray layersArray)
-        {
-            foreach ((LayerHeaderViewModel layer, JsonObject item) in layersArray.OfType<JsonObject>()
-                         .Select(v =>
-                             v.TryGetPropertyValueAsJsonValue(nameof(LayerHeaderViewModel.Number), out int number)
-                                 ? (number, v)
-                                 : (-1, null))
-                         .Where(v => v.Item2 != null)
-                         .Join(
-                             LayerHeaders,
-                             x => x.Item1,
-                             y => y.Number,
-                             (x, y) => (y, x.Item2!)))
-            {
-                layer.ReadFromJson(item);
-                _logger.LogDebug("LayerHeader {Number} state restored from JSON.", layer.Number);
-            }
-        }
-
         if (json.TryGetPropertyValue(nameof(Inlines), out JsonNode? inlinesNode)
             && inlinesNode is JsonArray inlinesArray)
         {

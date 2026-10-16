@@ -1,5 +1,4 @@
 ﻿using System.Collections.Specialized;
-using System.Text.Json.Nodes;
 using Avalonia.Media;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
@@ -169,20 +168,6 @@ public sealed class LayerHeaderViewModel : IDisposable
         return FrameNumberHelper.LayerHeight * index;
     }
 
-    public void ReadFromJson(JsonObject obj)
-    {
-        if (obj.TryGetPropertyValueAsJsonValue(nameof(Name), out string? name))
-        {
-            GetOrCreateModel().Name = name;
-        }
-
-        if (obj.TryGetPropertyValueAsJsonValue(nameof(Color), out string? colorStr)
-            && Avalonia.Media.Color.TryParse(colorStr, out Color color))
-        {
-            GetOrCreateModel().Color = color.ToBtlColor();
-        }
-    }
-
     public void SetColor(Color color)
     {
         Timeline.EditorContext.GetRequiredService<ILayerAttributeService>()
@@ -213,14 +198,5 @@ public sealed class LayerHeaderViewModel : IDisposable
     internal void SetModel(TimelineLayer? model)
     {
         _model.Value = model;
-    }
-
-    private TimelineLayer GetOrCreateModel()
-    {
-        if (_model.Value != null) return _model.Value;
-
-        _model.Value = new TimelineLayer { Name = Name.Value, Color = Color.Value.ToBtlColor(), ZIndex = Number };
-        Timeline.Scene.Layers.Add(_model.Value);
-        return _model.Value;
     }
 }
