@@ -145,21 +145,22 @@ public class IpcProviderContractTests
         return (request, _) => IpcMessage.CreateSimple(request.Id + 1_000_000, MessageType.CancelEncode);
     }
 
-    // Serves frame 0 with a mismatched DataLength (failing the destination-size guard)
-    // but answers every other frame normally. Records received frame indices so a test can assert that
-    // a rejected frame did not leave a stray prefetch request behind.
-    private static HostResponse Frame0BadDataLengthHost(List<long> received, object gate)
+    // Fails the first request for frame 0 with a mismatched DataLength and serves the rest, recording frame indices.
+    private static HostResponse Frame0BadDataLengthOnceHost(List<long> received, object gate)
     {
+        bool frame0Failed = false;
         return (request, buffers) =>
         {
             long frameIndex = request.GetPayload<RequestFrameMessage>()!.FrameIndex;
             lock (gate)
                 received.Add(frameIndex);
 
+            if (frameIndex != 0 || frame0Failed)
+                return ServeFrame(request, buffers);
+
             // Oversized DataLength would overrun the 1x1 RgbaF16 destination if not rejected.
-            return frameIndex == 0
-                ? ProvideFrame(request, width: 1, height: 1, FrameDataLength * 2)
-                : ServeFrame(request, buffers);
+            frame0Failed = true;
+            return ProvideFrame(request, width: 1, height: 1, FrameDataLength * 2);
         };
     }
 
@@ -181,59 +182,40 @@ public class IpcProviderContractTests
         };
     }
 
-    // Always answers the request for a specific frame index with an error response (so that
-    // frame's prefetch faults) and serves every other frame normally. Lets a test prove that draining a
-    // FAULTED stale prefetch after a seek discards the worker error instead of aborting the fresh request.
-    private static HostResponse FrameErrorsOnIndexHost(long erroringFrameIndex)
-    {
-        return (request, buffers) => request.GetPayload<RequestFrameMessage>()!.FrameIndex == erroringFrameIndex
-            ? IpcMessage.CreateError(request.Id, "injected stale-prefetch failure")
-            : ServeFrame(request, buffers);
-    }
-
     [Test]
-    public async Task RenderFrame_SeekAfterPrefetch_ReturnsRequestedFrameAndIssuesFreshRequest()
+    public async Task ReadNextFrame_ReturnsTheFramesInOrder_ThenNull()
     {
-        // RenderFrame(0) arms a prefetch of frame 1. A seek to frame 5 must drain that stale prefetch
-        // and issue a fresh RequestFrame{5}, returning frame 5's data — not the prefetched frame 1.
         var received = new List<long>();
         var gate = new object();
         await using var host = new FakeHost(FrameServingHost(received, gate));
-        // frameCount: 6 makes frame 5 the last frame, so RenderFrame(5) issues no post-seek prefetch.
-        // This keeps the test self-contained: no dangling prefetch task survives into teardown to
-        // raise an unobserved exception when the pipe/buffers are disposed.
-        var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 6, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
+        var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 3, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
-        using Bitmap frame0 = await provider.RenderFrame(0);
-        using Bitmap frame5 = await provider.RenderFrame(5);
+        var signatures = new List<long>();
+        while (await provider.ReadNextFrame() is { } frame)
+        {
+            using (frame)
+                signatures.Add(ReadFrameSignature(frame));
+        }
 
+        long[] requests;
+        lock (gate)
+            requests = received.ToArray();
         Assert.Multiple(() =>
         {
-            Assert.That(ReadFrameSignature(frame0), Is.EqualTo(0L), "first render returns frame 0");
-            Assert.That(ReadFrameSignature(frame5), Is.EqualTo(5L), "seek returns frame 5, not the prefetched frame 1");
+            Assert.That(signatures, Is.EqualTo(new[] { 0L, 1L, 2L }));
+            Assert.That(requests, Is.EqualTo(new[] { 0L, 1L, 2L }), "each frame is requested once, and none past the last");
         });
-
-        // render(0), prefetch(1, drained), fresh seek(5). Frame 5 is the last frame, so no further
-        // prefetch fires — the host receives exactly [0, 1, 5].
-        await WaitUntil(() => { lock (gate) return received.Count >= 3; },
-            TimeSpan.FromSeconds(5), "host receives render + prefetch + fresh seek request");
-
-        long[] firstThree;
-        lock (gate)
-            firstThree = received.Take(3).ToArray();
-        Assert.That(firstThree, Is.EqualTo(new[] { 0L, 1L, 5L }),
-            "the drained prefetch (1) proves a fresh RequestFrame{5} was issued after the seek");
     }
 
     [Test]
-    public async Task RenderFrame_WhenWorkerReportsBgra8888Frame_ReturnsBgra8888Bitmap()
+    public async Task ReadNextFrame_WhenWorkerReportsBgra8888Frame_ReturnsBgra8888Bitmap()
     {
         await using var host = new FakeHost(MalformedFrameHost(
             width: 1, height: 1, dataLength: Bgra8888BytesPerPixel,
             colorType: (int)BitmapColorType.Bgra8888));
         var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
-        using Bitmap bitmap = await provider.RenderFrame(0);
+        using Bitmap bitmap = (await provider.ReadNextFrame())!;
 
         Assert.Multiple(() =>
         {
@@ -247,14 +229,14 @@ public class IpcProviderContractTests
     // Two 8-byte formats share the same byte width; the color type must be honored so an
     // integer Rgba16161616 frame is not rebuilt as half-float RgbaF16 (which would corrupt colors).
     [Test]
-    public async Task RenderFrame_WhenWorkerReportsRgba16161616_KeepsTheIntegerFormat()
+    public async Task ReadNextFrame_WhenWorkerReportsRgba16161616_KeepsTheIntegerFormat()
     {
         await using var host = new FakeHost(MalformedFrameHost(
             width: 1, height: 1, dataLength: RgbaF16BytesPerPixel,
             colorType: (int)BitmapColorType.Rgba16161616));
         var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
-        using Bitmap bitmap = await provider.RenderFrame(0);
+        using Bitmap bitmap = (await provider.ReadNextFrame())!;
 
         Assert.Multiple(() =>
         {
@@ -271,14 +253,14 @@ public class IpcProviderContractTests
     [TestCase(BitmapColorType.RF16, 2, true)]
     [TestCase(BitmapColorType.R16Unorm, 2, false)]
     [TestCase(BitmapColorType.Bgra10101010XR, 8, false)]
-    public async Task RenderFrame_WhenWorkerReportsExplicitColorType_ReadsFloatFramesAsLinear(
+    public async Task ReadNextFrame_WhenWorkerReportsExplicitColorType_ReadsFloatFramesAsLinear(
         BitmapColorType colorType, int bytesPerPixel, bool linear)
     {
         await using var host = new FakeHost(MalformedFrameHost(
             width: 1, height: 1, dataLength: bytesPerPixel, colorType: (int)colorType));
         var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
-        using Bitmap bitmap = await provider.RenderFrame(0);
+        using Bitmap bitmap = (await provider.ReadNextFrame())!;
 
         Assert.Multiple(() =>
         {
@@ -291,14 +273,14 @@ public class IpcProviderContractTests
     // The DataLength/Capacity guards use the color type's width: a 4-byte DataLength for an 8-byte
     // Rgba16161616 frame must be rejected, not allocate/read a wider bitmap.
     [Test]
-    public async Task RenderFrame_DataLengthNarrowerThanTheColorType_Throws()
+    public async Task ReadNextFrame_DataLengthNarrowerThanTheColorType_Throws()
     {
         await using var host = new FakeHost(MalformedFrameHost(
             width: 1, height: 1, dataLength: Bgra8888BytesPerPixel,
             colorType: (int)BitmapColorType.Rgba16161616));
         var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
-        Assert.That(async () => await provider.RenderFrame(0),
+        Assert.That(async () => await provider.ReadNextFrame(),
             Throws.TypeOf<InvalidOperationException>(),
             "the color type's real 8 bytes/pixel must be used, so a 4-byte DataLength is a mismatch");
     }
@@ -306,13 +288,13 @@ public class IpcProviderContractTests
     [TestCase(FrameDataLength * 2)]
     [TestCase(FrameDataLength / 2)]
     [TestCase(0)]
-    public async Task RenderFrame_WhenWorkerReportsMismatchedDataLength_Throws(int dataLength)
+    public async Task ReadNextFrame_WhenWorkerReportsMismatchedDataLength_Throws(int dataLength)
     {
         await using var host = new FakeHost(MalformedFrameHost(width: 1, height: 1, dataLength: dataLength));
         // frameCount 1 makes frame 0 the last frame, so no prefetch is armed and nothing dangles.
         var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
-        Assert.That(async () => await provider.RenderFrame(0),
+        Assert.That(async () => await provider.ReadNextFrame(),
             Throws.TypeOf<InvalidOperationException>(),
             "a DataLength that does not match the bitmap allocation must be rejected, not copied");
     }
@@ -320,33 +302,33 @@ public class IpcProviderContractTests
     // The color type is no longer inferred from the byte width, so a frame without a valid one is refused.
     [TestCase(-1)]
     [TestCase(999)]
-    public async Task RenderFrame_WhenFrameHasNoValidColorType_Throws(int colorType)
+    public async Task ReadNextFrame_WhenFrameHasNoValidColorType_Throws(int colorType)
     {
         await using var host = new FakeHost(MalformedFrameHost(
             width: 1, height: 1, dataLength: Bgra8888BytesPerPixel, colorType: colorType));
         var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
-        Assert.That(async () => await provider.RenderFrame(0),
+        Assert.That(async () => await provider.ReadNextFrame(),
             Throws.TypeOf<InvalidOperationException>()
                 .With.Message.Contains("no valid color type"));
     }
 
     [TestCase(0, 1)]
     [TestCase(1, 0)]
-    public async Task RenderFrame_WhenFrameDimensionsAreNonPositive_Throws(int width, int height)
+    public async Task ReadNextFrame_WhenFrameDimensionsAreNonPositive_Throws(int width, int height)
     {
         // DataLength 0 matches a zero-area frame's expected size, so only an explicit dimension guard
         // rejects it — without one the provider would hand back an empty bitmap instead of throwing.
         await using var host = new FakeHost(MalformedFrameHost(width, height, dataLength: 0));
         var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
-        Assert.That(async () => await provider.RenderFrame(0),
+        Assert.That(async () => await provider.ReadNextFrame(),
             Throws.TypeOf<InvalidOperationException>(),
             "a frame with a non-positive dimension must be rejected, not turned into an empty bitmap");
     }
 
     [Test]
-    public async Task RenderFrame_WhenFrameExceedsBufferCapacity_ThrowsBeforeAllocating()
+    public async Task ReadNextFrame_WhenFrameExceedsBufferCapacity_ThrowsBeforeAllocating()
     {
         // 32x32 RgbaF16 = 8192 bytes > BufferCapacity (4096). The DataLength guard passes (8192 == the
         // 32x32 RgbaF16 size), so the capacity guard must reject the frame BEFORE the native bitmap is
@@ -359,7 +341,7 @@ public class IpcProviderContractTests
         var provider = new IpcFrameProvider(
             host.Connection, host.Buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 32, sourceHeight: 32);
 
-        Assert.That(async () => await provider.RenderFrame(0),
+        Assert.That(async () => await provider.ReadNextFrame(),
             Throws.TypeOf<InvalidOperationException>(),
             "a frame larger than the shared buffer must be rejected by the pre-allocation capacity guard");
 
@@ -370,7 +352,7 @@ public class IpcProviderContractTests
     }
 
     [Test]
-    public async Task RenderFrame_WhenFrameDimensionsExceedNegotiatedSource_Throws()
+    public async Task ReadNextFrame_WhenFrameDimensionsExceedNegotiatedSource_Throws()
     {
         // A 2x1 BGRA frame clears the DataLength and capacity guards but would overrun the encoder's 1x1 MediaFrame.
         await using var host = new FakeHost(MalformedFrameHost(
@@ -379,82 +361,55 @@ public class IpcProviderContractTests
         var provider = new IpcFrameProvider(
             host.Connection, host.Buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
-        Assert.That(async () => await provider.RenderFrame(0),
+        Assert.That(async () => await provider.ReadNextFrame(),
             Throws.TypeOf<InvalidOperationException>(),
             "a frame with more pixels than the negotiated source must be rejected, not copied into the fixed frame");
         Assert.That(provider.FramesRendered, Is.EqualTo(0));
     }
 
     [Test]
-    public async Task RenderFrame_WhenValidationFails_DoesNotArmPrefetch()
+    public async Task ReadNextFrame_WhenValidationFails_DoesNotArmPrefetch()
     {
-        // A frame that fails the DataLength guard must not arm a prefetch of the next frame. With frame 0
-        // rejected, a later RenderFrame(2) leaves the host having seen only [0, 2] — no stray prefetch 1.
+        // A frame that fails the DataLength guard must not arm a prefetch, so the retry asks for frame 0 again.
         var received = new List<long>();
         var gate = new object();
-        await using var host = new FakeHost(Frame0BadDataLengthHost(received, gate));
-        // frameCount 3: frame 0 is not the last frame, so a misplaced guard *would* arm a prefetch of 1.
-        // frame 2 is the last frame, so the successful render issues no further prefetch and nothing dangles.
-        var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 3, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
+        await using var host = new FakeHost(Frame0BadDataLengthOnceHost(received, gate));
+        // frameCount 2: frame 0 is not the last frame, so a misplaced guard *would* arm a prefetch of 1.
+        var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 2, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
-        Assert.That(async () => await provider.RenderFrame(0),
+        Assert.That(async () => await provider.ReadNextFrame(),
             Throws.TypeOf<InvalidOperationException>(),
             "frame 0's mismatched DataLength is rejected");
 
-        using Bitmap frame2 = await provider.RenderFrame(2);
-        Assert.That(ReadFrameSignature(frame2), Is.EqualTo(2L), "the provider stays usable after the rejected frame");
+        using Bitmap frame0 = (await provider.ReadNextFrame())!;
+        using Bitmap frame1 = (await provider.ReadNextFrame())!;
+        Assert.That(new[] { ReadFrameSignature(frame0), ReadFrameSignature(frame1) }, Is.EqualTo(new[] { 0L, 1L }));
 
         long[] requests;
         lock (gate)
             requests = received.ToArray();
-        Assert.That(requests, Is.EqualTo(new[] { 0L, 2L }),
-            "a rejected frame must not have armed a prefetch (no stray request 1 between 0 and 2)");
+        Assert.That(requests, Is.EqualTo(new[] { 0L, 0L, 1L }),
+            "a rejected frame must not have armed a prefetch (no request 1 before the retry)");
     }
 
     [Test]
-    public async Task RenderFrame_WhenPrefetchFaults_RecoversOnRetry()
+    public async Task ReadNextFrame_WhenPrefetchFaults_RecoversOnRetry()
     {
-        // A faulted prefetch must not pin the provider. RenderFrame(0) arms a prefetch of frame 1; the
-        // host faults it, so the matching RenderFrame(1) throws — but a retry must issue a fresh request
-        // and recover instead of re-throwing the pinned faulted task forever.
+        // A faulted prefetch must not pin the provider: the read of frame 1 throws, and a retry requests it afresh.
         await using var host = new FakeHost(PrefetchFaultsOnceHost());
         // frameCount 2: frame 0 arms the prefetch of 1; the recovered frame 1 is last, so nothing dangles.
         var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 2, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
-        using Bitmap frame0 = await provider.RenderFrame(0);
+        using Bitmap frame0 = (await provider.ReadNextFrame())!;
         Assert.That(ReadFrameSignature(frame0), Is.EqualTo(0L), "frame 0 renders before the prefetch faults");
 
-        Assert.That(async () => await provider.RenderFrame(1),
+        Assert.That(async () => await provider.ReadNextFrame(),
             Throws.TypeOf<FFmpegWorkerException>(),
-            "the faulted prefetch surfaces on the matching request");
+            "the faulted prefetch surfaces on the read of frame 1");
 
-        using Bitmap frame1 = await provider.RenderFrame(1);
+        using Bitmap frame1 = (await provider.ReadNextFrame())!;
         Assert.That(ReadFrameSignature(frame1), Is.EqualTo(1L),
             "the retry recovers because the faulted prefetch was not pinned to the provider");
-    }
-
-    [Test]
-    public async Task RenderFrame_SeekAfterPrefetchFaulted_DiscardsStaleErrorAndReturnsRequestedFrame()
-    {
-        // RenderFrame(0) arms a prefetch of frame 1, which the host faults with a worker error. A seek to
-        // frame 5 must DRAIN that faulted stale prefetch, discard its error (the error belongs to the
-        // discarded frame 1), then issue a fresh RequestFrame{5} and return frame 5 — not abort the seek by
-        // re-throwing the stale prefetch's FFmpegWorkerException.
-        await using var host = new FakeHost(FrameErrorsOnIndexHost(erroringFrameIndex: 1));
-        // frameCount 6 makes frame 5 the last frame, so the recovered seek issues no further prefetch and
-        // nothing dangles into teardown.
-        var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 6, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
-
-        using Bitmap frame0 = await provider.RenderFrame(0);
-        Assert.That(ReadFrameSignature(frame0), Is.EqualTo(0L), "frame 0 renders and arms the prefetch of frame 1");
-
-        // Wait until the prefetch actually faults so the seek drains an already-faulted stale task.
-        await WaitUntil(() => provider.IsPrefetchFaultedForTest(),
-            TimeSpan.FromSeconds(5), "the in-flight frame prefetch faults");
-
-        using Bitmap frame5 = await provider.RenderFrame(5);
-        Assert.That(ReadFrameSignature(frame5), Is.EqualTo(5L),
-            "the seek discards the faulted stale prefetch's worker error and returns the freshly requested frame 5");
     }
 
     // Captures every UnobservedTaskException raised on the finalizer thread while subscribed, so a test
@@ -501,23 +456,19 @@ public class IpcProviderContractTests
     [Test]
     public async Task Dispose_ObservesInFlightFaultedFramePrefetch_NoUnobservedTaskException()
     {
-        // RenderFrame(0) arms a prefetch of frame 1; the host faults that prefetch. We then Dispose the
-        // provider WITHOUT consuming frame 1, so the faulted prefetch task is still in flight and is dropped
-        // by Dispose. Its fault-swallowing continuation must observe the exception so the GC never raises an
-        // UnobservedTaskException attributable to the provider.
+        // Dispose drops frame 1's faulted prefetch unread and must observe its fault.
         using var watcher = new UnobservedTaskExceptionWatcher();
         await using var host = new FakeHost(PrefetchFaultsOnceHost());
         // frameCount 3: frame 0 arms a prefetch of frame 1, which the host faults. Frame 1 is never consumed.
         var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 3, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
-        using (Bitmap frame0 = await provider.RenderFrame(0))
+        using (Bitmap frame0 = (await provider.ReadNextFrame())!)
             Assert.That(ReadFrameSignature(frame0), Is.EqualTo(0L), "frame 0 renders and arms the prefetch of frame 1");
 
         // Let the prefetch actually fault before we drop it, so we exercise the faulted-task path.
         await WaitUntil(() => provider.IsPrefetchFaultedForTest(),
             TimeSpan.FromSeconds(5), "the in-flight frame prefetch faults");
 
-        // Drop the faulted prefetch without ever awaiting it via RenderFrame(1).
         provider.Dispose();
         provider.Dispose(); // idempotent: a second Dispose must be a no-op.
 
@@ -539,7 +490,7 @@ public class IpcProviderContractTests
         // sampleCount 12 == 3 chunks of 4, so chunk 1's prefetch arms after chunk 0 and is not last.
         var provider = new IpcSampleProvider(host.Connection, host.Buffers, sampleCount: 12, sampleRate: sampleRate);
 
-        using (Pcm<Stereo32BitFloat> chunk0 = await provider.Sample(0, sampleRate))
+        using (Pcm<Stereo32BitFloat> chunk0 = (await provider.ReadNextSamples((int)sampleRate))!)
             Assert.That(ReadSampleSignature(chunk0), Is.EqualTo(0L), "chunk 0 loads and arms the prefetch of chunk 1");
 
         await WaitUntil(() => provider.IsPrefetchFaultedForTest(),
@@ -567,47 +518,47 @@ public class IpcProviderContractTests
     }
 
     [Test]
-    public async Task RenderFrame_AfterDispose_ThrowsObjectDisposedException()
+    public async Task ReadNextFrame_AfterDispose_ThrowsObjectDisposedException()
     {
         await using var host = new FakeHost(ServeFrame);
         var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
         provider.Dispose();
-        Assert.That(async () => await provider.RenderFrame(0), Throws.TypeOf<ObjectDisposedException>());
+        Assert.That(async () => await provider.ReadNextFrame(), Throws.TypeOf<ObjectDisposedException>());
     }
 
     [Test]
-    public async Task Sample_AfterDispose_ThrowsObjectDisposedException()
+    public async Task ReadNextSamples_AfterDispose_ThrowsObjectDisposedException()
     {
         await using var host = new FakeHost(ServeSample);
         var provider = new IpcSampleProvider(host.Connection, host.Buffers, sampleCount: 4, sampleRate: 4);
 
         provider.Dispose();
-        Assert.That(async () => await provider.Sample(0, 4), Throws.TypeOf<ObjectDisposedException>());
+        Assert.That(async () => await provider.ReadNextSamples(4), Throws.TypeOf<ObjectDisposedException>());
     }
 
     [Test]
-    public async Task RenderFrame_WhenHostCancelsWithFreshId_ThrowsOperationCanceled()
+    public async Task ReadNextFrame_WhenHostCancelsWithFreshId_ThrowsOperationCanceled()
     {
         // Regression test: a CancelEncode with a fresh id must be a cancel, not an ID mismatch, so that
         // HandleStartAsync reports "Cancelled".
         await using var host = new FakeHost(FreshIdCancelingHost());
         var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 100, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
-        Assert.That(async () => await provider.RenderFrame(0),
+        Assert.That(async () => await provider.ReadNextFrame(),
             Throws.TypeOf<OperationCanceledException>(),
             "a CancelEncode with a fresh id must surface as a clean cancel, not 'Response ID mismatch'");
     }
 
     [Test]
-    public async Task Sample_WhenHostCancelsWithFreshId_ThrowsOperationCanceled()
+    public async Task ReadNextSamples_WhenHostCancelsWithFreshId_ThrowsOperationCanceled()
     {
         // Regression mirror of the frame-side test: a CancelEncode minted with a fresh id mid-encode must
         // surface from the sample path as OperationCanceledException, not "Response ID mismatch".
         await using var host = new FakeHost(FreshIdCancelingHost());
         var provider = new IpcSampleProvider(host.Connection, host.Buffers, sampleCount: 48000, sampleRate: 48000);
 
-        Assert.That(async () => await provider.Sample(0, 1024),
+        Assert.That(async () => await provider.ReadNextSamples(1024),
             Throws.TypeOf<OperationCanceledException>(),
             "a CancelEncode with a fresh id must surface as a clean cancel, not 'Response ID mismatch'");
     }
@@ -674,122 +625,56 @@ public class IpcProviderContractTests
         };
     }
 
-    // Always answers the request for a specific chunk offset with an error response (so that
-    // chunk's prefetch faults) and serves every other chunk normally. Mirrors FrameErrorsOnIndexHost for
-    // the sample-side stale-prefetch-error drain.
-    private static HostResponse SampleErrorsOnOffsetHost(long erroringOffset)
-    {
-        return (request, buffers) => request.GetPayload<RequestSampleMessage>()!.Offset == erroringOffset
-            ? IpcMessage.CreateError(request.Id, "injected stale-prefetch failure")
-            : ServeSample(request, buffers);
-    }
-
     [TestCase(8 * Stereo32BitFloatBytesPerSample)]   // oversized: would overrun the native Pcm
     [TestCase(2 * Stereo32BitFloatBytesPerSample)]   // undersized vs NumSamples
-    public async Task Sample_WhenWorkerReportsMismatchedDataLength_Throws(int dataLength)
+    public async Task ReadNextSamples_WhenWorkerReportsMismatchedDataLength_Throws(int dataLength)
     {
         // The Pcm capacity is NumSamples * 8. A DataLength that disagrees with NumSamples must be rejected
         // before the Read, not used as the copy length (which would over/under-run the native allocation).
         await using var host = new FakeHost(MalformedSampleHost(numSamples: 4, dataLength));
         var provider = new IpcSampleProvider(host.Connection, host.Buffers, sampleCount: 4, sampleRate: 4);
 
-        Assert.That(async () => await provider.Sample(0, 4),
+        Assert.That(async () => await provider.ReadNextSamples(4),
             Throws.TypeOf<InvalidOperationException>(),
             "a DataLength that does not match NumSamples * 8 must be rejected, not used as the copy length");
     }
 
     [Test]
-    public async Task Sample_WhenHostErrors_ThrowsFFmpegWorkerException()
+    public async Task ReadNextSamples_WhenHostErrors_ThrowsFFmpegWorkerException()
     {
         // An injected worker error must surface as FFmpegWorkerException (raised by SendAndReceiveAsync),
         // mirroring the frame-side guarantee — not be re-wrapped into InvalidOperationException.
         await using var host = new FakeHost(ErroringSampleHost());
         var provider = new IpcSampleProvider(host.Connection, host.Buffers, sampleCount: 4, sampleRate: 4);
 
-        Assert.That(async () => await provider.Sample(0, 4),
+        Assert.That(async () => await provider.ReadNextSamples(4),
             Throws.TypeOf<FFmpegWorkerException>(),
             "an injected worker error must surface as FFmpegWorkerException, not InvalidOperationException");
     }
 
     [Test]
-    public async Task Sample_WhenFreshSeekFails_PreviousCachedChunkRemainsUsable()
+    public async Task ReadNextSamples_WhenPrefetchFaults_RecoversOnRetry()
     {
-        const long sampleRate = 4;
-        await using var host = new FakeHost(SampleErrorsOnOffsetHost(erroringOffset: 2 * sampleRate));
-        var provider = new IpcSampleProvider(host.Connection, host.Buffers, sampleCount: 12, sampleRate: sampleRate);
-
-        try
-        {
-            using Pcm<Stereo32BitFloat> first = await provider.Sample(0, sampleRate);
-            Assert.That(ReadSampleSignature(first), Is.Zero);
-
-            Assert.That(async () => await provider.Sample(2 * sampleRate, sampleRate),
-                Throws.TypeOf<FFmpegWorkerException>());
-
-            using Pcm<Stereo32BitFloat> cached = await provider.Sample(0, sampleRate);
-            Assert.Multiple(() =>
-            {
-                Assert.That(cached.NumSamples, Is.EqualTo(first.NumSamples));
-                Assert.That(cached.DataSpan.ToArray(), Is.EqualTo(first.DataSpan.ToArray()),
-                    "A failed fresh seek must leave the previous cached samples available.");
-            });
-        }
-        finally
-        {
-            provider.Dispose();
-        }
-    }
-
-    [Test]
-    public async Task Sample_WhenPrefetchFaults_RecoversOnRetry()
-    {
-        // A faulted sample prefetch must not pin the provider. Consuming chunk 0 arms a prefetch of chunk 1
-        // (offset == sampleRate); the host faults it, so the Sample that hits chunk 1 throws — but a retry
-        // must issue a fresh request and recover instead of re-throwing the pinned faulted task forever.
+        // A faulted sample prefetch must not pin the provider: the read of chunk 1 throws, and a retry requests it afresh.
         const long sampleRate = 4;
         await using var host = new FakeHost(SamplePrefetchFaultsOnceHost(sampleRate));
         // sampleCount 12 == 3 chunks of 4, so chunk 1's prefetch arms after chunk 0 and chunk 1 is not last.
         var provider = new IpcSampleProvider(host.Connection, host.Buffers, sampleCount: 12, sampleRate: sampleRate);
 
-        using (Pcm<Stereo32BitFloat> chunk0 = await provider.Sample(0, sampleRate))
+        using (Pcm<Stereo32BitFloat> chunk0 = (await provider.ReadNextSamples((int)sampleRate))!)
             Assert.That(ReadSampleSignature(chunk0), Is.EqualTo(0L), "chunk 0 loads and arms the prefetch of chunk 1");
 
-        Assert.That(async () => await provider.Sample(sampleRate, sampleRate),
+        Assert.That(async () => await provider.ReadNextSamples((int)sampleRate),
             Throws.TypeOf<FFmpegWorkerException>(),
-            "the faulted prefetch surfaces on the request that consumes chunk 1");
+            "the faulted prefetch surfaces on the read that consumes chunk 1");
 
-        using Pcm<Stereo32BitFloat> chunk1 = await provider.Sample(sampleRate, sampleRate);
+        using Pcm<Stereo32BitFloat> chunk1 = (await provider.ReadNextSamples((int)sampleRate))!;
         Assert.That(ReadSampleSignature(chunk1), Is.EqualTo(sampleRate),
             "the retry recovers because the faulted prefetch was not pinned to the provider");
     }
 
     [Test]
-    public async Task Sample_SeekAfterPrefetchFaulted_DiscardsStaleErrorAndReturnsRequestedChunk()
-    {
-        // Consuming chunk 0 arms a prefetch of chunk 1 (offset == sampleRate), which the host faults with a
-        // worker error. A seek to chunk 3 (offset 3*sampleRate) must DRAIN that faulted stale prefetch,
-        // discard its error (it belongs to the discarded chunk 1), then issue a fresh RequestSample and
-        // return chunk 3 — not abort the seek by re-throwing the stale prefetch's FFmpegWorkerException.
-        const long sampleRate = 4;
-        await using var host = new FakeHost(SampleErrorsOnOffsetHost(erroringOffset: sampleRate));
-        // sampleCount 16 == 4 chunks of 4. Chunk 0 arms the prefetch of chunk 1; the seek target chunk 3
-        // (offset 12) is the last chunk, so loading it arms no further prefetch and nothing dangles.
-        var provider = new IpcSampleProvider(host.Connection, host.Buffers, sampleCount: 16, sampleRate: sampleRate);
-
-        using (Pcm<Stereo32BitFloat> chunk0 = await provider.Sample(0, sampleRate))
-            Assert.That(ReadSampleSignature(chunk0), Is.EqualTo(0L), "chunk 0 loads and arms the prefetch of chunk 1");
-
-        await WaitUntil(() => provider.IsPrefetchFaultedForTest(),
-            TimeSpan.FromSeconds(5), "the in-flight sample prefetch faults");
-
-        long seekOffset = 3 * sampleRate;
-        using Pcm<Stereo32BitFloat> chunk3 = await provider.Sample(seekOffset, sampleRate);
-        Assert.That(ReadSampleSignature(chunk3), Is.EqualTo(seekOffset),
-            "the seek discards the faulted stale prefetch's worker error and returns the freshly requested chunk 3");
-    }
-
-    [Test]
-    public async Task Sample_WhenRequestStraddlesEof_ReturnsRequestedLengthWithSilenceTail()
+    public async Task ReadNextSamples_WhenRequestStraddlesEof_ReturnsRequestedLengthWithSilenceTail()
     {
         // Regression test: like SampleProviderImpl, a request straddling a chunk-aligned EOF returns the requested
         // length with the past-EOF tail silent, so the encoder's fixed-size final frame holds no stale samples.
@@ -798,9 +683,14 @@ public class IpcProviderContractTests
         var provider = new IpcSampleProvider(host.Connection, host.Buffers, sampleCount: 8, sampleRate: sampleRate);
 
         // offset 4 (chunk-aligned), length 6 -> only 4 samples remain (4..8); the last 2 must be silent.
+        using (await provider.ReadNextSamples(4))
+        {
+        }
+
         Pcm<Stereo32BitFloat> result = null!;
-        Assert.That(async () => result = await provider.Sample(4, 6), Throws.Nothing,
+        Assert.That(async () => result = (await provider.ReadNextSamples(6))!, Throws.Nothing,
             "a request straddling EOF must zero-pad, not throw ArgumentOutOfRangeException");
+        Assert.That(await provider.ReadNextSamples(4), Is.Null, "every sample was read");
 
         using (result)
         {
@@ -819,20 +709,24 @@ public class IpcProviderContractTests
     }
 
     [Test]
-    public async Task Sample_WhenSecondChunkLoadFaultsMidSplit_DisposesSplitBufferAndDoesNotLeak()
+    public async Task ReadNextSamples_WhenSecondChunkLoadFaultsMidSplit_DisposesSplitBufferAndDoesNotLeak()
     {
         // A cross-chunk read allocates its result before loading the second chunk; when that load faults, as an
         // IPC error or cancellation mid-encode does, the result must be disposed rather than leaked.
         const long sampleRate = 4;
         await using var host = new FakeHost(SamplePrefetchFaultsOnceHost(sampleRate));
-        // sampleCount 12 == 3 chunks of 4; offset 2 + length 4 straddles the chunk 0/1 boundary.
+        // sampleCount 12 == 3 chunks of 4; after 2 samples, a read of 4 straddles the chunk 0/1 boundary.
         var provider = new IpcSampleProvider(host.Connection, host.Buffers, sampleCount: 12, sampleRate: sampleRate);
         Pcm<Stereo32BitFloat>? splitBuffer = null;
         provider.CrossChunkSplitAllocatedForTest = pcm => splitBuffer = pcm;
 
         try
         {
-            Assert.That(async () => await provider.Sample(2, 4),
+            using (await provider.ReadNextSamples(2))
+            {
+            }
+
+            Assert.That(async () => await provider.ReadNextSamples(4),
                 Throws.TypeOf<FFmpegWorkerException>(),
                 "the second chunk load faults mid-split, surfacing the worker error");
 

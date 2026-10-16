@@ -88,7 +88,7 @@ internal sealed class SampleRateEditorViewModel
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<string> args)
+        if (e.Expect<string>(sender) is { } args)
         {
             if (int.TryParse(args.NewValue, out int newValue) && newValue > 0)
             {

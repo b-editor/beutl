@@ -396,10 +396,10 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     private static async ValueTask<MediaFrame?> GetAudioFrame(MediaFrame frame, SampleConverter swr, EncodeState state,
         ISampleProvider sampleProvider)
     {
-        if (state.NextPts >= sampleProvider.SampleCount)
+        using var pcm = await sampleProvider.ReadNextSamples(frame.NbSamples);
+        if (pcm is null)
             return null;
 
-        using var pcm = await sampleProvider.Sample(state.NextPts, frame.NbSamples);
         unsafe
         {
             IntPtr size = pcm.NumSamples * pcm.SampleSize;
@@ -432,10 +432,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     private async ValueTask<MediaFrame?> GetVideoFrame(
         MediaFrame srcFrame, EncodeState state, IFrameProvider frameProvider)
     {
-        if (state.NextPts >= frameProvider.FrameCount)
+        using Bitmap? bitmap = await frameProvider.ReadNextFrame();
+        if (bitmap is null)
             return null;
-
-        using var bitmap = await frameProvider.RenderFrame(state.NextPts);
 
         using (var converted = _isHdr
             // Skia: LinearSrgb → ターゲット色空間（例: BT.2020/PQ）

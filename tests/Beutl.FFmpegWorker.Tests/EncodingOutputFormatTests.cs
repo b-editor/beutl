@@ -69,7 +69,7 @@ public sealed class EncodingOutputFormatTests
 
         public Rational FrameRate => throw new AssertionException("Invalid output formats must be rejected before reading frames.");
 
-        public ValueTask<Bitmap> RenderFrame(long frame) =>
+        public ValueTask<Bitmap?> ReadNextFrame() =>
             throw new AssertionException("Invalid output formats must be rejected before rendering frames.");
 
         public void Dispose()
@@ -83,7 +83,7 @@ public sealed class EncodingOutputFormatTests
 
         public long SampleRate => throw new AssertionException("Invalid output formats must be rejected before reading samples.");
 
-        public ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length) =>
+        public ValueTask<Pcm<Stereo32BitFloat>?> ReadNextSamples(int length) =>
             throw new AssertionException("Invalid output formats must be rejected before reading samples.");
 
         public void Dispose()

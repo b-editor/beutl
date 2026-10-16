@@ -138,7 +138,7 @@ public abstract partial class GenerativeNode
 
         using var reader = Beutl.Media.Decoding.MediaReader.Open(
             path,
-            new Beutl.Media.Decoding.MediaOptions(Beutl.Media.Decoding.MediaMode.Video));
+            new Beutl.Media.Decoding.MediaOptions(Beutl.Media.Decoding.MediaMode.Video) { IsBackground = true });
         if (!reader.ReadVideo(0, out Ref<Bitmap>? frame))
             return null;
         using (frame)

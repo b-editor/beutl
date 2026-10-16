@@ -102,12 +102,18 @@ public sealed class FFmpegEncodingScaleTests
 
     private sealed class QuadrantFrameProvider : IFrameProvider
     {
+        private bool _read;
+
         public long FrameCount => 1;
 
         public Rational FrameRate => new(1, 1);
 
-        public ValueTask<Bitmap> RenderFrame(long frame)
+        public ValueTask<Bitmap?> ReadNextFrame()
         {
+            if (_read)
+                return ValueTask.FromResult<Bitmap?>(null);
+
+            _read = true;
             var bitmap = new Bitmap(64, 48);
             for (int y = 0; y < bitmap.Height; y++)
             {
@@ -125,7 +131,7 @@ public sealed class FFmpegEncodingScaleTests
                 }
             }
 
-            return ValueTask.FromResult(bitmap);
+            return ValueTask.FromResult<Bitmap?>(bitmap);
         }
 
         public void Dispose()
@@ -139,9 +145,9 @@ public sealed class FFmpegEncodingScaleTests
 
         public long SampleRate => 44100;
 
-        public ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
+        public ValueTask<Pcm<Stereo32BitFloat>?> ReadNextSamples(int length)
         {
-            return ValueTask.FromResult(new Pcm<Stereo32BitFloat>((int)SampleRate, (int)Math.Max(0, length)));
+            return ValueTask.FromResult<Pcm<Stereo32BitFloat>?>(null);
         }
 
         public void Dispose()

@@ -18,5 +18,5 @@ public interface ISampleProvider : IDisposable
 
     public long SampleRate { get; }
 
-    public ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length);
+    public ValueTask<Pcm<Stereo32BitFloat>?> ReadNextSamples(int length);
 }

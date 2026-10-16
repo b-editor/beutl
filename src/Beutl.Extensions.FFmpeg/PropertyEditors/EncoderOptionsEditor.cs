@@ -256,9 +256,9 @@ internal sealed class EncoderOptionsEditor : UserControl
             }
             Refresh();
             refreshers.Add(Refresh);
-            editor.ValueConfirmed += (_, e) =>
+            editor.ValueConfirmed += (s, e) =>
             {
-                if (!_updating && e is PropertyEditorValueChangedEventArgs<int> args
+                if (!_updating && e.Expect<int>(s) is { } args
                     && args.NewValue >= 0 && args.NewValue < selectableCount)
                     write(args.NewValue == 0 ? null : editor.Items![args.NewValue].Value as string);
             };
@@ -281,7 +281,7 @@ internal sealed class EncoderOptionsEditor : UserControl
             refreshers.Add(Refresh);
             void WriteNumber(object? sender, PropertyEditorValueChangedEventArgs e)
             {
-                if (_updating || e is not PropertyEditorValueChangedEventArgs<decimal> args) return;
+                if (_updating || e.Expect<decimal>(sender) is not { } args) return;
                 decimal value = descriptor.Kind == EncoderOptionKind.Integer ? decimal.Truncate(args.NewValue) : args.NewValue;
                 write(value.ToString(CultureInfo.InvariantCulture));
             }
@@ -341,7 +341,7 @@ internal sealed class EncoderOptionsEditor : UserControl
         {
             if (!_updating && editor.Text != (read() ?? "")) write(editor.Text);
         }
-        editor.ValueConfirmed += (_, e) => { if (e is PropertyEditorValueChangedEventArgs<string>) Commit(); };
+        editor.ValueConfirmed += (s, e) => { if (e.Expect<string>(s) is not null) Commit(); };
         editor.KeyDown += (_, e) =>
         {
             if (e.Key == Key.Enter) { Commit(); e.Handled = true; }

@@ -17,7 +17,7 @@ public partial class ScriptEditor : UserControl
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (DataContext is not ScriptEditorViewModel { IsDisposed: false } vm) return;
-        if (e is not PropertyEditorValueChangedEventArgs<string?> args) return;
+        if (e.Expect<string?>(sender) is not { } args) return;
 
         vm.SetValue(args.OldValue, args.NewValue);
     }

@@ -45,7 +45,7 @@ public sealed class EnumEditorViewModel<T> : ValueEditorViewModel<T>
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<int> args)
+        if (e.Expect<int>(sender) is { } args)
         {
             var newValue = _enumValues[Math.Clamp(args.NewValue, 0, _enumValues.Length - 1)];
             SetValue(Value.Value, newValue);

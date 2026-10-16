@@ -61,7 +61,7 @@ public class AVFEncodingController : EncodingController
 
                 if (encodeVideo && (!encodeAudio || videoTs <= audioTs))
                 {
-                    await WriteVideoFrameAsync(
+                    encodeVideo = await WriteVideoFrameAsync(
                         handle, frameProvider, frameCount, frameRateNum, frameRateDen,
                         hdrTargetColorSpace);
                     frameCount++;
@@ -72,7 +72,7 @@ public class AVFEncodingController : EncodingController
                 }
                 else
                 {
-                    await WriteAudioFrameAsync(handle, sampleProvider, sampleCount, AudioFrameSize);
+                    encodeAudio = await WriteAudioFrameAsync(handle, sampleProvider, sampleCount, AudioFrameSize);
                     sampleCount += AudioFrameSize;
                     if (sampleCount >= sampleProvider.SampleCount)
                     {
@@ -88,7 +88,8 @@ public class AVFEncodingController : EncodingController
         }
     }
 
-    private static async ValueTask WriteVideoFrameAsync(
+    // Returns false once the provider has no more frames.
+    private static async ValueTask<bool> WriteVideoFrameAsync(
         AVFWriterSafeHandle handle,
         IFrameProvider frameProvider,
         long frame,
@@ -96,7 +97,10 @@ public class AVFEncodingController : EncodingController
         long frameRateDen,
         BitmapColorSpace? hdrTargetColorSpace)
     {
-        using var image = await frameProvider.RenderFrame(frame);
+        using Bitmap? image = await frameProvider.ReadNextFrame();
+        if (image is null)
+            return false;
+
         long ptsNum = frame * frameRateDen;
 
         using var converted = hdrTargetColorSpace is not null
@@ -114,15 +118,20 @@ public class AVFEncodingController : EncodingController
                 converted.RowBytes,
                 ptsNum,
                 (int)frameRateNum));
+        return true;
     }
 
-    private static async ValueTask WriteAudioFrameAsync(
+    // Returns false once the provider has no more samples.
+    private static async ValueTask<bool> WriteAudioFrameAsync(
         AVFWriterSafeHandle handle,
         ISampleProvider sampleProvider,
         long startSample,
         int length)
     {
-        using var sound = await sampleProvider.Sample(startSample, length);
+        using var sound = await sampleProvider.ReadNextSamples(length);
+        if (sound is null)
+            return false;
+
         BeutlAVFException.ThrowIfFailed(
             BeutlAVFNative.beutl_avf_writer_append_audio(
                 handle,
@@ -130,6 +139,7 @@ public class AVFEncodingController : EncodingController
                 sound.NumSamples,
                 startSample,
                 sound.SampleRate));
+        return true;
     }
 
     private BeutlVideoEncoderConfig BuildVideoConfig()

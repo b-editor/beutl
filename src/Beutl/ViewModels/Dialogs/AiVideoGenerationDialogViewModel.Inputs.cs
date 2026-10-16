@@ -289,7 +289,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
     private Task<double> ReadVideoDurationAsync(string path, CancellationToken token) => Task.Run(() =>
     {
         if (VideoDurationReader is { } reader) return reader(path).TotalSeconds;
-        using var video = MediaReader.Open(path, new MediaOptions(MediaMode.Video));
+        using var video = MediaReader.Open(path, new MediaOptions(MediaMode.Video) { IsBackground = true });
         return video.VideoInfo.Duration.ToDouble();
     }, token);
 

@@ -87,11 +87,7 @@ public class FFmpegReaderProxySuspendContractTests
         using var reader = OpenFixture();
         byte[] before = ReadFramePixels(reader, 0);
         int exitedPid = FFmpegWorkerProcess.DecodingInstance.WorkerPid;
-        using (var worker = Process.GetProcessById(exitedPid))
-        {
-            worker.Kill();
-            Assert.That(worker.WaitForExit(10_000), Is.True);
-        }
+        KillWorker(exitedPid);
 
         byte[] after = ReadFramePixels(reader, 0);
         Assert.Multiple(() =>
@@ -100,6 +96,37 @@ public class FFmpegReaderProxySuspendContractTests
             Assert.That(FFmpegWorkerProcess.DecodingInstance.WorkerPid, Is.Not.EqualTo(exitedPid));
             Assert.That(reader.IsSuspended, Is.False);
         });
+    }
+
+    // A file that crashes the background worker must not reach the editor's readers.
+    [Test]
+    public void BackgroundWorkerExit_LeavesTheEditorReaderOnItsWorker()
+    {
+        using var editorReader = OpenFixture();
+        using var backgroundReader = OpenFixture(background: true);
+        byte[] before = ReadFramePixels(backgroundReader, 0);
+        int editorPid = FFmpegWorkerProcess.DecodingInstance.WorkerPid;
+        int editorReaderId = editorReader.ReaderId;
+        int exitedPid = FFmpegWorkerProcess.BackgroundDecodingInstance.WorkerPid;
+        Assert.That(exitedPid, Is.Not.EqualTo(editorPid));
+        KillWorker(exitedPid);
+
+        ReadFramePixels(editorReader, 0);
+        byte[] after = ReadFramePixels(backgroundReader, 0);
+        Assert.Multiple(() =>
+        {
+            Assert.That(editorReader.ReaderId, Is.EqualTo(editorReaderId), "the editor reader must not reopen");
+            Assert.That(FFmpegWorkerProcess.DecodingInstance.WorkerPid, Is.EqualTo(editorPid));
+            Assert.That(after, Is.EqualTo(before), "the background reader must reopen on a new background worker");
+            Assert.That(FFmpegWorkerProcess.BackgroundDecodingInstance.WorkerPid, Is.Not.EqualTo(exitedPid).And.Not.EqualTo(editorPid));
+        });
+    }
+
+    private static void KillWorker(int pid)
+    {
+        using var worker = Process.GetProcessById(pid);
+        worker.Kill();
+        Assert.That(worker.WaitForExit(10_000), Is.True);
     }
 
     // The worker forgets the reader ID before it finishes disposing the reader, and FFmpeg opens files
@@ -136,10 +163,11 @@ public class FFmpegReaderProxySuspendContractTests
         }
     }
 
-    private static FFmpegReaderProxy OpenFixture(string? path = null)
+    private static FFmpegReaderProxy OpenFixture(string? path = null, bool background = false)
     {
         var decoderInfo = new FFmpegDecoderInfo(new FFmpegDecodingSettings());
-        MediaReader? reader = decoderInfo.Open(path ?? FixturePath, new MediaOptions(MediaMode.Video));
+        MediaReader? reader = decoderInfo.Open(
+            path ?? FixturePath, new MediaOptions(MediaMode.Video) { IsBackground = background });
         Assert.That(reader, Is.TypeOf<FFmpegReaderProxy>());
         return (FFmpegReaderProxy)reader!;
     }

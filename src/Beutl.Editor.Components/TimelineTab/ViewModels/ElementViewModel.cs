@@ -530,10 +530,9 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
     private Element[] EditableTargets()
         => GetGroupOrSelectedElements().Where(e => e.IsEditable.Value).Select(e => e.Model).ToArray();
 
-    // Only the user's locks stop a delete or an exclude: removing a protected element leaves its
-    // retained file alone.
+    // IElementStructureService skips the user-locked ones.
     private Element[] RemovableTargets()
-        => GetGroupOrSelectedElements().Where(e => !e.IsLockedByUser.Value).Select(e => e.Model).ToArray();
+        => Timeline.EditorContext.GetRequiredService<IEditorSelection>().GetTargetElements(Scene);
 
     private void OnBringAnimationToTop()
     {

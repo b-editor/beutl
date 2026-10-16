@@ -10,5 +10,7 @@ public record MediaOptions(
 {
     public bool PreferProxy { get; init; }
 
+    public bool IsBackground { get; init; }
+
     public ProxyPreset PreferredProxyPreset { get; init; } = ProxyPreset.Quarter;
 }

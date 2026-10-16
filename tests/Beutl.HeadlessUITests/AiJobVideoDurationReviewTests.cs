@@ -111,6 +111,7 @@ public sealed class AiJobVideoDurationReviewTests
         public MediaReader Open(string file, MediaOptions options)
         {
             Assert.That(options.PreferProxy, Is.False);
+            Assert.That(options.IsBackground, Is.True);
             OpenedPaths.Add(file);
             return new ResultReader(durationTenths, decodable);
         }

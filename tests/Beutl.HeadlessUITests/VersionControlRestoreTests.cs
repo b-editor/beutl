@@ -1970,6 +1970,35 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Activation_keeps_tracking_and_warns_when_the_repository_cannot_be_watched()
+    {
+        const string reason = "simulated watcher limit";
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-watcher-failure");
+        var discovery = new PullCycleTestBackend(null, session.Repository, MainTip);
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
+        {
+            RepositoryWatcherFailure = new IOException(reason),
+        };
+        using var notifications = new NotificationCapture();
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig(),
+            candidate => candidate is null ? discovery : backend);
+        await WaitUntilAsync(() => !notifications.All.IsEmpty);
+
+        Notification warning = notifications.All.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(warning.Type, Is.EqualTo(NotificationType.Warning));
+            Assert.That(
+                warning.Message,
+                Is.EqualTo(string.Format(Strings.VersionControl_RepositoryNotWatchedFormat, reason)));
+            Assert.That(coordinator.IsTracked.Value, Is.True);
+            Assert.That(coordinator.CurrentService, Is.SameAs(backend));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task Closing_cancels_and_joins_an_initialization_before_retiring_the_backend()
     {
         Task? initialization = null;
@@ -7756,6 +7785,8 @@ public class VersionControlRestoreTests
         public RepositoryInfo? Repository { get; private set; }
 
         public RepositoryLockInfo? RecoverableLock { get; private set; }
+
+        public Exception? RepositoryWatcherFailure { get; init; }
 
         public RemoteOpResult PullResult { get; init; } = new RemoteOpResult.Failed("pull failed");
 

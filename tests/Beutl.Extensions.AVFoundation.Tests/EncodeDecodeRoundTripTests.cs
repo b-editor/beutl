@@ -28,6 +28,23 @@ public class EncodeDecodeRoundTripTests
         catch { /* best-effort cleanup */ }
     }
 
+    // A provider without frames returns null on its first read; one audio block keeps the file non-empty.
+    [Test]
+    public async Task EncodesAClipWithoutFrames()
+    {
+        string outputPath = Path.Combine(_workDir, "empty.mp4");
+        var controller = new AVFEncodingController(outputPath);
+        var frameRate = new Rational(30, 1);
+        controller.VideoSettings.DestinationSize = new PixelSize(64, 64);
+        controller.VideoSettings.SourceSize = new PixelSize(64, 64);
+        controller.VideoSettings.FrameRate = frameRate;
+
+        await controller.Encode(
+            new GradientFrameProvider(0, frameRate, 64, 64), new SineSampleProvider(1024, 44100), CancellationToken.None);
+
+        Assert.That(new FileInfo(outputPath).Length, Is.GreaterThan(0));
+    }
+
     [Test]
     public async Task EncodesThenDecodesShortClip()
     {
@@ -252,5 +269,22 @@ public class EncodeDecodeRoundTripTests
                 Assert.That(nonBlack, Is.True, "HDR decode returned an entirely-black frame.");
             }
         }
+    }
+
+    // A provider without samples returns null on its first read.
+    [Test]
+    public async Task EncodesAClipWithoutSamples()
+    {
+        string outputPath = Path.Combine(_workDir, "silent.mp4");
+        var controller = new AVFEncodingController(outputPath);
+        var frameRate = new Rational(30, 1);
+        controller.VideoSettings.DestinationSize = new PixelSize(64, 64);
+        controller.VideoSettings.SourceSize = new PixelSize(64, 64);
+        controller.VideoSettings.FrameRate = frameRate;
+
+        await controller.Encode(
+            new GradientFrameProvider(1, frameRate, 64, 64), new SineSampleProvider(0, 44100), CancellationToken.None);
+
+        Assert.That(new FileInfo(outputPath).Length, Is.GreaterThan(0));
     }
 }

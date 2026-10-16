@@ -55,8 +55,6 @@ public partial class MainView
             await dialog.ShowAsync();
         }).AddTo(_disposables);
 
-        viewModel.MenuBar.ConfirmDeleteElementAsync = ConfirmDeleteElementAsync;
-
         viewModel.MenuBar.Exit.Subscribe(() =>
         {
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime applicationLifetime)
@@ -211,19 +209,6 @@ public partial class MainView
         return focused is not MenuItem && focused?.IsAttachedToVisualTree() == true
             ? focused
             : this;
-    }
-
-    private static async Task<bool> ConfirmDeleteElementAsync(string name)
-    {
-        var dialog = new FAContentDialog
-        {
-            CloseButtonText = Strings.Cancel,
-            PrimaryButtonText = Strings.OK,
-            DefaultButton = FAContentDialogButton.Primary,
-            Content = MessageStrings.ConfirmDeleteFile + "\n" + name
-        };
-
-        return await dialog.ShowAsync() == FAContentDialogResult.Primary;
     }
 
     private async void OnRemoveFromProject(EditorTabItem? item)

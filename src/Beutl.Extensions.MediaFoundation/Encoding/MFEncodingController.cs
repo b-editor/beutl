@@ -88,7 +88,8 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
             long audioTime = audioStream >= 0 ? GetTimestamp(sample, samples.SampleRate) : long.MaxValue;
             if (frame < frameCount && (sample >= sampleCount || videoTime <= audioTime))
             {
-                using var bitmap = await frames.RenderFrame(frame);
+                using var bitmap = await frames.ReadNextFrame()
+                    ?? throw new InvalidOperationException("The frame provider ended before its frame count.");
                 cancellationToken.ThrowIfCancellationRequested();
                 WriteVideoFrame(writer, videoStream, bitmap, videoTime,
                     GetTimestamp(frame + 1, rateNumerator, rateDenominator) - videoTime);
@@ -97,9 +98,9 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
             else
             {
                 int length = (int)Math.Min(AudioBlockSize, sampleCount - sample);
-                using var pcm = await samples.Sample(sample, length);
+                using var pcm = await samples.ReadNextSamples(length);
                 cancellationToken.ThrowIfCancellationRequested();
-                if (pcm.NumSamples != length || pcm.SampleRate != samples.SampleRate)
+                if (pcm is null || pcm.NumSamples != length || pcm.SampleRate != samples.SampleRate)
                     throw new InvalidOperationException("The audio provider returned an unexpected sample count or sample rate.");
 
                 WriteSample(writer, audioStream, pcm.Data, checked(length * 2 * sizeof(float)), audioTime,
