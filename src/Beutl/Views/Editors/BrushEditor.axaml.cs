@@ -28,6 +28,7 @@ public sealed partial class BrushEditor : UserControl
         AvaloniaProperty.Register<BrushEditor, Media.Brush?>(nameof(OriginalBrush));
 
     private BrushEditorFlyout? _flyout;
+    private Media.DrawableBrush? _followedBrush;
 
     public BrushEditor()
     {
@@ -122,32 +123,28 @@ public sealed partial class BrushEditor : UserControl
             _flyout.OriginalBrush = OriginalBrush;
             _flyout.DrawableName = GetDrawableName((OriginalBrush as Media.DrawableBrush)?.Drawable.CurrentValue);
             _flyout.CanEditDrawable = (OriginalBrush as Media.DrawableBrush)?.Drawable.CurrentValue is not null;
-
-            if (change.OldValue is Media.DrawableBrush oldBrush)
-            {
-                oldBrush.Drawable.ValueChanged -= OnDrawableBrushPropertyChanged;
-            }
-
-            if (change.NewValue is Media.DrawableBrush newBrush)
-            {
-                newBrush.Drawable.ValueChanged += OnDrawableBrushPropertyChanged;
-            }
+            if (_flyout.IsOpen)
+                FollowDrawable(OriginalBrush as Media.DrawableBrush);
         }
+    }
+
+    // Follows the drawable of the brush the open flyout shows, so that its name stays current. Following
+    // only while the flyout is open keeps the brush from holding on to an editor that was removed.
+    private void FollowDrawable(Media.DrawableBrush? brush)
+    {
+        if (_followedBrush != null)
+            _followedBrush.Drawable.ValueChanged -= OnDrawableBrushPropertyChanged;
+        _followedBrush = brush;
+        if (brush != null)
+            brush.Drawable.ValueChanged += OnDrawableBrushPropertyChanged;
     }
 
     private void OnDrawableBrushPropertyChanged(object? sender, PropertyValueChangedEventArgs<Drawable?> e)
     {
         if (_flyout == null) return;
 
-        if (e.NewValue != null)
-        {
-            _flyout.DrawableName = GetDrawableName(e.NewValue);
-            _flyout.CanEditDrawable = true;
-        }
-        else
-        {
-            _flyout.CanEditDrawable = false;
-        }
+        _flyout.DrawableName = GetDrawableName(e.NewValue);
+        _flyout.CanEditDrawable = e.NewValue is not null;
     }
 
     private static string GetDrawableName(Drawable? drawable)
@@ -193,6 +190,7 @@ public sealed partial class BrushEditor : UserControl
             _flyout.BrushTypeChanged += OnBrushTypeChanged;
             _flyout.ChangeDrawableClicked += OnChangeDrawableClicked;
             _flyout.EditDrawableClicked += OnEditDrawableClicked;
+            _flyout.Closed += (_, _) => FollowDrawable(null);
         }
 
         _flyout.Brush = Brush;
@@ -201,6 +199,7 @@ public sealed partial class BrushEditor : UserControl
         _flyout.CanEditDrawable = (OriginalBrush as Media.DrawableBrush)?.Drawable.CurrentValue is not null;
 
         _flyout.ShowAt(this, true);
+        FollowDrawable(OriginalBrush as Media.DrawableBrush);
     }
 
     private void OnEditDrawableClicked(object? sender, EventArgs e)
