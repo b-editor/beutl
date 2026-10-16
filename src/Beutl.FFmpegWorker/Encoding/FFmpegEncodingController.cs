@@ -129,7 +129,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             codecContext.SampleFmt = format;
             codecContext.BitRate = bitRate;
             codecContext.TimeBase = new AVRational { num = 1, den = sampleRate };
-            codecContext.ThreadCount = Math.Min(Environment.ProcessorCount, 16);
+            codecContext.ThreadCount = ResolveThreadCount(settings.ThreadCount);
 
             if ((outFormat.Flags & ffmpeg.AVFMT_GLOBALHEADER) != 0)
             {
@@ -213,7 +213,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             codecContext.PixFmt = format;
             codecContext.BitRate = bitRate;
             codecContext.GopSize = VideoSettings.KeyframeRate;
-            codecContext.ThreadCount = Math.Min(Environment.ProcessorCount, 16);
+            codecContext.ThreadCount = ResolveThreadCount(settings.ThreadCount);
 
             codecContext.ColorPrimaries = (AVColorPrimaries)(int)VideoSettings.ColorPrimaries;
             codecContext.ColorTrc = (AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc;
@@ -502,4 +502,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
         return frame != null;
     }
+
+    // The encoding settings' ThreadCount, read as the decoder reads its own: 0 lets FFmpeg choose, a positive
+    // count is capped at the processor count, and the default -1 keeps the automatic count of up to 16.
+    internal static int ResolveThreadCount(int threadCount)
+        => threadCount == 0 ? 0 : Math.Min(Environment.ProcessorCount, threadCount > 0 ? threadCount : 16);
 }
