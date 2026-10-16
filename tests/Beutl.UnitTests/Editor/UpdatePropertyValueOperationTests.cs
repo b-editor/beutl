@@ -4,8 +4,6 @@ using Beutl.Editor;
 using Beutl.Editor.Operations;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
-using Beutl.Logging;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -17,7 +15,6 @@ public class UpdatePropertyValueOperationTests
     [SetUp]
     public void Setup()
     {
-        Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
         _root = new TestCoreObject();
         _sequenceGenerator = new OperationSequenceGenerator();
     }

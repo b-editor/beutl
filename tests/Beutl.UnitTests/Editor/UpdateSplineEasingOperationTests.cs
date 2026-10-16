@@ -1,8 +1,6 @@
 ﻿using Beutl.Animation.Easings;
 using Beutl.Editor;
 using Beutl.Editor.Operations;
-using Beutl.Logging;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -13,7 +11,6 @@ public class UpdateSplineEasingOperationTests
     [SetUp]
     public void Setup()
     {
-        Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
         _sequenceGenerator = new OperationSequenceGenerator();
     }
 
