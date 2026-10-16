@@ -431,6 +431,45 @@ public partial class PlayerViewPlaybackInputTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task A_3D_press_keeps_the_selection_while_the_render_thread_does_not_answer()
+    {
+        EditViewModel editor = await OpenEditor();
+        Scene3D scene = await Add3DScene(editor);
+        Object3D cube = scene.Objects.Single();
+        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = editor.Scene.Children.Single();
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+        using var release = new CancellationTokenSource();
+        Task? render = null;
+        TimeSpan wait = PlayerView.RenderThreadWait;
+        Point point = default;
+        try
+        {
+            await PreparePreview(view, window);
+            editor.Player.IsMoveMode.Value = false;
+            editor.Player.IsCameraMode.Value = true;
+            point = PreviewCenter(view, window);
+            window.MouseDown(point, MouseButton.Left);
+            window.MouseUp(point, MouseButton.Left);
+            Assert.That(scene.GizmoTarget.CurrentValue, Is.EqualTo(cube.Id), "The first press must select the cube.");
+            PlayerView.RenderThreadWait = TimeSpan.FromMilliseconds(50);
+            render = await BlockRenderThreadAsync(release);
+
+            window.MouseDown(point, MouseButton.Left);
+            window.MouseUp(point, MouseButton.Left);
+
+            Assert.That(scene.GizmoTarget.CurrentValue, Is.EqualTo(cube.Id));
+        }
+        finally
+        {
+            PlayerView.RenderThreadWait = wait;
+            release.Cancel();
+            if (render is not null) await render.WaitAsync(TimeSpan.FromSeconds(5));
+            window.Close();
+        }
+    }
+
     private static async Task<Scene3D> Add3DScene(EditViewModel editor)
     {
         TestGpu.RequireAnyDevice();

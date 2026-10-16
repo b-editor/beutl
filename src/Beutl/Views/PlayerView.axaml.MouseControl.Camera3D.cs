@@ -106,7 +106,17 @@ public partial class PlayerView
 
             if (pointerPoint.Properties.IsLeftButtonPressed)
             {
-                OnLeftPressed(e);
+                try
+                {
+                    OnLeftPressed(e);
+                }
+                catch (TimeoutException ex)
+                {
+                    // An answer the render thread did not give must not select or deselect anything.
+                    s_logger.LogWarning(ex, "Skipped a 3D press: the render thread did not answer in time.");
+                    _leftPressed = false;
+                    e.Handled = true;
+                }
             }
             else if (pointerPoint.Properties.IsRightButtonPressed)
             {
@@ -136,16 +146,16 @@ public partial class PlayerView
 
             if (currentGizmoTarget.HasValue && currentGizmoMode != GizmoMode.None)
             {
-                var existingTarget = QueryRenderThread(() =>
+                var existingTarget = RenderThread.Dispatcher.Invoke(() =>
                 {
                     var objects = sceneResource.Objects.Where(o => o.IsEnabled).ToList();
                     return FindObjectResource(objects, currentGizmoTarget.Value);
-                }, null);
+                }, RenderThreadWait);
 
                 if (existingTarget != null)
                 {
-                    var gizmoAxis = QueryRenderThread(() =>
-                        sceneResource.Renderer.GizmoHitTest(screenPoint, existingTarget, currentGizmoMode), GizmoAxis.None);
+                    var gizmoAxis = RenderThread.Dispatcher.Invoke(() =>
+                        sceneResource.Renderer.GizmoHitTest(screenPoint, existingTarget, currentGizmoMode), RenderThreadWait);
 
                     if (gizmoAxis != GizmoAxis.None)
                     {
@@ -164,8 +174,8 @@ public partial class PlayerView
                 }
             }
 
-            var hitPath = QueryRenderThread(() =>
-                sceneResource.Renderer.HitTestWithPath(screenPoint), []);
+            var hitPath = RenderThread.Dispatcher.Invoke(() =>
+                sceneResource.Renderer.HitTestWithPath(screenPoint), RenderThreadWait);
 
             if (hitPath.Count > 0)
             {
