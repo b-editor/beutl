@@ -61,6 +61,22 @@ public sealed class ExtensionGuardTests
     }
 
     [Test]
+    public void Declined_tells_a_null_result_apart_from_a_failure()
+    {
+        var extension = new NamedExtension();
+        using var notifications = NotificationCapture.Install();
+
+        ExtensionGuard.Call<string>(extension, () => null, out bool nullResult);
+        ExtensionGuard.Call<string>(extension, () => throw new InvalidOperationException("broken"), out bool failure);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(nullResult, Is.True);
+            Assert.That(failure, Is.False);
+        }
+    }
+
+    [Test]
     public void A_canceled_command_is_not_a_failure()
     {
         var extension = new NamedExtension();

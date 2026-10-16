@@ -40,6 +40,21 @@ internal static class ExtensionGuard
         }
     }
 
+    // declined is true when the call itself returned null, which the guard has not reported.
+    public static T? Call<T>(Extension extension, Func<T?> call, out bool declined)
+        where T : class
+    {
+        bool returned = false;
+        T? result = Call(extension, () =>
+        {
+            T? value = call();
+            returned = true;
+            return value;
+        });
+        declined = result is null && returned;
+        return result;
+    }
+
     // The result, or false when the extension threw or is turned off.
     public static bool Call(Extension extension, Func<bool> call)
     {

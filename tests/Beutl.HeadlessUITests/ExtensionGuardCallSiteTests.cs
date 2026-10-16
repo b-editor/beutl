@@ -52,6 +52,33 @@ public sealed class ExtensionGuardCallSiteTests
     }
 
     [AvaloniaTest]
+    public async Task Switching_to_an_editor_whose_context_throws_is_reported_once()
+    {
+        await TestReset.ResetShellAsync();
+        var original = new EditorContext(new ThrowingEditor());
+        var tab = new EditorTabItem(original);
+        TestShell.Editor.TabItems.Add(tab);
+        var extension = new ThrowingEditor();
+        ExtensionGuard.SetPackage(extension, "Throwing.Package");
+        using var notifications = new NotificationCapture();
+        try
+        {
+            await ExtensionMenuActions.SwitchEditorAsync(TestShell.MainViewModel, tab, extension);
+            await ExtensionMenuActions.SwitchEditorAsync(TestShell.MainViewModel, tab, extension);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(tab.Context.Value, Is.SameAs(original));
+                Assert.That(notifications.Single().Title, Is.EqualTo(string.Format(ExtensionsStrings.ExtensionFailed, "Throwing editor")));
+            }
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public void A_property_editor_extension_that_throws_matches_nothing_and_creates_nothing()
     {
         var adapter = new CorePropertyAdapter<string>(CoreObject.NameProperty, new TestObject());

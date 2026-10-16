@@ -30,17 +30,14 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
 
     public void AddItem(string file, OutputExtension extension)
     {
-        bool returned = false;
-        IOutputContext? context = ExtensionGuard.Call(extension, () =>
-        {
-            bool created = extension.TryCreateContext(editViewModel, out IOutputContext? result);
-            returned = true;
-            return created ? result : null;
-        });
-        if (context is null)
+        if (ExtensionGuard.Call(
+                extension,
+                () => extension.TryCreateContext(editViewModel, out IOutputContext? created) ? created : null,
+                out bool declined)
+            is not { } context)
         {
             // The guard has already reported an extension that threw or is turned off.
-            if (!returned)
+            if (!declined)
                 return;
 
             _logger.LogError("Failed to create context for file: {File}", file);

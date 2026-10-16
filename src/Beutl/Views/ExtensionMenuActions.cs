@@ -39,13 +39,13 @@ internal static class ExtensionMenuActions
         if (ExtensionGuard.Call(editorExtension, () => editorExtension.TryCreateContext(
                 selectedTab.Context.Value.Object,
                 new EditorContextServices(viewModel.EditorService, viewModel.ExtensionProvider),
-                out IEditorContext? created) ? created : null)
+                out IEditorContext? created) ? created : null, out bool declined)
             is { } context)
         {
             selectedTab.Context.Value.Dispose();
             selectedTab.Context.Value = context;
         }
-        else
+        else if (declined)
         {
             NotificationService.ShowInformation(
                 title: MessageStrings.ContextNotCreated,
