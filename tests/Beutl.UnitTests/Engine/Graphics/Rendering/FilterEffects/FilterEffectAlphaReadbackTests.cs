@@ -16,7 +16,7 @@ public sealed class FilterEffectAlphaReadbackTests
     private static readonly PixelSize s_sourceSize = new(72, 56);
 
     [Test]
-    public void SnapshotAlpha_ReadsAlpha8AndMatchesEffectItemConversionExactly()
+    public void SnapshotAlpha_ReadsAlpha8AndMatchesLegacyConversionExactly()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -35,7 +35,7 @@ public sealed class FilterEffectAlphaReadbackTests
                 Assert.That(actual.RowBytes, Is.EqualTo(actual.Width));
                 Assert.That(actual.ByteCount, Is.EqualTo(actual.Width * actual.Height));
             });
-            AssertRowsIdentical(expected, actual, "effectItem RgbaF16-to-Alpha8 conversion", "direct Alpha8 readback");
+            AssertRowsIdentical(expected, actual, "legacy RgbaF16-to-Alpha8 conversion", "direct Alpha8 readback");
         });
     }
 
@@ -62,13 +62,13 @@ public sealed class FilterEffectAlphaReadbackTests
     }
 
     [Test]
-    public void ClippingAutoClip_DirectAlphaReadbackMatchesEffectItemBoundsExactly()
+    public void ClippingAutoClip_DirectAlphaReadbackMatchesLegacyBoundsExactly()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using RenderTarget source = CreatePatternTarget();
-            using Bitmap expectedAlpha = SnapshotClippingAlphaEffectItem(source);
+            using Bitmap expectedAlpha = SnapshotClippingAlphaLegacy(source);
             using Bitmap actualAlpha = source.SnapshotAlpha();
 
             Thickness expected = FindAutoClipThickness(expectedAlpha);
@@ -81,15 +81,15 @@ public sealed class FilterEffectAlphaReadbackTests
     // FlatShadow and StrokeEffect outline these contours, and PartsSplitEffect splits by the hierarchy, so
     // identical contours from both readbacks give identical effect output.
     [Test]
-    public void FindContours_DirectAlphaReadbackMatchesEffectItemContoursExactly()
+    public void FindContours_DirectAlphaReadbackMatchesLegacyContoursExactly()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using RenderTarget source = CreatePatternTarget();
-            using Bitmap effectItemSource = source.Snapshot();
+            using Bitmap legacySource = source.Snapshot();
             using Bitmap directAlpha = source.SnapshotAlpha();
-            using Contours expected = ContourTracer.FindContours(effectItemSource);
+            using Contours expected = ContourTracer.FindContours(legacySource);
             using Contours actual = ContourTracer.FindContours(directAlpha);
 
             Assert.That(Points(actual), Is.EqualTo(Points(expected)));
@@ -97,16 +97,16 @@ public sealed class FilterEffectAlphaReadbackTests
     }
 
     [Test]
-    public void FindContoursWithHierarchy_DirectAlphaReadbackMatchesEffectItemContoursExactly()
+    public void FindContoursWithHierarchy_DirectAlphaReadbackMatchesLegacyContoursExactly()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using RenderTarget source = CreatePatternTarget();
-            using Bitmap effectItemSource = source.Snapshot();
+            using Bitmap legacySource = source.Snapshot();
             using Bitmap directAlpha = source.SnapshotAlpha();
             ContourTracer.FindContoursWithHierarchy(
-                effectItemSource,
+                legacySource,
                 out Contours expected,
                 out PooledList<int> expectedParents);
             ContourTracer.FindContoursWithHierarchy(directAlpha, out Contours actual, out PooledList<int> actualParents);
@@ -124,7 +124,7 @@ public sealed class FilterEffectAlphaReadbackTests
         });
     }
 
-    private static Bitmap SnapshotClippingAlphaEffectItem(RenderTarget target)
+    private static Bitmap SnapshotClippingAlphaLegacy(RenderTarget target)
     {
         target.Value.Flush(true, true);
         using SKImage image = target.Value.Snapshot();

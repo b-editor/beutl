@@ -223,7 +223,7 @@ internal sealed partial class RenderRequestExecutor
             ArgumentNullException.ThrowIfNull(target);
             RenderTarget renderTarget = target.RenderTarget
                 ?? throw new InvalidOperationException(
-                    "A effectItem shader program requires a materialized execution destination.");
+                    "An effect-item shader program requires a materialized execution destination.");
             return AcquireStandaloneProgram(renderTarget, source);
         }
 

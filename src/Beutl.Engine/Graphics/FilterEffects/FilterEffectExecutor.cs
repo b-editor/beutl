@@ -238,7 +238,7 @@ public sealed partial class FilterEffectExecutor : IDisposable
             _ownedProgramCache ??= SkRuntimeEffectProgramCache.Create();
         RenderTarget destination = target.RenderTarget
             ?? throw new InvalidOperationException(
-                "A effectItem shader program requires a materialized execution destination.");
+                "An effect-item shader program requires a materialized execution destination.");
         return SkRuntimeEffectProgramCache.AcquireForDestination(
             cache,
             destination,

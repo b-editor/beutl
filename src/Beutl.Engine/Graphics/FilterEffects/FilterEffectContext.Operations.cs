@@ -304,7 +304,7 @@ public sealed partial class FilterEffectContext
     public void Brightness(float amount)
     {
         // Recorded as a CurrentPixel shader stage rather than a Skia color filter so that an adjacent shader
-        // stage can fuse with it instead of splitting the chain at a effect-item segment.
+        // stage can fuse with it instead of splitting the chain at an effect-item segment.
         using var lease = PooledColorMatrix.Rent(out float[] array);
         Graphics.ColorMatrix.CreateBrightness(amount, array);
 
