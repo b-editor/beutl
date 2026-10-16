@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using System.Reactive.Linq;
 
+using Beutl.Collections;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
@@ -216,6 +217,7 @@ public class TimelineTabViewModelTests
         editorContext.AddService<ITimelineOptionsProvider>(new TestTimelineOptionsProvider(scene));
         editorContext.AddService<IEditorClock>(new TestEditorClock());
         editorContext.AddService<IBufferStatus>(new TestBufferStatus());
+        editorContext.AddService<IEditorSelection>(new TestEditorSelection());
         if (layerMoveService is not null)
             editorContext.AddService(layerMoveService);
         if (nudgeService is not null)
@@ -243,6 +245,15 @@ public class TimelineTabViewModelTests
 
         public IReadOnlyReactiveProperty<TimeSpan> MaximumTime { get; } =
             new ReactivePropertySlim<TimeSpan>(TimeSpan.FromSeconds(30));
+    }
+
+    private sealed class TestEditorSelection : IEditorSelection
+    {
+        public IReactiveProperty<CoreObject?> SelectedObject { get; } = new ReactivePropertySlim<CoreObject?>();
+
+        public IReadOnlyReactiveProperty<int?> SelectedLayerNumber { get; } = new ReactivePropertySlim<int?>();
+
+        public ICoreList<Element> SelectedElements { get; } = new CoreList<Element>();
     }
 
     private sealed class TestBufferStatus : IBufferStatus
