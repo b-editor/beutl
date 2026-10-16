@@ -80,8 +80,8 @@ internal sealed record CaptionSourceTranscriptionResume(
     // Whether the draft ended holding a dispatched, unsettled name; unreserved and refunded requests keep seeds too.
     bool RequestKeyNamePending = false,
     // The canonical start of the selected source window. Together with TotalSamples this identifies
-    // the exact audio submitted for this run.
-    long SourceStartSamples = 0);
+    // the exact audio submitted for this run. Every build writes it; a draft without it is invalid.
+    long SourceStartSamples = -1);
 
 internal sealed record CaptionDraft(
     int Version,

@@ -93,6 +93,30 @@ public sealed class CaptionDraftStoreTests
     }
 
     [Test]
+    public void Load_DeletesASourceRunWithoutItsStart()
+    {
+        // Every build writes the start of the source window; without it a run cannot be matched to its audio.
+        var store = new FileCaptionDraftStore(_storageDirectory);
+        CaptionDraftScope scope = CreateScope();
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
+        using (session)
+        {
+            session!.Save(new CaptionDraftEntry("job-1", CreateResumableSourceDraft()));
+        }
+        string path = store.GetStoragePath(scope);
+        string stored = File.ReadAllText(path);
+        string withoutStart = stored.Replace(",\"sourceStartSamples\":0", string.Empty, StringComparison.Ordinal);
+        Assert.That(withoutStart, Is.Not.EqualTo(stored));
+        File.WriteAllText(path, withoutStart);
+
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? reopened), Is.True);
+        using (reopened)
+        {
+            Assert.That(reopened!.Read().Outcome, Is.EqualTo(CaptionDraftReadOutcome.Absent));
+        }
+    }
+
+    [Test]
     public void Save_RejectsMoreRecoveriesBeforeReplacingTheDurableEntry()
     {
         var store = new FileCaptionDraftStore(_storageDirectory);
@@ -410,7 +434,8 @@ public sealed class CaptionDraftStoreTests
                 1,
                 "seed-of-the-run",
                 "openai/whisper-1",
-                true));
+                true,
+                SourceStartSamples: 0));
     }
 
     private static CaptionDraft CreateUnstartedDraft()
@@ -439,7 +464,8 @@ public sealed class CaptionDraftStoreTests
                 null,
                 0,
                 "seed-of-the-run",
-                "openai/whisper-1"));
+                "openai/whisper-1",
+                SourceStartSamples: 0));
     }
 
     private static CaptionDraft CreateDraft()
