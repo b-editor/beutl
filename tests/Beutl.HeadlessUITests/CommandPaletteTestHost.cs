@@ -43,9 +43,9 @@ internal static class CommandPaletteTestHost
         public Task ExecuteAsync(ContextCommandExecution execution) => execute(execution);
     }
 
-    // Resolves every command to the same handler. With null, only the commands an extension runs itself remain.
-    public sealed class FixedHandlerProvider(IContextCommandHandler? handler) : ICommandPaletteHandlerProvider
+    // Resolves every command to the same context. With null, only the commands an extension runs itself remain.
+    public sealed class FixedHandlerProvider(object? context) : ICommandPaletteHandlerProvider
     {
-        public IContextCommandHandler? Resolve(Type extensionType) => handler;
+        public object? Resolve(Type extensionType) => context;
     }
 }

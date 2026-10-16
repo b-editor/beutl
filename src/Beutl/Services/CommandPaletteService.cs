@@ -93,7 +93,7 @@ public sealed class CommandPaletteService
                 bool hasStateNotifier;
                 using (lease)
                 {
-                    if (lease.Extension is not IContextCommandHandler)
+                    if (!entry.Definition.HasHandler && lease.Extension is not IContextCommandHandler)
                         continue;
                     hasStateNotifier = lease.Extension is IContextCommandStateNotifier
                         || (activeContext is not null && lease.Extension is IContextCommandEditorStateNotifier);
@@ -107,14 +107,15 @@ public sealed class CommandPaletteService
                     extensionStateChanges.Add(id, extensionStateChanged);
                 }
                 IEditorContext? editorContext = activeContext;
+                ContextCommandDefinition extensionDefinition = entry.Definition;
                 result.Add(new PaletteCommand(
                     Id: $"{entry.ExtensionType.FullName}.{entry.Definition.Name}",
                     DisplayName: displayName,
                     Description: entry.Definition.Description,
                     CategoryName: category,
                     KeyGesture: gesture,
-                    CanExecute: () => CanExecuteExtension(id, commandName, editorContext),
-                    ExecuteAsync: interaction => ExecuteExtensionAsync(id, commandName, editorContext, interaction))
+                    CanExecute: () => CanExecuteExtension(id, extensionDefinition, editorContext),
+                    ExecuteAsync: interaction => ExecuteExtensionAsync(id, extensionDefinition, editorContext, interaction))
                 {
                     StateChanged = extensionStateChanged
                 });
@@ -125,15 +126,16 @@ public sealed class CommandPaletteService
             // 列挙時と実行時で別インスタンスへ向くケースを防ぐ。タブ切替時は RebuildSnapshot で再列挙される。
             // ランタイムでハンドラーを解決できないコマンドはパレットから実行する手段がないため
             // 列挙対象から除外する。
-            IContextCommandHandler? snapshotHandler = _handlerProvider.Resolve(entry.ExtensionType);
-            if (snapshotHandler is null)
+            object? snapshotContext = _handlerProvider.Resolve(entry.ExtensionType);
+            ContextCommandDefinition definition = entry.Definition;
+            if (snapshotContext is null || (!definition.HasHandler && snapshotContext is not IContextCommandHandler))
             {
                 continue;
             }
 
-            IContextCommandHandler handler = snapshotHandler;
+            object context = snapshotContext;
             IObservable<System.Reactive.Unit>? stateChanged =
-                (handler as IContextCommandStateNotifier)?.CanExecuteChanged;
+                (context as IContextCommandStateNotifier)?.CanExecuteChanged;
 
             result.Add(new PaletteCommand(
                 Id: $"{entry.ExtensionType.FullName}.{entry.Definition.Name}",
@@ -141,14 +143,14 @@ public sealed class CommandPaletteService
                 Description: entry.Definition.Description,
                 CategoryName: category,
                 KeyGesture: gesture,
-                CanExecute: () => handler.CanExecute(CreateExecution(commandName, activeContext, null)),
+                CanExecute: () => CanRun(definition, context, CreateExecution(commandName, activeContext, null)),
                 ExecuteAsync: interaction =>
                 {
                     // スロットル窓や状態変化で表示と実行可否がずれる可能性があるため、
                     // 実行直前にもう一度 CanExecute を確認してから Execute する。
                     var execution = CreateExecution(commandName, activeContext, interaction);
-                    return handler.CanExecute(execution)
-                        ? handler.ExecuteAsync(execution)
+                    return CanRun(definition, context, execution)
+                        ? RunAsync(definition, context, execution)
                         : Task.CompletedTask;
                 })
             {
@@ -204,20 +206,31 @@ public sealed class CommandPaletteService
         };
     }
 
-    private bool CanExecuteExtension(ExtensionId id, string commandName, IEditorContext? editorContext)
+    // A definition with a handler runs the command; the others still go to the context by name.
+    private static bool CanRun(ContextCommandDefinition definition, object? context, ContextCommandExecution execution)
+        => definition.HasHandler
+            ? definition.CanRun(context, execution)
+            : context is IContextCommandHandler handler && handler.CanExecute(execution);
+
+    private static Task RunAsync(ContextCommandDefinition definition, object? context, ContextCommandExecution execution)
+        => definition.HasHandler
+            ? definition.RunAsync(context, execution)
+            : ((IContextCommandHandler)context!).ExecuteAsync(execution);
+
+    private bool CanExecuteExtension(ExtensionId id, ContextCommandDefinition definition, IEditorContext? editorContext)
     {
         if (!_extensionProvider.TryAcquire<ViewExtension>(id, out var lease))
             return false;
 
         using (lease)
         {
-            return lease.Extension is IContextCommandHandler handler
-                && handler.CanExecute(CreateExecution(commandName, editorContext, null));
+            object? context = definition.HasHandler ? null : lease.Extension;
+            return CanRun(definition, context, CreateExecution(definition.Name, editorContext, null));
         }
     }
 
     private async Task ExecuteExtensionAsync(
-        ExtensionId id, string commandName, IEditorContext? editorContext,
+        ExtensionId id, ContextCommandDefinition definition, IEditorContext? editorContext,
         IContextCommandInteraction? interaction)
     {
         if (!_extensionProvider.TryAcquire<ViewExtension>(id, out var lease))
@@ -226,12 +239,10 @@ public sealed class CommandPaletteService
         // Keep the extension alive until its entire asynchronous operation (including prompts) ends.
         using (lease)
         {
-            if (lease.Extension is IContextCommandHandler handler)
-            {
-                var execution = CreateExecution(commandName, editorContext, interaction);
-                if (handler.CanExecute(execution))
-                    await handler.ExecuteAsync(execution);
-            }
+            object? context = definition.HasHandler ? null : lease.Extension;
+            var execution = CreateExecution(definition.Name, editorContext, interaction);
+            if (CanRun(definition, context, execution))
+                await RunAsync(definition, context, execution);
         }
     }
 

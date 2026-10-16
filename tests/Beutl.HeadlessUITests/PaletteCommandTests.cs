@@ -44,6 +44,16 @@ public class PaletteCommandTests
         return new ContextCommandExecution(commandName) { EditorContext = editor, Interaction = interaction };
     }
 
+    // Runs a command the way the palette runs one that its extension handles itself.
+    private static Task RunAsync(ViewExtension extension, ContextCommandExecution execution)
+        => Definition(extension, execution).RunAsync(null, execution);
+
+    private static bool CanRun(ViewExtension extension, ContextCommandExecution execution)
+        => Definition(extension, execution).CanRun(null, execution);
+
+    private static ContextCommandDefinition Definition(ViewExtension extension, ContextCommandExecution execution)
+        => extension.ContextCommands.Single(definition => definition.Name == execution.CommandName);
+
     private static void SetPlayhead(EditViewModel editor, double seconds)
     {
         editor.GetService<IEditorClock>()!.CurrentTime.Value = TimeSpan.FromSeconds(seconds);
@@ -568,7 +578,7 @@ public class PaletteCommandTests
         EditViewModel editor = await OpenEditorForNewScene("palette-history");
         HistoryTabExtension history = HistoryTabExtension.Instance;
         editor.HistoryManager.Clear();
-        Assert.That(history.CanExecute(Execution("JumpToHistory", editor)), Is.False, "Only the initial state.");
+        Assert.That(CanRun(history, Execution("JumpToHistory", editor)), Is.False, "Only the initial state.");
 
         SceneSettingsTabExtension settings = SceneSettingsTabExtension.Instance;
         await settings.ExecuteAsync(Execution("ChangeSceneDuration", editor, new ScriptedInteraction().Input("00:00:05")));
@@ -576,7 +586,7 @@ public class PaletteCommandTests
         var interaction = new ScriptedInteraction()
             .Pick<HistoryEntry>(item => item.Value.IsInitial);
 
-        await history.ExecuteAsync(Execution("JumpToHistory", editor, interaction));
+        await RunAsync(history, Execution("JumpToHistory", editor, interaction));
 
         IReadOnlyList<ContextCommandPickItem<HistoryEntry>> items = interaction.PickedFrom<HistoryEntry>();
         Assert.Multiple(() =>
@@ -599,8 +609,8 @@ public class PaletteCommandTests
         editor.Scene.Markers.Add(new SceneMarker(TimeSpan.FromSeconds(1), "Pending"));
         Assert.That(editor.HistoryManager.HasPendingOperations, Is.True, "The marker must be a pending edit.");
 
-        Assert.That(history.CanExecute(Execution("JumpToHistory", editor)), Is.True);
-        await history.ExecuteAsync(Execution("JumpToHistory", editor,
+        Assert.That(CanRun(history, Execution("JumpToHistory", editor)), Is.True);
+        await RunAsync(history, Execution("JumpToHistory", editor,
             new ScriptedInteraction().Pick<HistoryEntry>(item => item.Value.IsInitial)));
 
         Assert.That(editor.Scene.Markers, Is.Empty);
@@ -617,7 +627,7 @@ public class PaletteCommandTests
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
-        await HistoryTabExtension.Instance.ExecuteAsync(Execution("JumpToHistory", editor,
+        await RunAsync(HistoryTabExtension.Instance, Execution("JumpToHistory", editor,
             new ScriptedInteraction(cancellation.Token).Pick<HistoryEntry>(item => item.Value.IsInitial)));
 
         Assert.That(editor.HistoryManager.CurrentIndex, Is.EqualTo(current));

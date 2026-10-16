@@ -105,6 +105,20 @@ public class ContextCommandDefinition(
 
     public ContextCommandKeyGesture[]? KeyGestures { get; init; } = Normalize(keyGestures);
 
+    // Runs a command that the extension handles itself, which the palette runs with no context.
+    public Func<ContextCommandExecution, Task>? ExecuteAsync { get; init; }
+
+    public Func<ContextCommandExecution, bool>? CanExecute { get; init; }
+
+    public virtual bool HasHandler => ExecuteAsync is not null;
+
+    // The context is the editor or tool context that a key or the palette targets, or null for the extension.
+    public virtual bool CanRun(object? context, ContextCommandExecution execution)
+        => context is null && ExecuteAsync is not null && (CanExecute?.Invoke(execution) ?? true);
+
+    public virtual Task RunAsync(object? context, ContextCommandExecution execution)
+        => context is null && ExecuteAsync is not null ? ExecuteAsync(execution) : Task.CompletedTask;
+
     private static ContextCommandKeyGesture[]? Normalize(ContextCommandKeyGesture[]? keyGestures)
     {
         if (keyGestures == null) return keyGestures;
@@ -140,6 +154,28 @@ public class ContextCommandDefinition(
         foreach (ContextCommandKeyGesture fallback in fallbacks)
             target.Add(new ContextCommandKeyGesture(fallback.KeyGesture, platform));
     }
+}
+
+// A command that the open context of type TContext handles.
+public class ContextCommandDefinition<TContext>(
+    string name,
+    string? displayName = null,
+    string? description = null,
+    ContextCommandKeyGesture[]? keyGestures = null)
+    : ContextCommandDefinition(name, displayName, description, keyGestures)
+    where TContext : class
+{
+    public required Func<TContext, ContextCommandExecution, Task> ExecuteOnAsync { get; init; }
+
+    public Func<TContext, ContextCommandExecution, bool>? CanExecuteOn { get; init; }
+
+    public override bool HasHandler => true;
+
+    public override bool CanRun(object? context, ContextCommandExecution execution)
+        => context is TContext typed ? CanExecuteOn?.Invoke(typed, execution) ?? true : base.CanRun(context, execution);
+
+    public override Task RunAsync(object? context, ContextCommandExecution execution)
+        => context is TContext typed ? ExecuteOnAsync(typed, execution) : base.RunAsync(context, execution);
 }
 
 public class ContextCommandKeyGesture(string? keyGesture, OSPlatform? platform = null)

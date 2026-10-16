@@ -193,25 +193,27 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
         ContextCommandEntry[] entries)
     {
         OSPlatform pid = CurrentPlatform();
-        if (context is IContextCommandHandler compiledHandler)
+        foreach (ContextCommandEntry entry in entries)
         {
-            foreach (ContextCommandEntry entry in entries)
+            if (!HasMatchingGesture(entry, pid, args))
+                continue;
+
+            var execution = new ContextCommandExecution(entry.Definition.Name) { KeyEventArgs = args };
+            if (entry.Definition.HasHandler)
             {
-                if (!HasMatchingGesture(entry, pid, args))
-                {
+                if (!entry.Definition.CanRun(context, execution))
                     continue;
-                }
 
-                var execution = new ContextCommandExecution(entry.Definition.Name)
-                {
-                    KeyEventArgs = args
-                };
-                if (!compiledHandler.CanExecute(execution))
-                {
-                    continue;
-                }
+                // A command that runs uses the key; its handler can give it back.
+                args.Handled = true;
+                await entry.Definition.RunAsync(context, execution);
+                return;
+            }
 
-                await compiledHandler.ExecuteAsync(execution);
+            // Commands without a handler on their definition still go to the context by name.
+            if (context is IContextCommandHandler handler && handler.CanExecute(execution))
+            {
+                await handler.ExecuteAsync(execution);
                 return;
             }
         }
