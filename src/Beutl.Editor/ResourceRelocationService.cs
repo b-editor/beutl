@@ -331,14 +331,15 @@ public class ResourceRelocationService
     /// Searches for font files matching the specified font family name.
     /// </summary>
     /// <remarks>
-    /// This method contains OS-dependent logic and external dependencies (SKTypeface, GlobalConfiguration),
-    /// so it is bypassed during testing via <see cref="_fontFileFinder"/>.
+    /// This method reads font files and GlobalConfiguration, so most tests bypass it via
+    /// <see cref="_fontFileFinder"/>.
     /// </remarks>
     [ExcludeFromCodeCoverage]
     private static IEnumerable<string> FindFontFiles(string fontFamilyName, string projectFontsDirectory)
     {
-        // A material package installs its fonts under the home directory, which is not one
-        // of the OS font directories the user configures.
+        // The folders FontManager loads fonts from, so a font found nowhere here is not in use. A material
+        // package installs its fonts under the home directory, which is not one of the OS font directories
+        // the user configures.
         IReadOnlyList<string> fontDirs =
         [
             projectFontsDirectory,
@@ -364,31 +365,6 @@ public class ResourceRelocationService
                 return foundFiles;
         }
 
-        // Also search system fonts (platform-specific paths)
-        string[] systemFontDirs = GetSystemFontDirectories();
-        foreach (string fontDir in systemFontDirs)
-        {
-            if (!Directory.Exists(fontDir))
-                continue;
-
-            try
-            {
-                foreach (string file in Directory.EnumerateFiles(fontDir, "*.*", SearchOption.AllDirectories))
-                {
-                    if (!HasFontFileExtension(file))
-                    {
-                        continue;
-                    }
-
-                    AddIfFontOfFamily(file, fontFamilyName, foundFiles);
-                }
-            }
-            catch
-            {
-                // Skip if directory access fails
-            }
-        }
-
         return foundFiles;
     }
 
@@ -408,57 +384,6 @@ public class ResourceRelocationService
         {
             // Skip if the font file fails to load
         }
-    }
-
-    [ExcludeFromCodeCoverage]
-    private static bool HasFontFileExtension(string file)
-    {
-        ReadOnlySpan<char> ext = Path.GetExtension(file.AsSpan());
-        return ext.Equals(".ttf", StringComparison.OrdinalIgnoreCase)
-            || ext.Equals(".ttc", StringComparison.OrdinalIgnoreCase)
-            || ext.Equals(".otf", StringComparison.OrdinalIgnoreCase);
-    }
-
-    /// <summary>
-    /// Gets the system font directories.
-    /// </summary>
-    /// <remarks>
-    /// This method contains OS-dependent branching and paths for other operating systems cannot be tested,
-    /// so it is excluded from code coverage measurement.
-    /// </remarks>
-    [ExcludeFromCodeCoverage]
-    private static string[] GetSystemFontDirectories()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            return
-            [
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts)),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft",
-                    "Windows", "Fonts")
-            ];
-        }
-        else if (OperatingSystem.IsMacOS())
-        {
-            return
-            [
-                "/System/Library/Fonts",
-                "/Library/Fonts",
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library/Fonts")
-            ];
-        }
-        else if (OperatingSystem.IsLinux())
-        {
-            return
-            [
-                "/usr/share/fonts",
-                "/usr/local/share/fonts",
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".fonts"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local/share/fonts")
-            ];
-        }
-
-        return [];
     }
 
     private static string GetUniqueFilePath(string directory, string fileName)
