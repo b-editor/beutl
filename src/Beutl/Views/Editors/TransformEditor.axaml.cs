@@ -14,8 +14,7 @@ namespace Beutl.Views.Editors;
 
 public partial class TransformEditor : UserControl
 {
-    private static FAMenuFlyout? s_flyout;
-    private static EventHandler<RoutedEventArgs>? s_handler;
+    private FAMenuFlyout? _addFlyout;
 
     public TransformEditor()
     {
@@ -94,35 +93,18 @@ public partial class TransformEditor : UserControl
             .ToArray();
     }
 
-    private static FAMenuFlyout GetOrCreateFlyout()
-    {
-        return s_flyout ??= new FAMenuFlyout()
-        {
-            Placement = PlacementMode.Pointer,
-            ItemsSource = CreateMenuItems((s, e) => s_handler?.Invoke(s, e))
-        };
-    }
-
     private void Tag_Click(object? sender, RoutedEventArgs e)
     {
-        void Flyout_Closed(object? sender, EventArgs e)
-        {
-            if (sender is FAMenuFlyout flyout)
-            {
-                flyout.Closed -= Flyout_Closed;
-                s_handler -= AddTransformClick;
-            }
-        }
-
         if (DataContext is TransformEditorViewModel { IsDisposed: false } viewModel)
         {
             if (viewModel.IsGroup.Value)
             {
-                FAMenuFlyout flyout = GetOrCreateFlyout();
-                flyout.ShowAt(expandToggle);
-
-                s_handler += AddTransformClick;
-                flyout.Closed += Flyout_Closed;
+                _addFlyout ??= new FAMenuFlyout
+                {
+                    Placement = PlacementMode.Pointer,
+                    ItemsSource = CreateMenuItems(AddTransformClick)
+                };
+                _addFlyout.ShowAt(expandToggle);
             }
             else
             {
