@@ -5,7 +5,7 @@ using Beutl.Engine.Expressions;
 namespace Beutl.Editor.Operations;
 
 public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string propertyPath, T newValue, T oldValue)
-    : ChangeOperation, IMergableChangeOperation, IUpdatePropertyValueOperation
+    : ChangeOperation, IPropertyPathProvider, IMergableChangeOperation, IUpdatePropertyValueOperation
 {
     public CoreObject Object { get; set; } = obj;
 
