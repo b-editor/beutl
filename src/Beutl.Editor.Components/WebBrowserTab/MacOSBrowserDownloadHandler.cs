@@ -44,7 +44,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     internal static MacOSBrowserDownloadHandler? TryAttach(IPlatformHandle? handle, Action<Uri, string, IBrowserDownloadSource> onDownload,
         Action<Uri> onNavigationCommitted, Action onNavigationStarted)
     {
-        if (handle is not IAppleWKWebViewPlatformHandle apple || objc_getClass("WKDownload") == 0) return null;
+        if (handle is not IAppleWKWebViewPlatformHandle apple) return null;
         nint webView = apple.GetWKWebViewRetained();
         return webView == 0 ? null : new MacOSBrowserDownloadHandler(webView, onDownload, onNavigationCommitted, onNavigationStarted);
     }
