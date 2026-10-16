@@ -1,4 +1,5 @@
-﻿using Beutl.Api.Services;
+﻿using System.Collections.Immutable;
+using Beutl.Api.Services;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;
@@ -25,8 +26,7 @@ public sealed class PackageApiCheckerTests
         public class MovedWithoutForwarder { }
         """;
 
-    // Keeps Widget, Widget.Part, Point and IHandler, and forwards Moved to HostLib.Core. Removes Widget.Gear and Gone,
-    // makes MadeInternal internal, and moves MovedWithoutForwarder to HostLib.Core without a forwarder.
+    // Drops Widget.Gear and Gone, hides MadeInternal, and moves Moved (forwarded) and MovedWithoutForwarder to Core.
     private const string HostV2 = """
         [assembly: System.Runtime.CompilerServices.TypeForwardedTo(typeof(HostLib.Moved))]
         namespace HostLib;
@@ -66,6 +66,12 @@ public sealed class PackageApiCheckerTests
             public System.Type Type = typeof(Moved);
         }
         """;
+
+    // A valid strong-name public key: the one DynamicProxyGenAssembly2 is signed with.
+    private const string PublicKey =
+        "0024000004800000940000000602000000240000525341310004000001000100c547cac37abd99c8db225ef2f6c8a3602f3b3606cc9891605"
+        + "d02baa56104f4cfc0734aa39b93bf7852f7d9266654753cc297e7d2edfe0bac1cdcf9f717241550e0a7b191195b7667bb4f64bcb8e21213"
+        + "80fd1d9d46ad2d92d2d15605093924cceaf74c4861eff62abf69b9291ed0a340e113be11e6a7d3113e92484cf7045cc7";
 
     private static readonly MetadataReference s_coreLibrary = MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
 
@@ -128,6 +134,45 @@ public sealed class PackageApiCheckerTests
     }
 
     [Test]
+    public void Lets_a_package_use_the_internal_types_that_the_host_grants_it_by_InternalsVisibleTo()
+    {
+        const string Source = "public class Uses { public System.Type Type = typeof(HostLib.MadeInternal); }";
+        string v1 = Compile("v1", "HostLib", "1.0.0.0", HostV1);
+        string plugin = Compile("plugin", "Plugin", "1.0.0.0", Source, v1);
+        string signedPlugin = Compile("signed", "Plugin", "1.0.0.0", Source, ImmutableArray.Create(Convert.FromHexString(PublicKey)), v1);
+
+        string byName = Granting("by-name", "Plugin");
+        string byKey = Granting("by-key", $"Plugin, PublicKey={PublicKey}");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(PackageApiChecker.Check([plugin], Host(byName)), Is.Empty);
+            Assert.That(PackageApiChecker.Check([signedPlugin], Host(byKey)), Is.Empty);
+            Assert.That(
+                PackageApiChecker.Check([plugin], Host(byKey)),
+                Is.EqualTo(new PackageApiProblem[] { new(PackageApiProblemKind.MissingType, "HostLib", "HostLib.MadeInternal") }));
+        }
+
+        string Granting(string directory, string friend) => Compile(directory, "HostLib", "2.0.0.0", $$"""
+            [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("{{friend}}")]
+            namespace HostLib;
+            internal class MadeInternal { }
+            """);
+    }
+
+    [Test]
+    public void Accepts_the_internal_IsExternalInit_that_a_host_init_accessor_carries()
+    {
+        string host = Compile("v1", "HostLib", "1.0.0.0", """
+            namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+            namespace HostLib { public class Widget { public int Size { get; init; } } }
+            """);
+        string plugin = Compile("plugin", "Plugin", "1.0.0.0", "public class Uses { public object W = new HostLib.Widget { Size = 1 }; }", host);
+
+        Assert.That(PackageApiChecker.Check([plugin], Host(host)), Is.Empty);
+    }
+
+    [Test]
     public void Checks_only_references_into_the_host_and_reports_a_host_assembly_that_is_missing()
     {
         string other = Compile("other", "OtherLib", "1.0.0.0", "namespace OtherLib; public class Thing { }");
@@ -147,6 +192,9 @@ public sealed class PackageApiCheckerTests
             Assert.That(PackageApiChecker.Check([plugin, helper], Host()), Is.Empty);
             Assert.That(
                 PackageApiChecker.Check([plugin, helper], hostLackingOtherLib),
+                Is.EqualTo(new PackageApiProblem[] { new(PackageApiProblemKind.MissingAssembly, "OtherLib", "OtherLib") }));
+            Assert.That(
+                PackageApiChecker.Check([plugin, helper], new Dictionary<string, string?>(Host()) { ["otherlib"] = null }),
                 Is.EqualTo(new PackageApiProblem[] { new(PackageApiProblemKind.MissingAssembly, "OtherLib", "OtherLib") }));
         }
     }
@@ -174,6 +222,13 @@ public sealed class PackageApiCheckerTests
 
     private string Compile(string directory, string name, string version, string source, params string[] references)
     {
+        return Compile(directory, name, version, source, publicKey: default, references);
+    }
+
+    // A publicKey makes a public-signed assembly with that key.
+    private string Compile(
+        string directory, string name, string version, string source, ImmutableArray<byte> publicKey, params string[] references)
+    {
         CSharpCompilation compilation = CSharpCompilation.Create(
             name,
             [
@@ -181,7 +236,11 @@ public sealed class PackageApiCheckerTests
                 CSharpSyntaxTree.ParseText($"[assembly: System.Reflection.AssemblyVersion(\"{version}\")]"),
             ],
             [s_coreLibrary, .. references.Select(reference => MetadataReference.CreateFromFile(reference))],
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable,
+                cryptoPublicKey: publicKey,
+                publicSign: !publicKey.IsDefault));
         string path = Path.Combine(Directory.CreateDirectory(Path.Combine(_root, directory)).FullName, $"{name}.dll");
         EmitResult result = compilation.Emit(path);
         Assert.That(result.Success, Is.True, () => string.Join(Environment.NewLine, result.Diagnostics));

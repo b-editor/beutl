@@ -13,14 +13,13 @@ internal enum PackageApiProblemKind
 // An API that a package references and the host does not offer. Assembly is the host assembly that should have it.
 internal sealed record PackageApiProblem(PackageApiProblemKind Kind, string Assembly, string Api);
 
-// Lists the APIs that a package's assemblies reference and the host lacks. Both sides are read with
-// System.Reflection.Metadata, so nothing is loaded. A referenced type must exist, directly or through a type
-// forwarder, and be public or protected, because the package cannot use the others.
+// Lists the APIs that a package's assemblies reference and the host lacks, read with System.Reflection.Metadata so
+// nothing is loaded. A type the package may not access counts as missing; InternalsVisibleTo grants access.
 internal sealed class PackageApiChecker : IDisposable
 {
     private const int MaxForwarderDepth = 32;
 
-    private readonly IReadOnlyDictionary<string, string?> _hostAssemblies;
+    private readonly Dictionary<string, string?> _hostAssemblies;
     private readonly Dictionary<string, HostModule?> _modules = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<(MetadataReader, TypeReferenceHandle), TypeLookup> _lookups = [];
     private readonly List<PEReader> _peReaders = [];
@@ -28,7 +27,8 @@ internal sealed class PackageApiChecker : IDisposable
 
     private PackageApiChecker(IReadOnlyDictionary<string, string?> hostAssemblies)
     {
-        _hostAssemblies = hostAssemblies;
+        // The runtime binds assembly names case-insensitively.
+        _hostAssemblies = new(hostAssemblies, StringComparer.OrdinalIgnoreCase);
     }
 
     private enum LookupState
@@ -39,9 +39,7 @@ internal sealed class PackageApiChecker : IDisposable
         MissingAssembly,
     }
 
-    // packageAssemblies are the files the package loads. hostAssemblies maps the simple name of each assembly that a
-    // reference binds to in the host to its file, or to null when the host should provide it but has none. A reference
-    // to any other assembly binds to the package or its dependencies, and is not checked.
+    // hostAssemblies maps a host assembly's simple name to its file, or to null if missing; other names go unchecked.
     public static IReadOnlyList<PackageApiProblem> Check(
         IEnumerable<string> packageAssemblies,
         IReadOnlyDictionary<string, string?> hostAssemblies)
@@ -81,6 +79,9 @@ internal sealed class PackageApiChecker : IDisposable
 
     private void CheckReferences(MetadataReader reader)
     {
+        AssemblyDefinition assembly = reader.GetAssemblyDefinition();
+        string name = reader.GetString(assembly.Name);
+        string publicKey = Convert.ToHexString(reader.GetBlobBytes(assembly.PublicKey));
         foreach (TypeReferenceHandle handle in reader.TypeReferences)
         {
             TypeLookup type = Resolve(reader, handle);
@@ -89,7 +90,7 @@ internal sealed class PackageApiChecker : IDisposable
                 _problems.Add(new(PackageApiProblemKind.MissingAssembly, type.Assembly, type.Assembly));
             }
             else if (type.State == LookupState.MissingType
-                     || (type.State == LookupState.Found && !IsVisible(type.Definition.Attributes)))
+                     || (type.State == LookupState.Found && !CanAccess(type, name, publicKey)))
             {
                 _problems.Add(new(PackageApiProblemKind.MissingType, type.Assembly, type.FullName));
             }
@@ -126,7 +127,6 @@ internal sealed class PackageApiChecker : IDisposable
             {
                 HandleKind.AssemblyReference => Find(
                     reader.GetString(reader.GetAssemblyReference((AssemblyReferenceHandle)scope).Name), fullName, 0),
-                HandleKind.ModuleDefinition => Find(reader.GetString(reader.GetAssemblyDefinition().Name), fullName, 0),
                 _ => new(LookupState.NotHost, "", fullName),
             };
         }
@@ -191,10 +191,54 @@ internal sealed class PackageApiChecker : IDisposable
         return module;
     }
 
-    private static bool IsVisible(TypeAttributes attributes)
+    // Signature modifiers may name a library's internal polyfill, such as IsExternalInit; the runtime does not check them.
+    private static bool CanAccess(TypeLookup type, string assembly, string publicKey)
     {
-        return (attributes & TypeAttributes.VisibilityMask)
-            is TypeAttributes.Public or TypeAttributes.NestedPublic or TypeAttributes.NestedFamily or TypeAttributes.NestedFamORAssem;
+        return (type.Definition.Attributes & TypeAttributes.VisibilityMask) switch
+        {
+            TypeAttributes.Public or TypeAttributes.NestedPublic or TypeAttributes.NestedFamily
+                or TypeAttributes.NestedFamORAssem => true,
+            TypeAttributes.NotPublic or TypeAttributes.NestedAssembly or TypeAttributes.NestedFamANDAssem
+                => type.FullName.StartsWith("System.Runtime.CompilerServices.", StringComparison.Ordinal)
+                   || type.Module!.IsFriend(assembly, publicKey),
+            _ => false,
+        };
+    }
+
+    // The assembly names that InternalsVisibleTo grants, each with its public key in hex, or "" if it gives none.
+    private static List<(string Name, string PublicKey)> ReadFriends(MetadataReader reader)
+    {
+        var friends = new List<(string Name, string PublicKey)>();
+        foreach (CustomAttributeHandle handle in reader.GetAssemblyDefinition().GetCustomAttributes())
+        {
+            CustomAttribute attribute = reader.GetCustomAttribute(handle);
+            EntityHandle type = attribute.Constructor.Kind == HandleKind.MemberReference
+                ? reader.GetMemberReference((MemberReferenceHandle)attribute.Constructor).Parent
+                : reader.GetMethodDefinition((MethodDefinitionHandle)attribute.Constructor).GetDeclaringType();
+            string? typeName = type.Kind switch
+            {
+                HandleKind.TypeReference when reader.GetTypeReference((TypeReferenceHandle)type) is var reference
+                    => FullName(reader, reference.Namespace, reference.Name),
+                HandleKind.TypeDefinition when reader.GetTypeDefinition((TypeDefinitionHandle)type) is var definition
+                    => FullName(reader, definition.Namespace, definition.Name),
+                _ => null,
+            };
+            if (typeName != "System.Runtime.CompilerServices.InternalsVisibleToAttribute")
+            {
+                continue;
+            }
+
+            BlobReader value = reader.GetBlobReader(attribute.Value);
+            value.ReadUInt16(); // The prolog.
+            if (value.ReadSerializedString()?.Split(',', StringSplitOptions.TrimEntries) is [string friend, .. string[] parts])
+            {
+                const string Key = "PublicKey=";
+                string? key = parts.FirstOrDefault(part => part.StartsWith(Key, StringComparison.OrdinalIgnoreCase));
+                friends.Add((friend, key?[Key.Length..] ?? ""));
+            }
+        }
+
+        return friends;
     }
 
     private static string FullName(MetadataReader reader, StringHandle @namespace, StringHandle name)
@@ -206,6 +250,8 @@ internal sealed class PackageApiChecker : IDisposable
 
     private sealed class HostModule(string name, MetadataReader reader)
     {
+        private List<(string Name, string PublicKey)>? _friends;
+
         public string Name { get; } = name;
 
         public MetadataReader Reader { get; } = reader;
@@ -214,6 +260,14 @@ internal sealed class PackageApiChecker : IDisposable
         public Dictionary<string, TypeDefinitionHandle> Types { get; } = [];
 
         public Dictionary<string, string> Forwarders { get; } = [];
+
+        // A grant that gives no public key matches the name alone.
+        public bool IsFriend(string assembly, string publicKey)
+        {
+            _friends ??= ReadFriends(Reader);
+            return _friends.Exists(friend => StringComparer.OrdinalIgnoreCase.Equals(friend.Name, assembly)
+                && (friend.PublicKey.Length == 0 || StringComparer.OrdinalIgnoreCase.Equals(friend.PublicKey, publicKey)));
+        }
     }
 
     // Where a type reference binds. Module and Handle are set when it binds to a host type definition.
