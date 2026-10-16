@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
@@ -21,9 +23,12 @@ public partial class BeutlApiApplication : IAsyncDisposable
     private const string DefaultBaseUrl = "https://beutl.beditor.net";
 
     // BEUTL_API_BASE_URL points the client at another server, such as a local one at http://localhost:3001.
-    // Its sign-in is kept in user.local.json, apart from the production one.
+    // Each other server keeps its sign-in in a file named from a hash of its origin, so its tokens are never
+    // sent to a different server; a host such as [::1] could not go in a Windows file name as it is.
     public static readonly string BaseUrl = ResolveBaseUrl(Environment.GetEnvironmentVariable("BEUTL_API_BASE_URL"));
-    public static readonly string UserFileName = BaseUrl == DefaultBaseUrl ? "user.json" : "user.local.json";
+    public static readonly string UserFileName = BaseUrl == DefaultBaseUrl
+        ? "user.json"
+        : $"user.{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(BaseUrl)))[..16]}.json";
     private readonly HttpClient _httpClient;
     private readonly ExtensionProvider _extensionProvider;
     private readonly Func<HttpClient> _packageInstallerHttpClientFactory;
@@ -164,12 +169,13 @@ public partial class BeutlApiApplication : IAsyncDisposable
     }
 
     // A value that is not an absolute http or https URL is ignored, so a mistyped variable keeps the production
-    // server. So is a query or fragment, since request paths are appended to the URL.
+    // server. So is a path, query or fragment: the client, the sign-in pages and the plan pages would each
+    // combine it with their own paths differently.
     private static string ResolveBaseUrl(string? configured)
     {
         return Uri.TryCreate(configured?.Trim(), UriKind.Absolute, out Uri? uri)
                && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
-               && uri.Query.Length == 0 && uri.Fragment.Length == 0
+               && uri.AbsolutePath == "/" && uri.Query.Length == 0 && uri.Fragment.Length == 0
             ? uri.AbsoluteUri.TrimEnd('/')
             : DefaultBaseUrl;
     }
