@@ -127,8 +127,8 @@ internal sealed partial class GitCliVersionControlService
         return firstBlockIndex;
     }
 
-    // A temporary file renamed over the target, so Git never reads a half-written file. An edit made
-    // between the read and the rename is overwritten; the hygiene lines are added again on the next open.
+    // A temporary file renamed over the target, so Git never reads a half-written file. An edit another
+    // program makes between the read and the rename is overwritten.
     private static async Task UpdateHygieneFileAsync(
         string path,
         Func<List<string>, List<string>> updateLines,
