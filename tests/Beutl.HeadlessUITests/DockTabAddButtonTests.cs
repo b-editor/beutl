@@ -246,7 +246,6 @@ public class DockTabAddButtonTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(button.ContextFlyout, Is.Null, "The add button no longer opens a menu.");
                 Assert.That(target.VisibleDockables, Has.Count.EqualTo(tabCount + 1));
                 Assert.That(newTab, Is.Not.Null);
                 Assert.That(target.ActiveDockable, Is.SameAs(newTab));

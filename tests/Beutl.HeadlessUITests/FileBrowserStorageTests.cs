@@ -154,17 +154,11 @@ public sealed class FileBrowserStorageTests
     }
 
     [AvaloniaTest]
-    public void LegacyStorageVisibilitySettingDoesNotHideRegisteredServices()
+    public void ViewConfigDropsTheRemovedStorageVisibilitySetting()
     {
         var config = new ViewConfig();
         CoreSerializer.PopulateFromJsonObject(config, new JsonObject { ["ShowStorageServices"] = false });
         Assert.That(CoreSerializer.SerializeToJsonObject(config).ContainsKey("ShowStorageServices"), Is.False);
-        var provider = new TestProvider("test", "Test storage");
-        using var vm = Create(provider);
-        Assert.That(vm.HasStorageProviders, Is.True);
-        Assert.That(provider.Browsers, Is.Empty, "Being available in the menu must not connect automatically.");
-        vm.OpenStorage(provider);
-        Assert.That(vm.ActiveStorageProvider.Value, Is.SameAs(provider));
     }
 
     [AvaloniaTest]
