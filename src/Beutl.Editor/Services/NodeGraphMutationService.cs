@@ -5,7 +5,7 @@ using Beutl.NodeGraph.Nodes.Group;
 
 namespace Beutl.Editor.Services;
 
-public sealed class NodeGraphMutationService : INodeGraphConnectedNodeMutationService
+public sealed class NodeGraphMutationService : INodeGraphMutationService
 {
     private readonly HistoryManager _historyManager;
 

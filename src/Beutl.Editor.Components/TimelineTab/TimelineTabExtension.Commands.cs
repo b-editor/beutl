@@ -124,7 +124,7 @@ public sealed partial class TimelineTabExtension : IContextCommandHandler, ICont
         if (name is null) return;
 
         // Switching editors cancels the command, which stops rendering the preview and saving.
-        await SaveAsTemplateAsync(element, name.Trim(), interaction.CancellationToken);
+        await TemplateSaving.SaveAsync(element, name.Trim(), cancellationToken: interaction.CancellationToken);
     }
 
     // The element's name, or its type's when it has none, made unique among the templates.
@@ -134,26 +134,6 @@ public sealed partial class TimelineTabExtension : IContextCommandHandler, ICont
             ? element.Name
             : TypeDisplayHelpers.GetLocalizedName(element.GetType());
         return ObjectTemplateService.Instance.GetUniqueName(defaultName);
-    }
-
-    // A cancelled save is not reported as a failure.
-    internal static async Task SaveAsTemplateAsync(
-        Element element, string name, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            if (await ObjectTemplateService.Instance.AddFromInstanceAsync(element, name, cancellationToken) is not null)
-                return;
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            return;
-        }
-        catch (Exception)
-        {
-        }
-
-        NotificationService.ShowError(Strings.SaveAsTemplate, MessageStrings.OperationFailed);
     }
 
     // The template is stored under its name, so the name has to be a valid file name.

@@ -231,4 +231,39 @@ public class ResourceRelocationServiceTests
             Assert.That(result.FailedResources, Is.Empty);
         });
     }
+
+    // Fonts are searched only where FontManager loads them from, so a font left in an OS font folder that
+    // is not configured is reported instead of bundled.
+    [Test]
+    [NonParallelizable]
+    public async Task RelocateFontsAsync_WithAFontOnlyInAnUnconfiguredUserFontFolder_ReportsFailedItem()
+    {
+        if (OperatingSystem.IsWindows())
+            Assert.Ignore("The Windows user font folder cannot be redirected through HOME.");
+
+        string home = Path.Combine(_testDir, "home");
+        string userFonts = Path.Combine(home, OperatingSystem.IsMacOS() ? "Library/Fonts" : ".fonts");
+        Directory.CreateDirectory(userFonts);
+        using (Stream source = typeof(ResourceRelocationServiceTests).Assembly
+                   .GetManifestResourceStream("Beutl.UnitTests.Assets.Font.BeutlTestVariable.ttf")!)
+        using (Stream destination = File.Create(Path.Combine(userFonts, "custom.ttf")))
+            source.CopyTo(destination);
+        string? originalHome = Environment.GetEnvironmentVariable("HOME");
+        Environment.SetEnvironmentVariable("HOME", home);
+        try
+        {
+            RelocationResult result = await new ResourceRelocationService().RelocateFontsAsync(
+                [new FontFamily("Beutl Test Variable")], _projectDir);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.SuccessCount, Is.EqualTo(0));
+                Assert.That(result.FailedResources, Is.EqualTo(new[] { "Beutl Test Variable" }));
+            });
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("HOME", originalHome);
+        }
+    }
 }

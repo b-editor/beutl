@@ -313,7 +313,10 @@ public sealed partial class AiSubtitleDialogViewModel
         long draftScopeRevision)
     {
         var sourceDocument = new CaptionDocument(RestoreCues(resume.SourceCues));
-        AiCaptionTranslationLimits limits = TranslationLimitsOf(resume);
+        var limits = new AiCaptionTranslationLimits(
+            resume.MaxSegments,
+            resume.MaxCharacters,
+            resume.MaxRequestBytes);
         AiModelId? model = ModelIdOrNull(resume.RequestKeyModel);
         List<TranslationBatch> batches = CaptionTranslationBatcher.CreateBatches(
             sourceDocument,
@@ -352,17 +355,6 @@ public sealed partial class AiSubtitleDialogViewModel
         AddTranslatedBatch(operation, resume.TranslatedPieces);
         return operation;
     }
-
-    private static AiCaptionTranslationLimits TranslationLimitsOf(
-        CaptionTranslationResume resume)
-        => resume.MaxSegments > 0
-            && resume.MaxCharacters > 0
-            && resume.MaxRequestBytes > 0
-                ? new AiCaptionTranslationLimits(
-                    resume.MaxSegments,
-                    resume.MaxCharacters,
-                    resume.MaxRequestBytes)
-                : AiCaptionTranslationLimits.Default;
 
     private static bool CaptionDocumentsEqual(CaptionDocument left, CaptionDocument right)
         => StoredCuesEqual(StoreCues(left.Cues), right.Cues);

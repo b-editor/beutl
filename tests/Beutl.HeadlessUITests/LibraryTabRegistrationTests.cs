@@ -33,7 +33,7 @@ public sealed class LibraryTabRegistrationTests
                 Assert.That(added.DisplayName, Is.EqualTo(LateName));
                 Assert.That(viewModel.LibraryItems.Take(before.Length), Is.EqualTo(before),
                     "the items already listed keep their view models, so their nodes stay expanded");
-                Assert.That(viewModel.AllItems.Select(item => item.Value), Has.Member(added));
+                Assert.That(viewModel.AllItems, Has.Member(added));
             });
         }
         finally
@@ -45,7 +45,7 @@ public sealed class LibraryTabRegistrationTests
         Assert.Multiple(() =>
         {
             Assert.That(viewModel.LibraryItems, Is.EqualTo(before));
-            Assert.That(viewModel.AllItems.Select(item => item.Value.DisplayName), Has.No.Member(LateName));
+            Assert.That(viewModel.AllItems.Select(item => item.DisplayName), Has.No.Member(LateName));
         });
     }
 
@@ -85,7 +85,7 @@ public sealed class LibraryTabRegistrationTests
         {
             LibraryService.Current.Register<LateItem>(LateFormat, LateName);
 
-            await HeadlessTestHelpers.WaitUntilAsync(() => viewModel.SearchResult.Any(item => item.Value.DisplayName == LateName));
+            await HeadlessTestHelpers.WaitUntilAsync(() => viewModel.SearchResult.Any(item => item.DisplayName == LateName));
         }
         finally
         {

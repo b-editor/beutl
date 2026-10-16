@@ -191,8 +191,8 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
     }
 
     public bool AddNodeAndConnect(GraphNode node, Point point, INodePort existingPort, INodePort? newPort)
-        => EditorContext.GetRequiredService<INodeGraphMutationService>() is INodeGraphConnectedNodeMutationService service
-           && service.AddNodeAndConnect(NodeGraph, node, point.X, point.Y, existingPort, newPort);
+        => EditorContext.GetRequiredService<INodeGraphMutationService>()
+            .AddNodeAndConnect(NodeGraph, node, point.X, point.Y, existingPort, newPort);
 
     internal bool TryAddSuggestedNode(CompatibleNodeFinder.Candidate candidate,
         CompatibleNodeFinder.PortChoice? choice, INodePort source, Point point)
@@ -213,9 +213,6 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
                 CompatibleNodeFinder.DisposeRejectedNode(node, candidate.Registry.Type);
         }
     }
-
-    public bool SupportsConnectedNodeCreation
-        => EditorContext.GetService(typeof(INodeGraphMutationService)) is INodeGraphConnectedNodeMutationService;
 
     public void Dispose()
     {

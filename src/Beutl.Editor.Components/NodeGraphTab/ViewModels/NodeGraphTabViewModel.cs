@@ -198,7 +198,7 @@ public sealed class NodeGraphTabViewModel : IPinnableToolContext
 
             foundItem ??= new NodeGraphNavigationItem(
                 item.GetObservable(CoreObject.NameProperty).ToReadOnlyReactivePropertySlim()!,
-                graph,
+                item,
                 _editorContext);
 
             list.Add(foundItem);

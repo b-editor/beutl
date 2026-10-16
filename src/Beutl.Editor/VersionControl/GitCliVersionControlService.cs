@@ -43,7 +43,6 @@ internal sealed partial class GitCliVersionControlService :
     private static readonly string[] s_lfsHookNames = ["pre-push", "post-checkout", "post-commit", "post-merge"];
     private const string ManagedLfsBeginMarker = "# BEGIN BEUTL MANAGED LFS";
     private const string ManagedLfsEndMarker = "# END BEUTL MANAGED LFS";
-    private const int MaxHygieneWriteAttempts = 3;
     private const int MaxIgnoredProjectFileOutputBytes = 64 * 1024;
     private const int MaxLfsAttributeOutputBytes = 256 * 1024;
     private const int MaxLfsFetchOutputBytes = 64 * 1024;
@@ -183,10 +182,8 @@ internal sealed partial class GitCliVersionControlService :
     private bool _hygieneDeferred;
     private readonly Func<VersionControlPolicyNotice, CancellationToken, Task>? _policyNoticeSink;
     private readonly Func<CancellationToken, Task<GitIdentity?>>? _identityRequest;
-    private readonly Func<string, CancellationToken, Task>? _beforeHygieneFileReplace;
     private readonly Func<string, CancellationToken, Task>? _beforeFileCommit;
     private readonly Func<string, CancellationToken, Task>? _afterFileExchange;
-    private readonly Func<string, bool> _deleteVerifiedHygieneFile;
     private readonly Action<Action> _statusNotificationScheduler;
     private readonly Action<Action> _lockNotificationScheduler;
     private readonly ILogger _logger;
@@ -223,10 +220,8 @@ internal sealed partial class GitCliVersionControlService :
             isWorktreeMutationAllowed: isWorktreeMutationAllowed,
             policyNoticeSink: policyNoticeSink,
             identityRequest: identityRequest,
-            beforeHygieneFileReplace: null,
             beforeFileCommit: null,
             afterFileExchange: null,
-            deleteVerifiedHygieneFile: null,
             statusNotificationScheduler: null,
             lockNotificationScheduler: null,
             logger: null)
@@ -239,10 +234,8 @@ internal sealed partial class GitCliVersionControlService :
         RepositoryWatcher? watcher,
         Func<string, IGitCliRunner> runnerFactory,
         ILogger? logger = null,
-        Func<string, CancellationToken, Task>? beforeHygieneFileReplace = null,
         Func<string, CancellationToken, Task>? beforeFileCommit = null,
         Func<string, CancellationToken, Task>? afterFileExchange = null,
-        Func<string, bool>? deleteVerifiedHygieneFile = null,
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink = null,
         Action<Action>? statusNotificationScheduler = null,
         Action<Action>? lockNotificationScheduler = null,
@@ -257,10 +250,8 @@ internal sealed partial class GitCliVersionControlService :
             isWorktreeMutationAllowed: isWorktreeMutationAllowed ?? (static () => true),
             policyNoticeSink,
             identityRequest: identityRequest,
-            beforeHygieneFileReplace: beforeHygieneFileReplace,
             beforeFileCommit: beforeFileCommit,
             afterFileExchange: afterFileExchange,
-            deleteVerifiedHygieneFile: deleteVerifiedHygieneFile,
             statusNotificationScheduler: statusNotificationScheduler,
             lockNotificationScheduler: lockNotificationScheduler,
             logger: logger)
@@ -276,10 +267,8 @@ internal sealed partial class GitCliVersionControlService :
         Func<bool> isWorktreeMutationAllowed,
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink,
         Func<CancellationToken, Task<GitIdentity?>>? identityRequest,
-        Func<string, CancellationToken, Task>? beforeHygieneFileReplace,
         Func<string, CancellationToken, Task>? beforeFileCommit,
         Func<string, CancellationToken, Task>? afterFileExchange,
-        Func<string, bool>? deleteVerifiedHygieneFile,
         Action<Action>? statusNotificationScheduler,
         Action<Action>? lockNotificationScheduler,
         ILogger? logger)
@@ -301,11 +290,8 @@ internal sealed partial class GitCliVersionControlService :
                                          nameof(isWorktreeMutationAllowed));
         _policyNoticeSink = policyNoticeSink;
         _identityRequest = identityRequest;
-        _beforeHygieneFileReplace = beforeHygieneFileReplace;
         _beforeFileCommit = beforeFileCommit;
         _afterFileExchange = afterFileExchange;
-        _deleteVerifiedHygieneFile = deleteVerifiedHygieneFile
-                                     ?? TryDeleteVerifiedHygieneFile;
         _statusNotificationScheduler = statusNotificationScheduler ?? QueueOnThreadPool;
         _lockNotificationScheduler = lockNotificationScheduler ?? QueueOnThreadPool;
         _logger = logger ?? Log.CreateLogger<GitCliVersionControlService>();

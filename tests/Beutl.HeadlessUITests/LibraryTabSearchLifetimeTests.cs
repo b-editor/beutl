@@ -1,9 +1,13 @@
 ﻿using System.Reflection;
+using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
+using Beutl.Editor.Components.LibraryTab.Views.LibraryViews;
 using Beutl.Graphics.Shapes;
 using Beutl.Services;
+using Beutl.Testing.Headless;
 
 namespace Beutl.HeadlessUITests;
 
@@ -16,7 +20,7 @@ public sealed class LibraryTabSearchLifetimeTests
         using var viewModel = CreateViewModel();
         var type = new BlockingNameType();
         var item = new SingleTypeLibraryItem(KnownLibraryItemFormats.Drawable, type, "Needle");
-        viewModel.AllItems.Add(new(0, LibraryItemViewModel.CreateFromLibraryItem(item)));
+        viewModel.AllItems.Add(LibraryItemViewModel.CreateFromLibraryItem(item));
         Task search = viewModel.Search("Needle", CancellationToken.None);
         try
         {
@@ -42,7 +46,7 @@ public sealed class LibraryTabSearchLifetimeTests
         using var viewModel = CreateViewModel();
         var type = new BlockingNameType();
         var item = new SingleTypeLibraryItem(KnownLibraryItemFormats.Drawable, type, "Needle");
-        viewModel.AllItems.Add(new(0, LibraryItemViewModel.CreateFromLibraryItem(item)));
+        viewModel.AllItems.Add(LibraryItemViewModel.CreateFromLibraryItem(item));
         Task activeSearch = viewModel.Search("Needle", CancellationToken.None);
         Task? queuedSearch = null;
         try
@@ -76,18 +80,14 @@ public sealed class LibraryTabSearchLifetimeTests
         var high = new LibraryItemViewModel { DisplayName = "Rect", FullDisplayName = "Rect" };
         var middle = LibraryItemViewModel.CreateFromLibraryItem(
             new SingleTypeLibraryItem(KnownLibraryItemFormats.Drawable, typeof(RectShape), "Other"));
-        viewModel.AllItems.AddRange([new(0, low), new(0, high), new(0, middle)]);
+        viewModel.AllItems.AddRange([low, high, middle]);
 
         // Keep the UI busy until the worker has queued all matches, as a render or layout pass can do.
         Task.Run(() => viewModel.Search("Rect", CancellationToken.None))
             .WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
         Dispatcher.UIThread.RunJobs();
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.SearchResult.Select(i => i.Key), Is.EqualTo(new[] { 101, 75, 50 }));
-            Assert.That(viewModel.SearchResult.Select(i => i.Value), Is.EqualTo(new[] { high, middle, low }));
-        });
+        Assert.That(viewModel.SearchResult, Is.EqualTo(new[] { high, middle, low }));
     }
 
     [AvaloniaTest]
@@ -98,7 +98,7 @@ public sealed class LibraryTabSearchLifetimeTests
         using var viewModel = CreateViewModel();
         using var cancellation = new CancellationTokenSource();
         var item = new LibraryItemViewModel { DisplayName = "Needle", FullDisplayName = "Needle" };
-        viewModel.AllItems.Add(new(0, item));
+        viewModel.AllItems.Add(item);
         Task.Run(() => viewModel.Search("Needle", cancellation.Token))
             .WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
 
@@ -118,7 +118,7 @@ public sealed class LibraryTabSearchLifetimeTests
         using var viewModel = CreateViewModel();
         var first = new LibraryItemViewModel { DisplayName = "First", FullDisplayName = "First" };
         var second = new LibraryItemViewModel { DisplayName = "Second", FullDisplayName = "Second" };
-        viewModel.AllItems.AddRange([new(0, first), new(0, second)]);
+        viewModel.AllItems.AddRange([first, second]);
         Task.Run(async () =>
         {
             await viewModel.Search("First", CancellationToken.None);
@@ -126,7 +126,31 @@ public sealed class LibraryTabSearchLifetimeTests
         }).WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
         Dispatcher.UIThread.RunJobs();
 
-        Assert.That(viewModel.SearchResult.Select(i => i.Value), Is.EqualTo(new[] { second }));
+        Assert.That(viewModel.SearchResult, Is.EqualTo(new[] { second }));
+    }
+
+    // The drag starts from the pressed element's DataContext, so a row and its text must hold the same item.
+    [AvaloniaTest]
+    public async Task A_result_row_and_its_text_share_the_item_a_drag_reads()
+    {
+        using var viewModel = CreateViewModel();
+        var item = new LibraryItemViewModel { DisplayName = "Needle", FullDisplayName = "Needle" };
+        viewModel.AllItems.Add(item);
+        var view = new SearchView { DataContext = viewModel };
+        using var host = new ControlHost(view, 320, 240);
+        ListBox list = view.FindControl<ListBox>("searchResult")!;
+
+        foreach (string query in new[] { "", "Needle" })
+        {
+            view.FindControl<TextBox>("SearchBox")!.Text = query;
+            await HeadlessTestHelpers.WaitUntilAsync(() => query.Length == 0 || viewModel.SearchResult.Count == 1);
+            HeadlessTestHelpers.Render(2);
+            Control row = list.ContainerFromIndex(0)!;
+            Avalonia.Controls.TextBlock text = row.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>()
+                .First(t => t.Text == "Needle");
+            Assert.That(row.DataContext, Is.SameAs(item), query);
+            Assert.That(text.DataContext, Is.SameAs(item), query);
+        }
     }
 
     private static LibraryTabViewModel CreateViewModel()

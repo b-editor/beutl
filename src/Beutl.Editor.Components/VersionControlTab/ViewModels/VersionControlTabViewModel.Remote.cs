@@ -315,12 +315,9 @@ internal partial class VersionControlTabViewModel
                 }
                 StatusMessage.Value = Strings.VersionControl_RemoteOperationSucceeded;
             }
-            else if (result is not RemoteOpResult.Failed { Stderr.Length: 0 })
+            else if (result is not RemoteOpResult.Failed { Stderr.Length: 0 } && IsCurrentOperation())
             {
-                await DispatchRemoteResultAsync(
-                    result,
-                    IsCurrentOperation,
-                    operationCancellation.Token);
+                await ShowRemoteResultAsync(result);
             }
         }
         catch (VersionControlConflictedException ex)
@@ -373,73 +370,6 @@ internal partial class VersionControlTabViewModel
     {
         Volatile.Write(ref _remoteOperationUserCancellation, 1);
         TryCancel(Volatile.Read(ref _remoteOperationCancellation));
-    }
-
-    private Task DispatchRemoteResultAsync(
-        RemoteOpResult result,
-        Func<bool> isCurrentOperation,
-        CancellationToken cancellationToken)
-    {
-        var completion = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        CancellationTokenRegistration registration = default;
-        try
-        {
-            registration = cancellationToken.Register(
-                static state =>
-                {
-                    ((TaskCompletionSource)state!).TrySetCanceled();
-                },
-                completion);
-            _postToUi(() => _ = DispatchRemoteResultCoreAsync(
-                result,
-                isCurrentOperation,
-                completion,
-                cancellationToken));
-        }
-        catch (Exception ex)
-        {
-            completion.TrySetException(ex);
-        }
-
-        return AwaitDispatchCompletionAsync(completion.Task, registration);
-    }
-
-    private static async Task AwaitDispatchCompletionAsync(
-        Task completion,
-        CancellationTokenRegistration registration)
-    {
-        try
-        {
-            await completion;
-        }
-        finally
-        {
-            registration.Dispose();
-        }
-    }
-
-    private async Task DispatchRemoteResultCoreAsync(
-        RemoteOpResult result,
-        Func<bool> isCurrentOperation,
-        TaskCompletionSource completion,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            if (!completion.Task.IsCompleted
-                && !cancellationToken.IsCancellationRequested
-                && isCurrentOperation())
-            {
-                await ShowRemoteResultAsync(result);
-            }
-
-            completion.TrySetResult();
-        }
-        catch (Exception ex)
-        {
-            completion.TrySetException(ex);
-        }
     }
 
     private static void TryCancel(CancellationTokenSource? cancellation)

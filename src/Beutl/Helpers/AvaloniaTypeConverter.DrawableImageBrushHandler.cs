@@ -2,10 +2,8 @@
 using Avalonia.Threading;
 using Beutl.Controls;
 using Beutl.Graphics.Rendering;
-using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Threading;
-using Microsoft.Extensions.Logging;
 using Dispatcher = Avalonia.Threading.Dispatcher;
 using ImageBrush = Avalonia.Media.ImageBrush;
 
@@ -15,8 +13,6 @@ public static partial class AvaloniaTypeConverter
 {
     public sealed class DrawableImageBrushHandler : IDisposable
     {
-        private static readonly ILogger s_thumbnailLogger = Log.CreateLogger<DrawableImageBrushHandler>();
-
         private readonly ImageBrush _imageBrush;
         private readonly DrawableBrush.Resource _drawableBrush;
         private readonly Beutl.Threading.Dispatcher _renderDispatcher;
@@ -80,16 +76,8 @@ public static partial class AvaloniaTypeConverter
 
             void Clear()
             {
-                try
-                {
-                    _imageBrush.Source = null;
-                }
-                finally
-                {
-                    // Avalonia stores a property value before it raises the change, so the brush has already
-                    // let go of the bitmap even when a subscriber throws out of this assignment.
-                    published?.Dispose();
-                }
+                _imageBrush.Source = null;
+                published?.Dispose();
             }
 
             if (Dispatcher.UIThread.CheckAccess())
@@ -155,80 +143,9 @@ public static partial class AvaloniaTypeConverter
                 _bitmap = published;
             }
 
-            Avalonia.Media.Stretch previousStretch = _imageBrush.Stretch;
-
-            void Rollback()
-            {
-                bool disposed;
-                lock (_gate)
-                {
-                    disposed = _disposeRequested;
-                    _bitmap = disposed ? null : previous;
-                }
-
-                // Restoring either property can raise the same listener that rejected the
-                // publication; a failure there must not leave the new bitmap owned by nobody.
-                Restore(() => _imageBrush.Source = disposed ? null : previous);
-                Restore(() => _imageBrush.Stretch = previousStretch);
-                if (disposed)
-                {
-                    // Dispose ran during the notification and already cleared and released the
-                    // publication, so restoring it would reinstate a thumbnail nobody owns.
-                    previous?.Dispose();
-                    return;
-                }
-
-                published.Dispose();
-            }
-
-            static void Restore(Action restore)
-            {
-                try
-                {
-                    restore();
-                }
-                catch (Exception ex)
-                {
-                    s_thumbnailLogger.LogWarning(ex, "Failed to roll back a thumbnail publication.");
-                }
-            }
-
-            try
-            {
-                _imageBrush.Stretch = ToAvaStretch(stretch);
-
-                // Assigning Stretch can notify listeners that start a superseding update or a
-                // disposal, so the decision to commit has to be re-taken after it.
-                bool superseded;
-                lock (_gate)
-                {
-                    superseded = token.IsCancellationRequested
-                                 || _disposeRequested
-                                 || !ReferenceEquals(_bitmap, published);
-                }
-
-                if (superseded)
-                {
-                    Rollback();
-                    return;
-                }
-
-                _imageBrush.Source = published;
-
-                // A listener can put the previous source back synchronously; that is a rejection.
-                if (!ReferenceEquals(_imageBrush.Source, published))
-                {
-                    Rollback();
-                    return;
-                }
-            }
-            catch (Exception ex)
-            {
-                s_thumbnailLogger.LogWarning(ex, "A thumbnail publication callback threw.");
-                Rollback();
-                return;
-            }
-
+            // Only Avalonia's bindings and rendering listen to this brush, and they neither throw nor reenter.
+            _imageBrush.Stretch = ToAvaStretch(stretch);
+            _imageBrush.Source = published;
             previous?.Dispose();
         }
 

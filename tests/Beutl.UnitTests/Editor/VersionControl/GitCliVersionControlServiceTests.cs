@@ -874,118 +874,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task InitializeAsync_allows_ignoring_a_media_type_the_project_does_not_use()
-    {
-        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
-        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "*.mp4\n");
-        await RunGitAsync("add", "--", ".gitignore");
-        await RunGitAsync("commit", "-m", "ignore rendered video");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            repository: null,
-            watcher: null,
-            _ => CreateRunner());
-
-        await service.InitializeAsync(
-            new InitOptions(Repository, UseLfsWhenAvailable: false),
-            CancellationToken.None);
-
-        Assert.That(service.Repository, Is.Not.Null);
-    }
-
-    [Test]
-    public async Task InitializeAsync_allows_ignored_unreferenced_media_in_top_level_repository()
-    {
-        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
-        Directory.CreateDirectory(Path.Combine(Root, "renders"));
-        await File.WriteAllTextAsync(Path.Combine(Root, "renders", "output.mp4"), "rendered\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "/renders/\n");
-        await RunGitAsync("add", "--", ".gitignore");
-        await RunGitAsync("commit", "-m", "ignore renders");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            repository: null,
-            watcher: null,
-            _ => CreateRunner());
-
-        await service.InitializeAsync(
-            new InitOptions(Repository, UseLfsWhenAvailable: false),
-            CancellationToken.None);
-
-        GitCommandResult tree = await RunGitAsync("ls-tree", "-r", "--name-only", "HEAD");
-        Assert.Multiple(() =>
-        {
-            Assert.That(service.Repository, Is.Not.Null);
-            Assert.That(tree.Stdout, Does.Not.Contain("renders/output.mp4"));
-        });
-    }
-
-    [TestCase(".DS_Store", ".DS_Store")]
-    [TestCase("grade.cube", "*.cube")]
-    public async Task InitializeAsync_allows_globally_ignored_unreferenced_resources_in_a_new_repository(
-        string fileName,
-        string globalIgnoreRule)
-    {
-        string projectRoot = CreateTemporaryDirectory();
-        var projectRepository = new RepositoryInfo(projectRoot, projectRoot);
-        Directory.CreateDirectory(Path.Combine(projectRoot, "resources"));
-        await File.WriteAllTextAsync(Path.Combine(projectRoot, "resources", fileName), "unreferenced\n");
-        string globalConfigPath = await CreateGlobalExcludesConfigAsync(globalIgnoreRule);
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            repository: null,
-            watcher: null,
-            _ => CreateRunnerWithGlobalConfig(globalConfigPath));
-
-        await service.InitializeAsync(
-            new InitOptions(projectRepository, UseLfsWhenAvailable: false)
-            {
-                Identity = new GitIdentity("Beutl Test", "beutl-test@example.invalid"),
-            },
-            CancellationToken.None);
-
-        GitCommandResult tree = await CreateRunnerWithGlobalConfig(globalConfigPath).RunAsync(
-            projectRepository,
-            ["ls-tree", "-r", "--name-only", "HEAD"],
-            GitCommandOptions.Local,
-            CancellationToken.None);
-        Assert.Multiple(() =>
-        {
-            Assert.That(service.Repository, Is.Not.Null);
-            Assert.That(tree.Stdout, Does.Not.Contain(fileName));
-        });
-    }
-
-    [Test]
-    public async Task InitializeAsync_allows_ignored_unreferenced_resources_in_top_level_repository()
-    {
-        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
-        Directory.CreateDirectory(Path.Combine(Root, "resources"));
-        await File.WriteAllTextAsync(Path.Combine(Root, "resources", "clip.mp4"), "media\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "resources", ".DS_Store"), "metadata\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), ".DS_Store\n");
-        await RunGitAsync("add", "--", ".gitignore");
-        await RunGitAsync("commit", "-m", "ignore Finder metadata");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            repository: null,
-            watcher: null,
-            _ => CreateRunner());
-
-        await service.InitializeAsync(
-            new InitOptions(Repository, UseLfsWhenAvailable: false),
-            CancellationToken.None);
-
-        GitCommandResult tree = await RunGitAsync("ls-tree", "-r", "--name-only", "HEAD");
-        Assert.Multiple(() =>
-        {
-            Assert.That(service.Repository, Is.Not.Null);
-            Assert.That(tree.Stdout, Does.Contain("resources/clip.mp4"));
-            Assert.That(tree.Stdout, Does.Not.Contain(".DS_Store"));
-        });
-    }
-
-    [Test]
     public async Task EnsureRepositoryHygieneAsync_is_idempotent_and_does_not_stage_or_commit()
     {
         await CommitFileAsync("project.bep", "{}\n", "existing repository");
@@ -1251,232 +1139,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         {
             Assert.That(exception!.Message, Does.Contain("NUL"));
             Assert.That(File.ReadAllBytes(hygienePath), Is.EqualTo(originalBytes));
-        });
-    }
-
-    [Test]
-    public async Task EnsureRepositoryHygieneAsync_retries_after_a_concurrent_regular_file_edit()
-    {
-        await CommitFileAsync("project.bep", "{}\n", "baseline");
-        string attributesPath = Path.Combine(Root, ".gitattributes");
-        await File.WriteAllTextAsync(attributesPath, "original custom rule\n");
-        int edits = 0;
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => CreateRunner(),
-            beforeHygieneFileReplace: async (path, cancellationToken) =>
-            {
-                if (path == attributesPath && Interlocked.Exchange(ref edits, 1) == 0)
-                {
-                    await File.WriteAllTextAsync(
-                        path,
-                        "concurrent custom rule\n",
-                        cancellationToken);
-                }
-            });
-
-        await service.EnsureRepositoryHygieneAsync(CancellationToken.None);
-
-        string contents = await File.ReadAllTextAsync(attributesPath);
-        Assert.Multiple(() =>
-        {
-            Assert.That(edits, Is.EqualTo(1));
-            Assert.That(contents, Does.Contain("concurrent custom rule\n"));
-            Assert.That(contents, Does.Not.Contain("original custom rule\n"));
-            Assert.That(contents, Does.Contain("*.[bB][eE][pP] text eol=lf\n"));
-        });
-    }
-
-    [Test]
-    public async Task EnsureRepositoryHygieneAsync_merges_an_edit_at_the_commit_boundary()
-    {
-        await CommitFileAsync("project.bep", "{}\n", "baseline");
-        string attributesPath = Path.Combine(Root, ".gitattributes");
-        await File.WriteAllTextAsync(attributesPath, "original custom rule\n");
-        int edits = 0;
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => CreateRunner(),
-            beforeFileCommit: async (path, cancellationToken) =>
-            {
-                if (path == attributesPath && Interlocked.Exchange(ref edits, 1) == 0)
-                {
-                    await File.WriteAllTextAsync(
-                        path,
-                        "commit-boundary custom rule\n",
-                        cancellationToken);
-                }
-            });
-
-        await service.EnsureRepositoryHygieneAsync(CancellationToken.None);
-
-        string contents = await File.ReadAllTextAsync(attributesPath);
-        Assert.Multiple(() =>
-        {
-            Assert.That(edits, Is.EqualTo(1));
-            Assert.That(contents, Does.Contain("commit-boundary custom rule\n"));
-            Assert.That(contents, Does.Not.Contain("original custom rule\n"));
-            Assert.That(contents, Does.Contain("*.[bB][eE][pP] text eol=lf\n"));
-            Assert.That(
-                Directory.EnumerateFiles(Root)
-                    .Where(path => Path.GetFileName(path).StartsWith(
-                        ".gitattributes.",
-                        StringComparison.Ordinal)),
-                Is.Empty);
-        });
-    }
-
-    [Test]
-    public async Task EnsureRepositoryHygieneAsync_retains_a_second_edit_during_rollback()
-    {
-        await CommitFileAsync("project.bep", "{}\n", "baseline");
-        string attributesPath = Path.Combine(Root, ".gitattributes");
-        await File.WriteAllTextAsync(attributesPath, "original custom rule\n");
-        int firstEdits = 0;
-        int secondEdits = 0;
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => CreateRunner(),
-            beforeFileCommit: async (path, cancellationToken) =>
-            {
-                if (path == attributesPath && Interlocked.Exchange(ref firstEdits, 1) == 0)
-                {
-                    await File.WriteAllTextAsync(
-                        path,
-                        "first concurrent edit\n",
-                        cancellationToken);
-                }
-            },
-            afterFileExchange: async (path, cancellationToken) =>
-            {
-                if (path == attributesPath && Interlocked.Exchange(ref secondEdits, 1) == 0)
-                {
-                    await File.WriteAllTextAsync(
-                        path,
-                        "second concurrent edit\n",
-                        cancellationToken);
-                }
-            });
-
-        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.EnsureRepositoryHygieneAsync(CancellationToken.None));
-
-        int retainedPathStart = exception!.Message.IndexOf('\'');
-        int retainedPathEnd = exception.Message.LastIndexOf('\'');
-        Assert.That(retainedPathStart, Is.GreaterThanOrEqualTo(0));
-        Assert.That(retainedPathEnd, Is.GreaterThan(retainedPathStart));
-        string retainedPath = exception.Message[(retainedPathStart + 1)..retainedPathEnd];
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception.Message, Does.Contain("retained at"));
-            Assert.That(firstEdits, Is.EqualTo(1));
-            Assert.That(secondEdits, Is.EqualTo(1));
-            Assert.That(
-                File.ReadAllText(attributesPath),
-                Is.EqualTo("first concurrent edit\n"));
-            Assert.That(File.Exists(retainedPath), Is.True);
-            Assert.That(
-                File.ReadAllText(retainedPath),
-                Is.EqualTo("second concurrent edit\n"));
-        });
-    }
-
-    [Test]
-    public async Task EnsureRepositoryHygieneAsync_reports_verified_backup_cleanup_failure()
-    {
-        await CommitFileAsync("project.bep", "{}\n", "baseline");
-        string attributesPath = Path.Combine(Root, ".gitattributes");
-        await File.WriteAllTextAsync(attributesPath, "original custom rule\n");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => CreateRunner(),
-            deleteVerifiedHygieneFile: _ => false);
-
-        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.EnsureRepositoryHygieneAsync(CancellationToken.None));
-
-        int retainedPathStart = exception!.Message.IndexOf('\'');
-        int retainedPathEnd = exception.Message.LastIndexOf('\'');
-        Assert.That(retainedPathStart, Is.GreaterThanOrEqualTo(0));
-        Assert.That(retainedPathEnd, Is.GreaterThan(retainedPathStart));
-        string retainedPath = exception.Message[(retainedPathStart + 1)..retainedPathEnd];
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception.Message, Does.Contain("could not be removed"));
-            Assert.That(retainedPath, Does.EndWith(".tmp"));
-            Assert.That(File.Exists(retainedPath), Is.True);
-            Assert.That(
-                File.ReadAllText(retainedPath),
-                Is.EqualTo("original custom rule\n"));
-            Assert.That(
-                File.ReadAllText(attributesPath),
-                Does.Contain("*.[bB][eE][pP] text eol=lf\n"));
-        });
-    }
-
-    [Test]
-    public async Task EnsureRepositoryHygieneAsync_preserves_existing_Unix_file_mode()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("Unix file modes are not available on Windows.");
-            return;
-        }
-
-        await CommitFileAsync("project.bep", "{}\n", "baseline");
-        string attributesPath = Path.Combine(Root, ".gitattributes");
-        await File.WriteAllTextAsync(attributesPath, "custom rule\n");
-        const UnixFileMode expectedMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-        File.SetUnixFileMode(attributesPath, expectedMode);
-        using var service = CreateService();
-
-        await service.EnsureRepositoryHygieneAsync(CancellationToken.None);
-
-        Assert.That(File.GetUnixFileMode(attributesPath), Is.EqualTo(expectedMode));
-    }
-
-    [Test]
-    public async Task EnsureRepositoryHygieneAsync_aborts_when_a_file_becomes_a_link_after_read()
-    {
-        await CommitFileAsync("project.bep", "{}\n", "baseline");
-        string attributesPath = Path.Combine(Root, ".gitattributes");
-        await File.WriteAllTextAsync(attributesPath, "original custom rule\n");
-        string externalRoot = CreateTemporaryDirectory();
-        string externalPath = Path.Combine(externalRoot, ".gitattributes");
-        await File.WriteAllTextAsync(externalPath, "external contents\n");
-        int replacements = 0;
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => CreateRunner(),
-            beforeHygieneFileReplace: (path, _) =>
-            {
-                if (path == attributesPath && Interlocked.Exchange(ref replacements, 1) == 0)
-                {
-                    File.Delete(path);
-                    SymbolicLinks.CreateOrIgnore(path, externalPath);
-                }
-
-                return Task.CompletedTask;
-            });
-
-        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.EnsureRepositoryHygieneAsync(CancellationToken.None));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception!.Message, Does.Contain("regular file"));
-            Assert.That(File.ReadAllText(externalPath), Is.EqualTo("external contents\n"));
-            Assert.That(new FileInfo(attributesPath).LinkTarget, Is.Not.Null);
         });
     }
 
@@ -1788,35 +1450,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     public async Task CommitAllAsync_ignores_Beutl_temporary_resource_artifacts()
     {
         await CommitFileAsync("project.bep", "{}\n", "baseline");
-        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "*.tmp\n");
-        await RunGitAsync("add", "--", ".gitignore");
-        await RunGitAsync("commit", "-m", "ignore temporary artifacts");
         string resourceDirectory = Path.Combine(Root, "resources");
         Directory.CreateDirectory(resourceDirectory);
         await File.WriteAllTextAsync(Path.Combine(resourceDirectory, "preview.tmp"), "temporary\n");
-        using var service = CreateService();
-
-        CommitResult result = await service.CommitAllAsync(
-            "beutl: snapshot on save",
-            SnapshotKind.Save,
-            CancellationToken.None);
-
-        Assert.That(result, Is.TypeOf<CommitResult.NoChanges>());
-    }
-
-    [TestCase(".DS_Store", ".DS_Store")]
-    [TestCase("grade.cube", "*.cube")]
-    public async Task CommitAllAsync_allows_ignored_unreferenced_resources(
-        string fileName,
-        string ignoreRule)
-    {
-        await CommitFileAsync("project.bep", "{}\n", "baseline");
-        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), $"{ignoreRule}\n");
-        await RunGitAsync("add", "--", ".gitignore");
-        await RunGitAsync("commit", "-m", "ignore unreferenced resources");
-        string resourceDirectory = Path.Combine(Root, "resources");
-        Directory.CreateDirectory(resourceDirectory);
-        await File.WriteAllTextAsync(Path.Combine(resourceDirectory, fileName), "unreferenced\n");
         using var service = CreateService();
 
         CommitResult result = await service.CommitAllAsync(
@@ -1831,9 +1467,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     public async Task CommitAllAsync_ignores_Beutl_state_scene_artifacts()
     {
         await CommitFileAsync("project.bep", "{}\n", "baseline");
-        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "**/.beutl/\n");
-        await RunGitAsync("add", "--", ".gitignore");
-        await RunGitAsync("commit", "-m", "ignore Beutl state");
         string stateDirectory = Path.Combine(Root, ".beutl");
         Directory.CreateDirectory(stateDirectory);
         await File.WriteAllTextAsync(Path.Combine(stateDirectory, "recovery.scene"), "temporary\n");
@@ -2499,116 +2132,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 Is.EqualTo(preservesWhitespace));
             Assert.That(message.Contains("Reviewed  ", StringComparison.Ordinal),
                 Is.EqualTo(preservesWhitespace));
-        });
-    }
-
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task CommitAllAsync_validates_a_hook_tree_for_a_directory_symlink_alias(
-        bool intermediateAlias)
-    {
-        string projectRoot = intermediateAlias
-            ? Path.Combine(Root, "nested", "project")
-            : Root;
-        Directory.CreateDirectory(projectRoot);
-        string projectFile = Path.Combine(projectRoot, "project.bep");
-        await File.WriteAllTextAsync(projectFile, "{}\n");
-        await RunGitAsync("add", "-A");
-        await RunGitAsync("commit", "-m", "baseline");
-
-        string aliasedProjectFile;
-        if (intermediateAlias)
-        {
-            string linkedNested = Path.Combine(Root, "linked-nested");
-            SymbolicLinks.CreateOrIgnore(linkedNested, Path.Combine(Root, "nested"), directory: true);
-            aliasedProjectFile = Path.Combine(linkedNested, "project", "project.bep");
-        }
-        else
-        {
-            string aliasRoot = Path.Combine(CreateTemporaryDirectory(), "repository");
-            SymbolicLinks.CreateOrIgnore(aliasRoot, Root, directory: true);
-            aliasedProjectFile = Path.Combine(aliasRoot, "project.bep");
-        }
-
-        var repository = new RepositoryInfo(Root, projectRoot);
-        string hookFile = repository.Pathspec == "."
-            ? "hook-added.txt"
-            : $"{repository.Pathspec}/hook-added.txt";
-        await WriteHookAsync(
-            "pre-commit",
-            $"printf 'hooked\\n' > \"{hookFile}\"\n"
-            + $"git add -- \"{hookFile}\"\n");
-        await File.WriteAllTextAsync(projectFile, "{ }\n");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            repository,
-            watcher: null,
-            _ => CreateRunner());
-
-        CommitResult result = await service.CommitAllAsync(
-            "beutl: snapshot on save",
-            SnapshotKind.Save,
-            CancellationToken.None);
-
-        string[] committedPaths = (await RunGitAsync(
-                "show",
-                "--format=",
-                "--name-only",
-                "HEAD"))
-            .Stdout.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
-        Assert.Multiple(() =>
-        {
-            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
-            Assert.That(committedPaths, Does.Contain(hookFile));
-            Assert.That(committedPaths, Does.Contain(
-                repository.Pathspec == "."
-                    ? "project.bep"
-                    : $"{repository.Pathspec}/project.bep"));
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_keeps_a_symbolic_link_project_file_when_a_hook_changes_another_file()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("Git for Windows records symbolic links only when core.symlinks is enabled.");
-        }
-
-        string projectFile = Path.Combine(Root, "project.bep");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project-target.bep"), "{}\n");
-        SymbolicLinks.CreateOrIgnore(projectFile, "project-target.bep");
-        await RunGitAsync("add", "-A");
-        await RunGitAsync("commit", "-m", "baseline");
-        await WriteHookAsync(
-            "pre-commit",
-            "printf 'hooked\\n' > hook-added.txt\n"
-            + "git add -- hook-added.txt\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project-target.bep"), "{ }\n");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => CreateRunner());
-
-        CommitResult result = await service.CommitAllAsync(
-            "beutl: snapshot on save",
-            SnapshotKind.Save,
-            CancellationToken.None);
-
-        string[] committedPaths = (await RunGitAsync(
-                "show",
-                "--format=",
-                "--name-only",
-                "HEAD"))
-            .Stdout.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
-        string projectEntry = (await RunGitAsync("ls-tree", "HEAD", "--", "project.bep")).Stdout;
-        Assert.Multiple(() =>
-        {
-            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
-            Assert.That(committedPaths, Does.Contain("hook-added.txt"));
-            Assert.That(committedPaths, Does.Contain("project-target.bep"));
-            Assert.That(projectEntry, Does.StartWith("120000 "));
         });
     }
 
@@ -3280,62 +2803,23 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
-    [TestCase("CaseAlias", "casealias")]
-    [TestCase("CaseParent", "caseparent/child")]
-    [TestCase("CaseParent/child", "caseparent")]
-    public async Task CanCreateBranchAsync_rejects_case_aliases_when_loose_refs_share_the_same_storage_path(
+    [TestCase("CaseAlias", "casealias", false)]
+    [TestCase("CaseParent", "caseparent/child", false)]
+    [TestCase("CaseParent/child", "caseparent", false)]
+    [TestCase("PackedAlias", "packedalias", true)]
+    [TestCase("PackedParent", "packedparent/child", true)]
+    [TestCase("PackedParent/child", "packedparent", true)]
+    public async Task CanCreateBranchAsync_rejects_case_aliases_on_any_ref_storage(
         string existingName,
-        string candidateName)
+        string candidateName,
+        bool packRefs)
     {
         await CommitFileAsync("project.bep", "current\n", "current");
         await RunGitAsync("branch", existingName);
-        string aliasedExistingPath = Path.Combine(
-            Root,
-            ".git",
-            "refs",
-            "heads",
-            existingName.ToLowerInvariant().Replace('/', Path.DirectorySeparatorChar));
-        if (!Path.Exists(aliasedExistingPath))
+        if (packRefs)
         {
-            Assert.Ignore("The repository ref storage is case-sensitive for this branch name.");
+            await RunGitAsync("pack-refs", "--all", "--prune");
         }
-
-        using var service = CreateService();
-        bool canCreate = await service.ExecuteExclusiveAsync(
-            transaction => transaction.CanCreateBranchAsync(
-                candidateName,
-                CancellationToken.None),
-            CancellationToken.None);
-
-        GitCommandResult currentBranch = await RunGitAsync("branch", "--show-current");
-        Assert.Multiple(() =>
-        {
-            Assert.That(canCreate, Is.False);
-            Assert.That(currentBranch.Stdout.Trim(), Is.EqualTo("main"));
-        });
-    }
-
-    [TestCase("PackedAlias", "packedalias")]
-    [TestCase("PackedParent", "packedparent/child")]
-    [TestCase("PackedParent/child", "packedparent")]
-    public async Task CanCreateBranchAsync_rejects_case_aliases_against_packed_refs_on_case_insensitive_storage(
-        string existingName,
-        string candidateName)
-    {
-        await CommitFileAsync("project.bep", "current\n", "current");
-        await RunGitAsync("branch", existingName);
-        await RunGitAsync("pack-refs", "--all", "--prune");
-        string refsDirectory = Path.Combine(Root, ".git", "refs");
-        if (!Directory.Exists(Path.Combine(Root, ".GIT")))
-        {
-            Assert.Ignore("The repository ref storage is case-sensitive.");
-        }
-
-        string looseExistingPath = Path.Combine(
-            refsDirectory,
-            "heads",
-            existingName.Replace('/', Path.DirectorySeparatorChar));
-        Assert.That(File.Exists(looseExistingPath), Is.False);
 
         using var service = CreateService();
         bool canCreate = await service.ExecuteExclusiveAsync(
@@ -5546,8 +5030,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Lfs_prefetch_without_an_installed_filter_ignores_a_malformed_extension()
+    public async Task Lfs_prefetch_without_an_installed_filter_refuses_text_that_looks_like_a_pointer()
     {
+        // Pointer detection is looser than Git LFS, so documentation shaped like a pointer also asks
+        // for Git LFS; it can never miss a real pointer.
         byte[] contents = Encoding.UTF8.GetBytes("not pointer data\n");
         string malformed = $"version https://git-lfs.github.com/spec/v1\n"
                            + $"oid sha256:{ComputeLfsOid(contents)}\n"
@@ -5564,13 +5050,14 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => CreateRunner());
 
-        await Assert.DoesNotThrowAsync(() =>
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.ExecuteExclusiveAsync(
                 transaction => transaction.PrefetchCommitLfsObjectsAsync(
                     commit,
                     LfsPrefetchScope.RepositoryWide,
                     CancellationToken.None),
                 CancellationToken.None));
+        Assert.That(exception!.Message, Does.Contain("Git LFS is not installed"));
     }
 
     [Test]
@@ -6185,26 +5672,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task CommitAllAsync_allows_an_ignored_scene_the_project_does_not_reference()
-    {
-        await CommitFileAsync("project.bep", "{}\n", "baseline");
-        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "/archive/\n");
-        await RunGitAsync("add", "--", ".gitignore");
-        await RunGitAsync("commit", "-m", "ignore archived drafts");
-        Directory.CreateDirectory(Path.Combine(Root, "archive"));
-        await File.WriteAllTextAsync(Path.Combine(Root, "archive", "old.scene"), "{}\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{\"edited\":true}\n");
-        using var service = CreateService();
-
-        CommitResult result = await service.CommitAllAsync(
-            "beutl: snapshot on save",
-            SnapshotKind.Save,
-            CancellationToken.None);
-
-        Assert.That(result, Is.TypeOf<CommitResult.Committed>());
-    }
-
-    [Test]
     public async Task CommitAllAsync_allows_a_repository_cloned_into_an_ignored_folder()
     {
         await CommitFileAsync("project.bep", "{}\n", "baseline");
@@ -6272,70 +5739,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 cache,
                 UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         }
-    }
-
-    [Test]
-    public async Task CommitAllAsync_allows_a_scene_symbolic_link_the_project_does_not_reference()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("This regression requires Unix symbolic-link semantics.");
-        }
-
-        await CommitFileAsync("project.bep", "{}\n", "baseline");
-        string sharedScene = Path.Combine(CreateTemporaryDirectory(), "shared.scene");
-        await File.WriteAllTextAsync(sharedScene, "{}\n");
-        Directory.CreateDirectory(Path.Combine(Root, "templates"));
-        SymbolicLinks.CreateOrIgnore(Path.Combine(Root, "templates", "shared.scene"), sharedScene);
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{\"edited\":true}\n");
-        using var service = CreateService();
-
-        CommitResult result = await service.CommitAllAsync(
-            "beutl: snapshot on save",
-            SnapshotKind.Save,
-            CancellationToken.None);
-
-        Assert.That(result, Is.TypeOf<CommitResult.Committed>());
-    }
-
-    [Test]
-    public async Task CommitAllAsync_snapshots_a_tree_whose_full_listing_exceeds_the_inspection_limit()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("Long relative paths exceed the default Windows path limit.");
-        }
-
-        // Long names push the tree listing past 4 MiB with a few thousand files, standing in for the
-        // tens of thousands of frames a rendered image sequence adds.
-        string frames = Path.Combine(
-            Root,
-            new string('a', 200),
-            new string('b', 200),
-            new string('c', 200));
-        Directory.CreateDirectory(frames);
-        string namePrefix = new('d', 90);
-        for (int index = 0; index < 6000; index++)
-        {
-            await File.WriteAllTextAsync(Path.Combine(frames, $"{namePrefix}{index:D5}.txt"), "frame\n");
-        }
-
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{}\n");
-        await RunGitAsync("add", "-A");
-        await RunGitAsync("commit", "-m", "rendered frames");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{\"edited\":true}\n");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => CreateRunner(TimeSpan.FromSeconds(60)));
-
-        CommitResult result = await service.CommitAllAsync(
-            "beutl: snapshot on save",
-            SnapshotKind.Save,
-            CancellationToken.None);
-
-        Assert.That(result, Is.TypeOf<CommitResult.Committed>());
     }
 
     [Test]
@@ -6493,18 +5896,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             {
                 ["GIT_CONFIG_GLOBAL"] = globalConfigPath,
             });
-    }
-
-    private async Task<string> CreateGlobalExcludesConfigAsync(string ignoreRule)
-    {
-        string directory = CreateTemporaryDirectory();
-        string excludesPath = Path.Combine(directory, "ignore");
-        string configPath = Path.Combine(directory, "config");
-        await File.WriteAllTextAsync(excludesPath, $"{ignoreRule}\n");
-        await File.WriteAllTextAsync(
-            configPath,
-            $"[core]\n\texcludesFile = {excludesPath.Replace('\\', '/')}\n");
-        return configPath;
     }
 
     private async Task WriteHookAsync(string name, string body)

@@ -2,7 +2,6 @@
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Avalonia.Threading;
 using Beutl.Editor.Components.Helpers;
 
 namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
@@ -199,11 +198,8 @@ public abstract class HdrScopeControlBase : ScopeControlBase
         try
         {
             await Task.Delay(1500, ct);
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                _overlayText = null;
-                InvalidateVisual();
-            });
+            _overlayText = null;
+            InvalidateVisual();
         }
         catch (OperationCanceledException)
         {

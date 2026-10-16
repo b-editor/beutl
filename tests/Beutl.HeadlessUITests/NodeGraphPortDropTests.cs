@@ -173,41 +173,6 @@ public class NodeGraphPortDropTests
     }
 
     [AvaloniaTest]
-    public void PortDropWithLegacyMutationService_DoesNotOfferNonAtomicCreation()
-    {
-        var graph = new GraphModel();
-        var source = new FilterEffectInputNode { Position = (20, 40) };
-        graph.Nodes.Add(source);
-        using var vm = CreateViewModel(graph, new Mock<INodeGraphMutationService>().Object);
-        var view = new NodeGraphView { DataContext = vm };
-        var window = new Window { Content = view, Width = 800, Height = 550 };
-        try
-        {
-            window.Show();
-            HeadlessTestHelpers.Render(3);
-            var socket = view.GetVisualDescendants().OfType<NodePortPoint>()
-                .Single(p => p.DataContext is OutputPortViewModel output && output.Model == source.Output);
-            Point from = socket.TranslatePoint(new Point(5, 5), window)!.Value;
-            Point to = new(440, 210);
-
-            window.MouseMove(from);
-            window.MouseDown(from, MouseButton.Left);
-            window.MouseMove(to, RawInputModifiers.LeftMouseButton);
-            window.MouseUp(to, MouseButton.Left);
-            HeadlessTestHelpers.Render(3);
-
-            Assert.That(view.PortDropMenu, Is.Null);
-            Assert.That(graph.Nodes, Has.Count.EqualTo(1));
-            Assert.That(graph.AllConnections, Is.Empty);
-        }
-        finally
-        {
-            view.DataContext = null;
-            window.Close();
-        }
-    }
-
-    [AvaloniaTest]
     [TestCase(0.5d)]
     [TestCase(2d)]
     public void FourPixelPortDrag_DoesNotOpenPickerAtDifferentZoomLevels(double scale)
@@ -215,7 +180,7 @@ public class NodeGraphPortDropTests
         var graph = new GraphModel();
         var source = new FilterEffectInputNode { Position = (20, 40) };
         graph.Nodes.Add(source);
-        using var vm = CreateViewModel(graph, new Mock<INodeGraphConnectedNodeMutationService>().Object);
+        using var vm = CreateViewModel(graph, new Mock<INodeGraphMutationService>().Object);
         var view = new NodeGraphView { DataContext = vm };
         var window = new Window { Content = view, Width = 800, Height = 550 };
         try
@@ -253,7 +218,7 @@ public class NodeGraphPortDropTests
         var graph = new GraphModel();
         var source = new RandomSingleNode();
         graph.Nodes.Add(source);
-        var mutation = new Mock<INodeGraphConnectedNodeMutationService>();
+        var mutation = new Mock<INodeGraphMutationService>();
         using var vm = CreateViewModel(graph, mutation.Object);
         var item = new GraphNodeRegistry.RegistryItem("Disposable node", Colors.Teal,
             typeof(DisposableCandidateNode));
