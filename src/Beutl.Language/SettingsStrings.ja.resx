@@ -76,10 +76,6 @@
     <value>デバイス情報</value>
     <comment/>
   </data>
-  <data name="EditorSettings" xml:space="preserve">
-    <value>エディタ設定</value>
-    <comment/>
-  </data>
   <data name="DecoderPriority" xml:space="preserve">
     <value>デコーダーの優先順位</value>
     <comment/>
@@ -150,10 +146,6 @@
   </data>
   <data name="AutoAdjustSceneDuration_Description" xml:space="preserve">
     <value>要素を追加したとき、シーンの長さを調整する必要がある場合、自動で調整します。</value>
-    <comment/>
-  </data>
-  <data name="SomeSettingsHaveBeenMoved" xml:space="preserve">
-    <value>いくつかの設定が移動しました。</value>
     <comment/>
   </data>
   <data name="EnablePointerLockInProperty" xml:space="preserve">

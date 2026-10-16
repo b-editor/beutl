@@ -41,8 +41,7 @@ public class ViewSettingsPagePaletteTests
 
     private static void AssertSwatchesBindToTheirColorItem()
     {
-        var viewModel = new ViewSettingsPageViewModel(
-            new Lazy<EditorSettingsPageViewModel>(() => new EditorSettingsPageViewModel()));
+        var viewModel = new ViewSettingsPageViewModel();
         var page = new ViewSettingsPage { DataContext = viewModel };
         var window = new Window { Content = page, Width = 900, Height = 700 };
 

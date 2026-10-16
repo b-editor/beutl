@@ -80,10 +80,6 @@
   <data name="DeviceInformation" xml:space="preserve">
     <value>Información del dispositivo</value>
   </data>
-  <data name="EditorSettings" xml:space="preserve">
-    <value>Configuración del editor</value>
-    <comment />
-  </data>
   <data name="DecoderPriority" xml:space="preserve">
     <value>Prioridad del decodificador</value>
     <comment />
@@ -154,10 +150,6 @@
   </data>
   <data name="AutoAdjustSceneDuration_Description" xml:space="preserve">
     <value>Cuando se agregan elementos, si es necesario ajustar la duración de la escena, se hará automáticamente.</value>
-    <comment />
-  </data>
-  <data name="SomeSettingsHaveBeenMoved" xml:space="preserve">
-    <value>Algunos ajustes se han movido.</value>
     <comment />
   </data>
   <data name="EnablePointerLockInProperty" xml:space="preserve">

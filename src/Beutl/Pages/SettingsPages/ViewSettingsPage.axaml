@@ -171,19 +171,6 @@
                     </ctrls:OptionsGroupPanel>
                 </Border>
 
-                <TextBlock Margin="0,16,0,0"
-                           Text="{x:Static lang:SettingsStrings.EditorSettings}"
-                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
-
-                <Border Classes="options-group">
-                    <ctrls:OptionsGroupPanel>
-                        <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.SomeSettingsHaveBeenMoved}"
-                                                  Header="{x:Static lang:SettingsStrings.EditorSettings}"
-                                                  Navigates="True"
-                                                  NavigationCommand="{Binding NavigateToEditorSettings}" />
-                    </ctrls:OptionsGroupPanel>
-                </Border>
-
             </StackPanel>
         </ScrollViewer>
     </Grid>
