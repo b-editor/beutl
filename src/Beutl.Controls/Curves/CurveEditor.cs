@@ -312,24 +312,18 @@ public class CurveEditor : Control
     {
         if (Points is null) return;
 
-        var sorted = Points.OrderBy(p => p.Point.X).ToArray();
+        // Sort the indices, so the dragged point is found again after it passes a neighbor.
+        int[] order = Enumerable.Range(0, Points.Count).OrderBy(i => Points[i].Point.X).ToArray();
+        CurveControlPoint[] sorted = order.Select(i => Points[i]).ToArray();
         for (int i = 0; i < sorted.Length; i++)
         {
             Points[i] = sorted[i];
         }
 
-        // Update selected index after sorting
         if (_selectedIndex >= 0 && _draggingIndex >= 0)
         {
-            for (int i = 0; i < sorted.Length; i++)
-            {
-                if (Points[i].Point == sorted[_draggingIndex].Point)
-                {
-                    _selectedIndex = i;
-                    _draggingIndex = i;
-                    break;
-                }
-            }
+            _draggingIndex = Array.IndexOf(order, _draggingIndex);
+            _selectedIndex = _draggingIndex;
         }
     }
 
