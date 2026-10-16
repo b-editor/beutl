@@ -52,11 +52,10 @@ internal static class CoreObjectPickerHelper
 
     public static Task PickTargetAsync(Control control, ICoreObjectEditorViewModel viewModel)
     {
-        return PickerGuard.RunAsync(control, () =>
-            TargetSelectionHelper.HandleSelectTargetRequestAsync<ICoreObjectEditorViewModel, CoreObject>(
-                control,
-                viewModel,
-                vm => vm.GetAvailableTargets(),
-                (vm, target) => vm.SetTarget(target)));
+        return TargetSelectionHelper.HandleSelectTargetRequestAsync<ICoreObjectEditorViewModel, CoreObject>(
+            control,
+            viewModel,
+            vm => vm.GetAvailableTargets(),
+            (vm, target) => vm.SetTarget(target));
     }
 }

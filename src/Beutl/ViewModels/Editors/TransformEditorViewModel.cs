@@ -24,7 +24,7 @@ public enum KnownTransformType
 internal sealed record KnownTransform(
     KnownTransformType Kind, Type Type, Func<Transform> Create, Func<string> Name, string? IconKey);
 
-public sealed class TransformEditorViewModel : GroupableEditorViewModel<Transform, TransformGroup, FallbackTransform>
+public sealed class TransformEditorViewModel : GroupableEditorViewModel<Transform, TransformGroup, FallbackTransform>, IPresenterEditorViewModel
 {
     // In the order the menus list them.
     internal static IReadOnlyList<KnownTransform> KnownTransforms { get; } =
@@ -84,6 +84,8 @@ public sealed class TransformEditorViewModel : GroupableEditorViewModel<Transfor
     public ReadOnlyReactivePropertySlim<bool> IsPresenter { get; }
 
     public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
+
+    void IPresenterEditorViewModel.SetTarget(CoreObject? target) => SetTarget(target as Transform);
 
     public void ChangeTransform(Transform instance) => ChangeValue(instance);
 

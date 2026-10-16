@@ -9,7 +9,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Editors;
 
-public interface ICoreObjectEditorViewModel : IServiceProvider
+public interface ICoreObjectEditorViewModel : IServiceProvider, IPresenterEditorViewModel
 {
     string Header { get; }
 
@@ -27,8 +27,6 @@ public interface ICoreObjectEditorViewModel : IServiceProvider
 
     ReadOnlyReactivePropertySlim<bool> IsNull { get; }
 
-    ReadOnlyReactivePropertySlim<bool> IsPresenter { get; }
-
     ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
 
     IReadOnlyReactiveProperty<bool> CanCopy { get; }
@@ -37,15 +35,9 @@ public interface ICoreObjectEditorViewModel : IServiceProvider
 
     IPropertyAdapter PropertyAdapter { get; }
 
-    bool IsDisposed { get; }
-
     void SetNewInstance(Type type);
 
-    void SetTarget(CoreObject? target);
-
     void SetNull();
-
-    IReadOnlyList<TargetObjectInfo> GetAvailableTargets();
 }
 
 public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICoreObjectEditorViewModel, IFallbackObjectViewModel

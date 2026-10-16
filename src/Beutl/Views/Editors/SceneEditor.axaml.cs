@@ -16,12 +16,11 @@ public partial class SceneEditor : UserControl
     {
         if (DataContext is not SceneEditorViewModel { IsDisposed: false } vm) return;
 
-        await PickerGuard.RunAsync(this, () =>
-            TargetSelectionHelper.HandleSelectTargetRequestAsync<SceneEditorViewModel, Scene>(
-                this,
-                vm,
-                viewModel => viewModel.GetAvailableScenes(),
-                (viewModel, target) => viewModel.SetTarget(target)));
+        await TargetSelectionHelper.HandleSelectTargetRequestAsync<SceneEditorViewModel, Scene>(
+            this,
+            vm,
+            viewModel => viewModel.GetAvailableScenes(),
+            (viewModel, target) => viewModel.SetTarget(target));
     }
 
     private void SetNullClick(object? sender, RoutedEventArgs e)

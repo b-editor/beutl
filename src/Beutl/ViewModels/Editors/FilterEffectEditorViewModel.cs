@@ -6,7 +6,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class FilterEffectEditorViewModel : GroupableEditorViewModel<FilterEffect, FilterEffectGroup, FallbackFilterEffect>
+public sealed class FilterEffectEditorViewModel : GroupableEditorViewModel<FilterEffect, FilterEffectGroup, FallbackFilterEffect>, IPresenterEditorViewModel
 {
     public FilterEffectEditorViewModel(IPropertyAdapter<FilterEffect?> property)
         : base(property)
@@ -36,6 +36,8 @@ public sealed class FilterEffectEditorViewModel : GroupableEditorViewModel<Filte
     public ReadOnlyReactivePropertySlim<bool> IsPresenter { get; }
 
     public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
+
+    void IPresenterEditorViewModel.SetTarget(CoreObject? target) => SetTarget(target as FilterEffect);
 
     public void ChangeFilter(FilterEffect instance) => ChangeValue(instance);
 

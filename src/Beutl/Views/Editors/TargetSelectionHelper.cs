@@ -25,7 +25,8 @@ public static class TargetSelectionHelper
         return await tcs.Task;
     }
 
-    public static async Task HandleSelectTargetRequestAsync<TViewModel, TTarget>(
+    // Opens the picker through PickerGuard, so a second request to the same host while it is open does nothing.
+    public static Task HandleSelectTargetRequestAsync<TViewModel, TTarget>(
         Control host,
         TViewModel viewModel,
         Func<TViewModel, IReadOnlyList<TargetObjectInfo>> getAvailableTargets,
@@ -33,11 +34,14 @@ public static class TargetSelectionHelper
         where TViewModel : class
         where TTarget : CoreObject
     {
-        var result = await ShowTargetPickerAsync<TTarget>(host, getAvailableTargets(viewModel));
-
-        if (result != null)
+        return PickerGuard.RunAsync(host, async () =>
         {
-            setTarget(viewModel, result);
-        }
+            var result = await ShowTargetPickerAsync<TTarget>(host, getAvailableTargets(viewModel));
+
+            if (result != null)
+            {
+                setTarget(viewModel, result);
+            }
+        });
     }
 }
