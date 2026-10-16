@@ -139,15 +139,8 @@ public sealed partial class BrushEditor : UserControl
     {
         if (_flyout == null) return;
 
-        if (e.NewValue != null)
-        {
-            _flyout.DrawableName = GetDrawableName(e.NewValue);
-            _flyout.CanEditDrawable = true;
-        }
-        else
-        {
-            _flyout.CanEditDrawable = false;
-        }
+        _flyout.DrawableName = GetDrawableName(e.NewValue);
+        _flyout.CanEditDrawable = e.NewValue is not null;
     }
 
     private static string GetDrawableName(Drawable? drawable)
@@ -193,6 +186,10 @@ public sealed partial class BrushEditor : UserControl
             _flyout.BrushTypeChanged += OnBrushTypeChanged;
             _flyout.ChangeDrawableClicked += OnChangeDrawableClicked;
             _flyout.EditDrawableClicked += OnEditDrawableClicked;
+
+            // OnPropertyChanged follows the brushes set from now on.
+            if (OriginalBrush is Media.DrawableBrush drawableBrush)
+                drawableBrush.Drawable.ValueChanged += OnDrawableBrushPropertyChanged;
         }
 
         _flyout.Brush = Brush;
