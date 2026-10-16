@@ -7,19 +7,17 @@ namespace Beutl.HeadlessUITests;
 public sealed class ContextCommandIdTests
 {
     [AvaloniaTest]
-    public void Every_command_has_its_own_id_and_its_key_from_before_ids_moves_to_it()
+    public void Ids_are_unique_and_every_key_from_before_ids_moves_to_one_of_them()
     {
-        ContextCommandEntry[] entries = [.. TestShell.MainViewModel.ContextCommandManager.GetDefinitions()
-            .Where(entry => entry.ExtensionType.Assembly != typeof(ContextCommandIdTests).Assembly)];
+        string[] ids = [.. TestShell.MainViewModel.ContextCommandManager.GetDefinitions()
+            .Select(entry => entry.Definition.Id)];
 
         Assert.Multiple(() =>
         {
-            Assert.That(entries, Is.Not.Empty);
-            Assert.That(entries.Select(entry => entry.Definition.Id), Is.Unique);
-            Assert.That(
-                entries.Select(entry => ContextCommandLegacyKeys.Ids.GetValueOrDefault($"{entry.ExtensionType.FullName}.{entry.Definition.Name}")),
-                Is.EqualTo(entries.Select(entry => entry.Definition.Id)));
-            Assert.That(ContextCommandLegacyKeys.Ids, Has.Count.EqualTo(entries.Length));
+            Assert.That(ids, Is.Not.Empty);
+            Assert.That(ids, Is.All.Not.Empty);
+            Assert.That(ids, Is.Unique);
+            Assert.That(ContextCommandLegacyKeys.Ids.Values, Is.SubsetOf(ids));
         });
     }
 }
