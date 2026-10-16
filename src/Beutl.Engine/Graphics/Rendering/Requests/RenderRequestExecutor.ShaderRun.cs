@@ -308,23 +308,22 @@ internal sealed partial class RenderRequestExecutor
                 ShaderExecutionContext? context = contexts?[localIndex];
                 if (layout.Kind == SkslBindingKind.Uniform)
                 {
-                    ShaderUniformBinding binding = description.Uniforms[layout.BindingIndex];
-                    SkslUniformDeclaration declaration = description.Source.Uniforms[binding.Name];
-                    ShaderUniformValue value = binding.Bind(declaration, context);
-                    SkslUniformAssignment.SetUniform(
-                        uniforms,
+                    ShaderArgumentBinder.BindUniform(
+                        description,
+                        layout.BindingIndex,
                         layout.MergedName,
-                        declaration,
-                        value);
+                        context,
+                        uniforms);
                 }
                 else
                 {
-                    ShaderResourceBinding binding = description.Resources[layout.BindingIndex];
-                    SKShader child = binding.Bind(context
-                        ?? throw new InvalidOperationException(
-                            "A shader resource binding requires an execution context."));
-                    children.Add(child);
-                    runtimeChildren[layout.MergedName] = child;
+                    ShaderArgumentBinder.BindResource(
+                        description,
+                        layout.BindingIndex,
+                        layout.MergedName,
+                        context,
+                        runtimeChildren,
+                        children);
                 }
             }
         }
