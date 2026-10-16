@@ -64,14 +64,10 @@ public interface INodeGraphMutationService
     /// <summary>Disconnects a specific known <see cref="Connection"/>.
     /// Commits <c>DisconnectPort</c>.</summary>
     void DisconnectConnection(GraphModel graph, Connection connection);
-}
 
-/// <summary>Optional atomic node creation capability for a port drop on empty graph space.
-/// Implementations of <see cref="INodeGraphMutationService"/> are not required to support it.</summary>
-public interface INodeGraphConnectedNodeMutationService : INodeGraphMutationService
-{
-    /// <summary>Adds a node and connects it in one undo entry. Pass <paramref name="newPort"/>
-    /// as null for a dynamic-port node. Returns false without adding an undo entry when rejected.</summary>
+    /// <summary>Adds a node and connects it in one undo entry, for a port drop on empty graph space. Pass
+    /// <paramref name="newPort"/> as null for a dynamic-port node. Returns false without adding an undo entry
+    /// when rejected.</summary>
     bool AddNodeAndConnect(GraphModel graph, GraphNode node, double x, double y,
         INodePort existingPort, INodePort? newPort);
 }
