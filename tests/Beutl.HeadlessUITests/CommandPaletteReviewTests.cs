@@ -177,9 +177,8 @@ public sealed class CommandPaletteReviewTests
     {
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
         [
-            new("Collectible", "Collectible command")
+            new("test.collectible", "Collectible command")
             {
-                Id = "test.collectible",
                 Scope = ContextCommandScope.Extension,
                 ExecuteAsync = static _ => Task.CompletedTask
             }

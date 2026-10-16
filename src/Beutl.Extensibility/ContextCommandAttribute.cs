@@ -29,12 +29,12 @@ public interface IContextCommandEditorStateNotifier
 
 public class ContextCommandExecution
 {
-    public ContextCommandExecution(string commandName)
+    public ContextCommandExecution(string commandId)
     {
-        CommandName = commandName;
+        CommandId = commandId;
     }
 
-    public string CommandName { get; }
+    public string CommandId { get; }
 
     public KeyEventArgs? KeyEventArgs { get; set; }
 
@@ -74,15 +74,13 @@ public enum ContextCommandScope
 }
 
 public class ContextCommandDefinition(
-    string name,
+    string id,
     string? displayName = null,
     string? description = null,
     ContextCommandKeyGesture[]? keyGestures = null)
 {
-    public string Name { get; init; } = name;
-
     // keymap.json saves the gestures under it, so it must not change.
-    public required string Id { get; init; }
+    public string Id { get; } = id;
 
     public string? DisplayName { get; init; } = displayName;
 
@@ -146,11 +144,11 @@ public class ContextCommandDefinition(
 
 // A command that the open context of type TContext handles.
 public class ContextCommandDefinition<TContext>(
-    string name,
+    string id,
     string? displayName = null,
     string? description = null,
     ContextCommandKeyGesture[]? keyGestures = null)
-    : ContextCommandDefinition(name, displayName, description, keyGestures)
+    : ContextCommandDefinition(id, displayName, description, keyGestures)
     where TContext : class
 {
     public required Func<TContext, ContextCommandExecution, Task> ExecuteOnAsync { get; init; }

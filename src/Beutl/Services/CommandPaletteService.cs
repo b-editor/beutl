@@ -49,8 +49,8 @@ public sealed class CommandPaletteService
 
         foreach (ContextCommandEntry entry in _commandManager.GetDefinitions())
         {
-            string commandName = entry.Definition.Name;
-            if (entry.Definition.Name == MainViewExtension.ShowCommandPaletteCommandName)
+            string commandId = entry.Definition.Id;
+            if (commandId == MainViewExtension.ShowCommandPaletteCommandId)
             {
                 continue;
             }
@@ -72,7 +72,7 @@ public sealed class CommandPaletteService
             }
 
             string displayName = string.IsNullOrEmpty(entry.Definition.DisplayName)
-                ? entry.Definition.Name
+                ? entry.Definition.Id
                 : entry.Definition.DisplayName!;
             string category = ResolveCategoryName(entry.ExtensionType);
             KeyGesture? gesture = entry.KeyGestures
@@ -109,7 +109,7 @@ public sealed class CommandPaletteService
                 IEditorContext? editorContext = activeContext;
                 ContextCommandDefinition extensionDefinition = entry.Definition;
                 result.Add(new PaletteCommand(
-                    Id: $"{entry.ExtensionType.FullName}.{entry.Definition.Name}",
+                    Id: entry.Definition.Id,
                     DisplayName: displayName,
                     Description: entry.Definition.Description,
                     CategoryName: category,
@@ -138,17 +138,17 @@ public sealed class CommandPaletteService
                 (context as IContextCommandStateNotifier)?.CanExecuteChanged;
 
             result.Add(new PaletteCommand(
-                Id: $"{entry.ExtensionType.FullName}.{entry.Definition.Name}",
+                Id: entry.Definition.Id,
                 DisplayName: displayName,
                 Description: entry.Definition.Description,
                 CategoryName: category,
                 KeyGesture: gesture,
-                CanExecute: () => definition.CanRun(context, CreateExecution(commandName, activeContext, null)),
+                CanExecute: () => definition.CanRun(context, CreateExecution(commandId, activeContext, null)),
                 ExecuteAsync: interaction =>
                 {
                     // スロットル窓や状態変化で表示と実行可否がずれる可能性があるため、
                     // 実行直前にもう一度 CanExecute を確認してから Execute する。
-                    var execution = CreateExecution(commandName, activeContext, interaction);
+                    var execution = CreateExecution(commandId, activeContext, interaction);
                     return definition.CanRun(context, execution)
                         ? definition.RunAsync(context, execution)
                         : Task.CompletedTask;
@@ -195,9 +195,9 @@ public sealed class CommandPaletteService
     }
 
     private ContextCommandExecution CreateExecution(
-        string commandName, IEditorContext? editorContext, IContextCommandInteraction? interaction)
+        string commandId, IEditorContext? editorContext, IContextCommandInteraction? interaction)
     {
-        return new ContextCommandExecution(commandName)
+        return new ContextCommandExecution(commandId)
         {
             EditorContext = editorContext,
             Services = _contextServices,
@@ -213,7 +213,7 @@ public sealed class CommandPaletteService
 
         using (lease)
         {
-            return definition.CanRun(null, CreateExecution(definition.Name, editorContext, null));
+            return definition.CanRun(null, CreateExecution(definition.Id, editorContext, null));
         }
     }
 
@@ -227,7 +227,7 @@ public sealed class CommandPaletteService
         // Keep the extension alive until its entire asynchronous operation (including prompts) ends.
         using (lease)
         {
-            var execution = CreateExecution(definition.Name, editorContext, interaction);
+            var execution = CreateExecution(definition.Id, editorContext, interaction);
             if (definition.CanRun(null, execution))
                 await definition.RunAsync(null, execution);
         }

@@ -10,12 +10,12 @@ namespace Beutl.Editor.Components.Helpers;
 
 public class GetCommandGestureExtension : MarkupExtension
 {
-    public GetCommandGestureExtension(string name)
+    public GetCommandGestureExtension(string id)
     {
-        Name = name;
+        Id = id;
     }
 
-    public string Name { get; set; }
+    public string Id { get; set; }
 
     public Type? ExtensionType { get; set; }
 
@@ -47,16 +47,16 @@ public class GetCommandGestureExtension : MarkupExtension
             .ToBinding();
     }
 
-    private KeyGesture? GetKeyGestureFromExtensionType(Type extensionType) => GetKeyGesture(extensionType, Name);
+    private KeyGesture? GetKeyGestureFromExtensionType(Type extensionType) => GetKeyGesture(extensionType, Id);
 
     // The gesture of the command for this platform, for menus that are built in code.
-    internal static KeyGesture? GetKeyGesture(Type extensionType, string name)
+    internal static KeyGesture? GetKeyGesture(Type extensionType, string id)
     {
         if (AppHelper.GetContextCommandManager?.Invoke() is not ContextCommandManager cm)
             return null;
 
         var entries = cm.GetDefinitions(extensionType);
-        var e = entries.FirstOrDefault(i => i.Definition.Name == name);
+        var e = entries.FirstOrDefault(i => i.Definition.Id == id);
         if (e == null)
             return null;
 

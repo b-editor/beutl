@@ -12,5 +12,5 @@ internal static class ContextCommandTestExtensions
         => extension.Definition(execution).CanRun(context, execution);
 
     public static ContextCommandDefinition Definition(this ViewExtension extension, ContextCommandExecution execution)
-        => extension.ContextCommands.Single(definition => definition.Name == execution.CommandName);
+        => extension.ContextCommands.Single(definition => definition.Id == execution.CommandId);
 }

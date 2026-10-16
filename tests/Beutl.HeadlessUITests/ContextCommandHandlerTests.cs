@@ -65,9 +65,8 @@ public sealed class ContextCommandHandlerTests
     {
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
         [
-            new ContextCommandDefinition<Counter>("Count", "Count", null, [new ContextCommandKeyGesture("F5")])
+            new ContextCommandDefinition<Counter>("test.count", "Count", null, [new ContextCommandKeyGesture("F5")])
             {
-                Id = "test.count",
                 CanExecuteOn = (counter, _) => counter.CanCount,
                 ExecuteOnAsync = (counter, _) =>
                 {

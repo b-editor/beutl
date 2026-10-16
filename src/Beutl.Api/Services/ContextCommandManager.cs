@@ -198,7 +198,7 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
             if (!HasMatchingGesture(entry, pid, args))
                 continue;
 
-            var execution = new ContextCommandExecution(entry.Definition.Name) { KeyEventArgs = args };
+            var execution = new ContextCommandExecution(entry.Definition.Id) { KeyEventArgs = args };
             if (!entry.Definition.CanRun(context, execution))
                 continue;
 

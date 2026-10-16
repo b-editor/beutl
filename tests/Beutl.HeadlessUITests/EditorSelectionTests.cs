@@ -54,7 +54,7 @@ public sealed class EditorSelectionTests
 
         if (fromTimeline)
         {
-            await TimelineTabExtension.Instance.RunAsync(timeline, new ContextCommandExecution("Delete"));
+            await TimelineTabExtension.Instance.RunAsync(timeline, new ContextCommandExecution("timeline.delete"));
         }
         else
         {

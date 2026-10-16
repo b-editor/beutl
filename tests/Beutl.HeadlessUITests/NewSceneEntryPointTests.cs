@@ -31,7 +31,7 @@ public class NewSceneEntryPointTests
         });
 
         // Ctrl+N (Cmd+N on macOS) and the palette's "Create new scene" entry run this context command
-        await MainViewExtension.Instance.RunAsync(TestShell.MainViewModel, new ContextCommandExecution("CreateNewFile"));
+        await MainViewExtension.Instance.RunAsync(TestShell.MainViewModel, new ContextCommandExecution("main.createNewFile"));
 
         Assert.Multiple(() =>
         {

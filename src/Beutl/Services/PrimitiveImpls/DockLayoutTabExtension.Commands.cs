@@ -24,18 +24,17 @@ public sealed partial class DockLayoutTabExtension
 
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
-        Command("SaveDockLayout", "dockLayout.saveDockLayout", Strings.SaveDockLayoutAs, needsPresets: false, SaveAsync),
-        Command("ApplyDockLayout", "dockLayout.applyDockLayout", Strings.ApplyDockLayout, needsPresets: true, ApplyAsync),
-        Command("RenameDockLayout", "dockLayout.renameDockLayout", Strings.RenameDockLayout, needsPresets: true, RenameAsync),
-        Command("DeleteDockLayout", "dockLayout.deleteDockLayout", Strings.DeleteDockLayout, needsPresets: true, DeleteAsync),
+        Command("dockLayout.saveDockLayout", Strings.SaveDockLayoutAs, needsPresets: false, SaveAsync),
+        Command("dockLayout.applyDockLayout", Strings.ApplyDockLayout, needsPresets: true, ApplyAsync),
+        Command("dockLayout.renameDockLayout", Strings.RenameDockLayout, needsPresets: true, RenameAsync),
+        Command("dockLayout.deleteDockLayout", Strings.DeleteDockLayout, needsPresets: true, DeleteAsync),
     ];
 
     private ContextCommandDefinition Command(
-        string name, string id, string displayName, bool needsPresets,
+        string id, string displayName, bool needsPresets,
         Func<DockLayoutViewModel, IContextCommandInteraction, Task> execute)
-        => new(name, displayName, "", [])
+        => new(id, displayName, "", [])
         {
-            Id = id,
             Scope = ContextCommandScope.Extension,
             CanExecute = execution => execution.EditorContext is EditViewModel && (!needsPresets || PresetService.Items.Count > 0),
             ExecuteAsync = async execution =>

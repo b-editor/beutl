@@ -92,11 +92,11 @@ public class ContextCommandInputTests
 
                 // Typing "m" into the terminal must not toggle a marker. A command that cannot run leaves the key
                 // unhandled (ContextCommandHandlerTests), so Avalonia still delivers the TextInput to the shell.
-                var fromTerminal = new ContextCommandExecution("ToggleMarker") { KeyEventArgs = KeyDownFrom(terminalView) };
+                var fromTerminal = new ContextCommandExecution("editor.toggleMarker") { KeyEventArgs = KeyDownFrom(terminalView) };
                 Assert.That(SceneEditorExtension.Instance.CanRun(editor, fromTerminal), Is.False);
 
                 // Negative control: the same gesture from a non-text control still runs the shortcut.
-                var fromEditor = new ContextCommandExecution("ToggleMarker") { KeyEventArgs = KeyDownFrom(new Border()) };
+                var fromEditor = new ContextCommandExecution("editor.toggleMarker") { KeyEventArgs = KeyDownFrom(new Border()) };
                 Assert.That(SceneEditorExtension.Instance.CanRun(editor, fromEditor), Is.True);
                 await SceneEditorExtension.Instance.RunAsync(editor, fromEditor);
 

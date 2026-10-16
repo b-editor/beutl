@@ -90,7 +90,7 @@ public class PaletteCommandTests
 
     private static CommandPaletteItemViewModel PaletteSplit(CommandPaletteViewModel palette)
     {
-        return palette.FilteredCommands.Single(i => i.Command.Id == $"{typeof(TimelineTabExtension).FullName}.Split");
+        return palette.FilteredCommands.Single(i => i.Command.Id == "timeline.split");
     }
 
     [AvaloniaTest]
@@ -108,7 +108,7 @@ public class PaletteCommandTests
             return "60f";
         });
 
-        await RunAsync(editor, Execution("GotoTimecode", editor, interaction));
+        await RunAsync(editor, Execution("editor.gotoTimecode", editor, interaction));
 
         Assert.That(Playhead(editor), Is.EqualTo(TimeSpan.FromSeconds(2)));
         Assert.That(interaction.IsDone, Is.True);
@@ -139,7 +139,7 @@ public class PaletteCommandTests
         HeadlessTestHelpers.Settle();
         string? prefilled = null;
 
-        await RunAsync(editor, Execution("GotoTimecode", editor,
+        await RunAsync(editor, Execution("editor.gotoTimecode", editor,
             new ScriptedInteraction().Input(options => prefilled = options.Value)));
 
         Assert.That((prefilled, Playhead(editor)), Is.EqualTo(("00:00:00.501", frame501)));
@@ -152,7 +152,7 @@ public class PaletteCommandTests
         int requests = 0;
         using IDisposable subscription = editor.Player.BeginEditTimecodeRequested.Subscribe(_ => requests++);
 
-        await RunAsync(editor, new ContextCommandExecution("GotoTimecode"));
+        await RunAsync(editor, new ContextCommandExecution("editor.gotoTimecode"));
 
         Assert.That(requests, Is.EqualTo(1));
     }
@@ -162,10 +162,10 @@ public class PaletteCommandTests
     {
         EditViewModel editor = await OpenEditorForNewScene("palette-markers");
         Scene scene = editor.Scene;
-        Assert.That(CanRun(editor, Execution("GoToMarker", editor)), Is.False, "No marker to go to yet.");
+        Assert.That(CanRun(editor, Execution("editor.goToMarker", editor)), Is.False, "No marker to go to yet.");
 
         SetPlayhead(editor, 1);
-        await RunAsync(editor, Execution("AddMarker", editor, new ScriptedInteraction().Input(options =>
+        await RunAsync(editor, Execution("editor.addMarker", editor, new ScriptedInteraction().Input(options =>
         {
             Assert.That(options.Validate!("  "), Is.EqualTo(Strings.CommandPalette_ValueRequired));
             return options.Value == "Marker 1" ? "Opening" : null;
@@ -173,10 +173,10 @@ public class PaletteCommandTests
         Assert.That(LastHistoryName(editor), Is.EqualTo(CommandNames.AddMarker));
 
         // The same frame keeps one marker, renamed instead of duplicated.
-        await RunAsync(editor, Execution("AddMarker", editor,
+        await RunAsync(editor, Execution("editor.addMarker", editor,
             new ScriptedInteraction().Input(options => options.Value == "Opening" ? "Intro" : null)));
         SetPlayhead(editor, 3);
-        await RunAsync(editor, Execution("AddMarker", editor, new ScriptedInteraction().Input("Outro")));
+        await RunAsync(editor, Execution("editor.addMarker", editor, new ScriptedInteraction().Input("Outro")));
         Assert.That(scene.Markers.Select(m => (m.Time, m.Name)), Is.EqualTo(new[]
         {
             (TimeSpan.FromSeconds(1), "Intro"),
@@ -185,7 +185,7 @@ public class PaletteCommandTests
 
         SetPlayhead(editor, 0);
         var goTo = new ScriptedInteraction().Pick<SceneMarker>(item => item.Label == "Outro");
-        await RunAsync(editor, Execution("GoToMarker", editor, goTo));
+        await RunAsync(editor, Execution("editor.goToMarker", editor, goTo));
         Assert.Multiple(() =>
         {
             Assert.That(Playhead(editor), Is.EqualTo(TimeSpan.FromSeconds(3)));
@@ -196,7 +196,7 @@ public class PaletteCommandTests
             }));
         });
 
-        await RunAsync(editor, Execution("RenameMarker", editor, new ScriptedInteraction()
+        await RunAsync(editor, Execution("editor.renameMarker", editor, new ScriptedInteraction()
             .Pick<SceneMarker>(item => item.Label == "Intro")
             .Input(options => options.Value == "Intro" ? "Cold open" : null)));
         Assert.Multiple(() =>
@@ -216,10 +216,10 @@ public class PaletteCommandTests
         TimelineTabExtension timeline = TimelineTabExtension.Instance;
         Element element = await AddRectAsync(editor, 0, 4, 0);
         CloseTimeline(editor);
-        Assert.That(CanRun(timeline, Execution("Rename", editor)), Is.False, "Nothing is selected yet.");
+        Assert.That(CanRun(timeline, Execution("timeline.rename", editor)), Is.False, "Nothing is selected yet.");
 
         editor.GetService<IEditorSelection>()!.SelectedObject.Value = element;
-        await RunAsync(timeline, Execution("Rename", editor, new ScriptedInteraction()
+        await RunAsync(timeline, Execution("timeline.rename", editor, new ScriptedInteraction()
             .Input(options => options.Value == element.Name ? "Title" : null)));
         Assert.Multiple(() =>
         {
@@ -228,9 +228,9 @@ public class PaletteCommandTests
         });
 
         SetPlayhead(editor, 4);
-        Assert.That(CanRun(timeline, Execution("Split", editor)), Is.False, "The playhead is past the element.");
+        Assert.That(CanRun(timeline, Execution("timeline.split", editor)), Is.False, "The playhead is past the element.");
         SetPlayhead(editor, 1);
-        await RunAsync(timeline, Execution("Split", editor));
+        await RunAsync(timeline, Execution("timeline.split", editor));
         Assert.That(editor.Scene.Children.Select(e => (e.Start, e.Length)), Is.EquivalentTo(new[]
         {
             (TimeSpan.Zero, TimeSpan.FromSeconds(1)),
@@ -239,7 +239,7 @@ public class PaletteCommandTests
 
         // Saving a template is refused for a name that cannot be a file name; cancelling saves nothing.
         int templates = ObjectTemplateService.Instance.FindByBaseType(typeof(Element)).Count();
-        await RunAsync(timeline, Execution("SaveAsTemplate", editor, new ScriptedInteraction().Input(options =>
+        await RunAsync(timeline, Execution("timeline.saveAsTemplate", editor, new ScriptedInteraction().Input(options =>
         {
             Assert.That(options.Validate!("a/b"), Is.EqualTo(MessageStrings.InvalidString));
             return null;
@@ -249,9 +249,9 @@ public class PaletteCommandTests
         element.IsLocked = true;
         Assert.Multiple(() =>
         {
-            Assert.That(CanRun(timeline, Execution("Rename", editor)), Is.False);
-            Assert.That(CanRun(timeline, Execution("Split", editor)), Is.False);
-            Assert.That(CanRun(timeline, Execution("SaveAsTemplate", editor)), Is.True);
+            Assert.That(CanRun(timeline, Execution("timeline.rename", editor)), Is.False);
+            Assert.That(CanRun(timeline, Execution("timeline.split", editor)), Is.False);
+            Assert.That(CanRun(timeline, Execution("timeline.saveAsTemplate", editor)), Is.True);
         });
     }
 
@@ -316,7 +316,7 @@ public class PaletteCommandTests
         editor.GetService<IEditorSelection>()!.SelectedObject.Value = second;
         SetPlayhead(editor, 2);
 
-        await RunAsync(TimelineTabExtension.Instance, Execution("Split", editor));
+        await RunAsync(TimelineTabExtension.Instance, Execution("timeline.split", editor));
         HeadlessTestHelpers.Settle();
 
         Assert.That(editor.Scene.Children, Has.Count.EqualTo(4));
@@ -333,10 +333,10 @@ public class PaletteCommandTests
         element.Start = TimeSpan.FromSeconds(1.01);
         SetPlayhead(editor, 31 / 30d);
 
-        Assert.That(CanRun(TimelineTabExtension.Instance, Execution("Split", editor)), Is.False);
+        Assert.That(CanRun(TimelineTabExtension.Instance, Execution("timeline.split", editor)), Is.False);
 
         SetPlayhead(editor, 2);
-        Assert.That(CanRun(TimelineTabExtension.Instance, Execution("Split", editor)), Is.True);
+        Assert.That(CanRun(TimelineTabExtension.Instance, Execution("timeline.split", editor)), Is.True);
     }
 
     [AvaloniaTest]
@@ -352,8 +352,8 @@ public class PaletteCommandTests
         editor.GetService<IEditorSelection>()!.SelectedObject.Value = first;
         SetPlayhead(editor, 6);
 
-        Assert.That(CanRun(TimelineTabExtension.Instance, Execution("Split", editor)), Is.True);
-        await RunAsync(TimelineTabExtension.Instance, Execution("Split", editor));
+        Assert.That(CanRun(TimelineTabExtension.Instance, Execution("timeline.split", editor)), Is.True);
+        await RunAsync(TimelineTabExtension.Instance, Execution("timeline.split", editor));
         HeadlessTestHelpers.Settle();
 
         Assert.That(editor.Scene.Children.Where(e => e.ZIndex == 1).Select(e => (e.Start, e.Length)),
@@ -430,7 +430,7 @@ public class PaletteCommandTests
         SetPlayhead(editor, 1);
 
         var interaction = new ScriptedInteraction().Pick<Type>(item => item.Value == typeof(EllipseShape));
-        await RunAsync(LibraryTabExtension.Instance, Execution("AddElement", editor, interaction));
+        await RunAsync(LibraryTabExtension.Instance, Execution("library.addElement", editor, interaction));
         HeadlessTestHelpers.Settle();
 
         Element added = editor.Scene.Children.Single(e => e.Objects.OfType<EllipseShape>().Any());
@@ -452,7 +452,7 @@ public class PaletteCommandTests
         SceneSettingsTabExtension settings = SceneSettingsTabExtension.Instance;
         Assert.That(settings.DisplayName, Is.EqualTo(Strings.SceneSettings));
 
-        await RunAsync(settings, Execution("ChangeSceneSize", editor, new ScriptedInteraction().Input(options =>
+        await RunAsync(settings, Execution("sceneSettings.changeSceneSize", editor, new ScriptedInteraction().Input(options =>
         {
             Assert.Multiple(() =>
             {
@@ -462,12 +462,12 @@ public class PaletteCommandTests
             });
             return "1280 × 720";
         })));
-        await RunAsync(settings, Execution("ChangeSceneDuration", editor, new ScriptedInteraction().Input(options =>
+        await RunAsync(settings, Execution("sceneSettings.changeSceneDuration", editor, new ScriptedInteraction().Input(options =>
         {
             Assert.That(options.Validate!("00:00:00"), Is.EqualTo(MessageStrings.ValueLessThanOrEqualToZero));
             return "00:00:07";
         })));
-        await RunAsync(settings, Execution("ChangeSceneStart", editor, new ScriptedInteraction().Input("00:00:01")));
+        await RunAsync(settings, Execution("sceneSettings.changeSceneStart", editor, new ScriptedInteraction().Input("00:00:01")));
 
         Assert.Multiple(() =>
         {
@@ -501,7 +501,7 @@ public class PaletteCommandTests
         var interaction = new ScriptedInteraction().Pick<RenderScale>(item => item.Value == RenderScale.Quarter);
 
         await RunAsync(PreviewSettingsTabExtension.Instance, 
-            Execution("ChangePreviewRenderQuality", editor, interaction));
+            Execution("previewSettings.changePreviewRenderQuality", editor, interaction));
 
         Assert.Multiple(() =>
         {
@@ -519,7 +519,7 @@ public class PaletteCommandTests
         RenderScale current = quality.PreviewScale.Value;
         editor.Player.IsPlaying.Value = true;
 
-        await RunAsync(PreviewSettingsTabExtension.Instance, Execution("ChangePreviewRenderQuality", editor,
+        await RunAsync(PreviewSettingsTabExtension.Instance, Execution("previewSettings.changePreviewRenderQuality", editor,
             new ScriptedInteraction().Pick<RenderScale>(item => item.Value == current)));
 
         Assert.That((quality.PreviewScale.Value, editor.Player.IsPlaying.Value), Is.EqualTo((current, true)));
@@ -533,9 +533,9 @@ public class PaletteCommandTests
         IPreviewRenderQuality quality = editor.GetService<IPreviewRenderQuality>()!;
         editor.Player.IsPlaying.Value = true;
 
-        Assert.That(CanRun(PreviewSettingsTabExtension.Instance, Execution("ChangePreviewRenderQuality", editor)),
+        Assert.That(CanRun(PreviewSettingsTabExtension.Instance, Execution("previewSettings.changePreviewRenderQuality", editor)),
             Is.True, "A palette opened during playback would keep the entry disabled after playback stops.");
-        await RunAsync(PreviewSettingsTabExtension.Instance, Execution("ChangePreviewRenderQuality", editor,
+        await RunAsync(PreviewSettingsTabExtension.Instance, Execution("previewSettings.changePreviewRenderQuality", editor,
             new ScriptedInteraction().Pick<RenderScale>(item => item.Value == RenderScale.Half)));
 
         Assert.That((quality.PreviewScale.Value, editor.Player.IsPlaying.Value), Is.EqualTo((RenderScale.Half, false)));
@@ -548,12 +548,12 @@ public class PaletteCommandTests
         var service = new DockLayoutPresetService(Path.Combine(
             BeutlHomeIsolation.CurrentHome!, $"dock-layout-presets-{Guid.NewGuid():N}.json"));
         var layouts = new DockLayoutTabExtension(service);
-        Assert.That(CanRun(layouts, Execution("ApplyDockLayout", editor)), Is.False, "No layout saved yet.");
+        Assert.That(CanRun(layouts, Execution("dockLayout.applyDockLayout", editor)), Is.False, "No layout saved yet.");
 
-        await RunAsync(layouts, Execution("SaveDockLayout", editor, new ScriptedInteraction()
+        await RunAsync(layouts, Execution("dockLayout.saveDockLayout", editor, new ScriptedInteraction()
             .Input(options => options.Value == Strings.DockLayout ? "Editing" : null)));
-        await RunAsync(layouts, Execution("SaveDockLayout", editor, new ScriptedInteraction().Input("Color")));
-        await RunAsync(layouts, Execution("RenameDockLayout", editor, new ScriptedInteraction()
+        await RunAsync(layouts, Execution("dockLayout.saveDockLayout", editor, new ScriptedInteraction().Input("Color")));
+        await RunAsync(layouts, Execution("dockLayout.renameDockLayout", editor, new ScriptedInteraction()
             .Pick<DockLayoutPresetItem>(item => item.Label == "Editing")
             .Input(options =>
             {
@@ -570,13 +570,13 @@ public class PaletteCommandTests
             .First(t => t.ToolContext.Extension is LibraryTabExtension);
         editor.DockHost.CloseToolTab(library.ToolContext);
         HeadlessTestHelpers.Settle();
-        await RunAsync(layouts, Execution("ApplyDockLayout", editor, new ScriptedInteraction()
+        await RunAsync(layouts, Execution("dockLayout.applyDockLayout", editor, new ScriptedInteraction()
             .Pick<DockLayoutPresetItem>(item => item.Label == "Cut")));
         HeadlessTestHelpers.Settle();
         Assert.That(editor.DockHost.Factory.EnumerateTools().Any(t => t.ToolContext.Extension is LibraryTabExtension),
             Is.True);
 
-        await RunAsync(layouts, Execution("DeleteDockLayout", editor, new ScriptedInteraction()
+        await RunAsync(layouts, Execution("dockLayout.deleteDockLayout", editor, new ScriptedInteraction()
             .Pick<DockLayoutPresetItem>(item => item.Label == "Color")));
         Assert.That(service.Items.Select(i => i.Name.Value), Is.EqualTo(new[] { "Cut" }));
     }
@@ -587,15 +587,15 @@ public class PaletteCommandTests
         EditViewModel editor = await OpenEditorForNewScene("palette-history");
         HistoryTabExtension history = HistoryTabExtension.Instance;
         editor.HistoryManager.Clear();
-        Assert.That(CanRun(history, Execution("JumpToHistory", editor)), Is.False, "Only the initial state.");
+        Assert.That(CanRun(history, Execution("history.jumpToHistory", editor)), Is.False, "Only the initial state.");
 
         SceneSettingsTabExtension settings = SceneSettingsTabExtension.Instance;
-        await RunAsync(settings, Execution("ChangeSceneDuration", editor, new ScriptedInteraction().Input("00:00:05")));
-        await RunAsync(settings, Execution("ChangeSceneDuration", editor, new ScriptedInteraction().Input("00:00:06")));
+        await RunAsync(settings, Execution("sceneSettings.changeSceneDuration", editor, new ScriptedInteraction().Input("00:00:05")));
+        await RunAsync(settings, Execution("sceneSettings.changeSceneDuration", editor, new ScriptedInteraction().Input("00:00:06")));
         var interaction = new ScriptedInteraction()
             .Pick<HistoryEntry>(item => item.Value.IsInitial);
 
-        await RunAsync(history, Execution("JumpToHistory", editor, interaction));
+        await RunAsync(history, Execution("history.jumpToHistory", editor, interaction));
 
         IReadOnlyList<ContextCommandPickItem<HistoryEntry>> items = interaction.PickedFrom<HistoryEntry>();
         Assert.Multiple(() =>
@@ -618,8 +618,8 @@ public class PaletteCommandTests
         editor.Scene.Markers.Add(new SceneMarker(TimeSpan.FromSeconds(1), "Pending"));
         Assert.That(editor.HistoryManager.HasPendingOperations, Is.True, "The marker must be a pending edit.");
 
-        Assert.That(CanRun(history, Execution("JumpToHistory", editor)), Is.True);
-        await RunAsync(history, Execution("JumpToHistory", editor,
+        Assert.That(CanRun(history, Execution("history.jumpToHistory", editor)), Is.True);
+        await RunAsync(history, Execution("history.jumpToHistory", editor,
             new ScriptedInteraction().Pick<HistoryEntry>(item => item.Value.IsInitial)));
 
         Assert.That(editor.Scene.Markers, Is.Empty);
@@ -630,13 +630,13 @@ public class PaletteCommandTests
     {
         EditViewModel editor = await OpenEditorForNewScene("palette-history-cancel");
         SceneSettingsTabExtension settings = SceneSettingsTabExtension.Instance;
-        await RunAsync(settings, Execution("ChangeSceneDuration", editor, new ScriptedInteraction().Input("00:00:05")));
+        await RunAsync(settings, Execution("sceneSettings.changeSceneDuration", editor, new ScriptedInteraction().Input("00:00:05")));
         int current = editor.HistoryManager.CurrentIndex;
         // Cancelled as when the user switches editors after picking, while playback pauses.
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
-        await RunAsync(HistoryTabExtension.Instance, Execution("JumpToHistory", editor,
+        await RunAsync(HistoryTabExtension.Instance, Execution("history.jumpToHistory", editor,
             new ScriptedInteraction(cancellation.Token).Pick<HistoryEntry>(item => item.Value.IsInitial)));
 
         Assert.That(editor.HistoryManager.CurrentIndex, Is.EqualTo(current));
@@ -656,8 +656,8 @@ public class PaletteCommandTests
         ThemeRegistry.Register(other);
         try
         {
-            Assert.That(MainViewExtension.Instance.CanRun(main, new ContextCommandExecution("ChangeTheme")), Is.True);
-            await MainViewExtension.Instance.RunAsync(main, new ContextCommandExecution("ChangeTheme")
+            Assert.That(MainViewExtension.Instance.CanRun(main, new ContextCommandExecution("main.changeTheme")), Is.True);
+            await MainViewExtension.Instance.RunAsync(main, new ContextCommandExecution("main.changeTheme")
             {
                 Interaction = new ScriptedInteraction().Pick<ThemeDescriptor>(item => item.Value == theme)
             });
@@ -687,7 +687,7 @@ public class PaletteCommandTests
         MainViewModel main = TestShell.MainViewModel;
         var interaction = new ScriptedInteraction().Pick<string>(item => item.Value == firstPath);
         await MainViewExtension.Instance.RunAsync(
-            main, new ContextCommandExecution("OpenRecentProject") { Interaction = interaction });
+            main, new ContextCommandExecution("main.openRecentProject") { Interaction = interaction });
         HeadlessTestHelpers.Settle();
 
         Assert.Multiple(() =>
@@ -708,7 +708,7 @@ public class PaletteCommandTests
         {
             palette.Open();
             CommandPaletteItemViewModel item = palette.FilteredCommands.Single(i =>
-                i.Command.Id == $"{typeof(SceneSettingsTabExtension).FullName}.ChangeSceneDuration");
+                i.Command.Id == "sceneSettings.changeSceneDuration");
             Assert.That(item.IsEnabled, Is.True);
             palette.SelectedCommand.Value = item;
 

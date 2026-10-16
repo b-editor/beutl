@@ -13,9 +13,8 @@ public class ContextCommandDefinitionTests
     public void Normalize_MultiplePlatformlessGestures_KeepsAllPerPlatform()
     {
         var def = new ContextCommandDefinition(
-            "ExitTool",
-            keyGestures: [new ContextCommandKeyGesture("V"), new ContextCommandKeyGesture("Escape")])
-        { Id = "test.exitTool" };
+            "test.exitTool",
+            keyGestures: [new ContextCommandKeyGesture("V"), new ContextCommandKeyGesture("Escape")]);
 
         Assert.That(def.KeyGestures, Is.Not.Null);
         foreach (OSPlatform platform in s_platforms)
@@ -29,13 +28,12 @@ public class ContextCommandDefinitionTests
     public void Normalize_ExplicitPlatformGesture_OverridesFallback()
     {
         var def = new ContextCommandDefinition(
-            "Cmd",
+            "test.cmd",
             keyGestures:
             [
                 new ContextCommandKeyGesture("A"),
                 new ContextCommandKeyGesture("B", OSPlatform.Windows),
-            ])
-        { Id = "test.cmd" };
+            ]);
 
         string?[] windows = def.KeyGestures!.Where(g => g.Platform == OSPlatform.Windows).Select(g => g.KeyGesture).ToArray();
         string?[] osx = def.KeyGestures!.Where(g => g.Platform == OSPlatform.OSX).Select(g => g.KeyGesture).ToArray();
@@ -52,9 +50,8 @@ public class ContextCommandDefinitionTests
     {
         int runs = 0;
         bool enabled = false;
-        var definition = new ContextCommandDefinition("Run")
+        var definition = new ContextCommandDefinition("test.run")
         {
-            Id = "test.run",
             CanExecute = _ => enabled,
             ExecuteAsync = _ =>
             {
@@ -62,7 +59,7 @@ public class ContextCommandDefinitionTests
                 return Task.CompletedTask;
             }
         };
-        var execution = new ContextCommandExecution("Run");
+        var execution = new ContextCommandExecution("test.run");
 
         bool disabled = definition.CanRun(null, execution);
         enabled = true;
@@ -72,7 +69,7 @@ public class ContextCommandDefinitionTests
             Assert.That(disabled, Is.False);
             Assert.That(definition.CanRun(null, execution), Is.True);
             Assert.That(definition.CanRun(new object(), execution), Is.False);
-            Assert.That(new ContextCommandDefinition("None") { Id = "test.none" }.HasHandler, Is.False);
+            Assert.That(new ContextCommandDefinition("test.none").HasHandler, Is.False);
         });
         await definition.RunAsync(new object(), execution);
         await definition.RunAsync(null, execution);
@@ -82,17 +79,16 @@ public class ContextCommandDefinitionTests
     [Test]
     public async Task A_typed_command_runs_on_a_context_of_its_type()
     {
-        var definition = new ContextCommandDefinition<List<string>>("Add")
+        var definition = new ContextCommandDefinition<List<string>>("test.add")
         {
-            Id = "test.add",
             CanExecuteOn = (list, _) => list.Count == 0,
             ExecuteOnAsync = (list, execution) =>
             {
-                list.Add(execution.CommandName);
+                list.Add(execution.CommandId);
                 return Task.CompletedTask;
             }
         };
-        var execution = new ContextCommandExecution("Add");
+        var execution = new ContextCommandExecution("test.add");
         var list = new List<string>();
 
         Assert.Multiple(() =>
@@ -106,7 +102,7 @@ public class ContextCommandDefinitionTests
         await definition.RunAsync(list, execution);
         Assert.Multiple(() =>
         {
-            Assert.That(list, Is.EqualTo(new[] { "Add" }));
+            Assert.That(list, Is.EqualTo(new[] { "test.add" }));
             Assert.That(definition.CanRun(list, execution), Is.False);
         });
     }

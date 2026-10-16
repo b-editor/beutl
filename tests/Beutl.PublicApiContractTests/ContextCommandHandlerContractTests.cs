@@ -10,13 +10,12 @@ public sealed class ContextCommandHandlerContractTests
     {
         var completion = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        var definition = new ContextCommandDefinition("PluginCommand")
+        var definition = new ContextCommandDefinition("test.pluginCommand")
         {
-            Id = "test.pluginCommand",
             Scope = ContextCommandScope.Extension,
             ExecuteAsync = _ => completion.Task
         };
-        var execution = new ContextCommandExecution("PluginCommand");
+        var execution = new ContextCommandExecution("test.pluginCommand");
 
         Task operation = definition.RunAsync(null, execution);
 
@@ -45,10 +44,10 @@ public sealed class ContextCommandHandlerContractTests
         });
         ContextCommandPickItem<int> item = new("Editing", 42, "Timeline");
         var selected = await interaction.ShowQuickPickAsync<int>([item]);
-        var definition = new ContextCommandDefinition("Configure") { Id = "test.configure", Scope = ContextCommandScope.Extension };
-        var execution = new ContextCommandExecution(definition.Name) { Interaction = interaction };
+        var definition = new ContextCommandDefinition("test.configure") { Scope = ContextCommandScope.Extension };
+        var execution = new ContextCommandExecution(definition.Id) { Interaction = interaction };
 
-        Assert.That(new ContextCommandDefinition("Local") { Id = "test.local" }.Scope, Is.EqualTo(ContextCommandScope.Context));
+        Assert.That(new ContextCommandDefinition("test.local").Scope, Is.EqualTo(ContextCommandScope.Context));
     }
 
     private sealed class PluginInteraction : IContextCommandInteraction

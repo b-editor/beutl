@@ -109,9 +109,9 @@ internal sealed partial class VersionControlTabView : UserControl
         if (TopLevel.GetTopLevel(this)?.DataContext is { } window
             && AppHelper.GetContextCommandManager?.Invoke()?.GetDefinitions()
                 .Select(entry => entry.Definition)
-                .FirstOrDefault(definition => definition.Name == "EnableVersionControl") is { } definition)
+                .FirstOrDefault(definition => definition.Id == "main.enableVersionControl") is { } definition)
         {
-            var execution = new ContextCommandExecution(definition.Name);
+            var execution = new ContextCommandExecution(definition.Id);
             if (definition.CanRun(window, execution))
             {
                 await definition.RunAsync(window, execution);

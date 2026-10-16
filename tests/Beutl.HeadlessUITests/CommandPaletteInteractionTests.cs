@@ -332,7 +332,7 @@ public sealed class CommandPaletteInteractionTests
             await palette.ExecuteSelectedAsync();
             Assert.Multiple(() =>
             {
-                Assert.That(extension.Execution?.CommandName, Is.EqualTo("Global"));
+                Assert.That(extension.Execution?.CommandId, Is.EqualTo("test.global"));
                 Assert.That(extension.Execution?.EditorContext, Is.Null);
                 Assert.That(extension.Execution?.Services?.ExtensionProvider, Is.SameAs(provider));
                 Assert.That(extension.ContextCreations, Is.Zero);
@@ -501,9 +501,8 @@ public sealed class CommandPaletteInteractionTests
 
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
         [
-            new("Global", "Closed tool command")
+            new("test.global", "Closed tool command")
             {
-                Id = "test.global",
                 Scope = ContextCommandScope.Extension,
                 CanExecute = _ => Enabled,
                 ExecuteAsync = execution =>
@@ -513,9 +512,8 @@ public sealed class CommandPaletteInteractionTests
                     return Operation;
                 }
             },
-            new ContextCommandDefinition<IToolContext>("Local", "Open tool command")
+            new ContextCommandDefinition<IToolContext>("test.local", "Open tool command")
             {
-                Id = "test.local",
                 ExecuteOnAsync = (_, _) => Task.CompletedTask
             }
         ];

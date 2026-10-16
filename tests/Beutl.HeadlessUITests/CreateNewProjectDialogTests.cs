@@ -97,7 +97,7 @@ public class CreateNewProjectDialogTests
                 Assert.That(((System.Windows.Input.ICommand)command).CanExecute(null), Is.True);
                 Assert.That(
                     MainViewExtension.Instance.CanRun(
-                        TestShell.MainViewModel, new ContextCommandExecution("EnableVersionControl")),
+                        TestShell.MainViewModel, new ContextCommandExecution("main.enableVersionControl")),
                     Is.True);
             });
         }

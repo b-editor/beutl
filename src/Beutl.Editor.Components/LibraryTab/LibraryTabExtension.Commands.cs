@@ -20,17 +20,16 @@ public sealed partial class LibraryTabExtension
 
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
-        Command("AddElement", "library.addElement", Strings.AddElement, () => true, AddElementAsync),
-        Command("AddElementFromTemplate", "library.addElementFromTemplate", Strings.AddFromTemplate,
+        Command("library.addElement", Strings.AddElement, () => true, AddElementAsync),
+        Command("library.addElementFromTemplate", Strings.AddFromTemplate,
             () => FindElementTemplates().Length > 0, AddElementFromTemplateAsync),
     ];
 
     private static ContextCommandDefinition Command(
-        string name, string id, string displayName, Func<bool> canExecute,
+        string id, string displayName, Func<bool> canExecute,
         Func<IEditorContext, Scene, IContextCommandInteraction, Task> execute)
-        => new(name, displayName, "", [])
+        => new(id, displayName, "", [])
         {
-            Id = id,
             Scope = ContextCommandScope.Extension,
             CanExecute = execution => execution.EditorContext?.GetService<Scene>() is not null && canExecute(),
             ExecuteAsync = execution => execution is { Interaction: { } interaction, EditorContext: { } editorContext }

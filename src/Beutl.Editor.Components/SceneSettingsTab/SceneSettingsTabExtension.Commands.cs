@@ -12,16 +12,15 @@ public sealed partial class SceneSettingsTabExtension
 {
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
-        Command("ChangeSceneSize", "sceneSettings.changeSceneSize", Strings.ChangeSceneSize, ChangeSizeAsync),
-        Command("ChangeSceneStart", "sceneSettings.changeSceneStart", Strings.ChangeSceneStart, ChangeStartAsync),
-        Command("ChangeSceneDuration", "sceneSettings.changeSceneDuration", Strings.ChangeSceneDuration, ChangeDurationAsync),
+        Command("sceneSettings.changeSceneSize", Strings.ChangeSceneSize, ChangeSizeAsync),
+        Command("sceneSettings.changeSceneStart", Strings.ChangeSceneStart, ChangeStartAsync),
+        Command("sceneSettings.changeSceneDuration", Strings.ChangeSceneDuration, ChangeDurationAsync),
     ];
 
     private static ContextCommandDefinition Command(
-        string name, string id, string displayName, Func<IEditorContext, Scene, IContextCommandInteraction, Task> execute)
-        => new(name, displayName, "", [])
+        string id, string displayName, Func<IEditorContext, Scene, IContextCommandInteraction, Task> execute)
+        => new(id, displayName, "", [])
         {
-            Id = id,
             Scope = ContextCommandScope.Extension,
             CanExecute = execution => execution.EditorContext?.GetService<Scene>() is not null,
             ExecuteAsync = execution => execution is { Interaction: { } interaction, EditorContext: { } editorContext }

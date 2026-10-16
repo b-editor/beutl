@@ -11,9 +11,8 @@ public sealed partial class PreviewSettingsTabExtension
 {
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
-        new("ChangePreviewRenderQuality", Strings.ChangePreviewRenderQuality, "", [])
+        new("previewSettings.changePreviewRenderQuality", Strings.ChangePreviewRenderQuality, "", [])
         {
-            Id = "previewSettings.changePreviewRenderQuality",
             Scope = ContextCommandScope.Extension,
             CanExecute = CanChangeQuality,
             ExecuteAsync = ChangeQualityAsync

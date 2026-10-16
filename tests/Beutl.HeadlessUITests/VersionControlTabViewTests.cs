@@ -907,9 +907,8 @@ public class VersionControlTabViewTests
     {
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
         [
-            new ContextCommandDefinition<EnableRecorder>("EnableVersionControl")
+            new ContextCommandDefinition<EnableRecorder>("main.enableVersionControl")
             {
-                Id = "test.enableVersionControl",
                 ExecuteOnAsync = (recorder, _) =>
                 {
                     recorder.Runs++;

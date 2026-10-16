@@ -17,11 +17,11 @@ public class ContextCommandManagerTests
     {
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
         [
-            new ContextCommandDefinition("ExitTool", "Exit Tool", null,
+            new ContextCommandDefinition("test.exitTool", "Exit Tool", null,
             [
                 new ContextCommandKeyGesture("V"),
                 new ContextCommandKeyGesture("Escape"),
-            ]) { Id = "test.exitTool" },
+            ]),
         ];
     }
 

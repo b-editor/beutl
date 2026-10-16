@@ -37,7 +37,7 @@ public class ContextCommandDispatchTests
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using IDisposable subscription = TestShell.MainViewModel.MenuBar.SaveAll
             .Subscribe(() => gate.Task);
-        var execution = new ContextCommandExecution("SaveAll");
+        var execution = new ContextCommandExecution("main.saveAll");
 
         Task operation = MainViewExtension.Instance.RunAsync(TestShell.MainViewModel, execution);
 
@@ -55,7 +55,7 @@ public class ContextCommandDispatchTests
     {
         await TestReset.ResetShellAsync();
 
-        var execution = new ContextCommandExecution("SaveAll");
+        var execution = new ContextCommandExecution("main.saveAll");
 
         // No project is open, so the command is disabled and nothing may be dispatched.
         Task operation = MainViewExtension.Instance.RunAsync(TestShell.MainViewModel, execution);
@@ -89,7 +89,7 @@ public class ContextCommandDispatchTests
                 TaskCreationOptions.RunContinuationsAsynchronously);
             using IDisposable subscription = editor.Player.PlayPause.Subscribe(() => gate.Task);
 
-            Task operation = SceneEditorExtension.Instance.RunAsync(editor, new ContextCommandExecution("PlayPause"));
+            Task operation = SceneEditorExtension.Instance.RunAsync(editor, new ContextCommandExecution("editor.playPause"));
 
             Assert.That(operation.IsCompleted, Is.False);
             gate.SetResult();
@@ -103,16 +103,16 @@ public class ContextCommandDispatchTests
     }
 
     [AvaloniaTest]
-    [TestCase("Cut")]
-    [TestCase("Copy")]
-    [TestCase("Paste")]
-    public async Task Timeline_handler_returns_clipboard_command_operations(string commandName)
+    [TestCase("timeline.cut")]
+    [TestCase("timeline.copy")]
+    [TestCase("timeline.paste")]
+    public async Task Timeline_handler_returns_clipboard_command_operations(string commandId)
     {
         await TestReset.ResetShellAsync();
         try
         {
             EditViewModel editor = await TestShell.OpenNewSceneEditorAsync(
-                $"context-command-timeline-{commandName.ToLowerInvariant()}");
+                $"context-command-{commandId.ToLowerInvariant()}");
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
             ElementAddResult added = await adder.AddAsync([new ElementDescription(
                 Start: TimeSpan.Zero,
@@ -125,17 +125,17 @@ public class ContextCommandDispatchTests
             TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
             ElementViewModel target = timeline.Elements.Single();
             timeline.SelectElement(target);
-            AsyncReactiveCommand command = commandName switch
+            AsyncReactiveCommand command = commandId switch
             {
-                "Cut" => target.Cut,
-                "Copy" => target.Copy,
+                "timeline.cut" => target.Cut,
+                "timeline.copy" => target.Copy,
                 _ => timeline.Paste,
             };
             var gate = new TaskCompletionSource(
                 TaskCreationOptions.RunContinuationsAsynchronously);
             using IDisposable subscription = command.Subscribe(() => gate.Task);
 
-            Task operation = TimelineTabExtension.Instance.RunAsync(timeline, new ContextCommandExecution(commandName));
+            Task operation = TimelineTabExtension.Instance.RunAsync(timeline, new ContextCommandExecution(commandId));
 
             Assert.That(operation.IsCompleted, Is.False);
             gate.SetResult();
@@ -174,7 +174,7 @@ public class ContextCommandDispatchTests
         {
             Assert.That(operation.IsCompleted, Is.False);
             Assert.That(viewModel.IsOpen.Value, Is.False);
-            Assert.That(handler.LastExecution?.CommandName, Is.EqualTo("AwaitableCommand"));
+            Assert.That(handler.LastExecution?.CommandId, Is.EqualTo("test.awaitableCommand"));
         });
 
         gate.SetResult();
@@ -187,9 +187,8 @@ public class ContextCommandDispatchTests
     {
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
         [
-            new ContextCommandDefinition<AwaitableHandler>("AwaitableCommand", "Awaitable Command")
+            new ContextCommandDefinition<AwaitableHandler>("test.awaitableCommand", "Awaitable Command")
             {
-                Id = "test.awaitableCommand",
                 ExecuteOnAsync = (handler, execution) => handler.ExecuteAsync(execution)
             },
         ];

@@ -138,9 +138,9 @@ public sealed partial class TabSwitcherView : UserControl
         if (this.FindAncestorOfType<MainView>()?.DataContext is not MainViewModel main) return null;
         OSPlatform platform = KeyMapSettingsItem.CurrentPlatform;
         return main.ContextCommandManager?.GetDefinitions<MainViewExtension>()
-            .FirstOrDefault(command => TabSwitcherViewModel.IsNavigationCommand(command.Definition.Name)
+            .FirstOrDefault(command => TabSwitcherViewModel.IsNavigationCommand(command.Definition.Id)
                                        && command.KeyGestures.Any(gesture => gesture.Platform == platform
-                                           && gesture.KeyGesture?.Matches(e) == true))?.Definition.Name;
+                                           && gesture.KeyGesture?.Matches(e) == true))?.Definition.Id;
     }
 
     internal void HandleKeyUp(object? sender, KeyEventArgs e)
