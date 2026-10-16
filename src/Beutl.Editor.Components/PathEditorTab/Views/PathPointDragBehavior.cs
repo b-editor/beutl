@@ -233,8 +233,6 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         }
     }
 
-    // ControlPointからAnchor(複数)を取得
-    // つながっているAnchorの反対側ごとに、角度、長さを計算
     private void MirrorOppositeHandles(
         IPathEditorView parent,
         IPathEditorContext viewModel,
@@ -249,19 +247,6 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
 
             foreach (PathPointDragState c in _coordDragStates)
             {
-                static float Length(BtlPoint p)
-                {
-                    return MathF.Sqrt((p.X * p.X) + (p.Y * p.Y));
-                }
-
-                static BtlPoint CalculatePoint(float radians, float radius)
-                {
-                    float x = MathF.Cos(radians) * radius;
-                    float y = MathF.Sin(radians) * radius;
-                    // Y座標は反転
-                    return new(x, -y);
-                }
-
                 void UpdateThumbPosition(Thumb? thumb, BtlPoint point)
                 {
                     if (thumb == null) return;
@@ -287,25 +272,8 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                         }
 
                         var ctx = new CompositionContext(keyTime);
-                        BtlPoint anchorpoint = anchor.GetEndPoint().GetValue(ctx);
-                        BtlPoint point = _dragState!.GetInterpolatedValue(keyTime);
-                        BtlPoint d = anchorpoint - point;
-                        float angle = MathF.Atan2(d.X, d.Y);
-                        angle -= MathF.PI / 2;
-
-                        float length;
-                        if (viewModel.Symmetry.Value)
-                        {
-                            length = Length(d);
-                        }
-                        else
-                        {
-                            BtlPoint d2 = anchorpoint - keyframe.Value;
-                            length = Length(d2);
-                        }
-
-                        keyframe.Value =
-                            PathEditorHelper.Round(anchorpoint + CalculatePoint(angle, length));
+                        keyframe.Value = Mirror(anchor.GetEndPoint().GetValue(ctx),
+                            _dragState!.GetInterpolatedValue(keyTime), keyframe.Value, viewModel.Symmetry.Value);
                     }
 
                     Set(c.Previous);
@@ -318,32 +286,29 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                 else
                 {
                     var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
-                    var ctx = new CompositionContext(clock.CurrentTime.Value);
-                    BtlPoint point =
-                        _dragState!.GetInterpolatedValue(clock.CurrentTime.Value);
-                    BtlPoint anchorpoint = anchor.GetEndPoint().GetValue(ctx);
-                    BtlPoint d = anchorpoint - point;
-                    float angle = MathF.Atan2(d.X, d.Y);
-                    angle -= MathF.PI / 2;
-
-                    float length;
-                    if (viewModel.Symmetry.Value)
-                    {
-                        length = Length(d);
-                    }
-                    else
-                    {
-                        BtlPoint d2 = anchorpoint - c.GetInterpolatedValue(clock.CurrentTime.Value);
-                        length = Length(d2);
-                    }
-
-                    BtlPoint newValue = PathEditorHelper.Round(anchorpoint + CalculatePoint(angle, length));
+                    TimeSpan time = clock.CurrentTime.Value;
+                    BtlPoint newValue = Mirror(anchor.GetEndPoint().GetValue(new CompositionContext(time)),
+                        _dragState!.GetInterpolatedValue(time), c.GetInterpolatedValue(time), viewModel.Symmetry.Value);
 
                     c.Property.CurrentValue = newValue;
                     UpdateThumbPosition(c.Thumb, newValue);
                 }
             }
         }
+    }
+
+    // The opposite handle on the line from the dragged handle through the anchor, as far from the anchor as the
+    // dragged handle when symmetric and as before otherwise. With the dragged handle on the anchor, it lands on the
+    // anchor when symmetric and straight below it, at its old length, otherwise.
+    internal static BtlPoint Mirror(BtlPoint anchor, BtlPoint dragged, BtlPoint opposite, bool symmetric)
+    {
+        BtlPoint d = anchor - dragged;
+        float distance = MathF.Sqrt((d.X * d.X) + (d.Y * d.Y));
+        BtlPoint o = anchor - opposite;
+        float length = symmetric ? distance : MathF.Sqrt((o.X * o.X) + (o.Y * o.Y));
+        return PathEditorHelper.Round(distance == 0
+            ? new BtlPoint(anchor.X, anchor.Y + length)
+            : anchor + (d * (length / distance)));
     }
 
     private void SetSelectedOperation(IPathEditorView view, IPathEditorContext viewModel, PathSegment segment)
