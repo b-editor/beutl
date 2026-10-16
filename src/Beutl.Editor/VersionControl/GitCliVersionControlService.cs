@@ -143,6 +143,8 @@ internal sealed partial class GitCliVersionControlService :
     // open apart from a machine where LFS was never on.
     private bool? _lastLfsRequested;
     private bool _hygieneDeferred;
+    // An empty ignored-files listing is not repeated until the project opens again.
+    private bool _ignoredProjectFilesListedEmpty;
     private readonly Func<VersionControlPolicyNotice, CancellationToken, Task>? _policyNoticeSink;
     private readonly Func<CancellationToken, Task<GitIdentity?>>? _identityRequest;
     private readonly Action<Action> _statusNotificationScheduler;

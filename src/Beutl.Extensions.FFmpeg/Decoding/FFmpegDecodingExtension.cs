@@ -46,16 +46,22 @@ public class FFmpegDecodingExtension : DecodingExtension
 
     private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName != nameof(FFmpegDecodingSettings.ForceSrgbGamma))
+        {
+            return;
+        }
+
+        // Readers opened later read the settings at open, so only a running worker needs the update.
+        UpdateWorkerSettings(FFmpegWorkerProcess.DecodingInstance);
+        UpdateWorkerSettings(FFmpegWorkerProcess.BackgroundDecodingInstance);
+    }
+
+    private void UpdateWorkerSettings(FFmpegWorkerProcess worker)
+    {
         _ = Task.Run(async () =>
         {
             try
             {
-                if (e.PropertyName != nameof(FFmpegDecodingSettings.ForceSrgbGamma))
-                {
-                    return;
-                }
-
-                var worker = FFmpegWorkerProcess.DecodingInstance;
                 if (worker.IsRunning)
                 {
                     var connection = await worker.EnsureStartedAsync();

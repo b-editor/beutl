@@ -81,7 +81,7 @@ internal sealed class AgentHostAiBackend(
         try
         {
             opened = await Task.Run(
-                () => MediaReader.Open(path, new MediaOptions(MediaMode.Audio) { PreferProxy = false }),
+                () => MediaReader.Open(path, new MediaOptions(MediaMode.Audio) { PreferProxy = false, IsBackground = true }),
                 cancellationToken).ConfigureAwait(false);
         }
         catch (UnsupportedMediaException)

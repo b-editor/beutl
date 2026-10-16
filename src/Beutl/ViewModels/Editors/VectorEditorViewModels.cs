@@ -54,7 +54,7 @@ namespace Beutl.ViewModels.Editors
 
         private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
-            if (e is PropertyEditorValueChangedEventArgs<(int X, int Y)> args)
+            if (e.Expect<(int X, int Y)>(sender) is { } args)
             {
                 SetValue(new Media.PixelPoint(args.OldValue.X, args.OldValue.Y),
                          new Media.PixelPoint(args.NewValue.X, args.NewValue.Y));
@@ -118,7 +118,7 @@ namespace Beutl.ViewModels.Editors
 
         private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
-            if (e is PropertyEditorValueChangedEventArgs<(int Width, int Height)> args)
+            if (e.Expect<(int Width, int Height)>(sender) is { } args)
             {
                 SetValue(new Media.PixelSize(args.OldValue.Width, args.OldValue.Height),
                          new Media.PixelSize(args.NewValue.Width, args.NewValue.Height));
@@ -182,7 +182,7 @@ namespace Beutl.ViewModels.Editors
 
         private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
-            if (e is PropertyEditorValueChangedEventArgs<(float X, float Y)> args)
+            if (e.Expect<(float X, float Y)>(sender) is { } args)
             {
                 SetValue(new Graphics.Point(args.OldValue.X, args.OldValue.Y),
                          new Graphics.Point(args.NewValue.X, args.NewValue.Y));
@@ -246,7 +246,7 @@ namespace Beutl.ViewModels.Editors
 
         private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
-            if (e is PropertyEditorValueChangedEventArgs<(float Width, float Height)> args)
+            if (e.Expect<(float Width, float Height)>(sender) is { } args)
             {
                 SetValue(new Graphics.Size(args.OldValue.Width, args.OldValue.Height),
                          new Graphics.Size(args.NewValue.Width, args.NewValue.Height));
@@ -310,7 +310,7 @@ namespace Beutl.ViewModels.Editors
 
         private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
-            if (e is PropertyEditorValueChangedEventArgs<(float X, float Y)> args)
+            if (e.Expect<(float X, float Y)>(sender) is { } args)
             {
                 SetValue(new Graphics.Vector(args.OldValue.X, args.OldValue.Y),
                          new Graphics.Vector(args.NewValue.X, args.NewValue.Y));
@@ -374,7 +374,7 @@ namespace Beutl.ViewModels.Editors
 
         private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
-            if (e is PropertyEditorValueChangedEventArgs<(float X, float Y)> args)
+            if (e.Expect<(float X, float Y)>(sender) is { } args)
             {
                 SetValue(new System.Numerics.Vector2(args.OldValue.X, args.OldValue.Y),
                          new System.Numerics.Vector2(args.NewValue.X, args.NewValue.Y));
@@ -451,7 +451,7 @@ namespace Beutl.ViewModels.Editors
 
         private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
-            if (e is PropertyEditorValueChangedEventArgs<(float X, float Y, float Z)> args)
+            if (e.Expect<(float X, float Y, float Z)>(sender) is { } args)
             {
                 SetValue(new System.Numerics.Vector3(args.OldValue.X, args.OldValue.Y, args.OldValue.Z),
                          new System.Numerics.Vector3(args.NewValue.X, args.NewValue.Y, args.NewValue.Z));
@@ -539,7 +539,7 @@ namespace Beutl.ViewModels.Editors
 
         private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
-            if (e is PropertyEditorValueChangedEventArgs<(int X, int Y, int Width, int Height)> args)
+            if (e.Expect<(int X, int Y, int Width, int Height)>(sender) is { } args)
             {
                 SetValue(new Media.PixelRect(args.OldValue.X, args.OldValue.Y, args.OldValue.Width, args.OldValue.Height),
                          new Media.PixelRect(args.NewValue.X, args.NewValue.Y, args.NewValue.Width, args.NewValue.Height));
@@ -626,7 +626,7 @@ namespace Beutl.ViewModels.Editors
 
         private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
-            if (e is PropertyEditorValueChangedEventArgs<(float X, float Y, float Width, float Height)> args)
+            if (e.Expect<(float X, float Y, float Width, float Height)>(sender) is { } args)
             {
                 SetValue(new Graphics.Rect(args.OldValue.X, args.OldValue.Y, args.OldValue.Width, args.OldValue.Height),
                          new Graphics.Rect(args.NewValue.X, args.NewValue.Y, args.NewValue.Width, args.NewValue.Height));
@@ -713,7 +713,7 @@ namespace Beutl.ViewModels.Editors
 
         private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
-            if (e is PropertyEditorValueChangedEventArgs<(float X, float Y, float Z, float W)> args)
+            if (e.Expect<(float X, float Y, float Z, float W)>(sender) is { } args)
             {
                 SetValue(new System.Numerics.Vector4(args.OldValue.X, args.OldValue.Y, args.OldValue.Z, args.OldValue.W),
                          new System.Numerics.Vector4(args.NewValue.X, args.NewValue.Y, args.NewValue.Z, args.NewValue.W));

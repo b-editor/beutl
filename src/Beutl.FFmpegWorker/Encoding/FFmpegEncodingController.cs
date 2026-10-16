@@ -432,10 +432,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     private async ValueTask<MediaFrame?> GetVideoFrame(
         MediaFrame srcFrame, EncodeState state, IFrameProvider frameProvider)
     {
-        if (state.NextPts >= frameProvider.FrameCount)
+        using Bitmap? bitmap = await frameProvider.ReadNextFrame();
+        if (bitmap is null)
             return null;
-
-        using var bitmap = await frameProvider.RenderFrame(state.NextPts);
 
         using (var converted = _isHdr
             // Skia: LinearSrgb → ターゲット色空間（例: BT.2020/PQ）

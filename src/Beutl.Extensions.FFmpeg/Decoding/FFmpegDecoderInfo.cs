@@ -16,18 +16,18 @@ public sealed class FFmpegDecoderInfo : IDecoderInfo
 {
     private readonly ILogger _logger = Log.CreateLogger<FFmpegDecoderInfo>();
     private readonly FFmpegDecodingSettings _settings;
-    private readonly Func<IpcConnection> _connectToWorker;
+    private readonly Func<MediaOptions, IpcConnection> _connectToWorker;
     private readonly FFmpegReaderIdleTracker _idleTracker;
     private readonly TimeSpan _requestTimeout;
 
     public FFmpegDecoderInfo(FFmpegDecodingSettings settings)
-        : this(settings, () => FFmpegWorkerProcess.DecodingInstance.EnsureStarted(), FFmpegReaderIdleTracker.Shared)
+        : this(settings, options => SelectWorker(options).EnsureStarted(), FFmpegReaderIdleTracker.Shared)
     {
     }
 
     internal FFmpegDecoderInfo(
-        FFmpegDecodingSettings settings, Func<IpcConnection> connectToWorker, FFmpegReaderIdleTracker idleTracker,
-        TimeSpan? requestTimeout = null)
+        FFmpegDecodingSettings settings, Func<MediaOptions, IpcConnection> connectToWorker,
+        FFmpegReaderIdleTracker idleTracker, TimeSpan? requestTimeout = null)
     {
         _settings = settings;
         _connectToWorker = connectToWorker;
@@ -78,10 +78,14 @@ public sealed class FFmpegDecoderInfo : IDecoderInfo
         }
     }
 
+    // A file that crashes the background worker leaves the editor's readers running.
+    internal static FFmpegWorkerProcess SelectWorker(MediaOptions options)
+        => options.IsBackground ? FFmpegWorkerProcess.BackgroundDecodingInstance : FFmpegWorkerProcess.DecodingInstance;
+
     // Also used to reopen a suspended reader, so it reads the current decoding settings.
     private (IpcConnection Connection, OpenFileResponse Response) OpenOnWorker(string file, MediaOptions options)
     {
-        var connection = _connectToWorker();
+        var connection = _connectToWorker(options);
 
         var request = new OpenFileRequest
         {

@@ -194,7 +194,7 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store) : IProxyGene
         {
             return MediaReader.Open(
                 sourcePath,
-                new MediaOptions(MediaMode.Video) { PreferProxy = false });
+                new MediaOptions(MediaMode.Video) { PreferProxy = false, IsBackground = true });
         }
         catch (FFmpegLibrariesNotFoundException ex)
         {
