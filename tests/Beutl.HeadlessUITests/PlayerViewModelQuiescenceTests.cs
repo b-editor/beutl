@@ -7,8 +7,6 @@ using Beutl.Audio.Composing;
 using Beutl.Audio.Graph;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Rendering;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
@@ -378,7 +376,7 @@ public class PlayerViewModelQuiescenceTests
                 throw new TimeoutException("The test did not release the compose dispatcher.");
         });
         Task? pause = null;
-        Task<(Pcm<Stereo32BitFloat>? Pcm, TimeSpan SceneEnd)>? buffer = null;
+        Task<(AudioBuffer? Audio, TimeSpan SceneEnd)>? buffer = null;
         bool bufferWasComposed = false;
         try
         {
@@ -404,8 +402,8 @@ public class PlayerViewModelQuiescenceTests
             await blocker.WaitAsync(TimeSpan.FromSeconds(5));
             if (buffer is not null)
             {
-                using var pcm = (await buffer.WaitAsync(TimeSpan.FromSeconds(5))).Pcm;
-                bufferWasComposed = pcm is not null;
+                using var audio = (await buffer.WaitAsync(TimeSpan.FromSeconds(5))).Audio;
+                bufferWasComposed = audio is not null;
             }
             if (pause is not null)
                 await pause.WaitAsync(TimeSpan.FromSeconds(5));
@@ -517,8 +515,8 @@ public class PlayerViewModelQuiescenceTests
         int generation = GetSessionGuard(editor.Player).Claim(static () => { });
         Task playback = Task.Run(() =>
         {
-            using var pcm = editor.Player.FillAudioData(
-                TimeSpan.Zero, editor.Scene, generation, CancellationToken.None).Pcm;
+            using var audio = editor.Player.FillAudioData(
+                TimeSpan.Zero, editor.Scene, generation, CancellationToken.None).Audio;
         });
         SetPlaybackTask(editor.Player, playback);
         return playback;
