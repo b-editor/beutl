@@ -1,9 +1,13 @@
 ﻿using System.Reflection;
+using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
+using Beutl.Editor.Components.LibraryTab.Views.LibraryViews;
 using Beutl.Graphics.Shapes;
 using Beutl.Services;
+using Beutl.Testing.Headless;
 
 namespace Beutl.HeadlessUITests;
 
@@ -123,6 +127,30 @@ public sealed class LibraryTabSearchLifetimeTests
         Dispatcher.UIThread.RunJobs();
 
         Assert.That(viewModel.SearchResult, Is.EqualTo(new[] { second }));
+    }
+
+    // The drag starts from the pressed element's DataContext, so a row and its text must hold the same item.
+    [AvaloniaTest]
+    public async Task A_result_row_and_its_text_share_the_item_a_drag_reads()
+    {
+        using var viewModel = CreateViewModel();
+        var item = new LibraryItemViewModel { DisplayName = "Needle", FullDisplayName = "Needle" };
+        viewModel.AllItems.Add(item);
+        var view = new SearchView { DataContext = viewModel };
+        using var host = new ControlHost(view, 320, 240);
+        ListBox list = view.FindControl<ListBox>("searchResult")!;
+
+        foreach (string query in new[] { "", "Needle" })
+        {
+            view.FindControl<TextBox>("SearchBox")!.Text = query;
+            await HeadlessTestHelpers.WaitUntilAsync(() => query.Length == 0 || viewModel.SearchResult.Count == 1);
+            HeadlessTestHelpers.Render(2);
+            Control row = list.ContainerFromIndex(0)!;
+            Avalonia.Controls.TextBlock text = row.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>()
+                .First(t => t.Text == "Needle");
+            Assert.That(row.DataContext, Is.SameAs(item), query);
+            Assert.That(text.DataContext, Is.SameAs(item), query);
+        }
     }
 
     private static LibraryTabViewModel CreateViewModel()
