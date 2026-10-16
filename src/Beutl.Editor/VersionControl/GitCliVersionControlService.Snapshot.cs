@@ -99,7 +99,7 @@ internal sealed partial class GitCliVersionControlService
             return new CommitResult.NoChanges();
         }
 
-        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+        await TryQueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
         return new CommitResult.Committed(revision);
     }
 
@@ -268,7 +268,7 @@ internal sealed partial class GitCliVersionControlService
             throw;
         }
 
-        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+        await TryQueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
         return revision is null
             ? new CommitResult.NoChanges()
             : new CommitResult.Committed(revision);

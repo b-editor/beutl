@@ -3828,6 +3828,91 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    // Status time grows with the media, so the local time limit must not stop it.
+    [Test]
+    public async Task GetStatusAsync_runs_past_the_local_time_limit()
+    {
+        if (OperatingSystem.IsWindows()) Assert.Ignore("The late-starting Git is a shell script.");
+        await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "changed\n");
+        var runner = new SubcommandRoutingRunner(CreateRunner(), "status", CreateLateStartingRunner());
+        using var service = CreateService(runner: runner);
+
+        WorkspaceStatus status = await service.GetStatusAsync(CancellationToken.None);
+
+        Assert.That(
+            status.Changes.Select(static change => change.Path),
+            Is.EqualTo(new[] { "project.bep" }));
+    }
+
+    // Without Git LFS, a switch or a restore first greps every blob of its target for a pointer.
+    [Test]
+    public async Task Lfs_prefetch_without_an_installed_filter_searches_past_the_local_time_limit()
+    {
+        if (OperatingSystem.IsWindows()) Assert.Ignore("The late-starting Git is a shell script.");
+        await CommitFileAsync(
+            "media/clip.mp4",
+            CreateLfsPointer(Encoding.UTF8.GetBytes("target media\n")),
+            "lfs pointer");
+        string commit = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        var runner = new SubcommandRoutingRunner(CreateRunner(), "grep", CreateLateStartingRunner());
+        using var service = CreateService(runner: runner, locator: CreateInstalledLocator(lfsInstalled: false));
+
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.ExecuteExclusiveAsync(
+                transaction => transaction.PrefetchCommitLfsObjectsAsync(
+                    commit,
+                    LfsPrefetchScope.RepositoryWide,
+                    CancellationToken.None),
+                CancellationToken.None));
+        Assert.That(exception!.Message, Does.Contain("Git LFS is not installed"));
+    }
+
+    // Nothing else stops the watcher's status read, which has no time limit, so retiring must.
+    [Test]
+    public async Task Retirement_stops_a_status_read_the_watcher_started()
+    {
+        var time = new FakeTimeProvider();
+        var watcher = new RepositoryWatcher(Repository, time, startWatching: false);
+        var runner = new HeldStatusRunner(CreateRunner());
+        var service = CreateService(watcher: watcher, runner: runner);
+
+        watcher.NotifyPathChanged(Path.Combine(Root, "project.bep"));
+        time.Advance(RepositoryWatcher.DebounceInterval);
+        await runner.Held.WaitAsync(TimeSpan.FromMinutes(1));
+        await ((IProjectVersionControlBackend)service).RetireAsync(finalSnapshot: null)
+            .WaitAsync(TimeSpan.FromMinutes(1));
+
+        Assert.That(runner.Canceled.IsCompleted, Is.True);
+    }
+
+    // The snapshot's token stops its post-commit status read, and the commit stands.
+    [Test]
+    public async Task Canceling_a_snapshot_after_its_commit_stops_the_status_read_and_keeps_the_commit()
+    {
+        await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
+        var runner = new HeldStatusRunner(CreateRunner(), afterCommit: true);
+        using var service = CreateService(runner: runner);
+        using var cancellation = new CancellationTokenSource();
+
+        Task<CommitResult> snapshot = service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            cancellation.Token);
+        await runner.Held.WaitAsync(TimeSpan.FromMinutes(1));
+        cancellation.Cancel();
+        CommitResult result = await snapshot.WaitAsync(TimeSpan.FromMinutes(1));
+
+        GitCommandResult subject = await RunGitAsync("log", "-1", "--format=%s");
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(runner.Canceled.IsCompleted, Is.True);
+            Assert.That(subject.Stdout.Trim(), Is.EqualTo("beutl: snapshot on save"));
+        });
+    }
+
     [Test]
     public async Task Retirement_requested_during_initialization_commits_the_final_close_state()
     {
@@ -6198,6 +6283,86 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 cancellationToken,
                 stderrProgress);
         }
+    }
+
+    // Holds status reads, or with afterCommit only those after a commit, until they are canceled.
+    private sealed class HeldStatusRunner(IGitCliRunner inner, bool afterCommit = false) : DelegatingGitCliRunner(inner)
+    {
+        private readonly TaskCompletionSource _held = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _canceled = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private volatile bool _committed;
+
+        public Task Held => _held.Task;
+
+        public Task Canceled => _canceled.Task;
+
+        public override async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            string? subcommand = GetGitSubcommand(arguments);
+            if (subcommand == "status" && (!afterCommit || _committed))
+            {
+                _held.TrySetResult();
+                try
+                {
+                    await Task.Delay(Timeout.Infinite, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    _canceled.TrySetResult();
+                    throw;
+                }
+            }
+
+            GitCommandResult result = await base.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+            if (subcommand == "commit")
+            {
+                _committed = true;
+            }
+
+            return result;
+        }
+    }
+
+    // Runs one subcommand through another runner and every other command through the inner one.
+    private sealed class SubcommandRoutingRunner(
+        IGitCliRunner inner,
+        string subcommand,
+        IGitCliRunner target) : DelegatingGitCliRunner(inner)
+    {
+        public override Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+            => GetGitSubcommand(arguments) == subcommand
+                ? target.RunAsync(repository, arguments, options, cancellationToken, stderrProgress)
+                : base.RunAsync(repository, arguments, options, cancellationToken, stderrProgress);
+    }
+
+    // A Git that starts each command a second late, under a local time limit far shorter than that.
+    private GitCliRunner CreateLateStartingRunner()
+    {
+        string script = Path.Combine(CreateTemporaryDirectory(), "late-git");
+        File.WriteAllText(script, "#!/bin/sh\nsleep 1\nexec git \"$@\"\n");
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(
+                script,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+
+        return new GitCliRunner(script, TimeSpan.FromMilliseconds(100), IsolatedGitEnvironment);
     }
 
     private sealed class ThrowingStatusRunner(Exception exception) : IGitCliRunner

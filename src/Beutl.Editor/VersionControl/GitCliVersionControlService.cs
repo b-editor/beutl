@@ -150,6 +150,8 @@ internal sealed partial class GitCliVersionControlService :
     private readonly ILogger _logger;
     private readonly bool _createWatcherWhenRepositoryAvailable;
     private readonly SemaphoreSlim _operationGate = new(1, 1);
+    // Stops the watcher's status read, which no caller can cancel, once retirement starts.
+    private readonly CancellationTokenSource _retirementCancellation = new();
     private readonly object _lifetimeSync = new();
     private readonly object _runtimeSync = new();
     private readonly ConcurrentQueue<WorkspaceStatus> _statusNotifications = new();
@@ -524,6 +526,7 @@ internal sealed partial class GitCliVersionControlService :
         ProjectVersionControlFinalSnapshot? finalSnapshot)
     {
         await Task.Yield();
+        _retirementCancellation.Cancel();
         await _operationGate.WaitAsync().ConfigureAwait(false);
         try
         {
@@ -625,7 +628,7 @@ internal sealed partial class GitCliVersionControlService :
                         reservedPaths,
                         cancellationToken)
                     .ConfigureAwait(false);
-                await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+                await TryQueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
                 return true;
             },
             cancellationToken);

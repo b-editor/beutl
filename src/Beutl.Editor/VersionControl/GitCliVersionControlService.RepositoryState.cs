@@ -184,7 +184,7 @@ internal sealed partial class GitCliVersionControlService
                 ":/",
                 $":(top,exclude,literal){repository.Pathspec}",
             ],
-            new GitCommandOptions(GitCommandExecutionKind.Local) { UseLiteralPathspecs = false },
+            new GitCommandOptions(GitCommandExecutionKind.LocalUnbounded) { UseLiteralPathspecs = false },
             cancellationToken).ConfigureAwait(false);
         return result.Stdout.Length == 0;
     }
