@@ -137,6 +137,7 @@ internal partial class VersionControlCoordinator
         }
 
         SetState(_state with { IsTracked = service.Repository is not null });
+        WarnIfRepositoryIsNotWatched(service);
         return true;
     }
 

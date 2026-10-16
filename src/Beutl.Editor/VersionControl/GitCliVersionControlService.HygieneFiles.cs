@@ -37,9 +37,11 @@ internal sealed partial class GitCliVersionControlService
             lines =>
             {
                 // A machine that does not use LFS leaves a block another machine wrote alone.
-                int? managedBlockIndex = useLfs || removeManagedLfs
-                    ? RemoveManagedLfsBlocks(lines)
-                    : null;
+                if (removeManagedLfs)
+                {
+                    RemoveManagedLfsBlocks(lines);
+                }
+
                 foreach (string requiredLine in s_textAttributeLines)
                 {
                     if (!lines.Contains(requiredLine, StringComparer.Ordinal))
@@ -50,12 +52,7 @@ internal sealed partial class GitCliVersionControlService
 
                 if (useLfs)
                 {
-                    int insertionIndex = managedBlockIndex is { } existingIndex
-                        ? Math.Min(existingIndex, lines.Count)
-                        : 0;
-                    lines.InsertRange(
-                        insertionIndex,
-                        [ManagedLfsBeginMarker, .. s_lfsAttributeLines, ManagedLfsEndMarker]);
+                    AddMissingManagedLfsLines(lines);
                 }
 
                 return lines;
@@ -96,9 +93,37 @@ internal sealed partial class GitCliVersionControlService
         return requiredLines.All(required => lines.Contains(required, StringComparer.Ordinal));
     }
 
-    private static int? RemoveManagedLfsBlocks(List<string> lines)
+    // Keeps the lines other builds wrote, so builds with other extension lists stop rewriting the block.
+    private static void AddMissingManagedLfsLines(List<string> lines)
     {
-        int? firstBlockIndex = null;
+        List<(int Begin, int End)> blocks = FindManagedLfsBlocks(lines);
+        if (blocks.Count == 0)
+        {
+            lines.InsertRange(0, [ManagedLfsBeginMarker, .. s_lfsAttributeLines, ManagedLfsEndMarker]);
+            return;
+        }
+
+        var present = new HashSet<string>(StringComparer.Ordinal);
+        foreach ((int begin, int end) in blocks)
+        {
+            present.UnionWith(lines.GetRange(begin + 1, end - begin - 1));
+        }
+
+        lines.InsertRange(blocks[0].End, s_lfsAttributeLines.Where(line => !present.Contains(line)));
+    }
+
+    private static void RemoveManagedLfsBlocks(List<string> lines)
+    {
+        List<(int Begin, int End)> blocks = FindManagedLfsBlocks(lines);
+        for (int i = blocks.Count - 1; i >= 0; i--)
+        {
+            lines.RemoveRange(blocks[i].Begin, blocks[i].End - blocks[i].Begin + 1);
+        }
+    }
+
+    private static List<(int Begin, int End)> FindManagedLfsBlocks(List<string> lines)
+    {
+        var blocks = new List<(int Begin, int End)>();
         int index = 0;
         while (index < lines.Count)
         {
@@ -120,11 +145,11 @@ internal sealed partial class GitCliVersionControlService
                 continue;
             }
 
-            firstBlockIndex ??= index;
-            lines.RemoveRange(index, end - index + 1);
+            blocks.Add((index, end));
+            index = end + 1;
         }
 
-        return firstBlockIndex;
+        return blocks;
     }
 
     // A temporary file renamed over the target, so Git never reads a half-written file. An edit another

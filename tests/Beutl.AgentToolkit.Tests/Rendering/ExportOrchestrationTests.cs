@@ -89,7 +89,7 @@ public sealed class ExportOrchestrationTests
             for (long frame = 0; frame < frames.FrameCount; frame++)
             {
                 token.ThrowIfCancellationRequested();
-                using Bitmap bitmap = await frames.RenderFrame(frame);
+                using Bitmap? bitmap = await frames.ReadNextFrame();
                 completedWasReportedBeforeReturn |= progress.Any(item => item.Total > 0 && item.Completed == item.Total);
             }
             await File.WriteAllTextAsync(controller.OutputFile, "encoded output", token);

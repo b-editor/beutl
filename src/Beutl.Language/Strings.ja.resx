@@ -2411,6 +2411,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_ActivationFailedFormat" xml:space="preserve">
     <value>このプロジェクトでバージョン管理を有効にできませんでした。{0}</value>
   </data>
+  <data name="VersionControl_RepositoryNotWatchedFormat" xml:space="preserve">
+    <value>このプロジェクトのフォルダーを監視できないため、Beutl の外で行った変更は、次の操作の後でバージョン管理に表示されます。{0}</value>
+  </data>
   <data name="VersionControl_BranchFormat" xml:space="preserve">
     <value>ブランチ: {0}</value>
   </data>

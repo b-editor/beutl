@@ -1044,6 +1044,39 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    // Builds with other extension lists must stop rewriting each other's block on every open.
+    [Test]
+    public async Task EnsureRepositoryHygieneAsync_adds_only_the_missing_lines_to_an_existing_lfs_block()
+    {
+        await CommitFileAsync("project.bep", "{}\n", "baseline");
+        const string otherBuildRule = "**/*.[xX][yY][zZ] filter=lfs diff=lfs merge=lfs -text";
+        const string pngRule = "**/*.[pP][nN][gG] filter=lfs diff=lfs merge=lfs -text";
+        const string mp4Rule = "**/*.[mM][pP]4 filter=lfs diff=lfs merge=lfs -text";
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitattributes"),
+            $"custom before\n# BEGIN BEUTL MANAGED LFS\n{otherBuildRule}\n{pngRule}\n"
+            + "# END BEUTL MANAGED LFS\ncustom after\n");
+        var config = new VersionControlConfig { UseLfsWhenAvailable = true };
+        using var service = CreateService(
+            runner: new RecordingLfsRunner(CreateRunner()),
+            locator: CreateInstalledLocator(lfsInstalled: true, config));
+
+        await service.EnsureRepositoryHygieneAsync(CancellationToken.None);
+
+        string[] lines = await File.ReadAllLinesAsync(Path.Combine(Root, ".gitattributes"));
+        int begin = Array.IndexOf(lines, "# BEGIN BEUTL MANAGED LFS");
+        int end = Array.IndexOf(lines, "# END BEUTL MANAGED LFS");
+        string[] block = lines[(begin + 1)..end];
+        Assert.Multiple(() =>
+        {
+            Assert.That(lines[..begin], Is.EqualTo(new[] { "custom before" }));
+            Assert.That(block.Take(2), Is.EqualTo(new[] { otherBuildRule, pngRule }));
+            Assert.That(block.Count(static line => line == pngRule), Is.EqualTo(1));
+            Assert.That(block, Does.Contain(mp4Rule));
+            Assert.That(lines[end + 1], Is.EqualTo("custom after"));
+        });
+    }
+
     [Test]
     public async Task EnsureRepositoryHygieneAsync_disabling_Lfs_removes_rules_managed_while_enabled()
     {
@@ -3910,6 +3943,24 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(result, Is.TypeOf<CommitResult.Committed>());
             Assert.That(runner.Canceled.IsCompleted, Is.True);
             Assert.That(subject.Stdout.Trim(), Is.EqualTo("beutl: snapshot on save"));
+        });
+    }
+
+    [Test]
+    public void A_watcher_that_cannot_start_leaves_the_repository_tracked()
+    {
+        string missingRoot = Path.Combine(CreateTemporaryDirectory(), "missing");
+        var repository = new RepositoryInfo(missingRoot, missingRoot);
+
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository,
+            static () => true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.Repository, Is.SameAs(repository));
+            Assert.That(service.RepositoryWatcherFailure, Is.TypeOf<DirectoryNotFoundException>());
         });
     }
 

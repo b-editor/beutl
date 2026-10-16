@@ -473,3 +473,28 @@ jobs:
           path: TestResults/mediafoundation/
           if-no-files-found: ignore
           retention-days: 7
+
+  # Builds an extension against the packed SDK, as authors do; nothing else consumes it (#1648, #2730).
+  sdk-package:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Pack the SDK and the libraries
+        run: ./build.sh nuget-pack --version 0.0.0-ci --assembly-version 0.0.0.0 --informational-version 0.0.0-ci
+
+      - name: Build, pack and check a minimal extension
+        run: python3 build/check_extension_package.py artifacts --version 0.0.0-ci

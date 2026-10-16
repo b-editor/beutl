@@ -103,9 +103,11 @@ public sealed class ExportFrameCountTests
         Assert.That(frameProvider.FrameCount, Is.EqualTo(frames));
         for (long frame = 0; frame < frameProvider.FrameCount; frame++)
         {
-            using Bitmap bitmap = await frameProvider.RenderFrame(frame);
-            Assert.That(bitmap.Width, Is.EqualTo(32));
+            using Bitmap? bitmap = await frameProvider.ReadNextFrame();
+            Assert.That(bitmap?.Width, Is.EqualTo(32));
         }
+
+        Assert.That(await frameProvider.ReadNextFrame(), Is.Null);
 
         using var composer = new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
         {
@@ -114,5 +116,26 @@ public sealed class ExportFrameCountTests
         using var sampleProgress = new Subject<TimeSpan>();
         using var sampleProvider = new SampleProviderImpl(scene, composer, sampleRate, sampleProgress);
         Assert.That(sampleProvider.SampleCount, Is.EqualTo(sampleRate * frames / rate));
+    }
+
+    // Encoders plan the export from the count they read at its start.
+    [Test]
+    public async Task Frame_provider_keeps_its_count_when_the_scene_length_changes()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        var scene = new Scene(32, 32, "FixedCount") { Duration = TimeSpan.FromSeconds(0.1) };
+        using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
+        using var frameProgress = new Subject<TimeSpan>();
+        using var frameProvider = new FrameProviderImpl(scene, new Rational(30), renderer, frameProgress);
+        scene.Duration = TimeSpan.FromSeconds(1);
+
+        int frames = 0;
+        while (await frameProvider.ReadNextFrame() is { } bitmap)
+        {
+            bitmap.Dispose();
+            frames++;
+        }
+
+        Assert.That((frameProvider.FrameCount, frames), Is.EqualTo((3L, 3)));
     }
 }
