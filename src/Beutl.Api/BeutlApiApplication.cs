@@ -18,13 +18,12 @@ namespace Beutl.Api;
 
 public partial class BeutlApiApplication : IAsyncDisposable
 {
-#if false
-    public const string BaseUrl = "http://localhost:3001";
-    public const string UserFileName = "user.local.json";
-#else
-    public const string BaseUrl = "https://beutl.beditor.net";
-    public const string UserFileName = "user.json";
-#endif
+    private const string DefaultBaseUrl = "https://beutl.beditor.net";
+
+    // BEUTL_API_BASE_URL points the client at another server, such as a local one at http://localhost:3001.
+    // Its sign-in is kept in user.local.json, apart from the production one.
+    public static readonly string BaseUrl = ResolveBaseUrl(Environment.GetEnvironmentVariable("BEUTL_API_BASE_URL"));
+    public static readonly string UserFileName = BaseUrl == DefaultBaseUrl ? "user.json" : "user.local.json";
     private readonly HttpClient _httpClient;
     private readonly ExtensionProvider _extensionProvider;
     private readonly Func<HttpClient> _packageInstallerHttpClientFactory;
@@ -162,6 +161,17 @@ public partial class BeutlApiApplication : IAsyncDisposable
     public static async Task<AssetMetadataJson?> LoadMetadata()
     {
         return await s_metadata;
+    }
+
+    // A value that is not an absolute http or https URL is ignored, so a mistyped variable keeps the production
+    // server. So is a query or fragment, since request paths are appended to the URL.
+    private static string ResolveBaseUrl(string? configured)
+    {
+        return Uri.TryCreate(configured?.Trim(), UriKind.Absolute, out Uri? uri)
+               && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+               && uri.Query.Length == 0 && uri.Fragment.Length == 0
+            ? uri.AbsoluteUri.TrimEnd('/')
+            : DefaultBaseUrl;
     }
 
     public T GetResource<T>()

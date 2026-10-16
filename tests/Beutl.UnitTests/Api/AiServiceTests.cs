@@ -1982,7 +1982,7 @@ public sealed partial class AiCapabilityServiceTests
                 destination,
                 CancellationToken.None));
         // Derive the accepted origin from the client so the assertion holds for
-        // both the local and production API base addresses.
+        // whichever server BEUTL_API_BASE_URL selects.
         AiContentDownload download = await service.CopyToAsync(
             new Uri(app.HttpClient.BaseAddress!, "/api/contents/file-1"),
             destination,

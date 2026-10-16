@@ -47,8 +47,8 @@ internal sealed class AiPlanCoordinator : IAiPlanCoordinator
         _language = language ?? (() =>
             GlobalConfiguration.Instance.ViewConfig.UICulture.TwoLetterISOLanguageName);
         // The pages opened here belong to the same site the client talks to, so
-        // a build pointed at a local server must not send the user to the live
-        // one to manage a plan that build knows nothing about.
+        // a client pointed at a local server with BEUTL_API_BASE_URL must not send
+        // the user to the live one to manage a plan that server knows nothing about.
         _portalBaseUri = portalBaseUri ?? new Uri(BeutlApiApplication.BaseUrl, UriKind.Absolute);
     }
 
