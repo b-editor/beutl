@@ -1066,7 +1066,7 @@ public class HistoryManagerTests
 
     [TestCase(false)]
     [TestCase(true)]
-    public void ExecuteInTransaction_SeparatesRecordsProducedByPendingEntryPublication(
+    public void ExecuteInTransaction_CommitsRecordsProducedByPendingEntryPublicationWithTheCallback(
         bool useAtomicSubscription)
     {
         using var manager = new HistoryManager(_sequenceGenerator);
@@ -1106,11 +1106,9 @@ public class HistoryManagerTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(_root.Value, Is.EqualTo(3));
-            Assert.That(manager.UndoCount, Is.EqualTo(3));
+            Assert.That(manager.UndoCount, Is.EqualTo(2));
             Assert.That(manager.HasPendingOperations, Is.False);
         }
-        Assert.That(manager.Undo(), Is.True);
-        Assert.That(_root.Value, Is.EqualTo(2));
         Assert.That(manager.Undo(), Is.True);
         Assert.That(_root.Value, Is.EqualTo(1));
         Assert.That(manager.Undo(), Is.True);
@@ -1118,7 +1116,7 @@ public class HistoryManagerTests
     }
 
     [Test]
-    public void ExecuteInTransaction_RejectsNonConvergingEntryPublicationBeforeCallback()
+    public void ExecuteInTransaction_RunsTheCallbackWhenEveryEntryPublicationRecords()
     {
         using var manager = new HistoryManager(_sequenceGenerator);
         manager.Record(CreateTestOperation());
@@ -1132,19 +1130,18 @@ public class HistoryManagerTests
         entries.CollectionChanged += handler;
         try
         {
-            Assert.Throws<InvalidOperationException>(() => manager.ExecuteInTransaction(
-                () => actionInvoked = true,
-                "Callback"));
+            manager.ExecuteInTransaction(() => actionInvoked = true, "Callback");
         }
         finally
         {
             entries.CollectionChanged -= handler;
         }
 
+        // The record made while the callback's entry is published waits for the next commit.
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(actionInvoked, Is.False);
-            Assert.That(manager.UndoCount, Is.GreaterThan(1));
+            Assert.That(actionInvoked, Is.True);
+            Assert.That(manager.UndoCount, Is.EqualTo(2));
             Assert.That(manager.HasPendingOperations, Is.True);
         }
     }
