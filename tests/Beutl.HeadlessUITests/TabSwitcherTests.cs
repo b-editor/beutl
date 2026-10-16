@@ -401,7 +401,7 @@ public sealed class TabSwitcherTests
         await using var session = await Session.CreateAsync("bare-picker-tab");
         using var gestures = new NavigationGestures();
         gestures.Set(MainViewExtension.NextTabCommandName, new(Key.J, KeyModifiers.Control));
-        await TestShell.MainViewModel.ExecuteAsync(new(MainViewExtension.NextTabCommandName));
+        await MainViewExtension.Instance.RunAsync(TestShell.MainViewModel, new(MainViewExtension.NextTabCommandName));
         HeadlessTestHelpers.Settle();
         TabSwitcherItem selected = session.Switcher.SelectedItem!;
 
@@ -490,8 +490,7 @@ public sealed class TabSwitcherTests
             KeyModifiers = shift ? KeyModifiers.Shift : KeyModifiers.None,
         };
         var execution = new ContextCommandExecution(MainViewExtension.NextTabCommandName) { KeyEventArgs = key };
-        Assert.That(TestShell.MainViewModel.CanExecute(execution), Is.False);
-        await TestShell.MainViewModel.ExecuteAsync(execution);
+        Assert.That(MainViewExtension.Instance.CanRun(TestShell.MainViewModel, execution), Is.False);
         Assert.Multiple(() =>
         {
             Assert.That(session.Switcher.IsOpen.Value, Is.False);
@@ -509,8 +508,8 @@ public sealed class TabSwitcherTests
         {
             KeyEventArgs = modifiedKey,
         };
-        Assert.That(TestShell.MainViewModel.CanExecute(modifiedExecution), Is.True);
-        await TestShell.MainViewModel.ExecuteAsync(modifiedExecution);
+        Assert.That(MainViewExtension.Instance.CanRun(TestShell.MainViewModel, modifiedExecution), Is.True);
+        await MainViewExtension.Instance.RunAsync(TestShell.MainViewModel, modifiedExecution);
         Assert.Multiple(() =>
         {
             Assert.That(session.Switcher.IsOpen.Value, Is.True);

@@ -28,7 +28,7 @@ public class ContextCommandDispatchTests
             .Subscribe(() => gate.Task);
         var execution = new ContextCommandExecution("SaveAll");
 
-        Task operation = TestShell.MainViewModel.ExecuteAsync(execution);
+        Task operation = MainViewExtension.Instance.RunAsync(TestShell.MainViewModel, execution);
 
         Assert.That(operation.IsCompleted, Is.False);
 
@@ -47,7 +47,7 @@ public class ContextCommandDispatchTests
         var execution = new ContextCommandExecution("SaveAll");
 
         // No project is open, so the command is disabled and nothing may be dispatched.
-        Task operation = TestShell.MainViewModel.ExecuteAsync(execution);
+        Task operation = MainViewExtension.Instance.RunAsync(TestShell.MainViewModel, execution);
 
         Assert.That(operation.IsCompletedSuccessfully, Is.True);
     }

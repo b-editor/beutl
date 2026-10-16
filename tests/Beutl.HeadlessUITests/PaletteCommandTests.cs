@@ -656,8 +656,8 @@ public class PaletteCommandTests
         ThemeRegistry.Register(other);
         try
         {
-            Assert.That(main.CanExecute(new ContextCommandExecution("ChangeTheme")), Is.True);
-            await main.ExecuteAsync(new ContextCommandExecution("ChangeTheme")
+            Assert.That(MainViewExtension.Instance.CanRun(main, new ContextCommandExecution("ChangeTheme")), Is.True);
+            await MainViewExtension.Instance.RunAsync(main, new ContextCommandExecution("ChangeTheme")
             {
                 Interaction = new ScriptedInteraction().Pick<ThemeDescriptor>(item => item.Value == theme)
             });
@@ -686,7 +686,8 @@ public class PaletteCommandTests
 
         MainViewModel main = TestShell.MainViewModel;
         var interaction = new ScriptedInteraction().Pick<string>(item => item.Value == firstPath);
-        await main.ExecuteAsync(new ContextCommandExecution("OpenRecentProject") { Interaction = interaction });
+        await MainViewExtension.Instance.RunAsync(
+            main, new ContextCommandExecution("OpenRecentProject") { Interaction = interaction });
         HeadlessTestHelpers.Settle();
 
         Assert.Multiple(() =>

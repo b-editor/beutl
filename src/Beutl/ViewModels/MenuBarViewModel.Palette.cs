@@ -20,25 +20,6 @@ public partial class MenuBarViewModel
         yield return new("MenuBar.ShowSceneSettings", Strings.SceneSettings, ShowSceneSettings);
     }
 
-    // MainViewExtension の ContextCommand 名から MenuBar 上の ICommand への単一マッピング。
-    // MainViewModel.ExecuteAsync / CanExecute と CommandPalette が共通で参照するためここに集約している。
-    public ICommand? FindContextCommand(string commandName) => commandName switch
-    {
-        "CreateNewProject" => CreateNewProject,
-        "CreateNewFile" => NewScene,
-        "OpenProject" => OpenProject,
-        "OpenFile" => OpenFile,
-        "Save" => Save,
-        "SaveAll" => SaveAll,
-        "EnableVersionControl" => EnableVersionControl,
-        "CommitVersion" => CommitVersion,
-        "CloseProject" => CloseProject,
-        "Undo" => Undo,
-        "Redo" => Redo,
-        "Exit" => Exit,
-        _ => null
-    };
-
     internal static Task ExecuteCommandAsync(ICommand command)
     {
         if (!command.CanExecute(null))
