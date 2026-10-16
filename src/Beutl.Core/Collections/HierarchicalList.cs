@@ -7,6 +7,7 @@ public class HierarchicalList<T> : CoreList<T>
     {
         ResetBehavior = ResetBehavior.Remove;
         Parent = parent;
+        WriteOwner = parent;
         Attached += item => parent.AddChild(item);
         Detached += item => parent.RemoveChild(item);
     }

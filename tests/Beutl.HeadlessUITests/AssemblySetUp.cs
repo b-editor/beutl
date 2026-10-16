@@ -15,6 +15,7 @@ public sealed class AssemblySetUp
         // that singleton to NullDispatcherImpl (which cannot run PushFrame).
         await HeadlessUnitTestSession.GetOrStartForAssembly(typeof(AssemblySetUp).Assembly)
             .Dispatch(() => { }, CancellationToken.None);
+        OffUiThreadWriteCheckAttribute.Start();
     }
 
     [OneTimeTearDown]

@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 
@@ -44,6 +45,9 @@ public class CoreList<T> : ICoreList<T>
 
     public ResetBehavior ResetBehavior { get; set; }
 
+    // The object these items belong to, for DocumentWriteCheck.
+    internal IHierarchical? WriteOwner { get; set; }
+
     protected List<T> Inner { get; }
 
     bool IList.IsFixedSize => false;
@@ -65,6 +69,7 @@ public class CoreList<T> : ICoreList<T>
         get => Inner[index];
         set
         {
+            VerifyWriter();
             T old = Inner[index];
 
             if (!EqualityComparer<T>.Default.Equals(old, value))
@@ -97,6 +102,7 @@ public class CoreList<T> : ICoreList<T>
 
     public virtual void Add(T item)
     {
+        VerifyWriter();
         int index = Inner.Count;
         Inner.Add(item);
         NotifyAdd(item, index);
@@ -119,6 +125,7 @@ public class CoreList<T> : ICoreList<T>
 
     public virtual void Clear()
     {
+        VerifyWriter();
         if (Count > 0)
         {
             List<T>? items = null;
@@ -159,6 +166,7 @@ public class CoreList<T> : ICoreList<T>
     public virtual void Replace(IList<T> source)
     {
         ArgumentNullException.ThrowIfNull(source);
+        VerifyWriter();
 
         // Copied first so that handlers raised below cannot change what gets inserted.
         T[] newItems = [.. source];
@@ -244,6 +252,7 @@ public class CoreList<T> : ICoreList<T>
 
     public virtual void Insert(int index, T item)
     {
+        VerifyWriter();
         Inner.Insert(index, item);
         NotifyAdd(item, index);
     }
@@ -251,6 +260,7 @@ public class CoreList<T> : ICoreList<T>
     public virtual void InsertRange(int index, IEnumerable<T> items)
     {
         _ = items ?? throw new ArgumentNullException(nameof(items));
+        VerifyWriter();
 
         bool willNotify = CollectionChanged != null || Attached != null || PropertyChanged != null;
         if (items.TryGetNonEnumeratedCount(out int count))
@@ -301,6 +311,7 @@ public class CoreList<T> : ICoreList<T>
 
     public virtual void InsertRange(int index, ReadOnlySpan<T> items)
     {
+        VerifyWriter();
         if (items.Length > 0)
         {
             EnsureCapacity(Inner.Count + items.Length);
@@ -319,6 +330,7 @@ public class CoreList<T> : ICoreList<T>
 
     public virtual void InsertRange(int index, T[] items)
     {
+        VerifyWriter();
         if (items.Length > 0)
         {
             EnsureCapacity(Inner.Count + items.Length);
@@ -338,6 +350,7 @@ public class CoreList<T> : ICoreList<T>
 
     public void Move(int oldIndex, int newIndex)
     {
+        VerifyWriter();
         T item = this[oldIndex];
         Inner.RemoveAt(oldIndex);
         Inner.Insert(newIndex, item);
@@ -352,6 +365,7 @@ public class CoreList<T> : ICoreList<T>
 
     public void MoveRange(int oldIndex, int count, int newIndex)
     {
+        VerifyWriter();
         List<T> items = Inner.GetRange(oldIndex, count);
         Inner.RemoveRange(oldIndex, count);
 
@@ -389,6 +403,7 @@ public class CoreList<T> : ICoreList<T>
 
     public virtual bool Remove(T item)
     {
+        VerifyWriter();
         int index = Inner.IndexOf(item);
 
         if (index != -1)
@@ -427,6 +442,7 @@ public class CoreList<T> : ICoreList<T>
 
     public virtual void RemoveAt(int index)
     {
+        VerifyWriter();
         T item = Inner[index];
         Inner.RemoveAt(index);
         NotifyRemove(item, index);
@@ -434,6 +450,7 @@ public class CoreList<T> : ICoreList<T>
 
     public virtual void RemoveRange(int index, int count)
     {
+        VerifyWriter();
         if (count > 0)
         {
             List<T> list = Inner.GetRange(index, count);
@@ -441,6 +458,9 @@ public class CoreList<T> : ICoreList<T>
             NotifyRemove(list, index);
         }
     }
+
+    [Conditional("DEBUG")]
+    private void VerifyWriter() => DocumentWriteCheck.Verify(WriteOwner, "Items");
 
     // For in-repo loops: unlike the enumerator, the span does not throw when the list changes.
     internal Span<T> AsSpan()
