@@ -64,35 +64,6 @@ public sealed class PromptLibraryProviderTests
     }
 
     [Test]
-    public void AccountSwitchClearsVisiblePromptsAndSurfacesCorruptMigrationMarker()
-    {
-        string? account = "account-a";
-        using var context = Context(() => account);
-        IPromptLibrary library = PromptLibraryProvider.For(context);
-        library.Record(PromptTaskKind.Image, "A private prompt");
-        using var viewModel = CreateViewModel(library, context);
-        Assert.That(viewModel.History.Select(item => item.Prompt),
-            Is.EqualTo(["A private prompt"]));
-
-        File.WriteAllText(Path.Combine(_home, "ai-prompts.migrated"), "invalid");
-        viewModel.TemplateName.Value = "A private template name";
-        viewModel.IsHistoryOpen.Value = true;
-        account = "account-b";
-
-        Assert.DoesNotThrow(context.RefreshIdentity);
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.History, Is.Empty);
-            Assert.That(viewModel.Templates, Is.Empty);
-            Assert.That(viewModel.HasHistory.Value, Is.False);
-            Assert.That(viewModel.HasTemplates.Value, Is.False);
-            Assert.That(viewModel.IsHistoryOpen.Value, Is.False);
-            Assert.That(viewModel.TemplateName.Value, Is.Empty);
-            Assert.That(viewModel.Error.Value, Is.EqualTo(Strings.AiResultUnavailable));
-        });
-    }
-
-    [Test]
     public void AccountSwitchWithCorruptDestinationDoesNotAbortIdentityHandlers()
     {
         string? account = "account-a";
@@ -337,22 +308,24 @@ public sealed class PromptLibraryProviderTests
         writer.SaveTemplate("Account A", PromptTaskKind.Image, "private A");
 
         account = "account-b";
-        string migrationLockPath = Path.Combine(_home, "ai-prompts.migrated.lock");
-        using (var heldMigrationLock = new FileStream(
-                   migrationLockPath,
-                   FileMode.OpenOrCreate,
-                   FileAccess.ReadWrite,
-                   FileShare.None))
+        // A library a newer Beutl wrote cannot be read until it is gone.
+        string accountFile = Path.Combine(
+            _home,
+            "ai-prompts",
+            Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes("account-b"))) + ".json");
+        File.WriteAllText(
+            accountFile,
+            $$"""{ "version": {{PersistentPromptLibrary.CurrentStorageVersion + 1}}, "history": [], "templates": [] }""");
+        context.RefreshIdentity();
+        Assert.Multiple(() =>
         {
-            context.RefreshIdentity();
-            Assert.Multiple(() =>
-            {
-                Assert.That(first.Templates, Is.Empty);
-                Assert.That(second.Templates, Is.Empty);
-                Assert.That(first.Error.Value, Is.EqualTo(Strings.AiResultUnavailable));
-                Assert.That(second.Error.Value, Is.EqualTo(Strings.AiResultUnavailable));
-            });
-        }
+            Assert.That(first.Templates, Is.Empty);
+            Assert.That(second.Templates, Is.Empty);
+            Assert.That(first.Error.Value, Is.EqualTo(Strings.AiResultUnavailable));
+            Assert.That(second.Error.Value, Is.EqualTo(Strings.AiResultUnavailable));
+        });
+        File.Delete(accountFile);
 
         // No second identity event occurs. The first successful mutation must publish
         // through the account-scoped hub and refresh every still-live workspace.
@@ -370,98 +343,18 @@ public sealed class PromptLibraryProviderTests
     }
 
     [Test]
-    public void LegacyFileIsClaimedOnceByFirstAuthenticatedAccount()
+    public void FilesOfTheSingleFileLibraryAreIgnored()
     {
-        string legacy = Path.Combine(_home, "ai-prompts.json");
-        var seed = new PersistentPromptLibrary(legacy);
-        seed.SaveTemplate("legacy", PromptTaskKind.Image, "legacy prompt");
-
-        string? account = "account-a";
-        using var context = Context(() => account);
-        IPromptLibrary first = PromptLibraryProvider.For(context);
-        Assert.That(first.Templates.Select(item => item.Prompt), Is.EqualTo(["legacy prompt"]));
-        string marker = Path.Combine(_home, "ai-prompts.migrated");
-        Assert.That(File.Exists(marker), Is.True);
-        Assert.That(File.ReadAllText(marker), Is.EqualTo(Convert.ToHexString(
-            System.Security.Cryptography.SHA256.HashData(
-                System.Text.Encoding.UTF8.GetBytes("account-a")))));
-
-        account = "account-b";
-        IPromptLibrary second = PromptLibraryProvider.For(context);
-        Assert.That(second.History, Is.Empty);
-        Assert.That(second.Templates, Is.Empty);
-    }
-
-    [Test]
-    public void LegacyMigrationFailureIsFailClosedAndOwnerCanRetry()
-    {
-        string legacy = Path.Combine(_home, "ai-prompts.json");
-        var seed = new PersistentPromptLibrary(legacy);
-        seed.SaveTemplate("legacy", PromptTaskKind.Image, "legacy prompt");
-
-        // Block the owner's destination. Marker ownership is still durable,
-        // while the legacy move fails closed without exposing its data.
-        string marker = Path.Combine(_home, "ai-prompts.migrated");
-        string? account = "account-a";
-        using var context = Context(() => account);
-        string accountFile = Convert.ToHexString(
-            System.Security.Cryptography.SHA256.HashData(
-                System.Text.Encoding.UTF8.GetBytes("account-a"))) + ".json";
-        Directory.CreateDirectory(Path.Combine(_home, "ai-prompts"));
-        Directory.CreateDirectory(Path.Combine(_home, "ai-prompts", accountFile));
-        IPromptLibrary first = PromptLibraryProvider.For(context);
-        Assert.That(() => first.Templates, Throws.TypeOf<IOException>());
-        Assert.That(File.ReadAllText(marker), Is.EqualTo(accountFile[..^5]));
-        Assert.That(File.Exists(Path.Combine(_home, "ai-prompts", accountFile)), Is.False);
-
-        Directory.Delete(Path.Combine(_home, "ai-prompts", accountFile));
-        account = "account-b";
-        IPromptLibrary other = PromptLibraryProvider.For(context);
-        other.Record(PromptTaskKind.Image, "B only");
-        Assert.That(File.Exists(legacy), Is.True);
-        account = "account-a";
-        PromptLibraryProvider.ConfigureRootForTests(Path.Combine(_home, "ai-prompts"));
-        IPromptLibrary retried = PromptLibraryProvider.For(context);
-        Assert.That(retried.Templates.Select(item => item.Prompt), Is.EqualTo(["legacy prompt"]));
-        Assert.That(File.Exists(marker), Is.True);
-    }
-
-    [Test]
-    public void InvalidMigrationMarkerFailsClosedWhileLegacyRemains()
-    {
-        string legacy = Path.Combine(_home, "ai-prompts.json");
-        _ = new PersistentPromptLibrary(legacy).SaveTemplate("legacy", PromptTaskKind.Image, "private");
+        // Only development builds of #2305 wrote ai-prompts.json; releases also wrote the migration marker.
+        _ = new PersistentPromptLibrary(Path.Combine(_home, "ai-prompts.json"))
+            .SaveTemplate("legacy", PromptTaskKind.Image, "legacy prompt");
         File.WriteAllText(Path.Combine(_home, "ai-prompts.migrated"), "invalid");
         using var context = Context(() => "account-a");
-        Assert.That(() => PromptLibraryProvider.For(context).Templates, Throws.TypeOf<InvalidDataException>());
-        Assert.That(File.Exists(legacy), Is.True);
-    }
-
-    [Test]
-    public void PendingOwnerMarkerWithLegacyRetriesMove()
-    {
-        string legacy = Path.Combine(_home, "ai-prompts.json");
-        _ = new PersistentPromptLibrary(legacy).SaveTemplate("legacy", PromptTaskKind.Image, "pending");
-        string owner = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
-            System.Text.Encoding.UTF8.GetBytes("account-a")));
-        File.WriteAllText(Path.Combine(_home, "ai-prompts.migrated"), owner);
-        using var context = Context(() => "account-a");
         IPromptLibrary library = PromptLibraryProvider.For(context);
-        Assert.That(library.Templates.Select(item => item.Prompt), Is.EqualTo(["pending"]));
-        Assert.That(File.Exists(legacy), Is.False);
-    }
 
-    [Test]
-    public void PendingOwnerMarkerWithAccountPathCompletesWithoutLegacy()
-    {
-        string owner = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
-            System.Text.Encoding.UTF8.GetBytes("account-a")));
-        File.WriteAllText(Path.Combine(_home, "ai-prompts.migrated"), owner);
-        string path = Path.Combine(_home, "ai-prompts", owner + ".json");
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        _ = new PersistentPromptLibrary(path).SaveTemplate("existing", PromptTaskKind.Image, "path");
-        using var context = Context(() => "account-a");
-        Assert.That(PromptLibraryProvider.For(context).Templates.Select(item => item.Prompt), Is.EqualTo(["path"]));
+        Assert.That(library.Templates, Is.Empty);
+        library.Record(PromptTaskKind.Image, "A prompt");
+        Assert.That(library.History.Select(item => item.Prompt), Is.EqualTo(["A prompt"]));
     }
 
     // An image prompt workspace that applies its UI updates inline unless dispatch is given.
