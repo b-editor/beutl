@@ -14,6 +14,9 @@ public sealed class GlobalConfiguration
     // Not a section: the version of the build that saved the file last.
     private const string VersionKey = "Version";
 
+    // Sections this build no longer has. They are read and dropped instead of being kept for the next save.
+    private static readonly string[] s_droppedSections = ["Backup", "backup"];
+
     public static readonly GlobalConfiguration Instance = new();
     private readonly (string Key, string? LegacyKey, ConfigurationBase Config)[] _sections;
     private string? _filePath;
@@ -38,7 +41,6 @@ public sealed class GlobalConfiguration
             ("Font", "font", FontConfig),
             ("View", "view", ViewConfig),
             ("Extension", "extension", ExtensionConfig),
-            ("Backup", "backup", BackupConfig),
             ("Telemetry", "telemetry", TelemetryConfig),
             ("Editor", null, EditorConfig),
             ("Graphics", null, GraphicsConfig),
@@ -59,8 +61,6 @@ public sealed class GlobalConfiguration
     public ViewConfig ViewConfig { get; } = new();
 
     public ExtensionConfig ExtensionConfig { get; } = new();
-
-    public BackupConfig BackupConfig { get; } = new();
 
     public TelemetryConfig TelemetryConfig { get; } = new();
 
@@ -246,7 +246,9 @@ public sealed class GlobalConfiguration
     }
 
     private bool IsKnownKey(string key)
-        => key == VersionKey || Array.Exists(_sections, s => s.Key == key || s.LegacyKey == key);
+        => key == VersionKey
+           || s_droppedSections.Contains(key)
+           || Array.Exists(_sections, s => s.Key == key || s.LegacyKey == key);
 
     // A setting that cannot be read keeps its default, and the sections after it are still read.
     private static void RestoreSection(

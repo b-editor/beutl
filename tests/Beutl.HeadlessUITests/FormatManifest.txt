@@ -50,9 +50,6 @@ Beutl.Utilities
 [Beutl.Configuration]:AiAgentConfig
   sealed
   keys: AgentId, FollowLiveMcpEdits, InstallMcp, InstallScope, InstallSkills, InstallSubagents, McpConfigFileName, McpServersPropertyName, ProjectRoot, SkillsDirectory, StdioArguments, StdioCommand, SubagentsDirectory
-[Beutl.Configuration]:BackupConfig
-  sealed
-  keys: BackupSettings
 [Beutl.Configuration]:ConfigurationBase
   abstract
 [Beutl.Configuration]:EditorConfig
@@ -75,7 +72,7 @@ Beutl.Utilities
   keys: Beutl_Api_Client, Beutl_Application, Beutl_Logging, Beutl_PackageManagement
 [Beutl.Configuration]:TutorialConfig
   sealed
-  keys: CompletedTutorialIds, ShowTutorialsOnStartup
+  keys: CompletedTutorialIds
 [Beutl.Configuration]:VersionControlConfig
   sealed
   keys: AutoCommitOnClose, AutoCommitOnSave, EnableForNewProjects, GitExecutablePath, LargeMediaWarningThresholdMb, UseLfsWhenAvailable
