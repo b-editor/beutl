@@ -147,6 +147,52 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         });
     }
 
+    // An empty listing waits for the next open, which still sees an ignore rule added meanwhile.
+    [Test]
+    public async Task An_empty_ignored_files_listing_runs_once_per_open()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        var runner = new RecordingGitCliRunner(Runner);
+        var notices = new List<VersionControlPolicyNotice>();
+        Task Present(VersionControlPolicyNotice notice)
+        {
+            notices.Add(notice);
+            return Task.CompletedTask;
+        }
+
+        using (GitCliVersionControlService service = CreateService(
+                   new VersionControlConfig(),
+                   lfsInstalled: false,
+                   Present,
+                   runner: runner))
+        {
+            await WriteProjectFileAsync("project.bep", "first\n");
+            await service.CommitAllAsync("first", SnapshotKind.Save, CancellationToken.None);
+            await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "*.wav\n");
+            await WriteProjectFileAsync("audio/voice.wav", "voice\n");
+            await WriteProjectFileAsync("project.bep", "second\n");
+            await service.CommitAllAsync("second", SnapshotKind.Save, CancellationToken.None);
+        }
+
+        int listingsInFirstOpen = runner.Commands.Count(static command =>
+            GetGitSubcommand(command.Arguments) == "ls-files" && command.Arguments.Contains("--ignored"));
+        using GitCliVersionControlService reopened = CreateService(
+            new VersionControlConfig(),
+            lfsInstalled: false,
+            Present,
+            runner: runner);
+        await WriteProjectFileAsync("project.bep", "third\n");
+        await reopened.CommitAllAsync("third", SnapshotKind.Save, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(listingsInFirstOpen, Is.EqualTo(1));
+            Assert.That(
+                notices.OfType<VersionControlPolicyNotice.IgnoredProjectFiles>().Single().Paths,
+                Is.EqualTo(new[] { "audio/voice.wav" }));
+        });
+    }
+
     [Test]
     public async Task Ignored_project_files_notice_names_the_project_folder_an_enclosing_repository_ignores()
     {
