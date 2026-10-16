@@ -328,6 +328,38 @@ public sealed class GenerativeNodeModelTests
         Assert.That(node.Model.Property!.GetValue(), Is.Empty, "Another task's model would be refused.");
     }
 
+    [Test]
+    public void VideoModelsAreOfferedForWhatEachOperationSends()
+    {
+        // As the video dialog offers them: an edit inherits the source's length and shape, extension and
+        // motion choose only a length, and generation needs a shape the model can make.
+        var noShape = new AiModelOption(new AiModelId("no-shape"), "No shape", null, false,
+            Video: new AiVideoModelCapabilities(
+                AiCapabilityDimension<int>.Unspecified,
+                AiCapabilityDimension<string>.Supported([]),
+                AiCapabilityDimension<string>.Unspecified,
+                SupportsAudio: false,
+                SupportsSeed: false));
+        var noLength = new AiModelOption(new AiModelId("no-length"), "No length", null, false,
+            Video: new AiVideoModelCapabilities(
+                AiCapabilityDimension<int>.Supported([]),
+                AiCapabilityDimension<string>.Unspecified,
+                AiCapabilityDimension<string>.Unspecified,
+                SupportsAudio: false,
+                SupportsSeed: false));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(AiGenerativeModelCatalog.IsOffered("video.generate", noShape), Is.False);
+            Assert.That(AiGenerativeModelCatalog.IsOffered("video.edit", noShape), Is.True);
+            Assert.That(AiGenerativeModelCatalog.IsOffered("video.extend", noShape), Is.True);
+            Assert.That(AiGenerativeModelCatalog.IsOffered("video.motion", noShape), Is.True);
+            Assert.That(AiGenerativeModelCatalog.IsOffered("video.edit", noLength), Is.True);
+            Assert.That(AiGenerativeModelCatalog.IsOffered("video.extend", noLength), Is.False);
+            Assert.That(AiGenerativeModelCatalog.IsOffered("video.motion", noLength), Is.False);
+        });
+    }
+
     [AvaloniaTest]
     public async Task VideoIsWaitedForAndSavedLeavingOutWhatTheModelDoesNotTake()
     {

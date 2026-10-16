@@ -44,8 +44,8 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
     private readonly ReactivePropertySlim<int> _outstandingRevision = new();
     private readonly EditViewModel? _editViewModel;
     private string? _sourceElementId;
-    private bool _modelsRequireResolution;
-    private string? _modelsRequiredBackground;
+    // The operation of the task whose models the picker lists; its filter reads it while they load.
+    private string _modelsOperation = AiOperations.ImageEdit(new AiImageEditTaskId(RemoveBackgroundTask)).Value;
     private IdentityOperationLifetime.Operation? _runningRequest;
 
     internal AiImageEditDialogViewModel(
@@ -71,19 +71,9 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
             recoveryContext: requestRecoveryContext,
             operation: "image.edit");
         Usage = new AiUsageViewModel(_entitlements.Entitlements).DisposeWith(_disposables);
-        // Every edit hands the model the picture being edited, so one that takes
-        // no reference image is registered and unusable however the request is
-        // shaped. An upscale asks for a size on top of that, and removing a
-        // background asks for a transparent one — neither of which every model
-        // that takes a picture can be asked for.
         ModelPicker = new AiModelPickerViewModel(_modelCatalog, _entitlements)
         {
-            Filter = model =>
-                model.Image is not { } image
-                || image.CanServeAnything(
-                    requiresReferenceImages: true,
-                    requiresResolution: _modelsRequireResolution,
-                    requiredBackground: _modelsRequiredBackground),
+            Filter = model => AiGenerativeModelCatalog.IsOffered(_modelsOperation, model),
         }
             .DisposeWith(_disposables);
         _recovery = new AiRecoveryState(
@@ -441,21 +431,10 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
         }
     }
 
-    // Asking for a size is what upscaling is; the other tasks keep the one they
-    // were given.
-    private static bool RequiresResolution(string? task)
-        => string.Equals(task, UpscaleTask, StringComparison.Ordinal);
-
     // Where the task sits in the request's parts.
     private const int TaskPartIndex = 0;
     // Where the model sits in the request's parts.
     private const int ModelPartIndex = 2;
-
-    // Cutting a background out is asking for a transparent one.
-    private static string? RequiredBackground(string? task)
-        => string.Equals(task, RemoveBackgroundTask, StringComparison.Ordinal)
-            ? "transparent"
-            : null;
 
     /// <inheritdoc />
     public void RefreshModels()
@@ -474,8 +453,7 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
         if (operation is null)
             return;
         // Read by the picker's filter, which runs while the list below loads.
-        _modelsRequireResolution = RequiresResolution(task.Value);
-        _modelsRequiredBackground = RequiredBackground(task.Value);
+        _modelsOperation = AiOperations.ImageEdit(new AiImageEditTaskId(task.Value)).Value;
         try
         {
             await _entitlements.RefreshAsync(operation.CancellationToken);

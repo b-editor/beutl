@@ -164,15 +164,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             .DisposeWith(_disposables);
         Seed = new ReactivePropertySlim<int?>()
             .DisposeWith(_disposables);
-        // Require only dimensions sent by this operation: edits inherit the
-        // source length and shape; extension and motion choose only a length.
-        ModelPicker.Filter = model => model.Video is not { } video || (SourceMode switch
-        {
-            AiSourceVideoMode.Edit => true,
-            AiSourceVideoMode.Extend or AiSourceVideoMode.Motion =>
-                !video.DurationsSeconds.IsSpecified || !video.DurationsSeconds.Values.IsEmpty,
-            _ => video.CanServeAnything(),
-        });
+        ModelPicker.Filter = model => AiGenerativeModelCatalog.IsOffered(Operation.Value, model);
         SelectedDuration.RememberChoice(() => _applyingCapabilities, option => _chosenDuration = option)
             .DisposeWith(_disposables);
         SelectedResolution.RememberChoice(() => _applyingCapabilities, option => _chosenResolution = option)
