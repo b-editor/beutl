@@ -12,7 +12,7 @@ internal partial class VersionControlCoordinator
         }
 
         _disposed = true;
-        _pendingConfigurationActivation = null;
+        _rediscoveryRequested = false;
         PreparedNewProject? preparedNewProject = _preparedNewProject;
         _preparedNewProject = null;
         try

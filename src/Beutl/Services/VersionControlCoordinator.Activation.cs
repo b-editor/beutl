@@ -28,7 +28,7 @@ internal partial class VersionControlCoordinator
             return;
         }
 
-        _pendingConfigurationActivation = null;
+        _rediscoveryRequested = false;
         AdvanceProjectServiceEpoch();
         if (IsInternalVersionControlTransition(transition))
         {
@@ -61,7 +61,8 @@ internal partial class VersionControlCoordinator
                 && PathsEqual(repository.ProjectRoot, GetProjectRoot(project)))
             {
                 SetVisibleService(preservedService);
-                QueueRepositoryHygieneConfigurationIfDirty(project);
+                // An LFS setting changed while the operation ran applies to the backend it kept.
+                StartConfigurationActivation();
                 return;
             }
         }
@@ -83,8 +84,7 @@ internal partial class VersionControlCoordinator
         Project? project,
         bool newProject,
         PreparedNewProject? preparedNewProject,
-        CancellationToken cancellationToken,
-        bool isRediscovery = false)
+        CancellationToken cancellationToken)
     {
         IProjectVersionControlBackend? preparedService = preparedNewProject?.Service;
         try
@@ -124,7 +124,6 @@ internal partial class VersionControlCoordinator
                     cancellationToken,
                     _lifetimeCancellation.Token))
             {
-                IsRediscovery = isRediscovery,
                 InterruptedNewProjectRepository = preparedNewProject?.InterruptedRepository,
             };
             ActivationContext? previousActivation = _activation;
