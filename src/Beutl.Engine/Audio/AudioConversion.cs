@@ -36,7 +36,7 @@ public static class AudioConversion
             throw new ArgumentException("The destination is shorter than the interleaved samples.", "destination");
     }
 
-    // The rounding of the former Stereo16BitInteger conversion; out-of-range values saturate.
+    // Clipped, because casting a value past full scale wraps it to the opposite sign.
     private static short ToInt16(float value)
-        => (short)MathF.Round(value * short.MaxValue, MidpointRounding.AwayFromZero);
+        => (short)Math.Clamp(MathF.Round(value * short.MaxValue, MidpointRounding.AwayFromZero), short.MinValue, short.MaxValue);
 }
