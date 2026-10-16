@@ -208,10 +208,13 @@ public sealed partial class EditorService
     private EditorTabItem? CreateTabItem(CoreObject obj, bool isSelected)
     {
         EditorExtension? ext = _extensionProvider.MatchEditorExtension(obj.Uri!.LocalPath);
-        if (ext?.TryCreateContext(obj, new EditorContextServices(this, _extensionProvider), out IEditorContext? context) != true)
+        if (ext is null
+            || ExtensionGuard.Call(ext,
+                () => ext.TryCreateContext(obj, new EditorContextServices(this, _extensionProvider), out IEditorContext? created) ? created : null)
+            is not { } context)
             return null;
 
-        var item = new EditorTabItem(context!) { IsSelected = { Value = isSelected } };
+        var item = new EditorTabItem(context) { IsSelected = { Value = isSelected } };
         TabItems.Add(item);
         return item;
     }

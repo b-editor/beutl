@@ -2,6 +2,10 @@
 
 Extensions build against the `Beutl.Extensibility.Sdk` release that matches the Beutl version they target.
 
+When a factory (`TryCreateContent`, `TryCreateContext`, `TryCreateEditor`, `MatchProperty`, `GetIcon`) or a
+command of an extension from a package throws, Beutl logs it with the package name, shows one notice and turns the
+extension off until it restarts.
+
 ## Guides
 
 - [Resolution-independent rendering](resolution-independent-rendering.md): read before implementing drawables,

@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.AgentToolkit.Installation;
+using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Language;
 using Beutl.Logging;
@@ -249,7 +250,7 @@ public sealed partial class MainView : UserControl
                 Header = item.DisplayName,
                 DataContext = item,
                 IsVisible = false,
-                Icon = item.GetIcon()
+                Icon = ExtensionGuard.Call(item, item.GetIcon)
             };
 
             menuItem.Click += async (s, e) =>
@@ -295,7 +296,7 @@ public sealed partial class MainView : UserControl
             {
                 Header = item.DisplayName,
                 DataContext = item,
-                Icon = item.GetIcon()
+                Icon = ExtensionGuard.Call(item, item.GetIcon)
             };
 
             menuItem.Click += async (s, e) =>

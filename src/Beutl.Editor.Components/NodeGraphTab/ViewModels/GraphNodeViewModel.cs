@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+using Beutl.Api.Services;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.Views;
@@ -291,7 +292,8 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
         {
             atmp[0] = aproperty;
             (_, PropertyEditorExtension? ext) = factory.MatchProperty(atmp);
-            ext?.TryCreateContextForNode(atmp, out context);
+            if (ext != null)
+                context = ExtensionGuard.Call(ext, () => ext.TryCreateContextForNode(atmp, out IPropertyEditorContext? created) ? created : null);
         }
 
         context?.Accept(this);

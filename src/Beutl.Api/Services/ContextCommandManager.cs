@@ -202,7 +202,7 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
                     return;
 
                 await ExecuteSafelyAsync(
-                    () => DispatchAsync(context, args, entries),
+                    () => ExtensionGuard.CallAsync(extension, () => DispatchAsync(context, args, entries)),
                     logger);
             };
         }

@@ -132,6 +132,7 @@ public sealed class CommandPaletteService
             }
 
             IContextCommandHandler handler = snapshotHandler;
+            Extension? owner = FindExtension(entry.ExtensionType);
             IObservable<System.Reactive.Unit>? stateChanged =
                 (handler as IContextCommandStateNotifier)?.CanExecuteChanged;
 
@@ -141,8 +142,8 @@ public sealed class CommandPaletteService
                 Description: entry.Definition.Description,
                 CategoryName: category,
                 KeyGesture: gesture,
-                CanExecute: () => handler.CanExecute(CreateExecution(commandName, activeContext, null)),
-                ExecuteAsync: interaction =>
+                CanExecute: () => Guard(owner, () => handler.CanExecute(CreateExecution(commandName, activeContext, null))),
+                ExecuteAsync: interaction => Guard(owner, () =>
                 {
                     // スロットル窓や状態変化で表示と実行可否がずれる可能性があるため、
                     // 実行直前にもう一度 CanExecute を確認してから Execute する。
@@ -150,7 +151,7 @@ public sealed class CommandPaletteService
                     return handler.CanExecute(execution)
                         ? handler.ExecuteAsync(execution)
                         : Task.CompletedTask;
-                })
+                }))
             {
                 StateChanged = stateChanged
             });
@@ -212,7 +213,7 @@ public sealed class CommandPaletteService
         using (lease)
         {
             return lease.Extension is IContextCommandHandler handler
-                && handler.CanExecute(CreateExecution(commandName, editorContext, null));
+                && ExtensionGuard.Call(lease.Extension, () => handler.CanExecute(CreateExecution(commandName, editorContext, null)));
         }
     }
 
@@ -229,11 +230,25 @@ public sealed class CommandPaletteService
             if (lease.Extension is IContextCommandHandler handler)
             {
                 var execution = CreateExecution(commandName, editorContext, interaction);
-                if (handler.CanExecute(execution))
-                    await handler.ExecuteAsync(execution);
+                await ExtensionGuard.CallAsync(lease.Extension, async () =>
+                {
+                    if (handler.CanExecute(execution))
+                        await handler.ExecuteAsync(execution);
+                });
             }
         }
     }
+
+    // A lambda here would hoist the entry into the snapshot's closure and keep a collectible extension type alive.
+    private Extension? FindExtension(Type type)
+        => _extensionProvider.AllExtensions.FirstOrDefault(extension => extension.GetType() == type);
+
+    // A handler that no registered extension owns is the host's own, and runs unguarded.
+    private static bool Guard(Extension? owner, Func<bool> canExecute)
+        => owner is null ? canExecute() : ExtensionGuard.Call(owner, canExecute);
+
+    private static Task Guard(Extension? owner, Func<Task> execute)
+        => owner is null ? execute() : ExtensionGuard.CallAsync(owner, execute);
 
     private string ResolveCategoryName(Type extensionType)
     {

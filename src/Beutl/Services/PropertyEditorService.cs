@@ -41,7 +41,7 @@ public static class PropertyEditorService
         for (int i = items.Length - 1; i >= 0; i--)
         {
             PropertyEditorExtension item = items[i];
-            IPropertyAdapter[] array = item.MatchProperty(properties).ToArray();
+            IPropertyAdapter[] array = ExtensionGuard.Call(item, () => item.MatchProperty(properties).ToArray()) ?? [];
             if (array.Length > 0)
             {
                 return (array, item);

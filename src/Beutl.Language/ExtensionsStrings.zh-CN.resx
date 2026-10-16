@@ -20,6 +20,12 @@
   <data name="NoLogoImageAvailable" xml:space="preserve">
     <value>没有可用的徽标图像</value>
   </data>
+  <data name="ExtensionFailed" xml:space="preserve">
+    <value>{0} 出现错误</value>
+  </data>
+  <data name="ExtensionTurnedOff" xml:space="preserve">
+    <value>在重新启动 Beutl 之前停用。包：{0}</value>
+  </data>
   <data name="Package_Screenshots" xml:space="preserve">
     <value>截图</value>
   </data>
