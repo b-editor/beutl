@@ -1,6 +1,7 @@
 ﻿using Beutl.Api.Services;
 using Beutl.Extensibility;
 using Beutl.Language;
+using Beutl.Logging;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Api;
@@ -14,6 +15,8 @@ public sealed class ExtensionGuardTests
     {
         var extension = new NamedExtension();
         using var notifications = NotificationCapture.Install();
+        using var logs = new CapturingLoggerProvider(category => category == typeof(ExtensionGuard).FullName);
+        Log.LoggerFactory.AddProvider(logs);
 
         string? first = ExtensionGuard.Call<string>(extension, () => throw new InvalidOperationException("broken"));
         bool second = ExtensionGuard.Call(extension, () => throw new InvalidOperationException("broken again"));
@@ -29,6 +32,7 @@ public sealed class ExtensionGuardTests
             {
                 (string.Format(ExtensionsStrings.ExtensionFailed, "Named"), MessageStrings.OperationFailed),
             }));
+            Assert.That(logs.Entries.Select(entry => entry.Exception?.Message), Is.EqualTo(new[] { "broken" }));
         }
     }
 

@@ -75,11 +75,11 @@ internal static class ExtensionGuard
 
     private static void Report(Extension extension, Exception exception)
     {
-        string? package = s_packages.TryGetValue(extension, out string? name) ? name : null;
-        Logger.LogError(exception, "{Extension} from {Package} failed.", extension.GetType().FullName, package ?? "Beutl");
         if (!s_failed.TryAdd(extension, exception))
             return;
 
+        string? package = s_packages.TryGetValue(extension, out string? name) ? name : null;
+        Logger.LogError(exception, "{Extension} from {Package} failed.", extension.GetType().FullName, package ?? "Beutl");
         NotificationService.ShowError(
             string.Format(ExtensionsStrings.ExtensionFailed, DisplayName(extension)),
             package is null ? MessageStrings.OperationFailed : string.Format(ExtensionsStrings.ExtensionTurnedOff, package));

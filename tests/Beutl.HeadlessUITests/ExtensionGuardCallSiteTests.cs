@@ -10,7 +10,9 @@ using Beutl.Language;
 using Beutl.PropertyAdapters;
 using Beutl.Services;
 using Beutl.Services.Adapters;
+using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
+using Beutl.ViewModels.Tools;
 using Beutl.Views;
 using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
@@ -87,6 +89,41 @@ public sealed class ExtensionGuardCallSiteTests
             Assert.That(handler.Executions, Is.EqualTo(1));
             Assert.That(notifications.Single().Message, Is.EqualTo(string.Format(ExtensionsStrings.ExtensionTurnedOff, "Throwing.Package")));
         }
+    }
+
+    [AvaloniaTest]
+    public async Task An_output_extension_whose_context_throws_is_reported_once()
+    {
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("throwing-output", 320, 180)).Editor;
+        using var model = new OutputTabViewModel(editor);
+        int profiles = model.Items.Count;
+        var extension = new ThrowingOutput();
+        ExtensionGuard.SetPackage(extension, "Throwing.Package");
+        using var notifications = new NotificationCapture();
+
+        model.AddItem(extension);
+        model.AddItem(extension);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(model.Items, Has.Count.EqualTo(profiles));
+            Assert.That(notifications.Single().Title, Is.EqualTo(string.Format(ExtensionsStrings.ExtensionFailed, "Throwing output")));
+        }
+    }
+
+    private sealed class ThrowingOutput : OutputExtension
+    {
+        public override string DisplayName => "Throwing output";
+
+        public override bool TryCreateControl(
+            IEditorContext editorContext, IOutputContext context, IOutputExecutionController execution,
+            [NotNullWhen(true)] out Control? control)
+            => throw new InvalidOperationException("control");
+
+        public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IOutputContext? context)
+            => throw new InvalidOperationException("context");
+
+        public override bool IsSupported(Type type) => true;
     }
 
     private sealed class ThrowingToolTab : ToolTabExtension
