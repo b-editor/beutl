@@ -30,11 +30,21 @@ internal sealed partial class GitCliVersionControlService
                     .ConfigureAwait(false))
                 .Where(static branch => !branch.IsRemote);
             // A case-insensitive volume cannot hold two loose refs that differ only in case, so case
-            // variants are refused on every storage. git switch -c reports any other collision itself.
-            return !branches.Any(branch => BranchNamesConflict(
-                branch.Name,
-                name,
-                StringComparison.OrdinalIgnoreCase));
+            // variants are refused on every storage.
+            if (branches.Any(branch => BranchNamesConflict(
+                    branch.Name,
+                    name,
+                    StringComparison.OrdinalIgnoreCase)))
+            {
+                return false;
+            }
+
+            return !await HasLooseBranchPathCollisionAsync(
+                    repository,
+                    runner,
+                    name,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (GitOperationException)
         {
@@ -285,5 +295,40 @@ internal sealed partial class GitCliVersionControlService
         return string.Equals(existingName, candidateName, comparison)
                || existingName.StartsWith($"{candidateName}/", comparison)
                || candidateName.StartsWith($"{existingName}/", comparison);
+    }
+
+    private static async Task<bool> HasLooseBranchPathCollisionAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string candidateName,
+        CancellationToken cancellationToken)
+    {
+        string headsDirectory = await ResolveGitPathAsync(
+                repository,
+                runner,
+                "refs/heads",
+                cancellationToken)
+            .ConfigureAwait(false);
+        string candidatePath = Path.Combine(
+            headsDirectory,
+            candidateName.Replace('/', Path.DirectorySeparatorChar));
+        if (Path.Exists(candidatePath))
+        {
+            return true;
+        }
+
+        string? parent = Path.GetDirectoryName(candidatePath);
+        while (parent is not null
+               && !string.Equals(parent, headsDirectory, StringComparison.Ordinal))
+        {
+            if (File.Exists(parent))
+            {
+                return true;
+            }
+
+            parent = Path.GetDirectoryName(parent);
+        }
+
+        return false;
     }
 }

@@ -3491,32 +3491,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task CreateBranchAsync_leaves_a_collision_with_a_stray_ref_file_to_git_switch()
-    {
-        // The name check compares branch names only, so Git reports a file in refs/heads that is no branch.
-        await CommitFileAsync("project.bep", "current\n", "current");
-        string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        await File.WriteAllTextAsync(Path.Combine(Root, ".git", "refs", "heads", "stray"), "not a ref\n");
-        using var service = CreateService();
-
-        bool canCreate = await service.ExecuteExclusiveAsync(
-            transaction => transaction.CanCreateBranchAsync("stray/child", CancellationToken.None),
-            CancellationToken.None);
-        GitOperationException? failure = await Assert.ThrowsAsync<GitOperationException>(
-            async () => await service.ExecuteExclusiveAsync(
-                transaction => transaction.CreateBranchAsync("stray/child", head, CancellationToken.None),
-                CancellationToken.None));
-
-        GitCommandResult currentBranch = await RunGitAsync("branch", "--show-current");
-        Assert.Multiple(() =>
-        {
-            Assert.That(canCreate, Is.True);
-            Assert.That(failure!.Message, Does.Contain("cannot lock ref"));
-            Assert.That(currentBranch.Stdout.Trim(), Is.EqualTo("main"));
-        });
-    }
-
-    [Test]
     public async Task CanCreateBranchAsync_rejects_previous_branch_shorthand_normalization()
     {
         await CommitFileAsync("project.bep", "current\n", "current");
