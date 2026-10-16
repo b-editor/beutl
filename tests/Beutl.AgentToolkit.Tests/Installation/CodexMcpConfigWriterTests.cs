@@ -61,9 +61,10 @@ public sealed class CodexMcpConfigWriterTests
         Assert.That(File.GetUnixFileMode(ConfigPath), Is.EqualTo(File.GetUnixFileMode(reference)));
     }
 
-    // A read-only file is replaced too, as the JSON configs are, and stays read-only.
-    [TestCase(ReadWriteForAll, false)]
-    [TestCase(ReadWriteForAll, true)]
+    // The file is replaced only when its content changes, even when it is read-only, as the JSON configs are.
+    // Either way it keeps its mode.
+    [TestCase(Mode644, false)]
+    [TestCase(Mode644, true)]
     [TestCase(ReadOnlyForAll, false)]
     [TestCase(ReadOnlyForAll, true)]
     public async Task Reinstall_keeps_the_existing_config_permissions(UnixFileMode mode, bool unchanged)
@@ -85,7 +86,7 @@ public sealed class CodexMcpConfigWriterTests
         Assert.That(Home(Server(servers)), Is.EqualTo(options.McpEnvironment["BEUTL_HOME"]));
     }
 
-    private const UnixFileMode ReadWriteForAll =
+    private const UnixFileMode Mode644 =
         UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead;
 
     private const UnixFileMode ReadOnlyForAll = UnixFileMode.UserRead | UnixFileMode.GroupRead | UnixFileMode.OtherRead;
