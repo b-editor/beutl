@@ -208,6 +208,8 @@ public sealed class RenderStillTests
             Assert.That(result.FrameCoverage[2].ForegroundPixelRatio, Is.GreaterThan(0.99));
             Assert.That(result.PairVariations[0].ChangedPixels, Is.Zero);
             Assert.That(result.PairVariations[1].ChangedPixelRatio, Is.GreaterThan(0.99));
+            Assert.That(result.PairVariations[0].MeanAbsoluteDelta, Is.EqualTo(4 / 255d).Within(1 / 255d));
+            Assert.That(result.PairVariations[1].MeanAbsoluteDelta, Is.EqualTo(44 / 255d).Within(1 / 255d));
         });
     }
 
