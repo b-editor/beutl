@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <BeutlHostLibrary>true</BeutlHostLibrary>
     <RepositoryUrl>https://github.com/b-editor/beutl</RepositoryUrl>
     <Authors>b-editor</Authors>
 
