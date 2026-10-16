@@ -352,7 +352,7 @@ public partial class PlayerViewPlaybackInputTests
     }
 
     [AvaloniaTest]
-    public async Task The_wheel_leaves_the_camera_alone_during_a_drag()
+    public async Task The_wheel_leaves_the_camera_alone_while_a_button_is_held()
     {
         EditViewModel editor = await OpenEditor();
         Scene3D scene = await Add3DScene(editor);
@@ -375,6 +375,10 @@ public partial class PlayerViewPlaybackInputTests
 
             Assert.That(camera.Position.CurrentValue, Is.EqualTo(position),
                 "A wheel step during an orbit would be committed together with the unfinished orbit.");
+
+            // A drag released outside the preview leaves its handler behind; the wheel follows the buttons.
+            window.MouseWheel(point, new Vector(0, 1));
+            Assert.That(camera.Position.CurrentValue, Is.Not.EqualTo(position));
         }
         finally
         {
