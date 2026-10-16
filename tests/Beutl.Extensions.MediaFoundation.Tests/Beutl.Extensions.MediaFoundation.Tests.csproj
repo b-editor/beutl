@@ -19,6 +19,8 @@
   <ItemGroup>
     <Using Include="NUnit.Framework" />
     <Compile Include="..\EncoderTestProviders.cs" Link="EncoderTestProviders.cs" />
+    <!-- The MediaReader conformance suite, shared with the FFmpeg and AVFoundation tests. -->
+    <Compile Include="..\MediaReaderConformance.cs" Link="MediaReaderConformance.cs" />
   </ItemGroup>
 
   <ItemGroup>

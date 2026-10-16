@@ -26,6 +26,9 @@
   <ItemGroup>
     <!-- Frame and sample sources shared with the FFmpeg worker encoder tests. -->
     <Compile Include="..\EncoderTestProviders.cs" Link="EncoderTestProviders.cs" />
+    <!-- The MediaReader conformance suite, shared with the FFmpeg and Media Foundation tests. -->
+    <Compile Include="..\MediaReaderConformance.cs" Link="MediaReaderConformance.cs" />
+    <None Include="..\Beutl.Extensions.MediaFoundation.Tests\Fixtures\marker-bframes.mp4" Link="Fixtures\marker-bframes.mp4" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- Mirror the AVF dylib into this project's output (ProjectReferences don't copy native
