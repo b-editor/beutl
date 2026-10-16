@@ -63,7 +63,8 @@ internal sealed partial class PackageApiChecker
                 };
             }
 
-            if (definition.BaseType.IsNil)
+            // Constructors are not inherited, so only the referenced type can declare one.
+            if (definition.BaseType.IsNil || name is ".ctor" or ".cctor")
             {
                 return false;
             }
@@ -190,8 +191,9 @@ internal sealed partial class PackageApiChecker
 
         public SigType GetTypeFromReference(MetadataReader reader, TypeReferenceHandle handle, byte rawTypeKind)
         {
+            // Outside the host the assembly is only the name each side was compiled against, which may differ.
             TypeLookup type = checker.Resolve(reader, handle);
-            return Named(rawTypeKind, type.Assembly, type.FullName);
+            return Named(rawTypeKind, type.State == LookupState.NotHost ? null : type.Assembly, type.FullName);
         }
 
         public SigType GetTypeFromSpecification(
@@ -238,10 +240,10 @@ internal sealed partial class PackageApiChecker
             return new($"{unmodifiedType.Key} {(isRequired ? "modreq" : "modopt")}({modifier.Key})", unmodifiedType.Display);
         }
 
-        private static SigType Named(byte rawTypeKind, string assembly, string fullName)
+        private static SigType Named(byte rawTypeKind, string? assembly, string fullName)
         {
             string kind = rawTypeKind == (byte)SignatureTypeKind.ValueType ? "valuetype " : "";
-            return new($"{kind}[{assembly}]{fullName}", fullName);
+            return new($"{kind}{(assembly is null ? "" : $"[{assembly}]")}{fullName}", fullName);
         }
     }
 }

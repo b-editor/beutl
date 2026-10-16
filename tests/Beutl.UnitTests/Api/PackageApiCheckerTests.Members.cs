@@ -142,4 +142,37 @@ public sealed partial class PackageApiCheckerTests
             new(PackageApiProblemKind.MissingMethod, "HostLib", "HostLib.Widget.Resize(int, int)"),
         }));
     }
+
+    [Test]
+    public void Reports_a_constructor_that_a_type_dropped_even_when_its_base_type_still_has_one()
+    {
+        string v1 = Compile("v1", "HostLib", "1.0.0.0", """
+            namespace HostLib;
+            public class Base { public Base(int size) { } }
+            public class Derived : Base { public Derived(int size) : base(size) { } }
+            """);
+        string v2 = Compile("v2", "HostLib", "2.0.0.0", """
+            namespace HostLib;
+            public class Base { public Base(int size) { } }
+            public class Derived : Base { public Derived() : base(0) { } }
+            """);
+        string plugin = Compile("plugin", "Plugin", "1.0.0.0", "public class Uses { public object Make() => new HostLib.Derived(1); }", v1);
+
+        Assert.That(
+            PackageApiChecker.Check([plugin], Host(v2)),
+            Is.EqualTo(new PackageApiProblem[] { new(PackageApiProblemKind.MissingMethod, "HostLib", "HostLib.Derived..ctor(int)") }));
+    }
+
+    // Like a package compiled against netstandard and a host compiled against System.Runtime, neither in the host map.
+    [Test]
+    public void Matches_a_type_outside_the_host_by_name_whichever_assembly_each_side_names()
+    {
+        const string Clock = "namespace HostLib; public static class Clock { public static void Take(Interop.Stamp stamp) { } }";
+        string stampV1 = Compile("netstandard", "netstandard", "1.0.0.0", "namespace Interop; public struct Stamp { }");
+        string stampV2 = Compile("runtime", "System.Runtime", "1.0.0.0", "namespace Interop; public struct Stamp { }");
+        string v1 = Compile("v1", "HostLib", "1.0.0.0", Clock, stampV1);
+        string plugin = Compile("plugin", "Plugin", "1.0.0.0", "public static class Uses { public static void Run() => HostLib.Clock.Take(default); }", v1, stampV1);
+
+        Assert.That(PackageApiChecker.Check([plugin], Host(Compile("v2", "HostLib", "2.0.0.0", Clock, stampV2))), Is.Empty);
+    }
 }
