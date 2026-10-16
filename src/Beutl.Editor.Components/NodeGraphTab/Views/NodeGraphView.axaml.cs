@@ -268,7 +268,6 @@ public partial class NodeGraphView : UserControl
     {
         if (DataContext is not NodeGraphViewModel viewModel
             || source.GraphNodeViewModel.NodeGraphViewModel != viewModel
-            || !viewModel.SupportsConnectedNodeCreation
             || source.Model is not { } sourcePort
             || canvas.TranslatePoint(canvasPoint, zoomBorder) is not { } viewportPoint
             || !new Rect(zoomBorder.Bounds.Size).Contains(viewportPoint))
