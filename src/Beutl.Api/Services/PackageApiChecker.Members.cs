@@ -19,7 +19,9 @@ internal sealed partial class PackageApiChecker
             TypeLookup parent = member.Parent.Kind switch
             {
                 HandleKind.TypeReference => Resolve(reader, (TypeReferenceHandle)member.Parent),
-                HandleKind.TypeSpecification => GenericDefinition(null, reader, (TypeSpecificationHandle)member.Parent, null).Type,
+                HandleKind.TypeSpecification
+                    when Instantiation(reader, (TypeSpecificationHandle)member.Parent, null).Type is { Kind: HandleKind.TypeReference } generic
+                    => Resolve(reader, (TypeReferenceHandle)generic),
                 _ => default,
             };
             if (parent.State != LookupState.Found)
@@ -48,69 +50,104 @@ internal sealed partial class PackageApiChecker
     // Searches the type and then its base types, as the runtime does when it binds a member reference.
     private bool HasMember(TypeLookup type, string name, string key, bool isMethod, string assembly, string publicKey)
     {
-        SigType[]? context = null;
-        for (int depth = 0; depth < MaxBaseDepth && type.State == LookupState.Found; depth++)
+        var self = new ChainType(type.Module!.Reader, type.Handle, type.Module, null);
+        (List<ChainType> bases, bool complete) = BaseTypes(self);
+        foreach (ChainType candidate in bases.Prepend(self))
         {
-            HostModule module = type.Module!;
-            TypeDefinition definition = type.Definition;
-            if (FindMember(module.Reader, definition, name, key, isMethod, context) is { } access)
+            MethodAttributes? access = isMethod
+                ? FindMethod(candidate, name, key)?.Attributes & MethodAttributes.MemberAccessMask
+                : FindField(candidate, name, key);
+            if (access is { } found)
             {
-                return access switch
-                {
-                    MethodAttributes.Public or MethodAttributes.Family or MethodAttributes.FamORAssem => true,
-                    MethodAttributes.Assembly or MethodAttributes.FamANDAssem => module.IsFriend(assembly, publicKey),
-                    _ => false,
-                };
+                return CanAccessMember(found, candidate.Module!, assembly, publicKey);
             }
-
-            if (definition.BaseType.IsNil)
-            {
-                return false;
-            }
-
-            // A generic base type's signatures use its own type parameters, so they are decoded with its arguments.
-            (type, context) = definition.BaseType.Kind == HandleKind.TypeSpecification
-                ? GenericDefinition(module, module.Reader, (TypeSpecificationHandle)definition.BaseType, context)
-                : (Lookup(module, module.Reader, definition.BaseType), null);
         }
 
         // The base types lead out of the host, where the member cannot be checked.
-        return true;
+        return !complete;
     }
 
-    // The access of the member that the type declares with this name and signature, or null if there is none.
-    private MethodAttributes? FindMember(
-        MetadataReader reader, TypeDefinition type, string name, string key, bool isMethod, SigType[]? context)
+    private static bool CanAccessMember(MethodAttributes access, HostModule module, string assembly, string publicKey)
     {
-        if (isMethod)
+        return access switch
         {
-            foreach (MethodDefinitionHandle handle in type.GetMethods())
-            {
-                MethodDefinition method = reader.GetMethodDefinition(handle);
-                if (reader.StringComparer.Equals(method.Name, name) && Key(method.DecodeSignature(_provider, context)) == key)
-                {
-                    return method.Attributes & MethodAttributes.MemberAccessMask;
-                }
-            }
-        }
-        else
+            MethodAttributes.Public or MethodAttributes.Family or MethodAttributes.FamORAssem => true,
+            MethodAttributes.Assembly or MethodAttributes.FamANDAssem => module.IsFriend(assembly, publicKey),
+            _ => false,
+        };
+    }
+
+    private MethodDefinition? FindMethod(ChainType type, string name, string key)
+    {
+        foreach (MethodDefinitionHandle handle in type.Definition.GetMethods())
         {
-            foreach (FieldDefinitionHandle handle in type.GetFields())
+            MethodDefinition method = type.Reader.GetMethodDefinition(handle);
+            if (type.Reader.StringComparer.Equals(method.Name, name) && Key(method.DecodeSignature(_provider, type.Context)) == key)
             {
-                FieldDefinition field = reader.GetFieldDefinition(handle);
-                if (reader.StringComparer.Equals(field.Name, name) && field.DecodeSignature(_provider, context).Key == key)
-                {
-                    return (MethodAttributes)(field.Attributes & FieldAttributes.FieldAccessMask);
-                }
+                return method;
             }
         }
 
         return null;
     }
 
+    // The access of the field, as a member access value, or null if the type declares none with this signature.
+    private MethodAttributes? FindField(ChainType type, string name, string key)
+    {
+        foreach (FieldDefinitionHandle handle in type.Definition.GetFields())
+        {
+            FieldDefinition field = type.Reader.GetFieldDefinition(handle);
+            if (type.Reader.StringComparer.Equals(field.Name, name) && field.DecodeSignature(_provider, type.Context).Key == key)
+            {
+                return (MethodAttributes)(field.Attributes & FieldAttributes.FieldAccessMask);
+            }
+        }
+
+        return null;
+    }
+
+    // The base types of type, nearest first, and whether they reach the root rather than leave the known types.
+    private (List<ChainType> Bases, bool Complete) BaseTypes(ChainType type)
+    {
+        var bases = new List<ChainType>();
+        while (bases.Count < MaxBaseDepth)
+        {
+            EntityHandle handle = type.Definition.BaseType;
+            if (handle.IsNil)
+            {
+                return (bases, true);
+            }
+
+            // A generic base type's signatures use its own type parameters, so they are decoded with its arguments.
+            SigType[]? context = null;
+            if (handle.Kind == HandleKind.TypeSpecification)
+            {
+                (handle, context) = Instantiation(type.Reader, (TypeSpecificationHandle)handle, type.Context);
+            }
+
+            if (handle.Kind == HandleKind.TypeDefinition)
+            {
+                type = type with { Handle = (TypeDefinitionHandle)handle, Context = context };
+            }
+            else if (handle.Kind == HandleKind.TypeReference
+                     && Resolve(type.Reader, (TypeReferenceHandle)handle) is { State: LookupState.Found } found)
+            {
+                type = new ChainType(found.Module!.Reader, found.Handle, found.Module, context);
+            }
+            else
+            {
+                return (bases, false);
+            }
+
+            bases.Add(type);
+        }
+
+        return (bases, false);
+    }
+
     // The generic type that an instantiation names, with its type arguments decoded in context.
-    private (TypeLookup Type, SigType[]? Arguments) GenericDefinition(
-        HostModule? module, MetadataReader reader, TypeSpecificationHandle handle, SigType[]? context)
+    private (EntityHandle Type, SigType[]? Arguments) Instantiation(
+        MetadataReader reader, TypeSpecificationHandle handle, SigType[]? context)
     {
         BlobReader blob = reader.GetBlobReader(reader.GetTypeSpecification(handle).Signature);
         if (blob.ReadSignatureTypeCode() != SignatureTypeCode.GenericTypeInstance)
@@ -127,18 +164,7 @@ internal sealed partial class PackageApiChecker
             arguments[i] = decoder.DecodeType(ref blob);
         }
 
-        return (Lookup(module, reader, genericType), arguments);
-    }
-
-    private TypeLookup Lookup(HostModule? module, MetadataReader reader, EntityHandle handle)
-    {
-        return handle.Kind switch
-        {
-            HandleKind.TypeReference => Resolve(reader, (TypeReferenceHandle)handle),
-            HandleKind.TypeDefinition when module != null => new(
-                LookupState.Found, module.Name, FullName(reader, (TypeDefinitionHandle)handle), module, (TypeDefinitionHandle)handle),
-            _ => default,
-        };
+        return (genericType, arguments);
     }
 
     private static string FullName(MetadataReader reader, TypeDefinitionHandle handle)
@@ -164,6 +190,12 @@ internal sealed partial class PackageApiChecker
 
     // Key names a type by the assembly that defines it, after type forwarders, so that both sides compare equal.
     private readonly record struct SigType(string Key, string Display);
+
+    // A type in a base type walk. Module is null for a package type, and Context holds its generic arguments.
+    private readonly record struct ChainType(MetadataReader Reader, TypeDefinitionHandle Handle, HostModule? Module, SigType[]? Context)
+    {
+        public TypeDefinition Definition => Reader.GetTypeDefinition(Handle);
+    }
 
     private sealed class SignatureProvider(PackageApiChecker checker) : ISignatureTypeProvider<SigType, SigType[]?>
     {

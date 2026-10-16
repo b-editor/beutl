@@ -10,6 +10,7 @@ internal enum PackageApiProblemKind
     MissingType,
     MissingMethod,
     MissingField,
+    UnimplementedMethod,
 }
 
 // An API that a package references and the host does not offer. Assembly is the host assembly that should have it.
@@ -101,6 +102,7 @@ internal sealed partial class PackageApiChecker : IDisposable
         }
 
         CheckMembers(reader, name, publicKey);
+        CheckOverrides(reader, name, publicKey);
     }
 
     private TypeLookup Resolve(MetadataReader reader, TypeReferenceHandle handle)
