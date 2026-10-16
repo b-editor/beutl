@@ -6,6 +6,7 @@ using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
 using Beutl.Services;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Reactive.Bindings;
@@ -77,7 +78,7 @@ public class ContextCommandDispatchTests
                 TaskCreationOptions.RunContinuationsAsynchronously);
             using IDisposable subscription = editor.Player.PlayPause.Subscribe(() => gate.Task);
 
-            Task operation = editor.ExecuteAsync(new ContextCommandExecution("PlayPause"));
+            Task operation = SceneEditorExtension.Instance.RunAsync(editor, new ContextCommandExecution("PlayPause"));
 
             Assert.That(operation.IsCompleted, Is.False);
             gate.SetResult();

@@ -37,9 +37,28 @@ public sealed class ContextCommandHandlerTests
         });
     }
 
+    [AvaloniaTest]
+    public void A_key_for_a_command_that_cannot_run_stays_unhandled()
+    {
+        var counter = new Counter { CanCount = false };
+        var extension = new CounterExtension();
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore(new JsonObject(), persist: false));
+        manager.Register(extension);
+        var element = new Border { DataContext = counter };
+        manager.Attach(element, extension);
+
+        var key = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.F5 };
+        element.RaiseEvent(key);
+        HeadlessTestHelpers.Settle();
+
+        Assert.That((counter.Count, key.Handled), Is.EqualTo((0, false)));
+    }
+
     private sealed class Counter
     {
         public int Count { get; set; }
+
+        public bool CanCount { get; init; } = true;
     }
 
     private sealed class CounterExtension : ViewExtension
@@ -49,6 +68,7 @@ public sealed class ContextCommandHandlerTests
             new ContextCommandDefinition<Counter>("Count", "Count", null, [new ContextCommandKeyGesture("F5")])
             {
                 Id = "test.count",
+                CanExecuteOn = (counter, _) => counter.CanCount,
                 ExecuteOnAsync = (counter, _) =>
                 {
                     counter.Count++;

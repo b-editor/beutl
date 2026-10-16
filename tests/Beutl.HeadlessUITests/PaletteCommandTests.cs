@@ -46,13 +46,17 @@ public class PaletteCommandTests
 
     // Runs a command the way the palette runs one that its extension handles itself.
     private static Task RunAsync(ViewExtension extension, ContextCommandExecution execution)
-        => Definition(extension, execution).RunAsync(null, execution);
+        => extension.RunAsync(null, execution);
 
     private static bool CanRun(ViewExtension extension, ContextCommandExecution execution)
-        => Definition(extension, execution).CanRun(null, execution);
+        => extension.CanRun(null, execution);
 
-    private static ContextCommandDefinition Definition(ViewExtension extension, ContextCommandExecution execution)
-        => extension.ContextCommands.Single(definition => definition.Name == execution.CommandName);
+    // Runs a scene editor command on the editor, as a key or the palette does.
+    private static Task RunAsync(EditViewModel editor, ContextCommandExecution execution)
+        => SceneEditorExtension.Instance.RunAsync(editor, execution);
+
+    private static bool CanRun(EditViewModel editor, ContextCommandExecution execution)
+        => SceneEditorExtension.Instance.CanRun(editor, execution);
 
     private static void SetPlayhead(EditViewModel editor, double seconds)
     {
@@ -103,7 +107,7 @@ public class PaletteCommandTests
             return "60f";
         });
 
-        await editor.ExecuteAsync(Execution("GotoTimecode", editor, interaction));
+        await RunAsync(editor, Execution("GotoTimecode", editor, interaction));
 
         Assert.That(Playhead(editor), Is.EqualTo(TimeSpan.FromSeconds(2)));
         Assert.That(interaction.IsDone, Is.True);
@@ -134,7 +138,7 @@ public class PaletteCommandTests
         HeadlessTestHelpers.Settle();
         string? prefilled = null;
 
-        await editor.ExecuteAsync(Execution("GotoTimecode", editor,
+        await RunAsync(editor, Execution("GotoTimecode", editor,
             new ScriptedInteraction().Input(options => prefilled = options.Value)));
 
         Assert.That((prefilled, Playhead(editor)), Is.EqualTo(("00:00:00.501", frame501)));
@@ -147,7 +151,7 @@ public class PaletteCommandTests
         int requests = 0;
         using IDisposable subscription = editor.Player.BeginEditTimecodeRequested.Subscribe(_ => requests++);
 
-        await editor.ExecuteAsync(new ContextCommandExecution("GotoTimecode"));
+        await RunAsync(editor, new ContextCommandExecution("GotoTimecode"));
 
         Assert.That(requests, Is.EqualTo(1));
     }
@@ -157,10 +161,10 @@ public class PaletteCommandTests
     {
         EditViewModel editor = await OpenEditorForNewScene("palette-markers");
         Scene scene = editor.Scene;
-        Assert.That(editor.CanExecute(Execution("GoToMarker", editor)), Is.False, "No marker to go to yet.");
+        Assert.That(CanRun(editor, Execution("GoToMarker", editor)), Is.False, "No marker to go to yet.");
 
         SetPlayhead(editor, 1);
-        await editor.ExecuteAsync(Execution("AddMarker", editor, new ScriptedInteraction().Input(options =>
+        await RunAsync(editor, Execution("AddMarker", editor, new ScriptedInteraction().Input(options =>
         {
             Assert.That(options.Validate!("  "), Is.EqualTo(Strings.CommandPalette_ValueRequired));
             return options.Value == "Marker 1" ? "Opening" : null;
@@ -168,10 +172,10 @@ public class PaletteCommandTests
         Assert.That(LastHistoryName(editor), Is.EqualTo(CommandNames.AddMarker));
 
         // The same frame keeps one marker, renamed instead of duplicated.
-        await editor.ExecuteAsync(Execution("AddMarker", editor,
+        await RunAsync(editor, Execution("AddMarker", editor,
             new ScriptedInteraction().Input(options => options.Value == "Opening" ? "Intro" : null)));
         SetPlayhead(editor, 3);
-        await editor.ExecuteAsync(Execution("AddMarker", editor, new ScriptedInteraction().Input("Outro")));
+        await RunAsync(editor, Execution("AddMarker", editor, new ScriptedInteraction().Input("Outro")));
         Assert.That(scene.Markers.Select(m => (m.Time, m.Name)), Is.EqualTo(new[]
         {
             (TimeSpan.FromSeconds(1), "Intro"),
@@ -180,7 +184,7 @@ public class PaletteCommandTests
 
         SetPlayhead(editor, 0);
         var goTo = new ScriptedInteraction().Pick<SceneMarker>(item => item.Label == "Outro");
-        await editor.ExecuteAsync(Execution("GoToMarker", editor, goTo));
+        await RunAsync(editor, Execution("GoToMarker", editor, goTo));
         Assert.Multiple(() =>
         {
             Assert.That(Playhead(editor), Is.EqualTo(TimeSpan.FromSeconds(3)));
@@ -191,7 +195,7 @@ public class PaletteCommandTests
             }));
         });
 
-        await editor.ExecuteAsync(Execution("RenameMarker", editor, new ScriptedInteraction()
+        await RunAsync(editor, Execution("RenameMarker", editor, new ScriptedInteraction()
             .Pick<SceneMarker>(item => item.Label == "Intro")
             .Input(options => options.Value == "Intro" ? "Cold open" : null)));
         Assert.Multiple(() =>

@@ -8,6 +8,7 @@ using Beutl.Editor.Components.TerminalTab.ViewModels;
 using Beutl.Editor.Components.TerminalTab.Views;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 
@@ -89,26 +90,17 @@ public class ContextCommandInputTests
 
                 Assert.That(ContextCommandInput.GetIsTextInput(control), Is.True);
 
-                // Typing "m" into the terminal must not toggle a marker, and the key must stay unhandled so
-                // Avalonia still delivers the TextInput to the shell.
-                KeyEventArgs fromTerminal = KeyDownFrom(terminalView, Key.M);
-                await editor.ExecuteAsync(new ContextCommandExecution("ToggleMarker") { KeyEventArgs = fromTerminal });
-
-                Assert.Multiple(() =>
-                {
-                    Assert.That(scene.Markers.Count, Is.EqualTo(markersBefore));
-                    Assert.That(fromTerminal.Handled, Is.False);
-                });
+                // Typing "m" into the terminal must not toggle a marker. A command that cannot run leaves the key
+                // unhandled (ContextCommandHandlerTests), so Avalonia still delivers the TextInput to the shell.
+                var fromTerminal = new ContextCommandExecution("ToggleMarker") { KeyEventArgs = KeyDownFrom(terminalView) };
+                Assert.That(SceneEditorExtension.Instance.CanRun(editor, fromTerminal), Is.False);
 
                 // Negative control: the same gesture from a non-text control still runs the shortcut.
-                KeyEventArgs fromEditor = KeyDownFrom(new Border(), Key.M);
-                await editor.ExecuteAsync(new ContextCommandExecution("ToggleMarker") { KeyEventArgs = fromEditor });
+                var fromEditor = new ContextCommandExecution("ToggleMarker") { KeyEventArgs = KeyDownFrom(new Border()) };
+                Assert.That(SceneEditorExtension.Instance.CanRun(editor, fromEditor), Is.True);
+                await SceneEditorExtension.Instance.RunAsync(editor, fromEditor);
 
-                Assert.Multiple(() =>
-                {
-                    Assert.That(scene.Markers.Count, Is.EqualTo(markersBefore + 1));
-                    Assert.That(fromEditor.Handled, Is.True);
-                });
+                Assert.That(scene.Markers.Count, Is.EqualTo(markersBefore + 1));
             }
             finally
             {
