@@ -27,6 +27,7 @@ public sealed partial class PackageManager : IBeutlApiResource
     private readonly HashSet<int> _loadingPackages = [];
     private readonly object _packageLifecycleGate = new();
     private readonly ExtensionSettingsStore _settingsStore = new();
+    private readonly PackageCompatibility _compatibility = new(new PackageApiCheckCache());
 
     internal PackageManager(
         InstalledPackageRepository installedPackageRepository,
@@ -292,8 +293,8 @@ public sealed partial class PackageManager : IBeutlApiResource
             }
 
             (Assembly[] Assemblies, PluginLoadContext LoadContext) result = !package.SideLoad
-                ? Load(package.InstalledPath)
-                : SideLoad(package.InstalledPath);
+                ? Load(package, package.InstalledPath)
+                : SideLoad(package, package.InstalledPath);
 
             activity?.AddEvent(new ActivityEvent("Assemblies loaded"));
             activity?.SetTag("AssemblyCount", result.Assemblies.Length);
@@ -310,7 +311,7 @@ public sealed partial class PackageManager : IBeutlApiResource
         }
     }
 
-    private static (Assembly[] Assemblies, PluginLoadContext LoadContext) Load(string installedPath)
+    private (Assembly[] Assemblies, PluginLoadContext LoadContext) Load(LocalPackage package, string installedPath)
     {
         NuGetFramework framework = Helper.GetFrameworkName();
         using var reader = new PackageFolderReader(installedPath);
@@ -321,9 +322,10 @@ public sealed partial class PackageManager : IBeutlApiResource
             ?? throw new Exception("Unknown Framework");
 
         string mainDirectory = Path.Combine(installedPath, "lib", nearest.ToString());
+        string[] asmFiles = Directory.GetFiles(mainDirectory, "*.dll");
+        EnsureCompatible(package, mainDirectory, reader, asmFiles);
 
         var loadContext = new PluginLoadContext(mainDirectory, reader);
-        string[] asmFiles = Directory.GetFiles(mainDirectory, "*.dll");
         Assembly[] assemblies = new Assembly[asmFiles.Length];
 
         int index = 0;
@@ -335,15 +337,23 @@ public sealed partial class PackageManager : IBeutlApiResource
         return (assemblies, loadContext);
     }
 
-    private static (Assembly[] Assemblies, PluginLoadContext LoadContext) SideLoad(string installedPath)
+    private (Assembly[] Assemblies, PluginLoadContext LoadContext) SideLoad(LocalPackage package, string installedPath)
     {
         string mainDirectory = Path.Combine(installedPath);
-
-        var loadContext = new PluginLoadContext(mainDirectory);
         string name = Path.GetFileName(mainDirectory);
         string asmFile = Path.Combine(mainDirectory, $"{name}.dll");
+        EnsureCompatible(package, mainDirectory, null, [asmFile]);
 
+        var loadContext = new PluginLoadContext(mainDirectory);
         return ([loadContext.LoadFromAssemblyPath(asmFile)], loadContext);
+    }
+
+    // Runs before anything loads; references to assemblies that the package brings itself are not checked.
+    private void EnsureCompatible(LocalPackage package, string mainDirectory, PackageFolderReader? reader, string[] assemblies)
+    {
+        _compatibility.EnsureCompatible(package, assemblies, () => PackageCompatibility.HostAssemblies(
+            assemblies.Select(Path.GetFileNameWithoutExtension).OfType<string>()
+                .Concat(new PluginDependencyResolver(mainDirectory, reader).AssemblyNames)));
     }
 
     public LocalPackage[] FindLoadedPackage(string name)

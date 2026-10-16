@@ -163,4 +163,13 @@ Para forzar la instalación, usa la herramienta CLI.</value>
   <data name="RequestedVersionUnavailable" xml:space="preserve">
     <value>La versión {0} ya no está disponible. Selecciona una versión disponible para continuar.</value>
   </data>
+  <data name="PackageNotLoaded" xml:space="preserve">
+    <value>{0} no se ha cargado</value>
+  </data>
+  <data name="PackageUsesMissingApisForVersion" xml:space="preserve">
+    <value>Se creó para Beutl {0} y usa {1} API que Beutl {2} no tiene, como {3}.</value>
+  </data>
+  <data name="PackageUsesMissingApis" xml:space="preserve">
+    <value>Usa {0} API que Beutl {1} no tiene, como {2}.</value>
+  </data>
 </root>
