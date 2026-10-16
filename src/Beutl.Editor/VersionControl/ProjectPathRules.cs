@@ -2,10 +2,8 @@
 
 namespace Beutl.Editor.VersionControl;
 
-// How version control treats Beutl's own paths, built from EditorConstants: the per-user state folder
-// and the scratch files stay out of Git, and the project documents are stored as text with LF line
-// endings. The ignore and attribute lines, the snapshot pathspecs and the path checks all come from
-// here, so they name the same paths.
+// Beutl's own paths for version control, from EditorConstants: the state folder and scratch files stay out
+// of Git, and project documents are text with LF endings. Every rule, line and check below comes from here.
 internal static class ProjectPathRules
 {
     // The extension of the scratch files that Beutl's atomic writes leave next to a document.
@@ -18,20 +16,20 @@ internal static class ProjectPathRules
         $".{EditorConstants.ElementFileExtension}",
     ];
 
-    // The .gitignore lines. Git matches the folder name as written and the extension in any case.
+    // Git matches the folder name as written and the extension in any case.
     public static IReadOnlyList<string> GitIgnoreLines { get; } =
     [
         $"**/{EditorConstants.BeutlFolder}/",
         $"*{CreateCaseInsensitiveGlob(TemporaryFileExtension)}",
     ];
 
-    // The .gitattributes lines for the project documents, which match the extension in any case.
+    // These match the extension in any case.
     public static IReadOnlyList<string> DocumentAttributeLines { get; } =
         DocumentExtensions
             .Select(static extension => $"*{CreateCaseInsensitiveGlob(extension)} text eol=lf")
             .ToArray();
 
-    // The glob pathspecs, relative to the project, that broad staging leaves out, in any case.
+    // Relative to the project; broad staging leaves these out.
     public static IReadOnlyList<string> ExcludedPathspecSuffixes { get; } =
     [
         $"**/{CreateCaseInsensitiveGlob(EditorConstants.BeutlFolder)}/**",

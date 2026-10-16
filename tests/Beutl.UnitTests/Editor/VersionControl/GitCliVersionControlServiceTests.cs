@@ -899,8 +899,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
-    // Repositories hold the lines earlier versions wrote, so building the lines and the snapshot
-    // pathspecs from EditorConstants must not change a byte of either.
+    // Repositories hold what earlier versions wrote, so the lines and pathspecs must not change by a byte.
     [Test]
     public async Task Hygiene_and_snapshot_write_the_reserved_paths_and_documents_as_before()
     {
