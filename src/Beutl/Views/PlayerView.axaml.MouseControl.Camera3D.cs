@@ -12,6 +12,7 @@ using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Gizmo;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
+using Microsoft.Extensions.Logging;
 using AvaPoint = Avalonia.Point;
 
 namespace Beutl.Views;
@@ -276,7 +277,16 @@ public partial class PlayerView
                 switch (_currentGizmoMode)
                 {
                     case GizmoMode.Translate:
-                        TranslateSelectedObject(_selectedObject, delta, right, cameraUp);
+                        try
+                        {
+                            TranslateSelectedObject(_selectedObject, delta, right, cameraUp);
+                        }
+                        catch (TimeoutException ex)
+                        {
+                            // Without the render thread's world coordinates the move would go the wrong way.
+                            s_logger.LogWarning(ex, "Skipped a 3D move: the render thread did not answer in time.");
+                        }
+
                         break;
 
                     case GizmoMode.Rotate:
@@ -658,13 +668,13 @@ public partial class PlayerView
             Scene3D.Resource? sceneResource = _scene3D != null ? FindScene3DResource() : null;
             Vector3? position = sceneResource == null
                 ? null
-                : QueryRenderThread(() =>
+                : RenderThread.Dispatcher.Invoke(() =>
                 {
                     Object3D.Resource? target = FindObjectResource(sceneResource.Objects, obj.Id);
                     return target == null
                         ? (Vector3?)null
                         : Renderer3D.GetWorldPosition(sceneResource.Objects, target);
-                }, null);
+                }, RenderThreadWait);
 
             return position ?? obj.Position.GetValue(CompositionContext);
         }
@@ -676,10 +686,10 @@ public partial class PlayerView
             if (sceneResource == null)
                 return worldDelta;
 
-            Matrix4x4 parent = QueryRenderThread(() =>
+            Matrix4x4 parent = RenderThread.Dispatcher.Invoke(() =>
                 FindObjectResource(sceneResource.Objects, obj.Id) is { } target
                     ? Renderer3D.GetParentWorldMatrix(sceneResource.Objects, target)
-                    : Matrix4x4.Identity, Matrix4x4.Identity);
+                    : Matrix4x4.Identity, RenderThreadWait);
 
             return Matrix4x4.Invert(parent, out Matrix4x4 inverse)
                 ? Vector3.TransformNormal(worldDelta, inverse)

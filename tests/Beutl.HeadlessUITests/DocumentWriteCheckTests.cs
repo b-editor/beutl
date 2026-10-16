@@ -1,4 +1,6 @@
-﻿using Avalonia.Headless.NUnit;
+﻿// The check is compiled into DEBUG builds only.
+#if DEBUG
+using Avalonia.Headless.NUnit;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 
@@ -49,3 +51,4 @@ public class DocumentWriteCheckTests
         });
     }
 }
+#endif
