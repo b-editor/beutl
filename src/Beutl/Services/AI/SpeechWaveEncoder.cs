@@ -1,10 +1,8 @@
 ﻿using System.Text;
+using Beutl.Audio;
 using Beutl.Editor.Models;
 using Beutl.Language;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
-using Beutl.Media.Source;
 
 namespace Beutl.Services.AI;
 
@@ -57,21 +55,22 @@ internal static class SpeechWaveEncoder
             if (!reader.ReadAudio(
                     checked(startSample + sourceSamplesWritten),
                     length,
-                    out Ref<IPcm>? audioRef))
+                    out AudioBuffer? audio))
             {
                 throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
             }
 
-            using (audioRef)
+            using (audio)
             {
-                if (audioRef.Value is not Pcm<Stereo32BitFloat> pcm)
+                if (audio.ChannelCount != 2)
                     throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
 
-                int decodedSamples = Math.Min(pcm.NumSamples, length);
+                int decodedSamples = Math.Min(audio.SampleCount, length);
                 if (decodedSamples == 0)
                     break;
 
-                Span<Stereo32BitFloat> source = pcm.DataSpan[..decodedSamples];
+                Span<float> left = audio.GetChannelData(0)[..decodedSamples];
+                Span<float> right = audio.GetChannelData(1)[..decodedSamples];
                 double blockEnd = sourceSamplesWritten + decodedSamples;
                 while (nextOutputSourcePosition < blockEnd)
                 {
@@ -79,8 +78,7 @@ internal static class SpeechWaveEncoder
                         (int)Math.Floor(nextOutputSourcePosition - sourceSamplesWritten),
                         0,
                         decodedSamples - 1);
-                    Stereo32BitFloat sample = source[sourceIndex];
-                    double mono = (sample.Left + sample.Right) / 2d;
+                    double mono = (left[sourceIndex] + right[sourceIndex]) / 2d;
                     mono = double.IsFinite(mono) ? Math.Clamp(mono, -1, 1) : 0;
                     writer.Write((short)Math.Round(mono * short.MaxValue));
                     outputSamplesWritten++;

@@ -8,7 +8,6 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -288,7 +287,7 @@ public class VideoFileImportTests
             return false;
         }
 
-        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
         {
             sound = null;
             return false;

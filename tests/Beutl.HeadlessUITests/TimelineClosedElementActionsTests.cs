@@ -4,6 +4,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -14,7 +15,6 @@ using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
@@ -208,6 +208,6 @@ public class TimelineClosedElementActionsTests
         public override bool HasVideo => true;
         public override bool HasAudio => false;
         public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image) { image = null; return false; }
-        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound) { sound = null; return false; }
+        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound) { sound = null; return false; }
     }
 }

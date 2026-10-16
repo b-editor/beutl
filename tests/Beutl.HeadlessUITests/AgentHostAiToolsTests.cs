@@ -6,10 +6,10 @@ using Beutl.AgentHost;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.Api.Services;
+using Beutl.Audio;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
 using Beutl.Media.Source;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
@@ -655,7 +655,7 @@ public sealed class AgentHostAiToolsTests
             return false;
         }
 
-        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
         {
             sound = null;
             return false;

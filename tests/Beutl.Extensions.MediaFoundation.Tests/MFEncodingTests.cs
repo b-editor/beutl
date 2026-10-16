@@ -1,11 +1,10 @@
 ﻿using System.Runtime.InteropServices;
+using Beutl.Audio;
 using Beutl.Embedding.MediaFoundation.Decoding;
 using Beutl.Embedding.MediaFoundation.Encoding;
 using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Vortice.MediaFoundation;
 
 namespace Beutl.Extensions.MediaFoundation.Tests;
@@ -75,9 +74,9 @@ public class MFEncodingTests
         Assert.That(reader.ReadAudio(sampleRate / 4, 1024, out var pcm), Is.True);
         using (pcm)
         {
-            var data = ((Pcm<Stereo32BitFloat>)pcm!.Value).DataSpan.ToArray();
+            var data = pcm!.GetChannelData(0).ToArray();
             Assert.That(data.Length, Is.EqualTo(1024));
-            Assert.That(data.Any(s => Math.Abs(s.Left) > 0.05f), Is.True, "AAC should contain the input signal.");
+            Assert.That(data.Any(s => Math.Abs(s) > 0.05f), Is.True, "AAC should contain the input signal.");
         }
         AssertAudioSignal(controller.OutputFile, MFAudioCodec.AAC, samples, sampleRate);
     }
@@ -467,7 +466,7 @@ public class MFEncodingTests
         public long RequestedSamples { get; private set; }
         public bool WasDisposed { get; private set; }
 
-        public async ValueTask<Pcm<Stereo32BitFloat>?> ReadNextSamples(int length)
+        public async ValueTask<AudioBuffer?> ReadNextSamples(int length)
         {
             await Task.Yield();
             Assert.That(length, Is.InRange(1, count - RequestedSamples));

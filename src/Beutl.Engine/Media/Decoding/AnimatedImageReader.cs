@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using Beutl.Audio;
 using Beutl.Graphics;
-using Beutl.Media.Music;
 using Beutl.Media.Source;
 using SkiaSharp;
 
@@ -162,7 +162,7 @@ public class AnimatedImageReader : MediaReader
         return frameBitmap;
     }
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
     {
         sound = null;
         return false;

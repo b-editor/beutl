@@ -1,10 +1,10 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
+using Beutl.Audio;
 using Beutl.Extensions.AVFoundation.Interop;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using Microsoft.Extensions.Logging;
 
@@ -139,7 +139,7 @@ public sealed class AVFReader : MediaReader
         }
     }
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
     {
         sound = null;
         if (!HasAudio || !IsHandleUsable())
@@ -149,23 +149,30 @@ public sealed class AVFReader : MediaReader
 
         if (length <= 0)
         {
-            sound = Ref<IPcm>.Create(new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, 0));
+            sound = new AudioBuffer(AudioInfo.SampleRate, 2, 0);
             return true;
         }
 
-        // Provide the requested capacity for native writes, then trim any uncovered tail at EOF.
-        var buffer = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
+        // Native code writes interleaved stereo up to the requested length; only the decoded part is kept.
+        float[] interleaved = ArrayPool<float>.Shared.Rent(length * 2);
         try
         {
-            int capacityBytes = length * (int)buffer.SampleSize;
-            int result = BeutlAVFNative.beutl_avf_reader_read_audio(
-                _handle, start, length, buffer.Data, capacityBytes, out int decoded);
+            int result;
+            int decoded;
+            unsafe
+            {
+                fixed (float* data = interleaved)
+                {
+                    result = BeutlAVFNative.beutl_avf_reader_read_audio(
+                        _handle, start, length, (IntPtr)data, length * 2 * sizeof(float), out decoded);
+                }
+            }
+
             if (result != 0)
             {
                 _logger.LogWarning(
                     "beutl_avf_reader_read_audio failed (code={Code}): {Message}",
                     result, BeutlAVFNative.GetLastErrorMessage());
-                buffer.Dispose();
                 return false;
             }
 
@@ -174,23 +181,14 @@ public sealed class AVFReader : MediaReader
                 throw new InvalidOperationException($"BeutlAVF returned an invalid decoded sample count: {decoded}.");
             }
 
-            if (decoded < length)
-            {
-                var scratch = buffer;
-                buffer = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, decoded);
-                using (scratch)
-                {
-                    scratch.DataSpan[..decoded].CopyTo(buffer.DataSpan);
-                }
-            }
-
-            sound = Ref<IPcm>.Create(buffer);
+            var audio = new AudioBuffer(AudioInfo.SampleRate, 2, decoded);
+            AudioConversion.Deinterleave(interleaved.AsSpan(0, decoded * 2), audio);
+            sound = audio;
             return true;
         }
-        catch
+        finally
         {
-            buffer.Dispose();
-            throw;
+            ArrayPool<float>.Shared.Return(interleaved);
         }
     }
 

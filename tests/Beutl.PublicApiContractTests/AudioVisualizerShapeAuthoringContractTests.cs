@@ -7,8 +7,6 @@ using Beutl.Graphics.AudioVisualizers;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using static Beutl.PublicApiContractTests.ContractTestSupport;
 
@@ -443,7 +441,7 @@ internal sealed class ToneDecoderInfo : IDecoderInfo
             return false;
         }
 
-        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
         {
             if (length <= 0)
             {
@@ -451,9 +449,9 @@ internal sealed class ToneDecoderInfo : IDecoderInfo
                 return false;
             }
 
-            var pcm = new Pcm<Stereo32BitFloat>(SampleRate, length);
-            pcm.DataSpan.Fill(new Stereo32BitFloat(Amplitude, Amplitude));
-            sound = Ref<IPcm>.Create(pcm);
+            sound = new AudioBuffer(SampleRate, 2, length);
+            sound.GetChannelData(0).Fill(Amplitude);
+            sound.GetChannelData(1).Fill(Amplitude);
             return true;
         }
     }

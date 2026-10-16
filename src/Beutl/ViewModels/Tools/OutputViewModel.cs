@@ -5,6 +5,7 @@ using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
+using Beutl.Audio;
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.FFmpegIpc;
@@ -14,8 +15,6 @@ using Beutl.IO;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Encoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -462,8 +461,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         public long SampleCount => 0;
         public long SampleRate => 0;
         public ValueTask<Bitmap?> ReadNextFrame() => ValueTask.FromResult<Bitmap?>(null);
-        public ValueTask<Pcm<Stereo32BitFloat>?> ReadNextSamples(int length)
-            => ValueTask.FromResult<Pcm<Stereo32BitFloat>?>(null);
+        public ValueTask<AudioBuffer?> ReadNextSamples(int length)
+            => ValueTask.FromResult<AudioBuffer?>(null);
         public void Dispose() { }
     }
 

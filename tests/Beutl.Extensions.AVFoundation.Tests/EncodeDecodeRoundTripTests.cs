@@ -3,8 +3,6 @@ using Beutl.Extensions.AVFoundation.Decoding;
 using Beutl.Extensions.AVFoundation.Encoding;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 
 namespace Beutl.Extensions.AVFoundation.Tests;
 
@@ -104,24 +102,24 @@ public class EncodeDecodeRoundTripTests
         Assert.That(audioRead, Is.True, "Must decode the first audio chunk.");
         using (audioPcm)
         {
-            Assert.That(audioPcm!.Value.SampleRate, Is.EqualTo(sampleRate));
-            Assert.That(audioPcm.Value.NumSamples, Is.EqualTo(1024));
-            Assert.That(audioPcm.Value.NumChannels, Is.EqualTo(2));
+            Assert.That(audioPcm!.SampleRate, Is.EqualTo(sampleRate));
+            Assert.That(audioPcm.SampleCount, Is.EqualTo(1024));
+            Assert.That(audioPcm.ChannelCount, Is.EqualTo(2));
 
             // Sanity check the decoded audio: AAC is lossy but the input is a pure 440 Hz
             // tone at ~0.25 amplitude. If the decoder silently hands back zeros (or garbage
             // outside the unit interval) we want to catch it.
-            var pcm = (Pcm<Stereo32BitFloat>)audioPcm.Value;
-            var samples = pcm.DataSpan;
+            Span<float> left = audioPcm.GetChannelData(0);
+            Span<float> right = audioPcm.GetChannelData(1);
             float peak = 0f;
-            for (int i = 0; i < samples.Length; i++)
+            for (int i = 0; i < left.Length; i++)
             {
-                peak = Math.Max(peak, Math.Max(Math.Abs(samples[i].Left), Math.Abs(samples[i].Right)));
+                peak = Math.Max(peak, Math.Max(Math.Abs(left[i]), Math.Abs(right[i])));
             }
             Assert.That(peak, Is.GreaterThan(0.01f),
                 "Decoded audio should not be silent; 440 Hz tone should survive round trip.");
             Assert.That(peak, Is.LessThanOrEqualTo(1.0f),
-                "Decoded samples must stay within [-1, 1] for Stereo32BitFloat.");
+                "Decoded samples must stay within [-1, 1].");
         }
     }
 
@@ -179,17 +177,17 @@ public class EncodeDecodeRoundTripTests
             Assert.That(ok, Is.True, $"Audio chunk at sample {probes[p]} must decode.");
             using (probe)
             {
-                var pcm = (Pcm<Stereo32BitFloat>)probe!.Value;
-                var samples = pcm.DataSpan;
+                Span<float> left = probe!.GetChannelData(0);
+                Span<float> right = probe.GetChannelData(1);
                 float peak = 0f;
-                for (int i = 0; i < samples.Length; i++)
+                for (int i = 0; i < left.Length; i++)
                 {
-                    peak = Math.Max(peak, Math.Max(Math.Abs(samples[i].Left), Math.Abs(samples[i].Right)));
+                    peak = Math.Max(peak, Math.Max(Math.Abs(left[i]), Math.Abs(right[i])));
                 }
                 Assert.That(peak, Is.GreaterThan(0.01f),
                     $"Chunk at sample {probes[p]} should have audible energy.");
 
-                probeBytes[p] = MemoryMarshal.AsBytes(samples).ToArray();
+                probeBytes[p] = [.. MemoryMarshal.AsBytes(left), .. MemoryMarshal.AsBytes(right)];
             }
         }
 

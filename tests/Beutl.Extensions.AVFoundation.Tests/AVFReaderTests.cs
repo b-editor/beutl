@@ -1,8 +1,6 @@
 ﻿using Beutl.Extensions.AVFoundation.Decoding;
 using Beutl.Extensions.AVFoundation.Interop;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using SystemEncoding = System.Text.Encoding;
 
 namespace Beutl.Extensions.AVFoundation.Tests;
@@ -140,16 +138,15 @@ public class AVFReaderTests
         Assert.That(reader.ReadAudio(start, length, out var sound), Is.True);
         using (sound)
         {
-            var pcm = (Pcm<Stereo32BitFloat>)sound!.Value;
-            Assert.That(pcm.NumSamples, Is.EqualTo(expectedFrames));
-            Assert.That(pcm.SampleRate, Is.EqualTo(SampleRate));
-            Assert.That(pcm.NumChannels, Is.EqualTo(2));
+            Assert.That(sound!.SampleCount, Is.EqualTo(expectedFrames));
+            Assert.That(sound.SampleRate, Is.EqualTo(SampleRate));
+            Assert.That(sound.ChannelCount, Is.EqualTo(2));
 
-            for (int i = 0; i < pcm.NumSamples; i++)
+            for (int i = 0; i < sound.SampleCount; i++)
             {
                 float expected = silent ? 0 : SampleForFrame(start + i) / 32768f;
-                Assert.That(pcm.DataSpan[i].Left, Is.EqualTo(expected).Within(1e-6f));
-                Assert.That(pcm.DataSpan[i].Right, Is.EqualTo(-expected).Within(1e-6f));
+                Assert.That(sound.GetChannelData(0)[i], Is.EqualTo(expected).Within(1e-6f));
+                Assert.That(sound.GetChannelData(1)[i], Is.EqualTo(-expected).Within(1e-6f));
             }
         }
     }
