@@ -23,7 +23,10 @@ public sealed class MainMenuBuilderTests
         try
         {
             menuBar.RecentFileItems.Add("recent.scene");
+            MenuItem recent = RecentFileEntry("recent.scene");
+            menuBar.RecentFileItems.Insert(0, "first.scene");
             AssertMenus();
+            Assert.That(RecentFileEntry("recent.scene"), Is.SameAs(recent), "A change leaves the other entries in place.");
             (int menuCount, int nativeCount) = (menu.Count, nativeMenu.Count);
             Assert.Multiple(() =>
             {
@@ -33,6 +36,7 @@ public sealed class MainMenuBuilderTests
             });
 
             menuBar.RecentFileItems.Remove("recent.scene");
+            AssertMenus();
             view.DataContext = macWindow.DataContext = null;
             int removed = menuBar.MenuItems.Count;
             Assert.That((menu.Count, nativeMenu.Count), Is.EqualTo((menuCount - removed, nativeCount - removed)));
@@ -43,10 +47,14 @@ public sealed class MainMenuBuilderTests
         finally
         {
             menuBar.RecentFileItems.Remove("recent.scene");
+            menuBar.RecentFileItems.Remove("first.scene");
             macWindow.DataContext = null;
             macWindow.Close();
             view.DataContext = null;
         }
+
+        MenuItem RecentFileEntry(string path) => ((MenuItem)menu[0]!).Items.OfType<MenuItem>()
+            .Single(item => Equals(item.Header, Strings.RecentFiles)).Items.OfType<MenuItem>().Single(item => Equals(item.Header, path));
 
         void AssertMenus() => Assert.Multiple(() =>
         {

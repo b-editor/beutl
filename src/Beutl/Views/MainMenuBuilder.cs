@@ -1,4 +1,6 @@
-﻿using System.Collections.Specialized;
+﻿using System.Collections;
+using System.Collections.Specialized;
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Beutl.Editor.Components.Helpers;
@@ -44,7 +46,11 @@ internal static class MainMenuBuilder
             Icon = item.Icon is { } icon ? new FluentIcon { Icon = icon } : null
         };
         if (item.Items is { } items)
-            Follow(items, menuItem.Items.Clear, child => menuItem.Items.Add(CreateMenuItem(child, disposables)), disposables);
+        {
+            var children = new AvaloniaList<Control>();
+            menuItem.ItemsSource = children;
+            Follow(items, children, child => CreateMenuItem(child, disposables), disposables);
+        }
 
         return menuItem;
     }
@@ -67,11 +73,7 @@ internal static class MainMenuBuilder
         {
             var menu = new NativeMenu();
             menuItem.Menu = menu;
-            Follow(items, menu.Items.Clear, child =>
-            {
-                if (CreateNativeMenuItem(child, disposables) is { } created)
-                    menu.Items.Add(created);
-            }, disposables);
+            Follow(items, menu.Items, child => CreateNativeMenuItem(child, disposables), disposables);
         }
 
         return menuItem;
@@ -81,20 +83,43 @@ internal static class MainMenuBuilder
         ? GetCommandGestureExtension.GetKeyGesture(typeof(MainViewExtension), name)
         : null;
 
-    private static void Follow(
-        IReadOnlyList<MainMenuItem> items, Action clear, Action<MainMenuItem> add, CompositeDisposable disposables)
+    // Applies each change in place: rebuilding on every change made each open view recreate all its entries.
+    private static void Follow<T>(
+        IReadOnlyList<MainMenuItem> items, IList<T> target, Func<MainMenuItem, T?> create, CompositeDisposable disposables)
+        where T : class
     {
+        // Entries create skips (window-only) are only in fixed lists, so a change's index is also the target's.
+        void Insert(int index, IEnumerable added)
+        {
+            foreach (MainMenuItem item in added)
+            {
+                if (create(item) is { } created)
+                    target.Insert(index++, created);
+            }
+        }
+
         void Fill()
         {
-            clear();
-            foreach (MainMenuItem item in items)
-                add(item);
+            target.Clear();
+            Insert(0, items);
         }
 
         Fill();
         if (items is INotifyCollectionChanged changes)
         {
-            NotifyCollectionChangedEventHandler handler = (_, _) => Fill();
+            NotifyCollectionChangedEventHandler handler = (_, e) =>
+            {
+                if (e.Action == NotifyCollectionChangedAction.Reset)
+                {
+                    Fill();
+                    return;
+                }
+
+                for (int i = 0; i < (e.OldItems?.Count ?? 0); i++)
+                    target.RemoveAt(e.OldStartingIndex);
+                if (e.NewItems is { } added)
+                    Insert(e.NewStartingIndex, added);
+            };
             changes.CollectionChanged += handler;
             disposables.Add(Disposable.Create(() => changes.CollectionChanged -= handler));
         }
