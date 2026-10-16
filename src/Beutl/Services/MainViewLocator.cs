@@ -21,10 +21,6 @@ internal static class MainViewLocator
                 return mwindow.mainView;
             }
         }
-        else if (lifetime is ISingleViewApplicationLifetime singleViewLifetime)
-        {
-            return singleViewLifetime.MainView as MainView;
-        }
 
         return null;
     }
