@@ -101,6 +101,31 @@ public class PropertyEditorGridTests
         finally { window.Close(); }
     }
 
+    // The keyframe buttons and the menu shared the last column and overlapped.
+    [AvaloniaTest]
+    public void Boolean_editor_puts_the_menu_after_the_keyframe_buttons()
+    {
+        var editor = new BooleanEditor
+        {
+            Header = "Visible",
+            KeyFrameCount = 3,
+            KeyFrameIndex = 1,
+            MenuContent = new Border { Width = 24, Height = 24 }
+        };
+        var window = new Window { Content = editor, Width = 400, Height = 100 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            Control buttons = editor.GetVisualDescendants().OfType<StackPanel>().Single(panel => panel.Name == "LeftRightButtons");
+            Control menu = editor.GetVisualDescendants().OfType<Control>().Single(presenter => presenter.Name == "PART_MenuContentPresenter");
+            Assert.That(buttons.IsEffectivelyVisible, Is.True);
+            Assert.That(menu.TranslatePoint(default, editor)!.Value.X,
+                Is.GreaterThanOrEqualTo(buttons.TranslatePoint(new Point(buttons.Bounds.Width, 0), editor)!.Value.X));
+        }
+        finally { window.Close(); }
+    }
+
     private static void MoveSplitter(Window window, PropertyEditor editor, Key key, PhysicalKey physicalKey, double increment)
     {
         var splitter = editor.GetVisualDescendants().OfType<GridSplitter>().Single();
