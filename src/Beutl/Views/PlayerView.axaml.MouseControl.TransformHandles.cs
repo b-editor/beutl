@@ -220,7 +220,8 @@ public partial class PlayerView
             }
             catch (Exception ex) when (
                 ex is not OutOfMemoryException
-                and not System.Runtime.InteropServices.SEHException)  // propagate GPU driver crashes
+                and not System.Runtime.InteropServices.SEHException  // propagate GPU driver crashes
+                and not AccessViolationException)                    // CSE defense-in-depth
             {
                 // Avoid crashing the editor via the pointer-event pipeline, also when shutdown cancels the hit-test.
                 _logger.LogError(
