@@ -5,7 +5,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Engine\Beutl.Engine.csproj" />
     <ProjectReference Include="..\Beutl.Language\Beutl.Language.csproj" />
-    <ProjectReference Include="..\Beutl.Extensibility\Beutl.Extensibility.csproj" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
