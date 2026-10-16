@@ -9,7 +9,7 @@ namespace Beutl.UnitTests.Api;
 // The assemblies are compiled here: HostLib stands for a Beutl assembly in two versions, and Plugin for an extension
 // built against one of them.
 [TestFixture]
-public sealed class PackageApiCheckerTests
+public sealed partial class PackageApiCheckerTests
 {
     private const string HostV1 = """
         namespace HostLib;
