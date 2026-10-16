@@ -31,7 +31,6 @@ public partial class MainView
 {
     private readonly AvaloniaList<MenuItem> _rawRecentFileItems = [];
     private readonly AvaloniaList<MenuItem> _rawRecentProjItems = [];
-    private readonly Cache<MenuItem> _menuItemCache = new(4);
 
     private void InitializeCommands(MainViewModel viewModel)
     {
@@ -222,7 +221,7 @@ public partial class MainView
     {
         void AddItem(AvaloniaList<MenuItem> list, string item, ICommand command)
         {
-            MenuItem menuItem = _menuItemCache.Get() ?? new MenuItem();
+            var menuItem = new MenuItem();
             menuItem.Command = command;
             menuItem.CommandParameter = item;
             menuItem.Header = item;
@@ -237,7 +236,6 @@ public partial class MainView
                 if (menuItem.Header is string header && header == item)
                 {
                     list.Remove(menuItem);
-                    _menuItemCache.Set(menuItem);
                 }
             }
         }
