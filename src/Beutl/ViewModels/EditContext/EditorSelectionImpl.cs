@@ -24,8 +24,14 @@ internal sealed class EditorSelectionImpl : IEditorSelection, IDisposable
 
                 if (v.NewValue is IHierarchical newHierarchical)
                     newHierarchical.DetachedFromHierarchy += OnSelectedObjectDetachedFromHierarchy;
+
+                if (v.NewValue is Element element ? !SelectedElements.Contains(element) : SelectedElements.Count > 0)
+                    SelectedElements.Replace(v.NewValue is Element selected ? [selected] : []);
             })
             .DisposeWith(_disposables);
+
+        SelectedElements.Attached += element => element.DetachedFromHierarchy += OnSelectedElementDetachedFromHierarchy;
+        SelectedElements.Detached += element => element.DetachedFromHierarchy -= OnSelectedElementDetachedFromHierarchy;
 
         SelectedLayerNumber = SelectedObject.Select(v =>
                 (v as Element)?.GetObservable(Element.ZIndexProperty).Select(i => (int?)i) ??
@@ -39,9 +45,13 @@ internal sealed class EditorSelectionImpl : IEditorSelection, IDisposable
 
     public ReadOnlyReactivePropertySlim<int?> SelectedLayerNumber { get; }
 
+    public CoreList<Element> SelectedElements { get; } = [];
+
     IReactiveProperty<CoreObject?> IEditorSelection.SelectedObject => SelectedObject;
 
     IReadOnlyReactiveProperty<int?> IEditorSelection.SelectedLayerNumber => SelectedLayerNumber;
+
+    ICoreList<Element> IEditorSelection.SelectedElements => SelectedElements;
 
     private void OnSelectedObjectDetachedFromHierarchy(object? sender, HierarchyAttachmentEventArgs e)
     {
@@ -49,11 +59,17 @@ internal sealed class EditorSelectionImpl : IEditorSelection, IDisposable
         SelectedObject.Value = null;
     }
 
+    private void OnSelectedElementDetachedFromHierarchy(object? sender, HierarchyAttachmentEventArgs e)
+    {
+        SelectedElements.Remove((Element)sender!);
+    }
+
     public void Dispose()
     {
         if (SelectedObject.Value is IHierarchical hierarchical)
             hierarchical.DetachedFromHierarchy -= OnSelectedObjectDetachedFromHierarchy;
 
+        SelectedElements.Clear();
         _disposables.Dispose();
     }
 }

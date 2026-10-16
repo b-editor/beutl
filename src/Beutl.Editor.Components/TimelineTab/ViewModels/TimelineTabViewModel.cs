@@ -23,6 +23,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     private readonly Subject<LayerHeaderViewModel> _layerHeightChanged = new();
     private readonly Subject<System.Reactive.Unit> _canExecuteChangedSubject = new();
     private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = [];
+    private readonly IEditorSelection _selection;
     private bool _isDisposed;
     private bool _updatingToolMode;
     private bool _addingLayerHeaders;
@@ -105,6 +106,20 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
                     {
                         item.Dispose();
                     }
+                })
+            .AddTo(_disposables);
+
+        // SelectedElements mirrors the editor's selection, which outlives this tab.
+        _selection = editorContext.GetRequiredService<IEditorSelection>();
+        _selection.SelectedElements.ForEachItem(
+                element => SetSelected(element, true),
+                element => SetSelected(element, false),
+                () =>
+                {
+                    foreach (ElementViewModel item in SelectedElements)
+                        item.IsSelected.Value = false;
+                    SelectedElements.Clear();
+                    RaiseCanExecuteChanged();
                 })
             .AddTo(_disposables);
 
@@ -505,33 +520,31 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public void ClearSelected()
     {
-        foreach (ElementViewModel item in SelectedElements)
-        {
-            item.IsSelected.Value = false;
-        }
-
-        SelectedElements.Clear();
-        RaiseCanExecuteChanged();
+        _selection.SelectedElements.Clear();
     }
 
     public void SelectElement(ElementViewModel item)
     {
-        SelectedElements.Add(item);
-        item.IsSelected.Value = true;
-        RaiseCanExecuteChanged();
+        if (!_selection.SelectedElements.Contains(item.Model))
+            _selection.SelectedElements.Add(item.Model);
     }
 
     public void SwitchSelectedElement(ElementViewModel item)
     {
-        item.IsSelected.Value = !item.IsSelected.Value;
-        if (item.IsSelected.Value)
-        {
+        if (!_selection.SelectedElements.Remove(item.Model))
+            _selection.SelectedElements.Add(item.Model);
+    }
+
+    private void SetSelected(Element element, bool selected)
+    {
+        if (GetViewModelFor(element) is not { } item)
+            return;
+
+        item.IsSelected.Value = selected;
+        if (selected)
             SelectedElements.Add(item);
-        }
         else
-        {
             SelectedElements.Remove(item);
-        }
 
         RaiseCanExecuteChanged();
     }
