@@ -132,11 +132,12 @@ internal class Telemetry : IDisposable
     }
 
     // A value that is not an absolute http or https URL is ignored, so a mistyped variable cannot stop the app
-    // from starting.
+    // from starting. So is a query or fragment, since the exporter paths are appended to the URL.
     internal static string ResolveBaseUrl(string? configured)
     {
         return Uri.TryCreate(configured?.Trim(), UriKind.Absolute, out Uri? uri)
                && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+               && uri.Query.Length == 0 && uri.Fragment.Length == 0
             ? uri.AbsoluteUri.TrimEnd('/')
             : DefaultBaseUrl;
     }
