@@ -455,9 +455,8 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
             if (contextJson != null
                 && extension != null
                 && File.Exists(file)
-                && extension.TryCreateContext(
-                    editorContext,
-                    out IOutputContext? context))
+                && ExtensionGuard.Call(extension, () => extension.TryCreateContext(editorContext, out IOutputContext? created) ? created : null)
+                    is { } context)
             {
                 context.ReadFromJson(contextJson.AsObject());
                 logger.LogInformation("OutputProfileItem created from JSON. File: {File}, Context: {Context}", file,

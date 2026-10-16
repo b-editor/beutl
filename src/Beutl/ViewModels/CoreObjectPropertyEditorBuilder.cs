@@ -42,13 +42,18 @@ internal static class CoreObjectPropertyEditorBuilder
             (foundItems, extension) = PropertyEditorService.MatchProperty(adapters, extensionProvider);
             if (foundItems != null && extension != null)
             {
-                IPropertyEditorContext? context;
-                bool created = forSettings
-                    ? extension.TryCreateContextForSettings(foundItems, out context)
-                    : extension.TryCreateContext(foundItems, out context);
-                if (created)
+                PropertyEditorExtension owner = extension;
+                IPropertyAdapter[] items = foundItems;
+                IPropertyEditorContext? context = ExtensionGuard.Call(owner, () =>
                 {
-                    add(context!);
+                    IPropertyEditorContext? created;
+                    return (forSettings
+                        ? owner.TryCreateContextForSettings(items, out created)
+                        : owner.TryCreateContext(items, out created)) ? created : null;
+                });
+                if (context != null)
+                {
+                    add(context);
                 }
 
                 adapters.RemoveMany(foundItems);

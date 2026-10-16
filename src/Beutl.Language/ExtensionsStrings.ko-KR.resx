@@ -20,6 +20,12 @@
   <data name="NoLogoImageAvailable" xml:space="preserve">
     <value>사용 가능한 로고 이미지가 없습니다</value>
   </data>
+  <data name="ExtensionFailed" xml:space="preserve">
+    <value>{0}에서 오류가 발생했습니다</value>
+  </data>
+  <data name="ExtensionTurnedOff" xml:space="preserve">
+    <value>Beutl을 다시 시작할 때까지 사용하지 않습니다. 패키지: {0}</value>
+  </data>
   <data name="Package_Screenshots" xml:space="preserve">
     <value>스크린샷</value>
   </data>

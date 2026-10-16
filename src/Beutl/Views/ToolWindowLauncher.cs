@@ -1,4 +1,5 @@
 ﻿using Avalonia.Controls;
+using Beutl.Api.Services;
 using Beutl.Services;
 
 namespace Beutl.Views;
@@ -23,10 +24,12 @@ internal sealed class ToolWindowLauncher
                 return;
             }
 
-            if (!extension.TryCreateContext(out IToolWindowContext? context))
+            if (ExtensionGuard.Call(extension, () => extension.TryCreateContext(out IToolWindowContext? created) ? created : null)
+                is not { } context)
                 return;
 
-            if (!extension.TryCreateContent(out Window? window))
+            if (ExtensionGuard.Call(extension, () => extension.TryCreateContent(out Window? created) ? created : null)
+                is not { } window)
             {
                 context.Dispose();
                 return;

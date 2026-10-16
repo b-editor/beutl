@@ -9,9 +9,9 @@ internal sealed class PropertyEditorFactoryAdapter(ExtensionProvider extensionPr
     public IPropertyEditorContext? CreateEditor(IPropertyAdapter property)
     {
         var (props, ext) = PropertyEditorService.MatchProperty([property], extensionProvider);
-        if (props != null && ext != null && ext.TryCreateContext(props, out var ctx))
-            return ctx;
-        return null;
+        return props != null && ext != null
+            ? ExtensionGuard.Call(ext, () => ext.TryCreateContext(props, out IPropertyEditorContext? ctx) ? ctx : null)
+            : null;
     }
 
     public (IPropertyAdapter[]? Properties, PropertyEditorExtension? Extension) MatchProperty(IReadOnlyList<IPropertyAdapter> properties)

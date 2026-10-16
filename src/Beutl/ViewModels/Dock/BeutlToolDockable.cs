@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using Avalonia.Controls;
+using Beutl.Api.Services;
 using Beutl.Services;
 using Dock.Model.Inpc.Controls;
 using FluentAvalonia.UI.Controls;
@@ -21,7 +22,7 @@ public class BeutlToolDockable : Tool, IDisposable
 
         Id = CreateId(context.Extension);
         Title = ResolveTitle(context, context.Header.Value);
-        Icon = context.Extension.GetIcon();
+        Icon = ExtensionGuard.Call(context.Extension, context.Extension.GetIcon);
         Context = context;
         _usage = new ToolUsageTracker(context);
         CanClose = true;

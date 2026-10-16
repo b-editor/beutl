@@ -1,4 +1,5 @@
-﻿using Beutl.Configuration;
+﻿using Beutl.Api.Services;
+using Beutl.Configuration;
 using Dock.Model.Inpc.Controls;
 using FluentAvalonia.UI.Controls;
 using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
@@ -220,7 +221,7 @@ public sealed class NewToolTabDockable : Tool
     {
         if (!_icons.TryGetValue(extension, out FAIconSource? icon))
         {
-            icon = extension.GetIcon();
+            icon = ExtensionGuard.Call(extension, extension.GetIcon);
             _icons[extension] = icon;
         }
 

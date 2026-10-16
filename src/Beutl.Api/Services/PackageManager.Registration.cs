@@ -37,6 +37,10 @@ public sealed partial class PackageManager
         try
         {
             extensions = LoadPackageExtensions(extensionTypes);
+            foreach (Extension extension in extensions)
+            {
+                ExtensionGuard.SetPackage(extension, package.Name);
+            }
 
             activity?.AddEvent(new ActivityEvent("Extensions loaded"));
             activity?.SetTag("ExtensionCount", extensions.Count);

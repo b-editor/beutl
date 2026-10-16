@@ -1,4 +1,5 @@
-﻿using Beutl.Services;
+﻿using Beutl.Api.Services;
+using Beutl.Services;
 using Beutl.ViewModels;
 
 namespace Beutl.Views;
@@ -9,7 +10,8 @@ internal static class ExtensionMenuActions
     public static void OpenToolTab(MainViewModel viewModel, ToolTabExtension extension)
     {
         if (viewModel.EditorService.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
-            && extension.TryCreateContext(editorContext, out IToolContext? toolContext)
+            && ExtensionGuard.Call(extension, () => extension.TryCreateContext(editorContext, out IToolContext? created) ? created : null)
+                is { } toolContext
             && !editorContext.OpenToolTab(toolContext))
         {
             toolContext.Dispose();
@@ -34,10 +36,11 @@ internal static class ExtensionMenuActions
 
         if (!ReferenceEquals(selectedTab.Context.Value, original)) return;
 
-        if (editorExtension.TryCreateContext(
+        if (ExtensionGuard.Call(editorExtension, () => editorExtension.TryCreateContext(
                 selectedTab.Context.Value.Object,
                 new EditorContextServices(viewModel.EditorService, viewModel.ExtensionProvider),
-                out IEditorContext? context))
+                out IEditorContext? created) ? created : null)
+            is { } context)
         {
             selectedTab.Context.Value.Dispose();
             selectedTab.Context.Value = context;
