@@ -23,16 +23,13 @@
         <TextBox InputMethod.IsInputMethodEnabled="True" Text="{CompiledBinding Name.Value, Mode=TwoWay}" />
 
         <TextBlock Margin="0,8,0,0" Text="{x:Static lang:Strings.Location}" />
-        <Panel>
-            <TextBox Text="{CompiledBinding Location.Value, Mode=TwoWay}" />
-
-            <Button HorizontalAlignment="Right"
-                    Background="Transparent"
-                    BorderThickness="0"
-                    Click="PickLocation">
-                <icons:FluentIcon Icon="OpenFolder" />
-            </Button>
-        </Panel>
+        <TextBox Text="{CompiledBinding Location.Value, Mode=TwoWay}">
+            <TextBox.InnerRightContent>
+                <Button Click="PickLocation" Theme="{StaticResource TransparentButton}">
+                    <icons:FluentIcon Icon="OpenFolder" />
+                </Button>
+            </TextBox.InnerRightContent>
+        </TextBox>
 
         <TextBlock Margin="0,8,0,0" Text="{x:Static lang:Strings.Size}" />
         <TextBox Text="{CompiledBinding Size.Value, Mode=TwoWay, Converter={x:Static converters:AvaloniaPixelSizeConverter.Instance}}" />
