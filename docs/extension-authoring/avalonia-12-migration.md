@@ -68,7 +68,5 @@ release's SDK version rather than the repository's development version.
 
 ## PanelExtension
 
-The host no longer references the `PanelExtension` package. Its
-`HorizontalGridLayout` implementation is now `Beutl.Controls.HorizontalGridLayout`.
-Extensions using that layout must reference `Beutl.Controls` from the matching
-Beutl release and update their C# namespaces and XAML namespace mappings.
+The host no longer references the `PanelExtension` package, and Beutl.Controls'
+`HorizontalGridLayout` is internal. An extension that used the layout keeps its own copy.
