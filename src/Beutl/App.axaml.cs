@@ -136,6 +136,7 @@ public sealed class App : Application
 
         PropertyEditorExtension.DefaultHandler = new PropertyEditorService.PropertyEditorExtensionImpl();
         NotificationService.Handler = new NotificationServiceHandler();
+        UiExceptionBoundary.Install(Dispatcher.UIThread);
         TutorialService.Current = new TutorialServiceHandler();
         try
         {
