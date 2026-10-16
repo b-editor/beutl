@@ -1087,6 +1087,34 @@ public class PathEditorInteractionTests
     }
 
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Escape_keeps_a_nudge_made_just_before_the_gesture_in_its_own_entry(bool pen)
+    {
+        using var editor = await Fixture.Create();
+        Element element = editor.Editor.Scene.Children.Single();
+        TimeSpan start = element.Start;
+        Point from = pen ? new(350, 220) : new(80, 100);
+        if (pen) editor.Key(Key.P);
+
+        ((IElementNudgeService)editor.Editor.GetService(typeof(IElementNudgeService))!)
+            .Nudge(editor.Editor.Scene, [element], 1);
+        editor.MouseDown(from, MouseButton.Left);
+        editor.MouseMove(from + new Vector(30, 20), RawInputModifiers.LeftMouseButton);
+        editor.Key(Key.Escape);
+        editor.MouseUp(from + new Vector(30, 20), MouseButton.Left);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(editor.Figure.Segments, Has.Count.EqualTo(3));
+            Assert.That(editor.Figure.Segments[0].GetEndPoint().CurrentValue, Is.EqualTo(new BtlPoint(80, 100)));
+            Assert.That(element.Start, Is.GreaterThan(start));
+            Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(1));
+            Assert.That(editor.Editor.HistoryManager.PeekUndo()!.Name, Is.EqualTo("CommandNames.MoveElement"));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task Finishing_path_editing_clears_the_inspector_and_shows_the_empty_state()
     {
         using var editor = await Fixture.Create();

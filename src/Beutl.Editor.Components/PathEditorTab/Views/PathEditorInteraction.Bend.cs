@@ -18,7 +18,7 @@ internal sealed partial class PathEditorInteraction
     private void BeginBendDrag(PointerPressedEventArgs e, PathFigure figure, (int index, float t, Point point) bend)
     {
         // Begin one history entry for conversion plus dragging the curve.
-        Context!.EditorContext.GetRequiredService<HistoryManager>().Commit();
+        BeginGestureEntry();
         _bending = PathEditingOperations.ToCubic(figure, bend.index, Composition);
         if (_bending != null)
         {

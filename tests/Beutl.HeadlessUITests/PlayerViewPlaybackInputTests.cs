@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 
 using Beutl.Editor.Models;
@@ -383,6 +384,52 @@ public partial class PlayerViewPlaybackInputTests
         finally
         {
             window.MouseUp(point, MouseButton.Right);
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Cancelling_a_move_keeps_a_nudge_made_just_before_it()
+    {
+        EditViewModel editor = await OpenEditor();
+        var shape = new RectShape();
+        await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
+            TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4), 0, new ElementSource.EngineObject(() => shape))], CancellationToken.None);
+        Element element = editor.Scene.Children.Single();
+        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = element;
+        editor.GetRequiredService<IEditorClock>().CurrentTime.Value = TimeSpan.FromSeconds(2);
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+        IPointer? captured = null;
+        Point point = default;
+        try
+        {
+            await PreparePreview(view, window);
+            view.FindControl<Panel>("framePanel")!.AddHandler(InputElement.PointerPressedEvent,
+                (_, e) => captured = e.Pointer, RoutingStrategies.Bubble, handledEventsToo: true);
+            int index = editor.HistoryManager.CurrentIndex;
+            point = PreviewCenter(view, window);
+
+            editor.GetRequiredService<IElementNudgeService>().Nudge(editor.Scene, [element], 1);
+            TimeSpan nudged = element.Start;
+            window.MouseDown(point, MouseButton.Left);
+            window.MouseMove(point + new Vector(20, 10), RawInputModifiers.LeftMouseButton);
+            Assert.That(editor.HistoryManager.CurrentIndex, Is.EqualTo(index + 1), "The move commits the nudge before it writes.");
+            Assert.That(editor.HistoryManager.HasPendingOperations, Is.True, "The move must have changed the shape.");
+            captured!.Capture(null);
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(element.Start, Is.EqualTo(nudged));
+                Assert.That(editor.HistoryManager.CurrentIndex, Is.EqualTo(index + 1));
+                Assert.That(editor.HistoryManager.PeekUndo()!.Name, Is.EqualTo("CommandNames.MoveElement"));
+                Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
+            });
+        }
+        finally
+        {
+            window.MouseUp(point, MouseButton.Left);
             window.Close();
         }
     }

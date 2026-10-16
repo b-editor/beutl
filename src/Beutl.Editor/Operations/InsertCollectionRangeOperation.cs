@@ -12,7 +12,7 @@ public sealed class InsertCollectionRangeOperation<T> : CollectionChangeOperatio
 
     protected override void ApplyTo(IList<T> list)
     {
-        int insertIndex = Index < 0 || Index > list.Count ? list.Count : Index;
+        int insertIndex = GetInsertionIndex(list, Index);
 
         for (int i = 0; i < Items.Length; i++)
         {
@@ -22,14 +22,11 @@ public sealed class InsertCollectionRangeOperation<T> : CollectionChangeOperatio
 
     protected override void RevertToEngineProperty(IListProperty<T> listProperty)
     {
-        listProperty.RemoveRange(Index, Items.Length);
+        RemoveItems(listProperty, Index, Items, listProperty.RemoveRange);
     }
 
     protected override void RevertTo(IList<T> list)
     {
-        for (int i = 0; i < Items.Length; i++)
-        {
-            list.RemoveAt(Index);
-        }
+        RemoveItems(list, Index, Items);
     }
 }

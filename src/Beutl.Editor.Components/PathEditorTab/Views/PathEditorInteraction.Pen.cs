@@ -108,7 +108,7 @@ internal sealed partial class PathEditorInteraction
             _penPoint = PathEditingOperations.SnapAngle(figure.Segments[^1].GetEndPoint().GetValue(Composition), local);
         _penSegment = null;
         _start = point;
-        Context!.EditorContext.GetRequiredService<HistoryManager>().Commit();
+        BeginGestureEntry();
         // Only an implicit start needs a move-only anchor. With an explicit
         // start, the first point already terminates an edge that can be bent.
         if (figure.Segments.Count == 0 && explicitStart.IsInvalid)

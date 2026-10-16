@@ -257,7 +257,8 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
             PropertyPath = _propertyPath,
             OldIndex = e.OldStartingIndex,
             NewIndex = e.NewStartingIndex,
-            Count = e.OldItems!.Count
+            Count = e.OldItems!.Count,
+            MovedItems = e.OldItems.Cast<T>().ToArray()
         };
         _operations.OnNext(operation);
     }

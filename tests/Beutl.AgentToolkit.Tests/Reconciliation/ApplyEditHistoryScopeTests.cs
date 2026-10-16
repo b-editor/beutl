@@ -342,9 +342,8 @@ public sealed class ApplyEditHistoryScopeTests
             schemaVersion: SchemaVersion.Current);
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-        // Attaching a changed transition also aligns its transient TimeRange with the element.
-        int expectedOperations = !remove && propertyName != nameof(CustomSerializedTransformElement.CustomTransform) ? 2 : 1;
-        Assert.That(session.History.PeekUndo()?.Operations, Has.Count.EqualTo(expectedOperations));
+        // A transition takes its TimeRange from the element when attached, so only the element's member is recorded.
+        Assert.That(session.History.PeekUndo()?.Operations, Has.Count.EqualTo(1));
         var operations = session.History.PeekUndo()!.Operations.OfType<IUpdatePropertyValueOperation>().ToArray();
         IUpdatePropertyValueOperation operation = operations.Single(update => ReferenceEquals(update.Object, element));
         object? applied = element.GetValue(changedProperty);
@@ -356,11 +355,9 @@ public sealed class ApplyEditHistoryScopeTests
             Assert.That(applied, Is.Not.SameAs(original[changedProperty]));
             Assert.That(remove ? applied is null : JsonNode.DeepEquals(
                 CoreSerializer.SerializeToJsonObject((ICoreSerializable)applied!), value), Is.True);
-            if (expectedOperations == 2)
+            if (applied is ClipTransition transition)
             {
-                IUpdatePropertyValueOperation timeRange = operations.Single(update => !ReferenceEquals(update.Object, element));
-                Assert.That(timeRange.Object, Is.SameAs(applied));
-                Assert.That(timeRange.PropertyPath.Split('.')[^1], Is.EqualTo(nameof(ClipTransition.TimeRange)));
+                Assert.That(transition.TimeRange, Is.EqualTo(element.Range));
             }
             foreach (CoreProperty property in properties.Where(property => property != changedProperty))
             {
