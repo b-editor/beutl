@@ -36,6 +36,14 @@ public sealed class ElementNudgeService : IElementNudgeService
         _timer = new Timer(OnTimerTick, state: null, Timeout.Infinite, Timeout.Infinite);
     }
 
+    internal bool IsPending
+    {
+        get
+        {
+            lock (_gate) return _pending;
+        }
+    }
+
     public void Nudge(Scene scene, IReadOnlyList<Element> targets, int frames)
     {
         ArgumentNullException.ThrowIfNull(scene);
