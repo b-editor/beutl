@@ -1,6 +1,4 @@
 ﻿using System.Buffers;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 
 namespace Beutl.Audio;
 
@@ -64,23 +62,6 @@ public sealed class AudioBuffer : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         return _memory.Span;
-    }
-
-    public Pcm<Stereo32BitFloat> ToPcm()
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        if (ChannelCount != 2)
-            throw new InvalidOperationException("AudioBuffer must have exactly 2 channels to convert to Pcm<Stereo32BitFloat>.");
-
-        var pcm = new Pcm<Stereo32BitFloat>(SampleRate, SampleCount);
-        for (int i = 0; i < SampleCount; i++)
-        {
-            pcm.DataSpan[i] = new Stereo32BitFloat(
-                GetChannelData(0)[i],
-                GetChannelData(1)[i]);
-        }
-        return pcm;
     }
 
     public void Clear()

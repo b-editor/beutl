@@ -6,7 +6,6 @@ using Beutl.Audio;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
@@ -22,6 +21,9 @@ public sealed class FFmpegReader : MediaReader
     // Every reader lives in the same worker process, and frame threading keeps a decoded frame and
     // decoder state alive per thread, so the automatic count stays below FFmpeg's own limit of 16.
     private const int AutoThreadCountLimit = 8;
+
+    // Interleaved stereo float, the layout the IPC carries.
+    private const int BytesPerSample = 2 * sizeof(float);
 
 #pragma warning disable IDE1006 // 命名スタイル
     private static readonly AVChannelLayout AV_CHANNEL_LAYOUT_STEREO = new()
@@ -213,7 +215,7 @@ public sealed class FFmpegReader : MediaReader
 
         int decoded = 0;
         bool needGrab = false;
-        int sampleSize = sizeof(Stereo32BitFloat);
+        int sampleSize = BytesPerSample;
 
         // SampleConverterを遅延初期化
         _sampleConverter ??= new SampleConverter();
@@ -281,7 +283,7 @@ public sealed class FFmpegReader : MediaReader
         {
             SampleRate = AudioInfo.SampleRate,
             NumSamples = samples,
-            DataLength = samples * sizeof(Stereo32BitFloat),
+            DataLength = samples * BytesPerSample,
         };
     }
 
