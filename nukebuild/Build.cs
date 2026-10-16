@@ -303,9 +303,10 @@ class Build : NukeBuild
         {
             foreach ((AbsolutePath project, string framework) in GetPublicLibraries())
             {
+                // A library with several target frameworks reports none, and builds them all.
                 DotNetBuild(s => s
                     .EnableNoRestore()
-                    .SetFramework(framework)
+                    .When(_ => framework != "", s => s.SetFramework(framework))
                     .SetConfiguration(Configuration)
                     .SetVersions(Version, AssemblyVersion, InformationalVersion)
                     .SetProjectFile(project));
