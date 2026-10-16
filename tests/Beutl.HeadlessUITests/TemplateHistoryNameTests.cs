@@ -13,14 +13,14 @@ using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 namespace Beutl.HeadlessUITests;
 
 // Applying a template to an effect, whether it replaces the effect or joins a group, leaves one history entry
-// named after the template.
+// labelled with the "Apply template" command name.
 [TestFixture]
 public sealed class TemplateHistoryNameTests
 {
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
-    public void Applying_a_template_to_a_filter_effect_is_named_after_it(bool group)
+    public void Applying_a_template_to_a_filter_effect_is_labelled_apply_template(bool group)
     {
         var shape = new RectShape();
         shape.FilterEffect.CurrentValue = group ? new FilterEffectGroup() : new Brightness();
