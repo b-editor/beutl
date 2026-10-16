@@ -163,4 +163,19 @@ URL이 의심스러우면 열지 않는 것이 좋습니다.</value>
   <data name="RequestedVersionUnavailable" xml:space="preserve">
     <value>버전 {0}은(는) 더 이상 사용할 수 없습니다. 계속하려면 사용 가능한 버전을 선택하세요.</value>
   </data>
+  <data name="PackageNotLoaded" xml:space="preserve">
+    <value>{0}을(를) 로드하지 않았습니다</value>
+  </data>
+  <data name="PackageNotInstalled" xml:space="preserve">
+    <value>{0}을(를) 설치하지 않았습니다</value>
+  </data>
+  <data name="PackageNotUpdated" xml:space="preserve">
+    <value>{0}을(를) 업데이트하지 않았습니다</value>
+  </data>
+  <data name="PackageUsesMissingApisForVersion" xml:space="preserve">
+    <value>Beutl {0}용으로 만들어졌으며 Beutl {2}에 없는 API {1}개를 사용합니다(예: {3}).</value>
+  </data>
+  <data name="PackageUsesMissingApis" xml:space="preserve">
+    <value>Beutl {1}에 없는 API {0}개를 사용합니다(예: {2}).</value>
+  </data>
 </root>

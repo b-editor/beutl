@@ -27,13 +27,34 @@ public sealed class AfterLoadingExtensionsTask : StartupTask
 
     internal static void ShowFailures(IReadOnlyList<(LocalPackage, Exception)> failures)
     {
-        if (failures.Count == 0)
+        foreach ((_, Exception exception) in failures)
+        {
+            if (exception is PackageApiMismatchException mismatch)
+                ShowMismatch(ExtensionsStrings.PackageNotLoaded, mismatch);
+        }
+
+        (LocalPackage, Exception)[] others = [.. failures.Where(failure => failure.Item2 is not PackageApiMismatchException)];
+        if (others.Length == 0)
             return;
 
         NotificationService.ShowError(
             MessageStrings.FailedToLoadPackage,
-            string.Format(MessageStrings.FailedToLoadNPackages, failures.Count),
-            actions: [new(Strings.Details, () => ShowPackageLoadingError(failures))]);
+            string.Format(MessageStrings.FailedToLoadNPackages, others.Length),
+            actions: [new(Strings.Details, () => ShowPackageLoadingError(others))]);
+    }
+
+    // A package built for another Beutl version is named, with the APIs it uses that this Beutl lacks.
+    // titleFormat says what did not happen to it: the load, the install or the update.
+    internal static void ShowMismatch(string titleFormat, PackageApiMismatchException mismatch)
+    {
+        LocalPackage package = mismatch.Package;
+        string examples = string.Join(", ", mismatch.Problems.Take(3).Select(problem => problem.Api));
+        NotificationService.ShowError(
+            string.Format(titleFormat, string.IsNullOrEmpty(package.DisplayName) ? package.Name : package.DisplayName),
+            package.TargetVersion is { } target
+                ? string.Format(ExtensionsStrings.PackageUsesMissingApisForVersion, target, mismatch.Problems.Count, BeutlApplication.Version, examples)
+                : string.Format(ExtensionsStrings.PackageUsesMissingApis, mismatch.Problems.Count, BeutlApplication.Version, examples),
+            actions: [new(Strings.Details, () => ShowPackageLoadingError([(package, mismatch)]))]);
     }
 
     // ユーザー向けのテキストファイルを生成して、デフォルトのテキストエディタで表示する。
