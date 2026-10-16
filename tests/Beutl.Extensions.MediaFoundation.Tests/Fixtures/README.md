@@ -33,9 +33,8 @@ list that removes the video composition offset; the second file has no edit
 list and needs the audio seek to add that offset. `MFAudioVideoSyncTests` checks
 decoded picture/audio content, backward seeks, duration, and normalized EOF
 in both Audio and AudioVideo modes. Tests use the committed fixtures and do
-not require ffmpeg on the Windows runner. The MediaReader conformance suite,
-`tests/MediaReaderConformance.cs`, reads `marker-bframes.mp4` with every decoder;
-`Beutl.FFmpegIpc.Tests` and `Beutl.Extensions.AVFoundation.Tests` link it.
+not require ffmpeg on the Windows runner. `tests/MediaReaderConformance.cs` also
+reads `marker-bframes.mp4`, with every decoder.
 
 Regenerate with ffmpeg:
 

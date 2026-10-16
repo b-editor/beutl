@@ -6,26 +6,21 @@ using Beutl.Media.Source;
 
 namespace Beutl;
 
-// Checks one decoder backend against the MediaReader contract, which the XML docs on MediaReader and
-// IDecoderInfo.Open describe. Beutl.FFmpegIpc.Tests, Beutl.Extensions.MediaFoundation.Tests and
-// Beutl.Extensions.AVFoundation.Tests link this file, and each derives one fixture that opens media with its
-// backend and skips where the backend is not available. CI runs each of them where its backend is.
+// Checks one decoder against the MediaReader contract. The FFmpegIpc, MediaFoundation and AVFoundation test
+// projects link this file and derive one fixture each.
 public abstract class MediaReaderConformanceTests
 {
-    // 4 s of 64x64 H.264 at 10 fps with B-frames, and 48 kHz stereo AAC. Its edit lists start both streams at the
-    // container start. The picture turns from red to blue at 1 s, when the tone goes from 440 to 880 Hz; the tone
-    // then steps to 1320 and 1760 Hz at 2 and 3 s. tests/Beutl.Extensions.MediaFoundation.Tests/Fixtures/README.md
-    // describes how it was made.
+    // 4 s of 64x64 H.264 (10 fps, B-frames) and 48 kHz stereo AAC: red turning blue at 1 s, with a tone of 440,
+    // 880, 1320 and 1760 Hz in successive seconds. Fixtures/README.md in the MediaFoundation tests says how.
     private const string MarkerFixture = "marker-bframes.mp4";
     private const int FrameRate = 10;
     private const int SampleRate = 48000;
     private const int DurationSeconds = 4;
 
-    // Opens the file with the backend under test, as its IDecoderInfo.Open does.
+    // Opens the file with the decoder under test.
     protected abstract MediaReader? Open(string path, MediaOptions options);
 
-    // The tests of contract points that the backend does not meet yet, by name, each with the issue that tracks it.
-    // They skip with that reason, so the gap shows in the results instead of failing every run.
+    // Contract points the decoder does not meet yet, by test name with the tracking issue; those tests skip.
     protected virtual IReadOnlyDictionary<string, string> KnownDeviations { get; } = new Dictionary<string, string>();
 
     [SetUp]
@@ -67,7 +62,7 @@ public abstract class MediaReaderConformanceTests
     public void ReadVideo_ReturnsTheFrameThatCoversItsTime()
     {
         using MediaReader reader = OpenMarker(MediaMode.Video);
-        foreach (int frame in new[] { 11, 9, 31, 21, 11, 0 })
+        foreach (int frame in new[] { 11, 9, 10, 31, 21, 11, 0 })
         {
             AssertColor(reader, frame, red: frame < FrameRate);
         }
@@ -96,8 +91,7 @@ public abstract class MediaReaderConformanceTests
         });
     }
 
-    // A frame is the frame that covers its time whatever was read before, so a read past the end, here one far enough
-    // to seek, must not stop later reads.
+    // A read does not depend on earlier ones, even after a seek past the end.
     [Test]
     public void ReadVideo_AfterAReadPastTheEnd_ReadsEarlierFrames()
     {

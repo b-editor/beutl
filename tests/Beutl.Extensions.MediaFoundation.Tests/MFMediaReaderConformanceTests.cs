@@ -11,6 +11,12 @@ namespace Beutl.Extensions.MediaFoundation.Tests;
 [SupportedOSPlatform("windows")]
 public sealed class MFMediaReaderConformanceTests : MediaReaderConformanceTests
 {
+    protected override IReadOnlyDictionary<string, string> KnownDeviations { get; } = new Dictionary<string, string>
+    {
+        [nameof(ReadVideo_PastTheLastFrame_ReturnsFalse)] = "#3249, a read past the last frame throws",
+        [nameof(ReadVideo_AfterAReadPastTheEnd_ReadsEarlierFrames)] = "#3249, a read past the last frame throws",
+    };
+
     protected override MediaReader? Open(string path, MediaOptions options)
         => new MFDecoderInfo(new MFDecodingExtension()).Open(path, options);
 }

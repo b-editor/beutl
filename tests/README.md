@@ -30,7 +30,7 @@ GPU-backed tests go through `tests/TestGpu.cs`, which each GPU test project link
 
 For each shard and assembly, `ci_tests.py` prints how many tests were not executed, grouped by reason, to the log and to the job summary. `--check-results <directory>` does the same for the TRX files of `dotnet test` runs that did not go through the script, and like a shard it fails a run that found no tests. Skips for a reason other than a capability the job declares are only counted.
 
-`tests/MediaReaderConformance.cs` checks a decoder against the `MediaReader` contract that the XML docs on `MediaReader` and `IDecoderInfo.Open` describe. `Beutl.FFmpegIpc.Tests`, `Beutl.Extensions.MediaFoundation.Tests` and `Beutl.Extensions.AVFoundation.Tests` link it, and each derives one fixture that opens media with its decoder, so the suite runs in the CI job that provides that decoder. A fixture lists a contract point its decoder does not meet yet in `KnownDeviations`, with the issue that tracks it, and that test skips with the issue as its reason.
+`tests/MediaReaderConformance.cs` checks each decoder against the `MediaReader` contract. The FFmpegIpc, MediaFoundation and AVFoundation test projects link it; `KnownDeviations` lists what a decoder does not meet yet, with its issue.
 
 `samples/PackageSample` is a sample app, not a test harness.
 
