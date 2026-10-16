@@ -8,6 +8,8 @@ internal enum PackageApiProblemKind
 {
     MissingAssembly,
     MissingType,
+    MissingMethod,
+    MissingField,
 }
 
 // An API that a package references and the host does not offer. Assembly is the host assembly that should have it.
@@ -15,7 +17,7 @@ internal sealed record PackageApiProblem(PackageApiProblemKind Kind, string Asse
 
 // Lists the APIs that a package's assemblies reference and the host lacks, read with System.Reflection.Metadata so
 // nothing is loaded. A type the package may not access counts as missing; InternalsVisibleTo grants access.
-internal sealed class PackageApiChecker : IDisposable
+internal sealed partial class PackageApiChecker : IDisposable
 {
     private const int MaxForwarderDepth = 32;
 
@@ -24,11 +26,13 @@ internal sealed class PackageApiChecker : IDisposable
     private readonly Dictionary<(MetadataReader, TypeReferenceHandle), TypeLookup> _lookups = [];
     private readonly List<PEReader> _peReaders = [];
     private readonly HashSet<PackageApiProblem> _problems = [];
+    private readonly SignatureProvider _provider;
 
     private PackageApiChecker(IReadOnlyDictionary<string, string?> hostAssemblies)
     {
         // The runtime binds assembly names case-insensitively.
         _hostAssemblies = new(hostAssemblies, StringComparer.OrdinalIgnoreCase);
+        _provider = new SignatureProvider(this);
     }
 
     private enum LookupState
@@ -95,6 +99,8 @@ internal sealed class PackageApiChecker : IDisposable
                 _problems.Add(new(PackageApiProblemKind.MissingType, type.Assembly, type.FullName));
             }
         }
+
+        CheckMembers(reader, name, publicKey);
     }
 
     private TypeLookup Resolve(MetadataReader reader, TypeReferenceHandle handle)
