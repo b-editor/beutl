@@ -50,94 +50,34 @@ internal sealed partial class GitCliVersionControlService
         }
         else
         {
-            await UpdateLocalConfigAtomicallyAsync(
-                repository,
-                runner,
-                async (stagingPath, updateCancellation) =>
+            // Git locks the configuration for each value it writes; the URL goes last.
+            if (remote.HasCredentials)
+            {
+                if (remote.Username is { } username)
                 {
-                    if (remote.HasCredentials)
-                    {
-                        if (remote.Username is { } username)
-                        {
-                            await runner.RunAsync(
-                                repository,
-                                ["config", "--file", stagingPath, "--replace-all", $"credential.{url}.username", username],
-                                GitCommandOptions.Local,
-                                updateCancellation).ConfigureAwait(false);
-                        }
-                        await runner.RunAsync(
-                            repository,
-                            ["config", "--file", stagingPath, "--replace-all", $"credential.{url}.useHttpPath", "true"],
-                            GitCommandOptions.Local,
-                            updateCancellation).ConfigureAwait(false);
-                        if (credentialHelper is not null)
-                        {
-                            string helperKey = $"credential.{url}.helper";
-                            await runner.RunAsync(
-                                repository,
-                                ["config", "--file", stagingPath, "--replace-all", helperKey, ""],
-                                GitCommandOptions.Local,
-                                updateCancellation).ConfigureAwait(false);
-                            await runner.RunAsync(
-                                repository,
-                                ["config", "--file", stagingPath, "--add", helperKey, credentialHelper],
-                                GitCommandOptions.Local,
-                                updateCancellation).ConfigureAwait(false);
-                        }
-                    }
+                    await SetRemoteConfigAsync(["--replace-all", $"credential.{url}.username", username])
+                        .ConfigureAwait(false);
+                }
 
-                    if (isFirstRemote)
-                    {
-                        await runner.RunAsync(
-                            repository,
-                            ["config", "--file", stagingPath, "--replace-all", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"],
-                            GitCommandOptions.Local,
-                            updateCancellation).ConfigureAwait(false);
-                    }
+                await SetRemoteConfigAsync(["--replace-all", $"credential.{url}.useHttpPath", "true"])
+                    .ConfigureAwait(false);
+                if (credentialHelper is not null)
+                {
+                    string helperKey = $"credential.{url}.helper";
+                    await SetRemoteConfigAsync(["--replace-all", helperKey, ""]).ConfigureAwait(false);
+                    await SetRemoteConfigAsync(["--add", helperKey, credentialHelper]).ConfigureAwait(false);
+                }
+            }
 
-                    // Separate push URLs stay as the user configured them, as with git remote set-url. Earlier
-                    // Beutl versions also wrote the fetch URL as the push URL, and that copy would keep pushes
-                    // going to the old repository, so a push URL that only repeats the old fetch URL goes.
-                    string[] fetchUrls = await ReadStagedConfigValuesAsync("remote.origin.url");
-                    string[] pushUrls = await ReadStagedConfigValuesAsync("remote.origin.pushurl");
-                    if (fetchUrls.Length == 1
-                        && pushUrls.Length > 0
-                        && pushUrls.All(pushUrl => string.Equals(pushUrl, fetchUrls[0], StringComparison.Ordinal)))
-                    {
-                        await runner.RunAsync(
-                            repository,
-                            ["config", "--file", stagingPath, "--unset-all", "remote.origin.pushurl"],
-                            GitCommandOptions.Local,
-                            updateCancellation).ConfigureAwait(false);
-                    }
+            if (isFirstRemote)
+            {
+                await SetRemoteConfigAsync(
+                        ["--replace-all", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"])
+                    .ConfigureAwait(false);
+            }
 
-                    await runner.RunAsync(
-                        repository,
-                        ["config", "--file", stagingPath, "--replace-all", "remote.origin.url", url],
-                        GitCommandOptions.Local,
-                        updateCancellation).ConfigureAwait(false);
-
-                    async Task<string[]> ReadStagedConfigValuesAsync(string key)
-                    {
-                        try
-                        {
-                            GitCommandResult values = await runner.RunAsync(
-                                repository,
-                                ["config", "--file", stagingPath, "--get-all", key],
-                                GitCommandOptions.Local,
-                                updateCancellation).ConfigureAwait(false);
-                            return values.Stdout.Split(
-                                '\n',
-                                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                        }
-                        catch (GitOperationException ex) when (ex.ExitCode == 1)
-                        {
-                            return [];
-                        }
-                    }
-                },
-                "remote update",
-                cancellationToken).ConfigureAwait(false);
+            // Separate push URLs stay as the user configured them, as with git remote set-url.
+            await SetRemoteConfigAsync(["--replace-all", "remote.origin.url", url]).ConfigureAwait(false);
         }
 
         await TryRaiseLfsQuotaNoticeIfNeededAsync(
@@ -145,6 +85,15 @@ internal sealed partial class GitCliVersionControlService
             runner).ConfigureAwait(false);
 
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+
+        Task<GitCommandResult> SetRemoteConfigAsync(string[] arguments)
+        {
+            return runner.RunAsync(
+                repository,
+                ["config", "--local", .. arguments],
+                GitCommandOptions.Local,
+                cancellationToken);
+        }
     }
 
     private async Task<RemoteOpResult> PushCoreAsync(

@@ -184,7 +184,6 @@ internal sealed partial class GitCliVersionControlService :
     private readonly Func<CancellationToken, Task<GitIdentity?>>? _identityRequest;
     private readonly Func<string, CancellationToken, Task>? _beforeFileCommit;
     private readonly Func<string, CancellationToken, Task>? _afterFileExchange;
-    private readonly Func<string, bool> _deleteOwnedLocalConfigFile;
     private readonly Action<Action> _statusNotificationScheduler;
     private readonly Action<Action> _lockNotificationScheduler;
     private readonly ILogger _logger;
@@ -223,7 +222,6 @@ internal sealed partial class GitCliVersionControlService :
             identityRequest: identityRequest,
             beforeFileCommit: null,
             afterFileExchange: null,
-            deleteOwnedLocalConfigFile: null,
             statusNotificationScheduler: null,
             lockNotificationScheduler: null,
             logger: null)
@@ -238,7 +236,6 @@ internal sealed partial class GitCliVersionControlService :
         ILogger? logger = null,
         Func<string, CancellationToken, Task>? beforeFileCommit = null,
         Func<string, CancellationToken, Task>? afterFileExchange = null,
-        Func<string, bool>? deleteOwnedLocalConfigFile = null,
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink = null,
         Action<Action>? statusNotificationScheduler = null,
         Action<Action>? lockNotificationScheduler = null,
@@ -255,7 +252,6 @@ internal sealed partial class GitCliVersionControlService :
             identityRequest: identityRequest,
             beforeFileCommit: beforeFileCommit,
             afterFileExchange: afterFileExchange,
-            deleteOwnedLocalConfigFile: deleteOwnedLocalConfigFile,
             statusNotificationScheduler: statusNotificationScheduler,
             lockNotificationScheduler: lockNotificationScheduler,
             logger: logger)
@@ -273,7 +269,6 @@ internal sealed partial class GitCliVersionControlService :
         Func<CancellationToken, Task<GitIdentity?>>? identityRequest,
         Func<string, CancellationToken, Task>? beforeFileCommit,
         Func<string, CancellationToken, Task>? afterFileExchange,
-        Func<string, bool>? deleteOwnedLocalConfigFile,
         Action<Action>? statusNotificationScheduler,
         Action<Action>? lockNotificationScheduler,
         ILogger? logger)
@@ -297,8 +292,6 @@ internal sealed partial class GitCliVersionControlService :
         _identityRequest = identityRequest;
         _beforeFileCommit = beforeFileCommit;
         _afterFileExchange = afterFileExchange;
-        _deleteOwnedLocalConfigFile = deleteOwnedLocalConfigFile
-                                      ?? DeleteOwnedLocalConfigFile;
         _statusNotificationScheduler = statusNotificationScheduler ?? QueueOnThreadPool;
         _lockNotificationScheduler = lockNotificationScheduler ?? QueueOnThreadPool;
         _logger = logger ?? Log.CreateLogger<GitCliVersionControlService>();
