@@ -114,7 +114,7 @@ public sealed class ChangesModelTests
             return CreatePackageResponse(request);
         });
         using var httpClient = new HttpClient(handler);
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         using var cancellation = new CancellationTokenSource();
         var model = new ChangesModel();
 
@@ -147,7 +147,7 @@ public sealed class ChangesModelTests
             return Task.FromResult(response);
         });
         using var httpClient = new HttpClient(handler);
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var model = new ChangesModel();
 
         Task load = model.Load(

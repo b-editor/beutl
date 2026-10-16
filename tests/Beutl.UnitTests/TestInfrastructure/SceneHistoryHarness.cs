@@ -70,8 +70,9 @@ public sealed class SceneHistoryHarness : IDisposable
     public HistoryManager History => _history.History;
 
     /// <summary>
-    /// Creates an <see cref="Element"/> backed by a fresh layer file under <see cref="BasePath"/> and
-    /// appends it to <see cref="Scene"/>'s children.
+    /// Creates an <see cref="Element"/> backed by a fresh <c>.belm</c> file under <see cref="BasePath"/> and
+    /// appends it to <see cref="Scene"/>'s children. The scene's default include matcher reads <c>.belm</c>
+    /// files back from disk.
     /// </summary>
     public Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0, bool isEnabled = true)
     {
@@ -81,7 +82,7 @@ public sealed class SceneHistoryHarness : IDisposable
             Length = length,
             ZIndex = zIndex,
             IsEnabled = isEnabled,
-            Uri = new Uri(Path.Combine(BasePath, $"{Guid.NewGuid():N}.layer")),
+            Uri = new Uri(Path.Combine(BasePath, $"{Guid.NewGuid():N}.belm")),
         };
         Scene.Children.Add(element);
         return element;
