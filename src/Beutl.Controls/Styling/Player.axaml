@@ -159,7 +159,7 @@
                             <ToggleButton Name="PART_LoopButton"
                                           IsChecked="{TemplateBinding IsLoopEnabled, Mode=TwoWay}"
                                           Theme="{StaticResource TransparentToggleButton}"
-                                          ToolTip.Tip="Loop">
+                                          ToolTip.Tip="{x:Static lang:Strings.ToggleLoop}">
                                 <icons:FluentIcon Icon="ArrowRepeat1" />
                             </ToggleButton>
                         </StackPanel>
