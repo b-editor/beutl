@@ -208,7 +208,7 @@ public partial class PlayerView
             BtlMatrix? drawingMatrix;
             try
             {
-                (drawable, drawingMatrix) = RenderThread.Dispatcher.Invoke(() =>
+                (drawable, drawingMatrix) = QueryRenderThread(() =>
                 {
                     SceneRenderer renderer = EditViewModel.Renderer.Value;
                     var compositionFrame = renderer.Compositor.EvaluateGraphics(Clock.CurrentTime.Value);
@@ -216,7 +216,7 @@ public partial class PlayerView
                         new((float)scaledStartPosition.X, (float)scaledStartPosition.Y));
                     // The hit-test has just put the renderer on this frame, so it draws the drawable as shown.
                     return (hit, hit is null ? null : renderer.GetLocalBoundary(hit)?.Transform);
-                });
+                }, ((Drawable?)null, (BtlMatrix?)null));
             }
             catch (Exception ex) when (
                 ex is not OutOfMemoryException

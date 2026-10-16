@@ -47,6 +47,7 @@ public class AnimatableProperty<T> : IProperty<T>
 
     private void SetCurrentValue(T value, bool replaceEquivalent)
     {
+        DocumentWriteCheck.Verify(_owner, _name);
         var validatedValue = ValidateAndCoerce(value);
         bool hasReplacement = ValueReplacement.RequiresReplacement(
             _currentValue,

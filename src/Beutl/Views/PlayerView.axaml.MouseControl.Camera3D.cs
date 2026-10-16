@@ -12,6 +12,7 @@ using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Gizmo;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
+using Microsoft.Extensions.Logging;
 using AvaPoint = Avalonia.Point;
 
 namespace Beutl.Views;
@@ -105,7 +106,17 @@ public partial class PlayerView
 
             if (pointerPoint.Properties.IsLeftButtonPressed)
             {
-                OnLeftPressed(e);
+                try
+                {
+                    OnLeftPressed(e);
+                }
+                catch (TimeoutException ex)
+                {
+                    // An answer the render thread did not give must not select or deselect anything.
+                    s_logger.LogWarning(ex, "Skipped a 3D press: the render thread did not answer in time.");
+                    _leftPressed = false;
+                    e.Handled = true;
+                }
             }
             else if (pointerPoint.Properties.IsRightButtonPressed)
             {
@@ -139,12 +150,12 @@ public partial class PlayerView
                 {
                     var objects = sceneResource.Objects.Where(o => o.IsEnabled).ToList();
                     return FindObjectResource(objects, currentGizmoTarget.Value);
-                });
+                }, RenderThreadWait);
 
                 if (existingTarget != null)
                 {
                     var gizmoAxis = RenderThread.Dispatcher.Invoke(() =>
-                        sceneResource.Renderer.GizmoHitTest(screenPoint, existingTarget, currentGizmoMode));
+                        sceneResource.Renderer.GizmoHitTest(screenPoint, existingTarget, currentGizmoMode), RenderThreadWait);
 
                     if (gizmoAxis != GizmoAxis.None)
                     {
@@ -164,7 +175,7 @@ public partial class PlayerView
             }
 
             var hitPath = RenderThread.Dispatcher.Invoke(() =>
-                sceneResource.Renderer.HitTestWithPath(screenPoint));
+                sceneResource.Renderer.HitTestWithPath(screenPoint), RenderThreadWait);
 
             if (hitPath.Count > 0)
             {
@@ -276,7 +287,16 @@ public partial class PlayerView
                 switch (_currentGizmoMode)
                 {
                     case GizmoMode.Translate:
-                        TranslateSelectedObject(_selectedObject, delta, right, cameraUp);
+                        try
+                        {
+                            TranslateSelectedObject(_selectedObject, delta, right, cameraUp);
+                        }
+                        catch (TimeoutException ex)
+                        {
+                            // Without the render thread's world coordinates the move would go the wrong way.
+                            s_logger.LogWarning(ex, "Skipped a 3D move: the render thread did not answer in time.");
+                        }
+
                         break;
 
                     case GizmoMode.Rotate:
@@ -664,7 +684,7 @@ public partial class PlayerView
                     return target == null
                         ? (Vector3?)null
                         : Renderer3D.GetWorldPosition(sceneResource.Objects, target);
-                });
+                }, RenderThreadWait);
 
             return position ?? obj.Position.GetValue(CompositionContext);
         }
@@ -679,7 +699,7 @@ public partial class PlayerView
             Matrix4x4 parent = RenderThread.Dispatcher.Invoke(() =>
                 FindObjectResource(sceneResource.Objects, obj.Id) is { } target
                     ? Renderer3D.GetParentWorldMatrix(sceneResource.Objects, target)
-                    : Matrix4x4.Identity);
+                    : Matrix4x4.Identity, RenderThreadWait);
 
             return Matrix4x4.Invert(parent, out Matrix4x4 inverse)
                 ? Vector3.TransformNormal(worldDelta, inverse)
@@ -726,7 +746,7 @@ public partial class PlayerView
             double scaleX = Image.Bounds.Size.Width / scene.FrameSize.Width;
             var scaledPos = pos / scaleX;
 
-            var drawable = RenderThread.Dispatcher.Invoke(() =>
+            var drawable = QueryRenderThread<Drawable?>(() =>
             {
                 var renderer = EditViewModel.Renderer.Value;
                 var compositionFrame = renderer.Compositor.EvaluateGraphics(Clock.CurrentTime.Value);
@@ -753,7 +773,7 @@ public partial class PlayerView
                 }
 
                 return hit;
-            });
+            }, null);
 
             if (drawable is Scene3D scene3D)
             {
