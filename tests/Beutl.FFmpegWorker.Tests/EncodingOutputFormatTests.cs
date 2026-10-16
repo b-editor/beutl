@@ -83,7 +83,7 @@ public sealed class EncodingOutputFormatTests
 
         public long SampleRate => throw new AssertionException("Invalid output formats must be rejected before reading samples.");
 
-        public ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length) =>
+        public ValueTask<Pcm<Stereo32BitFloat>?> ReadNextSamples(int length) =>
             throw new AssertionException("Invalid output formats must be rejected before reading samples.");
 
         public void Dispose()

@@ -23,6 +23,7 @@ internal sealed class IpcSampleProvider : ISampleProvider
 
     // 先行フェッチ（次の1秒分、バックグラウンド）
     private readonly PrefetchSlot<long, Pcm<Stereo32BitFloat>> _prefetch = new();
+    private long _nextSample;
     private volatile bool _disposed;
 
     public IpcSampleProvider(IpcConnection connection, SharedMemoryBuffer[] audioBuffers,
@@ -37,23 +38,30 @@ internal sealed class IpcSampleProvider : ISampleProvider
     public long SampleCount { get; }
     public long SampleRate { get; }
 
-    public async ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
+    public async ValueTask<Pcm<Stereo32BitFloat>?> ReadNextSamples(int length)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        long offset = _nextSample;
+        if (offset >= SampleCount)
+            return null;
 
         // Always return a Pcm of the requested length, zero-filling past the timeline end: the encoder encodes
         // frame.NbSamples even from a shorter Pcm, so a short one would leave stale samples in the final frame.
-        long availableLength = offset >= SampleCount ? 0 : Math.Min(length, SampleCount - offset);
-        if (availableLength <= 0)
-            return new Pcm<Stereo32BitFloat>((int)SampleRate, (int)length);
-
+        long availableLength = Math.Min(length, SampleCount - offset);
+        Pcm<Stereo32BitFloat> pcm;
         if (availableLength == length)
-            return await SampleExact(offset, length);
+        {
+            pcm = await SampleExact(offset, length);
+        }
+        else
+        {
+            using var filled = await SampleExact(offset, availableLength);
+            pcm = new Pcm<Stereo32BitFloat>((int)SampleRate, length);
+            filled.DataSpan.CopyTo(pcm.DataSpan);
+        }
 
-        using var filled = await SampleExact(offset, availableLength);
-        var padded = new Pcm<Stereo32BitFloat>((int)SampleRate, (int)length);
-        filled.DataSpan.CopyTo(padded.DataSpan);
-        return padded;
+        _nextSample = offset + length;
+        return pcm;
     }
 
     // Fills exactly `length` samples starting at `offset`. The caller guarantees the whole range is within
@@ -119,7 +127,7 @@ internal sealed class IpcSampleProvider : ISampleProvider
             return;
         }
 
-        // プリフェッチ済みのチャンクと一致する場合
+        // Reads are in order, so an armed prefetch is always for this chunk.
         Task<Pcm<Stereo32BitFloat>>? prefetched = _prefetch.TryConsumeMatching(chunkOffset, out int prefetchBufferIndex);
         if (prefetched != null)
         {
@@ -130,23 +138,6 @@ internal sealed class IpcSampleProvider : ISampleProvider
             _currentChunkOffset = chunkOffset;
             _currentBufferIndex = prefetchBufferIndex;
             return;
-        }
-
-        // プリフェッチが進行中だが要求と一致しない場合は、完了を待ってから結果を破棄する。
-        // ホストへ非順次なリクエストが流出しないよう、参照を捨てるだけでなく必ず await する。
-        Task<Pcm<Stereo32BitFloat>>? stale = _prefetch.Detach();
-        if (stale != null)
-        {
-            try
-            {
-                Pcm<Stereo32BitFloat> stalePcm = await stale;
-                stalePcm.Dispose();
-            }
-            catch (FFmpegWorkerException)
-            {
-                // The drain has already consumed the stale prefetch's response off the pipe; its worker
-                // error belongs to the discarded chunk, so it must not abort the fresh request below.
-            }
         }
 
         int bufferIndex = 0;

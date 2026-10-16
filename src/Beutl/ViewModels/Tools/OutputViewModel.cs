@@ -462,8 +462,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         public long SampleCount => 0;
         public long SampleRate => 0;
         public ValueTask<Bitmap?> ReadNextFrame() => ValueTask.FromResult<Bitmap?>(null);
-        public ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
-            => throw new InvalidOperationException("Audio is disabled.");
+        public ValueTask<Pcm<Stereo32BitFloat>?> ReadNextSamples(int length)
+            => ValueTask.FromResult<Pcm<Stereo32BitFloat>?>(null);
         public void Dispose() { }
     }
 

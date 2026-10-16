@@ -52,6 +52,7 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
 
         SharedMemoryBuffer[] videoBuffers = [videoBuffer0, videoBuffer1];
         SharedMemoryBuffer[] audioBuffers = [audioBuffer0, audioBuffer1];
+        long nextSample = 0;
 
         // メッセージループ: Workerからの要求に応答
         long nextFrame = 0;
@@ -103,7 +104,12 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                                 ?? throw new InvalidOperationException("Missing payload for RequestSample");
                             if (sampleReq.BufferIndex is not (0 or 1))
                                 throw new InvalidOperationException($"Invalid BufferIndex: {sampleReq.BufferIndex}");
-                            using var pcm = await sampleProvider.Sample(sampleReq.Offset, sampleReq.Length);
+                            if (sampleReq.Offset != nextSample)
+                                throw new InvalidOperationException(
+                                    $"The worker asked for samples from {sampleReq.Offset}, but the next sample is {nextSample}.");
+                            using var pcm = await sampleProvider.ReadNextSamples(checked((int)sampleReq.Length))
+                                ?? throw new InvalidOperationException($"The sample provider ended before sample {nextSample}.");
+                            nextSample += sampleReq.Length;
 
                             // BufferIndex で指定されたバッファに書き込み (ダブルバッファリング)
                             var targetAudioBuffer = audioBuffers[sampleReq.BufferIndex];

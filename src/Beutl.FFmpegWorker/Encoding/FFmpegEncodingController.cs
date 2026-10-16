@@ -396,10 +396,10 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     private static async ValueTask<MediaFrame?> GetAudioFrame(MediaFrame frame, SampleConverter swr, EncodeState state,
         ISampleProvider sampleProvider)
     {
-        if (state.NextPts >= sampleProvider.SampleCount)
+        using var pcm = await sampleProvider.ReadNextSamples(frame.NbSamples);
+        if (pcm is null)
             return null;
 
-        using var pcm = await sampleProvider.Sample(state.NextPts, frame.NbSamples);
         unsafe
         {
             IntPtr size = pcm.NumSamples * pcm.SampleSize;

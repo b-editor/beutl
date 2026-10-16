@@ -18,11 +18,13 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
     private readonly SceneComposer _composer;
     private readonly long _sampleRate;
     private readonly Subject<TimeSpan> _progress;
-    private readonly Channel<(long Offset, Pcm<Stereo32BitFloat> Pcm)> _channel;
+    private readonly long _sampleCount;
+    private readonly Channel<Pcm<Stereo32BitFloat>> _channel;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _producerTask;
-    private Pcm<Stereo32BitFloat>? _lastChunk;
-    private long _lastOffset;
+    private Pcm<Stereo32BitFloat>? _chunk;
+    private int _chunkPosition;
+    private long _nextSample;
     private readonly int _chunkSize;
     private bool _disposed;
 
@@ -33,9 +35,11 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
         _sampleRate = sampleRate;
         _progress = progress;
         _chunkSize = (int)sampleRate;
+        // Fixed at the start, so a duration edited during the export cannot end the samples early.
+        _sampleCount = FrameProviderImpl.ToFrameCount(scene.Duration, new Rational(sampleRate));
 
         int bufferSize = Preferences.Default.Get("Output.SampleBufferSize", 3);
-        _channel = Channel.CreateBounded<(long Offset, Pcm<Stereo32BitFloat> Pcm)>(
+        _channel = Channel.CreateBounded<Pcm<Stereo32BitFloat>>(
             new BoundedChannelOptions(bufferSize)
             {
                 FullMode = BoundedChannelFullMode.Wait,
@@ -46,88 +50,70 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
         _producerTask = Task.Run(ComposeSamplesAsync, _cts.Token);
     }
 
-    public long SampleCount => FrameProviderImpl.ToFrameCount(_scene.Duration, new Rational(_sampleRate));
+    public long SampleCount => _sampleCount;
 
     public long SampleRate => _sampleRate;
 
-    public async ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
+    public async ValueTask<Pcm<Stereo32BitFloat>?> ReadNextSamples(int length)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        long offset = _nextSample;
+        if (offset >= _sampleCount)
+            return null;
 
-        _progress.OnNext(TimeSpan.FromTicks(TimeSpan.TicksPerSecond * Math.Min(offset + length, SampleCount) / _sampleRate));
+        _progress.OnNext(TimeSpan.FromTicks(TimeSpan.TicksPerSecond * Math.Min(offset + length, _sampleCount) / _sampleRate));
 
-        int lengthInt = (int)length;
-        var pcm = new Pcm<Stereo32BitFloat>((int)_sampleRate, lengthInt);
-        int written = 0;
-
-        while (written < lengthInt)
+        // Past the end the samples stay zero.
+        var pcm = new Pcm<Stereo32BitFloat>((int)_sampleRate, length);
+        int available = (int)Math.Min(length, _sampleCount - offset);
+        try
         {
-            long currentOffset = offset + written;
-            long chunkOffset = currentOffset - currentOffset % _chunkSize;
-            Pcm<Stereo32BitFloat> chunk = await GetChunk(chunkOffset);
-
-            if (_lastOffset != chunkOffset)
+            for (int written = 0; written < available;)
             {
-                _lastChunk?.Dispose();
-                _lastChunk = chunk;
-                _lastOffset = chunkOffset;
-            }
-            else
-            {
-                _lastChunk = chunk;
-            }
+                if (_chunk == null || _chunkPosition == _chunk.NumSamples)
+                {
+                    Pcm<Stereo32BitFloat> next = await ReadChunk();
+                    _chunk?.Dispose();
+                    _chunk = next;
+                    _chunkPosition = 0;
+                }
 
-            int startInChunk = (int)(currentOffset - chunkOffset);
-            var srcSpan = chunk.DataSpan[startInChunk..];
-            int copyLength = Math.Min(lengthInt - written, srcSpan.Length);
-            if (copyLength <= 0)
-                break;
-
-            srcSpan[..copyLength].CopyTo(pcm.DataSpan[written..]);
-            written += copyLength;
+                int copyLength = Math.Min(available - written, _chunk.NumSamples - _chunkPosition);
+                _chunk.DataSpan.Slice(_chunkPosition, copyLength).CopyTo(pcm.DataSpan[written..]);
+                _chunkPosition += copyLength;
+                written += copyLength;
+            }
+        }
+        catch
+        {
+            pcm.Dispose();
+            throw;
         }
 
+        _nextSample = offset + length;
         return pcm;
     }
 
-    private async ValueTask<Pcm<Stereo32BitFloat>> GetChunk(long chunkOffset)
+    private async ValueTask<Pcm<Stereo32BitFloat>> ReadChunk()
     {
-        if (_lastChunk != null && _lastOffset == chunkOffset)
-        {
-            return _lastChunk;
-        }
-
+        // WaitToReadAsync rethrows the producer's own error, which the export reports.
         while (await _channel.Reader.WaitToReadAsync(_cts.Token))
         {
-            if (_channel.Reader.TryRead(out var item))
-            {
-                if (item.Offset == chunkOffset)
-                {
-                    return item.Pcm;
-                }
-
-                item.Pcm.Dispose();
-                _logger.LogWarning(
-                    "Sample chunks are expected to be requested sequentially, but received offset {ReceivedOffset} while waiting for {ChunkOffset}. Falling back to on-demand composition.",
-                    item.Offset, chunkOffset);
-                return await ComposeChunk(chunkOffset, _cts.Token);
-            }
+            if (_channel.Reader.TryRead(out Pcm<Stereo32BitFloat>? chunk))
+                return chunk;
         }
 
-        _logger.LogWarning(
-            "Requested chunk at offset {ChunkOffset} is not available in the channel (producer already finished or skipped). Falling back to on-demand composition.",
-            chunkOffset);
-        return await ComposeChunk(chunkOffset, _cts.Token);
+        throw new InvalidOperationException($"Composing stopped before sample {_nextSample}.");
     }
 
     private async Task ComposeSamplesAsync()
     {
         try
         {
-            for (long offset = 0; offset < SampleCount && !_cts.Token.IsCancellationRequested; offset += _chunkSize)
+            for (long offset = 0; offset < _sampleCount && !_cts.Token.IsCancellationRequested; offset += _chunkSize)
             {
                 var pcm = await ComposeChunk(offset, _cts.Token);
-                await _channel.Writer.WriteAsync((offset, pcm), _cts.Token);
+                await _channel.Writer.WriteAsync(pcm, _cts.Token);
             }
         }
         catch (OperationCanceledException)
@@ -192,12 +178,12 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
             }
         }
 
-        while (_channel.Reader.TryRead(out var item))
+        while (_channel.Reader.TryRead(out Pcm<Stereo32BitFloat>? chunk))
         {
-            item.Pcm.Dispose();
+            chunk.Dispose();
         }
 
-        _lastChunk?.Dispose();
+        _chunk?.Dispose();
         _cts.Dispose();
     }
 }

@@ -138,4 +138,29 @@ public sealed class ExportFrameCountTests
 
         Assert.That((frameProvider.FrameCount, frames), Is.EqualTo((3L, 3)));
     }
+
+    // Encoders read fixed-size blocks; the last one is zero-filled, and the count stays the one read at the start.
+    [Test]
+    public async Task Sample_provider_reads_blocks_in_order_then_ends()
+    {
+        const int sampleRate = 8000;
+        var scene = new Scene(32, 32, "Samples") { Duration = TimeSpan.FromSeconds(1.5) };
+        using var composer = new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
+        {
+            SampleRate = sampleRate,
+        };
+        using var progress = new Subject<TimeSpan>();
+        using var provider = new SampleProviderImpl(scene, composer, sampleRate, progress);
+        scene.Duration = TimeSpan.FromSeconds(3);
+
+        long read = 0;
+        while (await provider.ReadNextSamples(1024) is { } pcm)
+        {
+            using (pcm)
+                Assert.That(pcm.NumSamples, Is.EqualTo(1024));
+            read += 1024;
+        }
+
+        Assert.That((provider.SampleCount, read), Is.EqualTo((12000L, 12288L)));
+    }
 }
