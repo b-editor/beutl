@@ -85,45 +85,15 @@ public static partial class CoreSerializer
     }
 
     // Writes minAppVersion, and appVersion when one is given, which only a project file records. A field
-    // the file already has stays where it is. A new one goes first, after the Id and Name an object such as
-    // a project starts with, which is where project files have always had them, and minAppVersion right
-    // after appVersion.
+    // the file already has stays where it is; a new one goes at the end. Every build reads them by name.
     private static void WriteVersionFields(JsonObject json, string? appVersion, string minAppVersion)
     {
         if (appVersion is not null)
         {
-            SetVersionField(json, FileFormat.AppVersionKey, appVersion, CountLeadingIdAndName(json));
+            json[FileFormat.AppVersionKey] = appVersion;
         }
 
-        int appVersionIndex = json.IndexOf(FileFormat.AppVersionKey);
-        SetVersionField(
-            json,
-            FileFormat.MinAppVersionKey,
-            minAppVersion,
-            appVersionIndex >= 0 ? appVersionIndex + 1 : CountLeadingIdAndName(json));
-    }
-
-    private static void SetVersionField(JsonObject json, string key, string value, int index)
-    {
-        if (json.ContainsKey(key))
-        {
-            json[key] = value;
-        }
-        else
-        {
-            json.Insert(index, key, value);
-        }
-    }
-
-    private static int CountLeadingIdAndName(JsonObject json)
-    {
-        int count = 0;
-        while (count < json.Count && json.GetAt(count).Key is nameof(CoreObject.Id) or nameof(CoreObject.Name))
-        {
-            count++;
-        }
-
-        return count;
+        json[FileFormat.MinAppVersionKey] = minAppVersion;
     }
 
     /// <summary>

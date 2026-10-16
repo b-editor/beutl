@@ -99,20 +99,6 @@ public class FormatFloorTests
     }
 
     [Test]
-    public void The_version_fields_come_first_after_a_leading_id_and_name()
-    {
-        SaveProject();
-
-        Assert.Multiple(() =>
-        {
-            // Where released builds have always written them in a project file.
-            Assert.That(Keys(_projectPath), Is.EqualTo("Id,Name,appVersion,minAppVersion,items,variables,$type"));
-            Assert.That(Keys(_scenePath), Does.StartWith("minAppVersion,"));
-            Assert.That(Keys(_elementPath), Does.StartWith("minAppVersion,"));
-        });
-    }
-
-    [Test]
     public void A_resave_by_the_build_that_wrote_the_files_changes_no_byte()
     {
         SaveProject();
@@ -672,8 +658,6 @@ public class FormatFloorTests
     }
 
     private static JsonObject Read(string path) => JsonNode.Parse(File.ReadAllText(path))!.AsObject();
-
-    private static string Keys(string path) => string.Join(",", Read(path).Select(pair => pair.Key));
 
     private static void Edit(string path, Action<JsonObject> edit)
     {
