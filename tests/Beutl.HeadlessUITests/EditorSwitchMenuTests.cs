@@ -43,7 +43,7 @@ public class EditorSwitchMenuTests
             started.TrySetResult(); await release.Task.WaitAsync(token);
             scene.SetMediaFingerprints(new Dictionary<string, MediaFileFingerprint>(scene.MediaFingerprints)
             {
-                [new Uri(path).AbsoluteUri] = new MediaFileFingerprint(42, 123, "captured-before-dispose"),
+                [new Uri(path).AbsoluteUri] = new MediaFileFingerprint(42, "captured-before-dispose"),
             });
         };
         try
