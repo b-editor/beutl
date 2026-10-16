@@ -1438,7 +1438,7 @@ public sealed partial class AiCapabilityServiceTests
     public async Task ModelCatalog_DoesNotPublishAResponseAfterTheAccountChanges()
     {
         int fetches = 0;
-        using var handler = new ThreadPoolResponseHandler(() =>
+        using var handler = new HeldResponseHandler(() =>
         {
             Interlocked.Increment(ref fetches);
             return TestHttp.Json(HttpStatusCode.OK, """
@@ -1468,7 +1468,9 @@ public sealed partial class AiCapabilityServiceTests
             SynchronizationContext.SetSynchronizationContext(previous);
         }
 
-        AiModelCatalog stale = await request.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(request.IsCompleted, Is.False);
+        handler.Release();
+        AiModelCatalog stale = await request.WaitAsync(TimeSpan.FromMinutes(1));
         AiModelCatalog current = await catalog.GetAsync(CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
@@ -2006,14 +2008,18 @@ public sealed partial class AiCapabilityServiceTests
         }
     }
 
-    // Answers on a thread-pool thread, so the request completes without resuming on the caller's context.
-    private sealed class ThreadPoolResponseHandler(Func<HttpResponseMessage> respond) : HttpMessageHandler
+    // Holds every response until Release, then answers on a thread-pool thread, not on the caller's context.
+    private sealed class HeldResponseHandler(Func<HttpResponseMessage> respond) : HttpMessageHandler
     {
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void Release() => _release.TrySetResult();
+
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
-            await Task.Delay(1, cancellationToken).ConfigureAwait(false);
+            await _release.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
             HttpResponseMessage response = respond();
             response.RequestMessage = request;
             return response;
