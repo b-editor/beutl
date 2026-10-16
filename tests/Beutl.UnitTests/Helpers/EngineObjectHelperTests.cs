@@ -5,7 +5,10 @@ using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
+using Beutl.Logging;
 using Beutl.Threading;
+using Beutl.UnitTests.TestInfrastructure;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Helpers;
 
@@ -116,6 +119,41 @@ public class EngineObjectHelperTests
         RenderThread.Dispatcher.Dispatch(stillAlive.Set);
         Assert.That(stillAlive.Wait(TimeSpan.FromSeconds(30)), Is.True,
             "the render thread stopped taking work after the failed teardown");
+    }
+
+    // A failed update releases the resource; when that release fails too, the failure is logged and the
+    // update's own failure still reaches the observer.
+    [Test]
+    [NonParallelizable]
+    public void A_release_failing_after_a_failed_update_is_logged()
+    {
+        using var logs = new CapturingLoggerProvider(category => category == typeof(EngineObjectHelper).FullName);
+        Log.LoggerFactory.AddProvider(logs);
+        Exception? reported = null;
+        using var published = new ManualResetEventSlim();
+        using var reportedSignal = new ManualResetEventSlim();
+
+        using (_probe
+                   .SubscribeEngineVersionedResource<ProbeObject, EngineObject.Resource>(
+                       _time,
+                       (_, _) => new FailingUpdateResource())
+                   .Subscribe(
+                       _ => published.Set(),
+                       ex =>
+                       {
+                           reported = ex;
+                           reportedSignal.Set();
+                       }))
+        {
+            Assert.That(published.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
+            _time.OnNext(TimeSpan.FromSeconds(1));
+            Assert.That(reportedSignal.Wait(TimeSpan.FromSeconds(30)), Is.True, "the failed update was not reported");
+        }
+
+        Assert.That(reported?.Message, Is.EqualTo("the update failed"));
+        Assert.That(reported!.Data, Is.Empty);
+        Assert.That(logs.Entries.Count(entry => entry is (LogLevel.Warning, { Message: FailingUpdateResource.ReleaseFailure })),
+            Is.EqualTo(1));
     }
 
     // Rx's default error handler rethrows on the source thread, so the trigger's failure would never
@@ -703,6 +741,21 @@ public class EngineObjectHelperTests
         {
             if (disposing)
                 throw new InvalidOperationException("this resource refuses to be released");
+        }
+    }
+
+    private sealed class FailingUpdateResource : EngineObject.Resource
+    {
+        public const string ReleaseFailure = "the resource of a failed update refuses to be released";
+
+        public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
+            => throw new InvalidOperationException("the update failed");
+
+        // Only the explicit release may throw; the base finalizer also routes here.
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+                throw new InvalidOperationException(ReleaseFailure);
         }
     }
 
