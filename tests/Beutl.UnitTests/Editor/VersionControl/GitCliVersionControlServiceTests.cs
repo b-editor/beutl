@@ -3653,10 +3653,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         string previous = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         await CommitFileAsync("project.bep", "current\n", "current");
         string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            isWorktreeMutationAllowed: static () => false);
+        using var service = CreateService(isWorktreeMutationAllowed: static () => false);
 
         await Assert.MultipleAsync(async () =>
         {
@@ -3699,10 +3696,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "current\n", "current");
         string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "unsaved edit\n");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            isWorktreeMutationAllowed: static () => false);
+        using var service = CreateService(isWorktreeMutationAllowed: static () => false);
 
         await service.ExecuteExclusiveAsync(
             transaction => transaction.CreateBranchAsync("open-branch", head, CancellationToken.None),
@@ -3725,10 +3719,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     {
         await CommitFileAsync("project.bep", "current\n", "current");
         string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            isWorktreeMutationAllowed: static () => false);
+        using var service = CreateService(isWorktreeMutationAllowed: static () => false);
 
         await service.ExecuteExclusiveAsync(
             transaction => transaction.CreateBranchAsync("open-branch", head[..7], CancellationToken.None),
@@ -3773,10 +3764,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "current\n", "current");
         string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         await WriteHookAsync("post-checkout", "echo hook > hook-ran.txt\n");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            isWorktreeMutationAllowed: static () => false);
+        using var service = CreateService(isWorktreeMutationAllowed: static () => false);
 
         await service.ExecuteExclusiveAsync(
             transaction => transaction.CreateBranchAsync("open-branch", head, CancellationToken.None),
@@ -3800,10 +3788,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "current\n", "current");
         string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         await WriteHookAsync("post-checkout", "exit 1\n");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            isWorktreeMutationAllowed: static () => true);
+        using var service = CreateService(isWorktreeMutationAllowed: static () => true);
 
         await Assert.CatchAsync<GitOperationException>(
             async () => await service.ExecuteExclusiveAsync(
@@ -3824,10 +3809,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             .Stdout.TrimEnd('\r', '\n');
         string headLock = Path.GetFullPath(
             Path.IsPathFullyQualified(lockRecord) ? lockRecord : Path.Combine(Root, lockRecord));
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            isWorktreeMutationAllowed: () => !projectOpen);
+        using var service = CreateService(isWorktreeMutationAllowed: () => !projectOpen);
 
         // Another Git process holding HEAD makes the move fail after the branch already exists.
         await File.WriteAllTextAsync(headLock, string.Empty);
@@ -3867,10 +3849,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             .Stdout.TrimEnd('\r', '\n');
         string indexLock = Path.GetFullPath(
             Path.IsPathFullyQualified(lockRecord) ? lockRecord : Path.Combine(Root, lockRecord));
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            isWorktreeMutationAllowed: static () => false);
+        using var service = CreateService(isWorktreeMutationAllowed: static () => false);
 
         // Another Git process holding the index makes the switch fail before it creates the branch.
         await File.WriteAllTextAsync(indexLock, string.Empty);
@@ -4298,14 +4277,11 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 ? mergeHeadRecord
                 : Path.Combine(Root, mergeHeadRecord));
         await File.WriteAllTextAsync(mergeHeadPath, $"{expectedTip.Commit}\n");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            () =>
-            {
-                closeGateChecked = true;
-                return false;
-            });
+        using var service = CreateService(isWorktreeMutationAllowed: () =>
+        {
+            closeGateChecked = true;
+            return false;
+        });
 
         WorkspaceStatus status = await service.GetStatusAsync(CancellationToken.None);
         VersionControlConflictedException preflightException =
@@ -6595,13 +6571,15 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     private GitCliVersionControlService CreateService(
         RepositoryWatcher? watcher = null,
         IGitCliRunner? runner = null,
-        GitInstallationLocator? locator = null)
+        GitInstallationLocator? locator = null,
+        Func<bool>? isWorktreeMutationAllowed = null)
     {
         return new GitCliVersionControlService(
             locator ?? CreateInstalledLocator(),
             Repository,
             watcher,
-            _ => runner ?? CreateRunner());
+            _ => runner ?? CreateRunner(),
+            isWorktreeMutationAllowed: isWorktreeMutationAllowed);
     }
 
     private sealed class CredentialHelperRunner(IGitCliRunner inner) : DelegatingGitCliRunner(inner)
