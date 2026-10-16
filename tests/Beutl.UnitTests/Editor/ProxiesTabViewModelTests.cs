@@ -612,6 +612,8 @@ public sealed class ProxiesTabViewModelTests
 
         // A Touch event (preview resolving a proxy) must not rebuild the clip list and drop selection.
         store.Touch(fingerprint, ProxyPreset.Quarter, DateTime.UtcNow);
+        // Write the touch now, or its deferred flush recreates the root after TearDown deletes it.
+        store.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
 
         Assert.Multiple(() =>
         {
