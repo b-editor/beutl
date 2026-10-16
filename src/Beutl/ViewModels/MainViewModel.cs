@@ -72,20 +72,8 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
             Beutl.Language.Strings.AiSubtitle_DefaultTemplate,
             Beutl.Editor.Services.ObjectTemplateService.Instance.FindByBaseType(
                 typeof(Beutl.Graphics.Drawable)),
-            _extensionProvider,
-            CaptionPresentationDefaults.ElementFactory,
-            failure => _logger.LogWarning(
-                failure.Exception,
-                "Ignoring invalid caption {ContributionKind} contribution from {ExtensionName}.",
-                failure.Kind,
-                failure.ExtensionName));
-        _aiJobResultHandlers = BuiltInAiJobResultCapabilities.CreateRegistry(
-            _extensionProvider,
-            failure => _logger.LogWarning(
-                failure.Exception,
-                "Ignoring invalid AI job result {Capability} contribution from {ExtensionType}.",
-                failure.Capability,
-                failure.ExtensionType));
+            CaptionPresentationDefaults.ElementFactory);
+        _aiJobResultHandlers = BuiltInAiJobResultCapabilities.CreateRegistry();
         _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider);
         // Agents generate with the signed-in account and the AI nodes' executor.
         _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService, new AgentHostAiBackend(

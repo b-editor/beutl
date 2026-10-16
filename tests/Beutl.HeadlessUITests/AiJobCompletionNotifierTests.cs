@@ -11,12 +11,12 @@ namespace Beutl.HeadlessUITests;
 public sealed class AiJobCompletionNotifierTests
 {
     [Test]
-    public async Task ActiveToTerminalTransition_NotifiesOnceAndProvidesJobCenterAction()
+    public void ActiveToTerminalTransition_NotifiesOnceAndProvidesJobCenterAction()
     {
         using var handler = new NotificationCapture();
         using var snapshots = new Subject<AiJobMonitorSnapshot>();
-        await using AiJobKindRegistry jobKinds = AiRetryTestContext.CreateBuiltInJobKinds();
-        await using var resultHandlers = BuiltInAiJobResultCapabilities.CreateRegistry();
+        AiJobKindRegistry jobKinds = AiRetryTestContext.CreateBuiltInJobKinds();
+        var resultHandlers = BuiltInAiJobResultCapabilities.CreateRegistry();
         int openCount = 0;
         using var notifier = new AiJobCompletionNotifier(
             snapshots,
@@ -45,12 +45,12 @@ public sealed class AiJobCompletionNotifierTests
     }
 
     [Test]
-    public async Task FailedTransition_ShowsUsageRestoredWarning()
+    public void FailedTransition_ShowsUsageRestoredWarning()
     {
         using var handler = new NotificationCapture();
         using var snapshots = new Subject<AiJobMonitorSnapshot>();
-        await using AiJobKindRegistry jobKinds = AiRetryTestContext.CreateBuiltInJobKinds();
-        await using var resultHandlers = BuiltInAiJobResultCapabilities.CreateRegistry();
+        AiJobKindRegistry jobKinds = AiRetryTestContext.CreateBuiltInJobKinds();
+        var resultHandlers = BuiltInAiJobResultCapabilities.CreateRegistry();
         using var notifier = new AiJobCompletionNotifier(
             snapshots,
             jobKinds,
@@ -74,12 +74,12 @@ public sealed class AiJobCompletionNotifierTests
     }
 
     [Test]
-    public async Task CanceledTransition_ShowsNeutralCanceledNotification()
+    public void CanceledTransition_ShowsNeutralCanceledNotification()
     {
         using var handler = new NotificationCapture();
         using var snapshots = new Subject<AiJobMonitorSnapshot>();
-        await using AiJobKindRegistry jobKinds = AiRetryTestContext.CreateBuiltInJobKinds();
-        await using var resultHandlers = BuiltInAiJobResultCapabilities.CreateRegistry();
+        AiJobKindRegistry jobKinds = AiRetryTestContext.CreateBuiltInJobKinds();
+        var resultHandlers = BuiltInAiJobResultCapabilities.CreateRegistry();
         using var notifier = new AiJobCompletionNotifier(
             snapshots,
             jobKinds,
@@ -112,10 +112,9 @@ public sealed class AiJobCompletionNotifierTests
     }
 
     [Test]
-    public async Task CustomKind_ControlsTerminalOutcomeAndCompletion()
+    public void CustomKind_ControlsTerminalOutcomeAndCompletion()
     {
         using var notificationHandler = new NotificationCapture();
-        await using var jobKinds = new AiJobKindRegistry();
         var kind = new AiJobKindId("vendor.upscale");
         var statusResolver = new AiJobStatusMap(
             [
@@ -129,16 +128,11 @@ public sealed class AiJobCompletionNotifierTests
                         false,
                         new AiJobOutcomeId("vendor.review"))),
             ]);
-        await using IAiJobStatusResolverRegistration registration = jobKinds.Register(
-            new AiJobStatusResolverRegistration(kind, statusResolver));
-        await using var resultHandlers = new AiJobResultRegistry(
+        var jobKinds = new AiJobKindRegistry([KeyValuePair.Create(kind, (IAiJobStatusResolver)statusResolver)]);
+        var resultHandlers = new AiJobResultRegistry(
             [],
-            [new AiJobCompletionRegistration(
-                new AiJobKindId("vendor.upscale"),
-                new CustomCompletionPresenter())],
-            [],
-            null,
-            null);
+            [KeyValuePair.Create(kind, (IAiJobCompletionPresenter)new CustomCompletionPresenter())],
+            []);
         using var snapshots = new Subject<AiJobMonitorSnapshot>();
         using var notifier = new AiJobCompletionNotifier(
             snapshots,
@@ -166,17 +160,13 @@ public sealed class AiJobCompletionNotifierTests
     }
 
     [Test]
-    public async Task ThrowingCompletionHandler_DoesNotEscapeSnapshotObserver()
+    public void ThrowingCompletionHandler_DoesNotEscapeSnapshotObserver()
     {
-        await using var jobKinds = AiRetryTestContext.CreateBuiltInJobKinds();
-        await using var resultHandlers = new AiJobResultRegistry(
+        var jobKinds = AiRetryTestContext.CreateBuiltInJobKinds();
+        var resultHandlers = new AiJobResultRegistry(
             [],
-            [new AiJobCompletionRegistration(
-                AiJobKinds.Video,
-                new ThrowingCompletionPresenter())],
-            [],
-            null,
-            null);
+            [KeyValuePair.Create(AiJobKinds.Video, (IAiJobCompletionPresenter)new ThrowingCompletionPresenter())],
+            []);
         using var snapshots = new Subject<AiJobMonitorSnapshot>();
         using var notifier = new AiJobCompletionNotifier(snapshots, jobKinds, resultHandlers, () => { });
         AiJob running = CreateJob(AiJobStatuses.Running);

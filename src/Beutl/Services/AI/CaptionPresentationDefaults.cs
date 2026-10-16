@@ -11,6 +11,6 @@ internal static class CaptionPresentationDefaults
 
     internal static DefaultTextCaptionElementFactory ElementFactory { get; } = new(FontFamily);
 
-    internal static CaptionTemplateRegistrationSet CreateDefaultText(string name)
+    internal static CaptionTemplate CreateDefaultText(string name)
         => CaptionTemplateDefaults.CreateDefaultText(name, ElementFactory);
 }

@@ -80,7 +80,7 @@ public sealed class BeutlApiApplicationTests
     }
 
     [Test]
-    public async Task Constructor_RegistersBuiltInJobBehaviorsThroughIndependentSlots()
+    public async Task Constructor_RegistersBuiltInJobBehaviors()
     {
         using var httpClient = new HttpClient();
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
@@ -98,21 +98,14 @@ public sealed class BeutlApiApplicationTests
             DateTimeOffset.UtcNow);
 
         AiJobStatusSemantics status = registry.GetStatus(runningVideo);
-        Assert.That(registry.TryAcquireRefreshHandler(
-            AiJobKinds.Video,
-            out IAiJobRefreshHandlerLease? refreshLease), Is.True);
-        Assert.That(registry.TryAcquireRetryHandler(
-            AiJobKinds.Video,
-            out IAiJobRetryHandlerLease? retryLease), Is.True);
-        using (refreshLease)
-        using (retryLease)
+
         using (Assert.EnterMultipleScope())
         {
             Assert.That(status.IsTerminal, Is.False);
             Assert.That(status.ShouldPoll, Is.True);
             Assert.That(status.Outcome, Is.Null);
-            Assert.That(refreshLease!.Handler, Is.Not.Null);
-            Assert.That(retryLease!.Handler, Is.Not.Null);
+            Assert.That(registry.TryGetRefreshHandler(AiJobKinds.Video, out _), Is.True);
+            Assert.That(registry.TryGetRetryHandler(AiJobKinds.Video, out _), Is.True);
         }
     }
 
@@ -195,26 +188,6 @@ public sealed class BeutlApiApplicationTests
         await Assert.DoesNotThrowAsync(async () => await app.DisposeAsync());
         await Assert.DoesNotThrowAsync(async () => await app.DisposeAsync());
         Assert.Throws<ObjectDisposedException>(() => app.GetResource<IAiImageGenerationService>());
-    }
-
-    [Test]
-    public async Task DisposeAsync_WaitsForActiveJobBehaviorLease()
-    {
-        using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        IAiJobKindRegistry registry = app.GetResource<IAiJobKindRegistry>();
-        Assert.That(registry.TryAcquireRetryHandler(
-            AiJobKinds.Video,
-            out IAiJobRetryHandlerLease? lease), Is.True);
-
-        Task disposal = app.DisposeAsync().AsTask();
-        await Task.Yield();
-
-        Assert.That(disposal.IsCompleted, Is.False);
-        lease!.Dispose();
-        await disposal.WaitAsync(TimeSpan.FromSeconds(5));
-
-        Assert.Throws<ObjectDisposedException>(() => app.GetResource<IAiJobKindRegistry>());
     }
 
     [Test]

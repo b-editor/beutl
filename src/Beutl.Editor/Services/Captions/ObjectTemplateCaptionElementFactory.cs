@@ -60,7 +60,7 @@ public sealed class ObjectTemplateCaptionElementFactory<TObject> : ICaptionEleme
 /// </summary>
 public static class TextBlockCaptionTemplateAdapter
 {
-    public static CaptionTemplateRegistrationSet? TryCreate(ObjectTemplateItem objectTemplate)
+    public static CaptionTemplate? TryCreate(ObjectTemplateItem objectTemplate)
     {
         ArgumentNullException.ThrowIfNull(objectTemplate);
         if (!typeof(TextBlock).IsAssignableFrom(objectTemplate.ActualType))
@@ -70,14 +70,10 @@ public static class TextBlockCaptionTemplateAdapter
             new CaptionTemplateId($"beutl.user.object-template.{objectTemplate.Id:N}"),
             CaptionTemplateProviders.User,
             objectTemplate.Name.Value);
-        return new CaptionTemplateRegistrationSet(
-            new CaptionTemplateDescriptorRegistration(descriptor),
-            new CaptionElementFactoryRegistration(
-                descriptor.Id,
-                new ObjectTemplateCaptionElementFactory<TextBlock>(objectTemplate, ApplyCue)),
-            new CaptionPlacementPolicyRegistration(
-                descriptor.Id,
-                PreserveCaptionPlacementPolicy.Instance));
+        return new CaptionTemplate(
+            descriptor,
+            new ObjectTemplateCaptionElementFactory<TextBlock>(objectTemplate, ApplyCue),
+            PreserveCaptionPlacementPolicy.Instance);
     }
 
     private static void ApplyCue(TextBlock textBlock, CaptionCue cue)

@@ -43,9 +43,7 @@ internal sealed class AiJobResultContext(
 
 internal static class BuiltInAiJobResultCapabilities
 {
-    public static AiJobResultRegistry CreateRegistry(
-        IExtensionRegistry? extensionProvider = null,
-        Action<AiJobResultExtensionFailure>? reportFailure = null)
+    public static AiJobResultRegistry CreateRegistry()
     {
         (AiJobKindId Kind, BuiltInAiJobResultCapability Capability)[] capabilities =
         [
@@ -69,17 +67,9 @@ internal static class BuiltInAiJobResultCapabilities
         ];
 
         return new AiJobResultRegistry(
-            capabilities.Select(item => new AiJobPresentationRegistration(
-                item.Kind,
-                item.Capability)),
-            capabilities.Select(item => new AiJobCompletionRegistration(
-                item.Kind,
-                item.Capability)),
-            capabilities.Select(item => new AiJobResultApplicatorRegistration(
-                item.Kind,
-                item.Capability)),
-            extensionProvider,
-            reportFailure);
+            capabilities.Select(item => KeyValuePair.Create(item.Kind, (IAiJobPresenter)item.Capability)),
+            capabilities.Select(item => KeyValuePair.Create(item.Kind, (IAiJobCompletionPresenter)item.Capability)),
+            capabilities.Select(item => KeyValuePair.Create(item.Kind, (IAiJobResultApplicator)item.Capability)));
     }
 }
 
@@ -349,18 +339,11 @@ internal sealed class CaptionAiJobResultCapabilities(
             TimeSpan.FromSeconds(segment.End),
             segment.Text,
             language: recovered.Language)));
-        CaptionTemplateRegistrationSet template =
-            CaptionPresentationDefaults.CreateDefaultText(Strings.AiSubtitle_DefaultTemplate);
-        await using var templates = new CaptionTemplateRegistry(
-            [template.DescriptorRegistration],
-            [template.ElementFactoryRegistration],
-            [template.PlacementPolicyRegistration]);
         CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
             context.Editor.Scene,
             context.Editor.ElementAdder,
             document,
-            templates,
-            CaptionTemplateIds.DefaultText,
+            CaptionPresentationDefaults.CreateDefaultText(Strings.AiSubtitle_DefaultTemplate),
             cancellationToken);
         if (result.IsSuccess)
         {

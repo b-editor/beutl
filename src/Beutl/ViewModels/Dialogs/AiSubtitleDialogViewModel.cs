@@ -521,8 +521,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
                 _editViewModel.Scene,
                 _editViewModel.GetRequiredService<IElementAdder>(),
                 document,
-                _captionTemplates,
-                template.Id,
+                _captionTemplates.GetTemplate(template.Id),
                 operation.CancellationToken);
 
             if (result.IsSuccess)
