@@ -93,7 +93,7 @@ public sealed class LayerHeaderViewModel : IDisposable
 
             case NotifyCollectionChangedAction.Replace:
             case NotifyCollectionChangedAction.Reset:
-                throw new Exception("Not supported action (Move, Replace, Reset).");
+                throw new Exception("Not supported action (Replace, Reset).");
 
             case NotifyCollectionChangedAction.Remove:
                 ReindexInlines(e.OldStartingIndex);
