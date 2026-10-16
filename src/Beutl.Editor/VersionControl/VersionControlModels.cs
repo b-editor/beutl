@@ -190,11 +190,11 @@ internal abstract record RemoteOpResult
 
     public sealed record Success : RemoteOpResult;
 
-    public sealed record AuthFailed(string Guidance) : RemoteOpResult;
+    public sealed record AuthFailed(string Guidance, string Stderr) : RemoteOpResult;
 
-    public sealed record Diverged : RemoteOpResult;
+    public sealed record Diverged(string Stderr) : RemoteOpResult;
 
-    public sealed record Offline : RemoteOpResult;
+    public sealed record Offline(string Stderr) : RemoteOpResult;
 
     public sealed record RepositoryDirty : RemoteOpResult;
 

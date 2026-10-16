@@ -2433,7 +2433,7 @@ public class VersionControlTabViewModelTests
             .Returns<IProgress<string>, CancellationToken>((progress, _) =>
             {
                 progress.Report("Writing objects: 50%");
-                return Task.FromResult<RemoteOpResult>(new RemoteOpResult.Offline());
+                return Task.FromResult<RemoteOpResult>(new RemoteOpResult.Offline(string.Empty));
             });
         RemoteOpResult? shownResult = null;
         using var viewModel = CreateViewModel(service.Object, coordinator.Object);
@@ -2489,7 +2489,7 @@ public class VersionControlTabViewModelTests
         Assert.That(queuedUiActions, Has.Count.EqualTo(1));
         queuedUiActions[0]();
         await viewModel.Initialization;
-        pushResult.SetResult(new RemoteOpResult.Offline());
+        pushResult.SetResult(new RemoteOpResult.Offline(string.Empty));
         await push;
 
         Assert.That(notificationCalls, Is.Zero);
@@ -2517,7 +2517,7 @@ public class VersionControlTabViewModelTests
 
         Task push = viewModel.PushAsync();
         viewModel.Dispose();
-        pushResult.SetResult(new RemoteOpResult.Offline());
+        pushResult.SetResult(new RemoteOpResult.Offline(string.Empty));
         await push.WaitAsync(TimeSpan.FromSeconds(2));
 
         Assert.That(notificationCalls, Is.Zero);
@@ -2531,7 +2531,7 @@ public class VersionControlTabViewModelTests
         coordinator.Setup(x => x.PushAsync(
                 It.IsAny<IProgress<string>>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new RemoteOpResult.Offline());
+            .ReturnsAsync(new RemoteOpResult.Offline(string.Empty));
         int notificationCalls = 0;
         using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         viewModel.ShowRemoteResultAsync = _ =>
@@ -2574,7 +2574,7 @@ public class VersionControlTabViewModelTests
                     await releaseSecond.Task;
                 }
 
-                return new RemoteOpResult.Offline();
+                return new RemoteOpResult.Offline(string.Empty);
             });
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
@@ -3480,15 +3480,15 @@ public class VersionControlTabViewModelTests
         {
             Assert.That(
                 VersionControlTabViewModel.GetRemoteResultMessage(
-                    new RemoteOpResult.AuthFailed(authGuidance)),
+                    new RemoteOpResult.AuthFailed(authGuidance, string.Empty)),
                 Is.EqualTo(authGuidance));
             Assert.That(
                 VersionControlTabViewModel.GetRemoteResultMessage(
-                    new RemoteOpResult.Diverged()),
+                    new RemoteOpResult.Diverged(string.Empty)),
                 Is.EqualTo(Strings.VersionControl_Diverged));
             Assert.That(
                 VersionControlTabViewModel.GetRemoteResultMessage(
-                    new RemoteOpResult.Offline()),
+                    new RemoteOpResult.Offline(string.Empty)),
                 Is.EqualTo(Strings.VersionControl_Offline));
             Assert.That(
                 VersionControlTabViewModel.GetRemoteResultMessage(
@@ -3502,6 +3502,29 @@ public class VersionControlTabViewModelTests
                 VersionControlTabViewModel.GetRemoteResultMessage(
                     new RemoteOpResult.Success()),
                 Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Remote_results_show_Git_stderr_after_the_guidance()
+    {
+        const string guidance = "Configure a credential helper or SSH agent.";
+        const string stderr = "ssh: connect to host example.invalid port 22: Connection refused\n";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                VersionControlTabViewModel.GetRemoteResultMessage(
+                    new RemoteOpResult.AuthFailed(guidance, stderr)),
+                Is.EqualTo($"{guidance}\n{stderr.Trim()}"));
+            Assert.That(
+                VersionControlTabViewModel.GetRemoteResultMessage(
+                    new RemoteOpResult.Diverged(stderr)),
+                Is.EqualTo($"{Strings.VersionControl_Diverged}\n{stderr.Trim()}"));
+            Assert.That(
+                VersionControlTabViewModel.GetRemoteResultMessage(
+                    new RemoteOpResult.Offline(stderr)),
+                Is.EqualTo($"{Strings.VersionControl_Offline}\n{stderr.Trim()}"));
         });
     }
 

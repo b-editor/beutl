@@ -267,7 +267,7 @@ internal sealed partial class GitCliVersionControlService
                 RequiresTransition: false,
                 UpstreamCommit: null),
             _ => new PullPreflightResult(
-                new RemoteOpResult.Diverged(),
+                new RemoteOpResult.Diverged(string.Empty),
                 RequiresTransition: false,
                 UpstreamCommit: null),
         };

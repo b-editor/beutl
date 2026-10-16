@@ -558,7 +558,7 @@ internal sealed partial class GitCliVersionControlService
                 "divergent branches",
                 "[rejected]"))
         {
-            return new RemoteOpResult.Diverged();
+            return new RemoteOpResult.Diverged(stderr);
         }
 
         if (ContainsAny(
@@ -570,7 +570,7 @@ internal sealed partial class GitCliVersionControlService
                 "access denied",
                 "authorization failed"))
         {
-            return new RemoteOpResult.AuthFailed(Strings.VersionControl_AuthenticationFailed);
+            return new RemoteOpResult.AuthFailed(Strings.VersionControl_AuthenticationFailed, stderr);
         }
 
         if (ContainsAny(
@@ -579,10 +579,9 @@ internal sealed partial class GitCliVersionControlService
                 "failed to connect",
                 "network is unreachable",
                 "connection timed out",
-                "connection refused",
-                "could not read from remote repository"))
+                "connection refused"))
         {
-            return new RemoteOpResult.Offline();
+            return new RemoteOpResult.Offline(stderr);
         }
 
         return new RemoteOpResult.Failed(stderr);
