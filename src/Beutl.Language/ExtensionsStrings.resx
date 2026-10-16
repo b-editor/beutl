@@ -49,7 +49,7 @@
   </data>
   <data name="OpenUrl_Content" xml:space="preserve">
     <value>You are trying to open '{0}'.
-If the URL is ɑn suspicious, we recommend that you do not open it.</value>
+If the URL is suspicious, we recommend that you do not open it.</value>
   </data>
   <data name="Search_Packages" xml:space="preserve">
     <value>Packages</value>

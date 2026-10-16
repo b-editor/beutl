@@ -239,4 +239,7 @@ This package file may have been tampered with.</value>
   <data name="Unknown" xml:space="preserve">
     <value>Unknown</value>
   </data>
+  <data name="Double_click_to_show_or_hide_the_details" xml:space="preserve">
+    <value>Double-click to show or hide the details</value>
+  </data>
 </root>
