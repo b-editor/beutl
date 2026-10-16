@@ -145,8 +145,7 @@ public class IpcProviderContractTests
         return (request, _) => IpcMessage.CreateSimple(request.Id + 1_000_000, MessageType.CancelEncode);
     }
 
-    // Serves the first request for frame 0 with a mismatched DataLength (failing the destination-size guard)
-    // and every other request normally, recording the received frame indices.
+    // Fails the first request for frame 0 with a mismatched DataLength and serves the rest, recording frame indices.
     private static HostResponse Frame0BadDataLengthOnceHost(List<long> received, object gate)
     {
         bool frame0Failed = false;
