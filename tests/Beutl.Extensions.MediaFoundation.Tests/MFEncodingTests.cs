@@ -467,13 +467,12 @@ public class MFEncodingTests
         public long RequestedSamples { get; private set; }
         public bool WasDisposed { get; private set; }
 
-        public async ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
+        public async ValueTask<Pcm<Stereo32BitFloat>?> ReadNextSamples(int length)
         {
             await Task.Yield();
-            Assert.That(offset, Is.EqualTo(RequestedSamples));
-            Assert.That(length, Is.InRange(1, count - offset));
+            Assert.That(length, Is.InRange(1, count - RequestedSamples));
             RequestedSamples += length;
-            return await _inner.Sample(offset, length);
+            return await _inner.ReadNextSamples(length);
         }
 
         public void Dispose() => WasDisposed = true;

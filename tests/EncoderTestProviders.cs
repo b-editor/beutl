@@ -104,22 +104,29 @@ internal sealed class SineSampleProvider(long sampleCount, long sampleRate, floa
 
     public long SampleRate { get; } = sampleRate;
 
-    public ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
+    private long _nextSample;
+
+    public ValueTask<Pcm<Stereo32BitFloat>?> ReadNextSamples(int length)
     {
-        var pcm = new Pcm<Stereo32BitFloat>((int)SampleRate, (int)length);
+        long offset = _nextSample;
+        if (offset >= SampleCount)
+            return ValueTask.FromResult<Pcm<Stereo32BitFloat>?>(null);
+
+        _nextSample += length;
+        var pcm = new Pcm<Stereo32BitFloat>((int)SampleRate, length);
         var span = pcm.DataSpan;
         const float frequency = 440f;
         float twoPiFOverSr = 2f * MathF.PI * frequency / SampleRate;
-        for (int i = 0; i < length; i++)
+        for (int i = 0; i < Math.Min(length, SampleCount - offset); i++)
         {
             float t = MathF.Sin((offset + i) * twoPiFOverSr) * 0.25f;
             span[i] = new Stereo32BitFloat(t, t * rightGain);
         }
-        return ValueTask.FromResult(pcm);
+        return ValueTask.FromResult<Pcm<Stereo32BitFloat>?>(pcm);
     }
 
     public void Dispose()
     {
-        // Stateless test double — no prefetch or owned resources to drain.
+        // No prefetch or owned resources to drain.
     }
 }

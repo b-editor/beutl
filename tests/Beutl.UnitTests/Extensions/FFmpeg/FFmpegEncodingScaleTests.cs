@@ -139,9 +139,9 @@ public sealed class FFmpegEncodingScaleTests
 
         public long SampleRate => 44100;
 
-        public ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
+        public ValueTask<Pcm<Stereo32BitFloat>?> ReadNextSamples(int length)
         {
-            return ValueTask.FromResult(new Pcm<Stereo32BitFloat>((int)SampleRate, (int)Math.Max(0, length)));
+            return ValueTask.FromResult<Pcm<Stereo32BitFloat>?>(null);
         }
 
         public void Dispose()

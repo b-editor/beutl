@@ -97,9 +97,9 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
             else
             {
                 int length = (int)Math.Min(AudioBlockSize, sampleCount - sample);
-                using var pcm = await samples.Sample(sample, length);
+                using var pcm = await samples.ReadNextSamples(length);
                 cancellationToken.ThrowIfCancellationRequested();
-                if (pcm.NumSamples != length || pcm.SampleRate != samples.SampleRate)
+                if (pcm is null || pcm.NumSamples != length || pcm.SampleRate != samples.SampleRate)
                     throw new InvalidOperationException("The audio provider returned an unexpected sample count or sample rate.");
 
                 WriteSample(writer, audioStream, pcm.Data, checked(length * 2 * sizeof(float)), audioTime,

@@ -93,8 +93,8 @@ internal sealed class EmptySampleProvider : ISampleProvider
 
     public long SampleRate => 44100;
 
-    public ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length) =>
-        throw new AssertionException("There are no audio samples to encode.");
+    public ValueTask<Pcm<Stereo32BitFloat>?> ReadNextSamples(int length) =>
+        ValueTask.FromResult<Pcm<Stereo32BitFloat>?>(null);
 
     public void Dispose()
     {

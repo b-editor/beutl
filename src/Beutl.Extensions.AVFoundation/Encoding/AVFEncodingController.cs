@@ -72,7 +72,7 @@ public class AVFEncodingController : EncodingController
                 }
                 else
                 {
-                    await WriteAudioFrameAsync(handle, sampleProvider, sampleCount, AudioFrameSize);
+                    encodeAudio = await WriteAudioFrameAsync(handle, sampleProvider, sampleCount, AudioFrameSize);
                     sampleCount += AudioFrameSize;
                     if (sampleCount >= sampleProvider.SampleCount)
                     {
@@ -116,13 +116,17 @@ public class AVFEncodingController : EncodingController
                 (int)frameRateNum));
     }
 
-    private static async ValueTask WriteAudioFrameAsync(
+    // Returns false once the provider has no more samples.
+    private static async ValueTask<bool> WriteAudioFrameAsync(
         AVFWriterSafeHandle handle,
         ISampleProvider sampleProvider,
         long startSample,
         int length)
     {
-        using var sound = await sampleProvider.Sample(startSample, length);
+        using var sound = await sampleProvider.ReadNextSamples(length);
+        if (sound is null)
+            return false;
+
         BeutlAVFException.ThrowIfFailed(
             BeutlAVFNative.beutl_avf_writer_append_audio(
                 handle,
@@ -130,6 +134,7 @@ public class AVFEncodingController : EncodingController
                 sound.NumSamples,
                 startSample,
                 sound.SampleRate));
+        return true;
     }
 
     private BeutlVideoEncoderConfig BuildVideoConfig()
