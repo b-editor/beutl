@@ -239,7 +239,7 @@ public class MediaFingerprintPersistenceTests
     {
         (Scene scene, _) = CreateSceneWithImage(_root);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
-        // As development builds since #2666 wrote them: inside the scene file.
+        // Adds the MediaFingerprints key that development builds since #2666 wrote into the scene file.
         JsonObject json = ReadJson(scene.Uri!.LocalPath);
         json["MediaFingerprints"] = new JsonObject
         {
