@@ -179,6 +179,40 @@ public sealed class RenderStillTests
         });
     }
 
+    // Read as raw half-float bytes, the 16 and 20 fills pass both thresholds; read as sRGB they pass neither.
+    [Test]
+    public async Task Frame_measurement_compares_srgb_brightness()
+    {
+        string dir = TestWorkspace.CreateDirectory();
+        var scene = new Scene(160, 90, "dark-steps")
+        {
+            Duration = TimeSpan.FromSeconds(3),
+            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
+        };
+        AddColorRectElement(scene, dir, "16.belm", TimeSpan.Zero, TimeSpan.FromSeconds(1), 160, 90, Color.FromRgb(16, 16, 16));
+        AddColorRectElement(scene, dir, "20.belm", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), 160, 90, Color.FromRgb(20, 20, 20));
+        AddColorRectElement(scene, dir, "64.belm", TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), 160, 90, Color.FromRgb(64, 64, 64));
+
+        var analyzer = new FrameDifferenceAnalyzer(new StillRenderer());
+        FrameDifferenceResponse result = await analyzer.AnalyzeAsync(
+            scene,
+            [TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(1.5), TimeSpan.FromSeconds(2.5)],
+            1,
+            48,
+            24,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.FrameCoverage.Select(item => item.ForegroundPixels).Take(2), Is.All.Zero);
+            Assert.That(result.FrameCoverage[2].ForegroundPixelRatio, Is.GreaterThan(0.99));
+            Assert.That(result.PairVariations[0].ChangedPixels, Is.Zero);
+            Assert.That(result.PairVariations[1].ChangedPixelRatio, Is.GreaterThan(0.99));
+            Assert.That(result.PairVariations[0].MeanAbsoluteDelta, Is.EqualTo(4 / 255d).Within(1 / 255d));
+            Assert.That(result.PairVariations[1].MeanAbsoluteDelta, Is.EqualTo(44 / 255d).Within(1 / 255d));
+        });
+    }
+
     [Test]
     public async Task Empty_scene_kinetic_ribbon_starter_renders_visible_text()
     {

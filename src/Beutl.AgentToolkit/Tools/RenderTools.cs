@@ -172,9 +172,9 @@ public sealed partial class RenderTools(
         int sampleCount = 5,
         [Description(RenderScaleDescription)]
         float renderScale = 1,
-        [Description("Absolute per-pixel channel delta used to count changed pixels. This is a measurement parameter, not a quality threshold.")]
+        [Description("Sum of a pixel's absolute red, green and blue deltas in sRGB (0-765) above which it counts as changed. This is a measurement parameter, not a quality threshold.")]
         int pixelDeltaThreshold = 48,
-        [Description("Threshold on the brightest color channel used to count foreground pixels.")]
+        [Description("Threshold on the brightest sRGB color channel (0-255) used to count foreground pixels.")]
         int foregroundLumaThreshold = 24,
         CancellationToken cancellationToken = default)
     {
