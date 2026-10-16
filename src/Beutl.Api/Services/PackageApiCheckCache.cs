@@ -52,14 +52,14 @@ internal sealed class PackageApiCheckCache(string path)
         }
     }
 
-    // Hashes what the check reads: the versions, the package assemblies, and the host assemblies that they reference.
+    // Hashes what decides a pass: the versions, the checker's build (local builds share one version), and the assemblies.
     public static string CreateKey(
         string packageVersion,
         IEnumerable<string> packageAssemblies,
         IReadOnlyDictionary<string, string?> hostAssemblies,
         string hostVersion)
     {
-        var text = new StringBuilder($"{packageVersion}\n{hostVersion}\n");
+        var text = new StringBuilder($"{packageVersion}\n{hostVersion}\n{typeof(PackageApiCheckCache).Module.ModuleVersionId}\n");
         var referenced = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (string file in packageAssemblies.Order(StringComparer.Ordinal))
         {
