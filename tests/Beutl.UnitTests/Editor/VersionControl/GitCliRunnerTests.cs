@@ -1694,8 +1694,10 @@ public class GitCliRunnerTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Stale_remote_tracking_ref_lock_is_recoverable()
+    public async Task Stale_remote_tracking_ref_lock_is_left_to_Git()
     {
+        // Only the index, HEAD, config and current branch locks are looked for; a command that needs
+        // another ref fails with Git's own message naming the lock.
         string lockPath = Path.Combine(
             Root,
             ".git",
@@ -1713,134 +1715,7 @@ public class GitCliRunnerTests : RealGitTestRepository
 
         RepositoryLockInfo? recoverable = runner.GetRecoverableRepositoryLock(Repository);
 
-        Assert.That(recoverable, Is.Not.Null);
-        Assert.That(
-            FilePathComparison.AreSameCanonicalPath(recoverable!.LockPath, lockPath),
-            Is.True);
-        Assert.That(
-            runner.RemoveRecoverableRepositoryLock(Repository, recoverable),
-            Is.True);
-        Assert.That(File.Exists(lockPath), Is.False);
-    }
-
-    [Test]
-    public async Task Ref_lock_search_does_not_enumerate_directory_links_or_cycles()
-    {
-        string refsDirectory = Path.Combine(Root, ".git", "refs");
-        string externalDirectory = CreateTemporaryDirectory();
-        string externalLink = Path.Combine(refsDirectory, "external");
-        string cycleLink = Path.Combine(refsDirectory, "cycle");
-        SymbolicLinks.CreateOrIgnore(externalLink, externalDirectory, directory: true);
-        SymbolicLinks.CreateOrIgnore(cycleLink, refsDirectory, directory: true);
-        await File.WriteAllTextAsync(Path.Combine(externalDirectory, "outside.lock"), "outside");
-
-        string safeLockPath = Path.Combine(
-            refsDirectory,
-            "remotes",
-            "origin",
-            "main.lock");
-        Directory.CreateDirectory(Path.GetDirectoryName(safeLockPath)!);
-        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
-        await File.WriteAllTextAsync(safeLockPath, "stale");
-        File.SetLastWriteTimeUtc(
-            safeLockPath,
-            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
-
-        var enumeratedDirectories = new List<string>();
-        IEnumerable<string> EnumerateTopLevel(string path)
-        {
-            enumeratedDirectories.Add(Path.GetFullPath(path));
-            return Directory.EnumerateFileSystemEntries(
-                path,
-                "*",
-                SearchOption.TopDirectoryOnly);
-        }
-
-        var runner = new GitCliRunner(
-            GitPath,
-            TimeSpan.FromSeconds(10),
-            IsolatedGitEnvironment,
-            new FakeTimeProvider(now),
-            supportsConditionalLockDeletion: true,
-            readLockFileSnapshot: ReadTestLockFileSnapshot,
-            deleteLockFileConditionally: TryDeleteTestLockFileConditionally,
-            enumerateFileSystemEntries: EnumerateTopLevel);
-
-        RepositoryLockInfo? recoverable = runner.GetRecoverableRepositoryLock(Repository);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(recoverable, Is.Not.Null);
-            Assert.That(
-                FilePathComparison.AreSameCanonicalPath(recoverable!.LockPath, safeLockPath),
-                Is.True);
-            Assert.That(
-                enumeratedDirectories,
-                Does.Not.Contain(Path.GetFullPath(externalLink)));
-            Assert.That(
-                enumeratedDirectories,
-                Does.Not.Contain(Path.GetFullPath(cycleLink)));
-            Assert.That(
-                enumeratedDirectories,
-                Does.Not.Contain(Path.GetFullPath(externalDirectory)));
-        });
-    }
-
-    [Test]
-    public async Task Ref_lock_search_does_not_offer_a_file_symbolic_link()
-    {
-        string externalDirectory = CreateTemporaryDirectory();
-        string externalLockPath = Path.Combine(externalDirectory, "outside.lock");
-        await File.WriteAllTextAsync(externalLockPath, "outside");
-        string linkedLockPath = Path.Combine(
-            Root,
-            ".git",
-            "refs",
-            "remotes",
-            "origin",
-            "linked.lock");
-        Directory.CreateDirectory(Path.GetDirectoryName(linkedLockPath)!);
-        SymbolicLinks.CreateOrIgnore(linkedLockPath, externalLockPath);
-        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
-        File.SetLastWriteTimeUtc(
-            externalLockPath,
-            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
-        GitCliRunner runner = CreateLockRecoveryRunner(new FakeTimeProvider(now));
-
-        RepositoryLockInfo? recoverable = runner.GetRecoverableRepositoryLock(Repository);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(recoverable, Is.Null);
-            Assert.That(File.Exists(externalLockPath), Is.True);
-            Assert.That(File.Exists(linkedLockPath), Is.True);
-        });
-    }
-
-    [Test]
-    public async Task Ref_lock_suffix_follows_the_actual_volume_casing_rules()
-    {
-        string lockDirectory = Path.Combine(Root, ".git", "refs", "remotes", "origin");
-        Directory.CreateDirectory(lockDirectory);
-        string storedPath = Path.Combine(lockDirectory, "main.LOCK");
-        string gitSpelling = Path.Combine(lockDirectory, "main.lock");
-        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
-        await File.WriteAllTextAsync(storedPath, "stale");
-        File.SetLastWriteTimeUtc(
-            storedPath,
-            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
-        bool volumeResolvesGitSpelling = File.Exists(gitSpelling);
-        GitCliRunner runner = CreateLockRecoveryRunner(new FakeTimeProvider(now));
-
-        RepositoryLockInfo? recoverable = runner.GetRecoverableRepositoryLock(Repository);
-
-        Assert.That(recoverable is not null, Is.EqualTo(volumeResolvesGitSpelling));
-        if (recoverable is not null)
-        {
-            Assert.That(
-                FilePathComparison.AreSameCanonicalPath(recoverable.LockPath, storedPath),
-                Is.True);
-        }
+        Assert.That(recoverable, Is.Null);
     }
 
     [Test]
