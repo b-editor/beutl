@@ -364,15 +364,8 @@ public sealed partial class ElementView : UserControl
     {
         if (DataContext is not ElementViewModel viewModel) return;
 
-        var flyout = new SaveAsTemplateFlyout { Text = TimelineTabExtension.GetDefaultTemplateName(viewModel.Model) };
-        flyout.Confirmed += async (_, name) =>
-        {
-            if (!string.IsNullOrWhiteSpace(name))
-            {
-                await TimelineTabExtension.SaveAsTemplateAsync(viewModel.Model, name);
-            }
-        };
-        flyout.ShowAt(this, true);
+        TemplateSaving.ShowSaveFlyout(
+            this, viewModel.Model, TimelineTabExtension.GetDefaultTemplateName(viewModel.Model), showAtPointer: true);
     }
 
     private void ChangeColor_Click(object? sender, RoutedEventArgs e)
