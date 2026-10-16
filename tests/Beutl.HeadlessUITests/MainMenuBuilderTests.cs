@@ -18,12 +18,13 @@ public sealed class MainMenuBuilderTests
         MenuBarViewModel menuBar = viewModel.MenuBar;
         var view = new MainView { DataContext = viewModel };
         var macWindow = new MacWindow { DataContext = viewModel };
-        IEnumerable menu = view.FindControl<Menu>("MenuBar")!.Items;
-        IEnumerable nativeMenu = NativeMenu.GetMenu(macWindow)!.Items;
+        ItemCollection menu = view.FindControl<Menu>("MenuBar")!.Items;
+        IList<NativeMenuItemBase> nativeMenu = NativeMenu.GetMenu(macWindow)!.Items;
         try
         {
             menuBar.RecentFileItems.Add("recent.scene");
             AssertMenus();
+            (int menuCount, int nativeCount) = (menu.Count, nativeMenu.Count);
             Assert.Multiple(() =>
             {
                 Assert.That(Describe(menu, menuBar), Does.Contain($"{Strings.Settings}:ShowSettings"));
@@ -33,8 +34,11 @@ public sealed class MainMenuBuilderTests
 
             menuBar.RecentFileItems.Remove("recent.scene");
             view.DataContext = macWindow.DataContext = null;
+            int removed = menuBar.MenuItems.Count;
+            Assert.That((menu.Count, nativeMenu.Count), Is.EqualTo((menuCount - removed, nativeCount - removed)));
             view.DataContext = macWindow.DataContext = viewModel;
             AssertMenus();
+            Assert.That((menu.Count, nativeMenu.Count), Is.EqualTo((menuCount, nativeCount)));
         }
         finally
         {
