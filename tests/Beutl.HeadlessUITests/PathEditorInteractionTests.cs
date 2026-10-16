@@ -12,6 +12,7 @@ using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Composition;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.PathEditorTab.Services;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Components.PathEditorTab.Views;
@@ -66,6 +67,29 @@ public class PathEditorInteractionTests
         editor.Drag(new(60, 75), new(110, 125));
         editor.Drag(new(260, 160), new(300, 200), RawInputModifiers.Shift);
         Assert.That(editor.Selected, Is.EqualTo(new[] { editor.Figure.Segments[0], editor.Figure.Segments[2] }));
+    }
+
+    [AvaloniaTest]
+    public async Task Pressing_a_point_leaves_the_segment_editors_as_they_were()
+    {
+        using var editor = await Fixture.Create();
+        Element element = editor.Editor.Scene.Children.Single();
+        element.Uri = new Uri(Path.Combine(BeutlHomeIsolation.CurrentHome!, $"path-edit-{Guid.NewGuid():N}.belm"));
+        ((IEditorSelection)editor.Editor.GetService(typeof(IEditorSelection))!).SelectedObject.Value = element;
+        GeometryEditorViewModel geometry = editor.Editor.FindToolTab<ElementPropertyTabViewModel>()!.Items
+            .SelectMany(item => item.Properties)
+            .OfType<GeometryEditorViewModel>()
+            .Single();
+        geometry.ExpandForEditing();
+        var figure = (PathFigureEditorViewModel)geometry.FindPathFigureContext(editor.Figure)!;
+        editor.Model.StartOrFinishEdit(figure);
+        HeadlessTestHelpers.Render(3);
+
+        editor.Click(180, 100);
+
+        Assert.That(editor.Selected, Is.EqualTo(new[] { editor.Figure.Segments[1] }));
+        Assert.That(figure.Group.Value!.Items.Select(item => ((PathSegmentEditorViewModel)item.Context!).IsExpanded.Value),
+            Is.All.False);
     }
 
     [AvaloniaTest]

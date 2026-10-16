@@ -348,10 +348,8 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
 
     private void SetSelectedOperation(IPathEditorView view, IPathEditorContext viewModel, PathSegment segment)
     {
-        if (AssociatedObject != null && viewModel.FigureContext.Value is { } figureContext)
+        if (AssociatedObject != null && viewModel.FigureContext.Value is not null)
         {
-            figureContext.ExpandOperationForSegment(segment);
-
             if (!AssociatedObject.Classes.Contains("control"))
             {
                 viewModel.SelectedOperation.Value = segment;

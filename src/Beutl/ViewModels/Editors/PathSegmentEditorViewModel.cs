@@ -14,9 +14,6 @@ public sealed class PathSegmentEditorViewModel : ValueEditorViewModel<PathSegmen
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsExpanded.Subscribe(_ => ProgrammaticallyExpanded = false)
-            .DisposeWith(Disposables);
-
         IsExpanded.SkipWhile(v => !v)
             .Take(1)
             .Subscribe(_ =>
@@ -71,8 +68,6 @@ public sealed class PathSegmentEditorViewModel : ValueEditorViewModel<PathSegmen
 
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
 
-    public bool ProgrammaticallyExpanded { get; set; }
-
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
@@ -95,12 +90,6 @@ public sealed class PathSegmentEditorViewModel : ValueEditorViewModel<PathSegmen
                 IsExpanded.Value = (bool)isExpanded;
             }
 
-            if (json.TryGetPropertyValue(nameof(ProgrammaticallyExpanded), out var pExpandedNode)
-                && pExpandedNode is JsonValue pExpanded)
-            {
-                ProgrammaticallyExpanded = (bool)pExpanded;
-            }
-
             Properties.Value?.ReadFromJson(json);
         }
         catch
@@ -114,7 +103,6 @@ public sealed class PathSegmentEditorViewModel : ValueEditorViewModel<PathSegmen
         try
         {
             json[nameof(IsExpanded)] = IsExpanded.Value;
-            json[nameof(ProgrammaticallyExpanded)] = ProgrammaticallyExpanded;
             Properties.Value?.WriteToJson(json);
         }
         catch
