@@ -9,6 +9,7 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="Beutl" />
+        <InternalsVisibleTo Include="Beutl.AgentToolkit" />
         <InternalsVisibleTo Include="Beutl.Editor.Components" />
         <InternalsVisibleTo Include="Beutl.HeadlessUITests" />
         <InternalsVisibleTo Include="Beutl.UnitTests" />
