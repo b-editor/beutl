@@ -40,7 +40,10 @@ public sealed class CaptionDraftStoreTests
                             "en",
                             "ja",
                             new Dictionary<string, string> { ["piece"] = "translated" },
-                            1),
+                            1,
+                            MaxSegments: 200,
+                            MaxCharacters: 20_000,
+                            MaxRequestBytes: 128 * 1024),
                         null),
                     []));
             }

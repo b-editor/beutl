@@ -833,7 +833,7 @@ public sealed partial class AiSubtitleDialogViewModel
             resume.LastWriteTimeUtcTicks,
             resume.Language,
             resume.SampleRate,
-            resume.SourceStartSamples ?? -1,
+            resume.SourceStartSamples,
             resume.TotalSamples,
             resume.ChunkSamples,
             resume.ChunkCount,
