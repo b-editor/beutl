@@ -18,8 +18,12 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
     private readonly ElementSourceHandlerRegistry _sourceHandlers;
     private readonly AsyncOperationLifetime _operations = new();
 
+    // Set only by tests: runs after an imported video's element is created and before its audio opens, so a
+    // test can make that step fail.
     internal Action? BeforeCompanionAudioMaterialization { get; set; }
 
+    // Set only by tests: runs just before the history transaction that adds the elements, so a test can
+    // cancel at that point.
     internal Action? BeforeHistoryTransaction { get; set; }
 
     public ElementAdderImpl(EditViewModel context)
