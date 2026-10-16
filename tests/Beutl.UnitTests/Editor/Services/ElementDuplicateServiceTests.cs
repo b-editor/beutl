@@ -96,8 +96,8 @@ public class ElementDuplicateServiceTests
         {
             Assert.That(outcome.Success, Is.True);
             // Spiral search should not land on the existing element.
-            Assert.That(outcome.ScrollToRange.Start, Is.Not.EqualTo(element.Start).Or
-                .Property(nameof(outcome.ScrollToZIndex)).Not.EqualTo(element.ZIndex));
+            Assert.That((outcome.ScrollToRange.Start, outcome.ScrollToZIndex),
+                Is.Not.EqualTo((element.Start, element.ZIndex)));
         });
     }
 

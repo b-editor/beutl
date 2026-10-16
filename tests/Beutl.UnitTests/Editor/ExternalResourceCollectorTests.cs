@@ -121,7 +121,7 @@ public class ExternalResourceCollectorTests
     }
 
     [Test]
-    public void Collect_WithDuplicateFileSources_CollectsOnlyOnce()
+    public void Collect_WithDuplicateFileSources_RecordsOnePerOwner()
     {
         string externalFile = Path.Combine(_externalDir, "test.png");
         File.WriteAllText(externalFile, "dummy content");
