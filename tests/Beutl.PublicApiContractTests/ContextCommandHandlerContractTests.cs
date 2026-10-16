@@ -37,10 +37,10 @@ public sealed class ContextCommandHandlerContractTests
         });
         ContextCommandPickItem<int> item = new("Editing", 42, "Timeline");
         var selected = await interaction.ShowQuickPickAsync<int>([item]);
-        var definition = new ContextCommandDefinition("Configure") { Scope = ContextCommandScope.Extension };
+        var definition = new ContextCommandDefinition("Configure") { Id = "test.configure", Scope = ContextCommandScope.Extension };
         var execution = new ContextCommandExecution(definition.Name) { Interaction = interaction };
 
-        Assert.That(new ContextCommandDefinition("Local").Scope, Is.EqualTo(ContextCommandScope.Context));
+        Assert.That(new ContextCommandDefinition("Local") { Id = "test.local" }.Scope, Is.EqualTo(ContextCommandScope.Context));
     }
 
     private sealed class PluginInteraction : IContextCommandInteraction

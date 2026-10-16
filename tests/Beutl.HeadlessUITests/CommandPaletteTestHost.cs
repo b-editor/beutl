@@ -34,7 +34,7 @@ internal static class CommandPaletteTestHost
     {
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
         [
-            new("Prompt", "Prompt command")
+            new("Prompt", "Prompt command") { Id = "test.prompt" }
         ];
     }
 

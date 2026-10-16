@@ -197,10 +197,10 @@ public class CommandPaletteViewLayoutTests
         public override string DisplayName => "タイムライン";
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
         [
-            new("MoveRight", "1 フレーム右へ移動", keyGestures: [new("OemPeriod")]),
-            new("MoveLeft", "1 フレーム左へ移動", keyGestures: [new("OemComma")]),
-            new("MoveSecond", "1 秒右へ移動", keyGestures: [new("Alt+OemPeriod")]),
-            new("MoveTen", "10 フレーム左へ移動", keyGestures: [new("Shift+OemComma")])
+            new("MoveRight", "1 フレーム右へ移動", keyGestures: [new("OemPeriod")]) { Id = "test.moveRight" },
+            new("MoveLeft", "1 フレーム左へ移動", keyGestures: [new("OemComma")]) { Id = "test.moveLeft" },
+            new("MoveSecond", "1 秒右へ移動", keyGestures: [new("Alt+OemPeriod")]) { Id = "test.moveSecond" },
+            new("MoveTen", "10 フレーム左へ移動", keyGestures: [new("Shift+OemComma")]) { Id = "test.moveTen" }
         ];
     }
 

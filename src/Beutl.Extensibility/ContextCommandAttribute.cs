@@ -93,6 +93,9 @@ public class ContextCommandDefinition(
 {
     public string Name { get; init; } = name;
 
+    // keymap.json saves the gestures under it, so it must not change.
+    public required string Id { get; init; }
+
     public string? DisplayName { get; init; } = displayName;
 
     public string? Description { get; init; } = description;

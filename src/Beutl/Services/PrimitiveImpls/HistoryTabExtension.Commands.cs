@@ -8,7 +8,7 @@ public sealed partial class HistoryTabExtension : IContextCommandHandler
 {
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
-        new("JumpToHistory", Strings.JumpToHistory, "", []) { Scope = ContextCommandScope.Extension },
+        new("JumpToHistory", Strings.JumpToHistory, "", []) { Id = "history.jumpToHistory", Scope = ContextCommandScope.Extension },
     ];
 
     public bool CanExecute(ContextCommandExecution execution)

@@ -748,7 +748,7 @@ public class PackageManagerExtensionLifecycleTests
         public static int UnloadCount { get; private set; }
 
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
-            [new("success-command")];
+            [new("success-command") { Id = "test.success-command" }];
 
         public static void Reset()
         {
@@ -775,7 +775,7 @@ public class PackageManagerExtensionLifecycleTests
         public static int UnloadCount { get; private set; }
 
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
-            [new("failing-command")];
+            [new("failing-command") { Id = "test.failing-command" }];
 
         public static void Reset()
         {

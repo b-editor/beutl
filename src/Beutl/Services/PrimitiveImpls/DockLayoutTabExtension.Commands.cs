@@ -24,10 +24,10 @@ public sealed partial class DockLayoutTabExtension : IContextCommandHandler
 
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
-        new("SaveDockLayout", Strings.SaveDockLayoutAs, "", []) { Scope = ContextCommandScope.Extension },
-        new("ApplyDockLayout", Strings.ApplyDockLayout, "", []) { Scope = ContextCommandScope.Extension },
-        new("RenameDockLayout", Strings.RenameDockLayout, "", []) { Scope = ContextCommandScope.Extension },
-        new("DeleteDockLayout", Strings.DeleteDockLayout, "", []) { Scope = ContextCommandScope.Extension },
+        new("SaveDockLayout", Strings.SaveDockLayoutAs, "", []) { Id = "dockLayout.saveDockLayout", Scope = ContextCommandScope.Extension },
+        new("ApplyDockLayout", Strings.ApplyDockLayout, "", []) { Id = "dockLayout.applyDockLayout", Scope = ContextCommandScope.Extension },
+        new("RenameDockLayout", Strings.RenameDockLayout, "", []) { Id = "dockLayout.renameDockLayout", Scope = ContextCommandScope.Extension },
+        new("DeleteDockLayout", Strings.DeleteDockLayout, "", []) { Id = "dockLayout.deleteDockLayout", Scope = ContextCommandScope.Extension },
     ];
 
     public bool CanExecute(ContextCommandExecution execution)

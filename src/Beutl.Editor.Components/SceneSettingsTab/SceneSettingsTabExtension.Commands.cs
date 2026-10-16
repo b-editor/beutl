@@ -12,9 +12,9 @@ public sealed partial class SceneSettingsTabExtension : IContextCommandHandler
 {
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
-        new("ChangeSceneSize", Strings.ChangeSceneSize, "", []) { Scope = ContextCommandScope.Extension },
-        new("ChangeSceneStart", Strings.ChangeSceneStart, "", []) { Scope = ContextCommandScope.Extension },
-        new("ChangeSceneDuration", Strings.ChangeSceneDuration, "", []) { Scope = ContextCommandScope.Extension },
+        new("ChangeSceneSize", Strings.ChangeSceneSize, "", []) { Id = "sceneSettings.changeSceneSize", Scope = ContextCommandScope.Extension },
+        new("ChangeSceneStart", Strings.ChangeSceneStart, "", []) { Id = "sceneSettings.changeSceneStart", Scope = ContextCommandScope.Extension },
+        new("ChangeSceneDuration", Strings.ChangeSceneDuration, "", []) { Id = "sceneSettings.changeSceneDuration", Scope = ContextCommandScope.Extension },
     ];
 
     public bool CanExecute(ContextCommandExecution execution)

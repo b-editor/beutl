@@ -14,7 +14,7 @@ public class ContextCommandDefinitionTests
     {
         var def = new ContextCommandDefinition(
             "ExitTool",
-            keyGestures: [new ContextCommandKeyGesture("V"), new ContextCommandKeyGesture("Escape")]);
+            keyGestures: [new ContextCommandKeyGesture("V"), new ContextCommandKeyGesture("Escape")]) { Id = "test.exitTool" };
 
         Assert.That(def.KeyGestures, Is.Not.Null);
         foreach (OSPlatform platform in s_platforms)
@@ -33,7 +33,7 @@ public class ContextCommandDefinitionTests
             [
                 new ContextCommandKeyGesture("A"),
                 new ContextCommandKeyGesture("B", OSPlatform.Windows),
-            ]);
+            ]) { Id = "test.cmd" };
 
         string?[] windows = def.KeyGestures!.Where(g => g.Platform == OSPlatform.Windows).Select(g => g.KeyGesture).ToArray();
         string?[] osx = def.KeyGestures!.Where(g => g.Platform == OSPlatform.OSX).Select(g => g.KeyGesture).ToArray();

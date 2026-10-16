@@ -175,7 +175,7 @@ public class ContextCommandDispatchTests
     {
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
         [
-            new ContextCommandDefinition("AwaitableCommand", "Awaitable Command"),
+            new ContextCommandDefinition("AwaitableCommand", "Awaitable Command") { Id = "test.awaitableCommand" },
         ];
     }
 

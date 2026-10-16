@@ -13,6 +13,7 @@ public sealed partial class PreviewSettingsTabExtension : IContextCommandHandler
     [
         new("ChangePreviewRenderQuality", Strings.ChangePreviewRenderQuality, "", [])
         {
+            Id = "previewSettings.changePreviewRenderQuality",
             Scope = ContextCommandScope.Extension
         },
     ];

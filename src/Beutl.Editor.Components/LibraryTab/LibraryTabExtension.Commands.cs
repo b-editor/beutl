@@ -20,8 +20,8 @@ public sealed partial class LibraryTabExtension : IContextCommandHandler
 
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
-        new("AddElement", Strings.AddElement, "", []) { Scope = ContextCommandScope.Extension },
-        new("AddElementFromTemplate", Strings.AddFromTemplate, "", []) { Scope = ContextCommandScope.Extension },
+        new("AddElement", Strings.AddElement, "", []) { Id = "library.addElement", Scope = ContextCommandScope.Extension },
+        new("AddElementFromTemplate", Strings.AddFromTemplate, "", []) { Id = "library.addElementFromTemplate", Scope = ContextCommandScope.Extension },
     ];
 
     public bool CanExecute(ContextCommandExecution execution)

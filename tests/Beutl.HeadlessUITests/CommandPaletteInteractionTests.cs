@@ -501,8 +501,8 @@ public sealed class CommandPaletteInteractionTests
 
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
         [
-            new("Global", "Closed tool command") { Scope = ContextCommandScope.Extension },
-            new("Local", "Open tool command")
+            new("Global", "Closed tool command") { Id = "test.global", Scope = ContextCommandScope.Extension },
+            new("Local", "Open tool command") { Id = "test.local" }
         ];
 
         public Task ExecuteAsync(ContextCommandExecution execution)
