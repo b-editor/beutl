@@ -182,8 +182,6 @@ internal sealed partial class GitCliVersionControlService :
     private bool _hygieneDeferred;
     private readonly Func<VersionControlPolicyNotice, CancellationToken, Task>? _policyNoticeSink;
     private readonly Func<CancellationToken, Task<GitIdentity?>>? _identityRequest;
-    private readonly Func<string, CancellationToken, Task>? _beforeFileCommit;
-    private readonly Func<string, CancellationToken, Task>? _afterFileExchange;
     private readonly Action<Action> _statusNotificationScheduler;
     private readonly Action<Action> _lockNotificationScheduler;
     private readonly ILogger _logger;
@@ -220,8 +218,6 @@ internal sealed partial class GitCliVersionControlService :
             isWorktreeMutationAllowed: isWorktreeMutationAllowed,
             policyNoticeSink: policyNoticeSink,
             identityRequest: identityRequest,
-            beforeFileCommit: null,
-            afterFileExchange: null,
             statusNotificationScheduler: null,
             lockNotificationScheduler: null,
             logger: null)
@@ -234,8 +230,6 @@ internal sealed partial class GitCliVersionControlService :
         RepositoryWatcher? watcher,
         Func<string, IGitCliRunner> runnerFactory,
         ILogger? logger = null,
-        Func<string, CancellationToken, Task>? beforeFileCommit = null,
-        Func<string, CancellationToken, Task>? afterFileExchange = null,
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink = null,
         Action<Action>? statusNotificationScheduler = null,
         Action<Action>? lockNotificationScheduler = null,
@@ -250,8 +244,6 @@ internal sealed partial class GitCliVersionControlService :
             isWorktreeMutationAllowed: isWorktreeMutationAllowed ?? (static () => true),
             policyNoticeSink,
             identityRequest: identityRequest,
-            beforeFileCommit: beforeFileCommit,
-            afterFileExchange: afterFileExchange,
             statusNotificationScheduler: statusNotificationScheduler,
             lockNotificationScheduler: lockNotificationScheduler,
             logger: logger)
@@ -267,8 +259,6 @@ internal sealed partial class GitCliVersionControlService :
         Func<bool> isWorktreeMutationAllowed,
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink,
         Func<CancellationToken, Task<GitIdentity?>>? identityRequest,
-        Func<string, CancellationToken, Task>? beforeFileCommit,
-        Func<string, CancellationToken, Task>? afterFileExchange,
         Action<Action>? statusNotificationScheduler,
         Action<Action>? lockNotificationScheduler,
         ILogger? logger)
@@ -290,8 +280,6 @@ internal sealed partial class GitCliVersionControlService :
                                          nameof(isWorktreeMutationAllowed));
         _policyNoticeSink = policyNoticeSink;
         _identityRequest = identityRequest;
-        _beforeFileCommit = beforeFileCommit;
-        _afterFileExchange = afterFileExchange;
         _statusNotificationScheduler = statusNotificationScheduler ?? QueueOnThreadPool;
         _lockNotificationScheduler = lockNotificationScheduler ?? QueueOnThreadPool;
         _logger = logger ?? Log.CreateLogger<GitCliVersionControlService>();
