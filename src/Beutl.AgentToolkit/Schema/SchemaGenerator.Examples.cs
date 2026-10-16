@@ -80,62 +80,6 @@ public sealed partial class SchemaGenerator
         List<ExampleSpec> specs =
         [
             new ExampleSpec(
-                CreateEmptySceneMotionExample(),
-                [
-                    KnownLibraryItemFormats.Drawable,
-                    KnownLibraryItemFormats.EngineObject,
-                    KnownLibraryItemFormats.Brush,
-                    KnownLibraryItemFormats.FilterEffect,
-                    KnownLibraryItemFormats.Transform,
-                    KnownLibraryItemFormats.Easing
-                ],
-                ExampleTypes(
-                    typeof(Element),
-                    typeof(RectShape),
-                    typeof(TextBlock),
-                    typeof(LinearGradientBrush),
-                    typeof(GradientStop),
-                    typeof(FilterEffectGroup),
-                    typeof(Blur),
-                    typeof(Brightness),
-                    typeof(TransformGroup),
-                    typeof(TranslateTransform),
-                    typeof(RotationTransform),
-                    typeof(KeyFrameAnimation<float>),
-                    typeof(KeyFrame<float>),
-                    typeof(CubicEaseOut),
-                    typeof(SineEaseInOut)),
-                ["starter", "empty-scene", "motion", "ribbon", "typography", "gradient", "effect"]),
-            new ExampleSpec(
-                CreateSplitScreenTypographyExample(),
-                [
-                    KnownLibraryItemFormats.Drawable,
-                    KnownLibraryItemFormats.EngineObject,
-                    KnownLibraryItemFormats.Brush,
-                    KnownLibraryItemFormats.FilterEffect,
-                    KnownLibraryItemFormats.Transform,
-                    KnownLibraryItemFormats.Easing
-                ],
-                ExampleTypes(
-                    typeof(Element),
-                    typeof(RectShape),
-                    typeof(RoundedRectShape),
-                    typeof(TextBlock),
-                    typeof(LinearGradientBrush),
-                    typeof(SolidColorBrush),
-                    typeof(FilterEffectGroup),
-                    typeof(Blur),
-                    typeof(Brightness),
-                    typeof(Saturate),
-                    typeof(HueRotate),
-                    typeof(TransformGroup),
-                    typeof(TranslateTransform),
-                    typeof(KeyFrameAnimation<float>),
-                    typeof(KeyFrame<float>),
-                    typeof(CubicEaseOut),
-                    typeof(SineEaseInOut)),
-                ["starter", "empty-scene", "motion", "split-screen", "editorial", "blocks", "typography"]),
-            new ExampleSpec(
                 CreateNewElementSkeletonExample(),
                 [KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Drawable],
                 ExampleTypes(typeof(Element), typeof(TextBlock)),
