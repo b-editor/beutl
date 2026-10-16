@@ -79,11 +79,12 @@ internal sealed class EditorTestHost<TEditor> : IDisposable
         HeadlessTestHelpers.Settle();
     }
 
-    public void DragHorizontally(Control control, double deltaX)
+    // Presses at the control's center, or at a point of the control when one is given.
+    public void DragHorizontally(Control control, double deltaX, Point? at = null)
     {
         // Lay out first so the center is real, and let the hover settle before the press.
         HeadlessTestHelpers.Settle();
-        Point start = Center(control);
+        Point start = at is { } point ? control.TranslatePoint(point, Window)!.Value : Center(control);
         Point end = start + new Vector(deltaX, 0);
         Window.MouseMove(start);
         HeadlessTestHelpers.Settle();
