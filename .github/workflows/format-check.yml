@@ -21,8 +21,9 @@ jobs:
         with:
           global-json-file: global.json
 
+      # VSTHRD100's fix would turn async void event handlers into async Task, so it only warns (#2886).
       - name: Run dotnet format
-        run: dotnet format Beutl.slnx --verbosity diagnostic
+        run: dotnet format Beutl.slnx --verbosity diagnostic --exclude-diagnostics VSTHRD100
 
       - name: Check for formatting changes
         run: |
