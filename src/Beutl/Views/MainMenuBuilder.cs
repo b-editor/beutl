@@ -47,9 +47,12 @@ internal static class MainMenuBuilder
         };
         if (item.Items is { } items)
         {
-            var children = new AvaloniaList<Control>();
-            menuItem.ItemsSource = children;
-            Follow(items, children, child => CreateMenuItem(child, disposables), disposables);
+            // As in the former XAML, a followed list's entries join the logical tree only when its submenu opens.
+            IList children = items is INotifyCollectionChanged
+                ? (IList)(menuItem.ItemsSource = new AvaloniaList<Control>())
+                : menuItem.Items;
+            Follow<Control>(
+                items, child => CreateMenuItem(child, disposables), children.Insert, children.RemoveAt, disposables);
         }
 
         return menuItem;
@@ -73,7 +76,9 @@ internal static class MainMenuBuilder
         {
             var menu = new NativeMenu();
             menuItem.Menu = menu;
-            Follow(items, menu.Items, child => CreateNativeMenuItem(child, disposables), disposables);
+            Follow(
+                items, child => CreateNativeMenuItem(child, disposables), menu.Items.Insert, menu.Items.RemoveAt,
+                disposables);
         }
 
         return menuItem;
@@ -85,38 +90,46 @@ internal static class MainMenuBuilder
 
     // Applies each change in place: rebuilding on every change made each open view recreate all its entries.
     private static void Follow<T>(
-        IReadOnlyList<MainMenuItem> items, IList<T> target, Func<MainMenuItem, T?> create, CompositeDisposable disposables)
+        IReadOnlyList<MainMenuItem> items, Func<MainMenuItem, T?> create, Action<int, T> insert, Action<int> removeAt,
+        CompositeDisposable disposables)
         where T : class
     {
-        // Entries create skips (window-only) are only in fixed lists, so a change's index is also the target's.
+        int shown = 0;
+
+        // create skips window-only entries, which only fixed lists have, so a change's index is also the target's.
         void Insert(int index, IEnumerable added)
         {
             foreach (MainMenuItem item in added)
             {
                 if (create(item) is { } created)
-                    target.Insert(index++, created);
+                {
+                    insert(index++, created);
+                    shown++;
+                }
             }
         }
 
-        void Fill()
+        void RemoveAt(int index)
         {
-            target.Clear();
-            Insert(0, items);
+            removeAt(index);
+            shown--;
         }
 
-        Fill();
+        Insert(0, items);
         if (items is INotifyCollectionChanged changes)
         {
             NotifyCollectionChangedEventHandler handler = (_, e) =>
             {
                 if (e.Action == NotifyCollectionChangedAction.Reset)
                 {
-                    Fill();
+                    while (shown > 0)
+                        RemoveAt(shown - 1);
+                    Insert(0, items);
                     return;
                 }
 
                 for (int i = 0; i < (e.OldItems?.Count ?? 0); i++)
-                    target.RemoveAt(e.OldStartingIndex);
+                    RemoveAt(e.OldStartingIndex);
                 if (e.NewItems is { } added)
                     Insert(e.NewStartingIndex, added);
             };
