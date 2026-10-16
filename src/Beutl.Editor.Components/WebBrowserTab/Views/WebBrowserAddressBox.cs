@@ -109,7 +109,7 @@ internal sealed class WebBrowserAddressBox : TextBox
     internal async Task RefreshSearchSuggestionsAsync(string query)
     {
         CancelSearchSuggestions();
-        if (!SuggestionsEnabled || !IsFocused || !WebSearchSuggestions.IsSearchQuery(query) || query.Trim().Length < 2)
+        if (!SuggestionsEnabled || !IsFocused)
         {
             return;
         }
