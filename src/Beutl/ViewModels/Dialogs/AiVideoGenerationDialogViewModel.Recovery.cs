@@ -47,13 +47,6 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             Error.Value = Strings.AiAuthenticationRequired;
             return false;
         }
-        // Old job-based attempts remain listed for explicit abandonment; they
-        // cannot be converted into a new uploaded-source request.
-        if (attempt.Form?.SourceJobId is not null)
-        {
-            Error.Value = Strings.AiResultUnavailable;
-            return false;
-        }
         if (!attempt.HasCanonicalForm
             || !string.Equals(attempt.Operation, Operation.Value, StringComparison.Ordinal))
         {
