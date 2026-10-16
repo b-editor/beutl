@@ -452,6 +452,24 @@ public class CollectionChangeOperationTests
         Assert.Throws<InvalidOperationException>(() => operation.Apply());
     }
 
+    [Test]
+    public void CollectionChangeOperation_PropertyPath_ShouldBeAccessible()
+    {
+        var owner = new TestCoreObjectWithList();
+        var operation = new InsertCollectionRangeOperation<string>
+        {
+            Object = owner,
+            PropertyPath = "Items",
+            Items = ["X"],
+            Index = 0,
+            SequenceNumber = 1
+        };
+
+        var propertyPath = ((IPropertyPathProvider)operation).PropertyPath;
+
+        Assert.That(propertyPath, Is.EqualTo("Items"));
+    }
+
     #endregion
 
     #region NodeMember Tests

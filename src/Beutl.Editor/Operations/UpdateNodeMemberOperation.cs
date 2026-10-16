@@ -10,7 +10,7 @@ public sealed class UpdateNodeMemberOperation(
     string propertyPath,
     object? newValue,
     object? oldValue)
-    : ChangeOperation, IMergableChangeOperation
+    : ChangeOperation, IPropertyPathProvider, IMergableChangeOperation
 {
     public INodeMember NodeMember { get; set; } = nodeMember;
 
