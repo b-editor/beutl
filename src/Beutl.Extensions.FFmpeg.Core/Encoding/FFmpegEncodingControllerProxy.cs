@@ -84,7 +84,6 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                                 {
                                     Width = bitmap.Width,
                                     Height = bitmap.Height,
-                                    BytesPerPixel = bitmap.BytesPerPixel,
                                     DataLength = bitmap.ByteCount,
                                     Premul = bitmap.AlphaType == BitmapAlphaType.Premul,
                                     ColorType = (int)bitmap.ColorType
