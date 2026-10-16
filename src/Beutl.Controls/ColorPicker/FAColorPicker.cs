@@ -971,7 +971,7 @@ public partial class FAColorPicker : TemplatedControl
             _alphaRamp.ColorChanged -= OnComponentRampColorChanged;
 
         if (_hexBox != null)
-            _hexBox.KeyDown += OnHexBoxKeyDown;
+            _hexBox.KeyDown -= OnHexBoxKeyDown;
 
         if (_rgbButton != null)
             _rgbButton.IsCheckedChanged -= OnColorTypeRBChecked;

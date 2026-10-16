@@ -58,7 +58,7 @@ public partial class ColorSpectrum : ColorPickerComponent
                 RenderSelectorRects(context, rect.Width, rect.Height);
 
                 if (_borderPen != null)
-                    context.DrawRectangle(new Pen(Brushes.Gray), rect);
+                    context.DrawRectangle(_borderPen, rect);
             }
             else if (Shape == ColorSpectrumShape.Wheel)
             {
