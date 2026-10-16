@@ -53,7 +53,7 @@ public sealed class ColorEditorViewModel : ValueEditorViewModel<Color>, IConfigu
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<AColor> args)
+        if (e.Expect<AColor>(sender) is { } args)
         {
             SetValue(args.OldValue.ToBtlColor(), args.NewValue.ToBtlColor());
         }
