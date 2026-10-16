@@ -5511,8 +5511,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Lfs_prefetch_without_an_installed_filter_ignores_a_malformed_extension()
+    public async Task Lfs_prefetch_without_an_installed_filter_refuses_text_that_looks_like_a_pointer()
     {
+        // Pointer detection is looser than Git LFS, so documentation shaped like a pointer also asks
+        // for Git LFS; it can never miss a real pointer.
         byte[] contents = Encoding.UTF8.GetBytes("not pointer data\n");
         string malformed = $"version https://git-lfs.github.com/spec/v1\n"
                            + $"oid sha256:{ComputeLfsOid(contents)}\n"
@@ -5529,13 +5531,14 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => CreateRunner());
 
-        await Assert.DoesNotThrowAsync(() =>
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.ExecuteExclusiveAsync(
                 transaction => transaction.PrefetchCommitLfsObjectsAsync(
                     commit,
                     LfsPrefetchScope.RepositoryWide,
                     CancellationToken.None),
                 CancellationToken.None));
+        Assert.That(exception!.Message, Does.Contain("Git LFS is not installed"));
     }
 
     [Test]
