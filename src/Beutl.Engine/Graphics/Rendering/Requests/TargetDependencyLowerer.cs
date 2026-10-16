@@ -100,11 +100,21 @@ internal static class TargetDependencyLowerer
                 case RenderFragmentKind.OpacityMask:
                     LowerOpacityMask(reference, scopeId, compositeOutput);
                     return;
-                default:
+                case RenderFragmentKind.Shader:
+                case RenderFragmentKind.Geometry:
+                case RenderFragmentKind.OpaqueSource:
+                case RenderFragmentKind.OpaqueMap:
+                case RenderFragmentKind.OpaqueCombine:
+                case RenderFragmentKind.OpaqueExpand:
+                case RenderFragmentKind.FilterEffectSegment:
+                case RenderFragmentKind.MaterializedInput:
                     LowerDependencies(reference, scopeId);
                     if (compositeOutput && reference.ContributesValuesToTarget)
                         AddStep(reference, scopeId, TargetDependencyKind.Composite);
                     return;
+                default:
+                    throw new InvalidOperationException(
+                        $"Fragment kind '{reference.Kind}' has no target lowering rule.");
             }
         }
 

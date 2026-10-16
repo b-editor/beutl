@@ -254,7 +254,17 @@ internal static class RenderMaterializationDemandResolver
                     pending,
                     IsEffectClassConsumer(fragment));
                 return;
-            default:
+            case RenderFragmentKind.Shader:
+            case RenderFragmentKind.Geometry:
+            case RenderFragmentKind.OpaqueSource:
+            case RenderFragmentKind.OpaqueMap:
+            case RenderFragmentKind.OpaqueCombine:
+            case RenderFragmentKind.OpaqueExpand:
+            case RenderFragmentKind.FilterEffectSegment:
+            case RenderFragmentKind.MaterializedInput:
+            case RenderFragmentKind.TargetCapture:
+            case RenderFragmentKind.BuiltInBackdropCapture:
+            case RenderFragmentKind.Layer:
                 pending.Push(new PendingDemand(
                     fragment,
                     targetDemand,
@@ -262,6 +272,9 @@ internal static class RenderMaterializationDemandResolver
                     UseSupplyFallback: false,
                     IsEffectClassConsumer: false));
                 return;
+            default:
+                throw new InvalidOperationException(
+                    $"Fragment kind '{fragment.Kind}' has no replay demand rule.");
         }
     }
 
@@ -342,7 +355,16 @@ internal static class RenderMaterializationDemandResolver
             case RenderFragmentKind.TargetCapture:
             case RenderFragmentKind.BuiltInBackdropCapture:
                 return;
-            default:
+            case RenderFragmentKind.ContributeValues:
+            case RenderFragmentKind.Opacity:
+            case RenderFragmentKind.Blend:
+            case RenderFragmentKind.OpacityMask:
+            case RenderFragmentKind.OpaqueSource:
+            case RenderFragmentKind.FilterEffectSegment:
+            case RenderFragmentKind.TargetLayerScope:
+            case RenderFragmentKind.RawTargetScope:
+            case RenderFragmentKind.TargetCommand:
+            case RenderFragmentKind.RawTargetCommand:
                 EnqueueInputs(
                     fragment,
                     valueDemand,
@@ -350,6 +372,9 @@ internal static class RenderMaterializationDemandResolver
                     pending,
                     IsEffectClassConsumer(fragment));
                 return;
+            default:
+                throw new InvalidOperationException(
+                    $"Fragment kind '{fragment.Kind}' has no materialization demand rule.");
         }
     }
 
