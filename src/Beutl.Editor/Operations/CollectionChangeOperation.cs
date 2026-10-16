@@ -2,21 +2,27 @@
 using System.Runtime.InteropServices;
 using Beutl.Editor.Infrastructure;
 using Beutl.Engine;
+using Beutl.Logging;
 using Beutl.NodeGraph;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Operations;
 
 public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyPathProvider
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<CollectionChangeOperation<T>>();
     private ChangeOperationFailureState _failureState;
+    private string? _relocation;
     public override ChangeOperationFailureState FailureState => _failureState;
 
     private void ExecuteWithFailureState(IList<T> list, bool revert, Action mutation)
     {
         _failureState = ChangeOperationFailureState.Unknown;
+        _relocation = null;
         if (this is not MoveCollectionRangeOperation<T>)
         {
             mutation();
+            LogRelocation();
             return;
         }
 
@@ -30,6 +36,7 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
         try
         {
             mutation();
+            LogRelocation();
         }
         catch
         {
@@ -43,6 +50,79 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
             catch { }
             throw;
         }
+    }
+
+    private void LogRelocation()
+    {
+        if (_relocation is { } relocation)
+            s_logger.LogWarning("Replay of {PropertyPath} {Relocation}.", PropertyPath, relocation);
+    }
+
+    private static bool IsSame(T left, T right)
+        => typeof(T).IsValueType ? EqualityComparer<T>.Default.Equals(left, right) : ReferenceEquals(left, right);
+
+    private static bool IsAt(IList<T> list, int index, T[] items)
+    {
+        if (index < 0 || index > list.Count - items.Length) return false;
+        for (int i = 0; i < items.Length; i++)
+        {
+            if (!IsSame(list[index + i], items[i])) return false;
+        }
+        return true;
+    }
+
+    // A change that history did not record can shift items, so replay removes them where they are now.
+    private protected void RemoveItems(IList<T> list, int index, T[] items, Action<int, int>? removeRange = null)
+    {
+        if (items.Length == 0) return;
+        if (IsAt(list, index, items))
+        {
+            if (removeRange != null)
+            {
+                removeRange(index, items.Length);
+            }
+            else
+            {
+                for (int i = 0; i < items.Length; i++) list.RemoveAt(index);
+            }
+            return;
+        }
+
+        var found = new SortedSet<int>();
+        foreach (T item in items)
+        {
+            int at = Enumerable.Range(0, list.Count).FirstOrDefault(i => !found.Contains(i) && IsSame(list[i], item), -1);
+            if (at < 0)
+            {
+                _failureState = ChangeOperationFailureState.Unchanged;
+                throw new InvalidOperationException($"Replay of {PropertyPath} cannot find an item to remove.");
+            }
+            found.Add(at);
+        }
+
+        _relocation = $"removed {items.Length} item(s) at {string.Join(", ", found)} instead of index {index}";
+        foreach (int at in found.Reverse()) list.RemoveAt(at);
+    }
+
+    private protected int GetInsertionIndex(IList<T> list, int index)
+    {
+        if (index >= 0 && index <= list.Count) return index;
+        _relocation = $"inserted at {list.Count} instead of index {index}";
+        return list.Count;
+    }
+
+    private protected int FindBlock(IList<T> list, int index, T[] items)
+    {
+        if (items.Length == 0 || IsAt(list, index, items)) return index;
+        int at = Enumerable.Range(0, list.Count).FirstOrDefault(i => IsAt(list, i, items), -1);
+        if (at < 0)
+        {
+            _failureState = ChangeOperationFailureState.Unchanged;
+            throw new InvalidOperationException($"Replay of {PropertyPath} cannot find the items to move.");
+        }
+
+        _relocation = $"moved {items.Length} item(s) from {at} instead of index {index}";
+        return at;
     }
 
     private static bool Matches(IList<T> actual, IList<T> expected)

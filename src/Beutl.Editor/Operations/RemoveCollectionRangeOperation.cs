@@ -12,22 +12,20 @@ public sealed class RemoveCollectionRangeOperation<T> : CollectionChangeOperatio
 
     protected override void ApplyToEngineProperty(IListProperty<T> listProperty)
     {
-        listProperty.RemoveRange(Index, Items.Length);
+        RemoveItems(listProperty, Index, Items, listProperty.RemoveRange);
     }
 
     protected override void ApplyTo(IList<T> list)
     {
-        for (int i = 0; i < Items.Length; i++)
-        {
-            list.RemoveAt(Index);
-        }
+        RemoveItems(list, Index, Items);
     }
 
     protected override void RevertTo(IList<T> list)
     {
+        int index = GetInsertionIndex(list, Index);
         for (int i = 0; i < Items.Length; i++)
         {
-            list.Insert(Index + i, Items[i]);
+            list.Insert(index + i, Items[i]);
         }
     }
 }

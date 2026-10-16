@@ -534,6 +534,85 @@ public class CollectionChangeOperationTests
 
     #endregion
 
+    #region Replay Position Tests
+
+    // In each test a change that history did not record moved the items away from the recorded index.
+    [TestCaseSource(nameof(ListOwners))]
+    public void InsertCollectionRangeOperation_RevertTo_RemovesTheInsertedItemWhereItIsNow(CreateListOwner create)
+    {
+        (CoreObject owner, string propertyPath, IList<string> list) = create(["A", "B", "X"]);
+        var operation = new InsertCollectionRangeOperation<string>
+        {
+            Object = owner,
+            PropertyPath = propertyPath,
+            Items = ["X"],
+            Index = 1,
+            SequenceNumber = 1
+        };
+
+        operation.Revert();
+
+        Assert.That(list, Is.EqualTo(new[] { "A", "B" }));
+    }
+
+    [TestCaseSource(nameof(ListOwners))]
+    public void RemoveCollectionRangeOperation_ApplyTo_RemovesTheItemsWhereTheyAreNow(CreateListOwner create)
+    {
+        (CoreObject owner, string propertyPath, IList<string> list) = create(["C", "A", "B", "D"]);
+        var operation = new RemoveCollectionRangeOperation<string>
+        {
+            Object = owner,
+            PropertyPath = propertyPath,
+            Items = ["B", "C"],
+            Index = 1,
+            SequenceNumber = 1
+        };
+
+        operation.Apply();
+
+        Assert.That(list, Is.EqualTo(new[] { "A", "D" }));
+    }
+
+    [TestCaseSource(nameof(ListOwners))]
+    public void MoveCollectionRangeOperation_RevertTo_MovesTheItemsBackFromWhereTheyAreNow(CreateListOwner create)
+    {
+        (CoreObject owner, string propertyPath, IList<string> list) = create(["B", "C", "D", "A"]);
+        var operation = new MoveCollectionRangeOperation<string>
+        {
+            Object = owner,
+            PropertyPath = propertyPath,
+            OldIndex = 0,
+            NewIndex = 2,
+            Count = 1,
+            MovedItems = ["A"],
+            SequenceNumber = 1
+        };
+
+        operation.Revert();
+
+        Assert.That(list, Is.EqualTo(new[] { "A", "B", "C", "D" }));
+    }
+
+    [TestCaseSource(nameof(ListOwners))]
+    public void RemoveCollectionRangeOperation_ApplyTo_WhenAnItemIsGone_ChangesNothing(CreateListOwner create)
+    {
+        (CoreObject owner, string propertyPath, IList<string> list) = create(["A", "C"]);
+        var operation = new RemoveCollectionRangeOperation<string>
+        {
+            Object = owner,
+            PropertyPath = propertyPath,
+            Items = ["B"],
+            Index = 1,
+            SequenceNumber = 1
+        };
+
+        Assert.Throws<InvalidOperationException>(operation.Apply);
+        Assert.That(list, Is.EqualTo(new[] { "A", "C" }));
+        Assert.That(operation.FailureState, Is.EqualTo(ChangeOperationFailureState.Unchanged));
+    }
+
+    #endregion
+
     #region Test Helper Classes
 
     public delegate (CoreObject Owner, string PropertyPath, IList<string> List) CreateListOwner(string[] items);
