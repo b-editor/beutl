@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Beutl.Controls;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Services;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
@@ -21,21 +22,11 @@ public static class TemplateMenuHelper
             dataContext.Select(d => d?.CanSaveAsTemplate ?? Observable.ReturnThenNever(false)).Switch());
         saveMenu.Click += (_, _) =>
         {
-            if (control.DataContext is not BaseEditorViewModel { IsDisposed: false } vm) return;
+            if (control.DataContext is not BaseEditorViewModel { IsDisposed: false, TemplateTarget: { } target } vm) return;
 
-            string defaultName = vm.GetTemplateDefaultName();
-            string uniqueName = ObjectTemplateService.Instance.GetUniqueName(defaultName);
-
-            var flyout = new SaveAsTemplateFlyout { Text = uniqueName };
-            flyout.Confirmed += async (_, name) =>
-            {
-                if (!string.IsNullOrWhiteSpace(name))
-                {
-                    await vm.SaveAsTemplateAsync(name);
-                    NotificationService.ShowInformation(Strings.Templates, Strings.TemplateSaved);
-                }
-            };
-            flyout.ShowAt(control, true);
+            TemplateSaving.ShowSaveFlyout(
+                control, target, ObjectTemplateService.Instance.GetUniqueName(vm.GetTemplateDefaultName()), showAtPointer: true,
+                () => NotificationService.ShowInformation(Strings.Templates, Strings.TemplateSaved));
         };
 
         var applySubMenu = new FAMenuFlyoutSubItem { Text = Strings.ApplyTemplate };

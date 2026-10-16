@@ -499,11 +499,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         return string.Empty;
     }
 
-    public async ValueTask<bool> SaveAsTemplateAsync(string name)
-    {
-        if (GetTemplateTarget() is not { } target) return false;
-        return await ObjectTemplateService.Instance.AddFromInstanceAsync(target, name) != null;
-    }
+    internal ICoreSerializable? TemplateTarget => GetTemplateTarget();
 
     public async ValueTask RefreshCanPasteAsync()
     {
