@@ -269,13 +269,25 @@ internal static class ProjectConflictMarkerScanner
             content = content[s_utf8Bom.Length..];
         }
 
-        // Git writes a start marker of at least seven '<', a separator line of as many '=' and an end
-        // marker of as many '>'; the start and end markers are followed by a space and a label.
+        return ContainsConflictMarker(Encoding.UTF8.GetString(content), cancellationToken);
+    }
+
+    // Git writes a start marker of at least seven '<', a separator line of as many '=' and an end marker of
+    // as many '>'; the start and end markers are followed by a space and a label.
+    private static bool ContainsConflictMarker(ReadOnlySpan<char> text, CancellationToken cancellationToken)
+    {
         int markerLength = 0;
         bool separatorSeen = false;
-        foreach (string rawLine in Encoding.UTF8.GetString(content).Split('\n'))
+        while (true)
         {
-            string line = rawLine.EndsWith('\r') ? rawLine[..^1] : rawLine;
+            cancellationToken.ThrowIfCancellationRequested();
+            int newline = text.IndexOf('\n');
+            ReadOnlySpan<char> line = newline < 0 ? text : text[..newline];
+            if (line.EndsWith('\r'))
+            {
+                line = line[..^1];
+            }
+
             int run = 0;
             while (run < line.Length && line[run] == line[0])
             {
@@ -296,18 +308,23 @@ internal static class ProjectConflictMarkerScanner
             {
                 return true;
             }
-        }
 
-        return false;
+            if (newline < 0)
+            {
+                return false;
+            }
+
+            text = text[(newline + 1)..];
+        }
     }
 
-    private static bool IsLabeledMarker(string line, int run, char markerCharacter)
+    private static bool IsLabeledMarker(ReadOnlySpan<char> line, int run, char markerCharacter)
     {
         return run >= MinimumMarkerLength
                && line[0] == markerCharacter
                && run + 1 < line.Length
                && line[run] == ' '
-               && !string.IsNullOrWhiteSpace(line[(run + 1)..]);
+               && !line[(run + 1)..].IsWhiteSpace();
     }
 
     private static bool IsProjectDocument(string file)
