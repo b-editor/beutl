@@ -1,0 +1,29 @@
+<Project>
+  <!-- Lists Beutl's libraries from the marks of the src projects, for the SDK, Beutl.Api and the NuGet pack (#2877). -->
+  <ItemGroup>
+    <_BeutlProject Include="$(MSBuildThisFileDirectory)../src/*/*.csproj" />
+  </ItemGroup>
+
+  <Target Name="CollectBeutlLibraries" Returns="@(BeutlLibrary)">
+    <!-- A property of its own keeps these evaluations apart from a running build of the same projects. -->
+    <MSBuild Projects="@(_BeutlProject)"
+             Targets="GetBeutlLibrary"
+             Properties="BeutlLibraryQuery=true"
+             RemoveProperties="TargetFramework;RuntimeIdentifier"
+             BuildInParallel="true">
+      <Output TaskParameter="TargetOutputs" ItemName="BeutlLibrary" />
+    </MSBuild>
+
+    <ItemGroup>
+      <_BeutlPublicProject Include="@(BeutlLibrary->WithMetadataValue('Kind', 'Public')->'%(Project)')" />
+      <_BeutlPublicReference Include="%(BeutlLibrary.References)" Condition="'%(BeutlLibrary.Kind)' == 'Public'" Library="%(BeutlLibrary.Project)" />
+      <_BeutlUnpackedReference Include="@(_BeutlPublicReference)" Exclude="@(_BeutlPublicProject)" />
+      <_BeutlUnpackedAutoReference Include="@(BeutlLibrary)" Condition="'%(SdkAutoReference)' != '' and '%(Kind)' != 'Public'" />
+    </ItemGroup>
+    <!-- The package of a packed library would depend on a package that is never published. -->
+    <Error Condition="'@(_BeutlUnpackedReference)' != ''"
+           Text="Packed Beutl libraries reference projects without BeutlPublicLibrary: @(_BeutlUnpackedReference->'%(Library) -> %(Identity)', ', ')." />
+    <Error Condition="'@(_BeutlUnpackedAutoReference)' != ''"
+           Text="BeutlSdkAutoReference needs BeutlPublicLibrary: @(_BeutlUnpackedAutoReference, ', ')." />
+  </Target>
+</Project>

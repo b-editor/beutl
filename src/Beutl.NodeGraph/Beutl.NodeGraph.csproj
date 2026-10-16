@@ -1,4 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <BeutlPublicLibrary>true</BeutlPublicLibrary>
+    <BeutlSdkAutoReference>NodeGraph</BeutlSdkAutoReference>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Engine\Beutl.Engine.csproj" />
     <ProjectReference Include="..\Beutl.Language\Beutl.Language.csproj" />

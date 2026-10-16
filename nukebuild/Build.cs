@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Text.Json;
 using System.Xml.Linq;
 using Nuke.Common.Tools.InnoSetup;
 using static Nuke.Common.Tools.InnoSetup.InnoSetupTasks;
@@ -71,6 +72,20 @@ class Build : NukeBuild
         using IProcess proc = StartProcess(DotNetPath, $"msbuild --getProperty:TargetFrameworks {mainProj}");
         proc.AssertZeroExitCode();
         return proc.Output.First().Text.Split(';')[0];
+    }
+
+    // The projects marked BeutlPublicLibrary, each with the framework it builds for (build/BeutlLibraries.proj).
+    private (AbsolutePath Project, string Framework)[] GetPublicLibraries()
+    {
+        using IProcess proc = StartProcess(
+            DotNetPath,
+            $"msbuild {RootDirectory / "build" / "BeutlLibraries.proj"} -t:CollectBeutlLibraries -getItem:BeutlLibrary",
+            logOutput: false);
+        proc.AssertZeroExitCode();
+        using JsonDocument document = JsonDocument.Parse(string.Join('\n', proc.Output.Where(line => line.Type == OutputType.Std).Select(line => line.Text)));
+        return [.. document.RootElement.GetProperty("Items").GetProperty("BeutlLibrary").EnumerateArray()
+            .Where(item => item.GetProperty("Kind").GetString() == "Public")
+            .Select(item => ((AbsolutePath)item.GetProperty("ProjectPath").GetString(), item.GetProperty("TargetFramework").GetString()!))];
     }
 
     private void CopyDistributionLicenses(AbsolutePath destination)
@@ -286,38 +301,21 @@ class Build : NukeBuild
         .DependsOn(Restore)
         .Executes(() =>
         {
-            string tfm = GetTFM();
-            (string Name, string TFM)[] projects =
-            [
-                ("Beutl.Configuration", tfm),
-                ("Beutl.Core", tfm),
-                ("Beutl.Api", tfm),
-                ("Beutl.Extensibility", tfm),
-                ("Beutl.Engine", tfm),
-                ("Beutl.Engine.SourceGenerators", "netstandard2.0"),
-                ("Beutl.Language", tfm),
-                ("Beutl.ProjectSystem", tfm),
-                ("Beutl.Threading", tfm),
-                ("Beutl.Utilities", tfm),
-                ("Beutl.NodeGraph", tfm),
-                ("Beutl.Editor", tfm),
-            ];
-
-            foreach (var (name, projectTfm) in projects)
+            foreach ((AbsolutePath project, string framework) in GetPublicLibraries())
             {
                 DotNetBuild(s => s
                     .EnableNoRestore()
-                    .SetFramework(projectTfm)
+                    .SetFramework(framework)
                     .SetConfiguration(Configuration)
                     .SetVersions(Version, AssemblyVersion, InformationalVersion)
-                    .SetProjectFile(SourceDirectory / name / $"{name}.csproj"));
+                    .SetProjectFile(project));
 
                 DotNetPack(s => s
                     .EnableNoRestore()
                     .SetConfiguration(Configuration)
                     .SetVersions(Version, AssemblyVersion, InformationalVersion)
                     .SetOutputDirectory(ArtifactsDirectory)
-                    .SetProject(SourceDirectory / name / $"{name}.csproj"));
+                    .SetProject(project));
             }
 
             DotNetPack(s => s

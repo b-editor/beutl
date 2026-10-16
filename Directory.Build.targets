@@ -26,6 +26,24 @@
   <!-- Sideload output layout is not hoisted here: it sets OutputPath, which must be set before
        OutDir is derived (too late in this file). See build/props/SideloadOutput.props. -->
 
+  <!-- Reports a project marked BeutlPublicLibrary (packed) or BeutlHostLibrary (host-resolved only) to build/BeutlLibraries.proj. -->
+  <Target Name="GetBeutlLibrary" Returns="@(_BeutlLibrary)">
+    <PropertyGroup>
+      <_BeutlLibraryKind Condition="'$(BeutlHostLibrary)' == 'true'">Host</_BeutlLibraryKind>
+      <_BeutlLibraryKind Condition="'$(BeutlPublicLibrary)' == 'true'">Public</_BeutlLibraryKind>
+    </PropertyGroup>
+    <ItemGroup Condition="'$(_BeutlLibraryKind)' != ''">
+      <_BeutlLibrary Include="$(AssemblyName)"
+                     Kind="$(_BeutlLibraryKind)"
+                     Project="$(MSBuildProjectName)"
+                     ProjectPath="$(MSBuildProjectFullPath)"
+                     TargetFramework="$(TargetFramework)"
+                     SdkAutoReference="$(BeutlSdkAutoReference)"
+                     IsAnalyzer="$(IsRoslynComponent)"
+                     References="@(ProjectReference->'%(Filename)')" />
+    </ItemGroup>
+  </Target>
+
   <!-- Aigamo.ResXGenerator reference, opted into with <UseResXGenerator>true</UseResXGenerator>. -->
   <ItemGroup Condition="'$(UseResXGenerator)' == 'true'">
     <PackageReference Include="Aigamo.ResXGenerator">

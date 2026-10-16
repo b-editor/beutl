@@ -1,8 +1,22 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <BeutlPublicLibrary>true</BeutlPublicLibrary>
+    <BeutlSdkAutoReference>Api</BeutlSdkAutoReference>
+  </PropertyGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\index.html" />
+    <!-- Beutl's libraries, which CoreLibraries resolves to the host and never downloads (build/BeutlLibraries.proj). -->
+    <EmbeddedResource Include="$(IntermediateOutputPath)BeutlLibraries.txt" LogicalName="BeutlLibraries.txt" />
+    <_BeutlLibraryInput Include="$(RootDirectory)src/*/*.csproj;$(RootDirectory)build/BeutlLibraries.proj;$(RootDirectory)Directory.Build.targets" />
   </ItemGroup>
+
+  <Target Name="_WriteBeutlLibraries" BeforeTargets="PrepareResources" Inputs="@(_BeutlLibraryInput)" Outputs="$(IntermediateOutputPath)BeutlLibraries.txt">
+    <MSBuild Projects="$(RootDirectory)build/BeutlLibraries.proj" Targets="CollectBeutlLibraries">
+      <Output TaskParameter="TargetOutputs" ItemName="_BeutlLibrary" />
+    </MSBuild>
+    <WriteLinesToFile File="$(IntermediateOutputPath)BeutlLibraries.txt" Lines="@(_BeutlLibrary)" Overwrite="true" />
+  </Target>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyModel" />
