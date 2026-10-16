@@ -30,11 +30,12 @@ internal class Telemetry : IDisposable
     private readonly UsageTelemetry _usageTelemetry;
 #endif
 
-#if true
-    private static string BaseUrl = "https://otel.beditor.net";
-#else
-    private static string BaseUrl = "http://localhost:4318";
-#endif
+    internal const string EndpointVariable = "BEUTL_TELEMETRY_ENDPOINT";
+    private const string DefaultBaseUrl = "https://otel.beditor.net";
+
+    // Traces and logs go to {BaseUrl}/v1/traces and {BaseUrl}/v1/logs. BEUTL_TELEMETRY_ENDPOINT points them at
+    // another OTLP/HTTP collector, such as http://localhost:4318.
+    private static readonly string BaseUrl = ResolveBaseUrl(Environment.GetEnvironmentVariable(EndpointVariable));
 
     static Telemetry()
     {
@@ -128,6 +129,17 @@ internal class Telemetry : IDisposable
                 })
                 .Build();
         }
+    }
+
+    // A value that is not an absolute http or https URL is ignored, so a mistyped variable cannot stop the app
+    // from starting. So is a query or fragment, since the exporter paths are appended to the URL.
+    internal static string ResolveBaseUrl(string? configured)
+    {
+        return Uri.TryCreate(configured?.Trim(), UriKind.Absolute, out Uri? uri)
+               && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+               && uri.Query.Length == 0 && uri.Fragment.Length == 0
+            ? uri.AbsoluteUri.TrimEnd('/')
+            : DefaultBaseUrl;
     }
 
     public static IDisposable GetDisposable(string? sessionId = null)

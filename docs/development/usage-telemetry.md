@@ -10,6 +10,10 @@ existing OTLP trace exporter, approximately every minute and at orderly shutdown
 The existing resource supplies OS, app version and per-launch session ID. There is
 no persistent installation identifier or local usage spool.
 
+The exporters send traces and logs to `https://otel.beditor.net`. To send them to
+another OTLP/HTTP collector, such as a local one at `http://localhost:4318`, set
+`BEUTL_TELEMETRY_ENDPOINT` to its base URL before starting Beutl.
+
 | Attribute | Value |
 | --- | --- |
 | `beutl.usage.schema_version` | Integer `1` |
