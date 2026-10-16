@@ -461,7 +461,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         public Rational FrameRate => new(0, 1);
         public long SampleCount => 0;
         public long SampleRate => 0;
-        public ValueTask<Bitmap> RenderFrame(long frame) => throw new InvalidOperationException("Video is disabled.");
+        public ValueTask<Bitmap?> ReadNextFrame() => ValueTask.FromResult<Bitmap?>(null);
         public ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
             => throw new InvalidOperationException("Audio is disabled.");
         public void Dispose() { }
