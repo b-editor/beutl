@@ -3914,6 +3914,24 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public void A_watcher_that_cannot_start_leaves_the_repository_tracked()
+    {
+        string missingRoot = Path.Combine(CreateTemporaryDirectory(), "missing");
+        var repository = new RepositoryInfo(missingRoot, missingRoot);
+
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository,
+            static () => true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.Repository, Is.SameAs(repository));
+            Assert.That(service.RepositoryWatcherFailure, Is.TypeOf<DirectoryNotFoundException>());
+        });
+    }
+
+    [Test]
     public async Task Retirement_requested_during_initialization_commits_the_final_close_state()
     {
         string projectRoot = CreateTemporaryDirectory();

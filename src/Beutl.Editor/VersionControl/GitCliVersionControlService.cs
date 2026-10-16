@@ -177,7 +177,7 @@ internal sealed partial class GitCliVersionControlService :
         : this(
             installationLocator,
             repository,
-            repository is null ? null : new RepositoryWatcher(repository),
+            watcher: null,
             static gitPath => new GitCliRunner(gitPath),
             createWatcherWhenRepositoryAvailable: true,
             isWorktreeMutationAllowed: isWorktreeMutationAllowed,
@@ -253,6 +253,10 @@ internal sealed partial class GitCliVersionControlService :
         {
             _watcher.Changed += OnRepositoryChanged;
         }
+        else
+        {
+            TryEnsureWatcher();
+        }
 
         _installationLocator.Config.ConfigurationChanged += OnVersionControlConfigChanged;
     }
@@ -260,6 +264,8 @@ internal sealed partial class GitCliVersionControlService :
     public RepositoryInfo? Repository { get; private set; }
 
     public RepositoryLockInfo? RecoverableLock { get; private set; }
+
+    public Exception? RepositoryWatcherFailure { get; private set; }
 
     public event EventHandler<WorkspaceStatus>? StatusChanged;
 
