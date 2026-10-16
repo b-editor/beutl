@@ -29,6 +29,21 @@ public class AudioConversionTests
     }
 
     [Test]
+    public void Deinterleave_SplitsLeftAndRightSamples()
+    {
+        using var audio = new AudioBuffer(48000, 2, 2);
+
+        AudioConversion.Deinterleave([0.1f, -0.1f, 0.2f, -0.2f], audio);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(audio.GetChannelData(0).ToArray(), Is.EqualTo(new[] { 0.1f, 0.2f }));
+            Assert.That(audio.GetChannelData(1).ToArray(), Is.EqualTo(new[] { -0.1f, -0.2f }));
+            Assert.That(() => AudioConversion.Deinterleave(new float[3], audio), Throws.ArgumentException);
+        });
+    }
+
+    [Test]
     public void Interleave_RejectsAMonoBufferAndAShortDestination()
     {
         using var mono = new AudioBuffer(48000, 1, 2);

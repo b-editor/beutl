@@ -1,10 +1,9 @@
-﻿using Beutl.Extensibility;
+﻿using Beutl.Audio;
+using Beutl.Extensibility;
 using Beutl.FFmpegIpc;
 using Beutl.FFmpegWorker.Encoding;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -93,8 +92,8 @@ internal sealed class EmptySampleProvider : ISampleProvider
 
     public long SampleRate => 44100;
 
-    public ValueTask<Pcm<Stereo32BitFloat>?> ReadNextSamples(int length) =>
-        ValueTask.FromResult<Pcm<Stereo32BitFloat>?>(null);
+    public ValueTask<AudioBuffer?> ReadNextSamples(int length) =>
+        ValueTask.FromResult<AudioBuffer?>(null);
 
     public void Dispose()
     {

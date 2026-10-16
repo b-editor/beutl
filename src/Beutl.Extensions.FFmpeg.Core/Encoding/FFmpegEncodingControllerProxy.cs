@@ -1,4 +1,7 @@
-﻿using Beutl.Extensibility;
+﻿using System.Buffers;
+using System.Runtime.InteropServices;
+using Beutl.Audio;
+using Beutl.Extensibility;
 using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
@@ -107,24 +110,29 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                             if (sampleReq.Offset != nextSample)
                                 throw new InvalidOperationException(
                                     $"The worker asked for samples from {sampleReq.Offset}, but the next sample is {nextSample}.");
-                            using var pcm = await sampleProvider.ReadNextSamples(checked((int)sampleReq.Length))
+                            using var audio = await sampleProvider.ReadNextSamples(checked((int)sampleReq.Length))
                                 ?? throw new InvalidOperationException($"The sample provider ended before sample {nextSample}.");
                             nextSample += sampleReq.Length;
 
                             // BufferIndex で指定されたバッファに書き込み (ダブルバッファリング)
                             var targetAudioBuffer = audioBuffers[sampleReq.BufferIndex];
-                            int dataLen;
-                            unsafe
+                            int length = audio.SampleCount * 2;
+                            float[] interleaved = ArrayPool<float>.Shared.Rent(length);
+                            try
                             {
-                                dataLen = pcm.NumSamples * (int)pcm.SampleSize;
-                                targetAudioBuffer.Write(new ReadOnlySpan<byte>((void*)pcm.Data, dataLen));
+                                AudioConversion.Interleave(audio, interleaved);
+                                targetAudioBuffer.Write(MemoryMarshal.AsBytes(interleaved.AsSpan(0, length)));
+                            }
+                            finally
+                            {
+                                ArrayPool<float>.Shared.Return(interleaved);
                             }
 
                             await connection.SendAsync(IpcMessage.Create(msg.Id, MessageType.ProvideSample,
                                 new ProvideSampleMessage
                                 {
-                                    NumSamples = pcm.NumSamples,
-                                    DataLength = dataLen,
+                                    NumSamples = audio.SampleCount,
+                                    DataLength = length * sizeof(float),
                                 }), cancellationToken);
                             break;
                         }

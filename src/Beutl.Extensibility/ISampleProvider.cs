@@ -1,5 +1,4 @@
-﻿using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
+﻿using Beutl.Audio;
 
 namespace Beutl.Extensibility;
 
@@ -18,5 +17,5 @@ public interface ISampleProvider : IDisposable
 
     public long SampleRate { get; }
 
-    public ValueTask<Pcm<Stereo32BitFloat>?> ReadNextSamples(int length);
+    public ValueTask<AudioBuffer?> ReadNextSamples(int length);
 }
