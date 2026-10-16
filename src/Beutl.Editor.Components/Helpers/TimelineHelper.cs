@@ -70,11 +70,12 @@ public static class TimelineHelper
         scrollViewer.Offset = new Vector(offsetX, scrollViewer.Offset.Y);
     }
 
-    // The zoom menus pass their levels as string literals.
+    // The zoom menus pass their levels as invariant string literals, and Beutl leaves CurrentCulture at the OS one.
     internal static bool TryParseZoom(object? commandParameter, out float zoom)
     {
         zoom = 0;
-        return commandParameter is string str && float.TryParse(str, out zoom);
+        return commandParameter is string str
+            && float.TryParse(str, NumberStyles.Float, CultureInfo.InvariantCulture, out zoom);
     }
 
     internal static void ShowBpmGridFlyout(IReactiveProperty<TimelineOptions> options, Control target)
