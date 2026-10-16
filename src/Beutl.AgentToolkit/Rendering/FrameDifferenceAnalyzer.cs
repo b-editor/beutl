@@ -93,7 +93,7 @@ public sealed class FrameDifferenceAnalyzer(StillRenderer stillRenderer)
             throw new ArgumentException("At least two rendered frames are required.", nameof(frames));
         }
 
-        int normalizedDeltaThreshold = Math.Clamp(pixelDeltaThreshold, 1, 1020);
+        int normalizedDeltaThreshold = Math.Clamp(pixelDeltaThreshold, 1, 3 * byte.MaxValue);
         int normalizedForegroundThreshold = Math.Clamp(foregroundLumaThreshold, 0, byte.MaxValue);
 
         MotionVariationSample[] samples = frames
@@ -131,12 +131,9 @@ public sealed class FrameDifferenceAnalyzer(StillRenderer stillRenderer)
             throw new InvalidOperationException("Motion variation samples must have matching frame sizes.");
         }
 
-        if (previous.Bitmap.BytesPerPixel != next.Bitmap.BytesPerPixel)
-        {
-            throw new InvalidOperationException("Motion variation samples must have matching pixel formats.");
-        }
-
-        int bytesPerPixel = previous.Bitmap.BytesPerPixel;
+        // Both frames are read as sRGB bytes, as render_still reads its frame.
+        StillRenderer.LumaPixelReader firstReader = StillRenderer.GetLumaPixelReader(previous.Bitmap);
+        StillRenderer.LumaPixelReader secondReader = StillRenderer.GetLumaPixelReader(next.Bitmap);
         int width = previous.Bitmap.Width;
         int height = previous.Bitmap.Height;
         int totalPixels = width * height;
@@ -149,12 +146,9 @@ public sealed class FrameDifferenceAnalyzer(StillRenderer stillRenderer)
             Span<byte> second = next.Bitmap.GetRow(y);
             for (int x = 0; x < width; x++)
             {
-                int pixelOffset = x * bytesPerPixel;
-                int pixelDelta = 0;
-                for (int channel = 0; channel < bytesPerPixel; channel++)
-                {
-                    pixelDelta += Math.Abs(first[pixelOffset + channel] - second[pixelOffset + channel]);
-                }
+                firstReader.Read(first, x * previous.Bitmap.BytesPerPixel, out byte r1, out byte g1, out byte b1);
+                secondReader.Read(second, x * next.Bitmap.BytesPerPixel, out byte r2, out byte g2, out byte b2);
+                int pixelDelta = Math.Abs(r1 - r2) + Math.Abs(g1 - g2) + Math.Abs(b1 - b2);
 
                 totalDelta += pixelDelta;
                 if (pixelDelta > pixelDeltaThreshold)
@@ -165,9 +159,7 @@ public sealed class FrameDifferenceAnalyzer(StillRenderer stillRenderer)
         }
 
         double changedRatio = totalPixels == 0 ? 0 : changedPixels / (double)totalPixels;
-        double meanDelta = totalPixels == 0 || bytesPerPixel == 0
-            ? 0
-            : totalDelta / (double)(totalPixels * bytesPerPixel * byte.MaxValue);
+        double meanDelta = totalPixels == 0 ? 0 : totalDelta / (totalPixels * 3d * byte.MaxValue);
 
         return new MotionVariationPair(
             previous.Time.ToString("c"),
@@ -182,124 +174,19 @@ public sealed class FrameDifferenceAnalyzer(StillRenderer stillRenderer)
         (TimeSpan Time, Bitmap Bitmap) frame,
         int foregroundLumaThreshold)
     {
-        int bytesPerPixel = frame.Bitmap.BytesPerPixel;
-        int width = frame.Bitmap.Width;
-        int height = frame.Bitmap.Height;
-        int totalPixels = width * height;
-        int colorByteCount = GetColorByteCount(frame.Bitmap.ColorType, bytesPerPixel);
-        int foregroundPixels = 0;
-        int left = width;
-        int top = height;
-        int right = -1;
-        int bottom = -1;
-        Span<int> quadrants = stackalloc int[4];
-
-        for (int y = 0; y < height; y++)
-        {
-            Span<byte> row = frame.Bitmap.GetRow(y);
-            for (int x = 0; x < width; x++)
-            {
-                int pixelOffset = x * bytesPerPixel;
-                if (!IsForeground(row, pixelOffset, colorByteCount, foregroundLumaThreshold))
-                {
-                    continue;
-                }
-
-                foregroundPixels++;
-                left = Math.Min(left, x);
-                top = Math.Min(top, y);
-                right = Math.Max(right, x);
-                bottom = Math.Max(bottom, y);
-                int quadrant = (x < width / 2 ? 0 : 1) + (y < height / 2 ? 0 : 2);
-                quadrants[quadrant]++;
-            }
-        }
-
-        double foregroundRatio = totalPixels == 0 ? 0 : foregroundPixels / (double)totalPixels;
-        double occupiedBoundsRatio = 0;
-        double maxQuadrantRatio = 0;
-        if (foregroundPixels > 0)
-        {
-            int boundsPixels = (right - left + 1) * (bottom - top + 1);
-            occupiedBoundsRatio = totalPixels == 0 ? 0 : boundsPixels / (double)totalPixels;
-            int maxQuadrantPixels = 0;
-            for (int i = 0; i < quadrants.Length; i++)
-            {
-                maxQuadrantPixels = Math.Max(maxQuadrantPixels, quadrants[i]);
-            }
-
-            maxQuadrantRatio = maxQuadrantPixels / (double)foregroundPixels;
-        }
-        else
-        {
-            left = top = right = bottom = 0;
-        }
+        StillRenderer.ForegroundCoverage coverage = StillRenderer.MeasureForeground(
+            frame.Bitmap, (r, g, b) => Math.Max(r, Math.Max(g, b)) > foregroundLumaThreshold);
 
         return new MotionFrameCoverage(
             frame.Time.ToString("c"),
-            foregroundPixels,
-            totalPixels,
-            foregroundRatio,
-            occupiedBoundsRatio,
-            maxQuadrantRatio,
-            left,
-            top,
-            right,
-            bottom);
-    }
-
-    private static bool IsForeground(
-        Span<byte> row,
-        int pixelOffset,
-        int colorByteCount,
-        int foregroundLumaThreshold)
-    {
-        if (colorByteCount <= 0)
-        {
-            return false;
-        }
-
-        int maxColorByte = 0;
-        for (int channel = 0; channel < colorByteCount; channel++)
-        {
-            maxColorByte = Math.Max(maxColorByte, row[pixelOffset + channel]);
-        }
-
-        return maxColorByte > foregroundLumaThreshold;
-    }
-
-    private static int GetColorByteCount(BitmapColorType colorType, int bytesPerPixel)
-    {
-        return colorType switch
-        {
-            BitmapColorType.Alpha8
-                or BitmapColorType.Rgb565
-                or BitmapColorType.Argb4444
-                or BitmapColorType.Rgba1010102
-                or BitmapColorType.Bgra1010102
-                or BitmapColorType.Rgb101010x
-                or BitmapColorType.Bgr101010x
-                or BitmapColorType.Bgr101010xXR
-                or BitmapColorType.Rg88
-                or BitmapColorType.AlphaF16
-                or BitmapColorType.RgF16
-                or BitmapColorType.Alpha16
-                or BitmapColorType.Rg1616
-                or BitmapColorType.R16Unorm
-                or BitmapColorType.RF16 => bytesPerPixel,
-            BitmapColorType.Gray8
-                or BitmapColorType.R8Unorm => Math.Min(1, bytesPerPixel),
-            BitmapColorType.Rgba8888
-                or BitmapColorType.Rgb888x
-                or BitmapColorType.Bgra8888
-                or BitmapColorType.Srgba8888 => Math.Min(3, bytesPerPixel),
-            BitmapColorType.RgbaF16
-                or BitmapColorType.RgbaF16Clamped
-                or BitmapColorType.Rgba16161616
-                or BitmapColorType.Bgra10101010XR
-                or BitmapColorType.RgbF16F16F16x => Math.Min(6, bytesPerPixel),
-            BitmapColorType.RgbaF32 => Math.Min(12, bytesPerPixel),
-            _ => Math.Min(3, bytesPerPixel)
-        };
+            coverage.ForegroundPixels,
+            frame.Bitmap.Width * frame.Bitmap.Height,
+            coverage.ForegroundPixelRatio,
+            coverage.OccupiedBoundsRatio,
+            coverage.MaxQuadrantForegroundRatio,
+            coverage.Left,
+            coverage.Top,
+            coverage.Right,
+            coverage.Bottom);
     }
 }
