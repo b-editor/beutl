@@ -9,7 +9,7 @@ public class ContextCommandTests
     public void ContextCommandDefinition_StoresAllFields()
     {
         var win = new ContextCommandKeyGesture("Ctrl+S", OSPlatform.Windows);
-        var def = new ContextCommandDefinition("Save", "Save File", "Saves current document", [win]);
+        var def = new ContextCommandDefinition("test.save", "Save File", "Saves current document", [win]);
 
         Assert.That(def.KeyGestures, Has.Length.EqualTo(1));
     }
@@ -17,7 +17,7 @@ public class ContextCommandTests
     [Test]
     public void ContextCommandDefinition_NullGestures_StaysNull()
     {
-        var def = new ContextCommandDefinition("Cmd");
+        var def = new ContextCommandDefinition("test.cmd");
         Assert.That(def.KeyGestures, Is.Null);
     }
 
@@ -25,7 +25,7 @@ public class ContextCommandTests
     public void ContextCommandDefinition_FallbackGesture_FillsAllPlatforms()
     {
         var fallback = new ContextCommandKeyGesture("Ctrl+S");
-        var def = new ContextCommandDefinition("Save", keyGestures: [fallback]);
+        var def = new ContextCommandDefinition("test.save", keyGestures: [fallback]);
 
         Assert.That(def.KeyGestures, Is.Not.Null);
         Assert.That(def.KeyGestures, Has.Length.EqualTo(3));
@@ -41,7 +41,7 @@ public class ContextCommandTests
     {
         var win = new ContextCommandKeyGesture("Ctrl+S", OSPlatform.Windows);
         var mac = new ContextCommandKeyGesture("Cmd+S", OSPlatform.OSX);
-        var def = new ContextCommandDefinition("Save", keyGestures: [win, mac]);
+        var def = new ContextCommandDefinition("test.save", keyGestures: [win, mac]);
 
         Assert.That(def.KeyGestures, Has.Length.EqualTo(2));
         Assert.That(def.KeyGestures!.Any(g => g.Platform == OSPlatform.Windows && g.KeyGesture == "Ctrl+S"));
@@ -53,7 +53,7 @@ public class ContextCommandTests
     {
         var fallback = new ContextCommandKeyGesture("Ctrl+S");
         var mac = new ContextCommandKeyGesture("Cmd+S", OSPlatform.OSX);
-        var def = new ContextCommandDefinition("Save", keyGestures: [fallback, mac]);
+        var def = new ContextCommandDefinition("test.save", keyGestures: [fallback, mac]);
 
         var macGesture = def.KeyGestures!.Single(g => g.Platform == OSPlatform.OSX);
         Assert.That(macGesture.KeyGesture, Is.EqualTo("Cmd+S"));

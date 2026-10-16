@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.VersionControl.Views;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
 using Beutl.Editor.VersionControl;
@@ -102,14 +103,18 @@ internal sealed partial class VersionControlTabView : UserControl
         return true;
     }
 
+    // The window's command enables it, so the tab and the menu share one flow.
     private async Task ExecuteEnableVersionControlAsync()
     {
-        if (TopLevel.GetTopLevel(this)?.DataContext is IContextCommandHandler handler)
+        if (TopLevel.GetTopLevel(this)?.DataContext is { } window
+            && AppHelper.GetContextCommandManager?.Invoke()?.GetDefinitions()
+                .Select(entry => entry.Definition)
+                .FirstOrDefault(definition => definition.Id == "main.enableVersionControl") is { } definition)
         {
-            var execution = new ContextCommandExecution("EnableVersionControl");
-            if (handler.CanExecute(execution))
+            var execution = new ContextCommandExecution(definition.Id);
+            if (definition.CanRun(window, execution))
             {
-                await handler.ExecuteAsync(execution);
+                await definition.RunAsync(window, execution);
             }
         }
     }

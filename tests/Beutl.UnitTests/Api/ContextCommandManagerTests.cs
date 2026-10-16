@@ -3,7 +3,6 @@ using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Beutl.Api.Services;
 using Beutl.Extensibility;
-using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -18,7 +17,7 @@ public class ContextCommandManagerTests
     {
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
         [
-            new ContextCommandDefinition("ExitTool", "Exit Tool", null,
+            new ContextCommandDefinition("test.exitTool", "Exit Tool", null,
             [
                 new ContextCommandKeyGesture("V"),
                 new ContextCommandKeyGesture("Escape"),
@@ -26,8 +25,7 @@ public class ContextCommandManagerTests
         ];
     }
 
-    private static string CommandFullName =>
-        $"{typeof(TestViewExtension).Namespace}.{typeof(TestViewExtension).Name}.ExitTool";
+    private const string CommandId = "test.exitTool";
 
     private static ContextCommandManager CreateManager(JsonObject json)
     {
@@ -169,7 +167,7 @@ public class ContextCommandManagerTests
     public void Restore_LegacyStringEntry_AppliesToFirstSlotOnly()
     {
         // Entries written before multi-gesture support persist a plain string per platform.
-        var json = new JsonObject { ["Windows"] = new JsonObject { [CommandFullName] = "F1" } };
+        var json = new JsonObject { ["Windows"] = new JsonObject { [CommandId] = "F1" } };
         var manager = CreateManager(json);
 
         manager.Register(new TestViewExtension());
@@ -184,7 +182,7 @@ public class ContextCommandManagerTests
     {
         var json = new JsonObject
         {
-            ["Windows"] = new JsonObject { [CommandFullName] = new JsonArray("F1", null) }
+            ["Windows"] = new JsonObject { [CommandId] = new JsonArray("F1", null) }
         };
         var manager = CreateManager(json);
 
@@ -200,7 +198,7 @@ public class ContextCommandManagerTests
     {
         var json = new JsonObject
         {
-            ["Windows"] = new JsonObject { [CommandFullName] = new JsonArray("V", "Escape", "F2") }
+            ["Windows"] = new JsonObject { [CommandId] = new JsonArray("V", "Escape", "F2") }
         };
         var manager = CreateManager(json);
 
@@ -211,50 +209,36 @@ public class ContextCommandManagerTests
             Is.EqualTo(new[] { KeyGesture.Parse("V"), KeyGesture.Parse("Escape"), KeyGesture.Parse("F2") }));
     }
 
-    // keymap.json keys a command by the namespace and name of its extension's type, so a renamed or moved extension
-    // reads the keys of its former name (FormerPersistedNameAttribute) for each platform that has none under the
-    // current one, and saves under the current one.
     [Test]
-    public void Restore_GesturesUnderAFormerTypeName_ApplyWhereTheCurrentKeyHasNone()
+    public void A_keymap_from_before_command_ids_moves_to_the_ids_once()
     {
-        string currentName = $"{typeof(RenamedViewExtension).Namespace}.{nameof(RenamedViewExtension)}.ExitTool";
+        const string LegacyDelete = "Beutl.Services.PrimitiveImpls.TimelineTabExtension.Delete";
+        const string LegacyUndo = "Beutl.Services.PrimitiveImpls.MainViewExtension.Undo";
         var json = new JsonObject
         {
-            ["Windows"] = new JsonObject { ["Former.Namespace.FormerViewExtension.ExitTool"] = new JsonArray("F1") },
+            ["Windows"] = new JsonObject
+            {
+                [LegacyDelete] = new JsonArray("Shift+Delete", null),
+                ["Removed.Extension.Command"] = "F9",
+            },
             ["OSX"] = new JsonObject
             {
-                [currentName] = new JsonArray("F2"),
-                ["Former.Namespace.FormerViewExtension.ExitTool"] = new JsonArray("F3"),
+                [LegacyUndo] = "Cmd+U",
+                ["main.undo"] = new JsonArray("Cmd+Alt+Z"),
             },
         };
-        var manager = CreateManager(json);
 
-        manager.Register(new RenamedViewExtension());
-        ContextCommandEntry entry = manager.GetDefinitions<RenamedViewExtension>().Single();
-        KeyGesture?[] windows = GesturesFor(entry, OSPlatform.Windows);
-        KeyGesture?[] macOS = GesturesFor(entry, OSPlatform.OSX);
-        manager.ChangeKeyGesture(entry, KeyGesture.Parse("F4"), OSPlatform.Windows, gestureIndex: 1);
+        var store = new ContextCommandSettingsStore(json, persist: false);
 
         Assert.Multiple(() =>
         {
-            Assert.That(windows, Is.EqualTo(new[] { KeyGesture.Parse("F1"), KeyGesture.Parse("Escape") }));
-            Assert.That(macOS, Is.EqualTo(new[] { KeyGesture.Parse("F2"), KeyGesture.Parse("Escape") }),
-                "The current key wins.");
-            Assert.That(json[OSPlatform.Windows.ToString()]?[currentName]?.AsArray().Select(node => (string?)node),
-                Is.EqualTo(new[] { "F1", "F4" }), "Saving writes the current key.");
+            Assert.That(json["Windows"]!.AsObject().Select(pair => pair.Key),
+                Is.EquivalentTo(new[] { "timeline.delete", "Removed.Extension.Command" }));
+            Assert.That(store.Restore("timeline.delete").Single().Gestures,
+                Is.EqualTo(new KeyGesture?[] { KeyGesture.Parse("Shift+Delete"), null }));
+            Assert.That(json["OSX"]!.AsObject().Select(pair => pair.Key), Is.EquivalentTo(new[] { "main.undo" }));
+            Assert.That(store.Restore("main.undo").Single().Gestures, Is.EqualTo(new[] { KeyGesture.Parse("Cmd+Alt+Z") }),
+                "A gesture saved under the id wins.");
         });
-    }
-
-    [FormerPersistedName("[Beutl.UnitTests]Former.Namespace:FormerViewExtension")]
-    private sealed class RenamedViewExtension : ViewExtension
-    {
-        public override IEnumerable<ContextCommandDefinition> ContextCommands =>
-        [
-            new ContextCommandDefinition("ExitTool", "Exit Tool", null,
-            [
-                new ContextCommandKeyGesture("V"),
-                new ContextCommandKeyGesture("Escape"),
-            ]),
-        ];
     }
 }

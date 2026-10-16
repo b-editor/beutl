@@ -80,10 +80,10 @@ public sealed class TabSwitcherViewModel : IDisposable
                              && _editorService.TabItems.Count > 0
                              && _editorService.SelectedTabItem.Value?.Context.Value is not EditViewModel { IsEnabled.Value: false };
 
-    internal static bool IsNavigationCommand(string name) => name is
-        MainViewExtension.NextTabCommandName or MainViewExtension.PreviousTabCommandName
-        or MainViewExtension.NextToolTabCommandName or MainViewExtension.PreviousToolTabCommandName
-        or MainViewExtension.CreateToolTabCommandName;
+    internal static bool IsNavigationCommand(string id) => id is
+        MainViewExtension.NextTabCommandId or MainViewExtension.PreviousTabCommandId
+        or MainViewExtension.NextToolTabCommandId or MainViewExtension.PreviousToolTabCommandId
+        or MainViewExtension.CreateToolTabCommandId;
 
     internal static bool IsTextInputGesture(KeyEventArgs? args) =>
         args is not null
@@ -92,16 +92,16 @@ public sealed class TabSwitcherViewModel : IDisposable
 
     internal bool ExecuteCommand(ContextCommandExecution execution)
     {
-        TabSwitcherGroup group = execution.CommandName switch
+        TabSwitcherGroup group = execution.CommandId switch
         {
-            MainViewExtension.CreateToolTabCommandName => TabSwitcherGroup.NewTools,
+            MainViewExtension.CreateToolTabCommandId => TabSwitcherGroup.NewTools,
             _ => TabSwitcherGroup.Tools,
         };
-        int direction = execution.CommandName is MainViewExtension.PreviousTabCommandName
-            or MainViewExtension.PreviousToolTabCommandName ? -1 : 1;
+        int direction = execution.CommandId is MainViewExtension.PreviousTabCommandId
+            or MainViewExtension.PreviousToolTabCommandId ? -1 : 1;
         KeyModifiers modifiers = execution.KeyEventArgs?.KeyModifiers ?? KeyModifiers.None;
         KeyModifiers primaryModifiers = modifiers & (KeyModifiers.Control | KeyModifiers.Alt | KeyModifiers.Meta);
-        modifiers = execution.CommandName == MainViewExtension.CreateToolTabCommandName
+        modifiers = execution.CommandId == MainViewExtension.CreateToolTabCommandId
             ? KeyModifiers.None
             : primaryModifiers != KeyModifiers.None ? primaryModifiers : modifiers & KeyModifiers.Shift;
         return Begin(group, direction, modifiers);

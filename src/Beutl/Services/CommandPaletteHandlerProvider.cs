@@ -5,7 +5,8 @@ namespace Beutl.Services;
 
 public interface ICommandPaletteHandlerProvider
 {
-    IContextCommandHandler? Resolve(Type extensionType);
+    // The open context that runs the extension's commands: the main view model, an editor or a tool context.
+    object? Resolve(Type extensionType);
 }
 
 internal sealed class CommandPaletteHandlerProvider : ICommandPaletteHandlerProvider
@@ -19,11 +20,11 @@ internal sealed class CommandPaletteHandlerProvider : ICommandPaletteHandlerProv
         _editorService = editorService;
     }
 
-    public IContextCommandHandler? Resolve(Type extensionType)
+    public object? Resolve(Type extensionType)
     {
         if (extensionType == typeof(MainViewExtension))
         {
-            return _mainViewModelAccessor() as IContextCommandHandler;
+            return _mainViewModelAccessor();
         }
 
         if (typeof(EditorExtension).IsAssignableFrom(extensionType))
@@ -31,7 +32,7 @@ internal sealed class CommandPaletteHandlerProvider : ICommandPaletteHandlerProv
             EditorTabItem? tab = _editorService.SelectedTabItem.Value;
             if (tab?.Extension.Value is { } extension && extension.GetType() == extensionType)
             {
-                return tab.Context.Value as IContextCommandHandler;
+                return tab.Context.Value;
             }
 
             return null;
@@ -42,7 +43,7 @@ internal sealed class CommandPaletteHandlerProvider : ICommandPaletteHandlerProv
             EditorTabItem? tab = _editorService.SelectedTabItem.Value;
             if (tab?.Context.Value is EditViewModel editor)
             {
-                return editor.DockHost.FindToolContext(extensionType) as IContextCommandHandler;
+                return editor.DockHost.FindToolContext(extensionType);
             }
 
             return null;

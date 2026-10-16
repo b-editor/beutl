@@ -23,11 +23,11 @@
                     <NativeMenuItem Header="{x:Static lang:Strings.CreateNew}">
                         <NativeMenu>
                             <NativeMenuItem Command="{CompiledBinding MenuBar.CreateNewProject}"
-                                            Gesture="{h:GetCommandGesture CreateNewProject,
+                                            Gesture="{h:GetCommandGesture main.createNewProject,
                                                                           ExtensionType={x:Type p:MainViewExtension}}"
                                             Header="{x:Static lang:Strings.CreateNewProject}" />
                             <NativeMenuItem Command="{CompiledBinding MenuBar.NewScene}"
-                                            Gesture="{h:GetCommandGesture CreateNewFile,
+                                            Gesture="{h:GetCommandGesture main.createNewFile,
                                                                           ExtensionType={x:Type p:MainViewExtension}}"
                                             Header="{x:Static lang:Strings.CreateNewScene}" />
                         </NativeMenu>
@@ -36,11 +36,11 @@
                     <NativeMenuItem Header="{x:Static lang:Strings.Open}">
                         <NativeMenu>
                             <NativeMenuItem Command="{CompiledBinding MenuBar.OpenProject}"
-                                            Gesture="{h:GetCommandGesture OpenProject,
+                                            Gesture="{h:GetCommandGesture main.openProject,
                                                                           ExtensionType={x:Type p:MainViewExtension}}"
                                             Header="{x:Static lang:Strings.Project}" />
                             <NativeMenuItem Command="{CompiledBinding MenuBar.OpenFile}"
-                                            Gesture="{h:GetCommandGesture OpenFile,
+                                            Gesture="{h:GetCommandGesture main.openFile,
                                                                           ExtensionType={x:Type p:MainViewExtension}}"
                                             Header="{x:Static lang:Strings.File}" />
                         </NativeMenu>
@@ -51,11 +51,11 @@
                                     Header="{x:Static lang:Strings.CloseProject}" />
                     <NativeMenuItemSeparator />
                     <NativeMenuItem Command="{CompiledBinding MenuBar.Save}"
-                                    Gesture="{h:GetCommandGesture Save,
+                                    Gesture="{h:GetCommandGesture main.save,
                                                                   ExtensionType={x:Type p:MainViewExtension}}"
                                     Header="{x:Static lang:Strings.Save}" />
                     <NativeMenuItem Command="{CompiledBinding MenuBar.SaveAll}"
-                                    Gesture="{h:GetCommandGesture SaveAll,
+                                    Gesture="{h:GetCommandGesture main.saveAll,
                                                                   ExtensionType={x:Type p:MainViewExtension}}"
                                     Header="{x:Static lang:Strings.SaveAll}" />
                     <NativeMenuItemSeparator />
@@ -72,7 +72,7 @@
 
                     <NativeMenuItemSeparator />
                     <NativeMenuItem Command="{CompiledBinding MenuBar.Exit}"
-                                    Gesture="{h:GetCommandGesture Exit,
+                                    Gesture="{h:GetCommandGesture main.exit,
                                                                   ExtensionType={x:Type p:MainViewExtension}}"
                                     Header="{x:Static lang:Strings.Exit}" />
                 </NativeMenu>
@@ -80,11 +80,11 @@
             <NativeMenuItem Header="{x:Static lang:Strings.Edit}">
                 <NativeMenu>
                     <NativeMenuItem Command="{CompiledBinding MenuBar.Undo}"
-                                    Gesture="{h:GetCommandGesture Undo,
+                                    Gesture="{h:GetCommandGesture main.undo,
                                                                   ExtensionType={x:Type p:MainViewExtension}}"
                                     Header="{x:Static lang:Strings.Undo}" />
                     <NativeMenuItem Command="{CompiledBinding MenuBar.Redo}"
-                                    Gesture="{h:GetCommandGesture Redo,
+                                    Gesture="{h:GetCommandGesture main.redo,
                                                                   ExtensionType={x:Type p:MainViewExtension}}"
                                     Header="{x:Static lang:Strings.Redo}" />
                 </NativeMenu>

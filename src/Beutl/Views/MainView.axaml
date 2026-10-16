@@ -52,11 +52,11 @@
                         </MenuItem.Icon>
                         <MenuItem Command="{CompiledBinding MenuBar.CreateNewProject}"
                                   Header="{x:Static lang:Strings.CreateNewProject}"
-                                  InputGesture="{h:GetCommandGesture CreateNewProject,
+                                  InputGesture="{h:GetCommandGesture main.createNewProject,
                                                                      ExtensionType={x:Type p:MainViewExtension}}" />
                         <MenuItem Command="{CompiledBinding MenuBar.NewScene}"
                                   Header="{x:Static lang:Strings.CreateNewScene}"
-                                  InputGesture="{h:GetCommandGesture CreateNewFile,
+                                  InputGesture="{h:GetCommandGesture main.createNewFile,
                                                                      ExtensionType={x:Type p:MainViewExtension}}" />
                     </MenuItem>
                     <Separator />
@@ -66,11 +66,11 @@
                         </MenuItem.Icon>
                         <MenuItem Command="{CompiledBinding MenuBar.OpenProject}"
                                   Header="{x:Static lang:Strings.Project}"
-                                  InputGesture="{h:GetCommandGesture OpenProject,
+                                  InputGesture="{h:GetCommandGesture main.openProject,
                                                                      ExtensionType={x:Type p:MainViewExtension}}" />
                         <MenuItem Command="{CompiledBinding MenuBar.OpenFile}"
                                   Header="{x:Static lang:Strings.File}"
-                                  InputGesture="{h:GetCommandGesture OpenFile,
+                                  InputGesture="{h:GetCommandGesture main.openFile,
                                                                      ExtensionType={x:Type p:MainViewExtension}}" />
                     </MenuItem>
                     <Separator />
@@ -80,7 +80,7 @@
                     <Separator />
                     <MenuItem Command="{CompiledBinding MenuBar.Save}"
                               Header="{x:Static lang:Strings.Save}"
-                              InputGesture="{h:GetCommandGesture Save,
+                              InputGesture="{h:GetCommandGesture main.save,
                                                                  ExtensionType={x:Type p:MainViewExtension}}">
                         <MenuItem.Icon>
                             <icons:FluentIcon Icon="Save" />
@@ -88,7 +88,7 @@
                     </MenuItem>
                     <MenuItem Command="{CompiledBinding MenuBar.SaveAll}"
                               Header="{x:Static lang:Strings.SaveAll}"
-                              InputGesture="{h:GetCommandGesture SaveAll,
+                              InputGesture="{h:GetCommandGesture main.saveAll,
                                                                  ExtensionType={x:Type p:MainViewExtension}}">
                         <MenuItem.Icon>
                             <icons:FluentIcon Icon="SaveMultiple" />
@@ -116,13 +116,13 @@
                     <Separator />
                     <MenuItem Command="{CompiledBinding MenuBar.Exit}"
                               Header="{x:Static lang:Strings.Exit}"
-                              InputGesture="{h:GetCommandGesture Exit,
+                              InputGesture="{h:GetCommandGesture main.exit,
                                                                  ExtensionType={x:Type p:MainViewExtension}}" />
                 </MenuItem>
                 <MenuItem Header="{x:Static lang:Strings.Edit}">
                     <MenuItem Command="{CompiledBinding MenuBar.Undo}"
                               Header="{x:Static lang:Strings.Undo}"
-                              InputGesture="{h:GetCommandGesture Undo,
+                              InputGesture="{h:GetCommandGesture main.undo,
                                                                  ExtensionType={x:Type p:MainViewExtension}}">
                         <MenuItem.Icon>
                             <icons:FluentIcon Icon="ArrowUndo" />
@@ -130,7 +130,7 @@
                     </MenuItem>
                     <MenuItem Command="{CompiledBinding MenuBar.Redo}"
                               Header="{x:Static lang:Strings.Redo}"
-                              InputGesture="{h:GetCommandGesture Redo,
+                              InputGesture="{h:GetCommandGesture main.redo,
                                                                  ExtensionType={x:Type p:MainViewExtension}}">
                         <MenuItem.Icon>
                             <icons:FluentIcon Icon="ArrowRedo" />

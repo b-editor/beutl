@@ -13,20 +13,20 @@ internal static class TimelineEditingModeMenu
 {
     public static void Populate(FAMenuFlyoutSubItem menu, string timelinePath)
     {
-        menu.Items.Add(CreateToggle(timelinePath, "IsRazorMode", "ToggleRazorMode", Strings.RazorTool, Icon.Cut));
-        menu.Items.Add(CreateToggle(timelinePath, "IsSlipMode", "ToggleSlipMode", Strings.SlipTool));
-        menu.Items.Add(CreateToggle(timelinePath, "IsRollMode", "ToggleRollMode", Strings.RollTool));
-        menu.Items.Add(CreateToggle(timelinePath, "IsSlideMode", "ToggleSlideMode", Strings.SlideTool));
+        menu.Items.Add(CreateToggle(timelinePath, "IsRazorMode", "timeline.toggleRazorMode", Strings.RazorTool, Icon.Cut));
+        menu.Items.Add(CreateToggle(timelinePath, "IsSlipMode", "timeline.toggleSlipMode", Strings.SlipTool));
+        menu.Items.Add(CreateToggle(timelinePath, "IsRollMode", "timeline.toggleRollMode", Strings.RollTool));
+        menu.Items.Add(CreateToggle(timelinePath, "IsSlideMode", "timeline.toggleSlideMode", Strings.SlideTool));
         menu.Items.Add(new FAMenuFlyoutSeparator());
-        menu.Items.Add(CreateToggle(timelinePath, "IsRippleEnabled", "ToggleRippleMode", Strings.RippleEdit));
+        menu.Items.Add(CreateToggle(timelinePath, "IsRippleEnabled", "timeline.toggleRippleMode", Strings.RippleEdit));
     }
 
     private static FAToggleMenuFlyoutItem CreateToggle(
-        string timelinePath, string property, string commandName, string text, Icon? icon = null)
+        string timelinePath, string property, string commandId, string text, Icon? icon = null)
     {
         var item = new FAToggleMenuFlyoutItem
         {
-            InputGesture = GetCommandGestureExtension.GetKeyGesture(typeof(TimelineTabExtension), commandName),
+            InputGesture = GetCommandGestureExtension.GetKeyGesture(typeof(TimelineTabExtension), commandId),
             Text = text
         };
         if (icon is { } value)

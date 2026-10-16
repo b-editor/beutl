@@ -332,7 +332,7 @@ public sealed class CommandPaletteInteractionTests
             await palette.ExecuteSelectedAsync();
             Assert.Multiple(() =>
             {
-                Assert.That(extension.Execution?.CommandName, Is.EqualTo("Global"));
+                Assert.That(extension.Execution?.CommandId, Is.EqualTo("test.global"));
                 Assert.That(extension.Execution?.EditorContext, Is.Null);
                 Assert.That(extension.Execution?.Services?.ExtensionProvider, Is.SameAs(provider));
                 Assert.That(extension.ContextCreations, Is.Zero);
@@ -483,7 +483,7 @@ public sealed class CommandPaletteInteractionTests
         }
     }
 
-    private sealed class ClosedToolExtension : ToolTabExtension, IContextCommandHandler, IContextCommandStateNotifier
+    private sealed class ClosedToolExtension : ToolTabExtension, IContextCommandStateNotifier
     {
         private readonly Subject<Unit> _stateChanged = new();
 
@@ -501,18 +501,22 @@ public sealed class CommandPaletteInteractionTests
 
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
         [
-            new("Global", "Closed tool command") { Scope = ContextCommandScope.Extension },
-            new("Local", "Open tool command")
+            new("test.global", "Closed tool command")
+            {
+                Scope = ContextCommandScope.Extension,
+                CanExecute = _ => Enabled,
+                ExecuteAsync = execution =>
+                {
+                    Executions++;
+                    Execution = execution;
+                    return Operation;
+                }
+            },
+            new ContextCommandDefinition<IToolContext>("test.local", "Open tool command")
+            {
+                ExecuteOnAsync = (_, _) => Task.CompletedTask
+            }
         ];
-
-        public Task ExecuteAsync(ContextCommandExecution execution)
-        {
-            Executions++;
-            Execution = execution;
-            return Operation;
-        }
-
-        public bool CanExecute(ContextCommandExecution execution) => Enabled;
 
         public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
         {
