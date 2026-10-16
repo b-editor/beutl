@@ -43,6 +43,11 @@ internal sealed partial class PackageApiChecker
             if ((type.Attributes & TypeAttributes.Abstract) == 0)
             {
                 CheckAbstractMethods([self, .. bases]);
+                // Base types outside the package and the host may implement interface methods that cannot be seen.
+                if (complete)
+                {
+                    CheckInterfaces([self, .. bases]);
+                }
             }
         }
     }
