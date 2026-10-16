@@ -21,7 +21,6 @@ using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
@@ -453,7 +452,7 @@ public class TimelineMediaDurationTests
         public override bool HasVideo => true;
         public override bool HasAudio => false;
         public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Beutl.Media.Bitmap>? image) { image = null; return false; }
-        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound) { sound = null; return false; }
+        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound) { sound = null; return false; }
     }
 
     private static TimeSpan ExpectedLength(double seconds)

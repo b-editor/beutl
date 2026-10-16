@@ -190,12 +190,12 @@ public class FFmpegReaderProxyIdleTests
         Assert.That(_tracker.TrackedCount, Is.Zero);
         Assert.That(reader.ReadAudio(0, 100, out var single), Is.True);
         using (single)
-            Assert.That(single!.Value.NumSamples, Is.EqualTo(100));
+            Assert.That(single!.SampleCount, Is.EqualTo(100));
 
         // Longer than one second, so the proxy splits the request into chunks.
         Assert.That(reader.ReadAudio(0, 9000, out var chunked), Is.True);
         using (chunked)
-            Assert.That(chunked!.Value.NumSamples, Is.EqualTo(9000));
+            Assert.That(chunked!.SampleCount, Is.EqualTo(9000));
     }
 
     // The sweep runs on a timer thread; it must never close the worker reader under a read in progress.
@@ -728,7 +728,7 @@ public class FFmpegReaderProxyIdleTests
     {
         Assert.That(reader.ReadAudio(0, length, out var sound), Is.True);
         using (sound)
-            return sound!.Value.NumSamples;
+            return sound!.SampleCount;
     }
 
     private FFmpegReaderProxy CreateVideoProxy(

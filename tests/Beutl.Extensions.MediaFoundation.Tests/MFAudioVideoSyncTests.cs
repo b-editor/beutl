@@ -1,10 +1,9 @@
 ﻿using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
+using Beutl.Audio;
 using Beutl.Embedding.MediaFoundation.Decoding;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 
 namespace Beutl.Extensions.MediaFoundation.Tests;
 
@@ -62,9 +61,9 @@ public class MFAudioVideoSyncTests
             Assert.That(reader.ReadAudio(start, 4096, out var pcm), Is.True);
             using (pcm)
             {
-                Assert.That(pcm!.Value.NumSamples, Is.Zero);
-                Assert.That(pcm.Value.SampleRate, Is.EqualTo(48000));
-                Assert.That(pcm.Value.NumChannels, Is.EqualTo(2));
+                Assert.That(pcm!.SampleCount, Is.Zero);
+                Assert.That(pcm.SampleRate, Is.EqualTo(48000));
+                Assert.That(pcm.ChannelCount, Is.EqualTo(2));
             }
         }
 
@@ -81,8 +80,8 @@ public class MFAudioVideoSyncTests
         Assert.That(reader.ReadAudio(48000 * 4 - 480, 4800, out var pcm), Is.True);
         using (pcm)
         {
-            Assert.That(pcm!.Value.NumSamples, Is.InRange(479, 480));
-            Assert.That(EstimateFrequency((Pcm<Stereo32BitFloat>)pcm.Value), Is.EqualTo(1760).Within(150));
+            Assert.That(pcm!.SampleCount, Is.InRange(479, 480));
+            Assert.That(EstimateFrequency(pcm), Is.EqualTo(1760).Within(150));
         }
         AssertTone(reader, 0.9, 440);
     }
@@ -102,21 +101,21 @@ public class MFAudioVideoSyncTests
         Assert.That(reader.ReadAudio((int)(seconds * rate), rate / 20, out var pcm), Is.True);
         using (pcm)
         {
-            Assert.That(pcm!.Value.NumSamples, Is.EqualTo(rate / 20));
-            Assert.That(EstimateFrequency((Pcm<Stereo32BitFloat>)pcm.Value),
+            Assert.That(pcm!.SampleCount, Is.EqualTo(rate / 20));
+            Assert.That(EstimateFrequency(pcm),
                 Is.EqualTo(expectedFrequency).Within(60), $"wrong audio content at {seconds}s");
         }
     }
 
-    private static double EstimateFrequency(Pcm<Stereo32BitFloat> pcm)
+    private static double EstimateFrequency(AudioBuffer pcm)
     {
         int crossings = 0;
-        var samples = pcm.DataSpan;
+        var samples = pcm.GetChannelData(0);
         for (int i = 1; i < samples.Length; i++)
         {
-            if (samples[i - 1].Left <= 0 && samples[i].Left > 0)
+            if (samples[i - 1] <= 0 && samples[i] > 0)
                 crossings++;
         }
-        return crossings * pcm.SampleRate / (double)pcm.NumSamples;
+        return crossings * pcm.SampleRate / (double)pcm.SampleCount;
     }
 }

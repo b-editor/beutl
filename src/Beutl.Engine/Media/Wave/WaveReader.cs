@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
+using Beutl.Audio;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
 using Beutl.Media.Source;
 
 using NAudio.Wave;
@@ -46,7 +46,7 @@ public sealed class WaveReader : MediaReader
 
     public override bool HasAudio => true;
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
     {
         sound = null;
         if (IsDisposed)

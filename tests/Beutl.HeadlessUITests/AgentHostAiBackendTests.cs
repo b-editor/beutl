@@ -6,11 +6,10 @@ using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Audio;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
@@ -455,7 +454,7 @@ public sealed class AgentHostAiBackendTests
             return false;
         }
 
-        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
         {
             if (!Readable || start >= FailFrom)
             {
@@ -470,9 +469,9 @@ public sealed class AgentHostAiBackendTests
                 decoded = Math.Min(decoded, 1);
             if (start >= ShortReadsFrom && decoded > 0)
                 decoded = Math.Max(1, decoded / 2);
-            var pcm = new Pcm<Stereo32BitFloat>(sampleRate, decoded);
-            pcm.DataSpan.Fill(new Stereo32BitFloat(0.25f, -0.25f));
-            sound = Ref<IPcm>.Create(pcm);
+            sound = new AudioBuffer(sampleRate, 2, decoded);
+            sound.GetChannelData(0).Fill(0.25f);
+            sound.GetChannelData(1).Fill(-0.25f);
             return true;
         }
     }

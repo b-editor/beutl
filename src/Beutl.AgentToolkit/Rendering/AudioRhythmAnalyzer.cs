@@ -1,8 +1,7 @@
 ﻿using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
+using Beutl.Audio;
 using Beutl.Composition;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 
 namespace Beutl.AgentToolkit.Rendering;
@@ -101,29 +100,20 @@ public sealed class AudioRhythmAnalyzer
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        if (!resource.Read((int)Math.Min(startSample, int.MaxValue), (int)sampleLength, out Ref<IPcm>? soundRef))
+        if (!resource.Read((int)Math.Min(startSample, int.MaxValue), (int)sampleLength, out AudioBuffer? audio))
         {
             throw new CodecUnavailableException($"Audio samples could not be read from '{fullPath}'.");
         }
 
-        using (soundRef)
+        using (audio)
         {
-            IPcm pcm = soundRef.Value;
-            using Pcm<Monaural32BitFloat> mono = pcm is Pcm<Monaural32BitFloat> direct
-                ? direct.Clone()
-                : pcm.Convert<Monaural32BitFloat>();
-
-            float[] samples = new float[mono.NumSamples];
-            ReadOnlySpan<Monaural32BitFloat> src = mono.DataSpan;
-            for (int i = 0; i < src.Length; i++)
-            {
-                samples[i] = src[i].Value;
-            }
+            // The analysis has always used the left channel only.
+            float[] samples = audio.GetChannelData(0).ToArray();
 
             cancellationToken.ThrowIfCancellationRequested();
             AudioRhythmAnalysis zeroBased = AnalyzePcm(
                 samples,
-                mono.SampleRate,
+                audio.SampleRate,
                 minBpm,
                 maxBpm,
                 normalizedStartSeconds);

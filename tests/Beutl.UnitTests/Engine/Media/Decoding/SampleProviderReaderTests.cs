@@ -1,7 +1,4 @@
 ﻿using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
-using Beutl.Media.Source;
 
 using NAudio.Wave;
 
@@ -67,7 +64,7 @@ public class SampleProviderReaderTests
         foreach (int length in new[] { 0, -1, -50 })
         {
             using var result = SampleProviderReader.ReadStereo(provider, SampleRate, length);
-            Assert.That(((Pcm<Stereo32BitFloat>)result.Value).NumSamples, Is.Zero,
+            Assert.That(result.SampleCount, Is.Zero,
                 $"length {length} must yield an empty buffer");
         }
     }
@@ -78,14 +75,14 @@ public class SampleProviderReaderTests
         var provider = new FakeSampleProvider(totalFrames: 1000);
 
         using var result = SampleProviderReader.ReadStereo(provider, SampleRate, length: 500);
-        var pcm = (Pcm<Stereo32BitFloat>)result.Value;
 
-        Assert.That(pcm.NumSamples, Is.EqualTo(500));
-        Span<Stereo32BitFloat> data = pcm.DataSpan;
-        Assert.That(data[0].Left, Is.EqualTo(0f));
-        Assert.That(data[0].Right, Is.EqualTo(0f));
-        Assert.That(data[499].Left, Is.EqualTo(499f));
-        Assert.That(data[499].Right, Is.EqualTo(-499f));
+        Assert.That(result.SampleCount, Is.EqualTo(500));
+        Span<float> left = result.GetChannelData(0);
+        Span<float> right = result.GetChannelData(1);
+        Assert.That(left[0], Is.EqualTo(0f));
+        Assert.That(right[0], Is.EqualTo(0f));
+        Assert.That(left[499], Is.EqualTo(499f));
+        Assert.That(right[499], Is.EqualTo(-499f));
     }
 
     [Test]
@@ -94,10 +91,9 @@ public class SampleProviderReaderTests
         var provider = new FakeSampleProvider(totalFrames: 300);
 
         using var result = SampleProviderReader.ReadStereo(provider, SampleRate, length: 500);
-        var pcm = (Pcm<Stereo32BitFloat>)result.Value;
 
-        Assert.That(pcm.NumSamples, Is.EqualTo(300), "EOF must surface as a short read, not an error");
-        Assert.That(pcm.DataSpan[299].Left, Is.EqualTo(299f));
+        Assert.That(result.SampleCount, Is.EqualTo(300), "EOF must surface as a short read, not an error");
+        Assert.That(result.GetChannelData(0)[299], Is.EqualTo(299f));
     }
 
     [Test]
@@ -107,7 +103,7 @@ public class SampleProviderReaderTests
         var provider = new FakeSampleProvider(totalFrames: 0);
 
         using var result = SampleProviderReader.ReadStereo(provider, SampleRate, length: 500);
-        Assert.That(((Pcm<Stereo32BitFloat>)result.Value).NumSamples, Is.Zero);
+        Assert.That(result.SampleCount, Is.Zero);
     }
 
     [Test]
@@ -116,12 +112,11 @@ public class SampleProviderReaderTests
         var provider = new OddFloatProvider();
 
         using var result = SampleProviderReader.ReadStereo(provider, SampleRate, length: 4);
-        var pcm = (Pcm<Stereo32BitFloat>)result.Value;
 
         // 3 floats = 1 whole frame (the trailing half-frame float is dropped, never overruns).
-        Assert.That(pcm.NumSamples, Is.EqualTo(1));
-        Assert.That(pcm.DataSpan[0].Left, Is.EqualTo(0f));
-        Assert.That(pcm.DataSpan[0].Right, Is.EqualTo(1f));
+        Assert.That(result.SampleCount, Is.EqualTo(1));
+        Assert.That(result.GetChannelData(0)[0], Is.EqualTo(0f));
+        Assert.That(result.GetChannelData(1)[0], Is.EqualTo(1f));
     }
 
     [Test]
@@ -132,8 +127,7 @@ public class SampleProviderReaderTests
         var provider = new FakeSampleProvider(totalFrames: 1000, maxReturnFrames: 50);
 
         using var result = SampleProviderReader.ReadStereo(provider, SampleRate, length: 200);
-        var pcm = (Pcm<Stereo32BitFloat>)result.Value;
 
-        Assert.That(pcm.NumSamples, Is.EqualTo(50), "a mid-stream short read must be reported as-is");
+        Assert.That(result.SampleCount, Is.EqualTo(50), "a mid-stream short read must be reported as-is");
     }
 }

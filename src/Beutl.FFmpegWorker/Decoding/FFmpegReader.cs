@@ -1,10 +1,11 @@
-﻿using System.Diagnostics;
+﻿using System.Buffers;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+using Beutl.Audio;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using FFmpeg.AutoGen.Abstractions;
@@ -156,28 +157,34 @@ public sealed class FFmpegReader : MediaReader
 
     public bool IsHdr => _isHdr;
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? result)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? result)
     {
         // Decoder側でResampleされるかのチェックのため
         if (length == 0)
         {
-            result = Ref<IPcm>.Create(new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, 0));
+            result = new AudioBuffer(AudioInfo.SampleRate, 2, 0);
             return true;
         }
 
         result = null;
         if (_audioDecoder == null || _currentAudioFrame == null) return false;
 
-        var sound = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
-        if (ReadAudio(start, length, MemoryMarshal.AsBytes(sound.DataSpan), out _))
+        float[] interleaved = ArrayPool<float>.Shared.Rent(length * 2);
+        try
         {
-            result = Ref<IPcm>.Create(sound);
+            // Cleared, so the tail of a short read stays silent.
+            Span<float> samples = interleaved.AsSpan(0, length * 2);
+            samples.Clear();
+            if (!ReadAudio(start, length, MemoryMarshal.AsBytes(samples), out _))
+                return false;
+
+            result = new AudioBuffer(AudioInfo.SampleRate, 2, length);
+            AudioConversion.Deinterleave(samples, result);
             return true;
         }
-        else
+        finally
         {
-            sound.Dispose();
-            return false;
+            ArrayPool<float>.Shared.Return(interleaved);
         }
     }
 
