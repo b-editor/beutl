@@ -71,7 +71,7 @@ public sealed class AiNarrowLayoutTests
     }
 
     [AvaloniaTest]
-    public void AiJobCenter_NarrowActionsWrapWithinCardsAndConfirmation()
+    public void AiJobCenter_ConfirmationAndFooterActionsWrapWhenNarrow()
     {
         var view = new AiJobCenterView();
 

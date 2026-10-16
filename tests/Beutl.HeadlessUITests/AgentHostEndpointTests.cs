@@ -251,7 +251,7 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
-    public async Task Endpoint_binds_default_loopback_port_uses_fixed_token_and_stops_cleanly()
+    public async Task Endpoint_binds_default_loopback_port_accepts_only_its_bearer_token_and_stops_cleanly()
     {
         await TestReset.ResetShellAsync();
         if (!CanBindLoopbackPort(AgentHostEndpoint.DefaultPort))

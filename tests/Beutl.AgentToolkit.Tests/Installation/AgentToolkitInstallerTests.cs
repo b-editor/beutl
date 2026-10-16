@@ -216,9 +216,9 @@ public sealed class AgentToolkitInstallerTests
 
     [TestCase(McpConfigFormat.Json, ".mcp.json")]
     [TestCase(McpConfigFormat.CodexToml, "config.toml")]
-    public void InstallAsync_RequiresTheServerCommand(McpConfigFormat format, string configFileName)
+    public async Task InstallAsync_RequiresTheServerCommand(McpConfigFormat format, string configFileName)
     {
-        Assert.ThrowsAsync<InvalidOperationException>(() => AgentToolkitInstaller.InstallAsync(
+        await Assert.ThrowsAsync<InvalidOperationException>(() => AgentToolkitInstaller.InstallAsync(
             new AgentToolkitInstallOptions
             {
                 AgentRoot = _tempRoot,
