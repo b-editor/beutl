@@ -809,7 +809,7 @@ public sealed class UsageTelemetryTests
         {
             LibraryService.Current.Register<LateLibraryItem>("Beutl.HeadlessUITests.LateLibraryItem", "Xyzzy");
             await HeadlessTestHelpers.WaitUntilAsync(
-                () => library.SearchResult.Any(item => item.Value.DisplayName == "Xyzzy"));
+                () => library.SearchResult.Any(item => item.DisplayName == "Xyzzy"));
 
             _usage.Flush();
             Assert.That(_summaries.Count(s => s.Key.Event == "tool.command"), Is.EqualTo(1),
