@@ -3,11 +3,16 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
+using Beutl.Animation;
+using Beutl.Animation.Easings;
+using Beutl.Audio;
 using Beutl.Collections;
 using Beutl.Editor;
 using Beutl.Editor.Operations;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
@@ -499,6 +504,34 @@ public sealed class ApplyEditHistoryScopeTests
         });
     }
 
+    // The cases above over a scene that holds every registered type; it would have caught #2836.
+    [Test]
+    public void Empty_patch_over_every_registered_type_records_nothing_and_keeps_every_instance()
+    {
+        Scene scene = CreateSceneWithEveryRegisteredType();
+        CoreObject[] before = [.. scene.EnumerateAllChildren<CoreObject>()];
+        using var session = new AgentToolkitTestSession(scene);
+
+        ToolResult<ApplyEditResponse> result = session.CreateEditTools().ApplyEdit(
+            patch: new JsonObject(),
+            schemaVersion: SchemaVersion.Current);
+
+        CoreObject[] after = [.. scene.EnumerateAllChildren<CoreObject>()];
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                before.Select(item => item.GetType()),
+                Is.SupersetOf(RegisteredTypes().Where(type => type.IsAssignableTo(typeof(CoreObject)))));
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(result.Value?.ChangeCount, Is.Zero);
+            Assert.That(DescribeOperations(session.History.PeekUndo()), Is.Empty);
+            Assert.That(
+                before.Except<CoreObject>(after, ReferenceEqualityComparer.Instance).Select(item => item.GetType().Name),
+                Is.Empty,
+                "Replaced");
+        });
+    }
+
     private static JsonObject CreateObjectPatch(Element element, RectShape rect, JsonObject properties)
     {
         properties[nameof(CoreObject.Id)] = rect.Id.ToString();
@@ -544,6 +577,94 @@ public sealed class ApplyEditHistoryScopeTests
         return operation is IUpdatePropertyValueOperation update
             ? $"{update.Object.Id}:{update.PropertyPath.Split('.')[^1]} {update.OldValue} -> {update.NewValue}"
             : operation.GetType().Name;
+    }
+
+    // TypeRegistration's types and the clip transitions, which only the app registers (#2760).
+    private static Type[] RegisteredTypes() =>
+    [
+        .. TypeRegistration.Types.Select(entry => entry.Type).Distinct(),
+        .. typeof(ClipTransition).Assembly.GetExportedTypes()
+            .Where(type => type.IsSubclassOf(typeof(ClipTransition))
+                           && !type.IsAbstract
+                           && !type.IsAssignableTo(typeof(IFallback)))
+    ];
+
+    private static Scene CreateSceneWithEveryRegisteredType()
+    {
+        Type[] types = RegisteredTypes();
+        object[] instances = [.. types.Select(type => Activator.CreateInstance(type)!)];
+        Scene scene = TestWorkspace.CreateScene();
+        foreach (EngineObject obj in instances.OfType<EngineObject>().Where(obj => obj is not ClipTransition))
+        {
+            AddObjectElement(scene, Wrap(obj, types));
+        }
+
+        ClipTransition[] transitions = [.. instances.OfType<ClipTransition>()];
+        for (int i = 0; i < transitions.Length; i += 2)
+        {
+            Element element = AddObjectElement(scene, new RectShape());
+            element.EnterTransition = transitions[i];
+            element.ExitTransition = transitions.ElementAtOrDefault(i + 1);
+        }
+
+        var easings = new KeyFrameAnimation<float>();
+        foreach (Easing easing in instances.OfType<Easing>())
+        {
+            easings.KeyFrames.Add(
+                new KeyFrame<float> { KeyTime = TimeSpan.FromMilliseconds(50 * easings.KeyFrames.Count), Easing = easing },
+                out _);
+        }
+
+        var animated = new RectShape();
+        animated.Opacity.Animation = easings;
+        AddObjectElement(scene, animated);
+        return scene;
+    }
+
+    // Puts obj into a new instance of the first type with a property that holds it, until a drawable or sound holds it.
+    private static EngineObject Wrap(EngineObject obj, Type[] types)
+    {
+        if (obj is Drawable or Sound)
+        {
+            return obj;
+        }
+
+        foreach (Type type in types)
+        {
+            if (Activator.CreateInstance(type) is EngineObject host
+                && host.Properties.FirstOrDefault(property => Holds(property, obj)) is { } slot)
+            {
+                if (slot is IListProperty list)
+                {
+                    list.Add(obj);
+                }
+                else
+                {
+                    slot.CurrentValue = obj;
+                }
+
+                return Wrap(host, types);
+            }
+        }
+
+        // Nothing holds it, as for PortalObject, so it is an element object itself.
+        return obj;
+    }
+
+    private static bool Holds(IProperty property, EngineObject obj)
+        => (property is IListProperty list ? list.ElementType : property.ValueType).IsInstanceOfType(obj);
+
+    private static Element AddObjectElement(Scene scene, EngineObject obj)
+    {
+        var element = new Element
+        {
+            Length = TimeSpan.FromSeconds(2),
+            ZIndex = scene.Children.Count,
+            Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, $"{scene.Children.Count}.belm"))
+        };
+        element.AddObject(obj);
+        scene.Children.Add(element);
+        return element;
     }
 
     private static RectShape AddRectElement(Scene scene, string name, TimeSpan start, int zIndex)
