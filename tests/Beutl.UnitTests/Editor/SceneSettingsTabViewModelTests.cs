@@ -81,9 +81,28 @@ public class SceneSettingsTabViewModelTests
         });
     }
 
+    // A pause still draining the last frame no longer shows in IsPlaying, so applying waits for Pause anyway.
+    [Test]
+    public async Task Apply_WaitsForAPauseThatIsPlayingNoLongerShows()
+    {
+        using SceneSettingsTabViewModel viewModel = CreateViewModel(
+            out CaptureSceneSettingsService sceneSettingsService,
+            out BlockingPreviewPlayer previewPlayer,
+            isPlaying: false);
+
+        Task applyTask = viewModel.Apply.ExecuteAsync();
+        await previewPlayer.PauseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(sceneSettingsService.CallCount, Is.Zero);
+
+        previewPlayer.CompletePause();
+        await applyTask.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(sceneSettingsService.CallCount, Is.EqualTo(1));
+    }
+
     private static SceneSettingsTabViewModel CreateViewModel(
         out CaptureSceneSettingsService sceneSettingsService,
-        out BlockingPreviewPlayer previewPlayer)
+        out BlockingPreviewPlayer previewPlayer,
+        bool isPlaying = true)
     {
         var scene = new Scene(640, 480, string.Empty)
         {
@@ -91,7 +110,7 @@ public class SceneSettingsTabViewModelTests
             Duration = TimeSpan.FromSeconds(5),
         };
         sceneSettingsService = new CaptureSceneSettingsService();
-        previewPlayer = new BlockingPreviewPlayer();
+        previewPlayer = new BlockingPreviewPlayer(isPlaying);
         var editorContext = new TestEditorContext(scene);
         editorContext.AddService(scene);
         editorContext.AddService<ISceneSettingsService>(sceneSettingsService);
@@ -131,7 +150,7 @@ public class SceneSettingsTabViewModelTests
         public IObservable<Vector2> Offset => Options.Select(x => x.Offset);
     }
 
-    private sealed class BlockingPreviewPlayer : IPreviewPlayer
+    private sealed class BlockingPreviewPlayer(bool isPlaying) : IPreviewPlayer
     {
         private readonly TaskCompletionSource _pauseCompletion = new();
 
@@ -142,7 +161,7 @@ public class SceneSettingsTabViewModelTests
 
         public IObservable<Unit> AfterRendered => Observable.Empty<Unit>();
 
-        public IReadOnlyReactiveProperty<bool> IsPlaying { get; } = new ReactiveProperty<bool>(true);
+        public IReadOnlyReactiveProperty<bool> IsPlaying { get; } = new ReactiveProperty<bool>(isPlaying);
 
         public async Task Pause()
         {
