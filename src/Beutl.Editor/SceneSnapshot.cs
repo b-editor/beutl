@@ -1,13 +1,13 @@
 ﻿using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Beutl.Engine;
-using Beutl.Engine.Expressions;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
 namespace Beutl.Editor;
 
 // A detached copy of a scene for work off the UI thread, such as export, which later edits must not reach (#2873).
-internal static class SceneSnapshot
+internal static partial class SceneSnapshot
 {
     // Call on the thread that owns the scene. The copy keeps the Ids of the scene and of the scenes it references.
     internal static Scene Create(Scene scene)
@@ -65,7 +65,11 @@ internal static class SceneSnapshot
         return clones;
     }
 
-    // Only properties that hold a project item, such as a referenced scene, are followed, by a direct Id.
+    // Expressions find other objects only by Id: reference expressions and GetProperty("{id}.Name") hold it as text.
+    [GeneratedRegex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")]
+    private static partial Regex GuidPattern();
+
+    // Yields the project item, such as a scene, that holds each object an expression reads.
     private static IEnumerable<CoreObject> EnumerateReferenceTargets(IHierarchical root)
     {
         var lookupRoot = root.FindHierarchicalRoot() as ICoreObject ?? root as ICoreObject;
@@ -79,14 +83,17 @@ internal static class SceneSnapshot
             {
                 foreach (IProperty property in engineObject.Properties)
                 {
-                    Type valueType = Nullable.GetUnderlyingType(property.ValueType) ?? property.ValueType;
-                    if (typeof(ProjectItem).IsAssignableFrom(valueType)
-                        && property.Expression is IReferenceExpression { HasPropertyPath: false } reference
-                        && reference.ObjectId != Guid.Empty
-                        && lookupRoot?.FindById(reference.ObjectId) is CoreObject target
-                        && valueType.IsInstanceOfType(target))
+                    if (property.Expression is not { } expression)
+                        continue;
+
+                    foreach (Match match in GuidPattern().Matches(expression.ExpressionString))
                     {
-                        yield return target;
+                        if (Guid.TryParse(match.ValueSpan, out Guid id)
+                            && lookupRoot?.FindById(id) is IHierarchical target
+                            && target.FindHierarchicalParent<ProjectItem>(includeSelf: true) is { } item)
+                        {
+                            yield return item;
+                        }
                     }
                 }
             }

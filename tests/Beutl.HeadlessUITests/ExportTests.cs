@@ -2,16 +2,20 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reactive.Linq;
+using System.Reflection;
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Platform.Storage;
+using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.FFmpegIpc;
 using Beutl.Graphics.Shapes;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Encoding;
+using Beutl.Models;
+using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
@@ -317,12 +321,69 @@ public class ExportTests
         });
     }
 
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task OutputViewModel_renders_a_property_that_another_scene_holds(bool stringExpression)
+    {
+        await TestReset.ResetShellAsync();
+        TestGpu.RequireAnyDevice();
+        EditViewModel editor = await OpenEditorWithRectangle("export-cross-scene");
+        string folder = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
+        var source = new RectShape { Width = { CurrentValue = 200 } };
+        var sourceElement = new Element
+        {
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(folder, "source.belm"))
+        };
+        sourceElement.AddObject(source);
+        var other = new Scene(320, 240, "Other") { Uri = new Uri(Path.Combine(folder, "other.scene")) };
+        other.Children.Add(sourceElement);
+        editor.Scene.FindHierarchicalParent<Project>()!.Items.Add(other);
+        RectShape rect = editor.Scene.Children.Single().Objects.OfType<RectShape>().Single();
+        rect.Width.CurrentValue = 0;
+        rect.Width.Expression = stringExpression
+            ? new StringExpression<float>($"GetProperty<float>(\"{{{source.Id}}}.Width\")")
+            : new ReferenceExpression<float>(source.Id, nameof(RectShape.Width));
+
+        using var output = new OutputViewModel(editor);
+        output.DestinationFile.Value = Path.Combine(TestShell.NewWorkspace("export-cross-scene"), "out.mp4");
+        var encoder = new FirstFrameEncoderExtension();
+        output.SelectedEncoder.Value = encoder;
+        HeadlessTestHelpers.Settle();
+
+        await output.RunAsync(CancellationToken.None);
+
+        Assert.That(encoder.CenterPixel, Is.Not.Zero, "The rectangle takes its width from the other scene.");
+    }
+
+    [AvaloniaTest]
+    public async Task OutputViewModel_renders_at_the_supersampling_factor_it_validated()
+    {
+        await TestReset.ResetShellAsync();
+        TestGpu.RequireAnyDevice();
+        EditViewModel editor = await OpenEditorWithRectangle("export-validated-factor");
+
+        using var output = new OutputViewModel(editor);
+        output.DestinationFile.Value = Path.Combine(TestShell.NewWorkspace("export-validated-factor"), "out.mp4");
+        var encoder = new FirstFrameEncoderExtension();
+        output.SelectedEncoder.Value = encoder;
+        HeadlessTestHelpers.Settle();
+        encoder.EditBeforeEncoding = () => output.SupersampleFactor.Value = 2;
+
+        await output.RunAsync(CancellationToken.None);
+
+        Assert.That(encoder.RenderScale, Is.EqualTo(1f));
+    }
+
     // The export creates its controller after it takes the snapshot and before any frame renders.
     private sealed class FirstFrameEncoderExtension : ControllableEncodingExtension
     {
         public Action? EditBeforeEncoding { get; set; }
 
         public uint CenterPixel { get; private set; }
+
+        public float RenderScale { get; private set; }
 
         public override IEnumerable<string> SupportExtensions()
         {
@@ -348,6 +409,9 @@ public class ExportTests
                 ISampleProvider sampleProvider,
                 CancellationToken cancellationToken)
             {
+                var renderer = (SceneRenderer)typeof(FrameProviderImpl)
+                    .GetField("_renderer", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(frameProvider)!;
+                owner.RenderScale = renderer.OutputScale;
                 using Bitmap frame = (await frameProvider.ReadNextFrame())!;
                 owner.CenterPixel = frame.GetRow<uint>(frame.Height / 2)[frame.Width / 2];
                 await File.WriteAllBytesAsync(OutputFile, [], cancellationToken);
