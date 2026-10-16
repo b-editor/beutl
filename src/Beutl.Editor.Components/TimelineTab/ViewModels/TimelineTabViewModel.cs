@@ -110,7 +110,8 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
         Options.Select(x => x.MaxLayerCount)
             .DistinctUntilChanged()
-            .Subscribe(TryApplyLayerCount);
+            .Subscribe(TryApplyLayerCount)
+            .AddTo(_disposables);
 
         SetStartTimeToPointerPosition.Subscribe(OnSetStartTimeToPointerPosition);
         SetEndTimeToPointerPosition.Subscribe(OnSetEndTimeToPointerPosition);
