@@ -203,8 +203,8 @@ public partial class PlayerView
 
             if (viewModel.IsHandMode.Value)
                 ZoomFrameAtPointer(e, viewModel);
-            // During a drag the wheel step would commit the drag's unfinished edit with its own. The buttons are
-            // read from the event, since a drag released outside the preview leaves _mouseState behind.
+            // During a drag (a held left or right button) the wheel step would commit the drag's unfinished edit
+            // with its own.
             else if (viewModel.IsCameraMode.Value
                      && e.GetCurrentPoint(null).Properties is { IsLeftButtonPressed: false, IsRightButtonPressed: false })
                 CreateCameraHandler(viewModel).OnWheelChanged(e);

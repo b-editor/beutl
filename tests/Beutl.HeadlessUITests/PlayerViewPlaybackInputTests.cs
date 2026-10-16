@@ -376,9 +376,9 @@ public partial class PlayerViewPlaybackInputTests
             Assert.That(camera.Position.CurrentValue, Is.EqualTo(position),
                 "A wheel step during an orbit would be committed together with the unfinished orbit.");
 
-            // A drag released outside the preview leaves its handler behind; the wheel follows the buttons.
+            window.MouseUp(point + new Vector(20, 10), MouseButton.Right);
             window.MouseWheel(point, new Vector(0, 1));
-            Assert.That(camera.Position.CurrentValue, Is.Not.EqualTo(position));
+            Assert.That(camera.Position.CurrentValue, Is.Not.EqualTo(position), "After the drag the wheel dollies again.");
         }
         finally
         {

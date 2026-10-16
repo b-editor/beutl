@@ -487,6 +487,8 @@ public partial class PlayerView
 
             var position = _camera.Position.GetValue(CompositionContext);
             var target = _camera.Target.GetValue(CompositionContext);
+            // A camera on its target has no direction to move along.
+            if (target == position) return;
             var forward = Vector3.Normalize(target - position);
 
             float speed = (float)e.Delta.Y * MoveSpeed * 3;
