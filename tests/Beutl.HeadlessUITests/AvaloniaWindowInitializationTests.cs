@@ -1,5 +1,7 @@
 ﻿using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.PackageTools.UI.Views;
@@ -64,6 +66,35 @@ public class AvaloniaWindowInitializationTests
         finally
         {
             await CloseAsync(window);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Key_monitor_shows_what_each_key_types()
+    {
+        var owner = new Window();
+        var monitor = HeadlessAppWindow.Create(() => new KeyModifierMonitor());
+        try
+        {
+            owner.Show();
+            monitor.Show(owner);
+            HeadlessTestHelpers.Render();
+
+            owner.KeyPress(Key.Oem1, RawInputModifiers.None, PhysicalKey.Semicolon, ";");
+            owner.KeyPress(Key.A, RawInputModifiers.None, PhysicalKey.A, "a");
+            owner.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
+            owner.KeyPress(Key.F1, RawInputModifiers.None, PhysicalKey.F1, null);
+            owner.KeyPress(Key.D1, RawInputModifiers.Shift, PhysicalKey.Digit1, "!");
+            owner.KeyPress(Key.D1, RawInputModifiers.None, PhysicalKey.Digit1, "1");
+            HeadlessTestHelpers.Render();
+
+            Assert.That(monitor.GetVisualDescendants().OfType<Button>().Select(button => button.Content),
+                Is.EqualTo(new[] { ";", "A", "Space", "F1", "1" }));
+        }
+        finally
+        {
+            await CloseAsync(monitor);
+            owner.Close();
         }
     }
 
