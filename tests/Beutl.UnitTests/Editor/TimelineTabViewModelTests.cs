@@ -7,6 +7,7 @@ using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.UnitTests.TestInfrastructure;
 
 using Reactive.Bindings;
@@ -60,6 +61,10 @@ public class TimelineTabViewModelTests
         });
     }
 
+    private static bool CanRun(TimelineTabViewModel viewModel, string name)
+        => TimelineTabExtension.Instance.ContextCommands.Single(definition => definition.Name == name)
+            .CanRun(viewModel, new ContextCommandExecution(name));
+
     // The V/Escape gestures are shared by every Exit* command; the dispatcher relies on
     // CanExecute being true only for the active mode to fall through to the right one.
     [Test]
@@ -70,10 +75,10 @@ public class TimelineTabViewModelTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(viewModel.CanExecute(new ContextCommandExecution("ExitRollMode")), Is.True);
-            Assert.That(viewModel.CanExecute(new ContextCommandExecution("ExitRazorMode")), Is.False);
-            Assert.That(viewModel.CanExecute(new ContextCommandExecution("ExitSlipMode")), Is.False);
-            Assert.That(viewModel.CanExecute(new ContextCommandExecution("ExitSlideMode")), Is.False);
+            Assert.That(CanRun(viewModel, "ExitRollMode"), Is.True);
+            Assert.That(CanRun(viewModel, "ExitRazorMode"), Is.False);
+            Assert.That(CanRun(viewModel, "ExitSlipMode"), Is.False);
+            Assert.That(CanRun(viewModel, "ExitSlideMode"), Is.False);
         });
     }
 
@@ -84,10 +89,10 @@ public class TimelineTabViewModelTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(viewModel.CanExecute(new ContextCommandExecution("ExitRazorMode")), Is.False);
-            Assert.That(viewModel.CanExecute(new ContextCommandExecution("ExitSlipMode")), Is.False);
-            Assert.That(viewModel.CanExecute(new ContextCommandExecution("ExitRollMode")), Is.False);
-            Assert.That(viewModel.CanExecute(new ContextCommandExecution("ExitSlideMode")), Is.False);
+            Assert.That(CanRun(viewModel, "ExitRazorMode"), Is.False);
+            Assert.That(CanRun(viewModel, "ExitSlipMode"), Is.False);
+            Assert.That(CanRun(viewModel, "ExitRollMode"), Is.False);
+            Assert.That(CanRun(viewModel, "ExitSlideMode"), Is.False);
         });
     }
 

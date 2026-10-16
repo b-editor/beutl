@@ -1,6 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
@@ -215,10 +216,10 @@ public class PaletteCommandTests
         TimelineTabExtension timeline = TimelineTabExtension.Instance;
         Element element = await AddRectAsync(editor, 0, 4, 0);
         CloseTimeline(editor);
-        Assert.That(timeline.CanExecute(Execution("Rename", editor)), Is.False, "Nothing is selected yet.");
+        Assert.That(CanRun(timeline, Execution("Rename", editor)), Is.False, "Nothing is selected yet.");
 
         editor.GetService<IEditorSelection>()!.SelectedObject.Value = element;
-        await timeline.ExecuteAsync(Execution("Rename", editor, new ScriptedInteraction()
+        await RunAsync(timeline, Execution("Rename", editor, new ScriptedInteraction()
             .Input(options => options.Value == element.Name ? "Title" : null)));
         Assert.Multiple(() =>
         {
@@ -227,9 +228,9 @@ public class PaletteCommandTests
         });
 
         SetPlayhead(editor, 4);
-        Assert.That(timeline.CanExecute(Execution("Split", editor)), Is.False, "The playhead is past the element.");
+        Assert.That(CanRun(timeline, Execution("Split", editor)), Is.False, "The playhead is past the element.");
         SetPlayhead(editor, 1);
-        await timeline.ExecuteAsync(Execution("Split", editor));
+        await RunAsync(timeline, Execution("Split", editor));
         Assert.That(editor.Scene.Children.Select(e => (e.Start, e.Length)), Is.EquivalentTo(new[]
         {
             (TimeSpan.Zero, TimeSpan.FromSeconds(1)),
@@ -238,7 +239,7 @@ public class PaletteCommandTests
 
         // Saving a template is refused for a name that cannot be a file name; cancelling saves nothing.
         int templates = ObjectTemplateService.Instance.FindByBaseType(typeof(Element)).Count();
-        await timeline.ExecuteAsync(Execution("SaveAsTemplate", editor, new ScriptedInteraction().Input(options =>
+        await RunAsync(timeline, Execution("SaveAsTemplate", editor, new ScriptedInteraction().Input(options =>
         {
             Assert.That(options.Validate!("a/b"), Is.EqualTo(MessageStrings.InvalidString));
             return null;
@@ -248,9 +249,9 @@ public class PaletteCommandTests
         element.IsLocked = true;
         Assert.Multiple(() =>
         {
-            Assert.That(timeline.CanExecute(Execution("Rename", editor)), Is.False);
-            Assert.That(timeline.CanExecute(Execution("Split", editor)), Is.False);
-            Assert.That(timeline.CanExecute(Execution("SaveAsTemplate", editor)), Is.True);
+            Assert.That(CanRun(timeline, Execution("Rename", editor)), Is.False);
+            Assert.That(CanRun(timeline, Execution("Split", editor)), Is.False);
+            Assert.That(CanRun(timeline, Execution("SaveAsTemplate", editor)), Is.True);
         });
     }
 
@@ -274,7 +275,11 @@ public class PaletteCommandTests
             var textBox = (TextBox)view.GetVisualDescendants().OfType<Control>().First(c => c.Name == "textBox");
             int entries = editor.HistoryManager.GetEntriesSnapshot().Length;
 
-            ((ElementViewModel)view.DataContext!).RenameRequested();
+            // The clip's own Rename gesture, which runs the command on its ElementViewModel.
+            view.RaiseEvent(new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyDownEvent, Key = OperatingSystem.IsMacOS() ? Key.Enter : Key.F2
+            });
             HeadlessTestHelpers.Render(5);
             Assert.That(textBox.IsFocused, Is.True, "Rename did not focus the editor, so typing would go elsewhere.");
             textBox.SelectAll();
@@ -311,7 +316,7 @@ public class PaletteCommandTests
         editor.GetService<IEditorSelection>()!.SelectedObject.Value = second;
         SetPlayhead(editor, 2);
 
-        await TimelineTabExtension.Instance.ExecuteAsync(Execution("Split", editor));
+        await RunAsync(TimelineTabExtension.Instance, Execution("Split", editor));
         HeadlessTestHelpers.Settle();
 
         Assert.That(editor.Scene.Children, Has.Count.EqualTo(4));
@@ -328,10 +333,10 @@ public class PaletteCommandTests
         element.Start = TimeSpan.FromSeconds(1.01);
         SetPlayhead(editor, 31 / 30d);
 
-        Assert.That(TimelineTabExtension.Instance.CanExecute(Execution("Split", editor)), Is.False);
+        Assert.That(CanRun(TimelineTabExtension.Instance, Execution("Split", editor)), Is.False);
 
         SetPlayhead(editor, 2);
-        Assert.That(TimelineTabExtension.Instance.CanExecute(Execution("Split", editor)), Is.True);
+        Assert.That(CanRun(TimelineTabExtension.Instance, Execution("Split", editor)), Is.True);
     }
 
     [AvaloniaTest]
@@ -347,8 +352,8 @@ public class PaletteCommandTests
         editor.GetService<IEditorSelection>()!.SelectedObject.Value = first;
         SetPlayhead(editor, 6);
 
-        Assert.That(TimelineTabExtension.Instance.CanExecute(Execution("Split", editor)), Is.True);
-        await TimelineTabExtension.Instance.ExecuteAsync(Execution("Split", editor));
+        Assert.That(CanRun(TimelineTabExtension.Instance, Execution("Split", editor)), Is.True);
+        await RunAsync(TimelineTabExtension.Instance, Execution("Split", editor));
         HeadlessTestHelpers.Settle();
 
         Assert.That(editor.Scene.Children.Where(e => e.ZIndex == 1).Select(e => (e.Start, e.Length)),

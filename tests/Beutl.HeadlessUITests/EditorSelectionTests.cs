@@ -5,6 +5,7 @@ using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
@@ -53,7 +54,7 @@ public sealed class EditorSelectionTests
 
         if (fromTimeline)
         {
-            await timeline.ExecuteAsync(new ContextCommandExecution("Delete"));
+            await TimelineTabExtension.Instance.RunAsync(timeline, new ContextCommandExecution("Delete"));
         }
         else
         {

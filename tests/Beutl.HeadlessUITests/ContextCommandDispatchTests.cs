@@ -124,7 +124,7 @@ public class ContextCommandDispatchTests
                 TaskCreationOptions.RunContinuationsAsynchronously);
             using IDisposable subscription = command.Subscribe(() => gate.Task);
 
-            Task operation = timeline.ExecuteAsync(new ContextCommandExecution(commandName));
+            Task operation = TimelineTabExtension.Instance.RunAsync(timeline, new ContextCommandExecution(commandName));
 
             Assert.That(operation.IsCompleted, Is.False);
             gate.SetResult();
