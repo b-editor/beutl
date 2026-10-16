@@ -2460,11 +2460,13 @@ public class VersionControlTabViewModelTests
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         Mock<IProjectVersionControlService> replacement = CreateServiceMock();
         var queuedUiActions = new List<Action>();
+        var pushResult = new TaskCompletionSource<RemoteOpResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
         coordinator.Setup(x => x.PushAsync(
                 It.IsAny<IProgress<string>>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new RemoteOpResult.Offline());
+            .Returns(pushResult.Task);
         int notificationCalls = 0;
         using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
         using var viewModel = new VersionControlTabViewModel(
@@ -2483,48 +2485,40 @@ public class VersionControlTabViewModelTests
         await viewModel.Initialization;
 
         Task push = viewModel.PushAsync();
-        Assert.That(queuedUiActions, Has.Count.EqualTo(1));
         source.Value = replacement.Object;
-        Assert.That(queuedUiActions, Has.Count.EqualTo(2));
-        queuedUiActions[1]();
-        await viewModel.Initialization;
-        await push;
+        Assert.That(queuedUiActions, Has.Count.EqualTo(1));
         queuedUiActions[0]();
+        await viewModel.Initialization;
+        pushResult.SetResult(new RemoteOpResult.Offline());
+        await push;
 
         Assert.That(notificationCalls, Is.Zero);
     }
 
     [Test]
-    public async Task Remote_result_notification_dispatch_is_canceled_on_dispose()
+    public async Task Remote_result_notification_is_suppressed_after_dispose()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
-        var queuedUiActions = new List<Action>();
+        var pushResult = new TaskCompletionSource<RemoteOpResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
         coordinator.Setup(x => x.PushAsync(
                 It.IsAny<IProgress<string>>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new RemoteOpResult.Offline());
+            .Returns(pushResult.Task);
         int notificationCalls = 0;
-        using var viewModel = new VersionControlTabViewModel(
-            Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
-            CreateServiceSource(service.Object),
-            coordinator.Object,
-            queuedUiActions.Add)
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        viewModel.ShowRemoteResultAsync = _ =>
         {
-            ShowRemoteResultAsync = _ =>
-            {
-                Interlocked.Increment(ref notificationCalls);
-                return Task.CompletedTask;
-            },
+            Interlocked.Increment(ref notificationCalls);
+            return Task.CompletedTask;
         };
         await viewModel.Initialization;
 
         Task push = viewModel.PushAsync();
-        Assert.That(queuedUiActions, Has.Count.EqualTo(1));
         viewModel.Dispose();
+        pushResult.SetResult(new RemoteOpResult.Offline());
         await push.WaitAsync(TimeSpan.FromSeconds(2));
-        queuedUiActions[0]();
 
         Assert.That(notificationCalls, Is.Zero);
     }
@@ -2533,32 +2527,21 @@ public class VersionControlTabViewModelTests
     public async Task Current_remote_result_notification_is_invoked_once()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
-        var queuedUiActions = new List<Action>();
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
         coordinator.Setup(x => x.PushAsync(
                 It.IsAny<IProgress<string>>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new RemoteOpResult.Offline());
         int notificationCalls = 0;
-        using var viewModel = new VersionControlTabViewModel(
-            Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
-            CreateServiceSource(service.Object),
-            coordinator.Object,
-            queuedUiActions.Add)
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        viewModel.ShowRemoteResultAsync = _ =>
         {
-            ShowRemoteResultAsync = _ =>
-            {
-                Interlocked.Increment(ref notificationCalls);
-                return Task.CompletedTask;
-            },
+            Interlocked.Increment(ref notificationCalls);
+            return Task.CompletedTask;
         };
         await viewModel.Initialization;
 
-        Task push = viewModel.PushAsync();
-        Assert.That(queuedUiActions, Has.Count.EqualTo(1));
-        queuedUiActions[0]();
-        await push;
+        await viewModel.PushAsync();
 
         Assert.That(notificationCalls, Is.EqualTo(1));
     }
@@ -2568,8 +2551,6 @@ public class VersionControlTabViewModelTests
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         var queuedUiActions = new List<Action>();
-        var fourActionsQueued = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
         IProgress<string>? firstProgress = null;
         var secondStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -2600,28 +2581,16 @@ public class VersionControlTabViewModelTests
             Mock.Of<IEditorContext>(),
             CreateServiceSource(service.Object),
             coordinator.Object,
-            action =>
-            {
-                queuedUiActions.Add(action);
-                if (queuedUiActions.Count == 4)
-                {
-                    fourActionsQueued.TrySetResult();
-                }
-            });
+            queuedUiActions.Add);
         await viewModel.Initialization;
 
-        Task firstPush = viewModel.PushAsync();
-        Assert.That(queuedUiActions, Has.Count.EqualTo(2));
-        queuedUiActions[1]();
-        await firstPush;
+        await viewModel.PushAsync();
         Task secondPush = viewModel.PushAsync();
         await secondStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
 
-        Assert.That(queuedUiActions, Has.Count.EqualTo(3));
-        queuedUiActions[2]();
+        Assert.That(queuedUiActions, Has.Count.EqualTo(2));
+        queuedUiActions[1]();
         releaseSecond.TrySetResult();
-        await fourActionsQueued.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        queuedUiActions[3]();
         await secondPush;
         queuedUiActions[0]();
 

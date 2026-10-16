@@ -112,12 +112,6 @@ internal sealed class BrowserAdBlockSession : IDisposable
                     if (!IsCurrent(revision)) return;
                     candidate = await _createBackend(_handle, rules);
                     if (!IsCurrent(revision)) return;
-                    if (_profile.AdBlockFilters.IsSuperseded(load))
-                    {
-                        candidate.Dispose();
-                        candidate = null;
-                        continue;
-                    }
                     await candidate.EnableAsync();
                     if (!IsCurrent(revision)) return;
                     if (_profile.AdBlockFilters.IsSuperseded(load))

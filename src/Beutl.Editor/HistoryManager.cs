@@ -12,7 +12,6 @@ namespace Beutl.Editor;
 
 public sealed partial class HistoryManager : IDisposable
 {
-    private const int MaximumPreActionPublicationTransactions = 64;
     private readonly ILogger _logger = Log.CreateLogger<HistoryManager>();
     private readonly Stack<HistoryTransaction> _undoStack = new();
     private readonly Stack<HistoryTransaction> _redoStack = new();
@@ -208,6 +207,8 @@ public sealed partial class HistoryManager : IDisposable
     /// <remarks>
     /// The action is synchronous and must not call <see cref="Commit"/>, <see cref="Rollback"/>,
     /// <see cref="Undo"/>, <see cref="Redo"/>, <see cref="Clear"/>, <see cref="JumpTo"/>, or this method.
+    /// Operations recorded while the pending entry is published, such as by an entry subscriber, are
+    /// committed with the action.
     /// </remarks>
     public void ExecuteInTransaction(
         Action action,
@@ -231,7 +232,6 @@ public sealed partial class HistoryManager : IDisposable
                 try
                 {
                     stateChanged |= CommitCurrentTransaction_NoLock(name: null, expression: null);
-                    DrainPreActionPublicationTransactions_NoLock(ref stateChanged);
                     try
                     {
                         action();
@@ -308,20 +308,6 @@ public sealed partial class HistoryManager : IDisposable
         TruncateEntriesAfter(currentEntryIndex);
         AddEntry(HistoryEntry.FromTransaction(transaction));
         return true;
-    }
-
-    private void DrainPreActionPublicationTransactions_NoLock(ref bool stateChanged)
-    {
-        for (int count = 0; _currentTransaction.HasOperations; count++)
-        {
-            if (count >= MaximumPreActionPublicationTransactions)
-            {
-                throw new InvalidOperationException(
-                    "History entry publication did not reach a stable transaction boundary.");
-            }
-
-            stateChanged |= CommitCurrentTransaction_NoLock(name: null, expression: null);
-        }
     }
 
     private void RollbackCurrentTransaction_NoLock()

@@ -82,11 +82,9 @@ internal sealed partial class GitCliVersionControlService
         }
         else
         {
-            await EnsureNoNestedRepositoryWouldBeStagedBeforeInitAsync(
-                    repository,
-                    runner,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            // Before git init there is no repository to ask what it ignores, so an unignored nested
+            // repository is refused only at the first snapshot, which leaves the new repository without
+            // a commit for the next initialization to continue.
             repository = await CreateRepositoryAsync(
                     repository,
                     projectRoot,

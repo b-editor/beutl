@@ -185,10 +185,6 @@ public sealed class App : Application
             foreach (string argument in desktop.Args ?? [])
                 HandlePackageLink(argument);
         }
-        else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
-        {
-            singleViewPlatform.MainView = new MainView { DataContext = GetMainViewModel(), };
-        }
 
         base.OnFrameworkInitializationCompleted();
     }

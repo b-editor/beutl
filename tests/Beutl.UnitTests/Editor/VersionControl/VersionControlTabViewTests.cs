@@ -1,6 +1,10 @@
 ﻿using System.Windows.Input;
 using Avalonia.Input;
+using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.Components.VersionControlTab.Views;
+using Beutl.Language;
+using Beutl.UnitTests.TestInfrastructure;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
@@ -64,28 +68,36 @@ public class VersionControlTabViewTests
     }
 
     [Test]
-    public async Task Version_control_view_event_boundary_reports_unexpected_failures()
+    [NonParallelizable]
+    public async Task Version_control_command_boundary_logs_and_reports_unexpected_failures()
     {
         var expected = new InvalidOperationException("simulated failure");
-        Exception? reported = null;
+        using var logs = new CapturingLoggerProvider(_ => true);
+        using var notifications = NotificationCapture.Install();
 
-        await VersionControlViewEventBoundary.RunSafelyAsync(
+        await VersionControlCommandBoundary.RunAsync(
             () => Task.FromException(expected),
-            exception => reported = exception);
+            logs.CreateLogger("test"),
+            "SelectCommitAsync");
 
-        Assert.That(reported, Is.SameAs(expected));
+        Assert.That(logs.Entries.Single(), Is.EqualTo((LogLevel.Error, (Exception?)expected)));
+        Assert.That(notifications.HasError(Strings.VersionControl_ErrorTitle, expected.Message), Is.True);
     }
 
     [Test]
-    public async Task Version_control_view_event_boundary_ignores_cancellation()
+    [NonParallelizable]
+    public async Task Version_control_command_boundary_ignores_cancellation()
     {
-        Exception? reported = null;
+        using var logs = new CapturingLoggerProvider(_ => true);
+        using var notifications = NotificationCapture.Install();
 
-        await VersionControlViewEventBoundary.RunSafelyAsync(
+        await VersionControlCommandBoundary.RunAsync(
             () => Task.FromCanceled(new CancellationToken(canceled: true)),
-            exception => reported = exception);
+            logs.CreateLogger("test"),
+            "SelectCommitAsync");
 
-        Assert.That(reported, Is.Null);
+        Assert.That(logs.Entries, Is.Empty);
+        Assert.That(notifications.All, Is.Empty);
     }
 
     private sealed class RecordingCommand(bool canExecute) : ICommand

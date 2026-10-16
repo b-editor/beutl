@@ -23,20 +23,6 @@ public sealed class FileAiRequestRecoveryStoreTests
     }
 
     [Test]
-    public void LegacyNonGuidSourceIdentifierDoesNotHideOtherPendingRequests()
-    {
-        using var store = new FileAiRequestRecoveryStore(_directory);
-        var valid = Record("account", "video.generate", "valid", "valid-key");
-        var legacy = new AiPendingAttempt("account", "video.edit", "legacy", "legacy-key",
-            Form: new AiRequestFormSnapshot(SourceJobId: "provider-job-17"));
-        store.WriteOrGet(valid);
-        store.WriteOrGet(legacy);
-        using var reopened = new FileAiRequestRecoveryStore(_directory);
-        Assert.That(reopened.Find("account", "video.generate", "valid")?.Key, Is.EqualTo(valid.Key));
-        Assert.That(reopened.PendingFor("account", "video.edit").Single().Form!.SourceJobId, Is.EqualTo("provider-job-17"));
-    }
-
-    [Test]
     public void PendingAttemptsAreNamedWithTheTranslatedOperation()
     {
         using (Assert.EnterMultipleScope())

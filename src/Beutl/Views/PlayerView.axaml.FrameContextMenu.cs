@@ -89,7 +89,7 @@ public partial class PlayerView
         return await storage.SaveFilePickerAsync(options);
     }
 
-    internal static async Task SaveImage(IStorageFile file, Bitmap bitmap)
+    internal static Task SaveImage(IStorageFile file, Bitmap bitmap)
     {
         string extension = Path.GetExtension(file.Name).ToLowerInvariant();
         EncodedImageFormat format = extension switch
@@ -99,27 +99,14 @@ public partial class PlayerView
             ".webp" => EncodedImageFormat.Webp,
             _ => throw new NotSupportedException($"{Strings.Unsupported}: {extension}"),
         };
-        if (file.TryGetLocalPath() is { } path)
-        {
-            using var output = new StagedOutputFile(path);
-            if (!bitmap.Save(output.TemporaryPath, format))
-                throw new IOException(MessageStrings.FailedToSaveImage);
-            output.Commit(CancellationToken.None);
-            return;
-        }
-
-        // Opaque storage providers have no sibling path to stage to. Encode completely
-        // before opening their output so an encoder failure cannot truncate an existing file.
-        using var encoded = new MemoryStream();
-        if (!bitmap.Save(encoded, format))
+        // Every desktop save picker hands out files with a local path.
+        string path = file.TryGetLocalPath()
+            ?? throw new NotSupportedException("Images can only be saved to a local file.");
+        using var output = new StagedOutputFile(path);
+        if (!bitmap.Save(output.TemporaryPath, format))
             throw new IOException(MessageStrings.FailedToSaveImage);
-        encoded.Position = 0;
-        await using Stream stream = await file.OpenWriteAsync();
-        if (stream.CanSeek)
-            stream.Position = 0;
-        await encoded.CopyToAsync(stream);
-        if (stream.CanSeek)
-            stream.SetLength(stream.Position);
+        output.Commit(CancellationToken.None);
+        return Task.CompletedTask;
     }
 
     // Prompts for the output-resolution multiplier. Returns the chosen scale, or null on cancel.

@@ -31,9 +31,6 @@ public class PathGeometryControl : Control
     public static readonly StyledProperty<double> ScaleProperty =
         AvaloniaProperty.Register<PathGeometryControl, double>(nameof(Scale), 1.0);
 
-    public static readonly StyledProperty<bool> IsPlayingProperty =
-        AvaloniaProperty.Register<PathGeometryControl, bool>(nameof(IsPlaying));
-
     private Avalonia.Media.IPen _handlePen = new Avalonia.Media.Immutable.ImmutablePen(
         new Avalonia.Media.Immutable.ImmutableSolidColorBrush(0xFF168BFF), 1);
 
@@ -85,21 +82,6 @@ public class PathGeometryControl : Control
     {
         get => GetValue(ScaleProperty);
         set => SetValue(ScaleProperty, value);
-    }
-
-    public bool IsPlaying
-    {
-        get => GetValue(IsPlayingProperty);
-        set => SetValue(IsPlayingProperty, value);
-    }
-
-    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
-    {
-        base.OnPropertyChanged(change);
-        if (change.Property == IsPlayingProperty)
-        {
-            IsHitTestVisible = !IsPlaying;
-        }
     }
 
     public override void Render(DrawingContext context)

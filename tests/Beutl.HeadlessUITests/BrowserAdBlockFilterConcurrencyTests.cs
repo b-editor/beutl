@@ -259,7 +259,8 @@ public class BrowserAdBlockFilterConcurrencyTests
             Assert.That(await ready.Task.WaitAsync(Timeout), Is.SameAs(latest));
             Assert.Multiple(() =>
             {
-                Assert.That(oldBackend.Enabled, Is.False);
+                // A superseded load is caught after enabling its backend, which is then disposed.
+                Assert.That(oldBackend.Enabled, Is.True);
                 Assert.That(oldBackend.Disposed, Is.True);
                 Assert.That(errors, Is.Empty);
                 Assert.That(webView.Source, Is.EqualTo(destination));

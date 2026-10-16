@@ -25,6 +25,11 @@ public class FileSystemItemViewModel : IDisposable
     private int _mediaInfoLoad;
 
     public FileSystemItemViewModel(string fullPath, bool isDirectory)
+        : this(fullPath, isDirectory, loadDetails: true)
+    {
+    }
+
+    private FileSystemItemViewModel(string fullPath, bool isDirectory, bool loadDetails)
     {
         FullPath = fullPath;
         IsDirectory = isDirectory;
@@ -55,7 +60,7 @@ public class FileSystemItemViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        if (!IsDirectory)
+        if (!IsDirectory && loadDetails)
         {
             _ = LoadThumbnailAsync();
             _ = LoadMediaInfoAsync();
@@ -315,7 +320,7 @@ public class FileSystemItemViewModel : IDisposable
             if (dirInfo.EnumerateFileSystemInfos().Any(FileSystemEnumerator.IsVisible))
             {
                 // プレースホルダーを追加して展開矢印を表示させる
-                Children!.Add(new FileSystemItemViewModel(FullPath, false));
+                Children!.Add(new FileSystemItemViewModel(FullPath, false, loadDetails: false));
             }
         }
         catch

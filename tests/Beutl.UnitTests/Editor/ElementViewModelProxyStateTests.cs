@@ -7,6 +7,7 @@ using Beutl.Media;
 using Beutl.Media.Proxy;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -336,8 +337,10 @@ public sealed class ElementViewModelProxyStateTests
     [Test]
     public void NestedSourceUriEdit_RaisesElementEdited_AndIsMatchedByRelevanceGate()
     {
-        string firstPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}-a.mov");
-        string secondPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}-b.mov");
+        using var directory = new TemporaryDirectory();
+        Directory.CreateDirectory(directory.Path);
+        string firstPath = Path.Combine(directory.Path, "a.mov");
+        string secondPath = Path.Combine(directory.Path, "b.mov");
         File.WriteAllBytes(firstPath, [1]);
         File.WriteAllBytes(secondPath, [1]);
 
@@ -354,7 +357,7 @@ public sealed class ElementViewModelProxyStateTests
             Start = TimeSpan.Zero,
             Length = TimeSpan.FromSeconds(1),
             IsEnabled = true,
-            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.layer")),
+            Uri = new Uri(Path.Combine(directory.Path, "element.layer")),
         };
         element.AddObject(group);
 

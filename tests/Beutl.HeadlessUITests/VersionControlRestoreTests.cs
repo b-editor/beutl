@@ -3459,7 +3459,7 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
-    public async Task Disposal_cancels_inflight_git_availability_probes()
+    public async Task Disposal_does_not_wait_for_inflight_git_availability_probes()
     {
         await TestReset.ResetShellAsync();
         var probe = new BlockingGitInstallationProbe();
@@ -3481,11 +3481,8 @@ public class VersionControlRestoreTests
             await probe.ProbeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.That(probe.StartCount, Is.EqualTo(1), "Availability callers share one discovery.");
 
-            Task disposal = coordinator.DisposeAsync().AsTask();
-            await probe.ProbeCancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.That(disposal.IsCompleted, Is.False);
-            probe.ReleaseCancelledProbe.TrySetResult();
-            await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+            // Disposal ends the waits only; the probe runs on until it finishes or the discovery times out.
+            await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
 
             await Assert.CatchAsync<OperationCanceledException>(async () => await explicitProbe);
 
@@ -3494,15 +3491,13 @@ public class VersionControlRestoreTests
             HeadlessTestHelpers.Settle();
             Assert.Multiple(() =>
             {
-                Assert.That(probe.CancellationCount, Is.EqualTo(1));
-                Assert.That(probe.CompletionCount, Is.EqualTo(1));
+                Assert.That(probe.CancellationCount, Is.Zero);
                 Assert.That(servicePublications, Is.EqualTo(publicationsAfterDisposal));
                 Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
             });
         }
         finally
         {
-            probe.ReleaseCancelledProbe.TrySetResult();
             await coordinator.DisposeAsync();
         }
     }
@@ -7468,22 +7463,13 @@ public class VersionControlRestoreTests
     {
         private int _startCount;
         private int _cancellationCount;
-        private int _completionCount;
 
         public TaskCompletionSource ProbeStarted { get; } = new(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public TaskCompletionSource ProbeCancelled { get; } = new(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public TaskCompletionSource ReleaseCancelledProbe { get; } = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
         public int StartCount => Volatile.Read(ref _startCount);
 
         public int CancellationCount => Volatile.Read(ref _cancellationCount);
-
-        public int CompletionCount => Volatile.Read(ref _completionCount);
 
         public async Task<IReadOnlyList<string>> FindOnPathAsync(
             string executableName,
@@ -7500,10 +7486,6 @@ public class VersionControlRestoreTests
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 Interlocked.Increment(ref _cancellationCount);
-                ProbeCancelled.TrySetResult();
-
-                await ReleaseCancelledProbe.Task;
-                Interlocked.Increment(ref _completionCount);
                 throw;
             }
         }

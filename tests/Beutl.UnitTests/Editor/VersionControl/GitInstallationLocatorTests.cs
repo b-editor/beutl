@@ -46,53 +46,32 @@ public class GitInstallationLocatorTests
     }
 
     [Test]
-    public async Task Abandoned_discovery_is_canceled_and_cannot_replace_a_new_flight()
+    public async Task Abandoned_discovery_keeps_running_for_the_next_caller()
     {
         string path = Path.GetFullPath("custom/git");
-        var oldRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var newRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var oldCancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        CancellationToken oldToken = default;
-        int versions = 0;
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        CancellationToken probeToken = default;
         var probe = CreateInstalledProbe(path);
         probe.BeforeRun = async (_, arguments, token) =>
         {
-            if (arguments != "--version") return;
-            if (++versions == 1)
+            if (arguments == "--version")
             {
-                oldToken = token;
-                using var registration = token.Register(() => oldCancelled.TrySetResult());
-                await oldRelease.Task; // Simulate a provider that completes late after cancellation.
-            }
-            else
-            {
-                await newRelease.Task.WaitAsync(token);
+                probeToken = token;
+                await release.Task.WaitAsync(token);
             }
         };
         var locator = new GitInstallationLocator(new VersionControlConfig { GitExecutablePath = path }, probe, GitHostPlatform.Linux);
         using var cancellation = new CancellationTokenSource();
         Task<GitAvailability> abandoned = locator.LocateAsync(cancellation.Token);
         cancellation.Cancel();
-        await oldCancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.That(oldToken.IsCancellationRequested, Is.True);
-        Task<GitAvailability> replacement = locator.LocateAsync();
-        try
-        {
-            await Assert.ThrowsAsync<TimeoutException>(async () =>
-                await abandoned.WaitAsync(TimeSpan.FromMilliseconds(100)));
-        }
-        finally
-        {
-            oldRelease.TrySetResult();
-        }
         await Assert.ThrowsAsync<OperationCanceledException>(async () => await abandoned);
-        Task<GitAvailability> shared = locator.LocateAsync();
-        Assert.That(shared.IsCompleted, Is.False);
-        newRelease.SetResult();
-        Assert.That((await replacement).LfsInstalled, Is.True);
-        Assert.That((await shared).LfsInstalled, Is.True);
-        await locator.LocateAsync();
-        Assert.That(probe.RunCalls, Has.Count.EqualTo(3));
+        // The only caller canceled its wait, not the probes, so the next caller joins them.
+        Assert.That(probeToken.IsCancellationRequested, Is.False);
+        Task<GitAvailability> next = locator.LocateAsync();
+        Assert.That(probe.RunCalls, Has.Count.EqualTo(1));
+        release.SetResult();
+        Assert.That((await next).LfsInstalled, Is.True);
+        Assert.That(probe.RunCalls, Has.Count.EqualTo(2));
     }
 
     [Test]

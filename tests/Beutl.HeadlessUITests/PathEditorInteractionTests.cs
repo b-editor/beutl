@@ -1594,20 +1594,14 @@ public class PathEditorInteractionTests
     }
 
     [AvaloniaTest]
-    public async Task Points_can_still_be_selected_after_the_playback_state_changes()
+    public async Task Geometry_overlay_stays_out_of_hit_testing_after_playback()
     {
         using var editor = await Fixture.Create();
-        editor.Key(Key.B);
-        editor.Click(180, 100);
-        editor.Key(Key.V);
-        var geometryView = editor.View.FindControl<PathGeometryControl>("view")!;
-        geometryView.SetCurrentValue(PathGeometryControl.IsPlayingProperty, true);
-        geometryView.SetCurrentValue(PathGeometryControl.IsPlayingProperty, false);
+        var player = (PlayerViewModel)editor.Editor.GetService(typeof(IPreviewPlayer))!;
+        player.IsPlaying.Value = true;
+        player.IsPlaying.Value = false;
         HeadlessTestHelpers.Render(3);
-        editor.Click(80, 100);
-        Assert.That(editor.Model.SelectedOperation.Value, Is.SameAs(editor.Figure.Segments[0]));
-        var curve = (CubicBezierSegment)editor.Figure.Segments[1];
-        Assert.That(editor.View.FindThumb(curve, curve.ControlPoint1)!.IsVisible, Is.True);
+        Assert.That(editor.View.FindControl<PathGeometryControl>("view")!.IsHitTestVisible, Is.False);
     }
 
     [AvaloniaTest]

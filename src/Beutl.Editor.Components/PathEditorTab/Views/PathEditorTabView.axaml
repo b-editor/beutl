@@ -145,7 +145,6 @@
                                        Figure="{Binding PathFigure.Value}"
                                        GeometryResource="{Binding GeometryResource.Value}"
                                        IsHitTestVisible="False"
-                                       IsPlaying="{Binding IsPlaying.Value}"
                                        Matrix="{Binding #root.Matrix}"
                                        SelectedOperation="{Binding SelectedOperation.Value}" />
             <TextBlock x:Name="EmptyHint" Classes="secondary" Margin="24"
