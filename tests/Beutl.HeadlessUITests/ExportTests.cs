@@ -376,6 +376,26 @@ public class ExportTests
         Assert.That(encoder.RenderScale, Is.EqualTo(1f));
     }
 
+    [AvaloniaTest]
+    public async Task OutputViewModel_encodes_with_the_settings_it_validated()
+    {
+        await TestReset.ResetShellAsync();
+        TestGpu.RequireAnyDevice();
+        EditViewModel editor = await OpenEditorWithRectangle("export-validated-settings");
+
+        using var output = new OutputViewModel(editor);
+        output.DestinationFile.Value = Path.Combine(TestShell.NewWorkspace("export-validated-settings"), "out.mp4");
+        var encoder = new FirstFrameEncoderExtension();
+        output.SelectedEncoder.Value = encoder;
+        HeadlessTestHelpers.Settle();
+        Rational validated = output.Controller.Value!.VideoSettings.FrameRate;
+        encoder.EditBeforeEncoding = () => output.Controller.Value!.VideoSettings.FrameRate = new Rational(60, 1);
+
+        await output.RunAsync(CancellationToken.None);
+
+        Assert.That(encoder.FrameRate, Is.EqualTo(validated));
+    }
+
     // The export creates its controller after it takes the snapshot and before any frame renders.
     private sealed class FirstFrameEncoderExtension : ControllableEncodingExtension
     {
@@ -384,6 +404,8 @@ public class ExportTests
         public uint CenterPixel { get; private set; }
 
         public float RenderScale { get; private set; }
+
+        public Rational FrameRate { get; private set; }
 
         public override IEnumerable<string> SupportExtensions()
         {
@@ -412,6 +434,7 @@ public class ExportTests
                 var renderer = (SceneRenderer)typeof(FrameProviderImpl)
                     .GetField("_renderer", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(frameProvider)!;
                 owner.RenderScale = renderer.OutputScale;
+                owner.FrameRate = frameProvider.FrameRate;
                 using Bitmap frame = (await frameProvider.ReadNextFrame())!;
                 owner.CenterPixel = frame.GetRow<uint>(frame.Height / 2)[frame.Width / 2];
                 await File.WriteAllBytesAsync(OutputFile, [], cancellationToken);

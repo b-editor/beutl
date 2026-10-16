@@ -269,11 +269,17 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         int supersampleFactor = SupersampleFactor.Value;
         string? destinationFile = DestinationFile.Value;
         ControllableEncodingExtension? selectedEncoder = SelectedEncoder.Value;
-        if (Controller.Value?.IsVideoEnabled != false)
+        EncodingController? settingsController = Controller.Value;
+        bool videoEnabled = settingsController?.IsVideoEnabled != false;
+        if (videoEnabled)
             EnsureSupersamplingFits();
 
-        EncodingController settingsController = Controller.Value
-            ?? throw new InvalidOperationException(MessageStrings.UnexpectedError);
+        if (settingsController == null)
+            throw new InvalidOperationException(MessageStrings.UnexpectedError);
+
+        bool audioEnabled = settingsController.IsAudioEnabled;
+        JsonObject? videoSettingsJson = EncoderSettingsJson.Serialize(settingsController.VideoSettings);
+        JsonObject? audioSettingsJson = EncoderSettingsJson.Serialize(settingsController.AudioSettings);
 
         // The export renders this copy, taken on the UI thread, so edits made while it runs do not reach it.
         Scene scene = SceneSnapshot.Create(Model);
@@ -282,7 +288,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         // the range export renders.
         IReadOnlySet<string> referencedSources =
             ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(scene.Start, scene.Duration),
-                settingsController.IsVideoEnabled, settingsController.IsAudioEnabled);
+                videoEnabled, audioEnabled);
         IReadOnlyList<string> missingSources;
         try
         {
@@ -310,8 +316,10 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 ?? throw new InvalidOperationException(MessageStrings.UnexpectedError);
             using var output = new StagedOutputFile(destination);
             EncodingController controller = encoder.CreateController(output.TemporaryPath);
-            EncoderSettingsJson.CopyTo(settingsController.VideoSettings, controller.VideoSettings);
-            EncoderSettingsJson.CopyTo(settingsController.AudioSettings, controller.AudioSettings);
+            if (videoSettingsJson != null)
+                EncoderSettingsJson.Populate(controller.VideoSettings, videoSettingsJson);
+            if (audioSettingsJson != null)
+                EncoderSettingsJson.Populate(controller.AudioSettings, audioSettingsJson);
             VideoEncoderSettings videoSettings = controller.VideoSettings;
             AudioEncoderSettings audioSettings = controller.AudioSettings;
 
@@ -324,6 +332,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             await Task.Run(() => EncodeOnWorkerAsync(
                 scene,
                 supersampleFactor,
+                videoEnabled,
+                audioEnabled,
                 controller,
                 videoSettings,
                 audioSettings,
@@ -399,6 +409,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     private async Task EncodeOnWorkerAsync(
         Scene scene,
         int supersampleFactor,
+        bool videoEnabled,
+        bool audioEnabled,
         EncodingController controller,
         VideoEncoderSettings videoSettings,
         AudioEncoderSettings audioSettings,
@@ -408,8 +420,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     {
         videoSettings.SourceSize = scene.FrameSize;
 
-        bool videoEnabled = controller.IsVideoEnabled;
-        bool audioEnabled = controller.IsAudioEnabled;
         ProgressMax.Value = scene.Duration.TotalSeconds * ((videoEnabled ? 1 : 0) + (audioEnabled ? 1 : 0));
 
         double frameRate = videoSettings.FrameRate.ToDouble();
