@@ -1,9 +1,8 @@
 ﻿using System.Reactive.Linq;
 using Avalonia.Headless.NUnit;
+using Beutl.Audio;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Shapes;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,8 +24,8 @@ public class PlayerViewModelDisposalTests
         HeadlessTestHelpers.Settle();
 
         // A delayed audio task may still call this after disposal.
-        using var pcm = new Pcm<Stereo32BitFloat>(44100, 64);
-        Assert.DoesNotThrow(() => player.PublishAudioSnapshot(pcm, TimeSpan.Zero));
+        using var audio = new AudioBuffer(44100, 2, 64);
+        Assert.DoesNotThrow(() => player.PublishAudioSnapshot(audio, TimeSpan.Zero));
 
         bool completed = false;
         ((IPreviewPlayer)player).AudioFramePushed.Subscribe(_ => { }, () => completed = true);

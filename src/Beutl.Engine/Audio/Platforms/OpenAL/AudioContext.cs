@@ -1,4 +1,5 @@
-﻿using Silk.NET.OpenAL;
+﻿using System.Buffers;
+using Silk.NET.OpenAL;
 
 namespace Beutl.Audio.Platforms.OpenAL;
 
@@ -154,6 +155,21 @@ public sealed unsafe class AudioContext : IDisposable
         }
 
         VerifyAudioError();
+    }
+
+    public void BufferData(uint bid, AudioBuffer audio)
+    {
+        int length = checked(audio.SampleCount * 2);
+        short[] interleaved = ArrayPool<short>.Shared.Rent(length);
+        try
+        {
+            AudioConversion.Interleave(audio, interleaved);
+            BufferData(bid, BufferFormat.Stereo16, interleaved.AsSpan(0, length), audio.SampleRate);
+        }
+        finally
+        {
+            ArrayPool<short>.Shared.Return(interleaved);
+        }
     }
 
     public SourceState GetSourceState(uint source)

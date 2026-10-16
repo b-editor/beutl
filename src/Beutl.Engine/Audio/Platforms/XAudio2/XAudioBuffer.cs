@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Buffers;
+using System.Runtime.InteropServices;
 
 using Vortice.Multimedia;
 using Vortice.XAudio2;
@@ -21,6 +22,21 @@ public sealed unsafe class XAudioBuffer : IDisposable
     public int SizeInBytes { get; private set; }
 
     public WaveFormat? Format { get; private set; }
+
+    public void BufferData(AudioBuffer audio)
+    {
+        int length = checked(audio.SampleCount * 2);
+        float[] interleaved = ArrayPool<float>.Shared.Rent(length);
+        try
+        {
+            AudioConversion.Interleave(audio, interleaved);
+            BufferData(interleaved.AsSpan(0, length), new WaveFormat(audio.SampleRate, 32, 2));
+        }
+        finally
+        {
+            ArrayPool<float>.Shared.Return(interleaved);
+        }
+    }
 
     public unsafe void BufferData<T>(Span<T> buffer, WaveFormat format)
         where T : unmanaged
