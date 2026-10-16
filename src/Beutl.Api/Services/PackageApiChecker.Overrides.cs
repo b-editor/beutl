@@ -20,6 +20,11 @@ internal sealed partial class PackageApiChecker
             }
 
             ChainType host = bases.Find(candidate => candidate.Module != null);
+            if ((host.Definition.Attributes & TypeAttributes.Sealed) != 0)
+            {
+                _problems.Add(new(PackageApiProblemKind.SealedBaseType, host.Module!.Name, FullName(host.Reader, host.Handle)));
+            }
+
             foreach (MethodDefinitionHandle methodHandle in type.GetMethods())
             {
                 MethodDefinition method = reader.GetMethodDefinition(methodHandle);
@@ -141,7 +146,7 @@ internal sealed partial class PackageApiChecker
         (MetadataReader Reader, TypeDefinitionHandle Handle)? type = parent.Kind switch
         {
             HandleKind.TypeDefinition => (reader, (TypeDefinitionHandle)parent),
-            HandleKind.TypeReference when Resolve(reader, (TypeReferenceHandle)parent) is { State: LookupState.Found } found
+            HandleKind.TypeReference when Resolve(reader, (TypeReferenceHandle)parent) is { State: LookupState.Found or LookupState.Package } found
                 => (found.Module!.Reader, found.Handle),
             _ => null,
         };

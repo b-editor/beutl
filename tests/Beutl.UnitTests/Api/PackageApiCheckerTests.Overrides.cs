@@ -100,4 +100,44 @@ public sealed partial class PackageApiCheckerTests
             new(PackageApiProblemKind.MissingMethod, "HostLib", "HostLib.Effect.GetLatency(int, int)"),
         }));
     }
+
+    [Test]
+    public void Follows_base_types_through_another_assembly_of_the_package()
+    {
+        string v1 = Compile("v1", "HostLib", "1.0.0.0", EffectsV1);
+        string middle = Compile("plugin", "Plugin.Base", "1.0.0.0", """
+            public abstract class Middle : HostLib.Effect
+            {
+                public override void Process(float[] samples) { }
+            }
+            """, v1);
+        string plugin = Compile("plugin", "Plugin", "1.0.0.0", """
+            public class Echo : Middle
+            {
+                public override int GetLatency(int sampleRate) => 1;
+                public override HostLib.Effect Clone() => this;
+            }
+            """, v1, middle);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(PackageApiChecker.Check([plugin, middle], Host(v1)), Is.Empty);
+            Assert.That(PackageApiChecker.Check([plugin, middle], Host(Compile("v2", "HostLib", "2.0.0.0", EffectsV2))), Is.EqualTo(new PackageApiProblem[]
+            {
+                new(PackageApiProblemKind.MissingMethod, "HostLib", "HostLib.Effect.GetLatency(int)"),
+                new(PackageApiProblemKind.UnimplementedMethod, "HostLib", "HostLib.Effect.Flush()"),
+            }));
+        }
+    }
+
+    [Test]
+    public void Reports_a_host_base_type_that_became_sealed()
+    {
+        string plugin = Compile("plugin", "Plugin", "1.0.0.0", "public class Mine : HostLib.Effect { }",
+            Compile("v1", "HostLib", "1.0.0.0", "namespace HostLib; public class Effect { }"));
+
+        Assert.That(
+            PackageApiChecker.Check([plugin], Host(Compile("v2", "HostLib", "2.0.0.0", "namespace HostLib; public sealed class Effect { }"))),
+            Is.EqualTo(new PackageApiProblem[] { new(PackageApiProblemKind.SealedBaseType, "HostLib", "HostLib.Effect") }));
+    }
 }

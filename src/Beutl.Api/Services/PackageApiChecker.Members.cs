@@ -142,8 +142,8 @@ internal sealed partial class PackageApiChecker
         return handle.Kind switch
         {
             HandleKind.TypeDefinition => owner with { Handle = (TypeDefinitionHandle)handle, Context = context },
-            HandleKind.TypeReference when Resolve(owner.Reader, (TypeReferenceHandle)handle) is { State: LookupState.Found } found
-                => new ChainType(found.Module!.Reader, found.Handle, found.Module, context),
+            HandleKind.TypeReference when Resolve(owner.Reader, (TypeReferenceHandle)handle) is { State: LookupState.Found or LookupState.Package } found
+                => new ChainType(found.Module!.Reader, found.Handle, found.State == LookupState.Found ? found.Module : null, context),
             _ => null,
         };
     }
