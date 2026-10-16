@@ -1933,8 +1933,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         // Git writes each value on its own, so a failure in between leaves the name written.
         await RunGitAsync("config", "--local", "user.name", "Original Name");
         await RunGitAsync("config", "--local", "user.email", "original@example.invalid");
-        var runner = new FailingIdentityEmailWriteRunner(
+        var runner = new FailingLocalConfigWriteRunner(
             CreateRunner(),
+            "user.email",
             new GitOperationException(4, "simulated config write failure"));
         using var service = CreateService(runner: runner);
 
@@ -1949,6 +1950,30 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         {
             Assert.That(names, Is.EqualTo(new[] { "Replacement Name" }));
             Assert.That(emails, Is.EqualTo(new[] { "original@example.invalid" }));
+        });
+    }
+
+    [Test]
+    public async Task SetLocalIdentityAsync_preserves_a_foreign_configuration_lock()
+    {
+        await RunGitAsync("config", "--local", "user.name", "Original Name");
+        await RunGitAsync("config", "--local", "user.email", "original@example.invalid");
+        string lockPath = Path.Combine(Root, ".git", "config.lock");
+        await File.WriteAllTextAsync(lockPath, "foreign lock sentinel\n");
+        using var service = CreateService();
+
+        await Assert.ThrowsAsync<GitOperationException>(
+            async () => await service.SetLocalIdentityAsync(
+                new GitIdentity("Replacement Name", "replacement@example.invalid"),
+                CancellationToken.None));
+
+        IReadOnlyList<string> names = await GetLocalConfigValuesAsync("user.name");
+        IReadOnlyList<string> emails = await GetLocalConfigValuesAsync("user.email");
+        Assert.Multiple(() =>
+        {
+            Assert.That(names, Is.EqualTo(new[] { "Original Name" }));
+            Assert.That(emails, Is.EqualTo(new[] { "original@example.invalid" }));
+            Assert.That(File.ReadAllText(lockPath), Is.EqualTo("foreign lock sentinel\n"));
         });
     }
 
@@ -4851,6 +4876,39 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    [Test]
+    public async Task SetRemoteAsync_keeps_the_previous_urls_when_a_credential_write_fails()
+    {
+        // The URL is written last, so a failure before it leaves the remote as it was.
+        const string oldFetchUrl = "https://example.invalid/old-fetch.git";
+        const string oldPushUrl = "https://example.invalid/old-push.git";
+        const string newUrl = "https://example.invalid/new.git";
+        await RunGitAsync("remote", "add", "origin", oldFetchUrl);
+        await RunGitAsync("config", "--local", "--replace-all", "remote.origin.pushurl", oldPushUrl);
+        var runner = new FailingLocalConfigWriteRunner(
+            new CredentialHelperRunner(CreateRunner())
+            {
+                AvailableHelpers = "credential-manager\n",
+                SimulateStorage = true,
+            },
+            $"credential.{newUrl}.useHttpPath",
+            new GitOperationException(4, "simulated config write failure"));
+        using var service = CreateService(runner: runner);
+
+        await Assert.ThrowsAsync<GitOperationException>(async () =>
+            await service.SetRemoteAsync("https://user:secret@example.invalid/new.git", CancellationToken.None));
+
+        string fetchUrl = (await RunGitAsync("remote", "get-url", "origin")).Stdout.Trim();
+        string pushUrl = (await RunGitAsync("remote", "get-url", "--push", "origin")).Stdout.Trim();
+        IReadOnlyList<string> usernames = await GetLocalConfigValuesAsync($"credential.{newUrl}.username");
+        Assert.Multiple(() =>
+        {
+            Assert.That(fetchUrl, Is.EqualTo(oldFetchUrl));
+            Assert.That(pushUrl, Is.EqualTo(oldPushUrl));
+            Assert.That(usernames, Is.EqualTo(new[] { "user" }));
+        });
+    }
+
     [TestCase("https://user:secret@example.invalid/repository.git", "https://example.invalid/repository.git", "user", "secret")]
     [TestCase("http://user:secret@example.invalid/repository.git", "http://example.invalid/repository.git", "user", "secret")]
     [TestCase("https://user:%20secret%20@example.invalid/repository.git", "https://example.invalid/repository.git", "user", " secret ")]
@@ -6990,8 +7048,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                && arguments.Contains($"Beutl-Snapshot: {kind.ToString().ToLowerInvariant()}");
     }
 
-    private sealed class FailingIdentityEmailWriteRunner(
+    private sealed class FailingLocalConfigWriteRunner(
         IGitCliRunner inner,
+        string key,
         Exception failure) : DelegatingGitCliRunner(inner)
     {
         private int _failurePending = 1;
@@ -7006,7 +7065,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             if (arguments.Count >= 4
                 && arguments[0] == "config"
                 && arguments.Contains("--local")
-                && arguments[^2] == "user.email"
+                && arguments[^2] == key
                 && Interlocked.Exchange(ref _failurePending, 0) == 1)
             {
                 return Task.FromException<GitCommandResult>(failure);
