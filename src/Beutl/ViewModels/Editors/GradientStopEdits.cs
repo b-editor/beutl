@@ -1,4 +1,6 @@
-﻿using Beutl.Media;
+﻿using Beutl.Controls;
+using Beutl.Media;
+using AM = Avalonia.Media;
 
 namespace Beutl.ViewModels.Editors;
 
@@ -37,4 +39,30 @@ internal static class GradientStopEdits
             editor.Commit();
         }
     }
+
+    // A drag on a gradient slider: moves the stop without recording it, and refreshes the cached frames.
+    public static void Drag(BaseEditorViewModel editor, ICoreList<GradientStop> list, int oldIndex, int newIndex, AM.GradientStop stop)
+    {
+        if (!Contains(list, oldIndex) || !Contains(list, newIndex)) return;
+
+        GradientStop obj = list[oldIndex];
+        obj.Offset.CurrentValue = (float)stop.Offset;
+        obj.Color.CurrentValue = stop.Color.ToBtlColor();
+        if (newIndex != oldIndex)
+            list.Move(oldIndex, newIndex);
+
+        editor.InvalidateFrameCache();
+    }
+
+    // The end of the drag: moves the stop back first, so that Confirm records the whole move.
+    public static void Release(BaseEditorViewModel editor, ICoreList<GradientStop> list, int oldIndex, int newIndex)
+    {
+        if (!Contains(list, oldIndex) || !Contains(list, newIndex)) return;
+
+        if (newIndex != oldIndex)
+            list.Move(newIndex, oldIndex);
+        Confirm(editor, list, oldIndex, newIndex);
+    }
+
+    private static bool Contains(ICoreList<GradientStop> list, int index) => index >= 0 && index < list.Count;
 }
