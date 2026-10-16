@@ -337,9 +337,9 @@ public class ResourceRelocationService
     [ExcludeFromCodeCoverage]
     private static IEnumerable<string> FindFontFiles(string fontFamilyName, string projectFontsDirectory)
     {
-        // The folders FontManager loads fonts from, so a font found nowhere here is not in use. A material
-        // package installs its fonts under the home directory, which is not one of the OS font directories
-        // the user configures.
+        // The folders FontManager registers fonts from; a font found nowhere here is reported as not bundled.
+        // A material package installs its fonts under the home directory, which is not one of the OS font
+        // directories the user configures.
         IReadOnlyList<string> fontDirs =
         [
             projectFontsDirectory,
