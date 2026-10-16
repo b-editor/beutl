@@ -6,7 +6,7 @@ namespace Beutl.Services.AI;
 
 /// <summary>
 /// The model catalog as the node graph sees it, decided the way the AI dialogs' model
-/// picker decides it: the same filter, the same availability and the same labels.
+/// picker decides it: the same filter (<see cref="IsOffered"/>), the same availability and the same labels.
 /// </summary>
 internal sealed class AiGenerativeModelCatalog(
     IAiModelCatalogService catalog,
@@ -59,7 +59,9 @@ internal sealed class AiGenerativeModelCatalog(
         return (loaded, models);
     }
 
-    /// <summary>The filters the AI dialogs put on their model pickers, per operation.</summary>
+    /// <summary>
+    /// Whether a model is offered for an operation, in the AI dialogs' model pickers and to the nodes and agents.
+    /// </summary>
     internal static bool IsOffered(string operationId, AiModelOption model)
     {
         if (operationId.StartsWith("image.edit.", StringComparison.Ordinal))
@@ -75,7 +77,17 @@ internal sealed class AiGenerativeModelCatalog(
         }
 
         if (operationId.StartsWith("video.", StringComparison.Ordinal))
-            return model.Video is not { } video || video.CanServeAnything();
+        {
+            // Require only what the operation sends: an edit inherits the source's length and shape,
+            // and extension and motion choose only a length.
+            return model.Video is not { } video || operationId switch
+            {
+                "video.edit" => true,
+                "video.extend" or "video.motion" =>
+                    !video.DurationsSeconds.IsSpecified || !video.DurationsSeconds.Values.IsEmpty,
+                _ => video.CanServeAnything(),
+            };
+        }
 
         // A model that takes no picture cannot generate from one.
         return model.Image is not { } image || image.CanServeAnything(false);

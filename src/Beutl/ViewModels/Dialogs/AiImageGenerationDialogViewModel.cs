@@ -122,10 +122,8 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
             .DisposeWith(_disposables);
         Seed = new ReactivePropertySlim<int?>()
             .DisposeWith(_disposables);
-        // A model that takes no picture cannot generate from one; offering it
-        // would only ever produce a request the server refuses.
         ModelPicker.Filter = model =>
-            model.Image is not { } image || image.CanServeAnything(false);
+            AiGenerativeModelCatalog.IsOffered(AiOperations.ImageGeneration.Value, model);
         SelectedAspectRatio.RememberChoice(() => _applyingCapabilities, option => _chosenAspectRatio = option)
             .DisposeWith(_disposables);
         SelectedBackground.RememberChoice(() => _applyingCapabilities, option => _chosenBackground = option)
