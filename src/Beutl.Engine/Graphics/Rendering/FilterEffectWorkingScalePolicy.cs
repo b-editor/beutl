@@ -175,7 +175,7 @@ internal readonly record struct FilterEffectWorkingScalePolicy
                 }
             }
 
-            // A effect-item Custom callback can combine or split the complete target list. Collapse from the union of
+            // An effect-item Custom callback can combine or split the complete target list. Collapse from the union of
             // the actual per-target semantic results, not TransformBounds(inputUnion): arbitrary pure mappings need
             // not distribute over Union.
             CollectEffectItemFootprints(

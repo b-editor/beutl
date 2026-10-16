@@ -140,10 +140,10 @@ public class FileBrowserMultipleTabsTests
     }
 
     [AvaloniaTest]
-    public async Task A_effectItem_layout_restores_a_single_file_browser_and_keeps_its_id()
+    public async Task A_legacy_layout_restores_a_single_file_browser_and_keeps_its_id()
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("filebrowser-effectItem-id");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("filebrowser-legacy-id");
 
         string folder = NewDirectory(editor, "resources");
         FileBrowserTabViewModel browser =
@@ -153,8 +153,8 @@ public class FileBrowserMultipleTabsTests
 
         var json = new JsonObject();
         editor.DockHost.WriteToJson(json);
-        string effectItemId = typeof(FileBrowserTabExtension).FullName!;
-        RewriteFileBrowserId(json, effectItemId);
+        string legacyId = typeof(FileBrowserTabExtension).FullName!;
+        RewriteFileBrowserId(json, legacyId);
 
         var restored = new DockHostViewModel(editor);
         try
@@ -169,7 +169,7 @@ public class FileBrowserMultipleTabsTests
             Assert.Multiple(() =>
             {
                 Assert.That(browsers, Has.Length.EqualTo(1));
-                Assert.That(browsers[0].Id, Is.EqualTo(effectItemId));
+                Assert.That(browsers[0].Id, Is.EqualTo(legacyId));
                 Assert.That(
                     ((FileBrowserTabViewModel)browsers[0].ToolContext).RootPath.Value,
                     Is.EqualTo(folder));

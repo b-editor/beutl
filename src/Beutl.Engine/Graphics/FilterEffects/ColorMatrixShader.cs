@@ -5,7 +5,7 @@ namespace Beutl.Graphics.Effects;
 /// <summary>
 /// Provides the shared <see cref="ShaderDescriptionKind.CurrentPixel"/> stage that reproduces
 /// <c>SKColorFilter.CreateColorMatrix</c>, so color-matrix filters stay inside a fusable shader chain instead of
-/// falling back to a effect-item Skia color-filter segment.
+/// falling back to an effect-item Skia color-filter segment.
 /// </summary>
 /// <remarks>
 /// Skia unpremultiplies, multiplies the straight components by the matrix, clamps the product to [0, 1], and

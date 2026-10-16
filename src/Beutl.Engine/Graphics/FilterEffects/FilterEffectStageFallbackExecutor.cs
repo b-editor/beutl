@@ -717,7 +717,7 @@ internal static class FilterEffectStageFallbackExecutor
         RenderTargetLeaseSession? leaseSession)
     {
         string message =
-            $"EffectItem typed-effect target allocation failed ({deviceBounds.Width}x{deviceBounds.Height} px, "
+            $"Effect-item typed-effect target allocation failed ({deviceBounds.Width}x{deviceBounds.Height} px, "
             + $"w {density}, bounds {bounds}).";
         s_logger.LogWarning(
             "{Message} Preview drops this target; delivery render fails fast.",

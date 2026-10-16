@@ -45,7 +45,7 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         IReadOnlyList<RenderResourceBinding> resources);
 
     [Test]
-    public void EffectItemDescriptions_AreTheExternalRecordingSurface()
+    public void RecordedDescriptions_AreTheExternalRecordingSurface()
     {
         Assembly engine = typeof(RenderNode).Assembly;
         string?[] exportedTypes = engine.GetExportedTypes().Select(static type => type.FullName).ToArray();
@@ -305,7 +305,7 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         Assert.That(
             exported,
             Is.EqualTo(roster),
-            "A Description type joined or left the public surface. Add it to EffectItemDescriptions_"
+            "A Description type joined or left the public surface. Add it to RecordedDescriptions_"
             + "AreTheExternalRecordingSurface, give it the plan-internal roster the family carries, and list "
             + "it here.");
     }
