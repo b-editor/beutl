@@ -1,13 +1,17 @@
 ﻿using System.Net;
+using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Api;
+using Beutl.Api.Clients;
+using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Language;
 using Beutl.Pages.SettingsPages;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.SettingsPages;
+using Reactive.Bindings;
 using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
@@ -230,6 +234,55 @@ public sealed class AccountSettingsPageViewModelTests
             Assert.That(handler.Requests, Has.Count.EqualTo(1));
             Assert.DoesNotThrow(viewModel.Dispose);
         }
+    }
+
+    // The page shows the signed-in account's display name as it changes, and stops following an account once
+    // another one signs in.
+    [AvaloniaTest]
+    public async Task DisplayName_FollowsOnlyTheSignedInAccount()
+    {
+        using var handler = new ControlledHandler(honorCancellation: true);
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        AuthenticatedUser first = CreateUser(clients, "user-a");
+        SetUser(clients, first);
+        using var viewModel = new AccountSettingsPageViewModel(clients, CreateCoordinator(clients));
+
+        SetDisplayName(first.Profile, "Alice");
+        string renamed = viewModel.DisplayName.Value!;
+        SetUser(clients, CreateUser(clients, "user-b"));
+        SetDisplayName(first.Profile, "Alice again");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(renamed, Is.EqualTo("Alice"));
+            Assert.That(viewModel.DisplayName.Value, Is.EqualTo("user-b"));
+        }
+    }
+
+    private static void SetUser(BeutlApiApplication clients, AuthenticatedUser user)
+    {
+        FieldInfo field = typeof(BeutlApiApplication).GetField(
+            "_authenticatedUser",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        ((ReactivePropertySlim<AuthenticatedUser?>)field.GetValue(clients)!).Value = user;
+    }
+
+    // What a profile refresh does when the account's display name changed on the server.
+    private static void SetDisplayName(Profile profile, string displayName)
+    {
+        FieldInfo field = typeof(Profile).GetField("_response", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var response = (ReactivePropertySlim<ProfileResponse>)field.GetValue(profile)!;
+        ProfileResponse current = response.Value;
+        response.Value = new ProfileResponse
+        {
+            Id = current.Id,
+            Name = current.Name,
+            DisplayName = displayName,
+            Bio = current.Bio,
+            IconId = current.IconId,
+            IconUrl = current.IconUrl,
+        };
     }
 
     private static AiPlanCoordinator CreateCoordinator(BeutlApiApplication clients)
