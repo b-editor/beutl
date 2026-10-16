@@ -6,7 +6,6 @@ namespace Beutl.NodeGraph;
 public class GraphNodeRegistry
 {
     private static readonly List<BaseRegistryItem> s_nodes = [];
-    internal static int s_totalCount;
 
     static GraphNodeRegistry()
     {
@@ -79,20 +78,13 @@ public class GraphNodeRegistry
             var item = s_nodes[i];
             if (item is GroupableRegistryItem groupable)
             {
-                var count = groupable.Count();
-                s_totalCount -= count;
                 if (groupable.Unregister(types))
                 {
                     s_nodes.RemoveAt(i);
                 }
-                else
-                {
-                    s_totalCount += groupable.Count();
-                }
             }
             else if (item is RegistryItem registryItem && types.Any(t => TypeUnloadNotifier.ContainsTypeRecursive(registryItem.Type, t)))
             {
-                s_totalCount--;
                 s_nodes.RemoveAt(i);
             }
         }
@@ -102,8 +94,6 @@ public class GraphNodeRegistry
     {
         if (item is GroupableRegistryItem groupable)
         {
-            s_totalCount += groupable.Count();
-
             if (s_nodes.FirstOrDefault(x => x.DisplayName == item.DisplayName) is GroupableRegistryItem registered)
             {
                 registered.Merge(groupable.Items);
@@ -115,7 +105,6 @@ public class GraphNodeRegistry
         }
         else
         {
-            s_totalCount++;
             s_nodes.Add(item);
         }
     }
@@ -170,24 +159,6 @@ public class GraphNodeRegistry
             }
 
             return Items.Count == 0;
-        }
-
-        internal int Count()
-        {
-            int count = 1;
-            foreach (BaseRegistryItem item in Items)
-            {
-                if (item is GroupableRegistryItem groupable1)
-                {
-                    count += groupable1.Count();
-                }
-                else
-                {
-                    count++;
-                }
-            }
-
-            return count;
         }
     }
 

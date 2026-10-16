@@ -42,7 +42,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         Nodes = new List<LibraryItemViewModel>(nodes.Count);
         Nodes.AddRange(nodes.Select(x => LibraryItemViewModel.CreateFromGraphNodeRegistryItem(x)));
 
-        AllItems = new(CreateAllItems(LibraryService.Current._totalCount + GraphNodeRegistry.s_totalCount));
+        AllItems = new(CreateAllItems());
     }
 
     public ReactiveCollection<Easing> Easings { get; } =
