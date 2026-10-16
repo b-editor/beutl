@@ -65,9 +65,6 @@ public partial class MenuBarViewModel
 
     public AsyncReactiveCommand RelinkMedia { get; private set; }
 
-    // Set by the view; asks the user to confirm deleting the file with the given name.
-    internal Func<string, Task<bool>>? ConfirmDeleteElementAsync { get; set; }
-
     private bool TryGetSelectedEditViewModel([NotNullWhen(true)] out EditViewModel? viewModel)
     {
         if (_editorService.SelectedTabItem.Value?.Context.Value is EditViewModel editViewModel)
@@ -111,15 +108,17 @@ public partial class MenuBarViewModel
         return false;
     }
 
-    private async Task OnDeleteElement()
+    private Task OnDeleteElement()
     {
-        if (ConfirmDeleteElementAsync is { } confirm
-            && TryGetSelectedElement(out EditViewModel? viewModel, out Scene? scene, out Element? element)
-            && await confirm(Path.GetFileName(element.Uri!.LocalPath)))
+        if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
+            && viewModel.Scene is Scene scene
+            && viewModel.GetService<IEditorSelection>() is { } selection)
         {
-            viewModel.GetRequiredService<IElementStructureService>()
-                .Delete(scene, [element], GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled);
+            viewModel.GetRequiredService<IElementStructureService>().Delete(
+                scene, selection.GetTargetElements(scene), GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled);
         }
+
+        return Task.CompletedTask;
     }
 
     private void OnExcludeElement()
