@@ -14,11 +14,7 @@ internal static class ProjectConflictMarkerScanner
 
     private static readonly byte[] s_utf8Bom = [0xef, 0xbb, 0xbf];
     private static readonly HashSet<string> s_projectExtensions = new(
-        [
-            $".{EditorConstants.ProjectFileExtension}",
-            $".{EditorConstants.SceneFileExtension}",
-            $".{EditorConstants.ElementFileExtension}",
-        ],
+        ProjectPathRules.DocumentExtensions,
         StringComparer.OrdinalIgnoreCase);
     private static readonly string[] s_prunedDirectories =
     [

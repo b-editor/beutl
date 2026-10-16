@@ -899,6 +899,45 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    // Repositories hold the lines earlier versions wrote, so building the lines and the snapshot
+    // pathspecs from EditorConstants must not change a byte of either.
+    [Test]
+    public async Task Hygiene_and_snapshot_write_the_reserved_paths_and_documents_as_before()
+    {
+        await CommitFileAsync("project.bep", "{}\n", "existing repository");
+        var runner = new RecordingGitCliRunner(CreateRunner());
+        using var service = CreateService(runner: runner);
+
+        await service.EnsureRepositoryHygieneAsync(CancellationToken.None);
+        await service.CommitAllAsync("beutl: snapshot on save", SnapshotKind.Save, CancellationToken.None);
+
+        IReadOnlyList<string> add = runner.Commands
+            .Select(static command => command.Arguments)
+            .Single(static arguments => GetGitSubcommand(arguments) == "add");
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                File.ReadAllText(Path.Combine(Root, ".gitignore")),
+                Is.EqualTo("**/.beutl/\n*.[tT][mM][pP]\n"));
+            Assert.That(
+                File.ReadAllText(Path.Combine(Root, ".gitattributes")),
+                Is.EqualTo(
+                    "*.[bB][eE][pP] text eol=lf\n"
+                    + "*.[sS][cC][eE][nN][eE] text eol=lf\n"
+                    + "*.[bB][eE][lL][mM] text eol=lf\n"
+                    + $"{MediaFingerprintFile.FileName} text eol=lf\n"
+                    + ".gitignore text eol=lf\n"
+                    + ".gitattributes text eol=lf\n"));
+            Assert.That(
+                add.TakeLast(2),
+                Is.EqualTo(new[]
+                {
+                    ":(top,exclude,glob)**/.[bB][eE][uU][tT][lL]/**",
+                    ":(top,exclude,glob)**/*.[tT][mM][pP]",
+                }));
+        });
+    }
+
     [Test]
     public async Task EnsureRepositoryHygieneAsync_marks_mixed_case_project_extensions_as_text()
     {

@@ -144,7 +144,7 @@ internal sealed partial class GitCliVersionControlService
             foreach (string child in children)
             {
                 string name = Path.GetFileName(Path.TrimEndingDirectorySeparator(child));
-                if (string.Equals(name, EditorConstants.BeutlFolder, StringComparison.OrdinalIgnoreCase)
+                if (ProjectPathRules.IsStateFolderName(name)
                     || string.Equals(name, ".git", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
@@ -185,11 +185,6 @@ internal sealed partial class GitCliVersionControlService
         }
 
         return builder.ToString();
-    }
-
-    private static bool IsTemporaryProjectFile(string path)
-    {
-        return path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string GetProjectPathPrefix(RepositoryInfo repository)

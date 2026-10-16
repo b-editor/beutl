@@ -299,7 +299,7 @@ internal sealed partial class GitCliVersionControlService
 
         await EnsureLinesAsync(
                 ignorePath,
-                s_gitIgnoreLines,
+                ProjectPathRules.GitIgnoreLines,
                 cancellationToken)
             .ConfigureAwait(false);
         await EnsureAttributesAsync(
@@ -399,7 +399,7 @@ internal sealed partial class GitCliVersionControlService
 
         await EnsureLinesAsync(
             ignorePath,
-            s_gitIgnoreLines,
+            ProjectPathRules.GitIgnoreLines,
             cancellationToken).ConfigureAwait(false);
         await EnsureAttributesAsync(
             attributesPath,
