@@ -1,4 +1,5 @@
-﻿using Beutl.Services.AI;
+﻿using Beutl.Language;
+using Beutl.Services.AI;
 
 namespace Beutl.UnitTests.Services.AI;
 
@@ -33,6 +34,25 @@ public sealed class FileAiRequestRecoveryStoreTests
         using var reopened = new FileAiRequestRecoveryStore(_directory);
         Assert.That(reopened.Find("account", "video.generate", "valid")?.Key, Is.EqualTo(valid.Key));
         Assert.That(reopened.PendingFor("account", "video.edit").Single().Form!.SourceJobId, Is.EqualTo("provider-job-17"));
+    }
+
+    [Test]
+    public void PendingAttemptsAreNamedWithTheTranslatedOperation()
+    {
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(Attempt("video.extend").DisplayName,
+                Is.EqualTo(string.Format(Strings.AiPendingRequestDefaultModel, Strings.AiVideoExtend)));
+            Assert.That(Attempt("video.edit", "model-a").DisplayName,
+                Is.EqualTo($"{Strings.AiVideoEditing} (model-a)"));
+            Assert.That(Attempt("video.motion").DisplayName,
+                Is.EqualTo(string.Format(Strings.AiPendingRequestDefaultModel, Strings.AiVideoMotion)));
+            Assert.That(Attempt("image.edit.upscale").DisplayName,
+                Is.EqualTo(string.Format(Strings.AiPendingRequestDefaultModel, Strings.AiImageEdit)));
+        }
+
+        static AiPendingAttempt Attempt(string operation, string? model = null)
+            => new("account", operation, "fingerprint", "key", model);
     }
 
     [Test]

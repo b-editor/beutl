@@ -2831,6 +2831,9 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
   <data name="AiPendingRequest" xml:space="preserve">
     <value>Solicitud de IA pendiente</value>
   </data>
+  <data name="AiPendingRequestDefaultModel" xml:space="preserve">
+    <value>{0} (modelo predeterminado)</value>
+  </data>
   <data name="AiRecoverRequest" xml:space="preserve">
     <value>Recuperar</value>
   </data>

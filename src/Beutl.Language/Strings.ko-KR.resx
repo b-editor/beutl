@@ -2831,6 +2831,9 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="AiPendingRequest" xml:space="preserve">
     <value>보류 중인 AI 요청</value>
   </data>
+  <data name="AiPendingRequestDefaultModel" xml:space="preserve">
+    <value>{0} (기본 모델)</value>
+  </data>
   <data name="AiRecoverRequest" xml:space="preserve">
     <value>복구</value>
   </data>
