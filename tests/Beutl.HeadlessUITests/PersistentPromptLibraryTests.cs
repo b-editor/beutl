@@ -337,6 +337,49 @@ public sealed class PersistentPromptLibraryTests
     }
 
     [Test]
+    public void Loading_normalizes_in_memory_and_the_next_change_writes_it()
+    {
+        // Only hand edits leave text or timestamps unnormalized; loading does not rewrite the file for them.
+        string contents = $$"""
+            {
+              "version": {{PersistentPromptLibrary.CurrentStorageVersion}},
+              "history": [],
+              "templates": [
+                {
+                  "id": "{{Guid.NewGuid()}}",
+                  "name": "  Hero shot  ",
+                  "taskKind": "image",
+                  "prompt": "first line\r\nsecond line",
+                  "createdAtUtc": "2026-08-09T09:00:00+09:00",
+                  "updatedAtUtc": "2026-08-09T09:00:00+09:00",
+                  "isPinned": false
+                }
+              ]
+            }
+            """;
+        File.WriteAllText(_storagePath, contents);
+
+        var library = new PersistentPromptLibrary(_storagePath);
+        PromptTemplate loaded = library.Templates.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(loaded.Name, Is.EqualTo("Hero shot"));
+            Assert.That(loaded.Prompt, Is.EqualTo("first line\nsecond line"));
+            Assert.That(loaded.UpdatedAtUtc.Offset, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(File.ReadAllText(_storagePath), Is.EqualTo(contents));
+        });
+
+        library.SaveTemplate("Other", PromptTaskKind.Video, "other prompt");
+        string written = File.ReadAllText(_storagePath);
+        Assert.Multiple(() =>
+        {
+            Assert.That(written, Does.Contain("\"name\": \"Hero shot\""));
+            Assert.That(written, Does.Not.Contain("\\r"));
+            Assert.That(written, Does.Not.Contain("+09:00"));
+        });
+    }
+
+    [Test]
     public void FutureVersion_IsRejectedWithoutChangingOrQuarantiningTheFile()
     {
         string contents = $$"""
