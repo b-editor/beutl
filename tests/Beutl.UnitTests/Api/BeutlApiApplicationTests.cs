@@ -64,8 +64,10 @@ public sealed class BeutlApiApplicationTests
     }
 
     [Test]
-    public async Task Constructor_UsesProductionApiOrigin()
+    public async Task Constructor_UsesProductionApiOriginByDefault()
     {
+        // BEUTL_API_BASE_URL is read once per process, so only its absence can be checked here.
+        Assume.That(Environment.GetEnvironmentVariable("BEUTL_API_BASE_URL"), Is.Null);
         using var httpClient = new HttpClient();
 
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
