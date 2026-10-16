@@ -485,7 +485,7 @@ public class MFEncodingTests
         public Rational FrameRate => new(30, 1);
         public bool WasDisposed { get; private set; }
 
-        public async ValueTask<Bitmap> RenderFrame(long frame)
+        public async ValueTask<Bitmap?> ReadNextFrame()
         {
             await Task.Yield();
             throw new InvalidOperationException("Render failed.");

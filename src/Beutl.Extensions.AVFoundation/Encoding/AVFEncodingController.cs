@@ -61,7 +61,7 @@ public class AVFEncodingController : EncodingController
 
                 if (encodeVideo && (!encodeAudio || videoTs <= audioTs))
                 {
-                    await WriteVideoFrameAsync(
+                    encodeVideo = await WriteVideoFrameAsync(
                         handle, frameProvider, frameCount, frameRateNum, frameRateDen,
                         hdrTargetColorSpace);
                     frameCount++;
@@ -88,7 +88,8 @@ public class AVFEncodingController : EncodingController
         }
     }
 
-    private static async ValueTask WriteVideoFrameAsync(
+    // Returns false once the provider has no more frames.
+    private static async ValueTask<bool> WriteVideoFrameAsync(
         AVFWriterSafeHandle handle,
         IFrameProvider frameProvider,
         long frame,
@@ -96,7 +97,10 @@ public class AVFEncodingController : EncodingController
         long frameRateDen,
         BitmapColorSpace? hdrTargetColorSpace)
     {
-        using var image = await frameProvider.RenderFrame(frame);
+        using Bitmap? image = await frameProvider.ReadNextFrame();
+        if (image is null)
+            return false;
+
         long ptsNum = frame * frameRateDen;
 
         using var converted = hdrTargetColorSpace is not null
@@ -114,6 +118,7 @@ public class AVFEncodingController : EncodingController
                 converted.RowBytes,
                 ptsNum,
                 (int)frameRateNum));
+        return true;
     }
 
     private static async ValueTask WriteAudioFrameAsync(

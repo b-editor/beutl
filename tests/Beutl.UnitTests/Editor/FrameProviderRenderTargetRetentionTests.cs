@@ -97,7 +97,7 @@ public sealed class FrameProviderRenderTargetRetentionTests
 
         for (long frame = 0; frame < provider.FrameCount; frame++)
         {
-            using Bitmap bitmap = await provider.RenderFrame(frame);
+            using Bitmap bitmap = (await provider.ReadNextFrame())!;
             Assert.That(bitmap.GetPixelSpan().ToArray(), Has.Some.Not.Zero);
             peakRetainedBytes = Math.Max(
                 peakRetainedBytes,
