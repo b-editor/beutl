@@ -321,37 +321,15 @@ public sealed partial class BrushEditor : UserControl
         (int OldIndex, int NewIndex,
             Avalonia.Media.GradientStop Object, Avalonia.Media.Immutable.ImmutableGradientStop OldObject) e)
     {
-        if (DataContext is not BrushEditorViewModel { IsElementEditable: true } viewModel) return;
-        if (viewModel.Value.Value is not GradientBrush { GradientStops: { } list }) return;
-        if (viewModel.IsDisposed) return;
-
-        if (e.OldIndex < 0 || e.OldIndex >= list.Count
-            || e.NewIndex < 0 || e.NewIndex >= list.Count)
-            return;
-
-        if (e.NewIndex != e.OldIndex)
-            list.Move(e.NewIndex, e.OldIndex);
-        viewModel.ConfirmeGradientStop(e.OldIndex, e.NewIndex);
+        if (DataContext is BrushEditorViewModel { IsElementEditable: true, Value.Value: GradientBrush { GradientStops: { } list } } viewModel)
+            GradientStopEdits.Release(viewModel, list, e.OldIndex, e.NewIndex);
     }
 
     private void OnGradientStopChanged(object? sender,
         (int OldIndex, int NewIndex, Avalonia.Media.GradientStop Object) e)
     {
-        if (DataContext is not BrushEditorViewModel { IsElementEditable: true } viewModel) return;
-        if (viewModel.Value.Value is not GradientBrush { GradientStops: { } list }) return;
-        if (viewModel.IsDisposed) return;
-
-        if (e.OldIndex < 0 || e.OldIndex >= list.Count
-            || e.NewIndex < 0 || e.NewIndex >= list.Count)
-            return;
-
-        GradientStop obj = list[e.OldIndex];
-        obj.Offset.CurrentValue = (float)e.Object.Offset;
-        obj.Color.CurrentValue = e.Object.Color.ToBtlColor();
-        if (e.NewIndex != e.OldIndex)
-            list.Move(e.OldIndex, e.NewIndex);
-
-        viewModel.InvalidateFrameCache();
+        if (DataContext is BrushEditorViewModel { IsElementEditable: true, Value.Value: GradientBrush { GradientStops: { } list } } viewModel)
+            GradientStopEdits.Drag(viewModel, list, e.OldIndex, e.NewIndex, e.Object);
     }
 
     private void Menu_Click(object? sender, RoutedEventArgs e)
