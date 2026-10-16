@@ -114,6 +114,35 @@ public sealed class MainMenuBuilderTests
             .Single(item => item.Header == Strings.ApplyDockLayout);
     }
 
+    // DockLayoutPresetService is app-wide, so a disposed view model must stop following it.
+    [AvaloniaTest]
+    public async Task A_disposed_view_model_stops_following_the_dock_layout_presets()
+    {
+        var viewModel = new MainViewModel();
+        DockLayoutPresetService presets = DockLayoutPresetService.Instance;
+        IReadOnlyList<MainMenuItem> entries = viewModel.MenuItems.Single(item => item.Header == Strings.View).Items!
+            .Single(item => item.Header == Strings.ApplyDockLayout).Items!;
+        DockLayoutPresetItem before = presets.Save("Before disposal", new JsonObject())!;
+        DockLayoutPresetItem? after = null;
+        try
+        {
+            HeadlessTestHelpers.Settle();
+            Assert.That(entries.Select(entry => entry.Header), Does.Contain("Before disposal"));
+
+            viewModel.Dispose();
+            await viewModel.WaitForDisposalAsync();
+            after = presets.Save("After disposal", new JsonObject());
+            HeadlessTestHelpers.Settle();
+            Assert.That(entries.Select(entry => entry.Header), Does.Not.Contain("After disposal"));
+        }
+        finally
+        {
+            presets.Remove(before);
+            if (after is not null)
+                presets.Remove(after);
+        }
+    }
+
     // A shortcut that names no window command would leave its entry without one.
     [AvaloniaTest]
     public void Every_menu_shortcut_names_a_window_command()

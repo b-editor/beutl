@@ -10,6 +10,9 @@ namespace Beutl.ViewModels;
 
 public sealed partial class MainViewModel
 {
+    // The followed lists subscribe to app-wide sources such as the dock layout presets, so disposal ends them.
+    private readonly CompositeDisposable _menuSubscriptions = [];
+
     public IReadOnlyList<MainMenuItem> MenuItems { get; }
 
     private MainMenuItem[] CreateMenuItems() =>
@@ -186,18 +189,18 @@ public sealed partial class MainViewModel
             .Switch()
     };
 
-    private static ReadOnlyObservableCollection<MainMenuItem> CreateRecentItems(CoreList<string> paths, ICommand open)
+    private ReadOnlyObservableCollection<MainMenuItem> CreateRecentItems(CoreList<string> paths, ICommand open)
         => ToMenuItems(
             paths.ToObservableChangeSet<CoreList<string>, string>(),
             path => new MainMenuItem(path) { Command = open, CommandParameter = path });
 
-    private static ReadOnlyObservableCollection<MainMenuItem> ToMenuItems<T>(
+    private ReadOnlyObservableCollection<MainMenuItem> ToMenuItems<T>(
         IObservable<IChangeSet<T>> source, Func<T, MainMenuItem> create, bool transformOnRefresh = false)
         where T : notnull
     {
-        source.Transform(create, transformOnRefresh)
+        _menuSubscriptions.Add(source.Transform(create, transformOnRefresh)
             .Bind(out ReadOnlyObservableCollection<MainMenuItem> items)
-            .Subscribe();
+            .Subscribe());
         return items;
     }
 
