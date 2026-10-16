@@ -1,56 +1,14 @@
 ﻿using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
-using Avalonia.Data;
-using Avalonia.Interactivity;
 
 using Beutl.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class GradingColorEditor : PropertyEditor
+public class GradingColorEditor : ColorPickerEditorBase<GradingColor, GradingColorPicker, GradingColorPickerFlyout>
 {
-    public static readonly DirectProperty<GradingColorEditor, GradingColor> ValueProperty =
-        AvaloniaProperty.RegisterDirect<GradingColorEditor, GradingColor>(
-            nameof(Value),
-            o => o.Value,
-            (o, v) => o.Value = v,
-            defaultBindingMode: BindingMode.TwoWay);
-
-    public static readonly StyledProperty<bool> IsLivePreviewEnabledProperty =
-        AvaloniaProperty.Register<GradingColorEditor, bool>(nameof(IsLivePreviewEnabled));
-
-    public static readonly DirectProperty<GradingColorEditor, Avalonia.Media.IBrush> PreviewBrushProperty =
-        AvaloniaProperty.RegisterDirect<GradingColorEditor, Avalonia.Media.IBrush>(nameof(PreviewBrush), o => o.PreviewBrush);
-
-    private GradingColorPickerFlyout? _flyout;
-
-    private bool _flyoutActive;
-    private Button? _button;
-
-    private GradingColor _oldValue;
-    private GradingColor _value;
-    private Avalonia.Media.IBrush _previewBrush = CreatePreviewBrush(default);
-
-    public GradingColor Value
+    public GradingColorEditor()
+        : base(default, CreateBrush(default))
     {
-        get => _value;
-        set
-        {
-            if (SetAndRaise(ValueProperty, ref _value, value))
-            {
-                SetAndRaise(PreviewBrushProperty, ref _previewBrush, CreatePreviewBrush(value));
-            }
-        }
-    }
-
-    // The swatch the shared ColorEditor theme shows for the value.
-    public Avalonia.Media.IBrush PreviewBrush => _previewBrush;
-
-    public bool IsLivePreviewEnabled
-    {
-        get => GetValue(IsLivePreviewEnabledProperty);
-        set => SetValue(IsLivePreviewEnabledProperty, value);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -58,95 +16,29 @@ public class GradingColorEditor : PropertyEditor
         base.OnPropertyChanged(change);
         if (change.Property == ValueProperty)
         {
-            _flyout?.Color = Value;
+            Flyout?.Color = Value;
         }
     }
 
-    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
+    private static Avalonia.Media.SolidColorBrush CreateBrush(GradingColor color) => new(color.ToColor().ToAvaColor());
+
+    private protected override Avalonia.Media.IBrush CreatePreviewBrush(GradingColor value) => CreateBrush(value);
+
+    private protected override GradingColor GetFlyoutColor(GradingColorPickerFlyout flyout) => flyout.Color;
+
+    private protected override void SetFlyoutColor(GradingColorPickerFlyout flyout, GradingColor color) => flyout.Color = color;
+
+    private protected override void SetLivePreview(GradingColorPickerFlyout flyout, bool enabled)
     {
-        if (_button != null)
-        {
-            _button.Click -= OnButtonClick;
-        }
-        base.OnApplyTemplate(e);
-        _button = e.NameScope.Get<Button>("PART_ColorPickerButton");
-        _button.Click += OnButtonClick;
+        if (enabled)
+            flyout.ColorChanged += OnFlyoutColorChanged;
+        else
+            flyout.ColorChanged -= OnFlyoutColorChanged;
     }
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
-    {
-        base.OnAttachedToVisualTree(e);
-        _flyout ??= new GradingColorPickerFlyout();
-        _flyout.Closed += OnFlyoutClosed;
-        _flyout.Confirmed += OnFlyoutConfirmed;
-    }
-
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
-    {
-        base.OnDetachedFromVisualTree(e);
-        if (_flyout != null)
-        {
-            _flyout.Closed -= OnFlyoutClosed;
-            _flyout.Confirmed -= OnFlyoutConfirmed;
-        }
-    }
-
-    private static Avalonia.Media.SolidColorBrush CreatePreviewBrush(GradingColor color) => new(color.ToColor().ToAvaColor());
-
-    private void OnButtonClick(object? sender, RoutedEventArgs e)
-    {
-        if (_flyout == null) return;
-
-        _flyout.Hide();
-
-        _flyout.Color = Value;
-
-        _flyout.Placement = PlacementMode.Bottom;
-
-        _flyout.ShowHideButtons(!IsLivePreviewEnabled);
-
-        if (IsLivePreviewEnabled)
-        {
-            _flyout.ColorChanged += OnFlyoutColorChanged;
-        }
-
-        _flyout.ShowAt(this);
-
-        _flyoutActive = true;
-
-        _oldValue = _value;
-    }
-
+    // The editor's value before the change is the old value, rather than the picker's.
     private void OnFlyoutColorChanged(GradingColorPickerFlyout sender, (GradingColor OldValue, GradingColor NewValue) args)
     {
-        if (IsLivePreviewEnabled)
-        {
-            var oldValue = Value;
-            Value = args.NewValue;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<GradingColor>(
-                args.NewValue, oldValue, ValueChangedEvent));
-        }
-    }
-
-    private void OnFlyoutConfirmed(DraggablePickerFlyout<GradingColorPicker> sender, EventArgs args)
-    {
-        if (_flyoutActive && _flyout != null)
-        {
-            Value = _flyout.Color;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<GradingColor>(
-                Value, _oldValue, ValueConfirmedEvent));
-        }
-    }
-
-    private void OnFlyoutClosed(object? sender, EventArgs e)
-    {
-        if (_flyout != null && IsLivePreviewEnabled)
-        {
-            _flyout.ColorChanged -= OnFlyoutColorChanged;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<GradingColor>(
-                Value, _oldValue, ValueConfirmedEvent));
-        }
-
-        _flyoutActive = false;
+        OnLiveColorChanged(args.NewValue, Value);
     }
 }
