@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
@@ -155,6 +156,45 @@ public sealed class ShaderFallbackTests
             Assert.That(warmStatistics.Misses, Is.EqualTo(1));
             Assert.That(warmStatistics.Hits, Is.EqualTo(1));
             Assert.That(renderer.LastExecutionStatistics.ProgramCacheHits, Is.EqualTo(1));
+        });
+    }
+
+    // The program text is the program-cache key, so a current-pixel stage the fallback executor runs after a
+    // custom effect has to reuse the program the request executor built for the same description.
+    [Test]
+    public void BothExecutors_BuildOneProgramForTheSameCurrentPixelStage()
+    {
+        using var source = new CpuRenderTarget(6, 4);
+        source.Value.Canvas.Clear(new SKColor(64, 128, 192, 160));
+        // Over the portable source budget, so the request executor runs the stage on its own instead of in a run.
+        ShaderDescription description = ShaderDescription.CurrentPixel(
+            $"/*{new string('界', 22_000)}*/\nhalf4 apply(half4 color) {{ return color.bgra; }}");
+        var afterCustomEffect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
+        {
+            context.CustomEffect(0, static (_, _) => { });
+            context.Shader(description);
+        });
+        var fallback = new FilterEffectRenderNode(afterCustomEffect.ToResource(CompositionContext.Default));
+        fallback.AddChild(new RectangleRenderNode(s_bounds, Brushes.Resource.Red, null));
+        using var root = new ContainerRenderNode();
+        root.AddChild(new ShaderNode(source, description));
+        root.AddChild(fallback);
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            FusionMode = FusionMode.Disabled,
+        }, new CpuRenderTargetFactory());
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+        ProgramCacheStatistics statistics = renderer.ProgramCacheStatistics;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.Bitmap, Is.Not.Null);
+            Assert.That(statistics.Creations, Is.EqualTo(1));
+            Assert.That(statistics.Hits, Is.EqualTo(1));
         });
     }
 
