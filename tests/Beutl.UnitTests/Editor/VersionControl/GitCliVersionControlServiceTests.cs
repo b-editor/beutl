@@ -203,6 +203,53 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task InitializeAsync_refuses_an_unignored_nested_repository_at_the_first_snapshot_and_can_continue()
+    {
+        string projectRoot = CreateTemporaryDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        Directory.CreateDirectory(Path.Combine(projectRoot, "tools", "lut-library", ".git"));
+        var projectRepository = new RepositoryInfo(projectRoot, projectRoot);
+        var options = new InitOptions(projectRepository, UseLfsWhenAvailable: false)
+        {
+            Identity = new GitIdentity("Beutl Test", "beutl-test@example.invalid"),
+        };
+        using (var refused = new GitCliVersionControlService(
+                   CreateInstalledLocator(),
+                   repository: null,
+                   watcher: null,
+                   _ => CreateRunner()))
+        {
+            InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
+                async () => await refused.InitializeAsync(options, CancellationToken.None));
+            Assert.Multiple(() =>
+            {
+                Assert.That(exception!.Message, Does.Contain("nested Git repository 'tools/lut-library'"));
+                Assert.That(Directory.Exists(Path.Combine(projectRoot, ".git")), Is.True);
+            });
+        }
+
+        // The repository has no commit yet, so initializing again continues it once the folder is ignored.
+        await File.AppendAllTextAsync(Path.Combine(projectRoot, ".gitignore"), "/tools/\n");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => CreateRunner());
+        await service.InitializeAsync(options, CancellationToken.None);
+
+        GitCommandResult tree = await Runner.RunAsync(
+            projectRepository,
+            ["ls-tree", "-r", "--name-only", "HEAD"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(tree.Stdout, Does.Contain("project.bep"));
+            Assert.That(tree.Stdout, Does.Not.Contain("lut-library"));
+        });
+    }
+
+    [Test]
     public async Task InitializeAsync_requires_identity_before_existing_repository_mutation_or_association()
     {
         await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
