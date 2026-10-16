@@ -63,12 +63,15 @@ public sealed record MediaFileInfo(
 
     public static string FormatFileSize(long bytes)
     {
-        return bytes switch
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        double value = bytes;
+        int unit = 0;
+        while (value >= 1024 && unit < units.Length - 1)
         {
-            >= 1_073_741_824 => $"{bytes / 1_073_741_824.0:0.#} GB",
-            >= 1_048_576 => $"{bytes / 1_048_576.0:0.#} MB",
-            >= 1024 => $"{bytes / 1024.0:0.#} KB",
-            _ => $"{bytes} B"
-        };
+            value /= 1024;
+            unit++;
+        }
+
+        return $"{value:0.#} {units[unit]}";
     }
 }

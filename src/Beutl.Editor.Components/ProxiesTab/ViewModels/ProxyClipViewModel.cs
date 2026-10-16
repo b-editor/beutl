@@ -1,4 +1,5 @@
-﻿using Beutl.Media.Proxy;
+﻿using Beutl.Editor.Components.FileBrowserTab.Services;
+using Beutl.Media.Proxy;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.ProxiesTab.ViewModels;
@@ -45,7 +46,7 @@ public sealed class ProxyClipViewModel : IDisposable
         SourceInfoText = string.Format(
             CultureInfo.CurrentCulture,
             Strings.ProxySourceInfoFormat,
-            ProxiesTabViewModel.FormatBytes(source.FileSizeBytes),
+            MediaFileInfo.FormatFileSize(source.FileSizeBytes),
             source.MtimeUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture));
         HasJob = new ReactiveProperty<bool>()
             .DisposeWith(_disposables);
@@ -192,7 +193,7 @@ public sealed class ProxyClipViewModel : IDisposable
                 Strings.ProxyInfoFormat,
                 ProxiesTabViewModel.FormatSize(entry.OriginalLogicalFrameSize),
                 ProxiesTabViewModel.FormatSize(entry.ProxyDecodedFrameSize),
-                ProxiesTabViewModel.FormatBytes(entry.ProxyFileSizeBytes));
+                MediaFileInfo.FormatFileSize(entry.ProxyFileSizeBytes));
         LastUsedText.Value = entry == null
             ? string.Empty
             : string.Format(
