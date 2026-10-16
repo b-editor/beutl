@@ -144,7 +144,7 @@ internal sealed partial class GitCliVersionControlService
         await TryRaiseLfsQuotaNoticeIfNeededAsync(
             repository,
             runner).ConfigureAwait(false);
-        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+        await TryQueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<(RepositoryInfo Repository, RepositoryInfo? Discovered)>

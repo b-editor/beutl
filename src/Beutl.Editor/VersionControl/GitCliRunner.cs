@@ -11,15 +11,14 @@ internal sealed record GitCommandResult(
     bool StdoutTruncated = false,
     byte[]? StdoutBytes = null);
 
-// LocalUnbounded and LocalWithLfs commands hold the index lock while filters or hooks run: add,
+// LocalUnbounded and LocalWithLfs commands can hold the index lock while filters or hooks run: add,
 // commit, restore, switch, merge and stash. On Unix a canceled one is first sent SIGTERM, on which Git
 // removes its lock files, and is killed only if it is still running after a grace period. Local
 // commands are short and Network ones hold no lock while they transfer, so both are killed at once.
 internal enum GitCommandExecutionKind
 {
     Local,
-    // Local work that runs the user's own programs, such as commit hooks or a commit signer. They can
-    // wait on the user or set up tools, so only cancellation stops them.
+    // Local work no time limit fits, such as hooks, a commit signer, status and grep.
     LocalUnbounded,
     LocalWithLfs,
     Network,

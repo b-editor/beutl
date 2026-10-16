@@ -146,7 +146,7 @@ internal sealed partial class GitCliVersionControlService
             }
         }
 
-        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+        await TryQueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
     }
 
     // Returns true when HEAD reached the branch even though the switch reported failure. Otherwise the
@@ -255,7 +255,7 @@ internal sealed partial class GitCliVersionControlService
             arguments,
             new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
             cancellationToken).ConfigureAwait(false);
-        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+        await TryQueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static void ValidateSwitchBranchName(string name)

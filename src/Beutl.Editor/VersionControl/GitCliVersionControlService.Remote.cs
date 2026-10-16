@@ -84,7 +84,7 @@ internal sealed partial class GitCliVersionControlService
             repository,
             runner).ConfigureAwait(false);
 
-        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+        await TryQueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
 
         Task<GitCommandResult> SetRemoteConfigAsync(string[] arguments)
         {
@@ -139,7 +139,7 @@ internal sealed partial class GitCliVersionControlService
                 GitCommandOptions.Network,
                 cancellationToken,
                 progress).ConfigureAwait(false);
-            await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+            await TryQueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
             return new RemoteOpResult.Success();
         }
         catch (GitOperationException ex)
@@ -309,7 +309,7 @@ internal sealed partial class GitCliVersionControlService
             string? failedPop = stashed
                 ? await TryPopStashAsync(repository, runner).ConfigureAwait(false)
                 : null;
-            await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+            await TryQueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
             return failedPop is null
                 ? MapRemoteFailure(mergeFailure)
                 : new RemoteOpResult.Failed(JoinMessages(
@@ -330,7 +330,7 @@ internal sealed partial class GitCliVersionControlService
         string? failedRestore = stashed
             ? await TryPopStashAsync(repository, runner).ConfigureAwait(false)
             : null;
-        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+        await TryQueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
         return failedRestore is null
             ? new RemoteOpResult.Success()
             : new RemoteOpResult.Failed(JoinMessages(

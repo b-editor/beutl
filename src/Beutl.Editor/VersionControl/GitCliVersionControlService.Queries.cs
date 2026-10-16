@@ -341,11 +341,12 @@ internal sealed partial class GitCliVersionControlService
             arguments.AddRange(extraPathspecs);
         }
 
+        // Status filters each file whose stat data changed, so its time grows with the media.
         GitCommandResult result = await runner.RunAsync(
             repository,
             arguments,
             new GitCommandOptions(
-                GitCommandExecutionKind.Local,
+                GitCommandExecutionKind.LocalUnbounded,
                 UseLiteralPathspecs: extraPathspecs is null),
             cancellationToken).ConfigureAwait(false);
         WorkspaceStatus status = ParseStatus(result.Stdout);
