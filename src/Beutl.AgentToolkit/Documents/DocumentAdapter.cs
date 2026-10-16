@@ -46,7 +46,7 @@ public sealed class DocumentAdapter
     // A document leaves out the members Beutl does not know, which an object keeps from the file it was read
     // from: an agent edits only what Beutl knows, and applying a document keeps them (see
     // CoreSerializerOptions.KeepUnknownMembers).
-    private static CoreSerializerOptions CreateOptions(ICoreSerializable root)
+    internal static CoreSerializerOptions CreateOptions(ICoreSerializable root)
     {
         return new CoreSerializerOptions
         {

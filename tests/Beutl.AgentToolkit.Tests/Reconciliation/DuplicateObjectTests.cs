@@ -4,6 +4,8 @@ using Beutl.AgentToolkit.Tools;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
+using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Tests.Reconciliation;
@@ -243,6 +245,60 @@ public sealed class DuplicateObjectTests
             Assert.That(copyEffect.Children[0], Is.InstanceOf<Blur>());
             Assert.That(copyEffect.Children[0].Id, Is.Not.EqualTo(Guid.Empty));
             Assert.That(copyEffect.Children[0].Id, Is.Not.EqualTo(originalBlurId));
+        });
+    }
+
+    [Test]
+    public void Duplicate_object_wrap_in_group_keeps_the_media_of_an_element_in_a_subfolder()
+    {
+        // The element's file sits in a subfolder, so a media path written relative to it would resolve to
+        // another file against the scene.
+        Scene scene = TestWorkspace.CreateScene();
+        string subDir = Directory.CreateDirectory(
+            Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "sub")).FullName;
+        Element element = TestWorkspace.AddElement(
+            scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), Path.Combine("sub", "media.belm"));
+        string imagePath = Path.Combine(subDir, "source.png");
+        using (var bitmap = new Bitmap(8, 8))
+        {
+            Assert.That(bitmap.Save(imagePath, EncodedImageFormat.Png), Is.True);
+        }
+
+        var imageSource = new ImageSource();
+        imageSource.ReadFrom(new Uri(imagePath));
+        var image = new SourceImage { Source = { CurrentValue = imageSource } };
+        element.AddObject(image);
+
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = session.CreateEditTools();
+
+        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(image.Id.ToString(), wrapInGroup: true);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        var copy = (SourceImage)element.Objects.OfType<DrawableGroup>().Single().Children
+            .Single(item => item.Id.ToString() == result.Value!.ObjectId);
+        Assert.That(copy.Source.CurrentValue?.Uri?.LocalPath, Is.EqualTo(imagePath));
+    }
+
+    [Test]
+    public void Duplicate_object_wrap_in_group_enters_the_session_dispatcher_once()
+    {
+        // The editor follows each dispatch that commits a transaction, so a second one would navigate twice.
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var rect = new RectShape { Name = "Original rect", Width = { CurrentValue = 120 } };
+        element.AddObject(rect);
+
+        using var session = new DispatchingTestSession(scene);
+        var tools = new EditTools(TestSessions.CreateManager(session));
+
+        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.ToString(), wrapInGroup: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(session.InvokeCount, Is.EqualTo(1));
+            Assert.That(session.History.UndoCount, Is.EqualTo(1));
         });
     }
 
