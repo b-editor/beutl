@@ -96,66 +96,17 @@ public partial class ListEditor : UserControl
             }
             else if (!viewModel.IsListNull)
             {
-                progress.IsVisible = progress.IsIndeterminate = true;
-
-                var availableTypes = await Task.Run(() => FindAddableItemTypes(viewModel.ItemType));
-
-                progress.IsVisible = progress.IsIndeterminate = false;
-
-                Type? selectedType = await ChooseItemTypeAsync(availableTypes);
-
-                if (selectedType != null)
+                Type itemType = viewModel.ItemType;
+                if (itemType.IsSealed
+                    && (itemType.GetConstructor([]) != null || itemType.GetConstructors().Length == 0))
+                {
+                    viewModel.AddItem(itemType);
+                }
+                else if (await SelectTypeOrReference() is Type selectedType)
                 {
                     viewModel.AddItem(selectedType);
                 }
-                else
-                {
-                    NotificationService.ShowError(Strings.Error, "ListEditor<TItem>.OnAddClick");
-                }
             }
         }
-    }
-
-    private static Type[] FindAddableItemTypes(Type itemType)
-    {
-        Type[]? availableTypes;
-
-        if (itemType.IsSealed
-            && (itemType.GetConstructor([]) != null
-                || itemType.GetConstructors().Length == 0))
-        {
-            availableTypes = [itemType];
-        }
-        else
-        {
-            availableTypes = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(x => x.GetTypes())
-                .Where(x => !x.IsAbstract
-                            && x.IsPublic
-                            && x.IsAssignableTo(itemType)
-                            && (x.GetConstructor([]) != null
-                                || x.GetConstructors().Length == 0))
-                .ToArray();
-        }
-
-        return availableTypes;
-    }
-
-    private async Task<Type?> ChooseItemTypeAsync(Type[] availableTypes)
-    {
-        Type? selectedType = null;
-
-        if (availableTypes.Length == 1)
-        {
-            selectedType = availableTypes[0];
-        }
-        else if (availableTypes.Length > 1)
-        {
-            var result = await SelectTypeOrReference();
-            if (result is Type t)
-                selectedType = t;
-        }
-
-        return selectedType;
     }
 }

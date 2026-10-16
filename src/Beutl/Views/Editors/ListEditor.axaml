@@ -53,13 +53,6 @@
                        IsVisible="{Binding List.Value, Converter={x:Static ObjectConverters.IsNull}}"
                        Text="{x:Static lang:MessageStrings.PropertyUnset}" />
 
-            <ProgressBar x:Name="progress"
-                         MinWidth="100"
-                         Margin="0,0,8,0"
-                         VerticalAlignment="Center"
-                         IsIndeterminate="True"
-                         IsVisible="False" />
-
             <ItemsControl x:Name="items"
                           Grid.Row="1"
                           ItemsSource="{Binding Items}">
