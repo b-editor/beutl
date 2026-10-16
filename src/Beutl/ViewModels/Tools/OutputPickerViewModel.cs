@@ -10,7 +10,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Tools;
 
-public sealed class OutputPickerViewModel : IDisposable
+internal sealed class OutputPickerViewModel : IDisposable
 {
     private const string PinnedProfilesKey = "OutputPicker.PinnedProfiles";
     private const string PinnedPresetsKey = "OutputPicker.PinnedPresets";

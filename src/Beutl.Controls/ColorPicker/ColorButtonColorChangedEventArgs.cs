@@ -3,7 +3,7 @@ using Avalonia.Media;
 
 namespace FluentAvalonia.UI.Controls;
 
-public class ColorButtonColorChangedEventArgs : EventArgs
+internal class ColorButtonColorChangedEventArgs : EventArgs
 {
     public Color? OldColor { get; }
 

@@ -19,7 +19,7 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class GradientStopsSlider : TemplatedControl
+internal class GradientStopsSlider : TemplatedControl
 {
     public static readonly StyledProperty<GradientStops?> StopsProperty =
         AvaloniaProperty.Register<GradientStopsSlider, GradientStops?>(nameof(Stops));

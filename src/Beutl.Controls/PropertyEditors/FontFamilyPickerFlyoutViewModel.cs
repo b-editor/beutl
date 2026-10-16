@@ -9,7 +9,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class FontFamilyPickerFlyoutViewModel
+internal class FontFamilyPickerFlyoutViewModel
 {
     private const string PinnedItemsKey = "FontManager.PinnedItems";
     private static readonly TimeSpan s_searchDelay = TimeSpan.FromMilliseconds(100);

@@ -13,7 +13,7 @@ namespace FluentAvalonia.UI.Controls;
 /// <summary>
 /// Defines a control for selecting a color
 /// </summary>
-public partial class FAColorPicker : TemplatedControl
+internal partial class FAColorPicker : TemplatedControl
 {
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {

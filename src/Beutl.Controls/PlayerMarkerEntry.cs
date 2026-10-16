@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Controls;
 
-public sealed class PlayerMarkerEntry
+internal sealed class PlayerMarkerEntry
 {
     public PlayerMarkerEntry(string name, string timeText)
     {

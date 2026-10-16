@@ -9,7 +9,7 @@ using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class ExpressionEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
+internal class ExpressionEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
 {
     public static readonly StyledProperty<string?> ExpressionTextProperty =
         AvaloniaProperty.Register<ExpressionEditorFlyoutPresenter, string?>(nameof(ExpressionText));

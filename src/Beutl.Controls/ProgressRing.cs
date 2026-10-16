@@ -11,7 +11,7 @@ namespace Beutl.Controls;
 /// A control used to indicate the progress of an operation.
 /// </summary>
 [PseudoClasses(":preserveaspect", ":indeterminate")]
-public class ProgressRing : RangeBase
+internal class ProgressRing : RangeBase
 {
     public static readonly StyledProperty<bool> IsIndeterminateProperty =
         ProgressBar.IsIndeterminateProperty.AddOwner<ProgressRing>();

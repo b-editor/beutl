@@ -13,7 +13,7 @@ using FluentAvalonia.Core;
 namespace Beutl.Controls.PropertyEditors;
 
 // Based on FluentAvalonia's FAPickerFlyoutPresenter, with a drag area.
-public class DraggablePickerFlyoutPresenter : ContentControl
+internal class DraggablePickerFlyoutPresenter : ContentControl
 {
     public static readonly StyledProperty<bool> ShowHideButtonsProperty =
         AvaloniaProperty.Register<DraggablePickerFlyoutPresenter, bool>(nameof(ShowHideButtons));

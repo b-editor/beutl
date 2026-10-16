@@ -7,7 +7,7 @@ using Reactive.Bindings;
 
 namespace Beutl;
 
-public static class BindingHelper
+internal static class BindingHelper
 {
     private static readonly Dictionary<Type, CompiledBindingPath> s_cache = [];
 

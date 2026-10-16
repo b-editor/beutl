@@ -6,7 +6,7 @@ using Beutl.Animation.Easings;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public sealed class EasingCurveEditedEventArgs(SplineEasing oldValue, SplineEasing newValue) : EventArgs
+internal sealed class EasingCurveEditedEventArgs(SplineEasing oldValue, SplineEasing newValue) : EventArgs
 {
     public SplineEasing OldValue { get; } = oldValue;
 
@@ -16,7 +16,7 @@ public sealed class EasingCurveEditedEventArgs(SplineEasing oldValue, SplineEasi
 // Plots an easing over progress [0, 1] and lets the control points of a spline be dragged.
 // A drag never mutates the displayed spline: each step reports a new instance, so the owner
 // can write it through the property and record the whole drag as one history entry.
-public sealed class EasingCurveEditor : Control
+internal sealed class EasingCurveEditor : Control
 {
     public static readonly StyledProperty<Easing?> EasingProperty =
         AvaloniaProperty.Register<EasingCurveEditor, Easing?>(nameof(Easing));

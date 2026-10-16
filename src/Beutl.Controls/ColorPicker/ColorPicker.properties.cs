@@ -6,7 +6,7 @@ using FluentAvalonia.UI.Media;
 
 namespace FluentAvalonia.UI.Controls;
 
-public partial class FAColorPicker
+internal partial class FAColorPicker
 {
     /// <summary>
     /// Defines the <see cref="PreviousColor"/> property

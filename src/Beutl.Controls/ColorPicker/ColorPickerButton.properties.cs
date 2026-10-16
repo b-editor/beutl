@@ -9,7 +9,7 @@ using FluentAvalonia.Core;
 namespace FluentAvalonia.UI.Controls;
 
 [TemplatePart(s_tpShowFlyoutButton, typeof(Button))]
-public partial class ColorPickerButton
+internal partial class ColorPickerButton
 {
     /// <summary>
     /// Defines the <see cref="Color"/> property

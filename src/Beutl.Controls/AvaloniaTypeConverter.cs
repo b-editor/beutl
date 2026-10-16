@@ -7,7 +7,7 @@ using Point = Avalonia.Point;
 
 namespace Beutl.Controls;
 
-public static class AvaloniaTypeConverter
+internal static class AvaloniaTypeConverter
 {
     public static Avalonia.Media.Color ToAvaColor(this in Media.Color color)
     {

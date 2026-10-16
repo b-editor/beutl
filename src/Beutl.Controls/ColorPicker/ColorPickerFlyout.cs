@@ -7,7 +7,7 @@ namespace FluentAvalonia.UI.Controls;
 /// <summary>
 /// Defines a flyout that hosts a <see cref="ColorPicker"/>
 /// </summary>
-public sealed class ColorPickerFlyout : FAPickerFlyoutBase
+internal sealed class ColorPickerFlyout : FAPickerFlyoutBase
 {
     /// <summary>
     /// Gets the <see cref="ColorPicker"/> that this flyout hosts

@@ -4,7 +4,7 @@ namespace Beutl.Controls.Styling.Themes;
 
 // PackageTools merges this dictionary directly instead of through a ThemeExtension, so
 // BeutlDarkBorder.axaml must define every key its StaticResources use.
-public static class BeutlDarkBorderTheme
+internal static class BeutlDarkBorderTheme
 {
     public static Uri ResourceUri { get; } =
         new("avares://Beutl.Controls/Styling/Themes/BeutlDarkBorder.axaml");

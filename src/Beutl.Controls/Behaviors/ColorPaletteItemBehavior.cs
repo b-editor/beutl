@@ -8,7 +8,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Controls.Behaviors;
 
-public class ColorPaletteItemBehavior : Behavior<ColorPaletteItem>
+internal class ColorPaletteItemBehavior : Behavior<ColorPaletteItem>
 {
     private bool _isPressed;
 

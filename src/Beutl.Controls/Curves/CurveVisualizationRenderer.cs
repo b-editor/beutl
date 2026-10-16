@@ -12,7 +12,7 @@ using LinearGradientBrush = Avalonia.Media.LinearGradientBrush;
 namespace Beutl.Controls.Curves;
 
 [Flags]
-public enum HistogramCategory
+internal enum HistogramCategory
 {
     None = 0,
     Rgb = 1,
@@ -21,7 +21,7 @@ public enum HistogramCategory
     Saturation = 8
 }
 
-public sealed class CurveVisualizationRenderer
+internal sealed class CurveVisualizationRenderer
 {
     private readonly int[] _rHist = new int[256];
     private readonly int[] _gHist = new int[256];

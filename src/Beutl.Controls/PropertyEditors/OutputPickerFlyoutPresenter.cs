@@ -10,7 +10,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class OutputPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
+internal class OutputPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
 {
     public static readonly StyledProperty<ReactiveCollection<PinnableLibraryItem>?> ProfileItemsProperty =
         AvaloniaProperty.Register<OutputPickerFlyoutPresenter, ReactiveCollection<PinnableLibraryItem>?>(nameof(ProfileItems));

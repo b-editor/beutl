@@ -5,7 +5,7 @@ using Beutl.ViewModels.Editors;
 
 namespace Beutl.Views.Editors;
 
-public static class LibraryItemPickerHelper
+internal static class LibraryItemPickerHelper
 {
     public static Task<object?> ShowAsync(
         Control host,

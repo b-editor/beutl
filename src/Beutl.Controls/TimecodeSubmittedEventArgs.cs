@@ -6,7 +6,7 @@
 /// <see cref="Reject"/> with a localized message to keep the editor open and
 /// display the message as a validation tooltip.
 /// </summary>
-public sealed class TimecodeSubmittedEventArgs : EventArgs
+internal sealed class TimecodeSubmittedEventArgs : EventArgs
 {
     public TimecodeSubmittedEventArgs(string input)
     {

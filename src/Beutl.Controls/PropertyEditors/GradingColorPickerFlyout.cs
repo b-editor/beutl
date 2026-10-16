@@ -6,7 +6,7 @@ using FluentAvalonia.Core;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public sealed class GradingColorPickerFlyout : DraggablePickerFlyout<GradingColorPicker>
+internal sealed class GradingColorPickerFlyout : DraggablePickerFlyout<GradingColorPicker>
 {
     public GradingColor Color
     {

@@ -5,7 +5,7 @@ using UnboundedHsv = (float H, float S, float V);
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class GradingColorComponentsEditor : Vector3Editor<float>
+internal class GradingColorComponentsEditor : Vector3Editor<float>
 {
     public static readonly DirectProperty<GradingColorComponentsEditor, GradingColor> ColorProperty =
         AvaloniaProperty.RegisterDirect<GradingColorComponentsEditor, GradingColor>(nameof(Color),

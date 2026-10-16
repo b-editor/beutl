@@ -4,7 +4,7 @@ using Avalonia.Media;
 namespace Beutl.Controls.Styling;
 
 // Shared by the editor and PackageTools shells. FluentAvalonia resolves OS accents itself.
-public static class AccentResolution
+internal static class AccentResolution
 {
     // TextOnAccentFillColorDisabled pairs with a fixed translucent white fill, not the accent.
     private static readonly (string Key, byte Alpha)[] s_keys =

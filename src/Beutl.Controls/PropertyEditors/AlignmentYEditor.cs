@@ -5,7 +5,7 @@ using Beutl.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class AlignmentYEditor : ThreeOptionRadioEditor<AlignmentY>
+internal class AlignmentYEditor : ThreeOptionRadioEditor<AlignmentY>
 {
     public static readonly DirectProperty<AlignmentYEditor, AlignmentY> ValueProperty =
         AvaloniaProperty.RegisterDirect<AlignmentYEditor, AlignmentY>(

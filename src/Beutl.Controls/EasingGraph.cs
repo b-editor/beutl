@@ -6,7 +6,7 @@ using Beutl.Animation.Easings;
 
 namespace Beutl.Controls;
 
-public sealed class EasingGraph : TemplatedControl
+internal sealed class EasingGraph : TemplatedControl
 {
     public static readonly StyledProperty<Easing?> EasingProperty
         = AvaloniaProperty.Register<EasingGraph, Easing?>("Easing");

@@ -9,7 +9,7 @@ using FluentAvalonia.UI.Controls.Primitives;
 namespace Beutl.Controls.PropertyEditors;
 
 // The flyouts of SimpleColorPicker and GradingColorPicker; they differ only in the picker they host.
-public abstract class DraggablePickerFlyout<TPicker> : FAPickerFlyoutBase
+internal abstract class DraggablePickerFlyout<TPicker> : FAPickerFlyoutBase
     where TPicker : Control, new()
 {
     private TPicker? _picker;

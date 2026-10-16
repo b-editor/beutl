@@ -15,14 +15,14 @@ using UnboundedHsv = (float H, float S, float V);
 
 namespace Beutl.Controls.PropertyEditors;
 
-public enum GradingColorPickerInputType
+internal enum GradingColorPickerInputType
 {
     Rgb,
     Hsv
 }
 
 [PseudoClasses(":details")]
-public class GradingColorPicker : TemplatedControl
+internal class GradingColorPicker : TemplatedControl
 {
     public static readonly StyledProperty<GradingColor> ColorProperty =
         AvaloniaProperty.Register<GradingColorPicker, GradingColor>(nameof(Color),

@@ -12,7 +12,7 @@ namespace FluentAvalonia.UI.Controls;
 /// <summary>
 /// A button that hides a <see cref="FAColorPicker"/> within a <see cref="Flyout"/>
 /// </summary>
-public partial class ColorPickerButton : TemplatedControl
+internal partial class ColorPickerButton : TemplatedControl
 {
     static ColorPickerButton()
     {

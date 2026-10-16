@@ -2,5 +2,5 @@
 
 namespace Beutl.Controls;
 
-public sealed class SaveAsTemplateFlyout()
+internal sealed class SaveAsTemplateFlyout()
     : TextInputFlyout(Strings.SaveAsTemplate, 280, Strings.EnterTemplateName, selectAllOnOpening: true);

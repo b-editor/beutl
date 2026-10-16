@@ -8,7 +8,7 @@ using Avalonia.Data;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class Vector4Editor<TElement> : Vector4Editor
+internal class Vector4Editor<TElement> : Vector4Editor
     where TElement : INumber<TElement>
 {
     public static readonly DirectProperty<Vector4Editor<TElement>, TElement> FirstValueProperty =
@@ -110,7 +110,7 @@ public class Vector4Editor<TElement> : Vector4Editor
 [TemplatePart("PART_InnerThirdTextBox", typeof(TextBox))]
 [TemplatePart("PART_InnerFourthTextBox", typeof(TextBox))]
 [TemplatePart("PART_BackgroundBorder", typeof(Border))]
-public class Vector4Editor : VectorEditorBase
+internal class Vector4Editor : VectorEditorBase
 {
     public static readonly DirectProperty<Vector4Editor, string> FirstTextProperty =
         AvaloniaProperty.RegisterDirect<Vector4Editor, string>(

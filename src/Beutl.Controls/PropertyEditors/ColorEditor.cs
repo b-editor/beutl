@@ -4,7 +4,7 @@ using FluentAvalonia.UI.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class ColorEditor : ColorPickerEditorBase<Color, SimpleColorPicker, SimpleColorPickerFlyout>
+internal class ColorEditor : ColorPickerEditorBase<Color, SimpleColorPicker, SimpleColorPickerFlyout>
 {
     public ColorEditor()
         : base(Colors.White, new SolidColorBrush(Colors.White))

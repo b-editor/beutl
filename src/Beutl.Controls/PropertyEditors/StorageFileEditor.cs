@@ -8,7 +8,7 @@ using Avalonia.Platform.Storage;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class StorageFileEditor : StringEditor
+internal class StorageFileEditor : StringEditor
 {
     public static readonly StyledProperty<FilePickerOpenOptions> OpenOptionsProperty =
         AvaloniaProperty.Register<StorageFileEditor, FilePickerOpenOptions>(nameof(OpenOptions));

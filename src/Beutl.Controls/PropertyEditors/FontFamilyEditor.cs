@@ -7,7 +7,7 @@ using Beutl.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class FontFamilyEditor : PropertyEditor
+internal class FontFamilyEditor : PropertyEditor
 {
     public static readonly StyledProperty<Media.FontFamily> ValueProperty =
         AvaloniaProperty.Register<FontFamilyEditor, Media.FontFamily>(

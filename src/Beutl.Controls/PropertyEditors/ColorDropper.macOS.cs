@@ -9,7 +9,7 @@ using static Beutl.Controls.CoreGraphics;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public partial class ColorDropper
+internal partial class ColorDropper
 {
     [SupportedOSPlatform("macos")]
     private static bool MacOSIsClickDown()

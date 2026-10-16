@@ -4,7 +4,7 @@ using Avalonia.Media;
 
 namespace FluentAvalonia.UI.Controls;
 
-public partial class ColorSpectrum
+internal partial class ColorSpectrum
 {
     /// <summary>
     /// Defines the <see cref="Shape"/> property

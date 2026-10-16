@@ -8,7 +8,7 @@ using Avalonia.Media;
 namespace Beutl.Controls.PropertyEditors;
 
 // The value, picker button, flyout and live-preview wiring that ColorEditor and GradingColorEditor share.
-public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : PropertyEditor
+internal abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : PropertyEditor
     where TPicker : Control, new()
     where TFlyout : DraggablePickerFlyout<TPicker>, new()
 {

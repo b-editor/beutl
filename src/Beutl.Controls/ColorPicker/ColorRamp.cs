@@ -13,7 +13,7 @@ namespace FluentAvalonia.UI.Controls;
 /// <summary>
 /// Defines a control displaying a gradient slider for modifying a specific component of a color
 /// </summary>
-public partial class ColorRamp : ColorPickerComponent
+internal partial class ColorRamp : ColorPickerComponent
 {
     public ColorRamp()
     {

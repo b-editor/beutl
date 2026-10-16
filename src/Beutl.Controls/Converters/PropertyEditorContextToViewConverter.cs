@@ -8,7 +8,7 @@ using Beutl.Extensibility;
 
 namespace Beutl.Controls.Converters;
 
-public sealed class PropertyEditorContextToViewConverter(bool hideMenu) : IValueConverter
+internal sealed class PropertyEditorContextToViewConverter(bool hideMenu) : IValueConverter
 {
     public static readonly PropertyEditorContextToViewConverter Instance = new(false);
     public static readonly PropertyEditorContextToViewConverter HideMenu = new(true);

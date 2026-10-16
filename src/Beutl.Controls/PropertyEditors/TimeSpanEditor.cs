@@ -4,7 +4,7 @@ using Avalonia.Input;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class TimeSpanEditor : ValueStringEditor<TimeSpan>
+internal class TimeSpanEditor : ValueStringEditor<TimeSpan>
 {
     public static readonly DirectProperty<TimeSpanEditor, TimeSpan> ValueProperty =
         AvaloniaProperty.RegisterDirect<TimeSpanEditor, TimeSpan>(

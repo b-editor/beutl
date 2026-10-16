@@ -12,7 +12,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Dialogs;
 
-public class SelectLibraryItemDialogViewModel
+internal class SelectLibraryItemDialogViewModel
 {
     private readonly string _format;
     private readonly Type _baseType;

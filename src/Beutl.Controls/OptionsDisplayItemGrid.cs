@@ -8,7 +8,7 @@ using Avalonia.VisualTree;
 namespace Beutl.Controls;
 
 // Layout for the icon, text, action and chevron in the OptionsDisplayItem template.
-public sealed class OptionsDisplayItemGrid : Grid
+internal sealed class OptionsDisplayItemGrid : Grid
 {
     private const double MinimumTextWidth = 200;
     private bool _isStacked;

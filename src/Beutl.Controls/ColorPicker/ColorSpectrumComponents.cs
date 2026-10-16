@@ -8,7 +8,7 @@
 /// of the given color space is displayed in the third component slider of the
 /// <see cref="FAColorPicker"/>
 /// </remarks>
-public enum ColorSpectrumComponents
+internal enum ColorSpectrumComponents
 {
     /// <summary>
     /// HSV color space, Saturation is on the X-Axis, Value is on the Y-Axis

@@ -5,7 +5,7 @@ using Avalonia.Xaml.Interactivity;
 
 namespace Beutl.Controls;
 
-public sealed class RoundedClippingBehavior : Behavior<Control>
+internal sealed class RoundedClippingBehavior : Behavior<Control>
 {
     public static readonly StyledProperty<CornerRadius> CornerRadiusProperty
         = AvaloniaProperty.Register<RoundedClippingBehavior, CornerRadius>("CornerRadius");
@@ -90,7 +90,7 @@ public sealed class RoundedClippingBehavior : Behavior<Control>
     }
 }
 
-public class ImageClipping : AvaloniaObject
+internal class ImageClipping : AvaloniaObject
 {
     public static readonly AttachedProperty<CornerRadius> CornerRadiusProperty
         = AvaloniaProperty.RegisterAttached<ImageClipping, Control, CornerRadius>("CornerRadius");

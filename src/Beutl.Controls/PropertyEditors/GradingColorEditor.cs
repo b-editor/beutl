@@ -4,7 +4,7 @@ using Beutl.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class GradingColorEditor : ColorPickerEditorBase<GradingColor, GradingColorPicker, GradingColorPickerFlyout>
+internal class GradingColorEditor : ColorPickerEditorBase<GradingColor, GradingColorPicker, GradingColorPickerFlyout>
 {
     public GradingColorEditor()
         : base(default, CreateBrush(default))

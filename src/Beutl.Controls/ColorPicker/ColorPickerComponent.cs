@@ -6,7 +6,7 @@ namespace FluentAvalonia.UI.Controls;
 /// <summary>
 /// Defines the base class for all component controls of a <see cref="FAColorPicker"/>
 /// </summary>
-public abstract partial class ColorPickerComponent : Control
+internal abstract partial class ColorPickerComponent : Control
 {
     static ColorPickerComponent()
     {

@@ -11,7 +11,7 @@ using BtlBitmap = Beutl.Media.Bitmap;
 
 namespace Beutl.Controls;
 
-public class BitmapView : Avalonia.Controls.Control
+internal class BitmapView : Avalonia.Controls.Control
 {
     public static readonly StyledProperty<Ref<BtlBitmap>?> SourceProperty =
         AvaloniaProperty.Register<BitmapView, Ref<BtlBitmap>?>(nameof(Source));

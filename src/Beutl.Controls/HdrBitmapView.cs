@@ -16,7 +16,7 @@ namespace Beutl.Controls;
 /// A NativeControlHost-based control that renders Beutl.Media.Bitmap directly via Vulkan,
 /// bypassing Avalonia's Bgra8888 swapchain to enable HDR display.
 /// </summary>
-public partial class HdrBitmapView : NativeControlHost
+internal partial class HdrBitmapView : NativeControlHost
 {
     public static readonly StyledProperty<Ref<BtlBitmap>?> SourceProperty =
         AvaloniaProperty.Register<HdrBitmapView, Ref<BtlBitmap>?>(nameof(Source));

@@ -7,7 +7,7 @@ using Avalonia.Data.Converters;
 
 namespace Beutl.Controls;
 
-public class FitSquarelyWithinAspectRatioConverter : IValueConverter
+internal class FitSquarelyWithinAspectRatioConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {

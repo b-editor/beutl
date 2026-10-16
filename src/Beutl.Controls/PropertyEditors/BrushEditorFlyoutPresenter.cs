@@ -13,7 +13,7 @@ using FluentAvalonia.UI.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
+internal class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
 {
     public static readonly StyledProperty<Brush?> BrushProperty =
         AvaloniaProperty.Register<BrushEditorFlyoutPresenter, Brush?>(nameof(Brush));

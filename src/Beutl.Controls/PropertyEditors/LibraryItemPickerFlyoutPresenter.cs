@@ -10,7 +10,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class PinnableLibraryItem(string displayName, bool isPinned, object userData, string? description = null) : IEquatable<PinnableLibraryItem?>
+internal class PinnableLibraryItem(string displayName, bool isPinned, object userData, string? description = null) : IEquatable<PinnableLibraryItem?>
 {
     public string DisplayName { get; } = displayName;
 
@@ -38,7 +38,7 @@ public class PinnableLibraryItem(string displayName, bool isPinned, object userD
     }
 }
 
-public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
+internal class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
 {
     public static readonly StyledProperty<PinnableLibraryItem?> SelectedItemProperty =
         AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, PinnableLibraryItem?>(nameof(SelectedItem));

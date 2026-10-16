@@ -10,7 +10,7 @@ using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public sealed class EasingItem
+internal sealed class EasingItem
 {
     // The preview defaults to a new instance; a type whose default is uninformative
     // (a spline starts out linear) can pass a representative curve instead.
@@ -39,7 +39,7 @@ public sealed class EasingItem
     public Easing CreateInstance() => (Easing)Activator.CreateInstance(Type)!;
 }
 
-public class EasingEditor : PropertyEditor
+internal class EasingEditor : PropertyEditor
 {
     public static readonly StyledProperty<Easing?> ValueProperty =
         AvaloniaProperty.Register<EasingEditor, Easing?>(nameof(Value), defaultBindingMode: BindingMode.TwoWay);

@@ -12,7 +12,7 @@ using FluentAvalonia.UI.Controls;
 namespace Beutl.Controls;
 
 // https://github.com/amwx/FluentAvalonia/blob/master/FluentAvaloniaSamples/Controls/OptionsDisplayItem.cs
-public class OptionsDisplayItem : TemplatedControl
+internal class OptionsDisplayItem : TemplatedControl
 {
     public static readonly StyledProperty<object?> HeaderProperty =
         AvaloniaProperty.Register<OptionsDisplayItem, object?>(nameof(Header));

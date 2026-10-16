@@ -7,7 +7,7 @@ namespace Beutl.Controls.Styling;
 #if BEUTL_LINKED_UI_FONTS
 internal static class UiFonts
 #else
-public static class UiFonts
+internal static class UiFonts
 #endif
 {
     public const string UiCultureArgument = "--ui-culture";

@@ -19,11 +19,12 @@ namespace Beutl.HeadlessUITests;
 public class Avalonia12ColorPickerTests
 {
     [AvaloniaTest]
-    [TestCase("#RRGGBB", ColorTextType.Hex)]
-    [TestCase("#AARRGGBB", ColorTextType.HexAlpha)]
-    [TestCase("rgb( r, g, b )", ColorTextType.RGB)]
-    [TestCase("rgba( r, g, b, a )", ColorTextType.RGBA)]
-    public void Hex_context_flyout_changes_the_format_and_preserves_the_color(string format, ColorTextType expected)
+    // ColorTextType is internal, so the cases name it.
+    [TestCase("#RRGGBB", nameof(ColorTextType.Hex))]
+    [TestCase("#AARRGGBB", nameof(ColorTextType.HexAlpha))]
+    [TestCase("rgb( r, g, b )", nameof(ColorTextType.RGB))]
+    [TestCase("rgba( r, g, b, a )", nameof(ColorTextType.RGBA))]
+    public void Hex_context_flyout_changes_the_format_and_preserves_the_color(string format, string expected)
     {
         var picker = new FAColorPicker { Color = AvaColors.Red, IsCompact = false };
         var window = new Window { Content = picker, Width = 800, Height = 800 };
@@ -44,7 +45,7 @@ public class Avalonia12ColorPickerTests
             HeadlessTestHelpers.Settle();
             Assert.Multiple(() =>
             {
-                Assert.That(picker.ColorTextType, Is.EqualTo(expected));
+                Assert.That(picker.ColorTextType, Is.EqualTo(Enum.Parse<ColorTextType>(expected)));
                 Assert.That((Avalonia.Media.Color)picker.Color, Is.EqualTo(AvaColors.Red));
                 Assert.That(menu.IsOpen, Is.False);
             });

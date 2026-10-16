@@ -4,7 +4,7 @@ using Beutl.Language;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public static class PropertyHoverInfoFormatter
+internal static class PropertyHoverInfoFormatter
 {
     public static string? Format(Type? propertyType, string? description, IEnumerable<Attribute>? attributes)
     {

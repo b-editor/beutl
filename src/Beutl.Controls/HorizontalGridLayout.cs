@@ -9,7 +9,7 @@ namespace Beutl.Controls;
 
 /// <summary>Wraps items into rows and stretches their widths to fill the available space.</summary>
 /// <remarks>Requires finite width. Disable horizontal scrolling on a containing ScrollViewer.</remarks>
-public class HorizontalGridLayout : NonVirtualizingLayout
+internal class HorizontalGridLayout : NonVirtualizingLayout
 {
     public static readonly StyledProperty<double> ColumnSpacingProperty =
         AvaloniaProperty.Register<HorizontalGridLayout, double>(nameof(ColumnSpacing));

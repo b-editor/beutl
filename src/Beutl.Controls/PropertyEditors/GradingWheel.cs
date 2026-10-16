@@ -5,7 +5,7 @@ using Avalonia.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class GradingWheel : Thumb
+internal class GradingWheel : Thumb
 {
     public static readonly StyledProperty<double> TickOffsetProperty =
         AvaloniaProperty.Register<GradingWheel, double>(nameof(TickOffset), 0.0);

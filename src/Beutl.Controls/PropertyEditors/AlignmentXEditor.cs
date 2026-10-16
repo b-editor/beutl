@@ -5,7 +5,7 @@ using Beutl.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class AlignmentXEditor : ThreeOptionRadioEditor<AlignmentX>
+internal class AlignmentXEditor : ThreeOptionRadioEditor<AlignmentX>
 {
     public static readonly DirectProperty<AlignmentXEditor, AlignmentX> ValueProperty =
         AvaloniaProperty.RegisterDirect<AlignmentXEditor, AlignmentX>(
@@ -33,7 +33,7 @@ public class AlignmentXEditor : ThreeOptionRadioEditor<AlignmentX>
     protected override void SetValue(AlignmentX value) => Value = value;
 }
 
-public class TextAlignmentEditor : ThreeOptionRadioEditor<TextAlignment>
+internal class TextAlignmentEditor : ThreeOptionRadioEditor<TextAlignment>
 {
     public static readonly DirectProperty<TextAlignmentEditor, TextAlignment> ValueProperty =
         AvaloniaProperty.RegisterDirect<TextAlignmentEditor, TextAlignment>(

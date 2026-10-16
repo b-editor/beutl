@@ -5,7 +5,7 @@ namespace Beutl.Controls.Styling;
 #if BEUTL_LINKED_UI_FONTS
 internal sealed class UiFontFamilyExtension : MarkupExtension
 #else
-public sealed class UiFontFamilyExtension : MarkupExtension
+internal sealed class UiFontFamilyExtension : MarkupExtension
 #endif
 {
     public bool ForShortcuts { get; set; }

@@ -6,7 +6,7 @@ using Avalonia.Input;
 
 namespace Beutl;
 
-public static class NumberEditorHelper
+internal static class NumberEditorHelper
 {
     private static double GetScrubModifierCoefficient(KeyModifiers modifiers)
     {

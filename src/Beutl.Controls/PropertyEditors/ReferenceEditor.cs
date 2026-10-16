@@ -12,7 +12,7 @@ using Beutl.Reactive;
 namespace Beutl.Controls.PropertyEditors;
 
 [TemplatePart("PART_TargetPickerButton", typeof(Button))]
-public class ReferenceEditor : PropertyEditor
+internal class ReferenceEditor : PropertyEditor
 {
     public static readonly DirectProperty<ReferenceEditor, string?> TargetNameProperty =
         AvaloniaProperty.RegisterDirect<ReferenceEditor, string?>(

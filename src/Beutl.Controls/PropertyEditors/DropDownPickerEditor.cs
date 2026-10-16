@@ -9,7 +9,7 @@ namespace Beutl.Controls.PropertyEditors;
 /// A property editor that shows a value as text on a drop-down button, laid out as the font family editor
 /// is, and leaves picking a new value to whoever handles <see cref="DropDownClick"/>.
 /// </summary>
-public class DropDownPickerEditor : PropertyEditor
+internal class DropDownPickerEditor : PropertyEditor
 {
     public static readonly StyledProperty<string?> TextProperty =
         AvaloniaProperty.Register<DropDownPickerEditor, string?>(nameof(Text));

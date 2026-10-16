@@ -8,7 +8,7 @@ namespace Beutl.Controls.PropertyEditors;
 
 // A picker flyout confirmed by Enter or the checkmark and dismissed by Escape or the close button. A click outside
 // does not dismiss it. Derived flyouts create the presenter and connect it to their view model.
-public abstract class ConfirmablePickerFlyout<TSelf, TPresenter> : FAPickerFlyoutBase
+internal abstract class ConfirmablePickerFlyout<TSelf, TPresenter> : FAPickerFlyoutBase
     where TSelf : ConfirmablePickerFlyout<TSelf, TPresenter>
     where TPresenter : DraggablePickerFlyoutPresenter
 {

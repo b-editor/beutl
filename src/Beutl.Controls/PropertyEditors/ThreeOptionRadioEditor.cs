@@ -9,7 +9,7 @@ using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public abstract class ThreeOptionRadioEditor<T> : PropertyEditor
+internal abstract class ThreeOptionRadioEditor<T> : PropertyEditor
     where T : struct
 {
     private const string ButtonAName = "PART_OptionA";

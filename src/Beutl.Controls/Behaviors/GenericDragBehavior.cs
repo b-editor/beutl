@@ -13,7 +13,7 @@ using Avalonia.Xaml.Interactivity;
 
 namespace Beutl.Controls.Behaviors;
 
-public class GenericDragBehavior : Behavior<Control>
+internal class GenericDragBehavior : Behavior<Control>
 {
     private bool _enableDrag;
     private bool _dragStarted;
@@ -394,7 +394,7 @@ public class GenericDragBehavior : Behavior<Control>
 }
 
 // Which pointer events of a drag GenericDragBehavior marks handled.
-public enum DragEventHandling
+internal enum DragEventHandling
 {
     // The press, the release and the capture loss.
     Always,

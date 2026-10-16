@@ -3,7 +3,7 @@ using Avalonia.Platform;
 
 namespace Beutl.Controls;
 
-public partial class HdrBitmapView
+internal partial class HdrBitmapView
 {
     #region Platform-specific native window creation
 

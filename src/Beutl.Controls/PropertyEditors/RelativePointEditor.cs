@@ -3,7 +3,7 @@ using Avalonia.Data;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class RelativePointEditor : Vector2Editor
+internal class RelativePointEditor : Vector2Editor
 {
     public static readonly DirectProperty<RelativePointEditor, float> FirstValueProperty =
         Vector4Editor<float>.FirstValueProperty.AddOwner<RelativePointEditor>(

@@ -3,7 +3,7 @@ using UnboundedHsv = (float H, float S, float V);
 
 namespace Beutl.Controls;
 
-public static class GradingColorHelper
+internal static class GradingColorHelper
 {
     private const float EPSILON = 0.001f;
 

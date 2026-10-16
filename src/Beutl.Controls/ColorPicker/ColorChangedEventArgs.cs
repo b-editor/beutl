@@ -6,7 +6,7 @@ namespace FluentAvalonia.UI.Controls;
 /// <summary>
 /// Data for the <see cref="FAColorPicker.ColorChanged"/> event
 /// </summary>
-public sealed class ColorChangedEventArgs : EventArgs
+internal sealed class ColorChangedEventArgs : EventArgs
 {
     internal ColorChangedEventArgs(Color2 newC)
     {

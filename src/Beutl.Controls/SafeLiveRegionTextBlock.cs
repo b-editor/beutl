@@ -7,7 +7,7 @@ namespace Beutl.Controls;
 /// Keeps live-region announcements enabled without passing an empty name to
 /// Avalonia.Native on macOS, where that name becomes a nil NSDictionary value.
 /// </summary>
-public class SafeLiveRegionTextBlock : TextBlock
+internal class SafeLiveRegionTextBlock : TextBlock
 {
     protected override AutomationPeer OnCreateAutomationPeer()
         => new SafeLiveRegionTextBlockAutomationPeer(this);

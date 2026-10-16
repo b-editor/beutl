@@ -2,7 +2,7 @@
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class BeutlFontFamilyToAvaloniaConverter()
+internal class BeutlFontFamilyToAvaloniaConverter()
     : FuncValueConverter<Media.FontFamily, Avalonia.Media.FontFamily>(
         f => f != null ? new Avalonia.Media.FontFamily(f.Name) : Avalonia.Media.FontFamily.Default)
 {

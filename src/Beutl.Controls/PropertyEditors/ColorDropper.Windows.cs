@@ -8,7 +8,7 @@ using FluentAvalonia.UI.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public partial class ColorDropper
+internal partial class ColorDropper
 {
     private static bool WindowsIsClickDown()
         => User32.GetKeyState(User32.VK_LBUTTON) < 0;

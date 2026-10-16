@@ -13,7 +13,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
 
-public sealed class ListEditorDragBehavior : GenericDragBehavior
+internal sealed class ListEditorDragBehavior : GenericDragBehavior
 {
     // The reorder handle can be the item's expander toggle, so the press and the pointer capture stay with it and
     // only a release that ends a drag is handled here.

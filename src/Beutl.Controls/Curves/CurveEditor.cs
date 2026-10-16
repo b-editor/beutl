@@ -11,7 +11,7 @@ using BtlPoint = Beutl.Graphics.Point;
 
 namespace Beutl.Controls.Curves;
 
-public class CurveEditor : Control
+internal class CurveEditor : Control
 {
     public static readonly StyledProperty<IList<CurveControlPoint>?> PointsProperty =
         AvaloniaProperty.Register<CurveEditor, IList<CurveControlPoint>?>(nameof(Points));

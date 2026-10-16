@@ -6,7 +6,7 @@ using Avalonia.VisualTree;
 
 namespace Beutl.Controls;
 
-public partial class Player
+internal partial class Player
 {
     /// <summary>
     /// Enters timecode-editing mode for the current time display. No-op if the

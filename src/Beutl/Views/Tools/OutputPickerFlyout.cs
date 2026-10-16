@@ -6,7 +6,7 @@ using FluentAvalonia.Core;
 
 namespace Beutl.Views.Tools;
 
-public sealed class OutputPickerFlyout(OutputPickerViewModel viewModel)
+internal sealed class OutputPickerFlyout(OutputPickerViewModel viewModel)
     : ConfirmablePickerFlyout<OutputPickerFlyout, OutputPickerFlyoutPresenter>
 {
     public event TypedEventHandler<OutputPickerFlyout, MoreMenuRequestedArgs>? MoreMenuRequested;
@@ -37,4 +37,4 @@ public sealed class OutputPickerFlyout(OutputPickerViewModel viewModel)
     }
 }
 
-public sealed record MoreMenuRequestedArgs(PinnableLibraryItem Item, Control Anchor);
+internal sealed record MoreMenuRequestedArgs(PinnableLibraryItem Item, Control Anchor);

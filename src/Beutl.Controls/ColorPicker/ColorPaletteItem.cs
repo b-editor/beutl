@@ -15,7 +15,7 @@ namespace FluentAvalonia.UI.Controls;
 /// Defines the control used in the Color Palette of a <see cref="FAColorPicker"/> to
 /// preview or select a color
 /// </summary>
-public partial class ColorPaletteItem : Control
+internal partial class ColorPaletteItem : Control
 {
     public ColorPaletteItem()
     {

@@ -6,7 +6,7 @@ using Beutl.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class ColorGradingWheel : PropertyEditor
+internal class ColorGradingWheel : PropertyEditor
 {
     public static readonly DirectProperty<ColorGradingWheel, GradingColor> ColorProperty =
         AvaloniaProperty.RegisterDirect<ColorGradingWheel, GradingColor>(

@@ -6,7 +6,7 @@ using Avalonia.Media;
 
 namespace FluentAvalonia.UI.Controls;
 
-public partial class ColorPaletteItem
+internal partial class ColorPaletteItem
 {
     /// <summary>
     /// Defines the <see cref="Color"/> property

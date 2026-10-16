@@ -4,7 +4,7 @@ using Beutl.Language;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class RelativeRectEditor : Vector4Editor
+internal class RelativeRectEditor : Vector4Editor
 {
     public static readonly DirectProperty<RelativeRectEditor, float> FirstValueProperty =
         Vector4Editor<float>.FirstValueProperty.AddOwner<RelativeRectEditor>(

@@ -6,7 +6,7 @@ using Avalonia.Input;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class RationalEditor : ValueStringEditor<Rational>
+internal class RationalEditor : ValueStringEditor<Rational>
 {
     public static readonly DirectProperty<RationalEditor, Rational> ValueProperty =
         AvaloniaProperty.RegisterDirect<RationalEditor, Rational>(

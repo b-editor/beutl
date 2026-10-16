@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Controls.Curves;
 
-public enum CurveVisualization
+internal enum CurveVisualization
 {
     None,
     Master,

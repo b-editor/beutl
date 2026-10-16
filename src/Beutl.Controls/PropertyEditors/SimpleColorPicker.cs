@@ -17,7 +17,7 @@ using FluentAvalonia.UI.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public enum SimpleColorPickerInputType
+internal enum SimpleColorPickerInputType
 {
     Hex,
     Rgb,
@@ -25,7 +25,7 @@ public enum SimpleColorPickerInputType
 }
 
 [PseudoClasses(":details")]
-public class SimpleColorPicker : TemplatedControl
+internal class SimpleColorPicker : TemplatedControl
 {
     public static readonly StyledProperty<Color2> ColorProperty =
         AvaloniaProperty.Register<SimpleColorPicker, Color2>(nameof(Color),

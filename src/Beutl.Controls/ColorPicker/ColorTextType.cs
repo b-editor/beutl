@@ -3,7 +3,7 @@
 /// <summary>
 /// Defines values for how the text should display in the Color TextBox of a <see cref="FAColorPicker"/>
 /// </summary>
-public enum ColorTextType
+internal enum ColorTextType
 {
     /// <summary>
     /// The color should display in hex format, without alpha: #RRGGBB

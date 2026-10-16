@@ -6,7 +6,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views.Editors;
 
-public sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel viewModel)
+internal sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel viewModel)
     : ConfirmablePickerFlyout<LibraryItemPickerFlyout, LibraryItemPickerFlyoutPresenter>
 {
     public event TypedEventHandler<LibraryItemPickerFlyout, PinnableLibraryItem>? Pinned;

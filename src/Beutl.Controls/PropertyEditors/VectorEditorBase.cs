@@ -10,7 +10,7 @@ namespace Beutl.Controls.PropertyEditors;
 
 // The parts, pseudo-classes and text box handling of Vector2Editor, Vector3Editor and Vector4Editor, by component
 // index. The derived editors set Values, which holds the values behind the text boxes.
-public abstract class VectorEditorBase : PropertyEditor
+internal abstract class VectorEditorBase : PropertyEditor
 {
     private static readonly string[] s_textBoxNames =
         ["PART_InnerFirstTextBox", "PART_InnerSecondTextBox", "PART_InnerThirdTextBox", "PART_InnerFourthTextBox"];

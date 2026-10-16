@@ -8,7 +8,7 @@ using Avalonia.Interactivity;
 
 namespace Beutl.Controls;
 
-public partial class Player : RangeBase
+internal partial class Player : RangeBase
 {
     public static readonly StyledProperty<string?> DurationProperty = AvaloniaProperty.Register<Player, string?>(nameof(Duration));
     public static readonly StyledProperty<object?> ContentProperty = AvaloniaProperty.Register<Player, object?>(nameof(Content));

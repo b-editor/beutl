@@ -19,7 +19,7 @@ namespace FluentAvalonia.UI.Controls;
 /// This control handles displaying the regular Color Spectrum, the Color Wheel, and
 /// the HSV Color Triangle
 /// </remarks>
-public partial class ColorSpectrum : ColorPickerComponent
+internal partial class ColorSpectrum : ColorPickerComponent
 {
     public ColorSpectrum()
     {

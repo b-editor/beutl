@@ -6,7 +6,7 @@ using Avalonia.Controls.Metadata;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class Vector2Editor<TElement> : Vector2Editor
+internal class Vector2Editor<TElement> : Vector2Editor
     where TElement : INumber<TElement>
 {
     public static readonly DirectProperty<Vector2Editor<TElement>, TElement> FirstValueProperty =
@@ -71,7 +71,7 @@ public class Vector2Editor<TElement> : Vector2Editor
 [TemplatePart("PART_HeaderFirstTextBlock", typeof(TextBlock))]
 [TemplatePart("PART_HeaderSecondTextBlock", typeof(TextBlock))]
 [TemplatePart("PART_BackgroundBorder", typeof(Border))]
-public class Vector2Editor : VectorEditorBase
+internal class Vector2Editor : VectorEditorBase
 {
     public static readonly DirectProperty<Vector2Editor, string> FirstTextProperty =
         Vector4Editor.FirstTextProperty.AddOwner<Vector2Editor>(

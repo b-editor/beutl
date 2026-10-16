@@ -7,7 +7,7 @@ using Beutl.ViewModels.SettingsPages;
 namespace Beutl.Pages.SettingsPages;
 
 // Attached to each list box item, which is both the drag control and the dragged container.
-public sealed class DecoderPriorityListBoxItemBehavior : GenericDragBehavior
+internal sealed class DecoderPriorityListBoxItemBehavior : GenericDragBehavior
 {
     protected override DragEventHandling HandledEvents => DragEventHandling.Never;
 

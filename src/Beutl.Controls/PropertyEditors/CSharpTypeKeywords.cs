@@ -3,7 +3,7 @@
 namespace Beutl.Controls.PropertyEditors;
 
 // The C# keywords of the built-in types, for type names shown to users who write expressions.
-public static class CSharpTypeKeywords
+internal static class CSharpTypeKeywords
 {
     private static readonly Dictionary<Type, string> s_keywords = new()
     {

@@ -17,7 +17,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Only the controls that extensions use are public; the app's assemblies use the rest. -->
+    <InternalsVisibleTo Include="Beutl" />
+    <InternalsVisibleTo Include="Beutl.Editor.Components" />
+    <InternalsVisibleTo Include="Beutl.PackageTools.UI" />
+    <InternalsVisibleTo Include="Beutl.ExceptionHandler" />
     <InternalsVisibleTo Include="Beutl.E2ETests" />
+    <InternalsVisibleTo Include="Beutl.UnitTests" />
+    <InternalsVisibleTo Include="Beutl.HeadlessUITests" />
   </ItemGroup>
 
   <ItemGroup>

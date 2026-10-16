@@ -6,7 +6,7 @@ using Avalonia.Interactivity;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class BooleanEditor : PropertyEditor
+internal class BooleanEditor : PropertyEditor
 {
     public static readonly DirectProperty<BooleanEditor, bool> ValueProperty =
         AvaloniaProperty.RegisterDirect<BooleanEditor, bool>(

@@ -1,5 +1,5 @@
 ﻿namespace Beutl.Controls.PropertyEditors;
 
-public sealed class SimpleColorPickerFlyout : DraggablePickerFlyout<SimpleColorPicker>
+internal sealed class SimpleColorPickerFlyout : DraggablePickerFlyout<SimpleColorPicker>
 {
 }

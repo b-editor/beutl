@@ -9,7 +9,7 @@ using FluentAvalonia.UI.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public enum BrushType
+internal enum BrushType
 {
     SolidColorBrush,
 
@@ -26,7 +26,7 @@ public enum BrushType
     Presenter
 }
 
-public sealed class BrushEditorFlyout : FAPickerFlyoutBase
+internal sealed class BrushEditorFlyout : FAPickerFlyoutBase
 {
     public static readonly StyledProperty<Brush?> BrushProperty =
         AvaloniaProperty.Register<BrushEditorFlyout, Brush?>(nameof(Brush));

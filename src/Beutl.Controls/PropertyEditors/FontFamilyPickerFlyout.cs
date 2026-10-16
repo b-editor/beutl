@@ -10,7 +10,7 @@ using FluentAvalonia.UI.Controls.Primitives;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public sealed class FontFamilyPickerFlyout(FontFamilyPickerFlyoutViewModel viewModel) : FAPickerFlyoutBase
+internal sealed class FontFamilyPickerFlyout(FontFamilyPickerFlyoutViewModel viewModel) : FAPickerFlyoutBase
 {
     public event TypedEventHandler<FontFamilyPickerFlyout, EventArgs>? Confirmed;
 

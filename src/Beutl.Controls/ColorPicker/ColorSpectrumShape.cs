@@ -3,7 +3,7 @@
 /// <summary>
 /// Defines values for how the <see cref="ColorSpectrum"/> should display
 /// </summary>
-public enum ColorSpectrumShape
+internal enum ColorSpectrumShape
 {
     /// <summary>
     /// The <see cref="ColorSpectrum"/> should display a ColorWheel

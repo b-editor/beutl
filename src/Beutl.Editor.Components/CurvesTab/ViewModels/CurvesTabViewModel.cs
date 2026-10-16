@@ -131,7 +131,7 @@ public sealed class CurvesTabViewModel : EffectToolTabViewModel<Curves>
 
     public ReactivePropertySlim<Ref<Bitmap>?> SourceBitmap { get; } = new();
 
-    public CurveVisualizationRenderer Renderer { get; } = new();
+    internal CurveVisualizationRenderer Renderer { get; } = new();
 
     public ReactivePropertySlim<CurvePresenterViewModel?> MasterCurve { get; } = new();
 

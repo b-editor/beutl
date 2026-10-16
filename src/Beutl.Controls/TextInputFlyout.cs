@@ -6,7 +6,7 @@ using FluentAvalonia.UI.Controls.Primitives;
 namespace Beutl.Controls;
 
 // A flyout with a header over a text box; Confirmed passes the text when the flyout is confirmed.
-public abstract class TextInputFlyout : FAPickerFlyoutBase
+internal abstract class TextInputFlyout : FAPickerFlyoutBase
 {
     private readonly string _header;
     private readonly double _width;

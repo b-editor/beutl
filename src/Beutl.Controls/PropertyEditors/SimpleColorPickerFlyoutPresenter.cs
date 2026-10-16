@@ -10,7 +10,7 @@ using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class SimpleColorPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
+internal class SimpleColorPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
 {
     private readonly CompositeDisposable _disposables = [];
     private const string Palette = ":palette";

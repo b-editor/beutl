@@ -6,7 +6,7 @@ using Avalonia.Xaml.Interactivity;
 
 namespace Beutl.Controls.Styling.PropertyEditors;
 
-public class MiniExpanderToggleButtonBehavior : Behavior<ContentPresenter>
+internal class MiniExpanderToggleButtonBehavior : Behavior<ContentPresenter>
 {
     protected override void OnAttached()
     {
