@@ -125,24 +125,17 @@ public class FrameImageSaveTests
     }
 
     [Test]
-    public async Task An_opaque_storage_provider_receives_a_complete_image_without_old_trailing_bytes()
+    public async Task A_file_without_a_local_path_is_refused_before_it_is_opened()
     {
+        // The desktop save pickers never hand out such a file.
         var file = new Mock<IStorageFile>();
         file.SetupGet(value => value.Name).Returns("image.png");
         file.SetupGet(value => value.Path).Returns(new Uri("content://storage/image.png"));
-        var destination = new MemoryStream();
-        destination.Write(new byte[16384]);
-        file.Setup(value => value.OpenWriteAsync()).ReturnsAsync(destination);
         using var bitmap = new Bitmap(8, 6);
 
-        await PlayerView.SaveImage(file.Object, bitmap);
+        await Assert.ThrowsAsync<NotSupportedException>(async () => await PlayerView.SaveImage(file.Object, bitmap));
 
-        byte[] bytes = destination.ToArray();
-        using var decoded = SKBitmap.Decode(bytes);
-        Assert.That(decoded, Is.Not.Null);
-        Assert.That(decoded!.Width, Is.EqualTo(8));
-        Assert.That(bytes.Length, Is.LessThan(16384));
-        file.Verify(value => value.OpenWriteAsync(), Times.Once);
+        file.Verify(value => value.OpenWriteAsync(), Times.Never);
     }
 
     private static Mock<IStorageFile> StorageFile(string path)
