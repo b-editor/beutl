@@ -64,6 +64,32 @@ public class FileSystemItemViewModelDecoderTests
         }
     }
 
+    // The placeholder that gives a collapsed folder its expand arrow must not read the folder as a file:
+    // describing it would throw inside for every collapsed folder in the list.
+    [Test]
+    public void CollapsedFolderPlaceholder_DoesNotReadTheFolder()
+    {
+        string folder = Path.Combine(_root, "folder");
+        Directory.CreateDirectory(folder);
+        File.WriteAllBytes(Path.Combine(folder, "child.txt"), [0]);
+        bool readAsFile = false;
+        void OnFirstChance(object? sender, System.Runtime.ExceptionServices.FirstChanceExceptionEventArgs e)
+            => readAsFile |= e.Exception is FileNotFoundException { FileName: var name } && name == folder;
+
+        AppDomain.CurrentDomain.FirstChanceException += OnFirstChance;
+        try
+        {
+            using var item = new FileSystemItemViewModel(folder, true);
+            Assert.That(item.Children, Has.Count.EqualTo(1));
+        }
+        finally
+        {
+            AppDomain.CurrentDomain.FirstChanceException -= OnFirstChance;
+        }
+
+        Assert.That(readAsFile, Is.False);
+    }
+
     private sealed class TransportStreamDecoderInfo : IDecoderInfo
     {
         public string Name => "Transport Stream";
