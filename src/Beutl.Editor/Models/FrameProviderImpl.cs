@@ -20,10 +20,12 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     private readonly Rational _rate;
     private readonly SceneRenderer _renderer;
     private readonly Subject<TimeSpan> _progress;
-    private readonly Channel<(long Frame, Bitmap Bitmap)> _channel;
+    private readonly long _frameCount;
+    private readonly Channel<Bitmap> _channel;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _producerTask;
     private readonly RetainedRenderTargetCheckpoint _retentionCheckpoint;
+    private long _nextFrame;
     private bool _disposed;
 
     public FrameProviderImpl(Scene scene, Rational rate, SceneRenderer renderer, Subject<TimeSpan> progress)
@@ -42,6 +44,8 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         _rate = rate;
         _renderer = renderer;
         _progress = progress;
+        // Fixed at the start, so a duration edited during the export cannot end the frames early.
+        _frameCount = ToFrameCount(scene.Duration, rate);
         _retentionCheckpoint = new RetainedRenderTargetCheckpoint(retainedRenderTargetReleaseInterval);
 
         // A buffered frame is an RgbaF16 snapshot at the frame size, so by default the buffer holds what fits the
@@ -49,7 +53,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         int bufferSize = Preferences.Default.Get(
             "Output.FrameBufferSize",
             ReadAheadBudget.FrameCount(ReadAheadBudget.SnapshotBytes(renderer.FrameSize), MaxBufferedFrames));
-        _channel = Channel.CreateBounded<(long Frame, Bitmap Bitmap)>(
+        _channel = Channel.CreateBounded<Bitmap>(
             new BoundedChannelOptions(bufferSize)
             {
                 FullMode = BoundedChannelFullMode.Wait,
@@ -60,7 +64,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         _producerTask = Task.Run(RenderFramesAsync, _cts.Token);
     }
 
-    public long FrameCount => ToFrameCount(_scene.Duration, _rate);
+    public long FrameCount => _frameCount;
 
     public Rational FrameRate => _rate;
 
@@ -138,10 +142,10 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     {
         try
         {
-            for (long frame = 0; frame < FrameCount && !_cts.Token.IsCancellationRequested; frame++)
+            for (long frame = 0; frame < _frameCount && !_cts.Token.IsCancellationRequested; frame++)
             {
                 var bitmap = await RenderFrameCore(frame, _cts.Token);
-                await _channel.Writer.WriteAsync((frame, bitmap), _cts.Token);
+                await _channel.Writer.WriteAsync(bitmap, _cts.Token);
             }
         }
         catch (OperationCanceledException)
@@ -158,30 +162,25 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         _channel.Writer.TryComplete();
     }
 
-    public async ValueTask<Bitmap> RenderFrame(long frame)
+    public async ValueTask<Bitmap?> ReadNextFrame()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_nextFrame >= _frameCount)
+            return null;
 
-        var time = FrameToTime(frame);
-        _progress.OnNext(time);
+        _progress.OnNext(FrameToTime(_nextFrame));
 
+        // WaitToReadAsync rethrows the producer's own error, which the export reports.
         while (await _channel.Reader.WaitToReadAsync(_cts.Token))
         {
-            if (_channel.Reader.TryRead(out var item))
+            if (_channel.Reader.TryRead(out Bitmap? bitmap))
             {
-                if (item.Frame == frame)
-                {
-                    return item.Bitmap;
-                }
-
-                item.Bitmap.Dispose();
-                _logger.LogWarning("The frame is misaligned. Requested frame: {RequestedFrame}, Received frame: {ReceivedFrame}", frame, item.Frame);
-                return await RenderFrameCore(frame, _cts.Token);
+                _nextFrame++;
+                return bitmap;
             }
         }
 
-        _logger.LogWarning("The frame could not be read from the channel. Frame: {Frame}", frame);
-        return await RenderFrameCore(frame, _cts.Token);
+        throw new InvalidOperationException($"Rendering stopped before frame {_nextFrame}.");
     }
 
     public void Dispose()
@@ -201,9 +200,9 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
             }
         }
 
-        while (_channel.Reader.TryRead(out var item))
+        while (_channel.Reader.TryRead(out Bitmap? bitmap))
         {
-            item.Bitmap.Dispose();
+            bitmap.Dispose();
         }
 
         _cts.Dispose();

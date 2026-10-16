@@ -61,7 +61,7 @@ public sealed class EncodingStrideTests
         int bytesPerPixel = hdr ? 8 : 4;
         var pixels = new byte[width * height * bytesPerPixel];
 
-        using Bitmap source = await frames.RenderFrame(0);
+        using Bitmap source = frames.CreateFrame();
         using Bitmap expected = FFmpegTestHelpers.ToDecodedLayout(source, hdr);
         Assert.That(bitmapReader.ReadVideo(0, out Ref<Bitmap>? decoded), Is.True);
         using (decoded)
@@ -92,11 +92,22 @@ public sealed class EncodingStrideTests
 
     private sealed class ColumnFrameProvider(int width, int height) : IFrameProvider
     {
+        private bool _read;
+
         public long FrameCount => 1;
 
         public Rational FrameRate => new(30, 1);
 
-        public ValueTask<Bitmap> RenderFrame(long frame)
+        public ValueTask<Bitmap?> ReadNextFrame()
+        {
+            if (_read)
+                return ValueTask.FromResult<Bitmap?>(null);
+
+            _read = true;
+            return ValueTask.FromResult<Bitmap?>(CreateFrame());
+        }
+
+        public Bitmap CreateFrame()
         {
             var bitmap = new Bitmap(width, height);
             for (int y = 0; y < height; y++)
@@ -111,7 +122,7 @@ public sealed class EncodingStrideTests
                 }
             }
 
-            return ValueTask.FromResult(bitmap);
+            return bitmap;
         }
 
         public void Dispose()

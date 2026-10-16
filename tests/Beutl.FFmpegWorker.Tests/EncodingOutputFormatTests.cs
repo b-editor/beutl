@@ -69,7 +69,7 @@ public sealed class EncodingOutputFormatTests
 
         public Rational FrameRate => throw new AssertionException("Invalid output formats must be rejected before reading frames.");
 
-        public ValueTask<Bitmap> RenderFrame(long frame) =>
+        public ValueTask<Bitmap?> ReadNextFrame() =>
             throw new AssertionException("Invalid output formats must be rejected before rendering frames.");
 
         public void Dispose()

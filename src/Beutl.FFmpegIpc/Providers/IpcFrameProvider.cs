@@ -17,6 +17,7 @@ internal sealed class IpcFrameProvider : IFrameProvider
     private readonly int _sourceHeight;
     private readonly PrefetchSlot<long, IpcMessage> _prefetch = new();
     private int _bufferIndex;
+    private long _nextFrame;
     private volatile bool _disposed;
 
     public IpcFrameProvider(IpcConnection connection, SharedMemoryBuffer[] videoBuffers,
@@ -33,38 +34,24 @@ internal sealed class IpcFrameProvider : IFrameProvider
     public long FrameCount { get; }
     public Rational FrameRate { get; }
     // Test-only probe: no production code reads it.
-    public long FramesRendered { get; private set; }
+    public long FramesRendered => _nextFrame;
 
-    public async ValueTask<Bitmap> RenderFrame(long frame)
+    public async ValueTask<Bitmap?> ReadNextFrame()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        long frame = _nextFrame;
+        if (frame >= FrameCount)
+            return null;
 
         IpcMessage response;
-        int readBufferIndex;
-
-        Task<IpcMessage>? prefetched = _prefetch.TryConsumeMatching(frame, out readBufferIndex);
+        // Reads are in order, so an armed prefetch is always for this frame.
+        Task<IpcMessage>? prefetched = _prefetch.TryConsumeMatching(frame, out int readBufferIndex);
         if (prefetched != null)
         {
             response = await prefetched;
         }
         else
         {
-            // Prefetch in flight but for a different frame (seek / non-sequential request): drain the stale
-            // prefetch before issuing the fresh request so it can't be read in place of the new response.
-            Task<IpcMessage>? stale = _prefetch.Detach();
-            if (stale != null)
-            {
-                try
-                {
-                    await stale;
-                }
-                catch (FFmpegWorkerException)
-                {
-                    // The drain has already consumed the stale prefetch's response off the pipe; its worker
-                    // error belongs to the discarded frame, so it must not abort the fresh request below.
-                }
-            }
-
             readBufferIndex = _bufferIndex;
             var request = IpcMessage.Create(_connection.NextId(), MessageType.RequestFrame,
                 new RequestFrameMessage { FrameIndex = frame, BufferIndex = readBufferIndex });
@@ -91,7 +78,7 @@ internal sealed class IpcFrameProvider : IFrameProvider
         }
 
         _bufferIndex = 1 - readBufferIndex;
-        FramesRendered++;
+        _nextFrame = nextFrame;
         return bmp;
     }
 
