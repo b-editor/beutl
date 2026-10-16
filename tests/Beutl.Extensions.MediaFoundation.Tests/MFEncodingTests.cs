@@ -1,4 +1,5 @@
 ﻿using System.Runtime.InteropServices;
+using Beutl.Audio;
 using Beutl.Embedding.MediaFoundation.Decoding;
 using Beutl.Embedding.MediaFoundation.Encoding;
 using Beutl.Extensibility;
@@ -467,7 +468,7 @@ public class MFEncodingTests
         public long RequestedSamples { get; private set; }
         public bool WasDisposed { get; private set; }
 
-        public async ValueTask<Pcm<Stereo32BitFloat>?> ReadNextSamples(int length)
+        public async ValueTask<AudioBuffer?> ReadNextSamples(int length)
         {
             await Task.Yield();
             Assert.That(length, Is.InRange(1, count - RequestedSamples));

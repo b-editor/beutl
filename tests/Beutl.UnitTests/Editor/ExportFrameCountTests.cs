@@ -154,10 +154,10 @@ public sealed class ExportFrameCountTests
         scene.Duration = TimeSpan.FromSeconds(3);
 
         long read = 0;
-        while (await provider.ReadNextSamples(1024) is { } pcm)
+        while (await provider.ReadNextSamples(1024) is { } audio)
         {
-            using (pcm)
-                Assert.That(pcm.NumSamples, Is.EqualTo(1024));
+            using (audio)
+                Assert.That(audio.SampleCount, Is.EqualTo(1024));
             read += 1024;
         }
 
