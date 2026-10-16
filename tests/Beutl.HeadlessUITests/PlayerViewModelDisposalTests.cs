@@ -1,7 +1,7 @@
 ﻿using System.Reactive.Linq;
 using Avalonia.Headless.NUnit;
-using Beutl.Editor.Services;
 using Beutl.Audio;
+using Beutl.Editor.Services;
 using Beutl.Graphics.Shapes;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
