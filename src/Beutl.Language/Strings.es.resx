@@ -2630,6 +2630,9 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
   <data name="VersionControl_ActivationFailedFormat" xml:space="preserve">
     <value>No se pudo activar el control de versiones para este proyecto. {0}</value>
   </data>
+  <data name="VersionControl_RepositoryNotWatchedFormat" xml:space="preserve">
+    <value>Beutl no puede vigilar la carpeta de este proyecto, así que el control de versiones muestra los cambios hechos fuera de Beutl solo después de su siguiente operación. {0}</value>
+  </data>
   <data name="VersionControl_BranchFormat" xml:space="preserve">
     <value>Rama: {0}</value>
   </data>

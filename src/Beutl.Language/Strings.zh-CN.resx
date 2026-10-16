@@ -2630,6 +2630,9 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="VersionControl_ActivationFailedFormat" xml:space="preserve">
     <value>无法为此项目启用版本控制。{0}</value>
   </data>
+  <data name="VersionControl_RepositoryNotWatchedFormat" xml:space="preserve">
+    <value>无法监视此项目文件夹，因此在 Beutl 之外所做的更改只会在其下一次操作后显示在版本控制中。{0}</value>
+  </data>
   <data name="VersionControl_BranchFormat" xml:space="preserve">
     <value>分支：{0}</value>
   </data>

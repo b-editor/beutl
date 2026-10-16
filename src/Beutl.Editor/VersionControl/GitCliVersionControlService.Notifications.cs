@@ -123,9 +123,10 @@ internal sealed partial class GitCliVersionControlService
         }
         catch (Exception ex)
         {
+            RepositoryWatcherFailure = ex;
             LogWarningBestEffort(
                 ex,
-                "Failed to start repository watching after initializing version control.");
+                "Failed to start repository watching; version control continues without live refresh.");
         }
     }
 

@@ -59,6 +59,9 @@ internal interface IProjectVersionControlBackend :
 
     Task EnsureRepositoryHygieneAsync(CancellationToken cancellationToken);
 
+    // Without a watcher, status changes made outside Beutl show only after its next operation.
+    Exception? RepositoryWatcherFailure { get; }
+
     /// <summary>
     /// Reports whether this repository already records an opt-in for the project: either the
     /// generated ignore and attribute rules are in place, or its history already carries a
