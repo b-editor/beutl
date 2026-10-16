@@ -168,6 +168,11 @@ internal sealed partial class GitCliVersionControlService
         IGitCliRunner runner,
         CancellationToken cancellationToken)
     {
+        if (_ignoredProjectFilesListedEmpty)
+        {
+            return;
+        }
+
         string acknowledgementKey = GetNoticeAcknowledgementKey(
             IgnoredProjectFilesNoticeConfigKeyPrefix,
             repository);
@@ -194,6 +199,7 @@ internal sealed partial class GitCliVersionControlService
 
         if (ignoredPaths.Count == 0)
         {
+            _ignoredProjectFilesListedEmpty = true;
             return;
         }
 
