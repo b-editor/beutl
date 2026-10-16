@@ -48,35 +48,7 @@ public class ElementStructureServiceTests
     }
 
     [Test]
-    public void Split_WriteFailureKeepsOriginalClipAndHistory()
-    {
-        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
-        Uri original = _scene.Uri!;
-        string blocker = Path.Combine(Path.GetDirectoryName(original.LocalPath)!, "blocked");
-        File.WriteAllText(blocker, "file rather than directory");
-        _scene.Uri = new Uri(Path.Combine(blocker, "main.scene"));
-        _history.Commit("Setup");
-        int before = _history.UndoCount;
-        try
-        {
-            Assert.That(() => _service.Split(_scene, [element], TimeSpan.FromSeconds(4)), Throws.InstanceOf<IOException>());
-            Assert.Multiple(() =>
-            {
-                Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(10)));
-                Assert.That(_scene.Children, Has.Count.EqualTo(1));
-                Assert.That(_history.UndoCount, Is.EqualTo(before));
-                Assert.That(_history.HasPendingOperations, Is.False);
-            });
-        }
-        finally
-        {
-            _scene.Uri = original;
-            File.Delete(blocker);
-        }
-    }
-
-    [Test]
-    public void Split_LaterFailureRollsBackEarlierClipsAndNewSidecars()
+    public void Split_LaterFailureRollsBackEarlierClipsAndWritesNoFile()
     {
         Element first = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
         string directory = Path.GetDirectoryName(_scene.Uri!.LocalPath)!;
@@ -101,48 +73,6 @@ public class ElementStructureServiceTests
             Assert.That(_history.HasPendingOperations, Is.False);
             Assert.That(Directory.GetFiles(directory, "*.belm", SearchOption.AllDirectories), Is.EquivalentTo(files));
         });
-    }
-
-    [Test]
-    public void Split_RollbackFailureKeepsTheSidecarOfASurvivingChild()
-    {
-        Element first = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
-        string directory = Path.GetDirectoryName(_scene.Uri!.LocalPath)!;
-        var second = new FailingSplitElement
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(10),
-            ZIndex = 1,
-            Uri = new Uri(Path.Combine(directory, "second.belm")),
-        };
-        _scene.Children.Add(second);
-        _history.Commit("Setup");
-        second.FailSerialization = true;
-        Element? survivor = null;
-        System.Collections.Specialized.NotifyCollectionChangedEventHandler handler = (_, change) =>
-        {
-            if (change.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove
-                && change.OldItems?.OfType<Element>().FirstOrDefault() is { } removed
-                && removed != first && removed != second)
-            {
-                survivor = removed;
-                _scene.Children.Add(removed);
-                throw new IOException("Injected child rollback failure");
-            }
-        };
-        _scene.Children.CollectionChanged += handler;
-        try
-        {
-            Assert.Catch<AggregateException>(() => _service.Split(_scene, [first, second], TimeSpan.FromSeconds(4)));
-            Assert.That(survivor, Is.Not.Null);
-            Assert.That(_scene.Children, Does.Contain(survivor));
-            Assert.That(File.Exists(survivor!.Uri!.LocalPath), Is.True);
-        }
-        finally
-        {
-            _scene.Children.CollectionChanged -= handler;
-            second.FailSerialization = false;
-        }
     }
 
     public sealed class FailingSplitElement : Element
@@ -269,6 +199,9 @@ public class ElementStructureServiceTests
             Assert.That(added[0].Start, Is.EqualTo(splitAt));
             Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore.Length + 1));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+            // The next save of the scene writes the file.
+            Assert.That(added[0].Uri, Is.EqualTo(ElementFileNaming.GetUri(_scene.Uri!, added[0].Id)));
+            Assert.That(File.Exists(added[0].Uri!.LocalPath), Is.False);
         });
     }
 
