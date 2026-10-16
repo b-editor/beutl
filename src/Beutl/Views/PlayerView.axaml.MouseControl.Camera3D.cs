@@ -135,16 +135,16 @@ public partial class PlayerView
 
             if (currentGizmoTarget.HasValue && currentGizmoMode != GizmoMode.None)
             {
-                var existingTarget = RenderThread.Dispatcher.Invoke(() =>
+                var existingTarget = QueryRenderThread(() =>
                 {
                     var objects = sceneResource.Objects.Where(o => o.IsEnabled).ToList();
                     return FindObjectResource(objects, currentGizmoTarget.Value);
-                });
+                }, null);
 
                 if (existingTarget != null)
                 {
-                    var gizmoAxis = RenderThread.Dispatcher.Invoke(() =>
-                        sceneResource.Renderer.GizmoHitTest(screenPoint, existingTarget, currentGizmoMode));
+                    var gizmoAxis = QueryRenderThread(() =>
+                        sceneResource.Renderer.GizmoHitTest(screenPoint, existingTarget, currentGizmoMode), GizmoAxis.None);
 
                     if (gizmoAxis != GizmoAxis.None)
                     {
@@ -163,8 +163,8 @@ public partial class PlayerView
                 }
             }
 
-            var hitPath = RenderThread.Dispatcher.Invoke(() =>
-                sceneResource.Renderer.HitTestWithPath(screenPoint));
+            var hitPath = QueryRenderThread(() =>
+                sceneResource.Renderer.HitTestWithPath(screenPoint), []);
 
             if (hitPath.Count > 0)
             {
@@ -658,13 +658,13 @@ public partial class PlayerView
             Scene3D.Resource? sceneResource = _scene3D != null ? FindScene3DResource() : null;
             Vector3? position = sceneResource == null
                 ? null
-                : RenderThread.Dispatcher.Invoke(() =>
+                : QueryRenderThread(() =>
                 {
                     Object3D.Resource? target = FindObjectResource(sceneResource.Objects, obj.Id);
                     return target == null
                         ? (Vector3?)null
                         : Renderer3D.GetWorldPosition(sceneResource.Objects, target);
-                });
+                }, null);
 
             return position ?? obj.Position.GetValue(CompositionContext);
         }
@@ -676,10 +676,10 @@ public partial class PlayerView
             if (sceneResource == null)
                 return worldDelta;
 
-            Matrix4x4 parent = RenderThread.Dispatcher.Invoke(() =>
+            Matrix4x4 parent = QueryRenderThread(() =>
                 FindObjectResource(sceneResource.Objects, obj.Id) is { } target
                     ? Renderer3D.GetParentWorldMatrix(sceneResource.Objects, target)
-                    : Matrix4x4.Identity);
+                    : Matrix4x4.Identity, Matrix4x4.Identity);
 
             return Matrix4x4.Invert(parent, out Matrix4x4 inverse)
                 ? Vector3.TransformNormal(worldDelta, inverse)
@@ -726,7 +726,7 @@ public partial class PlayerView
             double scaleX = Image.Bounds.Size.Width / scene.FrameSize.Width;
             var scaledPos = pos / scaleX;
 
-            var drawable = RenderThread.Dispatcher.Invoke(() =>
+            var drawable = QueryRenderThread<Drawable?>(() =>
             {
                 var renderer = EditViewModel.Renderer.Value;
                 var compositionFrame = renderer.Compositor.EvaluateGraphics(Clock.CurrentTime.Value);
@@ -753,7 +753,7 @@ public partial class PlayerView
                 }
 
                 return hit;
-            });
+            }, null);
 
             if (drawable is Scene3D scene3D)
             {

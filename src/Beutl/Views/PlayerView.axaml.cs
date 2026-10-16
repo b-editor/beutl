@@ -41,6 +41,9 @@ namespace Beutl.Views;
 
 public partial class PlayerView : UserControl
 {
+    // The UI waits for the render thread at most this long, so a stuck render cannot freeze input (#2873).
+    private static readonly TimeSpan s_renderThreadWait = TimeSpan.FromSeconds(5);
+    private static readonly ILogger s_logger = Log.CreateLogger<PlayerView>();
     private readonly CompositeDisposable _disposables = [];
     private readonly ILogger _logger = Log.CreateLogger<PlayerView>();
     private IDisposable? _imageConfigSubscription;
@@ -408,7 +411,7 @@ public partial class PlayerView : UserControl
             BtlDrawable target = drawable;
             BtlSize availableSize = scene.FrameSize.ToSize(1.0f);
             TimeSpan ctxTime = time;
-            snap = RenderThread.Dispatcher.Invoke(() => ComputeOverlayGeometry(renderer, target, availableSize, ctxTime));
+            snap = QueryRenderThread(() => ComputeOverlayGeometry(renderer, target, availableSize, ctxTime), null);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         {
@@ -428,6 +431,20 @@ public partial class PlayerView : UserControl
         }
 
         transformHandlesOverlay.Update(drawable, element, s.localBounds, s.userMatrix, s.pivotLocal, image.Bounds.Size, frameScale);
+    }
+
+    // The render thread's answer, or fallback when it does not come within s_renderThreadWait.
+    private static T QueryRenderThread<T>(Func<T> query, T fallback)
+    {
+        try
+        {
+            return RenderThread.Dispatcher.Invoke(query, s_renderThreadWait);
+        }
+        catch (TimeoutException ex)
+        {
+            s_logger.LogWarning(ex, "The render thread did not answer a preview query in time.");
+            return fallback;
+        }
     }
 
     // Prefer the last hit-tested drawable so the overlay tracks the visual object the user actually
