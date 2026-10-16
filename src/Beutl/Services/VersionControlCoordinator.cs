@@ -55,13 +55,14 @@ internal sealed partial class VersionControlCoordinator :
     // waits here until the activation of that same creation adopts it.
     private PreparedNewProject? _preparedNewProject;
     private RepositoryAdoptionRequest? _pendingRepositoryAdoption;
-    private ConfigurationActivationRequest? _pendingConfigurationActivation;
     private object? _latestAvailabilityProbe;
     private TaskCompletionSource? _workDrained;
     private int _runningWork;
     private string? _observedGitExecutablePath;
     private bool _observedUseLfsWhenAvailable;
     private bool _configurationActivationRunning;
+    // A changed Git executable waits to rediscover the repository of the untracked project.
+    private bool _rediscoveryRequested;
     // A save snapshot is waiting for the operation that held the gate when the project was saved.
     private bool _saveSnapshotDeferred;
     private bool _repositoryHygieneConfigurationDirty;
