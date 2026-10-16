@@ -72,15 +72,17 @@ public sealed partial class Rotation3DTransform : Transform
         float depth)
     {
         Matrix4x4 matrix44 = Matrix4x4.Identity;
-        float centerSum = centerX + centerY + centerZ;
+        // Each component counts, so a center such as (100, -100, 0) is not taken for the origin. A NaN center is
+        // still skipped, as when the components' sum decided.
+        bool moveCenter = (centerX != 0 || centerY != 0 || centerZ != 0) && !float.IsNaN(centerX + centerY + centerZ);
 
-        if (MathF.Abs(centerSum) > float.Epsilon) matrix44 *= Matrix4x4.CreateTranslation(-centerX, -centerY, -centerZ);
+        if (moveCenter) matrix44 *= Matrix4x4.CreateTranslation(-centerX, -centerY, -centerZ);
 
         if (rotationX != 0) matrix44 *= Matrix4x4.CreateRotationX(MathUtilities.Deg2Rad(rotationX));
         if (rotationY != 0) matrix44 *= Matrix4x4.CreateRotationY(MathUtilities.Deg2Rad(rotationY));
         if (rotationZ != 0) matrix44 *= Matrix4x4.CreateRotationZ(MathUtilities.Deg2Rad(rotationZ));
 
-        if (MathF.Abs(centerSum) > float.Epsilon) matrix44 *= Matrix4x4.CreateTranslation(centerX, centerY, centerZ);
+        if (moveCenter) matrix44 *= Matrix4x4.CreateTranslation(centerX, centerY, centerZ);
 
         if (depth != 0)
         {
