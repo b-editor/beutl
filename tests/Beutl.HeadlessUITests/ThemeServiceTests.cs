@@ -229,6 +229,27 @@ public class ThemeServiceTests
         AssertAccentForeground(Color.FromRgb(0xFF, 0xB9, 0x00), Colors.Black);
     }
 
+    // The light theme's brushes take the derived color too; FluentAvalonia's own read the color statically.
+    [AvaloniaTest]
+    public void TextOnAccentBrushes_TurnBlack_OnALightAccent_InTheLightTheme()
+    {
+        using var scope = new ThemeScope();
+        scope.Config.Theme = BuiltinThemeIds.Light;
+        scope.Service.Start();
+        scope.Config.UseCustomAccentColor = true;
+        scope.Config.CustomAccentColor = Color.FromRgb(0xFF, 0xB9, 0x00).ToString();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            foreach (string key in new[] { "TextOnAccentFillColorPrimaryBrush", "TextOnAccentFillColorSelectedTextBrush" })
+            {
+                Assert.That(Application.Current!.TryGetResource(key, ThemeVariant.Light, out object? brush), Is.True, key);
+                Assert.That((brush as ISolidColorBrush)?.Color, Is.EqualTo(Colors.Black), key);
+            }
+        });
+    }
+
     // Settings written while the picker still offered an alpha slider can carry one. Applying it as-is
     // would paint a fill that lets the near-black surface through, under a foreground picked from the
     // RGB channels alone — black on black. The applied accent is opaque, so the two agree again.

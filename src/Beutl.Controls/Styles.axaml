@@ -72,6 +72,11 @@
                     <StaticResource x:Key="MainWindowBackground" ResourceKey="ApplicationPageBackgroundThemeBrush" />
                     <!--  The border theme matches this to its dock splitter.  -->
                     <SolidColorBrush x:Key="TitleBarBottomBorderBrush" Color="{DynamicResource ControlStrokeColorDefault}" />
+                    <!--  As in BeutlDarkColors: dynamic, so the text color AccentResolution derives from the accent reaches them.  -->
+                    <SolidColorBrush x:Key="TextOnAccentFillColorSelectedTextBrush" Color="{DynamicResource TextOnAccentFillColorSelectedText}" />
+                    <SolidColorBrush x:Key="TextOnAccentFillColorPrimaryBrush" Color="{DynamicResource TextOnAccentFillColorPrimary}" />
+                    <SolidColorBrush x:Key="TextOnAccentFillColorSecondaryBrush" Color="{DynamicResource TextOnAccentFillColorSecondary}" />
+                    <SolidColorBrush x:Key="TextOnAccentFillColorDisabledBrush" Color="{DynamicResource TextOnAccentFillColorDisabled}" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <ResourceDictionary.MergedDictionaries>
