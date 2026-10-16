@@ -9,7 +9,7 @@ internal sealed partial class GitCliVersionControlService
             : EscapeGitGlobPath(repository.Pathspec) + "/";
         // Broad staging always excludes Beutl's per-user state and `.tmp` scratch files, the same
         // paths the generated ignore rules name.
-        return s_ignoredOptionalProjectPathspecSuffixes
+        return ProjectPathRules.ExcludedPathspecSuffixes
             .Select(suffix => $":(top,exclude,glob){prefix}{suffix}")
             .ToArray();
     }

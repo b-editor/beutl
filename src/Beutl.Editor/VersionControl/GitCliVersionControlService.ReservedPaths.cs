@@ -6,11 +6,6 @@ internal sealed partial class GitCliVersionControlService
 
     private static bool IsReservedProjectPath(RepositoryInfo repository, string repositoryRelativePath)
     {
-        if (IsTemporaryProjectFile(repositoryRelativePath))
-        {
-            return true;
-        }
-
         // Only the part inside the project decides. A .beutl folder above the project in an enclosing
         // repository is not Beutl state.
         string projectRelativePath = repository.Pathspec != "."
@@ -19,15 +14,7 @@ internal sealed partial class GitCliVersionControlService
                                          StringComparison.Ordinal)
             ? repositoryRelativePath[(repository.Pathspec.Length + 1)..]
             : repositoryRelativePath;
-        foreach (string segment in projectRelativePath.Split('/'))
-        {
-            if (string.Equals(segment, EditorConstants.BeutlFolder, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return ProjectPathRules.IsReserved(projectRelativePath);
     }
 
     private async Task<IReadOnlyList<string>> GetTrackedReservedPathsCoreAsync(

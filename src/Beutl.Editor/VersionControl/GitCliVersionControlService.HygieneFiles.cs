@@ -70,7 +70,7 @@ internal sealed partial class GitCliVersionControlService
         string normalizedRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(projectRoot));
         return await HygieneFileContainsLinesAsync(
                    Path.Combine(normalizedRoot, ".gitignore"),
-                   s_gitIgnoreLines,
+                   ProjectPathRules.GitIgnoreLines,
                    cancellationToken)
                    .ConfigureAwait(false)
                && await HygieneFileContainsLinesAsync(

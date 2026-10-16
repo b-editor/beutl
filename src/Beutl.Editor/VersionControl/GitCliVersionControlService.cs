@@ -49,17 +49,9 @@ internal sealed partial class GitCliVersionControlService :
     private const int MaxLfsObjectListOutputBytes = 4 * 1024 * 1024;
     private const int MaxLfsPointerCandidates = 256;
 
-    private static readonly string[] s_gitIgnoreLines =
-    [
-        "**/.beutl/",
-        "*.[tT][mM][pP]",
-    ];
-
     private static readonly string[] s_textAttributeLines =
     [
-        "*.[bB][eE][pP] text eol=lf",
-        "*.[sS][cC][eE][nN][eE] text eol=lf",
-        "*.[bB][eE][lL][mM] text eol=lf",
+        .. ProjectPathRules.DocumentAttributeLines,
         // The media fingerprints a scene keeps in its folder; without a slash, the pattern matches in every folder.
         $"{Beutl.ProjectSystem.MediaFingerprintFile.FileName} text eol=lf",
         ".gitignore text eol=lf",
@@ -126,21 +118,13 @@ internal sealed partial class GitCliVersionControlService :
     private static readonly string[] s_lfsAttributeLines =
         s_supportedMediaExtensions
             .Select(static extension =>
-                $"**/*{CreateCaseInsensitiveGlob(extension)} "
+                $"**/*{ProjectPathRules.CreateCaseInsensitiveGlob(extension)} "
                 + "filter=lfs diff=lfs merge=lfs -text")
             .ToArray();
 
     private static readonly HashSet<string> s_mediaExtensions = new(
         s_supportedMediaExtensions,
         StringComparer.OrdinalIgnoreCase);
-
-    private const string TemporaryFilePathspecSuffix = "**/*.[tT][mM][pP]";
-
-    private static readonly string[] s_ignoredOptionalProjectPathspecSuffixes =
-    [
-        "**/.[bB][eE][uU][tT][lL]/**",
-        TemporaryFilePathspecSuffix,
-    ];
 
     private static readonly string[] s_repositoryOperationRefs =
     [
@@ -151,27 +135,6 @@ internal sealed partial class GitCliVersionControlService :
         "rebase-apply",
         "sequencer",
     ];
-
-    private static string CreateCaseInsensitiveGlob(string value)
-    {
-        var builder = new StringBuilder(value.Length * 4);
-        foreach (char character in value)
-        {
-            if (character is >= 'a' and <= 'z')
-            {
-                builder.Append('[')
-                    .Append(character)
-                    .Append(char.ToUpperInvariant(character))
-                    .Append(']');
-            }
-            else
-            {
-                builder.Append(character);
-            }
-        }
-
-        return builder.ToString();
-    }
 
     private readonly GitInstallationLocator _installationLocator;
     private readonly Func<string, IGitCliRunner> _runnerFactory;

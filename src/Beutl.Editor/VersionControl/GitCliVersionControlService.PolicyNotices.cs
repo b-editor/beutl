@@ -254,13 +254,7 @@ internal sealed partial class GitCliVersionControlService
                 continue;
             }
 
-            if (IsTemporaryProjectFile(projectRelativePath.TrimEnd('/'))
-                || projectRelativePath
-                    .Split('/', StringSplitOptions.RemoveEmptyEntries)
-                    .Any(static segment => string.Equals(
-                        segment,
-                        EditorConstants.BeutlFolder,
-                        StringComparison.OrdinalIgnoreCase)))
+            if (ProjectPathRules.IsReserved(projectRelativePath.TrimEnd('/')))
             {
                 continue;
             }
