@@ -265,17 +265,30 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             throw;
         }
 
-        if (Controller.Value?.IsVideoEnabled != false)
+        // Read once: the panel stays editable during the export, and the export must use what it validated.
+        int supersampleFactor = SupersampleFactor.Value;
+        string? destinationFile = DestinationFile.Value;
+        ControllableEncodingExtension? selectedEncoder = SelectedEncoder.Value;
+        EncodingController? settingsController = Controller.Value;
+        bool videoEnabled = settingsController?.IsVideoEnabled != false;
+        if (videoEnabled)
             EnsureSupersamplingFits();
 
-        EncodingController settingsController = Controller.Value
-            ?? throw new InvalidOperationException(MessageStrings.UnexpectedError);
+        if (settingsController == null)
+            throw new InvalidOperationException(MessageStrings.UnexpectedError);
+
+        bool audioEnabled = settingsController.IsAudioEnabled;
+        JsonObject? videoSettingsJson = EncoderSettingsJson.Serialize(settingsController.VideoSettings);
+        JsonObject? audioSettingsJson = EncoderSettingsJson.Serialize(settingsController.AudioSettings);
+
+        // The export renders this copy, taken on the UI thread, so edits made while it runs do not reach it.
+        Scene scene = SceneSnapshot.Create(Model);
 
         // Collect sources on the UI thread and check File.Exists off-thread; scan [Start, Start + Duration),
         // the range export renders.
         IReadOnlySet<string> referencedSources =
-            ExportSourceValidator.CollectRenderableSources(Model, new TimeRange(Model.Start, Model.Duration),
-                settingsController.IsVideoEnabled, settingsController.IsAudioEnabled);
+            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(scene.Start, scene.Duration),
+                videoEnabled, audioEnabled);
         IReadOnlyList<string> missingSources;
         try
         {
@@ -297,14 +310,16 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         try
         {
             WasCancelled.Value = false;
-            string destination = DestinationFile.Value
+            string destination = destinationFile
                 ?? throw new InvalidOperationException(MessageStrings.UnexpectedError);
-            ControllableEncodingExtension encoder = SelectedEncoder.Value
+            ControllableEncodingExtension encoder = selectedEncoder
                 ?? throw new InvalidOperationException(MessageStrings.UnexpectedError);
             using var output = new StagedOutputFile(destination);
             EncodingController controller = encoder.CreateController(output.TemporaryPath);
-            EncoderSettingsJson.CopyTo(settingsController.VideoSettings, controller.VideoSettings);
-            EncoderSettingsJson.CopyTo(settingsController.AudioSettings, controller.AudioSettings);
+            if (videoSettingsJson != null)
+                EncoderSettingsJson.Populate(controller.VideoSettings, videoSettingsJson);
+            if (audioSettingsJson != null)
+                EncoderSettingsJson.Populate(controller.AudioSettings, audioSettingsJson);
             VideoEncoderSettings videoSettings = controller.VideoSettings;
             AudioEncoderSettings audioSettings = controller.AudioSettings;
 
@@ -315,6 +330,10 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             stopwatch.Start();
 
             await Task.Run(() => EncodeOnWorkerAsync(
+                scene,
+                supersampleFactor,
+                videoEnabled,
+                audioEnabled,
                 controller,
                 videoSettings,
                 audioSettings,
@@ -388,6 +407,10 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     // Runs on a worker thread, from Task.Run, for the whole length of the encode.
     private async Task EncodeOnWorkerAsync(
+        Scene scene,
+        int supersampleFactor,
+        bool videoEnabled,
+        bool audioEnabled,
         EncodingController controller,
         VideoEncoderSettings videoSettings,
         AudioEncoderSettings audioSettings,
@@ -395,15 +418,13 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         Stopwatch stopwatch,
         CancellationToken cancellationToken)
     {
-        videoSettings.SourceSize = Model.FrameSize;
+        videoSettings.SourceSize = scene.FrameSize;
 
-        bool videoEnabled = controller.IsVideoEnabled;
-        bool audioEnabled = controller.IsAudioEnabled;
-        ProgressMax.Value = Model.Duration.TotalSeconds * ((videoEnabled ? 1 : 0) + (audioEnabled ? 1 : 0));
+        ProgressMax.Value = scene.Duration.TotalSeconds * ((videoEnabled ? 1 : 0) + (audioEnabled ? 1 : 0));
 
         double frameRate = videoSettings.FrameRate.ToDouble();
         if (!double.IsFinite(frameRate) || frameRate <= 0) frameRate = 30;
-        long totalFrames = videoEnabled ? FrameProviderImpl.ToFrameCount(Model.Duration, videoSettings.FrameRate) : 0;
+        long totalFrames = videoEnabled ? FrameProviderImpl.ToFrameCount(scene.Duration, videoSettings.FrameRate) : 0;
         _totalFrames = totalFrames;
         FrameProgressText.Value = $"0 / {totalFrames}";
 
@@ -412,19 +433,19 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         if (videoEnabled)
             ClearEditViewModelCaches();
 
-        float renderScale = Math.Max(1, SupersampleFactor.Value);
-        using var renderer = videoEnabled ? ExportRendererFactory.Create(Model, renderScale) : null;
+        float renderScale = Math.Max(1, supersampleFactor);
+        using var renderer = videoEnabled ? ExportRendererFactory.Create(scene, renderScale) : null;
         using var frameProgress = new Subject<TimeSpan>();
         using IFrameProvider frameProvider = renderer != null
-            ? new FrameProviderImpl(Model, videoSettings.FrameRate, renderer, frameProgress)
+            ? new FrameProviderImpl(scene, videoSettings.FrameRate, renderer, frameProgress)
             : DisabledMediaProvider.Instance;
-        using var composer = audioEnabled ? new SceneComposer(Model, disableResourceShare: true, forceOriginalSource: true)
+        using var composer = audioEnabled ? new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
         {
             SampleRate = audioSettings.SampleRate
         } : null;
         using var sampleProgress = new Subject<TimeSpan>();
         using ISampleProvider sampleProvider = composer != null
-            ? new SampleProviderImpl(Model, composer, audioSettings.SampleRate, sampleProgress)
+            ? new SampleProviderImpl(scene, composer, audioSettings.SampleRate, sampleProgress)
             : DisabledMediaProvider.Instance;
 
         IObservable<TimeSpan> progress = videoEnabled && audioEnabled
