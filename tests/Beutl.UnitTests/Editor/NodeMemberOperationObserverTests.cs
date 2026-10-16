@@ -390,6 +390,8 @@ public class NodeMemberOperationObserverTests
         coreObject.NameValue = "Changed";
 
         Assert.That(receivedOperations, Is.Empty);
+        // A child observer that is still subscribed numbers the change even though nobody receives it.
+        Assert.That(_sequenceGenerator.GetNext(), Is.EqualTo(1));
     }
 
     [Test]
@@ -406,6 +408,7 @@ public class NodeMemberOperationObserverTests
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0f });
 
         Assert.That(receivedOperations, Is.Empty);
+        Assert.That(_sequenceGenerator.GetNext(), Is.EqualTo(1));
     }
 
     [Test]
@@ -422,6 +425,7 @@ public class NodeMemberOperationObserverTests
         list.Add(new TestCoreObject());
 
         Assert.That(receivedOperations, Is.Empty);
+        Assert.That(_sequenceGenerator.GetNext(), Is.EqualTo(1));
     }
 
     #endregion

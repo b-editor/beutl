@@ -127,6 +127,8 @@ public sealed class NodeMemberOperationObserver : IOperationObserver
     public void Dispose()
     {
         _subscriptionToProperty?.Dispose();
+        _valueObserver?.Dispose();
+        _animationObserver?.Dispose();
         _subscription?.Dispose();
         _operations.OnCompleted();
     }
