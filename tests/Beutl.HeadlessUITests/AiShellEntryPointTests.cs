@@ -353,7 +353,7 @@ public sealed class AiShellEntryPointTests
     }
 
     [AvaloniaTest]
-    public async Task AiMenu_WithoutScene_OnlyKeepsJobHistoryEnabled()
+    public async Task AiMenu_WithoutScene_DisablesEveryAiCommand()
     {
         await TestReset.ResetShellAsync();
         MainViewModel mainViewModel = TestShell.MainViewModel;

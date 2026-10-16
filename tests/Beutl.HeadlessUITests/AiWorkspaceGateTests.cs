@@ -388,13 +388,13 @@ public sealed class AiWorkspaceGateTests
     }
 
     [AvaloniaTest]
-    public async Task WorkspaceView_PlanReturnOnJobs_UpdatesGateWithoutModelRefresh()
+    public async Task WorkspaceView_PlanReturn_KeepsTheGateOpenUntilEntitlementsArrive()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-gate-plan-return");
         using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
         using var entitlements = new ReactivePropertySlim<AiEntitlements?>();
         var plans = new StubPlanCoordinator();
-        // Jobs has no model list: the workspace callback only maintains the gate.
+        // The pages are stubs, so a plan return only updates the gate.
         await using var workspace = new AiWorkspaceViewModel(
             editor, _ => new StubPage(), entitlements, auth, plans, _ => Task.CompletedTask);
         var view = new AiWorkspaceView { DataContext = workspace };

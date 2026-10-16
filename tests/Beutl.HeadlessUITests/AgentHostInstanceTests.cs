@@ -381,9 +381,10 @@ public sealed class AgentHostInstanceTests
         try
         {
             AgentHostInstanceLease lease = registry.Register(instanceId, new Uri("http://127.0.0.1:59737/mcp"));
-            Assert.That(registry.Read().Single().ToolsVersion, Is.EqualTo(0));
+            AgentHostInstanceRegistration registered = registry.Read().Single();
+            Assert.That(registered.ToolsVersion, Is.EqualTo(0));
             lease.UpdateTools(2);
-            Assert.That(registry.Read().Single(), Is.EqualTo(registry.Read().Single() with { ToolsVersion = 2 }));
+            Assert.That(registry.Read().Single(), Is.EqualTo(registered with { ToolsVersion = 2 }));
             lease.Dispose();
             Assert.That(registry.Read(), Is.Empty);
             Assert.That(Directory.GetFiles(directory), Is.Empty);

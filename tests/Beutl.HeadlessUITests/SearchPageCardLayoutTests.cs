@@ -64,7 +64,8 @@ public class SearchPageCardLayoutTests
         using var httpClient = new HttpClient();
         await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var viewModel = new SearchPageViewModel(new DiscoverService(clients), "search");
-        viewModel.Packages.Add(CreatePackage(clients));
+        Package package = CreatePackage(clients);
+        viewModel.Packages.Add(package);
 
         var view = new SearchPage { DataContext = viewModel };
         var window = new Window { Content = view, Width = 800, Height = 600 };
@@ -79,6 +80,7 @@ public class SearchPageCardLayoutTests
             TextBlock? displayName = blocks.FirstOrDefault(t => t.Text == LongDisplayName);
             TextBlock? description = blocks.FirstOrDefault(t => t.Text == LongDescription);
             TextBlock? owner = blocks.FirstOrDefault(t => t.Text == LongOwner);
+            TextBlock? price = blocks.FirstOrDefault(t => t.Text == package.FormattedPrice.Value);
 
             Assert.That(
                 name,
@@ -87,6 +89,7 @@ public class SearchPageCardLayoutTests
             Assert.That(displayName, Is.Not.Null);
             Assert.That(description, Is.Not.Null);
             Assert.That(owner, Is.Not.Null);
+            Assert.That(price, Is.Not.Null);
 
             Assert.That(
                 name!.TextTrimming,
@@ -133,12 +136,14 @@ public class SearchPageCardLayoutTests
                 Is.EqualTo(1),
                 "the display name must not span into the price column");
 
-            // Only the two secondary-column fields (author, price) are MaxWidth-capped; the
-            // name/display-name in the star column are not, so an ellipsized+capped count of 2 == both.
             Assert.That(
-                blocks.Count(t => double.IsFinite(t.MaxWidth) && t.TextTrimming == TextTrimming.CharacterEllipsis),
-                Is.GreaterThanOrEqualTo(2),
-                "both the author and price fields must be MaxWidth-capped and ellipsized");
+                double.IsFinite(price!.MaxWidth),
+                Is.True,
+                "the price column must declare an explicit MaxWidth cap");
+            Assert.That(
+                price.TextTrimming,
+                Is.EqualTo(TextTrimming.CharacterEllipsis),
+                "the price must ellipsize instead of clipping");
         }
         finally
         {
