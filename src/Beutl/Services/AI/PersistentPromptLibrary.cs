@@ -3,7 +3,6 @@
 internal sealed partial class PersistentPromptLibrary : IPromptLibrary
 {
     internal const int CurrentStorageVersion = 2;
-    private const int LegacyMaxPromptLength = 32_768;
     // Templates model prompts that can be sent to the paid API. Keeping oversized text here
     // would create reusable entries that can never pass final request validation.
     internal const int MaxPromptLength = Beutl.Api.Services.AiRequestLimits.MaxPromptLength;
@@ -13,7 +12,6 @@ internal sealed partial class PersistentPromptLibrary : IPromptLibrary
     private readonly object _gate = new();
     private readonly PromptLibraryOptions _options;
     private readonly Action<string, string> _replaceFile;
-    private readonly Action? _beforeNormalizationWriteLock;
     private readonly Action? _beforeCorruptionWriteLock;
     private readonly TimeProvider _timeProvider;
     private readonly string _lockPath;
@@ -25,7 +23,6 @@ internal sealed partial class PersistentPromptLibrary : IPromptLibrary
         PromptLibraryOptions? options = null,
         TimeProvider? timeProvider = null,
         Action<string, string>? replaceFile = null,
-        Action? beforeNormalizationWriteLock = null,
         Action? beforeCorruptionWriteLock = null)
     {
         if (string.IsNullOrWhiteSpace(storagePath))
@@ -43,7 +40,6 @@ internal sealed partial class PersistentPromptLibrary : IPromptLibrary
         _timeProvider = timeProvider ?? TimeProvider.System;
         _lockPath = StoragePath + ".lock";
         _replaceFile = replaceFile ?? ReplaceFile;
-        _beforeNormalizationWriteLock = beforeNormalizationWriteLock;
         _beforeCorruptionWriteLock = beforeCorruptionWriteLock;
 
         if (File.Exists(StoragePath))
@@ -343,9 +339,6 @@ internal sealed partial class PersistentPromptLibrary : IPromptLibrary
     }
 
     private static int IncrementSaturating(int value) => value == int.MaxValue ? value : value + 1;
-
-    private static int AddSaturating(int left, int right) =>
-        left > int.MaxValue - right ? int.MaxValue : left + right;
 
     private void PublishChanged()
         => PromptLibraryChangeHub.Publish(StoragePath);
