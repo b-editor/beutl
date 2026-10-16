@@ -90,8 +90,6 @@ public partial class PlayerView : UserControl
     {
         if (DataContext is not PlayerViewModel vm)
         {
-            // A wiring bug: log it as an error and show a generic error rather than a misleading format error.
-            _logger.LogError("Timecode submitted but DataContext is not PlayerViewModel; ignoring.");
             e.Reject(Beutl.Language.MessageStrings.UnexpectedError);
             return;
         }
@@ -412,22 +410,13 @@ public partial class PlayerView : UserControl
             TimeSpan ctxTime = time;
             snap = RenderThread.Dispatcher.Invoke(() => ComputeOverlayGeometry(renderer, target, availableSize, ctxTime));
         }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogError(
-                ex,
-                "GetBoundary/MeasureInternal called from invalid thread for {DrawableType} on element '{Element}'.",
-                drawable.GetType().Name, element.Name);
-            // Partially-updated cache may remain — dispose and let it rebuild.
-            ClearTransformHandleOverlay();
-            return;
-        }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         {
             _logger.LogError(
                 ex,
                 "Unexpected exception while querying transform overlay geometry (drawable={DrawableType}, element='{Element}').",
                 drawable.GetType().Name, element.Name);
+            // Partially-updated cache may remain — dispose and let it rebuild.
             ClearTransformHandleOverlay();
             return;
         }

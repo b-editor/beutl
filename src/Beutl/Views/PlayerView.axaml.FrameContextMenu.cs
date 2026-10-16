@@ -175,7 +175,7 @@ public partial class PlayerView
                 {
                     using Bitmap bitmap = await viewModel.DrawFrameAtScale(scale);
                     await SaveImage(file, bitmap);
-                    _logger.LogInformation("FAFrame saved as image: {FilePath}", file.Path);
+                    _logger.LogInformation("Frame saved as image: {FilePath}", file.Path);
                 }
             }
             catch (Exception ex)
