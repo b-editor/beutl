@@ -44,6 +44,7 @@ public sealed partial class MainView : UserControl
 
         recentFiles.ItemsSource = _rawRecentFileItems;
         recentProjects.ItemsSource = _rawRecentProjItems;
+        ((Avalonia.Controls.Primitives.PopupFlyoutBase)OpenNotificationsButton.Flyout!).Opening += OnNotificationsFlyoutOpening;
         if (OperatingSystem.IsMacOS())
         {
             WindowIcon.IsVisible = false;
@@ -77,6 +78,13 @@ public sealed partial class MainView : UserControl
                 }
             };
         }
+    }
+
+    // With no notification there is nothing to show, so the bell opens no flyout.
+    private void OnNotificationsFlyoutOpening(object? sender, EventArgs e)
+    {
+        if (HiddenNotificationPanel.Children.Count == 0 && e is System.ComponentModel.CancelEventArgs cancel)
+            cancel.Cancel = true;
     }
 
     protected override void OnDataContextChanged(EventArgs e)

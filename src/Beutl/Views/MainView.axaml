@@ -24,14 +24,6 @@
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <UserControl.Resources>
-        <ControlTheme x:Key="SmallPaddingFlyoutPresenterStyle"
-                      BasedOn="{StaticResource {x:Type FlyoutPresenter}}"
-                      TargetType="FlyoutPresenter">
-            <Setter Property="Padding" Value="4" />
-        </ControlTheme>
-    </UserControl.Resources>
-
     <Grid RowDefinitions="Auto,1,*">
         <Grid x:Name="Titlebar"
               Background="Transparent"
@@ -270,7 +262,7 @@
                         WindowDecorationProperties.ElementRole="User"
                         Theme="{StaticResource TitleBarButtonStyle}">
                     <Button.Flyout>
-                        <Flyout FlyoutPresenterTheme="{StaticResource SmallPaddingFlyoutPresenterStyle}">
+                        <Flyout FlyoutPresenterTheme="{StaticResource CompactFlyoutPresenterTheme}">
                             <ScrollViewer>
                                 <StackPanel x:Name="HiddenNotificationPanel" Spacing="4" />
                             </ScrollViewer>
