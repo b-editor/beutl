@@ -104,7 +104,7 @@ public class BrowserReviewRegressionTests
     }
 
     [Test]
-    public void ReferrerMigrationRemovesSensitiveValuesFromDisk()
+    public void LoadingSanitizesInMemoryAndTheNextSaveRewritesTheFile()
     {
         using var temporary = new TemporaryDirectory();
         string root = temporary.Path;
@@ -116,29 +116,13 @@ public class BrowserReviewRegressionTests
             Downloads = new[] { new BrowserDownloadRecord("https://example.com/a.mp3", Path.Combine(root, "a.mp3"), DateTimeOffset.UtcNow)
             { Referrer = "https://source.example/private?secret=old-value#fragment" } }
         }));
+        string written = File.ReadAllText(file);
         var profile = new BrowserProfile(file);
         Assert.That(profile.Downloads.Single().Referrer, Is.EqualTo("https://source.example/"));
-        Assert.That(File.ReadAllText(file), Does.Not.Contain("old-value").And.Not.Contain("/private"));
-        Assert.That(Directory.GetFiles(root), Has.Length.EqualTo(1));
-    }
+        Assert.That(File.ReadAllText(file), Is.EqualTo(written));
 
-    [Test]
-    public void FailedReferrerMigrationReportsTheErrorAndKeepsRuntimeDataSanitized()
-    {
-        using var temporary = new TemporaryDirectory();
-        string root = temporary.Path;
-        Directory.CreateDirectory(root);
-        string file = Path.Combine(root, "profile.json");
-        File.WriteAllText(file, JsonSerializer.Serialize(new
-        {
-            Version = 1,
-            Downloads = new[] { new BrowserDownloadRecord("https://example.com/a.mp3", Path.Combine(root, "a.mp3"), DateTimeOffset.UtcNow)
-            { Referrer = "https://source.example/private?secret=old-value" } }
-        }));
-        var profile = new BrowserProfile(file, _ => throw new IOException("write denied"));
-        Assert.That(profile.Error, Does.Contain("write denied"));
-        Assert.That(profile.Downloads.Single().Referrer, Is.EqualTo("https://source.example/"));
-        Assert.That(Directory.GetFiles(root), Has.Length.EqualTo(1));
+        Assert.That(profile.AddBookmark(new Uri("https://example.com/"), "Example"), Is.True);
+        Assert.That(File.ReadAllText(file), Does.Not.Contain("old-value").And.Not.Contain("/private"));
     }
 
     [TestCase("binary")]
