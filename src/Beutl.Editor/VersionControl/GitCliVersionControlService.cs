@@ -508,7 +508,6 @@ internal sealed partial class GitCliVersionControlService :
             async () =>
             {
                 RepositoryInfo repository = GetRepository();
-                await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
                 IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
                 await SetLocalIdentityCoreAsync(
                         repository,

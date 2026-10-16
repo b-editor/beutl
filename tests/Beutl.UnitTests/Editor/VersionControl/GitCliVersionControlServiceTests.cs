@@ -4184,21 +4184,20 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 async () => await service.EnsureRepositoryHygieneAsync(
                     CancellationToken.None)))!,
             (await Assert.ThrowsAsync<VersionControlConflictedException>(
-                async () => await service.SetLocalIdentityAsync(
-                    new GitIdentity("Blocked", "blocked@example.invalid"),
-                    CancellationToken.None)))!,
-            (await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.ExecuteExclusiveAsync(
                     transaction => transaction.PullFastForwardAsync(
                         history[0].Sha,
                         CancellationToken.None),
                     CancellationToken.None)))!,
         ];
-        // Configuring the remote and pushing touch neither the worktree nor the index, so like plain Git
-        // they keep working while the conflict waits for an external merge tool.
+        // Configuring the remote and the identity and pushing touch neither the worktree nor the index, so
+        // like plain Git they keep working while the conflict waits for an external merge tool.
         string remoteRoot = CreateTemporaryDirectory();
         await RunGitAsync("init", "--bare", "-b", "main", remoteRoot);
         await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
+        await service.SetLocalIdentityAsync(
+            new GitIdentity("Conflicted", "conflicted@example.invalid"),
+            CancellationToken.None);
         RemoteOpResult pushed = await service.PushAsync(progress: null, CancellationToken.None);
 
         Assert.Multiple(() =>
