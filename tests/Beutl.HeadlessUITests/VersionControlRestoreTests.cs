@@ -2748,6 +2748,135 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Lfs_change_during_activation_reapplies_hygiene_once_tracking_starts()
+    {
+        var appliedValues = new List<bool>();
+        var firstHygieneStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseFirstHygiene = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-lfs-during-activation");
+
+        try
+        {
+            var config = new VersionControlConfig
+            {
+                UseLfsWhenAvailable = false,
+            };
+            var discovery = new PullCycleTestBackend(null, session.Repository, MainTip);
+            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
+            {
+                EnsureHygieneOverride = async _ =>
+                {
+                    bool first;
+                    lock (appliedValues)
+                    {
+                        appliedValues.Add(config.UseLfsWhenAvailable);
+                        first = appliedValues.Count == 1;
+                    }
+
+                    if (first)
+                    {
+                        firstHygieneStarted.TrySetResult();
+                        await releaseFirstHygiene.Task;
+                    }
+                },
+            };
+            VersionControlCoordinator coordinator = session.Start(
+                config,
+                candidate => candidate is null ? discovery : backend);
+            await firstHygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            config.UseLfsWhenAvailable = true;
+            releaseFirstHygiene.TrySetResult();
+            await WaitUntilAsync(() =>
+            {
+                lock (appliedValues)
+                {
+                    return appliedValues.Count >= 2;
+                }
+            });
+
+            lock (appliedValues)
+            {
+                Assert.Multiple(() =>
+                {
+                    Assert.That(appliedValues, Is.EqualTo(new[] { false, true }));
+                    Assert.That(coordinator.CurrentService, Is.SameAs(backend));
+                    Assert.That(backend.RetirementCalls, Is.Zero);
+                });
+            }
+        }
+        finally
+        {
+            releaseFirstHygiene.TrySetResult();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Failed_lfs_hygiene_is_retried_by_the_next_configuration_change()
+    {
+        var appliedValues = new List<bool>();
+        bool failNextHygiene = false;
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-lfs-hygiene-retry");
+        var config = new VersionControlConfig
+        {
+            UseLfsWhenAvailable = false,
+        };
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
+        {
+            EnsureHygieneOverride = _ =>
+            {
+                lock (appliedValues)
+                {
+                    appliedValues.Add(config.UseLfsWhenAvailable);
+                    if (!failNextHygiene)
+                    {
+                        return Task.CompletedTask;
+                    }
+
+                    failNextHygiene = false;
+                }
+
+                return Task.FromException(new GitOperationException(128, "fatal: simulated failure"));
+            },
+        };
+        VersionControlCoordinator coordinator = session.Start(config, _ => backend);
+        await WaitUntilAsync(() =>
+            ReferenceEquals(coordinator.CurrentService, backend)
+            && coordinator.IsTracked.Value);
+        lock (appliedValues)
+        {
+            appliedValues.Clear();
+            failNextHygiene = true;
+        }
+
+        config.UseLfsWhenAvailable = true;
+        await WaitUntilAsync(() =>
+        {
+            lock (appliedValues)
+            {
+                return appliedValues.Count >= 1;
+            }
+        });
+        config.GitExecutablePath = Path.Combine(Path.GetTempPath(), "beutl-retry-git");
+        await WaitUntilAsync(() =>
+        {
+            lock (appliedValues)
+            {
+                return appliedValues.Count >= 2;
+            }
+        });
+
+        lock (appliedValues)
+        {
+            Assert.That(appliedValues, Is.EqualTo(new[] { true, true }));
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Newer_git_path_is_applied_after_the_running_rediscovery()
     {
         var firstProbeStarted = new TaskCompletionSource(

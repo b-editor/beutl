@@ -109,7 +109,8 @@ internal partial class VersionControlCoordinator
         }
 
         _observedUseLfsWhenAvailable = useLfsWhenAvailable;
-        if (_state.OwnedService?.Repository is not null)
+        // An activation in progress may have read the old setting for the backend it is preparing.
+        if (_state.OwnedService?.Repository is not null || _activation is not null)
         {
             _repositoryHygieneConfigurationDirty = true;
         }
@@ -212,7 +213,10 @@ internal partial class VersionControlCoordinator
         }
         catch (Exception ex)
         {
+            // Kept for the next run, which a later setting change, close or transition starts.
+            _repositoryHygieneConfigurationDirty |= trackedService is not null;
             _logger.LogError(ex, "Failed to apply a version-control configuration change.");
+            return false;
         }
 
         return true;
