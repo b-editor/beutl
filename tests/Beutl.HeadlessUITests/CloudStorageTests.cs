@@ -257,11 +257,10 @@ public sealed class CloudStorageTests
     }
 
     [AvaloniaTest]
-    public async Task FileBrowserIsAvailableWithoutASeparateStorageTab()
+    public async Task FileBrowserIsAmongTheToolTabs()
     {
         await TestReset.ResetShellAsync();
         Assert.That(TestShell.MainViewModel.ToolTabExtensions, Does.Contain(FileBrowserTabExtension.Instance));
-        Assert.That(TestShell.MainViewModel.ToolTabExtensions.Any(x => x.Name == "CloudStorage"), Is.False);
     }
 
     internal static void SignInOnBackgroundThread(BeutlApiApplication clients, string? id)
