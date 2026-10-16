@@ -14,6 +14,8 @@ public sealed class TutorialServiceHandler : ITutorialService
     private readonly ILogger _logger = Log.CreateLogger<TutorialServiceHandler>();
     private readonly BehaviorSubject<TutorialState?> _currentTutorial = new(null);
     private readonly List<TutorialDefinition> _tutorials = [];
+    // Extensions register tutorials on other threads than the UI that reads them.
+    private readonly object _lock = new();
 
     public IObservable<TutorialState?> CurrentTutorial => _currentTutorial.AsObservable();
 
@@ -21,9 +23,12 @@ public sealed class TutorialServiceHandler : ITutorialService
 
     public void Register(TutorialDefinition tutorial)
     {
-        if (_tutorials.All(t => t.Id != tutorial.Id))
+        lock (_lock)
         {
-            _tutorials.Add(tutorial);
+            if (_tutorials.All(t => t.Id != tutorial.Id))
+            {
+                _tutorials.Add(tutorial);
+            }
         }
     }
 
@@ -34,12 +39,20 @@ public sealed class TutorialServiceHandler : ITutorialService
         {
             CancelTutorial();
         }
-        _tutorials.RemoveAll(t => t.Id == tutorialId);
+        lock (_lock)
+        {
+            _tutorials.RemoveAll(t => t.Id == tutorialId);
+        }
     }
 
     public async Task StartTutorial(string tutorialId, bool autoFulfillPrerequisites = false)
     {
-        TutorialDefinition? tutorial = _tutorials.Find(t => t.Id == tutorialId);
+        TutorialDefinition? tutorial;
+        lock (_lock)
+        {
+            tutorial = _tutorials.Find(t => t.Id == tutorialId);
+        }
+
         if (tutorial == null)
         {
             _logger.LogWarning("Tutorial not found: {TutorialId}", tutorialId);
@@ -158,7 +171,10 @@ public sealed class TutorialServiceHandler : ITutorialService
 
     public IReadOnlyList<TutorialDefinition> GetAvailableTutorials()
     {
-        return _tutorials.AsReadOnly();
+        lock (_lock)
+        {
+            return [.. _tutorials];
+        }
     }
 
     private static void MarkTutorialCompleted(string tutorialId)

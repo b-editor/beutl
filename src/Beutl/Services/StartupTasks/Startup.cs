@@ -60,7 +60,7 @@ public sealed class Startup
         Register(() => new LoadPrimitiveExtensionTask(
             _apiApp.GetResource<PackageManager>(), _apiApp.GetResource<IExtensionRegistry>(),
             _editorService, _projectService));
-        Register(() => new LoadSideloadExtensionTask(_apiApp.GetResource<PackageManager>()));
+        Register(() => new LoadSideloadExtensionTask(_apiApp.GetResource<PackageManager>(), this));
         Register(() => new AfterLoadingExtensionsTask(this));
         Register(() => new RestoreLastProjectTask(this, _projectService));
         Register(() => new CheckForUpdatesTask(_apiApp));

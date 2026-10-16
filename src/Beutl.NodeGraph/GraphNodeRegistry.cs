@@ -6,6 +6,8 @@ namespace Beutl.NodeGraph;
 public class GraphNodeRegistry
 {
     private static readonly List<BaseRegistryItem> s_nodes = [];
+    // Extensions register and unload nodes on other threads than the UI that reads them.
+    private static readonly object s_lock = new();
 
     static GraphNodeRegistry()
     {
@@ -40,7 +42,10 @@ public class GraphNodeRegistry
 
     public static IList<BaseRegistryItem> GetRegistered()
     {
-        return s_nodes;
+        lock (s_lock)
+        {
+            return s_nodes.ConvertAll(Copy);
+        }
     }
 
     public static RegistryItem? FindItem(Type type)
@@ -68,45 +73,66 @@ public class GraphNodeRegistry
             return null;
         }
 
-        return Find(s_nodes, type);
+        lock (s_lock)
+        {
+            return Find(s_nodes, type);
+        }
     }
 
     private static void Unregister(Type[] types)
     {
-        for (int i = s_nodes.Count - 1; i >= 0; i--)
+        lock (s_lock)
         {
-            var item = s_nodes[i];
-            if (item is GroupableRegistryItem groupable)
+            for (int i = s_nodes.Count - 1; i >= 0; i--)
             {
-                if (groupable.Unregister(types))
+                var item = s_nodes[i];
+                if (item is GroupableRegistryItem groupable)
+                {
+                    if (groupable.Unregister(types))
+                    {
+                        s_nodes.RemoveAt(i);
+                    }
+                }
+                else if (item is RegistryItem registryItem && types.Any(t => TypeUnloadNotifier.ContainsTypeRecursive(registryItem.Type, t)))
                 {
                     s_nodes.RemoveAt(i);
                 }
-            }
-            else if (item is RegistryItem registryItem && types.Any(t => TypeUnloadNotifier.ContainsTypeRecursive(registryItem.Type, t)))
-            {
-                s_nodes.RemoveAt(i);
             }
         }
     }
 
     private static void Register(BaseRegistryItem item)
     {
-        if (item is GroupableRegistryItem groupable)
+        // The caller keeps its group, so the registry stores a copy.
+        item = Copy(item);
+        lock (s_lock)
         {
-            if (s_nodes.FirstOrDefault(x => x.DisplayName == item.DisplayName) is GroupableRegistryItem registered)
+            if (item is GroupableRegistryItem groupable)
             {
-                registered.Merge(groupable.Items);
+                if (s_nodes.FirstOrDefault(x => x.DisplayName == item.DisplayName) is GroupableRegistryItem registered)
+                {
+                    registered.Merge(groupable.Items);
+                }
+                else
+                {
+                    s_nodes.Add(groupable);
+                }
             }
             else
             {
-                s_nodes.Add(groupable);
+                s_nodes.Add(item);
             }
         }
-        else
-        {
-            s_nodes.Add(item);
-        }
+    }
+
+    private static BaseRegistryItem Copy(BaseRegistryItem item)
+    {
+        if (item is not GroupableRegistryItem group)
+            return item;
+
+        var copy = new GroupableRegistryItem(group.DisplayName, group.AccentColor);
+        copy.Items.AddRange(group.Items.Select(Copy));
+        return copy;
     }
 
     public record BaseRegistryItem(string DisplayName, Color AccentColor);
