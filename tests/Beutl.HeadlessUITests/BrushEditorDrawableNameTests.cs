@@ -45,6 +45,14 @@ public sealed class BrushEditorDrawableNameTests
                 Assert.That(presenter.DrawableName, Is.EqualTo(Strings.CreateNew));
                 Assert.That(presenter.CanEditDrawable, Is.False);
             });
+
+            // A brush set while the flyout is open is followed as well.
+            var next = new DrawableBrush { Drawable = { CurrentValue = new EllipseShape() } };
+            shape.Fill.CurrentValue = next;
+            HeadlessTestHelpers.Render();
+            Assert.That(presenter.DrawableName, Is.Not.EqualTo(Strings.CreateNew));
+            next.Drawable.CurrentValue = null;
+            Assert.That(presenter.DrawableName, Is.EqualTo(Strings.CreateNew));
         }
         finally
         {
