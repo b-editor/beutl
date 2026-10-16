@@ -15,20 +15,10 @@ public sealed class FFmpegWorkerProcess : IDisposable
     private static readonly Lazy<FFmpegWorkerProcess> s_decodingInstance = new(() => new FFmpegWorkerProcess(multiplexed: true));
     private static readonly Lazy<FFmpegWorkerProcess> s_backgroundDecodingInstance = new(() => new FFmpegWorkerProcess(multiplexed: true));
 
-    /// <summary>
-    /// The decode worker of the editor: preview, playback and timeline thumbnails. It also answers codec queries.
-    /// </summary>
+    /// <summary>The editor's decode worker, which also answers codec queries.</summary>
     public static FFmpegWorkerProcess DecodingInstance => s_decodingInstance.Value;
 
-    /// <summary>
-    /// The decode worker of background work, which <c>MediaOptions.IsBackground</c> marks:
-    /// File Browser thumbnails, proxy generation and AI import. A file that crashes it leaves the editor's worker
-    /// running.
-    /// </summary>
-    /// <remarks>
-    /// Like <see cref="DecodingInstance"/>, it starts on first use and again on the first use after it exits, and
-    /// its readers reopen there.
-    /// </remarks>
+    /// <summary>The decode worker for reads that set <c>MediaOptions.IsBackground</c>.</summary>
     public static FFmpegWorkerProcess BackgroundDecodingInstance => s_backgroundDecodingInstance.Value;
 
     public static FFmpegWorkerProcess CreateForEncoding() => new(multiplexed: false);

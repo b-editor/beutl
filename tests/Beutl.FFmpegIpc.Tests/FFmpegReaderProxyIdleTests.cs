@@ -371,6 +371,29 @@ public class FFmpegReaderProxyIdleTests
         Assert.That(reopenRequest!.ThreadCount, Is.EqualTo(6));
     }
 
+    // The options pick the worker, so a background reader whose worker exits reopens on the background worker.
+    [Test]
+    public void DecoderInfo_ReopensWithTheOpenOptions_AfterTheWorkerExits()
+    {
+        using var restartedWorker = new FakeWorker(firstReaderId: 9);
+        var connected = new List<MediaOptions>();
+        var decoderInfo = new FFmpegDecoderInfo(new FFmpegDecodingSettings(), options =>
+        {
+            connected.Add(options);
+            return connected.Count == 1 ? _worker.Connection : restartedWorker.Connection;
+        }, _tracker);
+        var background = new MediaOptions(MediaMode.Video) { IsBackground = true };
+        using var reader = (FFmpegReaderProxy)decoderInfo.Open("clip.mp4", background)!;
+
+        _worker.Exit();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ReadFirstByte(reader, 1), Is.EqualTo(FakeWorker.PixelValue(9, 1)));
+            Assert.That(connected, Is.EqualTo(new[] { background, background }));
+        });
+    }
+
     // The idle budget counts the ring buffer the worker allocated: HDR slots take 8 bytes per pixel, and
     // the worker grows the buffer for larger frames without ever shrinking it.
     [Test]

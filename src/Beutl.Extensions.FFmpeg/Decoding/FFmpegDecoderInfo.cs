@@ -78,8 +78,7 @@ public sealed class FFmpegDecoderInfo : IDecoderInfo
         }
     }
 
-    // Background work decodes in a worker of its own, so a file that crashes that worker leaves the editor's readers
-    // running. A reader reopens on the worker it was opened for.
+    // A file that crashes the background worker leaves the editor's readers running.
     internal static FFmpegWorkerProcess SelectWorker(MediaOptions options)
         => options.IsBackground ? FFmpegWorkerProcess.BackgroundDecodingInstance : FFmpegWorkerProcess.DecodingInstance;
 
