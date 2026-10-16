@@ -10,6 +10,9 @@ public sealed class CoreLibrariesTests
     [TestCase("Beutl.Engine.SourceGenerators")]
     [TestCase("beutl.controls")]
     [TestCase("Beutl.Embedding.MediaFoundation")]
+    [TestCase("Beutl.AgentToolkit")]
+    [TestCase("Beutl.FFmpegIpc")]
+    [TestCase("Beutl.Extensions.FFmpeg.Core")]
     public void A_Beutl_library_comes_from_the_host_at_any_version_and_is_never_downloaded(string name)
     {
         using (Assert.EnterMultipleScope())
