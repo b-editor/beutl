@@ -1,5 +1,4 @@
-﻿using System.Buffers;
-using System.Text;
+﻿using System.Text;
 using Beutl.Editor;
 
 namespace Beutl.Editor.VersionControl;
@@ -257,215 +256,58 @@ internal static class ProjectConflictMarkerScanner
         long scanLength,
         CancellationToken cancellationToken)
     {
-        byte[] buffer = new byte[ScanChunkSize];
-        long lineLength = 0;
-        long prefixRunLength = 0;
-        long expectedMarkerLength = 0;
-        byte firstByte = 0;
-        byte byteAfterRun = 0;
-        byte lastByte = 0;
-        byte[] pendingRuneBytes = new byte[4];
-        int pendingRuneByteCount = 0;
-        bool hasLabelContent = false;
-        MarkerSequenceState state = MarkerSequenceState.None;
-        long remaining = scanLength;
-
-        bool ProcessByte(byte value)
+        byte[] buffer = new byte[(int)Math.Min(scanLength, Array.MaxLength)];
+        int read = await stream.ReadAtLeastAsync(
+                buffer,
+                buffer.Length,
+                throwOnEndOfStream: false,
+                cancellationToken)
+            .ConfigureAwait(false);
+        ReadOnlySpan<byte> content = buffer.AsSpan(0, read);
+        if (content.StartsWith(s_utf8Bom))
         {
-            if (value == (byte)'\n')
-            {
-                long contentLength = lineLength > 0 && lastByte == (byte)'\r'
-                    ? lineLength - 1
-                    : lineLength;
-                bool result = ProcessLine(
-                    firstByte,
-                    prefixRunLength,
-                    byteAfterRun,
-                    hasLabelContent || pendingRuneByteCount > 0,
-                    contentLength,
-                    ref state,
-                    ref expectedMarkerLength);
-                lineLength = 0;
-                prefixRunLength = 0;
-                firstByte = 0;
-                byteAfterRun = 0;
-                pendingRuneByteCount = 0;
-                hasLabelContent = false;
-                return result;
-            }
-
-            if (lineLength == 0)
-            {
-                firstByte = value;
-                prefixRunLength = 1;
-            }
-            else if (lineLength == prefixRunLength)
-            {
-                if (value == firstByte)
-                {
-                    prefixRunLength++;
-                }
-                else
-                {
-                    byteAfterRun = value;
-                }
-            }
-            else if (!hasLabelContent
-                     && HasNonWhitespaceRune(
-                         value,
-                         pendingRuneBytes,
-                         ref pendingRuneByteCount))
-            {
-                hasLabelContent = true;
-            }
-
-            lineLength++;
-            lastByte = value;
-            return false;
+            content = content[s_utf8Bom.Length..];
         }
 
-        int initialLength = 0;
-        bool reachedEnd = false;
-        while (initialLength < s_utf8Bom.Length && remaining > 0)
+        // Git writes a start marker of at least seven '<', a separator line of as many '=' and an end
+        // marker of as many '>'; the start and end markers are followed by a space and a label.
+        int markerLength = 0;
+        bool separatorSeen = false;
+        foreach (string rawLine in Encoding.UTF8.GetString(content).Split('\n'))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            int requested = (int)Math.Min(s_utf8Bom.Length - initialLength, remaining);
-            int read = await stream.ReadAsync(
-                buffer.AsMemory(initialLength, requested),
-                cancellationToken).ConfigureAwait(false);
-            if (read == 0)
+            string line = rawLine.EndsWith('\r') ? rawLine[..^1] : rawLine;
+            int run = 0;
+            while (run < line.Length && line[run] == line[0])
             {
-                reachedEnd = true;
-                break;
+                run++;
             }
 
-            initialLength += read;
-            remaining -= read;
-        }
-
-        int initialOffset = initialLength == s_utf8Bom.Length
-                            && buffer.AsSpan(0, initialLength).SequenceEqual(s_utf8Bom)
-            ? initialLength
-            : 0;
-        for (int i = initialOffset; i < initialLength; i++)
-        {
-            if (ProcessByte(buffer[i]))
+            if (IsLabeledMarker(line, run, '<'))
+            {
+                markerLength = run;
+                separatorSeen = false;
+            }
+            else if (markerLength > 0 && !separatorSeen && run == markerLength && line.Length == run
+                     && line[0] == '=')
+            {
+                separatorSeen = true;
+            }
+            else if (separatorSeen && run == markerLength && IsLabeledMarker(line, run, '>'))
             {
                 return true;
             }
         }
 
-        while (!reachedEnd && remaining > 0)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            int requested = (int)Math.Min(ScanChunkSize, remaining);
-            int read = await stream.ReadAsync(
-                buffer.AsMemory(0, requested),
-                cancellationToken).ConfigureAwait(false);
-            if (read == 0)
-            {
-                break;
-            }
-
-            remaining -= read;
-            for (int i = 0; i < read; i++)
-            {
-                if (ProcessByte(buffer[i]))
-                {
-                    return true;
-                }
-            }
-        }
-
-        long finalContentLength = lineLength > 0 && lastByte == (byte)'\r'
-            ? lineLength - 1
-            : lineLength;
-        return ProcessLine(
-            firstByte,
-            prefixRunLength,
-            byteAfterRun,
-            hasLabelContent || pendingRuneByteCount > 0,
-            finalContentLength,
-            ref state,
-            ref expectedMarkerLength);
-    }
-
-    private static bool ProcessLine(
-        byte firstByte,
-        long prefixRunLength,
-        byte byteAfterRun,
-        bool hasLabelContent,
-        long lineLength,
-        ref MarkerSequenceState state,
-        ref long expectedMarkerLength)
-    {
-        if (IsLabeledMarker(
-                firstByte,
-                prefixRunLength,
-                byteAfterRun,
-                hasLabelContent,
-                lineLength,
-                (byte)'<'))
-        {
-            state = MarkerSequenceState.StartSeen;
-            expectedMarkerLength = prefixRunLength;
-        }
-        else if (state == MarkerSequenceState.StartSeen
-                 && firstByte == (byte)'='
-                 && prefixRunLength == expectedMarkerLength
-                 && lineLength == prefixRunLength)
-        {
-            state = MarkerSequenceState.SeparatorSeen;
-        }
-        else if (state == MarkerSequenceState.SeparatorSeen
-                 && prefixRunLength == expectedMarkerLength
-                 && IsLabeledMarker(
-                     firstByte,
-                     prefixRunLength,
-                     byteAfterRun,
-                     hasLabelContent,
-                     lineLength,
-                     (byte)'>'))
-        {
-            return true;
-        }
-
         return false;
     }
 
-    private static bool IsLabeledMarker(
-        byte firstByte,
-        long prefixRunLength,
-        byte byteAfterRun,
-        bool hasLabelContent,
-        long lineLength,
-        byte markerByte)
+    private static bool IsLabeledMarker(string line, int run, char markerCharacter)
     {
-        return firstByte == markerByte
-               && prefixRunLength >= MinimumMarkerLength
-               && lineLength - prefixRunLength >= 2
-               && byteAfterRun == (byte)' '
-               && hasLabelContent;
-    }
-
-    private static bool HasNonWhitespaceRune(
-        byte value,
-        byte[] pendingRuneBytes,
-        ref int pendingRuneByteCount)
-    {
-        pendingRuneBytes[pendingRuneByteCount++] = value;
-        OperationStatus status = Rune.DecodeFromUtf8(
-            pendingRuneBytes.AsSpan(0, pendingRuneByteCount),
-            out Rune rune,
-            out _);
-        if (status == OperationStatus.NeedMoreData
-            && pendingRuneByteCount < pendingRuneBytes.Length)
-        {
-            return false;
-        }
-
-        pendingRuneByteCount = 0;
-        return status != OperationStatus.Done || !Rune.IsWhiteSpace(rune);
+        return run >= MinimumMarkerLength
+               && line[0] == markerCharacter
+               && run + 1 < line.Length
+               && line[run] == ' '
+               && !string.IsNullOrWhiteSpace(line[(run + 1)..]);
     }
 
     private static bool IsProjectDocument(string file)
@@ -537,12 +379,5 @@ internal static class ProjectConflictMarkerScanner
         Continue,
         ConflictFound,
         BudgetExhausted,
-    }
-
-    private enum MarkerSequenceState
-    {
-        None,
-        StartSeen,
-        SeparatorSeen,
     }
 }
