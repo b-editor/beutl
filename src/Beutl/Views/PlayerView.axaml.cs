@@ -410,7 +410,7 @@ public partial class PlayerView : UserControl
             TimeSpan ctxTime = time;
             snap = RenderThread.Dispatcher.Invoke(() => ComputeOverlayGeometry(renderer, target, availableSize, ctxTime));
         }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
+        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         {
             _logger.LogError(
                 ex,
@@ -515,7 +515,7 @@ public partial class PlayerView : UserControl
             {
                 resource.Dispose();
             }
-            catch (Exception ex) when (ex is not OutOfMemoryException)
+            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
             {
                 _logger.LogError(ex, "Failed to dispose the transform-handle resource on the render thread.");
             }

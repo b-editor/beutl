@@ -220,6 +220,7 @@ public partial class PlayerView
             }
             catch (Exception ex) when (
                 ex is not OutOfMemoryException
+                and not StackOverflowException
                 and not System.Runtime.InteropServices.SEHException  // propagate GPU driver crashes
                 and not AccessViolationException)                    // CSE defense-in-depth
             {
