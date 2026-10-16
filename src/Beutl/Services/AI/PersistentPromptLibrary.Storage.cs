@@ -34,7 +34,7 @@ internal partial class PersistentPromptLibrary
                     $"Prompt library version {document.Version} is newer than supported version {CurrentStorageVersion}.");
             }
 
-            if (document.Version < 1)
+            if (document.Version != CurrentStorageVersion)
             {
                 throw new InvalidDataException($"Unsupported prompt library version {document.Version}.");
             }
@@ -44,18 +44,8 @@ internal partial class PersistentPromptLibrary
                 throw new InvalidDataException("The prompt library collections are missing.");
             }
 
-            if (MaterializeDocument(document.Version, document.History, document.Templates, []))
-            {
-                // The file may change after the initial read and before this process can
-                // acquire the cross-process writer lock. Reload and normalize the winner
-                // under that lock rather than publishing this stale snapshot.
-                _beforeNormalizationWriteLock?.Invoke();
-                using FileStream writeLock = BeginWrite();
-                if (ReloadForWrite())
-                {
-                    WriteDocument(_history, _templates, writeLock);
-                }
-            }
+            // Only held in memory: the next change writes the normalized entries.
+            MaterializeDocument(document.History, document.Templates, []);
         }
         catch (Exception ex) when (ex is JsonException or InvalidDataException)
         {
@@ -65,136 +55,64 @@ internal partial class PersistentPromptLibrary
 
     private static List<PromptHistoryEntry> LoadHistory(
         IReadOnlyCollection<StoredHistoryEntry> storedItems,
-        HashSet<Guid> ids,
-        bool migrateLegacyPrompts,
-        out bool changed)
+        HashSet<Guid> ids)
     {
         var items = new List<PromptHistoryEntry>(storedItems.Count);
-        changed = false;
 
         foreach (StoredHistoryEntry stored in storedItems)
         {
             ValidateStoredId(stored.Id, ids);
             PromptTaskKind taskKind = ValidateStoredTaskKind(stored.TaskKind);
-            string? prompt = NormalizeStoredPrompt(stored.Prompt, migrateLegacyPrompts);
+            string prompt = NormalizeStoredPrompt(stored.Prompt);
             if (stored.LastUsedAtUtc is not { } lastUsedAtUtc || stored.UseCount < 1)
             {
                 throw new InvalidDataException("A prompt history entry has invalid usage data.");
             }
-            if (prompt is null)
-            {
-                changed = true;
-                continue;
-            }
 
-            DateTimeOffset normalizedTimestamp = lastUsedAtUtc.ToUniversalTime();
-            changed |= !string.Equals(stored.Prompt, prompt, StringComparison.Ordinal)
-                || stored.LastUsedAtUtc != normalizedTimestamp;
             items.Add(new PromptHistoryEntry(
                 stored.Id,
                 taskKind,
                 prompt,
-                normalizedTimestamp,
+                lastUsedAtUtc.ToUniversalTime(),
                 stored.UseCount,
                 stored.IsPinned));
         }
 
         items.Sort((left, right) => right.LastUsedAtUtc.CompareTo(left.LastUsedAtUtc));
-        var coalesced = new List<PromptHistoryEntry>(items.Count);
-        var historyIndex = new Dictionary<(PromptTaskKind Kind, string Prompt), int>();
-        foreach (PromptHistoryEntry item in items)
-        {
-            if (!historyIndex.TryGetValue((item.TaskKind, item.Prompt), out int index))
-            {
-                historyIndex.Add((item.TaskKind, item.Prompt), coalesced.Count);
-                coalesced.Add(item);
-                continue;
-            }
-
-            PromptHistoryEntry existing = coalesced[index];
-            coalesced[index] = existing with
-            {
-                UseCount = AddSaturating(existing.UseCount, item.UseCount),
-                IsPinned = existing.IsPinned || item.IsPinned,
-            };
-            changed = true;
-        }
-
-        return coalesced;
+        return items;
     }
 
     private static List<PromptTemplate> LoadTemplates(
         IReadOnlyCollection<StoredTemplate> storedItems,
-        HashSet<Guid> ids,
-        bool migrateLegacyPrompts,
-        out bool changed)
+        HashSet<Guid> ids)
     {
         var items = new List<PromptTemplate>(storedItems.Count);
-        changed = false;
 
         foreach (StoredTemplate stored in storedItems)
         {
             ValidateStoredId(stored.Id, ids);
             PromptTaskKind taskKind = ValidateStoredTaskKind(stored.TaskKind);
             string name = NormalizeStoredTemplateName(stored.Name);
-            string? prompt = NormalizeStoredPrompt(stored.Prompt, migrateLegacyPrompts);
+            string prompt = NormalizeStoredPrompt(stored.Prompt);
             if (stored.CreatedAtUtc is not { } createdAtUtc
                 || stored.UpdatedAtUtc is not { } updatedAtUtc
                 || createdAtUtc > updatedAtUtc)
             {
                 throw new InvalidDataException("A prompt template has invalid timestamps.");
             }
-            if (prompt is null)
-            {
-                changed = true;
-                continue;
-            }
 
-            DateTimeOffset normalizedCreatedAt = createdAtUtc.ToUniversalTime();
-            DateTimeOffset normalizedUpdatedAt = updatedAtUtc.ToUniversalTime();
-            changed |= !string.Equals(stored.Name, name, StringComparison.Ordinal)
-                || !string.Equals(stored.Prompt, prompt, StringComparison.Ordinal)
-                || stored.CreatedAtUtc != normalizedCreatedAt
-                || stored.UpdatedAtUtc != normalizedUpdatedAt;
             items.Add(new PromptTemplate(
                 stored.Id,
                 name,
                 taskKind,
                 prompt,
-                normalizedCreatedAt,
-                normalizedUpdatedAt,
+                createdAtUtc.ToUniversalTime(),
+                updatedAtUtc.ToUniversalTime(),
                 stored.IsPinned));
         }
 
         items.Sort((left, right) => right.UpdatedAtUtc.CompareTo(left.UpdatedAtUtc));
-        var coalesced = new List<PromptTemplate>(items.Count);
-        var indexesByTask = new Dictionary<PromptTaskKind, Dictionary<string, int>>();
-        foreach (PromptTemplate item in items)
-        {
-            if (!indexesByTask.TryGetValue(item.TaskKind, out Dictionary<string, int>? indexesByName))
-            {
-                indexesByName = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                indexesByTask.Add(item.TaskKind, indexesByName);
-            }
-            if (!indexesByName.TryGetValue(item.Name, out int index))
-            {
-                indexesByName.Add(item.Name, coalesced.Count);
-                coalesced.Add(item);
-                continue;
-            }
-
-            PromptTemplate existing = coalesced[index];
-            coalesced[index] = existing with
-            {
-                CreatedAtUtc = existing.CreatedAtUtc < item.CreatedAtUtc
-                    ? existing.CreatedAtUtc
-                    : item.CreatedAtUtc,
-                IsPinned = existing.IsPinned || item.IsPinned,
-            };
-            changed = true;
-        }
-
-        return coalesced;
+        return items;
     }
 
     private static void ValidateStoredId(Guid id, HashSet<Guid> ids)
@@ -215,26 +133,11 @@ internal partial class PersistentPromptLibrary
         return value;
     }
 
-    private static string? NormalizeStoredPrompt(string? prompt, bool migrateLegacyPrompt)
+    private static string NormalizeStoredPrompt(string? prompt)
     {
         try
         {
-            string normalized = NormalizePromptText(prompt!, nameof(prompt));
-            int maximumLength = migrateLegacyPrompt
-                ? LegacyMaxPromptLength
-                : MaxPromptLength;
-            if (normalized.Length > maximumLength)
-            {
-                throw new ArgumentException(
-                    $"The prompt cannot exceed {maximumLength} characters.",
-                    nameof(prompt));
-            }
-            // Version 1 permitted larger prompts. Drop only an entry that the
-            // paid API can no longer submit, rather than treating its siblings
-            // as corrupt or silently changing the prompt's meaning.
-            return migrateLegacyPrompt && normalized.Length > MaxPromptLength
-                ? null
-                : normalized;
+            return NormalizePrompt(prompt!, nameof(prompt));
         }
         catch (ArgumentException ex)
         {
@@ -301,14 +204,14 @@ internal partial class PersistentPromptLibrary
 
     // The process lock protects the read-modify-write window. Reload while it is held so a
     // second library instance does not commit a stale in-memory snapshot over a newer change.
-    private bool ReloadForWrite()
+    private void ReloadForWrite()
     {
         PromptHistoryEntry[] localTransientHistory = _history.Where(item => !item.IsPinned).ToArray();
         if (!File.Exists(StoragePath))
         {
             _history = localTransientHistory.ToList();
             _templates = [];
-            return false;
+            return;
         }
 
         using FileStream stream = File.OpenRead(StoragePath);
@@ -318,14 +221,14 @@ internal partial class PersistentPromptLibrary
             throw new NotSupportedException(
                 $"Prompt library version {document.Version} is newer than supported version {CurrentStorageVersion}.");
         }
-        if (document.Version < 1
+        if (document.Version != CurrentStorageVersion
             || document.History is null
             || document.Templates is null)
         {
             throw new InvalidDataException("The prompt library document is invalid.");
         }
 
-        return MaterializeDocument(document.Version, document.History, document.Templates, localTransientHistory);
+        MaterializeDocument(document.History, document.Templates, localTransientHistory);
     }
 
     private static StorageDocument ReadStorageDocument(Stream stream)
@@ -333,42 +236,23 @@ internal partial class PersistentPromptLibrary
             ?? throw new InvalidDataException("The prompt library document is empty.");
 
     // Publishes a validated document as the in-memory library, keeping this process's own
-    // transient entries, as unpinned prompts are never written to disk. True when the file
-    // needs rewriting: a legacy version, entries normalized on load, or history dropped by
-    // retention or trimming.
-    private bool MaterializeDocument(
-        int version,
+    // transient entries, as unpinned prompts are never written to disk.
+    private void MaterializeDocument(
         IReadOnlyCollection<StoredHistoryEntry> storedHistory,
         IReadOnlyCollection<StoredTemplate> storedTemplates,
         PromptHistoryEntry[] localTransientHistory)
     {
         var ids = new HashSet<Guid>();
-        bool migrateLegacyPrompts = version == 1;
-        List<PromptHistoryEntry> history = LoadHistory(
-            storedHistory,
-            ids,
-            migrateLegacyPrompts,
-            out bool historyChanged);
-        List<PromptTemplate> templates = LoadTemplates(
-            storedTemplates,
-            ids,
-            migrateLegacyPrompts,
-            out bool templatesChanged);
-        bool retentionChanged = history.RemoveAll(item => !item.IsPinned) > 0;
+        List<PromptHistoryEntry> history = LoadHistory(storedHistory, ids);
+        List<PromptTemplate> templates = LoadTemplates(storedTemplates, ids);
+        history.RemoveAll(item => !item.IsPinned);
         var persistedIds = history.Select(item => item.Id).ToHashSet();
         history.InsertRange(
             0,
             localTransientHistory.Where(item => !persistedIds.Contains(item.Id)));
-        int historyCount = history.Count;
         TrimRecentHistory(history);
-        bool trimChanged = history.Count != historyCount;
         _history = history;
         _templates = templates;
-        return migrateLegacyPrompts
-            || historyChanged
-            || templatesChanged
-            || retentionChanged
-            || trimChanged;
     }
 
     private void Commit(
@@ -449,10 +333,7 @@ internal partial class PersistentPromptLibrary
 
         try
         {
-            if (ReloadForWrite())
-            {
-                WriteDocument(_history, _templates, writeLock);
-            }
+            ReloadForWrite();
             return;
         }
         catch (Exception ex) when (ex is JsonException or InvalidDataException)
