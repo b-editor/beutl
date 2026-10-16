@@ -2,9 +2,7 @@
 using Beutl.Editor;
 using Beutl.Editor.Operations;
 using Beutl.Engine.Expressions;
-using Beutl.Logging;
 using Beutl.NodeGraph;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -17,7 +15,6 @@ public class UpdateNodeMemberOperationTests
     public void SetUp()
     {
         _sequenceGenerator = new OperationSequenceGenerator();
-        Log.LoggerFactory = LoggerFactory.Create(b => { });
     }
 
     #region Helper Classes

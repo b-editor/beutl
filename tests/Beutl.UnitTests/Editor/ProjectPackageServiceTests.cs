@@ -3,13 +3,11 @@ using System.IO.Compression;
 using System.Text.Json.Nodes;
 using Beutl.Editor;
 using Beutl.Graphics;
-using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.UnitTests.TestInfrastructure;
-using Microsoft.Extensions.Logging;
 using NuGet.Versioning;
 
 namespace Beutl.UnitTests.Editor;
@@ -24,8 +22,6 @@ public class ProjectPackageServiceTests
     [SetUp]
     public void Setup()
     {
-        Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
-
         _testDir = Path.Combine(Path.GetTempPath(), $"beutl_pkg_test_{Guid.NewGuid():N}");
         _projectDir = Path.Combine(_testDir, "project");
         _exportDir = Path.Combine(_testDir, "export");

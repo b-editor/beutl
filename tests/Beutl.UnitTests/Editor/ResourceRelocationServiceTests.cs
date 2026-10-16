@@ -1,8 +1,6 @@
 ﻿using Beutl.Editor;
-using Beutl.Logging;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -14,8 +12,6 @@ public class ResourceRelocationServiceTests
     [SetUp]
     public void Setup()
     {
-        Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
-
         _testDir = Path.Combine(Path.GetTempPath(), $"beutl_reloc_test_{Guid.NewGuid():N}");
         _projectDir = Path.Combine(_testDir, "project");
         Directory.CreateDirectory(_projectDir);
