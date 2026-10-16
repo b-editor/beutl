@@ -171,14 +171,7 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
     }
 
     public IObservable<string?> GetJsonString()
-    {
-        if (Model is FallbackEngineObject { Json: JsonObject json })
-        {
-            return Observable.ReturnThenNever(json.ToJsonString(JsonHelper.SerializerOptions));
-        }
-
-        return Observable.ReturnThenNever<string?>(null);
-    }
+        => FallbackHelper.GetFallbackJson(Observable.ReturnThenNever<EngineObject?>(Model));
 
     public void SetJsonString(string? str)
     {
