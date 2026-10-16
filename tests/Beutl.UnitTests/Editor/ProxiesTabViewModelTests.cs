@@ -20,6 +20,20 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public sealed class ProxiesTabViewModelTests
 {
+    private readonly List<string> _roots = [];
+
+    [TearDown]
+    public void DeleteRoots()
+    {
+        foreach (string root in _roots)
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+
+        _roots.Clear();
+    }
+
     [Test]
     public void Refresh_ShowsFailureReasonOnlyForTheCurrentFailedFingerprint()
     {
@@ -598,6 +612,8 @@ public sealed class ProxiesTabViewModelTests
 
         // A Touch event (preview resolving a proxy) must not rebuild the clip list and drop selection.
         store.Touch(fingerprint, ProxyPreset.Quarter, DateTime.UtcNow);
+        // Write the touch now, or its deferred flush recreates the root after TearDown deletes it.
+        store.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
 
         Assert.Multiple(() =>
         {
@@ -1341,10 +1357,11 @@ public sealed class ProxiesTabViewModelTests
         return new ProxyEntry(source, preset, ProxyState.Ready, file, bytes, new PixelSize(1920, 1080), size, now, now, null);
     }
 
-    private static string CreateRoot()
+    private string CreateRoot()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
+        _roots.Add(root);
         return root;
     }
 
