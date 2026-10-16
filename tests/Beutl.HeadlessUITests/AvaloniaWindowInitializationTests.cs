@@ -84,10 +84,12 @@ public class AvaloniaWindowInitializationTests
             owner.KeyPress(Key.A, RawInputModifiers.None, PhysicalKey.A, "a");
             owner.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
             owner.KeyPress(Key.F1, RawInputModifiers.None, PhysicalKey.F1, null);
+            owner.KeyPress(Key.D1, RawInputModifiers.Shift, PhysicalKey.Digit1, "!");
+            owner.KeyPress(Key.D1, RawInputModifiers.None, PhysicalKey.Digit1, "1");
             HeadlessTestHelpers.Render();
 
             Assert.That(monitor.GetVisualDescendants().OfType<Button>().Select(button => button.Content),
-                Is.EqualTo(new[] { ";", "A", "Space", "F1" }));
+                Is.EqualTo(new[] { ";", "A", "Space", "F1", "1" }));
         }
         finally
         {

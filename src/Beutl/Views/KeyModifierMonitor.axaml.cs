@@ -127,13 +127,12 @@ public partial class KeyModifierMonitor : FAAppWindow
 
         if (!_buttons.TryGetValue(e.Key, out Button? btn))
         {
-            btn = new Button()
-            {
-                Content = GetKeyName(e)
-            };
+            btn = new Button();
             _buttons.Add(e.Key, btn);
         }
 
+        // The symbol depends on the modifiers of this press, such as "!" for Shift+1.
+        btn.Content = GetKeyName(e);
         btn.Classes.Set("accent", true);
         if (btn.Parent == null)
         {
