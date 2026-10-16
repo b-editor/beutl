@@ -265,6 +265,10 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             throw;
         }
 
+        // Read once: the panel stays editable during the export, and the export must use what it validated.
+        int supersampleFactor = SupersampleFactor.Value;
+        string? destinationFile = DestinationFile.Value;
+        ControllableEncodingExtension? selectedEncoder = SelectedEncoder.Value;
         if (Controller.Value?.IsVideoEnabled != false)
             EnsureSupersamplingFits();
 
@@ -300,9 +304,9 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         try
         {
             WasCancelled.Value = false;
-            string destination = DestinationFile.Value
+            string destination = destinationFile
                 ?? throw new InvalidOperationException(MessageStrings.UnexpectedError);
-            ControllableEncodingExtension encoder = SelectedEncoder.Value
+            ControllableEncodingExtension encoder = selectedEncoder
                 ?? throw new InvalidOperationException(MessageStrings.UnexpectedError);
             using var output = new StagedOutputFile(destination);
             EncodingController controller = encoder.CreateController(output.TemporaryPath);
@@ -319,6 +323,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
             await Task.Run(() => EncodeOnWorkerAsync(
                 scene,
+                supersampleFactor,
                 controller,
                 videoSettings,
                 audioSettings,
@@ -393,6 +398,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     // Runs on a worker thread, from Task.Run, for the whole length of the encode.
     private async Task EncodeOnWorkerAsync(
         Scene scene,
+        int supersampleFactor,
         EncodingController controller,
         VideoEncoderSettings videoSettings,
         AudioEncoderSettings audioSettings,
@@ -417,7 +423,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         if (videoEnabled)
             ClearEditViewModelCaches();
 
-        float renderScale = Math.Max(1, SupersampleFactor.Value);
+        float renderScale = Math.Max(1, supersampleFactor);
         using var renderer = videoEnabled ? ExportRendererFactory.Create(scene, renderScale) : null;
         using var frameProgress = new Subject<TimeSpan>();
         using IFrameProvider frameProvider = renderer != null
