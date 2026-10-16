@@ -189,6 +189,7 @@ public sealed partial class SchemaGenerator
                 ExampleTypes(
                     typeof(Element),
                     typeof(RectShape),
+                    typeof(RoundedRectShape),
                     typeof(EllipseShape),
                     typeof(TextBlock),
                     typeof(LinearGradientBrush),
