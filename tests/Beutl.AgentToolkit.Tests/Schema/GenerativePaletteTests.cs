@@ -29,7 +29,8 @@ public class GenerativePaletteTests
     }
 
     // Hues from 160 to 230 were once pushed out of the backgrounds and the foreground to suit a quality check that
-    // no longer exists. The foreground is bright enough to keep its hue through the hex color.
+    // no longer exists. The foreground is bright enough to keep its hue through the hex color. The test looks for
+    // 170 to 220, so a hue pushed to the band's edge cannot pass after rounding.
     [Test]
     public void GeneratePalette_ForegroundCanBeTealTinted()
     {
