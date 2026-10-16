@@ -16,7 +16,7 @@ public sealed class GraphEditorTabExtension : ToolTabExtension
 
     public override string Name => "Graph Editor Tab";
 
-    public override string DisplayName => "Graph Editor Tab";
+    public override string DisplayName => Strings.GraphEditor;
 
     public override DockAnchor DefaultAnchor => DockAnchor.Bottom;
 
