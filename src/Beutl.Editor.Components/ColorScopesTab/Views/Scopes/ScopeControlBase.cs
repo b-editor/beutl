@@ -3,9 +3,10 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using Avalonia.Threading;
 using Beutl.Editor.Components.ColorScopesTab.ViewModels;
+using Beutl.Logging;
 using Beutl.Media.Source;
+using Microsoft.Extensions.Logging;
 using BtlBitmap = Beutl.Media.Bitmap;
 
 namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
@@ -35,6 +36,7 @@ public abstract class ScopeControlBase : Control
 
     protected static readonly Typeface DefaultTypeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Normal);
 
+    private readonly ILogger _logger = Log.CreateLogger<ScopeControlBase>();
     private readonly Pen _axisPen = new(Brushes.Gray, 1.5);
     private readonly SemaphoreSlim _renderLock = new(1, 1);
     private CancellationTokenSource? _renderCts;
@@ -148,26 +150,22 @@ public abstract class ScopeControlBase : Control
                 ct.ThrowIfCancellationRequested();
                 return RenderScope(bitmapRef.Value, targetWidth, targetHeight, backBuffer);
             }, ct);
-            if (result == null) return;
+            // The await resumed on the UI thread, which owns the buffers.
+            if (result == null || ct.IsCancellationRequested || !ReferenceEquals(_renderCts, renderCts)) return;
 
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (ct.IsCancellationRequested || !ReferenceEquals(_renderCts, renderCts)) return;
-
-                _backBuffer = _frontBuffer;
-                _frontBuffer = result;
-                if (ReferenceEquals(result, backBuffer))
-                    backBuffer = null;
-                result = null;
-                InvalidateVisual();
-            });
+            _backBuffer = _frontBuffer;
+            _frontBuffer = result;
+            if (ReferenceEquals(result, backBuffer))
+                backBuffer = null;
+            result = null;
+            InvalidateVisual();
         }
         catch (OperationCanceledException)
         {
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Scope render error: {ex.Message}");
+            _logger.LogWarning(ex, "Rendering the scope failed.");
         }
         finally
         {
