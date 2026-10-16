@@ -7,26 +7,27 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Beutl.Editor.Components.PreviewSettingsTab;
 
 // Picks the preview render quality from the palette, without opening the preview settings tab.
-public sealed partial class PreviewSettingsTabExtension : IContextCommandHandler
+public sealed partial class PreviewSettingsTabExtension
 {
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
         new("ChangePreviewRenderQuality", Strings.ChangePreviewRenderQuality, "", [])
         {
             Id = "previewSettings.changePreviewRenderQuality",
-            Scope = ContextCommandScope.Extension
+            Scope = ContextCommandScope.Extension,
+            CanExecute = CanChangeQuality,
+            ExecuteAsync = ChangeQualityAsync
         },
     ];
 
     // Unlike the tab's selector, the command stays available during playback: it pauses before rebuilding
     // the renderer, and a palette entry disabled by playback would not re-enable when playback stops.
-    public bool CanExecute(ContextCommandExecution execution)
+    private static bool CanChangeQuality(ContextCommandExecution execution)
     {
-        return execution.CommandName == "ChangePreviewRenderQuality"
-            && execution.EditorContext?.GetService<IPreviewRenderQuality>() is not null;
+        return execution.EditorContext?.GetService<IPreviewRenderQuality>() is not null;
     }
 
-    public async Task ExecuteAsync(ContextCommandExecution execution)
+    private static async Task ChangeQualityAsync(ContextCommandExecution execution)
     {
         if (execution.Interaction is not { } interaction
             || execution.EditorContext?.GetService<IPreviewRenderQuality>() is not { } quality)

@@ -6,7 +6,7 @@ namespace Beutl.Services.PrimitiveImpls;
 
 // Saves, applies, renames and deletes dock layouts from the palette, without opening the dock layout tab.
 // The operations go through DockLayoutViewModel so they report success and failure the way the tab does.
-public sealed partial class DockLayoutTabExtension : IContextCommandHandler
+public sealed partial class DockLayoutTabExtension
 {
     private readonly DockLayoutPresetService? _presetService;
 
@@ -24,75 +24,68 @@ public sealed partial class DockLayoutTabExtension : IContextCommandHandler
 
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
-        new("SaveDockLayout", Strings.SaveDockLayoutAs, "", []) { Id = "dockLayout.saveDockLayout", Scope = ContextCommandScope.Extension },
-        new("ApplyDockLayout", Strings.ApplyDockLayout, "", []) { Id = "dockLayout.applyDockLayout", Scope = ContextCommandScope.Extension },
-        new("RenameDockLayout", Strings.RenameDockLayout, "", []) { Id = "dockLayout.renameDockLayout", Scope = ContextCommandScope.Extension },
-        new("DeleteDockLayout", Strings.DeleteDockLayout, "", []) { Id = "dockLayout.deleteDockLayout", Scope = ContextCommandScope.Extension },
+        Command("SaveDockLayout", "dockLayout.saveDockLayout", Strings.SaveDockLayoutAs, needsPresets: false, SaveAsync),
+        Command("ApplyDockLayout", "dockLayout.applyDockLayout", Strings.ApplyDockLayout, needsPresets: true, ApplyAsync),
+        Command("RenameDockLayout", "dockLayout.renameDockLayout", Strings.RenameDockLayout, needsPresets: true, RenameAsync),
+        Command("DeleteDockLayout", "dockLayout.deleteDockLayout", Strings.DeleteDockLayout, needsPresets: true, DeleteAsync),
     ];
 
-    public bool CanExecute(ContextCommandExecution execution)
-    {
-        if (execution.EditorContext is not EditViewModel) return false;
-
-        return execution.CommandName switch
+    private ContextCommandDefinition Command(
+        string name, string id, string displayName, bool needsPresets,
+        Func<DockLayoutViewModel, IContextCommandInteraction, Task> execute)
+        => new(name, displayName, "", [])
         {
-            "SaveDockLayout" => true,
-            "ApplyDockLayout" or "RenameDockLayout" or "DeleteDockLayout" => PresetService.Items.Count > 0,
-            _ => false,
+            Id = id,
+            Scope = ContextCommandScope.Extension,
+            CanExecute = execution => execution.EditorContext is EditViewModel && (!needsPresets || PresetService.Items.Count > 0),
+            ExecuteAsync = async execution =>
+            {
+                if (execution is { Interaction: { } interaction, EditorContext: EditViewModel editViewModel })
+                {
+                    using var layouts = new DockLayoutViewModel(editViewModel, PresetService);
+                    await execute(layouts, interaction);
+                }
+            }
         };
+
+    private static async Task SaveAsync(DockLayoutViewModel layouts, IContextCommandInteraction interaction)
+    {
+        // Like the tab, saving under an existing name replaces that layout.
+        string? name = await interaction.ShowInputAsync(new ContextCommandInputOptions
+        {
+            Value = layouts.SuggestName(),
+            Validate = CommandPaletteInput.Required
+        });
+        if (name is not null)
+            layouts.Save(name);
     }
 
-    public async Task ExecuteAsync(ContextCommandExecution execution)
+    private static async Task ApplyAsync(DockLayoutViewModel layouts, IContextCommandInteraction interaction)
     {
-        if (execution.Interaction is not { } interaction
-            || execution.EditorContext is not EditViewModel editViewModel)
+        if (await PickAsync(layouts, interaction) is { } applied)
+            layouts.Apply(applied);
+    }
+
+    private async Task RenameAsync(DockLayoutViewModel layouts, IContextCommandInteraction interaction)
+    {
+        if (await PickAsync(layouts, interaction) is not { } item) return;
+
+        string? name = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
-            return;
-        }
+            Value = item.Name.Value,
+            Validate = value => CommandPaletteInput.Required(value)
+                ?? (PresetService.Find(value) is { } other && !ReferenceEquals(other, item)
+                    ? Strings.CommandPalette_NameInUse
+                    : null)
+        });
+        if (name is not null)
+            layouts.Rename(item, name);
+    }
 
-        using var layouts = new DockLayoutViewModel(editViewModel, PresetService);
-        switch (execution.CommandName)
-        {
-            case "SaveDockLayout":
-                {
-                    // Like the tab, saving under an existing name replaces that layout.
-                    string? name = await interaction.ShowInputAsync(new ContextCommandInputOptions
-                    {
-                        Value = layouts.SuggestName(),
-                        Validate = CommandPaletteInput.Required
-                    });
-                    if (name is not null)
-                        layouts.Save(name);
-                    break;
-                }
-
-            case "ApplyDockLayout":
-                if (await PickAsync(layouts, interaction) is { } applied)
-                    layouts.Apply(applied);
-                break;
-
-            case "RenameDockLayout":
-                {
-                    if (await PickAsync(layouts, interaction) is not { } item) return;
-
-                    string? name = await interaction.ShowInputAsync(new ContextCommandInputOptions
-                    {
-                        Value = item.Name.Value,
-                        Validate = value => CommandPaletteInput.Required(value)
-                            ?? (PresetService.Find(value) is { } other && !ReferenceEquals(other, item)
-                                ? Strings.CommandPalette_NameInUse
-                                : null)
-                    });
-                    if (name is not null)
-                        layouts.Rename(item, name);
-                    break;
-                }
-
-            case "DeleteDockLayout":
-                if (await PickAsync(layouts, interaction) is { } removed)
-                    layouts.Remove(removed);
-                break;
-        }
+    private static async Task DeleteAsync(DockLayoutViewModel layouts, IContextCommandInteraction interaction)
+    {
+        if (await PickAsync(layouts, interaction) is { } removed)
+            layouts.Remove(removed);
     }
 
     private static async Task<DockLayoutPresetItem?> PickAsync(

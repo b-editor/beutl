@@ -13,64 +13,52 @@ namespace Beutl.Editor.Components.LibraryTab;
 
 // Adds library items and templates at the playhead, the way a drop on the player does, so neither the
 // library nor the timeline has to be open.
-public sealed partial class LibraryTabExtension : IContextCommandHandler
+public sealed partial class LibraryTabExtension
 {
     private static readonly ILogger s_logger = Log.CreateLogger<LibraryTabExtension>();
     private static readonly TimeSpan s_defaultElementLength = TimeSpan.FromSeconds(5);
 
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
-        new("AddElement", Strings.AddElement, "", []) { Id = "library.addElement", Scope = ContextCommandScope.Extension },
-        new("AddElementFromTemplate", Strings.AddFromTemplate, "", []) { Id = "library.addElementFromTemplate", Scope = ContextCommandScope.Extension },
+        Command("AddElement", "library.addElement", Strings.AddElement, () => true, AddElementAsync),
+        Command("AddElementFromTemplate", "library.addElementFromTemplate", Strings.AddFromTemplate,
+            () => FindElementTemplates().Length > 0, AddElementFromTemplateAsync),
     ];
 
-    public bool CanExecute(ContextCommandExecution execution)
-    {
-        if (execution.EditorContext?.GetService<Scene>() is null) return false;
-
-        return execution.CommandName switch
+    private static ContextCommandDefinition Command(
+        string name, string id, string displayName, Func<bool> canExecute,
+        Func<IEditorContext, Scene, IContextCommandInteraction, Task> execute)
+        => new(name, displayName, "", [])
         {
-            "AddElement" => true,
-            "AddElementFromTemplate" => FindElementTemplates().Length > 0,
-            _ => false,
+            Id = id,
+            Scope = ContextCommandScope.Extension,
+            CanExecute = execution => execution.EditorContext?.GetService<Scene>() is not null && canExecute(),
+            ExecuteAsync = execution => execution is { Interaction: { } interaction, EditorContext: { } editorContext }
+                && editorContext.GetService<Scene>() is { } scene
+                    ? execute(editorContext, scene, interaction)
+                    : Task.CompletedTask
         };
+
+    private static async Task AddElementAsync(IEditorContext editorContext, Scene scene, IContextCommandInteraction interaction)
+    {
+        ContextCommandPickItem<Type>[] items = EnumerateEngineObjects(LibraryService.Current.Items, null).ToArray();
+        if (await interaction.ShowQuickPickAsync(items) is not { Value: { } type }) return;
+
+        await AddAtPlayheadAsync(editorContext, scene, interaction.CancellationToken, (start, layer) => new ElementDescription(
+            start, s_defaultElementLength, layer,
+            new ElementSource.EngineObject(() => (EngineObject)Activator.CreateInstance(type)!)));
     }
 
-    public async Task ExecuteAsync(ContextCommandExecution execution)
+    private static async Task AddElementFromTemplateAsync(
+        IEditorContext editorContext, Scene scene, IContextCommandInteraction interaction)
     {
-        if (execution.Interaction is not { } interaction
-            || execution.EditorContext is not { } editorContext
-            || editorContext.GetService<Scene>() is not { } scene)
-        {
-            return;
-        }
+        ContextCommandPickItem<ObjectTemplateItem>[] items = FindElementTemplates()
+            .Select(t => new ContextCommandPickItem<ObjectTemplateItem>(t.Name.Value, t))
+            .ToArray();
+        if (await interaction.ShowQuickPickAsync(items) is not { Value: { } template }) return;
 
-        switch (execution.CommandName)
-        {
-            case "AddElement":
-                {
-                    ContextCommandPickItem<Type>[] items = EnumerateEngineObjects(LibraryService.Current.Items, null)
-                        .ToArray();
-                    if (await interaction.ShowQuickPickAsync(items) is not { Value: { } type }) return;
-
-                    await AddAtPlayheadAsync(editorContext, scene, interaction.CancellationToken, (start, layer) => new ElementDescription(
-                        start, s_defaultElementLength, layer,
-                        new ElementSource.EngineObject(() => (EngineObject)Activator.CreateInstance(type)!)));
-                    break;
-                }
-
-            case "AddElementFromTemplate":
-                {
-                    ContextCommandPickItem<ObjectTemplateItem>[] items = FindElementTemplates()
-                        .Select(t => new ContextCommandPickItem<ObjectTemplateItem>(t.Name.Value, t))
-                        .ToArray();
-                    if (await interaction.ShowQuickPickAsync(items) is not { Value: { } template }) return;
-
-                    await AddAtPlayheadAsync(editorContext, scene, interaction.CancellationToken,
-                        (start, layer) => ElementTemplateResolver.CreateDescription(template, start, layer));
-                    break;
-                }
-        }
+        await AddAtPlayheadAsync(editorContext, scene, interaction.CancellationToken,
+            (start, layer) => ElementTemplateResolver.CreateDescription(template, start, layer));
     }
 
     private static ObjectTemplateItem[] FindElementTemplates()

@@ -421,7 +421,7 @@ public class PaletteCommandTests
         SetPlayhead(editor, 1);
 
         var interaction = new ScriptedInteraction().Pick<Type>(item => item.Value == typeof(EllipseShape));
-        await LibraryTabExtension.Instance.ExecuteAsync(Execution("AddElement", editor, interaction));
+        await RunAsync(LibraryTabExtension.Instance, Execution("AddElement", editor, interaction));
         HeadlessTestHelpers.Settle();
 
         Element added = editor.Scene.Children.Single(e => e.Objects.OfType<EllipseShape>().Any());
@@ -443,7 +443,7 @@ public class PaletteCommandTests
         SceneSettingsTabExtension settings = SceneSettingsTabExtension.Instance;
         Assert.That(settings.DisplayName, Is.EqualTo(Strings.SceneSettings));
 
-        await settings.ExecuteAsync(Execution("ChangeSceneSize", editor, new ScriptedInteraction().Input(options =>
+        await RunAsync(settings, Execution("ChangeSceneSize", editor, new ScriptedInteraction().Input(options =>
         {
             Assert.Multiple(() =>
             {
@@ -453,12 +453,12 @@ public class PaletteCommandTests
             });
             return "1280 × 720";
         })));
-        await settings.ExecuteAsync(Execution("ChangeSceneDuration", editor, new ScriptedInteraction().Input(options =>
+        await RunAsync(settings, Execution("ChangeSceneDuration", editor, new ScriptedInteraction().Input(options =>
         {
             Assert.That(options.Validate!("00:00:00"), Is.EqualTo(MessageStrings.ValueLessThanOrEqualToZero));
             return "00:00:07";
         })));
-        await settings.ExecuteAsync(Execution("ChangeSceneStart", editor, new ScriptedInteraction().Input("00:00:01")));
+        await RunAsync(settings, Execution("ChangeSceneStart", editor, new ScriptedInteraction().Input("00:00:01")));
 
         Assert.Multiple(() =>
         {
@@ -491,7 +491,7 @@ public class PaletteCommandTests
         RenderScale initial = quality.PreviewScale.Value;
         var interaction = new ScriptedInteraction().Pick<RenderScale>(item => item.Value == RenderScale.Quarter);
 
-        await PreviewSettingsTabExtension.Instance.ExecuteAsync(
+        await RunAsync(PreviewSettingsTabExtension.Instance, 
             Execution("ChangePreviewRenderQuality", editor, interaction));
 
         Assert.Multiple(() =>
@@ -510,7 +510,7 @@ public class PaletteCommandTests
         RenderScale current = quality.PreviewScale.Value;
         editor.Player.IsPlaying.Value = true;
 
-        await PreviewSettingsTabExtension.Instance.ExecuteAsync(Execution("ChangePreviewRenderQuality", editor,
+        await RunAsync(PreviewSettingsTabExtension.Instance, Execution("ChangePreviewRenderQuality", editor,
             new ScriptedInteraction().Pick<RenderScale>(item => item.Value == current)));
 
         Assert.That((quality.PreviewScale.Value, editor.Player.IsPlaying.Value), Is.EqualTo((current, true)));
@@ -524,9 +524,9 @@ public class PaletteCommandTests
         IPreviewRenderQuality quality = editor.GetService<IPreviewRenderQuality>()!;
         editor.Player.IsPlaying.Value = true;
 
-        Assert.That(PreviewSettingsTabExtension.Instance.CanExecute(Execution("ChangePreviewRenderQuality", editor)),
+        Assert.That(CanRun(PreviewSettingsTabExtension.Instance, Execution("ChangePreviewRenderQuality", editor)),
             Is.True, "A palette opened during playback would keep the entry disabled after playback stops.");
-        await PreviewSettingsTabExtension.Instance.ExecuteAsync(Execution("ChangePreviewRenderQuality", editor,
+        await RunAsync(PreviewSettingsTabExtension.Instance, Execution("ChangePreviewRenderQuality", editor,
             new ScriptedInteraction().Pick<RenderScale>(item => item.Value == RenderScale.Half)));
 
         Assert.That((quality.PreviewScale.Value, editor.Player.IsPlaying.Value), Is.EqualTo((RenderScale.Half, false)));
@@ -539,12 +539,12 @@ public class PaletteCommandTests
         var service = new DockLayoutPresetService(Path.Combine(
             BeutlHomeIsolation.CurrentHome!, $"dock-layout-presets-{Guid.NewGuid():N}.json"));
         var layouts = new DockLayoutTabExtension(service);
-        Assert.That(layouts.CanExecute(Execution("ApplyDockLayout", editor)), Is.False, "No layout saved yet.");
+        Assert.That(CanRun(layouts, Execution("ApplyDockLayout", editor)), Is.False, "No layout saved yet.");
 
-        await layouts.ExecuteAsync(Execution("SaveDockLayout", editor, new ScriptedInteraction()
+        await RunAsync(layouts, Execution("SaveDockLayout", editor, new ScriptedInteraction()
             .Input(options => options.Value == Strings.DockLayout ? "Editing" : null)));
-        await layouts.ExecuteAsync(Execution("SaveDockLayout", editor, new ScriptedInteraction().Input("Color")));
-        await layouts.ExecuteAsync(Execution("RenameDockLayout", editor, new ScriptedInteraction()
+        await RunAsync(layouts, Execution("SaveDockLayout", editor, new ScriptedInteraction().Input("Color")));
+        await RunAsync(layouts, Execution("RenameDockLayout", editor, new ScriptedInteraction()
             .Pick<DockLayoutPresetItem>(item => item.Label == "Editing")
             .Input(options =>
             {
@@ -561,13 +561,13 @@ public class PaletteCommandTests
             .First(t => t.ToolContext.Extension is LibraryTabExtension);
         editor.DockHost.CloseToolTab(library.ToolContext);
         HeadlessTestHelpers.Settle();
-        await layouts.ExecuteAsync(Execution("ApplyDockLayout", editor, new ScriptedInteraction()
+        await RunAsync(layouts, Execution("ApplyDockLayout", editor, new ScriptedInteraction()
             .Pick<DockLayoutPresetItem>(item => item.Label == "Cut")));
         HeadlessTestHelpers.Settle();
         Assert.That(editor.DockHost.Factory.EnumerateTools().Any(t => t.ToolContext.Extension is LibraryTabExtension),
             Is.True);
 
-        await layouts.ExecuteAsync(Execution("DeleteDockLayout", editor, new ScriptedInteraction()
+        await RunAsync(layouts, Execution("DeleteDockLayout", editor, new ScriptedInteraction()
             .Pick<DockLayoutPresetItem>(item => item.Label == "Color")));
         Assert.That(service.Items.Select(i => i.Name.Value), Is.EqualTo(new[] { "Cut" }));
     }
@@ -581,8 +581,8 @@ public class PaletteCommandTests
         Assert.That(CanRun(history, Execution("JumpToHistory", editor)), Is.False, "Only the initial state.");
 
         SceneSettingsTabExtension settings = SceneSettingsTabExtension.Instance;
-        await settings.ExecuteAsync(Execution("ChangeSceneDuration", editor, new ScriptedInteraction().Input("00:00:05")));
-        await settings.ExecuteAsync(Execution("ChangeSceneDuration", editor, new ScriptedInteraction().Input("00:00:06")));
+        await RunAsync(settings, Execution("ChangeSceneDuration", editor, new ScriptedInteraction().Input("00:00:05")));
+        await RunAsync(settings, Execution("ChangeSceneDuration", editor, new ScriptedInteraction().Input("00:00:06")));
         var interaction = new ScriptedInteraction()
             .Pick<HistoryEntry>(item => item.Value.IsInitial);
 
@@ -621,7 +621,7 @@ public class PaletteCommandTests
     {
         EditViewModel editor = await OpenEditorForNewScene("palette-history-cancel");
         SceneSettingsTabExtension settings = SceneSettingsTabExtension.Instance;
-        await settings.ExecuteAsync(Execution("ChangeSceneDuration", editor, new ScriptedInteraction().Input("00:00:05")));
+        await RunAsync(settings, Execution("ChangeSceneDuration", editor, new ScriptedInteraction().Input("00:00:05")));
         int current = editor.HistoryManager.CurrentIndex;
         // Cancelled as when the user switches editors after picking, while playback pauses.
         using var cancellation = new CancellationTokenSource();
