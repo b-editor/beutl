@@ -218,23 +218,11 @@ public partial class PlayerView
                     return (hit, hit is null ? null : renderer.GetLocalBoundary(hit)?.Transform);
                 });
             }
-            catch (OperationCanceledException ocex)
-            {
-                // Likely shutdown — propagating would crash the UI-thread pointer pipeline.
-                _logger.LogDebug(
-                    ocex,
-                    "OnPressedHitTest: hit-test cancelled (likely shutdown). Swallowing click.");
-                _press = null;
-                e.Handled = true;
-                return;
-            }
             catch (Exception ex) when (
                 ex is not OutOfMemoryException
-                and not StackOverflowException
-                and not System.Runtime.InteropServices.SEHException  // propagate GPU driver crashes
-                and not AccessViolationException)                    // CSE defense-in-depth
+                and not System.Runtime.InteropServices.SEHException)  // propagate GPU driver crashes
             {
-                // Avoid crashing the editor via the pointer-event pipeline.
+                // Avoid crashing the editor via the pointer-event pipeline, also when shutdown cancels the hit-test.
                 _logger.LogError(
                     ex,
                     "OnPressedHitTest: renderer hit-test threw at scaledPos={ScaledPos}.",
