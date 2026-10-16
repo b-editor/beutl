@@ -48,9 +48,7 @@ internal static class AiModelMapper
     // Models the server did not describe well enough to offer are dropped
     // rather than shown unnamed: an entry whose id cannot be sent back is not a
     // choice.
-    public static AiModelCatalog ToModel(
-        AiCapabilitiesResponse response,
-        AiOperationCapabilitySchemaSnapshot capabilitySchemas)
+    public static AiModelCatalog ToModel(AiCapabilitiesResponse response)
     {
         if (response.Operations is null || response.Operations.Count == 0)
             return AiModelCatalog.Empty;
@@ -65,7 +63,7 @@ internal static class AiModelMapper
                 .Select(pair =>
                 {
                     var operation = new AiOperationId(pair.Key);
-                    AiModelCapabilitySchema schema = capabilitySchemas.GetSchema(operation);
+                    AiModelCapabilitySchema schema = AiOperationCapabilitySchemas.Get(operation);
                     return (
                         operation,
                         ToModelOptions(pair.Value, schema),

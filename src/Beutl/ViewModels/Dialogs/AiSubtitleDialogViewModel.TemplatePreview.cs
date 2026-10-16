@@ -166,44 +166,41 @@ public sealed partial class AiSubtitleDialogViewModel
         try
         {
             await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
-            using (ICaptionTemplateLease template = _captionTemplates.Acquire(
-                       templateId))
+            CaptionTemplate template = _captionTemplates.GetTemplate(templateId);
+            List<Element>? elements = CreatePreviewElements(template, cue, frameSize, cancellationToken);
+            if (elements is null || elements.Count == 0)
+                return;
+
+            byte[]? png = await TemplatePreviewRenderer(
+                    elements,
+                    frameSize,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            Ref<Beutl.Media.Bitmap>? image = null;
+            if (png is { Length: > 0 })
             {
-                List<Element>? elements = CreatePreviewElements(template, cue, frameSize, cancellationToken);
-                if (elements is null || elements.Count == 0)
-                    return;
+                using var stream = new MemoryStream(png, writable: false);
+                image = Ref<Beutl.Media.Bitmap>.Create(Beutl.Media.Bitmap.FromStream(stream));
+            }
 
-                byte[]? png = await TemplatePreviewRenderer(
-                        elements,
-                        frameSize,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                cancellationToken.ThrowIfCancellationRequested();
-                Ref<Beutl.Media.Bitmap>? image = null;
-                if (png is { Length: > 0 })
+            bool transferred = false;
+            try
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    using var stream = new MemoryStream(png, writable: false);
-                    image = Ref<Beutl.Media.Bitmap>.Create(Beutl.Media.Bitmap.FromStream(stream));
-                }
-
-                bool transferred = false;
-                try
-                {
-                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    if (!cancellationToken.IsCancellationRequested
+                        && SelectedSubtitlePageIndex.Value == EditPageIndex
+                        && ownedOperation.TryPublish(() => ReplaceTemplatePreviewImage(image)))
                     {
-                        if (!cancellationToken.IsCancellationRequested
-                            && SelectedSubtitlePageIndex.Value == EditPageIndex
-                            && ownedOperation.TryPublish(() => ReplaceTemplatePreviewImage(image)))
-                        {
-                            transferred = true;
-                        }
-                    });
-                }
-                finally
-                {
-                    if (!transferred)
-                        image?.Dispose();
-                }
+                        transferred = true;
+                    }
+                });
+            }
+            finally
+            {
+                if (!transferred)
+                    image?.Dispose();
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -227,7 +224,7 @@ public sealed partial class AiSubtitleDialogViewModel
     // The elements the template makes for cue, placed as the preview frame shows them; null when
     // the template describes a source the preview cannot build.
     private static List<Element>? CreatePreviewElements(
-        ICaptionTemplateLease template,
+        CaptionTemplate template,
         CaptionCue cue,
         Beutl.Media.PixelSize frameSize,
         CancellationToken cancellationToken)

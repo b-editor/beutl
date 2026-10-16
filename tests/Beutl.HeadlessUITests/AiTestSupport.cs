@@ -166,7 +166,8 @@ internal static class AiTestSupport
         EditViewModel? editor = null,
         ICaptionDraftStore? draftStore = null,
         IObservable<CaptionDraftScope?>? draftScopes = null,
-        IAiOperationAvailabilityService? availabilityService = null)
+        IAiOperationAvailabilityService? availabilityService = null,
+        CaptionCatalog? captionCatalog = null)
         => new(
             clients.GetResource<IAiEntitlementService>(),
             availabilityService ?? clients.GetResource<IAiOperationAvailabilityService>(),
@@ -174,7 +175,7 @@ internal static class AiTestSupport
             CreatePlanCoordinator(clients),
             clients.GetResource<IAiTranscriptionService>(),
             clients.GetResource<IAiCaptionTranslationService>(),
-            CreateCaptionCatalog(),
+            captionCatalog ?? CreateCaptionCatalog(),
             draftStore ?? CaptionDraftStoreProvider.Current,
             draftScopes ?? Observable.Return<CaptionDraftScope?>(null),
             editor);
@@ -183,7 +184,6 @@ internal static class AiTestSupport
         => CaptionCatalog.ComposeWithDefaultElementFactory(
             "Default",
             [],
-            new ExtensionProvider(),
             new DefaultTextCaptionElementFactory(Beutl.Media.FontFamily.Default));
 
     private static IAiPlanCoordinator CreatePlanCoordinator(BeutlApiApplication clients)
