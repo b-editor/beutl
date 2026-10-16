@@ -39,11 +39,10 @@ public sealed partial class AiDialogWorkflowTests
             elementLength: TimeSpan.FromSeconds(clipSeconds),
             sourceOffset: TimeSpan.FromSeconds(offsetSeconds),
             speed: speed);
-        await WaitUntilAsync(() => availability.GetRequestsSnapshot()
-            .OfType<AiOperationAvailabilityRequest.Transcription>().Any());
+        AiOperationAvailabilityRequest.Transcription[] requests = [];
+        await WaitUntilAsync(() => (requests = availability.GetRequestsSnapshot()
+            .OfType<AiOperationAvailabilityRequest.Transcription>().ToArray()).Length > 0);
 
-        Assert.That(
-            availability.GetRequestsSnapshot().OfType<AiOperationAvailabilityRequest.Transcription>().Last().DurationSeconds,
-            Is.EqualTo(expectedSeconds).Within(0.001));
+        Assert.That(requests.Last().DurationSeconds, Is.EqualTo(expectedSeconds).Within(0.001));
     }
 }
