@@ -10,6 +10,7 @@ using Beutl.Extensibility;
 using Beutl.FFmpegIpc;
 using Beutl.Graphics.Shapes;
 using Beutl.Language;
+using Beutl.Media;
 using Beutl.Media.Encoding;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
@@ -293,6 +294,67 @@ public class ExportTests
         Assert.That(Messages(notifications, NotificationType.Error).Count(message => message == expected), Is.EqualTo(1));
     }
 
+    [AvaloniaTest]
+    public async Task OutputViewModel_renders_the_scene_as_it_was_when_the_export_started()
+    {
+        await TestReset.ResetShellAsync();
+        TestGpu.RequireAnyDevice();
+        EditViewModel editor = await OpenEditorWithRectangle("export-snapshot");
+
+        using var output = new OutputViewModel(editor);
+        output.DestinationFile.Value = Path.Combine(TestShell.NewWorkspace("export-snapshot"), "out.mp4");
+        var encoder = new FirstFrameEncoderExtension();
+        output.SelectedEncoder.Value = encoder;
+        HeadlessTestHelpers.Settle();
+        encoder.EditBeforeEncoding = () => editor.Scene.Children.Clear();
+
+        await output.RunAsync(CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(editor.Scene.Children, Is.Empty);
+            Assert.That(encoder.CenterPixel, Is.Not.Zero, "The frame still shows the rectangle removed during the export.");
+        });
+    }
+
+    // The export creates its controller after it takes the snapshot and before any frame renders.
+    private sealed class FirstFrameEncoderExtension : ControllableEncodingExtension
+    {
+        public Action? EditBeforeEncoding { get; set; }
+
+        public uint CenterPixel { get; private set; }
+
+        public override IEnumerable<string> SupportExtensions()
+        {
+            yield return ".mp4";
+        }
+
+        public override EncodingController CreateController(string file)
+        {
+            Action? edit = EditBeforeEncoding;
+            EditBeforeEncoding = null;
+            edit?.Invoke();
+            return new Controller(file, this);
+        }
+
+        private sealed class Controller(string outputFile, FirstFrameEncoderExtension owner) : EncodingController(outputFile)
+        {
+            public override VideoEncoderSettings VideoSettings { get; } = new();
+
+            public override AudioEncoderSettings AudioSettings { get; } = new();
+
+            public override async ValueTask Encode(
+                IFrameProvider frameProvider,
+                ISampleProvider sampleProvider,
+                CancellationToken cancellationToken)
+            {
+                using Bitmap frame = (await frameProvider.ReadNextFrame())!;
+                owner.CenterPixel = frame.GetRow<uint>(frame.Height / 2)[frame.Width / 2];
+                await File.WriteAllBytesAsync(OutputFile, [], cancellationToken);
+            }
+        }
+    }
+
     private sealed class ThrowingMp4EncoderExtension : ControllableEncodingExtension
     {
         public static ThrowingMp4EncoderExtension Instance { get; } = new();
@@ -452,7 +514,7 @@ public class ExportTests
                 Assert.That(leaseHeldAtEntry, Is.True);
                 Assert.That(context.RunCount, Is.EqualTo(1));
                 Assert.That(item.IsRunning.Value, Is.True);
-                Assert.That(editor.IsEnabled.Value, Is.False);
+                Assert.That(editor.IsEnabled.Value, Is.True, "Editing stays possible while an output runs.");
             });
             AssertWorkspaceMutationBlocked();
 
@@ -498,49 +560,6 @@ public class ExportTests
                 Assert.That(item.IsRunning.Value, Is.False);
                 Assert.That(editor.IsEnabled.Value, Is.True);
             });
-        }
-        finally
-        {
-            item.Dispose();
-        }
-    }
-
-    [AvaloniaTest]
-    public async Task OutputProfileItem_releases_admission_when_editor_suspension_fails()
-    {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorWithRectangle("export-suspension-failure");
-        var context = new TestOutputContext("export-suspension-failure.scene");
-        var item = new OutputProfileItem(context, editor, TestShell.Editor);
-        var expected = new InvalidOperationException("suspension observer failed");
-        using IDisposable subscription = editor.IsEnabled.Subscribe(value =>
-        {
-            if (!value)
-            {
-                throw expected;
-            }
-        });
-
-        Exception? actual = null;
-        try
-        {
-            Assert.That(item.TryStart(out Task? execution), Is.True);
-            await execution!;
-        }
-        catch (Exception ex)
-        {
-            actual = ex;
-        }
-
-        try
-        {
-            Assert.Multiple(() =>
-            {
-                Assert.That(actual, Is.SameAs(expected));
-                Assert.That(context.RunCount, Is.Zero);
-                Assert.That(editor.IsEnabled.Value, Is.True);
-            });
-            AssertWorkspaceMutationAvailable();
         }
         finally
         {
@@ -674,7 +693,7 @@ public class ExportTests
     }
 
     [AvaloniaTest]
-    public async Task OutputProfileItems_keep_the_editor_suspended_until_all_executions_finish()
+    public async Task OutputProfileItems_hold_the_workspace_until_all_executions_finish()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-overlapping-profiles");
@@ -689,13 +708,11 @@ public class ExportTests
         {
             await Task.WhenAll(firstContext.Started, secondContext.Started)
                 .WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.That(editor.IsEnabled.Value, Is.False);
             AssertWorkspaceMutationBlocked();
 
             firstContext.Finish();
             await firstExecution.WaitAsync(TimeSpan.FromSeconds(5));
 
-            Assert.That(editor.IsEnabled.Value, Is.False);
             AssertWorkspaceMutationBlocked();
 
             secondContext.Finish();
