@@ -67,7 +67,7 @@ The end-to-end suites are built on `Avalonia.Headless.NUnit` (they run on headle
 Conventions:
 - UI tests use `[AvaloniaTest]` (not `[Test]`) and run on the Avalonia UI thread; pure domain tests use `[Test]`.
 - The headless `Application` uses Skia rendering (`UseHeadlessDrawing = false`) so real templates (FontIcon glyphs, text) inflate; a layout-only suite can keep the default stub drawing.
-- Shell tests that drive global singletons (`ProjectService.Current`, `EditorService.Current`, …) must reset them at the START of each `[AvaloniaTest]` body, NOT in `[SetUp]`/`[TearDown]` — those run off the UI thread, where mutating Avalonia / reactive state silently fails. Control- and domain-level tests that never touch those singletons (e.g. the `Beutl.E2ETests` property-editor tests, which don't even reference `src/Beutl`) need no such reset.
+- Shell tests share one `MainViewModel`, which owns the project, editor and extension services (`TestShell.Project`, `TestShell.Editor`, …); there are no static singletons. Await `TestReset.ResetShellAsync()` at the START of each `[AvaloniaTest]` body that uses that state, NOT in `[SetUp]`/`[TearDown]` — those run off the UI thread, where mutating Avalonia / reactive state silently fails. Control- and domain-level tests that never touch the shell (e.g. the `Beutl.E2ETests` property-editor tests, which don't even reference `src/Beutl`) need no such reset.
 - `BEUTL_HOME` is isolated to a per-assembly temp dir via a `[SetUpFixture]` calling `BeutlHomeIsolation`.
 - GPU-preview tests start with `TestGpu.RequireAnyDevice()`, which skips them when no GPU is available. FFmpeg-export tests must self-skip (`Assert.Ignore` + `TestContext.WriteLine` the reason) when the worker is unavailable.
 
