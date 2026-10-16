@@ -308,6 +308,85 @@ public partial class PlayerViewPlaybackInputTests
         }
     }
 
+    [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task The_wheel_dollies_the_camera(bool selectedScene)
+    {
+        EditViewModel editor = await OpenEditor();
+        Scene3D scene = await Add3DScene(editor);
+        var camera = scene.Camera.CurrentValue!;
+        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value =
+            selectedScene ? editor.Scene.Children.Single() : null;
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+        try
+        {
+            await PreparePreview(view, window);
+            editor.Player.IsMoveMode.Value = false;
+            editor.Player.IsCameraMode.Value = true;
+            Vector3 position = camera.Position.CurrentValue;
+            Vector3 target = camera.Target.CurrentValue;
+
+            window.MouseWheel(PreviewCenter(view, window), new Vector(0, 1));
+
+            Vector3 movement = camera.Position.CurrentValue - position;
+            Assert.Multiple(() =>
+            {
+                Assert.That(movement, Is.Not.EqualTo(Vector3.Zero), "The wheel must move the camera.");
+                Assert.That(Vector3.Distance(camera.Target.CurrentValue - target, movement), Is.LessThan(1e-3f),
+                    "The target moves with the camera.");
+            });
+
+            editor.HistoryManager.Undo();
+            Assert.Multiple(() =>
+            {
+                Assert.That(camera.Position.CurrentValue, Is.EqualTo(position));
+                Assert.That(camera.Target.CurrentValue, Is.EqualTo(target));
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task The_wheel_leaves_the_camera_alone_while_a_button_is_held()
+    {
+        EditViewModel editor = await OpenEditor();
+        Scene3D scene = await Add3DScene(editor);
+        var camera = scene.Camera.CurrentValue!;
+        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = editor.Scene.Children.Single();
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+        Point point = default;
+        try
+        {
+            await PreparePreview(view, window);
+            editor.Player.IsMoveMode.Value = false;
+            editor.Player.IsCameraMode.Value = true;
+            point = PreviewCenter(view, window);
+            Vector3 position = camera.Position.CurrentValue;
+
+            window.MouseDown(point, MouseButton.Right);
+            window.MouseMove(point + new Vector(20, 10), RawInputModifiers.RightMouseButton);
+            window.MouseWheel(point + new Vector(20, 10), new Vector(0, 1), RawInputModifiers.RightMouseButton);
+
+            Assert.That(camera.Position.CurrentValue, Is.EqualTo(position),
+                "A wheel step during an orbit would be committed together with the unfinished orbit.");
+
+            window.MouseUp(point + new Vector(20, 10), MouseButton.Right);
+            window.MouseWheel(point, new Vector(0, 1));
+            Assert.That(camera.Position.CurrentValue, Is.Not.EqualTo(position), "After the drag the wheel dollies again.");
+        }
+        finally
+        {
+            window.MouseUp(point, MouseButton.Right);
+            window.Close();
+        }
+    }
+
     private static async Task<Scene3D> Add3DScene(EditViewModel editor)
     {
         TestGpu.RequireAnyDevice();

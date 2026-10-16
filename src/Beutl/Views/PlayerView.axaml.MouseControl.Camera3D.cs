@@ -474,39 +474,38 @@ public partial class PlayerView
         {
             if (StopForPlayback()) return;
 
-            if (_camera != null)
+            // Each wheel step gets a new handler, so find the camera under the pointer first.
+            if (_camera == null)
             {
-                // カメラとシーンを探す（ホイール操作は単独で行われる可能性があるため）
-                if (_scene3D == null)
-                {
-                    FindScene3DAndCamera();
-                }
-
+                _lastPosition = e.GetPosition(Image);
+                FindScene3DAndCamera();
                 if (_camera == null) return;
-
-                var posKeyFrame = FindKeyFramePairOrNull(_camera.Position);
-                var targetKeyFrame = FindKeyFramePairOrNull(_camera.Target);
-
-                var position = _camera.Position.GetValue(CompositionContext);
-                var target = _camera.Target.GetValue(CompositionContext);
-                var forward = Vector3.Normalize(target - position);
-
-                float speed = (float)e.Delta.Y * MoveSpeed * 3;
-                var movement = forward * speed;
-
-                if (!SetKeyFrameValue(posKeyFrame, movement))
-                {
-                    _camera.Position.CurrentValue = position + movement;
-                }
-
-                if (!SetKeyFrameValue(targetKeyFrame, movement))
-                {
-                    _camera.Target.CurrentValue = target + movement;
-                }
-
-                EditViewModel.HistoryManager.Commit(CommandNames.TransformElement);
-                e.Handled = true;
             }
+
+            var posKeyFrame = FindKeyFramePairOrNull(_camera.Position);
+            var targetKeyFrame = FindKeyFramePairOrNull(_camera.Target);
+
+            var position = _camera.Position.GetValue(CompositionContext);
+            var target = _camera.Target.GetValue(CompositionContext);
+            // A camera on its target has no direction to move along.
+            if (target == position) return;
+            var forward = Vector3.Normalize(target - position);
+
+            float speed = (float)e.Delta.Y * MoveSpeed * 3;
+            var movement = forward * speed;
+
+            if (!SetKeyFrameValue(posKeyFrame, movement))
+            {
+                _camera.Position.CurrentValue = position + movement;
+            }
+
+            if (!SetKeyFrameValue(targetKeyFrame, movement))
+            {
+                _camera.Target.CurrentValue = target + movement;
+            }
+
+            EditViewModel.HistoryManager.Commit(CommandNames.TransformElement);
+            e.Handled = true;
         }
 
         public void OnKeyDown(KeyEventArgs e)
