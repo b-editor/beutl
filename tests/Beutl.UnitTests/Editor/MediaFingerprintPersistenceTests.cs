@@ -79,17 +79,17 @@ public class MediaFingerprintPersistenceTests
         // Arrive in reverse order, as a scan can produce them.
         scene.SetMediaFingerprints(new Dictionary<string, MediaFileFingerprint>
         {
-            [MediaUri("model.gltf")] = new MediaFileFingerprint(4, 444, "DD")
+            [MediaUri("model.gltf")] = new MediaFileFingerprint(4, "DD")
             {
                 Dependencies = new(StringComparer.Ordinal)
                 {
-                    ["textures/z.png"] = new MediaFileFingerprint(6, 666, "FF"),
-                    ["model.bin"] = new MediaFileFingerprint(5, 555, "EE"),
+                    ["textures/z.png"] = new MediaFileFingerprint(6, "FF"),
+                    ["model.bin"] = new MediaFileFingerprint(5, "EE"),
                 },
             },
-            [MediaUri("b.png")] = new MediaFileFingerprint(2, 222, "BB"),
-            [MediaUri("a.png")] = new MediaFileFingerprint(1, 111, "AA"),
-            [MediaUri("B.png")] = new MediaFileFingerprint(3, 333, "CC"),
+            [MediaUri("b.png")] = new MediaFileFingerprint(2, "BB"),
+            [MediaUri("a.png")] = new MediaFileFingerprint(1, "AA"),
+            [MediaUri("B.png")] = new MediaFileFingerprint(3, "CC"),
         });
 
         CoreSerializer.StoreToUri(scene, sceneUri);
@@ -117,10 +117,10 @@ public class MediaFingerprintPersistenceTests
             Assert.That(text, Does.StartWith(
                 "{\n  \"Version\": 1,\n  \"Fingerprints\": {\n    \"B.png\": {\n      \"Length\": 3,\n      \"Sha256\": \"CC\"\n    },"));
             Assert.That(restored.MediaFingerprints, Has.Count.EqualTo(4));
-            Assert.That(restored.MediaFingerprints[MediaUri("a.png")], Is.EqualTo(new MediaFileFingerprint(1, 0, "AA")));
+            Assert.That(restored.MediaFingerprints[MediaUri("a.png")], Is.EqualTo(new MediaFileFingerprint(1, "AA")));
             Assert.That((model.Length, model.Sha256), Is.EqualTo((4L, "DD")));
-            Assert.That(model.Dependencies!["model.bin"], Is.EqualTo(new MediaFileFingerprint(5, 0, "EE")));
-            Assert.That(model.Dependencies["textures/z.png"], Is.EqualTo(new MediaFileFingerprint(6, 0, "FF")));
+            Assert.That(model.Dependencies!["model.bin"], Is.EqualTo(new MediaFileFingerprint(5, "EE")));
+            Assert.That(model.Dependencies["textures/z.png"], Is.EqualTo(new MediaFileFingerprint(6, "FF")));
         });
     }
 
@@ -474,7 +474,7 @@ public class MediaFingerprintPersistenceTests
         var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
         scene.SetMediaFingerprints(new Dictionary<string, MediaFileFingerprint>
         {
-            [MediaUri("a.png")] = new MediaFileFingerprint(1, 111, "AA"),
+            [MediaUri("a.png")] = new MediaFileFingerprint(1, "AA"),
         });
 
         JsonObject json = CoreSerializer.SerializeToJsonObject(scene, new CoreSerializerOptions
@@ -495,8 +495,95 @@ public class MediaFingerprintPersistenceTests
             Assert.That(embedded["Uri"]!.GetValue<string>(), Is.EqualTo("media-fingerprints.json"));
             Assert.That(embedded["Fingerprints"]!.AsObject().Select(pair => pair.Key), Is.EqualTo(new[] { "a.png" }));
             Assert.That(clone.MediaFingerprints.Keys, Is.EqualTo(new[] { MediaUri("a.png") }));
-            Assert.That(clone.MediaFingerprints[MediaUri("a.png")], Is.EqualTo(new MediaFileFingerprint(1, 0, "AA")));
+            Assert.That(clone.MediaFingerprints[MediaUri("a.png")], Is.EqualTo(new MediaFileFingerprint(1, "AA")));
             Assert.That(Directory.GetFiles(_root), Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task ForcedPass_KeepsTheCachedHash_UntilTheLengthOrTimeChanges()
+    {
+        // An overwrite that keeps both keeps its old hash, the accepted cost of not reading unchanged files.
+        (Scene scene, string media) = CreateSceneWithImage(_root);
+        var service = new MissingMediaService();
+        await service.UpdateFingerprintsAsync(scene, force: true, cacheHashes: true);
+        string key = new Uri(media).AbsoluteUri;
+        string first = scene.MediaFingerprints[key].Sha256;
+        DateTime time = OverwriteKeepingLengthAndTime(media);
+
+        await service.UpdateFingerprintsAsync(scene, force: true, cacheHashes: true);
+        string kept = scene.MediaFingerprints[key].Sha256;
+        File.SetLastWriteTimeUtc(media, time.AddSeconds(1));
+        await service.UpdateFingerprintsAsync(scene, force: true, cacheHashes: true);
+        string hash = await MissingMediaService.HashFileAsync(media, default);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(kept, Is.EqualTo(first));
+            Assert.That(hash, Is.Not.EqualTo(first));
+            Assert.That(scene.MediaFingerprints[key].Sha256, Is.EqualTo(hash));
+        });
+    }
+
+    [Test]
+    public async Task ForcedPass_ReadsAFileWithoutAFingerprint_EvenWhenItsHashIsCached()
+    {
+        (Scene scene, string media) = CreateSceneWithImage(_root);
+        var service = new MissingMediaService();
+        await service.UpdateFingerprintsAsync(scene, force: true, cacheHashes: true);
+        string key = new Uri(media).AbsoluteUri;
+        OverwriteKeepingLengthAndTime(media);
+        // As the repair tool does when it relinks a source to this file.
+        scene.RemoveMediaFingerprint(key);
+
+        await service.UpdateFingerprintsAsync(scene, force: true, cacheHashes: true);
+
+        Assert.That(scene.MediaFingerprints[key].Sha256, Is.EqualTo(await MissingMediaService.HashFileAsync(media, default)));
+    }
+
+    [Test]
+    public async Task ForcedPass_KeepsOnlyTheScenesCurrentFilesInTheCache()
+    {
+        (Scene scene, string media) = CreateSceneWithImage(_root);
+        string other = Path.Combine(_root, "other.png");
+        var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(_root, "other.belm")) };
+        element.Objects.Add(new SourceImage { Source = { CurrentValue = TestImages.WriteImage(other) } });
+        scene.Children.Add(element);
+        var service = new MissingMediaService();
+        string cache = Path.Combine(_root, ".beutl", "media-hashes.json");
+
+        await service.UpdateFingerprintsAsync(scene, force: true);
+        bool writtenWithoutTheOption = File.Exists(cache);
+        await service.UpdateFingerprintsAsync(scene, force: true, cacheHashes: true);
+        string[] both = [.. ReadJson(cache).Select(pair => pair.Key)];
+        scene.Children.Remove(element);
+        await service.UpdateFingerprintsAsync(scene, force: true, cacheHashes: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(writtenWithoutTheOption, Is.False);
+            Assert.That(both, Is.EqualTo(new[] { Path.GetFullPath(media), Path.GetFullPath(other) }));
+            Assert.That(ReadJson(cache).Select(pair => pair.Key), Is.EqualTo(new[] { Path.GetFullPath(media) }));
+        });
+    }
+
+    [TestCase("")]
+    [TestCase(Conflict)]
+    [TestCase("{\"image.png\": {\"Length\": \"4\"}}")]
+    public async Task AnUnreadableCache_ReadsAsEmpty_AndThePassReplacesIt(string content)
+    {
+        (Scene scene, string media) = CreateSceneWithImage(_root);
+        string cache = Path.Combine(_root, ".beutl", "media-hashes.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(cache)!);
+        File.WriteAllText(cache, content);
+
+        await new MissingMediaService().UpdateFingerprintsAsync(scene, force: true, cacheHashes: true);
+
+        string hash = await MissingMediaService.HashFileAsync(media, default);
+        Assert.Multiple(() =>
+        {
+            Assert.That(scene.MediaFingerprints[new Uri(media).AbsoluteUri].Sha256, Is.EqualTo(hash));
+            Assert.That(ReadJson(cache)[Path.GetFullPath(media)]!["Sha256"]!.GetValue<string>(), Is.EqualTo(hash));
         });
     }
 
@@ -513,6 +600,17 @@ public class MediaFingerprintPersistenceTests
         Directory.CreateDirectory(destination);
         foreach (string file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
             File.Copy(file, Path.Combine(destination, Path.GetRelativePath(source, file)));
+    }
+
+    // Changes the last byte and puts the time back, so only the content differs.
+    private static DateTime OverwriteKeepingLengthAndTime(string path)
+    {
+        DateTime time = File.GetLastWriteTimeUtc(path);
+        byte[] bytes = File.ReadAllBytes(path);
+        bytes[^1] ^= 0xFF;
+        File.WriteAllBytes(path, bytes);
+        File.SetLastWriteTimeUtc(path, time);
+        return time;
     }
 
     private static (Scene Scene, string Media) CreateSceneWithImage(string directory)
