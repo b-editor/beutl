@@ -12,6 +12,8 @@ public abstract class Extension
 
     /// <summary>
     /// Called once when the extension is loaded. Override to perform initialization.
+    /// Beutl calls it for one extension at a time: built-in extensions first, then installed packages by name,
+    /// then side-loaded ones.
     /// If this method throws, <see cref="Unload"/> is called to roll back any partial
     /// initialization, so write <see cref="Unload"/> to be idempotent and safe against
     /// partially initialized state.
