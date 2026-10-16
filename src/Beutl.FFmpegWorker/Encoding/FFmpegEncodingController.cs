@@ -146,10 +146,10 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         swr = new SampleConverter();
         swr.SetOpts(encoder.ChLayout, encoder.SampleRate, encoder.SampleFmt, nbsamples);
 
-        // src: the sample provider always delivers interleaved stereo, which swr remixes into the encoder's layout
+        // src: the sample provider always delivers planar stereo, which swr remixes into the encoder's layout
         audioFrame.ChLayout = DefaultChannelLayout(2);
         audioFrame.NbSamples = nbsamples;
-        audioFrame.Format = (int)AVSampleFormat.AV_SAMPLE_FMT_FLT;
+        audioFrame.Format = (int)AVSampleFormat.AV_SAMPLE_FMT_FLTP;
         audioFrame.SampleRate = encoder.SampleRate;
         audioFrame.AllocateBuffer();
     }
@@ -396,14 +396,14 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     private static async ValueTask<MediaFrame?> GetAudioFrame(MediaFrame frame, SampleConverter swr, EncodeState state,
         ISampleProvider sampleProvider)
     {
-        if (state.NextPts >= sampleProvider.SampleCount)
+        using var audio = await sampleProvider.ReadNextSamples(frame.NbSamples);
+        if (audio is null)
             return null;
 
-        using var pcm = await sampleProvider.Sample(state.NextPts, frame.NbSamples);
         unsafe
         {
-            IntPtr size = pcm.NumSamples * pcm.SampleSize;
-            Buffer.MemoryCopy((void*)pcm.Data, (void*)frame.Data[0], size, size);
+            audio.GetChannelData(0).CopyTo(new Span<float>((void*)frame.Data[0], frame.NbSamples));
+            audio.GetChannelData(1).CopyTo(new Span<float>((void*)frame.Data[1], frame.NbSamples));
         }
 
         var converted = swr.ConvertFrame(frame, out _, out _);

@@ -124,10 +124,7 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         HasRecoverableLock = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
-        CanRemoveStaleLock = new ReactivePropertySlim<bool>()
-            .DisposeWith(_disposables);
-        StaleLockGuidance = new ReactivePropertySlim<string>(
-                Strings.VersionControl_StaleLockGuidance)
+        StaleLockGuidance = new ReactivePropertySlim<string>(string.Empty)
             .DisposeWith(_disposables);
         DirtySummary = new ReactivePropertySlim<string>()
             .DisposeWith(_disposables);
@@ -209,15 +206,10 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
                 EnableVersionControlAsync,
                 nameof(EnableVersionControlCommand)))
             .DisposeWith(_disposables);
-        // AsyncReactiveCommand rewrites a writable property it is given as its busy flag, so these
-        // two commands get AsObservable().
+        // AsyncReactiveCommand rewrites a writable property it is given as its busy flag, so this
+        // command gets AsObservable().
         DownloadGitCommand = new AsyncReactiveCommand(IsUnavailable.AsObservable())
             .WithSubscribe(DownloadGitAsync)
-            .DisposeWith(_disposables);
-        RemoveStaleLockCommand = new AsyncReactiveCommand(CanRemoveStaleLock.AsObservable())
-            .WithSubscribe(() => RunCommandAsync(
-                RemoveStaleLockAsync,
-                nameof(RemoveStaleLockCommand)))
             .DisposeWith(_disposables);
         IObservable<bool> canMutate = ObserveCanMutate();
         CommitCommand = new AsyncReactiveCommand(
@@ -400,8 +392,6 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
 
     public ReactivePropertySlim<bool> HasRecoverableLock { get; }
 
-    public ReactivePropertySlim<bool> CanRemoveStaleLock { get; }
-
     public ReactivePropertySlim<string> StaleLockGuidance { get; }
 
     public ReactivePropertySlim<string> DirtySummary { get; }
@@ -465,8 +455,6 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
     public AsyncReactiveCommand EnableVersionControlCommand { get; }
 
     public AsyncReactiveCommand DownloadGitCommand { get; }
-
-    public AsyncReactiveCommand RemoveStaleLockCommand { get; }
 
     public AsyncReactiveCommand CommitCommand { get; }
 

@@ -28,48 +28,12 @@
 
   <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
 
-  <!-- Auto-reference opt-out properties -->
+  <!-- AutoReferences.targets, generated when the SDK is packed, references the libraries Beutl marks, each with an opt-out. -->
   <PropertyGroup>
     <BeutlAutoReferenceAll Condition="'$(BeutlAutoReferenceAll)' == ''">true</BeutlAutoReferenceAll>
-    <BeutlAutoReferenceApi Condition="'$(BeutlAutoReferenceApi)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceApi>
-    <BeutlAutoReferenceExtensibility Condition="'$(BeutlAutoReferenceExtensibility)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceExtensibility>
-    <BeutlAutoReferenceProjectSystem Condition="'$(BeutlAutoReferenceProjectSystem)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceProjectSystem>
-    <BeutlAutoReferenceNodeGraph Condition="'$(BeutlAutoReferenceNodeGraph)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceNodeGraph>
-    <BeutlAutoReferenceEditor Condition="'$(BeutlAutoReferenceEditor)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceEditor>
-    <BeutlAutoReferenceSourceGenerators Condition="'$(BeutlAutoReferenceSourceGenerators)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceSourceGenerators>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(_PreventCopyInternalPackages)' == 'true'">
-    <PackageReference Include="Beutl.Api" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceApi)' == 'true'" />
-    <PackageReference Include="Beutl.Extensibility" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceExtensibility)' == 'true'" />
-    <PackageReference Include="Beutl.ProjectSystem" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceProjectSystem)' == 'true'" />
-    <PackageReference Include="Beutl.NodeGraph" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceNodeGraph)' == 'true'" />
-    <PackageReference Include="Beutl.Editor" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceEditor)' == 'true'" />
-    <PackageReference
-      Include="Beutl.Engine.SourceGenerators"
-      OutputItemType="Analyzer"
-      ReferenceOutputAssembly="false"
-      Version="$(BeutlPackagesVersion)"
-      PrivateAssets="all"
-      Condition="'$(BeutlAutoReferenceSourceGenerators)' == 'true'" />
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(_PreventCopyInternalPackages)' != 'true'">
-    <PackageReference Include="Beutl.Api" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceApi)' == 'true'" />
-    <PackageReference Include="Beutl.Extensibility" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceExtensibility)' == 'true'" />
-    <PackageReference Include="Beutl.ProjectSystem" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceProjectSystem)' == 'true'" />
-    <PackageReference Include="Beutl.NodeGraph" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceNodeGraph)' == 'true'" />
-    <PackageReference Include="Beutl.Editor" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceEditor)' == 'true'" />
-    <!-- Build-time only: without PrivateAssets the generator becomes a dependency of the extension's package, which
-         Beutl then fails to resolve when installing it. -->
-    <PackageReference
-      Include="Beutl.Engine.SourceGenerators"
-      OutputItemType="Analyzer"
-      ReferenceOutputAssembly="false"
-      Version="$(BeutlPackagesVersion)"
-      PrivateAssets="all"
-      Condition="'$(BeutlAutoReferenceSourceGenerators)' == 'true'" />
-  </ItemGroup>
+  <Import Project="$(MSBuildThisFileDirectory)AutoReferences.targets" />
 
   <PropertyGroup>
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>

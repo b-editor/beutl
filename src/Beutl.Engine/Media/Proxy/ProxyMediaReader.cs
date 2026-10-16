@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using Beutl.Audio;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
 using Beutl.Media.Source;
 
 namespace Beutl.Media.Proxy;
@@ -25,7 +25,7 @@ internal sealed class ProxyMediaReader(
         return inner.ReadVideo(frame, out image);
     }
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
     {
         return inner.ReadAudio(start, length, out sound);
     }

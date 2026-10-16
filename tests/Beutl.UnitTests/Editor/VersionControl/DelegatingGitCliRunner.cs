@@ -18,11 +18,6 @@ internal class DelegatingGitCliRunner(IGitCliRunner inner) : IGitCliRunner
     public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
         => inner.GetRecoverableRepositoryLock(repository);
 
-    public bool RemoveRecoverableRepositoryLock(
-        RepositoryInfo repository,
-        RepositoryLockInfo lockInfo)
-        => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
-
     protected void RecordTemporaryPaths(
         IReadOnlyList<string> arguments,
         GitCommandOptions options)

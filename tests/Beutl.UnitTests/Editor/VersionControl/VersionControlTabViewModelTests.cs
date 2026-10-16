@@ -1369,21 +1369,13 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
-    public async Task Stale_lock_event_is_marshaled_and_the_button_removes_only_on_request()
+    public async Task Stale_lock_event_is_marshaled_to_the_ui_thread()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         Mock<IRepositoryLockRecoveryService> recovery
             = service.As<IRepositoryLockRecoveryService>();
         RepositoryLockInfo? currentLock = null;
         recovery.SetupGet(x => x.RecoverableLock).Returns(() => currentLock);
-        recovery.Setup(x => x.RemoveRecoverableLockAsync(
-                It.IsAny<RepositoryLockInfo>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() =>
-            {
-                currentLock = null;
-                return true;
-            });
         service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new WorkspaceStatus("main", 0, 0, [], false));
         service.Setup(x => x.GetHistoryAsync(
@@ -1417,74 +1409,16 @@ public class VersionControlTabViewModelTests
 
         pendingUiAction!();
         Assert.That(viewModel.HasRecoverableLock.Value, Is.True);
-
-        await viewModel.RemoveStaleLockCommand.ExecuteAsync();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.HasRecoverableLock.Value, Is.False);
-            Assert.That(viewModel.CanRemoveStaleLock.Value, Is.False);
-        });
-        recovery.Verify(
-            x => x.RemoveRecoverableLockAsync(
-                It.Is<RepositoryLockInfo>(value => ReferenceEquals(value, expectedLock)),
-                It.IsAny<CancellationToken>()),
-            Times.Once);
-    }
-
-    [Test]
-    public async Task Failed_stale_lock_removal_keeps_the_banner_and_shows_manual_guidance()
-    {
-        Mock<IProjectVersionControlService> service = CreateServiceMock();
-        Mock<IRepositoryLockRecoveryService> recovery
-            = service.As<IRepositoryLockRecoveryService>();
-        var expectedLock = new RepositoryLockInfo(
-            Path.Combine(Path.GetTempPath(), "index.lock"),
-            DateTimeOffset.UtcNow - TimeSpan.FromMinutes(11));
-        recovery.SetupGet(x => x.RecoverableLock).Returns(expectedLock);
-        recovery.Setup(x => x.RemoveRecoverableLockAsync(
-                expectedLock,
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
-        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new WorkspaceStatus("main", 0, 0, [], false));
-        service.Setup(x => x.GetHistoryAsync(
-                It.IsAny<int>(),
-                It.IsAny<int>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync([]);
-        using var viewModel = new VersionControlTabViewModel(
-            Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
-            CreateServiceSource(service.Object),
-            versionControlCoordinator: null,
-            static action => action());
-        await viewModel.Initialization;
-
-        await viewModel.RemoveStaleLockAsync();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.HasRecoverableLock.Value, Is.True);
-            Assert.That(viewModel.CanRemoveStaleLock.Value, Is.True);
-            Assert.That(
-                viewModel.StaleLockGuidance.Value,
-                Is.EqualTo(string.Format(
-                    CultureInfo.CurrentCulture,
-                    Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
-                    expectedLock.LockPath)));
-        });
     }
 
     [TestCase(false)]
     [TestCase(true)]
-    public async Task Stale_lock_requiring_manual_removal_shows_the_guidance_without_a_remove_action(
+    public async Task Stale_lock_shows_the_manual_removal_guidance(
         bool offeredAfterBinding)
     {
         var lockInfo = new RepositoryLockInfo(
             Path.Combine(Path.GetTempPath(), "index.lock"),
-            DateTimeOffset.UtcNow - TimeSpan.FromMinutes(11),
-            requiresManualRemoval: true);
+            DateTimeOffset.UtcNow - TimeSpan.FromMinutes(11));
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         Mock<IRepositoryLockRecoveryService> recovery
             = service.As<IRepositoryLockRecoveryService>();
@@ -1497,48 +1431,12 @@ public class VersionControlTabViewModelTests
         Assert.Multiple(() =>
         {
             Assert.That(viewModel.HasRecoverableLock.Value, Is.True);
-            Assert.That(viewModel.CanRemoveStaleLock.Value, Is.False);
-            Assert.That(viewModel.RemoveStaleLockCommand.CanExecute(), Is.False);
             Assert.That(
                 viewModel.StaleLockGuidance.Value,
                 Is.EqualTo(string.Format(
                     CultureInfo.CurrentCulture,
                     Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
                     lockInfo.LockPath)));
-        });
-        recovery.Verify(
-            x => x.RemoveRecoverableLockAsync(
-                It.IsAny<RepositoryLockInfo>(),
-                It.IsAny<CancellationToken>()),
-            Times.Never);
-    }
-
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task Removable_stale_lock_offers_the_remove_action_with_the_default_guidance(
-        bool offeredAfterBinding)
-    {
-        var lockInfo = new RepositoryLockInfo(
-            Path.Combine(Path.GetTempPath(), "index.lock"),
-            DateTimeOffset.UtcNow - TimeSpan.FromMinutes(11),
-            requiresManualRemoval: false);
-        Mock<IProjectVersionControlService> service = CreateServiceMock();
-        Mock<IRepositoryLockRecoveryService> recovery
-            = service.As<IRepositoryLockRecoveryService>();
-        using VersionControlTabViewModel viewModel = await CreateViewModelWithRecoverableLockAsync(
-            service,
-            recovery,
-            lockInfo,
-            offeredAfterBinding);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.HasRecoverableLock.Value, Is.True);
-            Assert.That(viewModel.CanRemoveStaleLock.Value, Is.True);
-            Assert.That(viewModel.RemoveStaleLockCommand.CanExecute(), Is.True);
-            Assert.That(
-                viewModel.StaleLockGuidance.Value,
-                Is.EqualTo(Strings.VersionControl_StaleLockGuidance));
         });
     }
 
@@ -1574,38 +1472,6 @@ public class VersionControlTabViewModelTests
         }
 
         return viewModel;
-    }
-
-    [Test]
-    [NonParallelizable]
-    public async Task Remove_stale_lock_command_reports_removal_failures_and_keeps_the_banner()
-    {
-        Mock<IProjectVersionControlService> service = CreateServiceMock();
-        Mock<IRepositoryLockRecoveryService> recovery
-            = service.As<IRepositoryLockRecoveryService>();
-        var expectedLock = new RepositoryLockInfo(
-            Path.Combine(Path.GetTempPath(), "index.lock"),
-            DateTimeOffset.UtcNow - TimeSpan.FromMinutes(11));
-        var failure = new IOException("The lock file is in use by another process.");
-        recovery.SetupGet(x => x.RecoverableLock).Returns(expectedLock);
-        recovery.Setup(x => x.RemoveRecoverableLockAsync(
-                expectedLock,
-                It.IsAny<CancellationToken>()))
-            .ThrowsAsync(failure);
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
-        await viewModel.Initialization;
-        using var notifications = NotificationCapture.Install();
-
-        await Assert.DoesNotThrowAsync(() => viewModel.RemoveStaleLockCommand.ExecuteAsync());
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                notifications.HasError(Strings.VersionControl_ErrorTitle, failure.Message),
-                Is.True);
-            Assert.That(viewModel.HasRecoverableLock.Value, Is.True);
-            Assert.That(viewModel.RemoveStaleLockCommand.CanExecute(), Is.True);
-        });
     }
 
     [Test]

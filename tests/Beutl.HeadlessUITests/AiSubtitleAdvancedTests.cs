@@ -6,13 +6,12 @@ using Avalonia.Headless.NUnit;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Services;
+using Beutl.Audio;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services.Captions;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -911,13 +910,13 @@ public sealed class AiSubtitleAdvancedTests
         public override bool ReadAudio(
             int start,
             int length,
-            [NotNullWhen(true)] out Ref<IPcm>? sound)
+            [NotNullWhen(true)] out AudioBuffer? sound)
         {
             MaximumRequestedSamples = Math.Max(MaximumRequestedSamples, length);
             int decoded = Math.Clamp(totalSamples - start, 0, length);
-            var pcm = new Pcm<Stereo32BitFloat>(sampleRate, decoded);
-            pcm.DataSpan.Fill(new Stereo32BitFloat(0.25f, -0.25f));
-            sound = Ref<IPcm>.Create(pcm);
+            sound = new AudioBuffer(sampleRate, 2, decoded);
+            sound.GetChannelData(0).Fill(0.25f);
+            sound.GetChannelData(1).Fill(-0.25f);
             ReadCount++;
             return true;
         }

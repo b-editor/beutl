@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <BeutlPublicLibrary>true</BeutlPublicLibrary>
+    <BeutlSdkAutoReference>SourceGenerators</BeutlSdkAutoReference>
+    <IsRoslynComponent>true</IsRoslynComponent>
     <TargetFramework>netstandard2.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

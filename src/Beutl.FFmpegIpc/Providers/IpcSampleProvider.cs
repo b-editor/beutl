@@ -1,28 +1,30 @@
-﻿using Beutl.Extensibility;
+﻿using System.Buffers;
+using System.Runtime.InteropServices;
+using Beutl.Audio;
+using Beutl.Extensibility;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.SharedMemory;
 using Beutl.FFmpegIpc.Transport;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 
 namespace Beutl.FFmpegIpc.Providers;
 
 internal sealed class IpcSampleProvider : ISampleProvider
 {
-    // Stereo32BitFloat destination: 2 channels * 4 bytes. Must match the Pcm<Stereo32BitFloat> allocated below.
+    // Interleaved stereo float on the wire: 2 channels * 4 bytes.
     private const int Stereo32BitFloatBytesPerSample = 8;
 
     private readonly IpcConnection _connection;
     private readonly SharedMemoryBuffer[] _audioBuffers;
 
     // 現在のキャッシュ（1秒分）
-    private Pcm<Stereo32BitFloat>? _currentChunk;
+    private AudioBuffer? _currentChunk;
     private long _currentChunkOffset;
     private int _currentBufferIndex;
 
     // 先行フェッチ（次の1秒分、バックグラウンド）
-    private readonly PrefetchSlot<long, Pcm<Stereo32BitFloat>> _prefetch = new();
+    private readonly PrefetchSlot<long, AudioBuffer> _prefetch = new();
+    private long _nextSample;
     private volatile bool _disposed;
 
     public IpcSampleProvider(IpcConnection connection, SharedMemoryBuffer[] audioBuffers,
@@ -37,57 +39,64 @@ internal sealed class IpcSampleProvider : ISampleProvider
     public long SampleCount { get; }
     public long SampleRate { get; }
 
-    public async ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
+    public async ValueTask<AudioBuffer?> ReadNextSamples(int length)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        long offset = _nextSample;
+        if (offset >= SampleCount)
+            return null;
 
-        // Always return a Pcm of the requested length, zero-filling past the timeline end: the encoder encodes
-        // frame.NbSamples even from a shorter Pcm, so a short one would leave stale samples in the final frame.
-        long availableLength = offset >= SampleCount ? 0 : Math.Min(length, SampleCount - offset);
-        if (availableLength <= 0)
-            return new Pcm<Stereo32BitFloat>((int)SampleRate, (int)length);
-
+        // Always return a buffer of the requested length, zero-filling past the timeline end: the encoder encodes
+        // frame.NbSamples even from a shorter buffer, so a short one would leave stale samples in the final frame.
+        long availableLength = Math.Min(length, SampleCount - offset);
+        AudioBuffer audio;
         if (availableLength == length)
-            return await SampleExact(offset, length);
+        {
+            audio = await SampleExact(offset, length);
+        }
+        else
+        {
+            using var filled = await SampleExact(offset, availableLength);
+            audio = new AudioBuffer((int)SampleRate, 2, length);
+            filled.CopyTo(audio, 0);
+        }
 
-        using var filled = await SampleExact(offset, availableLength);
-        var padded = new Pcm<Stereo32BitFloat>((int)SampleRate, (int)length);
-        filled.DataSpan.CopyTo(padded.DataSpan);
-        return padded;
+        _nextSample = offset + length;
+        return audio;
     }
 
     // Fills exactly `length` samples starting at `offset`. The caller guarantees the whole range is within
     // the timeline (offset + length <= SampleCount), so the chunk loader never slices past EOF.
-    private async ValueTask<Pcm<Stereo32BitFloat>> SampleExact(long offset, long length)
+    private async ValueTask<AudioBuffer> SampleExact(long offset, long length)
     {
         // キャッシュに前半が含まれているか確認
         await EnsureChunkLoaded(offset);
 
-        long cacheEnd = _currentChunkOffset + _currentChunk!.NumSamples;
+        long cacheEnd = _currentChunkOffset + _currentChunk!.SampleCount;
         if (offset + length <= cacheEnd)
         {
             // チャンクロード後に完全に収まる場合
-            var pcm = CopyFromCache(offset, length);
+            var audio = CopyFromCache(offset, length);
             StartPrefetchIfNeeded();
-            return pcm;
+            return audio;
         }
 
         // チャンク境界をまたぐ場合: 前半を現在のチャンクからコピー
         long firstPartLength = cacheEnd - offset;
-        var result2 = new Pcm<Stereo32BitFloat>((int)SampleRate, (int)length);
+        var result2 = new AudioBuffer((int)SampleRate, 2, (int)length);
         try
         {
             // Test-only probe, inert in production (see CrossChunkSplitAllocatedForTest).
             CrossChunkSplitAllocatedForTest?.Invoke(result2);
 
             int start = (int)(offset - _currentChunkOffset);
-            _currentChunk.DataSpan.Slice(start, (int)firstPartLength).CopyTo(result2.DataSpan);
+            CopySamples(_currentChunk, start, result2, 0, (int)firstPartLength);
 
             // 後半を次のチャンクからコピー
             long remainingOffset = cacheEnd;
             long remainingLength = length - firstPartLength;
             await EnsureChunkLoaded(remainingOffset);
-            _currentChunk!.DataSpan[..(int)remainingLength].CopyTo(result2.DataSpan[(int)firstPartLength..]);
+            CopySamples(_currentChunk!, 0, result2, (int)firstPartLength, (int)remainingLength);
 
             StartPrefetchIfNeeded();
             return result2;
@@ -101,12 +110,21 @@ internal sealed class IpcSampleProvider : ISampleProvider
         }
     }
 
-    private Pcm<Stereo32BitFloat> CopyFromCache(long offset, long length)
+    private AudioBuffer CopyFromCache(long offset, long length)
     {
         int start = (int)(offset - _currentChunkOffset);
-        var result = new Pcm<Stereo32BitFloat>((int)SampleRate, (int)length);
-        _currentChunk!.DataSpan.Slice(start, (int)length).CopyTo(result.DataSpan);
+        var result = new AudioBuffer((int)SampleRate, 2, (int)length);
+        CopySamples(_currentChunk!, start, result, 0, (int)length);
         return result;
+    }
+
+    private static void CopySamples(AudioBuffer source, int sourceStart, AudioBuffer destination, int destinationStart, int count)
+    {
+        for (int channel = 0; channel < 2; channel++)
+        {
+            source.GetChannelData(channel).Slice(sourceStart, count)
+                .CopyTo(destination.GetChannelData(channel)[destinationStart..]);
+        }
     }
 
     private async ValueTask EnsureChunkLoaded(long offset)
@@ -119,38 +137,21 @@ internal sealed class IpcSampleProvider : ISampleProvider
             return;
         }
 
-        // プリフェッチ済みのチャンクと一致する場合
-        Task<Pcm<Stereo32BitFloat>>? prefetched = _prefetch.TryConsumeMatching(chunkOffset, out int prefetchBufferIndex);
+        // Reads are in order, so an armed prefetch is always for this chunk.
+        Task<AudioBuffer>? prefetched = _prefetch.TryConsumeMatching(chunkOffset, out int prefetchBufferIndex);
         if (prefetched != null)
         {
-            var pcm = await prefetched;
+            var audio = await prefetched;
 
             _currentChunk?.Dispose();
-            _currentChunk = pcm;
+            _currentChunk = audio;
             _currentChunkOffset = chunkOffset;
             _currentBufferIndex = prefetchBufferIndex;
             return;
         }
 
-        // プリフェッチが進行中だが要求と一致しない場合は、完了を待ってから結果を破棄する。
-        // ホストへ非順次なリクエストが流出しないよう、参照を捨てるだけでなく必ず await する。
-        Task<Pcm<Stereo32BitFloat>>? stale = _prefetch.Detach();
-        if (stale != null)
-        {
-            try
-            {
-                Pcm<Stereo32BitFloat> stalePcm = await stale;
-                stalePcm.Dispose();
-            }
-            catch (FFmpegWorkerException)
-            {
-                // The drain has already consumed the stale prefetch's response off the pipe; its worker
-                // error belongs to the discarded chunk, so it must not abort the fresh request below.
-            }
-        }
-
         int bufferIndex = 0;
-        Pcm<Stereo32BitFloat> chunk = await FetchChunk(chunkOffset, bufferIndex);
+        AudioBuffer chunk = await FetchChunk(chunkOffset, bufferIndex);
         _currentChunk?.Dispose();
         _currentChunk = chunk;
         _currentChunkOffset = chunkOffset;
@@ -162,14 +163,14 @@ internal sealed class IpcSampleProvider : ISampleProvider
         if (_prefetch.HasPrefetch) return;
         if (_currentChunk == null) return;
 
-        long nextChunkOffset = _currentChunkOffset + _currentChunk.NumSamples;
+        long nextChunkOffset = _currentChunkOffset + _currentChunk.SampleCount;
         if (nextChunkOffset >= SampleCount) return;
 
         int prefetchBufferIndex = 1 - _currentBufferIndex;
         _prefetch.Arm(nextChunkOffset, prefetchBufferIndex, FetchChunk(nextChunkOffset, prefetchBufferIndex).AsTask());
     }
 
-    private async ValueTask<Pcm<Stereo32BitFloat>> FetchChunk(long chunkOffset, int bufferIndex)
+    private async ValueTask<AudioBuffer> FetchChunk(long chunkOffset, int bufferIndex)
     {
         long chunkLength = Math.Min(SampleRate, SampleCount - chunkOffset);
 
@@ -182,9 +183,7 @@ internal sealed class IpcSampleProvider : ISampleProvider
         // is always a live ProvideSample for this request.
         var sampleInfo = response.RequirePayload<ProvideSampleMessage>(MessageType.ProvideSample);
 
-        // SharedMemoryBuffer.Read copies the worker-reported DataLength bytes into the native Pcm, whose
-        // capacity is NumSamples * Stereo32BitFloatBytesPerSample. Validate the reported size against that
-        // capacity before reading so an oversized (or negative) DataLength can't overrun the allocation.
+        // Read copies DataLength bytes, so it must match the NumSamples the chunk is sized for.
         if (sampleInfo.NumSamples < 0)
             throw new InvalidOperationException(
                 $"Sample chunk has a negative NumSamples {sampleInfo.NumSamples}.");
@@ -193,22 +192,25 @@ internal sealed class IpcSampleProvider : ISampleProvider
         if (sampleInfo.DataLength != expected)
             throw new InvalidOperationException(
                 $"Sample DataLength {sampleInfo.DataLength} does not match the {sampleInfo.NumSamples}-sample " +
-                $"Stereo32BitFloat buffer size {expected}.");
+                $"stereo float buffer size {expected}.");
 
-        var pcm = new Pcm<Stereo32BitFloat>((int)SampleRate, sampleInfo.NumSamples);
+        var chunk = new AudioBuffer((int)SampleRate, 2, sampleInfo.NumSamples);
+        float[] interleaved = ArrayPool<float>.Shared.Rent(sampleInfo.NumSamples * 2);
         try
         {
-            unsafe
-            {
-                _audioBuffers[bufferIndex].Read(new Span<byte>((void*)pcm.Data, (int)expected));
-            }
-
-            return pcm;
+            Span<float> samples = interleaved.AsSpan(0, sampleInfo.NumSamples * 2);
+            _audioBuffers[bufferIndex].Read(MemoryMarshal.AsBytes(samples));
+            AudioConversion.Deinterleave(samples, chunk);
+            return chunk;
         }
         catch
         {
-            pcm.Dispose();
+            chunk.Dispose();
             throw;
+        }
+        finally
+        {
+            ArrayPool<float>.Shared.Return(interleaved);
         }
     }
 
@@ -217,17 +219,17 @@ internal sealed class IpcSampleProvider : ISampleProvider
     internal bool IsPrefetchFaultedForTest() => _prefetch.IsFaulted;
 
     // Test-only hook (null and inert in production): invoked with the cross-chunk split's freshly
-    // allocated Pcm before the second chunk is loaded, so a disposal test can assert that a mid-split
-    // fault frees that buffer instead of leaking its native memory.
-    internal Action<Pcm<Stereo32BitFloat>>? CrossChunkSplitAllocatedForTest { get; set; }
+    // allocated buffer before the second chunk is loaded, so a disposal test can assert that a mid-split
+    // fault frees that buffer instead of leaking it.
+    internal Action<AudioBuffer>? CrossChunkSplitAllocatedForTest { get; set; }
 
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
 
-        // Don't wait on a prefetch whose connection may be closing: observe its fault, or dispose the native
-        // Pcm a successful one holds. ExecuteSynchronously runs this on the completing thread; drop it if the
+        // Don't wait on a prefetch whose connection may be closing: observe its fault, or dispose the
+        // buffer a successful one holds. ExecuteSynchronously runs this on the completing thread; drop it if the
         // body grows beyond a single free.
         _prefetch.Detach()?.ContinueWith(
             static t =>

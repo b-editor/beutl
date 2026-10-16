@@ -1,4 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <BeutlPublicLibrary>true</BeutlPublicLibrary>
+    <BeutlSdkAutoReference>Extensibility</BeutlSdkAutoReference>
+  </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />

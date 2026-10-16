@@ -7,8 +7,6 @@ using Beutl.Editor.Services;
 using Beutl.Editor.Services.Captions;
 using Beutl.Graphics.Shapes;
 using Beutl.Language;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services.AI;

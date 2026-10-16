@@ -148,7 +148,7 @@ internal partial class VersionControlCoordinator
 
             if (projectClosed)
             {
-                _pendingConfigurationActivation = null;
+                _rediscoveryRequested = false;
             }
 
             if (!_disposed && _operationEpochCancellation.IsCancellationRequested)

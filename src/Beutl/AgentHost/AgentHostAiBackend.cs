@@ -1,8 +1,7 @@
 ﻿using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Audio;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Source;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
 using Beutl.Services.AI;
@@ -279,10 +278,10 @@ internal sealed class AgentHostAiBackend(
         bool? remaining = await Task.Run(
             () =>
             {
-                if (!reader.ReadAudio(checked((int)position), 1, out Ref<IPcm>? probe))
+                if (!reader.ReadAudio(checked((int)position), 1, out AudioBuffer? probe))
                     return (bool?)null;
                 using (probe)
-                    return probe.Value.NumSamples > 0;
+                    return probe.SampleCount > 0;
             },
             cancellationToken).ConfigureAwait(false);
         return remaining ?? throw new AgentAiException(

@@ -1,4 +1,6 @@
-﻿using System.Runtime.Versioning;
+﻿using System.Buffers;
+using System.Runtime.Versioning;
+using Beutl.Audio;
 using Beutl.Extensibility;
 using Beutl.Extensions.AVFoundation.Interop;
 using Beutl.Media;
@@ -72,7 +74,7 @@ public class AVFEncodingController : EncodingController
                 }
                 else
                 {
-                    await WriteAudioFrameAsync(handle, sampleProvider, sampleCount, AudioFrameSize);
+                    encodeAudio = await WriteAudioFrameAsync(handle, sampleProvider, sampleCount, AudioFrameSize);
                     sampleCount += AudioFrameSize;
                     if (sampleCount >= sampleProvider.SampleCount)
                     {
@@ -121,20 +123,41 @@ public class AVFEncodingController : EncodingController
         return true;
     }
 
-    private static async ValueTask WriteAudioFrameAsync(
+    // Returns false once the provider has no more samples.
+    private static async ValueTask<bool> WriteAudioFrameAsync(
         AVFWriterSafeHandle handle,
         ISampleProvider sampleProvider,
         long startSample,
         int length)
     {
-        using var sound = await sampleProvider.Sample(startSample, length);
-        BeutlAVFException.ThrowIfFailed(
-            BeutlAVFNative.beutl_avf_writer_append_audio(
-                handle,
-                sound.Data,
-                sound.NumSamples,
-                startSample,
-                sound.SampleRate));
+        using var sound = await sampleProvider.ReadNextSamples(length);
+        if (sound is null)
+            return false;
+
+        float[] interleaved = ArrayPool<float>.Shared.Rent(sound.SampleCount * 2);
+        try
+        {
+            AudioConversion.Interleave(sound, interleaved);
+            unsafe
+            {
+                fixed (float* data = interleaved)
+                {
+                    BeutlAVFException.ThrowIfFailed(
+                        BeutlAVFNative.beutl_avf_writer_append_audio(
+                            handle,
+                            (IntPtr)data,
+                            sound.SampleCount,
+                            startSample,
+                            sound.SampleRate));
+                }
+            }
+        }
+        finally
+        {
+            ArrayPool<float>.Shared.Return(interleaved);
+        }
+
+        return true;
     }
 
     private BeutlVideoEncoderConfig BuildVideoConfig()

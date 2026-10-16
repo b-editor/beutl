@@ -74,6 +74,8 @@ internal sealed class PluginDependencyResolver
         _assemblyDirectorySearchPaths = [mainDirectory];
     }
 
+    public IEnumerable<string> AssemblyNames => _assemblyPaths.Keys;
+
     private void AddPackageAssets(
         string path,
         PackageFolderReader reader,

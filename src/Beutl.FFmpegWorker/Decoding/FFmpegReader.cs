@@ -1,11 +1,11 @@
-﻿using System.Diagnostics;
+﻿using System.Buffers;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+using Beutl.Audio;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
@@ -21,6 +21,9 @@ public sealed class FFmpegReader : MediaReader
     // Every reader lives in the same worker process, and frame threading keeps a decoded frame and
     // decoder state alive per thread, so the automatic count stays below FFmpeg's own limit of 16.
     private const int AutoThreadCountLimit = 8;
+
+    // Interleaved stereo float, the layout the IPC carries.
+    private const int BytesPerSample = 2 * sizeof(float);
 
 #pragma warning disable IDE1006 // 命名スタイル
     private static readonly AVChannelLayout AV_CHANNEL_LAYOUT_STEREO = new()
@@ -156,28 +159,34 @@ public sealed class FFmpegReader : MediaReader
 
     public bool IsHdr => _isHdr;
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? result)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? result)
     {
         // Decoder側でResampleされるかのチェックのため
         if (length == 0)
         {
-            result = Ref<IPcm>.Create(new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, 0));
+            result = new AudioBuffer(AudioInfo.SampleRate, 2, 0);
             return true;
         }
 
         result = null;
         if (_audioDecoder == null || _currentAudioFrame == null) return false;
 
-        var sound = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
-        if (ReadAudio(start, length, MemoryMarshal.AsBytes(sound.DataSpan), out _))
+        float[] interleaved = ArrayPool<float>.Shared.Rent(length * 2);
+        try
         {
-            result = Ref<IPcm>.Create(sound);
+            // Cleared, so the tail of a short read stays silent.
+            Span<float> samples = interleaved.AsSpan(0, length * 2);
+            samples.Clear();
+            if (!ReadAudio(start, length, MemoryMarshal.AsBytes(samples), out _))
+                return false;
+
+            result = new AudioBuffer(AudioInfo.SampleRate, 2, length);
+            AudioConversion.Deinterleave(samples, result);
             return true;
         }
-        else
+        finally
         {
-            sound.Dispose();
-            return false;
+            ArrayPool<float>.Shared.Return(interleaved);
         }
     }
 
@@ -206,7 +215,7 @@ public sealed class FFmpegReader : MediaReader
 
         int decoded = 0;
         bool needGrab = false;
-        int sampleSize = sizeof(Stereo32BitFloat);
+        int sampleSize = BytesPerSample;
 
         // SampleConverterを遅延初期化
         _sampleConverter ??= new SampleConverter();
@@ -274,7 +283,7 @@ public sealed class FFmpegReader : MediaReader
         {
             SampleRate = AudioInfo.SampleRate,
             NumSamples = samples,
-            DataLength = samples * sizeof(Stereo32BitFloat),
+            DataLength = samples * BytesPerSample,
         };
     }
 

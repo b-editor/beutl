@@ -2748,107 +2748,223 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
-    public async Task Newer_git_configuration_cancels_a_stale_unassociated_rediscovery()
+    public async Task Lfs_change_during_activation_reapplies_hygiene_once_tracking_starts()
     {
-        var hygieneStarted = new TaskCompletionSource(
+        var appliedValues = new List<bool>();
+        var firstHygieneStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        var hygieneCompleted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseHygiene = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var latestInvalidProbeCompleted = new TaskCompletionSource(
+        var releaseFirstHygiene = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         await using var session = await FakeVersionControlSession.CreateAsync(
-            "version-control-stale-git-configuration");
+            "version-control-lfs-during-activation");
 
         try
         {
-            string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-stale-valid-git");
-            string invalidGitPath = Path.Combine(Path.GetTempPath(), "beutl-stale-invalid-git");
+            var config = new VersionControlConfig
+            {
+                UseLfsWhenAvailable = false,
+            };
+            var discovery = new PullCycleTestBackend(null, session.Repository, MainTip);
+            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
+            {
+                EnsureHygieneOverride = async _ =>
+                {
+                    bool first;
+                    lock (appliedValues)
+                    {
+                        appliedValues.Add(config.UseLfsWhenAvailable);
+                        first = appliedValues.Count == 1;
+                    }
+
+                    if (first)
+                    {
+                        firstHygieneStarted.TrySetResult();
+                        await releaseFirstHygiene.Task;
+                    }
+                },
+            };
+            VersionControlCoordinator coordinator = session.Start(
+                config,
+                candidate => candidate is null ? discovery : backend);
+            await firstHygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            config.UseLfsWhenAvailable = true;
+            releaseFirstHygiene.TrySetResult();
+            await WaitUntilAsync(() =>
+            {
+                lock (appliedValues)
+                {
+                    return appliedValues.Count >= 2;
+                }
+            });
+
+            lock (appliedValues)
+            {
+                Assert.Multiple(() =>
+                {
+                    Assert.That(appliedValues, Is.EqualTo(new[] { false, true }));
+                    Assert.That(coordinator.CurrentService, Is.SameAs(backend));
+                    Assert.That(backend.RetirementCalls, Is.Zero);
+                });
+            }
+        }
+        finally
+        {
+            releaseFirstHygiene.TrySetResult();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Failed_lfs_hygiene_is_retried_by_the_next_configuration_change()
+    {
+        var appliedValues = new List<bool>();
+        bool failNextHygiene = false;
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-lfs-hygiene-retry");
+        var config = new VersionControlConfig
+        {
+            UseLfsWhenAvailable = false,
+        };
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
+        {
+            EnsureHygieneOverride = _ =>
+            {
+                lock (appliedValues)
+                {
+                    appliedValues.Add(config.UseLfsWhenAvailable);
+                    if (!failNextHygiene)
+                    {
+                        return Task.CompletedTask;
+                    }
+
+                    failNextHygiene = false;
+                }
+
+                return Task.FromException(new GitOperationException(128, "fatal: simulated failure"));
+            },
+        };
+        VersionControlCoordinator coordinator = session.Start(config, _ => backend);
+        await WaitUntilAsync(() =>
+            ReferenceEquals(coordinator.CurrentService, backend)
+            && coordinator.IsTracked.Value);
+        lock (appliedValues)
+        {
+            appliedValues.Clear();
+            failNextHygiene = true;
+        }
+
+        config.UseLfsWhenAvailable = true;
+        await WaitUntilAsync(() =>
+        {
+            lock (appliedValues)
+            {
+                return appliedValues.Count >= 1;
+            }
+        });
+        config.GitExecutablePath = Path.Combine(Path.GetTempPath(), "beutl-retry-git");
+        await WaitUntilAsync(() =>
+        {
+            lock (appliedValues)
+            {
+                return appliedValues.Count >= 2;
+            }
+        });
+
+        lock (appliedValues)
+        {
+            Assert.That(appliedValues, Is.EqualTo(new[] { true, true }));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Newer_git_path_is_applied_after_the_running_rediscovery()
+    {
+        var firstProbeStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseFirstProbe = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-newer-git-path");
+
+        try
+        {
+            string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-newer-valid-git");
+            string invalidGitPath = Path.Combine(Path.GetTempPath(), "beutl-newer-invalid-git");
             var probe = new ConfigurableGitInstallationProbe(validGitPath);
             var config = new VersionControlConfig
             {
                 GitExecutablePath = invalidGitPath,
             };
             var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
-            PullCycleTestBackend? staleTrackedBackend = null;
-            var publishedServices = new List<IProjectVersionControlService?>();
-            using IDisposable subscription = session.EditorService.ProjectVersionControlService.Subscribe(
-                publishedServices.Add);
+            var events = new List<string>();
+            int untrackedBackends = 0;
             VersionControlCoordinator coordinator = session.Start(
                 config,
                 candidate =>
                 {
-                    bool blockHygiene = candidate is not null && staleTrackedBackend is null;
-                    var backend = new PullCycleTestBackend(candidate, session.Repository, MainTip)
+                    int untrackedIndex = candidate is null
+                        ? Interlocked.Increment(ref untrackedBackends)
+                        : 0;
+                    lock (events)
                     {
-                        AvailabilityOverride = async cancellationToken =>
-                        {
-                            GitAvailability availability = await locator.LocateAsync(
-                                cancellationToken);
-                            if (availability.State != GitAvailabilityState.Installed
-                                && staleTrackedBackend is not null)
-                            {
-                                latestInvalidProbeCompleted.TrySetResult();
-                            }
-
-                            return availability;
-                        },
-                        EnsureHygieneStarted = blockHygiene ? hygieneStarted : null,
-                        EnsureHygieneRelease = blockHygiene ? releaseHygiene.Task : null,
-                        EnsureHygieneCompleted = blockHygiene ? hygieneCompleted : null,
-                    };
-                    if (blockHygiene)
-                    {
-                        staleTrackedBackend = backend;
+                        events.Add(candidate is null ? $"untracked {untrackedIndex}" : "tracked");
                     }
 
-                    return backend;
+                    return new PullCycleTestBackend(candidate, session.Repository, MainTip)
+                    {
+                        AvailabilityOverride = untrackedIndex == 2
+                            ? async cancellationToken =>
+                            {
+                                // The first rediscovery probes the invalid path it started with.
+                                firstProbeStarted.TrySetResult();
+                                await releaseFirstProbe.Task.WaitAsync(cancellationToken);
+                                lock (events)
+                                {
+                                    events.Add("first rediscovery finished");
+                                }
+
+                                return GitAvailability.NotInstalled;
+                            }
+                        : locator.LocateAsync,
+                    };
                 },
                 locator);
             await WaitUntilAsync(() =>
                 coordinator.CurrentService is { Repository: null }
                 && !coordinator.IsGitAvailable.Value);
 
+            config.GitExecutablePath = Path.Combine(Path.GetTempPath(), "beutl-newer-other-invalid-git");
+            await firstProbeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
             config.GitExecutablePath = validGitPath;
-            await hygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            releaseFirstProbe.TrySetResult();
+            await WaitUntilAsync(() => coordinator.IsTracked.Value);
 
-            config.GitExecutablePath = invalidGitPath;
-            await hygieneCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            await WaitUntilAsync(() =>
-                staleTrackedBackend is { RetirementCalls: 1, DisposeCalls: 1 });
-            await latestInvalidProbeCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            await WaitUntilAsync(() =>
-                coordinator.CurrentService is { Repository: null }
-                && !coordinator.IsGitAvailable.Value
-                && !coordinator.IsTracked.Value
-                && ReferenceEquals(
-                    session.EditorService.ProjectVersionControlService.Value,
-                    coordinator.CurrentService));
-
-            Assert.Multiple(() =>
+            lock (events)
             {
-                Assert.That(staleTrackedBackend, Is.Not.Null);
-                Assert.That(publishedServices, Does.Not.Contain(staleTrackedBackend));
-                Assert.That(coordinator.CurrentService, Is.Not.SameAs(staleTrackedBackend));
-                Assert.That(session.EditorService.ProjectVersionControlService.Value,
-                    Is.SameAs(coordinator.CurrentService));
-                Assert.That(staleTrackedBackend!.RetirementCalls, Is.EqualTo(1));
-                Assert.That(staleTrackedBackend.DisposeCalls, Is.EqualTo(1));
-            });
+                Assert.That(
+                    events,
+                    Is.EqualTo(new[]
+                    {
+                        "untracked 1",
+                        "untracked 2",
+                        "first rediscovery finished",
+                        "untracked 3",
+                        "tracked",
+                    }));
+            }
         }
         finally
         {
-            releaseHygiene.TrySetResult();
+            releaseFirstProbe.TrySetResult();
         }
     }
 
     [AvaloniaTest]
-    public async Task Waiting_operation_does_not_interleave_between_coalesced_git_configurations()
+    public async Task Waiting_operation_does_not_interleave_between_git_configuration_runs()
     {
-        var staleHygieneStarted = new TaskCompletionSource(
+        var firstProbeStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseStaleHygiene = new TaskCompletionSource(
+        var releaseFirstProbe = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var latestActivationStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -2861,14 +2977,12 @@ public class VersionControlRestoreTests
         var latestInitializationStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         await using var session = await FakeVersionControlSession.CreateAsync(
-            "version-control-coalesced-git-config-waiter");
+            "version-control-git-config-waiter");
 
         try
         {
-            string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-coalesced-valid-git");
-            string invalidGitPath = Path.Combine(
-                Path.GetTempPath(),
-                "beutl-coalesced-invalid-git");
+            string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-runs-valid-git");
+            string invalidGitPath = Path.Combine(Path.GetTempPath(), "beutl-runs-invalid-git");
             var probe = new ConfigurableGitInstallationProbe(validGitPath);
             var config = new VersionControlConfig
             {
@@ -2885,20 +2999,24 @@ public class VersionControlRestoreTests
                         : 0;
                     return new PullCycleTestBackend(candidate, session.Repository, MainTip)
                     {
-                        AvailabilityOverride = untrackedIndex == 3
-                            ? async cancellationToken =>
+                        AvailabilityOverride = untrackedIndex switch
+                        {
+                            2 => async cancellationToken =>
+                            {
+                                firstProbeStarted.TrySetResult();
+                                await releaseFirstProbe.Task.WaitAsync(cancellationToken);
+                                return GitAvailability.NotInstalled;
+                            }
+                            ,
+                            3 => async cancellationToken =>
                             {
                                 latestActivationStarted.TrySetResult();
                                 await releaseLatestActivation.Task.WaitAsync(cancellationToken);
                                 return await locator.LocateAsync(cancellationToken);
                             }
-                        : locator.LocateAsync,
-                        EnsureHygieneStarted = candidate is not null
-                            ? staleHygieneStarted
-                            : null,
-                        EnsureHygieneRelease = candidate is not null
-                            ? releaseStaleHygiene.Task
-                            : null,
+                            ,
+                            _ => locator.LocateAsync,
+                        },
                         InitializeStarted = untrackedIndex switch
                         {
                             2 => staleInitializationStarted,
@@ -2915,14 +3033,15 @@ public class VersionControlRestoreTests
                 coordinator.CurrentService is { Repository: null }
                 && !coordinator.IsGitAvailable.Value);
 
-            config.GitExecutablePath = validGitPath;
-            await staleHygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            config.GitExecutablePath = Path.Combine(Path.GetTempPath(), "beutl-runs-other-invalid-git");
+            await firstProbeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
                 TestShell.Project.CurrentProject.Value!);
             Assert.That(initialization.IsCompleted, Is.False);
 
             config.GitExecutablePath = invalidGitPath;
+            releaseFirstProbe.TrySetResult();
             Task firstActivation = await Task.WhenAny(
                     latestActivationStarted.Task,
                     staleInitializationStarted.Task)
@@ -2950,7 +3069,7 @@ public class VersionControlRestoreTests
         }
         finally
         {
-            releaseStaleHygiene.TrySetResult();
+            releaseFirstProbe.TrySetResult();
             releaseLatestActivation.TrySetResult();
             releaseStaleInitialization.TrySetResult();
         }
@@ -3532,108 +3651,22 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
-    public async Task Failed_stale_lock_removal_keeps_the_lock_visible_and_warns_with_its_path()
+    public async Task Stale_lock_warns_with_the_manual_removal_guidance()
     {
         using var notifications = new NotificationCapture();
         await using var session = await FakeVersionControlSession.CreateAsync(
-            "version-control-lock-manual-removal");
-        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
-        {
-            RemoveRecoverableLockResult = false,
-        };
+            "version-control-lock-manual-removal-only");
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
         VersionControlCoordinator coordinator = session.Start(
             GlobalConfiguration.Instance.VersionControlConfig,
             _ => backend);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-        coordinator.ConfirmRemoveStaleLockAsync = (_, _) => Task.FromResult(true);
         var lockInfo = new RepositoryLockInfo(
             Path.Combine(session.Root, ".git", "index.lock"),
             DateTimeOffset.UtcNow);
 
         backend.RaiseRecoverableLock(lockInfo);
         await WaitUntilAsync(() =>
-            backend.RemoveRecoverableLockCalls == 1
-            && notifications.All.Any(notification =>
-                notification.Type == NotificationType.Warning));
-
-        Notification warning = notifications.All.Single(notification =>
-            notification.Type == NotificationType.Warning);
-        Assert.Multiple(() =>
-        {
-            Assert.That(backend.RecoverableLock, Is.EqualTo(lockInfo));
-            Assert.That(warning.Message, Does.Contain(lockInfo.LockPath));
-        });
-    }
-
-    [AvaloniaTest]
-    public async Task Removable_stale_lock_is_removed_only_after_consent()
-    {
-        using var notifications = new NotificationCapture();
-        await using var session = await FakeVersionControlSession.CreateAsync(
-            "version-control-lock-removal-consent");
-        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
-        {
-            RemoveRecoverableLockResult = true,
-        };
-        VersionControlCoordinator coordinator = session.Start(
-            GlobalConfiguration.Instance.VersionControlConfig,
-            _ => backend);
-        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-        int confirmationCount = 0;
-        coordinator.ConfirmRemoveStaleLockAsync = (_, _) =>
-        {
-            Interlocked.Increment(ref confirmationCount);
-            return Task.FromResult(true);
-        };
-        var lockInfo = new RepositoryLockInfo(
-            Path.Combine(session.Root, ".git", "index.lock"),
-            DateTimeOffset.UtcNow,
-            requiresManualRemoval: false);
-
-        backend.RaiseRecoverableLock(lockInfo);
-        await WaitUntilAsync(() =>
-            notifications.All.Any(notification =>
-                notification.Message == Strings.VersionControl_StaleLockRemoved));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(Volatile.Read(ref confirmationCount), Is.EqualTo(1));
-            Assert.That(backend.RemoveRecoverableLockCalls, Is.EqualTo(1));
-            Assert.That(backend.RecoverableLock, Is.Null);
-            Assert.That(
-                notifications.All.Any(notification =>
-                    notification.Type == NotificationType.Warning),
-                Is.False);
-        });
-    }
-
-    [AvaloniaTest]
-    public async Task Stale_lock_requiring_manual_removal_warns_without_asking_for_consent()
-    {
-        using var notifications = new NotificationCapture();
-        await using var session = await FakeVersionControlSession.CreateAsync(
-            "version-control-lock-manual-removal-only");
-        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
-        {
-            RemoveRecoverableLockResult = true,
-        };
-        VersionControlCoordinator coordinator = session.Start(
-            GlobalConfiguration.Instance.VersionControlConfig,
-            _ => backend);
-        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-        int confirmationCount = 0;
-        coordinator.ConfirmRemoveStaleLockAsync = (_, _) =>
-        {
-            Interlocked.Increment(ref confirmationCount);
-            return Task.FromResult(true);
-        };
-        var lockInfo = new RepositoryLockInfo(
-            Path.Combine(session.Root, ".git", "index.lock"),
-            DateTimeOffset.UtcNow,
-            requiresManualRemoval: true);
-
-        backend.RaiseRecoverableLock(lockInfo);
-        await WaitUntilAsync(() =>
             notifications.All.Any(notification =>
                 notification.Type == NotificationType.Warning));
 
@@ -3641,8 +3674,6 @@ public class VersionControlRestoreTests
             notification.Type == NotificationType.Warning);
         Assert.Multiple(() =>
         {
-            Assert.That(Volatile.Read(ref confirmationCount), Is.Zero);
-            Assert.That(backend.RemoveRecoverableLockCalls, Is.Zero);
             Assert.That(backend.RecoverableLock, Is.SameAs(lockInfo));
             Assert.That(
                 warning.Message,
@@ -3650,96 +3681,6 @@ public class VersionControlRestoreTests
                     System.Globalization.CultureInfo.CurrentCulture,
                     Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
                     lockInfo.LockPath)));
-        });
-    }
-
-    [AvaloniaTest]
-    public async Task Stale_lock_confirmation_is_not_reused_for_an_equal_replacement_offer()
-    {
-        var confirmationStarted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseConfirmation = new TaskCompletionSource<bool>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        await using var session = await FakeVersionControlSession.CreateAsync(
-            "version-control-lock-offer-generation");
-
-        try
-        {
-            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
-            {
-                RemoveRecoverableLockResult = true,
-            };
-            VersionControlCoordinator coordinator = session.Start(
-                GlobalConfiguration.Instance.VersionControlConfig,
-                _ => backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-            int confirmationCount = 0;
-            coordinator.ConfirmRemoveStaleLockAsync = async (_, _) =>
-            {
-                if (Interlocked.Increment(ref confirmationCount) == 1)
-                {
-                    confirmationStarted.TrySetResult();
-                    return await releaseConfirmation.Task;
-                }
-
-                return false;
-            };
-            string lockPath = Path.Combine(session.Root, ".git", "index.lock");
-            DateTimeOffset timestamp = DateTimeOffset.UtcNow;
-            var firstOffer = new RepositoryLockInfo(lockPath, timestamp);
-            var replacementOffer = new RepositoryLockInfo(lockPath, timestamp);
-
-            backend.RaiseRecoverableLock(firstOffer);
-            await confirmationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            backend.RaiseRecoverableLock(replacementOffer);
-            releaseConfirmation.TrySetResult(true);
-            await WaitUntilAsync(() => Volatile.Read(ref confirmationCount) == 2);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(firstOffer.LockPath, Is.EqualTo(replacementOffer.LockPath));
-                Assert.That(
-                    firstOffer.LastWriteTimeUtc,
-                    Is.EqualTo(replacementOffer.LastWriteTimeUtc));
-                Assert.That(firstOffer, Is.Not.SameAs(replacementOffer));
-                Assert.That(backend.RecoverableLock, Is.SameAs(replacementOffer));
-                Assert.That(backend.RemoveRecoverableLockCalls, Is.Zero);
-            });
-        }
-        finally
-        {
-            releaseConfirmation.TrySetResult(false);
-        }
-    }
-
-    [AvaloniaTest]
-    public async Task Async_disposal_cancels_and_joins_an_active_lock_recovery_prompt()
-    {
-        var confirmation = new BlockingPrompt<bool>();
-        await using var session = await FakeVersionControlSession.CreateAsync(
-            "version-control-lock-recovery-disposal");
-        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
-        VersionControlCoordinator coordinator = session.Start(
-            GlobalConfiguration.Instance.VersionControlConfig,
-            _ => backend);
-        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-        coordinator.ConfirmRemoveStaleLockAsync = (_, cancellationToken) =>
-            confirmation.AnswerAsync(cancellationToken);
-
-        backend.RaiseRecoverableLock(new RepositoryLockInfo(
-            Path.Combine(session.Root, ".git", "index.lock"),
-            DateTimeOffset.UtcNow));
-        await confirmation.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-        Task disposal = coordinator.DisposeAsync().AsTask();
-        await disposal.WaitAsync(TimeSpan.FromSeconds(5));
-        await confirmation.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(backend.RemoveRecoverableLockCalls, Is.Zero);
-            Assert.That(coordinator.CurrentService, Is.Null);
-            Assert.That(session.EditorService.ProjectVersionControlService.Value, Is.Null);
         });
     }
 
@@ -7915,10 +7856,6 @@ public class VersionControlRestoreTests
 
         public int RetirementCalls => Volatile.Read(ref _retirementCalls);
 
-        public int RemoveRecoverableLockCalls { get; private set; }
-
-        public bool RemoveRecoverableLockResult { get; init; }
-
         public int CallsAfterRetirement { get; private set; }
 
         public void EnqueueBranchSnapshot(IReadOnlyList<BranchInfo> branches)
@@ -8224,21 +8161,6 @@ public class VersionControlRestoreTests
             {
                 _exclusiveGate.Release();
             }
-        }
-
-        public Task<bool> RemoveRecoverableLockAsync(
-            RepositoryLockInfo expectedLock,
-            CancellationToken cancellationToken)
-        {
-            RemoveRecoverableLockCalls++;
-            if (RemoveRecoverableLockResult
-                && ReferenceEquals(RecoverableLock, expectedLock))
-            {
-                RecoverableLock = null;
-                return Task.FromResult(true);
-            }
-
-            return Task.FromResult(false);
         }
 
         public Task<IReadOnlyList<CommitInfo>> GetHistoryAsync(

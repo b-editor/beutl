@@ -2,6 +2,7 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Beutl.Audio;
 using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
@@ -9,8 +10,6 @@ using Beutl.FFmpegIpc.Providers;
 using Beutl.FFmpegIpc.SharedMemory;
 using Beutl.FFmpegIpc.Transport;
 using Beutl.Media;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using static Beutl.FFmpegIpc.Tests.PipeTestHelpers;
 
 namespace Beutl.FFmpegIpc.Tests;
@@ -28,7 +27,7 @@ public class IpcProviderContractTests
     private const int Bgra8888BytesPerPixel = 4;
     // RgbaF16 stride: 4 channels * 2 bytes. Distinct from FrameDataLength, a whole 1x1 frame.
     private const int RgbaF16BytesPerPixel = 8;
-    // Stereo32BitFloat: 2 channels * 4 bytes.
+    // Interleaved stereo float: 2 channels * 4 bytes.
     private const int Stereo32BitFloatBytesPerSample = 8;
     private const long BufferCapacity = 4096;
 
@@ -490,7 +489,7 @@ public class IpcProviderContractTests
         // sampleCount 12 == 3 chunks of 4, so chunk 1's prefetch arms after chunk 0 and is not last.
         var provider = new IpcSampleProvider(host.Connection, host.Buffers, sampleCount: 12, sampleRate: sampleRate);
 
-        using (Pcm<Stereo32BitFloat> chunk0 = await provider.Sample(0, sampleRate))
+        using (AudioBuffer chunk0 = (await provider.ReadNextSamples((int)sampleRate))!)
             Assert.That(ReadSampleSignature(chunk0), Is.EqualTo(0L), "chunk 0 loads and arms the prefetch of chunk 1");
 
         await WaitUntil(() => provider.IsPrefetchFaultedForTest(),
@@ -528,13 +527,13 @@ public class IpcProviderContractTests
     }
 
     [Test]
-    public async Task Sample_AfterDispose_ThrowsObjectDisposedException()
+    public async Task ReadNextSamples_AfterDispose_ThrowsObjectDisposedException()
     {
         await using var host = new FakeHost(ServeSample);
         var provider = new IpcSampleProvider(host.Connection, host.Buffers, sampleCount: 4, sampleRate: 4);
 
         provider.Dispose();
-        Assert.That(async () => await provider.Sample(0, 4), Throws.TypeOf<ObjectDisposedException>());
+        Assert.That(async () => await provider.ReadNextSamples(4), Throws.TypeOf<ObjectDisposedException>());
     }
 
     [Test]
@@ -551,25 +550,26 @@ public class IpcProviderContractTests
     }
 
     [Test]
-    public async Task Sample_WhenHostCancelsWithFreshId_ThrowsOperationCanceled()
+    public async Task ReadNextSamples_WhenHostCancelsWithFreshId_ThrowsOperationCanceled()
     {
         // Regression mirror of the frame-side test: a CancelEncode minted with a fresh id mid-encode must
         // surface from the sample path as OperationCanceledException, not "Response ID mismatch".
         await using var host = new FakeHost(FreshIdCancelingHost());
         var provider = new IpcSampleProvider(host.Connection, host.Buffers, sampleCount: 48000, sampleRate: 48000);
 
-        Assert.That(async () => await provider.Sample(0, 1024),
+        Assert.That(async () => await provider.ReadNextSamples(1024),
             Throws.TypeOf<OperationCanceledException>(),
             "a CancelEncode with a fresh id must surface as a clean cancel, not 'Response ID mismatch'");
     }
 
     // ---- Sample-side host harness ----
 
-    // Reads the first sample (8 bytes) the provider returned, interpreted as the chunk-offset signature.
-    private static long ReadSampleSignature(Pcm<Stereo32BitFloat> pcm)
+    // Reads the first sample (left then right float) the provider returned, interpreted as the chunk-offset signature.
+    private static long ReadSampleSignature(AudioBuffer audio)
     {
         byte[] buf = new byte[Stereo32BitFloatBytesPerSample];
-        Marshal.Copy(pcm.Data, buf, 0, Stereo32BitFloatBytesPerSample);
+        BitConverter.TryWriteBytes(buf.AsSpan(0, 4), audio.GetChannelData(0)[0]);
+        BitConverter.TryWriteBytes(buf.AsSpan(4, 4), audio.GetChannelData(1)[0]);
         return BitConverter.ToInt64(buf);
     }
 
@@ -579,7 +579,7 @@ public class IpcProviderContractTests
     {
         var payload = request.GetPayload<RequestSampleMessage>()!;
         int numSamples = (int)payload.Length;
-        // Signature occupies the first 8 bytes (one Stereo32BitFloat sample); requires numSamples >= 1.
+        // Signature occupies the first 8 bytes (one interleaved stereo sample); requires numSamples >= 1.
         buffers[payload.BufferIndex].Write(BitConverter.GetBytes(payload.Offset));
 
         return IpcMessage.Create(request.Id, MessageType.ProvideSample, new ProvideSampleMessage
@@ -625,121 +625,56 @@ public class IpcProviderContractTests
         };
     }
 
-    // Always answers the request for a specific chunk offset with an error response (so that
-    // chunk's prefetch faults) and serves every other chunk normally.
-    private static HostResponse SampleErrorsOnOffsetHost(long erroringOffset)
-    {
-        return (request, buffers) => request.GetPayload<RequestSampleMessage>()!.Offset == erroringOffset
-            ? IpcMessage.CreateError(request.Id, "injected stale-prefetch failure")
-            : ServeSample(request, buffers);
-    }
-
-    [TestCase(8 * Stereo32BitFloatBytesPerSample)]   // oversized: would overrun the native Pcm
+    [TestCase(8 * Stereo32BitFloatBytesPerSample)]   // oversized: would overrun the chunk
     [TestCase(2 * Stereo32BitFloatBytesPerSample)]   // undersized vs NumSamples
-    public async Task Sample_WhenWorkerReportsMismatchedDataLength_Throws(int dataLength)
+    public async Task ReadNextSamples_WhenWorkerReportsMismatchedDataLength_Throws(int dataLength)
     {
-        // The Pcm capacity is NumSamples * 8. A DataLength that disagrees with NumSamples must be rejected
+        // The chunk holds NumSamples * 8 bytes. A DataLength that disagrees with NumSamples must be rejected
         // before the Read, not used as the copy length (which would over/under-run the native allocation).
         await using var host = new FakeHost(MalformedSampleHost(numSamples: 4, dataLength));
         var provider = new IpcSampleProvider(host.Connection, host.Buffers, sampleCount: 4, sampleRate: 4);
 
-        Assert.That(async () => await provider.Sample(0, 4),
+        Assert.That(async () => await provider.ReadNextSamples(4),
             Throws.TypeOf<InvalidOperationException>(),
             "a DataLength that does not match NumSamples * 8 must be rejected, not used as the copy length");
     }
 
     [Test]
-    public async Task Sample_WhenHostErrors_ThrowsFFmpegWorkerException()
+    public async Task ReadNextSamples_WhenHostErrors_ThrowsFFmpegWorkerException()
     {
         // An injected worker error must surface as FFmpegWorkerException (raised by SendAndReceiveAsync),
         // mirroring the frame-side guarantee — not be re-wrapped into InvalidOperationException.
         await using var host = new FakeHost(ErroringSampleHost());
         var provider = new IpcSampleProvider(host.Connection, host.Buffers, sampleCount: 4, sampleRate: 4);
 
-        Assert.That(async () => await provider.Sample(0, 4),
+        Assert.That(async () => await provider.ReadNextSamples(4),
             Throws.TypeOf<FFmpegWorkerException>(),
             "an injected worker error must surface as FFmpegWorkerException, not InvalidOperationException");
     }
 
     [Test]
-    public async Task Sample_WhenFreshSeekFails_PreviousCachedChunkRemainsUsable()
+    public async Task ReadNextSamples_WhenPrefetchFaults_RecoversOnRetry()
     {
-        const long sampleRate = 4;
-        await using var host = new FakeHost(SampleErrorsOnOffsetHost(erroringOffset: 2 * sampleRate));
-        var provider = new IpcSampleProvider(host.Connection, host.Buffers, sampleCount: 12, sampleRate: sampleRate);
-
-        try
-        {
-            using Pcm<Stereo32BitFloat> first = await provider.Sample(0, sampleRate);
-            Assert.That(ReadSampleSignature(first), Is.Zero);
-
-            Assert.That(async () => await provider.Sample(2 * sampleRate, sampleRate),
-                Throws.TypeOf<FFmpegWorkerException>());
-
-            using Pcm<Stereo32BitFloat> cached = await provider.Sample(0, sampleRate);
-            Assert.Multiple(() =>
-            {
-                Assert.That(cached.NumSamples, Is.EqualTo(first.NumSamples));
-                Assert.That(cached.DataSpan.ToArray(), Is.EqualTo(first.DataSpan.ToArray()),
-                    "A failed fresh seek must leave the previous cached samples available.");
-            });
-        }
-        finally
-        {
-            provider.Dispose();
-        }
-    }
-
-    [Test]
-    public async Task Sample_WhenPrefetchFaults_RecoversOnRetry()
-    {
-        // A faulted sample prefetch must not pin the provider. Consuming chunk 0 arms a prefetch of chunk 1
-        // (offset == sampleRate); the host faults it, so the Sample that hits chunk 1 throws — but a retry
-        // must issue a fresh request and recover instead of re-throwing the pinned faulted task forever.
+        // A faulted sample prefetch must not pin the provider: the read of chunk 1 throws, and a retry requests it afresh.
         const long sampleRate = 4;
         await using var host = new FakeHost(SamplePrefetchFaultsOnceHost(sampleRate));
         // sampleCount 12 == 3 chunks of 4, so chunk 1's prefetch arms after chunk 0 and chunk 1 is not last.
         var provider = new IpcSampleProvider(host.Connection, host.Buffers, sampleCount: 12, sampleRate: sampleRate);
 
-        using (Pcm<Stereo32BitFloat> chunk0 = await provider.Sample(0, sampleRate))
+        using (AudioBuffer chunk0 = (await provider.ReadNextSamples((int)sampleRate))!)
             Assert.That(ReadSampleSignature(chunk0), Is.EqualTo(0L), "chunk 0 loads and arms the prefetch of chunk 1");
 
-        Assert.That(async () => await provider.Sample(sampleRate, sampleRate),
+        Assert.That(async () => await provider.ReadNextSamples((int)sampleRate),
             Throws.TypeOf<FFmpegWorkerException>(),
-            "the faulted prefetch surfaces on the request that consumes chunk 1");
+            "the faulted prefetch surfaces on the read that consumes chunk 1");
 
-        using Pcm<Stereo32BitFloat> chunk1 = await provider.Sample(sampleRate, sampleRate);
+        using AudioBuffer chunk1 = (await provider.ReadNextSamples((int)sampleRate))!;
         Assert.That(ReadSampleSignature(chunk1), Is.EqualTo(sampleRate),
             "the retry recovers because the faulted prefetch was not pinned to the provider");
     }
 
     [Test]
-    public async Task Sample_SeekAfterPrefetchFaulted_DiscardsStaleErrorAndReturnsRequestedChunk()
-    {
-        // Consuming chunk 0 arms a prefetch of chunk 1 (offset == sampleRate), which the host faults with a
-        // worker error. A seek to chunk 3 (offset 3*sampleRate) must DRAIN that faulted stale prefetch,
-        // discard its error (it belongs to the discarded chunk 1), then issue a fresh RequestSample and
-        // return chunk 3 — not abort the seek by re-throwing the stale prefetch's FFmpegWorkerException.
-        const long sampleRate = 4;
-        await using var host = new FakeHost(SampleErrorsOnOffsetHost(erroringOffset: sampleRate));
-        // sampleCount 16 == 4 chunks of 4. Chunk 0 arms the prefetch of chunk 1; the seek target chunk 3
-        // (offset 12) is the last chunk, so loading it arms no further prefetch and nothing dangles.
-        var provider = new IpcSampleProvider(host.Connection, host.Buffers, sampleCount: 16, sampleRate: sampleRate);
-
-        using (Pcm<Stereo32BitFloat> chunk0 = await provider.Sample(0, sampleRate))
-            Assert.That(ReadSampleSignature(chunk0), Is.EqualTo(0L), "chunk 0 loads and arms the prefetch of chunk 1");
-
-        await WaitUntil(() => provider.IsPrefetchFaultedForTest(),
-            TimeSpan.FromSeconds(5), "the in-flight sample prefetch faults");
-
-        long seekOffset = 3 * sampleRate;
-        using Pcm<Stereo32BitFloat> chunk3 = await provider.Sample(seekOffset, sampleRate);
-        Assert.That(ReadSampleSignature(chunk3), Is.EqualTo(seekOffset),
-            "the seek discards the faulted stale prefetch's worker error and returns the freshly requested chunk 3");
-    }
-
-    [Test]
-    public async Task Sample_WhenRequestStraddlesEof_ReturnsRequestedLengthWithSilenceTail()
+    public async Task ReadNextSamples_WhenRequestStraddlesEof_ReturnsRequestedLengthWithSilenceTail()
     {
         // Regression test: like SampleProviderImpl, a request straddling a chunk-aligned EOF returns the requested
         // length with the past-EOF tail silent, so the encoder's fixed-size final frame holds no stale samples.
@@ -748,47 +683,54 @@ public class IpcProviderContractTests
         var provider = new IpcSampleProvider(host.Connection, host.Buffers, sampleCount: 8, sampleRate: sampleRate);
 
         // offset 4 (chunk-aligned), length 6 -> only 4 samples remain (4..8); the last 2 must be silent.
-        Pcm<Stereo32BitFloat> result = null!;
-        Assert.That(async () => result = await provider.Sample(4, 6), Throws.Nothing,
+        using (await provider.ReadNextSamples(4))
+        {
+        }
+
+        AudioBuffer result = null!;
+        Assert.That(async () => result = (await provider.ReadNextSamples(6))!, Throws.Nothing,
             "a request straddling EOF must zero-pad, not throw ArgumentOutOfRangeException");
+        Assert.That(await provider.ReadNextSamples(4), Is.Null, "every sample was read");
 
         using (result)
         {
-            Assert.That(result.NumSamples, Is.EqualTo(6),
-                "Sample must return the requested length (zero-padded), not a clamped Pcm");
+            Assert.That(result.SampleCount, Is.EqualTo(6),
+                "ReadNextSamples must return the requested length (zero-padded), not a clamped buffer");
             Assert.That(ReadSampleSignature(result), Is.EqualTo(4),
                 "the real prefix is preserved (chunk-4 signature lands at sample 0)");
 
             // The 2 samples past SampleCount (indices 4,5) must be zero-filled silence, not stale data.
-            byte[] all = new byte[result.NumSamples * Stereo32BitFloatBytesPerSample];
-            Marshal.Copy(result.Data, all, 0, all.Length);
-            byte[] tail = all[(4 * Stereo32BitFloatBytesPerSample)..];
-            Assert.That(tail, Has.All.EqualTo((byte)0),
+            float[] tail = [.. result.GetChannelData(0)[4..].ToArray(), .. result.GetChannelData(1)[4..].ToArray()];
+            Assert.That(tail, Has.All.EqualTo(0f),
                 "samples past the timeline end must be silence, not stale frame data");
         }
     }
 
     [Test]
-    public async Task Sample_WhenSecondChunkLoadFaultsMidSplit_DisposesSplitBufferAndDoesNotLeak()
+    public async Task ReadNextSamples_WhenSecondChunkLoadFaultsMidSplit_DisposesSplitBufferAndDoesNotLeak()
     {
         // A cross-chunk read allocates its result before loading the second chunk; when that load faults, as an
         // IPC error or cancellation mid-encode does, the result must be disposed rather than leaked.
         const long sampleRate = 4;
         await using var host = new FakeHost(SamplePrefetchFaultsOnceHost(sampleRate));
-        // sampleCount 12 == 3 chunks of 4; offset 2 + length 4 straddles the chunk 0/1 boundary.
+        // sampleCount 12 == 3 chunks of 4; after 2 samples, a read of 4 straddles the chunk 0/1 boundary.
         var provider = new IpcSampleProvider(host.Connection, host.Buffers, sampleCount: 12, sampleRate: sampleRate);
-        Pcm<Stereo32BitFloat>? splitBuffer = null;
-        provider.CrossChunkSplitAllocatedForTest = pcm => splitBuffer = pcm;
+        AudioBuffer? splitBuffer = null;
+        provider.CrossChunkSplitAllocatedForTest = audio => splitBuffer = audio;
 
         try
         {
-            Assert.That(async () => await provider.Sample(2, 4),
+            using (await provider.ReadNextSamples(2))
+            {
+            }
+
+            Assert.That(async () => await provider.ReadNextSamples(4),
                 Throws.TypeOf<FFmpegWorkerException>(),
                 "the second chunk load faults mid-split, surfacing the worker error");
 
             Assert.That(splitBuffer, Is.Not.Null,
                 "the cross-chunk split path allocated result2 before the faulting second load");
-            Assert.That(splitBuffer!.IsDisposed, Is.True,
+            Assert.That(() => splitBuffer!.Clear(), Throws.TypeOf<ObjectDisposedException>(),
                 "result2 must be disposed on a mid-split fault so its native buffer is not leaked");
         }
         finally

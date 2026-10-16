@@ -1,7 +1,5 @@
 ﻿using System;
 using Beutl.Graphics.Rendering;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 
 namespace Beutl.Audio.Graph.Nodes;
@@ -51,24 +49,16 @@ public sealed class SourceNode : AudioNode
 
         try
         {
-            if (resource.Read((int)start, (int)length, out var pcmRef))
+            if (resource.Read((int)start, (int)length, out AudioBuffer? audio))
             {
-                using (pcmRef)
+                using (audio)
                 {
-                    var pcm = pcmRef.Value;
-                    if (pcm is Pcm<Stereo32BitFloat> stereoPcm)
-                    {
-                        CopyPcmToBuffer(stereoPcm, buffer);
-                    }
-                    else if (pcm is Pcm<Monaural32BitFloat> monoPcm)
-                    {
-                        CopyMonoToStereoBuffer(monoPcm, buffer);
-                    }
-                    else
-                    {
-                        using var convertedPcm = pcm.Convert<Stereo32BitFloat>();
-                        CopyPcmToBuffer(convertedPcm, buffer);
-                    }
+                    int copyLength = Math.Min(audio.SampleCount, buffer.SampleCount);
+                    Span<float> left = audio.GetChannelData(0)[..copyLength];
+                    // A mono decoder output plays on both sides.
+                    Span<float> right = audio.ChannelCount > 1 ? audio.GetChannelData(1)[..copyLength] : left;
+                    left.CopyTo(buffer.GetChannelData(0));
+                    right.CopyTo(buffer.GetChannelData(1));
                 }
             }
 
@@ -80,36 +70,5 @@ public sealed class SourceNode : AudioNode
             buffer.Dispose();
             throw;
         }
-    }
-
-    private static unsafe void CopyPcmToBuffer(Pcm<Stereo32BitFloat> pcm, AudioBuffer buffer)
-    {
-        var srcPtr = (Stereo32BitFloat*)pcm.Data;
-        var leftChannel = buffer.GetChannelData(0);
-        var rightChannel = buffer.GetChannelData(1);
-
-        var copyLength = System.Math.Min(pcm.NumSamples, buffer.SampleCount);
-
-        for (int i = 0; i < copyLength; i++)
-        {
-            leftChannel[i] = srcPtr[i].Left;
-            rightChannel[i] = srcPtr[i].Right;
-        }
-    }
-
-    private static unsafe void CopyMonoToStereoBuffer(Pcm<Monaural32BitFloat> pcm, AudioBuffer buffer)
-    {
-        var srcPtr = (Monaural32BitFloat*)pcm.Data;
-        var leftChannel = buffer.GetChannelData(0);
-
-        var copyLength = System.Math.Min(pcm.NumSamples, buffer.SampleCount);
-
-        for (int i = 0; i < copyLength; i++)
-        {
-            leftChannel[i] = srcPtr[i].Value;
-        }
-
-        var rightChannel = buffer.GetChannelData(1);
-        leftChannel.CopyTo(rightChannel);
     }
 }

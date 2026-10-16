@@ -1,11 +1,10 @@
 ﻿using System.Reactive.Subjects;
 using System.Threading.Channels;
+using Beutl.Audio;
 using Beutl.Audio.Composing;
 using Beutl.Configuration;
 using Beutl.Extensibility;
 using Beutl.Logging;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
 
@@ -18,11 +17,13 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
     private readonly SceneComposer _composer;
     private readonly long _sampleRate;
     private readonly Subject<TimeSpan> _progress;
-    private readonly Channel<(long Offset, Pcm<Stereo32BitFloat> Pcm)> _channel;
+    private readonly long _sampleCount;
+    private readonly Channel<AudioBuffer> _channel;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _producerTask;
-    private Pcm<Stereo32BitFloat>? _lastChunk;
-    private long _lastOffset;
+    private AudioBuffer? _chunk;
+    private int _chunkPosition;
+    private long _nextSample;
     private readonly int _chunkSize;
     private bool _disposed;
 
@@ -33,9 +34,11 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
         _sampleRate = sampleRate;
         _progress = progress;
         _chunkSize = (int)sampleRate;
+        // Fixed at the start, so a duration edited during the export cannot end the samples early.
+        _sampleCount = FrameProviderImpl.ToFrameCount(scene.Duration, new Rational(sampleRate));
 
         int bufferSize = Preferences.Default.Get("Output.SampleBufferSize", 3);
-        _channel = Channel.CreateBounded<(long Offset, Pcm<Stereo32BitFloat> Pcm)>(
+        _channel = Channel.CreateBounded<AudioBuffer>(
             new BoundedChannelOptions(bufferSize)
             {
                 FullMode = BoundedChannelFullMode.Wait,
@@ -46,88 +49,75 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
         _producerTask = Task.Run(ComposeSamplesAsync, _cts.Token);
     }
 
-    public long SampleCount => FrameProviderImpl.ToFrameCount(_scene.Duration, new Rational(_sampleRate));
+    public long SampleCount => _sampleCount;
 
     public long SampleRate => _sampleRate;
 
-    public async ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
+    public async ValueTask<AudioBuffer?> ReadNextSamples(int length)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        long offset = _nextSample;
+        if (offset >= _sampleCount)
+            return null;
 
-        _progress.OnNext(TimeSpan.FromTicks(TimeSpan.TicksPerSecond * Math.Min(offset + length, SampleCount) / _sampleRate));
+        _progress.OnNext(TimeSpan.FromTicks(TimeSpan.TicksPerSecond * Math.Min(offset + length, _sampleCount) / _sampleRate));
 
-        int lengthInt = (int)length;
-        var pcm = new Pcm<Stereo32BitFloat>((int)_sampleRate, lengthInt);
-        int written = 0;
-
-        while (written < lengthInt)
+        // Past the end the samples stay zero.
+        var audio = new AudioBuffer((int)_sampleRate, 2, length);
+        int available = (int)Math.Min(length, _sampleCount - offset);
+        try
         {
-            long currentOffset = offset + written;
-            long chunkOffset = currentOffset - currentOffset % _chunkSize;
-            Pcm<Stereo32BitFloat> chunk = await GetChunk(chunkOffset);
-
-            if (_lastOffset != chunkOffset)
+            for (int written = 0; written < available;)
             {
-                _lastChunk?.Dispose();
-                _lastChunk = chunk;
-                _lastOffset = chunkOffset;
-            }
-            else
-            {
-                _lastChunk = chunk;
-            }
-
-            int startInChunk = (int)(currentOffset - chunkOffset);
-            var srcSpan = chunk.DataSpan[startInChunk..];
-            int copyLength = Math.Min(lengthInt - written, srcSpan.Length);
-            if (copyLength <= 0)
-                break;
-
-            srcSpan[..copyLength].CopyTo(pcm.DataSpan[written..]);
-            written += copyLength;
-        }
-
-        return pcm;
-    }
-
-    private async ValueTask<Pcm<Stereo32BitFloat>> GetChunk(long chunkOffset)
-    {
-        if (_lastChunk != null && _lastOffset == chunkOffset)
-        {
-            return _lastChunk;
-        }
-
-        while (await _channel.Reader.WaitToReadAsync(_cts.Token))
-        {
-            if (_channel.Reader.TryRead(out var item))
-            {
-                if (item.Offset == chunkOffset)
+                if (_chunk == null || _chunkPosition == _chunk.SampleCount)
                 {
-                    return item.Pcm;
+                    AudioBuffer next = await ReadChunk();
+                    _chunk?.Dispose();
+                    _chunk = next;
+                    _chunkPosition = 0;
                 }
 
-                item.Pcm.Dispose();
-                _logger.LogWarning(
-                    "Sample chunks are expected to be requested sequentially, but received offset {ReceivedOffset} while waiting for {ChunkOffset}. Falling back to on-demand composition.",
-                    item.Offset, chunkOffset);
-                return await ComposeChunk(chunkOffset, _cts.Token);
+                int copyLength = Math.Min(available - written, _chunk.SampleCount - _chunkPosition);
+                for (int channel = 0; channel < 2; channel++)
+                {
+                    _chunk.GetChannelData(channel).Slice(_chunkPosition, copyLength)
+                        .CopyTo(audio.GetChannelData(channel)[written..]);
+                }
+
+                _chunkPosition += copyLength;
+                written += copyLength;
             }
         }
+        catch
+        {
+            audio.Dispose();
+            throw;
+        }
 
-        _logger.LogWarning(
-            "Requested chunk at offset {ChunkOffset} is not available in the channel (producer already finished or skipped). Falling back to on-demand composition.",
-            chunkOffset);
-        return await ComposeChunk(chunkOffset, _cts.Token);
+        _nextSample = offset + length;
+        return audio;
+    }
+
+    private async ValueTask<AudioBuffer> ReadChunk()
+    {
+        // WaitToReadAsync rethrows the producer's own error, which the export reports.
+        while (await _channel.Reader.WaitToReadAsync(_cts.Token))
+        {
+            if (_channel.Reader.TryRead(out AudioBuffer? chunk))
+                return chunk;
+        }
+
+        throw new InvalidOperationException($"Composing stopped before sample {_nextSample}.");
     }
 
     private async Task ComposeSamplesAsync()
     {
         try
         {
-            for (long offset = 0; offset < SampleCount && !_cts.Token.IsCancellationRequested; offset += _chunkSize)
+            for (long offset = 0; offset < _sampleCount && !_cts.Token.IsCancellationRequested; offset += _chunkSize)
             {
-                var pcm = await ComposeChunk(offset, _cts.Token);
-                await _channel.Writer.WriteAsync((offset, pcm), _cts.Token);
+                var chunk = await ComposeChunk(offset, _cts.Token);
+                await _channel.Writer.WriteAsync(chunk, _cts.Token);
             }
         }
         catch (OperationCanceledException)
@@ -144,7 +134,7 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
         _channel.Writer.TryComplete();
     }
 
-    private async ValueTask<Pcm<Stereo32BitFloat>> ComposeChunk(long offset, CancellationToken cancellationToken)
+    private async ValueTask<AudioBuffer> ComposeChunk(long offset, CancellationToken cancellationToken)
     {
         int length = (int)Math.Min(_chunkSize, SampleCount - offset);
 
@@ -158,21 +148,20 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
         }
     }
 
-    private Pcm<Stereo32BitFloat> ComposeCore(long offset, int length)
+    private AudioBuffer ComposeCore(long offset, int length)
     {
-        using var buffer = _composer.Compose(new(TimeSpan.FromTicks(TimeSpan.TicksPerSecond * offset / _sampleRate) + _scene.Start,
+        AudioBuffer buffer = _composer.Compose(new(TimeSpan.FromTicks(TimeSpan.TicksPerSecond * offset / _sampleRate) + _scene.Start,
             TimeSpan.FromSeconds(1)))
                      ?? throw new InvalidOperationException("composer.Composeがnullを返しました。");
-        var pcm = buffer.ToPcm();
-        if (pcm.NumSamples != length)
-        {
-            var trimmed = new Pcm<Stereo32BitFloat>((int)_sampleRate, length);
-            pcm.DataSpan[..length].CopyTo(trimmed.DataSpan);
-            pcm.Dispose();
-            pcm = trimmed;
-        }
+        if (buffer.SampleCount == length)
+            return buffer;
 
-        return pcm;
+        using (buffer)
+        {
+            var trimmed = new AudioBuffer(buffer.SampleRate, buffer.ChannelCount, length);
+            buffer.CopyTo(trimmed, 0, length);
+            return trimmed;
+        }
     }
 
     public void Dispose()
@@ -192,12 +181,12 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
             }
         }
 
-        while (_channel.Reader.TryRead(out var item))
+        while (_channel.Reader.TryRead(out AudioBuffer? chunk))
         {
-            item.Pcm.Dispose();
+            chunk.Dispose();
         }
 
-        _lastChunk?.Dispose();
+        _chunk?.Dispose();
         _cts.Dispose();
     }
 }

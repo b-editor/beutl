@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.ExceptionServices;
+using Beutl.Audio;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.SharedMemory;
@@ -7,8 +8,6 @@ using Beutl.FFmpegIpc.Transport;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using Microsoft.Extensions.Logging;
 
@@ -234,7 +233,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         }
     }
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
     {
         try
         {
@@ -279,7 +278,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         }
     }
 
-    private unsafe bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    private unsafe bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
     {
         var request = new ReadAudioRequest { ReaderId = _readerId, Start = start, Length = length };
         var response = Request<ReadAudioRequest, ReadAudioResponse>(
@@ -293,25 +292,25 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
 
         EnsureAudioBuffer(response.DataLength);
 
-        // ゼロコピー: 共有メモリを直接ポインタで参照するPcmを作成
+        // Copied out, because the worker reuses the shared memory for the next read.
         var buffer = _audioBuffer!;
         byte* ptr = buffer.AcquirePointer();
         try
         {
-            var pcm = new Pcm<Stereo32BitFloat>(response.SampleRate, response.NumSamples, (IntPtr)ptr);
-            sound = Ref<IPcm>.Create(pcm, onRelease: buffer.ReleasePointer);
+            var audio = new AudioBuffer(response.SampleRate, 2, response.NumSamples);
+            AudioConversion.Deinterleave(new ReadOnlySpan<float>(ptr, response.NumSamples * 2), audio);
+            sound = audio;
             return true;
         }
-        catch
+        finally
         {
             buffer.ReleasePointer();
-            throw;
         }
     }
 
-    private bool ReadAudioChunked(int start, int length, int chunkSize, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    private bool ReadAudioChunked(int start, int length, int chunkSize, [NotNullWhen(true)] out AudioBuffer? sound)
     {
-        var scratch = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
+        var scratch = new AudioBuffer(AudioInfo.SampleRate, 2, length);
         try
         {
             int offset = 0;
@@ -319,7 +318,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
             {
                 int currentChunk = Math.Min(chunkSize, length - offset);
 
-                if (!ReadAudioCore(start + offset, currentChunk, out Ref<IPcm>? chunkRef))
+                if (!ReadAudioCore(start + offset, currentChunk, out AudioBuffer? chunk))
                 {
                     // A genuine failure (IPC error / disposed) aborts the whole request.
                     scratch.Dispose();
@@ -327,31 +326,31 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
                     return false;
                 }
 
-                using (chunkRef)
+                using (chunk)
                 {
-                    var chunk = (Pcm<Stereo32BitFloat>)chunkRef.Value;
-                    // NumSamples == 0 is the ReadAudio end-of-stream signal: stop without advancing
+                    // SampleCount == 0 is the ReadAudio end-of-stream signal: stop without advancing
                     // offset and report exactly the frames decoded so far.
-                    if (chunk.NumSamples == 0)
+                    if (chunk.SampleCount == 0)
                         break;
 
-                    chunk.DataSpan.CopyTo(scratch.DataSpan.Slice(offset, chunk.NumSamples));
-                    offset += chunk.NumSamples;
+                    chunk.GetChannelData(0).CopyTo(scratch.GetChannelData(0)[offset..]);
+                    chunk.GetChannelData(1).CopyTo(scratch.GetChannelData(1)[offset..]);
+                    offset += chunk.SampleCount;
                 }
             }
 
             if (offset == length)
             {
-                sound = Ref<IPcm>.Create(scratch);
+                sound = scratch;
             }
             else
             {
                 // Trim the trailing over-allocation so callers see the real decoded length
-                // (NumSamples == offset), not a zero-filled tail.
-                var trimmed = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, offset);
-                scratch.DataSpan.Slice(0, offset).CopyTo(trimmed.DataSpan);
+                // (SampleCount == offset), not a zero-filled tail.
+                var trimmed = new AudioBuffer(AudioInfo.SampleRate, 2, offset);
+                scratch.CopyTo(trimmed, 0, offset);
                 scratch.Dispose();
-                sound = Ref<IPcm>.Create(trimmed);
+                sound = trimmed;
             }
             return true;
         }

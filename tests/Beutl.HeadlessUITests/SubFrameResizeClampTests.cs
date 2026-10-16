@@ -8,8 +8,6 @@ using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
@@ -255,12 +253,12 @@ public class SubFrameResizeClampTests
             return false;
         }
 
-        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
         {
             // Report end-of-stream with an empty buffer instead of a decode failure (false signals
             // an unrecoverable error): HasAudio stays truthful while sample consumers see silence,
             // matching SampleProviderReader's empty-result pattern.
-            sound = Ref<IPcm>.Create(new Pcm<Stereo32BitFloat>(_audioInfo.SampleRate, 0));
+            sound = new AudioBuffer(_audioInfo.SampleRate, 2, 0);
             return true;
         }
     }

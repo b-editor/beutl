@@ -43,6 +43,24 @@ public class XAudioLifetimeTests
     }
 
     [Test]
+    public unsafe void Buffer_BufferDataFromAnAudioBuffer_HoldsInterleavedFloats()
+    {
+        using var audio = new Beutl.Audio.AudioBuffer(48000, 2, 2);
+        audio.GetChannelData(0)[1] = 0.5f;
+        audio.GetChannelData(1)[1] = -0.5f;
+        using var buffer = new XAudioBuffer();
+
+        buffer.BufferData(audio);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(new ReadOnlySpan<float>((void*)buffer.Buffer.AudioDataPointer, 4).ToArray(),
+                Is.EqualTo(new[] { 0f, 0f, 0.5f, -0.5f }));
+            Assert.That(buffer.Format!.SampleRate, Is.EqualTo(48000));
+        });
+    }
+
+    [Test]
     public void Buffer_BufferDataAfterDispose_Throws()
     {
         var buffer = new XAudioBuffer();

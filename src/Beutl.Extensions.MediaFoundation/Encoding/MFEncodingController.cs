@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using Beutl.Audio;
 using Beutl.Extensibility;
 using Beutl.IO;
 using Beutl.Media;
@@ -98,12 +99,12 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
             else
             {
                 int length = (int)Math.Min(AudioBlockSize, sampleCount - sample);
-                using var pcm = await samples.Sample(sample, length);
+                using var audio = await samples.ReadNextSamples(length);
                 cancellationToken.ThrowIfCancellationRequested();
-                if (pcm.NumSamples != length || pcm.SampleRate != samples.SampleRate)
+                if (audio is null || audio.SampleCount != length || audio.SampleRate != samples.SampleRate)
                     throw new InvalidOperationException("The audio provider returned an unexpected sample count or sample rate.");
 
-                WriteSample(writer, audioStream, pcm.Data, checked(length * 2 * sizeof(float)), audioTime,
+                WriteSample(writer, audioStream, audio, audioTime,
                     GetTimestamp(sample + length, samples.SampleRate) - audioTime);
                 sample += length;
             }
@@ -329,13 +330,14 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         WriteSample(writer, stream, buffer, time, duration);
     }
 
-    private static unsafe void WriteSample(IMFSinkWriter writer, int stream, nint data, int length, long time, long duration)
+    private static unsafe void WriteSample(IMFSinkWriter writer, int stream, AudioBuffer audio, long time, long duration)
     {
+        int length = checked(audio.SampleCount * 2 * sizeof(float));
         using var buffer = MediaFactory.MFCreateMemoryBuffer(length);
         buffer.Lock(out nint destination, out _, out _);
         try
         {
-            Buffer.MemoryCopy((void*)data, (void*)destination, length, length);
+            AudioConversion.Interleave(audio, new Span<float>((void*)destination, audio.SampleCount * 2));
         }
         finally
         {

@@ -1,12 +1,11 @@
-﻿using Beutl.Extensibility;
+﻿using Beutl.Audio;
+using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Decoding;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 
@@ -145,9 +144,9 @@ public sealed class FFmpegEncodingScaleTests
 
         public long SampleRate => 44100;
 
-        public ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
+        public ValueTask<AudioBuffer?> ReadNextSamples(int length)
         {
-            return ValueTask.FromResult(new Pcm<Stereo32BitFloat>((int)SampleRate, (int)Math.Max(0, length)));
+            return ValueTask.FromResult<AudioBuffer?>(null);
         }
 
         public void Dispose()

@@ -1,9 +1,8 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using Beutl.Audio;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 using Beutl.Serialization;
@@ -179,7 +178,7 @@ internal sealed class TestMediaReader : MediaReader
         return true;
     }
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
     {
         sound = null;
         return false;
@@ -217,7 +216,7 @@ internal sealed class TestAudioReader : MediaReader
         return false;
     }
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
     {
         if (length <= 0)
         {
@@ -226,18 +225,20 @@ internal sealed class TestAudioReader : MediaReader
         }
 
         int rate = _audioInfo.SampleRate;
-        var pcm = new Pcm<Stereo32BitFloat>(rate, length);
-        Span<Stereo32BitFloat> data = pcm.DataSpan;
+        var audio = new AudioBuffer(rate, 2, length);
+        Span<float> left = audio.GetChannelData(0);
+        Span<float> right = audio.GetChannelData(1);
         const float freq = 440f;
         for (int i = 0; i < length; i++)
         {
             // start may be negative (window centred before t=0); emit a continuous tone regardless.
             long n = (long)start + i;
             float v = 0.5f * MathF.Sin(2f * MathF.PI * freq * n / rate);
-            data[i] = new Stereo32BitFloat(v, v);
+            left[i] = v;
+            right[i] = v;
         }
 
-        sound = Ref<IPcm>.Create(pcm);
+        sound = audio;
         return true;
     }
 }

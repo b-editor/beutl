@@ -317,6 +317,12 @@ public partial class PackageInstaller
                 shutdownFallback?.Invoke();
             proxy.TrySetCanceled(ex.CancellationToken);
         }
+        catch (PackageApiMismatchException ex)
+        {
+            // A retry at the next launch would fail the same check.
+            shutdownFallback?.Disarm();
+            proxy.TrySetException(ex);
+        }
         catch (Exception ex)
         {
             // Propagate the failure so the caller reports it and queues fallback.

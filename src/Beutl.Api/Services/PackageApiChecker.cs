@@ -8,6 +8,10 @@ internal enum PackageApiProblemKind
 {
     MissingAssembly,
     MissingType,
+    MissingMethod,
+    MissingField,
+    UnimplementedMethod,
+    SealedBaseType,
 }
 
 // An API that a package references and the host does not offer. Assembly is the host assembly that should have it.
@@ -15,20 +19,24 @@ internal sealed record PackageApiProblem(PackageApiProblemKind Kind, string Asse
 
 // Lists the APIs that a package's assemblies reference and the host lacks, read with System.Reflection.Metadata so
 // nothing is loaded. A type the package may not access counts as missing; InternalsVisibleTo grants access.
-internal sealed class PackageApiChecker : IDisposable
+internal sealed partial class PackageApiChecker : IDisposable
 {
     private const int MaxForwarderDepth = 32;
 
     private readonly Dictionary<string, string?> _hostAssemblies;
     private readonly Dictionary<string, HostModule?> _modules = new(StringComparer.OrdinalIgnoreCase);
+    // The package's own assemblies, indexed like the host's so that a base type walk can pass through them.
+    private readonly Dictionary<string, HostModule> _packageModules = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<(MetadataReader, TypeReferenceHandle), TypeLookup> _lookups = [];
     private readonly List<PEReader> _peReaders = [];
     private readonly HashSet<PackageApiProblem> _problems = [];
+    private readonly SignatureProvider _provider;
 
     private PackageApiChecker(IReadOnlyDictionary<string, string?> hostAssemblies)
     {
         // The runtime binds assembly names case-insensitively.
         _hostAssemblies = new(hostAssemblies, StringComparer.OrdinalIgnoreCase);
+        _provider = new SignatureProvider(this);
     }
 
     private enum LookupState
@@ -37,6 +45,7 @@ internal sealed class PackageApiChecker : IDisposable
         Found,
         MissingType,
         MissingAssembly,
+        Package,
     }
 
     // hostAssemblies maps a host assembly's simple name to its file, or to null if missing; other names go unchecked.
@@ -45,12 +54,16 @@ internal sealed class PackageApiChecker : IDisposable
         IReadOnlyDictionary<string, string?> hostAssemblies)
     {
         using var checker = new PackageApiChecker(hostAssemblies);
-        foreach (string path in packageAssemblies)
+        MetadataReader[] readers = [.. packageAssemblies.Select(checker.Open).OfType<MetadataReader>().Where(reader => reader.IsAssembly)];
+        foreach (MetadataReader reader in readers)
         {
-            if (checker.Open(path) is { IsAssembly: true } reader)
-            {
-                checker.CheckReferences(reader);
-            }
+            HostModule module = Index(reader);
+            checker._packageModules[module.Name] = module;
+        }
+
+        foreach (MetadataReader reader in readers)
+        {
+            checker.CheckReferences(reader);
         }
 
         return
@@ -95,6 +108,9 @@ internal sealed class PackageApiChecker : IDisposable
                 _problems.Add(new(PackageApiProblemKind.MissingType, type.Assembly, type.FullName));
             }
         }
+
+        CheckMembers(reader, name, publicKey);
+        CheckOverrides(reader, name, publicKey);
     }
 
     private TypeLookup Resolve(MetadataReader reader, TypeReferenceHandle handle)
@@ -112,11 +128,11 @@ internal sealed class PackageApiChecker : IDisposable
             TypeLookup outer = Resolve(reader, (TypeReferenceHandle)scope);
             string name = reader.GetString(reference.Name);
             lookup = outer with { FullName = $"{outer.FullName}+{name}" };
-            if (outer.State == LookupState.Found)
+            if (outer.State is LookupState.Found or LookupState.Package)
             {
-                MetadataReader hostReader = outer.Module!.Reader;
+                MetadataReader outerReader = outer.Module!.Reader;
                 TypeDefinitionHandle nested = outer.Definition.GetNestedTypes()
-                    .FirstOrDefault(candidate => hostReader.StringComparer.Equals(hostReader.GetTypeDefinition(candidate).Name, name));
+                    .FirstOrDefault(candidate => outerReader.StringComparer.Equals(outerReader.GetTypeDefinition(candidate).Name, name));
                 lookup = nested.IsNil ? lookup with { State = LookupState.MissingType } : lookup with { Handle = nested };
             }
         }
@@ -137,6 +153,13 @@ internal sealed class PackageApiChecker : IDisposable
 
     private TypeLookup Find(string assembly, string fullName, int depth)
     {
+        if (_packageModules.TryGetValue(assembly, out HostModule? package))
+        {
+            return package.Types.TryGetValue(fullName, out TypeDefinitionHandle own)
+                ? new(LookupState.Package, package.Name, fullName, package, own)
+                : new(LookupState.NotHost, assembly, fullName);
+        }
+
         if (!_hostAssemblies.ContainsKey(assembly))
         {
             return new(LookupState.NotHost, assembly, fullName);
@@ -166,28 +189,35 @@ internal sealed class PackageApiChecker : IDisposable
 
         if (_hostAssemblies[assembly] is { } path && File.Exists(path) && Open(path) is { IsAssembly: true } reader)
         {
-            module = new HostModule(reader.GetString(reader.GetAssemblyDefinition().Name), reader);
-            foreach (TypeDefinitionHandle handle in reader.TypeDefinitions)
-            {
-                TypeDefinition type = reader.GetTypeDefinition(handle);
-                if (type.GetDeclaringType().IsNil)
-                {
-                    module.Types[FullName(reader, type.Namespace, type.Name)] = handle;
-                }
-            }
-
-            foreach (ExportedTypeHandle handle in reader.ExportedTypes)
-            {
-                ExportedType type = reader.GetExportedType(handle);
-                if (type.IsForwarder && type.Implementation.Kind == HandleKind.AssemblyReference)
-                {
-                    AssemblyReference target = reader.GetAssemblyReference((AssemblyReferenceHandle)type.Implementation);
-                    module.Forwarders[FullName(reader, type.Namespace, type.Name)] = reader.GetString(target.Name);
-                }
-            }
+            module = Index(reader);
         }
 
         _modules[assembly] = module;
+        return module;
+    }
+
+    private static HostModule Index(MetadataReader reader)
+    {
+        var module = new HostModule(reader.GetString(reader.GetAssemblyDefinition().Name), reader);
+        foreach (TypeDefinitionHandle handle in reader.TypeDefinitions)
+        {
+            TypeDefinition type = reader.GetTypeDefinition(handle);
+            if (type.GetDeclaringType().IsNil)
+            {
+                module.Types[FullName(reader, type.Namespace, type.Name)] = handle;
+            }
+        }
+
+        foreach (ExportedTypeHandle handle in reader.ExportedTypes)
+        {
+            ExportedType type = reader.GetExportedType(handle);
+            if (type.IsForwarder && type.Implementation.Kind == HandleKind.AssemblyReference)
+            {
+                AssemblyReference target = reader.GetAssemblyReference((AssemblyReferenceHandle)type.Implementation);
+                module.Forwarders[FullName(reader, type.Namespace, type.Name)] = reader.GetString(target.Name);
+            }
+        }
+
         return module;
     }
 
@@ -270,7 +300,7 @@ internal sealed class PackageApiChecker : IDisposable
         }
     }
 
-    // Where a type reference binds. Module and Handle are set when it binds to a host type definition.
+    // Where a type reference binds. Module and Handle are set when it binds to a type definition of the host or the package.
     private readonly record struct TypeLookup(
         LookupState State,
         string Assembly,

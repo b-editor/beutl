@@ -43,9 +43,9 @@ public sealed class ExportVideoRateTests
             encodedFrameRate = frames.FrameRate;
             encodedSampleRate = samples.SampleRate;
             encodedSampleCount = samples.SampleCount;
-            using var pcm = await samples.Sample(0, samples.SampleCount);
-            Assert.That(pcm.SampleRate, Is.EqualTo(samples.SampleRate));
-            Assert.That(pcm.NumSamples, Is.EqualTo(samples.SampleCount));
+            using var audio = (await samples.ReadNextSamples((int)samples.SampleCount))!;
+            Assert.That(audio.SampleRate, Is.EqualTo(samples.SampleRate));
+            Assert.That(audio.SampleCount, Is.EqualTo(samples.SampleCount));
             await File.WriteAllTextAsync(controller.OutputFile, "encoded", token);
         });
         using var jobs = new RenderJobManager();
