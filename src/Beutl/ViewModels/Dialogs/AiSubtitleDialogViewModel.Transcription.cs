@@ -88,7 +88,7 @@ public sealed partial class AiSubtitleDialogViewModel
         using MediaReader reader = await Task.Run(
             () => MediaReader.Open(
                 filePath,
-                new MediaOptions(MediaMode.Audio) { PreferProxy = false }),
+                new MediaOptions(MediaMode.Audio) { PreferProxy = false, IsBackground = true }),
             RequestToken);
         if (!reader.HasAudio)
             throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);

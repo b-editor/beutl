@@ -283,7 +283,8 @@ internal sealed class VideoAiJobResultCapabilities()
                 duration = await Task.Run(() =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    using var reader = MediaReader.Open(ownedPath, new MediaOptions(MediaMode.Video) { PreferProxy = false });
+                    using var reader = MediaReader.Open(
+                        ownedPath, new MediaOptions(MediaMode.Video) { PreferProxy = false, IsBackground = true });
                     double seconds = reader.HasVideo ? reader.VideoInfo.Duration.ToDouble() : 0;
                     // Some backends can decode frames without duration metadata. Keep the
                     // retained/default length in that case; the importer still validates decoding.

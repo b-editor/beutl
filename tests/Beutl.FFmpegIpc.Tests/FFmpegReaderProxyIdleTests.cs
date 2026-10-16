@@ -337,7 +337,7 @@ public class FFmpegReaderProxyIdleTests
             Acceleration = FFmpegDecodingSettings.AccelerationOptions.D3D11VA,
             ForceSrgbGamma = false,
         };
-        var decoderInfo = new FFmpegDecoderInfo(settings, () => _worker.Connection, _tracker);
+        var decoderInfo = new FFmpegDecoderInfo(settings, _ => _worker.Connection, _tracker);
 
         using var reader = decoderInfo.Open("clip.mp4", new MediaOptions(MediaMode.Video)) as FFmpegReaderProxy;
 
@@ -359,7 +359,7 @@ public class FFmpegReaderProxyIdleTests
     public void DecoderInfo_Reopen_SendsTheCurrentDecodingSettings()
     {
         var settings = new FFmpegDecodingSettings { ThreadCount = 2 };
-        var decoderInfo = new FFmpegDecoderInfo(settings, () => _worker.Connection, _tracker);
+        var decoderInfo = new FFmpegDecoderInfo(settings, _ => _worker.Connection, _tracker);
         using var reader = (FFmpegReaderProxy)decoderInfo.Open("clip.mp4", new MediaOptions(MediaMode.Video))!;
         Assert.That(_worker.OpenRequests.TryDequeue(out _), Is.True);
 
@@ -680,7 +680,7 @@ public class FFmpegReaderProxyIdleTests
     public void DecoderInfo_Open_GivesUpOnAWorkerThatDoesNotAnswer_AndClosesTheLateReader()
     {
         var decoderInfo = new FFmpegDecoderInfo(
-            new FFmpegDecodingSettings(), () => _worker.Connection, _tracker, TimeSpan.FromSeconds(3));
+            new FFmpegDecodingSettings(), _ => _worker.Connection, _tracker, TimeSpan.FromSeconds(3));
         _worker.ReleaseOpens.Reset();
         try
         {

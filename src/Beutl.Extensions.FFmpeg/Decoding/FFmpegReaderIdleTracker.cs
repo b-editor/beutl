@@ -16,8 +16,8 @@ internal interface IIdleSuspendableReader
     bool TrySuspend(long expectedLastAccessTicks);
 }
 
-// Every decoding reader lives in the single FFmpeg worker process, and the scene compositor keeps the
-// readers of all elements it has rendered, so readers the timeline has moved past are suspended here
+// Every decoding reader lives in an FFmpeg decode worker, and the scene compositor keeps the readers of
+// all elements it has rendered, so readers the timeline has moved past are suspended here
 // (worker decoder and shared memory released) and reopen on their next read.
 internal sealed class FFmpegReaderIdleTracker : IDisposable
 {
