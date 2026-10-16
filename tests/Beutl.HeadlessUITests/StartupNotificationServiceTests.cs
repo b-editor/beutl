@@ -53,6 +53,31 @@ public sealed class StartupNotificationServiceTests
         }
     }
 
+    [AvaloniaTest]
+    public void The_bell_opens_the_hidden_notifications_only_when_there_are_some()
+    {
+        var mainView = new MainView();
+        var window = new Window { Content = mainView, Width = 900, Height = 520 };
+        try
+        {
+            window.Show();
+            Button bell = mainView.FindControl<Button>("OpenNotificationsButton")!;
+            var flyout = (Avalonia.Controls.Primitives.PopupFlyoutBase)bell.Flyout!;
+
+            flyout.ShowAt(bell);
+            Assert.That(flyout.IsOpen, Is.False, "With no notification the bell has nothing to show.");
+
+            mainView.HiddenNotificationPanel.Children.Add(new TextBlock { Text = "Hidden" });
+            flyout.ShowAt(bell);
+            Assert.That(flyout.IsOpen, Is.True);
+            flyout.Hide();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [Test]
     public void ShowTelemetryConsent_WhenUnset_ShowsPersistentNotificationAndAccepts()
     {
