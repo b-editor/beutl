@@ -350,7 +350,7 @@ internal sealed class AiGenerativeNodeExecutor(
     {
         using var reader = Beutl.Media.Decoding.MediaReader.Open(
             path,
-            new Beutl.Media.Decoding.MediaOptions(Beutl.Media.Decoding.MediaMode.Video));
+            new Beutl.Media.Decoding.MediaOptions(Beutl.Media.Decoding.MediaMode.Video) { IsBackground = true });
         return reader.VideoInfo.Duration.ToDouble();
     };
 

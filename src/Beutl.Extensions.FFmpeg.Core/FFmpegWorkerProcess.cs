@@ -13,7 +13,11 @@ public sealed class FFmpegWorkerProcess : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger("FFmpegWorker");
     private static readonly Lazy<FFmpegWorkerProcess> s_decodingInstance = new(() => new FFmpegWorkerProcess(multiplexed: true));
+    private static readonly Lazy<FFmpegWorkerProcess> s_backgroundDecodingInstance = new(() => new FFmpegWorkerProcess(multiplexed: true));
+
     public static FFmpegWorkerProcess DecodingInstance => s_decodingInstance.Value;
+
+    public static FFmpegWorkerProcess BackgroundDecodingInstance => s_backgroundDecodingInstance.Value;
 
     public static FFmpegWorkerProcess CreateForEncoding() => new(multiplexed: false);
 

@@ -108,12 +108,35 @@ public class FileBrowserTemplateThumbnailTests
             }
 
             // Classified video (video wins an ambiguous claim), then audio once that open fails.
-            Assert.That(decoder.RequestedModes, Is.EqualTo(new[] { MediaMode.Video, MediaMode.Audio }));
+            Assert.That(decoder.Requests.Select(options => options.StreamsToLoad), Is.EqualTo(new[] { MediaMode.Video, MediaMode.Audio }));
         }
         finally
         {
             DecoderRegistry.Unregister(decoder);
         }
+    }
+
+    // The File Browser decodes on the background worker, so a file that crashes it leaves the editor's clips.
+    [AvaloniaTest]
+    public async Task MediaInfoAndThumbnails_AreReadAsBackgroundWork()
+    {
+        var decoder = new RecordingDecoderInfo();
+        DecoderRegistry.Register(decoder);
+        string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.bothkinds");
+        try
+        {
+            await File.WriteAllBytesAsync(path, [0]);
+            await FileThumbnailService.Instance.GetMediaInfoAsync(path);
+            await FileThumbnailService.Instance.GetThumbnailAsync(path);
+        }
+        finally
+        {
+            File.Delete(path);
+            DecoderRegistry.Unregister(decoder);
+        }
+
+        // Two probe opens, then the thumbnail's.
+        Assert.That(decoder.Requests.Select(options => options.IsBackground), Is.EqualTo(new[] { true, true, true }));
     }
 
     // A package preview may be far larger than the 64px the browser draws, and every listed item
@@ -170,13 +193,13 @@ public class FileBrowserTemplateThumbnailTests
 
     private sealed class RecordingDecoderInfo : IDecoderInfo
     {
-        public List<MediaMode> RequestedModes { get; } = [];
+        public List<MediaOptions> Requests { get; } = [];
 
         public string Name => "Recording Decoder";
 
         public MediaReader? Open(string file, MediaOptions options)
         {
-            RequestedModes.Add(options.StreamsToLoad);
+            Requests.Add(options);
             return null;
         }
 

@@ -114,7 +114,7 @@ internal sealed class AiResultImporter
             {
                 using MediaReader reader = MediaReader.Open(
                     path,
-                    new MediaOptions(MediaMode.Video) { PreferProxy = false });
+                    new MediaOptions(MediaMode.Video) { PreferProxy = false, IsBackground = true });
                 Ref<Bitmap>? firstFrame = null;
                 try
                 {

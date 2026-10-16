@@ -118,4 +118,60 @@ public sealed class FFmpegDecoderInfoTests
             FFmpegInstallNotifier.MarkInstalled();
         }
     }
+
+    [Test]
+    public void SelectWorker_SendsBackgroundReadsToTheBackgroundWorker()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(FFmpegDecoderInfo.SelectWorker(new MediaOptions(MediaMode.Video) { IsBackground = true }),
+                Is.SameAs(FFmpegWorkerProcess.BackgroundDecodingInstance));
+            Assert.That(FFmpegDecoderInfo.SelectWorker(new MediaOptions(MediaMode.Video)),
+                Is.SameAs(FFmpegWorkerProcess.DecodingInstance));
+            Assert.That(FFmpegWorkerProcess.BackgroundDecodingInstance, Is.Not.SameAs(FFmpegWorkerProcess.DecodingInstance));
+        });
+    }
+
+    [Test]
+    public void ProxyGenerator_ReadsTheSourceAsBackgroundWork()
+    {
+        var decoder = new RecordingDecoderInfo();
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            var generator = new FFmpegProxyGenerator(new ProxyStore(Path.Combine(root, "proxies")));
+            string source = Path.Combine(root, "clip" + RecordingDecoderInfo.Extension);
+            File.WriteAllBytes(source, new byte[64]);
+            var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
+
+            // The decoder opens nothing, so generation fails after the open.
+            Assert.CatchAsync(() => generator.GenerateAsync(job).AsTask());
+            Assert.That(decoder.Requests.Select(options => options.IsBackground), Is.EqualTo(new[] { true }));
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
+    private sealed class RecordingDecoderInfo : IDecoderInfo
+    {
+        public const string Extension = ".proxysource";
+
+        public List<MediaOptions> Requests { get; } = [];
+
+        public string Name => "Recording Decoder";
+
+        public MediaReader? Open(string file, MediaOptions options)
+        {
+            Requests.Add(options);
+            return null;
+        }
+
+        public IEnumerable<string> VideoExtensions() => [Extension];
+
+        public IEnumerable<string> AudioExtensions() => [];
+    }
 }

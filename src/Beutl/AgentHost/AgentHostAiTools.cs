@@ -746,7 +746,8 @@ internal sealed class AgentHostAiTools(
     {
         try
         {
-            using MediaReader reader = MediaReader.Open(path, new MediaOptions(MediaMode.Video) { PreferProxy = false });
+            using MediaReader reader = MediaReader.Open(
+                path, new MediaOptions(MediaMode.Video) { PreferProxy = false, IsBackground = true });
             return reader.HasVideo ? reader.VideoInfo.Duration.ToDouble() : null;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
