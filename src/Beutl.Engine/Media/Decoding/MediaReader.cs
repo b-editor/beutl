@@ -9,7 +9,8 @@ namespace Beutl.Media.Decoding;
 /// Decodes the video and audio streams of one media file. <see cref="IDecoderInfo.Open"/> creates it.
 /// </summary>
 /// <remarks>
-/// Every decoder follows these rules, which <c>tests/MediaReaderConformance.cs</c> checks:
+/// Decoders must follow these rules. <c>tests/MediaReaderConformance.cs</c> checks the FFmpeg, Media Foundation and
+/// AVFoundation ones; issues track the known gaps.
 /// <list type="bullet">
 /// <item><description>Frames and samples count from the container start: frame N covers N /
 /// <see cref="VideoStreamInfo.FrameRate"/> seconds. A read does not depend on earlier reads.</description></item>
