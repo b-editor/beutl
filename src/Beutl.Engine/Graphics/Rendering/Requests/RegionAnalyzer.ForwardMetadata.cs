@@ -244,7 +244,14 @@ internal sealed partial class RegionAnalyzer
             RenderFragmentKind.RawTargetScope
                 => ((RawTargetScopeRenderFragmentPayload)reference.Payload!).Description.Bounds
                     .TransformBounds(reference.Inputs[0].Bounds),
-            _ => reference.RecordedBounds,
+            RenderFragmentKind.MaterializedInput
+                or RenderFragmentKind.TargetCapture
+                or RenderFragmentKind.BuiltInBackdropCapture
+                or RenderFragmentKind.TargetCommand
+                or RenderFragmentKind.RawTargetCommand
+                => reference.RecordedBounds,
+            _ => throw new InvalidOperationException(
+                $"Fragment kind '{reference.Kind}' has no forward bounds rule."),
         };
     }
 
@@ -360,8 +367,16 @@ internal sealed partial class RegionAnalyzer
                     resolvedBounds,
                     options.OutputScale,
                     options.MaxWorkingScale);
-            default:
+            case RenderFragmentKind.MaterializedInput:
+            case RenderFragmentKind.BuiltInBackdropCapture:
+            case RenderFragmentKind.Layer:
+            case RenderFragmentKind.TargetLayerScope:
+            case RenderFragmentKind.TargetCommand:
+            case RenderFragmentKind.RawTargetCommand:
                 return reference.RecordedEffectiveScale;
+            default:
+                throw new InvalidOperationException(
+                    $"Fragment kind '{reference.Kind}' has no forward scale rule.");
         }
     }
 

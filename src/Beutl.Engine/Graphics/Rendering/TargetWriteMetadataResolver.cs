@@ -59,8 +59,9 @@ internal static class TargetWriteMetadataResolver
             case RenderFragmentKind.OpacityMask:
                 return TryResolveReplay(reference, targetDomain, recorded, out affectedBounds);
             default:
-                affectedBounds = null;
-                return !recorded;
+                // Every other kind cannot write the target, so it returned at the guard above.
+                throw new InvalidOperationException(
+                    $"Fragment kind '{reference.Kind}' has no target-write rule.");
         }
     }
 
