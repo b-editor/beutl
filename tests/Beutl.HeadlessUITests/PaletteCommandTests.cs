@@ -278,7 +278,8 @@ public class PaletteCommandTests
             // The clip's own Rename gesture, which runs the command on its ElementViewModel.
             view.RaiseEvent(new KeyEventArgs
             {
-                RoutedEvent = InputElement.KeyDownEvent, Key = OperatingSystem.IsMacOS() ? Key.Enter : Key.F2
+                RoutedEvent = InputElement.KeyDownEvent,
+                Key = OperatingSystem.IsMacOS() ? Key.Enter : Key.F2
             });
             HeadlessTestHelpers.Render(5);
             Assert.That(textBox.IsFocused, Is.True, "Rename did not focus the editor, so typing would go elsewhere.");
@@ -500,7 +501,7 @@ public class PaletteCommandTests
         RenderScale initial = quality.PreviewScale.Value;
         var interaction = new ScriptedInteraction().Pick<RenderScale>(item => item.Value == RenderScale.Quarter);
 
-        await RunAsync(PreviewSettingsTabExtension.Instance, 
+        await RunAsync(PreviewSettingsTabExtension.Instance,
             Execution("previewSettings.changePreviewRenderQuality", editor, interaction));
 
         Assert.Multiple(() =>
