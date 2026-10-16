@@ -2,11 +2,7 @@
   "profiles": {
     "WSL": {
       "commandName": "WSL2",
-      "distributionName": "",
-      "environmentVariables": {
-        "FFMPEG_PATH": "/root/.beutl/ffmpeg/ffmpeg",
-        "FFMPEG_ROOT_PATH": "/root/.beutl/ffmpeg"
-      }
+      "distributionName": ""
     },
     "Beutl": {
       "commandName": "Project"
