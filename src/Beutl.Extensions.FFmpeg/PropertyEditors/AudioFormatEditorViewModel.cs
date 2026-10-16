@@ -111,7 +111,7 @@ internal sealed class AudioFormatEditorViewModel
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<int> args)
+        if (e.Expect<int>(sender) is { } args)
         {
             int newIndex = Math.Clamp(args.NewValue, 0, _currentFormats.Length - 1);
             var newValue = _currentFormats[newIndex];

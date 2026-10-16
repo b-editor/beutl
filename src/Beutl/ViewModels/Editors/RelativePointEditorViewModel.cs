@@ -57,7 +57,7 @@ public sealed class RelativePointEditorViewModel : ValueEditorViewModel<Graphics
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<Graphics.RelativePoint> args)
+        if (e.Expect<Graphics.RelativePoint>(sender) is { } args)
         {
             SetValue(args.OldValue, args.NewValue);
         }

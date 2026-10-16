@@ -36,7 +36,7 @@ public sealed class FileSourceEditorViewModel<T> : ValueEditorViewModel<T?>
 
     private void OnValueConfirmed(StorageFileEditor editor, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is not PropertyEditorValueChangedEventArgs<FileInfo?> args) return;
+        if (e.Expect<FileInfo?>(editor) is not { } args) return;
         if (!CanEdit.Value)
         {
             editor.Value = FileInfo.Value;
