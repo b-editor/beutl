@@ -66,6 +66,13 @@ public partial class MainView
         viewModel.MenuBar.ImportProject.Subscribe(OnImportProject).AddTo(_disposables);
         viewModel.MenuBar.ShowSettings.Subscribe(OpenSettingsDialog).AddTo(_disposables);
         viewModel.MenuBar.OpenToolWindow.Subscribe(OpenToolWindow).AddTo(_disposables);
+        viewModel.MenuBar.ShowTutorials.Subscribe(OpenTutorialsDialog).AddTo(_disposables);
+        viewModel.MenuBar.ShowInformation.Subscribe(GoToInformationPage).AddTo(_disposables);
+        viewModel.MenuBar.CollectGarbage.Subscribe(RunGcCollect).AddTo(_disposables);
+        viewModel.MenuBar.MonitorKeyModifiers.Subscribe(OpenKeyModifierMonitor).AddTo(_disposables);
+        viewModel.MenuBar.ThrowUnhandledException.Subscribe(ThrowDebugException).AddTo(_disposables);
+        viewModel.MenuBar.StartWindowCapture.Subscribe(StartWindowCapture).AddTo(_disposables);
+        viewModel.MenuBar.StopWindowCapture.Subscribe(StopWindowCapture).AddTo(_disposables);
 
         viewModel.MenuBar.ShowAiJobs.Subscribe(viewModel.OpenAiJobCenter).AddTo(_disposables);
         viewModel.MenuBar.GenerateImage.Subscribe(viewModel.OpenAiImageGeneration).AddTo(_disposables);

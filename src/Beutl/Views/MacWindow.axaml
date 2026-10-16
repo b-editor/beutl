@@ -2,10 +2,8 @@
         xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:lang="using:Beutl.Language"
         xmlns:local="using:Beutl.Views"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:ui="using:FluentAvalonia.UI.Controls"
         xmlns:vm="using:Beutl.ViewModels"
         Title="{Binding WindowTitle.Value}"
         d:DesignHeight="720"
@@ -15,58 +13,7 @@
         Icon="avares://Beutl.Controls/Assets/logo.png"
         mc:Ignorable="d">
     <NativeMenu.Menu>
-        <NativeMenu>
-            <NativeMenuItem Header="{x:Static lang:Strings.Scene}">
-                <NativeMenu>
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.NewScene}" Header="{x:Static lang:Strings.CreateNew}" />
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.RemoveFromProject}" Header="{x:Static lang:Strings.Remove}" />
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.ShowSceneSettings}" Header="{x:Static lang:Strings.SceneSettings}" />
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.RelinkMedia}" Header="{x:Static lang:MissingMediaStrings.Title}" />
-                    <NativeMenuItem Header="{x:Static lang:Strings.Element}">
-                        <NativeMenu>
-                            <NativeMenuItem Command="{CompiledBinding MenuBar.DeleteLayer}" Header="{x:Static lang:Strings.Delete}" />
-                            <NativeMenuItem Command="{CompiledBinding MenuBar.ExcludeLayer}" Header="{x:Static lang:Strings.Exclude}" />
-                            <NativeMenuItem Command="{CompiledBinding MenuBar.CutLayer}" Header="{x:Static lang:Strings.Cut}" />
-                            <NativeMenuItem Command="{CompiledBinding MenuBar.CopyLayer}" Header="{x:Static lang:Strings.Copy}" />
-                            <NativeMenuItem Command="{CompiledBinding MenuBar.PasteLayer}" Header="{x:Static lang:Strings.Paste}" />
-                        </NativeMenu>
-                    </NativeMenuItem>
-                </NativeMenu>
-            </NativeMenuItem>
-            <NativeMenuItem Header="{x:Static lang:Strings.Ai}">
-                <NativeMenu>
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.ShowAiJobs}" Header="{x:Static lang:Strings.AiJobCenter}" />
-                    <NativeMenuItemSeparator />
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.GenerateImage}" Header="{x:Static lang:Strings.AiGenerateImage}" />
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.GenerateSubtitles}" Header="{x:Static lang:Strings.AiGenerateSubtitles}" />
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.EditImage}" Header="{x:Static lang:Strings.AiEditImage}" />
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.GenerateVideo}" Header="{x:Static lang:Strings.AiGenerateVideo}" />
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.EditVideo}" Header="{x:Static lang:Strings.AiVideoEditing}" />
-                </NativeMenu>
-            </NativeMenuItem>
-            <NativeMenuItem Header="{x:Static lang:Strings.Help}">
-                <NativeMenu>
-                    <NativeMenuItem Click="OpenTutorialsDialog" Header="{x:Static lang:Strings.Tutorials}" />
-                    <NativeMenuItemSeparator />
-                    <NativeMenuItem Click="GC_Collect_Click"
-                                    Header="GC.Collect"
-                                    IsVisible="{CompiledBinding IsDebuggerAttached}" />
-                    <NativeMenuItem Click="MonitorKeyModifier_Click"
-                                    Header="Monitor KeyModifier"
-                                    IsVisible="{CompiledBinding IsDebuggerAttached}" />
-                    <NativeMenuItem Click="ThrowUnhandledException_Click"
-                                    Header="Throw Unhandled Exception"
-                                    IsVisible="{CompiledBinding IsDebuggerAttached}" />
-                    <NativeMenuItem Click="StartWindowCapture_Click"
-                                    Header="Start Window Capture"
-                                    IsVisible="{CompiledBinding IsDebuggerAttached}" />
-                    <NativeMenuItem Click="StopWindowCapture_Click"
-                                    Header="Stop Window Capture"
-                                    IsVisible="{CompiledBinding IsDebuggerAttached}" />
-                    <NativeMenuItem Click="GoToInformationPage" Header="{x:Static lang:Strings.Info}" />
-                </NativeMenu>
-            </NativeMenuItem>
-        </NativeMenu>
+        <NativeMenu />
     </NativeMenu.Menu>
     <local:MainView x:Name="mainView" />
 </Window>

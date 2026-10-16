@@ -117,12 +117,12 @@ public sealed class MainMenuBuilderTests
         => items.Where(item => inWindow || !item.IsInWindowOnly).SelectMany(item =>
             Describe(item.Items ?? [], inWindow, viewModel).Prepend($"{item.Header ?? "-"}:{CommandName(item.Command, viewModel)}"));
 
-    // The same for the built menus, whose roots after the model's are still declared in XAML.
-    private static IEnumerable<string> Describe(IEnumerable items, MainViewModel viewModel, bool roots = true)
-        => items.Cast<object>().Take(roots ? viewModel.MenuItems.Count : int.MaxValue).SelectMany(item => item switch
+    // The same for the built menus.
+    private static IEnumerable<string> Describe(IEnumerable items, MainViewModel viewModel)
+        => items.Cast<object>().SelectMany(item => item switch
         {
-            MenuItem m => Describe(m.Items, viewModel, false).Prepend($"{m.Header}:{CommandName(m.Command, viewModel)}"),
-            NativeMenuItem n => Describe(n.Menu?.Items ?? [], viewModel, false).Prepend($"{n.Header}:{CommandName(n.Command, viewModel)}"),
+            MenuItem m => Describe(m.Items, viewModel).Prepend($"{m.Header}:{CommandName(m.Command, viewModel)}"),
+            NativeMenuItem n => Describe(n.Menu?.Items ?? [], viewModel).Prepend($"{n.Header}:{CommandName(n.Command, viewModel)}"),
             _ => ["-:"]
         });
 

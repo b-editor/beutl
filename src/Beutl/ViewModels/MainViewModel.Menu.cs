@@ -123,7 +123,57 @@ public sealed partial class MainViewModel
                     Command = MenuBar.OpenToolWindow, CommandParameter = extension, IconSource = extension.GetIcon()
                 })
         },
+        new(Strings.Scene)
+        {
+            Items =
+            [
+                new(Strings.CreateNew) { Command = MenuBar.NewScene },
+                new(Strings.Remove) { Command = MenuBar.RemoveFromProject },
+                new(Strings.SceneSettings) { Command = MenuBar.ShowSceneSettings },
+                new(MissingMediaStrings.Title) { Command = MenuBar.RelinkMedia },
+                new(Strings.Element)
+                {
+                    Items =
+                    [
+                        new(Strings.Delete) { Command = MenuBar.DeleteLayer },
+                        new(Strings.Exclude) { Command = MenuBar.ExcludeLayer },
+                        new(Strings.Cut) { Command = MenuBar.CutLayer },
+                        new(Strings.Copy) { Command = MenuBar.CopyLayer },
+                        new(Strings.Paste) { Command = MenuBar.PasteLayer },
+                    ]
+                },
+            ]
+        },
+        new(Strings.Ai)
+        {
+            Items =
+            [
+                new(Strings.AiJobCenter) { Command = MenuBar.ShowAiJobs, Icon = Icon.History },
+                MainMenuItem.Separator,
+                new(Strings.AiGenerateImage) { Command = MenuBar.GenerateImage, Icon = Icon.SparkleCircle },
+                new(Strings.AiGenerateSubtitles) { Command = MenuBar.GenerateSubtitles, Icon = Icon.Subtitles },
+                new(Strings.AiEditImage) { Command = MenuBar.EditImage, Icon = Icon.ImageEdit },
+                new(Strings.AiGenerateVideo) { Command = MenuBar.GenerateVideo, Icon = Icon.Video },
+                new(Strings.AiVideoEditing) { Command = MenuBar.EditVideo, Icon = Icon.VideoClipWand },
+            ]
+        },
+        new(Strings.Help)
+        {
+            Items =
+            [
+                new(Strings.Tutorials) { Command = MenuBar.ShowTutorials },
+                MainMenuItem.Separator,
+                new("GC.Collect") { Command = MenuBar.CollectGarbage, IsVisible = UnderDebugger },
+                new("Monitor KeyModifier") { Command = MenuBar.MonitorKeyModifiers, IsVisible = UnderDebugger },
+                new("Throw Unhandled Exception") { Command = MenuBar.ThrowUnhandledException, IsVisible = UnderDebugger },
+                new("Start Window Capture") { Command = MenuBar.StartWindowCapture, IsVisible = UnderDebugger },
+                new("Stop Window Capture") { Command = MenuBar.StopWindowCapture, IsVisible = UnderDebugger },
+                new(Strings.Info) { Command = MenuBar.ShowInformation },
+            ]
+        },
     ];
+
+    private IObservable<bool> UnderDebugger => Observable.Return(IsDebuggerAttached);
 
     // Shown only while the selected tab's file is one the editor can open.
     private MainMenuItem CreateEditorItem(EditorExtension extension) => new(extension.DisplayName)

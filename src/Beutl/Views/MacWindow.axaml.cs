@@ -48,18 +48,4 @@ public sealed partial class MacWindow : Window
         base.OnClosing(e);
         WindowPlacement.Save(this);
     }
-
-    private async void OpenTutorialsDialog(object? sender, EventArgs e) => await mainView.ShowTutorialsDialogAsync();
-
-    private async void GoToInformationPage(object? sender, EventArgs e) => await mainView.GoToInformationPageAsync();
-
-    private void GC_Collect_Click(object? sender, EventArgs e) => mainView.RunGcCollect();
-
-    private void MonitorKeyModifier_Click(object? sender, EventArgs e) => mainView.OpenKeyModifierMonitor();
-
-    private void ThrowUnhandledException_Click(object? sender, EventArgs e) => mainView.ThrowDebugException();
-
-    private async void StartWindowCapture_Click(object? sender, EventArgs e) => await mainView.StartWindowCaptureAsync();
-
-    private async void StopWindowCapture_Click(object? sender, EventArgs e) => await mainView.StopWindowCaptureAsync();
 }

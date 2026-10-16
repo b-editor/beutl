@@ -1,5 +1,4 @@
 ﻿using Avalonia.Controls;
-using Avalonia.Interactivity;
 using Beutl.Services;
 using Beutl.Services.WindowCapture;
 using Beutl.Utilities;
@@ -12,8 +11,6 @@ namespace Beutl.Views;
 
 public sealed partial class MainView
 {
-    private void GC_Collect_Click(object? sender, RoutedEventArgs e) => RunGcCollect();
-
     internal void RunGcCollect()
     {
         DateTime dateTime = DateTime.UtcNow;
@@ -33,8 +30,6 @@ public sealed partial class MainView
             $"{Strings.ElapsedTime}: {elapsed.TotalMilliseconds}ms\n{Strings.Difference}: {str}");
     }
 
-    private void MonitorKeyModifier_Click(object? sender, RoutedEventArgs e) => OpenKeyModifierMonitor();
-
     internal void OpenKeyModifierMonitor()
     {
         if (TopLevel.GetTopLevel(this) is Window owner)
@@ -43,14 +38,12 @@ public sealed partial class MainView
         }
     }
 
-    private void ThrowUnhandledException_Click(object? sender, RoutedEventArgs e) => ThrowDebugException();
-
     internal void ThrowDebugException()
     {
         throw new Exception("An unhandled exception occurred.");
     }
 
-    private async void StartWindowCapture_Click(object? sender, RoutedEventArgs e) => await StartWindowCaptureAsync();
+    private async void StartWindowCapture() => await StartWindowCaptureAsync();
 
     internal async Task StartWindowCaptureAsync()
     {
@@ -112,7 +105,7 @@ public sealed partial class MainView
         }
     }
 
-    private async void StopWindowCapture_Click(object? sender, RoutedEventArgs e) => await StopWindowCaptureAsync();
+    private async void StopWindowCapture() => await StopWindowCaptureAsync();
 
     internal async Task StopWindowCaptureAsync()
     {

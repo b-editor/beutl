@@ -209,7 +209,7 @@ public sealed partial class MainView : UserControl
         await _toolWindowLauncher.OpenAsync(extension, () => TopLevel.GetTopLevel(this) as Window);
     }
 
-    private async void GoToInformationPage(object? sender, RoutedEventArgs e) => await GoToInformationPageAsync();
+    private async void GoToInformationPage() => await GoToInformationPageAsync();
 
     internal Task GoToInformationPageAsync()
     {
@@ -238,7 +238,7 @@ public sealed partial class MainView : UserControl
         await ShowSettingsDialogAsync(static dialogViewModel => dialogViewModel.GoToAccountSettingsPage());
     }
 
-    private async void OpenTutorialsDialog(object? sender, RoutedEventArgs e) => await ShowTutorialsDialogAsync();
+    private async void OpenTutorialsDialog() => await ShowTutorialsDialogAsync();
 
     internal async Task ShowTutorialsDialogAsync()
     {
