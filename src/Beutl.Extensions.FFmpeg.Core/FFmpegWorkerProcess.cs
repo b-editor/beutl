@@ -15,10 +15,8 @@ public sealed class FFmpegWorkerProcess : IDisposable
     private static readonly Lazy<FFmpegWorkerProcess> s_decodingInstance = new(() => new FFmpegWorkerProcess(multiplexed: true));
     private static readonly Lazy<FFmpegWorkerProcess> s_backgroundDecodingInstance = new(() => new FFmpegWorkerProcess(multiplexed: true));
 
-    /// <summary>The editor's decode worker, which also answers codec queries.</summary>
     public static FFmpegWorkerProcess DecodingInstance => s_decodingInstance.Value;
 
-    /// <summary>The decode worker for reads that set <c>MediaOptions.IsBackground</c>.</summary>
     public static FFmpegWorkerProcess BackgroundDecodingInstance => s_backgroundDecodingInstance.Value;
 
     public static FFmpegWorkerProcess CreateForEncoding() => new(multiplexed: false);

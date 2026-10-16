@@ -10,7 +10,6 @@ public record MediaOptions(
 {
     public bool PreferProxy { get; init; }
 
-    /// <summary>Whether background work such as File Browser thumbnails, proxies or AI import reads the media, not the editor.</summary>
     public bool IsBackground { get; init; }
 
     public ProxyPreset PreferredProxyPreset { get; init; } = ProxyPreset.Quarter;
