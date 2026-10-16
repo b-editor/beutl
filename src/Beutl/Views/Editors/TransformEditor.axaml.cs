@@ -161,11 +161,10 @@ public partial class TransformEditor : UserControl
     {
         if (DataContext is not TransformEditorViewModel { IsDisposed: false } vm) return;
 
-        await PickerGuard.RunAsync(this, () =>
-            TargetSelectionHelper.HandleSelectTargetRequestAsync<TransformEditorViewModel, Transform>(
-                this,
-                vm,
-                vm => vm.GetAvailableTargets(),
-                (vm, target) => vm.SetTarget(target)));
+        await TargetSelectionHelper.HandleSelectTargetRequestAsync<TransformEditorViewModel, Transform>(
+            this,
+            vm,
+            vm => vm.GetAvailableTargets(),
+            (vm, target) => vm.SetTarget(target));
     }
 }

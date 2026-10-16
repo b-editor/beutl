@@ -393,11 +393,10 @@ public sealed partial class BrushEditor : UserControl
     {
         if (DataContext is not BrushEditorViewModel { IsDisposed: false } vm) return;
 
-        await PickerGuard.RunAsync(this, () =>
-            TargetSelectionHelper.HandleSelectTargetRequestAsync<BrushEditorViewModel, Brush>(
-                this,
-                vm,
-                vm => vm.GetAvailableTargets(),
-                (vm, target) => vm.SetTarget(target)));
+        await TargetSelectionHelper.HandleSelectTargetRequestAsync<BrushEditorViewModel, Brush>(
+            this,
+            vm,
+            vm => vm.GetAvailableTargets(),
+            (vm, target) => vm.SetTarget(target));
     }
 }
