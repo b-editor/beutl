@@ -339,10 +339,46 @@ public partial class PlayerViewPlaybackInputTests
             });
 
             editor.HistoryManager.Undo();
-            Assert.That(camera.Position.CurrentValue, Is.EqualTo(position));
+            Assert.Multiple(() =>
+            {
+                Assert.That(camera.Position.CurrentValue, Is.EqualTo(position));
+                Assert.That(camera.Target.CurrentValue, Is.EqualTo(target));
+            });
         }
         finally
         {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task The_wheel_leaves_the_camera_alone_during_a_drag()
+    {
+        EditViewModel editor = await OpenEditor();
+        Scene3D scene = await Add3DScene(editor);
+        var camera = scene.Camera.CurrentValue!;
+        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = editor.Scene.Children.Single();
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+        Point point = default;
+        try
+        {
+            await PreparePreview(view, window);
+            editor.Player.IsMoveMode.Value = false;
+            editor.Player.IsCameraMode.Value = true;
+            point = PreviewCenter(view, window);
+            Vector3 position = camera.Position.CurrentValue;
+
+            window.MouseDown(point, MouseButton.Right);
+            window.MouseMove(point + new Vector(20, 10), RawInputModifiers.RightMouseButton);
+            window.MouseWheel(point + new Vector(20, 10), new Vector(0, 1), RawInputModifiers.RightMouseButton);
+
+            Assert.That(camera.Position.CurrentValue, Is.EqualTo(position),
+                "A wheel step during an orbit would be committed together with the unfinished orbit.");
+        }
+        finally
+        {
+            window.MouseUp(point, MouseButton.Right);
             window.Close();
         }
     }

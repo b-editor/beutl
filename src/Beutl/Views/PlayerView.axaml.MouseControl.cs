@@ -203,7 +203,8 @@ public partial class PlayerView
 
             if (viewModel.IsHandMode.Value)
                 ZoomFrameAtPointer(e, viewModel);
-            else if (viewModel.IsCameraMode.Value)
+            // During a drag the wheel step would commit the drag's unfinished edit with its own.
+            else if (viewModel.IsCameraMode.Value && _mouseState == null)
                 CreateCameraHandler(viewModel).OnWheelChanged(e);
         }
     }
