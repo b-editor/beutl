@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Language;
 
 namespace Beutl.Services.AI;
 
@@ -91,17 +92,21 @@ internal sealed record AiPendingAttempt(
     {
         get
         {
+            // Only the image and video dialogs keep pending attempts.
             string operation = Operation switch
             {
-                "image.generate" => "Image generation",
-                "video.generate" => "Video generation",
+                "image.generate" => Strings.AiImageGeneration,
+                "video.generate" => Strings.AiVideoGeneration,
+                "video.edit" => Strings.AiVideoEditing,
+                "video.extend" => Strings.AiVideoExtend,
+                "video.motion" => Strings.AiVideoMotion,
                 _ when Operation.StartsWith("image.edit.", StringComparison.Ordinal)
-                    => "Image edit",
-                _ => "AI request",
+                    => Strings.AiImageEdit,
+                _ => Operation,
             };
             return Model is { Length: > 0 }
                 ? $"{operation} ({Model})"
-                : $"{operation} (default model)";
+                : string.Format(Strings.AiPendingRequestDefaultModel, operation);
         }
     }
 }

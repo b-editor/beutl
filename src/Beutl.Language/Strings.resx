@@ -2645,6 +2645,9 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="AiPendingRequest" xml:space="preserve">
     <value>Pending AI request</value>
   </data>
+  <data name="AiPendingRequestDefaultModel" xml:space="preserve">
+    <value>{0} (default model)</value>
+  </data>
   <data name="AiRecoverRequest" xml:space="preserve">
     <value>Recover</value>
   </data>

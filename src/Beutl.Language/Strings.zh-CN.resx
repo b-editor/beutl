@@ -2831,6 +2831,9 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="AiPendingRequest" xml:space="preserve">
     <value>待处理的 AI 请求</value>
   </data>
+  <data name="AiPendingRequestDefaultModel" xml:space="preserve">
+    <value>{0} (默认模型)</value>
+  </data>
   <data name="AiRecoverRequest" xml:space="preserve">
     <value>恢复</value>
   </data>
