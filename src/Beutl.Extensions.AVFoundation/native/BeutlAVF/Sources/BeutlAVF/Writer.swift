@@ -34,7 +34,7 @@ final class Writer {
         try configureAudio(config: audioConfig)
     }
 
-    // The container follows the extension the encoder accepts (AVFFileExtensions.Encodable).
+    // .mov and .m4v get their own containers; .mp4 and any other extension get MP4.
     private static func fileType(for url: URL) -> AVFileType {
         switch url.pathExtension.lowercased() {
         case "mov": return .mov
