@@ -298,7 +298,8 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
     }
 
     // The opposite handle on the line from the dragged handle through the anchor, as far from the anchor as the
-    // dragged handle when symmetric and as before otherwise. A dragged handle on the anchor puts it straight below.
+    // dragged handle when symmetric and as before otherwise. With the dragged handle on the anchor, it lands on the
+    // anchor when symmetric and straight below it, at its old length, otherwise.
     internal static BtlPoint Mirror(BtlPoint anchor, BtlPoint dragged, BtlPoint opposite, bool symmetric)
     {
         BtlPoint d = anchor - dragged;
