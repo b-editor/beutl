@@ -150,6 +150,11 @@ public sealed partial class SchemaGenerator
         {
             yield return (category, type);
         }
+
+        foreach ((string format, Type type) in TypeRegistration.Types)
+        {
+            yield return (format, type);
+        }
     }
 
     private static IEnumerable<(string Category, Type Type)> EnumerateLibraryItems(IEnumerable<LibraryItem> items)
@@ -186,7 +191,7 @@ public sealed partial class SchemaGenerator
             category,
             includeProperties ? CreateBaseFields(type) : [],
             includeProperties ? CreateProperties(type) : [],
-            item?.DisplayName,
+            item?.DisplayName ?? (TypeRegistration.Types.Any(entry => entry.Type == type) ? type.Name : null),
             item?.Description);
     }
 
