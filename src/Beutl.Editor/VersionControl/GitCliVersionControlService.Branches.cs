@@ -29,8 +29,8 @@ internal sealed partial class GitCliVersionControlService
             IEnumerable<BranchInfo> branches = (await GetBranchesCoreAsync(cancellationToken)
                     .ConfigureAwait(false))
                 .Where(static branch => !branch.IsRemote);
-            // A case-insensitive volume cannot hold two loose refs that differ only in case, so case
-            // variants are refused on every storage.
+            // Two branches that differ only in case collide once the repository is on a case-insensitive
+            // volume, so case variants are refused on every storage, whatever volume holds it now.
             if (branches.Any(branch => BranchNamesConflict(
                     branch.Name,
                     name,
