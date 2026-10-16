@@ -239,4 +239,7 @@
   <data name="Unknown" xml:space="preserve">
     <value>不明</value>
   </data>
+  <data name="Double_click_to_show_or_hide_the_details" xml:space="preserve">
+    <value>ダブルクリックで詳細表示を切り替え</value>
+  </data>
 </root>
