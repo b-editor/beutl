@@ -228,9 +228,6 @@ public class DrawableBrushThumbnailTests
         });
     }
 
-    // An ImageBrush.Source subscriber is arbitrary code and may throw out of the assignment that clears the
-    // source. Dispose has already latched _disposeRequested by then, so the clear must still release the
-    // published bitmap: every later Dispose is a no-op.
     [AvaloniaTest]
     public async Task Grouped_content_publishes_a_thumbnail()
     {
@@ -243,8 +240,6 @@ public class DrawableBrushThumbnailTests
         await HeadlessTestHelpers.WaitUntilAsync(() => scope.ImageBrush.Source is WriteableBitmap);
     }
 
-    // Dispose clears the published thumbnail, so a rollback triggered by that same disposal must not
-    // put the previous one back: the handler would be gone while still owning the bitmap it reinstated.
     private static RectShape CreateRectangle(float width, float height, Color color)
     {
         return new RectShape
