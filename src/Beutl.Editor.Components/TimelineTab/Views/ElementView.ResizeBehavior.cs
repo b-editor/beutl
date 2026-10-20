@@ -115,6 +115,9 @@ public sealed partial class ElementView
         private AlignmentX _resizeType;
         private ElementResizeContext[] _resizeContexts = [];
         private TrimDragContext _trimDrag;
+        private Point _lastPosition;
+        private bool _lastAlt;
+        private DragSession? _drag;
 
         public void OnLeftCtrlPressed(KeyEventArgs e)
         {
@@ -141,6 +144,7 @@ public sealed partial class ElementView
         protected override void OnDetaching()
         {
             base.OnDetaching();
+            _drag?.Confirm();
             if (AssociatedObject != null)
             {
                 AssociatedObject.RemoveHandler(PointerMovedEvent, OnPointerMoved);
@@ -151,13 +155,17 @@ public sealed partial class ElementView
             }
         }
 
-        // PointerReleased clears _pressed before committing, so the capture loss that follows
-        // a normal release must not restore visuals while the completion animation is running.
-        // Mid-drag capture loss cancels both ordinary resizing and Roll/Slide previews.
+        // A drag in progress confirms through its DragSession; a press that never moved has nothing to keep.
         private void OnBorderPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
         {
-            if (!_pressed) return;
+            if (_pressed && _drag is null)
+                CancelResize();
+        }
 
+        // Escape and Undo restore both ordinary resizing and Roll/Slide previews.
+        private void CancelResize()
+        {
+            _drag = null;
             _pressed = false;
             TrimDragContext ctx = _trimDrag;
             _trimDrag = default;
@@ -187,7 +195,18 @@ public sealed partial class ElementView
 
             if (view._timeline is null || !_pressed) return;
 
+            _drag ??= DragSession.Begin(
+                viewModel.Timeline.EditorContext, view.border, CommandNames.MoveElement, ConfirmResize, CancelResize);
+            if (_drag is null)
+            {
+                // Another gesture holds history.
+                CancelResize();
+                return;
+            }
+
             bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+            _lastPosition = point;
+            _lastAlt = alt;
             int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
 
             if (_trimDrag.Kind is not TrimDragKind.None)
@@ -507,20 +526,36 @@ public sealed partial class ElementView
             return true;
         }
 
-        private async void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)
+        private void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
             if (!_pressed) return;
 
+            e.Handled = true;
+            if (AssociatedObject is { } view)
+            {
+                _lastPosition = e.GetPosition(view);
+                _lastAlt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+            }
+
+            if (_drag is { } drag)
+                drag.Confirm();
+            else
+                ConfirmResize();
+        }
+
+        // Release, capture loss, playback start and detach all keep the resize where it reached.
+        private async void ConfirmResize()
+        {
+            _drag = null;
             _pressed = false;
 
             if (AssociatedObject is { ViewModel: { } viewModel } view)
             {
                 viewModel.Timeline.SnapBarPosition.Value = null;
-                e.Handled = true;
 
                 if (_trimDrag.Kind is not TrimDragKind.None)
                 {
-                    CommitTrimDrag(view, viewModel, e);
+                    CommitTrimDrag(view, viewModel);
                     return;
                 }
 
@@ -541,18 +576,17 @@ public sealed partial class ElementView
             _resizeContexts = [];
         }
 
-        private void CommitTrimDrag(ElementView view, ElementViewModel viewModel, PointerReleasedEventArgs e)
+        private void CommitTrimDrag(ElementView view, ElementViewModel viewModel)
         {
             TrimDragContext ctx = _trimDrag;
             _trimDrag = default;
 
             float scale = viewModel.Timeline.Options.Value.Scale;
             int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
-            Point released = e.GetPosition(view);
-            bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+            bool alt = _lastAlt;
             TimeSpan delta = TrimDeltaCalculator.SnappedDelta(
                     ctx.InitialPointerX.PixelToTimeSpan(scale),
-                    released.X.PixelToTimeSpan(scale),
+                    _lastPosition.X.PixelToTimeSpan(scale),
                     t => view.RoundStartTime(t, scale, alt))
                 .RoundToRate(rate);
             // RoundStartTime re-sets the snap guide line as a side effect; clear it.

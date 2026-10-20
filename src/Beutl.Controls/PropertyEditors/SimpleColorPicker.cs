@@ -51,6 +51,12 @@ public class SimpleColorPicker : TemplatedControl
     private bool _ignoreColorChange;
     private Color2 _oldColor;
     private CancellationTokenSource? _cts;
+    private readonly ColorPartPress _press;
+
+    public SimpleColorPicker()
+    {
+        _press = new ColorPartPress(this, () => _oldColor = Color, ConfirmPress);
+    }
 
     public event TypedEventHandler<SimpleColorPicker, (Color2 OldValue, Color2 NewValue)>? ColorChanged;
 
@@ -67,6 +73,12 @@ public class SimpleColorPicker : TemplatedControl
         get => GetValue(InputTypeProperty);
         set => SetValue(InputTypeProperty, value);
     }
+
+    // Whether a spectrum, slider or previewer is being dragged.
+    public bool IsDragging => _press.IsPressed;
+
+    // Ends the drag in progress without ColorConfirmed, for a host that ended the gesture itself.
+    public void StopDrag() => _press.Stop();
 
     public void SetColor(Color2 value)
     {
@@ -119,17 +131,17 @@ public class SimpleColorPicker : TemplatedControl
         if (_spectrum != null)
         {
             _spectrum.ColorChanged += OnSpectrumColorChanged;
-            ColorPickerParts.AddConfirmHandlers(_spectrum, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
+            _press.Add(_spectrum);
         }
         if (_ringSpectrum != null)
         {
             _ringSpectrum.ColorChanged += OnSpectrumColorChanged;
-            ColorPickerParts.AddConfirmHandlers(_ringSpectrum, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
+            _press.Add(_ringSpectrum);
         }
         if (_previewer != null)
         {
             _previewer.ColorChanged += OnSpectrumColorChanged;
-            ColorPickerParts.AddConfirmHandlers(_previewer, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
+            _press.Add(_previewer);
         }
 
         foreach (ColorSlider? item in GetColorSliders())
@@ -137,7 +149,7 @@ public class SimpleColorPicker : TemplatedControl
             if (item != null)
             {
                 item.ColorChanged += OnColorSliderColorChanged;
-                ColorPickerParts.AddConfirmHandlers(item, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
+                _press.Add(item);
             }
         }
 
@@ -222,12 +234,7 @@ public class SimpleColorPicker : TemplatedControl
         }
     }
 
-    private void OnSpectrumPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        _oldColor = Color;
-    }
-
-    private void OnSpectrumPointerReleased(object? sender, PointerReleasedEventArgs e)
+    private void ConfirmPress()
     {
         Color2 color = Color.ToRGB();
         Color2 oldColor = _oldColor.ToRGB();
@@ -551,17 +558,17 @@ public class SimpleColorPicker : TemplatedControl
         if (_spectrum != null)
         {
             _spectrum.ColorChanged -= OnSpectrumColorChanged;
-            ColorPickerParts.RemoveConfirmHandlers(_spectrum, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
+            _press.Remove(_spectrum);
         }
         if (_ringSpectrum != null)
         {
             _ringSpectrum.ColorChanged -= OnSpectrumColorChanged;
-            ColorPickerParts.RemoveConfirmHandlers(_ringSpectrum, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
+            _press.Remove(_ringSpectrum);
         }
         if (_previewer != null)
         {
             _previewer.ColorChanged -= OnSpectrumColorChanged;
-            ColorPickerParts.RemoveConfirmHandlers(_previewer, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
+            _press.Remove(_previewer);
         }
         if (_componentsBox != null)
         {
@@ -579,7 +586,7 @@ public class SimpleColorPicker : TemplatedControl
             if (item != null)
             {
                 item.ColorChanged -= OnColorSliderColorChanged;
-                ColorPickerParts.RemoveConfirmHandlers(item, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
+                _press.Remove(item);
             }
         }
     }

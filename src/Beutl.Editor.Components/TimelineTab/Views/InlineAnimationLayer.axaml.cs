@@ -99,6 +99,7 @@ public partial class InlineAnimationLayer : UserControl
         private bool _pressed;
         private Point _start;
         private InlineKeyFrameViewModel[]? _items;
+        private DragSession? _drag;
 
         protected override void OnAttached()
         {
@@ -108,22 +109,34 @@ public partial class InlineAnimationLayer : UserControl
             ie.PointerPressed += OnPointerPressed;
             ie.PointerReleased += OnPointerReleased;
             ie.PointerMoved += OnPointerMoved;
+            ie.PointerCaptureLost += OnPointerCaptureLost;
         }
 
         protected override void OnDetaching()
         {
             base.OnDetaching();
+            _drag?.Confirm();
             if (AssociatedObject is not InputElement ie) return;
 
             ie.PointerPressed -= OnPointerPressed;
             ie.PointerReleased -= OnPointerReleased;
             ie.PointerMoved -= OnPointerMoved;
+            ie.PointerCaptureLost -= OnPointerCaptureLost;
         }
 
         private void OnPointerMoved(object? sender, PointerEventArgs e)
         {
-            if (AssociatedObject is not { DataContext: InlineKeyFrameViewModel viewModel }) return;
+            if (AssociatedObject is not { DataContext: InlineKeyFrameViewModel viewModel } control) return;
             if (!_pressed) return;
+
+            // The first move opens the DragSession; null means another gesture holds history.
+            _drag ??= DragSession.Begin(
+                viewModel.Timeline.EditorContext, control, CommandNames.MoveKeyFrame, ConfirmDrag, CancelDrag);
+            if (_drag is null)
+            {
+                CancelDrag();
+                return;
+            }
 
             Point position = e.GetPosition(AssociatedObject);
             Point delta = position - _start;
@@ -141,29 +154,56 @@ public partial class InlineAnimationLayer : UserControl
 
         private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
-            if (AssociatedObject is not { DataContext: InlineKeyFrameViewModel viewModel }) return;
+            if (AssociatedObject is not { DataContext: InlineKeyFrameViewModel }) return;
             if (!_pressed) return;
 
-            if (!viewModel.Parent.IsEditable)
-            {
-                viewModel.RestoreVisualFromModel();
-                if (_items != null)
-                {
-                    foreach (InlineKeyFrameViewModel item in _items)
-                    {
-                        item.RestoreVisualFromModel();
-                    }
-                }
+            e.Handled = true;
+            if (_drag is { } drag)
+                drag.Confirm();
+            else
+                ConfirmDrag();
+        }
 
-                _items = null;
-                _pressed = false;
-                e.Handled = true;
+        // A drag in progress confirms through its DragSession; a press that never moved has nothing to keep.
+        private void OnPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+        {
+            if (_pressed && _drag is null)
+                CancelDrag();
+        }
+
+        // Escape, Undo and a clip locked during the drag put the keyframes back where the model has them.
+        private void CancelDrag()
+        {
+            _drag = null;
+            _pressed = false;
+            InlineKeyFrameViewModel[]? items = _items;
+            _items = null;
+            if (AssociatedObject is not { DataContext: InlineKeyFrameViewModel viewModel }) return;
+
+            viewModel.RestoreVisualFromModel();
+            if (items == null) return;
+            foreach (InlineKeyFrameViewModel item in items)
+            {
+                item.RestoreVisualFromModel();
+            }
+        }
+
+        // Release, capture loss, playback start and detach keep the keyframes where the drag reached.
+        private void ConfirmDrag()
+        {
+            if (AssociatedObject is not { DataContext: InlineKeyFrameViewModel viewModel } || !viewModel.Parent.IsEditable)
+            {
+                CancelDrag();
                 return;
             }
 
-            if (_items != null)
+            _drag = null;
+            _pressed = false;
+            InlineKeyFrameViewModel[]? items = _items;
+            _items = null;
+            if (items != null)
             {
-                foreach (InlineKeyFrameViewModel item in _items)
+                foreach (InlineKeyFrameViewModel item in items)
                 {
                     item.ReflectModelKeyTime();
                 }
@@ -175,10 +215,6 @@ public partial class InlineAnimationLayer : UserControl
             {
                 viewModel.UpdateKeyTime();
             }
-
-            _items = null;
-            _pressed = false;
-            e.Handled = true;
         }
 
         private void OnPointerPressed(object? sender, PointerPressedEventArgs e)

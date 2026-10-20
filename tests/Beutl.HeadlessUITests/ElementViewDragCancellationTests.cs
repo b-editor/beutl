@@ -31,7 +31,7 @@ public class ElementViewDragCancellationTests
     [TestCase("duplicate", true, false)]
     [TestCase("right", false, true)]
     [TestCase("move", false, true)]
-    public async Task CaptureLost_CancelsPreview_AndAllowsTheNextDragToCommit(string kind, bool grouped, bool snapping)
+    public async Task CaptureLost_ConfirmsTheDragWhereItReached(string kind, bool grouped, bool snapping)
     {
         bool originalRipple = GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled;
         bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled;
@@ -90,48 +90,49 @@ public class ElementViewDragCancellationTests
 
             // Cover both platform-style release and capture stolen by another control.
             pointer!.Capture(grouped ? view.FindControl<Border>("RulerBar") : null);
-            HeadlessTestHelpers.Render(5);
-            AssertOriginalState();
+            HeadlessTestHelpers.Settle(4);
+            AssertDraggedState();
             Assert.Multiple(() =>
             {
-                Assert.That(view.TimelinePanel.Children.Count, Is.EqualTo(childCount), "Cancelled ghosts must be removed.");
+                // Each element brings a clip view and a scope view; the ghosts are gone.
+                Assert.That(view.TimelinePanel.Children.Count,
+                    Is.EqualTo(childCount + (kind == "duplicate" ? 2 * elements.Length : 0)));
                 Assert.That(timeline.SnapBarPosition.Value, Is.Null);
-                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
-                Assert.That(editor.HistoryManager.HasPendingOperations, Is.False, "Cancellation must not commit the preview.");
+                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
+                Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
+                Assert.That(editor.HistoryManager.IsEditing, Is.False);
             });
 
+            // The release that follows changes nothing more.
             pointer.Capture(null);
-            window.MouseUp(new Point(5, 5), MouseButton.Left);
-            Point hover = border.TranslatePoint(new Point(border.Bounds.Width / 2, border.Bounds.Height / 2), window)!.Value;
-            window.MouseMove(hover);
-            HeadlessTestHelpers.Render(5);
-            AssertOriginalState();
-            Assert.That(view.TimelinePanel.Children.Count, Is.EqualTo(childCount), "Hovering must not resume duplication.");
-
-            // A fresh drag must still commit even though release itself also loses capture.
-            DragToPreview();
             window.MouseUp(release, MouseButton.Left, modifiers);
             HeadlessTestHelpers.Settle(4);
-            for (int i = 0; i < elements.Length; i++)
-            {
-                Element model = elements[i].Model;
-                Assert.Multiple(() =>
-                {
-                    Assert.That(model.Start, Is.EqualTo(initial[i].Start + TimeSpan.FromSeconds(kind == "left" ? -0.5 : kind == "move" ? 3 : 0)));
-                    Assert.That(model.Length, Is.EqualTo(initial[i].Length + TimeSpan.FromSeconds(kind is "left" or "right" ? 0.5 : 0)));
-                    Assert.That(model.ZIndex, Is.EqualTo(initial[i].ZIndex + (kind == "move" ? 1 : 0)));
-                });
-            }
-            Assert.That(elements[0].Scene.Children.Count, Is.EqualTo(elements.Length * (kind == "duplicate" ? 2 : 1)));
-            if (kind == "duplicate")
-            {
-                Element[] copies = elements[0].Scene.Children.Except(elements.Select(vm => vm.Model)).ToArray();
-                Assert.That(copies.Select(copy => copy.Start), Is.All.EqualTo(TimeSpan.FromSeconds(5)));
-                Assert.That(copies.Select(copy => copy.ZIndex).Order(), Is.EqualTo(initial.Select(item => item.ZIndex + 1).Order()));
-            }
+            AssertDraggedState();
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
             await Task.Delay(300);
             HeadlessTestHelpers.Render(5);
             foreach (ElementViewModel vm in elements) AssertVisualMatchesModel(vm);
+
+            void AssertDraggedState()
+            {
+                for (int i = 0; i < elements.Length; i++)
+                {
+                    Element model = elements[i].Model;
+                    Assert.Multiple(() =>
+                    {
+                        Assert.That(model.Start, Is.EqualTo(initial[i].Start + TimeSpan.FromSeconds(kind == "left" ? -0.5 : kind == "move" ? 3 : 0)));
+                        Assert.That(model.Length, Is.EqualTo(initial[i].Length + TimeSpan.FromSeconds(kind is "left" or "right" ? 0.5 : 0)));
+                        Assert.That(model.ZIndex, Is.EqualTo(initial[i].ZIndex + (kind == "move" ? 1 : 0)));
+                    });
+                }
+                Assert.That(elements[0].Scene.Children.Count, Is.EqualTo(elements.Length * (kind == "duplicate" ? 2 : 1)));
+                if (kind == "duplicate")
+                {
+                    Element[] copies = elements[0].Scene.Children.Except(elements.Select(vm => vm.Model)).ToArray();
+                    Assert.That(copies.Select(copy => copy.Start), Is.All.EqualTo(TimeSpan.FromSeconds(5)));
+                    Assert.That(copies.Select(copy => copy.ZIndex).Order(), Is.EqualTo(initial.Select(item => item.ZIndex + 1).Order()));
+                }
+            }
 
             void DragToPreview()
             {
@@ -141,20 +142,6 @@ public class ElementViewDragCancellationTests
                 HeadlessTestHelpers.Render(5);
             }
 
-            void AssertOriginalState()
-            {
-                Assert.That(elements[0].Scene.Children.Count, Is.EqualTo(elements.Length));
-                for (int i = 0; i < elements.Length; i++)
-                {
-                    Assert.Multiple(() =>
-                    {
-                        Assert.That(elements[i].Model.Start, Is.EqualTo(initial[i].Start));
-                        Assert.That(elements[i].Model.Length, Is.EqualTo(initial[i].Length));
-                        Assert.That(elements[i].Model.ZIndex, Is.EqualTo(initial[i].ZIndex));
-                    });
-                    AssertVisualMatchesModel(elements[i]);
-                }
-            }
         }
         finally
         {
@@ -167,7 +154,7 @@ public class ElementViewDragCancellationTests
     [AvaloniaTest]
     [TestCase(RawInputModifiers.Control)]
     [TestCase(RawInputModifiers.Shift)]
-    public async Task CaptureLost_ModifierDrag_RestoresTheUnselectedPressedClip(RawInputModifiers modifiers)
+    public async Task CaptureLost_ModifierDrag_MovesTheSelectionAndKeepsTheUnselectedPressedClip(RawInputModifiers modifiers)
     {
         bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled;
         GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = false;
@@ -195,7 +182,7 @@ public class ElementViewDragCancellationTests
             border.AddHandler(InputElement.PointerPressedEvent, (_, e) => pointer = e.Pointer,
                 RoutingStrategies.Bubble, handledEventsToo: true);
             Point press = border.TranslatePoint(new Point(border.Bounds.Width / 2, border.Bounds.Height / 2), window)!.Value;
-            Point release = press + new Vector(TimeSpan.FromSeconds(1).TimeToPixel(timeline.Options.Value.Scale), FrameNumberHelper.LayerHeight);
+            Point release = press + new Vector(TimeSpan.FromSeconds(3).TimeToPixel(timeline.Options.Value.Scale), 0);
             window.MouseMove(press, modifiers);
             window.MouseDown(press, MouseButton.Left, modifiers);
             window.MouseMove(release, modifiers | RawInputModifiers.LeftMouseButton);
@@ -206,14 +193,16 @@ public class ElementViewDragCancellationTests
                 Assert.That(vm.BorderMargin.Value.Left, Is.Not.EqualTo(vm.Model.Start.TimeToPixel(timeline.Options.Value.Scale)));
 
             pointer!.Capture(null);
+            HeadlessTestHelpers.Settle(4);
+            await Task.Delay(300);
             HeadlessTestHelpers.Render(5);
             foreach (ElementViewModel vm in elements) AssertVisualMatchesModel(vm);
             Assert.Multiple(() =>
             {
-                Assert.That(elements.Select(vm => vm.Model.Start), Is.All.EqualTo(TimeSpan.FromSeconds(2)));
-                Assert.That(elements.Select(vm => vm.Model.Length), Is.All.EqualTo(TimeSpan.FromSeconds(2)));
+                Assert.That(selected.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
+                Assert.That(pressed.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
                 Assert.That(elements.Select(vm => vm.Model.ZIndex), Is.EqualTo(new[] { 0, 1 }));
-                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
+                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
                 Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
             });
             window.MouseUp(new Point(5, 5), MouseButton.Left);
@@ -221,6 +210,77 @@ public class ElementViewDragCancellationTests
             window.MouseMove(hover);
             HeadlessTestHelpers.Render(5);
             foreach (ElementViewModel vm in elements) AssertVisualMatchesModel(vm);
+        }
+        finally
+        {
+            TimelineTestHost.Close(view, window);
+            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = originalSnap;
+        }
+    }
+
+    public enum DragEnd { Escape, Undo, Playback }
+
+    [AvaloniaTest]
+    [TestCase(DragEnd.Escape)]
+    [TestCase(DragEnd.Undo)]
+    [TestCase(DragEnd.Playback)]
+    public async Task Escape_and_Undo_cancel_the_drag_and_playback_start_confirms_it(DragEnd end)
+    {
+        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled;
+        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = false;
+        Window? window = null;
+        TimelineTabView? view = null;
+        try
+        {
+            (EditViewModel editor, ElementViewModel[] elements) = await OpenElements(grouped: false);
+            ElementViewModel clip = elements[0];
+            TimelineTabViewModel timeline = clip.Timeline;
+            editor.HistoryManager.ExecuteInTransaction(() => clip.Model.Name = "earlier", "Earlier");
+            int undoCount = editor.HistoryManager.UndoCount;
+            view = new TimelineTabView { DataContext = timeline };
+            window = new Window { Content = view, Width = 1200, Height = 420 };
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            Border border = view.GetVisualDescendants().OfType<ElementView>().Single().FindControl<Border>("border")!;
+            Point press = border.TranslatePoint(new Point(border.Bounds.Width / 2, border.Bounds.Height / 2), window)!.Value;
+            Point moved = press + new Vector(TimeSpan.FromSeconds(3).TimeToPixel(timeline.Options.Value.Scale), 0);
+            window.MouseMove(press);
+            window.MouseDown(press, MouseButton.Left);
+            window.MouseMove(moved, RawInputModifiers.LeftMouseButton);
+            HeadlessTestHelpers.Render(5);
+            Assert.That(editor.HistoryManager.IsEditing, Is.True, "The drag must hold an edit session.");
+
+            switch (end)
+            {
+                case DragEnd.Escape:
+                    window.KeyPress(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
+                    window.KeyRelease(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
+                    break;
+                case DragEnd.Undo:
+                    Assert.That(await editor.UndoAsync(), Is.True);
+                    break;
+                case DragEnd.Playback:
+                    editor.Player.IsPlaying.Value = true;
+                    break;
+            }
+
+            HeadlessTestHelpers.Settle(4);
+            if (end == DragEnd.Playback)
+                editor.Player.IsPlaying.Value = false;
+            window.MouseUp(moved, MouseButton.Left);
+            HeadlessTestHelpers.Settle(4);
+            await Task.Delay(300);
+            HeadlessTestHelpers.Render(5);
+
+            bool confirmed = end == DragEnd.Playback;
+            Assert.Multiple(() =>
+            {
+                Assert.That(clip.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(confirmed ? 5 : 2)));
+                Assert.That(clip.Model.Name, Is.EqualTo("earlier"), "Undo during the drag leaves earlier history alone.");
+                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + (confirmed ? 1 : 0)));
+                Assert.That(editor.HistoryManager.IsEditing, Is.False);
+            });
+            AssertVisualMatchesModel(clip);
         }
         finally
         {

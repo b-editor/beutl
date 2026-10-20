@@ -4,17 +4,20 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Configuration;
+using Beutl.Editor;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.GraphEditorTab.Views;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.Views;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
+using Microsoft.Extensions.DependencyInjection;
 using GraphScope = Beutl.HeadlessUITests.GraphEditorContextMenuTests.GraphScope;
 
 namespace Beutl.HeadlessUITests;
@@ -143,6 +146,58 @@ public class GraphEditorRulerBarTests
         graph.Drag(OnRuler(2), OnRuler(300));
         Assert.That(scene.Start, Is.EqualTo(TimeSpan.FromSeconds(2) - frame));
         Assert.That(scene.Duration, Is.EqualTo(frame));
+
+        Point OnRuler(double x) => horizontal.TranslatePoint(new Point(x, 8), graph.Window)!.Value;
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Scene_bar_drag_keeps_its_value_on_capture_loss_and_reverts_on_Escape(bool escape)
+    {
+        using GraphScope graph = await GraphScope.CreateAsync();
+        Scene scene = graph.Model.Scene;
+        HistoryManager history = graph.Model.EditorContext.GetRequiredService<HistoryManager>();
+        TimelineScale horizontal = graph.View.FindControl<TimelineScale>("scale")!;
+        scene.Start = TimeSpan.Zero;
+        scene.Duration = TimeSpan.FromSeconds(2);
+        history.Commit();
+        HeadlessTestHelpers.Render();
+        int undoCount = history.UndoCount;
+        IPointer? pointer = null;
+        graph.View.FindControl<Border>("RulerBar")!.AddHandler(InputElement.PointerPressedEvent,
+            (_, e) => pointer = e.Pointer, RoutingStrategies.Bubble, handledEventsToo: true);
+
+        // The ending bar sits at 300 px (2 s at 150 px per second).
+        graph.HitTest(OnRuler(298));
+        graph.Window.MouseMove(OnRuler(298));
+        graph.Window.MouseDown(OnRuler(298), MouseButton.Left);
+        graph.Window.MouseMove(OnRuler(270), RawInputModifiers.LeftMouseButton);
+        HeadlessTestHelpers.Render();
+        Assert.That(scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(1.8)));
+
+        if (escape)
+        {
+            graph.Window.KeyPress(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
+            graph.Window.KeyRelease(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
+        }
+        else
+        {
+            pointer!.Capture(null);
+        }
+
+        HeadlessTestHelpers.Settle();
+        Assert.That(history.IsEditing, Is.False, "The end closes the session before any release.");
+        graph.Window.MouseMove(OnRuler(240), RawInputModifiers.LeftMouseButton);
+        graph.Window.MouseUp(OnRuler(240), MouseButton.Left);
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(escape ? 2 : 1.8)));
+            Assert.That(history.UndoCount, Is.EqualTo(undoCount + (escape ? 0 : 1)));
+            Assert.That(history.IsEditing, Is.False);
+        });
 
         Point OnRuler(double x) => horizontal.TranslatePoint(new Point(x, 8), graph.Window)!.Value;
     }

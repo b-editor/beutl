@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.Graphics;
 
@@ -23,6 +24,9 @@ public sealed class CurvePresenterViewModel : IDisposable
 
     public ObservableCollection<CurveControlPoint> Points { get; }
 
+    // The view's drag on this curve; its writes go to the drag's edit session.
+    internal DragSession? Drag { get; set; }
+
     public void EndEdit()
     {
         _history.Commit(CommandNames.EditProperty);
@@ -37,7 +41,10 @@ public sealed class CurvePresenterViewModel : IDisposable
         try
         {
             var map = new CurveMap(Points);
-            _property.CurrentValue = map;
+            using (Drag?.Enter())
+            {
+                _property.CurrentValue = map;
+            }
         }
         finally
         {

@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.VisualTree;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using FluentAvalonia.UI.Media;
 
@@ -23,6 +24,9 @@ public sealed class NodePortPoint : Control
     private Canvas? _canvas;
     private Point _dragStart;
     private Visual? _dragCoordinateSpace;
+    private Point _lastCanvasPoint;
+    private bool _connected;
+    private DragSession? _drag;
 
     static NodePortPoint()
     {
@@ -54,6 +58,10 @@ public sealed class NodePortPoint : Control
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
+        if (_drag is { } drag)
+            drag.Confirm();
+        else if (_captured)
+            CancelDrag();
         _canvas = null;
     }
 
@@ -99,6 +107,7 @@ public sealed class NodePortPoint : Control
                 Visual coordinateSpace = (Visual?)TopLevel.GetTopLevel(this) ?? _canvas;
                 _dragCoordinateSpace = coordinateSpace;
                 _dragStart = e.GetPosition(coordinateSpace);
+                _lastCanvasPoint = point.Position;
                 e.Handled = true;
                 _captured = true;
                 e.Pointer.Capture(this);
@@ -111,6 +120,20 @@ public sealed class NodePortPoint : Control
         base.OnPointerMoved(e);
         if (_captured && !_doubleClick && _line != null)
         {
+            // The first move opens the DragSession; null means another gesture holds history.
+            if (DataContext is NodePortViewModel viewModel)
+            {
+                _drag ??= DragSession.Begin(
+                    viewModel.GraphNodeViewModel.EditorContext, this, CommandNames.ConnectPort, ConfirmDrag, CancelDrag);
+            }
+
+            if (_drag is null)
+            {
+                CancelDrag();
+                return;
+            }
+
+            _lastCanvasPoint = e.GetPosition(_canvas);
             if (DataContext is InputPortViewModel)
             {
                 _line.EndPoint = e.GetPosition(_canvas);
@@ -123,11 +146,11 @@ public sealed class NodePortPoint : Control
         }
     }
 
-    public bool TryConnect(PointerReleasedEventArgs e)
+    private bool TryConnect(Point canvasPoint)
     {
         if (_canvas != null)
         {
-            IInputElement? elm = _canvas.InputHitTest(e.GetPosition(_canvas));
+            IInputElement? elm = _canvas.InputHitTest(canvasPoint);
             if (elm != this && elm is NodePortPoint { DataContext: NodePortViewModel endViewModel })
             {
                 var args = new NodePortConnectRequestedEventArgs(endViewModel, false);
@@ -153,20 +176,53 @@ public sealed class NodePortPoint : Control
             Canvas? canvas = _canvas;
             Point releasePoint = canvas != null ? e.GetPosition(canvas) : default;
             Point releaseInWindow = _dragCoordinateSpace != null ? e.GetPosition(_dragCoordinateSpace) : default;
-            bool connected = TryConnect(e);
-            Disconnect();
+            _lastCanvasPoint = releasePoint;
+            if (_drag is { } drag)
+                drag.Confirm();
+            else
+                ConfirmDrag();
 
-            _line = null;
             e.Handled = true;
-            _captured = false;
             e.Pointer.Capture(null);
-            _dragCoordinateSpace = null;
 
-            if (!connected && canvas != null && DataContext is NodePortViewModel { Model: not null } source
+            // The menu of compatible nodes opens only on a real release, not when the drag ends otherwise.
+            if (!_connected && canvas != null && DataContext is NodePortViewModel { Model: not null } source
                 && Math.Max(Math.Abs(releaseInWindow.X - _dragStart.X), Math.Abs(releaseInWindow.Y - _dragStart.Y)) >= 5
                 && IsBlankDropTarget(canvas.InputHitTest(releasePoint)))
                 this.FindAncestorOfType<NodeGraphView>()?.ShowCompatibleNodeMenu(source, releasePoint);
         }
+    }
+
+    // A drag in progress confirms through its DragSession; a press that never moved has nothing to keep.
+    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+    {
+        base.OnPointerCaptureLost(e);
+        if (_captured && _drag is null)
+            CancelDrag();
+    }
+
+    // Release, capture loss, playback start and detach connect to the port under the pointer's last position.
+    private void ConfirmDrag()
+    {
+        _drag = null;
+        _connected = _captured && TryConnect(_lastCanvasPoint);
+        EndDrag();
+    }
+
+    // Escape and Undo drop the line without connecting.
+    private void CancelDrag()
+    {
+        _drag = null;
+        _connected = false;
+        EndDrag();
+    }
+
+    private void EndDrag()
+    {
+        Disconnect();
+        _line = null;
+        _captured = false;
+        _dragCoordinateSpace = null;
     }
 
     private static bool IsBlankDropTarget(IInputElement? target)

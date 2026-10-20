@@ -46,6 +46,14 @@ public class GradingColorPicker : TemplatedControl
     private UnboundedHsv _oldHsv;
     private GradingColor _oldColor;
     private UnboundedHsv _currentHsv;
+    private readonly ColorPartPress _press;
+    private bool _wheelDragging;
+    private bool _wheelStopped;
+
+    public GradingColorPicker()
+    {
+        _press = new ColorPartPress(this, () => _oldColor = Color, ConfirmPress);
+    }
 
     public event TypedEventHandler<GradingColorPicker, (GradingColor OldValue, GradingColor NewValue)>? ColorChanged;
 
@@ -67,6 +75,16 @@ public class GradingColorPicker : TemplatedControl
     {
         get => GetValue(ShowDetailsProperty);
         set => SetValue(ShowDetailsProperty, value);
+    }
+
+    // Whether a wheel, spectrum, slider or previewer is being dragged; a stopped drag no longer counts.
+    public bool IsDragging => (_wheelDragging && !_wheelStopped) || _press.IsPressed;
+
+    // Ends the drag in progress without ColorConfirmed, for a host that ended the gesture itself.
+    public void StopDrag()
+    {
+        _press.Stop();
+        _wheelStopped = _wheelDragging;
     }
 
     private ColorSlider?[] GetColorSliders() =>
@@ -116,20 +134,20 @@ public class GradingColorPicker : TemplatedControl
         if (_ringSpectrum != null)
         {
             _ringSpectrum.ColorChanged += OnSpectrumColorChanged;
-            ColorPickerParts.AddConfirmHandlers(_ringSpectrum, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
+            _press.Add(_ringSpectrum);
         }
 
         if (_previewer != null)
         {
             _previewer.ColorChanged += OnSpectrumColorChanged;
-            ColorPickerParts.AddConfirmHandlers(_previewer, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
+            _press.Add(_previewer);
         }
 
         foreach (ColorSlider? item in GetColorSliders())
         {
             if (item == null) continue;
             item.ColorChanged += OnColorSliderColorChanged;
-            ColorPickerParts.AddConfirmHandlers(item, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
+            _press.Add(item);
         }
 
         foreach (GradingWheel? item in GetWheels())
@@ -160,13 +178,15 @@ public class GradingColorPicker : TemplatedControl
 
     private void OnWheelDragStarted(object? sender, VectorEventArgs e)
     {
+        _wheelDragging = true;
+        _wheelStopped = false;
         _oldHsv = _currentHsv;
         _oldColor = Color;
     }
 
     private void OnWheelDragDelta(object? sender, VectorEventArgs e)
     {
-        if (_ignoreColorChange) return;
+        if (_ignoreColorChange || _wheelStopped) return;
 
         if (sender is GradingWheel wheel)
         {
@@ -202,6 +222,9 @@ public class GradingColorPicker : TemplatedControl
 
     private void OnWheelDragCompleted(object? sender, VectorEventArgs e)
     {
+        _wheelDragging = false;
+        if (_wheelStopped) return;
+
         var current = Color;
         if (!_oldColor.Equals(current))
         {
@@ -228,12 +251,7 @@ public class GradingColorPicker : TemplatedControl
         }
     }
 
-    private void OnSpectrumPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        _oldColor = Color;
-    }
-
-    private void OnSpectrumPointerReleased(object? sender, PointerReleasedEventArgs e)
+    private void ConfirmPress()
     {
         GradingColor color = Color;
         GradingColor oldColor = _oldColor;
@@ -371,13 +389,13 @@ public class GradingColorPicker : TemplatedControl
         if (_ringSpectrum != null)
         {
             _ringSpectrum.ColorChanged -= OnSpectrumColorChanged;
-            ColorPickerParts.RemoveConfirmHandlers(_ringSpectrum, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
+            _press.Remove(_ringSpectrum);
         }
 
         if (_previewer != null)
         {
             _previewer.ColorChanged -= OnSpectrumColorChanged;
-            ColorPickerParts.RemoveConfirmHandlers(_previewer, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
+            _press.Remove(_previewer);
         }
 
         if (_componentsBox != null)
@@ -391,7 +409,7 @@ public class GradingColorPicker : TemplatedControl
             if (item == null) continue;
 
             item.ColorChanged -= OnColorSliderColorChanged;
-            ColorPickerParts.RemoveConfirmHandlers(item, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
+            _press.Remove(item);
         }
 
         foreach (GradingWheel? item in GetWheels())

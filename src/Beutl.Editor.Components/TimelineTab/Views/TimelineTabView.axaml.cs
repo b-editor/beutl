@@ -23,12 +23,11 @@ public sealed partial class TimelineTabView : UserControl
 {
     internal MouseFlags _mouseFlag = MouseFlags.Free;
     internal TimeSpan _pointerFrame;
-    private readonly TimelineRulerDrag _rulerDrag = new();
+    private readonly TimelineRulerDrag _rulerDrag;
     private bool _rightButtonPressed;
     private SceneMarker? _pressedMarker;
-    private TimeSpan _markerInitialTime;
     private Point _markerPressPosition;
-    private bool _markerDragged;
+    private DragSession? _markerDrag;
     private const double MarkerDragThreshold = 4d;
     private static readonly TimeSpan s_defaultElementLength = TimeSpan.FromSeconds(5);
     private readonly ILogger _logger = Log.CreateLogger<TimelineTabView>();
@@ -49,6 +48,7 @@ public sealed partial class TimelineTabView : UserControl
     {
         _usesGestureAxes = usesGestureAxes;
         _attachNativeInput = attachNativeInput ?? NativeScrollInput.Attach;
+        _rulerDrag = new TimelineRulerDrag(() => _mouseFlag = MouseFlags.Free);
         InitializeComponent();
         TimelineEditingModeMenu.Populate(EditingModeMenu, "");
 

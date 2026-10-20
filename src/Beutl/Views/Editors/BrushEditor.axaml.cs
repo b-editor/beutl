@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -28,6 +29,7 @@ public sealed partial class BrushEditor : UserControl
         AvaloniaProperty.Register<BrushEditor, Media.Brush?>(nameof(OriginalBrush));
 
     private BrushEditorFlyout? _flyout;
+    private readonly LiveEditDrag _drag = new();
     private Media.DrawableBrush? _followedBrush;
 
     public BrushEditor()
@@ -289,6 +291,8 @@ public sealed partial class BrushEditor : UserControl
         if (viewModel.Value.Value is not SolidColorBrush) return;
         if (viewModel.IsDisposed) return;
 
+        // A drag's session holds its writes; SetColor then finds the value in place and commits nothing more.
+        _drag.Confirm();
         viewModel.SetColor(e.OldValue.ToBtlColor(), e.NewValue.ToBtlColor());
     }
 
@@ -298,9 +302,16 @@ public sealed partial class BrushEditor : UserControl
         if (viewModel.Value.Value is not SolidColorBrush solid) return;
         if (viewModel.IsDisposed) return;
 
-        solid.Color.CurrentValue = e.NewValue.ToBtlColor();
+        _drag.Write(viewModel, DragOwner, StopFlyoutDrag, () => solid.Color.CurrentValue = e.NewValue.ToBtlColor());
         viewModel.InvalidateFrameCache();
     }
+
+    private Control? FlyoutPresenter => _flyout?.Popup.Child;
+
+    // Only a drag in the flyout opens a session; typed values are confirmed as before.
+    private Control? DragOwner => FlyoutPresenter is BrushEditorFlyoutPresenter { IsDragging: true } presenter ? presenter : null;
+
+    private void StopFlyoutDrag() => (FlyoutPresenter as BrushEditorFlyoutPresenter)?.StopDrag();
 
     private void OnGradientStopAdded(object? sender, (int Index, Avalonia.Media.GradientStop Object) e)
     {
@@ -321,7 +332,8 @@ public sealed partial class BrushEditor : UserControl
         (int OldIndex, int NewIndex,
             Avalonia.Media.GradientStop Object, Avalonia.Media.Immutable.ImmutableGradientStop OldObject) e)
     {
-        if (DataContext is BrushEditorViewModel { IsElementEditable: true, Value.Value: GradientBrush { GradientStops: { } list } } viewModel)
+        if (DataContext is BrushEditorViewModel { IsElementEditable: true, Value.Value: GradientBrush { GradientStops: { } list } } viewModel
+            && !_drag.Confirm())
             GradientStopEdits.Release(viewModel, list, e.OldIndex, e.NewIndex);
     }
 
@@ -329,7 +341,7 @@ public sealed partial class BrushEditor : UserControl
         (int OldIndex, int NewIndex, Avalonia.Media.GradientStop Object) e)
     {
         if (DataContext is BrushEditorViewModel { IsElementEditable: true, Value.Value: GradientBrush { GradientStops: { } list } } viewModel)
-            GradientStopEdits.Drag(viewModel, list, e.OldIndex, e.NewIndex, e.Object);
+            _drag.Write(viewModel, DragOwner, StopFlyoutDrag, () => GradientStopEdits.Drag(viewModel, list, e.OldIndex, e.NewIndex, e.Object));
     }
 
     private void Menu_Click(object? sender, RoutedEventArgs e)

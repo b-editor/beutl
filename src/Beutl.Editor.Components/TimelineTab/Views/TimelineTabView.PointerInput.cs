@@ -6,7 +6,6 @@ using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Microsoft.Extensions.DependencyInjection;
 using MouseFlags = Beutl.Editor.Components.Helpers.TimelineHelper.MouseFlags;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
@@ -39,17 +38,28 @@ public sealed partial class TimelineTabView
         else if (_mouseFlag == MouseFlags.MarkerPressed && _pressedMarker is { } draggingMarker)
         {
             // 閾値を超えるまではドラッグとみなさず、クリックでのフライアウト表示の余地を残す
-            if (!_markerDragged
+            if (_markerDrag is null
                 && Math.Abs(pointerPt.Position.X - _markerPressPosition.X) < MarkerDragThreshold
                 && Math.Abs(pointerPt.Position.Y - _markerPressPosition.Y) < MarkerDragThreshold)
             {
                 return;
             }
 
-            _markerDragged = true;
-            draggingMarker.Time = _pointerFrame;
+            _markerDrag ??= DragSession.Begin(
+                viewModel.EditorContext, RulerBar, CommandNames.MoveMarker, EndMarkerDrag, EndMarkerDrag);
+            if (_markerDrag is null)
+            {
+                // Another gesture holds history.
+                EndMarkerDrag();
+                return;
+            }
+
+            using (_markerDrag.Enter())
+            {
+                draggingMarker.Time = _pointerFrame;
+            }
         }
-        else if (!_rulerDrag.Move(_mouseFlag, viewModel.EditorContext, viewModel.Scene, _pointerFrame))
+        else if (!_rulerDrag.Move(_mouseFlag, viewModel.EditorContext, RulerBar, viewModel.Scene, _pointerFrame))
         {
             UpdateScaleHover(viewModel, e, pointerPt);
         }
@@ -88,7 +98,6 @@ public sealed partial class TimelineTabView
     {
         if (ViewModel == null) return;
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
-        HistoryManager history = ViewModel.EditorContext.GetRequiredService<HistoryManager>();
 
         if (pointerPt.Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased)
         {
@@ -98,11 +107,11 @@ public sealed partial class TimelineTabView
             }
             else if (_mouseFlag == MouseFlags.MarkerPressed && _pressedMarker is { } releasedMarker)
             {
-                ReleaseMarker(releasedMarker, history);
+                ReleaseMarker(releasedMarker);
             }
             else
             {
-                TimelineRulerDrag.Release(_mouseFlag, ViewModel.EditorContext);
+                _rulerDrag.Release();
             }
 
             if (Scale.IsPointerOver && ViewModel.HoveredCacheBlock.Value is { } cache)
@@ -118,23 +127,25 @@ public sealed partial class TimelineTabView
         }
     }
 
-    private void ReleaseMarker(SceneMarker releasedMarker, HistoryManager history)
+    private void ReleaseMarker(SceneMarker releasedMarker)
     {
-        if (_markerDragged)
+        if (_markerDrag is { } drag)
         {
-            if (releasedMarker.Time != _markerInitialTime)
-            {
-                history.Commit(CommandNames.MoveMarker);
-            }
-        }
-        else
-        {
-            // 移動が閾値未満ならクリック扱いで編集フライアウトを開く
-            ShowMarkerEditFlyout(releasedMarker);
+            drag.Confirm();
+            return;
         }
 
+        // 移動が閾値未満ならクリック扱いで編集フライアウトを開く
+        ShowMarkerEditFlyout(releasedMarker);
         _pressedMarker = null;
-        _markerDragged = false;
+    }
+
+    // Release, capture loss and playback start keep the marker where it reached; Escape and Undo revert it.
+    private void EndMarkerDrag()
+    {
+        _markerDrag = null;
+        _pressedMarker = null;
+        _mouseFlag = MouseFlags.Free;
     }
 
     private void ShowCacheTip(TimelineTabViewModel viewModel, CacheBlock cache)
@@ -229,9 +240,7 @@ public sealed partial class TimelineTabView
         {
             _mouseFlag = MouseFlags.MarkerPressed;
             _pressedMarker = hitMarker;
-            _markerInitialTime = hitMarker.Time;
             _markerPressPosition = pointerPt.Position;
-            _markerDragged = false;
             e.Handled = true;
             return true;
         }

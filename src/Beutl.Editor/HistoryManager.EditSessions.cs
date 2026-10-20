@@ -137,6 +137,15 @@ public sealed partial class HistoryManager
         }
     }
 
+    internal bool TryCancelGesture()
+    {
+        if (Volatile.Read(ref _activeSession)?.CancelRequested is not { } cancel)
+            return false;
+
+        cancel();
+        return true;
+    }
+
     internal bool IsSessionOpen(EditSession session)
     {
         lock (_lock)
