@@ -1,4 +1,5 @@
 ﻿using Avalonia.Headless.NUnit;
+using Beutl.Editor.Components.DockLayoutTab;
 using Beutl.Editor.Components.TerminalTab;
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Services.PrimitiveImpls;

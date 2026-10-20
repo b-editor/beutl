@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
 using Beutl.ViewModels.Dock;
 using Dock.Model.Controls;
@@ -8,7 +9,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
-public class DockHostViewModel : IDisposable, IJsonSerializable
+public class DockHostViewModel : IDisposable, IJsonSerializable, IToolDockHost
 {
     private const int DockVersion = 2;
     private readonly string _sceneId;

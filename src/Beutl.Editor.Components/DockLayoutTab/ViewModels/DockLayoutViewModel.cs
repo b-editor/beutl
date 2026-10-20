@@ -1,13 +1,14 @@
 ﻿using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
-using Beutl.Services.PrimitiveImpls;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace Beutl.ViewModels.Tools;
+namespace Beutl.Editor.Components.DockLayoutTab.ViewModels;
 
 /// <summary>
 /// Drives the dock layout tool tab. Names are collected by the view through a flyout, so the
@@ -17,17 +18,19 @@ public sealed class DockLayoutViewModel : IToolContext
 {
     private readonly ILogger _logger = Log.CreateLogger<DockLayoutViewModel>();
     private readonly CompositeDisposable _disposables = [];
-    private readonly EditViewModel _editViewModel;
+    private readonly IEditorContext _editorContext;
+    private readonly IToolDockHost _dockHost;
     private readonly DockLayoutPresetService _service;
 
-    public DockLayoutViewModel(EditViewModel editViewModel)
-        : this(editViewModel, DockLayoutPresetService.Instance)
+    public DockLayoutViewModel(IEditorContext editorContext)
+        : this(editorContext, DockLayoutPresetService.Instance)
     {
     }
 
-    internal DockLayoutViewModel(EditViewModel editViewModel, DockLayoutPresetService service)
+    internal DockLayoutViewModel(IEditorContext editorContext, DockLayoutPresetService service)
     {
-        _editViewModel = editViewModel;
+        _editorContext = editorContext;
+        _dockHost = editorContext.GetRequiredService<IToolDockHost>();
         _service = service;
 
         SelectedItem = new ReactiveProperty<DockLayoutPresetItem?>().AddTo(_disposables);
@@ -61,7 +64,7 @@ public sealed class DockLayoutViewModel : IToolContext
     {
         if (string.IsNullOrWhiteSpace(name)) return null;
 
-        DockLayoutPresetItem? saved = _service.Save(name, _editViewModel.DockHost.CaptureLayout());
+        DockLayoutPresetItem? saved = _service.Save(name, _dockHost.CaptureLayout());
         if (saved is null)
         {
             NotificationService.ShowError(Strings.DockLayout, MessageStrings.OperationFailed);
@@ -78,7 +81,7 @@ public sealed class DockLayoutViewModel : IToolContext
     /// <summary>Applies <paramref name="item"/>.</summary>
     public bool Apply(DockLayoutPresetItem item)
     {
-        if (_editViewModel.DockHost.ApplyLayout(item.Layout))
+        if (_dockHost.ApplyLayout(item.Layout))
         {
             _logger.LogInformation("Applied dock layout '{Name}'.", item.Name.Value);
             return true;
@@ -118,7 +121,7 @@ public sealed class DockLayoutViewModel : IToolContext
 
     public void ResetLayout()
     {
-        _editViewModel.DockHost.ResetLayout();
+        _dockHost.ResetLayout();
     }
 
     public void Dispose()
@@ -128,7 +131,7 @@ public sealed class DockLayoutViewModel : IToolContext
 
     public object? GetService(Type serviceType)
     {
-        return _editViewModel.GetService(serviceType);
+        return _editorContext.GetService(serviceType);
     }
 
     public void ReadFromJson(JsonObject json)

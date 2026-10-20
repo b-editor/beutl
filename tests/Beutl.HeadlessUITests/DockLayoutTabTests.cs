@@ -4,16 +4,15 @@ using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
+using Beutl.Editor.Components.DockLayoutTab;
+using Beutl.Editor.Components.DockLayoutTab.ViewModels;
+using Beutl.Editor.Components.DockLayoutTab.Views;
 using Beutl.Editor.Components.LibraryTab;
 using Beutl.Extensibility;
 using Beutl.Language;
-using Beutl.Services;
-using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
-using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
 
 namespace Beutl.HeadlessUITests;
 

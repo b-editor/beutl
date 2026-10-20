@@ -3,10 +3,9 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Beutl.Controls;
-using Beutl.Services;
-using Beutl.ViewModels.Tools;
+using Beutl.Editor.Components.DockLayoutTab.ViewModels;
 
-namespace Beutl.Views.Tools;
+namespace Beutl.Editor.Components.DockLayoutTab.Views;
 
 public partial class DockLayoutView : UserControl
 {
