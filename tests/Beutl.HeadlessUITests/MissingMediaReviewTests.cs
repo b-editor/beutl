@@ -2,6 +2,7 @@
 using Avalonia.Headless.NUnit;
 using Beutl.Composition;
 using Beutl.Editor;
+using Beutl.Editor.Components.MissingMediaTab.ViewModels;
 using Beutl.Engine;
 using Beutl.Graphics3D.Models;
 using Beutl.Media;
@@ -10,7 +11,6 @@ using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Testing.Headless;
-using Beutl.ViewModels.Tools;
 
 namespace Beutl.HeadlessUITests;
 

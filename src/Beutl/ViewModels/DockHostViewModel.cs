@@ -262,6 +262,15 @@ public class DockHostViewModel : IDisposable, IJsonSerializable, IToolDockHost
         _editViewModel.OpenSelectionInPropertyTabs();
     }
 
+    IDisposable IToolDockHost.KeepOpen(IToolContext tool)
+    {
+        if (Factory.EnumerateTools().FirstOrDefault(dockable => dockable.ToolContext == tool) is not { } kept)
+            return Disposable.Empty;
+
+        kept.CanClose = false;
+        return Disposable.Create(() => kept.CanClose = true);
+    }
+
     /// <summary>
     /// Captures the current layout in the same shape <see cref="WriteToJson"/> writes, for
     /// <see cref="ApplyLayout"/> to restore later.

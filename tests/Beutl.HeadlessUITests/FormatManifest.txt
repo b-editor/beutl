@@ -1294,6 +1294,8 @@ Beutl.Utilities
   id: Beutl.Editor.Components.HistoryTab.HistoryTabExtension
 [Beutl.Editor.Components].LibraryTab:LibraryTabExtension
   id: Beutl.Editor.Components.LibraryTab.LibraryTabExtension
+[Beutl.Editor.Components].MissingMediaTab:MissingMediaTabExtension
+  id: Beutl.Editor.Components.MissingMediaTab.MissingMediaTabExtension
 [Beutl.Editor.Components].NodeGraphTab:NodeGraphTabExtension
   id: Beutl.Editor.Components.NodeGraphTab.NodeGraphTabExtension#<guid>
 [Beutl.Editor.Components].ObjectPropertyTab:ObjectPropertyTabExtension
@@ -1318,8 +1320,6 @@ Beutl.Utilities
   id: Beutl.Services.PrimitiveImpls.TimelineTabExtension
 [Beutl].Services.PrimitiveImpls:AiWorkspaceTabExtension
   id: Beutl.Services.PrimitiveImpls.AiWorkspaceTabExtension#<guid>
-[Beutl].Services.PrimitiveImpls:MissingMediaTabExtension
-  id: Beutl.Services.PrimitiveImpls.MissingMediaTabExtension
 [Beutl].Services.PrimitiveImpls:OutputTabExtension
   id: Beutl.Services.PrimitiveImpls.OutputTabExtension
 

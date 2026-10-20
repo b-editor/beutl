@@ -1,7 +1,7 @@
 ﻿using Avalonia.Data;
 using Avalonia.Data.Converters;
 
-namespace Beutl.Converters;
+namespace Beutl.Editor.Components.Converters;
 
 public sealed class FileNameConverter : IValueConverter
 {

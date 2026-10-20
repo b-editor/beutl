@@ -10,6 +10,8 @@ using Beutl.Audio;
 using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Editor.Components.MissingMediaTab.ViewModels;
+using Beutl.Editor.Components.MissingMediaTab.Views;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
@@ -23,9 +25,7 @@ using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
 using Beutl.Views;
-using Beutl.Views.Tools;
 
 namespace Beutl.HeadlessUITests;
 

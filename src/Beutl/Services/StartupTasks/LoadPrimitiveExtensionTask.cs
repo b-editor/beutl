@@ -11,6 +11,7 @@ using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.GraphEditorTab;
 using Beutl.Editor.Components.HistoryTab;
 using Beutl.Editor.Components.LibraryTab;
+using Beutl.Editor.Components.MissingMediaTab;
 using Beutl.Editor.Components.NodeGraphTab;
 using Beutl.Editor.Components.ObjectPropertyTab;
 using Beutl.Editor.Components.PathEditorTab;
