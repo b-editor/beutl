@@ -1,7 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 
-namespace Beutl.Views.Editors;
+namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 // Opens one picker at a time per editor: the pickers do not light-dismiss, so another click would open a
 // second one. An editor's type and target pickers share its entry.

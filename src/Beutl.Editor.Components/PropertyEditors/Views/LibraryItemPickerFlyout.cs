@@ -1,10 +1,10 @@
 ﻿using Avalonia;
 using Beutl.Controls.PropertyEditors;
-using Beutl.ViewModels.Dialogs;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using FluentAvalonia.Core;
 using Reactive.Bindings.Extensions;
 
-namespace Beutl.Views.Editors;
+namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel viewModel)
     : ConfirmablePickerFlyout<LibraryItemPickerFlyout, LibraryItemPickerFlyoutPresenter>

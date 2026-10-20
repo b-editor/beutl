@@ -1,14 +1,18 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
-using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
+using Beutl.Editor.Components.TransitionTab.ViewModels;
+using Beutl.Editor.Components.TransitionTab.Views;
+using Beutl.Editor.Services;
+using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using FluentAvalonia.UI.Controls;
 using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
 using Icon = FluentIcons.Common.Icon;
 
-namespace Beutl.Services.PrimitiveImpls;
+namespace Beutl.Editor.Components.TransitionTab;
 
+// Moved from the app; layouts and pins saved before name the former type.
+[FormerPersistedName("[Beutl].Services.PrimitiveImpls:TransitionTabExtension")]
 public sealed partial class TransitionTabExtension : ToolTabExtension
 {
     public static readonly TransitionTabExtension Instance = new();
@@ -35,7 +39,7 @@ public sealed partial class TransitionTabExtension : ToolTabExtension
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
-        if (editorContext is EditViewModel)
+        if (SupportsTransitions(editorContext))
         {
             control = new TransitionTabView();
             return true;
@@ -47,13 +51,18 @@ public sealed partial class TransitionTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        if (editorContext is EditViewModel editViewModel)
+        if (SupportsTransitions(editorContext))
         {
-            context = new TransitionTabViewModel(editViewModel);
+            context = new TransitionTabViewModel(editorContext);
             return true;
         }
 
         context = null;
         return false;
     }
+
+    private static bool SupportsTransitions(IEditorContext editorContext)
+        => editorContext.GetService(typeof(Scene)) is Scene
+           && editorContext.GetService(typeof(IElementAttributeService)) is IElementAttributeService
+           && editorContext.GetService(typeof(IPropertiesEditorFactory)) is IPropertiesEditorFactory;
 }

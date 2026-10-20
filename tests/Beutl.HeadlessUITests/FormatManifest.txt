@@ -1308,6 +1308,8 @@ Beutl.Utilities
   id: Beutl.Editor.Components.SceneSettingsTab.SceneSettingsTabExtension
 [Beutl.Editor.Components].TerminalTab:TerminalTabExtension
   id: Beutl.Editor.Components.TerminalTab.TerminalTabExtension#<guid>
+[Beutl.Editor.Components].TransitionTab:TransitionTabExtension
+  id: Beutl.Editor.Components.TransitionTab.TransitionTabExtension#<guid>
 [Beutl.Editor.Components].VersionControlTab:VersionControlTabExtension
   id: Beutl.Editor.Components.VersionControlTab.VersionControlTabExtension
 [Beutl.Editor.Components].WebBrowserTab:WebBrowserTabExtension
@@ -1320,8 +1322,6 @@ Beutl.Utilities
   id: Beutl.Services.PrimitiveImpls.MissingMediaTabExtension
 [Beutl].Services.PrimitiveImpls:OutputTabExtension
   id: Beutl.Services.PrimitiveImpls.OutputTabExtension
-[Beutl].Services.PrimitiveImpls:TransitionTabExtension
-  id: Beutl.Services.PrimitiveImpls.TransitionTabExtension#<guid>
 
 ## Keymap
 # keymap.json: the id of every context command of every ViewExtension.

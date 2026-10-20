@@ -1,13 +1,13 @@
-<UserControl x:Class="Beutl.Views.Tools.TransitionTabView"
+<UserControl x:Class="Beutl.Editor.Components.TransitionTab.Views.TransitionTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:editors="using:Beutl.Views.Editors"
+             xmlns:editorConverters="using:Beutl.Controls.Converters"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pe="using:Beutl.Controls.PropertyEditors"
-             xmlns:viewModels="using:Beutl.ViewModels.Tools"
+             xmlns:viewModels="using:Beutl.Editor.Components.TransitionTab.ViewModels"
              d:DesignHeight="450"
              d:DesignWidth="320"
              x:CompileBindings="True"
@@ -38,8 +38,13 @@
                 </pe:DropDownPickerEditor.MenuContent>
             </pe:DropDownPickerEditor>
 
-            <editors:PropertiesEditor Padding="0"
-                                      DataContext="{Binding Properties.Value}" />
+            <ItemsControl DataContext="{Binding Properties.Value}" ItemsSource="{Binding Properties}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="x:Object">
+                        <ContentControl Content="{Binding Converter={x:Static editorConverters:PropertyEditorContextToViewConverter.Instance}}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

@@ -1,9 +1,8 @@
 ﻿using Avalonia.Controls;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Services;
-using Beutl.ViewModels.Dialogs;
-using Beutl.ViewModels.Editors;
 
-namespace Beutl.Views.Editors;
+namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public static class LibraryItemPickerHelper
 {

@@ -5,13 +5,11 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Transitions;
 using Beutl.ProjectSystem;
-using Beutl.Services.PrimitiveImpls;
-using Beutl.ViewModels.Editors;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace Beutl.ViewModels.Tools;
+namespace Beutl.Editor.Components.TransitionTab.ViewModels;
 
 // Edits the transition at one edge of an element, opened from the timeline: its type, picked as an
 // effect's is, and its own properties. It shows the side that decides how the boundary blends and follows
@@ -21,7 +19,9 @@ public sealed class TransitionTabViewModel : IPinnableToolContext
     private const string PinnedElementJsonKey = "pinnedElementId";
     private const string PinnedEdgeJsonKey = "pinnedEdge";
     private readonly CompositeDisposable _disposables = [];
-    private readonly EditViewModel _editViewModel;
+    private readonly IEditorContext _editorContext;
+    private readonly Scene _scene;
+    private readonly IPropertiesEditorFactory _propertiesFactory;
     private readonly ToolTabPin _pin;
     private readonly ReactivePropertySlim<Element?> _shownElement = new();
     private Element? _element;
@@ -29,10 +29,11 @@ public sealed class TransitionTabViewModel : IPinnableToolContext
     private IDisposable? _editability;
     private Element? _editabilityOwner;
 
-    public TransitionTabViewModel(EditViewModel editViewModel)
+    public TransitionTabViewModel(IEditorContext editorContext)
     {
-        _editViewModel = editViewModel;
-        Scene scene = editViewModel.Scene;
+        _editorContext = editorContext;
+        _propertiesFactory = editorContext.GetRequiredService<IPropertiesEditorFactory>();
+        Scene scene = _scene = editorContext.GetRequiredService<Scene>();
         _disposables.Add((IDisposable)IsSelected);
         _disposables.Add(HasTarget);
         _disposables.Add(_shownElement);
@@ -96,15 +97,15 @@ public sealed class TransitionTabViewModel : IPinnableToolContext
 
     public ReadOnlyReactivePropertySlim<bool> CanDelete { get; }
 
-    public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
+    public ReactivePropertySlim<IPropertiesEditorViewModel?> Properties { get; } = new();
 
     /// <summary>
     /// Finds the tab to show an edge in: the one already showing it, else an idle or unpinned one.
     /// </summary>
-    public static TransitionTabViewModel? FindReusable(EditViewModel editViewModel, Element element, ElementEdge edge)
+    public static TransitionTabViewModel? FindReusable(IEditorContext editorContext, Element element, ElementEdge edge)
     {
         return ToolTabReuse.Find<TransitionTabViewModel>(
-            editViewModel,
+            editorContext,
             t => t.IsShowing(element, edge),
             t => !t.HasTarget.Value,
             retargetAnyOpen: true);
@@ -131,7 +132,7 @@ public sealed class TransitionTabViewModel : IPinnableToolContext
     {
         if (_element is not { } element || !ElementEditability.IsEditable(element)) return;
 
-        IElementAttributeService service = _editViewModel.GetRequiredService<IElementAttributeService>();
+        IElementAttributeService service = _editorContext.GetRequiredService<IElementAttributeService>();
         if (type == null)
         {
             service.RemoveTransition(element, _edge);
@@ -161,7 +162,7 @@ public sealed class TransitionTabViewModel : IPinnableToolContext
             Properties.Value = null;
             if (transition != null)
             {
-                var properties = new PropertiesEditorViewModel(transition, _editViewModel.ExtensionProvider);
+                IPropertiesEditorViewModel properties = _propertiesFactory.Create(transition);
                 NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), null, properties);
                 Properties.Value = properties;
             }
@@ -200,7 +201,7 @@ public sealed class TransitionTabViewModel : IPinnableToolContext
             return Transition.Value?.FindHierarchicalParent<Element>() ?? _element;
         }
 
-        return _editViewModel.GetService(serviceType);
+        return _editorContext.GetService(serviceType);
     }
 
     // Only a pinned tab is saved with its edge; an unpinned one waits for the timeline to open one.
@@ -210,7 +211,7 @@ public sealed class TransitionTabViewModel : IPinnableToolContext
             && json.TryGetPropertyValueAsJsonValue(PinnedElementJsonKey, out Guid id)
             && json.TryGetPropertyValueAsJsonValue(PinnedEdgeJsonKey, out string? edgeName)
             && Enum.TryParse(edgeName, out ElementEdge edge)
-            && _editViewModel.Scene.FindById(id) is Element element)
+            && _scene.FindById(id) is Element element)
         {
             Show(element, edge);
             _pin.ReadFromJson(json);
