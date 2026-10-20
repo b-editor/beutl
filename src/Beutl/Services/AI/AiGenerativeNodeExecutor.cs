@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using Beutl.Api.Services;
+using Beutl.Editor.Services.AI;
 using Beutl.Graphics;
 using Beutl.Language;
 using Beutl.Logging;
@@ -587,7 +588,7 @@ internal sealed class AiGenerativeNodeExecutor(
         using var input = new MemoryStream(encodedPng, writable: false);
         using Bitmap source = Bitmap.FromStream(input);
         (_, _, int horizontal, int vertical) =
-            Beutl.ViewModels.Dialogs.AiImageEditDialogViewModel.GetOutpaintDimensions(
+            AiRequestRules.GetOutpaintDimensions(
                 source.Width,
                 source.Height,
                 expansionPercent);

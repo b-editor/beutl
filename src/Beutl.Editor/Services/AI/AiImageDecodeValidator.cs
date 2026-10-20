@@ -1,7 +1,7 @@
 ﻿using Beutl.Media;
 using SkiaSharp;
 
-namespace Beutl.Services.AI;
+namespace Beutl.Editor.Services.AI;
 
 internal static class AiImageDecodeValidator
 {
