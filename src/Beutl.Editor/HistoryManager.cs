@@ -28,6 +28,7 @@ public sealed partial class HistoryManager : IDisposable
     private int _minimumReplayIndex;
     private int _maximumReplayIndex = int.MaxValue;
     private int _entryPublicationDepth;
+    private long _lastDescribedPendingSequence;
     private readonly AsyncLocal<BeforeMutationDispatch?> _beforeMutationDispatch = new();
     private bool _isolatedTransactionActive;
     private bool _isDisposed;
@@ -96,6 +97,24 @@ public sealed partial class HistoryManager : IDisposable
             {
                 return _currentTransaction.HasOperations;
             }
+        }
+    }
+
+    internal string? DescribeNewPendingOperations()
+    {
+        lock (_lock)
+        {
+            ChangeOperation[] added =
+                [.. _currentTransaction.Operations.Where(o => o.SequenceNumber > _lastDescribedPendingSequence)];
+            if (added.Length == 0)
+                return null;
+
+            _lastDescribedPendingSequence = added.Max(o => o.SequenceNumber);
+            return string.Join(", ", added.Select(static o =>
+            {
+                string type = o.GetType().Name.Split('`')[0];
+                return o is IPropertyPathProvider provider ? $"{type} {provider.PropertyPath}" : type;
+            }));
         }
     }
 

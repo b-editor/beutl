@@ -228,7 +228,7 @@ public sealed class AiJobMonitorTests
                 throw new HttpRequestException("transient");
             return new AiJobPage([], null);
         };
-        await using var jobKinds = new AiJobKindRegistry();
+        var jobKinds = new AiJobKindRegistry([]);
         using var changes = new Subject<Unit>();
         using var service = new AiJobMonitor(app, client, jobKinds, changes, TimeSpan.FromMilliseconds(10));
 
@@ -248,7 +248,7 @@ public sealed class AiJobMonitorTests
         {
             PageProvider = _ => throw new InvalidDataException("invalid job contract"),
         };
-        await using var jobKinds = new AiJobKindRegistry();
+        var jobKinds = new AiJobKindRegistry([]);
         using var changes = new Subject<Unit>();
         using var service = new AiJobMonitor(
             app,
@@ -292,7 +292,7 @@ public sealed class AiJobMonitorTests
             secondDelayStarted.TrySetResult();
             return releaseSecondDelay.Task;
         }
-        await using var jobKinds = new AiJobKindRegistry();
+        var jobKinds = new AiJobKindRegistry([]);
         using var changes = new Subject<Unit>();
         using var service = new AiJobMonitor(
             app,
@@ -346,7 +346,7 @@ public sealed class AiJobMonitorTests
                     $"Unexpected page request in phase {Volatile.Read(ref phase)}: {request.Cursor}"),
             },
         };
-        await using var jobKinds = new AiJobKindRegistry();
+        var jobKinds = new AiJobKindRegistry([]);
         using var changes = new Subject<Unit>();
         using var service = new AiJobMonitor(
             app,
@@ -438,7 +438,7 @@ public sealed class AiJobMonitorTests
                     $"Unexpected page request in phase {Volatile.Read(ref phase)}: {request.Cursor}"),
             },
         };
-        await using var jobKinds = new AiJobKindRegistry();
+        var jobKinds = new AiJobKindRegistry([]);
         using var changes = new Subject<Unit>();
         using var service = new AiJobMonitor(
             app,
@@ -503,7 +503,7 @@ public sealed class AiJobMonitorTests
                 _ => throw new InvalidOperationException("Unexpected history page request."),
             },
         };
-        await using var jobKinds = new AiJobKindRegistry();
+        var jobKinds = new AiJobKindRegistry([]);
         using var changes = new Subject<Unit>();
         using var service = new AiJobMonitor(
             app,
@@ -657,7 +657,7 @@ public sealed class AiJobMonitorTests
                         DateTimeOffset.UtcNow),
                 ], null)
             : new AiJobPage([], null);
-        await using var jobKinds = new AiJobKindRegistry();
+        var jobKinds = new AiJobKindRegistry([]);
         using var changes = new Subject<Unit>();
         using var service = new AiJobMonitor(
             app,
@@ -685,7 +685,7 @@ public sealed class AiJobMonitorTests
         client.PageProvider = _ => Volatile.Read(ref client.PageRequests) == 1
             ? new AiJobPage([], null)
             : throw new AuthenticationRequiredException();
-        await using var jobKinds = new AiJobKindRegistry();
+        var jobKinds = new AiJobKindRegistry([]);
         using var changes = new Subject<Unit>();
         using var service = new AiJobMonitor(
             app,
@@ -758,7 +758,6 @@ public sealed class AiJobMonitorTests
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         ApiTestAuthentication.SignIn(app);
         var client = new ExtensibleJobClient();
-        await using var jobKinds = new AiJobKindRegistry();
         var refreshHandler = new ExtensibleRefreshHandler(client);
         var kind = new AiJobKindId("vendor.render");
         var statusResolver = new AiJobStatusMap(
@@ -773,10 +772,9 @@ public sealed class AiJobMonitorTests
                         false,
                         new AiJobOutcomeId("vendor.complete"))),
             ]);
-        await using IAiJobStatusResolverRegistration statusRegistration = jobKinds.Register(
-            new AiJobStatusResolverRegistration(kind, statusResolver));
-        await using IAiJobRefreshHandlerRegistration refreshRegistration = jobKinds.Register(
-            new AiJobRefreshHandlerRegistration(kind, refreshHandler));
+        var jobKinds = new AiJobKindRegistry(
+            [KeyValuePair.Create(kind, (IAiJobStatusResolver)statusResolver)],
+            [KeyValuePair.Create(kind, (IAiJobRefreshHandler)refreshHandler)]);
         using var changes = new Subject<Unit>();
         using var service = new AiJobMonitor(
             app,
@@ -816,11 +814,8 @@ public sealed class AiJobMonitorTests
                     DateTimeOffset.UtcNow, DateTimeOffset.UtcNow),
             ], null),
         };
-        await using var jobKinds = new AiJobKindRegistry();
-        await using IAiJobStatusResolverRegistration registration = jobKinds.Register(
-            new AiJobStatusResolverRegistration(
-                new AiJobKindId("vendor.throwing"),
-                new ThrowingStatusResolver()));
+        var jobKinds = new AiJobKindRegistry(
+            [KeyValuePair.Create(new AiJobKindId("vendor.throwing"), (IAiJobStatusResolver)new ThrowingStatusResolver())]);
         using var changes = new Subject<Unit>();
         using var service = new AiJobMonitor(
             app, client, jobKinds, changes, TimeSpan.FromMilliseconds(10));
@@ -828,210 +823,6 @@ public sealed class AiJobMonitorTests
         await service.RefreshAsync(CancellationToken.None);
         using var polling = service.AcquirePolling();
         await Task.Delay(50);
-    }
-
-    [Test]
-    public async Task JobBehaviorSlotsReplaceAndRestoreIndependently()
-    {
-        var kind = new AiJobKindId("vendor.render");
-        var status = new EphemeralStatusResolver();
-        var refresh = new NoOpRefreshHandler();
-        var retry = new NoOpRetryHandler();
-        var retryReplacement = new NoOpRetryHandler();
-        await using var registry = new AiJobKindRegistry(
-            [new AiJobStatusResolverRegistration(kind, status)],
-            [new AiJobRefreshHandlerRegistration(kind, refresh)],
-            [new AiJobRetryHandlerRegistration(kind, retry)]);
-
-        await using IAiJobRetryHandlerRegistration replacement = registry.Register(
-            new AiJobRetryHandlerRegistration(
-                kind,
-                retryReplacement,
-                AiJobBehaviorRegistrationMode.Replace));
-
-        AssertJobBehaviors(registry, kind, status, refresh, retryReplacement);
-        await replacement.DisposeAsync();
-        AssertJobBehaviors(registry, kind, status, refresh, retry);
-    }
-
-    [Test]
-    public async Task RefreshReplacementRetiresImmediatelyAndDrainsOnlyItsLease()
-    {
-        var kind = new AiJobKindId("vendor.render");
-        var status = new EphemeralStatusResolver();
-        var fallback = new NoOpRefreshHandler();
-        var replacement = new NoOpRefreshHandler();
-        var retry = new NoOpRetryHandler();
-        await using var registry = new AiJobKindRegistry(
-            [new AiJobStatusResolverRegistration(kind, status)],
-            [new AiJobRefreshHandlerRegistration(kind, fallback)],
-            [new AiJobRetryHandlerRegistration(kind, retry)]);
-        IAiJobRefreshHandlerRegistration registration = registry.Register(
-            new AiJobRefreshHandlerRegistration(
-                kind,
-                replacement,
-                AiJobBehaviorRegistrationMode.Replace));
-        Assert.That(registry.TryAcquireRefreshHandler(
-            kind,
-            out IAiJobRefreshHandlerLease? activeLease), Is.True);
-
-        Task retirement = registration.DisposeAsync().AsTask();
-        try
-        {
-            AssertJobBehaviors(registry, kind, status, fallback, retry);
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(retirement.IsCompleted, Is.False);
-                Assert.That(activeLease!.Handler, Is.SameAs(replacement));
-            }
-        }
-        finally
-        {
-            activeLease!.Dispose();
-        }
-
-        await retirement.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Throws<ObjectDisposedException>(() => _ = activeLease!.Handler);
-    }
-
-    [Test]
-    public async Task RetryExtensionRemovalDrainsItsLeaseBeforeUnload()
-    {
-        var extensions = new ExtensionProvider();
-        await using var registry = new AiJobKindRegistry([], [], [], extensions);
-        var kind = new AiJobKindId("vendor.package");
-        var handler = new NoOpRetryHandler();
-        var extension = new TestAiJobRetryHandlerExtension(
-            new AiJobRetryHandlerRegistration(kind, handler));
-        extensions.AddExtensions(101, [extension]);
-        Assert.That(registry.TryAcquireRetryHandler(
-            kind,
-            out IAiJobRetryHandlerLease? lease), Is.True);
-
-        ExtensionRemoval removal = extensions.RemoveExtensions(101);
-        Task drain = removal.DrainAsync().AsTask();
-        try
-        {
-            Assert.That(registry.TryAcquireRetryHandler(kind, out _), Is.False);
-            Assert.That(drain.IsCompleted, Is.False);
-            Assert.That(lease!.Handler, Is.SameAs(handler));
-        }
-        finally
-        {
-            lease!.Dispose();
-        }
-
-        await drain.WaitAsync(TimeSpan.FromSeconds(5));
-    }
-
-    [Test]
-    public async Task RetryExtensionIsNotPublishedBeforeTheProviderCommitsItsBatch()
-    {
-        var extensions = new ExtensionProvider();
-        await using var registry = new AiJobKindRegistry([], [], [], extensions);
-        var kind = new AiJobKindId("vendor.provisional");
-        var extension = new TestAiJobRetryHandlerExtension(
-            new AiJobRetryHandlerRegistration(kind, new NoOpRetryHandler()));
-        extensions.AllExtensions.CollectionChanged += (sender, args) =>
-        {
-            if (args.Action != NotifyCollectionChangedAction.Add)
-                return;
-
-            Assert.That(registry.TryAcquireRetryHandler(kind, out _), Is.False);
-            throw new InvalidOperationException("later composition failed");
-        };
-
-        Assert.Throws<ExtensionRegistrationNotificationException>(() =>
-            extensions.AddExtensions(103, [extension]));
-
-        Assert.That(registry.TryAcquireRetryHandler(kind, out _), Is.False);
-    }
-
-    [Test]
-    public async Task RetryRegistryConstructionWaitsForAnExtensionBatchToCommit()
-    {
-        var extensions = new ExtensionProvider();
-        var kind = new AiJobKindId("vendor.constructor-race");
-        var extension = new TestAiJobRetryHandlerExtension(
-            new AiJobRetryHandlerRegistration(kind, new NoOpRetryHandler()));
-        using var observerEntered = new ManualResetEventSlim();
-        using var releaseObserver = new ManualResetEventSlim();
-        using var constructorStarted = new ManualResetEventSlim();
-        using var constructorFinished = new ManualResetEventSlim();
-        extensions.AllExtensions.CollectionChanged += (sender, args) =>
-        {
-            if (args.Action != NotifyCollectionChangedAction.Add)
-                return;
-
-            observerEntered.Set();
-            releaseObserver.Wait(TimeSpan.FromSeconds(5));
-            throw new InvalidOperationException("later composition failed");
-        };
-
-        Task<Exception?> addition = Task.Run(() =>
-        {
-            try
-            {
-                extensions.AddExtensions(104, [extension]);
-                return null;
-            }
-            catch (Exception ex)
-            {
-                return ex;
-            }
-        });
-        Assert.That(observerEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
-
-        Task<AiJobKindRegistry> construction = Task.Run(() =>
-        {
-            constructorStarted.Set();
-            var result = new AiJobKindRegistry([], [], [], extensions);
-            constructorFinished.Set();
-            return result;
-        });
-
-        try
-        {
-            Assert.That(constructorStarted.Wait(TimeSpan.FromSeconds(5)), Is.True);
-            Assert.That(constructorFinished.Wait(TimeSpan.FromMilliseconds(200)), Is.False);
-        }
-        finally
-        {
-            releaseObserver.Set();
-        }
-
-        Assert.That(await addition, Is.TypeOf<ExtensionRegistrationNotificationException>());
-        await using AiJobKindRegistry registry = await construction.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.That(registry.TryAcquireRetryHandler(kind, out _), Is.False);
-    }
-
-    [Test]
-    public async Task RetryExtensionsComposeReplacementAfterBaseInOneChange()
-    {
-        var extensions = new ExtensionProvider();
-        await using var registry = new AiJobKindRegistry([], [], [], extensions);
-        var kind = new AiJobKindId("vendor.fixed-point");
-        var fallback = new NoOpRetryHandler();
-        var replacement = new NoOpRetryHandler();
-        var replaceExtension = new TestAiJobRetryHandlerExtension(
-            new AiJobRetryHandlerRegistration(
-                kind,
-                replacement,
-                AiJobBehaviorRegistrationMode.Replace));
-        var addExtension = new TestAiJobRetryHandlerExtension(
-            new AiJobRetryHandlerRegistration(kind, fallback));
-
-        extensions.AddExtensions(102, [replaceExtension, addExtension]);
-
-        Assert.That(registry.TryAcquireRetryHandler(
-            kind,
-            out IAiJobRetryHandlerLease? lease), Is.True);
-        using (lease)
-        {
-            Assert.That(lease!.Handler, Is.SameAs(replacement));
-        }
-
-        await extensions.RemoveExtensions(102).DrainAsync();
     }
 
     [Test]
@@ -1074,9 +865,9 @@ public sealed class AiJobMonitorTests
     }
 
     [Test]
-    public async Task UnregisteredKind_HasUnknownSemanticsAndNoBehaviorLeases()
+    public void UnregisteredKind_HasUnknownSemanticsAndNoBehaviors()
     {
-        await using var registry = new AiJobKindRegistry();
+        var registry = new AiJobKindRegistry([]);
         var job = new AiJob(
             new AiJobId("unknown-job"),
             new AiJobKindId("vendor.unknown"),
@@ -1092,41 +883,8 @@ public sealed class AiJobMonitorTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(registry.GetStatus(job), Is.EqualTo(AiJobStatusSemantics.Unknown));
-            Assert.That(registry.TryAcquireStatusResolver(job.Kind, out _), Is.False);
-            Assert.That(registry.TryAcquireRefreshHandler(job.Kind, out _), Is.False);
-            Assert.That(registry.TryAcquireRetryHandler(job.Kind, out _), Is.False);
-        }
-    }
-
-    private static void AssertJobBehaviors(
-        AiJobKindRegistry registry,
-        AiJobKindId kind,
-        IAiJobStatusResolver status,
-        IAiJobRefreshHandler refresh,
-        IAiJobRetryHandler retry)
-    {
-        Assert.That(registry.TryAcquireStatusResolver(
-            kind,
-            out IAiJobStatusResolverLease? statusLease), Is.True);
-        using (statusLease)
-        {
-            Assert.That(statusLease!.Resolver, Is.SameAs(status));
-        }
-
-        Assert.That(registry.TryAcquireRefreshHandler(
-            kind,
-            out IAiJobRefreshHandlerLease? refreshLease), Is.True);
-        using (refreshLease)
-        {
-            Assert.That(refreshLease!.Handler, Is.SameAs(refresh));
-        }
-
-        Assert.That(registry.TryAcquireRetryHandler(
-            kind,
-            out IAiJobRetryHandlerLease? retryLease), Is.True);
-        using (retryLease)
-        {
-            Assert.That(retryLease!.Handler, Is.SameAs(retry));
+            Assert.That(registry.TryGetRefreshHandler(job.Kind, out _), Is.False);
+            Assert.That(registry.TryGetRetryHandler(job.Kind, out _), Is.False);
         }
     }
 
@@ -1189,43 +947,9 @@ public sealed class AiJobMonitorTests
         }
     }
 
-    private sealed class EphemeralStatusResolver : IAiJobStatusResolver
-    {
-        public AiJobStatusSemantics Resolve(AiJobStatusId status)
-            => AiJobStatusSemantics.Unknown;
-    }
-
     private sealed class ThrowingStatusResolver : IAiJobStatusResolver
     {
         public AiJobStatusSemantics Resolve(AiJobStatusId status)
             => throw new InvalidOperationException("status resolver failure");
-    }
-
-    private sealed class NoOpRefreshHandler : IAiJobRefreshHandler
-    {
-        public Task RefreshAsync(AiJob job, CancellationToken cancellationToken)
-            => Task.CompletedTask;
-    }
-
-    private sealed class NoOpRetryHandler : IAiJobRetryHandler
-    {
-        public bool CanRetry(AiJob job, AiJobStatusSemantics status) => true;
-
-        public ValueTask<AiJobRetryPreflight> GetPreflightAsync(
-            AiJob job,
-            CancellationToken cancellationToken)
-            => ValueTask.FromResult(new AiJobRetryPreflight(true, true, "ready"));
-
-        public ValueTask<AiJobRetryPreparationResult> PrepareAsync(
-            AiJob job,
-            CancellationToken cancellationToken)
-            => ValueTask.FromResult(AiJobRetryPreparationResult.Blocked("unused"));
-    }
-
-    private sealed class TestAiJobRetryHandlerExtension(
-        params AiJobRetryHandlerRegistration[] registrations) : AiJobRetryHandlerExtension
-    {
-        public override IReadOnlyCollection<AiJobRetryHandlerRegistration> Registrations { get; } =
-            registrations;
     }
 }

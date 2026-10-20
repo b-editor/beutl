@@ -73,28 +73,50 @@ public sealed class AiJobCenterTests
 
     private static readonly byte[] s_png = Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+    private static readonly AiJobStatusMap s_retryableStatus = new(
+    [
+        KeyValuePair.Create(
+            new AiJobStatusId("retryable"),
+            new AiJobStatusSemantics(true, false, new AiJobOutcomeId("vendor.retryable"))),
+    ]);
     private AiJobKindRegistry _jobKinds = null!;
-    private ExtensionProvider _resultExtensions = null!;
     private AiJobResultRegistry _resultHandlers = null!;
 
     [SetUp]
     public void SetUp()
     {
         _jobKinds = AiRetryTestContext.CreateBuiltInJobKinds();
-        _resultExtensions = new ExtensionProvider();
-        _resultHandlers = BuiltInAiJobResultCapabilities.CreateRegistry(_resultExtensions);
+        _resultHandlers = BuiltInAiJobResultCapabilities.CreateRegistry();
     }
 
-    [TearDown]
-    public async Task TearDown()
+    // Replaces Beutl's job kinds and result handlers with the given test kind.
+    private void UseKind(
+        AiJobKindId kind,
+        IAiJobStatusResolver? status = null,
+        IAiJobRetryHandler? retry = null,
+        IAiJobPresenter? presenter = null,
+        IAiJobResultApplicator? applicator = null)
     {
-        await _resultHandlers.DisposeAsync();
-        await _jobKinds.DisposeAsync();
+        _jobKinds = CreateJobKinds(kind, status ?? new AiJobStatusMap([]), retry);
+        _resultHandlers = new AiJobResultRegistry(
+            presenter is null ? [] : [KeyValuePair.Create(kind, presenter)],
+            [],
+            applicator is null ? [] : [KeyValuePair.Create(kind, applicator)]);
     }
 
-    // Registers test result capabilities the way a package does.
-    private void AddResultCapabilities(params Extension[] extensions)
-        => _resultExtensions.AddExtensions(1, extensions);
+    private static AiJobKindRegistry CreateJobKinds(
+        AiJobKindId kind,
+        IAiJobStatusResolver status,
+        IAiJobRetryHandler? retry = null)
+        => new(
+            [KeyValuePair.Create(kind, status)],
+            retryHandlers: retry is null ? null : [KeyValuePair.Create(kind, retry)]);
+
+    // Kinds whose "retryable" jobs each handler retries.
+    private static AiJobKindRegistry CreateRetryKinds(params (string Kind, IAiJobRetryHandler Handler)[] kinds)
+        => new(
+            kinds.Select(item => KeyValuePair.Create(new AiJobKindId(item.Kind), (IAiJobStatusResolver)s_retryableStatus)),
+            retryHandlers: kinds.Select(item => KeyValuePair.Create(new AiJobKindId(item.Kind), item.Handler)));
 
     [Test]
     public void Item_ParsesRetainedInputAndNormalizesServerTokens()
@@ -130,15 +152,9 @@ public sealed class AiJobCenterTests
     }
 
     [Test]
-    public async Task Item_ThrowingPresenterFallsBackToGenericPresentation()
+    public void Item_ThrowingPresenterFallsBackToGenericPresentation()
     {
-        var kind = new AiJobKindId("vendor.throwing");
-        await using IAiJobStatusResolverRegistration kindRegistration = _jobKinds.Register(
-            new AiJobStatusResolverRegistration(kind, new AiJobStatusMap([])));
-        AddResultCapabilities(new TestPresentationExtension(
-            new AiJobPresentationRegistration(
-                kind,
-                new ThrowingPresenter())));
+        UseKind(new AiJobKindId("vendor.throwing"), presenter: new ThrowingPresenter());
 
         using var item = new AiJobItemViewModel(
             CreateJob("vendor.throwing", "unknown", ParseInput("{ \"prompt\": \"safe\" }")),
@@ -150,15 +166,9 @@ public sealed class AiJobCenterTests
     }
 
     [Test]
-    public async Task Item_NullPresenterFieldsFallBackToGenericPresentation()
+    public void Item_NullPresenterFieldsFallBackToGenericPresentation()
     {
-        var kind = new AiJobKindId("vendor.invalid-presentation");
-        await using IAiJobStatusResolverRegistration kindRegistration = _jobKinds.Register(
-            new AiJobStatusResolverRegistration(kind, new AiJobStatusMap([])));
-        AddResultCapabilities(new TestPresentationExtension(
-            new AiJobPresentationRegistration(
-                kind,
-                new NullPresentationPresenter())));
+        UseKind(new AiJobKindId("vendor.invalid-presentation"), presenter: new NullPresentationPresenter());
 
         using var item = new AiJobItemViewModel(
             CreateJob(
@@ -179,39 +189,10 @@ public sealed class AiJobCenterTests
     }
 
     [Test]
-    public async Task Item_PresentationReplacementRetainsBuiltInResultApplication()
-    {
-        var presenter = new IndependentResultCapabilities();
-        AddResultCapabilities(new TestPresentationExtension(
-            new AiJobPresentationRegistration(
-                AiJobKinds.Image,
-                presenter,
-                AiJobBehaviorRegistrationMode.Replace)));
-
-        using var item = new AiJobItemViewModel(
-            CreateJob(
-                kind: AiJobKinds.Image.Value,
-                status: AiJobStatuses.Succeeded.Value,
-                inputParams: ParseInput("{ \"prompt\": \"built-in application\" }"),
-                url: "https://beutl.beditor.net/api/contents/image-result"),
-            _jobKinds,
-            _resultHandlers);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(item.Summary, Is.EqualTo("Independent result"));
-            Assert.That(item.CanAddToScene, Is.True);
-        }
-    }
-
-    [Test]
-    public async Task Item_PresenterCanOfferAPreviewWithoutAResultApplicator()
+    public void Item_PresenterCanOfferAPreviewWithoutAResultApplicator()
     {
         var kind = new AiJobKindId("vendor.preview-only");
-        await using IAiJobStatusResolverRegistration kindRegistration = _jobKinds.Register(
-            new AiJobStatusResolverRegistration(kind, new AiJobStatusMap([])));
-        AddResultCapabilities(new TestPresentationExtension(
-            new AiJobPresentationRegistration(kind, new PreviewOnlyPresenter())));
+        UseKind(kind, presenter: new PreviewOnlyPresenter());
 
         using var item = new AiJobItemViewModel(
             CreateJob(
@@ -229,12 +210,10 @@ public sealed class AiJobCenterTests
     }
 
     [Test]
-    public async Task Item_ThrowingRetryHandlerDisablesOnlyThatJobsRetry()
+    public void Item_ThrowingRetryHandlerDisablesOnlyThatJobsRetry()
     {
-        var kind = new AiJobKindId("vendor.throwing-retry");
-        await using var registration = RegisterRetryBehavior(
-            _jobKinds,
-            kind,
+        UseKind(
+            new AiJobKindId("vendor.throwing-retry"),
             new AiJobStatusMap(
             [
                 KeyValuePair.Create(
@@ -857,12 +836,10 @@ public sealed class AiJobCenterTests
         }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
 
-        IAiJobKindRegistry jobKinds = clients.GetResource<IAiJobKindRegistry>();
         var retryHandler = new CustomRetryHandler();
         var resultCapabilities = new CustomResultCapabilities(editor);
         var kind = new AiJobKindId("vendor.upscale");
-        await using var registration = RegisterRetryBehavior(
-            jobKinds,
+        UseKind(
             kind,
             new AiJobStatusMap(
             [
@@ -879,25 +856,16 @@ public sealed class AiJobCenterTests
                         false,
                         new AiJobOutcomeId("vendor.ready"))),
             ]),
-            retryHandler);
-        AddResultCapabilities(
-            new TestPresentationExtension(
-                new AiJobPresentationRegistration(
-                    new AiJobKindId("vendor.upscale"),
-                    resultCapabilities)),
-            new TestApplicatorExtension(
-                new AiJobResultApplicatorRegistration(
-                    new AiJobKindId("vendor.upscale"),
-                    resultCapabilities)));
-        using var viewModel = CreateJobCenter(editor, clients);
-        using var item = new AiJobItemViewModel(
+            retryHandler,
+            resultCapabilities,
+            resultCapabilities);
+        using var viewModel = CreateJobCenter(editor, clients, _jobKinds);
+        using var item = CreateItem(
             CreateJob(
                 kind: "vendor.upscale",
                 status: "retryable",
                 inputParams: ParseInput("""{ "prompt": "Upscale this" }"""),
-                canRetry: true),
-            jobKinds,
-            _resultHandlers);
+                canRetry: true));
 
         using (Assert.EnterMultipleScope())
         {
@@ -938,22 +906,9 @@ public sealed class AiJobCenterTests
         }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
 
-        IAiJobKindRegistry jobKinds = clients.GetResource<IAiJobKindRegistry>();
         var retryHandler = new CustomRetryHandler();
         var kind = new AiJobKindId("vendor.retry-refresh-failure");
-        await using var registration = RegisterRetryBehavior(
-            jobKinds,
-            kind,
-            new AiJobStatusMap(
-            [
-                KeyValuePair.Create(
-                    new AiJobStatusId("retryable"),
-                    new AiJobStatusSemantics(
-                        true,
-                        false,
-                        new AiJobOutcomeId("vendor.retryable"))),
-            ]),
-            retryHandler);
+        AiJobKindRegistry jobKinds = CreateJobKinds(kind, s_retryableStatus, retryHandler);
         var monitor = new FailingRefreshJobMonitor();
         using var viewModel = new AiJobCenterViewModel(
             editor,
@@ -989,123 +944,6 @@ public sealed class AiJobCenterTests
     }
 
     [AvaloniaTest]
-    public async Task IndependentResultCapabilitiesRunWithoutAJobKindDescriptor()
-    {
-        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-independent-result-handler");
-        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
-        {
-            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
-            "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, "{\"jobs\":[],\"nextCursor\":null}"),
-            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false, throwIfCanceled: true));
-        BeutlApiApplication clients = api.Clients;
-        var resultCapabilities = new IndependentResultCapabilities();
-        AddResultCapabilities(
-            new TestPresentationExtension(
-                new AiJobPresentationRegistration(
-                    new AiJobKindId("vendor.independent"),
-                    resultCapabilities)),
-            new TestApplicatorExtension(
-                new AiJobResultApplicatorRegistration(
-                    new AiJobKindId("vendor.independent"),
-                    resultCapabilities)));
-        using var viewModel = CreateJobCenter(editor, clients);
-        using var item = new AiJobItemViewModel(
-            CreateJob(
-                "vendor.independent",
-                "ready",
-                url: "https://beutl.beditor.net/api/contents/independent"),
-            clients.GetResource<IAiJobKindRegistry>(),
-            _resultHandlers);
-
-        Assert.That(item.CanAddToScene, Is.True);
-        await viewModel.AddToSceneAsync(item);
-
-        Assert.That(resultCapabilities.HandleCount, Is.EqualTo(1));
-    }
-
-    [AvaloniaTest]
-    public async Task RetryConfirmationPinsOriginatingHandlerAcrossReplacementAndCancel()
-    {
-        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-job-center-retry-lifetime");
-        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
-        {
-            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.InternalServerError, "{}"),
-            "/api/v3/ai/jobs" => JsonResponse(
-                HttpStatusCode.OK,
-                """{ "jobs": [], "nextCursor": null }"""),
-            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false, throwIfCanceled: true));
-        BeutlApiApplication clients = api.Clients;
-        IAiJobKindRegistry registry = clients.GetResource<IAiJobKindRegistry>();
-        using var viewModel = CreateJobCenter(editor, clients);
-
-        var original = new CustomRetryHandler();
-        var replacement = new CustomRetryHandler();
-        RetryBehaviorRegistration originalRegistration = RegisterRetryBehavior(
-            registry,
-            "vendor.replace",
-            original);
-        using var item = new AiJobItemViewModel(
-            CreateJob(
-                kind: "vendor.replace",
-                status: "retryable",
-                inputParams: ParseInput("""{ "prompt": "Pinned retry" }"""),
-                canRetry: true),
-            registry,
-            _resultHandlers);
-
-        await viewModel.RequestRetryConfirmationAsync(item);
-        Assert.That(viewModel.CanConfirm.Value, Is.True);
-        Task retirement = originalRegistration.DisposeAsync().AsTask();
-        Assert.That(retirement.IsCompleted, Is.False);
-        await using RetryBehaviorRegistration replacementRegistration = RegisterRetryBehavior(
-            registry,
-            "vendor.replace",
-            replacement);
-
-        await viewModel.ConfirmPendingActionAsync();
-        await retirement.WaitAsync(TimeSpan.FromSeconds(2));
-        Assert.Multiple(() =>
-        {
-            Assert.That(original.RetryCount, Is.EqualTo(1));
-            Assert.That(replacement.RetryCount, Is.Zero);
-        });
-
-        var canceledOriginal = new CustomRetryHandler();
-        var canceledReplacement = new CustomRetryHandler();
-        RetryBehaviorRegistration canceledRegistration = RegisterRetryBehavior(
-            registry,
-            "vendor.cancel",
-            canceledOriginal);
-        using var canceledItem = new AiJobItemViewModel(
-            CreateJob(
-                kind: "vendor.cancel",
-                status: "retryable",
-                inputParams: ParseInput("""{ "prompt": "Canceled retry" }"""),
-                canRetry: true),
-            registry,
-            _resultHandlers);
-
-        await viewModel.RequestRetryConfirmationAsync(canceledItem);
-        Assert.That(viewModel.CanConfirm.Value, Is.True);
-        Task canceledRetirement = canceledRegistration.DisposeAsync().AsTask();
-        Assert.That(canceledRetirement.IsCompleted, Is.False);
-        await using RetryBehaviorRegistration canceledReplacementRegistration = RegisterRetryBehavior(
-            registry,
-            "vendor.cancel",
-            canceledReplacement);
-
-        viewModel.CancelConfirmation();
-        await canceledRetirement.WaitAsync(TimeSpan.FromSeconds(2));
-        Assert.Multiple(() =>
-        {
-            Assert.That(canceledOriginal.RetryCount, Is.Zero);
-            Assert.That(canceledReplacement.RetryCount, Is.Zero);
-        });
-    }
-
-    [AvaloniaTest]
     public async Task RetryConfirmationWithoutDescriptorStopsLoading()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-job-center-missing-descriptor");
@@ -1136,7 +974,7 @@ public sealed class AiJobCenterTests
     }
 
     [AvaloniaTest]
-    public async Task RetryConfirmationCancellationDrainsSlowPreflightBeforeUnloading()
+    public async Task RetryConfirmationCancellationCancelsASlowPreflight()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-job-center-slow-preflight");
         await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
@@ -1146,13 +984,9 @@ public sealed class AiJobCenterTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
-        IAiJobKindRegistry registry = clients.GetResource<IAiJobKindRegistry>();
-        using var viewModel = CreateJobCenter(editor, clients);
         var slow = new SlowRetryHandler();
-        await using RetryBehaviorRegistration registration = RegisterRetryBehavior(
-            registry,
-            "vendor.slow",
-            slow);
+        AiJobKindRegistry registry = CreateRetryKinds(("vendor.slow", slow));
+        using var viewModel = CreateJobCenter(editor, clients, registry);
         using var item = new AiJobItemViewModel(
             CreateJob("vendor.slow", "retryable", ParseInput("{\"prompt\":\"slow\"}"), canRetry: true),
             registry,
@@ -1160,20 +994,15 @@ public sealed class AiJobCenterTests
 
         Task confirmation = viewModel.RequestRetryConfirmationAsync(item);
         await slow.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        Task unload = registration.DisposeAsync().AsTask();
-        Assert.That(unload.IsCompleted, Is.False);
 
         viewModel.CancelConfirmation();
-        Assert.That(unload.IsCompleted, Is.False,
-            "Cancellation must not unload an extension while its preflight is still running.");
         slow.Release.TrySetResult();
         await confirmation;
-        await unload.WaitAsync(TimeSpan.FromSeconds(2));
         Assert.That(slow.CancellationObserved, Is.True);
     }
 
     [AvaloniaTest]
-    public async Task RetryRegistrationDrainsThroughPreparedExecutionAndDisposal()
+    public async Task RetryDisposesThePreparationAfterItsExecution()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-job-center-retry-execution-lifetime");
         await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
@@ -1183,13 +1012,9 @@ public sealed class AiJobCenterTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
-        IAiJobKindRegistry registry = clients.GetResource<IAiJobKindRegistry>();
-        using var viewModel = CreateJobCenter(editor, clients);
         var blocking = new BlockingExecutionRetryHandler();
-        RetryBehaviorRegistration registration = RegisterRetryBehavior(
-            registry,
-            "vendor.blocking-execution",
-            blocking);
+        AiJobKindRegistry registry = CreateRetryKinds(("vendor.blocking-execution", blocking));
+        using var viewModel = CreateJobCenter(editor, clients, registry);
         using var item = new AiJobItemViewModel(
             CreateJob(
                 "vendor.blocking-execution",
@@ -1202,12 +1027,10 @@ public sealed class AiJobCenterTests
         await viewModel.RequestRetryConfirmationAsync(item);
         Task retry = viewModel.ConfirmPendingActionAsync();
         await blocking.ExecutionStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        Task retirement = registration.DisposeAsync().AsTask();
-        Assert.That(retirement.IsCompleted, Is.False);
+        Assert.That(blocking.PreparationDisposed, Is.False);
 
         blocking.ReleaseExecution.TrySetResult();
         await retry.WaitAsync(TimeSpan.FromSeconds(2));
-        await retirement.WaitAsync(TimeSpan.FromSeconds(2));
 
         Assert.That(blocking.PreparationDisposed, Is.True);
     }
@@ -1223,13 +1046,9 @@ public sealed class AiJobCenterTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
-        IAiJobKindRegistry registry = clients.GetResource<IAiJobKindRegistry>();
-        using var viewModel = CreateJobCenter(editor, clients);
         var slow = new SlowRetryHandler();
-        await using RetryBehaviorRegistration registration = RegisterRetryBehavior(
-            registry,
-            "vendor.dispose",
-            slow);
+        AiJobKindRegistry registry = CreateRetryKinds(("vendor.dispose", slow));
+        using var viewModel = CreateJobCenter(editor, clients, registry);
         using var item = new AiJobItemViewModel(
             CreateJob("vendor.dispose", "retryable", ParseInput("{\"prompt\":\"slow\"}"), canRetry: true),
             registry,
@@ -1237,7 +1056,6 @@ public sealed class AiJobCenterTests
 
         Task confirmation = viewModel.RequestRetryConfirmationAsync(item);
         await slow.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        Task unload = registration.DisposeAsync().AsTask();
         viewModel.Dispose();
         Task first = viewModel.DisposeAsync().AsTask();
         Task second = viewModel.DisposeAsync().AsTask();
@@ -1246,7 +1064,6 @@ public sealed class AiJobCenterTests
         slow.Release.TrySetResult();
         await confirmation;
         await first;
-        await unload;
     }
 
     [AvaloniaTest]
@@ -1260,22 +1077,17 @@ public sealed class AiJobCenterTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
-        IAiJobKindRegistry registry = clients.GetResource<IAiJobKindRegistry>();
-        using var viewModel = CreateJobCenter(editor, clients);
         var blocking = new BlockingResultApplicator();
-        await using IAiJobStatusResolverRegistration registration = registry.Register(
-            new AiJobStatusResolverRegistration(
-                new AiJobKindId("vendor.blocking-result"),
-                new AiJobStatusMap([
-                    KeyValuePair.Create(
-                        new AiJobStatusId("ready"),
-                        new AiJobStatusSemantics(true, false, new AiJobOutcomeId("ready"))),
-                ])));
-        AddResultCapabilities(new TestApplicatorExtension(
-            new AiJobResultApplicatorRegistration(
-                new AiJobKindId("vendor.blocking-result"),
-                blocking)));
-        using var item = new AiJobItemViewModel(CreateJob("vendor.blocking-result", "ready", ParseInput("{\"prompt\":\"x\"}"), url: "https://beutl.beditor.net/api/contents/x"), registry, _resultHandlers);
+        UseKind(
+            new AiJobKindId("vendor.blocking-result"),
+            new AiJobStatusMap([
+                KeyValuePair.Create(
+                    new AiJobStatusId("ready"),
+                    new AiJobStatusSemantics(true, false, new AiJobOutcomeId("ready"))),
+            ]),
+            applicator: blocking);
+        using var viewModel = CreateJobCenter(editor, clients, _jobKinds);
+        using var item = CreateItem(CreateJob("vendor.blocking-result", "ready", ParseInput("{\"prompt\":\"x\"}"), url: "https://beutl.beditor.net/api/contents/x"));
         Task operation = viewModel.AddToSceneAsync(item);
         await blocking.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
         viewModel.Dispose();
@@ -1297,13 +1109,9 @@ public sealed class AiJobCenterTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
-        IAiJobKindRegistry registry = clients.GetResource<IAiJobKindRegistry>();
-        using var viewModel = CreateJobCenter(editor, clients);
         var throwing = new SlowRetryHandler(throwOnCancellation: true);
-        await using RetryBehaviorRegistration registration = RegisterRetryBehavior(
-            registry,
-            "vendor.throwing-cancel",
-            throwing);
+        AiJobKindRegistry registry = CreateRetryKinds(("vendor.throwing-cancel", throwing));
+        using var viewModel = CreateJobCenter(editor, clients, registry);
         using var item = new AiJobItemViewModel(
             CreateJob("vendor.throwing-cancel", "retryable", ParseInput("{\"prompt\":\"throw\"}"), canRetry: true),
             registry,
@@ -1329,18 +1137,10 @@ public sealed class AiJobCenterTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
-        IAiJobKindRegistry registry = clients.GetResource<IAiJobKindRegistry>();
-        using var viewModel = CreateJobCenter(editor, clients);
         var slow = new SlowRetryHandler();
         var replacement = new CustomRetryHandler();
-        await using RetryBehaviorRegistration slowRegistration = RegisterRetryBehavior(
-            registry,
-            "vendor.stale.slow",
-            slow);
-        await using RetryBehaviorRegistration replacementRegistration = RegisterRetryBehavior(
-            registry,
-            "vendor.stale.fast",
-            replacement);
+        AiJobKindRegistry registry = CreateRetryKinds(("vendor.stale.slow", slow), ("vendor.stale.fast", replacement));
+        using var viewModel = CreateJobCenter(editor, clients, registry);
         using var first = new AiJobItemViewModel(CreateJob("vendor.stale.slow", "retryable", ParseInput("{\"prompt\":\"first\"}"), canRetry: true), registry, _resultHandlers);
         using var second = new AiJobItemViewModel(CreateJob("vendor.stale.fast", "retryable", ParseInput("{\"prompt\":\"second\"}"), canRetry: true), registry, _resultHandlers);
 
@@ -1369,57 +1169,6 @@ public sealed class AiJobCenterTests
 
     private AiJobItemViewModel CreateItem(AiJob job)
         => new(job, _jobKinds, _resultHandlers);
-
-    private static RetryBehaviorRegistration RegisterRetryBehavior(
-        IAiJobKindRegistry registry,
-        string kind,
-        IAiJobRetryHandler retryHandler)
-        => RegisterRetryBehavior(
-            registry,
-            new AiJobKindId(kind),
-            new AiJobStatusMap(
-            [
-                KeyValuePair.Create(
-                    new AiJobStatusId("retryable"),
-                    new AiJobStatusSemantics(
-                        true,
-                        false,
-                        new AiJobOutcomeId("vendor.retryable"))),
-            ]),
-            retryHandler);
-
-    private static RetryBehaviorRegistration RegisterRetryBehavior(
-        IAiJobKindRegistry registry,
-        AiJobKindId kind,
-        IAiJobStatusResolver statusResolver,
-        IAiJobRetryHandler retryHandler)
-    {
-        IAiJobStatusResolverRegistration statusRegistration = registry.Register(
-            new AiJobStatusResolverRegistration(kind, statusResolver));
-        try
-        {
-            IAiJobRetryHandlerRegistration retryRegistration = registry.Register(
-                new AiJobRetryHandlerRegistration(kind, retryHandler));
-            return new RetryBehaviorRegistration(statusRegistration, retryRegistration);
-        }
-        catch
-        {
-            statusRegistration.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            throw;
-        }
-    }
-
-    private sealed class RetryBehaviorRegistration(
-        IAiJobStatusResolverRegistration status,
-        IAiJobRetryHandlerRegistration retry) : IAsyncDisposable
-    {
-        public async ValueTask DisposeAsync()
-        {
-            await Task.WhenAll(
-                status.DisposeAsync().AsTask(),
-                retry.DisposeAsync().AsTask());
-        }
-    }
 
     [Test]
     public void DecodePreview_DownsamplesWithinTheBoundedDecodeSurface()
@@ -1908,14 +1657,15 @@ public sealed class AiJobCenterTests
 
     private AiJobCenterViewModel CreateJobCenter(
         EditViewModel editor,
-        BeutlApiApplication clients)
+        BeutlApiApplication clients,
+        IAiJobKindRegistry? jobKinds = null)
         => new(
             editor,
             clients.GetResource<IAiEntitlementService>(),
             clients.GetResource<IAuthenticatedContentService>(),
             clients.GetResource<IAiJobClient>(),
             clients.GetResource<IAiJobMonitor>(),
-            clients.GetResource<IAiJobKindRegistry>(),
+            jobKinds ?? clients.GetResource<IAiJobKindRegistry>(),
             _resultHandlers,
             null);
 
@@ -2207,20 +1957,6 @@ public sealed class AiJobCenterTests
         }
     }
 
-    private sealed class TestPresentationExtension(
-        params AiJobPresentationRegistration[] registrations) : AiJobPresentationExtension
-    {
-        public override IReadOnlyCollection<AiJobPresentationRegistration> Registrations { get; } =
-            registrations;
-    }
-
-    private sealed class TestApplicatorExtension(
-        params AiJobResultApplicatorRegistration[] registrations) : AiJobResultApplicatorExtension
-    {
-        public override IReadOnlyCollection<AiJobResultApplicatorRegistration> Registrations { get; } =
-            registrations;
-    }
-
     private sealed class ThrowingPresenter : IAiJobPresenter
     {
         public AiJobPresentation Present(AiJob job, AiJobStatusSemantics status)
@@ -2274,28 +2010,6 @@ public sealed class AiJobCenterTests
                 && ReferenceEquals(
                     context.Editor.ElementAdder,
                     expectedEditor.GetService(typeof(IElementAdder)));
-            return Task.CompletedTask;
-        }
-    }
-
-    private sealed class IndependentResultCapabilities :
-        IAiJobPresenter,
-        IAiJobResultApplicator
-    {
-        public int HandleCount { get; private set; }
-
-        public AiJobPresentation Present(AiJob job, AiJobStatusSemantics status)
-            => new("Independent", "Ready", "Independent result", string.Empty, false);
-
-        public bool CanApply(AiJob job, AiJobStatusSemantics status) => true;
-
-        public Task ApplyAsync(
-            AiJob job,
-            IAiJobResultContext context,
-            CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            HandleCount++;
             return Task.CompletedTask;
         }
     }

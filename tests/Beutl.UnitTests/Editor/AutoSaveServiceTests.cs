@@ -99,6 +99,35 @@ public class AutoSaveServiceTests
     }
 
     [Test]
+    public void AutoSave_WritesTheNewHalfOfASplitBeforeTheScene_SoTheSceneNeedsNoIncludeEntry()
+    {
+        var scene = new Scene { Uri = CreateUri("main.scene") };
+        var element = new Element { Uri = CreateUri("clip.belm"), Length = TimeSpan.FromSeconds(10) };
+        scene.Children.Add(element);
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        using var harness = new HistoryHarness(scene);
+        using var service = new AutoSaveService();
+        var errors = new List<Exception>();
+        using var errorSubscription = service.SaveError.Subscribe(errors.Add);
+        using var saveSubscription = harness.Observer.Operations
+            .Buffer(harness.History.StateChanged)
+            .Subscribe(operations => service.AutoSave(operations));
+
+        new ElementStructureService(harness.History).Split(scene, [element], TimeSpan.FromSeconds(4));
+
+        Element back = scene.Children.Single(child => child != element);
+        JsonNode patterns = JsonNode.Parse(File.ReadAllText(scene.Uri.LocalPath))!["Elements"]!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(errors, Is.Empty);
+            Assert.That(File.Exists(back.Uri!.LocalPath), Is.True);
+            Assert.That(patterns["Include"]!.GetValue<string>(), Is.EqualTo("**/*.belm"));
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri).Children.Select(child => child.Id),
+                Is.EquivalentTo(new[] { element.Id, back.Id }));
+        });
+    }
+
+    [Test]
     public void AutoSave_StandaloneSceneKeepsSceneAndAttachedElements()
     {
         var scene = new Beutl.ProjectSystem.Scene { Uri = CreateUri("main.scene") };

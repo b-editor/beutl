@@ -394,7 +394,10 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         IProperty<BtlPoint>? prop = PathEditorHelper.GetProperty(thumb);
         if (prop != null)
         {
-            viewModel.EditorContext.GetRequiredService<HistoryManager>().Commit();
+            HistoryManager history = viewModel.EditorContext.GetRequiredService<HistoryManager>();
+            // Commits a pending nudge on its own and stops its timer, so Escape reverts only this drag.
+            history.FlushPendingMutations();
+            history.Commit();
             _dragState = CreateThumbDragState(viewModel, segment, prop);
             _dragState.Thumb = thumb;
 

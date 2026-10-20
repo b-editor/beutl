@@ -37,20 +37,23 @@ public sealed class LoadInstalledExtensionTask : StartupTask
 
                     activity?.AddEvent(new ActivityEvent("Started loading installed packages."));
 
-                    Parallel.ForEach(packages, item =>
+                    foreach (LocalPackage item in packages.Where(item => failedPackageIds.Contains(item.Name)))
                     {
-                        if (failedPackageIds.Contains(item.Name))
-                        {
-                            _logger.LogWarning(
-                                "Skipping package {PackageName} due to dependency re-resolution failure.",
-                                item.Name);
-                            Failures.Add((item, new InvalidOperationException(
-                                $"Dependency re-resolution failed for package '{item.Name}'.")));
-                            return;
-                        }
+                        _logger.LogWarning(
+                            "Skipping package {PackageName} due to dependency re-resolution failure.",
+                            item.Name);
+                        Failures.Add((item, new InvalidOperationException(
+                            $"Dependency re-resolution failed for package '{item.Name}'.")));
+                    }
 
-                        TryLoadPackage(item, package => _manager.Load(package), _logger, activity, Failures);
-                    });
+                    await LoadPackagesAsync(
+                        packages.Where(item => !failedPackageIds.Contains(item.Name)),
+                        _manager.Prepare,
+                        startup.GetTask<LoadPrimitiveExtensionTask>().Task,
+                        prepared => _manager.Load(prepared),
+                        _logger,
+                        activity,
+                        Failures);
 
                     activity?.AddEvent(new ActivityEvent("Finished loading installed packages."));
                 }
@@ -66,18 +69,41 @@ public sealed class LoadInstalledExtensionTask : StartupTask
 
     public ConcurrentBag<(LocalPackage, Exception)> Failures { get; } = [];
 
-    // Shared with LoadSideloadExtensionTask: a package that fails to load is recorded for the
-    // failure report and does not stop the others.
-    internal static void TryLoadPackage(
+    // Assemblies load in parallel; Load() then runs after loadAfter, one package at a time in name order.
+    internal static async Task LoadPackagesAsync(
+        IEnumerable<LocalPackage> packages,
+        Func<LocalPackage, PreparedPackage?> prepare,
+        Task loadAfter,
+        Action<PreparedPackage> load,
+        ILogger logger,
+        Activity? activity,
+        ConcurrentBag<(LocalPackage, Exception)> failures)
+    {
+        var prepared = new ConcurrentBag<PreparedPackage>();
+        Parallel.ForEach(packages, package => TryLoadPackage(package, () =>
+        {
+            if (prepare(package) is { } result)
+                prepared.Add(result);
+        }, logger, activity, failures));
+
+        await loadAfter.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+        foreach (PreparedPackage package in prepared.OrderBy(item => item.Package.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            TryLoadPackage(package.Package, () => load(package), logger, activity, failures);
+        }
+    }
+
+    // A package that fails to load is recorded for the failure report and does not stop the others.
+    private static void TryLoadPackage(
         LocalPackage package,
-        Action<LocalPackage> load,
+        Action load,
         ILogger logger,
         Activity? activity,
         ConcurrentBag<(LocalPackage, Exception)> failures)
     {
         try
         {
-            load(package);
+            load();
         }
         catch (Exception e)
         {

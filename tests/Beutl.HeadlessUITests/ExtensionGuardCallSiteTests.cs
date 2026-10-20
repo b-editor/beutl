@@ -63,8 +63,8 @@ public sealed class ExtensionGuardCallSiteTests
         using var notifications = new NotificationCapture();
         try
         {
-            await ExtensionMenuActions.SwitchEditorAsync(TestShell.MainViewModel, tab, extension);
-            await ExtensionMenuActions.SwitchEditorAsync(TestShell.MainViewModel, tab, extension);
+            await TestShell.MainViewModel.SwitchEditorAsync(tab, extension);
+            await TestShell.MainViewModel.SwitchEditorAsync(tab, extension);
 
             using (Assert.EnterMultipleScope())
             {

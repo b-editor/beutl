@@ -110,22 +110,17 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
         if (!NumberEditorHelper.TryParseEdit(newText, oldText, out TElement? newValue, out TElement? oldValue))
             return;
 
-        TElement[] newValues = [.. _values];
         TElement[] oldValues = [.. _values];
         if (_editor.IsUniformValue)
         {
-            SetAll(newValue);
-            Array.Fill(newValues, newValue);
             Array.Fill(oldValues, oldValue);
         }
         else if (index >= 0)
         {
-            Set(index, newValue);
-            newValues[index] = newValue;
             oldValues[index] = oldValue;
         }
 
-        _editor.RaiseEvent(_createEventArgs(newValues, oldValues, PropertyEditor.ValueChangedEvent));
+        ApplyValueChange(index, newValue, oldValues);
     }
 
     public override bool Step(int index, string? text, PointerWheelEventArgs e)
@@ -133,17 +128,29 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
         if (!TElement.TryParse(text, CultureInfo.CurrentCulture, out TElement? value) || value is null)
             return false;
 
-        value = NumberEditorHelper.StepByWheel(value, e, LargeChange, SmallChange);
+        TElement oldValue = index >= 0 ? _values[index] : value;
+        value = NumberEditorHelper.StepByWheel(oldValue, e, LargeChange, SmallChange);
+        if (value != oldValue)
+            ApplyValueChange(index, value, [.. _values]);
+
+        return true;
+    }
+
+    private void ApplyValueChange(int index, TElement value, TElement[] oldValues)
+    {
+        TElement[] newValues = [.. _values];
         if (_editor.IsUniformValue)
         {
             SetAll(value);
+            Array.Fill(newValues, value);
         }
         else if (index >= 0)
         {
             Set(index, value);
+            newValues[index] = value;
         }
 
-        return true;
+        _editor.RaiseEvent(_createEventArgs(newValues, oldValues, PropertyEditor.ValueChangedEvent));
     }
 
     public override void Scrub(int index, ref HeaderScrubGesture scrub, Visual header, PointerEventArgs e)
@@ -258,41 +265,48 @@ internal sealed class RelativeVectorValues : VectorValues
             return;
         }
 
-        float[] newValues = [.. _values];
         float[] oldValues = [.. _values];
-        SetUnit(newUnit);
         if (_editor.IsUniformValue)
         {
-            SetAll(newValue);
-            Array.Fill(newValues, newValue);
             Array.Fill(oldValues, oldValue);
         }
         else if (index >= 0)
         {
-            Set(index, newValue);
-            newValues[index] = newValue;
             oldValues[index] = oldValue;
         }
 
-        _editor.RaiseEvent(_createEventArgs(newValues, newUnit, oldValues, oldUnit, PropertyEditor.ValueChangedEvent));
+        ApplyValueChange(index, newValue, newUnit, oldValues, oldUnit);
     }
 
     public override bool Step(int index, string? text, PointerWheelEventArgs e)
     {
-        if (!RelativeUnitParser.TryParse(text, out float value, out RelativeUnit unit))
+        if (!RelativeUnitParser.TryParse(text, out float value, out _))
             return false;
 
-        value = RelativeUnitParser.StepByWheel(value, unit, e);
+        float oldValue = index >= 0 ? _values[index] : value;
+        value = RelativeUnitParser.StepByWheel(oldValue, _unit, e);
+        if (value != oldValue)
+            ApplyValueChange(index, value, _unit, [.. _values], _unit);
+
+        return true;
+    }
+
+    private void ApplyValueChange(int index, float value, RelativeUnit unit, float[] oldValues, RelativeUnit oldUnit)
+    {
+        float[] newValues = [.. _values];
+        SetUnit(unit);
         if (_editor.IsUniformValue)
         {
             SetAll(value);
+            Array.Fill(newValues, value);
         }
         else if (index >= 0)
         {
             Set(index, value);
+            newValues[index] = value;
         }
 
-        return true;
+        _editor.RaiseEvent(_createEventArgs(newValues, unit, oldValues, oldUnit, PropertyEditor.ValueChangedEvent));
     }
 
     // From the last component to the first, the order of FirstValue = SecondValue = value.

@@ -658,6 +658,35 @@ public class HistoryManagerIntegrationTests
     }
 
     [Test]
+    public void CollectionUndoRedo_FindsItemsThatAnUnrecordedChangeMoved()
+    {
+        var modelWithList = new TestModelWithList();
+        var a = new TestItem { Value = "A" };
+        var b = new TestItem { Value = "B" };
+        var c = new TestItem { Value = "C" };
+        modelWithList.Items.Add(a);
+        modelWithList.Items.Add(b);
+        using var harness = new HistoryHarness(modelWithList);
+
+        modelWithList.Items.Insert(1, c);
+        harness.History.Commit("Insert");
+        modelWithList.Items.Move(0, 2);
+        harness.History.Commit("Move");
+        using (harness.History.SuppressRecording())
+        {
+            modelWithList.Items.Move(2, 0);
+        }
+
+        Assert.That(harness.History.Undo(), Is.True);
+        Assert.That(modelWithList.Items, Is.EqualTo(new[] { a, c, b }));
+        Assert.That(harness.History.Undo(), Is.True);
+        Assert.That(modelWithList.Items, Is.EqualTo(new[] { a, b }));
+        Assert.That(harness.History.Redo(), Is.True);
+        Assert.That(harness.History.Redo(), Is.True);
+        Assert.That(modelWithList.Items, Is.EqualTo(new[] { c, b, a }));
+    }
+
+    [Test]
     public void CollectionClear_ShouldBeRecorded_AndUndoable([Values] ResetBehavior resetBehavior)
     {
         var modelWithList = new TestModelWithList();

@@ -240,41 +240,24 @@ public static class CaptionTemplateProviders
     public static CaptionTemplateProviderId User { get; } = new("beutl.user");
 }
 
-/// <summary>A convenience bundle containing the three independent registrations for a template.</summary>
-public sealed class CaptionTemplateRegistrationSet
+// A caption template: what it is called, the elements it creates for a cue and where it places them.
+public sealed class CaptionTemplate
 {
-    public CaptionTemplateRegistrationSet(
-        CaptionTemplateDescriptorRegistration descriptor,
-        CaptionElementFactoryRegistration elementFactory,
-        CaptionPlacementPolicyRegistration placement)
+    public CaptionTemplate(
+        CaptionTemplateDescriptor descriptor,
+        ICaptionElementFactory elementFactory,
+        ICaptionPlacementPolicy placementPolicy)
     {
-        DescriptorRegistration = descriptor ?? throw new ArgumentNullException(nameof(descriptor));
-        ElementFactoryRegistration = elementFactory ?? throw new ArgumentNullException(nameof(elementFactory));
-        PlacementPolicyRegistration = placement ?? throw new ArgumentNullException(nameof(placement));
-        if (DescriptorRegistration.Descriptor.Id != ElementFactoryRegistration.TemplateId
-            || DescriptorRegistration.Descriptor.Id != PlacementPolicyRegistration.TemplateId)
-        {
-            throw new ArgumentException("Caption template registration identifiers must match.");
-        }
+        Descriptor = descriptor ?? throw new ArgumentNullException(nameof(descriptor));
+        ElementFactory = elementFactory ?? throw new ArgumentNullException(nameof(elementFactory));
+        PlacementPolicy = placementPolicy ?? throw new ArgumentNullException(nameof(placementPolicy));
     }
 
-    public CaptionTemplateDescriptorRegistration DescriptorRegistration { get; }
+    public CaptionTemplateDescriptor Descriptor { get; }
 
-    public CaptionElementFactoryRegistration ElementFactoryRegistration { get; }
+    public ICaptionElementFactory ElementFactory { get; }
 
-    public CaptionPlacementPolicyRegistration PlacementPolicyRegistration { get; }
-}
-
-internal sealed class CaptionTemplateComposition(
-    CaptionTemplateDescriptor descriptor,
-    ICaptionElementFactory elementFactory,
-    ICaptionPlacementPolicy placementPolicy)
-{
-    public CaptionTemplateDescriptor Descriptor { get; } = descriptor;
-
-    public ICaptionElementFactory ElementFactory { get; } = elementFactory;
-
-    public ICaptionPlacementPolicy PlacementPolicy { get; } = placementPolicy;
+    public ICaptionPlacementPolicy PlacementPolicy { get; }
 
     public IReadOnlyList<ElementDescription> CreateElements(CaptionCue cue, CaptionElementContext context)
     {

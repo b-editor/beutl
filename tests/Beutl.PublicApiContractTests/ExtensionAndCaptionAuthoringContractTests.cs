@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Api.Services;
 using Beutl.Editor.Models;
-using Beutl.Editor.Services.AI;
 using Beutl.Editor.Services.Captions;
 using Beutl.Extensibility;
 using Beutl.Graphics;
@@ -25,43 +24,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
             Assert.That(
                 typeof(ExtensionDescriptor).GetProperties().Select(property => property.PropertyType),
                 Does.Not.Contain(typeof(Type)).And.Not.Contain(typeof(Extension)));
-        }
-    }
-
-    [Test]
-    public async Task CaptionCodecCapabilities_CanBeRegisteredIndependently()
-    {
-        var format = new CaptionFormatId("vendor.caption");
-        var codec = new CustomCaptionCodec();
-        var descriptorExtension = new CustomCaptionCodecDescriptorExtension(
-            new CaptionCodecDescriptorRegistration(
-                new CaptionCodecDescriptor(format, [".vendor-caption"])));
-        var decoderExtension = new CustomCaptionDecoderExtension(
-            new CaptionDecoderRegistration(format, codec));
-        var encoderExtension = new CustomCaptionEncoderExtension(
-            new CaptionEncoderRegistration(format, codec));
-        await using var registry = new CaptionCodecRegistry(
-            descriptorExtension.Registrations,
-            decoderExtension.Registrations,
-            encoderExtension.Registrations);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(registry.Codecs.Single().CanDecode, Is.True);
-            Assert.That(registry.Codecs.Single().CanEncode, Is.True);
-            Assert.That(
-                Enum.GetValues<CaptionCodecRegistrationMode>(),
-                Is.EqualTo(new[]
-                {
-                    CaptionCodecRegistrationMode.Add,
-                    CaptionCodecRegistrationMode.Replace,
-                }));
-            Assert.That(typeof(CaptionCodecRegistry).Assembly.GetType(
-                "Beutl.Editor.Services.Captions.CaptionCodecContribution"), Is.Null);
-            Assert.That(typeof(CaptionCodecRegistry).Assembly.GetType(
-                "Beutl.Editor.Services.Captions.CaptionCodecRegistration"), Is.Null);
-            Assert.That(typeof(CaptionCodecRegistry).Assembly.GetType(
-                "Beutl.Editor.Services.Captions.CaptionCodecExtension"), Is.Null);
         }
     }
 
@@ -149,10 +111,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
     {
         var operation = new AiOperationId("vendor.video");
         var imageOperation = new AiOperationId("vendor.image");
-        var registration = new AiOperationCapabilitySchemaRegistration(
-            operation,
-            AiModelCapabilitySchema.Video);
-        var extension = new CustomCapabilitySchemaExtension(registration);
         var catalog = new AiModelCatalog(
             [],
             capabilitySchemas:
@@ -187,65 +145,18 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
     }
 
     [Test]
-    public async Task AiJobBehaviors_CanBeRegisteredAndLeasedIndependently()
+    public void CaptionTemplates_ComposeWithoutExposingSourcesToPlacement()
     {
-        var kind = new AiJobKindId("vendor.job");
-        var behavior = new CustomAiJobBehavior();
-        await using var registry = new AiJobKindRegistry(
-            [new AiJobStatusResolverRegistration(kind, behavior)],
-            [new AiJobRefreshHandlerRegistration(kind, behavior)],
-            [new AiJobRetryHandlerRegistration(kind, behavior)]);
-
-        Assert.That(registry.TryAcquireStatusResolver(
-            kind,
-            out IAiJobStatusResolverLease? status), Is.True);
-        Assert.That(registry.TryAcquireRefreshHandler(
-            kind,
-            out IAiJobRefreshHandlerLease? refresh), Is.True);
-        Assert.That(registry.TryAcquireRetryHandler(
-            kind,
-            out IAiJobRetryHandlerLease? retry), Is.True);
-        using (status)
-        using (refresh)
-        using (retry)
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(status!.Resolver, Is.SameAs(behavior));
-            Assert.That(refresh!.Handler, Is.SameAs(behavior));
-            Assert.That(retry!.Handler, Is.SameAs(behavior));
-            Assert.That(typeof(AiJobKindRegistry).Assembly.GetType(
-                "Beutl.Api.Services.AiJobKindDescriptor"), Is.Null);
-            Assert.That(typeof(AiJobKindRegistry).Assembly.GetType(
-                "Beutl.Api.Services.AiJobKindExtension"), Is.Null);
-            Assert.That(typeof(AiJobKindRegistry).Assembly.GetType(
-                "Beutl.Api.Services.AiJobKindRegistrationMode"), Is.Null);
-            Assert.That(typeof(AiJobKindRegistry).Assembly.GetType(
-                "Beutl.Api.Services.IAiJobKindRegistration"), Is.Null);
-            Assert.That(typeof(AiJobKindRegistry).Assembly.GetType(
-                "Beutl.Api.Services.IAiJobKindLease"), Is.Null);
-        }
-    }
-
-    [Test]
-    public async Task CaptionTemplateCapabilities_ComposeWithoutExposingSourcesToPlacement()
-    {
-        var id = new CaptionTemplateId("vendor.caption");
         var factory = new CustomCaptionFactory();
-        var placement = new CustomCaptionPlacement();
-        var registrations = new CaptionTemplateRegistrationSet(
-            new CaptionTemplateDescriptorRegistration(new CaptionTemplateDescriptor(
-                id,
+        var template = new CaptionTemplate(
+            new CaptionTemplateDescriptor(
+                new CaptionTemplateId("vendor.caption"),
                 new CaptionTemplateProviderId("vendor"),
-                "Vendor caption")),
-            new CaptionElementFactoryRegistration(id, factory),
-            new CaptionPlacementPolicyRegistration(id, placement));
-        await using var registry = new CaptionTemplateRegistry(
-            [registrations.DescriptorRegistration],
-            [registrations.ElementFactoryRegistration],
-            [registrations.PlacementPolicyRegistration]);
-        using CaptionTemplateLease lease = registry.Acquire(id);
+                "Vendor caption"),
+            factory,
+            new CustomCaptionPlacement());
 
-        ElementDescription result = lease.CreateElements(
+        ElementDescription result = template.CreateElements(
             new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(1), "text"),
             new CaptionElementContext(2, "Caption")).Single();
 
@@ -265,14 +176,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
             Assert.That(typeof(CaptionTemplateRegistry).Assembly.GetType(
                 "Beutl.Editor.Services.Captions.CaptionTemplateExtension"), Is.Null);
         }
-    }
-
-    private sealed class CustomCapabilitySchemaExtension(
-        params AiOperationCapabilitySchemaRegistration[] registrations)
-        : AiOperationCapabilitySchemaExtension
-    {
-        public override IReadOnlyCollection<AiOperationCapabilitySchemaRegistration> Registrations
-        { get; } = registrations;
     }
 
     private sealed class MetadataExtensionProvider(ExtensionDescriptor descriptor) : IExtensionProvider
@@ -299,30 +202,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
         }
     }
 
-    private sealed class CustomAiJobBehavior :
-        IAiJobStatusResolver,
-        IAiJobRefreshHandler,
-        IAiJobRetryHandler
-    {
-        public AiJobStatusSemantics Resolve(AiJobStatusId status)
-            => AiJobStatusSemantics.Unknown;
-
-        public Task RefreshAsync(AiJob job, CancellationToken cancellationToken)
-            => Task.CompletedTask;
-
-        public bool CanRetry(AiJob job, AiJobStatusSemantics status) => false;
-
-        public ValueTask<AiJobRetryPreflight> GetPreflightAsync(
-            AiJob job,
-            CancellationToken cancellationToken)
-            => ValueTask.FromResult(new AiJobRetryPreflight(false, false, "unavailable"));
-
-        public ValueTask<AiJobRetryPreparationResult> PrepareAsync(
-            AiJob job,
-            CancellationToken cancellationToken)
-            => ValueTask.FromResult(AiJobRetryPreparationResult.Blocked("unavailable"));
-    }
-
     private sealed class CustomCaptionFactory : ICaptionElementFactory
     {
         public ElementSource Source { get; } =
@@ -342,40 +221,5 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
             CaptionElementPlacement placement,
             int elementIndex)
             => placement with { Layer = 8, Position = new Point(10, 20) };
-    }
-
-    private sealed class CustomCaptionCodec : ICaptionDecoder, ICaptionEncoder
-    {
-        public CaptionImportResult Decode(string content)
-            => CaptionImportResult.Imported(new CaptionDocument(
-            [
-                new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(1), content),
-            ]));
-
-        public string Encode(CaptionDocument document) => document[0].Text;
-    }
-
-    private sealed class CustomCaptionCodecDescriptorExtension(
-        params CaptionCodecDescriptorRegistration[] registrations)
-        : CaptionCodecDescriptorExtension
-    {
-        public override IReadOnlyCollection<CaptionCodecDescriptorRegistration> Registrations
-        { get; } = registrations;
-    }
-
-    private sealed class CustomCaptionDecoderExtension(
-        params CaptionDecoderRegistration[] registrations)
-        : CaptionDecoderExtension
-    {
-        public override IReadOnlyCollection<CaptionDecoderRegistration> Registrations
-        { get; } = registrations;
-    }
-
-    private sealed class CustomCaptionEncoderExtension(
-        params CaptionEncoderRegistration[] registrations)
-        : CaptionEncoderExtension
-    {
-        public override IReadOnlyCollection<CaptionEncoderRegistration> Registrations
-        { get; } = registrations;
     }
 }

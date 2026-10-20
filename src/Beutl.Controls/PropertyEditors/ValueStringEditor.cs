@@ -17,6 +17,7 @@ public abstract class ValueStringEditor<TValue> : StringEditor
     private readonly bool _canScrub;
     private TValue _value;
     private TValue _oldValue;
+    private Control? _editSource;
     private HeaderScrubGesture _scrub;
     private TextBlock? _headerText;
 
@@ -33,7 +34,8 @@ public abstract class ValueStringEditor<TValue> : StringEditor
         get => _value;
         set
         {
-            if (SetAndRaise(ValuePropertyCore, ref _value, value))
+            if (SetAndRaise(ValuePropertyCore, ref _value, value)
+                && (_editSource == null || _editSource != InnerTextBox))
             {
                 Text = Format(value);
             }
@@ -153,18 +155,23 @@ public abstract class ValueStringEditor<TValue> : StringEditor
     protected override void OnTextBoxLostFocus(RoutedEventArgs e)
     {
         if (InnerTextBox == null) return;
-        if (!DataValidationErrors.GetHasErrors(InnerTextBox)
-            && Differs(Value, _oldValue))
+        if (!DataValidationErrors.GetHasErrors(InnerTextBox))
         {
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueConfirmedEvent));
+            Text = Format(Value);
+            if (Differs(Value, _oldValue))
+            {
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueConfirmedEvent));
+            }
         }
     }
 
     protected override void OnTextBoxTextChanged(string newValue, string oldValue)
     {
-        if (InnerTextBox?.IsKeyboardFocusWithin == true
+        if (_editSource == null
+            && InnerTextBox?.IsKeyboardFocusWithin == true
             && TryParseEdit(newValue, oldValue, out TValue? newValue2, out TValue? oldValue2))
         {
+            using var edit = new PropertyEditorEditScope(ref _editSource, InnerTextBox);
             Value = newValue2;
             RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue2, oldValue2, ValueChangedEvent));
         }
@@ -205,10 +212,15 @@ public abstract class ValueStringEditor<TValue> : StringEditor
         if (InnerTextBox == null) return;
         if (!DataValidationErrors.GetHasErrors(InnerTextBox)
             && InnerTextBox.IsKeyboardFocusWithin
-            && TryParse(InnerTextBox.Text, out TValue? value))
+            && TryParse(InnerTextBox.Text, out _))
         {
-            Value = StepByWheel(value, e);
-
+            using var edit = new PropertyEditorEditScope(ref _editSource, this);
+            TValue oldValue = Value;
+            TValue newValue = StepByWheel(oldValue, e);
+            Value = newValue;
+            if (Differs(newValue, oldValue))
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue, oldValue, ValueChangedEvent));
+            Text = Format(Value);
             e.Handled = true;
         }
     }

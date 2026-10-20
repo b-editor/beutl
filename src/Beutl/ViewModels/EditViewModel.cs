@@ -163,6 +163,7 @@ public sealed partial class EditViewModel
         HistoryManager = new HistoryManager(sequenceGenerator);
         HistoryManager.Subscribe(observer)
             .DisposeWith(_disposables);
+        WarnAboutEditsPendingAfterInput();
         Usage = new EditorUsageTracker(Scene, HistoryManager).DisposeWith(_disposables);
 
         observer.Operations

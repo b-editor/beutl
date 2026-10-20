@@ -9,17 +9,17 @@ public class CaptionCodecExtensibilityTests
     private static readonly CaptionFormatId s_pipeFormat = new("example.pipe");
 
     [Test]
-    public async Task FileNameLookupPrefersTheLongestRegisteredCompoundSuffix()
+    public void FileNameLookupPrefersTheLongestRegisteredCompoundSuffix()
     {
         var jsonFormat = new CaptionFormatId("json");
         var compoundFormat = new CaptionFormatId("captions-json");
-        await using var registry = new CaptionCodecRegistry(
-        [
-            new CaptionCodecDescriptorRegistration(
-                new CaptionCodecDescriptor(jsonFormat, [".json"])),
-            new CaptionCodecDescriptorRegistration(
-                new CaptionCodecDescriptor(compoundFormat, [".captions.json"])),
-        ], [], []);
+        var registry = new CaptionCodecRegistry(
+            [
+                new CaptionCodecDescriptor(jsonFormat, [".json"]),
+                new CaptionCodecDescriptor(compoundFormat, [".captions.json"]),
+            ],
+            new Dictionary<CaptionFormatId, ICaptionDecoder>(),
+            new Dictionary<CaptionFormatId, ICaptionEncoder>());
 
         Assert.Multiple(() =>
         {
@@ -31,14 +31,13 @@ public class CaptionCodecExtensibilityTests
     }
 
     [Test]
-    public async Task Serializer_CustomCapabilitiesCanCreateSuccessAndFailureResults()
+    public void Serializer_CustomCapabilitiesCanCreateSuccessAndFailureResults()
     {
         var codec = new PipeCaptionCodec();
-        await using var registry = new CaptionCodecRegistry(
-            [new CaptionCodecDescriptorRegistration(
-                new CaptionCodecDescriptor(s_pipeFormat, [".pipe"]))],
-            [new CaptionDecoderRegistration(s_pipeFormat, codec)],
-            [new CaptionEncoderRegistration(s_pipeFormat, codec)]);
+        var registry = new CaptionCodecRegistry(
+            [new CaptionCodecDescriptor(s_pipeFormat, [".pipe"])],
+            new Dictionary<CaptionFormatId, ICaptionDecoder> { [s_pipeFormat] = codec },
+            new Dictionary<CaptionFormatId, ICaptionEncoder> { [s_pipeFormat] = codec });
         var serializer = new CaptionDocumentSerializer(registry);
 
         CaptionImportResult success = serializer.Import(
@@ -62,57 +61,16 @@ public class CaptionCodecExtensibilityTests
     }
 
     [Test]
-    public async Task DescriptorlessCapabilitySupportsExactLookupButIsNotPublished()
-    {
-        var codec = new PipeCaptionCodec();
-        await using var registry = new CaptionCodecRegistry(
-            [],
-            [new CaptionDecoderRegistration(s_pipeFormat, codec)],
-            []);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(registry.Codecs, Is.Empty);
-            Assert.That(registry.TryGet(s_pipeFormat, out _), Is.False);
-            Assert.That(registry.Decode(s_pipeFormat, "text").IsSuccess, Is.True);
-            Assert.Throws<NotSupportedException>(() =>
-                registry.Encode(new CaptionFormatId("example.pipe"), new CaptionDocument()));
-        }
-    }
-
-    [Test]
-    public async Task DescriptorOnlyFormatIsPublishedWithoutExecutableDirections()
-    {
-        await using var registry = new CaptionCodecRegistry(
-            [new CaptionCodecDescriptorRegistration(
-                new CaptionCodecDescriptor(s_pipeFormat, [".pipe"]))],
-            [],
-            []);
-
-        CaptionCodecInfo info = registry.Codecs.Single();
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(info.CanDecode, Is.False);
-            Assert.That(info.CanEncode, Is.False);
-            Assert.Throws<NotSupportedException>(() => registry.Decode(s_pipeFormat, "text"));
-            Assert.Throws<NotSupportedException>(() =>
-                registry.Encode(s_pipeFormat, new CaptionDocument()));
-        }
-    }
-
-    [Test]
-    public async Task DescriptorOrderIsDeterministic()
+    public void DescriptorOrderIsDeterministic()
     {
         var other = new CaptionFormatId("example.other");
-        await using var registry = new CaptionCodecRegistry(
+        var registry = new CaptionCodecRegistry(
             [
-                new CaptionCodecDescriptorRegistration(
-                    new CaptionCodecDescriptor(s_pipeFormat, [".pipe"], order: 20)),
-                new CaptionCodecDescriptorRegistration(
-                    new CaptionCodecDescriptor(other, [".other"], order: 0)),
+                new CaptionCodecDescriptor(s_pipeFormat, [".pipe"], order: 20),
+                new CaptionCodecDescriptor(other, [".other"], order: 0),
             ],
-            [],
-            []);
+            new Dictionary<CaptionFormatId, ICaptionDecoder>(),
+            new Dictionary<CaptionFormatId, ICaptionEncoder>());
 
         Assert.That(registry.Codecs.Select(codec => codec.Format),
             Is.EqualTo(new[] { other, s_pipeFormat }));

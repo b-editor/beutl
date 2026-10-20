@@ -341,23 +341,18 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
     private bool ReadCanRetry(AiJobStatusSemantics status)
     {
         bool canRetry = false;
-        if (_jobKinds.TryAcquireRetryHandler(
-                _response.Kind,
-                out IAiJobRetryHandlerLease? retryLease))
+        if (_jobKinds.TryGetRetryHandler(_response.Kind, out IAiJobRetryHandler? retryHandler))
         {
-            using (retryLease)
+            try
             {
-                try
-                {
-                    canRetry = retryLease.Handler.CanRetry(_response, status);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(
-                        ex,
-                        "AI job retry handler for '{Kind}' failed while checking eligibility.",
-                        _response.Kind);
-                }
+                canRetry = retryHandler.CanRetry(_response, status);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "AI job retry handler for '{Kind}' failed while checking eligibility.",
+                    _response.Kind);
             }
         }
 
@@ -368,23 +363,18 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
     private AiJobPresentation ReadPresentation(AiJobStatusSemantics status, AiJobPresentation fallback)
     {
         AiJobPresentation presentation = fallback;
-        if (_resultHandlers.TryAcquirePresenter(
-                _response.Kind,
-                out IAiJobPresenterLease? presenterLease))
+        if (_resultHandlers.TryGetPresenter(_response.Kind, out IAiJobPresenter? presenter))
         {
-            using (presenterLease)
+            try
             {
-                try
-                {
-                    AiJobPresentation candidate = presenterLease.Presenter.Present(_response, status)
-                        ?? throw new InvalidOperationException(
-                            $"AI job presenter for '{_response.Kind}' returned no presentation.");
-                    ValidatePresentation(candidate);
-                    presentation = candidate;
-                }
-                catch
-                {
-                }
+                AiJobPresentation candidate = presenter.Present(_response, status)
+                    ?? throw new InvalidOperationException(
+                        $"AI job presenter for '{_response.Kind}' returned no presentation.");
+                ValidatePresentation(candidate);
+                presentation = candidate;
+            }
+            catch
+            {
             }
         }
 
@@ -395,19 +385,14 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
     private bool ReadCanApplyResult(AiJobStatusSemantics status)
     {
         bool canHandleResult = false;
-        if (_resultHandlers.TryAcquireApplicator(
-                _response.Kind,
-                out IAiJobResultApplicatorLease? applicatorLease))
+        if (_resultHandlers.TryGetApplicator(_response.Kind, out IAiJobResultApplicator? applicator))
         {
-            using (applicatorLease)
+            try
             {
-                try
-                {
-                    canHandleResult = applicatorLease.Applicator.CanApply(_response, status);
-                }
-                catch
-                {
-                }
+                canHandleResult = applicator.CanApply(_response, status);
+            }
+            catch
+            {
             }
         }
 

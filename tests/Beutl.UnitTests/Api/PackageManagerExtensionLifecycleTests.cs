@@ -4,11 +4,9 @@ using Beutl.Api.Services;
 using Beutl.Collections;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
-using Beutl.Editor.Services.AI;
-using Beutl.Editor.Services.Captions;
+using Beutl.Editor.Services.Mcp;
 using Beutl.Engine;
 using Beutl.Extensibility;
-using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 
 namespace Beutl.UnitTests.Api;
@@ -17,24 +15,13 @@ namespace Beutl.UnitTests.Api;
 [NonParallelizable]
 public class PackageManagerExtensionLifecycleTests
 {
-    private static readonly CaptionFormatId s_blockingCaptionFormat = new("beutl.tests.blocking");
-    private static readonly CaptionTemplateId s_restartOnlyCaptionTemplate =
-        new("beutl.tests.restart-only-template");
-
     [SetUp]
     public void SetUp()
     {
         SuccessfulViewExtension.Reset();
         FailingViewExtension.Reset();
-        BlockingCaptionDecoderExtension.Reset();
-        RestartOnlyCaptionElementFactoryExtension.Reset();
-        RestartOnlyAiJobResultApplicatorExtension.Reset();
-        LeaseManagedAiJobPresentationExtension.Reset();
-        LeaseManagedAiJobCompletionExtension.Reset();
-        LeaseManagedCaptionTemplateDescriptorExtension.Reset();
-        LeaseManagedCaptionPlacementExtension.Reset();
-        FaultedDrainViewExtension.Reset();
-        LeaseManagedAiJobStatusResolverExtension.Reset();
+        FaultedDrainMcpToolExtension.Reset();
+        LeaseManagedMcpToolExtension.Reset();
         MaterializingElementSourceHandlerExtension.Reset();
     }
 
@@ -205,7 +192,7 @@ public class PackageManagerExtensionLifecycleTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         provider.AllExtensions.CollectionChanged += (_, _) =>
         {
-            if (provider.GetExtensions<LeaseManagedAiJobStatusResolverExtension>().SingleOrDefault() is { } extension)
+            if (provider.GetExtensions<LeaseManagedMcpToolExtension>().SingleOrDefault() is { } extension)
             {
                 ExtensionRegistrationLifetimes.Retire(
                     extension,
@@ -221,13 +208,13 @@ public class PackageManagerExtensionLifecycleTests
                 package,
                 assemblies: [],
                 loadContext: null,
-                [typeof(LeaseManagedAiJobStatusResolverExtension)]));
+                [typeof(LeaseManagedMcpToolExtension)]));
 
-        Assert.That(LeaseManagedAiJobStatusResolverExtension.UnloadCount, Is.Zero);
+        Assert.That(LeaseManagedMcpToolExtension.UnloadCount, Is.Zero);
         releaseLease.SetResult();
         Assert.That(
             SpinWait.SpinUntil(
-                () => LeaseManagedAiJobStatusResolverExtension.UnloadCount == 1,
+                () => LeaseManagedMcpToolExtension.UnloadCount == 1,
                 TimeSpan.FromSeconds(5)),
             Is.True);
         await Task.Yield();
@@ -343,14 +330,14 @@ public class PackageManagerExtensionLifecycleTests
             package,
             assemblies: [],
             loadContext: null,
-            [typeof(LeaseManagedAiJobStatusResolverExtension)]);
+            [typeof(LeaseManagedMcpToolExtension)]);
         ExtensionDescriptor descriptor = publicProvider
-            .GetDescriptors<LeaseManagedAiJobStatusResolverExtension>()
+            .GetDescriptors<LeaseManagedMcpToolExtension>()
             .Single();
         Assert.That(
             publicProvider.TryAcquire(
                 descriptor.Id,
-                out IExtensionLease<LeaseManagedAiJobStatusResolverExtension>? lease),
+                out IExtensionLease<LeaseManagedMcpToolExtension>? lease),
             Is.True);
 
         Task<bool> unload = manager.Unload(package).AsTask();
@@ -360,12 +347,12 @@ public class PackageManagerExtensionLifecycleTests
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(unload.IsCompleted, Is.False);
-                Assert.That(LeaseManagedAiJobStatusResolverExtension.UnloadCount, Is.Zero);
+                Assert.That(LeaseManagedMcpToolExtension.UnloadCount, Is.Zero);
                 Assert.That(publicProvider.Extensions, Is.Empty);
                 Assert.That(
                     publicProvider.TryAcquire(
                         descriptor.Id,
-                        out IExtensionLease<LeaseManagedAiJobStatusResolverExtension>? retiredLease),
+                        out IExtensionLease<LeaseManagedMcpToolExtension>? retiredLease),
                     Is.False);
                 Assert.That(retiredLease, Is.Null);
             }
@@ -376,7 +363,7 @@ public class PackageManagerExtensionLifecycleTests
         }
 
         Assert.That(await unload.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
-        Assert.That(LeaseManagedAiJobStatusResolverExtension.UnloadCount, Is.EqualTo(1));
+        Assert.That(LeaseManagedMcpToolExtension.UnloadCount, Is.EqualTo(1));
     }
 
     [Test]
@@ -390,7 +377,7 @@ public class PackageManagerExtensionLifecycleTests
             package,
             assemblies: [],
             loadContext: null,
-            [typeof(LeaseManagedAiJobStatusResolverExtension)]);
+            [typeof(LeaseManagedMcpToolExtension)]);
 
         bool unloaded = await manager.Unload(package);
 
@@ -398,99 +385,8 @@ public class PackageManagerExtensionLifecycleTests
         {
             Assert.That(unloaded, Is.True);
             Assert.That(registry.SynchronizationCount, Is.GreaterThan(0));
-            Assert.That(registry.GetExtensions<LeaseManagedAiJobStatusResolverExtension>(), Is.Empty);
-            Assert.That(LeaseManagedAiJobStatusResolverExtension.UnloadCount, Is.EqualTo(1));
-        }
-    }
-
-    [Test]
-    public async Task Unload_DrainsIndependentPresentationAndCompletionLeases()
-    {
-        PackageManager manager = CreatePackageManager(out _, out ExtensionProvider provider);
-        await using var results = new AiJobResultRegistry([], [], [], provider, null);
-        var package = new LocalPackage { Name = "LiveAiResultPresentation" };
-        manager.LoadExtensionsAndRegister(
-            activity: null,
-            package,
-            assemblies: [],
-            loadContext: null,
-            [
-                typeof(LeaseManagedAiJobPresentationExtension),
-                typeof(LeaseManagedAiJobCompletionExtension),
-            ]);
-
-        Assert.That(results.TryAcquirePresenter(
-            LeaseManagedAiJobPresentationExtension.Kind,
-            out IAiJobPresenterLease? presentationLease), Is.True);
-        Assert.That(results.TryAcquireCompletionPresenter(
-            LeaseManagedAiJobCompletionExtension.Kind,
-            out IAiJobCompletionPresenterLease? completionLease), Is.True);
-
-        Task<bool> unload = manager.Unload(package).AsTask();
-        await Task.Delay(100);
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(unload.IsCompleted, Is.False);
-            Assert.That(LeaseManagedAiJobPresentationExtension.UnloadCount, Is.Zero);
-            Assert.That(LeaseManagedAiJobCompletionExtension.UnloadCount, Is.Zero);
-        }
-
-        presentationLease!.Dispose();
-        await Task.Delay(100);
-        Assert.That(unload.IsCompleted, Is.False);
-        completionLease!.Dispose();
-
-        Assert.That(await unload.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(LeaseManagedAiJobPresentationExtension.UnloadCount, Is.EqualTo(1));
-            Assert.That(LeaseManagedAiJobCompletionExtension.UnloadCount, Is.EqualTo(1));
-        }
-    }
-
-    [Test]
-    public async Task Unload_DrainsLiveCaptionDescriptorAndPlacementLeases()
-    {
-        PackageManager manager = CreatePackageManager(out _, out ExtensionProvider provider);
-        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
-            "Default",
-            [],
-            provider,
-            new DefaultTextCaptionElementFactory(Beutl.Media.FontFamily.Default));
-        var package = new LocalPackage { Name = "LiveCaptionPresentation" };
-        manager.LoadExtensionsAndRegister(
-            activity: null,
-            package,
-            assemblies: [],
-            loadContext: null,
-            [
-                typeof(LeaseManagedCaptionTemplateDescriptorExtension),
-                typeof(LeaseManagedCaptionPlacementExtension),
-            ]);
-        using ICaptionTemplateLease lease = catalog.Templates.Acquire(
-            CaptionTemplateIds.DefaultText);
-
-        Task<bool> unload = manager.Unload(package).AsTask();
-        await Task.Delay(100);
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(unload.IsCompleted, Is.False);
-            Assert.That(LeaseManagedCaptionTemplateDescriptorExtension.UnloadCount, Is.Zero);
-            Assert.That(LeaseManagedCaptionPlacementExtension.UnloadCount, Is.Zero);
-            Assert.That(
-                catalog.Templates.TryGet(
-                    CaptionTemplateIds.DefaultText,
-                    out CaptionTemplateDescriptor? defaultTemplate),
-                Is.True);
-            Assert.That(defaultTemplate!.Name, Is.EqualTo("Default"));
-        }
-
-        lease.Dispose();
-        Assert.That(await unload.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(LeaseManagedCaptionTemplateDescriptorExtension.UnloadCount, Is.EqualTo(1));
-            Assert.That(LeaseManagedCaptionPlacementExtension.UnloadCount, Is.EqualTo(1));
+            Assert.That(registry.GetExtensions<LeaseManagedMcpToolExtension>(), Is.Empty);
+            Assert.That(LeaseManagedMcpToolExtension.UnloadCount, Is.EqualTo(1));
         }
     }
 
@@ -504,14 +400,6 @@ public class PackageManagerExtensionLifecycleTests
                 typeof(MaterializingElementSourceHandlerExtension),
                 (Func<int>)(() => MaterializingElementSourceHandlerExtension.UnloadCount))
             .SetName("Unload_RequiresRestartForElementSourceHandlerExtensions");
-        yield return new TestCaseData(
-                typeof(RestartOnlyCaptionElementFactoryExtension),
-                (Func<int>)(() => RestartOnlyCaptionElementFactoryExtension.UnloadCount))
-            .SetName("Unload_RequiresRestartForCaptionElementFactoryExtensions");
-        yield return new TestCaseData(
-                typeof(RestartOnlyAiJobResultApplicatorExtension),
-                (Func<int>)(() => RestartOnlyAiJobResultApplicatorExtension.UnloadCount))
-            .SetName("Unload_RequiresRestartForAiJobResultApplicatorExtensions");
     }
 
     [TestCaseSource(nameof(RestartOnlyExtensions))]
@@ -538,63 +426,6 @@ public class PackageManagerExtensionLifecycleTests
     }
 
     [Test]
-    public async Task Unload_WaitsForActiveCaptionLeaseBeforeCallingExtensionUnload()
-    {
-        PackageManager manager = CreatePackageManager(out _, out ExtensionProvider provider);
-        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
-            "Default",
-            [],
-            provider,
-            new DefaultTextCaptionElementFactory(Beutl.Media.FontFamily.Default));
-        var package = new LocalPackage { Name = "BlockingCaption" };
-        manager.LoadExtensionsAndRegister(
-            activity: null,
-            package,
-            assemblies: [],
-            loadContext: null,
-            [typeof(BlockingCaptionDecoderExtension)]);
-
-        Task<CaptionImportResult> decodeTask = Task.Run(() =>
-            catalog.Serializer.Import("caption"u8, s_blockingCaptionFormat));
-        Assert.That(
-            BlockingCaptionDecoderExtension.WaitForDecode(TimeSpan.FromSeconds(5)),
-            Is.True,
-            "The test codec did not begin decoding.");
-
-        Task<bool> unloadTask = Task.Run(async () => await manager.Unload(package));
-        try
-        {
-            Assert.That(
-                SpinWait.SpinUntil(
-                    () => provider.GetExtensions<BlockingCaptionDecoderExtension>().Length == 0,
-                    TimeSpan.FromSeconds(5)),
-                Is.True,
-                "Package removal did not begin.");
-            Assert.Multiple(() =>
-            {
-                Assert.That(unloadTask.IsCompleted, Is.False);
-                Assert.That(BlockingCaptionDecoderExtension.UnloadCount, Is.EqualTo(0));
-            });
-        }
-        finally
-        {
-            BlockingCaptionDecoderExtension.ReleaseDecode();
-        }
-
-        CaptionImportResult decoded = await decodeTask.WaitAsync(TimeSpan.FromSeconds(5));
-        bool unloaded = await unloadTask.WaitAsync(TimeSpan.FromSeconds(5));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(decoded.IsSuccess, Is.True);
-            Assert.That(unloaded, Is.True);
-            Assert.That(BlockingCaptionDecoderExtension.UnloadCount, Is.EqualTo(1));
-            Assert.Throws<NotSupportedException>(() =>
-                catalog.Serializer.Import("after unload"u8, s_blockingCaptionFormat));
-        });
-    }
-
-    [Test]
     public async Task Unload_QuarantinesPackageWithoutCallingUnload_WhenRegistrationDrainFails()
     {
         PackageManager manager = CreatePackageManager(
@@ -606,9 +437,9 @@ public class PackageManagerExtensionLifecycleTests
             package,
             assemblies: [],
             loadContext: null,
-            [typeof(FaultedDrainViewExtension)]);
-        FaultedDrainViewExtension extension = provider
-            .GetExtensions<FaultedDrainViewExtension>()
+            [typeof(FaultedDrainMcpToolExtension)]);
+        FaultedDrainMcpToolExtension extension = provider
+            .GetExtensions<FaultedDrainMcpToolExtension>()
             .Single();
         ExtensionRegistrationLifetimes.Retire(
             extension,
@@ -620,13 +451,13 @@ public class PackageManagerExtensionLifecycleTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(unloaded, Is.False);
-            Assert.That(FaultedDrainViewExtension.UnloadCount, Is.Zero);
-            Assert.That(provider.GetExtensions<FaultedDrainViewExtension>(), Is.Empty);
+            Assert.That(FaultedDrainMcpToolExtension.UnloadCount, Is.Zero);
+            Assert.That(provider.GetExtensions<FaultedDrainMcpToolExtension>(), Is.Empty);
             Assert.That(manager.LoadedPackage, Does.Contain(package));
         }
 
         Assert.That(await manager.Unload(package), Is.False);
-        Assert.That(FaultedDrainViewExtension.UnloadCount, Is.Zero);
+        Assert.That(FaultedDrainMcpToolExtension.UnloadCount, Is.Zero);
     }
 
     private static Element MaterializePackageGraph(IElementSourceHandlerRegistry handlers)
@@ -796,16 +627,14 @@ public class PackageManagerExtensionLifecycleTests
     }
 
     [Export]
-    private sealed class FaultedDrainViewExtension : AiJobStatusResolverExtension
+    private sealed class FaultedDrainMcpToolExtension : McpToolExtension
     {
         public static int UnloadCount { get; private set; }
 
-        public override IReadOnlyCollection<AiJobStatusResolverRegistration> Registrations { get; } =
-        [
-            new AiJobStatusResolverRegistration(
-                new AiJobKindId("beutl.tests.faulted-drain"),
-                new AiJobStatusMap([])),
-        ];
+        public override IReadOnlyList<McpToolDefinition> Tools => [];
+
+        public override ValueTask<McpToolResult> InvokeAsync(McpToolCall call, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
 
         public static void Reset() => UnloadCount = 0;
 
@@ -813,16 +642,14 @@ public class PackageManagerExtensionLifecycleTests
     }
 
     [Export]
-    private sealed class LeaseManagedAiJobStatusResolverExtension : AiJobStatusResolverExtension
+    private sealed class LeaseManagedMcpToolExtension : McpToolExtension
     {
         public static int UnloadCount { get; private set; }
 
-        public override IReadOnlyCollection<AiJobStatusResolverRegistration> Registrations { get; } =
-        [
-            new AiJobStatusResolverRegistration(
-                new AiJobKindId("beutl.tests.lease-managed"),
-                new AiJobStatusMap([])),
-        ];
+        public override IReadOnlyList<McpToolDefinition> Tools => [];
+
+        public override ValueTask<McpToolResult> InvokeAsync(McpToolCall call, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
 
         public override void Unload() => UnloadCount++;
 
@@ -904,221 +731,6 @@ public class PackageManagerExtensionLifecycleTests
             s_loadStarted!.Set();
             if (!s_releaseLoad!.Wait(TimeSpan.FromSeconds(10)))
                 throw new TimeoutException("The blocking extension load was not released.");
-        }
-    }
-
-    [Export]
-    private sealed class BlockingCaptionDecoderExtension : CaptionDecoderExtension, ICaptionDecoder
-    {
-        private static readonly ManualResetEventSlim s_decodeStarted = new();
-        private static readonly ManualResetEventSlim s_releaseDecode = new();
-        private readonly IReadOnlyCollection<CaptionDecoderRegistration> _registrations;
-
-        public BlockingCaptionDecoderExtension()
-        {
-            _registrations =
-            [
-                new CaptionDecoderRegistration(s_blockingCaptionFormat, this),
-            ];
-        }
-
-        public static int UnloadCount { get; private set; }
-
-        public override IReadOnlyCollection<CaptionDecoderRegistration> Registrations
-            => _registrations;
-
-        public CaptionImportResult Decode(string content)
-        {
-            s_decodeStarted.Set();
-            if (!s_releaseDecode.Wait(TimeSpan.FromSeconds(10)))
-                throw new TimeoutException("The blocking caption codec was not released.");
-
-            return CaptionImportResult.Imported(new CaptionDocument(
-            [
-                new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(1), content),
-            ]));
-        }
-
-        public override void Unload()
-        {
-            UnloadCount++;
-        }
-
-        public static bool WaitForDecode(TimeSpan timeout) => s_decodeStarted.Wait(timeout);
-
-        public static void ReleaseDecode() => s_releaseDecode.Set();
-
-        public static void Reset()
-        {
-            UnloadCount = 0;
-            s_decodeStarted.Reset();
-            s_releaseDecode.Reset();
-        }
-    }
-
-    [Export]
-    private sealed class LeaseManagedCaptionTemplateDescriptorExtension :
-        CaptionTemplateDescriptorExtension
-    {
-        public static int UnloadCount { get; private set; }
-
-        public override IReadOnlyCollection<CaptionTemplateDescriptorRegistration> Registrations
-        { get; } =
-        [
-            new CaptionTemplateDescriptorRegistration(
-                new CaptionTemplateDescriptor(
-                    CaptionTemplateIds.DefaultText,
-                    new CaptionTemplateProviderId("beutl.tests"),
-                    "Replacement"),
-                CaptionTemplateRegistrationMode.Replace),
-        ];
-
-        public override void Unload() => UnloadCount++;
-
-        public static void Reset() => UnloadCount = 0;
-    }
-
-    [Export]
-    private sealed class LeaseManagedCaptionPlacementExtension :
-        CaptionPlacementPolicyExtension,
-        ICaptionPlacementPolicy
-    {
-        public static int UnloadCount { get; private set; }
-
-        public override IReadOnlyCollection<CaptionPlacementPolicyRegistration> Registrations
-        { get; }
-
-        public LeaseManagedCaptionPlacementExtension()
-        {
-            Registrations =
-            [
-                new CaptionPlacementPolicyRegistration(
-                    CaptionTemplateIds.DefaultText,
-                    this,
-                    CaptionTemplateRegistrationMode.Replace),
-            ];
-        }
-
-        public CaptionElementPlacement Place(
-            CaptionCue cue,
-            CaptionElementContext context,
-            CaptionElementPlacement placement,
-            int elementIndex)
-            => placement with { Position = new Beutl.Graphics.Point(12, 34) };
-
-        public override void Unload() => UnloadCount++;
-
-        public static void Reset() => UnloadCount = 0;
-    }
-
-    [Export]
-    private sealed class RestartOnlyCaptionElementFactoryExtension :
-        CaptionElementFactoryExtension,
-        ICaptionElementFactory
-    {
-        private readonly IReadOnlyCollection<CaptionElementFactoryRegistration> _registrations;
-
-        public RestartOnlyCaptionElementFactoryExtension()
-        {
-            _registrations =
-            [
-                new CaptionElementFactoryRegistration(
-                    s_restartOnlyCaptionTemplate,
-                    this),
-            ];
-        }
-
-        public static int UnloadCount { get; private set; }
-
-        public override IReadOnlyCollection<CaptionElementFactoryRegistration> Registrations
-            => _registrations;
-
-        public IReadOnlyList<ElementDescription> CreateElements(
-            CaptionCue cue,
-            CaptionElementContext context)
-            =>
-            [
-                context.CreateDescription(
-                    cue,
-                    () => new TextBlock { Text = { CurrentValue = cue.Text } }),
-            ];
-
-        public override void Unload()
-        {
-            UnloadCount++;
-        }
-
-        public static void Reset()
-        {
-            UnloadCount = 0;
-        }
-    }
-
-    [Export]
-    private sealed class LeaseManagedAiJobPresentationExtension :
-        AiJobPresentationExtension,
-        IAiJobPresenter
-    {
-        public static AiJobKindId Kind { get; } = new("beutl.tests.presentation");
-
-        public static int UnloadCount { get; private set; }
-
-        public override IReadOnlyCollection<AiJobPresentationRegistration> Registrations { get; }
-
-        public LeaseManagedAiJobPresentationExtension()
-        {
-            Registrations = [new AiJobPresentationRegistration(Kind, this)];
-        }
-
-        public AiJobPresentation Present(AiJob job, AiJobStatusSemantics status)
-            => new("Test", "Ready", "Test", string.Empty, false);
-
-        public override void Unload() => UnloadCount++;
-
-        public static void Reset() => UnloadCount = 0;
-    }
-
-    [Export]
-    private sealed class LeaseManagedAiJobCompletionExtension :
-        AiJobCompletionExtension,
-        IAiJobCompletionPresenter
-    {
-        public static AiJobKindId Kind { get; } = new("beutl.tests.completion");
-
-        public static int UnloadCount { get; private set; }
-
-        public override IReadOnlyCollection<AiJobCompletionRegistration> Registrations { get; }
-
-        public LeaseManagedAiJobCompletionExtension()
-        {
-            Registrations = [new AiJobCompletionRegistration(Kind, this)];
-        }
-
-        public AiJobCompletionPresentation? CreateCompletion(
-            AiJob job,
-            AiJobStatusSemantics status)
-            => null;
-
-        public override void Unload() => UnloadCount++;
-
-        public static void Reset() => UnloadCount = 0;
-    }
-
-    [Export]
-    private sealed class RestartOnlyAiJobResultApplicatorExtension : AiJobResultApplicatorExtension
-    {
-        public static int UnloadCount { get; private set; }
-
-        public override IReadOnlyCollection<AiJobResultApplicatorRegistration> Registrations { get; } = [];
-
-        public override void Unload()
-        {
-            UnloadCount++;
-        }
-
-        public static void Reset()
-        {
-            UnloadCount = 0;
         }
     }
 }

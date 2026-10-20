@@ -271,25 +271,9 @@ internal sealed partial class RenderRequestExecutor
                     output.RasterBounds,
                     output.EffectiveScale.Value)
                 : ShaderEvaluationFrame.Destination(output.DeviceBounds, output.RasterBounds);
-            string childName;
-            string programSource;
-            SKShaderTileMode tileMode;
-            if (description.Kind == ShaderDescriptionKind.CurrentPixel)
-            {
-                childName = "__beutl_src";
-                tileMode = SKShaderTileMode.Decal;
-                programSource = $"uniform shader {childName};\n{description.Source.Text}\n"
-                    + $"half4 main(float2 __beutl_coord) {{ return apply({childName}.eval(__beutl_coord)); }}\n";
-            }
-            else
-            {
-                childName = "src";
-                tileMode = description.SourceTileMode;
-                programSource = description.Source.Text;
-            }
-
+            StandaloneShaderProgram program = StandaloneShaderProgram.For(description);
             using ProgramCacheLease<CachedSkRuntimeEffect> lease =
-                AcquireStandaloneProgram(output.Target, programSource);
+                AcquireStandaloneProgram(output.Target, program.Source);
             using var uniforms = new SKRuntimeEffectUniforms(lease.Program.Effect);
             using var runtimeChildren = new SKRuntimeEffectChildren(lease.Program.Effect);
             var children = new List<SKShader>();
@@ -305,8 +289,7 @@ internal sealed partial class RenderRequestExecutor
                         requiredRegion,
                         inputImage,
                         frame,
-                        childName,
-                        tileMode,
+                        program,
                         uniforms,
                         runtimeChildren,
                         children);
@@ -320,8 +303,7 @@ internal sealed partial class RenderRequestExecutor
                         output,
                         inputImage,
                         frame,
-                        childName,
-                        tileMode,
+                        program,
                         uniforms,
                         runtimeChildren,
                         children);
@@ -345,8 +327,7 @@ internal sealed partial class RenderRequestExecutor
             Rect requiredRegion,
             SKImage inputImage,
             ShaderEvaluationFrame frame,
-            string childName,
-            SKShaderTileMode tileMode,
+            StandaloneShaderProgram program,
             SKRuntimeEffectUniforms uniforms,
             SKRuntimeEffectChildren runtimeChildren,
             List<SKShader> children)
@@ -375,8 +356,7 @@ internal sealed partial class RenderRequestExecutor
                         output,
                         inputImage,
                         frame,
-                        childName,
-                        tileMode,
+                        program,
                         uniforms,
                         runtimeChildren,
                         children);
@@ -390,31 +370,11 @@ internal sealed partial class RenderRequestExecutor
             MaterializedRenderValue output,
             SKImage inputImage,
             ShaderEvaluationFrame frame,
-            string childName,
-            SKShaderTileMode tileMode,
+            StandaloneShaderProgram program,
             SKRuntimeEffectUniforms uniforms,
             SKRuntimeEffectChildren runtimeChildren,
             List<SKShader> children)
         {
-            for (int index = 0; index < description.Uniforms.Count; index++)
-            {
-                ShaderUniformBinding binding = description.Uniforms[index];
-                if (!description.Source.Uniforms.TryGetValue(
-                        binding.Name,
-                        out SkslUniformDeclaration declaration))
-                {
-                    throw new InvalidOperationException(
-                        $"Shader uniform '{binding.Name}' was not declared.");
-                }
-
-                ShaderUniformValue value = binding.Bind(declaration, context);
-                SkslUniformAssignment.SetUniform(
-                    uniforms,
-                    binding.Name,
-                    declaration,
-                    value);
-            }
-
             SKShader inputShader = RasterShaderMapping.CreateSemanticImageShader(
                 inputImage,
                 input.Target.RawValue.Context,
@@ -424,19 +384,10 @@ internal sealed partial class RenderRequestExecutor
                 input.RasterBounds,
                 output.EffectiveScale.Value,
                 frame.RasterBounds,
-                tileMode);
+                program.TileMode);
             children.Add(inputShader);
-            runtimeChildren[childName] = inputShader;
-
-            for (int index = 0; index < description.Resources.Count; index++)
-            {
-                ShaderResourceBinding binding = description.Resources[index];
-                SKShader child = binding.Bind(context
-                    ?? throw new InvalidOperationException(
-                        "A shader resource binding requires an execution context."));
-                children.Add(child);
-                runtimeChildren[binding.Name] = child;
-            }
+            runtimeChildren[program.ChildName] = inputShader;
+            ShaderArgumentBinder.BindStandalone(description, context, uniforms, runtimeChildren, children);
         }
 
     }
