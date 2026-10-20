@@ -6,6 +6,7 @@ using Avalonia.Headless.NUnit;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transitions;
 using Beutl.Media;
 using Beutl.Models;
 using Beutl.ProjectSystem;
@@ -134,6 +135,43 @@ public class PlaybackEditTests
             BufferedPlayer.Frame frame = await TakeAsync(player);
             using (frame.Bitmap)
                 Assert.That(FillOf(frame.Bitmap.Value, $"Frame {frame.Time}"), Is.EqualTo(s_palette[2]));
+        }
+    }
+
+    // A clip added after one with an exit transition turns its fade to nothing before the cut into a blend.
+    [AvaloniaTest]
+    public async Task Adding_a_clip_after_an_exit_transition_redraws_the_frames_before_the_cut()
+    {
+        TestGpu.RequireAnyDevice();
+        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync(
+            "playback-edits-transition", 320, 240, frameRate: Rate, duration: TimeSpan.FromSeconds(4));
+        (Element outgoing, _) = CreateRectangle(Colors.Red, TimeSpan.FromSeconds(2));
+        outgoing.ExitTransition = new CrossDissolveTransition { Duration = { CurrentValue = TimeSpan.FromSeconds(1) } };
+        scene.Children.Add(outgoing);
+        RenderThreadDrain.Drain(TimeSpan.FromMinutes(2));
+        using var isPlaying = new ReactivePropertySlim<bool>(true);
+        using var player = new BufferedPlayer(editor, isPlaying, Rate, CancellationToken.None);
+        player.Start(PlaybackRange.From(TimeSpan.Zero, scene.Start, scene.Duration, Rate));
+        // The fade's frames, 30 to 59, are queued before the clip after the cut arrives.
+        await HeadlessTestHelpers.WaitUntilAsync(() => player.QueuedFrames >= 70, TimeSpan.FromMinutes(1), pump: false);
+
+        (Element incoming, _) = CreateRectangle(Colors.Blue, TimeSpan.FromSeconds(2));
+        incoming.Start = TimeSpan.FromSeconds(2);
+        scene.Children.Add(incoming);
+
+        BufferedPlayer.Frame frame = await TakeAsync(player);
+        while (frame.Time < 45)
+        {
+            frame.Bitmap.Dispose();
+            frame = await TakeAsync(player);
+        }
+
+        using (frame.Bitmap)
+        {
+            using Bitmap bgra = frame.Bitmap.Value.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul);
+            byte blue = bgra.GetRow(bgra.Height / 2)[(bgra.Width / 2) * 4];
+            Assert.That(frame.Time, Is.EqualTo(45));
+            Assert.That(blue, Is.GreaterThan(40), "Half way through the transition the incoming clip must show.");
         }
     }
 

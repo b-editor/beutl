@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using System.Collections.Immutable;
+using Beutl.Graphics.Rendering;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
@@ -275,7 +276,7 @@ internal sealed class BufferedPlayer : IDisposable
 
         // Without a range, as a replace or reset of the elements sends, the edit may change any frame.
         (int Start, int End)[] ranges = e is ElementEditedEventArgs { AffectedRange.IsDefaultOrEmpty: false } edited
-            ? [.. edited.AffectedRange.Select(range => FrameCacheRanges.ToFrameRange(range, _rate))]
+            ? [.. WithTransitionRegions(edited.AffectedRange).Select(range => FrameCacheRanges.ToFrameRange(range, _rate))]
             : [(int.MinValue, int.MaxValue)];
         var dropped = new List<Frame>();
         lock (_queue)
@@ -305,6 +306,10 @@ internal sealed class BufferedPlayer : IDisposable
         if (dropped.Count > 0)
             Wake();
     }
+
+    // A transition draws its elements past their own ranges, so the frames of one near an edit change too.
+    private IEnumerable<TimeRange> WithTransitionRegions(ImmutableArray<TimeRange> ranges)
+        => ranges.Concat(ranges.SelectMany(range => ElementTransitions.GetRegionsNear(_scene, range)));
 
     private int MaxQueuedFrames(SceneRenderer renderer)
         => ReadAheadBudget.FrameCount(
