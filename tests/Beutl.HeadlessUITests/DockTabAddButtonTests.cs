@@ -13,6 +13,7 @@ using Beutl.Collections;
 using Beutl.Configuration;
 using Beutl.Editor.Components.CurvesTab;
 using Beutl.Editor.Components.FileBrowserTab;
+using Beutl.Editor.Components.HistoryTab;
 using Beutl.Editor.Components.NodeGraphTab;
 using Beutl.Extensibility;
 using Beutl.Language;
