@@ -370,7 +370,7 @@ public sealed class PromptLibraryProviderTests
 
     private AiRequestRecoveryContext Context(Func<string?> account)
         => new(
-            new FileAiRequestRecoveryStore(_storePath),
+            new FileAiRequestKeyMap(_storePath),
             () => account() is { } id
                 ? new AiAuthenticatedRequestIdentity(id, User: null)
                 : null);

@@ -29,7 +29,7 @@ public sealed partial class AiDialogWorkflowTests
             return ProviderVideoResponse(request);
         }));
         BeutlApiApplication clients = api.Clients;
-        using var store = new FileAiRequestRecoveryStore(Path.Combine(BeutlHomeIsolation.CurrentHome!, "invalid-video-" + Guid.NewGuid().ToString("N")));
+        var store = new FileAiRequestKeyMap(Path.Combine(BeutlHomeIsolation.CurrentHome!, "invalid-video-" + Guid.NewGuid().ToString("N")));
         using var context = new AiRequestRecoveryContext(store, () => new AiAuthenticatedRequestIdentity("test-user", null));
         await using var vm = CreateVideoGenerationDialog(clients, context: context, sourceMode: sourceVideo ? AiSourceVideoMode.Edit : null);
         await WaitUntilAsync(() => vm.ModelPicker.IsLoaded.Value);
@@ -72,7 +72,7 @@ public sealed partial class AiDialogWorkflowTests
             return ProviderVideoResponse(request);
         }));
         BeutlApiApplication clients = api.Clients;
-        using var store = new FileAiRequestRecoveryStore(Path.Combine(BeutlHomeIsolation.CurrentHome!, "source-snapshot-" + Guid.NewGuid().ToString("N")));
+        var store = new FileAiRequestKeyMap(Path.Combine(BeutlHomeIsolation.CurrentHome!, "source-snapshot-" + Guid.NewGuid().ToString("N")));
         using var context = new AiRequestRecoveryContext(store, () => new AiAuthenticatedRequestIdentity("test-user", null));
         var availability = new SourceDurationAvailability();
         await using var vm = CreateVideoGenerationDialog(clients, context: context, sourceMode: AiSourceVideoMode.Edit,

@@ -1,6 +1,5 @@
 ﻿using System.Collections.ObjectModel;
 using Avalonia.Threading;
-using Beutl.Api.Services;
 using Beutl.Services;
 using Beutl.Services.AI;
 
@@ -46,50 +45,6 @@ internal static class AiFormRecovery
         {
             reportClearFailure(ex);
         }
-    }
-
-    // Shows the model the recovered request was named for; none when it named none.
-    public static void SelectRecoveredModel(AiModelPickerViewModel picker, AiPendingAttempt? recovery)
-    {
-        if (recovery is null)
-            return;
-        if (recovery.Model is not { } model)
-        {
-            picker.Selected.Value = null;
-            return;
-        }
-        AiModelId id = new(model);
-        picker.Selected.Value = picker.Options.FirstOrDefault(option => option.Id == id);
-    }
-
-    public static bool IsSameAttempt(AiPendingAttempt first, AiPendingAttempt second)
-        => first.AccountId == second.AccountId
-            && first.Operation == second.Operation
-            && first.Fingerprint == second.Fingerprint;
-
-    // Whether settling name settles the recovery on show as well: it is that very request, or
-    // the key no longer holds the recovery as pending.
-    public static bool IsSettledBy(
-        AiRequestKey requestKey,
-        AiPendingAttempt recovery,
-        AiRequestName name)
-        => string.Equals(recovery.Key, name.Key, StringComparison.Ordinal)
-            || !requestKey.IsCurrentPending(recovery);
-
-    // Whether a recovered source still stands for the file at path: a durable copy by its file
-    // name, a file the person chose by its full path.
-    public static bool MatchesPath(
-        this AiRequestRecoverySource source,
-        string? path)
-    {
-        if (path is null)
-            return false;
-        return source.DurableFile is { } durable
-            ? string.Equals(Path.GetFileName(path), durable, StringComparison.Ordinal)
-            : string.Equals(
-                Path.GetFullPath(source.Path ?? string.Empty),
-                Path.GetFullPath(path),
-                StringComparison.Ordinal);
     }
 
     public static IDisposable RememberChoice<T>(

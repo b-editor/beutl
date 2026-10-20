@@ -68,4 +68,53 @@ internal sealed class AiJobClient(BeutlApiApplication application) : IAiJobClien
             throw await AiErrorConverter.ConvertAsync(ex, activity);
         }
     }
+
+    public async Task<AiJob> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken)
+    {
+        string key = AiRequestLimits.ValidateOptionalIdempotencyKey(idempotencyKey, nameof(idempotencyKey))
+            ?? throw new ArgumentException("An idempotency key is required.", nameof(idempotencyKey));
+        using CancellationTokenSource operationCts =
+            application.CreateLifetimeLinkedTokenSource(cancellationToken);
+        using Activity? activity = application.ActivitySource.StartActivity(
+            "AiJobClient.GetByIdempotencyKey",
+            ActivityKind.Client);
+        try
+        {
+            AuthenticatedApiResult<AiJobHistoryResponse> response =
+                await application.SendAuthenticatedAsync(
+                    (authorization, token) => application.Ai.GetJobByIdempotencyKey(authorization, key, token),
+                    operationCts.Token);
+            return AiModelMapper.ToModel(response.Value);
+        }
+        catch (ApiException ex)
+        {
+            throw await AiErrorConverter.ConvertAsync(ex, activity);
+        }
+    }
+
+    public async Task<AiJobId> RetryAsync(AiJobId jobId, string idempotencyKey, CancellationToken cancellationToken)
+    {
+        if (jobId.Value.Length == 0)
+            throw new ArgumentException("A job identifier is required.", nameof(jobId));
+        string key = AiRequestLimits.ValidateOptionalIdempotencyKey(idempotencyKey, nameof(idempotencyKey))
+            ?? throw new ArgumentException("An idempotency key is required.", nameof(idempotencyKey));
+        using CancellationTokenSource operationCts =
+            application.CreateLifetimeLinkedTokenSource(cancellationToken);
+        using Activity? activity = application.ActivitySource.StartActivity(
+            "AiJobClient.Retry",
+            ActivityKind.Client);
+        activity?.SetTag("jobId", jobId.Value);
+        try
+        {
+            AuthenticatedApiResult<AiJobRetryResponse> response =
+                await application.SendAuthenticatedAsync(
+                    (authorization, token) => application.Ai.RetryJob(authorization, key, jobId.Value, token),
+                    operationCts.Token);
+            return new AiJobId(response.Value.JobId);
+        }
+        catch (ApiException ex)
+        {
+            throw await AiErrorConverter.ConvertAsync(ex, activity);
+        }
+    }
 }

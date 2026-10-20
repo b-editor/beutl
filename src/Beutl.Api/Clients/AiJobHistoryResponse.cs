@@ -60,3 +60,10 @@ internal sealed record DeleteAiJobResponse
     [JsonPropertyName("deleted")]
     public required bool Deleted { get; init; }
 }
+
+// Both the image and the video answer of a retry name the job it made.
+internal sealed record AiJobRetryResponse
+{
+    [JsonPropertyName("jobId")]
+    public required string JobId { get; init; }
+}

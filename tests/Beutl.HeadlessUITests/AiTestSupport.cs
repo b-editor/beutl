@@ -38,6 +38,21 @@ internal static class AiTestSupport
             Content = new StringContent(json, Encoding.UTF8, "application/json"),
         };
 
+    // The server's error body. withDocumentationUrl: false leaves the field out, which is not the same as
+    // null: the client's ApiErrorResponse requires it.
+    public static HttpResponseMessage ErrorResponse(
+        HttpStatusCode status, string code, string message, bool withDocumentationUrl = true)
+    {
+        var body = new Dictionary<string, string?> { ["error_code"] = code, ["message"] = message };
+        if (withDocumentationUrl) body["documentation_url"] = null;
+        return JsonResponse(status, System.Text.Json.JsonSerializer.Serialize(body));
+    }
+
+    public static string? IdempotencyKeyOf(HttpRequestMessage request)
+        => request.Headers.TryGetValues("Idempotency-Key", out IEnumerable<string>? values)
+            ? values.SingleOrDefault()
+            : null;
+
     public static HttpResponseMessage ByteResponse(byte[] bytes, string mediaType)
         => new(HttpStatusCode.OK)
         {
@@ -124,6 +139,8 @@ internal static class AiTestSupport
             planCoordinator ?? CreatePlanCoordinator(clients),
             clients.GetResource<IAiImageGenerationService>(),
             clients.GetResource<IAuthenticatedContentService>(),
+            clients.GetResource<IAiJobClient>(),
+            clients.GetResource<IAiJobKindRegistry>(),
             editor,
             context ?? AiRetryTestContext.CreateForm());
 
@@ -139,6 +156,8 @@ internal static class AiTestSupport
             planCoordinator ?? CreatePlanCoordinator(clients),
             clients.GetResource<IAiImageEditingService>(),
             clients.GetResource<IAuthenticatedContentService>(),
+            clients.GetResource<IAiJobClient>(),
+            clients.GetResource<IAiJobKindRegistry>(),
             editor,
             context ?? AiRetryTestContext.CreateForm());
 
@@ -158,6 +177,7 @@ internal static class AiTestSupport
             clients.GetResource<IAuthenticatedContentService>(),
             clients.GetResource<IAiJobKindRegistry>(),
             clients.GetResource<IAiJobMonitor>(),
+            clients.GetResource<IAiJobClient>(),
             editor,
             context ?? AiRetryTestContext.CreateForm(), sourceMode);
 

@@ -5094,11 +5094,6 @@ public sealed partial class AiDialogWorkflowTests
         return BitConverter.ToInt32(payload, start + 40);
     }
 
-    private static string? IdempotencyKeyOf(HttpRequestMessage request)
-        => request.Headers.TryGetValues("Idempotency-Key", out IEnumerable<string>? values)
-            ? values.SingleOrDefault()
-            : null;
-
     // Composes the scene mix as 16 kHz mono silence, in chunks of the given length.
     private static void UseSilentSceneMix(AiSubtitleDialogViewModel dialog, TimeSpan chunk)
     {
@@ -5117,7 +5112,7 @@ public sealed partial class AiDialogWorkflowTests
 
     private static AiRequestRecoveryContext CreateIdentityContext(Func<string?> account)
         => new(
-            new FileAiRequestRecoveryStore(Path.Combine(
+            new FileAiRequestKeyMap(Path.Combine(
                 Path.GetTempPath(),
                 "Beutl.HeadlessUITests",
                 "ai-identity-switch",
@@ -5359,16 +5354,6 @@ public sealed partial class AiDialogWorkflowTests
           "url": "https://beutl.beditor.net/api/contents/{{fileId}}"
         }
         """;
-
-    // The server's error body. withDocumentationUrl: false leaves the field out, which is not the same as
-    // null: the client's ApiErrorResponse requires it.
-    private static HttpResponseMessage ErrorResponse(
-        HttpStatusCode status, string code, string message, bool withDocumentationUrl = true)
-    {
-        var body = new Dictionary<string, string?> { ["error_code"] = code, ["message"] = message };
-        if (withDocumentationUrl) body["documentation_url"] = null;
-        return JsonResponse(status, JsonSerializer.Serialize(body));
-    }
 
     private sealed class CancellationObservingStream : Stream
     {

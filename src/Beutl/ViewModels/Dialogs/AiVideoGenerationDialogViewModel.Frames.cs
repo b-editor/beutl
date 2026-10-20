@@ -40,8 +40,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         using IDisposable? fileOwnership = selectedFilesOwnership;
         if (path is not null)
         {
-            operation.TryPublish(() =>
-                SetFrameCore(isFirstFrame, path, sourceElementId: null));
+            operation.TryPublish(() => SetFrameCore(isFirstFrame, path));
         }
     }
 
@@ -83,7 +82,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
                     _temporaryFiles.Add(unpublishedPath);
                     try
                     {
-                        accepted = SetFrameCore(isFirstFrame: true, unpublishedPath, sourceElementId: null);
+                        accepted = SetFrameCore(isFirstFrame: true, unpublishedPath);
                         if (!accepted) _temporaryFiles.Remove(unpublishedPath);
                     }
                     catch
@@ -115,13 +114,13 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         }
     }
 
-    private void SetFrame(bool isFirstFrame, string? path, string? sourceElementId = null)
+    private void SetFrame(bool isFirstFrame, string? path)
     {
         using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
-        operation?.TryPublish(() => SetFrameCore(isFirstFrame, path, sourceElementId));
+        operation?.TryPublish(() => SetFrameCore(isFirstFrame, path));
     }
 
-    private bool SetFrameCore(bool isFirstFrame, string? path, string? sourceElementId)
+    private bool SetFrameCore(bool isFirstFrame, string? path)
     {
         if (!string.IsNullOrEmpty(path)
             && File.Exists(path)
@@ -153,13 +152,9 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         if (!_applyingCapabilities)
         {
             if (isFirstFrame)
-            {
-                _chosenFirstFrame = (path, sourceElementId);
-            }
+                _chosenFirstFrame = path;
             else
-            {
-                _chosenLastFrame = (path, sourceElementId);
-            }
+                _chosenLastFrame = path;
         }
 
         ReactivePropertySlim<string?> pathProperty = isFirstFrame ? FirstFramePath : LastFramePath;
@@ -168,14 +163,6 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         previewProperty.Value?.Dispose();
         previewProperty.Value = null;
         pathProperty.Value = path;
-        if (isFirstFrame)
-        {
-            _firstFrameElementId = sourceElementId;
-        }
-        else
-        {
-            _lastFrameElementId = sourceElementId;
-        }
 
         // Do not delete a temporary frame that model constraints only hid; it is required to
         // reconstruct the same request after restoring the old model.
@@ -191,63 +178,20 @@ internal sealed partial class AiVideoGenerationDialogViewModel
 
     // Build the upload and its name from the same read. Reading twice could make the dispatched
     // bytes differ from the named bytes and record the result under the wrong request.
-    private async Task<(
-        AiUploadSource? Frame,
-        string Stamp,
-        byte[]? Bytes,
-        string? Name)> ReadFrameAsync(
+    private async Task<(AiUploadSource? Frame, string Stamp)> ReadFrameAsync(
         string? path,
-        CancellationToken cancellationToken,
-        AiRequestRecoverySource? recoveredSource = null)
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(path))
-            return (null, string.Empty, null, null);
+            return (null, string.Empty);
 
-        string fileName = recoveredSource?.Name ?? Path.GetFileName(path);
-        byte[] bytes = recoveredSource is not null
-            ? _requestKey.ReadSourceBytes(recoveredSource)
-            : await AiUploadBytes.ReadWithinAsync(
-                path,
-                AiRequestLimits.MaxFrameUploadBytes,
-                cancellationToken);
+        byte[] bytes = await AiUploadBytes.ReadWithinAsync(
+            path,
+            AiRequestLimits.MaxFrameUploadBytes,
+            cancellationToken);
         // Exclude the filename: the server identifies a frame by its content and type. Scene
         // captures get a new temporary filename each time, which must not turn a resend of the
         // same frame into a newly charged request.
-        return (
-            AiUploadSource.FromBytes(fileName, bytes),
-            AiRequestKey.ContentStamp(bytes),
-            bytes,
-            fileName);
+        return (AiUploadSource.FromBytes(Path.GetFileName(path), bytes), AiRequestKey.ContentStamp(bytes));
     }
-
-    // The frame the recovered request was named with, as long as the dialog still shows it.
-    private AiRequestRecoverySource? FindRecoveredFrameSource(string role, string? path)
-    {
-        AiRequestRecoverySource? recovered = _recovery.Active?.EffectiveSources
-            .FirstOrDefault(source => source.Role == role);
-        if (recovered is not null && !recovered.MatchesPath(path))
-            recovered = null;
-        return recovered;
-    }
-
-    // A captured frame lives in a temporary file, so it is kept as a durable copy when the
-    // key can hold one; a frame the person chose is pointed at where it is.
-    private AiRequestRecoverySource CreateFrameRecoverySource(
-        string role,
-        string path,
-        string? name,
-        byte[] bytes,
-        string? elementId)
-        => IsTemporaryFile(path)
-            ? _requestKey.CreateDurableSource(
-                role,
-                name ?? Path.GetFileName(path),
-                bytes,
-                elementId)
-            : FileAiRequestRecoveryStore.CreateExternalSource(
-                role,
-                path,
-                name ?? Path.GetFileName(path),
-                bytes,
-                elementId);
 }

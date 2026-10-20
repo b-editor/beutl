@@ -86,7 +86,7 @@ public sealed partial class MainViewModel : BasePageViewModel
             _beutlClients.GetResource<IAiModelCatalogService>()));
         _waitForPackageInstallerIdle = waitForPackageInstallerIdle;
         _aiRequestRecoveryContext = new AiRequestRecoveryContext(
-            new FileAiRequestRecoveryStore(Path.Combine(
+            new FileAiRequestKeyMap(Path.Combine(
                 BeutlEnvironment.GetHomeDirectoryPath(),
                 "ai")),
             () => _beutlClients.AuthenticatedUser.Value is { } user

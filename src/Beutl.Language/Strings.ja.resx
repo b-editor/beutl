@@ -2636,6 +2636,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiAbandonedRequestInJobs" xml:space="preserve">
     <value>保留中のリクエストを破棄しました。送信済みだった場合は、「AIジョブ」で状態や結果を確認できます。</value>
   </data>
+  <data name="AiPendingRequestNotReceived" xml:space="preserve">
+    <value>このリクエストはサーバーに届いていなかったため、料金はかかっていません。もう一度実行してください。</value>
+  </data>
   <data name="AiSubtitle_CueListEmpty" xml:space="preserve">
     <value>文字起こしまたは字幕の読み込みを行うと、ここにキューが並びます。</value>
   </data>

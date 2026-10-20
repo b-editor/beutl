@@ -1,5 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Reactive.Disposables;
 using System.Security.Cryptography;
 using System.Text;
@@ -61,12 +60,8 @@ internal sealed class AiRequestKey : IDisposable
 {
     private readonly Lock _gate = new();
     // The names issued and the requests they represent. Only unsettled requests remain here.
-    private readonly Dictionary<string, string> _outstanding = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, string> _outstandingAccounts = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, string> _outstandingOperations = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, AiRequestRecoveryLease> _claims = new(StringComparer.Ordinal);
-    // A settled request cannot be sent again under the same name. A repeated request uses the
-    // next generation name; when no generation exists, generation 0 keeps the original shape.
+    private readonly Dictionary<string, Issued> _outstanding = new(StringComparer.Ordinal);
+    // A settled request cannot be sent again under the same name, so its next name takes the next generation.
     private readonly Dictionary<string, int> _generations = new(StringComparer.Ordinal);
     private readonly ReactivePropertySlim<bool> _hasOutstandingName = new(false);
     private readonly AiRequestRecoveryContext? _recoveryContext;
@@ -75,39 +70,16 @@ internal sealed class AiRequestKey : IDisposable
     private bool _resumedAttemptPending;
     private bool _disposed;
 
-    internal Action? BeforeAbandonPersistedRemoval { get; set; }
-
     public AiRequestKey(string? seed = null, bool namePending = false,
         AiRequestRecoveryContext? recoveryContext = null, string? operation = null)
     {
         _recoveryContext = recoveryContext;
         _operation = operation;
         _seed = string.IsNullOrEmpty(seed) ? NewSeed() : seed;
-        // Among executions restored from recovery, only those that ended immediately after
-        // dispatch still hold a name. The recovery record tells us whether that happened; a
-        // seed alone is not enough because unreserved and refunded requests also retain seeds.
-        bool resumedSeed = !string.IsNullOrEmpty(seed) && namePending;
-        bool hasDurableRecovery = false;
-        if (_recoveryContext?.TryGetIdentity() is { } identity
-            && !string.IsNullOrWhiteSpace(operation))
-        {
-            try
-            {
-                hasDurableRecovery = _recoveryContext.Store.HasAny(identity.AccountId, operation);
-            }
-            catch (InvalidDataException)
-            {
-                // A corrupt or locked store is not an empty one. Nothing is recorded here: the first
-                // new request fails closed when its own Store.Find throws again.
-            }
-        }
-        // A paid request may have exhausted the current balance. Publish only
-        // command reachability here; NameFor marks repeat only after the exact
-        // fingerprint is found, so an unrelated input cannot skip preflight.
-        _hasOutstandingName.Value = resumedSeed || hasDurableRecovery;
         // A restored execution knows its name but not which request was sent, so treat only the
-        // first name handed out again as a repeat dispatch.
-        _resumedAttemptPending = resumedSeed;
+        // first name handed out again as a repeat.
+        _resumedAttemptPending = !string.IsNullOrEmpty(seed) && namePending;
+        _hasOutstandingName.Value = _resumedAttemptPending;
         if (_recoveryContext is not null)
             _recoveryContext.IdentityChanged += RefreshIdentity;
     }
@@ -127,8 +99,6 @@ internal sealed class AiRequestKey : IDisposable
     }
 
     public static string NewSeed() => Guid.NewGuid().ToString("N");
-
-    internal bool HasDurableRecovery => _recoveryContext is not null;
 
     internal string? CurrentAccountId => _recoveryContext?.TryGetIdentity()?.AccountId;
 
@@ -150,32 +120,9 @@ internal sealed class AiRequestKey : IDisposable
     private void RefreshIdentity()
     {
         if (_disposed) return;
-        bool has = false;
+        bool has;
         lock (_gate)
-        {
-            // The subtitle flow and node execution use the key without a recovery context. Then the
-            // in-memory map is the complete source of truth.
-            if (_recoveryContext is null)
-            {
-                has = _outstanding.Count > 0 || _resumedAttemptPending;
-            }
-            else
-            {
-                string? account = _recoveryContext?.TryGetIdentity()?.AccountId;
-                has = _resumedAttemptPending
-                    || account is not null && _outstandingAccounts.Values.Any(value => value == account);
-                if (!has && account is not null && !string.IsNullOrWhiteSpace(_operation))
-                {
-                    try
-                    {
-                        has = _recoveryContext!.Store.HasAny(account, _operation);
-                    }
-                    catch (InvalidDataException)
-                    {
-                    }
-                }
-            }
-        }
+            has = _resumedAttemptPending || HasCurrentOutstanding();
         _hasOutstandingName.Value = has;
     }
 
@@ -185,11 +132,6 @@ internal sealed class AiRequestKey : IDisposable
         _disposed = true;
         if (_recoveryContext is not null)
             _recoveryContext.IdentityChanged -= RefreshIdentity;
-        // Nothing under this key can reacquire its dispatched fences any more, so
-        // a new key in this process, such as the reopened dialog's, adopts them.
-        foreach (AiRequestRecoveryLease claim in _claims.Values)
-            claim.Relinquish();
-        _claims.Clear();
         _hasOutstandingName.Dispose();
     }
 
@@ -203,26 +145,6 @@ internal sealed class AiRequestKey : IDisposable
         return Remember(Fingerprint(parts), operation, ResolveModel(operation, parts));
     }
 
-    /// <summary>
-    /// Names and durably records a form request in one call. The key-only
-    /// overload remains useful for non-form callers, while the dialog VMs use
-    /// this overload so a crash cannot leave a paid key without its inputs.
-    /// </summary>
-    internal AiRequestName NameFor(
-        ReadOnlySpan<string?> parts,
-        AiRequestFormSnapshot form,
-        IReadOnlyList<AiRequestRecoverySource>? sources = null)
-    {
-        ArgumentNullException.ThrowIfNull(form);
-        string operation = ResolveOperation(parts);
-        return Remember(
-            Fingerprint(parts),
-            operation,
-            ResolveModel(operation, parts),
-            form,
-            sources);
-    }
-
     public AiRequestName NameFor(int pieceIndex, params ReadOnlySpan<string?> parts)
     {
         string operation = ResolveOperation(parts);
@@ -232,212 +154,20 @@ internal sealed class AiRequestKey : IDisposable
             ResolveModel(operation, parts));
     }
 
-    public bool HasPersistedFor(AiOperationId operation)
-        => _recoveryContext?.TryGetIdentity() is { } identity
-            && _recoveryContext.Store.HasAny(identity.AccountId, operation.Value);
-
-    public IReadOnlyList<AiModelId> PersistedModels(AiOperationId operation)
-        => _recoveryContext?.TryGetIdentity() is { } identity
-            ? _recoveryContext.Store.ModelsFor(identity.AccountId, operation.Value)
-                .Select(model => new AiModelId(model))
-                .ToArray()
-            : [];
-
-    public AiModelId? PreferredPersistedModel(AiOperationId operation)
-    {
-        if (_recoveryContext?.TryGetIdentity() is not { } identity)
-            return null;
-        IReadOnlyList<AiPendingAttempt> attempts = _recoveryContext.Store.PendingFor(
-            identity.AccountId,
-            operation.Value);
-        // A preferred model is safe only when there is exactly one pending
-        // attempt and that attempt explicitly named a model. Returning a model
-        // from one of several rows would bind a different form to it.
-        if (attempts.Count != 1 || attempts[0].Model is null)
-            return null;
-        return attempts[0].Model is { } model ? new AiModelId(model) : null;
-    }
-
-    public bool HasExplicitNullPersistedModel(AiOperationId operation)
-        => _recoveryContext?.TryGetIdentity() is { } identity
-            && _recoveryContext.Store.PendingFor(identity.AccountId, operation.Value)
-                .Count == 1
-            && _recoveryContext.Store.HasModelless(identity.AccountId, operation.Value);
-
     internal IReadOnlyList<AiPendingAttempt> PendingAttempts(AiOperationId operation)
         => _recoveryContext?.PendingFor(operation.Value)
             ?? Array.Empty<AiPendingAttempt>();
 
-    internal IReadOnlyList<string> ResolveSources(AiPendingAttempt attempt)
-        => RequireRecoveryStore().ResolveSources(attempt);
-
-    internal byte[] ReadSourceBytes(AiRequestRecoverySource source)
-        => RequireRecoveryStore().ReadSourceBytes(source);
-
-    internal AiRequestRecoverySource CreateDurableSource(
-        string role,
-        string name,
-        ReadOnlySpan<byte> content,
-        string? elementId = null)
-        => RequireRecoveryStore().CreateDurableSource(role, name, content, elementId);
-
-    private FileAiRequestRecoveryStore RequireRecoveryStore()
-    {
-        if (_recoveryContext is null)
-            throw new InvalidDataException("AI request recovery is not configured.");
-        return _recoveryContext.Store;
-    }
-
-    internal void CleanupUncommittedSources(IEnumerable<AiRequestRecoverySource> sources)
-    {
-        if (_recoveryContext is not null)
-            _recoveryContext.Store.DeleteUncommittedSources(sources);
-    }
-
-    internal AiRequestRecoveryLease? TryClaim(AiRequestName name)
-    {
-        if (_recoveryContext is null || string.IsNullOrEmpty(name.Key))
-            return null;
-        lock (_gate)
-        {
-            if (!TryGetOutstanding(name.Key, out string? request, out string? account, out string? operation))
-                return null;
-            AiPendingAttempt? current = _recoveryContext.Store.Find(account, operation, request);
-            if (current is null || !StringComparer.Ordinal.Equals(current.Key, name.Key))
-                throw new InvalidDataException("AI request recovery attempt is stale.");
-
-            // An unknown result leaves the dispatched fence durable so another
-            // process cannot overlap the provider call. Keep this process's
-            // exact owner on an immediate retry instead of asking the store for
-            // a competing claim that it must (correctly) reject.
-            if (_claims.GetValueOrDefault(name.Key) is { } localClaim
-                && localClaim.WasDispatched)
-            {
-                if (localClaim.Reacquire())
-                    return localClaim;
-
-                // The old owner may have expired and been replaced after a
-                // process restart. Drop only this local handle, then let the
-                // store's owner-token CAS decide whether a fresh claim is safe.
-                _claims.Remove(name.Key);
-            }
-
-            AiRequestRecoveryLease? claim = _recoveryContext.Store.Claim(account, operation, request, name.Key);
-            if (claim is null)
-                return null;
-            _claims[name.Key] = claim;
-            return claim;
-        }
-    }
-
-    internal void MarkClaimDispatched(AiRequestRecoveryLease? claim)
-    {
-        if (claim is not null && !claim.MarkDispatched())
-            throw new InvalidDataException("AI recovery dispatch fence could not be persisted.");
-    }
-
-    internal bool MatchesPending(AiPendingAttempt attempt, ReadOnlySpan<string?> parts)
-        => _recoveryContext?.TryGetIdentity() is { } identity
-            && StringComparer.Ordinal.Equals(identity.AccountId, attempt.AccountId)
-            && string.Equals(
-                attempt.Fingerprint,
-                Fingerprint(parts),
-                StringComparison.Ordinal)
-            && string.Equals(attempt.Operation, ResolveOperation(parts), StringComparison.Ordinal);
-
-    internal bool IsCurrentPending(AiPendingAttempt attempt)
-    {
-        if (_recoveryContext?.TryGetIdentity() is not { } identity
-            || !StringComparer.Ordinal.Equals(identity.AccountId, attempt.AccountId))
-        {
-            return false;
-        }
-
-        AiPendingAttempt? current = _recoveryContext.Store.Find(
-            attempt.AccountId,
-            attempt.Operation,
-            attempt.Fingerprint);
-        return current is not null
-            && StringComparer.Ordinal.Equals(current.Key, attempt.Key);
-    }
-
-    internal void Abandon(AiPendingAttempt attempt)
+    // Lets go of a pending request: settled, abandoned or never made. A job it made stays in the account's job list.
+    internal void Settle(AiPendingAttempt attempt)
     {
         if (_recoveryContext is null)
             return;
         if (!StringComparer.Ordinal.Equals(CurrentAccountId, attempt.AccountId))
             throw new AuthenticationRequiredException();
+        _recoveryContext.Abandon(attempt);
         lock (_gate)
-        {
-            // Resolve the exact issued entry, including account and operation.
-            // A fingerprint is scoped to both, so matching it alone can remove
-            // another account's pending attempt after an account switch.
-            string? key = null;
-            foreach (KeyValuePair<string, string> pair in _outstanding)
-            {
-                if (pair.Value == attempt.Fingerprint
-                    && _outstandingAccounts.GetValueOrDefault(pair.Key) == attempt.AccountId
-                    && _outstandingOperations.GetValueOrDefault(pair.Key) == attempt.Operation)
-                {
-                    key = pair.Key;
-                    break;
-                }
-            }
-            AiPendingAttempt? persisted = _recoveryContext.Store.Find(
-                attempt.AccountId,
-                attempt.Operation,
-                attempt.Fingerprint);
-            if (persisted is not null
-                && !StringComparer.Ordinal.Equals(persisted.Key, attempt.Key))
-            {
-                throw new InvalidDataException("AI recovery key does not match the pending attempt.");
-            }
-            bool removed = persisted is null && key is not null;
-            if (persisted is not null)
-            {
-                BeforeAbandonPersistedRemoval?.Invoke();
-                removed = _recoveryContext.Abandon(attempt);
-                if (!removed)
-                {
-                    AiPendingAttempt? current = _recoveryContext.Store.Find(
-                        attempt.AccountId,
-                        attempt.Operation,
-                        attempt.Fingerprint);
-                    if (current is null)
-                    {
-                        removed = true;
-                    }
-                    else
-                    {
-                        throw new InvalidDataException(
-                            StringComparer.Ordinal.Equals(current.Key, attempt.Key)
-                                ? "The AI recovery attempt is about to be sent and cannot be abandoned."
-                                : "The AI recovery attempt changed while it was being abandoned.");
-                    }
-                }
-            }
-            if (removed)
-            {
-                string generationIdentity =
-                    GenerationIdentity(attempt.AccountId, attempt.Operation, attempt.Fingerprint);
-                int durableGeneration = persisted is null
-                    ? _recoveryContext.Store.AdvanceGeneration(
-                        attempt.AccountId,
-                        attempt.Operation,
-                        attempt.Fingerprint)
-                    : _recoveryContext.Store.GetGeneration(
-                        attempt.AccountId,
-                        attempt.Operation,
-                        attempt.Fingerprint);
-                _generations[generationIdentity] = Math.Max(
-                    _generations.GetValueOrDefault(generationIdentity) + 1,
-                    durableGeneration);
-                if (key is not null)
-                {
-                    ForgetOutstanding(key);
-                }
-            }
-        }
+            Forget(attempt.Key, advance: true);
         RefreshIdentity();
     }
 
@@ -448,7 +178,7 @@ internal sealed class AiRequestKey : IDisposable
         string account;
         lock (_gate)
         {
-            account = _outstandingAccounts.GetValueOrDefault(name.Key)
+            account = _outstanding.GetValueOrDefault(name.Key).Account
                 ?? throw new InvalidOperationException("The AI request name is not outstanding.");
         }
         return _recoveryContext.Enter(account);
@@ -483,52 +213,7 @@ internal sealed class AiRequestKey : IDisposable
     /// <remarks>
     /// Settling the whole run instead would strand every other outstanding request and buy it again on retry.
     /// </remarks>
-    public bool Retire(AiRequestName name)
-    {
-        if (string.IsNullOrEmpty(name.Key))
-            return false;
-
-        bool anyLeft;
-        bool retired = false;
-        lock (_gate)
-        {
-            if (_outstanding.Remove(name.Key, out string? request))
-            {
-                string? issuedAccount = _outstandingAccounts.GetValueOrDefault(name.Key);
-                string? issuedOperation = _outstandingOperations.GetValueOrDefault(name.Key);
-                AiRequestRecoveryLease? claim = _claims.GetValueOrDefault(name.Key);
-                string generationIdentity = GenerationIdentity(issuedAccount, issuedOperation, request);
-                bool removedPersisted = RemovePersisted(
-                    request,
-                    issuedAccount,
-                    issuedOperation,
-                    name.Key,
-                    settle: true,
-                    claim?.OwnerToken,
-                    claim?.Generation);
-                if (!removedPersisted && _recoveryContext is not null)
-                {
-                    // Another process already changed the row. Do not let a
-                    // stale local completion advance or delete that owner.
-                    RestoreOutstanding(name.Key, request, issuedAccount, issuedOperation);
-                    return false;
-                }
-                _generations[generationIdentity] =
-                    _generations.GetValueOrDefault(generationIdentity) + 1;
-                _outstandingAccounts.Remove(name.Key);
-                _outstandingOperations.Remove(name.Key);
-                claim?.Dispose();
-                _claims.Remove(name.Key);
-                retired = true;
-            }
-
-            anyLeft = HasCurrentOutstandingInMemory() || HasDurableOutstanding();
-        }
-
-        if (!anyLeft)
-            _hasOutstandingName.Value = false;
-        return retired;
-    }
+    public bool Retire(AiRequestName name) => Release(name, advance: true);
 
     /// <summary>
     /// Says every request of this run is settled, and the next one starts under
@@ -536,35 +221,12 @@ internal sealed class AiRequestKey : IDisposable
     /// </summary>
     public bool Retire()
     {
-        bool retired;
         lock (_gate)
         {
-            if (_recoveryContext is not null)
-            {
-                if (_recoveryContext.TryGetIdentity() is not { } identity
-                    || string.IsNullOrWhiteSpace(_operation))
-                    return false;
-                retired = _recoveryContext.Store.SettleMany(
-                    identity.AccountId,
-                    _operation,
-                    _outstanding.Select(pair =>
-                        new AiPendingAttempt(
-                            _outstandingAccounts[pair.Key],
-                            _outstandingOperations[pair.Key],
-                            pair.Value,
-                            pair.Key)))
-                    || (_outstanding.Count == 0 && !HasDurableOutstanding());
-            }
-            else
-            {
-                retired = true;
-            }
-            if (!retired)
-                return false;
+            foreach (KeyValuePair<string, Issued> pair in _outstanding)
+                RemovePersisted(pair.Key, pair.Value);
             _seed = NewSeed();
             _outstanding.Clear();
-            _outstandingAccounts.Clear();
-            _outstandingOperations.Clear();
             _generations.Clear();
             // Nothing under the new seed has been paid for.
             _resumedAttemptPending = false;
@@ -575,185 +237,83 @@ internal sealed class AiRequestKey : IDisposable
     }
 
     /// <summary>
-    /// Withdraws a name after the server authoritatively reported that no
-    /// reservation was made, including when the provider call had already
-    /// been marked dispatched.
+    /// Withdraws a name the server reported no reservation for, so the same request may go out under it again.
     /// </summary>
-    /// <remarks>
-    /// A dispatched recovery row is a paid-job fence. Only the process that
-    /// still holds the exact live dispatch lease may use this path; ordinary
-    /// withdrawal and cross-process abandon remain fail-closed.
-    /// </remarks>
-    internal bool WithdrawAfterNoReservation(AiRequestName name)
+    internal bool WithdrawAfterNoReservation(AiRequestName name) => Release(name, advance: false);
+
+    private bool Release(AiRequestName name, bool advance)
     {
         if (string.IsNullOrEmpty(name.Key))
             return false;
 
+        bool released;
         bool anyLeft;
-        bool withdrawn = false;
         lock (_gate)
         {
-            if (_outstanding.Remove(name.Key, out string? request))
+            released = _outstanding.TryGetValue(name.Key, out Issued issued);
+            if (released)
             {
-                string? issuedAccount = _outstandingAccounts.GetValueOrDefault(name.Key);
-                string? issuedOperation = _outstandingOperations.GetValueOrDefault(name.Key);
-                AiRequestRecoveryLease? claim = _claims.GetValueOrDefault(name.Key);
-                bool exactDispatchedOwner = claim is { IsDispatched: true };
-                // A pre-dispatch refusal may still be withdrawn by the claim
-                // owner. Once dispatch is persisted, however, the owner proof
-                // is accepted only on this no-reservation path.
-                bool exactPredispatchOwner = claim is not null
-                    && !claim.WasDispatched;
-                bool authorizedOwner = exactDispatchedOwner || exactPredispatchOwner;
-                bool removedPersisted = RemovePersisted(
-                    request,
-                    issuedAccount,
-                    issuedOperation,
-                    name.Key,
-                    settle: false,
-                    authorizedOwner ? claim!.OwnerToken : null,
-                    authorizedOwner ? claim!.Generation : null,
-                    exactDispatchedOwner);
-                if (!removedPersisted && _recoveryContext is not null)
-                {
-                    RestoreOutstanding(name.Key, request, issuedAccount, issuedOperation);
-                    return false;
-                }
-                _outstandingAccounts.Remove(name.Key);
-                _outstandingOperations.Remove(name.Key);
-                claim?.Dispose();
-                _claims.Remove(name.Key);
-                withdrawn = true;
+                RemovePersisted(name.Key, issued);
+                Forget(name.Key, advance);
             }
-            anyLeft = HasCurrentOutstandingInMemory() || HasDurableOutstanding();
+
+            anyLeft = HasCurrentOutstanding();
         }
 
         if (!anyLeft)
             _hasOutstandingName.Value = false;
-        return withdrawn;
+        return released;
     }
 
-    private AiRequestName Remember(
-        string request,
-        string operation,
-        string? model,
-        AiRequestFormSnapshot? form = null,
-        IReadOnlyList<AiRequestRecoverySource>? sources = null)
+    private AiRequestName Remember(string request, string operation, string? model)
     {
-        AiAuthenticatedRequestIdentity? authenticated = _recoveryContext?.GetRequiredIdentity();
-        string? account = authenticated?.AccountId;
+        string? account = _recoveryContext?.GetRequiredIdentity().AccountId;
         AiRequestName name;
-        bool hasOutstanding;
         lock (_gate)
         {
+            string identity = GenerationIdentity(account, operation, request);
             if (_recoveryContext is not null)
             {
                 if (operation.Length == 0)
                     throw new InvalidOperationException("An AI request operation is required for durable recovery.");
-                try
+                // A name this run still holds whose row is gone was settled elsewhere, so it is spent.
+                foreach (string spent in _outstanding
+                             .Where(pair => GenerationIdentity(pair.Value.Account, pair.Value.Operation, pair.Value.Fingerprint) == identity)
+                             .Select(pair => pair.Key)
+                             .ToArray())
                 {
-                    AiPendingAttempt? persisted = _recoveryContext.Store.Find(account!, operation, request);
-                    if (persisted is not null)
-                        return AdoptPersistedAttempt(persisted, request, account!, operation, form, sources);
+                    if (!_recoveryContext.Store.PendingFor(account!, operation)
+                            .Any(row => row.Fingerprint == request && row.Key == spent))
+                    {
+                        Forget(spent, advance: true);
+                    }
                 }
-                catch
-                {
-                    if (sources is not null)
-                        _recoveryContext.Store.DeleteUncommittedSources(sources);
-                    throw;
-                }
-            }
-            string generationIdentity = GenerationIdentity(account, operation, request);
-            int generation = _generations.GetValueOrDefault(generationIdentity);
-            if (_recoveryContext is not null)
-            {
-                generation = Math.Max(
-                    generation,
-                    _recoveryContext.Store.GetGeneration(account!, operation, request));
-            }
-            string key = ComposeKey(request, account, operation, generation);
-            if (_outstanding.ContainsKey(key))
-                return new AiRequestName(key, true);
-            bool resumed = _resumedAttemptPending;
-            _resumedAttemptPending = false;
-            name = new AiRequestName(key, resumed);
-            // Durable state is committed before exposing the name in memory.
-            if (_recoveryContext is not null)
-            {
-                string persistedKey;
-                try
-                {
-                    persistedKey = _recoveryContext.Store.WriteOrGet(
-                        new AiPendingAttempt(account!, operation, request, key, model, form, sources)).Key;
-                }
-                catch
-                {
-                    if (sources is not null)
-                        _recoveryContext.Store.DeleteUncommittedSources(sources);
-                    throw;
-                }
-                if (!string.Equals(persistedKey, key, StringComparison.Ordinal))
-                {
-                    key = persistedKey;
-                    name = new AiRequestName(key, true);
-                }
-            }
-            _outstanding[key] = request;
-            if (account is not null)
-                _outstandingAccounts[key] = account;
-            _outstandingOperations[key] = operation;
-            hasOutstanding = true;
-        }
-        if (hasOutstanding)
-            _hasOutstandingName.Value = true;
-        return name;
-    }
 
-    // Another request already committed this identity durably: its key wins over any this
-    // instance issued for the same request, and the request goes out again as a repeat.
-    private AiRequestName AdoptPersistedAttempt(
-        AiPendingAttempt persisted,
-        string request,
-        string account,
-        string operation,
-        AiRequestFormSnapshot? form,
-        IReadOnlyList<AiRequestRecoverySource>? sources)
-    {
-        string persistedKey = persisted.Key;
-        string[] staleKeys = _outstanding
-            .Where(pair => pair.Key != persistedKey
-                && pair.Value == request
-                && _outstandingAccounts.GetValueOrDefault(pair.Key) == account
-                && _outstandingOperations.GetValueOrDefault(pair.Key) == operation)
-            .Select(static pair => pair.Key)
-            .ToArray();
-        foreach (string staleKey in staleKeys)
-        {
-            ForgetOutstanding(staleKey);
-            if (_claims.Remove(staleKey, out AiRequestRecoveryLease? staleClaim))
-                staleClaim.Dispose();
+                (AiPendingAttempt row, bool existed) = _recoveryContext.Store.GetOrAdd(
+                    account!,
+                    operation,
+                    request,
+                    model,
+                    () => ComposeKey(request, account, operation, _generations.GetValueOrDefault(identity)));
+                bool resumed = _resumedAttemptPending;
+                _resumedAttemptPending = false;
+                name = new AiRequestName(row.Key, existed || resumed || _outstanding.ContainsKey(row.Key));
+                _outstanding[row.Key] = new Issued(request, account, operation);
+            }
+            else
+            {
+                string key = ComposeKey(request, account, operation, _generations.GetValueOrDefault(identity));
+                if (_outstanding.ContainsKey(key))
+                    return new AiRequestName(key, true);
+                bool resumed = _resumedAttemptPending;
+                _resumedAttemptPending = false;
+                name = new AiRequestName(key, resumed);
+                _outstanding[key] = new Issued(request, account, operation);
+            }
         }
-        if (!_outstanding.ContainsKey(persistedKey))
-        {
-            _outstanding[persistedKey] = request;
-            _outstandingAccounts[persistedKey] = account;
-            _outstandingOperations[persistedKey] = operation;
-        }
-        if (form is not null && !persisted.HasCanonicalForm)
-        {
-            _recoveryContext!.Store.WriteOrGet(
-                persisted with { Form = form, Sources = sources });
-        }
-        else if (sources is not null)
-        {
-            // The caller may have prepared fresh durable copies
-            // while racing with another request that committed the
-            // same identity. Keep the committed row's copies and
-            // remove only the newly unreferenced ones.
-            _recoveryContext!.Store.DeleteUncommittedSources(sources);
-        }
+
         _hasOutstandingName.Value = true;
-        return new AiRequestName(persistedKey, true);
+        return name;
     }
 
     // Generation 0 has no suffix. The format has shipped, so it must not change.
@@ -767,82 +327,38 @@ internal sealed class AiRequestKey : IDisposable
             : $"{keyBase}-r{generation.ToString(CultureInfo.InvariantCulture)}";
     }
 
-    // _outstanding, _outstandingAccounts and _outstandingOperations are keyed by the same issued
-    // names and are only read or written under _gate.
-    private bool TryGetOutstanding(
-        string key,
-        [NotNullWhen(true)] out string? request,
-        [NotNullWhen(true)] out string? account,
-        [NotNullWhen(true)] out string? operation)
+    // Forgets a name; advance makes the request's next name a new one. Called under _gate.
+    private void Forget(string key, bool advance)
     {
-        account = null;
-        operation = null;
-        return _outstanding.TryGetValue(key, out request)
-            && _outstandingAccounts.TryGetValue(key, out account)
-            && _outstandingOperations.TryGetValue(key, out operation);
+        if (!_outstanding.Remove(key, out Issued issued) || !advance)
+            return;
+        string identity = GenerationIdentity(issued.Account, issued.Operation, issued.Fingerprint);
+        _generations[identity] = _generations.GetValueOrDefault(identity) + 1;
     }
 
-    private void RestoreOutstanding(string key, string request, string? account, string? operation)
+    private void RemovePersisted(string key, Issued issued)
     {
-        _outstanding[key] = request;
-        if (account is not null)
-            _outstandingAccounts[key] = account;
-        if (operation is not null)
-            _outstandingOperations[key] = operation;
-    }
-
-    private void ForgetOutstanding(string key)
-    {
-        _outstanding.Remove(key);
-        _outstandingAccounts.Remove(key);
-        _outstandingOperations.Remove(key);
+        if (_recoveryContext is null || issued.Account is null)
+            return;
+        try
+        {
+            _recoveryContext.Store.Remove(new AiPendingAttempt(issued.Account, issued.Operation, issued.Fingerprint, key));
+        }
+        catch (InvalidDataException)
+        {
+            // The row stays listed; abandoning it or looking its job up settles it later.
+        }
     }
 
     private string GenerationIdentity(string? account, string? operation, string request)
         => _recoveryContext is null ? request : $"{account}\n{operation}\n{request}";
 
-    private bool RemovePersisted(
-        string request,
-        string? issuedAccount,
-        string? issuedOperation,
-        string key,
-        bool settle,
-        string? ownerToken = null,
-        int? generation = null,
-        bool ownerAuthorizedDispatched = false)
-    {
-        if (_recoveryContext is null)
-            return true;
-        string? account = issuedAccount ?? _recoveryContext.TryGetIdentity()?.AccountId;
-        string operation = issuedOperation ?? _operation
-            ?? throw new InvalidOperationException("An AI request operation is required for durable recovery.");
-        if (account is null)
-            return false;
-        bool removed = settle
-            ? _recoveryContext.Store.TrySettle(account, operation, request, key, ownerToken, generation)
-            : ownerAuthorizedDispatched
-                ? _recoveryContext.Store.TryWithdrawAfterNoReservation(
-                    account,
-                    operation,
-                    request,
-                    key,
-                    ownerToken ?? throw new InvalidOperationException("A dispatched withdrawal requires an owner token."),
-                    generation ?? throw new InvalidOperationException("A dispatched withdrawal requires a generation."))
-                : _recoveryContext.Store.TryWithdraw(account, operation, request, key, ownerToken, generation);
-        return removed;
-    }
-
-    private bool HasDurableOutstanding()
-        => _recoveryContext?.TryGetIdentity() is { } identity
-            && !string.IsNullOrWhiteSpace(_operation)
-            && _recoveryContext.Store.HasAny(identity.AccountId, _operation);
-
-    private bool HasCurrentOutstandingInMemory()
+    private bool HasCurrentOutstanding()
     {
         string? account = _recoveryContext?.TryGetIdentity()?.AccountId;
-        return account is null
+        return _recoveryContext is null
             ? _outstanding.Count > 0
-            : _outstandingAccounts.Values.Any(value => value == account);
+            : account is not null && _outstanding.Values.Any(issued => issued.Account == account);
     }
 
     private string ResolveOperation(ReadOnlySpan<string?> parts)
@@ -893,4 +409,6 @@ internal sealed class AiRequestKey : IDisposable
             .ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{account}\u001f{operation}"))
                 .AsSpan(0, 8))
             .ToLowerInvariant();
+
+    private readonly record struct Issued(string Fingerprint, string? Account, string Operation);
 }

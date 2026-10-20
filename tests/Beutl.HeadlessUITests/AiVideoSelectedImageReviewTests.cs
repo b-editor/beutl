@@ -44,10 +44,7 @@ public sealed partial class AiDialogWorkflowTests
             return ProviderVideoResponse(request);
         }));
         BeutlApiApplication clients = api.Clients;
-        DateTimeOffset now = DateTimeOffset.UtcNow;
-        using var store = new FileAiRequestRecoveryStore(Path.Combine(BeutlHomeIsolation.CurrentHome!, "selected-image-" + Guid.NewGuid().ToString("N")), () => now);
-        using var context = new AiRequestRecoveryContext(store, () => new AiAuthenticatedRequestIdentity("test-user", null));
-        await using (var vm = CreateVideoGenerationDialog(clients, editor, context: context, sourceMode: mode))
+        await using (var vm = CreateVideoGenerationDialog(clients, editor, sourceMode: mode))
         {
             await WaitUntilAsync(() => vm.ModelPicker.IsLoaded.Value);
             if (mode is null)
@@ -71,19 +68,6 @@ public sealed partial class AiDialogWorkflowTests
             await vm.Generate.ExecuteAsync();
             Assert.That(sent, Has.Count.EqualTo(1), vm.Error.Value);
             Assert.That(sent[0].Body, Does.Not.Contain("unrelated-selection.png"));
-            var pending = store.PendingFor("test-user", "video." + mode.Value.ToString().ToLowerInvariant()).Single();
-            Assert.That(pending.EffectiveSources.Select(source => source.Role), Is.EquivalentTo(mode == AiSourceVideoMode.Motion
-                ? new[] { "source-video", "character-image" } : ["source-video"]));
-            Assert.That(pending.Form!.FirstFrameElementId, Is.Null);
-            Assert.That(pending.Form.LastFrameElementId, Is.Null);
         }
-        now = now.AddMinutes(16);
-        await using var restored = CreateVideoGenerationDialog(clients, editor, context: context, sourceMode: mode);
-        await WaitUntilAsync(() => restored.CanGenerate.Value);
-        Assert.That(restored.FirstFramePath.Value, Is.Null);
-        Assert.That(restored.LastFramePath.Value, Is.Null);
-        await restored.Generate.ExecuteAsync();
-        Assert.That(sent, Has.Count.EqualTo(2), restored.Error.Value);
-        Assert.That(sent[1].Key, Is.EqualTo(sent[0].Key));
     }
 }

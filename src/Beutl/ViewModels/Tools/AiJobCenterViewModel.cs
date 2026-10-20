@@ -33,6 +33,8 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
     private readonly IAiJobKindRegistry _jobKinds;
     private readonly AiJobResultRegistry _resultHandlers;
     private readonly AiJobResultContext _resultContext;
+    // Names each retry by its source job, so a retry whose answer was lost is asked for again, not bought again.
+    private readonly AiRequestKey _retryKey;
     private readonly ObservableCollection<AiJobItemViewModel> _jobs = [];
     private string? _operationError;
     private string? _snapshotError;
@@ -52,6 +54,7 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
         IAiJobMonitor jobMonitor,
         IAiJobKindRegistry jobKinds,
         AiJobResultRegistry resultHandlers,
+        AiRequestRecoveryContext requestRecoveryContext,
         Func<AiCaptionHistoryResult, Task<bool>>? openCaptionResult)
     {
         _editViewModel = editViewModel ?? throw new ArgumentNullException(nameof(editViewModel));
@@ -62,6 +65,7 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
         _jobKinds = jobKinds ?? throw new ArgumentNullException(nameof(jobKinds));
         _resultHandlers = resultHandlers ?? throw new ArgumentNullException(nameof(resultHandlers));
         _resultContext = new AiJobResultContext(_editViewModel, _content, openCaptionResult);
+        _retryKey = new AiRequestKey(recoveryContext: requestRecoveryContext, operation: RetryOperation);
         Jobs = new ReadOnlyObservableCollection<AiJobItemViewModel>(_jobs);
         Usage = new AiUsageViewModel(_entitlements.Entitlements).DisposeWith(_disposables);
 
@@ -165,8 +169,9 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
         }
     }
 
-    // Retries with the handler the confirmation took.
-    private async Task RetryJobAsync(AiJobItemViewModel item, IAiJobRetryHandler handler)
+    private const string RetryOperation = "job.retry";
+
+    private async Task RetryJobAsync(AiJobItemViewModel item)
     {
         using AsyncOperationLifetime.Operation? lifetimeOperation = _operations.TryEnter();
         if (lifetimeOperation is null)
@@ -181,11 +186,7 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
 
         try
         {
-            if (!await SubmitRetryAsync(item, handler, lifetimeOperation.CancellationToken))
-            {
-                return;
-            }
-
+            await SubmitRetryAsync(item, lifetimeOperation.CancellationToken);
             item.MarkRetrySubmitted();
 
             if (!IsDisposed)
@@ -196,24 +197,9 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
         {
         }
-        catch (AiUsageLimitExceededException)
+        catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
         {
-            SetOperationError(Strings.AiUsageLimitExceeded);
-        }
-        catch (AiJobRetryPreparationRejectedException)
-        {
-            // The durable key or authenticated account changed after the
-            // dialog preflight. Require the user to start a fresh confirmation
-            // instead of silently creating a new paid request.
-            SetOperationError(Strings.AiResultUnavailable);
-        }
-        catch (AuthenticationRequiredException)
-        {
-            SetOperationError(Strings.AiAuthenticationRequired);
-        }
-        catch (AiJobRetryPreparationUnavailableException)
-        {
-            SetOperationError(Strings.AiPricingUnavailable);
+            SetOperationError(failure.Message);
         }
         catch (Exception ex)
         {
@@ -222,38 +208,29 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
         }
     }
 
-    // False when the retry was refused, with the reason already shown.
-    private async Task<bool> SubmitRetryAsync(
-        AiJobItemViewModel item,
-        IAiJobRetryHandler retryHandler,
-        CancellationToken cancellationToken)
+    // The server checks the model, the request and the balance again before it charges for the new job.
+    private async Task SubmitRetryAsync(AiJobItemViewModel item, CancellationToken cancellationToken)
     {
-        AiJobStatusSemantics status = _jobKinds.GetStatus(item.Job);
-        if (!retryHandler.CanRetry(item.Job, status))
+        AiJobId source = item.Job.Id;
+        AiRequestName name = _retryKey.NameFor(source.Value);
+        using IDisposable scope = _retryKey.EnterAuthenticatedScope(name);
+        try
         {
-            SetOperationError(Strings.AiPricingUnavailable);
-            return false;
+            await AiMeteredDispatch.SendAsync(
+                _retryKey,
+                name,
+                _ => Task.FromResult(true),
+                token => _jobClient.RetryAsync(source, name.Key, token),
+                withdrawn => _retryKey.WithdrawAfterNoReservation(withdrawn),
+                cancellationToken);
+        }
+        catch (Exception ex) when (AiRequestFailure.Classify(ex) is { RetiresName: true })
+        {
+            _retryKey.Retire(name);
+            throw;
         }
 
-        AiJobRetryPreparationResult prepared = await retryHandler.PrepareAsync(
-            item.Job,
-            cancellationToken);
-        await using (prepared)
-        {
-            if (!prepared.IsReady)
-            {
-                SetOperationError(prepared.Explanation);
-                return false;
-            }
-
-            IAiJobRetryPreparation preparation = prepared.TakePreparation();
-            await using (preparation)
-            {
-                await preparation.ExecuteAsync(cancellationToken);
-            }
-        }
-
-        return true;
+        _retryKey.Retire(name);
     }
 
     // The retry has gone out; a list that fails to refresh is reported but does not undo it.
@@ -353,6 +330,7 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
             disposeResources: () =>
             {
                 _disposables.Dispose();
+                _retryKey.Dispose();
                 foreach (AiJobItemViewModel job in _jobs) job.Dispose();
                 _jobs.Clear();
                 _visiblePreviewItems.Clear();

@@ -23,7 +23,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
     private async Task<bool> PollJobAsync(
         AiJobId jobId,
         IdentityOperationLifetime.Operation operation,
-        double resultDurationSeconds)
+        double? resultDurationSeconds)
     {
         CancellationTokenSource pollingCts;
         lock (_lifetimeGate)
@@ -55,13 +55,14 @@ internal sealed partial class AiVideoGenerationDialogViewModel
                     token);
                 if (localPath is null)
                     return false;
+                double seconds = resultDurationSeconds ?? await ReadVideoDurationAsync(localPath, token);
 
                 operation.TryPublish(() =>
                 {
                     string? previousPath = ResultVideoPath.Value;
                     StatusText.Value = Strings.AiVideoCompleted;
                     ResultVideoPath.Value = localPath;
-                    _resultDurationSeconds = resultDurationSeconds;
+                    _resultDurationSeconds = seconds;
                     if (!string.Equals(previousPath, localPath, StringComparison.Ordinal))
                     {
                         RequestTemporaryFileDeletion(previousPath);

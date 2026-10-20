@@ -8,50 +8,32 @@ public interface IAiJobKindRegistry : IBeutlApiResource
         AiJobKindId kind,
         [NotNullWhen(true)] out IAiJobRefreshHandler? handler);
 
-    bool TryGetRetryHandler(
-        AiJobKindId kind,
-        [NotNullWhen(true)] out IAiJobRetryHandler? handler);
-
     AiJobStatusSemantics GetStatus(AiJob job);
 
     AiJobStatusSemantics GetStatus(AiJobKindId kind, AiJobStatusId status);
 }
 
-// The status, refresh and retry behavior of Beutl's AI job kinds. Kinds match without regard to case.
+// The status and refresh behavior of Beutl's AI job kinds. Kinds match without regard to case.
 public sealed class AiJobKindRegistry : IAiJobKindRegistry
 {
     private readonly Dictionary<string, IAiJobStatusResolver> _statusResolvers;
     private readonly Dictionary<string, IAiJobRefreshHandler> _refreshHandlers;
-    private readonly Dictionary<string, IAiJobRetryHandler> _retryHandlers;
 
     internal AiJobKindRegistry(
         IEnumerable<KeyValuePair<AiJobKindId, IAiJobStatusResolver>> statusResolvers,
-        IEnumerable<KeyValuePair<AiJobKindId, IAiJobRefreshHandler>>? refreshHandlers = null,
-        IEnumerable<KeyValuePair<AiJobKindId, IAiJobRetryHandler>>? retryHandlers = null)
+        IEnumerable<KeyValuePair<AiJobKindId, IAiJobRefreshHandler>>? refreshHandlers = null)
     {
         _statusResolvers = ToDictionary(statusResolvers);
         _refreshHandlers = ToDictionary(refreshHandlers ?? []);
-        _retryHandlers = ToDictionary(retryHandlers ?? []);
     }
 
-    internal static AiJobKindRegistry CreateBuiltIn(
-        IAiImageGenerationService images,
-        IAiVideoService videos,
-        IAiEntitlementService entitlements,
-        IAiOperationAvailabilityService availability,
-        IAiModelCatalogService models,
-        AiRetryAttemptContext retryContext)
-        => BuiltInAiJobKinds.Create(images, videos, entitlements, availability, models, retryContext);
+    internal static AiJobKindRegistry CreateBuiltIn(IAiVideoService videos)
+        => BuiltInAiJobKinds.Create(videos);
 
     public bool TryGetRefreshHandler(
         AiJobKindId kind,
         [NotNullWhen(true)] out IAiJobRefreshHandler? handler)
         => _refreshHandlers.TryGetValue(kind.Value, out handler);
-
-    public bool TryGetRetryHandler(
-        AiJobKindId kind,
-        [NotNullWhen(true)] out IAiJobRetryHandler? handler)
-        => _retryHandlers.TryGetValue(kind.Value, out handler);
 
     public AiJobStatusSemantics GetStatus(AiJob job)
     {

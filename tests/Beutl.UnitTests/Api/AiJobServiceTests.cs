@@ -884,7 +884,6 @@ public sealed class AiJobMonitorTests
         {
             Assert.That(registry.GetStatus(job), Is.EqualTo(AiJobStatusSemantics.Unknown));
             Assert.That(registry.TryGetRefreshHandler(job.Kind, out _), Is.False);
-            Assert.That(registry.TryGetRetryHandler(job.Kind, out _), Is.False);
         }
     }
 
@@ -904,6 +903,12 @@ public sealed class AiJobMonitorTests
         }
 
         public Task DeleteAsync(AiJobId jobId, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task<AiJob> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task<AiJobId> RetryAsync(AiJobId jobId, string idempotencyKey, CancellationToken cancellationToken)
             => throw new NotSupportedException();
     }
 
@@ -935,6 +940,12 @@ public sealed class AiJobMonitorTests
         }
 
         public Task DeleteAsync(AiJobId jobId, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task<AiJob> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task<AiJobId> RetryAsync(AiJobId jobId, string idempotencyKey, CancellationToken cancellationToken)
             => throw new NotSupportedException();
     }
 

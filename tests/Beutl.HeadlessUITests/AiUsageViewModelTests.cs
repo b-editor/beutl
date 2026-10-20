@@ -26,6 +26,7 @@ public sealed class AiUsageViewModelTests
                 clients.GetResource<IAuthenticatedContentService>(),
                 clients.GetResource<IAiJobKindRegistry>(),
                 clients.GetResource<IAiJobMonitor>(),
+                clients.GetResource<IAiJobClient>(),
                 editViewModel: null,
                 requestRecoveryContext: AiRetryTestContext.CreateForm());
 

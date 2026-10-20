@@ -16,6 +16,8 @@ public partial class MainViewModel
             _aiPlanCoordinator,
             _beutlClients.GetResource<IAiImageGenerationService>(),
             _beutlClients.GetResource<IAuthenticatedContentService>(),
+            _beutlClients.GetResource<IAiJobClient>(),
+            _beutlClients.GetResource<IAiJobKindRegistry>(),
             editViewModel,
             _aiRequestRecoveryContext);
 
@@ -47,6 +49,8 @@ public partial class MainViewModel
             _aiPlanCoordinator,
             _beutlClients.GetResource<IAiImageEditingService>(),
             _beutlClients.GetResource<IAuthenticatedContentService>(),
+            _beutlClients.GetResource<IAiJobClient>(),
+            _beutlClients.GetResource<IAiJobKindRegistry>(),
             editViewModel,
             _aiRequestRecoveryContext);
 
@@ -87,6 +91,7 @@ public partial class MainViewModel
             _beutlClients.GetResource<IAuthenticatedContentService>(),
             _beutlClients.GetResource<IAiJobKindRegistry>(),
             _beutlClients.GetResource<IAiJobMonitor>(),
+            _beutlClients.GetResource<IAiJobClient>(),
             editViewModel,
             _aiRequestRecoveryContext, sourceMode);
 
@@ -234,5 +239,6 @@ public partial class MainViewModel
             _beutlClients.GetResource<IAiJobMonitor>(),
             _beutlClients.GetResource<IAiJobKindRegistry>(),
             _aiJobResultHandlers,
+            _aiRequestRecoveryContext,
             result => PresentCaptionResultAsync(editViewModel, result));
 }

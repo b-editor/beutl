@@ -1,4 +1,7 @@
 ﻿using Beutl.Api.Services;
+using Beutl.Language;
+using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.Services;
 using Beutl.Services.AI;
 using Microsoft.Extensions.Logging;
@@ -14,7 +17,6 @@ internal sealed partial class AiImageGenerationDialogViewModel
     {
         _runningRequest = null;
         IsGenerating.Value = false;
-        _recovery.Clear();
         _chosenAspectRatio = null;
         _chosenBackground = null;
         _chosenSeed = null;
@@ -33,117 +35,77 @@ internal sealed partial class AiImageGenerationDialogViewModel
         _recovery.Revision.Value++;
     }
 
-    internal bool TryRecoverPendingAttempt(AiPendingAttempt attempt)
+    // Looks a pending request's job up by its key and shows the picture it made.
+    internal async Task CollectAsync(AiPendingAttempt attempt)
     {
-        if (_requestKey.CurrentAccountId is not { } account
-            || !StringComparer.Ordinal.Equals(account, attempt.AccountId))
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
+        if (operation is null
+            || IsGenerating.Value
+            || !operation.TryPublish(() =>
+            {
+                Error.Value = null;
+                IsGenerating.Value = true;
+            }))
         {
-            Error.Value = Strings.AiAuthenticationRequired;
-            return false;
-        }
-        if (!attempt.HasCanonicalForm
-            || !string.Equals(attempt.Operation, AiOperations.ImageGeneration.Value, StringComparison.Ordinal))
-        {
-            Error.Value = Strings.AiResultUnavailable;
-            return false;
+            return;
         }
 
-        IReadOnlyList<string> paths;
+        _runningRequest = operation;
         try
         {
-            paths = _requestKey.ResolveSources(attempt);
-        }
-        catch (InvalidDataException ex)
-        {
-            // Keep the row and key. The caller must explicitly abandon it if
-            // the original source can no longer be verified.
-            _logger.LogWarning(ex, "Image-generation recovery source is unavailable.");
-            Error.Value = Strings.AiResultUnavailable;
-            return false;
-        }
-
-        AiRequestFormSnapshot form = attempt.Form!;
-        string[] referencePaths = paths.ToArray();
-
-        _applyingCapabilities = true;
-        try
-        {
-            Prompt.Value = form.Prompt ?? string.Empty;
-            Style.Value = form.Style ?? string.Empty;
-            Composition.Value = form.Composition ?? string.Empty;
-            Exclusions.Value = form.Exclusions ?? string.Empty;
-            if (form.AspectRatio is { } aspect)
+            (AiPendingJobState state, AiJob? job) = await AiPendingJobLookup.FindAsync(
+                _jobs, _jobKinds, _requestRecoveryContext, attempt, operation.CancellationToken);
+            switch (state)
             {
-                _chosenAspectRatio = new AiImageAspectRatioOption(aspect);
-                if (AspectRatioOptions.FirstOrDefault(option => option.Value == aspect) is { } aspectOption)
-                    SelectedAspectRatio.Value = aspectOption;
+                case AiPendingJobState.Succeeded:
+                    if (job!.ContentUri is not { } contentUri)
+                    {
+                        operation.TryPublish(() => Error.Value = Strings.AiResultUnavailable);
+                        break;
+                    }
+
+                    Ref<Bitmap> image = await AiImageResultDownload.DownloadBitmapAsync(
+                        _content, contentUri, operation.CancellationToken);
+                    _recovery.TrySettle(attempt);
+                    if (!operation.TryPublish(() =>
+                        {
+                            ResultImage.Value?.Dispose();
+                            ResultImage.Value = image;
+                        }))
+                    {
+                        image.Dispose();
+                    }
+                    break;
+                case AiPendingJobState.Running:
+                    operation.TryPublish(() => Error.Value = Strings.AiRequestInProgress);
+                    break;
+                default:
+                    _recovery.TrySettle(attempt);
+                    operation.TryPublish(() => Error.Value = AiPendingJobLookup.MessageFor(state, job));
+                    break;
             }
-            if (form.Background is { } background)
-            {
-                _chosenBackground = new AiImageBackgroundOption(background);
-                if (BackgroundOptions.FirstOrDefault(option => option.Value == background) is { } backgroundOption)
-                    SelectedBackground.Value = backgroundOption;
-            }
-            Seed.Value = form.Seed;
-            _chosenSeed = form.Seed;
+        }
+        catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
+        {
+            operation.TryPublish(() => Error.Value = failure.Message);
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to recover an AI image.");
+            operation.TryPublish(() => Error.Value = Strings.AiUnexpectedError);
         }
         finally
         {
-            _applyingCapabilities = false;
+            if (ReferenceEquals(_runningRequest, operation))
+                _runningRequest = null;
+            operation.TryPublish(() => IsGenerating.Value = false);
         }
-
-        DisposeReferenceImages();
-        _chosenReferencePaths.Clear();
-        foreach (string path in referencePaths)
-        {
-            if (LoadReference(path) is not { } reference)
-            {
-                Error.Value = Strings.AiResultUnavailable;
-                return false;
-            }
-
-            ReferenceImages.Add(reference);
-            _chosenReferencePaths.Add(path);
-        }
-
-        // Re-read the durable source bytes to ensure the path verification and
-        // the preview cannot drift before the request is sent.
-        foreach (AiRequestRecoverySource source in attempt.EffectiveSources)
-        {
-            try
-            {
-                _ = _requestKey.ReadSourceBytes(source);
-            }
-            catch (InvalidDataException ex)
-            {
-                _logger.LogWarning(ex, "Image-generation recovery source changed.");
-                Error.Value = Strings.AiResultUnavailable;
-                return false;
-            }
-        }
-
-        _recovery.Activate(attempt);
-        _recovery.SelectRecoveredModel();
-        ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
-        _recovery.Revision.Value++;
-        return true;
     }
 
     internal void AbandonPendingAttempt(AiPendingAttempt attempt) => _recovery.Abandon(attempt);
-
-    private bool CanUseSelectedModel(AiModelPickerOption? selected)
-    {
-        if (selected is null || selected.IsAvailable)
-            return true;
-        if (!_requestKey.HasOutstandingName.Value
-            || _recovery.Active is not { Model: { } model } recovery
-            || !_requestKey.IsCurrentPending(recovery))
-        {
-            return false;
-        }
-
-        return selected.Id == new AiModelId(model);
-    }
 
     // Only this one request is settled. Retiring the whole run instead would
     // throw away the name of anything else still waiting to be collected.
@@ -151,7 +113,7 @@ internal sealed partial class AiImageGenerationDialogViewModel
     {
         if (!_requestKey.Retire(name))
             return;
-        _recovery.Settle(name);
+        _recovery.Revision.Value++;
         // Reloads were held back while that name was outstanding, so this is
         // where an operator's change to the model list finally lands.
         _ = RefreshModelsAsync();
@@ -162,6 +124,6 @@ internal sealed partial class AiImageGenerationDialogViewModel
     private void WithdrawRequestName(AiRequestName name)
     {
         if (_requestKey.WithdrawAfterNoReservation(name))
-            _recovery.Settle(name);
+            _recovery.Revision.Value++;
     }
 }

@@ -40,8 +40,8 @@ internal sealed record AiRequestFailure(string Message, bool RetiresName, bool I
             // A request keeps its name across attempts, and until the job it
             // made finishes this is the answer. The key is still the way back.
             AiRequestInProgressException => new(Strings.AiRequestInProgress, false),
-            // The name belongs to a different request. Keeping it lets restoring
-            // the form resend that request and reach an already-paid job.
+            // The name belongs to a different request. Keeping it lets the
+            // lookup by key reach the job it made.
             AiRequestChangedException => new(Strings.AiRequestChanged, false),
             // Settled server-side: the name would only ever answer with this.
             AiProviderErrorException => new(Strings.AiProviderError, true),

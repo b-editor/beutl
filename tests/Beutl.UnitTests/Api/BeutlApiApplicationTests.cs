@@ -105,7 +105,6 @@ public sealed class BeutlApiApplicationTests
             Assert.That(status.ShouldPoll, Is.True);
             Assert.That(status.Outcome, Is.Null);
             Assert.That(registry.TryGetRefreshHandler(AiJobKinds.Video, out _), Is.True);
-            Assert.That(registry.TryGetRetryHandler(AiJobKinds.Video, out _), Is.True);
         }
     }
 
