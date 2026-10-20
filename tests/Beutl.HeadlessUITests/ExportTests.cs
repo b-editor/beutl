@@ -7,6 +7,9 @@ using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Platform.Storage;
+using Beutl.Editor.Components.OutputTab;
+using Beutl.Editor.Components.OutputTab.ViewModels;
+using Beutl.Editor.Components.OutputTab.Views;
 using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.FFmpegIpc;
@@ -21,7 +24,6 @@ using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
 using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
@@ -1206,7 +1208,7 @@ public class ExportTests
         };
         var firstItem = new OutputProfileItem(firstContext, editor, TestShell.Editor);
         var secondItem = new OutputProfileItem(secondContext, editor, TestShell.Editor);
-        var outputTab = new OutputTab();
+        var outputTab = new OutputTabView();
         ContentControl contentControl = outputTab.FindControl<ContentControl>("contentControl")!;
 
         try

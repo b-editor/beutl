@@ -2,10 +2,10 @@
 using Avalonia.Headless.NUnit;
 using Beutl.Editor;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
+using Beutl.Editor.Components.OutputTab;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
-using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 

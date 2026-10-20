@@ -1,7 +1,7 @@
-﻿using Beutl.ViewModels.Dialogs;
+﻿using Beutl.Editor.Components.OutputTab.ViewModels;
 using FluentAvalonia.UI.Controls;
 
-namespace Beutl.Views.Dialogs;
+namespace Beutl.Editor.Components.OutputTab.Views;
 
 public partial class AddOutputProfileDialog : FAContentDialog
 {

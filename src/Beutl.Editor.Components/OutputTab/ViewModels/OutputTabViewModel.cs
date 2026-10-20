@@ -1,23 +1,25 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Logging;
+using Beutl.ProjectSystem;
 using Beutl.Services;
-using Beutl.Services.PrimitiveImpls;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace Beutl.ViewModels.Tools;
+namespace Beutl.Editor.Components.OutputTab.ViewModels;
 
 public class OutputTabViewModel : IToolContext
 {
     private readonly OutputService _outputService;
     private readonly ILogger _logger = Log.CreateLogger<OutputTabViewModel>();
 
-    public OutputTabViewModel(EditViewModel editViewModel)
+    public OutputTabViewModel(IEditorContext editorContext)
     {
         _logger.LogInformation("Initializing OutputTabViewModel.");
-        EditViewModel = editViewModel;
-        _outputService = new OutputService(editViewModel);
+        Scene = editorContext.GetRequiredService<Scene>();
+        Presets = editorContext.GetRequiredService<IOutputPresetStore>();
+        _outputService = new OutputService(editorContext);
         CanRemove = SelectedItem
             .Select(x => x?.IsRunning.Inverse() ?? Observable.ReturnThenNever(false))
             .Switch()
@@ -26,7 +28,9 @@ public class OutputTabViewModel : IToolContext
         _logger.LogInformation("OutputTabViewModel initialized.");
     }
 
-    public EditViewModel EditViewModel { get; }
+    public Scene Scene { get; }
+
+    internal IOutputPresetStore Presets { get; }
 
     public ToolTabExtension Extension => OutputTabExtension.Instance;
 
@@ -36,25 +40,26 @@ public class OutputTabViewModel : IToolContext
 
     public ICoreList<OutputProfileItem> Items => _outputService.Items;
 
-    public ICoreList<OutputPresetItem> PresetItems => OutputPresetService.Instance.Items;
+    public ICoreList<OutputPresetItem> PresetItems => Presets.Items;
 
     public IReactiveProperty<OutputProfileItem?> SelectedItem => _outputService.SelectedItem;
 
     public ReadOnlyReactivePropertySlim<bool> CanRemove { get; }
 
-    public async void AddItem(OutputExtension extension)
+    public void AddItem(OutputExtension extension)
     {
         try
         {
             _logger.LogInformation("Adding item with extension: {ExtensionName}", extension.Name);
-            string path = EditViewModel.Scene.Uri!.LocalPath;
+            string path = Scene.Uri!.LocalPath;
             _outputService.AddItem(path, extension);
             _logger.LogInformation("Item added successfully.");
         }
         catch (Exception e)
         {
             _logger.LogError(e, "An exception occurred while adding an item.");
-            await e.Handle();
+            if (e is not OperationCanceledException)
+                NotificationService.ShowError(Strings.Error, e.Message);
         }
     }
 
@@ -172,7 +177,7 @@ public class OutputTabViewModel : IToolContext
         if (Items.Count != 0) return;
 
         _logger.LogInformation("Creating default profile.");
-        var ext = _outputService.GetExtensions(EditViewModel.Scene.GetType());
+        var ext = _outputService.GetExtensions(Scene.GetType());
         if (ext.Length == 1)
         {
             AddItem(ext[0]);

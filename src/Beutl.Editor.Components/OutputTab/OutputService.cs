@@ -1,24 +1,22 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Api.Services;
-using Beutl.Editor;
-using Beutl.Language;
 using Beutl.Logging;
-using Beutl.Models;
-using Beutl.ViewModels;
+using Beutl.ProjectSystem;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
-namespace Beutl.Services;
+namespace Beutl.Editor.Components.OutputTab;
 
-public sealed class OutputService(EditViewModel editViewModel) : IDisposable
+public sealed class OutputService(IEditorContext editorContext) : IDisposable
 {
     private readonly CoreList<OutputProfileItem> _items = [];
     private readonly ReactivePropertySlim<OutputProfileItem?> _selectedItem = new();
-    private readonly EditorService _editorService = editViewModel.EditorService;
-    private readonly ExtensionProvider _extensionProvider = editViewModel.ExtensionProvider;
+    private readonly IOutputRunHost _runHost = editorContext.GetRequiredService<IOutputRunHost>();
+    private readonly ExtensionProvider _extensionProvider = editorContext.GetRequiredService<ExtensionProvider>();
 
     private readonly string _filePath = Path.Combine(
-        Path.GetDirectoryName(editViewModel.Scene.Uri!.LocalPath)!,
+        Path.GetDirectoryName(editorContext.GetRequiredService<Scene>().Uri!.LocalPath)!,
         EditorConstants.BeutlFolder, "output-profile.json");
 
     private readonly ILogger _logger = Log.CreateLogger<OutputService>();
@@ -32,7 +30,7 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
     {
         if (ExtensionGuard.Call(
                 extension,
-                () => extension.TryCreateContext(editViewModel, out IOutputContext? created) ? created : null,
+                () => extension.TryCreateContext(editorContext, out IOutputContext? created) ? created : null,
                 out bool declined)
             is not { } context)
         {
@@ -45,7 +43,7 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
         }
 
         context.Name.Value = Items.Count == 0 ? "Default" : $"Profile {Items.Count}";
-        var item = new OutputProfileItem(context, editViewModel, _editorService);
+        var item = new OutputProfileItem(context, editorContext, _runHost);
         Items.Add(item);
         SelectedItem.Value = item;
         _logger.LogInformation("Added new OutputProfileItem. File: {File}, Context: {Context}", file, context);
@@ -132,7 +130,7 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
             {
                 if (jsonItem == null) continue;
 
-                var item = OutputProfileItem.FromJson(editViewModel, jsonItem, _logger, _extensionProvider, _editorService);
+                var item = OutputProfileItem.FromJson(editorContext, jsonItem, _logger, _extensionProvider, _runHost);
                 if (item != null)
                 {
                     _items.Add(item);

@@ -3,15 +3,16 @@ using System.Runtime.ExceptionServices;
 using System.Text.Json.Nodes;
 using Beutl.Api.Services;
 using Beutl.Logging;
+using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
-namespace Beutl.Services;
+namespace Beutl.Editor.Components.OutputTab;
 
 public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
 {
     private readonly ILogger<OutputProfileItem> _logger = Log.CreateLogger<OutputProfileItem>();
-    private readonly EditorService _editorService;
+    private readonly IOutputRunHost _runHost;
     private readonly object _outputOperationSync = new();
     private readonly ReactivePropertySlim<bool> _isRunning = new();
     private CancellationTokenSource? _executionCancellation;
@@ -19,11 +20,11 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
     private bool _disposeRequested;
     private bool _contextDisposed;
 
-    public OutputProfileItem(IOutputContext context, IEditorContext editorContext, EditorService editorService)
+    internal OutputProfileItem(IOutputContext context, IEditorContext editorContext, IOutputRunHost runHost)
     {
         Context = context;
         EditorContext = editorContext;
-        _editorService = editorService;
+        _runHost = runHost;
 
         _logger.LogInformation("OutputProfileItem created. File: {File}, Context: {Context}", Context.Object.Uri,
             Context);
@@ -49,7 +50,7 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
                 return true;
             }
 
-            outputOperation = _editorService.TryBeginOutputOperation();
+            outputOperation = _runHost.TryBeginOutputOperation();
             if (outputOperation is not null)
             {
                 executionCancellation = new CancellationTokenSource();
@@ -117,7 +118,7 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
         try
         {
             _isRunning.Value = true;
-            runningOutput = _editorService.TrackRunningOutput(this);
+            runningOutput = _runHost.TrackRunningOutput(this);
 
             executionToken.ThrowIfCancellationRequested();
             await Context.RunAsync(executionToken);
@@ -392,8 +393,8 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
         };
     }
 
-    public static OutputProfileItem? FromJson(IEditorContext editorContext, JsonNode json, ILogger logger,
-        ExtensionProvider extensionProvider, EditorService editorService)
+    internal static OutputProfileItem? FromJson(IEditorContext editorContext, JsonNode json, ILogger logger,
+        ExtensionProvider extensionProvider, IOutputRunHost runHost)
     {
         try
         {
@@ -416,7 +417,7 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
                 context.ReadFromJson(contextJson.AsObject());
                 logger.LogInformation("OutputProfileItem created from JSON. File: {File}, Context: {Context}", file,
                     context);
-                return new OutputProfileItem(context, editorContext, editorService);
+                return new OutputProfileItem(context, editorContext, runHost);
             }
             else
             {

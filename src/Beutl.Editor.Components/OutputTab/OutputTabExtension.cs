@@ -1,14 +1,17 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
-using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
+using Beutl.Editor.Components.OutputTab.ViewModels;
+using Beutl.Editor.Components.OutputTab.Views;
+using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using FluentAvalonia.UI.Controls;
 using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
 using Icon = FluentIcons.Common.Icon;
 
-namespace Beutl.Services.PrimitiveImpls;
+namespace Beutl.Editor.Components.OutputTab;
 
+// Moved from the app; layouts and pins saved before name the former type.
+[FormerPersistedName("[Beutl].Services.PrimitiveImpls:OutputTabExtension")]
 public sealed class OutputTabExtension : ToolTabExtension
 {
     public static readonly OutputTabExtension Instance = new();
@@ -34,9 +37,9 @@ public sealed class OutputTabExtension : ToolTabExtension
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
-        if (editorContext is EditViewModel)
+        if (CanOutput(editorContext))
         {
-            control = new OutputTab();
+            control = new OutputTabView();
             return true;
         }
         else
@@ -48,9 +51,9 @@ public sealed class OutputTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        if (editorContext is EditViewModel editViewModel)
+        if (CanOutput(editorContext))
         {
-            context = new OutputTabViewModel(editViewModel);
+            context = new OutputTabViewModel(editorContext);
             return true;
         }
         else
@@ -59,4 +62,9 @@ public sealed class OutputTabExtension : ToolTabExtension
             return false;
         }
     }
+
+    private static bool CanOutput(IEditorContext editorContext)
+        => editorContext.GetService(typeof(Scene)) is Scene
+           && editorContext.GetService(typeof(IOutputRunHost)) is IOutputRunHost
+           && editorContext.GetService(typeof(IOutputPresetStore)) is IOutputPresetStore;
 }

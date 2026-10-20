@@ -4,6 +4,7 @@ using Beutl.AgentHost;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Editor.Components.OutputTab;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Logging;

@@ -3,10 +3,10 @@ using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Editor;
+using Beutl.Editor.Components.OutputTab;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
-using Beutl.Services;
 using Beutl.ViewModels;
 using Reactive.Bindings;
 
