@@ -2,6 +2,7 @@
 using Avalonia.Input;
 using Beutl.Animation;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;

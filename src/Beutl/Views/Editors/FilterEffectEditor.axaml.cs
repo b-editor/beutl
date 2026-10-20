@@ -3,11 +3,12 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.Models;
 using Beutl.Services;
-using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
 

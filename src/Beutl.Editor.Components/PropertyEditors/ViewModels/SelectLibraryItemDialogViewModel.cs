@@ -5,12 +5,11 @@ using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Services;
-using Beutl.ViewModels.Editors;
 using DynamicData;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace Beutl.ViewModels.Dialogs;
+namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
 public class SelectLibraryItemDialogViewModel
 {

@@ -1,10 +1,10 @@
 ﻿using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Services;
-using Beutl.ViewModels.Dialogs;
 
 namespace Beutl.HeadlessUITests;
 

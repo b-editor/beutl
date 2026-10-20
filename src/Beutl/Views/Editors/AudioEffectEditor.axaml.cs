@@ -4,8 +4,9 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Beutl.Audio.Effects;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Services;
-using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
 

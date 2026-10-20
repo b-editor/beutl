@@ -1,8 +1,9 @@
 ﻿using Avalonia.Controls;
 
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Engine;
 using Beutl.Services;
-using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
 
 namespace Beutl.Views.Editors;

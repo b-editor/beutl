@@ -1,12 +1,12 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Views;
+using Beutl.Editor.Components.TransitionTab.ViewModels;
 using Beutl.Graphics.Transitions;
 using Beutl.Services;
-using Beutl.ViewModels.Dialogs;
-using Beutl.ViewModels.Tools;
-using Beutl.Views.Editors;
 
-namespace Beutl.Views.Tools;
+namespace Beutl.Editor.Components.TransitionTab.Views;
 
 public partial class TransitionTabView : UserControl
 {

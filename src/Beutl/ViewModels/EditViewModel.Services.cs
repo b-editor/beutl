@@ -82,7 +82,7 @@ public partial class EditViewModel
                 _elementAdder)))
         .AddOwned<IElementStructureService>(() => new ElementStructureService(HistoryManager))
         .AddOwned<IElementAttributeService>(() => new ElementAttributeService(HistoryManager))
-        .AddOwned<ITransitionEditorService>(() => new TransitionEditorService(this))
+        .AddOwned<ITransitionEditorService>(() => new Beutl.Editor.Components.TransitionTab.TransitionEditorService(this))
         .AddOwned<IElementNudgeService>(() => _elementNudgeService = CreateNudgeService())
         .AddOwned<ILayerMoveService>(() => new LayerMoveService(HistoryManager))
         .AddOwned<ILayerAttributeService>(() => new LayerAttributeService(HistoryManager))

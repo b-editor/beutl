@@ -1,4 +1,5 @@
-﻿using Beutl.Engine.Expressions;
+﻿using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Engine.Expressions;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
