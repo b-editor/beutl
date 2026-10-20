@@ -182,9 +182,8 @@ public interface IElementSourceHandler
 
 /// <summary>
 /// Contributes element source handlers from an extension package. Registrations are dynamically
-/// composed for every open editor. Packages containing these extensions require a restart to
-/// unload because materialized scene graphs may retain package-defined objects after an add
-/// operation releases its handler lease.
+/// composed for every open editor. When materialized scene graphs still hold package-defined
+/// objects, unloading the package falls back to a restart.
 /// </summary>
 public abstract class ElementSourceHandlerExtension : Extension
 {

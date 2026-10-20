@@ -1,5 +1,4 @@
-﻿using Beutl.Api.Services;
-using Beutl.Extensibility;
+﻿using Beutl.Extensibility;
 
 namespace Beutl.Editor.Services.Mcp;
 
@@ -17,11 +16,10 @@ namespace Beutl.Editor.Services.Mcp;
 /// <para>
 /// <see cref="InvokeAsync"/> runs on the UI thread, so editor objects reachable from
 /// <see cref="McpToolCall.EditorContext"/> can be used directly. Move long-running work off the UI
-/// thread. The package stays loaded until every running call completes, which lets a package that
-/// contains only live-unloadable extensions be uninstalled without a restart.
+/// thread. The package stays loaded until every running call completes.
 /// </para>
 /// </remarks>
-public abstract class McpToolExtension : Extension, ILiveUnloadExtension
+public abstract class McpToolExtension : Extension
 {
     public abstract IReadOnlyList<McpToolDefinition> Tools { get; }
 

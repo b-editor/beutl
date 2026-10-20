@@ -91,27 +91,9 @@ public sealed partial class PackageManager
             return null;
         }
 
-        // Only the registries below have explicit operation leases. Other
-        // extension families create long-lived editor/output/window objects,
-        // so their package files are updated safely on the next restart.
-        ExtensionRemoval? removal = RemovePackageRegistrations(
+        ExtensionRemoval removal = RemovePackageRegistrations(
             package,
-            out bool requiresRestart,
             out List<Exception>? retirementFailures);
-        if (requiresRestart)
-        {
-            _logger.LogInformation(
-                "Package {PackageName} contains extensions that require restart for safe unload.",
-                package.Name);
-            return null;
-        }
-
-        if (removal is null)
-        {
-            throw new InvalidOperationException(
-                $"The extension registry did not remove package {package.Name}.");
-        }
-
         IReadOnlyList<Extension> extensions = removal.Extensions;
         retirementFailures = RetireExtensions(extensions, retirementFailures);
 
@@ -154,37 +136,20 @@ public sealed partial class PackageManager
         return new WeakReference(info.LoadContext, trackResurrection: true);
     }
 
-    private ExtensionRemoval? RemovePackageRegistrations(
+    private ExtensionRemoval RemovePackageRegistrations(
         LocalPackage package,
-        out bool requiresRestart,
         out List<Exception>? retirementFailures)
     {
-        ExtensionRemoval? removal = null;
-        var restartRequired = false;
         retirementFailures = null;
         try
         {
-            extensionRegistry.SynchronizeMutation(() =>
-            {
-                IReadOnlyList<Extension> packageExtensions =
-                    extensionRegistry.GetPackageExtensions(package.LocalId);
-                if (packageExtensions.Any(extension => !SupportsLiveUnload(extension)))
-                {
-                    restartRequired = true;
-                    return;
-                }
-
-                removal = extensionRegistry.RemoveExtensions(package.LocalId);
-            });
+            return extensionRegistry.RemoveExtensions(package.LocalId);
         }
         catch (ExtensionRemovalNotificationException ex)
         {
-            removal = ex.Removal;
             retirementFailures = [ex];
+            return ex.Removal;
         }
-
-        requiresRestart = restartRequired;
-        return removal;
     }
 
     private List<Exception>? RetireExtensions(
@@ -245,7 +210,4 @@ public sealed partial class PackageManager
             }
         }
     }
-
-    private static bool SupportsLiveUnload(Extension extension)
-        => extension is ILiveUnloadExtension;
 }

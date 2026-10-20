@@ -191,15 +191,6 @@ public sealed partial class PackageManager
             return;
         }
 
-        if (pendingRollback.Extensions.Any(extension => !SupportsLiveUnload(extension)))
-        {
-            _logger.LogWarning(
-                "Package {PackageName} exposed restart-only extensions before registration rollback; "
-                + "the extensions and load context remain quarantined until restart.",
-                pendingRollback.Package.Name);
-            return;
-        }
-
         var rollbackList = pendingRollback.Extensions.ToList();
         RollbackLoadedExtensions(rollbackList);
         if (pendingRollback.LoadContext is not null)

@@ -1,7 +1,5 @@
 ﻿using System.Collections.Specialized;
-using System.Diagnostics.CodeAnalysis;
 using Beutl.Api.Services;
-using Beutl.Collections;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.Mcp;
@@ -222,7 +220,7 @@ public class PackageManagerExtensionLifecycleTests
     }
 
     [Test]
-    public async Task LoadExtensionsAndRegister_DoesNotPublishProvisionalRestartOnlyHandler()
+    public async Task LoadExtensionsAndRegister_DoesNotPublishProvisionalHandler()
     {
         PackageManager manager = CreatePackageManager(
             out _,
@@ -256,27 +254,22 @@ public class PackageManagerExtensionLifecycleTests
                 assemblies: [],
                 loadContext: null,
                 [typeof(MaterializingElementSourceHandlerExtension)]));
-        await Task.Delay(100);
 
+        Assert.That(
+            SpinWait.SpinUntil(
+                () => MaterializingElementSourceHandlerExtension.UnloadCount == 1,
+                TimeSpan.FromSeconds(5)),
+            Is.True);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(provisionalAcquired, Is.False);
             Assert.That(handlers.TryAcquire(typeof(MaterializedSource), out _), Is.False);
-            Assert.That(MaterializingElementSourceHandlerExtension.UnloadCount, Is.Zero);
             Assert.That(manager.LoadedPackage, Is.Empty);
         }
-        InvalidOperationException? retry = Assert.Throws<InvalidOperationException>(() =>
-            manager.LoadExtensionsAndRegister(
-                activity: null,
-                package,
-                assemblies: [],
-                loadContext: null,
-                [typeof(MaterializingElementSourceHandlerExtension)]));
-        Assert.That(retry!.Message, Does.Contain("quarantined"));
     }
 
     [Test]
-    public async Task LoadExtensionsAndRegister_QuarantinesCommittedRestartOnlyMaterializationOnLaterFailure()
+    public async Task LoadExtensionsAndRegister_UnloadsCommittedMaterializationOnLaterFailure()
     {
         PackageManager manager = CreatePackageManager(
             out _,
@@ -297,8 +290,12 @@ public class PackageManagerExtensionLifecycleTests
                 assemblies: [],
                 loadContext: null,
                 [typeof(MaterializingElementSourceHandlerExtension)]));
-        await Task.Delay(100);
 
+        Assert.That(
+            SpinWait.SpinUntil(
+                () => MaterializingElementSourceHandlerExtension.UnloadCount == 1,
+                TimeSpan.FromSeconds(5)),
+            Is.True);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(retainedGraph, Is.Not.Null);
@@ -306,17 +303,8 @@ public class PackageManagerExtensionLifecycleTests
                 retainedGraph!.Objects.Single(),
                 Is.TypeOf<MaterializedPackageObject>());
             Assert.That(handlers.TryAcquire(typeof(MaterializedSource), out _), Is.False);
-            Assert.That(MaterializingElementSourceHandlerExtension.UnloadCount, Is.Zero);
             Assert.That(manager.LoadedPackage, Is.Empty);
         }
-        InvalidOperationException? retry = Assert.Throws<InvalidOperationException>(() =>
-            manager.LoadExtensionsAndRegister(
-                activity: null,
-                package,
-                assemblies: [],
-                loadContext: null,
-                [typeof(MaterializingElementSourceHandlerExtension)]));
-        Assert.That(retry!.Message, Does.Contain("quarantined"));
     }
 
     [Test]
@@ -366,44 +354,20 @@ public class PackageManagerExtensionLifecycleTests
         Assert.That(LeaseManagedMcpToolExtension.UnloadCount, Is.EqualTo(1));
     }
 
-    [Test]
-    public async Task Unload_MutatesTheRegistryUnderItsSynchronization()
-    {
-        var registry = new DelegatingExtensionRegistry();
-        PackageManager manager = CreatePackageManager(registry, out _);
-        var package = new LocalPackage { Name = "AlternativeRegistry" };
-        manager.LoadExtensionsAndRegister(
-            activity: null,
-            package,
-            assemblies: [],
-            loadContext: null,
-            [typeof(LeaseManagedMcpToolExtension)]);
-
-        bool unloaded = await manager.Unload(package);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(unloaded, Is.True);
-            Assert.That(registry.SynchronizationCount, Is.GreaterThan(0));
-            Assert.That(registry.GetExtensions<LeaseManagedMcpToolExtension>(), Is.Empty);
-            Assert.That(LeaseManagedMcpToolExtension.UnloadCount, Is.EqualTo(1));
-        }
-    }
-
-    private static IEnumerable<TestCaseData> RestartOnlyExtensions()
+    private static IEnumerable<TestCaseData> ExtensionKinds()
     {
         yield return new TestCaseData(
                 typeof(SuccessfulViewExtension),
                 (Func<int>)(() => SuccessfulViewExtension.UnloadCount))
-            .SetName("Unload_RequiresRestartForLongLivedExtensionFamilies");
+            .SetName("Unload_UnloadsViewExtensionsLive");
         yield return new TestCaseData(
                 typeof(MaterializingElementSourceHandlerExtension),
                 (Func<int>)(() => MaterializingElementSourceHandlerExtension.UnloadCount))
-            .SetName("Unload_RequiresRestartForElementSourceHandlerExtensions");
+            .SetName("Unload_UnloadsElementSourceHandlerExtensionsLive");
     }
 
-    [TestCaseSource(nameof(RestartOnlyExtensions))]
-    public async Task Unload_RequiresRestartForExtension(Type extensionType, Func<int> unloadCount)
+    [TestCaseSource(nameof(ExtensionKinds))]
+    public async Task Unload_UnloadsExtensionLive(Type extensionType, Func<int> unloadCount)
     {
         PackageManager manager = CreatePackageManager(out _, out ExtensionProvider provider);
         var package = new LocalPackage { Name = extensionType.Name };
@@ -418,11 +382,35 @@ public class PackageManagerExtensionLifecycleTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(unloaded, Is.False);
-            Assert.That(unloadCount(), Is.Zero);
-            Assert.That(provider.AllExtensions.Count(extension => extension.GetType() == extensionType), Is.EqualTo(1));
-            Assert.That(manager.LoadedPackage, Does.Contain(package));
+            Assert.That(unloaded, Is.True);
+            Assert.That(unloadCount(), Is.EqualTo(1));
+            Assert.That(provider.AllExtensions.Count(extension => extension.GetType() == extensionType), Is.Zero);
+            Assert.That(manager.LoadedPackage, Does.Not.Contain(package));
         }
+    }
+
+    [Test]
+    public async Task Unload_ReportsFailure_WhenTheLoadContextStaysAlive()
+    {
+        PackageManager manager = CreatePackageManager(out _, out _);
+        var package = new LocalPackage { Name = "RetainedContext" };
+        var loadContext = new PluginLoadContext(AppContext.BaseDirectory);
+        manager.LoadExtensionsAndRegister(
+            activity: null,
+            package,
+            assemblies: [],
+            loadContext,
+            [typeof(SuccessfulViewExtension)]);
+
+        bool unloaded = await manager.Unload(package);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(unloaded, Is.False);
+            Assert.That(SuccessfulViewExtension.UnloadCount, Is.EqualTo(1));
+            Assert.That(manager.LoadedPackage, Does.Not.Contain(package));
+        }
+        GC.KeepAlive(loadContext);
     }
 
     [Test]
@@ -508,65 +496,6 @@ public class PackageManagerExtensionLifecycleTests
             extensionProvider,
             commandManager,
             apiApplication: null!);
-    }
-
-    private static PackageManager CreatePackageManager(
-        IExtensionRegistry extensionRegistry,
-        out ContextCommandManager commandManager)
-    {
-        commandManager = new ContextCommandManager(new ContextCommandSettingsStore());
-        return new PackageManager(
-            new InstalledPackageRepository(),
-            extensionRegistry,
-            commandManager,
-            apiApplication: null!);
-    }
-
-    private sealed class DelegatingExtensionRegistry : IExtensionRegistry
-    {
-        private readonly ExtensionProvider _inner = new();
-
-        public int SynchronizationCount { get; private set; }
-
-        public ICoreReadOnlyList<Extension> AllExtensions => _inner.AllExtensions;
-
-        public event EventHandler? ExtensionsChanged
-        {
-            add => _inner.ExtensionsChanged += value;
-            remove => _inner.ExtensionsChanged -= value;
-        }
-
-        public IReadOnlyList<ExtensionDescriptor> Extensions
-            => ((IExtensionProvider)_inner).Extensions;
-
-        public IReadOnlyList<ExtensionDescriptor> GetDescriptors<TExtension>()
-            where TExtension : Extension
-            => ((IExtensionProvider)_inner).GetDescriptors<TExtension>();
-
-        public bool TryAcquire<TExtension>(
-            ExtensionId id,
-            [NotNullWhen(true)] out IExtensionLease<TExtension>? lease)
-            where TExtension : Extension
-            => ((IExtensionProvider)_inner).TryAcquire(id, out lease);
-
-        public void AddExtensions(int packageId, IReadOnlyList<Extension> extensions)
-            => _inner.AddExtensions(packageId, extensions);
-
-        public IReadOnlyList<Extension> GetPackageExtensions(int packageId)
-            => _inner.GetPackageExtensions(packageId);
-
-        public TExtension[] GetExtensions<TExtension>()
-            where TExtension : Extension
-            => _inner.GetExtensions<TExtension>();
-
-        public ExtensionRemoval RemoveExtensions(int packageId)
-            => _inner.RemoveExtensions(packageId);
-
-        public void SynchronizeMutation(Action action)
-        {
-            SynchronizationCount++;
-            _inner.SynchronizeMutation(action);
-        }
     }
 
     // Nested + private so the app's exported-type scan never picks these up; [Export] stays because
