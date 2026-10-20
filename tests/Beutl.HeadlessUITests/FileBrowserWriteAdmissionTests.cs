@@ -29,7 +29,7 @@ public sealed class FileBrowserWriteAdmissionTests
     [AvaloniaTest]
     public async Task Built_in_editor_context_writes_wait_out_a_worktree_mutation()
     {
-        EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-admission-builtin", 320, 180)).Editor;
+        EditViewModel editor = await OpenSceneWithoutPendingWritesAsync("filebrowser-admission-builtin");
         using var browser = new FileBrowserTabViewModel(editor);
 
         await AssertWritesFollowWorkspaceReservation(browser, TestShell.ProjectRoot(editor), coversResources: true);
@@ -38,7 +38,7 @@ public sealed class FileBrowserWriteAdmissionTests
     [AvaloniaTest]
     public async Task Plugin_provided_editor_context_writes_wait_out_a_worktree_mutation()
     {
-        EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-admission-plugin", 320, 180)).Editor;
+        EditViewModel editor = await OpenSceneWithoutPendingWritesAsync("filebrowser-admission-plugin");
         using PluginEditorTab tab = await PluginEditorTab.OpenAsync(TestShell.ProjectRoot(editor));
         using var browser = new FileBrowserTabViewModel(tab.Context);
 
@@ -288,7 +288,7 @@ public sealed class FileBrowserWriteAdmissionTests
     [AvaloniaTest]
     public async Task A_folder_copy_canceled_partway_keeps_what_it_copied_and_a_second_drop_skips_it()
     {
-        EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-cancel-folder-copy", 320, 180)).Editor;
+        EditViewModel editor = await OpenSceneWithoutPendingWritesAsync("filebrowser-cancel-folder-copy");
         using var browser = new FileBrowserTabViewModel(editor);
         Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
         string folder = Directory.CreateDirectory(Path.Combine(fixture.SourceDir, "footage")).FullName;
@@ -338,7 +338,10 @@ public sealed class FileBrowserWriteAdmissionTests
         Assert.Multiple(() =>
         {
             Assert.That(Directory.GetFiles(copiedFolder), Is.EqualTo(new[] { kept }), "the existing folder is skipped");
-            Assert.That(notifications.All, Has.Count.EqualTo(1), "the second drop is no failure");
+            Assert.That(
+                notifications.All.Select(n => (n.Type, n.Title, n.Message)),
+                Is.EqualTo(new[] { (NotificationType.Information, Strings.Copy, Strings.FileBrowser_CopyingFiles) }),
+                "the second drop is no failure");
         });
     }
 
@@ -418,6 +421,14 @@ public sealed class FileBrowserWriteAdmissionTests
             Assert.That(shownOnUiThread, Is.EqualTo(new[] { true }));
             Assert.That(File.Exists(Path.Combine(fixture.TargetDir, "copy.txt")), Is.False);
         });
+    }
+
+    // The editor's start-up fingerprint write would queue behind a transfer and take the next write's turn.
+    private static async Task<EditViewModel> OpenSceneWithoutPendingWritesAsync(string name)
+    {
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync(name, 320, 180)).Editor;
+        await editor.WaitForMediaFingerprintsAsync();
+        return editor;
     }
 
     private static async Task ObserveAsync(Task task)
