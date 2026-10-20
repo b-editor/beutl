@@ -20,9 +20,6 @@
   <data name="AddElement" xml:space="preserve">
     <value>요소 추가</value>
   </data>
-  <data name="RemoveElement" xml:space="preserve">
-    <value>요소 제거</value>
-  </data>
   <data name="CutElement" xml:space="preserve">
     <value>요소 잘라내기</value>
   </data>

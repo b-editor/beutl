@@ -121,9 +121,6 @@ public sealed partial class ElementViewModel : IDisposable
             .WithSubscribe(OnCopy)
             .DisposeWith(_disposables);
 
-        Exclude.Subscribe(OnExclude)
-            .AddTo(_disposables);
-
         Delete.Subscribe(OnDelete)
             .AddTo(_disposables);
 
@@ -305,8 +302,6 @@ public sealed partial class ElementViewModel : IDisposable
     public AsyncReactiveCommand Cut { get; } = new();
 
     public AsyncReactiveCommand Copy { get; }
-
-    public ReactiveCommand Exclude { get; } = new();
 
     public ReactiveCommand Delete { get; } = new();
 
@@ -509,14 +504,6 @@ public sealed partial class ElementViewModel : IDisposable
                 .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
                 .ToArray(),
             Scope: Scope.PrepareAnimation());
-    }
-
-    private void OnExclude()
-    {
-        Element[] targets = RemovableTargets();
-        if (targets.Length == 0) return;
-        Timeline.EditorContext.GetRequiredService<IElementStructureService>()
-            .Exclude(Scene, targets, Timeline.IsRippleEnabled.Value);
     }
 
     private void OnDelete()

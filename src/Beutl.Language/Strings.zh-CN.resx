@@ -230,9 +230,6 @@
   <data name="Remove" xml:space="preserve">
     <value>移除</value>
   </data>
-  <data name="Exclude" xml:space="preserve">
-    <value>排除</value>
-  </data>
   <data name="Back" xml:space="preserve">
     <value>返回</value>
   </data>
@@ -943,9 +940,6 @@
   </data>
   <data name="Rename_Description" xml:space="preserve">
     <value>重命名所选项目。</value>
-  </data>
-  <data name="Exclude_Description" xml:space="preserve">
-    <value>排除所选项目。</value>
   </data>
   <data name="Delete_Description" xml:space="preserve">
     <value>删除所选项目。</value>

@@ -102,9 +102,6 @@
   <data name="EditAnimation" xml:space="preserve">
     <value>アニメーションを編集</value>
   </data>
-  <data name="Exclude" xml:space="preserve">
-    <value>除外</value>
-  </data>
   <data name="Exit" xml:space="preserve">
     <value>終了</value>
   </data>
@@ -959,9 +956,6 @@
   </data>
   <data name="Rename_Description" xml:space="preserve">
     <value>選択したアイテムの名前を変更。</value>
-  </data>
-  <data name="Exclude_Description" xml:space="preserve">
-    <value>選択したアイテムを除外します。</value>
   </data>
   <data name="Delete_Description" xml:space="preserve">
     <value>選択したアイテムを消去します。</value>

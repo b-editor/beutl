@@ -29,7 +29,7 @@ internal static class ContextCommandLegacyKeys
             "ShuttleBackwardFine", "ShuttleForward", "ShuttleForwardFine", "ShuttleStop", "ToggleLoop", "ToggleMarker",
             "ToggleOnionSkin"]),
         ("Beutl.Services.PrimitiveImpls.TimelineTabExtension", "timeline",
-            ["CloseAllGaps", "CloseGap", "Copy", "Cut", "Delete", "Duplicate", "Exclude", "ExitRazorMode",
+            ["CloseAllGaps", "CloseGap", "Copy", "Cut", "Delete", "Duplicate", "ExitRazorMode",
             "ExitRollMode", "ExitSlideMode", "ExitSlipMode", "GoToNextGap", "GoToPreviousGap", "NudgeLeftFrame",
             "NudgeLeftLarge", "NudgeLeftSecond", "NudgeRightFrame", "NudgeRightLarge", "NudgeRightSecond", "Paste",
             "Rename", "SaveAsTemplate", "SetEndTime", "SetStartTime", "Split", "ToggleGroup", "ToggleRazorMode",
@@ -38,4 +38,8 @@ internal static class ContextCommandLegacyKeys
         .SelectMany(group => group.Names.Select(name => KeyValuePair.Create(
             $"{group.Type}.{name}", $"{group.Prefix}.{char.ToLowerInvariant(name[0])}{name[1..]}")))
         .ToFrozenDictionary();
+
+    // Keys of removed commands, whose saved gestures are dropped. Delete took over Exclude (#2876).
+    public static readonly IReadOnlyList<string> Removed =
+        ["timeline.exclude", "Beutl.Services.PrimitiveImpls.TimelineTabExtension.Exclude"];
 }
