@@ -121,6 +121,78 @@ public class SceneTests
         });
     }
 
+    [Test]
+    public void Storing_scene_drops_the_exclusion_of_a_deleted_file_and_keeps_globs()
+    {
+        var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "project.scene")) };
+        var element = new Element { Uri = new Uri(Path.Combine(_tempDirectory, "elements", "deleted.belm")) };
+        scene.Children.Add(element);
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        JsonObject json = JsonNode.Parse(File.ReadAllText(scene.Uri.LocalPath))!.AsObject();
+        json["Elements"]!["Exclude"] = "other/*.belm";
+        json.JsonSave(scene.Uri.LocalPath);
+        Scene loaded = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
+
+        loaded.RemoveChild(loaded.Children.Single());
+        File.Delete(element.Uri.LocalPath);
+        CoreSerializer.StoreToUri(loaded, scene.Uri, CoreSerializationMode.Write);
+
+        JsonNode patterns = JsonNode.Parse(File.ReadAllText(scene.Uri.LocalPath))!["Elements"]!;
+        Assert.That(patterns["Exclude"]!.GetValue<string>(), Is.EqualTo("other/*.belm"));
+    }
+
+    // The matcher ignores a directory exclusion's case, so a save keeps it even where the spelling differs on disk.
+    [TestCase("ELEMENTS")]
+    [TestCase("/ELEMENTS")]
+    public void Storing_scene_keeps_a_directory_exclusion_in_another_case(string pattern)
+    {
+        (Scene scene, Element retained, _) = CreateSceneExcluding(pattern);
+
+        Scene loaded = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
+        CoreSerializer.StoreToUri(loaded, scene.Uri!, CoreSerializationMode.Write);
+
+        Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ReadExclude(scene), Is.EqualTo(pattern));
+            Assert.That(reloaded.Children.Select(child => child.Id), Is.EqualTo(new[] { retained.Id }));
+        });
+    }
+
+    [Test]
+    public void Storing_scene_keeps_the_exclusion_of_an_absent_directory()
+    {
+        (Scene scene, _, _) = CreateSceneExcluding("absent");
+
+        Scene loaded = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
+        CoreSerializer.StoreToUri(loaded, scene.Uri!, CoreSerializationMode.Write);
+        var returned = new Element { Uri = new Uri(Path.Combine(_tempDirectory, "absent", "returned.belm")) };
+        CoreSerializer.StoreToUri(returned, returned.Uri);
+
+        Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ReadExclude(scene), Is.EqualTo("absent"));
+            Assert.That(reloaded.Children.Select(child => child.Id), Has.No.Member(returned.Id));
+        });
+    }
+
+    private (Scene Scene, Element Retained, Element Excluded) CreateSceneExcluding(string pattern)
+    {
+        var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "project.scene")) };
+        var retained = new Element { Uri = new Uri(Path.Combine(_tempDirectory, "retained.belm")) };
+        var excluded = new Element { Uri = new Uri(Path.Combine(_tempDirectory, "elements", "excluded.belm")) };
+        scene.Children.AddRange([retained, excluded]);
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        JsonObject json = JsonNode.Parse(File.ReadAllText(scene.Uri.LocalPath))!.AsObject();
+        json["Elements"]!["Exclude"] = pattern;
+        json.JsonSave(scene.Uri.LocalPath);
+        return (scene, retained, excluded);
+    }
+
+    private static string? ReadExclude(Scene scene)
+        => JsonNode.Parse(File.ReadAllText(scene.Uri!.LocalPath))!["Elements"]!["Exclude"]?.GetValue<string>();
+
     [TestCase(false)]
     [TestCase(true)]
     public void SceneReload_PreservesRestoredChildWithDifferentPathCasing(bool replace)

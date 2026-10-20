@@ -396,7 +396,7 @@ public partial class PlayerViewPlaybackInputTests
         EditViewModel editor = await OpenEditor();
         Scene3D scene = await Add3DScene(editor);
         Object3D cube = scene.Objects.Single();
-        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = editor.Scene.Children.Single();
+        editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
         using var release = new CancellationTokenSource();
@@ -486,7 +486,7 @@ public partial class PlayerViewPlaybackInputTests
         EditViewModel editor = await OpenEditor();
         Scene3D scene = await Add3DScene(editor);
         Object3D cube = scene.Objects.Single();
-        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = editor.Scene.Children.Single();
+        editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
         using var release = new CancellationTokenSource();
@@ -574,9 +574,9 @@ public partial class PlayerViewPlaybackInputTests
         // Selecting the element again places the handles on the drawable the last press hit.
         void UpdateHandles()
         {
-            selection.SelectedObject.Value = null;
+            selection.Select(null);
             HeadlessTestHelpers.Render();
-            selection.SelectedObject.Value = element;
+            selection.Select(element);
             HeadlessTestHelpers.Render();
         }
     }

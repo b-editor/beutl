@@ -1,5 +1,6 @@
 ﻿using Beutl.Api.Services;
 using Beutl.Editor.Models;
+using Beutl.Editor.Services.AI;
 using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -611,7 +612,7 @@ public sealed partial class AiSubtitleDialogViewModel
     {
         try
         {
-            AiTranscriptionSegment[] segments = ValidateTranscriptionSegments(response.Segments, duration);
+            AiTranscriptionSegment[] segments = AiRequestRules.ValidateTranscriptionSegments(response.Segments, duration);
             if (!_disposed && IsCurrentCaptionDraftScope(draftScopeRevision))
                 HasRejectedTranscriptionResult.Value = false;
             return response with { Segments = segments };
@@ -622,50 +623,6 @@ public sealed partial class AiSubtitleDialogViewModel
                 HasRejectedTranscriptionResult.Value = true;
             throw new RejectedTranscriptionResultException(ex);
         }
-    }
-
-    internal static AiTranscriptionSegment[] ValidateTranscriptionSegments(
-        IReadOnlyList<AiTranscriptionSegment> segments,
-        double maximumEndSeconds)
-    {
-        const double TimestampToleranceSeconds = 0.05;
-        if (!double.IsFinite(maximumEndSeconds) || maximumEndSeconds <= 0)
-            throw new InvalidDataException("The transcription chunk duration is invalid.");
-        if (segments.Count == 0)
-            return [];
-        double previousStart = -1;
-        double previousEnd = 0;
-        var normalized = new AiTranscriptionSegment[segments.Count];
-        for (int i = 0; i < segments.Count; i++)
-        {
-            AiTranscriptionSegment segment = segments[i];
-            if (segment is null
-                || !double.IsFinite(segment.Start)
-                || !double.IsFinite(segment.End)
-                || segment.Start < 0
-                || segment.Start < previousStart
-                || segment.End < previousEnd
-                || segment.Start < previousEnd - TimestampToleranceSeconds
-                || segment.End <= segment.Start
-                || segment.End > maximumEndSeconds + TimestampToleranceSeconds
-                || Math.Min(segment.End, maximumEndSeconds) <= segment.Start
-                || string.IsNullOrWhiteSpace(segment.Text))
-            {
-                // This is a client-side rejection of a potentially paid success, not a
-                // settled provider failure. Keep its request key available for recovery.
-                throw new InvalidDataException("The transcription provider returned an invalid segment set.");
-            }
-
-            normalized[i] = new AiTranscriptionSegment
-            {
-                Start = segment.Start,
-                End = Math.Min(segment.End, maximumEndSeconds),
-                Text = segment.Text,
-            };
-            previousStart = segment.Start;
-            previousEnd = normalized[i].End;
-        }
-        return normalized;
     }
 
     // A run is worth picking up as soon as it has named a piece, not only once a

@@ -13,6 +13,15 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public sealed class PackageOperationLifetimeTests
 {
+    private AppRootFileBackup _queue = null!;
+
+    // A failed install queues itself, which would reach every later queue and the shell's hand-off.
+    [SetUp]
+    public void SetUp() => _queue = new AppRootFileBackup("packageChanges.json");
+
+    [TearDown]
+    public void TearDown() => _queue.Dispose();
+
     [Avalonia.Headless.NUnit.AvaloniaTest]
     public async Task CancellationWhilePublicationIsQueued_DoesNotPublishOrRegisterData()
     {

@@ -140,7 +140,6 @@ public sealed partial class MainViewModel
                     Items =
                     [
                         new(Strings.Delete) { Command = MenuBar.DeleteLayer },
-                        new(Strings.Exclude) { Command = MenuBar.ExcludeLayer },
                         new(Strings.Cut) { Command = MenuBar.CutLayer },
                         new(Strings.Copy) { Command = MenuBar.CopyLayer },
                         new(Strings.Paste) { Command = MenuBar.PasteLayer },

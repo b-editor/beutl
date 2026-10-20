@@ -5,7 +5,6 @@ using Beutl.Helpers;
 using Beutl.Services;
 using DynamicData;
 using Microsoft.Extensions.Logging;
-using NuGet.Packaging.Core;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -448,35 +447,19 @@ public partial class MainViewModel
     private void PerformShutdownHandoff(BeutlApiApplication clients)
     {
         PackageChangesQueue queue = clients.GetResource<PackageChangesQueue>();
-        PackageIdentity[] installs = queue.GetInstalls().ToArray();
-        PackageIdentity[] uninstalls = queue.GetUninstalls().ToArray();
-
-        if (installs.Length == 0 && uninstalls.Length == 0)
+        if (!queue.GetInstalls().Any() && !queue.GetUninstalls().Any())
             return;
 
+        // PackageTools.UI reads the changes from the queue's file, and from arguments when the last save failed.
         var startInfo = new ProcessStartInfo() { UseShellExecute = true, };
         DotNetProcess.Configure(startInfo, Path.Combine(AppContext.BaseDirectory, "Beutl.PackageTools.UI"));
 
-        AddPackageArguments(startInfo, "--installs", installs);
-        AddPackageArguments(startInfo, "--uninstalls", uninstalls);
-
+        startInfo.ArgumentList.AddRange(queue.GetUnsavedArguments());
         startInfo.ArgumentList.AddRange(["--session-id", Telemetry.Instance._sessionId]);
 
         if (Debugger.IsAttached)
             startInfo.ArgumentList.Add("--launch-debugger");
 
         Process.Start(startInfo);
-    }
-
-    private static void AddPackageArguments(ProcessStartInfo startInfo, string option, PackageIdentity[] packages)
-    {
-        if (packages.Length > 0)
-        {
-            startInfo.ArgumentList.Add(option);
-            foreach (PackageIdentity? item in packages)
-            {
-                startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
-            }
-        }
     }
 }

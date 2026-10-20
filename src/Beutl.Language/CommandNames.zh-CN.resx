@@ -20,9 +20,6 @@
   <data name="AddElement" xml:space="preserve">
     <value>添加元素</value>
   </data>
-  <data name="RemoveElement" xml:space="preserve">
-    <value>移除元素</value>
-  </data>
   <data name="CutElement" xml:space="preserve">
     <value>剪切元素</value>
   </data>
