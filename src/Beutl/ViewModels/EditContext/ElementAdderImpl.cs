@@ -122,7 +122,26 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         if (persistenceFailure is not null)
             return persistenceFailure;
 
-        return CommitBatch(scene, sceneId, plans, preparedElements, itemResults, groups, stagedFiles, cancellationToken);
+        // A batch prepared while an edit session is open, such as an AI result, is added after the session ends.
+        ElementAddResult? result = null;
+        bool committing = false;
+        try
+        {
+            await _context.HistoryManager.RunAfterEditAsync(
+                () =>
+                {
+                    committing = true;
+                    result = CommitBatch(scene, sceneId, plans, preparedElements, itemResults, groups, stagedFiles, cancellationToken);
+                },
+                cancellationToken);
+        }
+        catch (OperationCanceledException ex) when (!committing && cancellationToken.IsCancellationRequested)
+        {
+            CleanupStagedFiles(stagedFiles, ex);
+            throw;
+        }
+
+        return result!;
     }
 
     // Acquires a handler and a preflight for every description; returns the failure that rejects the batch.

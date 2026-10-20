@@ -118,27 +118,32 @@ public sealed partial class Reconciler
         }
     }
 
-    public ReconcileResult Apply(IEditingSession session, JsonObject desired, IReadOnlySet<Guid>? knownNewIds = null)
+    public ReconcileResult Apply(
+        IEditingSession session,
+        JsonObject desired,
+        IReadOnlySet<Guid>? knownNewIds = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(desired);
 
-        return session.ReadOnSession(() => ApplyCore(session, desired, knownNewIds));
+        return session.EditOnSession(() => ApplyCore(session, desired, knownNewIds), cancellationToken);
     }
 
     // Read, merge, plan and mutate in one dispatch, so the live scene cannot change in between.
     public ReconcileResult ApplyFromCurrent(
         IEditingSession session,
-        Func<JsonObject, (JsonObject Desired, IReadOnlySet<Guid>? KnownNewIds)> resolve)
+        Func<JsonObject, (JsonObject Desired, IReadOnlySet<Guid>? KnownNewIds)> resolve,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(resolve);
 
-        return session.ReadOnSession(() =>
+        return session.EditOnSession(() =>
         {
             (JsonObject desired, IReadOnlySet<Guid>? knownNewIds) = resolve(session.Documents.Read(session.Root));
             return ApplyCore(session, desired, knownNewIds);
-        });
+        }, cancellationToken);
     }
 
     // Resolve, validate the change set and mutate in one dispatch, so a UI edit cannot slip between
@@ -146,17 +151,18 @@ public sealed partial class Reconciler
     public ReconcileResult ApplyValidated(
         IEditingSession session,
         Func<JsonObject, (JsonObject Desired, IReadOnlySet<Guid>? KnownNewIds)> resolve,
-        Func<ReconcilePlan, ToolError?> validate)
+        Func<ReconcilePlan, ToolError?> validate,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(resolve);
         ArgumentNullException.ThrowIfNull(validate);
 
-        return session.ReadOnSession(() =>
+        return session.EditOnSession(() =>
         {
             (JsonObject desired, IReadOnlySet<Guid>? knownNewIds) = resolve(session.Documents.Read(session.Root));
             return ApplyCore(session, desired, knownNewIds, validate);
-        });
+        }, cancellationToken);
     }
 
     private ReconcileResult ApplyCore(

@@ -59,6 +59,8 @@ internal partial class VersionControlCoordinator
             return false;
         }
 
+        // Restoring replaces the open documents, so a gesture in progress ends first.
+        await _editorService.WaitForEditSessionsAsync();
         // Held until the project is closed further down: the awaits between this save
         // and the close run real Git commands, and an edit made in that window would
         // miss the safety snapshot and be discarded when the editors close.

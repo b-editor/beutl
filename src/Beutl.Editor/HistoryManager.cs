@@ -67,6 +67,7 @@ public sealed partial class HistoryManager : IDisposable
     {
         ThrowIfDisposed();
         FireBeforeMutation();
+        DrainQueuedEdits();
     }
 
     public ReadOnlyObservableCollection<HistoryEntry> Entries => _readOnlyEntries;
@@ -95,7 +96,7 @@ public sealed partial class HistoryManager : IDisposable
             ThrowIfDisposed();
             lock (_lock)
             {
-                return _currentTransaction.HasOperations;
+                return _currentTransaction.HasOperations || _activeSession?.Transaction.HasOperations == true;
             }
         }
     }
@@ -148,7 +149,9 @@ public sealed partial class HistoryManager : IDisposable
                 return false;
             }
 
-            return index != _undoStack.Count || _currentTransaction.HasOperations;
+            return index != _undoStack.Count
+                   || _currentTransaction.HasOperations
+                   || _activeSession?.Transaction.HasOperations == true;
         }
     }
 
@@ -189,13 +192,17 @@ public sealed partial class HistoryManager : IDisposable
     {
         ThrowIfDisposed();
 
+        bool sessionCompleted;
         lock (_lock)
         {
             ThrowIfHistoryControlIsBlocked_NoLock();
+            sessionCompleted = CompleteYieldingSessionBeforeCommit_NoLock();
             CommitCurrentTransaction_NoLock(name, expression);
         }
 
         NotifyStateChanged();
+        if (sessionCompleted)
+            DrainQueuedEdits();
     }
 
     public void Rollback()
@@ -281,6 +288,7 @@ public sealed partial class HistoryManager : IDisposable
         {
             if (stateChanged)
                 NotifyStateChanged();
+            DrainQueuedEdits();
         }
     }
 
@@ -296,6 +304,10 @@ public sealed partial class HistoryManager : IDisposable
             throw new InvalidOperationException(
                 "History control cannot run while history entry changes are being published.");
         }
+        if (IsInSessionScope_NoLock())
+        {
+            throw new InvalidOperationException("History control cannot run inside an edit session's scope.");
+        }
     }
 
     private HistoryTransaction CreateTransaction()
@@ -310,6 +322,13 @@ public sealed partial class HistoryManager : IDisposable
         }
 
         HistoryTransaction transaction = _currentTransaction;
+        _currentTransaction = CreateTransaction();
+        PushTransaction_NoLock(transaction, name, expression);
+        return true;
+    }
+
+    private void PushTransaction_NoLock(HistoryTransaction transaction, string? name, string? expression)
+    {
         transaction.Name = expression;
         transaction.DisplayName = name;
         _logger.LogDebug(
@@ -323,10 +342,8 @@ public sealed partial class HistoryManager : IDisposable
         // A new branch can replay its own edits, but cannot undo past an
         // earlier failure whose surviving model state is uncertain.
         _maximumReplayIndex = int.MaxValue;
-        _currentTransaction = CreateTransaction();
         TruncateEntriesAfter(currentEntryIndex);
         AddEntry(HistoryEntry.FromTransaction(transaction));
-        return true;
     }
 
     private void RollbackCurrentTransaction_NoLock()
@@ -347,6 +364,11 @@ public sealed partial class HistoryManager : IDisposable
     {
         HistoryTransaction transaction = _currentTransaction;
         _currentTransaction = CreateTransaction();
+        RevertDetachedTransaction_NoLock(transaction, ref stateChanged);
+    }
+
+    private void RevertDetachedTransaction_NoLock(HistoryTransaction transaction, ref bool stateChanged)
+    {
         if (transaction.HasOperations)
         {
             _logger.LogDebug(
@@ -408,7 +430,10 @@ public sealed partial class HistoryManager : IDisposable
                 return;
             }
 
-            _currentTransaction.AddOperation(operation);
+            if (IsInSessionScope_NoLock())
+                _activeSession!.Transaction.AddOperation(operation);
+            else
+                _currentTransaction.AddOperation(operation);
         }
     }
 
@@ -426,6 +451,9 @@ public sealed partial class HistoryManager : IDisposable
             lock (_lock)
             {
                 ThrowIfHistoryControlIsBlocked_NoLock();
+                if (IsEditSessionOpen_NoLock("Undo/Redo"))
+                    return false;
+
                 attemptedMutation = _currentTransaction.HasOperations;
                 RollbackCurrentTransaction_NoLock();
                 Stack<HistoryTransaction> source = redo ? _redoStack : _undoStack;
@@ -446,6 +474,7 @@ public sealed partial class HistoryManager : IDisposable
             // surviving state even when replay was stopped at a failure boundary.
             if (attemptedMutation)
                 NotifyStateChanged();
+            DrainQueuedEdits();
         }
     }
 
@@ -456,6 +485,9 @@ public sealed partial class HistoryManager : IDisposable
         lock (_lock)
         {
             ThrowIfHistoryControlIsBlocked_NoLock();
+            if (_activeSession is not null)
+                throw new InvalidOperationException("History cannot be cleared while an edit session is open.");
+
             ClearHistory_NoLock();
         }
 
@@ -501,6 +533,9 @@ public sealed partial class HistoryManager : IDisposable
             lock (_lock)
             {
                 ThrowIfHistoryControlIsBlocked_NoLock();
+                if (IsEditSessionOpen_NoLock("JumpTo"))
+                    return false;
+
                 if (!IsReplayIndexReachable_NoLock(index))
                 {
                     _logger.LogDebug("JumpTo requested with unreachable index: {Index} (Entries: {EntryCount})",
@@ -550,6 +585,8 @@ public sealed partial class HistoryManager : IDisposable
             {
                 NotifyStateChanged();
             }
+
+            DrainQueuedEdits();
         }
 
         if (failure is not null)
@@ -709,6 +746,7 @@ public sealed partial class HistoryManager : IDisposable
             return;
 
         _isDisposed = true;
+        DropEditSessions();
         lock (_subscriptions)
         {
             foreach (var subscription in _subscriptions)

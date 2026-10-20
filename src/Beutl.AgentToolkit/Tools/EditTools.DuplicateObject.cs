@@ -23,7 +23,8 @@ public sealed partial class EditTools
         [Description("Optional owning Element Id to scope the search; omit to search every element for objectId.")]
         string? elementId = null,
         [Description("When true, wrap the original drawable and the new copy in a DrawableGroup inside the same Element. If the source drawable is already inside a DrawableGroup, the copy is appended to that existing group instead.")]
-        bool wrapInGroup = false)
+        bool wrapInGroup = false,
+        CancellationToken cancellationToken = default)
     {
         return Execute(() =>
         {
@@ -32,7 +33,7 @@ public sealed partial class EditTools
             {
                 // Locate/read/clone the source and mutate all on the session dispatcher so a
                 // LiveEditor wrap does not traverse the UI-owned scene on the MCP request thread.
-                return session.ReadOnSession(() => DuplicateObjectIntoDrawableGroup(session, objectId, elementId));
+                return session.EditOnSession(() => DuplicateObjectIntoDrawableGroup(session, objectId, elementId), cancellationToken);
             }
 
             // Read the source document, clone, and plan/apply all inside the reconcile dispatch so a
@@ -48,7 +49,7 @@ public sealed partial class EditTools
                 objects.Add(clone);
                 elementId2 = ReadId(element) ?? string.Empty;
                 return (desired, new HashSet<Guid> { newId });
-            });
+            }, cancellationToken);
 
             return new DuplicateObjectResponse(
                 result.Plan.Valid,

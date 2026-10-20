@@ -24,4 +24,7 @@ public interface IEditingSession
     bool IsDirty { get; }
 
     void Invoke(Action action);
+
+    // For edits: a live session runs them after the user's edit session, waiting up to a deadline.
+    void InvokeEdit(Action action, CancellationToken cancellationToken = default) => Invoke(action);
 }

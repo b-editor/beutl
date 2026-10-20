@@ -71,7 +71,8 @@ public sealed partial class EditTools
         JsonObject? inputProps = null,
         string? seed = null,
         string? planId = null,
-        JsonNode? expectedChangeSet = null)
+        JsonNode? expectedChangeSet = null,
+        CancellationToken cancellationToken = default)
     {
         return Execute(() =>
         {
@@ -92,7 +93,8 @@ public sealed partial class EditTools
                             ErrorCode.ValidationRejected,
                             "The live composition change set differs from the stored planId.",
                             planId,
-                            "Run plan_composition again and pass the new planId."));
+                            "Run plan_composition again and pass the new planId."),
+                    cancellationToken);
                 sessions.RemoveCompositionPlan(state.Id);
                 return new ApplyCompositionResponse(
                     SchemaVersion.Current,
@@ -125,7 +127,8 @@ public sealed partial class EditTools
                         ErrorCode.ValidationRejected,
                         "The live composition change set differs from expectedChangeSet.",
                         null,
-                        "Run plan_composition again and submit the updated expectedChangeSet."));
+                        "Run plan_composition again and submit the updated expectedChangeSet."),
+                cancellationToken);
             return new ApplyCompositionResponse(
                 SchemaVersion.Current,
                 CreateCompositionRunSummary(composition),

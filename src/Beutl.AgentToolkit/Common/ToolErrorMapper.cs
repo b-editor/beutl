@@ -45,6 +45,7 @@ internal static class ToolErrorMapper
                 ex.Path,
                 "Reload the project or save to a different path."),
             SessionUnavailableException ex => ex.ToError(),
+            UserEditingException ex => ex.ToError(),
             OutputOperationBusyException ex => new ToolError(
                 ex.Code,
                 ex.Message,

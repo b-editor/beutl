@@ -17,6 +17,8 @@ public sealed class ElementNudgeService : IElementNudgeService
     private readonly Action<Action>? _postToUi;
     private readonly Timer _timer;
     private readonly object _gate = new();
+    // The nudge window's own edit session, so a nudge never lands in another feature's entry.
+    private EditSession? _session;
     private bool _pending;
     // volatile for a quick cross-thread read; the lock-protected re-check in
     // Schedule() is the real guard against ObjectDisposedException on _timer.
@@ -64,8 +66,23 @@ public sealed class ElementNudgeService : IElementNudgeService
         TimeSpan delta = anchoredStart - anchor.Start;
         if (delta == TimeSpan.Zero) return;
 
-        scene.MoveChildren(0, delta, targets.ToArray());
-        Schedule();
+        if (_session is not { IsOpen: true })
+        {
+            // Another edit owns history until it ends; a nudge now would land in its entry.
+            if (_historyManager.IsEditing) return;
+            _session = _historyManager.BeginYieldingEdit(CommandNames.MoveElement);
+        }
+
+        try
+        {
+            using (_session.Enter())
+                scene.MoveChildren(0, delta, targets.ToArray());
+        }
+        finally
+        {
+            // The debounce timer closes the session, so a failed move still arms it.
+            Schedule();
+        }
     }
 
     public void Flush()
@@ -138,9 +155,11 @@ public sealed class ElementNudgeService : IElementNudgeService
 
     private void CommitPending()
     {
+        EditSession? session = Interlocked.Exchange(ref _session, null);
         try
         {
-            _historyManager.Commit(CommandNames.MoveElement);
+            if (session is { IsOpen: true })
+                session.Complete();
         }
         catch (ObjectDisposedException ex)
         {

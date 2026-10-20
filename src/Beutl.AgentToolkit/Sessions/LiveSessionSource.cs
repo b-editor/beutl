@@ -16,6 +16,9 @@ public sealed class LiveEditingSession : IEditingSession
 
     public string SessionId { get; }
 
+    // How long an edit waits for the user's gesture to end before it fails with user_editing.
+    internal static TimeSpan EditSessionWait { get; set; } = TimeSpan.FromSeconds(10);
+
     public static LiveEditingSession Create(ILiveSessionBinding binding)
     {
         ArgumentNullException.ThrowIfNull(binding);
@@ -62,10 +65,29 @@ public sealed class LiveEditingSession : IEditingSession
         });
     }
 
+    public void InvokeEdit(Action action, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        _binding.InvokeEdit(
+            () =>
+            {
+                if (!IsAlive)
+                {
+                    throw new SessionUnavailableException();
+                }
+
+                action();
+            },
+            EditSessionWait,
+            cancellationToken);
+    }
+
     internal ValueTask<TResult> ExecuteHistoryMutationAsync<TResult>(
         Func<HistoryManager, bool> shouldPause,
         Func<HistoryManager, TResult> operation,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool waitForEditSession = false)
     {
         ArgumentNullException.ThrowIfNull(shouldPause);
         ArgumentNullException.ThrowIfNull(operation);
@@ -81,7 +103,8 @@ public sealed class LiveEditingSession : IEditingSession
                 EnsureHistoryBindingIsAlive(history);
                 return operation(history);
             },
-            cancellationToken);
+            cancellationToken,
+            waitForEditSession ? EditSessionWait : null);
     }
 
     private void EnsureHistoryBindingIsAlive(HistoryManager history)

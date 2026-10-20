@@ -79,6 +79,9 @@ public sealed class HistoryTools(AgentSessionManager sessions) : ToolBase
                     HistoryTransaction? next = redo ? history.PeekRedo() : history.PeekUndo();
                     if (next is null || !(redo ? history.Redo() : history.Undo()))
                     {
+                        // A gesture that began after the wait holds history; the stack itself is not empty.
+                        if (next is not null && history.IsEditing)
+                            throw new UserEditingException();
                         break;
                     }
 
@@ -97,7 +100,8 @@ public sealed class HistoryTools(AgentSessionManager sessions) : ToolBase
                 // Capture the point-in-time response before leaving the guarded mutation dispatch.
                 return CreateState(history, applied, message);
             },
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken,
+            waitForEditSession: true).ConfigureAwait(false);
 
         if (state.Applied.Count > 0)
         {
@@ -127,14 +131,16 @@ public sealed class HistoryTools(AgentSessionManager sessions) : ToolBase
         IEditingSession session,
         Func<HistoryManager, bool> shouldPause,
         Func<HistoryManager, TResult> operation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool waitForEditSession = false)
     {
         if (session is LiveEditingSession liveSession)
         {
             return await liveSession.ExecuteHistoryMutationAsync(
                 shouldPause,
                 operation,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                waitForEditSession).ConfigureAwait(false);
         }
 
         TResult result = default!;

@@ -51,6 +51,39 @@ public sealed class EditViewModelLiveBinding(EditViewModel editViewModel, AgentE
         }
     }
 
+    public void InvokeEdit(Action action, TimeSpan sessionWait, CancellationToken cancellationToken)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            // The UI thread cannot wait for the user's gesture, which needs that thread to end.
+            if (editViewModel.HistoryManager.IsEditing)
+                throw new UserEditingException();
+
+            InvokeAndFollow(action);
+            return;
+        }
+
+        Dispatcher.UIThread.InvokeAsync(
+                () => RunAfterEditSessionAsync(() => InvokeAndFollow(action), sessionWait, cancellationToken))
+            .GetAwaiter()
+            .GetResult();
+    }
+
+    // Starts the deadline on the UI thread, so time spent waiting for that thread is not counted.
+    private async Task RunAfterEditSessionAsync(Action edit, TimeSpan sessionWait, CancellationToken cancellationToken)
+    {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(sessionWait);
+        try
+        {
+            await editViewModel.HistoryManager.RunAfterEditAsync(edit, deadline.Token);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && deadline.IsCancellationRequested)
+        {
+            throw new UserEditingException();
+        }
+    }
+
     // Every agent mutation reaches the editor through this binding, so the history stacks before
     // and after the call show which transaction it committed, undid or redid.
     private TResult InvokeAndFollow<TResult>(Func<TResult> operation)
@@ -72,13 +105,17 @@ public sealed class EditViewModelLiveBinding(EditViewModel editViewModel, AgentE
     public async ValueTask<TResult> ExecuteHistoryMutationAsync<TResult>(
         Func<HistoryManager, bool> shouldPause,
         Func<HistoryManager, TResult> operation,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        TimeSpan? sessionWait = null)
     {
         ArgumentNullException.ThrowIfNull(shouldPause);
         ArgumentNullException.ThrowIfNull(operation);
 
         async ValueTask<TResult> ExecuteCoreAsync()
         {
+            if (sessionWait is { } wait)
+                await RunAfterEditSessionAsync(static () => { }, wait, cancellationToken);
+
             HistoryManager history = editViewModel.HistoryManager;
             return await editViewModel.ExecuteGuardedHistoryMutationAsync(
                 () => shouldPause(history),

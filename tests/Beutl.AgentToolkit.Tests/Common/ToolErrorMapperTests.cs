@@ -21,6 +21,14 @@ public sealed class ToolErrorMapperTests
     }
 
     [Test]
+    public void An_edit_that_outwaited_the_user_maps_to_user_editing()
+    {
+        ToolError error = ToolErrorMapper.Map(new Beutl.AgentToolkit.Sessions.UserEditingException());
+
+        Assert.That(error.Code, Is.EqualTo(ErrorCode.UserEditing));
+    }
+
+    [Test]
     public void Unmapped_argument_exception_shows_the_parameter_name_as_given()
     {
         ToolError error = ToolErrorMapper.Map(Catch(

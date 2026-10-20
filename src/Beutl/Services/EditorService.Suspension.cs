@@ -1,4 +1,6 @@
-﻿namespace Beutl.Services;
+﻿using Beutl.Editor;
+
+namespace Beutl.Services;
 
 public partial class EditorService
 {
@@ -78,6 +80,24 @@ public partial class EditorService
 
     private bool IsTrackedByTab(IEditorContext context)
         => TabItems.Any(item => ReferenceEquals(item.Context.Value, context));
+
+    // Resolves once no open editor has an edit session, so a transition waits for the user's gesture to end.
+    internal async Task WaitForEditSessionsAsync()
+    {
+        Task[] waits = [.. TabItems.ToArray()
+            .Select(item => item.Context.Value?.GetService(typeof(HistoryManager)))
+            .OfType<HistoryManager>()
+            .Where(history => history.IsEditing)
+            .Select(history => history.RunAfterEditAsync(static () => { }))];
+        try
+        {
+            await Task.WhenAll(waits);
+        }
+        catch (ObjectDisposedException)
+        {
+            // An editor closed while the transition waited has no session left.
+        }
+    }
 
     /// <summary>
     /// Disables every open editor until the returned handle is disposed.
