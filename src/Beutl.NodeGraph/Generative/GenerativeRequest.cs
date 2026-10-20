@@ -157,7 +157,7 @@ public static class AiImageEditTasks
         _ => throw new ArgumentOutOfRangeException(nameof(task)),
     };
 
-    /// <summary>The tasks the AI tab asks a prompt for.</summary>
+    /// <summary>The tasks that take a prompt when the catalog does not say.</summary>
     public static bool RequiresPrompt(this AiImageEditTask task)
         => task is AiImageEditTask.Restyle or AiImageEditTask.RemoveObject or AiImageEditTask.Outpaint;
 

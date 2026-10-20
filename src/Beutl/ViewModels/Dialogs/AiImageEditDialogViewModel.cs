@@ -143,7 +143,7 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
             .Subscribe(task => _ = ReloadModelsAsync(task))
             .DisposeWith(_disposables);
         RequiresPrompt = SelectedTask
-            .Select(task => task.Value is RestyleTask or RemoveObjectTask or OutpaintTask)
+            .CombineLatest(ModelPicker.IsLoaded, (task, _) => AiRequestRules.RequiresPrompt(ModelPicker.Catalog, task.Value))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
         ShowOutpaintExpansion = SelectedTask
@@ -166,8 +166,9 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
 
         PromptValidationError = SelectedTask
             .CombineLatest(
+                RequiresPrompt,
                 Prompt,
-                (task, prompt) => GetPromptValidationError(task.Value, prompt))
+                (task, required, prompt) => required ? GetPromptValidationError(task.Value, prompt) : null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -791,8 +792,6 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
 
     private static string? GetPromptValidationError(string task, string prompt)
     {
-        if (task is not (RestyleTask or RemoveObjectTask or OutpaintTask))
-            return null;
         if (string.IsNullOrWhiteSpace(prompt))
             return Strings.AiPromptRequired;
 

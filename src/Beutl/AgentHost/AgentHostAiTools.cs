@@ -171,6 +171,7 @@ internal sealed class AgentHostAiTools(
     {
         string taskId = task.Trim().ToLowerInvariant();
         int outpaint = outpaintExpansionPercent ?? 25;
+        bool requiresPrompt = false;
         return StartAsync($"image.edit.{taskId}", model, waitSeconds, cancellationToken, (_, _) =>
         {
             var editTask = (AiImageEditTask)Array.IndexOf(s_imageTasks, taskId);
@@ -178,7 +179,7 @@ internal sealed class AgentHostAiTools(
             int maxPrompt = editTask == AiImageEditTask.Outpaint
                 ? AiRequestLimits.MaxPromptLength - AiGenerativeNodeExecutor.OutpaintInstruction.Length - 1
                 : AiRequestLimits.MaxPromptLength;
-            string? text = editTask.RequiresPrompt() ? RequirePrompt(prompt, maxPrompt) : null;
+            string? text = requiresPrompt ? RequirePrompt(prompt, maxPrompt) : null;
             GenerativeImageInput image = ReadImage(sourcePath, "source", "sourcePath", AiRequestLimits.MaxImageUploadBytes, out PixelSize size);
             if (editTask == AiImageEditTask.Outpaint)
                 RequireOutpaintCanvas(size, outpaint);
@@ -194,13 +195,14 @@ internal sealed class AgentHostAiTools(
             };
         },
         // Checked before the model is looked up, since the task names the operation.
-        precheck: () =>
+        precheck: async token =>
         {
             int index = Array.IndexOf(s_imageTasks, taskId);
             if (index < 0)
                 throw Invalid($"Unknown edit task '{task}'. Use one of: {string.Join(", ", s_imageTasks)}.", "task");
+            requiresPrompt = await backend.RequiresPromptAsync(taskId, token).ConfigureAwait(false);
             // The executor drops a prompt these tasks do not take; refused instead of charged for.
-            if (!((AiImageEditTask)index).RequiresPrompt() && !string.IsNullOrWhiteSpace(prompt))
+            if (!requiresPrompt && !string.IsNullOrWhiteSpace(prompt))
                 throw Invalid($"The task {taskId} takes no prompt.", "prompt");
             if (taskId == "outpaint" && !s_outpaintPercents.Contains(outpaint))
                 throw Invalid("outpaintExpansionPercent must be 10, 25 or 50.", "outpaintExpansionPercent");
@@ -330,12 +332,13 @@ internal sealed class AgentHostAiTools(
                 ParameterFingerprint = GenerativeFingerprint.Combine([modeId, text, extend ? duration.ToString(CultureInfo.InvariantCulture) : null, model]),
             };
         },
-        precheck: () =>
+        precheck: _ =>
         {
             if (modeId is not ("edit" or "extend"))
                 throw Invalid($"Unknown mode '{mode}'. Use edit or extend.", "mode");
             if (modeId == "edit" && durationSeconds is not null)
                 throw Invalid("An edit keeps the clip's own length; durationSeconds is only for mode extend.", "durationSeconds");
+            return ValueTask.CompletedTask;
         });
     }
 
@@ -415,12 +418,13 @@ internal sealed class AgentHostAiTools(
         int waitSeconds,
         CancellationToken cancellationToken,
         Func<Scene, GenerativeModelInfo?, GenerativeRequest> build,
-        Action? precheck = null)
+        Func<CancellationToken, ValueTask>? precheck = null)
     {
         return ExecuteAsync<AgentAiJobSnapshot>(async () =>
         {
             RequireWait(waitSeconds);
-            precheck?.Invoke();
+            if (precheck is not null)
+                await precheck(cancellationToken).ConfigureAwait(false);
             await RequireAvailableAsync(cancellationToken).ConfigureAwait(false);
             Scene scene = await RequireSceneAsync().ConfigureAwait(false);
             // Omitted settings are chosen from what this model offers, as the AI tab's controls are.

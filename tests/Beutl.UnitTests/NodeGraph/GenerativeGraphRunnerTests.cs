@@ -343,7 +343,7 @@ public sealed class GenerativeGraphRunnerTests
             Assert.That(executor.Requests[0].Node, Is.SameAs(image));
             Assert.That(request.Image.EncodedPng, Is.Not.Empty, "The upstream result is the picture edited.");
             Assert.That(request.Task, Is.EqualTo(AiImageEditTask.RemoveBackground));
-            Assert.That(request.Prompt, Is.Null, "Removing a background takes no prompt.");
+            Assert.That(request.Prompt, Is.EqualTo("ignored for this task"), "The executor decides with the catalog.");
             Assert.That(request.CatalogOperationId, Is.EqualTo("image.edit.remove_background"));
         });
 
@@ -352,26 +352,6 @@ public sealed class GenerativeGraphRunnerTests
         edit.Task.Property!.SetValue(AiImageEditTask.Outpaint);
         Assert.That(changes, Is.EqualTo(1));
         Assert.That(edit.CatalogOperationId, Is.EqualTo("image.edit.outpaint"));
-    }
-
-    [Test]
-    public async Task EditTasksThatTakeAPromptRequireOne()
-    {
-        var model = new GraphModel();
-        var source = new AiImageGenerationNode();
-        source.Prompt.Property!.SetValue("a cat");
-        var edit = new AiImageEditNode();
-        edit.Task.Property!.SetValue(AiImageEditTask.Restyle);
-        model.Nodes.Add(source);
-        model.Nodes.Add(edit);
-        model.Connect(edit.Source, source.Output);
-        var executor = new FakeExecutor(_directory);
-
-        await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(model, null, force: false, CancellationToken.None);
-
-        Assert.That(edit.Status, Is.EqualTo(GenerativeNodeStatus.Failed));
-        Assert.That(edit.StatusMessage, Is.EqualTo(Beutl.Language.Strings.AiPromptRequired));
-        Assert.That(executor.Requests.Select(r => r.Node), Is.EqualTo(new GenerativeNode[] { source }));
     }
 
     [Test]

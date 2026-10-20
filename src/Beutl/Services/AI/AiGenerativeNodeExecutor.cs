@@ -128,16 +128,19 @@ internal sealed class AiGenerativeNodeExecutor(
         CancellationToken cancellationToken)
     {
         string task = request.Task.ToId();
-        (_, IReadOnlyList<GenerativeModelInfo> offered) =
+        (AiModelCatalog catalog, IReadOnlyList<GenerativeModelInfo> offered) =
             await models.LoadAsync(request.CatalogOperationId, cancellationToken);
         GenerativeModelInfo? chosen = ResolveModel(request.ModelId, offered);
         AiModelId? model = chosen is not null ? new AiModelId(chosen.Id) : null;
+        bool requiresPrompt = AiRequestRules.RequiresPrompt(catalog, task);
+        if (requiresPrompt && string.IsNullOrWhiteSpace(request.Prompt))
+            throw new GenerativeExecutionException(Strings.AiPromptRequired);
 
         // Prepared as the AI tab prepares it: an outpaint sends the canvas already widened,
         // under a name derived from the source, with the instruction in front of the prompt.
         string uploadName = request.Image.Name;
         byte[] uploadBytes = request.Image.EncodedPng;
-        string? prompt = request.Prompt;
+        string? prompt = requiresPrompt ? request.Prompt : null;
         if (request.Task == AiImageEditTask.Outpaint)
         {
             uploadBytes = ExpandCanvas(uploadBytes, request.OutpaintExpansionPercent ?? 25);
