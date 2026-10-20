@@ -103,8 +103,8 @@ public sealed class ExtensionGuardCallSiteTests
         var extension = new CommandExtension();
         ExtensionGuard.SetPackage(extension, "Throwing.Package");
         manager.Register(extension);
-        var handler = new ThrowingHandler();
-        var element = new Border { DataContext = handler };
+        var target = new CommandTarget();
+        var element = new Border { DataContext = target };
         manager.Attach(element, extension);
         using var notifications = new NotificationCapture();
 
@@ -113,7 +113,7 @@ public sealed class ExtensionGuardCallSiteTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(handler.Executions, Is.EqualTo(1));
+            Assert.That(target.Executions, Is.EqualTo(1));
             Assert.That(notifications.Single().Message, Is.EqualTo(string.Format(ExtensionsStrings.ExtensionTurnedOff, "Throwing.Package")));
         }
     }
@@ -243,14 +243,19 @@ public sealed class ExtensionGuardCallSiteTests
     private sealed class CommandExtension : ViewExtension
     {
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
-            [new ContextCommandDefinition("Boom", "Boom", null, [new ContextCommandKeyGesture("V")])];
+        [
+            new ContextCommandDefinition<CommandTarget>("test.boom", "Boom", null, [new ContextCommandKeyGesture("V")])
+            {
+                ExecuteOnAsync = (target, _) => target.Execute()
+            }
+        ];
     }
 
-    private sealed class ThrowingHandler : IContextCommandHandler
+    private sealed class CommandTarget
     {
         public int Executions { get; private set; }
 
-        public Task ExecuteAsync(ContextCommandExecution execution)
+        public Task Execute()
         {
             Executions++;
             throw new InvalidOperationException("command");

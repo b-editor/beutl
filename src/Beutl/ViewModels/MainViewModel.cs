@@ -25,7 +25,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
-public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHandler
+public sealed partial class MainViewModel : BasePageViewModel
 {
     internal readonly BeutlApiApplication _beutlClients;
     private readonly HttpClient _authHttpClient;
@@ -279,61 +279,5 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
         }
 
         _agentHostEndpoint.StartInBackground();
-    }
-
-    public Task ExecuteAsync(ContextCommandExecution execution)
-    {
-        if (TabSwitcherViewModel.IsNavigationCommand(execution.CommandName))
-        {
-            bool opened = !TabSwitcherViewModel.IsTextInputGesture(execution.KeyEventArgs)
-                          && (execution.KeyEventArgs is null || !CommandPalette.IsOpen.Value)
-                          && TabSwitcher.ExecuteCommand(execution);
-            if (execution.KeyEventArgs is { } args) args.Handled = opened;
-            return Task.CompletedTask;
-        }
-
-        if (execution.KeyEventArgs != null)
-            execution.KeyEventArgs.Handled = true;
-
-        if (execution.CommandName == "ShowCommandPalette")
-        {
-            TabSwitcher.Close();
-            CommandPalette.Toggle();
-            return Task.CompletedTask;
-        }
-
-        if (execution.Interaction is { } interaction
-            && ExecutePaletteCommand(execution.CommandName, interaction) is { } paletteOperation)
-        {
-            return paletteOperation;
-        }
-
-        if (MenuBar.FindContextCommand(execution.CommandName) is { } command)
-        {
-            return MenuBarViewModel.ExecuteCommandAsync(command);
-        }
-
-        if (execution.KeyEventArgs != null)
-            execution.KeyEventArgs.Handled = false;
-
-        return Task.CompletedTask;
-    }
-
-    public bool CanExecute(ContextCommandExecution execution)
-    {
-        if (TabSwitcherViewModel.IsNavigationCommand(execution.CommandName))
-            return TabSwitcher.CanOpen
-                   && !TabSwitcherViewModel.IsTextInputGesture(execution.KeyEventArgs)
-                   && (execution.KeyEventArgs is null || !CommandPalette.IsOpen.Value);
-
-        if (execution.CommandName == "ShowCommandPalette")
-            return true;
-
-        if (CanExecutePaletteOnlyCommand(execution.CommandName) is { } canExecute)
-            return canExecute;
-
-        // 未知のコマンドは false を返し、ContextCommandManager のフォールバックバインディングや
-        // 他のハンドラーへキーイベントを委ねられるようにする。
-        return MenuBar.FindContextCommand(execution.CommandName)?.CanExecute(null) ?? false;
     }
 }

@@ -13,7 +13,7 @@ namespace Beutl.PublicApiContractTests;
 public sealed class ProjectShapeContractTests
 {
     [TestCase(typeof(RenderNode))]
-    [TestCase(typeof(IContextCommandHandler))]
+    [TestCase(typeof(ContextCommandDefinition))]
     [TestCase(typeof(AiModelCatalog))]
     [TestCase(typeof(HistoryManager))]
     [TestCase(typeof(CoreSerializer))]

@@ -4,25 +4,29 @@ using Beutl.ViewModels;
 namespace Beutl.Services.PrimitiveImpls;
 
 // Jumps to a history state from the palette, without opening the history tab.
-public sealed partial class HistoryTabExtension : IContextCommandHandler
+public sealed partial class HistoryTabExtension
 {
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
-        new("JumpToHistory", Strings.JumpToHistory, "", []) { Scope = ContextCommandScope.Extension },
+        new("history.jumpToHistory", Strings.JumpToHistory, "", [])
+        {
+            Scope = ContextCommandScope.Extension,
+            CanExecute = CanJumpToHistory,
+            ExecuteAsync = JumpToHistoryAsync
+        },
     ];
 
-    public bool CanExecute(ContextCommandExecution execution)
+    private static bool CanJumpToHistory(ContextCommandExecution execution)
     {
         // The initial entry alone leaves nowhere to go, unless an uncommitted edit (a nudge still in its
         // debounce) can be reverted to it.
-        return execution.CommandName == "JumpToHistory"
-            && execution.EditorContext is EditViewModel { HistoryManager: var history }
+        return execution.EditorContext is EditViewModel { HistoryManager: var history }
             && (history.GetEntriesSnapshot().Length > 1 || history.HasPendingOperations);
     }
 
-    public async Task ExecuteAsync(ContextCommandExecution execution)
+    private static async Task JumpToHistoryAsync(ContextCommandExecution execution)
     {
-        if (!CanExecute(execution)
+        if (!CanJumpToHistory(execution)
             || execution.Interaction is not { } interaction
             || execution.EditorContext is not EditViewModel editViewModel)
         {

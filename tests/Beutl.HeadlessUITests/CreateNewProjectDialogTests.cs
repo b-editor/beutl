@@ -5,8 +5,10 @@ using Avalonia.Headless.NUnit;
 
 using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
+using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Services;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
 
@@ -94,8 +96,9 @@ public class CreateNewProjectDialogTests
             {
                 Assert.That(((System.Windows.Input.ICommand)command).CanExecute(null), Is.True);
                 Assert.That(
-                    TestShell.MainViewModel.MenuBar.FindContextCommand("EnableVersionControl"),
-                    Is.SameAs(command));
+                    MainViewExtension.Instance.CanRun(
+                        TestShell.MainViewModel, new ContextCommandExecution("main.enableVersionControl")),
+                    Is.True);
             });
         }
         finally

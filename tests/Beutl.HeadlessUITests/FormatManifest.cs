@@ -312,13 +312,13 @@ internal static partial class FormatManifest
 
         text.Section(
             "Keymap",
-            "keymap.json: the <namespace>.<type>.<command> key of every context command of every ViewExtension.");
+            "keymap.json: the id of every context command of every ViewExtension.");
         var keymap = new List<string>();
         foreach (ViewExtension extension in extensions.Values.OfType<ViewExtension>())
         {
             foreach (ContextCommandDefinition definition in extension.ContextCommands)
             {
-                keymap.Add(ContextCommandManager.GetFullName(extension.GetType(), definition.Name));
+                keymap.Add(definition.Id);
             }
         }
 

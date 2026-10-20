@@ -3,7 +3,6 @@ using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Beutl.Collections;
 using Beutl.Extensibility;
-using Beutl.JsonDiscriminator;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Services;
@@ -121,31 +120,16 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
         // Persist the whole per-platform list: with multiple gestures per platform a single
         // (name, platform) → gesture record cannot round-trip the untouched slots.
         settingsStore.Save(
-            GetFullName(entry),
+            entry.Definition.Id,
             entry.KeyGestures.Where(g => g.Platform == platform).Select(g => g.KeyGesture).ToArray(),
             platform);
     }
-
-    internal static string GetFullName(Type extensionType, string name)
-    {
-        return GetFullName(extensionType.Namespace, extensionType.Name, name);
-    }
-
-    internal static string GetFullName(string? typeNamespace, string typeName, string name)
-    {
-        return typeNamespace == null
-            ? $"{typeName}.{name}"
-            : $"{typeNamespace}.{typeName}.{name}";
-    }
-
-    private static string GetFullName(ContextCommandEntry entry)
-        => GetFullName(entry.ExtensionType, entry.Definition.Name);
 
     private void Restore(ContextCommandEntry[] entries)
     {
         foreach (ContextCommandEntry entry in entries)
         {
-            foreach ((OSPlatform platform, IReadOnlyList<KeyGesture?> gestures) in RestoreSaved(entry))
+            foreach ((OSPlatform platform, IReadOnlyList<KeyGesture?> gestures) in settingsStore.Restore(entry.Definition.Id))
             {
                 // Overwrite the default gestures slot-by-slot with the persisted list; slots
                 // beyond a shorter persisted list keep their defaults.
@@ -165,29 +149,6 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
                 }
             }
         }
-    }
-
-    // The gestures saved for entry, by platform. A platform with none under the command's key takes those saved
-    // under a key with a former name of the extension type (FormerPersistedNameAttribute), so a renamed or moved
-    // extension keeps its shortcuts. Saving writes the current key.
-    private List<(OSPlatform Platform, IReadOnlyList<KeyGesture?> Gestures)> RestoreSaved(ContextCommandEntry entry)
-    {
-        List<(OSPlatform Platform, IReadOnlyList<KeyGesture?> Gestures)> saved =
-            settingsStore.Restore(GetFullName(entry)).ToList();
-        foreach (FormerTypeName former in TypeFormat.GetFormerNames(entry.ExtensionType))
-        {
-            string formerKey = GetFullName(
-                former.Namespace, former.Name, entry.Definition.Name);
-            foreach ((OSPlatform Platform, IReadOnlyList<KeyGesture?> Gestures) item in settingsStore.Restore(formerKey))
-            {
-                if (!saved.Exists(existing => existing.Platform == item.Platform))
-                {
-                    saved.Add(item);
-                }
-            }
-        }
-
-        return saved;
     }
 
     public void Attach(InputElement element, ViewExtension extension)
@@ -232,27 +193,19 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
         ContextCommandEntry[] entries)
     {
         OSPlatform pid = CurrentPlatform();
-        if (context is IContextCommandHandler compiledHandler)
+        foreach (ContextCommandEntry entry in entries)
         {
-            foreach (ContextCommandEntry entry in entries)
-            {
-                if (!HasMatchingGesture(entry, pid, args))
-                {
-                    continue;
-                }
+            if (!HasMatchingGesture(entry, pid, args))
+                continue;
 
-                var execution = new ContextCommandExecution(entry.Definition.Name)
-                {
-                    KeyEventArgs = args
-                };
-                if (!compiledHandler.CanExecute(execution))
-                {
-                    continue;
-                }
+            var execution = new ContextCommandExecution(entry.Definition.Id) { KeyEventArgs = args };
+            if (!entry.Definition.CanRun(context, execution))
+                continue;
 
-                await compiledHandler.ExecuteAsync(execution);
-                return;
-            }
+            // A command that runs uses the key; its handler can give it back.
+            args.Handled = true;
+            await entry.Definition.RunAsync(context, execution);
+            return;
         }
     }
 
@@ -278,6 +231,8 @@ public sealed class ContextCommandSettingsStore : IBeutlApiResource
     public ContextCommandSettingsStore()
     {
         RestoreAll();
+        if (MigrateLegacyKeys())
+            SaveAll();
     }
 
     // Test seam: start from the given JSON and optionally skip writing keymap.json to disk.
@@ -285,6 +240,31 @@ public sealed class ContextCommandSettingsStore : IBeutlApiResource
     {
         _json = json;
         _persist = persist;
+        if (MigrateLegacyKeys())
+            SaveAll();
+    }
+
+    // Moves the gestures saved under keys from before command ids to the ids. Gestures already saved under an id win.
+    private bool MigrateLegacyKeys()
+    {
+        bool migrated = false;
+        foreach ((string platform, JsonNode? node) in _json)
+        {
+            if (!ValidateKey(platform) || node is not JsonObject commands)
+                continue;
+
+            foreach ((string legacyKey, string id) in ContextCommandLegacyKeys.Ids)
+            {
+                if (!commands.TryGetPropertyValue(legacyKey, out JsonNode? gestures))
+                    continue;
+
+                commands.Remove(legacyKey);
+                commands.TryAdd(id, gestures);
+                migrated = true;
+            }
+        }
+
+        return migrated;
     }
 
     public void Save(string name, IReadOnlyList<KeyGesture?> gestures, OSPlatform os)

@@ -1,6 +1,4 @@
 ﻿using System.Reactive.Subjects;
-using Avalonia.Controls;
-using Beutl.Configuration;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -12,7 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.ViewModels;
 
-public partial class EditViewModel : IContextCommandHandler, IContextCommandStateNotifier
+public partial class EditViewModel : IContextCommandStateNotifier
 {
     private readonly Subject<System.Reactive.Unit> _commandStateChangedSubject = new();
     private bool _commandStateNotifierDisposed;
@@ -53,107 +51,6 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
         _commandStateChangedSubject.Dispose();
     }
 
-    public bool CanExecute(ContextCommandExecution execution)
-    {
-        return execution.CommandName switch
-        {
-            "PlayPause" => ((System.Windows.Input.ICommand)Player.PlayPause).CanExecute(null),
-            "Next" => ((System.Windows.Input.ICommand)Player.Next).CanExecute(null),
-            "Previous" => ((System.Windows.Input.ICommand)Player.Previous).CanExecute(null),
-            "SeekStart" => ((System.Windows.Input.ICommand)Player.Start).CanExecute(null),
-            "SeekEnd" => ((System.Windows.Input.ICommand)Player.End).CanExecute(null),
-            "GoToMarker" or "RenameMarker" => Scene.Markers.Count > 0,
-            _ => true,
-        };
-    }
-
-    public Task ExecuteAsync(ContextCommandExecution execution)
-    {
-        if (execution.KeyEventArgs != null)
-            execution.KeyEventArgs.Handled = true;
-        // Plain-key gestures must keep typing into text boxes, terminals and other text-entry surfaces.
-        bool isFromTextInput = execution.IsFromTextInput;
-        Task operation = Task.CompletedTask;
-        switch (execution.CommandName)
-        {
-            case "PlayPause" when !isFromTextInput:
-                operation = Player.PlayPause.ExecuteAsync();
-                break;
-            case "Next":
-                Player.Next.Execute();
-                break;
-            case "Previous":
-                Player.Previous.Execute();
-                break;
-            case "SeekStart":
-                Player.Start.Execute();
-                break;
-            case "SeekEnd":
-                Player.End.Execute();
-                break;
-            case "ShuttleForward" when !isFromTextInput:
-                Player.ShuttleForward();
-                break;
-            case "ShuttleForwardFine" when !isFromTextInput:
-                Player.ShuttleForward(fineGrain: true);
-                break;
-            case "ShuttleBackward" when !isFromTextInput:
-                Player.ShuttleBackward();
-                break;
-            case "ShuttleBackwardFine" when !isFromTextInput:
-                Player.ShuttleBackward(fineGrain: true);
-                break;
-            case "ShuttleStop" when !isFromTextInput:
-                Player.ShuttleStop();
-                break;
-            case "ToggleLoop" when !isFromTextInput:
-                Player.ToggleLoop();
-                break;
-            case "ToggleMarker" when !isFromTextInput:
-                ToggleMarkerAtCurrentTime();
-                break;
-            case "NextMarker" when !isFromTextInput:
-                SeekToAdjacentMarker(forward: true);
-                break;
-            case "PreviousMarker" when !isFromTextInput:
-                SeekToAdjacentMarker(forward: false);
-                break;
-            case "GotoTimecode" when execution.Interaction is { } interaction:
-                operation = GotoTimecodeAsync(interaction);
-                break;
-            case "GotoTimecode" when !isFromTextInput:
-                Player.RequestEditTimecode();
-                break;
-            case "GoToMarker" when execution.Interaction is { } interaction:
-                operation = GoToMarkerAsync(interaction);
-                break;
-            case "AddMarker" when execution.Interaction is { } interaction:
-                operation = AddMarkerAsync(interaction);
-                break;
-            case "RenameMarker" when execution.Interaction is { } interaction:
-                operation = RenameMarkerAsync(interaction);
-                break;
-            case "NextKeyFrame" when !isFromTextInput:
-                SeekToAdjacentKeyFrame(forward: true);
-                break;
-            case "PreviousKeyFrame" when !isFromTextInput:
-                SeekToAdjacentKeyFrame(forward: false);
-                break;
-            case "ToggleOnionSkin" when !isFromTextInput:
-                {
-                    EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
-                    editorConfig.IsOnionSkinEnabled = !editorConfig.IsOnionSkinEnabled;
-                    break;
-                }
-            default:
-                if (execution.KeyEventArgs != null)
-                    execution.KeyEventArgs.Handled = false;
-                break;
-        }
-
-        return operation;
-    }
-
     // The frame the playhead is on, never before zero, and the name a new marker gets there.
     private (int Rate, TimeSpan Time, string DefaultName) GetMarkerPlacement()
     {
@@ -163,7 +60,7 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
         return (rate, time, $"Marker {Scene.Markers.Count + 1}");
     }
 
-    private void ToggleMarkerAtCurrentTime()
+    internal void ToggleMarkerAtCurrentTime()
     {
         (int rate, TimeSpan time, string defaultName) = GetMarkerPlacement();
 
@@ -183,7 +80,7 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
         HistoryManager.Commit();
     }
 
-    private void SeekToAdjacentMarker(bool forward)
+    internal void SeekToAdjacentMarker(bool forward)
     {
         TimeSpan current = _editorClock.CurrentTime.Value;
         TimeSpan? target = null;
@@ -213,7 +110,7 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
         }
     }
 
-    private void SeekToAdjacentKeyFrame(bool forward)
+    internal void SeekToAdjacentKeyFrame(bool forward)
     {
         TimeSpan current = _editorClock.CurrentTime.Value;
 

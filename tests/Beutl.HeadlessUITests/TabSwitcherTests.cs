@@ -311,7 +311,7 @@ public sealed class TabSwitcherTests
     {
         await using var session = await Session.CreateAsync("remap");
         using var gestures = new NavigationGestures();
-        gestures.Set(MainViewExtension.NextTabCommandName, new(Key.J, KeyModifiers.Control));
+        gestures.Set(MainViewExtension.NextTabCommandId, new(Key.J, KeyModifiers.Control));
         session.Press(Key.Tab, RawInputModifiers.Control);
         Assert.That(session.Switcher.IsOpen.Value, Is.False);
         session.Input.Focus();
@@ -332,7 +332,7 @@ public sealed class TabSwitcherTests
     {
         await using var session = await Session.CreateAsync("shift-only-" + shiftKey);
         using var gestures = new NavigationGestures();
-        gestures.Set(MainViewExtension.NextTabCommandName, new(Key.J, KeyModifiers.Shift));
+        gestures.Set(MainViewExtension.NextTabCommandId, new(Key.J, KeyModifiers.Shift));
         session.View.Focus();
 
         session.Press(Key.J, RawInputModifiers.Shift);
@@ -348,8 +348,8 @@ public sealed class TabSwitcherTests
     }
 
     [AvaloniaTest]
-    [TestCase(MainViewExtension.NextTabCommandName, Key.J, Key.Tab, KeyModifiers.Control, RawInputModifiers.Control)]
-    [TestCase(MainViewExtension.NextToolTabCommandName, Key.K, Key.F7, KeyModifiers.Alt, RawInputModifiers.Alt)]
+    [TestCase(MainViewExtension.NextTabCommandId, Key.J, Key.Tab, KeyModifiers.Control, RawInputModifiers.Control)]
+    [TestCase(MainViewExtension.NextToolTabCommandId, Key.K, Key.F7, KeyModifiers.Alt, RawInputModifiers.Alt)]
     public async Task Removed_navigation_gestures_do_not_move_an_open_switcher(
         string command, Key replacement, Key original, KeyModifiers modifiers, RawInputModifiers rawModifiers)
     {
@@ -372,10 +372,10 @@ public sealed class TabSwitcherTests
     {
         await using var session = await Session.CreateAsync("mapped-direction-" + reverse);
         using var gestures = new NavigationGestures();
-        gestures.Set(MainViewExtension.NextTabCommandName, reverse
+        gestures.Set(MainViewExtension.NextTabCommandId, reverse
             ? new(Key.J, KeyModifiers.Control)
             : new(Key.Tab, KeyModifiers.Control | KeyModifiers.Shift));
-        gestures.Set(MainViewExtension.PreviousTabCommandName, reverse
+        gestures.Set(MainViewExtension.PreviousTabCommandId, reverse
             ? new(Key.Tab, KeyModifiers.Control)
             : new(Key.J, KeyModifiers.Control));
         RawInputModifiers modifiers = RawInputModifiers.Control | (reverse ? RawInputModifiers.None : RawInputModifiers.Shift);
@@ -400,8 +400,8 @@ public sealed class TabSwitcherTests
     {
         await using var session = await Session.CreateAsync("bare-picker-tab");
         using var gestures = new NavigationGestures();
-        gestures.Set(MainViewExtension.NextTabCommandName, new(Key.J, KeyModifiers.Control));
-        await TestShell.MainViewModel.ExecuteAsync(new(MainViewExtension.NextTabCommandName));
+        gestures.Set(MainViewExtension.NextTabCommandId, new(Key.J, KeyModifiers.Control));
+        await MainViewExtension.Instance.RunAsync(TestShell.MainViewModel, new(MainViewExtension.NextTabCommandId));
         HeadlessTestHelpers.Settle();
         TabSwitcherItem selected = session.Switcher.SelectedItem!;
 
@@ -432,7 +432,7 @@ public sealed class TabSwitcherTests
     {
         await using var session = await Session.CreateAsync("typing-" + shift);
         using var gestures = new NavigationGestures();
-        gestures.Set(MainViewExtension.NextTabCommandName, new(Key.J, shift ? KeyModifiers.Shift : KeyModifiers.None));
+        gestures.Set(MainViewExtension.NextTabCommandId, new(Key.J, shift ? KeyModifiers.Shift : KeyModifiers.None));
         session.Input.Focus();
 
         session.Press(Key.J, shift ? RawInputModifiers.Shift : RawInputModifiers.None);
@@ -455,7 +455,7 @@ public sealed class TabSwitcherTests
     {
         await using var session = await Session.CreateAsync("marked-typing-" + shift);
         using var gestures = new NavigationGestures();
-        gestures.Set(MainViewExtension.NextTabCommandName, new(Key.J, shift ? KeyModifiers.Shift : KeyModifiers.None));
+        gestures.Set(MainViewExtension.NextTabCommandId, new(Key.J, shift ? KeyModifiers.Shift : KeyModifiers.None));
         var leaf = new Border { Focusable = true };
         var textSurface = new Border { Child = leaf, Width = 80, Height = 24 };
         ContextCommandInput.SetIsTextInput(textSurface, true);
@@ -489,9 +489,8 @@ public sealed class TabSwitcherTests
             Key = Key.J,
             KeyModifiers = shift ? KeyModifiers.Shift : KeyModifiers.None,
         };
-        var execution = new ContextCommandExecution(MainViewExtension.NextTabCommandName) { KeyEventArgs = key };
-        Assert.That(TestShell.MainViewModel.CanExecute(execution), Is.False);
-        await TestShell.MainViewModel.ExecuteAsync(execution);
+        var execution = new ContextCommandExecution(MainViewExtension.NextTabCommandId) { KeyEventArgs = key };
+        Assert.That(MainViewExtension.Instance.CanRun(TestShell.MainViewModel, execution), Is.False);
         Assert.Multiple(() =>
         {
             Assert.That(session.Switcher.IsOpen.Value, Is.False);
@@ -505,12 +504,12 @@ public sealed class TabSwitcherTests
             Key = Key.J,
             KeyModifiers = key.KeyModifiers | KeyModifiers.Control,
         };
-        var modifiedExecution = new ContextCommandExecution(MainViewExtension.NextTabCommandName)
+        var modifiedExecution = new ContextCommandExecution(MainViewExtension.NextTabCommandId)
         {
             KeyEventArgs = modifiedKey,
         };
-        Assert.That(TestShell.MainViewModel.CanExecute(modifiedExecution), Is.True);
-        await TestShell.MainViewModel.ExecuteAsync(modifiedExecution);
+        Assert.That(MainViewExtension.Instance.CanRun(TestShell.MainViewModel, modifiedExecution), Is.True);
+        await MainViewExtension.Instance.RunAsync(TestShell.MainViewModel, modifiedExecution);
         Assert.Multiple(() =>
         {
             Assert.That(session.Switcher.IsOpen.Value, Is.True);
@@ -638,10 +637,10 @@ public sealed class TabSwitcherTests
             : OperatingSystem.IsWindows() ? OSPlatform.Windows : OSPlatform.Linux;
         private readonly List<(ContextCommandEntry Entry, KeyGesture? Gesture)> _originals = [];
 
-        public void Set(string name, KeyGesture gesture)
+        public void Set(string id, KeyGesture gesture)
         {
             ContextCommandEntry entry = _manager.GetDefinitions<MainViewExtension>()
-                .Single(command => command.Definition.Name == name);
+                .Single(command => command.Definition.Id == id);
             _originals.Add((entry, entry.KeyGestures.First(item => item.Platform == _platform).KeyGesture));
             _manager.ChangeKeyGesture(entry, gesture, _platform);
         }
