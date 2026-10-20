@@ -26,6 +26,9 @@ public sealed partial class ElementView
         private readonly List<Control> _ghosts = [];
         private IReadOnlyList<ElementViewModel> _relatedElements = [];
         private Point _start;
+        private Point _lastPosition;
+        private bool _lastAlt;
+        private DragSession? _drag;
 
         protected override void OnAttached()
         {
@@ -43,6 +46,7 @@ public sealed partial class ElementView
             base.OnDetaching();
             if (AssociatedObject == null) return;
 
+            _drag?.Confirm();
             if (AssociatedObject._timeline is { } timeline) RemoveGhosts(timeline);
             _relatedElements = [];
 
@@ -52,12 +56,17 @@ public sealed partial class ElementView
             AssociatedObject.border.RemoveHandler(PointerCaptureLostEvent, OnBorderPointerCaptureLost);
         }
 
-        // Only an unfinished drag is cancelled: normal release clears _pressed before
-        // committing and starting its animation. Slip has no geometry preview to restore.
+        // A drag in progress confirms through its DragSession; a press that never moved has nothing to keep.
         private void OnBorderPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
         {
-            if (!_pressed) return;
+            if (_pressed && _drag is null)
+                CancelDrag();
+        }
 
+        // Escape, Undo and a press that never moved restore the clips. Slip has no geometry preview to restore.
+        private void CancelDrag()
+        {
+            _drag = null;
             _pressed = false;
             _isSlipDrag = false;
             _duplicateMode = false;
@@ -75,15 +84,32 @@ public sealed partial class ElementView
             }
         }
 
+        // The first move opens the DragSession; null means another gesture holds history.
+        private bool EnsureDrag(ElementView view, ElementViewModel viewModel)
+        {
+            _drag ??= DragSession.Begin(
+                viewModel.Timeline.EditorContext, view.border, CommandNames.MoveElement, ConfirmDrag, CancelDrag);
+            if (_drag is not null)
+                return true;
+
+            CancelDrag();
+            return false;
+        }
+
         private void OnPointerMoved(object? sender, PointerEventArgs e)
         {
             if (AssociatedObject is { ViewModel: { } viewModel, _timeline: { } timeline } view && _pressed)
             {
+                if (!EnsureDrag(view, viewModel))
+                    return;
+
                 Point point = e.GetPosition(view);
+                _lastPosition = point;
+                _lastAlt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
                 float scale = viewModel.Timeline.Options.Value.Scale;
                 TimeSpan pointerFrame = point.X.PixelToTimeSpan(scale);
 
-                pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
+                pointerFrame = view.RoundStartTime(pointerFrame, scale, _lastAlt);
 
                 if (_isSlipDrag)
                 {
@@ -165,7 +191,8 @@ public sealed partial class ElementView
                     _pressed = true;
                     _isSlipDrag = true;
                     _slipTargets = CollectTrimMembers(viewModel);
-                    _start = e.GetPosition(view);
+                    _start = _lastPosition = e.GetPosition(view);
+                    _lastAlt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
                     // PointerCaptureLost routes Direct, so move the capture to the border.
                     e.Pointer.Capture(view.border);
                     e.Handled = true;
@@ -193,18 +220,17 @@ public sealed partial class ElementView
             }
         }
 
-        private void CommitSlipDrag(ElementView view, ElementViewModel viewModel, PointerReleasedEventArgs e)
+        private void CommitSlipDrag(ElementView view, ElementViewModel viewModel)
         {
             Element[] targets = _slipTargets;
             _slipTargets = [];
 
             float scale = viewModel.Timeline.Options.Value.Scale;
             int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
-            Point released = e.GetPosition(view);
-            bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+            bool alt = _lastAlt;
             TimeSpan delta = TrimDeltaCalculator.SnappedDelta(
                     _start.X.PixelToTimeSpan(scale),
-                    released.X.PixelToTimeSpan(scale),
+                    _lastPosition.X.PixelToTimeSpan(scale),
                     t => view.RoundStartTime(t, scale, alt))
                 .RoundToRate(rate);
             // RoundStartTime re-sets the snap guide line as a side effect; clear it.
@@ -217,10 +243,27 @@ public sealed partial class ElementView
             }
         }
 
-        private async void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)
+        private void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
             if (!_pressed) return;
 
+            e.Handled = true;
+            if (AssociatedObject is { } view)
+            {
+                _lastPosition = e.GetPosition(view);
+                _lastAlt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+            }
+
+            if (_drag is { } drag)
+                drag.Confirm();
+            else
+                ConfirmDrag();
+        }
+
+        // Release, capture loss, playback start and detach all keep the drag where it reached.
+        private async void ConfirmDrag()
+        {
+            _drag = null;
             _pressed = false;
             bool duplicate = _duplicateMode;
             bool ghostShown = _ghosts.Count > 0;
@@ -233,12 +276,11 @@ public sealed partial class ElementView
             RemoveGhosts(timeline);
 
             viewModel.Timeline.SnapBarPosition.Value = null;
-            e.Handled = true;
 
             if (_isSlipDrag)
             {
                 _isSlipDrag = false;
-                CommitSlipDrag(view, viewModel, e);
+                CommitSlipDrag(view, viewModel);
                 return;
             }
 
@@ -250,6 +292,10 @@ public sealed partial class ElementView
             TimeSpan deltaStart = newStart - viewModel.Model.Start;
             int newIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
             int deltaIndex = newIndex - viewModel.Model.ZIndex;
+            // Selection modifiers can leave the pressed clip out of the participant list; it stays where it was.
+            bool pressedMoves = relatedElements.Contains(viewModel);
+            if (!pressedMoves)
+                ForceRestoreVisualToModel([viewModel]);
 
             if (duplicate && !ghostShown)
             {
@@ -261,7 +307,7 @@ public sealed partial class ElementView
                 return;
             }
 
-            if (!duplicate && elems.Length == 1)
+            if (!duplicate && elems.Length == 1 && pressedMoves)
             {
                 // IElementResizeService.Resize does not check the lock of the destination layer, so check it here.
                 if (viewModel.Scene.IsLayerLocked(newIndex))
