@@ -19,6 +19,7 @@ public class PackageChangesQueue : IBeutlApiResource
     private readonly string _path;
     private readonly HashSet<PackageIdentity> _installs = [];
     private readonly HashSet<PackageIdentity> _uninstalls = [];
+    private bool _saveFailed;
 
     private readonly Subject<(PackageIdentity Package, EventType Type)> _subject = new();
 
@@ -101,19 +102,50 @@ public class PackageChangesQueue : IBeutlApiResource
         }
     }
 
-    // PackageTools.UI removes a change once it has run it, whatever the result.
-    internal void Remove(PackageIdentity packageIdentity)
+    // PackageTools.UI removes a change once it has run it, whatever the result. An entry without a version matches any.
+    internal void Remove(PackageIdentity packageIdentity, EventType type)
     {
+        HashSet<PackageIdentity> changes = type == EventType.Uninstall ? _uninstalls : _installs;
         EventType state;
         lock (_gate)
         {
-            if (!(_installs.Remove(packageIdentity) | _uninstalls.Remove(packageIdentity)))
+            if (changes.RemoveWhere(item => item.HasVersion
+                    ? item.Equals(packageIdentity)
+                    : StringComparer.OrdinalIgnoreCase.Equals(item.Id, packageIdentity.Id)) == 0)
                 return;
 
             Save();
             state = GetState_NoLock(packageIdentity.Id);
         }
         _subject.OnNext((packageIdentity, state));
+    }
+
+    // The changes go on PackageTools.UI's command line too when the last save failed, as the file lacks them then.
+    internal List<string> GetUnsavedArguments()
+    {
+        var arguments = new List<string>();
+        lock (_gate)
+        {
+            if (_saveFailed)
+            {
+                AddArguments(arguments, "--installs", _installs);
+                AddArguments(arguments, "--uninstalls", _uninstalls);
+            }
+        }
+
+        return arguments;
+    }
+
+    internal static string ToArgument(PackageIdentity package)
+        => package.HasVersion ? $"{package.Id}/{package.Version}" : package.Id;
+
+    private static void AddArguments(List<string> arguments, string option, HashSet<PackageIdentity> changes)
+    {
+        if (changes.Count > 0)
+        {
+            arguments.Add(option);
+            arguments.AddRange(changes.Select(ToArgument));
+        }
     }
 
     private EventType GetState_NoLock(string name)
@@ -126,7 +158,6 @@ public class PackageChangesQueue : IBeutlApiResource
             : EventType.None;
     }
 
-    // A failed write keeps the change for this session only.
     private void Save()
     {
         try
@@ -136,10 +167,12 @@ public class PackageChangesQueue : IBeutlApiResource
                 [.. _installs.Select(S_Package.From)],
                 [.. _uninstalls.Select(S_Package.From)]);
             JsonSerializer.SerializeToNode(changes)!.JsonSave(_path);
+            _saveFailed = false;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _logger.LogWarning(ex, "Unable to save the package changes to {Path}.", _path);
+            _saveFailed = true;
         }
     }
 

@@ -23,7 +23,13 @@ public sealed class PackageChangesQueueTests
     public void SetUp() => _path = Path.Combine(Path.GetTempPath(), $"packageChanges-{Guid.NewGuid():N}.json");
 
     [TearDown]
-    public void TearDown() => File.Delete(_path);
+    public void TearDown()
+    {
+        if (Directory.Exists(_path))
+            Directory.Delete(_path);
+        else
+            File.Delete(_path);
+    }
 
     [Test]
     public void A_new_queue_reads_the_changes_the_last_one_saved()
@@ -39,6 +45,44 @@ public sealed class PackageChangesQueueTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(restored.GetInstalls(), Is.EqualTo(new[] { s_install }));
+            Assert.That(restored.GetUninstalls(), Is.EqualTo(new[] { s_uninstall }));
+            Assert.That(queue.GetUnsavedArguments(), Is.Empty);
+        }
+    }
+
+    [Test]
+    public void A_change_the_last_save_did_not_write_goes_on_the_command_line()
+    {
+        // A folder in the file's place makes every save fail.
+        Directory.CreateDirectory(_path);
+        var queue = new PackageChangesQueue(_path);
+
+        queue.InstallQueue(s_install);
+        queue.UninstallQueue(s_uninstall);
+
+        Assert.That(
+            queue.GetUnsavedArguments(),
+            Is.EqualTo(new[] { "--installs", "Queued.Install/1.0.0", "--uninstalls", "Queued.Uninstall/2.0.0" }));
+    }
+
+    [Test]
+    public void Remove_drops_only_the_change_that_ran()
+    {
+        var older = new PackageIdentity(s_install.Id, NuGetVersion.Parse("0.9.0"));
+        var queue = new PackageChangesQueue(_path);
+        queue.InstallQueue(s_install);
+        queue.InstallQueue(older);
+        queue.InstallQueue(new PackageIdentity("Queued.Latest", null));
+        queue.UninstallQueue(s_uninstall);
+
+        queue.Remove(s_install, PackageChangesQueue.EventType.Install);
+        queue.Remove(new PackageIdentity("Queued.Latest", NuGetVersion.Parse("3.0.0")), PackageChangesQueue.EventType.Install);
+        queue.Remove(s_uninstall, PackageChangesQueue.EventType.Install);
+
+        var restored = new PackageChangesQueue(_path);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(restored.GetInstalls(), Is.EqualTo(new[] { older }));
             Assert.That(restored.GetUninstalls(), Is.EqualTo(new[] { s_uninstall }));
         }
     }
@@ -110,5 +154,20 @@ public sealed class PackageChangesQueueTests
         Assert.That(
             new PackageChangesQueue(_path).GetUninstalls(),
             canceled ? Is.EqualTo(new[] { s_uninstall }) : Is.Empty);
+    }
+
+    [Test]
+    public void PackageTools_removes_a_queued_change_without_a_version_once_its_latest_version_ran()
+    {
+        var queue = new PackageChangesQueue(_path);
+        queue.InstallQueue(new PackageIdentity("Queued.Latest", null));
+        var model = new PackageChangeModel(
+            "Queued.Latest", NuGetVersion.Parse("3.0.0"), "Queued.Latest", true, PackageChangeAction.Install);
+        var viewModel = new ActionViewModel(new ChangesModel(), model);
+        PackageToolsMainViewModel.RemoveOnceRun(viewModel, queue);
+
+        viewModel.Succeeded.Value = true;
+
+        Assert.That(new PackageChangesQueue(_path).GetInstalls(), Is.Empty);
     }
 }

@@ -450,10 +450,11 @@ public partial class MainViewModel
         if (!queue.GetInstalls().Any() && !queue.GetUninstalls().Any())
             return;
 
-        // PackageTools.UI reads the changes from the queue's file.
+        // PackageTools.UI reads the changes from the queue's file, and from arguments when the last save failed.
         var startInfo = new ProcessStartInfo() { UseShellExecute = true, };
         DotNetProcess.Configure(startInfo, Path.Combine(AppContext.BaseDirectory, "Beutl.PackageTools.UI"));
 
+        startInfo.ArgumentList.AddRange(queue.GetUnsavedArguments());
         startInfo.ArgumentList.AddRange(["--session-id", Telemetry.Instance._sessionId]);
 
         if (Debugger.IsAttached)

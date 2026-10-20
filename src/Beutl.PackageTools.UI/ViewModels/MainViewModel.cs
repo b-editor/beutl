@@ -134,8 +134,8 @@ public class MainViewModel : IAsyncDisposable
             PackageChangesQueue queue = _app.GetResource<PackageChangesQueue>();
             await _model.Load(
                 _app,
-                [.. installItems, .. queue.GetInstalls().Select(ToItem)],
-                [.. uninstallItems, .. queue.GetUninstalls().Select(ToItem)],
+                [.. installItems, .. queue.GetInstalls().Select(PackageChangesQueue.ToArgument)],
+                [.. uninstallItems, .. queue.GetUninstalls().Select(PackageChangesQueue.ToArgument)],
                 updateItems,
                 cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
@@ -166,14 +166,14 @@ public class MainViewModel : IAsyncDisposable
     internal static void RemoveOnceRun(ActionViewModel viewModel, PackageChangesQueue queue)
     {
         var package = new PackageIdentity(viewModel.Model.Id, viewModel.Model.Version);
+        PackageChangesQueue.EventType type = viewModel.Model.Action == PackageChangeAction.Uninstall
+            ? PackageChangesQueue.EventType.Uninstall
+            : PackageChangesQueue.EventType.Install;
         viewModel.Succeeded.CombineLatest(viewModel.Failed, (succeeded, failed) => succeeded || failed)
             .Where(ran => ran)
             .Take(1)
-            .Subscribe(_ => queue.Remove(package));
+            .Subscribe(_ => queue.Remove(package, type));
     }
-
-    private static string ToItem(PackageIdentity package)
-        => package.HasVersion ? $"{package.Id}/{package.Version}" : package.Id;
 
     private async ValueTask WaitForTermination(CancellationToken cancellationToken)
     {
