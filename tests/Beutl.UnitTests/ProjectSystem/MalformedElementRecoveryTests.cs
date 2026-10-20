@@ -1295,7 +1295,7 @@ public sealed class MalformedElementRecoveryTests
 
         JsonObject persistedScene = JsonNode.Parse(File.ReadAllText(sceneUri.LocalPath))!.AsObject();
         JsonObject persistedIds = persistedScene["RecoveredElementIds"]!.AsObject();
-        recoveredScene.DeleteChild(
+        recoveredScene.RemoveChild(
             recoveredScene.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]));
         CoreSerializer.StoreToUri(recoveredScene, sceneUri);
 
@@ -2213,7 +2213,7 @@ public sealed class MalformedElementRecoveryTests
         Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         Guid remappedId = ((CoreObject)GetTransformFallback(recoveredScene, elementPaths[1])).Id;
         CoreSerializer.StoreToUri(recoveredScene, sceneUri);
-        recoveredScene.DeleteChild(
+        recoveredScene.RemoveChild(
             recoveredScene.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]));
         CoreSerializer.StoreToUri(recoveredScene, sceneUri);
 
@@ -2984,7 +2984,7 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
-    public void DeleteChild_PreservesRecoveredSidecarAndDeletesNormalSidecar()
+    public void SavingADelete_PreservesRecoveredSidecarAndDeletesNormalSidecar()
     {
         (Uri sceneUri, string recoveredPath) = CreatePersistedScene();
         byte[] corruptBytes = WriteMalformedElement(recoveredPath);
@@ -3003,8 +3003,10 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(normal, normal.Uri!);
         scene.Children.Add(normal);
 
-        scene.DeleteChild(recovered);
-        scene.DeleteChild(normal);
+        scene.RemoveChild(recovered);
+        scene.RemoveChild(normal);
+        using (var autoSave = new AutoSaveService())
+            autoSave.SaveObjects([recovered, normal, scene]);
 
         Assert.Multiple(() =>
         {

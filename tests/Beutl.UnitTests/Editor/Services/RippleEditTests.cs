@@ -114,14 +114,14 @@ public class RippleEditTests
     }
 
     [Test]
-    public void Exclude_RippleOn_ShiftsSubsequentSameLayerOnly()
+    public void Delete_RippleOn_ShiftsSubsequentSameLayerOnly()
     {
         var structure = new ElementStructureService(_history);
         Element removed = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
         Element afterSame = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), zIndex: 0);
         Element afterOther = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), zIndex: 1);
 
-        structure.Exclude(_scene, [removed], ripple: true);
+        structure.Delete(_scene, [removed], ripple: true);
 
         Assert.Multiple(() =>
         {
@@ -133,13 +133,13 @@ public class RippleEditTests
     }
 
     [Test]
-    public void Exclude_RippleOff_PreservesTraditionalBehavior()
+    public void Delete_RippleOff_PreservesTraditionalBehavior()
     {
         var structure = new ElementStructureService(_history);
         Element removed = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
         Element afterSame = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), zIndex: 0);
 
-        structure.Exclude(_scene, [removed], ripple: false);
+        structure.Delete(_scene, [removed], ripple: false);
 
         Assert.That(afterSame.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
     }
@@ -346,13 +346,13 @@ public class RippleEditTests
     }
 
     [Test]
-    public void Exclude_RippleOn_UndoRestoresShift()
+    public void Delete_RippleOn_UndoRestoresShift()
     {
         var structure = new ElementStructureService(_history);
         Element removed = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
         Element afterSame = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), zIndex: 0);
 
-        structure.Exclude(_scene, [removed], ripple: true);
+        structure.Delete(_scene, [removed], ripple: true);
         Assert.That(afterSame.Start, Is.EqualTo(TimeSpan.Zero), "follower shifted to close gap");
         _history.Undo();
 
@@ -575,7 +575,7 @@ public class RippleEditTests
     }
 
     [Test]
-    public void Exclude_RippleOn_GroupedFollower_ShiftsWithSameLayer()
+    public void Delete_RippleOn_GroupedFollower_ShiftsWithSameLayer()
     {
         // Ripple closes the gap even when the follower shares a group with the removed element.
         var structure = new ElementStructureService(_history);
@@ -584,7 +584,7 @@ public class RippleEditTests
 
         _scene.Groups.Add([removed.Id, afterSame.Id]);
 
-        structure.Exclude(_scene, [removed], ripple: true);
+        structure.Delete(_scene, [removed], ripple: true);
 
         Assert.That(afterSame.Start, Is.EqualTo(TimeSpan.Zero));
     }

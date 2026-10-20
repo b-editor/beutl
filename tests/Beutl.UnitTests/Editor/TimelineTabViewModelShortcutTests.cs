@@ -1,10 +1,13 @@
-﻿using Avalonia.Controls;
+﻿using System.Runtime.InteropServices;
+using Avalonia.Controls;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
@@ -13,6 +16,24 @@ namespace Beutl.UnitTests.Editor;
 [NonParallelizable]
 public class TimelineTabViewModelShortcutTests
 {
+    [Test]
+    public void DeleteCommand_RunsFromTheDeleteKeyAndCtrlDelete()
+    {
+        ContextCommandDefinition[] commands = [.. TimelineTabExtension.Instance.ContextCommands];
+        ContextCommandDefinition delete = commands.Single(command => command.Id == "timeline.delete");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Gestures(OSPlatform.Windows), Is.EqualTo(new[] { "Ctrl+Delete", "Delete" }));
+            Assert.That(Gestures(OSPlatform.Linux), Is.EqualTo(new[] { "Ctrl+Delete", "Delete" }));
+            Assert.That(Gestures(OSPlatform.OSX), Is.EqualTo(new[] { "Cmd+Back", "Back" }));
+            Assert.That(commands.Select(command => command.Id), Has.No.Member("timeline.exclude"));
+        });
+
+        string?[] Gestures(OSPlatform platform)
+            => [.. delete.KeyGestures!.Where(gesture => gesture.Platform == platform).Select(gesture => gesture.KeyGesture)];
+    }
+
     [Test]
     public void IsTextInputSource_ReturnsTrue_ForTextBox()
     {

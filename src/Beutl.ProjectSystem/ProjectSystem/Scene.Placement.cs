@@ -166,17 +166,6 @@ public partial class Scene
         }
     }
 
-    private void DeleteChildCore(Element element)
-    {
-        string fileName = element.Uri!.LocalPath;
-        if (element.SuppressedStorageSource is null && File.Exists(fileName))
-        {
-            File.Delete(fileName);
-        }
-
-        Children.Remove(element);
-    }
-
     private void MoveChildCore(int zIndex, TimeSpan newStart, TimeSpan newLength, Element element)
     {
         bool adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;

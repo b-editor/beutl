@@ -15,9 +15,6 @@
   <data name="AddElement" xml:space="preserve">
     <value>要素を追加</value>
   </data>
-  <data name="RemoveElement" xml:space="preserve">
-    <value>要素を除外</value>
-  </data>
   <data name="CutElement" xml:space="preserve">
     <value>要素を切り取り</value>
   </data>

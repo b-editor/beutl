@@ -230,9 +230,6 @@
   <data name="Remove" xml:space="preserve">
     <value>제거</value>
   </data>
-  <data name="Exclude" xml:space="preserve">
-    <value>제외</value>
-  </data>
   <data name="Back" xml:space="preserve">
     <value>뒤로</value>
   </data>
@@ -943,9 +940,6 @@
   </data>
   <data name="Rename_Description" xml:space="preserve">
     <value>선택한 항목의 이름을 바꿉니다.</value>
-  </data>
-  <data name="Exclude_Description" xml:space="preserve">
-    <value>선택한 항목을 제외합니다.</value>
   </data>
   <data name="Delete_Description" xml:space="preserve">
     <value>선택한 항목을 삭제합니다.</value>
