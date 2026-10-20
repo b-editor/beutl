@@ -184,7 +184,7 @@ public partial class PlayerViewModel
                         {
                             if (Scene != null)
                             {
-                                _editorClock.CurrentTime.Value = target;
+                                _editorClock.Seek(target);
                             }
                         });
                     });

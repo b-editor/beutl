@@ -255,7 +255,7 @@ public partial class PlayerViewModel
 
                     if (_owner.Scene != null)
                     {
-                        _owner._editorClock.CurrentTime.Value = frame.Time.ToTimeSpan(_rate);
+                        _owner._editorClock.Seek(frame.Time.ToTimeSpan(_rate));
                         _owner.EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
                     }
                 });

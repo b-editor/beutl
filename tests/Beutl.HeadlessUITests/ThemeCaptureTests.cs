@@ -274,7 +274,7 @@ public class ThemeCaptureTests
 
         Element element = editor.Scene.Children.First();
         var selection = (IEditorSelection)editor.GetService(typeof(IEditorSelection))!;
-        selection.SelectedObject.Value = element;
+        selection.Select(element);
         HeadlessTestHelpers.Settle();
 
         ElementPropertyTabViewModel? shellTab = editor.FindToolTab<ElementPropertyTabViewModel>();

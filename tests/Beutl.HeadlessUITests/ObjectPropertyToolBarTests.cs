@@ -34,7 +34,7 @@ public class ObjectPropertyToolBarTests
         var second = new EllipseShape();
         ((IElementObjectService)editor.GetService(typeof(IElementObjectService))!).Add(element, second);
         var selection = (IEditorSelection)editor.GetService(typeof(IEditorSelection))!;
-        selection.SelectedObject.Value = null;
+        selection.Select(null);
         using var model = new ObjectPropertyTabViewModel(editor);
         // The editor turns the property tabs it has open to the selection.
         Assert.That(editor.OpenToolTab(model), Is.True);
@@ -65,7 +65,7 @@ public class ObjectPropertyToolBarTests
             Assert.That(properties.Items, Is.Empty);
             CheckBar();
 
-            selection.SelectedObject.Value = first;
+            selection.Select(first);
             HeadlessTestHelpers.Render();
             Assert.That(model.ChildContext.Value!.Target, Is.SameAs(first));
             Assert.That(back.IsEffectivelyEnabled, Is.True);
@@ -73,7 +73,7 @@ public class ObjectPropertyToolBarTests
             Assert.That(properties.DataContext, Is.SameAs(model.ChildContext.Value));
             CheckBar();
 
-            selection.SelectedObject.Value = second;
+            selection.Select(second);
             HeadlessTestHelpers.Render();
             Assert.That(model.ChildContext.Value!.Target, Is.SameAs(second));
             HeadlessTestHelpers.Click(back);

@@ -250,7 +250,7 @@ public class PlaybackUIThreadTests
         int previews = 0;
         using IDisposable previewSubscription =
             editor.Player.PreviewImage.Skip(1).Subscribe(_ => Interlocked.Increment(ref previews));
-        clock.CurrentTime.Value = TimeSpan.FromSeconds(0.1);
+        clock.Seek(TimeSpan.FromSeconds(0.1));
         await HeadlessTestHelpers.WaitUntilAsync(
             () => Volatile.Read(ref previews) >= 1, TimeSpan.FromMinutes(2), pump: false);
     }

@@ -92,7 +92,7 @@ public partial class EditViewModel
             if (jsonObject.TryGetPropertyValueAsJsonValue("current-time", out string? currentTimeStr)
                 && TimeSpan.TryParse(currentTimeStr, out TimeSpan currentTime))
             {
-                _editorClock.CurrentTime.Value = currentTime;
+                _editorClock.Seek(currentTime);
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -114,7 +114,7 @@ public partial class EditViewModel
             if (id.HasValue)
             {
                 var searcher = new ObjectSearcher(Scene, o => o is CoreObject obj && obj.Id == id.Value);
-                _editorSelection.SelectedObject.Value = searcher.Search() as CoreObject;
+                _editorSelection.Select(searcher.Search() as CoreObject);
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)

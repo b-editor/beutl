@@ -230,9 +230,6 @@
   <data name="Remove" xml:space="preserve">
     <value>Quitar</value>
   </data>
-  <data name="Exclude" xml:space="preserve">
-    <value>Excluir</value>
-  </data>
   <data name="Back" xml:space="preserve">
     <value>Atrás</value>
   </data>
@@ -943,9 +940,6 @@
   </data>
   <data name="Rename_Description" xml:space="preserve">
     <value>Renombrar el elemento seleccionado.</value>
-  </data>
-  <data name="Exclude_Description" xml:space="preserve">
-    <value>Excluir el elemento seleccionado.</value>
   </data>
   <data name="Delete_Description" xml:space="preserve">
     <value>Eliminar el elemento seleccionado.</value>

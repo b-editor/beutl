@@ -55,7 +55,7 @@ public class EditorPersistenceLifetimeReviewTests
             if (failSelectionCleanupObserver)
             {
                 var selection = (IEditorSelection)editor.GetService(typeof(IEditorSelection))!;
-                selection.SelectedObject.Value = scene;
+                selection.Select(scene);
                 selectionObserver = selection.SelectedObject.Skip(1).Subscribe(_ =>
                 {
                     selectionObserverInvoked = true;

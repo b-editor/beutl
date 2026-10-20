@@ -153,7 +153,7 @@ public sealed class RecoveryProtectedElementEditorTests
         EngineObject healthy = element.Objects[1];
         EngineObject unavailable = element.Objects[2];
         Assert.That(element.SuppressedStorageSource, Is.Not.Null);
-        ((IEditorSelection)editor.GetService(typeof(IEditorSelection))!).SelectedObject.Value = element;
+        ((IEditorSelection)editor.GetService(typeof(IEditorSelection))!).Select(element);
         HeadlessTestHelpers.Settle();
         using var tab = new ElementPropertyTabViewModel(editor);
         tab.Element.Value = element;
@@ -238,7 +238,7 @@ public sealed class RecoveryProtectedElementEditorTests
         EngineObject unavailable = element.Objects[2];
         Assert.That(shape.FilterEffect.CurrentValue, Is.InstanceOf<IFallback>());
         Assert.That(unavailable, Is.InstanceOf<IFallback>());
-        ((IEditorSelection)editor.GetService(typeof(IEditorSelection))!).SelectedObject.Value = element;
+        ((IEditorSelection)editor.GetService(typeof(IEditorSelection))!).Select(element);
         HeadlessTestHelpers.Settle();
         using var tab = new ElementPropertyTabViewModel(editor);
         tab.Element.Value = element;

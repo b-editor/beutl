@@ -29,7 +29,7 @@ public partial class PlayerViewPlaybackInputTests
         var scene = await Add3DScene(editor);
         var cube = scene.Objects.Single();
         var camera = scene.Camera.CurrentValue!;
-        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = editor.Scene.Children.Single();
+        editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
         Point point = default;
@@ -92,7 +92,7 @@ public partial class PlayerViewPlaybackInputTests
         var scene = await Add3DScene(editor);
         var cube = scene.Objects.Single();
         var camera = scene.Camera.CurrentValue!;
-        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = editor.Scene.Children.Single();
+        editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
         MouseButton button = callback == "Pointer" ? MouseButton.Left : MouseButton.Right;
@@ -171,7 +171,7 @@ public partial class PlayerViewPlaybackInputTests
         var shape = new RectShape();
         await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
             TimeSpan.Zero, TimeSpan.FromSeconds(4), 0, new ElementSource.EngineObject(() => shape))], CancellationToken.None);
-        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = editor.Scene.Children.Single();
+        editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
         var originalTransform = shape.Transform.CurrentValue;
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };

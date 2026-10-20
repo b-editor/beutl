@@ -1,16 +1,17 @@
 ﻿using Avalonia.Headless.NUnit;
+using Avalonia.Threading;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
+using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using Microsoft.Extensions.DependencyInjection;
-using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
-// Regression coverage for the editor-clock disposal race.
+// A seek from another thread reaches the editor-clock bridge on the UI thread, so it cannot race the bridge's disposal.
 [TestFixture]
 public class EditorViewModelDisposeRaceTests
 {
@@ -23,68 +24,34 @@ public class EditorViewModelDisposeRaceTests
         }
 
         public object? GetService(Type serviceType)
-        {
-            if (serviceType == typeof(EditViewModel))
-                return editViewModel;
-            if (serviceType == typeof(IEditorClock))
-                return clock;
-            return null;
-        }
+            => serviceType == typeof(IEditorClock) ? clock : editViewModel.GetService(serviceType);
     }
 
     [AvaloniaTest]
-    public async Task Dispose_completes_the_current_time_subject_before_the_clock_bridge_can_write_to_it()
+    public async Task A_seek_from_another_thread_reaches_the_clock_bridge_on_the_UI_thread_and_not_after_dispose()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dispose-race");
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
-        IReactiveProperty<TimeSpan> clockProperty = clock.CurrentTime;
-        var observedStack = new TaskCompletionSource<string>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-
         var adapter = new CorePropertyAdapter<TimeSpan>(Scene.DurationProperty, editor.Scene);
+        var viewModel = new ValueEditorViewModel<TimeSpan>(adapter);
+        viewModel.Accept(new ServiceVisitor(editor, clock));
+        var bridged = new List<(TimeSpan Time, bool OnUIThread)>();
+        using IDisposable subscription = viewModel.CurrentTime.Subscribe(
+            time => bridged.Add((time, Dispatcher.UIThread.CheckAccess())));
 
-        // Simulate a playback timer writing from a background thread.
-        using var stop = new CancellationTokenSource();
-        Task writer = Task.Run(async () =>
+        await Task.Run(() => clock.Seek(TimeSpan.FromSeconds(1)));
+        HeadlessTestHelpers.Settle();
+        viewModel.Dispose();
+        await Task.Run(() => clock.Seek(TimeSpan.FromSeconds(2)));
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
         {
-            TimeSpan t = TimeSpan.Zero;
-            while (!stop.IsCancellationRequested)
-            {
-                try
-                {
-                    clockProperty.Value = (t += TimeSpan.FromMilliseconds(1));
-                }
-                catch (ObjectDisposedException ex)
-                {
-                    // This is the race that caused the production crash.
-                    observedStack.TrySetResult(ex.StackTrace ?? string.Empty);
-                    return;
-                }
-
-                await Task.Yield();
-            }
+            Assert.That(clock.CurrentTime.Value, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(bridged.Select(b => b.Time),
+                Does.Contain(TimeSpan.FromSeconds(1)).And.Not.Contain(TimeSpan.FromSeconds(2)));
+            Assert.That(bridged.Select(b => b.OnUIThread), Is.All.True);
         });
-
-        try
-        {
-            for (int i = 0; i < 2000 && !observedStack.Task.IsCompleted; i++)
-            {
-                var viewModel = new ValueEditorViewModel<TimeSpan>(adapter);
-                viewModel.Accept(new ServiceVisitor(editor, clock));
-                viewModel.Dispose();
-            }
-        }
-        finally
-        {
-            await stop.CancelAsync();
-            await writer.WaitAsync(TimeSpan.FromSeconds(5));
-        }
-
-        if (observedStack.Task.IsCompleted)
-        {
-            string stack = await observedStack.Task;
-            Assert.Fail($"a clock write landed on the disposed subject (dispose-order race):\n{stack}");
-        }
     }
 }

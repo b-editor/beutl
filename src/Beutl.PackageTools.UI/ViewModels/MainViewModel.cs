@@ -1,9 +1,12 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Parsing;
+using System.Reactive.Linq;
 
 using Beutl.Logging;
 using Beutl.PackageTools.UI.Models;
 using Beutl.PackageTools.UI.Services;
+
+using NuGet.Packaging.Core;
 
 using Reactive.Bindings;
 
@@ -128,10 +131,11 @@ public class MainViewModel : IAsyncDisposable
                 await Task.Run(() => AttachDebugger(cancellationToken), cancellationToken);
             }
 
+            PackageChangesQueue queue = _app.GetResource<PackageChangesQueue>();
             await _model.Load(
                 _app,
-                installItems,
-                uninstallItems,
+                [.. installItems, .. queue.GetInstalls().Select(PackageChangesQueue.ToArgument)],
+                [.. uninstallItems, .. queue.GetUninstalls().Select(PackageChangesQueue.ToArgument)],
                 updateItems,
                 cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
@@ -140,6 +144,10 @@ public class MainViewModel : IAsyncDisposable
                 .Concat(UninstallItems)
                 .Select(i => i.CreateViewModel(_app, _model))
                 .Where(i => i != null)!);
+            foreach (ActionViewModel viewModel in _viewModels)
+            {
+                RemoveOnceRun(viewModel, queue);
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -152,6 +160,19 @@ public class MainViewModel : IAsyncDisposable
         {
             IsBusy.Value = false;
         }
+    }
+
+    // A canceled change, or one that never ran, stays queued for the next hand-off.
+    internal static void RemoveOnceRun(ActionViewModel viewModel, PackageChangesQueue queue)
+    {
+        var package = new PackageIdentity(viewModel.Model.Id, viewModel.Model.Version);
+        PackageChangesQueue.EventType type = viewModel.Model.Action == PackageChangeAction.Uninstall
+            ? PackageChangesQueue.EventType.Uninstall
+            : PackageChangesQueue.EventType.Install;
+        viewModel.Succeeded.CombineLatest(viewModel.Failed, (succeeded, failed) => succeeded || failed)
+            .Where(ran => ran)
+            .Take(1)
+            .Subscribe(_ => queue.Remove(package, type));
     }
 
     private async ValueTask WaitForTermination(CancellationToken cancellationToken)

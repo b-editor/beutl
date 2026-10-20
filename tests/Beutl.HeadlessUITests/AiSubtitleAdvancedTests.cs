@@ -8,6 +8,7 @@ using Beutl.Api.Clients;
 using Beutl.Api.Services;
 using Beutl.Audio;
 using Beutl.Editor.Models;
+using Beutl.Editor.Services.AI;
 using Beutl.Editor.Services.Captions;
 using Beutl.Graphics;
 using Beutl.Media;
@@ -28,7 +29,7 @@ public sealed class AiSubtitleAdvancedTests
     [Test]
     public void TranscriptionSegments_AcceptServerToleranceAndClampEnd()
     {
-        AiTranscriptionSegment[] normalized = AiSubtitleDialogViewModel.ValidateTranscriptionSegments(
+        AiTranscriptionSegment[] normalized = AiRequestRules.ValidateTranscriptionSegments(
         [
             new() { Start = 0, End = 1, Text = "first" },
             new() { Start = 0.98, End = 2.02, Text = "second" },
@@ -49,11 +50,11 @@ public sealed class AiSubtitleAdvancedTests
         };
 
         Assert.DoesNotThrow(() =>
-            AiSubtitleDialogViewModel.ValidateTranscriptionSegments(withinChunk, 0.05));
+            AiRequestRules.ValidateTranscriptionSegments(withinChunk, 0.05));
         Assert.Throws<InvalidDataException>(() =>
-            AiSubtitleDialogViewModel.ValidateTranscriptionSegments(beyondChunk, 0.05));
+            AiRequestRules.ValidateTranscriptionSegments(beyondChunk, 0.05));
         Assert.Throws<InvalidDataException>(() =>
-            AiSubtitleDialogViewModel.ValidateTranscriptionSegments([null!], 0.05));
+            AiRequestRules.ValidateTranscriptionSegments([null!], 0.05));
     }
 
     [Test]

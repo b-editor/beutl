@@ -225,7 +225,7 @@ public class GraphEditorTreeTests
         HeadlessTestHelpers.Render(3);
         var old = scope.Model.SelectedAnimation.Value!;
         old.SelectedView.Value!.SetSelection(old.Animation.KeyFrames);
-        old.CurrentTime.Value = TimeSpan.FromSeconds(3);
+        old.Seek(TimeSpan.FromSeconds(3));
         // Keep the displayed control bound to the old graph to exercise the interval
         // before the tab's new binding and posted disposal reach the view.
         var view = new GraphEditorView();
@@ -335,7 +335,7 @@ public class GraphEditorTreeTests
             Easing = new SplineEasing(1f / 3, 0, 2f / 3, 1)
         });
         scope.Shape.Width.Animation = animation;
-        scope.Base.Model.CurrentTime.Value = TimeSpan.FromSeconds(3.007);
+        scope.Base.Model.Seek(TimeSpan.FromSeconds(3.007));
         scope.Base.Model.HistoryManager.Commit();
         HeadlessTestHelpers.Render(3);
         Assert.That(icon.Icon, Is.EqualTo(Icon.Diamond));
@@ -356,10 +356,10 @@ public class GraphEditorTreeTests
         Assert.That((string)ToolTip.GetTip(button)!, Does.StartWith(CommandNames.RemoveKeyFrame));
         Assert.That(scope.Base.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
 
-        scope.Base.Model.CurrentTime.Value = TimeSpan.FromSeconds(3.08);
+        scope.Base.Model.Seek(TimeSpan.FromSeconds(3.08));
         HeadlessTestHelpers.Render();
         Assert.That(icon.IconVariant, Is.EqualTo(IconVariant.Regular));
-        scope.Base.Model.CurrentTime.Value = TimeSpan.FromSeconds(3.015);
+        scope.Base.Model.Seek(TimeSpan.FromSeconds(3.015));
         HeadlessTestHelpers.Render();
         Assert.That(icon.IconVariant, Is.EqualTo(IconVariant.Filled), "The indicator must use the same frame rounding as key insertion.");
         button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -427,7 +427,7 @@ public class GraphEditorTreeTests
         scope.Model.EnableAnimation(item);
         var animation = (KeyFrameAnimation<float>)scope.Shape.Width.Animation!;
         scope.Base.Model.Element!.Start = TimeSpan.FromSeconds(1);
-        scope.Base.Model.CurrentTime.Value = TimeSpan.FromSeconds(1);
+        scope.Base.Model.Seek(TimeSpan.FromSeconds(1));
         HeadlessTestHelpers.Render(3);
         Assert.That(item.HasKeyFrame.Value, Is.True);
         animation.UseGlobalClock = true;

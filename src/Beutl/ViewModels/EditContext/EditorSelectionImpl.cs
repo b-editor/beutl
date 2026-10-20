@@ -1,4 +1,5 @@
-﻿using Beutl.Logging;
+﻿using Avalonia.Threading;
+using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -10,13 +11,14 @@ internal sealed class EditorSelectionImpl : IEditorSelection, IDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<EditorSelectionImpl>();
     private readonly CompositeDisposable _disposables = [];
+    private readonly ReactiveProperty<CoreObject?> _selectedObject;
 
     public EditorSelectionImpl()
     {
-        SelectedObject = new ReactiveProperty<CoreObject?>()
+        _selectedObject = new ReactiveProperty<CoreObject?>()
             .DisposeWith(_disposables);
 
-        SelectedObject.CombineWithPrevious()
+        _selectedObject.CombineWithPrevious()
             .Subscribe(v =>
             {
                 if (v.OldValue is IHierarchical oldHierarchical)
@@ -33,7 +35,7 @@ internal sealed class EditorSelectionImpl : IEditorSelection, IDisposable
         SelectedElements.Attached += element => element.DetachedFromHierarchy += OnSelectedElementDetachedFromHierarchy;
         SelectedElements.Detached += element => element.DetachedFromHierarchy -= OnSelectedElementDetachedFromHierarchy;
 
-        SelectedLayerNumber = SelectedObject.Select(v =>
+        SelectedLayerNumber = _selectedObject.Select(v =>
                 (v as Element)?.GetObservable(Element.ZIndexProperty).Select(i => (int?)i) ??
                 Observable.ReturnThenNever<int?>(null))
             .Switch()
@@ -41,22 +43,36 @@ internal sealed class EditorSelectionImpl : IEditorSelection, IDisposable
             .AddTo(_disposables);
     }
 
-    public ReactiveProperty<CoreObject?> SelectedObject { get; }
+    public IReadOnlyReactiveProperty<CoreObject?> SelectedObject => _selectedObject;
 
     public ReadOnlyReactivePropertySlim<int?> SelectedLayerNumber { get; }
 
     public CoreList<Element> SelectedElements { get; } = [];
 
-    IReactiveProperty<CoreObject?> IEditorSelection.SelectedObject => SelectedObject;
-
     IReadOnlyReactiveProperty<int?> IEditorSelection.SelectedLayerNumber => SelectedLayerNumber;
 
     ICoreList<Element> IEditorSelection.SelectedElements => SelectedElements;
 
+    public void Select(CoreObject? obj, bool notifyIfSelected = false)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => Select(obj, notifyIfSelected));
+        }
+        else if (notifyIfSelected && ReferenceEquals(_selectedObject.Value, obj))
+        {
+            _selectedObject.ForceNotify();
+        }
+        else
+        {
+            _selectedObject.Value = obj;
+        }
+    }
+
     private void OnSelectedObjectDetachedFromHierarchy(object? sender, HierarchyAttachmentEventArgs e)
     {
         _logger.LogInformation("Selected object detached from hierarchy, clearing selection.");
-        SelectedObject.Value = null;
+        Select(null);
     }
 
     private void OnSelectedElementDetachedFromHierarchy(object? sender, HierarchyAttachmentEventArgs e)
@@ -66,7 +82,7 @@ internal sealed class EditorSelectionImpl : IEditorSelection, IDisposable
 
     public void Dispose()
     {
-        if (SelectedObject.Value is IHierarchical hierarchical)
+        if (_selectedObject.Value is IHierarchical hierarchical)
             hierarchical.DetachedFromHierarchy -= OnSelectedObjectDetachedFromHierarchy;
 
         SelectedElements.Clear();

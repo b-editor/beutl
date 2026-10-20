@@ -24,6 +24,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     private readonly Subject<System.Reactive.Unit> _canExecuteChangedSubject = new();
     private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = [];
     private readonly IEditorSelection _selection;
+    private readonly IEditorClock _editorClock;
     private bool _isDisposed;
     private bool _updatingToolMode;
     private bool _addingLayerHeaders;
@@ -34,12 +35,12 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         _logger.LogInformation("Initializing TimelineTabViewModel.");
         EditorContext = editorContext;
         var timelineOptions = editorContext.GetRequiredService<ITimelineOptionsProvider>();
-        var editorClock = editorContext.GetRequiredService<IEditorClock>();
+        _editorClock = editorContext.GetRequiredService<IEditorClock>();
         Scene = timelineOptions.Scene;
         Scale = timelineOptions.Scale;
         Options = timelineOptions.Options;
-        CurrentTime = editorClock.CurrentTime;
-        MaximumTime = editorClock.MaximumTime;
+        CurrentTime = _editorClock.CurrentTime;
+        MaximumTime = _editorClock.MaximumTime;
         BufferStatus = editorContext.GetRequiredService<IBufferStatus>();
 
         SeekBarMargin = CurrentTime
@@ -49,7 +50,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             .AddTo(_disposables);
 
         (StartingBarMargin, EndingBarMargin, PanelWidth) = TimelineHelper.CreateSceneBarMargins(
-            Scene, editorClock, Scale, _disposables);
+            Scene, _editorClock, Scale, _disposables);
 
         AddElement.WithSubscribe(AddElementCore).AddTo(_disposables);
 
@@ -260,7 +261,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public IReactiveProperty<TimelineOptions> Options { get; }
 
-    public IReactiveProperty<TimeSpan> CurrentTime { get; }
+    public IReadOnlyReactiveProperty<TimeSpan> CurrentTime { get; }
 
     public IReadOnlyReactiveProperty<TimeSpan> MaximumTime { get; }
 
@@ -356,6 +357,8 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     public IObservable<System.Reactive.Unit> CanExecuteChanged => _canExecuteChangedSubject;
 
     public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.Timeline);
+
+    public void Seek(TimeSpan time) => _editorClock.Seek(time);
 
     public void Dispose()
     {

@@ -11,13 +11,14 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>, IPathFigureEditorContext
 {
-    private readonly ReactivePropertySlim<EditViewModel?> _editViewModel = new();
+    private readonly ReactivePropertySlim<PathEditorViewModel?> _pathEditor = new();
+    private IEditorContext? _editorContext;
     private GeometryEditorViewModel? _parentContext;
 
     public PathFigureEditorViewModel(IPropertyAdapter<PathFigure> property)
         : base(property)
     {
-        _editViewModel.DisposeWith(Disposables);
+        _pathEditor.DisposeWith(Disposables);
 
         IsExpanded.SkipWhile(v => !v)
             .Take(1)
@@ -44,8 +45,8 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
                     .DisposeWith(Disposables))
             .DisposeWith(Disposables);
 
-        EditingPath = _editViewModel
-            .Select(v => v?.Player.PathEditor.PathFigure ?? Observable.ReturnThenNever<PathFigure?>(null))
+        EditingPath = _pathEditor
+            .Select(v => v?.PathFigure ?? Observable.ReturnThenNever<PathFigure?>(null))
             .Switch()
             .CombineLatest(Value)
             .Select(t => t.First == t.Second && t.First != null)
@@ -85,7 +86,8 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
         if (visitor is IServiceProvider serviceProvider)
         {
             _parentContext = serviceProvider.GetService<GeometryEditorViewModel>();
-            _editViewModel.Value = serviceProvider.GetService<EditViewModel>();
+            _pathEditor.Value = serviceProvider.GetService<PathEditorViewModel>();
+            _editorContext = serviceProvider.GetService<IEditorContext>();
         }
     }
 
@@ -144,18 +146,14 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
 
     protected override void Dispose(bool disposing)
     {
-        if (_editViewModel.Value is { } editViewModel)
+        if (_editorContext?.FindToolTab<PathEditorTabViewModel>(t => t.FigureContext.Value == this) is { } tab)
         {
-            if (editViewModel.FindToolTab<PathEditorTabViewModel>(t => t.FigureContext.Value == this) is { } tab)
-            {
-                tab.FigureContext.Value = null;
-            }
+            tab.FigureContext.Value = null;
+        }
 
-            if (editViewModel is { Player.PathEditor: { } pathEditor }
-                && pathEditor.FigureContext.Value == this)
-            {
-                pathEditor.FigureContext.Value = null;
-            }
+        if (_pathEditor.Value is { } pathEditor && pathEditor.FigureContext.Value == this)
+        {
+            pathEditor.FigureContext.Value = null;
         }
 
         PreviewPath.Value = null;

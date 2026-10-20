@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Editor;
+using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.VersionControl;
 using Beutl.Media.Proxy;
 using Beutl.Models;
@@ -163,6 +164,12 @@ public partial class EditViewModel
 
         if (serviceType == typeof(FrameCacheManager))
             return FrameCacheManager.Value;
+
+        if (serviceType == typeof(IFrameCacheInvalidator))
+            return this;
+
+        if (serviceType == typeof(PathEditorViewModel))
+            return Player?.PathEditor;
 
         if (serviceType.IsAssignableTo(typeof(IBufferStatus)))
             return BufferStatus;

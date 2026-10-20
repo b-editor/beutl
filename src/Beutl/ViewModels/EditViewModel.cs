@@ -23,7 +23,7 @@ namespace Beutl.ViewModels;
 
 public sealed partial class EditViewModel
     : ISavableEditorContext, IUndoRedoEditorContext, IAiJobResultEditorContext, ISupportAutoSaveEditorContext,
-        IPreviewRenderQuality
+        IPreviewRenderQuality, IFrameCacheInvalidator
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly AutoSaveService _autoSaveService = new();
@@ -343,7 +343,7 @@ public sealed partial class EditViewModel
         {
             // A view-state save failure must not strand a retired editor's resources. Attempt
             // every cleanup step, and report the original error only after ownership is released.
-            Cleanup(() => _editorSelection.SelectedObject.Value = null);
+            Cleanup(() => _editorSelection.Select(null));
             // Player を破棄する前にイベント購読を外し、Subject 破棄後の OnNext を抑止する。
             Cleanup(DisposeCommandStateNotifier);
             // Tool contexts can own paid-AI operations that still publish through the editor.

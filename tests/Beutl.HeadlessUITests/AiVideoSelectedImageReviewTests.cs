@@ -33,7 +33,7 @@ public sealed partial class AiDialogWorkflowTests
             new ElementSource.EngineObject(() => image))], CancellationToken.None);
         Assert.That(added.IsSuccess, Is.True, added.Failure?.Message);
         var selected = added.Elements.Single();
-        ((IEditorSelection)editor.GetService(typeof(IEditorSelection))!).SelectedObject.Value = selected;
+        ((IEditorSelection)editor.GetService(typeof(IEditorSelection))!).Select(selected);
         var sent = new List<(string Key, string Body)>();
         await using var api = new ApiScope(new StubHandler(async (request, token) =>
         {

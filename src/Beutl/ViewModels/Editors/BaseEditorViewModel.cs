@@ -37,7 +37,6 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     private readonly ReactivePropertySlim<bool> _isElementEditable = new(true);
     private IDisposable? _animationRepairSubscription;
     private readonly ReactivePropertySlim<bool> _canReplaceAnimation = new(true);
-    private EditViewModel? _editViewModel;
     private IEditorClock? _clock;
     private IServiceProvider? _parentServices;
     private IPropertyEditorControlHost? _propertyEditorControlHost;
@@ -251,7 +250,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                     TimeSpan start = _element?.Start ?? default;
                     TimeSpan keyTime = EditingKeyFrame.Value.KeyTime;
 
-                    _clock.CurrentTime.Value = animation.UseGlobalClock ? keyTime : keyTime + start;
+                    _clock.Seek(animation.UseGlobalClock ? keyTime : keyTime + start);
                 }
             }
             else
@@ -272,8 +271,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     {
         if (GetAnimation() is { } animation)
         {
-            int rate = _editViewModel?.Scene?.FindHierarchicalParent<Project>().GetFrameRate() ??
-                       30;
+            int rate = _scene?.FindHierarchicalParent<Project>().GetFrameRate() ?? 30;
 
             TimeSpan globalkeyTime = t.First;
             TimeSpan localKeyTime =
@@ -304,8 +302,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             _parentServices = serviceProvider;
             _propertyEditorControlHost = serviceProvider.GetService<IPropertyEditorControlHost>()?.CreateChildHost(PropertyAdapter);
             _element = serviceProvider.GetService<Element>();
-            _editViewModel = serviceProvider.GetService<EditViewModel>();
-            _scene = serviceProvider.GetService<Scene>() ?? _editViewModel?.Scene;
+            _scene = serviceProvider.GetService<Scene>();
             _elementEditabilitySubscription?.Dispose();
             _elementEditabilitySubscription = ElementEditability.Observe(_element, _scene)
                 .Subscribe(editable => _isElementEditable.Value = editable);
@@ -317,8 +314,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                     .Subscribe(canReplace => _canReplaceAnimation.Value = canReplace)
                 : null;
             _clock = serviceProvider.GetService<IEditorClock>();
-            _extensionProvider.Value = serviceProvider.GetService<Beutl.Api.Services.ExtensionProvider>()
-                ?? _editViewModel?.ExtensionProvider;
+            _extensionProvider.Value = serviceProvider.GetService<Beutl.Api.Services.ExtensionProvider>();
 
             if (_clock != null)
             {
@@ -386,7 +382,6 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         _extensionProvider.Dispose();
         _isElementEditable.Dispose();
         _canReplaceAnimation.Dispose();
-        _editViewModel = null!;
         _parentServices = null;
         _propertyEditorControlHost = null;
         _element = null;
@@ -532,7 +527,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         if (serviceType.IsAssignableTo(typeof(IPropertyAdapter)))
             return PropertyAdapter;
 
-        return _parentServices?.GetService(serviceType) ?? _editViewModel?.GetService(serviceType);
+        return _parentServices?.GetService(serviceType);
     }
 
     // For editors that build child contexts after Accept. Resolves the ExtensionProvider itself so
@@ -550,16 +545,9 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public void InvalidateFrameCache()
     {
-        if (this.GetService<EditViewModel>() is { Player: { } player, FrameCacheManager.Value: { } cacheManager })
+        if (_element is { } element)
         {
-            Task.Run(() =>
-            {
-                int rate = player.GetFrameRate();
-                IEnumerable<Element> elements = _element is { } element ? [element] : [];
-
-                cacheManager.DeleteAndUpdateBlocks(elements
-                    .Select(item => FrameCacheRanges.ToFrameRange(item.Range, rate)));
-            });
+            this.GetService<IFrameCacheInvalidator>()?.Invalidate(element.Range);
         }
     }
 }

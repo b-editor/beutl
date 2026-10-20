@@ -14,25 +14,19 @@ public sealed class ElementStructureService : IElementStructureService
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
     }
 
-    public void Exclude(Scene scene, IReadOnlyList<Element> elements, bool ripple = false)
-        => RemoveElements(scene, elements, ripple, delete: false);
-
+    // The next save deletes the element files, and saves them again after an undo.
     public void Delete(Scene scene, IReadOnlyList<Element> elements, bool ripple = false)
-        => RemoveElements(scene, elements, ripple, delete: true);
-
-    // Delete also removes the element files; Exclude keeps them.
-    private void RemoveElements(Scene scene, IReadOnlyList<Element> elements, bool ripple, bool delete)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(elements);
         Element[] editable = RemovableElements(scene, elements);
         if (editable.Length == 0) return;
 
-        RippleHelper.RemoveAndShiftAfter(scene, editable, ripple, delete ? scene.DeleteChild : scene.RemoveChild);
+        RippleHelper.RemoveAndShiftAfter(scene, editable, ripple, scene.RemoveChild);
 
         scene.RemoveElementsFromGroups(editable.Select(e => e.Id).ToArray());
 
-        _historyManager.Commit(delete ? CommandNames.DeleteElement : CommandNames.RemoveElement);
+        _historyManager.Commit(CommandNames.DeleteElement);
     }
 
     public void Split(Scene scene, IReadOnlyList<Element> targets, TimeSpan at)
@@ -166,7 +160,7 @@ public sealed class ElementStructureService : IElementStructureService
     // Refuses to pull an editable member out of a group when that would leave the group with only a
     // locked survivor: disbanding it would silently change the locked member's grouping. Such ids are
     // dropped from the request so the group is left intact. Only structural regroups (Ungroup/Group)
-    // use this — removal ops (Delete/Exclude/Cut) must always prune a removed element's id.
+    // use this — removal ops (Delete/Cut) must always prune a removed element's id.
     private static IReadOnlyCollection<Guid> FilterStrandingIds(Scene scene, IReadOnlyCollection<Guid> ids)
     {
         if (ids.Count == 0) return ids;

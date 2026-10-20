@@ -1,4 +1,5 @@
 ﻿using Beutl.Engine;
+using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.ViewModels.Editors;
@@ -8,7 +9,7 @@ internal static class TargetObjectSearchHelper
     public static IReadOnlyList<TargetObjectInfo> GetAvailableTargets<T>(IServiceProvider serviceProvider)
         where T : CoreObject
     {
-        var scene = serviceProvider.GetService<EditViewModel>()?.Scene;
+        var scene = serviceProvider.GetService<Scene>();
         if (scene == null) return [];
 
         var searcher = new ObjectSearcher(scene, obj =>

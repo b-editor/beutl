@@ -142,7 +142,7 @@ public partial class EditViewModel : IContextCommandStateNotifier
 
     internal void SeekAndScroll(TimeSpan time)
     {
-        _editorClock.CurrentTime.Value = time;
+        _editorClock.Seek(time);
 
         if (FindToolTab<TimelineTabViewModel>() is { } timeline)
         {

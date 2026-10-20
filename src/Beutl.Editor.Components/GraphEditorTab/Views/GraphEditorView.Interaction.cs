@@ -429,7 +429,7 @@ public partial class GraphEditorView
         var times = channel.KeyFrames.Select(x => x.Model.KeyTime + (model.UseGlobalClock.Value ? TimeSpan.Zero : model.Element?.Start ?? TimeSpan.Zero));
         var target = key == Key.J ? times.Where(x => x < model.CurrentTime.Value).OrderDescending().Select(x => (TimeSpan?)x).FirstOrDefault()
             : times.Where(x => x > model.CurrentTime.Value).Order().Select(x => (TimeSpan?)x).FirstOrDefault();
-        if (target.HasValue) model.CurrentTime.Value = target.Value;
+        if (target.HasValue) model.Seek(target.Value);
     }
 
     internal async Task CutSelectionAsync(IClipboard? clipboard = null)
