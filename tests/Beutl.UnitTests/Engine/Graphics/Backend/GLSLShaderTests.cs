@@ -106,26 +106,19 @@ public class GLSLShaderTests
                 using EffectTarget baseline = context.CreateNativeTargetLike(input);
                 using EffectTarget warmup = shader.Render(context, inputs, input.Bounds, new DummyPush());
             }
-            // The declined-allocation path also logs warnings. Sample its steady-state minimum so
-            // one-off runtime/logging initialization cannot be mistaken for a per-pass allocation.
-            long baselineBytes = long.MaxValue;
-            long renderBytes = long.MaxValue;
-            for (int sample = 0; sample < 5; sample++)
+            // Each pass measures the declined target and the render back to back, so a tier-up lands on both.
+            long[] extraBytes = new long[iterations * 5];
+            for (int i = 0; i < extraBytes.Length; i++)
             {
                 long before = GC.GetAllocatedBytesForCurrentThread();
-                for (int i = 0; i < iterations; i++)
-                {
-                    using EffectTarget baseline = context.CreateNativeTargetLike(input);
-                }
-                baselineBytes = Math.Min(baselineBytes, GC.GetAllocatedBytesForCurrentThread() - before);
-                before = GC.GetAllocatedBytesForCurrentThread();
-                for (int i = 0; i < iterations; i++)
-                {
-                    using EffectTarget result = shader.Render(context, inputs, input.Bounds, new DummyPush());
-                }
-                renderBytes = Math.Min(renderBytes, GC.GetAllocatedBytesForCurrentThread() - before);
+                context.CreateNativeTargetLike(input).Dispose();
+                long between = GC.GetAllocatedBytesForCurrentThread();
+                shader.Render(context, inputs, input.Bounds, new DummyPush()).Dispose();
+                extraBytes[i] = GC.GetAllocatedBytesForCurrentThread() - between - (between - before);
             }
-            Assert.That(renderBytes, Is.EqualTo(baselineBytes),
+            Array.Sort(extraBytes);
+            // One-off and tier-up allocations touch a few passes; an allocation in every pass moves the median.
+            Assert.That(extraBytes[extraBytes.Length / 2], Is.LessThan(3 * IntPtr.Size),
                 "input storage and constant binding must not allocate in a warmed render loop");
             Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
         });
