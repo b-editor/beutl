@@ -204,6 +204,14 @@ public partial class EditViewModel
         return false;
     }
 
+    void IFrameCacheInvalidator.Invalidate(TimeRange range)
+    {
+        if (Player is { } player && FrameCacheManager.Value is { } cache)
+        {
+            Task.Run(() => cache.DeleteAndUpdateBlocks([FrameCacheRanges.ToFrameRange(range, player.GetFrameRate())]));
+        }
+    }
+
     private void OnChangeOperations(IList<ChangeOperation> list)
     {
         if (list.Count == 0)

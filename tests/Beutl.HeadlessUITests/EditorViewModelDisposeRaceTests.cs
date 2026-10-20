@@ -24,13 +24,7 @@ public class EditorViewModelDisposeRaceTests
         }
 
         public object? GetService(Type serviceType)
-        {
-            if (serviceType == typeof(EditViewModel))
-                return editViewModel;
-            if (serviceType == typeof(IEditorClock))
-                return clock;
-            return null;
-        }
+            => serviceType == typeof(IEditorClock) ? clock : editViewModel.GetService(serviceType);
     }
 
     [AvaloniaTest]
