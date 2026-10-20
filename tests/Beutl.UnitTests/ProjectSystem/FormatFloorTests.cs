@@ -433,15 +433,14 @@ public class FormatFloorTests
         SetVersionFields(_projectPath, OlderAppVersion, OlderMinAppVersion);
         Project project = LoadProject();
         Scene scene = (Scene)project.Items.Single();
-        Element source = scene.Children.Single();
-        var duplicate = new Element { Length = source.Length };
+        var element = new Element { Length = TimeSpan.FromSeconds(1) };
+        Uri uri = ElementFileNaming.GetUri(scene.Uri!, element.Id);
         JsonObject before = Read(_projectPath);
 
-        List<Replacement> replaced = RecordReplacements(() =>
-            DuplicateHelper.PlaceDuplicates(scene, [duplicate], [source], TimeSpan.FromSeconds(10), anchorZIndex: 1));
+        // As the element adder writes a new element before it adds the element to the scene.
+        List<Replacement> replaced = RecordReplacements(() => CoreSerializer.StoreToUri(element, uri, owner: scene));
 
-        Assert.That(scene.Children, Does.Contain(duplicate));
-        AssertProjectFileRaisedFirst(replaced, duplicate.Uri!.LocalPath, before);
+        AssertProjectFileRaisedFirst(replaced, uri.LocalPath, before);
     }
 
     [Test]
