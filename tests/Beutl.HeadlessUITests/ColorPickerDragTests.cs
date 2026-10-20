@@ -8,10 +8,12 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using Beutl.Animation;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.PropertyAdapters;
@@ -174,6 +176,79 @@ public sealed class ColorPickerDragTests
             {
                 Assert.That(brush.Color.CurrentValue, Is.EqualTo(kept ? reached : Colors.Red));
                 Assert.That(shown, Is.EqualTo(brush.Color.CurrentValue), "The picker shows the brush's color.");
+                Assert.That(history.History.UndoCount, Is.EqualTo(kept ? 1 : 0));
+                Assert.That(history.History.IsEditing, Is.False);
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(DragEnd.CaptureLoss)]
+    [TestCase(DragEnd.Playback)]
+    [TestCase(DragEnd.Escape)]
+    [TestCase(DragEnd.Undo)]
+    public void A_grading_wheel_drag_keeps_on_capture_loss_and_playback_and_reverts_on_Escape_and_Undo(DragEnd end)
+    {
+        var effect = new ColorGrading();
+        using var history = new HistoryScope(effect);
+        var playing = new ReactivePropertySlim<bool>(false);
+        var player = new Mock<IPreviewPlayer>();
+        player.SetupGet(x => x.IsPlaying).Returns(playing);
+        using var viewModel = new GradingColorEditorViewModel(
+            new AnimatablePropertyAdapter<GradingColor>((AnimatableProperty<GradingColor>)effect.Shadows, effect));
+        viewModel.Accept(new ServiceVisitor((typeof(HistoryManager), history.History), (typeof(IPreviewPlayer), player.Object)));
+        var wheel = new ColorGradingWheel();
+        viewModel.Accept(wheel);
+        var window = new Window { Content = wheel, Width = 300, Height = 500 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            GradingWheel thumb = wheel.GetVisualDescendants().OfType<GradingWheel>().First(w => w.IsEffectivelyVisible);
+            IPointer? pointer = null;
+            thumb.AddHandler(InputElement.PointerPressedEvent, (_, e) => pointer = e.Pointer,
+                RoutingStrategies.Tunnel, handledEventsToo: true);
+            Point start = thumb.TranslatePoint(new Point(thumb.Bounds.Width / 2, thumb.Bounds.Height / 2), window)!.Value;
+
+            window.MouseMove(start);
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(start + new Vector(40, 0), RawInputModifiers.LeftMouseButton);
+            HeadlessTestHelpers.Render();
+            GradingColor reached = effect.Shadows.CurrentValue;
+            Assert.That(reached, Is.Not.EqualTo(GradingColor.Zero));
+            Assert.That(history.History.IsEditing, Is.True, "The drag must hold an edit session.");
+
+            switch (end)
+            {
+                case DragEnd.CaptureLoss:
+                    pointer!.Capture(null);
+                    break;
+                case DragEnd.Playback:
+                    playing.Value = true;
+                    playing.Value = false;
+                    break;
+                case DragEnd.Escape:
+                    window.KeyPress(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
+                    window.KeyRelease(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
+                    break;
+                case DragEnd.Undo:
+                    Assert.That(history.History.TryCancelGesture(), Is.True);
+                    break;
+            }
+
+            HeadlessTestHelpers.Render();
+            window.MouseMove(start + new Vector(80, 0), RawInputModifiers.LeftMouseButton);
+            window.MouseUp(start + new Vector(80, 0), MouseButton.Left);
+            HeadlessTestHelpers.Render();
+
+            bool kept = end is DragEnd.CaptureLoss or DragEnd.Playback;
+            Assert.Multiple(() =>
+            {
+                Assert.That(effect.Shadows.CurrentValue, Is.EqualTo(kept ? reached : GradingColor.Zero));
                 Assert.That(history.History.UndoCount, Is.EqualTo(kept ? 1 : 0));
                 Assert.That(history.History.IsEditing, Is.False);
             });
