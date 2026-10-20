@@ -6,7 +6,7 @@ using Avalonia.Input;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.Views;
-using Beutl.Editor.Models;
+using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
 using Beutl.Testing.Headless;
 

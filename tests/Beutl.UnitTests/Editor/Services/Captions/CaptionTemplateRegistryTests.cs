@@ -1,8 +1,8 @@
 ﻿namespace Beutl.UnitTests.Editor.Services.Captions;
 
-using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.Captions;
+using Beutl.Extensibility;
 using Beutl.Graphics;
 
 [TestFixture]

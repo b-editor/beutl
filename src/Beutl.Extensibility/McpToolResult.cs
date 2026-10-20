@@ -1,6 +1,6 @@
 ﻿using System.Text.Json;
 
-namespace Beutl.Editor.Services.Mcp;
+namespace Beutl.Extensibility;
 
 /// <summary>The result of one MCP tool call.</summary>
 public sealed class McpToolResult

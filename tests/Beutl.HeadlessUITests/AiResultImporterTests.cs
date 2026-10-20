@@ -1,7 +1,7 @@
 ﻿using System.Buffers.Binary;
 using Avalonia.Headless.NUnit;
-using Beutl.Editor.Models;
 using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;

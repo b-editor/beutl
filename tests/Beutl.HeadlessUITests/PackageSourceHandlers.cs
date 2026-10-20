@@ -1,5 +1,6 @@
 ﻿using Beutl.Api.Services;
 using Beutl.Editor.Services;
+using Beutl.Extensibility;
 
 namespace Beutl.HeadlessUITests;
 

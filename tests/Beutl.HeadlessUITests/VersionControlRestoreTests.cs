@@ -5,7 +5,6 @@ using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Components.VersionControl.ViewModels;
-using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;

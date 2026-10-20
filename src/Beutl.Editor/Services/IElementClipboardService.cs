@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.Extensibility;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;

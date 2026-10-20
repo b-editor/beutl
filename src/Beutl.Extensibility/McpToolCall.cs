@@ -1,7 +1,6 @@
 ﻿using System.Text.Json;
-using Beutl.Extensibility;
 
-namespace Beutl.Editor.Services.Mcp;
+namespace Beutl.Extensibility;
 
 /// <summary>Carries one MCP tool call to <see cref="McpToolExtension.InvokeAsync"/>.</summary>
 public sealed class McpToolCall

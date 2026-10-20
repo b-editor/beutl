@@ -6,7 +6,6 @@ using Beutl.Editor.Components.GraphEditorTab;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.LibraryTab;
 using Beutl.Editor.Components.LibraryTab.Views;
-using Beutl.Editor.Models;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
