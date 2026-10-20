@@ -2,6 +2,7 @@
 using Avalonia.Headless.NUnit;
 using Beutl.Editor.Components.DockLayoutTab;
 using Beutl.Editor.Components.HistoryTab;
+using Beutl.Editor.Components.MissingMediaTab;
 using Beutl.Editor.Components.OutputTab;
 using Beutl.Editor.Components.TransitionTab;
 using Beutl.Editor.Components.VersionControlTab;
@@ -20,6 +21,7 @@ public sealed class MovedToolTabNameTests
     [
         (TransitionTabExtension.Instance, "[Beutl].Services.PrimitiveImpls:TransitionTabExtension"),
         (OutputTabExtension.Instance, "[Beutl].Services.PrimitiveImpls:OutputTabExtension"),
+        (MissingMediaTabExtension.Instance, "[Beutl].Services.PrimitiveImpls:MissingMediaTabExtension"),
         (VersionControlTabExtension.Instance, "[Beutl].Services.PrimitiveImpls:VersionControlTabExtension"),
         (DockLayoutTabExtension.Instance, "[Beutl].Services.PrimitiveImpls:DockLayoutTabExtension"),
         (HistoryTabExtension.Instance, "[Beutl].Services.PrimitiveImpls:HistoryTabExtension"),

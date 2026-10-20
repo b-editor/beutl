@@ -1,11 +1,11 @@
-<UserControl x:Class="Beutl.Views.Tools.MissingMediaView"
+<UserControl x:Class="Beutl.Editor.Components.MissingMediaTab.Views.MissingMediaView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:Beutl.Controls"
-             xmlns:converters="using:Beutl.Converters"
+             xmlns:converters="using:Beutl.Editor.Components.Converters"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
-             xmlns:vm="using:Beutl.ViewModels.Tools"
+             xmlns:vm="using:Beutl.Editor.Components.MissingMediaTab.ViewModels"
              x:DataType="vm:MissingMediaViewModel"
              x:CompileBindings="True">
     <UserControl.Styles>

@@ -2,10 +2,10 @@
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Beutl.Configuration;
+using Beutl.Editor.Components.MissingMediaTab.ViewModels;
 using Beutl.Language;
-using Beutl.ViewModels.Tools;
 
-namespace Beutl.Views.Tools;
+namespace Beutl.Editor.Components.MissingMediaTab.Views;
 
 public partial class MissingMediaView : UserControl
 {
