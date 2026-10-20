@@ -109,10 +109,6 @@ internal static class ExtensionRegistrationLifetimes
     }
 }
 
-internal interface ILiveUnloadExtension
-{
-}
-
 internal sealed class ExtensionRemovalDrain(
     IReadOnlyList<Extension> extensions,
     IReadOnlyList<Task> drains)

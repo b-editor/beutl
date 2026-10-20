@@ -76,4 +76,4 @@ public sealed class SceneInfoToolExtension : McpToolExtension
 
 ## Lifetime
 
-Tools appear and disappear with their package without restarting the endpoint. A running call keeps its extension leased, so uninstalling waits until the call finishes. `McpToolExtension` supports live unload; a package whose extensions all support it can be removed without restarting Beutl.
+Tools appear and disappear with their package without restarting the endpoint. A running call keeps its extension leased, so uninstalling waits until the call finishes. Beutl then removes the package without a restart, unless objects from it are still in use.

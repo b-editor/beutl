@@ -179,7 +179,7 @@ public sealed class ExtensionProviderTests
         {
             Assert.That(exception!.InnerException, Is.InstanceOf<Exception>());
             Assert.That(provider.GetExtensions<StubExtension>(), Is.Empty);
-            Assert.That(provider.GetPackageExtensions(1), Is.Empty);
+            Assert.That(((IExtensionProvider)provider).Extensions, Is.Empty);
         }
     }
 
@@ -241,7 +241,7 @@ public sealed class ExtensionProviderTests
         {
             Assert.That(exception.Removal.Extensions, Is.EqualTo(new[] { extension }));
             Assert.That(provider.GetExtensions<StubExtension>(), Is.Empty);
-            Assert.That(provider.GetPackageExtensions(1), Is.Empty);
+            Assert.That(((IExtensionProvider)provider).Extensions, Is.Empty);
         }
     }
 }

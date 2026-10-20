@@ -88,16 +88,6 @@ public sealed class ExtensionProvider : IExtensionRegistry
         }
     }
 
-    internal IReadOnlyList<Extension> GetPackageExtensions(int packageId)
-    {
-        lock (_lock)
-        {
-            return _entriesByPackage.TryGetValue(packageId, out ExtensionEntry[]? entries)
-                ? entries.Select(entry => entry.Extension).ToArray()
-                : [];
-        }
-    }
-
     internal EditorExtension? MatchEditorExtension(string file)
     {
         lock (_lock)
@@ -292,9 +282,6 @@ public sealed class ExtensionProvider : IExtensionRegistry
 
     void IExtensionRegistry.AddExtensions(int packageId, IReadOnlyList<Extension> extensions)
         => AddExtensions(packageId, extensions);
-
-    IReadOnlyList<Extension> IExtensionRegistry.GetPackageExtensions(int packageId)
-        => GetPackageExtensions(packageId);
 
     ExtensionRemoval IExtensionRegistry.RemoveExtensions(int packageId)
         => RemoveExtensions(packageId);

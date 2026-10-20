@@ -19,12 +19,6 @@ internal interface IExtensionRegistry : IExtensionProvider, IBeutlApiResource
     void AddExtensions(int packageId, IReadOnlyList<Extension> extensions);
 
     /// <summary>
-    /// Gets a stable snapshot of the extensions owned by one package. The result must contain the
-    /// same extension instances that a subsequent removal ticket exposes.
-    /// </summary>
-    IReadOnlyList<Extension> GetPackageExtensions(int packageId);
-
-    /// <summary>
     /// Removes all extensions owned by one package from every public registry view and returns the
     /// drain ticket that must complete before their code can unload. Implementations must throw
     /// <see cref="ExtensionRemovalNotificationException"/> if an observer fails after removal.
