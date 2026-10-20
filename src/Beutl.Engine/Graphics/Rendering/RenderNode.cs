@@ -35,7 +35,7 @@ public abstract class RenderNode : IDisposable
     /// <summary>Reports that this node's next recording differs from the one it last had consumed.</summary>
     /// <remarks>
     /// Raising is the only direction a node gets: withdrawing a change it has already reported would let the
-    /// recording taken before the withdrawal be replayed for a state that never produced it. Lowering belongs
+    /// output cached before the withdrawal be served for a state that never produced it. Lowering belongs
     /// to <see cref="ClearChanges"/>, which the engine calls with the version the recording was taken at, so
     /// a mark landing during that recording is not swallowed by its clear.
     /// </remarks>
@@ -58,14 +58,6 @@ public abstract class RenderNode : IDisposable
 
     internal RenderNodeCache Cache { get; }
 
-    /// <summary>What this node recorded for the previous request, when that recording can stand for another.</summary>
-    /// <remarks>
-    /// One slot, not a table keyed by request: a node records once for the request it is walked in, and a
-    /// second request that disagrees with <see cref="RenderNodeRecordingKey"/> replaces the entry rather than
-    /// competing with it.
-    /// </remarks>
-    internal RenderNodeRecordingSnapshot? RecordingSnapshot { get; set; }
-
     public abstract void Process(RenderNodeContext context);
 
     /// <summary>Prepares this node for one request, before its children are recorded.</summary>
@@ -84,7 +76,6 @@ public abstract class RenderNode : IDisposable
         {
             OnDispose(true);
             Cache.Dispose();
-            RecordingSnapshot = null;
             IsDisposed = true;
             GC.SuppressFinalize(this);
         }

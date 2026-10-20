@@ -132,10 +132,7 @@ public sealed class TargetAuthoringContractTests
         Assert.Multiple(() =>
         {
             Assert.That(recorded.Preparations, Is.EqualTo(2), "one preparation per request");
-            Assert.That(
-                recorded.Processes,
-                Is.EqualTo(1),
-                "the second request's inputs digest to what the recording was made over, so it is served");
+            Assert.That(recorded.Processes, Is.EqualTo(2), "one Process per request");
         });
     }
 

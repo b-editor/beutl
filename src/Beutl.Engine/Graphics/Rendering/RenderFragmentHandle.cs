@@ -97,7 +97,6 @@ public sealed class RenderFragmentHandle
         VerifyActive();
         bool concrete = _reference.HasConcreteRecordingMetadata;
         result = concrete && _reference.HitTest(point);
-        _owner.NoteHitTestRead(_reference, point, concrete, result);
         return concrete;
     }
 

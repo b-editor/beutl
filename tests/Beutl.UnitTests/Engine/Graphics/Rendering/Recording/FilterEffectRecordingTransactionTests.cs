@@ -25,33 +25,26 @@ public sealed class FilterEffectRecordingTransactionTests
         var transaction = new NodeRecordingTransaction(recorder, new object(), []);
         var renderContext = new RenderNodeContext(transaction);
         int resolverCalls = 0;
-        try
-        {
-            using var original = new FilterEffectContext(
-                new Rect(0, 0, 10, 10),
-                outputScale: 1,
-                resolveWorkingScale: () =>
-                {
-                    resolverCalls++;
-                    return 1.5f;
-                },
-                renderContext: renderContext);
-            using FilterEffectContext clone = original.Clone();
-
-            float originalScale = original.WorkingScale;
-            float cloneScale = clone.WorkingScale;
-
-            Assert.Multiple(() =>
+        using var original = new FilterEffectContext(
+            new Rect(0, 0, 10, 10),
+            outputScale: 1,
+            resolveWorkingScale: () =>
             {
-                Assert.That(originalScale, Is.EqualTo(1.5f));
-                Assert.That(cloneScale, Is.EqualTo(originalScale));
-                Assert.That(resolverCalls, Is.EqualTo(1));
-            });
-        }
-        finally
+                resolverCalls++;
+                return 1.5f;
+            },
+            renderContext: renderContext);
+        using FilterEffectContext clone = original.Clone();
+
+        float originalScale = original.WorkingScale;
+        float cloneScale = clone.WorkingScale;
+
+        Assert.Multiple(() =>
         {
-            transaction.Abandon();
-        }
+            Assert.That(originalScale, Is.EqualTo(1.5f));
+            Assert.That(cloneScale, Is.EqualTo(originalScale));
+            Assert.That(resolverCalls, Is.EqualTo(1));
+        });
     }
 
     [Test]

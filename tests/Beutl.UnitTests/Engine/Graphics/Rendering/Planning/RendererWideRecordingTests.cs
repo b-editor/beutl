@@ -691,8 +691,7 @@ public sealed class RendererWideRecordingTests
             Assert.That(renderer.GetBoundaries(0), Is.EqualTo(new[] { expectedBounds, expectedBounds }));
             Assert.That(state.PrepareCalls, Is.EqualTo(new[] { 3, 3 }),
                 "Updating the current frame must invalidate every lazy bound.");
-            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 2, 2 }),
-                "The bound is measured again from a recording that repeats, so nothing is processed again.");
+            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 3, 3 }), "Each measurement records the drawables again.");
 
             renderer.Render(frame);
             Assert.That(state.PrepareCalls, Is.EqualTo(new[] { 4, 4 }));

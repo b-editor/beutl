@@ -5,14 +5,8 @@ namespace Beutl.Graphics.Rendering;
 
 internal sealed class RenderFragmentReference
 {
-    private readonly bool _hasDirectSymbolicBoundsDependency;
-
-    // Holds the recorded rule until planning lowers it, and a fragment is captured for replay and
-    // fingerprinted before planning begins, so both of those read what recording stated. Nothing may clone,
-    // digest, or take the recording identity of a fragment after ApplyResolvedMetadata has run on it.
+    // Holds the recorded rule until planning lowers it.
     private RenderFragmentHitTest _hitTest;
-
-    private RenderFragmentRecordingIdentity? _recordingIdentity;
 
     /// <remarks><paramref name="inputs"/> is stored as given, not copied.</remarks>
     public RenderFragmentReference(
@@ -66,38 +60,8 @@ internal sealed class RenderFragmentReference
         Payload = payload;
         PotentiallyWritesTarget = ComputePotentiallyWritesTarget();
         HasSymbolicTargetWrite = ComputeHasSymbolicTargetWrite();
-        _hasDirectSymbolicBoundsDependency = hasDirectSymbolicBoundsDependency;
         _hitTest = hitTest;
-        RecordingFingerprint = ComputeRecordingFingerprint();
     }
-
-    /// <summary>
-    /// A digest of everything a consumer can read from this fragment while recording, including its inputs'
-    /// own digests.
-    /// </summary>
-    /// <remarks>
-    /// A consumer reaches a fragment through <see cref="RenderFragmentHandle"/>, which exposes recording
-    /// metadata and nothing of the payload, so two fragments that agree here are interchangeable to whoever
-    /// records above them. It is what lets a reused recording be rebased onto a different request's
-    /// fragments: the inputs it is replayed over must digest to what it was recorded over.
-    /// </remarks>
-    internal long RecordingFingerprint { get; }
-
-    /// <summary>The structure <see cref="RecordingFingerprint"/> digests, taken once and kept.</summary>
-    internal RenderFragmentRecordingIdentity RecordingIdentity
-        => _recordingIdentity ??= new RenderFragmentRecordingIdentity(this);
-
-    /// <summary>The identity this fragment has already been settled as, if it has been.</summary>
-    internal RenderFragmentRecordingIdentity? SettledRecordingIdentity => _recordingIdentity;
-
-    /// <summary>Adopts the identity this fragment has just been compared equal to.</summary>
-    internal void SettleRecordingIdentity(RenderFragmentRecordingIdentity identity)
-        => _recordingIdentity = identity;
-
-    internal ulong RecordingFlags => PackRecordingFlags();
-
-    internal (RenderFragmentHitTestKind Kind, Rect Region, object? ContractIdentity) RecordedHitTestRule
-        => _hitTest.RuleIdentity;
 
     public RenderFragmentKind Kind { get; }
 
@@ -189,8 +153,8 @@ internal sealed class RenderFragmentReference
 
     /// <summary>Replaces the payload this fragment was recorded with by the one resolution derived for it.</summary>
     /// <remarks>
-    /// A fragment reference belongs to one request, so rewriting it here leaves the description the recording
-    /// snapshot retained untouched: the next request resolves the declaration again over its own ambient.
+    /// A fragment reference belongs to one request, so the next request resolves the declaration again over its
+    /// own ambient.
     /// </remarks>
     internal void ApplyResolvedPayload(object payload)
     {
@@ -213,123 +177,6 @@ internal sealed class RenderFragmentReference
         EffectiveScale = effectiveScale;
         if (hitTest is { } resolved)
             _hitTest = resolved;
-    }
-
-    /// <summary>Recreates this fragment for another request, over <paramref name="inputs"/>.</summary>
-    /// <remarks>
-    /// The clone carries the recorded values, not the resolved ones, because a fragment is rebased before any
-    /// request resolves it. What the constructor derives from inputs, the hit-test rule included, is derived again
-    /// from <paramref name="inputs"/>, so a clone over no inputs is a faithful template.
-    /// </remarks>
-    internal RenderFragmentReference CloneForReplay(ImmutableArray<RenderFragmentReference> inputs)
-        => new(
-            Kind,
-            RecordedBounds,
-            RecordedEffectiveScale,
-            ValueCardinality,
-            ContributesValuesToTarget,
-            CanBeUsedAsValueInput,
-            HasTargetEffects,
-            HasOpaqueExternalWork,
-            inputs,
-            Payload,
-            _hitTest,
-            BoundsRequirement,
-            _hasDirectSymbolicBoundsDependency);
-
-    private long ComputeRecordingFingerprint()
-    {
-        unchecked
-        {
-            ulong hash = Fnv1a.Offset64;
-            hash = Fnv1a.AppendBytes(hash, (ulong)(byte)Kind);
-            hash = Fnv1a.AppendBytes(hash, (ulong)(uint)BitConverter.SingleToInt32Bits(RecordedBounds.X));
-            hash = Fnv1a.AppendBytes(hash, (ulong)(uint)BitConverter.SingleToInt32Bits(RecordedBounds.Y));
-            hash = Fnv1a.AppendBytes(hash, (ulong)(uint)BitConverter.SingleToInt32Bits(RecordedBounds.Width));
-            hash = Fnv1a.AppendBytes(hash, (ulong)(uint)BitConverter.SingleToInt32Bits(RecordedBounds.Height));
-            hash = Fnv1a.AppendBytes(
-                hash,
-                RecordedEffectiveScale.IsUnbounded
-                    ? ulong.MaxValue
-                    : (ulong)(uint)BitConverter.SingleToInt32Bits(RecordedEffectiveScale.Value));
-            hash = Fnv1a.AppendBytes(hash, (ulong)(byte)BoundsRequirement);
-            hash = Fnv1a.AppendBytes(hash, (ulong)(uint)ValueCardinality.Minimum);
-            hash = Fnv1a.AppendBytes(
-                hash,
-                ValueCardinality.Maximum is { } maximum ? (ulong)(uint)maximum : ulong.MaxValue);
-            hash = Fnv1a.AppendBytes(hash, PackRecordingFlags());
-            hash = Fnv1a.AppendBytes(hash, _hitTest.IdentityDigest);
-            hash = Fnv1a.AppendBytes(
-                hash,
-                Payload is null ? 0UL : (ulong)Payload.GetType().TypeHandle.Value.ToInt64());
-            hash = Fnv1a.AppendBytes(hash, PackObservablePayloadIdentity());
-            hash = Fnv1a.AppendBytes(hash, (ulong)(uint)Inputs.Length);
-            foreach (RenderFragmentReference input in Inputs)
-                hash = Fnv1a.AppendBytes(hash, (ulong)input.RecordingFingerprint);
-            return (long)hash;
-        }
-    }
-
-    /// <summary>
-    /// The part of the payload another node can read while recording, which the payload's type alone does not
-    /// separate.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="TargetWriteMetadataResolver"/> reaches into an input's payload for the target extent a
-    /// consumer scopes by, so two fragments that agree on everything else and disagree here are not
-    /// interchangeable to whoever records above them. The rest of a payload reaches execution only, where the
-    /// node that recorded it answers for it through <see cref="RenderNode.HasChanges"/>.
-    /// </remarks>
-    private ulong PackObservablePayloadIdentity()
-    {
-        switch (Payload)
-        {
-            case BlendRenderFragmentPayload blend:
-                return 1UL + (byte)blend.BlendMode;
-            case TargetCommandRenderFragmentPayload command:
-                return PackRegion(command.Description.AffectedRegion);
-            case TargetLayerScopeRenderFragmentPayload layer:
-                return PackRegion(layer.Region);
-            case TargetScopeRenderFragmentPayload scope:
-                return ((ulong)(uint)scope.Description.Bounds.StructuralIdentity.GetHashCode() << 1)
-                       | (scope.Description.IsValueReplayMap ? 1UL : 0UL);
-            default:
-                return 0;
-        }
-    }
-
-    private static ulong PackRegion(TargetRegion region)
-    {
-        ulong hash = 1UL + (byte)region.Kind;
-        if (region.Kind != TargetRegionKind.Region)
-            return hash;
-
-        Rect value = region.Value;
-        unchecked
-        {
-            hash = (hash * 31) + (uint)BitConverter.SingleToInt32Bits(value.X);
-            hash = (hash * 31) + (uint)BitConverter.SingleToInt32Bits(value.Y);
-            hash = (hash * 31) + (uint)BitConverter.SingleToInt32Bits(value.Width);
-            hash = (hash * 31) + (uint)BitConverter.SingleToInt32Bits(value.Height);
-        }
-
-        return hash;
-    }
-
-    private ulong PackRecordingFlags()
-    {
-        ulong flags = 0;
-        if (ContributesValuesToTarget) flags |= 1UL << 0;
-        if (CanBeUsedAsValueInput) flags |= 1UL << 1;
-        if (HasTargetEffects) flags |= 1UL << 2;
-        if (HasOpaqueExternalWork) flags |= 1UL << 3;
-        if (HasConcreteRecordingMetadata) flags |= 1UL << 4;
-        if (HasSymbolicBoundsDependency) flags |= 1UL << 5;
-        if (SupportsIndependentOutputDensities) flags |= 1UL << 6;
-        if (PotentiallyWritesTarget) flags |= 1UL << 7;
-        if (HasSymbolicTargetWrite) flags |= 1UL << 8;
-        if (_hasDirectSymbolicBoundsDependency) flags |= 1UL << 9;
-        return flags;
     }
 
     private bool ComputeHasSymbolicTargetWrite()

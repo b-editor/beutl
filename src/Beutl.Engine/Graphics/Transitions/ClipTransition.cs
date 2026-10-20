@@ -70,7 +70,7 @@ public abstract partial class ClipTransition : EngineObject
         /// <summary>
         /// Brings the resource of a brush owned by this resource up to date. A brush the transition draws
         /// with belongs to its resource alone, so it is reconciled here rather than through a property; a
-        /// change moves this resource's version so a cached recording is not replayed.
+        /// change moves this resource's version so the previous frame's drawing is not reused.
         /// </summary>
         protected void Reconcile<TBrush, TResource>(TBrush brush, ref TResource? resource, CompositionContext context)
             where TBrush : Brush

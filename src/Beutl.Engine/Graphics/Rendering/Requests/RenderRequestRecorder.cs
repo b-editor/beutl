@@ -11,7 +11,6 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
     private readonly List<PendingRenderCacheCandidate> _pendingCacheCandidates = [];
     private readonly HashSet<RenderNode> _cacheCandidateNodes = new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<RenderNode> _preparedNodes = new(ReferenceEqualityComparer.Instance);
-    private int _crossCheckProbeDepth;
     private bool _recorded;
 
     public RenderRequestRecorder(RenderRequest request)
@@ -71,14 +70,9 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         ArgumentNullException.ThrowIfNull(node);
         ArgumentNullException.ThrowIfNull(inputs);
 
-        // These fragments land in the caller's commit, so they are part of the caller's recording and the
-        // caller cannot be replayed independently of them. Whether this node is served is its own question,
-        // and its input digests answer it however the node was reached.
-        ImmutableArray<RenderFragmentReference> outputs = subtree
+        return subtree
             ? RecordSubtreeCore(node, parent)
             : InvokeNode(node, inputs, parent, guardAlreadyHeld: false);
-        parent.MarkAbsorbedRecording();
-        return outputs;
     }
 
     public void Commit(in NodeRecordingCommit commit)
@@ -150,22 +144,8 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
             var transaction = new NodeRecordingTransaction(this, node, inputs, parent);
             try
             {
-                RenderNodeRecordingKey key = RenderNodeRecordingKey.Create(
-                    Request.Options,
-                    transaction.IsRenderCacheEnabled);
-                RenderNodeRecordingSnapshot? snapshot =
-                    _crossCheckProbeDepth > 0 ? null : node.RecordingSnapshot;
-
-                // What a skip path needs and nothing more: the node reports no change, the request agrees
-                // with the one the recording was made for, and the fragments it is replayed over digest to
-                // the ones it was recorded over. A descendant that re-recorded is not itself a reason to
-                // re-record here - what it produced is, and the digest is what reports that.
-                bool repeats = !node.HasChanges
-                               && snapshot is not null
-                               && snapshot.Matches(key, inputs);
-
-                RecordOrReplay(node, inputs, transaction, snapshot, repeats);
-                return CommitNodeRecording(node, inputs, transaction, key, snapshot, repeats);
+                node.Process(new RenderNodeContext(transaction));
+                return CommitNodeRecording(node, transaction);
             }
             catch (Exception ex)
             {
@@ -180,42 +160,10 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         }
     }
 
-    private void RecordOrReplay(
-        RenderNode node,
-        IReadOnlyList<RenderFragmentReference> inputs,
-        NodeRecordingTransaction transaction,
-        RenderNodeRecordingSnapshot? snapshot,
-        bool repeats)
-    {
-        if (repeats && snapshot!.IsReplayable && !RenderRecordingCrossCheck.IsEnabled)
-        {
-            transaction.ReplayRecording(snapshot, inputs);
-        }
-        else
-        {
-            var context = new RenderNodeContext(transaction);
-#if DEBUG
-            RecordedNodeShape? crossCheckBaseline = RenderRecordingCrossCheck.CaptureBaseline(
-                this,
-                node,
-                inputs,
-                repeats ? snapshot : null);
-#endif
-            node.Process(context);
-#if DEBUG
-            RenderRecordingCrossCheck.Verify(node, crossCheckBaseline, inputs, transaction);
-#endif
-        }
-    }
-
     // The cache flags are read before Commit: IsRenderCacheEnabled reports false once the transaction leaves Active.
     private ImmutableArray<RenderFragmentReference> CommitNodeRecording(
         RenderNode node,
-        IReadOnlyList<RenderFragmentReference> inputs,
-        NodeRecordingTransaction transaction,
-        in RenderNodeRecordingKey key,
-        RenderNodeRecordingSnapshot? snapshot,
-        bool repeats)
+        NodeRecordingTransaction transaction)
     {
         bool canCache = transaction.IsRenderCacheEnabled
                         && node.Cache.CanCapture
@@ -227,29 +175,7 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
             Request.DisableCacheForOutputs(outputs);
         if (canCache)
             QueueCacheCandidates(node, outputs);
-        if (_crossCheckProbeDepth == 0)
-            RetainRecording(key, node, inputs, transaction, snapshot, repeats);
         return outputs;
-    }
-
-    private void RetainRecording(
-        in RenderNodeRecordingKey key,
-        RenderNode node,
-        IReadOnlyList<RenderFragmentReference> inputs,
-        NodeRecordingTransaction transaction,
-        RenderNodeRecordingSnapshot? previous,
-        bool repeats)
-    {
-        // A repeat re-recorded under the cross-check produces the very fragments the retained snapshot
-        // already holds, so keeping it costs nothing and describing it again would allocate on every frame.
-        RenderNodeRecordingSnapshot snapshot = repeats && previous is not null
-            ? previous
-            : RenderNodeRecordingCache.Capture(key, node, inputs, transaction);
-
-        if (RenderRecordingCrossCheck.IsEnabled)
-            snapshot.Shape = RecordedNodeShape.Capture(inputs, transaction);
-
-        node.RecordingSnapshot = snapshot;
     }
 
     /// <summary>Gives <paramref name="node"/> its one preparation for this request.</summary>
@@ -277,46 +203,10 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
     private RenderRecordingFamily.Scope EnterNode(RenderNode node)
         => Request.Options.Owner.RecordingFamily.Enter(node);
 
-    /// <summary>Whether this recorder is inside a cross-check probe recording.</summary>
-    internal bool IsCapturingCrossCheckBaseline => _crossCheckProbeDepth > 0;
-
-    /// <summary>
-    /// Records <paramref name="node"/> into a transaction that never reaches the graph, and describes what it
-    /// produced.
-    /// </summary>
-    /// <remarks>
-    /// The probe transaction has no parent, so its own commits and those of anything it records below it stay
-    /// inside it and are released together. <see cref="RenderNode.PrepareForRequest"/> is deliberately not
-    /// called again: it runs once per request, and the contract under test is what a second
-    /// <see cref="RenderNode.Process(RenderNodeContext)"/> alone produces.
-    /// </remarks>
-    internal RecordedNodeShape CaptureCrossCheckBaseline(
-        RenderNode node,
-        IReadOnlyList<RenderFragmentReference> inputs)
-    {
-        _crossCheckProbeDepth++;
-        var transaction = new NodeRecordingTransaction(this, node, inputs, parent: null);
-        try
-        {
-            node.Process(new RenderNodeContext(transaction));
-            return RecordedNodeShape.Capture(inputs, transaction);
-        }
-        finally
-        {
-            transaction.Abandon();
-            _crossCheckProbeDepth--;
-        }
-    }
-
     private void QueueCacheCandidates(
         RenderNode node,
         IReadOnlyList<RenderFragmentReference> outputs)
     {
-        // A probe recording is discarded, so the candidate it would offer names a fragment the graph never
-        // received - and claiming the node here would deny the real recording its one candidate.
-        if (_crossCheckProbeDepth > 0)
-            return;
-
         // RenderNodeCache owns one atomic output set. Multiple independently published fragments would
         // require a compound candidate identity and are conservatively left uncached for now.
         if (outputs.Count != 1)

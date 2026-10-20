@@ -82,8 +82,8 @@ internal sealed class RenderRequestOptions
 
     /// <summary>Whether this request may expect a 3D-capable backend at execution.</summary>
     /// <remarks>
-    /// Settled at creation and part of <see cref="RenderNodeRecordingKey"/>; a nested request inherits it. The entry
-    /// renderer predicts it, and a request built directly assumes <see langword="true"/> before any backend exists.
+    /// Settled at creation; a nested request inherits it. The entry renderer predicts it, and a request built
+    /// directly assumes <see langword="true"/> before any backend exists.
     /// </remarks>
     public bool Supports3DRendering { get; }
 

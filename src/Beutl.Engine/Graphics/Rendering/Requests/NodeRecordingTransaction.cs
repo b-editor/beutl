@@ -1,5 +1,4 @@
-﻿using System.Buffers;
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 
 namespace Beutl.Graphics.Rendering.Requests;
@@ -19,7 +18,6 @@ internal sealed partial class NodeRecordingTransaction : IRenderResourceRecordin
     private List<RenderResource>? _resources;
     private List<RecordedNestedRenderRequest>? _nestedRequests;
     private List<BuiltInBackdropBinding>? _builtInBackdropBindings;
-    private List<RecordedHitTestRead>? _hitTestReads;
 
     // Nulled the moment the transaction seals so a recycled set can never answer for a dead transaction.
     private HashSet<RenderFragmentReference>? _ownedReferences = RentOwnedReferences();
@@ -32,14 +30,6 @@ internal sealed partial class NodeRecordingTransaction : IRenderResourceRecordin
 
     [ThreadStatic]
     private static Stack<HashSet<RenderFragmentReference>>? t_ownedReferencePool;
-
-    /// <summary>Where <see cref="ReplayRecording"/> takes its slot scratch from.</summary>
-    /// <remarks>
-    /// Assignable only so a test can observe the rent/return discipline, including under a mid-replay throw.
-    /// The render path never replaces it.
-    /// </remarks>
-    internal static ArrayPool<RenderFragmentReference> ReplayScratchPool { get; set; } =
-        ArrayPool<RenderFragmentReference>.Shared;
 
     public NodeRecordingTransaction(
         IRenderRequestRecordingHost host,
@@ -157,8 +147,7 @@ internal sealed partial class NodeRecordingTransaction : IRenderResourceRecordin
         if (count == 0)
             return [];
 
-        // Handed straight to a fragment as its retained Inputs, so this array must be owned by nobody else -
-        // a pooled buffer would be read by the recording cache long after its renter returned it.
+        // Handed straight to a fragment as its retained Inputs, so this array must be owned by nobody else.
         var references = new RenderFragmentReference[count];
         for (int index = 0; index < count; index++)
         {
@@ -420,82 +409,6 @@ internal sealed partial class NodeRecordingTransaction : IRenderResourceRecordin
         }
     }
 
-    /// <summary>Releases what an abandoned recording registered, without failing the request.</summary>
-    /// <remarks>
-    /// <see cref="Rollback"/> is the failure path: it reports a primary failure and the request dies with it.
-    /// A cross-check probe recording is discarded on the success path instead, so it needs the cleanup
-    /// without the verdict. The fragments it recorded stay readable, having never reached the graph.
-    /// </remarks>
-    internal void Abandon()
-    {
-        if (State != NodeRecordingTransactionState.Active)
-            return;
-
-        State = NodeRecordingTransactionState.RolledBack;
-        ReleaseOwnedReferences();
-        List<Exception>? failures = null;
-        for (int index = (_resources?.Count ?? 0) - 1; index >= 0; index--)
-        {
-            try
-            {
-                RollbackOrRelease(_resources![index]);
-            }
-            catch (Exception ex)
-            {
-                (failures ??= []).Add(ex);
-            }
-        }
-
-        for (int index = (_nestedRequests?.Count ?? 0) - 1; index >= 0; index--)
-        {
-            try
-            {
-                _nestedRequests![index].Request.Dispose();
-            }
-            catch (Exception ex)
-            {
-                (failures ??= []).Add(ex);
-            }
-        }
-
-        _resources?.Clear();
-        _nestedRequests?.Clear();
-        if (failures is not null)
-        {
-            throw new AggregateException(
-                "An abandoned render-node recording failed to release its resources.",
-                failures);
-        }
-    }
-
-    /// <summary>
-    /// The fragments recorded so far, in creation order. Read by the recording cache and the cross-check; do not edit.
-    /// </summary>
-    internal IReadOnlyList<RecordedRenderFragmentEntry> RecordedFragments => _fragments;
-
-    /// <summary>The fragments this transaction has published so far, in publication order.</summary>
-    internal IReadOnlyList<RenderFragmentReference> RecordedPublications => _publications;
-
-    /// <summary>The fragments this transaction abandoned, or <see langword="null"/> when it abandoned none.</summary>
-    internal IReadOnlyCollection<RenderFragmentReference>? RecordedDropped => _dropped;
-
-    /// <summary>The hit tests this recording read, in the order it read them.</summary>
-    internal IReadOnlyList<RecordedHitTestRead>? RecordedHitTestReads => _hitTestReads;
-
-    internal int RecordedResourceCount => _resources?.Count ?? 0;
-
-    internal int RecordedNestedRequestCount => _nestedRequests?.Count ?? 0;
-
-    internal int RecordedBuiltInBackdropBindingCount => _builtInBackdropBindings?.Count ?? 0;
-
-    /// <summary>Whether this recording called <see cref="DisableRenderCache"/> on itself.</summary>
-    internal bool IsRenderCacheDisabledHere => _cacheDisabled;
-
-    /// <summary>How many other nodes this recording drove.</summary>
-    internal int AbsorbedRecordingCount { get; private set; }
-
-    internal void MarkAbsorbedRecording() => AbsorbedRecordingCount++;
-
     public void Rollback(Exception primaryFailure)
     {
         ArgumentNullException.ThrowIfNull(primaryFailure);
@@ -563,15 +476,6 @@ internal sealed partial class NodeRecordingTransaction : IRenderResourceRecordin
                 "The render fragment belongs to a different recording transaction.");
         }
     }
-
-    /// <summary>Records what a hit test answered during this recording.</summary>
-    /// <remarks>The fingerprint does not capture the answer, so reuse of the recording is matched on it too.</remarks>
-    public void NoteHitTestRead(
-        RenderFragmentReference reference,
-        Point point,
-        bool concrete,
-        bool result)
-        => (_hitTestReads ??= []).Add(new RecordedHitTestRead(reference, point, concrete, result));
 
     private IReadOnlyList<RenderFragmentHandle> MapReferences(
         IReadOnlyList<RenderFragmentReference> references)
@@ -706,10 +610,3 @@ internal sealed partial class NodeRecordingTransaction : IRenderResourceRecordin
         return new RenderFragmentHandle(this, reference);
     }
 }
-
-/// <summary>One hit test a recording read, and what it answered.</summary>
-internal readonly record struct RecordedHitTestRead(
-    RenderFragmentReference Reference,
-    Point Point,
-    bool Concrete,
-    bool Result);

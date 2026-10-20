@@ -59,7 +59,7 @@ internal sealed partial class ClipTransitionPresenter : Drawable
         }
 
         // The inputs are borrowed from the compositor, which owns and disposes them. The version moves when
-        // any input or its version changes, so a cached recording of the previous frame is not replayed.
+        // any input or its version changes, so the previous frame's drawing is not reused.
         internal void SetInputs(
             ClipTransition.Resource transition,
             ReadOnlySpan<EngineObject.Resource> from,

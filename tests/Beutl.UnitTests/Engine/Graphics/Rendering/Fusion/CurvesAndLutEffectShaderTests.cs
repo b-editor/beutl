@@ -210,14 +210,13 @@ public sealed class CurvesAndLutEffectShaderTests
         AssertRed(second);
     }
 
-    // CubeFile.Data writes bump no version; the frame sees them only because RenderNodeRecordingCache.Capture
-    // refuses recordings that registered a RenderResource, so LutEffect re-records every request. If this
-    // goes red, re-check that refusal, not the effect.
+    // CubeFile.Data writes bump no version, so the frame sees them only because LutEffect records again every
+    // request. If this goes red, check what reuses its recording, not the effect.
     [TestCase(CubeFileDimension.OneDimension, true)]
     [TestCase(CubeFileDimension.OneDimension, false)]
     [TestCase(CubeFileDimension.ThreeDimension, true)]
     [TestCase(CubeFileDimension.ThreeDimension, false)]
-    public void ResourceBearingRecordingIsNeverReplayed_SoMutatedCubeDataReachesTheFrame(
+    public void MutatedCubeData_ReachesTheNextFrame(
         CubeFileDimension dimension,
         bool renderCacheEnabled)
     {
