@@ -91,6 +91,14 @@ public sealed partial class PackageManager
             return null;
         }
 
+        if (HasRegisteredProperties(info.LoadContext))
+        {
+            _logger.LogInformation(
+                "Package {PackageName} registered properties that open documents may use; it unloads at restart.",
+                package.Name);
+            return null;
+        }
+
         ExtensionRemoval removal = RemovePackageRegistrations(
             package,
             out List<Exception>? retirementFailures);

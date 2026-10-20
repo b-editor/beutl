@@ -164,6 +164,14 @@ public abstract class CoreProperty
         return _defaultMetadata is TMetadata metadata ? metadata : default;
     }
 
+    internal bool HasMetadataFor(IReadOnlySet<Type> types)
+    {
+        lock (_metadataLock)
+        {
+            return _metadata.Keys.Any(types.Contains);
+        }
+    }
+
     internal void RemoveMetadataOverride(Type type)
     {
         lock (_metadataLock)

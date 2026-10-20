@@ -111,6 +111,21 @@ public static class PropertyRegistry
         }
     }
 
+    // Whether Unregister would remove a property or a metadata override for these types.
+    internal static bool HasRegistrationsFor(Type[] types)
+    {
+        var unloading = new HashSet<Type>(types);
+        lock (s_properties)
+        {
+            return s_properties.Values.Any(property => Uses(property.OwnerType, unloading)
+                || Uses(property.PropertyType, unloading)
+                || property.HasMetadataFor(unloading));
+        }
+    }
+
+    private static bool Uses(Type type, HashSet<Type> types)
+        => types.Contains(type) || (type.IsGenericType && type.GetGenericArguments().Any(argument => Uses(argument, types)));
+
     private static void Unregister(Type[] types)
     {
         lock (s_properties)
