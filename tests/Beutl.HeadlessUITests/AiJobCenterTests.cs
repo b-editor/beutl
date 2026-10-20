@@ -906,6 +906,48 @@ public sealed class AiJobCenterTests
     }
 
     [AvaloniaTest]
+    public async Task RetryConfirmation_AUsedUpAllowanceNeedsPurchasedCredits()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-job-center-used-up");
+        int credits = 0;
+        int retries = 0;
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson(usedPercent: 100, additionalCredits: credits)),
+            "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, "{\"jobs\":[],\"nextCursor\":null}"),
+            "/api/v3/ai/jobs/job-1/retry" => Retry(),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        }, handleAvailability: false, throwIfCanceled: true));
+        using var viewModel = CreateJobCenter(editor, api.Clients);
+        using var item = CreateItem(CreateJob(
+            "image",
+            "failed",
+            ParseInput("{\"prompt\":\"used up\",\"aspectRatio\":\"1:1\"}"),
+            canRetry: true));
+
+        await viewModel.RequestRetryConfirmationAsync(item);
+        (bool CanConfirm, string Message) withoutCredits = (viewModel.CanConfirm.Value, viewModel.ConfirmationMessage.Value);
+        await viewModel.ConfirmPendingActionAsync();
+        credits = 5;
+        await viewModel.RequestRetryConfirmationAsync(item);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(withoutCredits.CanConfirm, Is.False);
+            Assert.That(withoutCredits.Message, Does.Contain(Strings.AiEstimatedUsageInsufficient));
+            Assert.That(retries, Is.Zero);
+            Assert.That(viewModel.CanConfirm.Value, Is.True);
+            Assert.That(viewModel.ConfirmationMessage.Value, Does.Contain(Strings.AiEstimatedUsageTopUp));
+        }
+
+        HttpResponseMessage Retry()
+        {
+            Interlocked.Increment(ref retries);
+            return JsonResponse(HttpStatusCode.OK, ImageResponseJson());
+        }
+    }
+
+    [AvaloniaTest]
     public async Task DisposeAsyncReturnsSamePendingTaskWhilePreflightDrains()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-job-center-dispose-idempotent");
@@ -1521,7 +1563,7 @@ public sealed class AiJobCenterTests
         return document.RootElement.Clone();
     }
 
-    private static string EntitlementsJson(bool canStartImage = true, int usedPercent = 4) => $$"""
+    private static string EntitlementsJson(bool canStartImage = true, int usedPercent = 4, int additionalCredits = 0) => $$"""
         {
           "plan": "pro",
           "subscriptionStatus": "active",
@@ -1534,7 +1576,7 @@ public sealed class AiJobCenterTests
               "remainingPercent": {{100 - usedPercent}},
               "isExhausted": {{(usedPercent >= 100 ? "true" : "false")}}
             },
-            "additionalCredits": 0,
+            "additionalCredits": {{additionalCredits}},
             "hasAdditionalCreditDebt": false
           },
           "availability": {

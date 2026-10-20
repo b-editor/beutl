@@ -35,6 +35,9 @@ public sealed partial class AiJobCenterViewModel
             {
                 null => (Strings.AiPricingUnavailable, false),
                 { CanUseAi: false } => (string.Join(Environment.NewLine, Strings.AiJobCenter_RetryConfirmation, Strings.AiProRequired), false),
+                // The server refuses a retry that neither the allowance nor purchased credits can pay for.
+                { Balance: { MonthlyUsage.IsExhausted: true, AdditionalCredits: <= 0 } } =>
+                    (string.Join(Environment.NewLine, Strings.AiJobCenter_RetryConfirmation, Strings.AiEstimatedUsageInsufficient), false),
                 _ => (string.Join(
                     Environment.NewLine,
                     Strings.AiJobCenter_RetryConfirmation,
