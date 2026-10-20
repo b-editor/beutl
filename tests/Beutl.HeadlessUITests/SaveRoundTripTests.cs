@@ -1,7 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
-using Beutl.Editor.Models;
 using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;

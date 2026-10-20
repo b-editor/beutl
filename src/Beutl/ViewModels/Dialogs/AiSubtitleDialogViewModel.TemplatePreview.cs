@@ -1,5 +1,4 @@
 ﻿using Avalonia.Threading;
-using Beutl.Editor.Models;
 using Beutl.Editor.Services.Captions;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;

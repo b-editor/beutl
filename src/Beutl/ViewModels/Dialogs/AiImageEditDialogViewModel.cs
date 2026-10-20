@@ -610,7 +610,7 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
                     uploadName = $"{Path.GetFileNameWithoutExtension(filePath)}-outpaint.png";
                 }
 
-                prompt = ToOutpaintPrompt(prompt);
+                prompt = AiRequestRules.ToOutpaintPrompt(prompt);
             }
 
             // Read once, and named by that reading. What the server
@@ -783,12 +783,6 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
     private const string RemoveObjectTask = "remove_object";
     private const string OutpaintTask = "outpaint";
 
-    // An outpaint request leads with this, so its length counts against the prompt limit too.
-    private const string OutpaintPromptPrefix =
-        "Extend the image naturally into the transparent canvas while preserving the original center.";
-
-    private static string ToOutpaintPrompt(string? prompt) => $"{OutpaintPromptPrefix} {prompt}";
-
     private static string? GetPromptValidationError(string task, string prompt)
     {
         if (task is not (RestyleTask or RemoveObjectTask or OutpaintTask))
@@ -797,7 +791,7 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
             return Strings.AiPromptRequired;
 
         string finalPrompt = task == OutpaintTask
-            ? ToOutpaintPrompt(prompt.Trim())
+            ? AiRequestRules.ToOutpaintPrompt(prompt.Trim())
             : prompt.Trim();
         return finalPrompt.Length > AiRequestLimits.MaxPromptLength
             ? AiPromptComposer.PromptTooLongMessage

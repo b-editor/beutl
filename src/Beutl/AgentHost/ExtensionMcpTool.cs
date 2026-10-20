@@ -1,7 +1,7 @@
 ﻿using System.Text.Json;
 using Avalonia.Threading;
 using Beutl.AgentToolkit.Common;
-using Beutl.Editor.Services.Mcp;
+using Beutl.Extensibility;
 using Beutl.Logging;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;

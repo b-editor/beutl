@@ -1,5 +1,4 @@
-﻿using Beutl.Editor.Models;
-using Beutl.Editor.Services;
+﻿using Beutl.Editor.Services;
 using Beutl.Editor.Services.Captions;
 using Beutl.Graphics;
 using Beutl.ProjectSystem;

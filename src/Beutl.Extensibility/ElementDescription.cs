@@ -2,7 +2,7 @@
 using Beutl.Graphics;
 using Beutl.ProjectSystem;
 
-namespace Beutl.Editor.Models;
+namespace Beutl.Extensibility;
 
 /// <summary>
 /// Identifies the single source used to create an element request.

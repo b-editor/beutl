@@ -1,6 +1,5 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Editor;
-using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.Media;

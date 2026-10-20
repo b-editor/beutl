@@ -1,6 +1,4 @@
-﻿using Beutl.Extensibility;
-
-namespace Beutl.Editor.Services.Mcp;
+﻿namespace Beutl.Extensibility;
 
 /// <summary>
 /// Contributes tools to the live MCP endpoint that Beutl hosts for AI agents.

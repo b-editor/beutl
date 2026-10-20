@@ -1,6 +1,5 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
-using Beutl.Editor.Services.Mcp;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 
