@@ -118,6 +118,51 @@ public class NodeGraphDragTests
         });
     }
 
+    [AvaloniaTest]
+    [TestCase(DragEnd.CaptureLoss)]
+    [TestCase(DragEnd.Playback)]
+    [TestCase(DragEnd.Escape)]
+    [TestCase(DragEnd.Undo)]
+    public void Capture_loss_and_playback_keep_moved_nodes_and_Escape_and_Undo_put_them_back(DragEnd end)
+    {
+        var first = new ExpressionNode { Position = (20, 40) };
+        var second = new ExpressionNode { Position = (20, 260) };
+        using var scope = PortScope.Create(first, second);
+        foreach (GraphNodeViewModel node in scope.Model.Nodes)
+            node.IsSelected.Value = true;
+        GraphNodeView firstView = scope.View.GetVisualDescendants().OfType<GraphNodeView>()
+            .Single(v => v.DataContext is GraphNodeViewModel vm && vm.GraphNode == first);
+        Border handle = firstView.FindControl<Border>("handle")!;
+        IPointer? pointer = null;
+        handle.AddHandler(InputElement.PointerPressedEvent, (_, e) => pointer = e.Pointer,
+            RoutingStrategies.Bubble, handledEventsToo: true);
+        Point start = handle.TranslatePoint(new Point(handle.Bounds.Width / 2, handle.Bounds.Height / 2), scope.Window)!.Value;
+
+        scope.Window.MouseMove(start);
+        scope.Window.MouseDown(start, MouseButton.Left);
+        scope.Window.MouseMove(start + new Vector(60, 30), RawInputModifiers.LeftMouseButton);
+        HeadlessTestHelpers.Render(3);
+        Assert.That(scope.History.IsEditing, Is.True, "The drag must hold an edit session.");
+
+        scope.End(end, pointer!);
+        scope.Window.MouseMove(start + new Vector(120, 60), RawInputModifiers.LeftMouseButton);
+        scope.Window.MouseUp(start + new Vector(120, 60), MouseButton.Left);
+        HeadlessTestHelpers.Render(3);
+
+        bool kept = end is DragEnd.CaptureLoss or DragEnd.Playback;
+        double dx = kept ? 60 : 0;
+        double dy = kept ? 30 : 0;
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Position, Is.EqualTo((20 + dx, 40 + dy)));
+            Assert.That(second.Position, Is.EqualTo((20 + dx, 260 + dy)));
+            foreach (GraphNodeViewModel node in scope.Model.Nodes)
+                Assert.That(node.Position.Value, Is.EqualTo(new Point(node.GraphNode.Position.X, node.GraphNode.Position.Y)));
+            Assert.That(scope.History.UndoCount, Is.EqualTo(kept ? 1 : 0));
+            Assert.That(scope.History.IsEditing, Is.False);
+        });
+    }
+
     private sealed class PortScope : IDisposable
     {
         private readonly CoreObjectOperationObserver _observer;

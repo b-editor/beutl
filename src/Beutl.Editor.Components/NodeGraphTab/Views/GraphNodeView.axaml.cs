@@ -22,6 +22,7 @@ public partial class GraphNodeView : UserControl
     private Point _start;
     private bool _captured;
     private Point _snapshot;
+    private DragSession? _drag;
     private IDisposable? _positionDisposable;
     private NodePortView? _undecidedLeftNodePort;
     private NodePortView? _undecidedRightNodePort;
@@ -35,6 +36,7 @@ public partial class GraphNodeView : UserControl
         handle.PointerPressed += OnHandlePointerPressed;
         handle.PointerReleased += OnHandlePointerReleased;
         handle.PointerMoved += OnHandlePointerMoved;
+        handle.PointerCaptureLost += OnHandlePointerCaptureLost;
         nodeContent.PointerPressed += OnNodeContentPointerPressed;
         nodeContent.PointerReleased += OnNodeContentPointerReleased;
         ContextRequested += OnContextRequested;
@@ -263,6 +265,14 @@ public partial class GraphNodeView : UserControl
             && point.Properties.IsLeftButtonPressed
             && Parent is Canvas canvas)
         {
+            // The first move opens the DragSession; null means another gesture holds history.
+            _drag ??= DragSession.Begin(viewModel.EditorContext, handle, CommandNames.MoveNode, ConfirmMove, CancelMove);
+            if (_drag is null)
+            {
+                CancelMove();
+                return;
+            }
+
             Point position = e.GetPosition(canvas);
             Point delta = position - _start;
             _start = position;
@@ -312,33 +322,62 @@ public partial class GraphNodeView : UserControl
 
     private void OnHandlePointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (_captured)
-        {
-            _captured = false;
-            e.Handled = true;
+        if (!_captured) return;
 
-            OnReleased();
-            if (DataContext is GraphNodeViewModel viewModel)
+        e.Handled = true;
+        bool moved = !_snapshot.NearlyEquals(GetPoint());
+        if (_drag is { } drag)
+            drag.Confirm();
+        else
+            ConfirmMove();
+
+        // A press that did not move the node is a click on it.
+        if (moved || DataContext is not GraphNodeViewModel viewModel) return;
+        if (viewModel.IsFallback && !_start.NearlyEquals(e.GetPosition(Parent as Visual))) return;
+        if (e.KeyModifiers == KeyModifiers.Control)
+        {
+            viewModel.IsSelected.Value = !viewModel.IsSelected.Value;
+        }
+        else
+        {
+            ClearSelection();
+        }
+    }
+
+    // A drag in progress confirms through its DragSession; a press that never moved has nothing to keep.
+    private void OnHandlePointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        if (_captured && _drag is null)
+            CancelMove();
+    }
+
+    // Release, capture loss, playback start and detach keep the nodes where the drag reached.
+    private void ConfirmMove()
+    {
+        _drag = null;
+        _captured = false;
+        OnReleased();
+        if (DataContext is GraphNodeViewModel viewModel && !_snapshot.NearlyEquals(GetPoint()))
+        {
+            IEnumerable<GraphNodeViewModel> selection = GetSelection()
+                .Where(x => x != this)
+                .Select(x => (GraphNodeViewModel)x.DataContext!);
+            viewModel.UpdatePosition(selection);
+        }
+    }
+
+    // Escape and Undo put the moved nodes back where the model has them.
+    private void CancelMove()
+    {
+        _drag = null;
+        _captured = false;
+        OnReleased();
+        foreach (GraphNodeView item in GetSelection().Append(this).Distinct())
+        {
+            if (item.DataContext is GraphNodeViewModel { IsFallback: false } itemViewModel)
             {
-                if (viewModel.IsFallback && !_start.NearlyEquals(e.GetPosition(Parent as Visual))) return;
-                if (_snapshot.NearlyEquals(GetPoint()))
-                {
-                    if (e.KeyModifiers == KeyModifiers.Control)
-                    {
-                        viewModel.IsSelected.Value = !viewModel.IsSelected.Value;
-                    }
-                    else
-                    {
-                        ClearSelection();
-                    }
-                }
-                else
-                {
-                    IEnumerable<GraphNodeViewModel> selection = GetSelection()
-                        .Where(x => x != this)
-                        .Select(x => (GraphNodeViewModel)x.DataContext!);
-                    viewModel.UpdatePosition(selection);
-                }
+                (double x, double y) = itemViewModel.GraphNode.Position;
+                itemViewModel.Position.Value = new Point(x, y);
             }
         }
     }
