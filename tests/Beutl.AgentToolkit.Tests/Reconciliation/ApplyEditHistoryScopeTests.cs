@@ -23,6 +23,7 @@ using Beutl.Graphics3D.Models;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.Services;
 
 namespace Beutl.AgentToolkit.Tests.Reconciliation;
 
@@ -576,19 +577,23 @@ public sealed class ApplyEditHistoryScopeTests
             : operation.GetType().Name;
     }
 
-    // TypeRegistration's types and the clip transitions, which only the app registers (#2760).
+    // The library's types and TypeRegistration's schema-only ones. Other tests add library types of their own.
     private static Type[] RegisteredTypes() =>
     [
-        .. TypeRegistration.Types.Select(entry => entry.Type).Distinct(),
-        .. typeof(ClipTransition).Assembly.GetExportedTypes()
-            .Where(type => type.IsSubclassOf(typeof(ClipTransition))
-                           && !type.IsAbstract
-                           && !type.IsAssignableTo(typeof(IFallback)))
+        .. TypeRegistration.Types.Select(entry => entry.Type)
+            .Concat(typeof(KnownLibraryItemFormats).GetFields()
+                .SelectMany(field => LibraryService.Current.GetTypesFromFormat((string)field.GetValue(null)!)))
+            .Where(type => type.Assembly != typeof(ApplyEditHistoryScopeTests).Assembly)
+            .Distinct()
     ];
 
     private static Scene CreateSceneWithEveryRegisteredType()
     {
-        Type[] types = RegisteredTypes();
+        // Drawables and sounds first, so that each Wrap chain ends at one.
+        Type[] types =
+        [
+            .. RegisteredTypes().OrderBy(type => type.IsAssignableTo(typeof(Drawable)) || type.IsAssignableTo(typeof(Sound)) ? 0 : 1)
+        ];
         object[] instances = [.. types.Select(type => Activator.CreateInstance(type)!)];
         Scene scene = TestWorkspace.CreateScene();
         foreach (EngineObject obj in instances.OfType<EngineObject>().Where(obj => obj is not ClipTransition))
@@ -628,7 +633,8 @@ public sealed class ApplyEditHistoryScopeTests
 
         foreach (Type type in types)
         {
-            if (Activator.CreateInstance(type) is EngineObject host
+            if (type != obj.GetType()
+                && Activator.CreateInstance(type) is EngineObject host
                 && host.Properties.FirstOrDefault(property => Holds(property, obj)) is { } slot)
             {
                 if (slot is IListProperty list)
