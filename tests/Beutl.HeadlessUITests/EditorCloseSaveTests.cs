@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Editor.Components.HistoryTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
@@ -12,7 +13,6 @@ using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
 
 namespace Beutl.HeadlessUITests;
 

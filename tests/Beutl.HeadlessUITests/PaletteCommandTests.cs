@@ -8,6 +8,7 @@ using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Components.DockLayoutTab;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.HistoryTab;
 using Beutl.Editor.Components.LibraryTab;
 using Beutl.Editor.Components.PreviewSettingsTab;
 using Beutl.Editor.Components.SceneSettingsTab;

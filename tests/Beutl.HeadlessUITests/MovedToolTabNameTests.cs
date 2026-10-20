@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
 using Beutl.Editor.Components.DockLayoutTab;
+using Beutl.Editor.Components.HistoryTab;
 using Beutl.Editor.Components.VersionControlTab;
 using Beutl.Extensibility;
 using Beutl.Testing.Headless;
@@ -17,6 +18,7 @@ public sealed class MovedToolTabNameTests
     [
         (VersionControlTabExtension.Instance, "[Beutl].Services.PrimitiveImpls:VersionControlTabExtension"),
         (DockLayoutTabExtension.Instance, "[Beutl].Services.PrimitiveImpls:DockLayoutTabExtension"),
+        (HistoryTabExtension.Instance, "[Beutl].Services.PrimitiveImpls:HistoryTabExtension"),
     ];
 
     [AvaloniaTest]

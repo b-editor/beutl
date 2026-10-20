@@ -4,28 +4,32 @@ using System.Collections.Specialized;
 using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
 using Avalonia.Threading;
-using Beutl.Editor;
+using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.Services;
-using Beutl.Services.PrimitiveImpls;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels.Tools;
+namespace Beutl.Editor.Components.HistoryTab.ViewModels;
 
 public sealed class HistoryViewModel : IToolContext
 {
     private readonly ILogger _logger = Log.CreateLogger<HistoryViewModel>();
     private readonly CompositeDisposable _disposables = [];
-    private readonly EditViewModel _editViewModel;
+    private readonly IEditorContext _editorContext;
     private readonly HistoryManager _historyManager;
+    private readonly IHistoryNavigator _navigator;
+    private readonly IUndoRedoEditorContext _undoRedo;
     private readonly ObservableCollection<HistoryEntry> _entries = [];
     private readonly ReactivePropertySlim<int> _currentIndex;
 
-    public HistoryViewModel(EditViewModel editViewModel)
+    public HistoryViewModel(IEditorContext editorContext)
     {
-        _editViewModel = editViewModel;
-        _historyManager = editViewModel.HistoryManager;
+        _editorContext = editorContext;
+        _historyManager = editorContext.GetRequiredService<HistoryManager>();
+        _navigator = editorContext.GetRequiredService<IHistoryNavigator>();
+        _undoRedo = editorContext.GetRequiredService<IUndoRedoEditorContext>();
 
         Entries = new ReadOnlyObservableCollection<HistoryEntry>(_entries);
 
@@ -68,17 +72,17 @@ public sealed class HistoryViewModel : IToolContext
 
     public async Task JumpTo(int index)
     {
-        await _editViewModel.JumpToHistoryAsync(index);
+        await _navigator.JumpToAsync(index);
     }
 
     public async Task Undo()
     {
-        await _editViewModel.UndoAsync();
+        await _undoRedo.UndoAsync();
     }
 
     public async Task Redo()
     {
-        await _editViewModel.RedoAsync();
+        await _undoRedo.RedoAsync();
     }
 
     public void Dispose()
@@ -88,7 +92,7 @@ public sealed class HistoryViewModel : IToolContext
 
     public object? GetService(Type serviceType)
     {
-        return _editViewModel.GetService(serviceType);
+        return _editorContext.GetService(serviceType);
     }
 
     public void ReadFromJson(JsonObject json)

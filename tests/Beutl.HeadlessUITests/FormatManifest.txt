@@ -1290,6 +1290,8 @@ Beutl.Utilities
   id: Beutl.Editor.Components.FileBrowserTab.FileBrowserTabExtension#<guid>
 [Beutl.Editor.Components].GraphEditorTab:GraphEditorTabExtension
   id: Beutl.Editor.Components.GraphEditorTab.GraphEditorTabExtension#<guid>
+[Beutl.Editor.Components].HistoryTab:HistoryTabExtension
+  id: Beutl.Editor.Components.HistoryTab.HistoryTabExtension
 [Beutl.Editor.Components].LibraryTab:LibraryTabExtension
   id: Beutl.Editor.Components.LibraryTab.LibraryTabExtension
 [Beutl.Editor.Components].NodeGraphTab:NodeGraphTabExtension
@@ -1314,8 +1316,6 @@ Beutl.Utilities
   id: Beutl.Services.PrimitiveImpls.TimelineTabExtension
 [Beutl].Services.PrimitiveImpls:AiWorkspaceTabExtension
   id: Beutl.Services.PrimitiveImpls.AiWorkspaceTabExtension#<guid>
-[Beutl].Services.PrimitiveImpls:HistoryTabExtension
-  id: Beutl.Services.PrimitiveImpls.HistoryTabExtension
 [Beutl].Services.PrimitiveImpls:MissingMediaTabExtension
   id: Beutl.Services.PrimitiveImpls.MissingMediaTabExtension
 [Beutl].Services.PrimitiveImpls:OutputTabExtension

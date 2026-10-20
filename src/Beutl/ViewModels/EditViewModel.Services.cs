@@ -37,6 +37,7 @@ public partial class EditViewModel
         .Add<IAiJobResultEditorContext>(() => this)
         .Add<IPreviewRenderQuality>(() => this)
         .Add<IFrameCacheInvalidator>(() => this)
+        .Add<IHistoryNavigator>(() => this)
         .Add<HistoryManager>(() => HistoryManager)
         .Add<IProjectVersionControlService>(() => EditorService.ProjectVersionControlService.Value)
         .Add<IReadOnlyReactiveProperty<IProjectVersionControlService?>>(() => EditorService.ProjectVersionControlService)
