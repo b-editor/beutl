@@ -236,9 +236,6 @@
   <data name="Remove" xml:space="preserve">
     <value>Remove</value>
   </data>
-  <data name="Exclude" xml:space="preserve">
-    <value>Exclude</value>
-  </data>
   <data name="Back" xml:space="preserve">
     <value>Back</value>
   </data>
@@ -964,9 +961,6 @@
   </data>
   <data name="Rename_Description" xml:space="preserve">
     <value>Rename the selected item.</value>
-  </data>
-  <data name="Exclude_Description" xml:space="preserve">
-    <value>Exclude the selected item.</value>
   </data>
   <data name="Delete_Description" xml:space="preserve">
     <value>Delete the selected item.</value>

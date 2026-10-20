@@ -228,13 +228,6 @@ public partial class Scene : ProjectItem, INotifyEdited
         AddChildCore(element, overlapHandling);
     }
 
-    public void DeleteChild(Element element)
-    {
-        ArgumentNullException.ThrowIfNull(element);
-
-        DeleteChildCore(element);
-    }
-
     public void RemoveChild(Element element)
     {
         ArgumentNullException.ThrowIfNull(element);

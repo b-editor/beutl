@@ -60,13 +60,15 @@ public class AutoSaveServiceTests
         if (undoAddition)
             harness.History.Undo();
         else
-            new ElementStructureService(harness.History).Exclude(scene, [element]);
+            new ElementStructureService(harness.History).Delete(scene, [element]);
 
         Assert.Multiple(() =>
         {
             Assert.That(scene.Children, Is.Empty);
             Assert.That(File.Exists(element.Uri.LocalPath), Is.False);
             Assert.That(errors, Is.Empty);
+            // The scene keeps no exclusion for the file the save deleted.
+            Assert.That(JsonNode.Parse(File.ReadAllText(scene.Uri.LocalPath))!["Elements"]!["Exclude"], Is.Null);
         });
 
         if (undoAddition)

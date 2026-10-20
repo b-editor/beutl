@@ -129,16 +129,6 @@
                         <icons:FluentIconSource Icon="DeleteDismiss" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
-                <ui:FAMenuFlyoutItem x:Name="exclude"
-                                     usage:UsageTracking.Feature="Timeline.Exclude"
-                                     Command="{Binding Exclude}"
-                                     InputGesture="{h:GetCommandGesture timeline.exclude,
-                                                                      ExtensionType={x:Type p:TimelineTabExtension}}"
-                                     Text="{x:Static lang:Strings.Exclude}">
-                    <ui:FAMenuFlyoutItem.IconSource>
-                        <icons:FluentIconSource Icon="Delete" />
-                    </ui:FAMenuFlyoutItem.IconSource>
-                </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutItem x:Name="groupSelectedElements"
                                      usage:UsageTracking.Feature="Timeline.GroupSelectedElements"
                                      Command="{Binding GroupSelectedElements}"

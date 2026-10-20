@@ -12,7 +12,6 @@ public partial class MenuBarViewModel
         yield return new("MenuBar.ExportProject", Strings.ExportProject, ExportProject);
         yield return new("MenuBar.ImportProject", Strings.ImportProject, ImportProject);
         yield return new("MenuBar.DeleteLayer", Strings.Delete, DeleteLayer);
-        yield return new("MenuBar.ExcludeLayer", Strings.Exclude, ExcludeLayer);
         yield return new("MenuBar.CutLayer", Strings.Cut, CutLayer);
         yield return new("MenuBar.CopyLayer", Strings.Copy, CopyLayer);
         yield return new("MenuBar.PasteLayer", Strings.Paste, PasteLayer);

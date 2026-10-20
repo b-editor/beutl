@@ -86,7 +86,6 @@ public sealed partial class ElementView : UserControl
         cut.IsEnabled = editable;
         // Recovery protection makes a clip read-only but still lets it be removed.
         delete.IsEnabled = !viewModel.IsLockedByUser.Value;
-        exclude.IsEnabled = !viewModel.IsLockedByUser.Value;
         finishEditingAnimation.IsEnabled = editable;
         rename.IsEnabled = editable;
         enableElement.IsEnabled = editable;

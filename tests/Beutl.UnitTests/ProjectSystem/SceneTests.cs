@@ -121,6 +121,26 @@ public class SceneTests
         });
     }
 
+    [Test]
+    public void Storing_scene_drops_the_exclusion_of_a_deleted_file_and_keeps_globs()
+    {
+        var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "project.scene")) };
+        var element = new Element { Uri = new Uri(Path.Combine(_tempDirectory, "elements", "deleted.belm")) };
+        scene.Children.Add(element);
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        JsonObject json = JsonNode.Parse(File.ReadAllText(scene.Uri.LocalPath))!.AsObject();
+        json["Elements"]!["Exclude"] = "other/*.belm";
+        json.JsonSave(scene.Uri.LocalPath);
+        Scene loaded = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
+
+        loaded.RemoveChild(loaded.Children.Single());
+        File.Delete(element.Uri.LocalPath);
+        CoreSerializer.StoreToUri(loaded, scene.Uri, CoreSerializationMode.Write);
+
+        JsonNode patterns = JsonNode.Parse(File.ReadAllText(scene.Uri.LocalPath))!["Elements"]!;
+        Assert.That(patterns["Exclude"]!.GetValue<string>(), Is.EqualTo("other/*.belm"));
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public void SceneReload_PreservesRestoredChildWithDifferentPathCasing(bool replace)
