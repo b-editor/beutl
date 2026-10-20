@@ -2,7 +2,7 @@
 using System.Collections.Frozen;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
-using Beutl.Editor.Services.Mcp;
+using Beutl.Extensibility;
 using Beutl.Logging;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;

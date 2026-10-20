@@ -1,8 +1,8 @@
 ﻿using System.Collections;
 using System.Collections.Immutable;
 using Beutl.Api.Services;
-using Beutl.Editor.Models;
 using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 
 namespace Beutl.UnitTests.Editor.Services;

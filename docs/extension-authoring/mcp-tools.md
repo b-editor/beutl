@@ -1,6 +1,6 @@
 # MCP tool extension guide
 
-`McpToolExtension` adds tools to the live MCP endpoint that each running Beutl hosts for AI agents. Agents reach it through the `beutl-agent` MCP server installed from the AI Agents settings page, which forwards every call that names an `instanceId` to that instance. The public contract lives in `src/Beutl.Editor/Services/Mcp/`; the host side is `src/Beutl/AgentHost/ExtensionMcpToolCatalog.cs` and `ExtensionMcpTool.cs`.
+`McpToolExtension` adds tools to the live MCP endpoint that each running Beutl hosts for AI agents. Agents reach it through the `beutl-agent` MCP server installed from the AI Agents settings page, which forwards every call that names an `instanceId` to that instance. The public contract lives in Beutl.Extensibility (`src/Beutl.Extensibility/McpTool*.cs`); the host side is `src/Beutl/AgentHost/ExtensionMcpToolCatalog.cs` and `ExtensionMcpTool.cs`.
 
 Extension tools run only inside the in-app endpoint. The installed server (`Beutl.AgentToolkit.Mcp`) does not load extensions itself: it lists them while an editor runs, requires `instanceId` on them, and rejects a call without one instead of running it headlessly.
 
@@ -9,7 +9,6 @@ Extension tools run only inside the in-app endpoint. The installed server (`Beut
 ```csharp
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Beutl.Editor.Services.Mcp;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 

@@ -9,7 +9,6 @@ using Beutl.AgentHost;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Live;
 using Beutl.Api.Services;
-using Beutl.Editor.Services.Mcp;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Services;

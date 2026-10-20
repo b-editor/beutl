@@ -2,7 +2,6 @@
 using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
-using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;

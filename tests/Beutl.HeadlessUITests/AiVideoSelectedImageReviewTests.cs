@@ -2,8 +2,8 @@
 using Avalonia.Headless.NUnit;
 using Beutl.Api;
 using Beutl.Api.Services;
-using Beutl.Editor.Models;
 using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Media.Source;
 using Beutl.Services.AI;

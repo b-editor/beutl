@@ -4,8 +4,8 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 
-using Beutl.Editor.Models;
 using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Models;

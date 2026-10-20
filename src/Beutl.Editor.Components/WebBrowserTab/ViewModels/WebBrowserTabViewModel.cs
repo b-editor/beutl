@@ -1,5 +1,4 @@
 ﻿using System.Text.Json.Nodes;
-using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;

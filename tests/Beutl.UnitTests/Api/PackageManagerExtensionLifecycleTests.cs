@@ -2,9 +2,7 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Beutl.Api.Services;
-using Beutl.Editor.Models;
 using Beutl.Editor.Services;
-using Beutl.Editor.Services.Mcp;
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;

@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Api.Services;
-using Beutl.Editor.Models;
 using Beutl.Editor.Services.Captions;
 using Beutl.Extensibility;
 using Beutl.Graphics;
@@ -25,6 +24,16 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
                 typeof(ExtensionDescriptor).GetProperties().Select(property => property.PropertyType),
                 Does.Not.Contain(typeof(Type)).And.Not.Contain(typeof(Extension)));
         }
+    }
+
+    [Test]
+    public void EveryExtensionKind_LivesInBeutlExtensibility()
+    {
+        Type[] kinds = [.. new[] { typeof(ExtensionProvider).Assembly, typeof(CaptionTemplateRegistry).Assembly }
+            .SelectMany(assembly => assembly.GetExportedTypes())
+            .Where(type => type.IsAbstract && type.IsSubclassOf(typeof(Extension)))];
+
+        Assert.That(kinds, Is.Empty);
     }
 
     [Test]
