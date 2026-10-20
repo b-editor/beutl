@@ -80,13 +80,15 @@ public partial class GraphEditorView
         }
     }
 
-    // Closes the flyout when the graph changes under it: a history change, another channel or selection, keys
-    // added or removed and, with includeEdits, any edit of the animation.
+    // Closes the flyout when the graph changes under it: a history change it did not start (ownMutation), another
+    // channel or selection, keys added or removed and, with includeEdits, any edit of the animation.
     private static IDisposable HideOnGraphChange(
-        FAPickerFlyoutBase flyout, GraphEditorViewModel model, GraphEditorViewViewModel channel, bool includeEdits)
+        FAPickerFlyoutBase flyout, GraphEditorViewModel model, GraphEditorViewViewModel channel, bool includeEdits,
+        Func<bool>? ownMutation = null)
     {
         var subscriptions = new CompositeDisposable();
-        model.HistoryManager.BeforeMutation.Subscribe(_ => flyout.Hide()).DisposeWith(subscriptions);
+        model.HistoryManager.BeforeMutation.Where(_ => ownMutation?.Invoke() != true)
+            .Subscribe(_ => flyout.Hide()).DisposeWith(subscriptions);
         model.SelectedView.Skip(1).Subscribe(_ => flyout.Hide()).DisposeWith(subscriptions);
         EventHandler changed = (_, _) => flyout.Hide();
         channel.SelectionChanged += changed;

@@ -40,7 +40,8 @@ public partial class GraphEditorView
                 originals.TryAdd(next, next.Easing);
             }
         }
-        bool previewed = false;
+        EditSession? session = null;
+        bool opening = false;
         bool finished = false;
         var initialValues = flyout.Values;
         var subscriptions = new CompositeDisposable();
@@ -49,9 +50,21 @@ public partial class GraphEditorView
         {
             if (finished) return;
             if (DataContext != model || model.SelectedView.Value != channel) { flyout.Hide(); return; }
-            previewed = true;
+            if (session is null)
+            {
+                opening = true;
+                try
+                {
+                    model.HistoryManager.FlushPendingMutations();
+                    if (!model.HistoryManager.IsEditing)
+                        session = model.HistoryManager.BeginEdit(CommandNames.EditKeyFrame);
+                }
+                finally { opening = false; }
+                // Another gesture holds history, so this one cannot preview.
+                if (session is null) { flyout.Hide(); return; }
+            }
             InvalidateVelocityPreview(model);
-            using (model.HistoryManager.SuppressRecording())
+            using (session.Enter())
             {
                 if (values == initialValues) Restore();
                 else Apply(values);
@@ -60,7 +73,7 @@ public partial class GraphEditorView
             UpdateSelectionAdorner();
         };
         flyout.Closed += (_, _) => Finish();
-        HideOnGraphChange(flyout, model, channel, includeEdits: false).DisposeWith(subscriptions);
+        HideOnGraphChange(flyout, model, channel, includeEdits: false, ownMutation: () => opening).DisposeWith(subscriptions);
         try { flyout.ShowAt(VelocityButton); }
         catch { Finish(); throw; }
 
@@ -86,16 +99,22 @@ public partial class GraphEditorView
             if (finished) return;
             finished = true;
             subscriptions.Dispose();
-            bool changed = previewed && originals.Any(pair => !SameEasing(pair.Value, pair.Key.Easing));
             try
             {
-                if (previewed)
+                if (session is { IsOpen: true })
                 {
                     InvalidateVelocityPreview(model);
-                    using (model.HistoryManager.SuppressRecording()) Restore();
+                    bool changed = originals.Any(pair => !SameEasing(pair.Value, pair.Key.Easing));
+                    if (changed && flyout.IsConfirmed && DataContext == model && model.SelectedView.Value == channel)
+                    {
+                        using (session.Enter()) Apply(flyout.Values);
+                        session.Complete();
+                    }
+                    else
+                    {
+                        session.Cancel();
+                    }
                 }
-                if (changed && flyout.IsConfirmed && DataContext == model && model.SelectedView.Value == channel)
-                    model.HistoryManager.ExecuteInTransaction(() => Apply(flyout.Values), CommandNames.EditKeyFrame);
             }
             finally
             {
