@@ -388,6 +388,10 @@ public sealed partial class EditViewModel
 
     public ValueTask<bool> UndoAsync()
     {
+        // During a drag, Undo cancels only the drag, as Escape does.
+        if (HistoryManager.TryCancelGesture())
+            return ValueTask.FromResult(true);
+
         return ExecuteHistoryMutationAsync(
             "Undo",
             "Undoing last command.",
