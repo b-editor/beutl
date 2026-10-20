@@ -1282,6 +1282,8 @@ Beutl.Utilities
   id: Beutl.Editor.Components.ColorScopesTab.ColorScopesTabExtension#<guid>
 [Beutl.Editor.Components].CurvesTab:CurvesTabExtension
   id: Beutl.Editor.Components.CurvesTab.CurvesTabExtension#<guid>
+[Beutl.Editor.Components].DockLayoutTab:DockLayoutTabExtension
+  id: Beutl.Editor.Components.DockLayoutTab.DockLayoutTabExtension
 [Beutl.Editor.Components].ElementPropertyTab:ElementPropertyTabExtension
   id: Beutl.Editor.Components.ElementPropertyTab.ElementPropertyTabExtension#<guid>
 [Beutl.Editor.Components].FileBrowserTab:FileBrowserTabExtension
@@ -1314,8 +1316,6 @@ Beutl.Utilities
   id: Beutl.Services.PrimitiveImpls.TimelineTabExtension
 [Beutl].Services.PrimitiveImpls:AiWorkspaceTabExtension
   id: Beutl.Services.PrimitiveImpls.AiWorkspaceTabExtension#<guid>
-[Beutl].Services.PrimitiveImpls:DockLayoutTabExtension
-  id: Beutl.Services.PrimitiveImpls.DockLayoutTabExtension
 [Beutl].Services.PrimitiveImpls:MissingMediaTabExtension
   id: Beutl.Services.PrimitiveImpls.MissingMediaTabExtension
 [Beutl].Services.PrimitiveImpls:OutputTabExtension

@@ -1,6 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.DockLayoutTab;
 using Beutl.Services;
 using DynamicData;
 using DynamicData.Binding;

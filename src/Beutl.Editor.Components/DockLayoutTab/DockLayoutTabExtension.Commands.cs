@@ -1,8 +1,7 @@
-﻿using Beutl.Editor.Components.Helpers;
-using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
+﻿using Beutl.Editor.Components.DockLayoutTab.ViewModels;
+using Beutl.Editor.Components.Helpers;
 
-namespace Beutl.Services.PrimitiveImpls;
+namespace Beutl.Editor.Components.DockLayoutTab;
 
 // Saves, applies, renames and deletes dock layouts from the palette, without opening the dock layout tab.
 // The operations go through DockLayoutViewModel so they report success and failure the way the tab does.
@@ -36,12 +35,12 @@ public sealed partial class DockLayoutTabExtension
         => new(id, displayName, "", [])
         {
             Scope = ContextCommandScope.Extension,
-            CanExecute = execution => execution.EditorContext is EditViewModel && (!needsPresets || PresetService.Items.Count > 0),
+            CanExecute = execution => HasDock(execution.EditorContext) && (!needsPresets || PresetService.Items.Count > 0),
             ExecuteAsync = async execution =>
             {
-                if (execution is { Interaction: { } interaction, EditorContext: EditViewModel editViewModel })
+                if (execution is { Interaction: { } interaction, EditorContext: { } editorContext } && HasDock(editorContext))
                 {
-                    using var layouts = new DockLayoutViewModel(editViewModel, PresetService);
+                    using var layouts = new DockLayoutViewModel(editorContext, PresetService);
                     await execute(layouts, interaction);
                 }
             }

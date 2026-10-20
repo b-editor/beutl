@@ -1,14 +1,17 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
-using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
+using Beutl.Editor.Components.DockLayoutTab.ViewModels;
+using Beutl.Editor.Components.DockLayoutTab.Views;
+using Beutl.Editor.Components.Helpers;
+using Beutl.Serialization;
 using FluentAvalonia.UI.Controls;
 using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
 using Icon = FluentIcons.Common.Icon;
 
-namespace Beutl.Services.PrimitiveImpls;
+namespace Beutl.Editor.Components.DockLayoutTab;
 
+// Moved from the app; layouts and pins saved before name the former type.
+[FormerPersistedName("[Beutl].Services.PrimitiveImpls:DockLayoutTabExtension")]
 public sealed partial class DockLayoutTabExtension : ToolTabExtension
 {
     public static readonly DockLayoutTabExtension Instance = new();
@@ -34,7 +37,7 @@ public sealed partial class DockLayoutTabExtension : ToolTabExtension
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
-        if (editorContext is EditViewModel)
+        if (HasDock(editorContext))
         {
             control = new DockLayoutView();
             return true;
@@ -46,13 +49,16 @@ public sealed partial class DockLayoutTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        if (editorContext is EditViewModel editViewModel)
+        if (HasDock(editorContext))
         {
-            context = new DockLayoutViewModel(editViewModel);
+            context = new DockLayoutViewModel(editorContext);
             return true;
         }
 
         context = null;
         return false;
     }
+
+    private static bool HasDock(IEditorContext? editorContext)
+        => editorContext?.GetService(typeof(IToolDockHost)) is IToolDockHost;
 }

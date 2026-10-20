@@ -4,7 +4,7 @@ using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
-namespace Beutl.Services;
+namespace Beutl.Editor.Components.DockLayoutTab;
 
 /// <summary>
 /// A named dock layout that the user saved from an editor and can re-apply later.

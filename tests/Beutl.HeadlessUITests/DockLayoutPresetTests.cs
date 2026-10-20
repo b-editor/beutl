@@ -2,12 +2,12 @@
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Beutl.Editor.Components.DockLayoutTab;
 using Beutl.Editor.Components.LibraryTab;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
 using Beutl.Serialization;
-using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;

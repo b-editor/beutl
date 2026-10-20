@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using Beutl.Editor.Components.DockLayoutTab;
 using Beutl.Services;
-using Beutl.Services.PrimitiveImpls;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
