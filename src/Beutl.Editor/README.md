@@ -33,9 +33,11 @@ Add new edit-pipeline services here, not in `Beutl.Editor.Components`. The View 
 
 ## Mandatory rules
 
-1. **Every undoable model mutation must be recorded by `HistoryManager` (through the observers or `Record`) and committed with `Commit` or `ExecuteInTransaction`.**
-2. **No Avalonia / view types here.** ViewModels live in `Beutl.Editor.Components` (or in the app); this project is consumed by them, not the other way around.
-3. **`AutoSaveService` runs on the UI thread.** The editor calls it through the dispatcher after each history commit.
+1. **Every undoable model mutation is recorded by the observers (or `Record`) and committed by its owner.** A gesture writes inside `Enter()` of the session `BeginEdit` opened and ends it with `Complete` or `Cancel`; a one-shot edit commits with `Commit` or `ExecuteInTransaction`. Other writers go through `RunAfterEditAsync` and run once the session closes.
+2. **State derived from values is recomputed, not recorded.** The `TimeRange` and `ZIndex` that engine objects get from their element and `Connection.Status` are `[NotTracked]`, and an input port writes its connection-driven expression inside the internal `HistoryReplay` scope.
+3. **Children with IDs are recorded in the same transaction as the change that creates them.** Model3D meshes, equalizer bands and GroupNode mirror ports are created by their owner's change handler, which skips rebuilding them while `HistoryReplay.IsActive`, because replay restores the recorded children.
+4. **No Avalonia / view types here.** ViewModels live in `Beutl.Editor.Components` (or in the app); this project is consumed by them, not the other way around.
+5. **`AutoSaveService` runs on the UI thread.** The editor calls it through the dispatcher after each history commit.
 
 ## Tests
 

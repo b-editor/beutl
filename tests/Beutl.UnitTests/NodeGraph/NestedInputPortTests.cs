@@ -671,7 +671,7 @@ public class NestedInputPortTests
         var recorded = new List<ChangeOperation>();
         using var subscription = history.Observer.Operations.Subscribe(operation =>
         {
-            if (!RecordingSuppression.IsSuppressed) recorded.Add(operation);
+            if (!HistoryReplay.IsActive) recorded.Add(operation);
         });
         restoredNode.Object.Brush.CurrentValue = repaired;
         history.History.Commit("Repair brush");
@@ -693,9 +693,7 @@ public class NestedInputPortTests
         Assert.That(Find(restoredNode, repaired.Color), Is.SameAs(port));
         Assert.That(repaired.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Red));
         Assert.That(restored.AllConnections.Single(), Is.SameAs(connection));
-        // Evaluation publishes connection-status changes independently of editing history.
-        Assert.That(recorded.Count(operation => operation is not UpdatePropertyValueOperation<ConnectionStatus>),
-            Is.EqualTo(1), "Repairing and rebinding must only record the brush replacement.");
+        Assert.That(recorded, Has.Count.EqualTo(1), "Repairing and rebinding must only record the brush replacement.");
     }
 
     [TestCase(false)]

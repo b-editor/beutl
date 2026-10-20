@@ -40,7 +40,8 @@ public partial class GraphEditorView
                 originals.TryAdd(next, next.Easing);
             }
         }
-        bool previewed = false;
+        EditSession? session = null;
+        bool opening = false;
         bool finished = false;
         var initialValues = flyout.Values;
         var subscriptions = new CompositeDisposable();
@@ -49,9 +50,30 @@ public partial class GraphEditorView
         {
             if (finished) return;
             if (DataContext != model || model.SelectedView.Value != channel) { flyout.Hide(); return; }
-            previewed = true;
+            if (session is null)
+            {
+                opening = true;
+                try
+                {
+                    model.HistoryManager.FlushPendingMutations();
+                    // Edits the flush ran may have closed the flyout or changed the graph under it.
+                    if (!finished && DataContext == model && model.SelectedView.Value == channel
+                        && !model.HistoryManager.IsEditing)
+                        session = model.HistoryManager.BeginEdit(CommandNames.EditKeyFrame);
+                }
+                finally { opening = false; }
+                if (finished)
+                {
+                    // Nothing would end a session opened after the flyout closed.
+                    session?.Cancel();
+                    session = null;
+                    return;
+                }
+                // Another gesture holds history, or the graph changed, so this one cannot preview.
+                if (session is null) { flyout.Hide(); return; }
+            }
             InvalidateVelocityPreview(model);
-            using (model.HistoryManager.SuppressRecording())
+            using (session.Enter())
             {
                 if (values == initialValues) Restore();
                 else Apply(values);
@@ -60,7 +82,7 @@ public partial class GraphEditorView
             UpdateSelectionAdorner();
         };
         flyout.Closed += (_, _) => Finish();
-        HideOnGraphChange(flyout, model, channel, includeEdits: false).DisposeWith(subscriptions);
+        HideOnGraphChange(flyout, model, channel, includeEdits: false, ownMutation: () => opening).DisposeWith(subscriptions);
         try { flyout.ShowAt(VelocityButton); }
         catch { Finish(); throw; }
 
@@ -86,16 +108,22 @@ public partial class GraphEditorView
             if (finished) return;
             finished = true;
             subscriptions.Dispose();
-            bool changed = previewed && originals.Any(pair => !SameEasing(pair.Value, pair.Key.Easing));
             try
             {
-                if (previewed)
+                if (session is { IsOpen: true })
                 {
-                    InvalidateVelocityPreview(model);
-                    using (model.HistoryManager.SuppressRecording()) Restore();
+                    // Disposing cancels the session unless a confirmed change completed it.
+                    using (session)
+                    {
+                        InvalidateVelocityPreview(model);
+                        bool changed = originals.Any(pair => !SameEasing(pair.Value, pair.Key.Easing));
+                        if (changed && flyout.IsConfirmed && DataContext == model && model.SelectedView.Value == channel)
+                        {
+                            using (session.Enter()) Apply(flyout.Values);
+                            session.Complete();
+                        }
+                    }
                 }
-                if (changed && flyout.IsConfirmed && DataContext == model && model.SelectedView.Value == channel)
-                    model.HistoryManager.ExecuteInTransaction(() => Apply(flyout.Values), CommandNames.EditKeyFrame);
             }
             finally
             {

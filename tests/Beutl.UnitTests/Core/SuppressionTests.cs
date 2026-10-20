@@ -12,9 +12,9 @@ public class SuppressionTests
                 (Func<bool>)(() => PublishingSuppression.IsSuppressed))
             .SetArgDisplayNames(nameof(PublishingSuppression));
         yield return new TestCaseData(
-                (Func<IDisposable>)RecordingSuppression.Enter,
-                (Func<bool>)(() => RecordingSuppression.IsSuppressed))
-            .SetArgDisplayNames(nameof(RecordingSuppression));
+                (Func<IDisposable>)HistoryReplay.Enter,
+                (Func<bool>)(() => HistoryReplay.IsActive))
+            .SetArgDisplayNames(nameof(HistoryReplay));
     }
 
     [TestCaseSource(nameof(Suppressions))]

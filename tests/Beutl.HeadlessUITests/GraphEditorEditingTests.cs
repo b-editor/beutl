@@ -762,8 +762,9 @@ public class GraphEditorEditingTests
         Assert.That(preview.X2, Is.EqualTo(0.55f).Within(0.001));
         Assert.That(preview.Y1, Is.Zero);
         Assert.That(preview.Y2, Is.EqualTo(1));
-        Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
-        Assert.That(graph.Model.HistoryManager.HasPendingOperations, Is.False, "A preview must not leak into an unrelated history commit.");
+        Assert.That(graph.Model.HistoryManager.IsEditing, Is.True, "The preview holds an edit session.");
+        graph.Model.HistoryManager.Commit();
+        Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo), "A preview must not leak into an unrelated history commit.");
         PickerButton(flyout, "AcceptButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Assert.That(flyout.IsOpen, Is.False);
         var easing = (SplineEasing)graph.Second.Easing;
@@ -797,7 +798,7 @@ public class GraphEditorEditingTests
             number.Value = 45;
         Assert.That(graph.Second.Easing, Is.Not.SameAs(original));
         Assert.That(((SplineEasing)graph.Second.Easing).X1, Is.EqualTo(0.45f).Within(0.001));
-        Assert.That(graph.Model.HistoryManager.HasPendingOperations, Is.False);
+        Assert.That(graph.Model.HistoryManager.IsEditing, Is.True);
         switch (dismiss)
         {
             case "DismissButton":
@@ -824,6 +825,8 @@ public class GraphEditorEditingTests
         Assert.That(easing, Is.SameAs(original));
         Assert.That((easing.X1, easing.Y1, easing.X2, easing.Y2), Is.EqualTo((0.25f, 0.25f, 0.75f, 0.75f)));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
+        Assert.That(graph.Model.HistoryManager.IsEditing, Is.False);
+        Assert.That(graph.Model.HistoryManager.HasPendingOperations, Is.False);
         Assert.That(graph.Model.SelectedView.Value!.KeyFrames.Count(x => x.IsSelected.Value), Is.EqualTo(2));
     }
 
@@ -922,10 +925,10 @@ public class GraphEditorEditingTests
         }
         else
         {
-            Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
-            Assert.That(graph.Model.HistoryManager.HasPendingOperations, Is.True);
+            // The preview's session gave the earlier edit its own entry, which the cancel keeps.
+            Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
+            Assert.That(graph.Model.HistoryManager.HasPendingOperations, Is.False);
             Assert.That(graph.Second.Easing, Is.SameAs(original));
-            graph.Model.HistoryManager.Commit();
         }
         graph.Model.HistoryManager.Undo();
         Assert.That(graph.First.Value, Is.EqualTo(100));
@@ -944,6 +947,32 @@ public class GraphEditorEditingTests
         Assert.That(flyout.IsOpen, Is.False);
         Assert.That(graph.First.Value, Is.EqualTo(100));
         Assert.That(graph.Second.Easing, Is.SameAs(original));
+    }
+
+    [AvaloniaTest]
+    public async Task Velocity_preview_leaves_no_session_when_a_queued_edit_closes_the_flyout()
+    {
+        using var graph = await GraphScope.CreateAsync(separateHandles: true);
+        var history = graph.Model.HistoryManager;
+        // As with the nudge window: a session that BeforeMutation completes, and an edit queued behind it.
+        var other = history.BeginEdit("Other");
+        using IDisposable completeOther = history.BeforeMutation.Subscribe(_ =>
+        {
+            if (other.IsOpen) other.Complete();
+        });
+        Task queued = history.RunAfterEditAsync(() => graph.Model.SelectedView.Value!.SetSelection([graph.First]));
+        var flyout = OpenVelocityFlyout(graph, "Button");
+
+        // The preview flushes history first, which runs the queued edit, and that closes the flyout.
+        flyout.Popup.Child!.GetVisualDescendants().OfType<NumericUpDown>().Single(x => x.Name == "IncomingSpeed").Value = 0;
+        HeadlessTestHelpers.Render(3);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(queued.IsCompleted, Is.True);
+            Assert.That(flyout.IsOpen, Is.False);
+            Assert.That(history.IsEditing, Is.False, "No session may outlive the flyout.");
+        });
     }
 
     [AvaloniaTest]
