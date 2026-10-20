@@ -38,16 +38,6 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
         ApplyEndDrag(scene, pointerTime);
     }
 
-    public void CommitStartChange()
-    {
-        _historyManager.Commit(CommandNames.ChangeSceneStart);
-    }
-
-    public void CommitEndChange()
-    {
-        _historyManager.Commit(CommandNames.ChangeSceneDuration);
-    }
-
     internal static int GetFrameRate(Scene scene) => scene.FindHierarchicalParent<Project>().GetFrameRate();
 
     internal static TimeSpan GetFrameDuration(Scene scene) => TimeSpan.FromSeconds(1d / GetFrameRate(scene));

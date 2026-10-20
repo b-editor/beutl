@@ -1,5 +1,6 @@
 ﻿using Beutl.Editor;
 using Beutl.Editor.Services;
+using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.TestInfrastructure;
 
@@ -108,13 +109,17 @@ public class SceneTimeRangeServiceTests
     }
 
     [Test]
-    public void UpdateEndDrag_ThenCommitEndChange_RecordsOneEntry()
+    public void UpdateEndDrag_InACompletedEditSession_RecordsOneEntry()
     {
         int before = _history.UndoCount;
 
-        _service.UpdateEndDrag(_scene, TimeSpan.FromSeconds(8));
-        _service.UpdateEndDrag(_scene, TimeSpan.FromSeconds(10));
-        _service.CommitEndChange();
+        EditSession session = _history.BeginEdit(CommandNames.ChangeSceneDuration);
+        using (session.Enter())
+        {
+            _service.UpdateEndDrag(_scene, TimeSpan.FromSeconds(8));
+            _service.UpdateEndDrag(_scene, TimeSpan.FromSeconds(10));
+        }
+        session.Complete();
 
         Assert.Multiple(() =>
         {
@@ -132,7 +137,6 @@ public class SceneTimeRangeServiceTests
 
         _service.UpdateStartDrag(_scene, TimeSpan.FromSeconds(2), initialStart, initialDuration);
         _service.UpdateStartDrag(_scene, TimeSpan.FromSeconds(3), initialStart, initialDuration);
-        _service.CommitStartChange();
 
         Assert.Multiple(() =>
         {
@@ -143,15 +147,18 @@ public class SceneTimeRangeServiceTests
     }
 
     [Test]
-    public void UpdateStartDrag_ThenRollback_RestoresInitialValues()
+    public void UpdateStartDrag_InACancelledEditSession_RestoresInitialValues()
     {
         TimeSpan initialStart = _scene.Start;
         TimeSpan initialDuration = _scene.Duration;
         int before = _history.UndoCount;
 
-        _service.UpdateStartDrag(_scene, TimeSpan.FromSeconds(4), initialStart, initialDuration);
-        // No Cancel method: the View cancels by re-driving UpdateStartDrag with initial values.
-        _service.UpdateStartDrag(_scene, initialStart, initialStart, initialDuration);
+        EditSession session = _history.BeginEdit(CommandNames.ChangeSceneStart);
+        using (session.Enter())
+        {
+            _service.UpdateStartDrag(_scene, TimeSpan.FromSeconds(4), initialStart, initialDuration);
+        }
+        session.Cancel();
 
         Assert.Multiple(() =>
         {

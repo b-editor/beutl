@@ -18,7 +18,7 @@ This subtree is the **non-UI editor logic** — undo / redo, project packaging, 
 
 Located under `Services/`:
 
-- `ISceneTimeRangeService` — Scene Start / Duration edits. `SetStart` / `SetEnd` are one-shot mutate+commit for keyboard / menu callers. The ruler drags call `UpdateStartDrag` / `UpdateEndDrag` per pointer frame inside a `DragSession`, whose edit session commits one entry and reverts on Escape or Undo; `CommitStartChange` / `CommitEndChange` commit the same updates for a caller outside a session.
+- `ISceneTimeRangeService` — Scene Start / Duration edits. `SetStart` / `SetEnd` are one-shot mutate+commit for keyboard / menu callers. The ruler drags call `UpdateStartDrag` / `UpdateEndDrag` per pointer frame inside a `DragSession`, whose edit session commits one entry and reverts on Escape or Undo.
 - `IElementMoveService` — single / multi-element move + Alt+drag duplicate. `Move(...)` returns `Moved` / `None`; `DuplicateOrMove(...)` returns `Duplicated`, `FellBackToMove`, or `DuplicateOverlapsSource` and falls back to a plain move when the duplicate cannot be staged.
 - `IElementResizeService` — `Resize(scene, IReadOnlyList<ElementResizeRequest>)` writes the final sizes (per element: start, length, zIndex) in one transaction. The View handles per-frame preview via VM reactive properties; the service is invoked once on drag release.
 - `IElementClipboardService` — Copy / Cut / Paste. Dispatches on `IClipboardGateway` formats (`Elements`, `Element`, `Files`, `Bitmap`) so `Beutl.Editor` stays Avalonia-free.
