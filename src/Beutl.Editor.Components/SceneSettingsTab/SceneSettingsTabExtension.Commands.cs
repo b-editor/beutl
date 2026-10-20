@@ -8,71 +8,61 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Beutl.Editor.Components.SceneSettingsTab;
 
 // Changes one scene setting at a time from the palette, without opening the scene settings tab.
-public sealed partial class SceneSettingsTabExtension : IContextCommandHandler
+public sealed partial class SceneSettingsTabExtension
 {
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
-        new("ChangeSceneSize", Strings.ChangeSceneSize, "", []) { Scope = ContextCommandScope.Extension },
-        new("ChangeSceneStart", Strings.ChangeSceneStart, "", []) { Scope = ContextCommandScope.Extension },
-        new("ChangeSceneDuration", Strings.ChangeSceneDuration, "", []) { Scope = ContextCommandScope.Extension },
+        Command("sceneSettings.changeSceneSize", Strings.ChangeSceneSize, ChangeSizeAsync),
+        Command("sceneSettings.changeSceneStart", Strings.ChangeSceneStart, ChangeStartAsync),
+        Command("sceneSettings.changeSceneDuration", Strings.ChangeSceneDuration, ChangeDurationAsync),
     ];
 
-    public bool CanExecute(ContextCommandExecution execution)
+    private static ContextCommandDefinition Command(
+        string id, string displayName, Func<IEditorContext, Scene, IContextCommandInteraction, Task> execute)
+        => new(id, displayName, "", [])
+        {
+            Scope = ContextCommandScope.Extension,
+            CanExecute = execution => execution.EditorContext?.GetService<Scene>() is not null,
+            ExecuteAsync = execution => execution is { Interaction: { } interaction, EditorContext: { } editorContext }
+                && editorContext.GetService<Scene>() is { } scene
+                    ? execute(editorContext, scene, interaction)
+                    : Task.CompletedTask
+        };
+
+    private static async Task ChangeSizeAsync(IEditorContext editorContext, Scene scene, IContextCommandInteraction interaction)
     {
-        return execution.CommandName is "ChangeSceneSize" or "ChangeSceneStart" or "ChangeSceneDuration"
-            && execution.EditorContext?.GetService<Scene>() is not null;
+        string? input = await interaction.ShowInputAsync(new ContextCommandInputOptions
+        {
+            Placeholder = "1920x1080",
+            Value = $"{scene.FrameSize.Width}x{scene.FrameSize.Height}",
+            Validate = value => TryParseSize(value, out _) ? null : Strings.CommandPalette_SceneSizeInvalid
+        });
+        if (input is not null && TryParseSize(input, out PixelSize size))
+            await ApplyAsync(editorContext, scene, interaction.CancellationToken, frameSize: size);
     }
 
-    public async Task ExecuteAsync(ContextCommandExecution execution)
+    private static async Task ChangeStartAsync(IEditorContext editorContext, Scene scene, IContextCommandInteraction interaction)
     {
-        if (execution.Interaction is not { } interaction
-            || execution.EditorContext is not { } editorContext
-            || editorContext.GetService<Scene>() is not { } scene)
+        string? input = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
-            return;
-        }
+            Placeholder = Strings.CommandPalette_TimeSpanHint,
+            Value = scene.Start.ToString(),
+            Validate = SceneSettingsTabViewModel.StartValidator
+        });
+        if (input is not null && TimeSpan.TryParse(input, out TimeSpan start))
+            await ApplyAsync(editorContext, scene, interaction.CancellationToken, start: start);
+    }
 
-        switch (execution.CommandName)
+    private static async Task ChangeDurationAsync(IEditorContext editorContext, Scene scene, IContextCommandInteraction interaction)
+    {
+        string? input = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
-            case "ChangeSceneSize":
-                {
-                    string? input = await interaction.ShowInputAsync(new ContextCommandInputOptions
-                    {
-                        Placeholder = "1920x1080",
-                        Value = $"{scene.FrameSize.Width}x{scene.FrameSize.Height}",
-                        Validate = value => TryParseSize(value, out _) ? null : Strings.CommandPalette_SceneSizeInvalid
-                    });
-                    if (input is not null && TryParseSize(input, out PixelSize size))
-                        await ApplyAsync(editorContext, scene, interaction.CancellationToken, frameSize: size);
-                    break;
-                }
-
-            case "ChangeSceneStart":
-                {
-                    string? input = await interaction.ShowInputAsync(new ContextCommandInputOptions
-                    {
-                        Placeholder = Strings.CommandPalette_TimeSpanHint,
-                        Value = scene.Start.ToString(),
-                        Validate = SceneSettingsTabViewModel.StartValidator
-                    });
-                    if (input is not null && TimeSpan.TryParse(input, out TimeSpan start))
-                        await ApplyAsync(editorContext, scene, interaction.CancellationToken, start: start);
-                    break;
-                }
-
-            case "ChangeSceneDuration":
-                {
-                    string? input = await interaction.ShowInputAsync(new ContextCommandInputOptions
-                    {
-                        Placeholder = Strings.CommandPalette_TimeSpanHint,
-                        Value = scene.Duration.ToString(),
-                        Validate = SceneSettingsTabViewModel.DurationValidator
-                    });
-                    if (input is not null && TimeSpan.TryParse(input, out TimeSpan duration))
-                        await ApplyAsync(editorContext, scene, interaction.CancellationToken, duration: duration);
-                    break;
-                }
-        }
+            Placeholder = Strings.CommandPalette_TimeSpanHint,
+            Value = scene.Duration.ToString(),
+            Validate = SceneSettingsTabViewModel.DurationValidator
+        });
+        if (input is not null && TimeSpan.TryParse(input, out TimeSpan duration))
+            await ApplyAsync(editorContext, scene, interaction.CancellationToken, duration: duration);
     }
 
     // Accepts "1920x1080" as well as "1920 x 1080", "1920×1080" and "1920,1080".

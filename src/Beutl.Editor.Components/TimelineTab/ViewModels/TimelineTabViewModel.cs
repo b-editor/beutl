@@ -16,7 +16,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 
-public sealed partial class TimelineTabViewModel : IToolContext, IContextCommandHandler, IContextCommandStateNotifier
+public sealed partial class TimelineTabViewModel : IToolContext, IContextCommandStateNotifier
 {
     private readonly ILogger _logger = Log.CreateLogger<TimelineTabViewModel>();
     private readonly CompositeDisposable _disposables = [];

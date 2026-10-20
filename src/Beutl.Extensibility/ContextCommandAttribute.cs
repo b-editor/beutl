@@ -4,18 +4,6 @@ using Avalonia.Input;
 
 namespace Beutl.Extensibility;
 
-public interface IContextCommandHandler
-{
-    /// <summary>
-    /// Executes a context command and completes when the command's operation has finished.
-    /// </summary>
-    /// <param name="execution">The context command invocation.</param>
-    /// <returns>A task representing the complete command operation.</returns>
-    Task ExecuteAsync(ContextCommandExecution execution);
-
-    bool CanExecute(ContextCommandExecution execution) => true;
-}
-
 // CanExecute の判定が状態変化に応じて変わる場合に実装する optional インターフェース。
 // CommandPalette はスナップショット中のハンドラーが提供する CanExecuteChanged を購読し、
 // 通知を受け取った時点でフィルタ結果を再評価する。
@@ -33,7 +21,7 @@ public interface IContextCommandStateNotifier
 public interface IContextCommandEditorStateNotifier
 {
     /// <summary>
-    /// Returns a sequence that signals when <see cref="IContextCommandHandler.CanExecute"/> may have changed
+    /// Returns a sequence that signals when <see cref="ContextCommandDefinition.CanExecute"/> may have changed
     /// for <paramref name="editorContext"/>. It may signal on any thread and as often as every frame.
     /// </summary>
     IObservable<Unit> GetCanExecuteChanged(IEditorContext editorContext);
@@ -41,12 +29,12 @@ public interface IContextCommandEditorStateNotifier
 
 public class ContextCommandExecution
 {
-    public ContextCommandExecution(string commandName)
+    public ContextCommandExecution(string commandId)
     {
-        CommandName = commandName;
+        CommandId = commandId;
     }
 
-    public string CommandName { get; }
+    public string CommandId { get; }
 
     public KeyEventArgs? KeyEventArgs { get; set; }
 
@@ -79,19 +67,20 @@ public enum ContextCommandScope
     Context,
 
     /// <summary>
-    /// The command is handled by the registered ViewExtension implementing IContextCommandHandler,
-    /// including when its editor or tool tab is closed. The palette does not create a tab context.
+    /// The command is handled by its definition's ExecuteAsync, including when its editor or tool tab is closed.
+    /// The palette does not create a tab context.
     /// </summary>
     Extension
 }
 
 public class ContextCommandDefinition(
-    string name,
+    string id,
     string? displayName = null,
     string? description = null,
     ContextCommandKeyGesture[]? keyGestures = null)
 {
-    public string Name { get; init; } = name;
+    // keymap.json saves the gestures under it, so it must not change.
+    public string Id { get; } = id;
 
     public string? DisplayName { get; init; } = displayName;
 
@@ -101,6 +90,20 @@ public class ContextCommandDefinition(
     public ContextCommandScope Scope { get; init; } = ContextCommandScope.Context;
 
     public ContextCommandKeyGesture[]? KeyGestures { get; init; } = Normalize(keyGestures);
+
+    // Runs a command that the extension handles itself, which the palette runs with no context.
+    public Func<ContextCommandExecution, Task>? ExecuteAsync { get; init; }
+
+    public Func<ContextCommandExecution, bool>? CanExecute { get; init; }
+
+    public virtual bool HasHandler => ExecuteAsync is not null;
+
+    // The context is the editor or tool context that a key or the palette targets, or null for the extension.
+    public virtual bool CanRun(object? context, ContextCommandExecution execution)
+        => context is null && ExecuteAsync is not null && (CanExecute?.Invoke(execution) ?? true);
+
+    public virtual Task RunAsync(object? context, ContextCommandExecution execution)
+        => context is null && ExecuteAsync is not null ? ExecuteAsync(execution) : Task.CompletedTask;
 
     private static ContextCommandKeyGesture[]? Normalize(ContextCommandKeyGesture[]? keyGestures)
     {
@@ -137,6 +140,28 @@ public class ContextCommandDefinition(
         foreach (ContextCommandKeyGesture fallback in fallbacks)
             target.Add(new ContextCommandKeyGesture(fallback.KeyGesture, platform));
     }
+}
+
+// A command that the open context of type TContext handles.
+public class ContextCommandDefinition<TContext>(
+    string id,
+    string? displayName = null,
+    string? description = null,
+    ContextCommandKeyGesture[]? keyGestures = null)
+    : ContextCommandDefinition(id, displayName, description, keyGestures)
+    where TContext : class
+{
+    public required Func<TContext, ContextCommandExecution, Task> ExecuteOnAsync { get; init; }
+
+    public Func<TContext, ContextCommandExecution, bool>? CanExecuteOn { get; init; }
+
+    public override bool HasHandler => true;
+
+    public override bool CanRun(object? context, ContextCommandExecution execution)
+        => context is TContext typed ? CanExecuteOn?.Invoke(typed, execution) ?? true : base.CanRun(context, execution);
+
+    public override Task RunAsync(object? context, ContextCommandExecution execution)
+        => context is TContext typed ? ExecuteOnAsync(typed, execution) : base.RunAsync(context, execution);
 }
 
 public class ContextCommandKeyGesture(string? keyGesture, OSPlatform? platform = null)

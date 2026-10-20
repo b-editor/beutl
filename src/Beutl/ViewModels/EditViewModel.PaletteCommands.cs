@@ -3,11 +3,11 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.ViewModels;
 
-// Commands that take their arguments from the command palette's input and pick steps. A keyboard
-// invocation has no interaction, so these stay unhandled there (GotoTimecode keeps its inline editor).
+// Commands that take their arguments from the command palette's input and pick steps. A key has no
+// interaction, so they do nothing there (GotoTimecode opens its inline editor instead).
 public partial class EditViewModel
 {
-    private async Task GotoTimecodeAsync(IContextCommandInteraction interaction)
+    internal async Task GotoTimecodeAsync(IContextCommandInteraction interaction)
     {
         string initial = CommandPaletteInput.FormatTimecode(Player.CurrentFrame.Value);
         string? input = await interaction.ShowInputAsync(new ContextCommandInputOptions
@@ -29,7 +29,7 @@ public partial class EditViewModel
         await SeekFromPaletteAsync(target, interaction.CancellationToken);
     }
 
-    private async Task GoToMarkerAsync(IContextCommandInteraction interaction)
+    internal async Task GoToMarkerAsync(IContextCommandInteraction interaction)
     {
         SceneMarker? marker = await PickMarkerAsync(interaction);
         if (marker is null || !Scene.Markers.Contains(marker)) return;
@@ -37,7 +37,7 @@ public partial class EditViewModel
         await SeekFromPaletteAsync(marker.Time, interaction.CancellationToken);
     }
 
-    private async Task AddMarkerAsync(IContextCommandInteraction interaction)
+    internal async Task AddMarkerAsync(IContextCommandInteraction interaction)
     {
         // The marker goes where the playhead was when the command ran, not where playback has moved it to since.
         (int rate, TimeSpan time, string defaultName) = GetMarkerPlacement();
@@ -63,7 +63,7 @@ public partial class EditViewModel
         HistoryManager.Commit(CommandNames.AddMarker);
     }
 
-    private async Task RenameMarkerAsync(IContextCommandInteraction interaction)
+    internal async Task RenameMarkerAsync(IContextCommandInteraction interaction)
     {
         SceneMarker? marker = await PickMarkerAsync(interaction);
         if (marker is null) return;

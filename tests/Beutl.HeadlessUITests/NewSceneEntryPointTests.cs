@@ -6,6 +6,7 @@ using Avalonia.VisualTree;
 using Beutl.Controls;
 using Beutl.Extensibility;
 using Beutl.Language;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
@@ -30,12 +31,11 @@ public class NewSceneEntryPointTests
         });
 
         // Ctrl+N (Cmd+N on macOS) and the palette's "Create new scene" entry run this context command
-        await TestShell.MainViewModel.ExecuteAsync(new ContextCommandExecution("CreateNewFile"));
+        await MainViewExtension.Instance.RunAsync(TestShell.MainViewModel, new ContextCommandExecution("main.createNewFile"));
 
         Assert.Multiple(() =>
         {
             Assert.That(runs, Is.EqualTo(1));
-            Assert.That(menuBar.FindContextCommand("CreateNewFile"), Is.SameAs(menuBar.NewScene));
             // The context command already lists "Create new scene" with its shortcut
             Assert.That(
                 menuBar.EnumeratePaletteCommands().Select(command => command.Command),

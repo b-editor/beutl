@@ -29,7 +29,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 
-public sealed partial class ElementViewModel : IDisposable, IContextCommandHandler
+public sealed partial class ElementViewModel : IDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<ElementViewModel>();
     private readonly CompositeDisposable _disposables = [];
@@ -663,30 +663,6 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
     public bool HasOriginalDuration()
     {
         return SlippableMedia.HasOriginalDuration(Model);
-    }
-
-    public Task ExecuteAsync(ContextCommandExecution execution)
-    {
-        if (execution.KeyEventArgs != null)
-            execution.KeyEventArgs.Handled = true;
-        switch (execution.CommandName)
-        {
-            case "Rename":
-                if (IsEditable.Value)
-                {
-                    RenameRequested();
-                }
-                break;
-            case "Split":
-                SplitByCurrentFrame.Execute();
-                break;
-            default:
-                if (execution.KeyEventArgs != null)
-                    execution.KeyEventArgs.Handled = false;
-                break;
-        }
-
-        return Task.CompletedTask;
     }
 
     public record struct PrepareAnimationContext(

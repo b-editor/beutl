@@ -9,32 +9,7 @@ namespace Beutl.ViewModels;
 // MainView commands that take their arguments from the command palette's input and pick steps.
 public sealed partial class MainViewModel
 {
-    // Null when the command is not one of these, so the caller falls back to the menu bar's command.
-    private Task? ExecutePaletteCommand(string commandName, IContextCommandInteraction interaction)
-    {
-        return commandName switch
-        {
-            "OpenRecentProject" => OpenRecentProjectAsync(interaction),
-            "OpenRecentFile" => OpenRecentFileAsync(interaction),
-            "ChangeTheme" => ChangeThemeAsync(interaction),
-            "CommitVersion" => CommitVersionAsync(interaction),
-            _ => null,
-        };
-    }
-
-    // Null for the commands the menu bar answers; these exist only in the palette.
-    private bool? CanExecutePaletteOnlyCommand(string commandName)
-    {
-        return commandName switch
-        {
-            "OpenRecentProject" => MenuBar.RecentProjectItems.Count > 0,
-            "OpenRecentFile" => MenuBar.RecentFileItems.Count > 0,
-            "ChangeTheme" => ThemeRegistry.Enumerate().Count > 1,
-            _ => null,
-        };
-    }
-
-    private async Task OpenRecentProjectAsync(IContextCommandInteraction interaction)
+    internal async Task OpenRecentProjectAsync(IContextCommandInteraction interaction)
     {
         if (await PickRecentAsync(MenuBar.RecentProjectItems, interaction) is { } file)
         {
@@ -42,7 +17,7 @@ public sealed partial class MainViewModel
         }
     }
 
-    private async Task OpenRecentFileAsync(IContextCommandInteraction interaction)
+    internal async Task OpenRecentFileAsync(IContextCommandInteraction interaction)
     {
         if (await PickRecentAsync(MenuBar.RecentFileItems, interaction) is { } file)
         {
@@ -61,7 +36,7 @@ public sealed partial class MainViewModel
         return (await interaction.ShowQuickPickAsync(items))?.Value;
     }
 
-    private static async Task ChangeThemeAsync(IContextCommandInteraction interaction)
+    internal static async Task ChangeThemeAsync(IContextCommandInteraction interaction)
     {
         ViewConfig config = GlobalConfiguration.Instance.ViewConfig;
         string? currentId = ThemeRegistry.ResolveOrDefault(config.Theme)?.Id;
@@ -76,7 +51,7 @@ public sealed partial class MainViewModel
         }
     }
 
-    private async Task CommitVersionAsync(IContextCommandInteraction interaction)
+    internal async Task CommitVersionAsync(IContextCommandInteraction interaction)
     {
         Project? expectedProject = _projectService.CurrentProject.Value;
         IProjectVersionControlService? expectedService = _versionControlCoordinator.CurrentService;

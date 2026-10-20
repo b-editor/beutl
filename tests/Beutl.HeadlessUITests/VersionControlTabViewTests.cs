@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Text.Json.Nodes;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
@@ -10,7 +11,9 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.Components.VersionControl.Views;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
@@ -295,6 +298,11 @@ public class VersionControlTabViewTests
     {
         await using RealGitScope git = await RealGitScope.StartAsync();
         var window = new Window { Width = 900, Height = 700 };
+        // The tab runs the window's EnableVersionControl command, which a recorder stands in for.
+        Func<ContextCommandManager?>? previousManager = AppHelper.GetContextCommandManager;
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore(new JsonObject(), persist: false));
+        manager.Register(new EnableVersionControlExtension());
+        AppHelper.GetContextCommandManager = () => manager;
         try
         {
             Project project = await git.CreateProjectAsync(
@@ -313,8 +321,8 @@ public class VersionControlTabViewTests
                 Is.True);
             using var viewModel = (VersionControlTabViewModel)context!;
             var view = new VersionControlTabView { DataContext = viewModel };
-            var handler = new RecordingCommandHandler();
-            window.DataContext = handler;
+            var recorder = new EnableRecorder();
+            window.DataContext = recorder;
             window.Content = view;
 
             await viewModel.Initialization;
@@ -336,7 +344,7 @@ public class VersionControlTabViewTests
             enableButton.Command!.Execute(null);
             await Task.Yield();
             HeadlessTestHelpers.Settle();
-            Assert.That(handler.LastExecution?.CommandName, Is.EqualTo("EnableVersionControl"));
+            Assert.That(recorder.Runs, Is.EqualTo(1));
 
             bool initialized = await GitTestSupport.InitializeCurrentProjectAsync(
                 TestShell.Project.CurrentProject.Value!,
@@ -759,6 +767,7 @@ public class VersionControlTabViewTests
         }
         finally
         {
+            AppHelper.GetContextCommandManager = previousManager;
             window.Close();
         }
     }
@@ -889,15 +898,24 @@ public class VersionControlTabViewTests
             TimeSpan.FromSeconds(30),
             "The expected UI state was not reached.");
 
-    private sealed class RecordingCommandHandler : IContextCommandHandler
+    private sealed class EnableRecorder
     {
-        public ContextCommandExecution? LastExecution { get; private set; }
+        public int Runs { get; set; }
+    }
 
-        public Task ExecuteAsync(ContextCommandExecution execution)
-        {
-            LastExecution = execution;
-            return Task.CompletedTask;
-        }
+    private sealed class EnableVersionControlExtension : ViewExtension
+    {
+        public override IEnumerable<ContextCommandDefinition> ContextCommands =>
+        [
+            new ContextCommandDefinition<EnableRecorder>("main.enableVersionControl")
+            {
+                ExecuteOnAsync = (recorder, _) =>
+                {
+                    recorder.Runs++;
+                    return Task.CompletedTask;
+                }
+            },
+        ];
     }
 
     private static Button GetPickerButton(

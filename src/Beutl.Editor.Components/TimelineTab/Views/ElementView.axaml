@@ -97,13 +97,13 @@
                 <ui:FAMenuFlyoutItem x:Name="splitByCurrent"
                                      usage:UsageTracking.Feature="Timeline.SplitByCurrentFrame"
                                      Command="{Binding SplitByCurrentFrame}"
-                                     InputGesture="{h:GetCommandGesture Split,
+                                     InputGesture="{h:GetCommandGesture timeline.split,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                      Text="{x:Static lang:Strings.SplitByCurrentFrame}" />
                 <ui:FAMenuFlyoutItem x:Name="cut"
                                      usage:UsageTracking.Feature="Timeline.Cut"
                                      Command="{Binding Cut}"
-                                     InputGesture="{h:GetCommandGesture Cut,
+                                     InputGesture="{h:GetCommandGesture timeline.cut,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                      Text="{x:Static lang:Strings.Cut}">
                     <ui:FAMenuFlyoutItem.IconSource>
@@ -112,7 +112,7 @@
                 </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.Copy"
                                      Command="{Binding Copy}"
-                                     InputGesture="{h:GetCommandGesture Copy,
+                                     InputGesture="{h:GetCommandGesture timeline.copy,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                      Text="{x:Static lang:Strings.Copy}">
                     <ui:FAMenuFlyoutItem.IconSource>
@@ -122,7 +122,7 @@
                 <ui:FAMenuFlyoutItem x:Name="delete"
                                      usage:UsageTracking.Feature="Timeline.Delete"
                                      Command="{Binding Delete}"
-                                     InputGesture="{h:GetCommandGesture Delete,
+                                     InputGesture="{h:GetCommandGesture timeline.delete,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                      Text="{x:Static lang:Strings.Delete}">
                     <ui:FAMenuFlyoutItem.IconSource>
@@ -132,7 +132,7 @@
                 <ui:FAMenuFlyoutItem x:Name="exclude"
                                      usage:UsageTracking.Feature="Timeline.Exclude"
                                      Command="{Binding Exclude}"
-                                     InputGesture="{h:GetCommandGesture Exclude,
+                                     InputGesture="{h:GetCommandGesture timeline.exclude,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                      Text="{x:Static lang:Strings.Exclude}">
                     <ui:FAMenuFlyoutItem.IconSource>
@@ -150,7 +150,7 @@
                 <ui:FAMenuFlyoutItem x:Name="rename"
                                      usage:UsageTracking.Feature="Timeline.Rename"
                                      Click="Rename_Click"
-                                     InputGesture="{h:GetCommandGesture Rename,
+                                     InputGesture="{h:GetCommandGesture timeline.rename,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                      Text="{x:Static lang:Strings.Rename}">
                     <ui:FAMenuFlyoutItem.IconSource>

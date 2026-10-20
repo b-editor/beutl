@@ -200,7 +200,7 @@
                         </ui:FAMenuFlyoutItem>
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.Paste"
                                              Command="{CompiledBinding Paste}"
-                                             InputGesture="{h:GetCommandGesture Paste}"
+                                             InputGesture="{h:GetCommandGesture timeline.paste}"
                                              Text="{x:Static lang:Strings.Paste}">
                             <ui:FAMenuFlyoutItem.IconSource>
                                 <icons:FluentIconSource Icon="ClipboardPaste" />
@@ -209,11 +209,11 @@
                         <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.SetStartTimeToPointerPosition"
                                              Command="{Binding SetStartTimeToPointerPosition}"
-                                             InputGesture="{h:GetCommandGesture SetStartTime}"
+                                             InputGesture="{h:GetCommandGesture timeline.setStartTime}"
                                              Text="{x:Static lang:Strings.SetStartTime}" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.SetEndTimeToPointerPosition"
                                              Command="{Binding SetEndTimeToPointerPosition}"
-                                             InputGesture="{h:GetCommandGesture SetEndTime}"
+                                             InputGesture="{h:GetCommandGesture timeline.setEndTime}"
                                              Text="{x:Static lang:Strings.SetEndTime}" />
                         <ui:FAMenuFlyoutSubItem Text="{x:Static lang:Strings.Gaps}">
                             <ui:FAMenuFlyoutSubItem.IconSource>
@@ -224,18 +224,18 @@
                                                  Text="{x:Static lang:Strings.CloseGap}" />
                             <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.CloseAllGaps"
                                                  Command="{CompiledBinding CloseAllGaps}"
-                                                 InputGesture="{h:GetCommandGesture CloseAllGaps,
+                                                 InputGesture="{h:GetCommandGesture timeline.closeAllGaps,
                                                                                   ExtensionType={x:Type p:TimelineTabExtension}}"
                                                  Text="{x:Static lang:Strings.CloseAllGaps}" />
                             <ui:FAMenuFlyoutSeparator />
                             <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.GoToNextGap"
                                                  Command="{CompiledBinding GoToNextGap}"
-                                                 InputGesture="{h:GetCommandGesture GoToNextGap,
+                                                 InputGesture="{h:GetCommandGesture timeline.goToNextGap,
                                                                                   ExtensionType={x:Type p:TimelineTabExtension}}"
                                                  Text="{x:Static lang:Strings.GoToNextGap}" />
                             <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.GoToPreviousGap"
                                                  Command="{CompiledBinding GoToPreviousGap}"
-                                                 InputGesture="{h:GetCommandGesture GoToPreviousGap,
+                                                 InputGesture="{h:GetCommandGesture timeline.goToPreviousGap,
                                                                                   ExtensionType={x:Type p:TimelineTabExtension}}"
                                                  Text="{x:Static lang:Strings.GoToPreviousGap}" />
                         </ui:FAMenuFlyoutSubItem>
