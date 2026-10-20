@@ -20,7 +20,17 @@ public static class EditingSessionExtensions
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(action);
 
-        session.Invoke(action);
+        session.InvokeEdit(action);
+    }
+
+    public static T EditOnSession<T>(this IEditingSession session, Func<T> edit, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(edit);
+
+        T result = default!;
+        session.InvokeEdit(() => result = edit(), cancellationToken);
+        return result;
     }
 
     internal static void MarkDirtyIfFileSession(this IEditingSession session)

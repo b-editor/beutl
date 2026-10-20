@@ -174,6 +174,18 @@ public sealed record CompositionPlanState(
     IReadOnlyList<Guid> KnownNewIds,
     DateTimeOffset CreatedAt);
 
+// An edit waited longer than its deadline for the user's gesture in the live editor to end.
+public sealed class UserEditingException : Exception
+{
+    public UserEditingException()
+        : base("The user is editing in Beutl.")
+    {
+    }
+
+    public ToolError ToError()
+        => new(ErrorCode.UserEditing, Message, null, "Retry after the user's edit ends.");
+}
+
 public sealed class SessionUnavailableException : Exception
 {
     public SessionUnavailableException()

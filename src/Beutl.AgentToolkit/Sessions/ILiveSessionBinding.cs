@@ -13,6 +13,9 @@ public interface ILiveSessionBinding
 
     void Invoke(Action action);
 
+    // Runs action once the editor has no edit session open, waiting at most sessionWait for it to end.
+    void InvokeEdit(Action action, TimeSpan sessionWait, CancellationToken cancellationToken) => Invoke(action);
+
     /// <summary>
     /// Executes one synchronous history batch through the live editor's playback guard.
     /// </summary>
@@ -25,5 +28,6 @@ public interface ILiveSessionBinding
     ValueTask<TResult> ExecuteHistoryMutationAsync<TResult>(
         Func<HistoryManager, bool> shouldPause,
         Func<HistoryManager, TResult> operation,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        TimeSpan? sessionWait = null);
 }

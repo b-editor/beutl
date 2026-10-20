@@ -22,4 +22,5 @@ public static class ErrorCode
     public const string ExtensionToolFailed = "extension_tool_failed";
     public const string InstanceUnavailable = "instance_unavailable";
     public const string LiveUnavailable = "live_unavailable";
+    public const string UserEditing = "user_editing";
 }

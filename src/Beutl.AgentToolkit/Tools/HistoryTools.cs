@@ -97,7 +97,8 @@ public sealed class HistoryTools(AgentSessionManager sessions) : ToolBase
                 // Capture the point-in-time response before leaving the guarded mutation dispatch.
                 return CreateState(history, applied, message);
             },
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken,
+            waitForEditSession: true).ConfigureAwait(false);
 
         if (state.Applied.Count > 0)
         {
@@ -127,14 +128,16 @@ public sealed class HistoryTools(AgentSessionManager sessions) : ToolBase
         IEditingSession session,
         Func<HistoryManager, bool> shouldPause,
         Func<HistoryManager, TResult> operation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool waitForEditSession = false)
     {
         if (session is LiveEditingSession liveSession)
         {
             return await liveSession.ExecuteHistoryMutationAsync(
                 shouldPause,
                 operation,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                waitForEditSession).ConfigureAwait(false);
         }
 
         TResult result = default!;

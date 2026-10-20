@@ -25,7 +25,8 @@ internal sealed class FakeLiveBinding(Scene? scene, HistoryManager? history) : I
     public ValueTask<TResult> ExecuteHistoryMutationAsync<TResult>(
         Func<HistoryManager, bool> shouldPause,
         Func<HistoryManager, TResult> operation,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        TimeSpan? sessionWait = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         TResult result = default!;

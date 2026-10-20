@@ -99,21 +99,22 @@ public sealed partial class EditTools(AgentSessionManager sessions) : ToolBase
         [Description("Return the full updated document. Defaults to false to keep apply_edit responses compact; prefer createdIds or read_document_summary for follow-up edits.")]
         bool includeDocument = false,
         [Description("When true, return only validity, operation/validation counts, and the named entries of createdIds. Set false when you need detailed changes, validation, or appliedChangeSet. createdIdCount always reports how many entities were created, so a trimmed list never hides the total.")]
-        bool quiet = false)
+        bool quiet = false,
+        CancellationToken cancellationToken = default)
     {
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
             RequireExactlyOneEdit(desired, patch);
             ReconcileResult result = desired is not null
-                ? _reconciler.Apply(session, ResolveDesiredEdit(desired, schemaVersion))
+                ? _reconciler.Apply(session, ResolveDesiredEdit(desired, schemaVersion), cancellationToken: cancellationToken)
                 // Resolve the patch inside the reconcile dispatch so the read + merge is atomic with
                 // the mutation on a live session (see Reconciler.ApplyFromCurrent).
                 : _reconciler.ApplyFromCurrent(session, current =>
                 {
                     ResolvedEdit resolved = ResolvePatchEdit(current, patch!, schemaVersion);
                     return (resolved.Document, resolved.KnownNewIds);
-                });
+                }, cancellationToken);
 
             return CreateApplyEditResponse(result, includeDocument, quiet);
         });
