@@ -37,6 +37,8 @@ internal interface IAgentAiBackend
     /// <summary>How many bytes of reference pictures one image generation may carry in all.</summary>
     Task<long> GetImageReferenceBudgetAsync(CancellationToken cancellationToken);
 
+    Task<bool> RequiresPromptAsync(string imageEditTask, CancellationToken cancellationToken);
+
     Task<AgentTranscript> TranscribeAsync(
         string path,
         string? language,

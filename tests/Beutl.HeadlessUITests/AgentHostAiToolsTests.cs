@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Net.Http.Headers;
 using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
@@ -7,6 +8,7 @@ using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.Api.Services;
 using Beutl.Audio;
+using Beutl.Editor.Services.AI;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Decoding;
@@ -261,6 +263,36 @@ public sealed class AgentHostAiToolsTests
             Assert.That(hugePicture.Error?.Target, Is.EqualTo("sourcePath"));
             Assert.That(overBudget.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected), "the references come to more than the catalog's budget");
             Assert.That(backend.Requests, Is.Empty);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task EditImageAsksForAPromptWhereTheCatalogSays()
+    {
+        await TestShell.OpenNewSceneAsync("agent-ai-edit-prompt");
+        var backend = new FakeBackend
+        {
+            Result = WritePng("result.png"),
+            Catalog = new AiModelCatalog([])
+            {
+                PromptRequirements = ImmutableDictionary<AiOperationId, bool>.Empty
+                    .Add(new AiOperationId("image.edit.upscale"), true)
+                    .Add(new AiOperationId("image.edit.restyle"), false),
+            },
+        };
+        using var jobs = new AgentAiJobManager();
+        var tools = CreateTools(TestShell.Editor, jobs, backend);
+
+        ToolResult<AgentAiJobSnapshot> upscale = await tools.EditImage(WritePng("a.png"), "upscale", "sharper edges", waitSeconds: 10);
+        ToolResult<AgentAiJobSnapshot> bareUpscale = await tools.EditImage(WritePng("b.png"), "upscale");
+        ToolResult<AgentAiJobSnapshot> restyle = await tools.EditImage(WritePng("c.png"), "restyle", "watercolor");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(upscale.IsSuccess, Is.True, upscale.Error?.Message);
+            Assert.That(backend.Requests.OfType<AiImageEditNodeRequest>().Single().Prompt, Is.EqualTo("sharper edges"));
+            Assert.That(bareUpscale.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(restyle.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected), "a prompt the task does not take is refused");
         });
     }
 
@@ -697,8 +729,13 @@ public sealed class AgentHostAiToolsTests
 
         public long ReferenceBudget { get; set; } = AiRequestLimits.MaxImageReferencesTotalBytes;
 
+        public AiModelCatalog? Catalog { get; set; }
+
         public Task<long> GetImageReferenceBudgetAsync(CancellationToken cancellationToken)
             => Task.FromResult(ReferenceBudget);
+
+        public Task<bool> RequiresPromptAsync(string imageEditTask, CancellationToken cancellationToken)
+            => Task.FromResult(AiRequestRules.RequiresPrompt(Catalog, imageEditTask));
 
         public Task<string?> GetUnavailableReasonAsync(CancellationToken cancellationToken) => Task.FromResult<string?>(null);
 

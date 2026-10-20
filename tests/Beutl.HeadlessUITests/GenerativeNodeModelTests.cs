@@ -256,6 +256,76 @@ public sealed class GenerativeNodeModelTests
     }
 
     [AvaloniaTest]
+    public async Task AnEditSendsAPromptOnlyWhereTheCatalogSaysTheTaskTakesOne()
+    {
+        var editing = new CapturingEditing();
+        // Against the built-in list: here an upscale takes a prompt and a restyle does not.
+        var catalog = new AiModelCatalog([])
+        {
+            PromptRequirements = ImmutableDictionary<AiOperationId, bool>.Empty
+                .Add(new AiOperationId("image.edit.upscale"), true)
+                .Add(new AiOperationId("image.edit.restyle"), false),
+        };
+        var executor = CreateExecutor(new CapturingImages(), editing: editing, catalog: catalog);
+
+        await executor.ExecuteAsync(EditRequest(AiImageEditTask.Upscale, "sharper"), new Progress<GenerativeProgress>(), CancellationToken.None);
+        await executor.ExecuteAsync(EditRequest(AiImageEditTask.Restyle, "as a watercolor"), new Progress<GenerativeProgress>(), CancellationToken.None);
+        GenerativeExecutionException? missing = await Assert.ThrowsAsync<GenerativeExecutionException>(() =>
+            executor.ExecuteAsync(EditRequest(AiImageEditTask.Upscale, null), new Progress<GenerativeProgress>(), CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(editing.Requests.Select(request => request.Prompt), Is.EqualTo(new[] { "sharper", null }));
+            Assert.That(missing?.Message, Is.EqualTo(Strings.AiPromptRequired));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task AnEditFollowsTheBuiltInTasksWhenTheCatalogDoesNotSay()
+    {
+        var editing = new CapturingEditing();
+        var executor = CreateExecutor(new CapturingImages(), editing: editing);
+
+        await executor.ExecuteAsync(EditRequest(AiImageEditTask.RemoveBackground, "ignored"), new Progress<GenerativeProgress>(), CancellationToken.None);
+        GenerativeExecutionException? missing = await Assert.ThrowsAsync<GenerativeExecutionException>(() =>
+            executor.ExecuteAsync(EditRequest(AiImageEditTask.Restyle, null), new Progress<GenerativeProgress>(), CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(editing.Requests.Single().Prompt, Is.Null, "removing a background takes no prompt");
+            Assert.That(missing?.Message, Is.EqualTo(Strings.AiPromptRequired), "nothing is sent for a restyle without one");
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task AnEditRecordsOnlyThePromptItSent()
+    {
+        var library = new RecordingLibrary();
+        var executor = CreateExecutor(new CapturingImages(), library, new CapturingEditing());
+
+        await executor.ExecuteAsync(EditRequest(AiImageEditTask.Upscale, "left from a restyle"), new Progress<GenerativeProgress>(), CancellationToken.None);
+        await executor.ExecuteAsync(EditRequest(AiImageEditTask.Restyle, "as a watercolor"), new Progress<GenerativeProgress>(), CancellationToken.None);
+
+        Assert.That(library.Recorded, Is.EqualTo(new[] { "as a watercolor" }));
+    }
+
+    private static AiImageEditNodeRequest EditRequest(AiImageEditTask task, string? prompt)
+    {
+        using var bitmap = new Bitmap(8, 8);
+        using var stream = new MemoryStream();
+        bitmap.Save(stream, EncodedImageFormat.Png);
+        return new AiImageEditNodeRequest(new AiImageEditNode())
+        {
+            Task = task,
+            Prompt = prompt,
+            Image = new GenerativeImageInput("image.png", stream.ToArray()),
+            RequestKeySeed = Guid.NewGuid().ToString("N"),
+            ParameterFingerprint = "p",
+            CatalogOperationId = $"image.edit.{task.ToId()}",
+        };
+    }
+
+    [AvaloniaTest]
     public async Task OutpaintSendsTheWidenedCanvasAsTheTabDoes()
     {
         var editing = new CapturingEditing();

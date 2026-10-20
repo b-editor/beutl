@@ -235,6 +235,19 @@ public sealed partial class AiCapabilityServiceTests
     }
 
     [Test]
+    public void ProviderVideo_TakesAnyQualityTheCatalogCanListButNotABlankOne()
+    {
+        var video = VideoInput("clip.mp4", "video/mp4");
+        var character = VideoInput("character.png", "image/png");
+        var ultra = new AiSourceVideoRequest(AiSourceVideoMode.Motion, "move", video, durationSeconds: 5,
+            characterImage: character, quality: " ultra ");
+
+        Assert.That(ultra.Quality, Is.EqualTo("ultra"));
+        Assert.Throws<ArgumentException>(() => new AiSourceVideoRequest(AiSourceVideoMode.Motion, "move", video,
+            durationSeconds: 5, characterImage: character, quality: " "));
+    }
+
+    [Test]
     public async Task ProviderVideo_MapsNewCapabilitiesAndKeepsOldModelDefaults()
     {
         using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """

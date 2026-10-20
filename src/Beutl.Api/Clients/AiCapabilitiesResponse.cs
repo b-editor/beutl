@@ -130,6 +130,14 @@ internal sealed record AiOperationCapabilityResponse
 
     [JsonPropertyName("maxDurationSeconds")]
     public int? MaxDurationSeconds { get; init; }
+
+    // Image edits only: whether the task takes a prompt, which the server otherwise ignores.
+    [JsonPropertyName("promptRequired")]
+    public bool? PromptRequired { get; init; }
+
+    // Motion control only.
+    [JsonPropertyName("qualities")]
+    public ImmutableArray<string>? Qualities { get; init; }
 }
 
 internal sealed record AiCapabilitiesResponse

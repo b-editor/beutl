@@ -1,5 +1,6 @@
 ﻿using Beutl.AgentHost;
 using Beutl.Api.Services;
+using Beutl.Editor.Services.AI;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
 
@@ -23,6 +24,9 @@ internal sealed class UnavailableAgentAiBackend : IAgentAiBackend
 
     public Task<long> GetImageReferenceBudgetAsync(CancellationToken cancellationToken)
         => Task.FromResult(AiRequestLimits.MaxImageReferencesTotalBytes);
+
+    public Task<bool> RequiresPromptAsync(string imageEditTask, CancellationToken cancellationToken)
+        => Task.FromResult(AiRequestRules.RequiresPrompt(null, imageEditTask));
 
     public Task<AgentTranscript> TranscribeAsync(
         string path,

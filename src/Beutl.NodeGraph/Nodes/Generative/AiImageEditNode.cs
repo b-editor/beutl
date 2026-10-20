@@ -53,9 +53,8 @@ public sealed partial class AiImageEditNode : GenerativeNode, IPromptInputNode
     {
         var r = (Resource)resource;
         AiImageEditTask task = r.Task;
-        string? prompt = task.RequiresPrompt() ? r.Prompt?.Trim() : null;
-        if (task.RequiresPrompt() && string.IsNullOrEmpty(prompt))
-            throw new GenerativeExecutionException(Strings.AiPromptRequired);
+        // The executor decides with the catalog whether the task takes it.
+        string? prompt = string.IsNullOrWhiteSpace(r.Prompt) ? null : r.Prompt.Trim();
         GenerativeImageInput image = RasterizeInput(r.Source, "image", context)
             ?? throw new GenerativeExecutionException(Strings.AiEditSelectSource);
 

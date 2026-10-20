@@ -176,6 +176,9 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             .DisposeWith(_disposables);
         ModelPicker.Selected.Subscribe(option => ApplyModelCapabilities(option?.Model))
             .DisposeWith(_disposables);
+        // A load can bring other qualities without moving the selection.
+        ModelPicker.IsLoaded.Where(loaded => loaded).Subscribe(_ => RefreshQualities())
+            .DisposeWith(_disposables);
         // The shape, and whether frames may guide the clip at all, follow the
         // chosen model; replacing the list under an outstanding name would
         // rewrite the request waiting to be collected.
@@ -342,6 +345,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
         try
         {
             ApplyModelCapabilitiesCore(video);
+            RefreshQualities();
         }
         finally
         {

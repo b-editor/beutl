@@ -450,6 +450,19 @@ public sealed class AiModelCatalog
     /// </summary>
     public AiCaptionTranslationLimits CaptionTranslationLimits { get; init; }
 
+    public ImmutableDictionary<AiOperationId, bool> PromptRequirements { get; init; } =
+        ImmutableDictionary<AiOperationId, bool>.Empty;
+
+    // Null where the server did not say.
+    public bool? RequiresPrompt(AiOperationId operation)
+        => PromptRequirements.TryGetValue(operation, out bool required) ? required : null;
+
+    public ImmutableDictionary<AiOperationId, AiCapabilityDimension<string>> Qualities { get; init; } =
+        ImmutableDictionary<AiOperationId, AiCapabilityDimension<string>>.Empty;
+
+    public AiCapabilityDimension<string> GetQualities(AiOperationId operation)
+        => Qualities.GetValueOrDefault(operation);
+
     public ImmutableArray<AiModelOption> ModelsFor(AiOperationId operation)
         => Operations.TryGetValue(operation, out ImmutableArray<AiModelOption> models)
             ? models

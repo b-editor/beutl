@@ -18,8 +18,10 @@ public sealed record AiSourceVideoRequest
             AiRequestLimits.ValidateVideoDurationSeconds(durationSeconds ?? 0, nameof(durationSeconds));
         if ((mode == AiSourceVideoMode.Motion) != (characterImage is not null))
             throw new ArgumentException("Only motion control requires a character image.");
-        if (orientation is not ("image" or "video") || quality is not ("standard" or "pro"))
+        // The catalog publishes the qualities; the server refuses one it does not take before charging.
+        if (orientation is not ("image" or "video"))
             throw new ArgumentException("Unsupported motion options.");
+        quality = AiIdentifier.Normalize(quality, nameof(quality));
         AiVideoInputLimits.Validate(sourceVideo, "video", AiVideoInputLimits.MaxSourceBytes);
         if (characterImage is not null) AiVideoInputLimits.Validate(characterImage, "image", AiRequestLimits.MaxFrameUploadBytes);
         Mode = mode;

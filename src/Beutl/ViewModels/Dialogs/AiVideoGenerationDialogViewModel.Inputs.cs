@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
@@ -39,7 +40,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
     public AsyncReactiveCommand SelectSourceVideo { get; private set; } = null!;
     public AsyncReactiveCommand SelectCharacterImage { get; private set; } = null!;
     public IReadOnlyList<AiVideoInputOption> Orientations { get; } = [new("video", Strings.AiSourceVideo), new("image", Strings.AiCharacterImage)];
-    public IReadOnlyList<AiVideoInputOption> Qualities { get; } = [new("standard", Strings.AiMotionStandard), new("pro", Strings.AiMotionPro)];
+    public ObservableCollection<AiVideoInputOption> Qualities { get; } = [.. s_defaultQualities.Select(ToQualityOption)];
     public ReactivePropertySlim<AiVideoInputOption> Orientation { get; } = new();
     public ReactivePropertySlim<AiVideoInputOption> Quality { get; } = new();
     internal Func<string, CancellationToken, Task<IReadOnlyList<string>>>? InputPicker { get; set; }
@@ -337,6 +338,27 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         _ when role.StartsWith(ReferenceRolePrefix + "audio-", StringComparison.Ordinal) => limits.MaxAudioReferenceBytes,
         _ => limits.MaxVideoReferenceBytes,
     };
+
+    private static readonly string[] s_defaultQualities = ["standard", "pro"];
+
+    private static AiVideoInputOption ToQualityOption(string value) => new(value, value switch
+    {
+        "standard" => Strings.AiMotionStandard,
+        "pro" => Strings.AiMotionPro,
+        _ => value,
+    });
+
+    // The catalog's qualities, or the client's for a server that lists none.
+    private void RefreshQualities()
+    {
+        ImmutableArray<string> published = ModelPicker.Catalog?.GetQualities(AiOperations.VideoMotion).Values ?? [];
+        List<string> values = published.IsEmpty ? [.. s_defaultQualities] : [.. published];
+        if (Qualities.Select(option => option.Value).SequenceEqual(values, StringComparer.Ordinal))
+            return;
+        string? chosen = Quality.Value?.Value;
+        Qualities.Replace(values.Select(ToQualityOption));
+        Quality.Value = Qualities.FirstOrDefault(option => option.Value == chosen) ?? Qualities[0];
+    }
 
     internal void CopySourceIntent(AiVideoGenerationDialogViewModel source)
     {

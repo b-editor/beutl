@@ -421,6 +421,30 @@ public class AiModelCatalogTests
     }
 
     [Test]
+    public void Catalog_ReadsWhichEditsTakeAPromptAndTheMotionQualities()
+    {
+        const string json = """
+            {"operations":{
+              "image.edit.restyle":{"models":[{"id":"m"}],"promptRequired":true},
+              "image.edit.upscale":{"models":[{"id":"m"}],"promptRequired":false},
+              "video.motion":{"models":[{"id":"m"}],"qualities":["standard"," pro ","pro",""]},
+              "image.generate":{"models":[{"id":"m"}]}}}
+            """;
+        AiModelCatalog catalog = ToModel(JsonSerializer.Deserialize<AiCapabilitiesResponse>(
+            json,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))!);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(catalog.RequiresPrompt(new AiOperationId("image.edit.restyle")), Is.True);
+            Assert.That(catalog.RequiresPrompt(new AiOperationId("image.edit.upscale")), Is.False);
+            Assert.That(catalog.RequiresPrompt(AiOperations.ImageGeneration), Is.Null, "the server did not say");
+            Assert.That(catalog.GetQualities(AiOperations.VideoMotion).Values, Is.EqualTo(new[] { "standard", "pro" }));
+            Assert.That(catalog.GetQualities(AiOperations.ImageGeneration).IsSpecified, Is.False);
+        }
+    }
+
+    [Test]
     public void Catalog_RejectsUnsupportedCapabilitySchemaValues()
     {
         var operation = new AiOperationId("vendor.invalid-shape");
