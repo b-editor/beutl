@@ -174,7 +174,8 @@ public sealed class AsyncOperationLifetimeTests
             });
         Task operation = lifetime.RunAsync(async cancellationToken =>
         {
-            using CancellationTokenRegistration registration = cancellationToken.Register(static () =>
+            // Not disposed: the canceled operation can end and unregister it before Cancel reaches it.
+            _ = cancellationToken.Register(static () =>
                 throw new InvalidOperationException("callback failed"));
             operationStarted.TrySetResult();
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
