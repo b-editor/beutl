@@ -41,6 +41,12 @@ public class ColorGradingWheel : PropertyEditor
         set => SetValue(ShowDetailsProperty, value);
     }
 
+    // Whether the picker's wheels, spectrum, sliders or previewer are being dragged.
+    public bool IsDragging => _gradingColorPicker?.IsDragging == true;
+
+    // Ends the drag in progress without ValueConfirmed, for a host that ended the gesture itself.
+    public void StopDrag() => _gradingColorPicker?.StopDrag();
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);

@@ -88,8 +88,15 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         set => SetValue(CanEditDrawableProperty, value);
     }
 
-    // Ignores the rest of the gradient stop drag in progress, for a host that ended the gesture itself.
-    public void StopGradientStopDrag() => _gradientStopsSlider?.StopDrag();
+    // Whether the color picker's spectrum, sliders or previewer are being dragged.
+    public bool IsColorDragging => Content is SimpleColorPicker { IsDragging: true };
+
+    // Ends the stop or color drag in progress without confirming it, for a host that ended the gesture itself.
+    public void StopDrag()
+    {
+        _gradientStopsSlider?.StopDrag();
+        (Content as SimpleColorPicker)?.StopDrag();
+    }
 
     public void SetColorPaletteItem(Color2 color)
     {
@@ -184,12 +191,29 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
             }
         }
 
+        if (change.OldValue is SolidColorBrush oldSolid)
+        {
+            oldSolid.PropertyChanged -= OnSolidBrushPropertyChanged;
+        }
+
         if (change.NewValue is SolidColorBrush newSolid)
         {
+            newSolid.PropertyChanged += OnSolidBrushPropertyChanged;
             if (Content is SimpleColorPicker colorPicker)
             {
                 colorPicker.Color = newSolid.Color;
             }
+        }
+    }
+
+    // Follows the color the model gives the brush, as after Undo or a cancelled drag.
+    private void OnSolidBrushPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == SolidColorBrush.ColorProperty
+            && sender is SolidColorBrush solid
+            && Content is SimpleColorPicker { IsDragging: false } colorPicker)
+        {
+            colorPicker.Color = solid.Color;
         }
     }
 

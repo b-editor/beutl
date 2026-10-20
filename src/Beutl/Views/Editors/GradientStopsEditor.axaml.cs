@@ -2,6 +2,7 @@
 using Avalonia.Interactivity;
 using Avalonia.Media.Immutable;
 using Beutl.Controls;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Media;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
@@ -11,12 +12,11 @@ namespace Beutl.Views.Editors;
 
 public sealed partial class GradientStopsEditor : UserControl
 {
-    private readonly GradientStopDrag _drag;
+    private readonly LiveEditDrag _drag = new();
 
     public GradientStopsEditor()
     {
         InitializeComponent();
-        _drag = new GradientStopDrag(() => slider, slider.StopDrag);
 
         colorPicker.FlyoutConfirmed += ColorPicker_FlyoutConfirmed;
 
@@ -44,14 +44,15 @@ public sealed partial class GradientStopsEditor : UserControl
         object? sender,
         (int OldIndex, int NewIndex, AM.GradientStop Object, ImmutableGradientStop OldObject) e)
     {
-        if (DataContext is GradientStopsEditorViewModel { IsElementEditable: true, Value.Value: { } list } viewModel)
-            _drag.Release(viewModel, list, e.OldIndex, e.NewIndex);
+        if (DataContext is GradientStopsEditorViewModel { IsElementEditable: true, Value.Value: { } list } viewModel
+            && !_drag.Confirm())
+            GradientStopEdits.Release(viewModel, list, e.OldIndex, e.NewIndex);
     }
 
     private void OnSliderChanged(object? sender, (int OldIndex, int NewIndex, AM.GradientStop Object) e)
     {
         if (DataContext is GradientStopsEditorViewModel { IsElementEditable: true, Value.Value: { } list } viewModel)
-            _drag.Move(viewModel, list, e.OldIndex, e.NewIndex, e.Object);
+            _drag.Write(viewModel, slider, slider.StopDrag, () => GradientStopEdits.Drag(viewModel, list, e.OldIndex, e.NewIndex, e.Object));
     }
 
     private void Delete_Click(object? sender, RoutedEventArgs e)
