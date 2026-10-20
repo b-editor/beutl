@@ -1,7 +1,7 @@
 ﻿using Avalonia.Threading;
+using Beutl.Editor.Components.VersionControlTab;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
 using Beutl.Editor.VersionControl;
-using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 using Microsoft.Extensions.Logging;
 

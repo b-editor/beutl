@@ -7171,7 +7171,7 @@ public class VersionControlRestoreTests
                 serviceFactory: candidate => candidate is null ? discovery : tracked);
             using var service = new ReactivePropertySlim<IProjectVersionControlService?>();
             var tab = new Beutl.Editor.Components.VersionControlTab.ViewModels.VersionControlTabViewModel(
-                Beutl.Services.PrimitiveImpls.VersionControlTabExtension.Instance, editor, service, coordinator, action => action());
+                Beutl.Editor.Components.VersionControlTab.VersionControlTabExtension.Instance, editor, service, coordinator, action => action());
             Assert.That(editor.OpenToolTab(tab), Is.True);
             await WaitUntilAsync(() => coordinator.PendingRepositoryAdoption is not null);
             RepositoryAdoptionRequest request = coordinator.PendingRepositoryAdoption!;
