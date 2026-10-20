@@ -68,6 +68,8 @@ public partial class Scene : ProjectItem, INotifyEdited
         _layers.Attached += OnLayerAttached;
         _layers.Detached += OnLayerDetached;
         _markers = new HierarchicalList<SceneMarker>(this);
+        // A plain list, so it names its owner for the write check itself.
+        Groups.WriteOwner = this;
         Name = name;
     }
 

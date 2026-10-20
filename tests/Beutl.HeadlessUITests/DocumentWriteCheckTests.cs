@@ -50,5 +50,29 @@ public class DocumentWriteCheckTests
             Assert.That(reports, Has.Exactly(1).StartsWith("Element.Items "));
         });
     }
+
+    [AvaloniaTest]
+    public async Task Group_edits_to_the_open_project_off_the_UI_thread_are_reported()
+    {
+        await TestReset.ResetShellAsync();
+        Project project = await TestShell.CreateProjectAsync("document-write-check-groups");
+        Scene scene = project.Items.OfType<Scene>().Single();
+        var reports = new List<string>();
+        Action<string>? recorder = DocumentWriteCheck.Report;
+        DocumentWriteCheck.Report = message =>
+        {
+            lock (reports) reports.Add(message);
+        };
+        try
+        {
+            await Task.Run(() => scene.Groups.Add([Guid.NewGuid(), Guid.NewGuid()]));
+        }
+        finally
+        {
+            DocumentWriteCheck.Report = recorder;
+        }
+
+        Assert.That(reports, Has.Exactly(1).StartsWith("Scene.Items "));
+    }
 }
 #endif
