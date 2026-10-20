@@ -854,8 +854,19 @@ public sealed class NodeRecordingTransactionTests
         public override void Process(RenderNodeContext context)
         {
             ProcessCalls++;
-            context.Publish(context.OpaqueSource(
-                RenderNodeRecordingCacheTests.CreateSource(new Rect(0, 0, 10, 10))));
+            context.Publish(context.OpaqueSource(OpaqueRenderDescription.CreateEngineSource(
+                state: new Rect(0, 0, 10, 10),
+                execute: static (session, state) =>
+                {
+                    using OpaqueRenderOutput output = session.CreateOutput(state);
+                    output.Canvas.Use(static canvas => canvas.Clear());
+                    session.Publish(output);
+                },
+                directReplay: static (session, _) => session.Canvas.Clear(),
+                bounds: OpaqueRenderBoundsContract.Source(new Rect(0, 0, 10, 10)),
+                hitTest: RenderHitTestContract.OutputBounds,
+                scale: RenderScaleContract.Vector,
+                deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive)));
         }
     }
 

@@ -1561,7 +1561,7 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             diagnostics.Select(static d => d.Id),
             Does.Contain("BESG005"),
             "a node that only the drawing reads is still read by Process, so forgetting the mark is "
-            + "reported rather than left to a replayed recording");
+            + "reported rather than left to a stale cached output");
     }
 
     [Test]

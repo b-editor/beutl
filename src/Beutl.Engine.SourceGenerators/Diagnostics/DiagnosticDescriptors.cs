@@ -166,8 +166,8 @@ public static class DiagnosticDescriptors
         title: "Render node changes state its Process reads without marking the node changed",
         messageFormat:
             "'{0}.{1}' changes '{2}', which '{0}.Process' reads, and no MarkChanged() call on this node is "
-            + "reachable from it. A render graph recorded for a node that reports no changes may be reused "
-            + "instead of re-recorded, so this change would never reach a frame. {3}. This rule reads an "
+            + "reachable from it. A node that reports no changes keeps its render-cache entry, so this "
+            + "change would not reach a frame the cache serves. {3}. This rule reads an "
             + "assignment written inside '{0}' or a type it inherits from - to the state itself, to an "
             + "element of it, or through a call that changes it in place - and the "
             + "declaration of an auto-property, a field-like event or a field that code outside '{0}' can "
