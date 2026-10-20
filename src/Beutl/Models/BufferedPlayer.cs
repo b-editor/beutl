@@ -40,7 +40,7 @@ internal sealed class BufferedPlayer : IDisposable
     private int _endFrame;
     // Set while the producer waits with no job queued; whoever resets it to Running queues the next job.
     private int _parked;
-    // A frame rendered across an edit is dropped; the producer goes on from the first frame an edit dropped.
+    // A frame rendered across an edit is not cached; the producer goes on from the first frame an edit dropped.
     private int _editVersion;
     private int? _restartFrame;
 
@@ -273,8 +273,8 @@ internal sealed class BufferedPlayer : IDisposable
         if (_isDisposed || _producerStopped)
             return;
 
-        // Without a range the edit may change any frame.
-        (int Start, int End)[] ranges = e is ElementEditedEventArgs { AffectedRange.IsDefault: false } edited
+        // Without a range, as a replace or reset of the elements sends, the edit may change any frame.
+        (int Start, int End)[] ranges = e is ElementEditedEventArgs { AffectedRange.IsDefaultOrEmpty: false } edited
             ? [.. edited.AffectedRange.Select(range => FrameCacheRanges.ToFrameRange(range, _rate))]
             : [(int.MinValue, int.MaxValue)];
         var dropped = new List<Frame>();
@@ -310,29 +310,19 @@ internal sealed class BufferedPlayer : IDisposable
         => ReadAheadBudget.FrameCount(
             ReadAheadBudget.SnapshotBytes(renderer.DeviceSize), MaxReadAheadFrames, ReadAheadBytes);
 
-    // Queues the frame from the cache, or renders, queues and caches it. A frame that an edit overlapped is
-    // dropped instead, checked under the lock the edit takes.
+    // Queues the frame from the cache, or renders, queues and caches it. A frame rendered across an edit is shown
+    // but not cached, so edits that come faster than frames render cannot hold playback.
     private EnqueueResult TryEnqueueFrame(
         SceneRenderer renderer, FrameCacheManager cacheManager, int frame, TimeSpan time, int editVersion)
     {
         // cacheは参照を既に追加されている
         if (cacheManager.TryGet(frame, out Ref<Bitmap>? cache))
         {
-            bool canceled = IsCanceled;
-            if (!canceled)
-            {
-                lock (_queue)
-                {
-                    if (_editVersion == editVersion)
-                    {
-                        _queue.Enqueue(new(cache, frame));
-                        return EnqueueResult.Queued;
-                    }
-                }
-            }
+            if (!IsCanceled)
+                return TryQueue(cache, frame);
 
             cache.Dispose();
-            return canceled ? EnqueueResult.Canceled : EnqueueResult.Dropped;
+            return EnqueueResult.Canceled;
         }
 
         var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
@@ -345,22 +335,34 @@ internal sealed class BufferedPlayer : IDisposable
             if (IsCanceled)
                 return EnqueueResult.Canceled;
 
-            lock (_queue)
+            EnqueueResult result = TryQueue(bitmap.Clone(), frame);
+            // Outside the lock, which the consumer waits for. An edit since the frame was queued may have deleted
+            // its cache before this Add, so the frame is taken back out.
+            if (result == EnqueueResult.Queued && !EditedSince(editVersion))
             {
-                if (_editVersion != editVersion)
-                    return EnqueueResult.Dropped;
-
-                _queue.Enqueue(new(bitmap.Clone(), frame));
+                cacheManager.Add(frame, bitmap);
+                if (EditedSince(editVersion))
+                    cacheManager.DeleteAndUpdateBlocks([(frame, frame + 1)]);
             }
 
-            // Outside the lock, which the consumer waits for. An edit since the check above may have deleted
-            // this frame's cache before this Add, so the frame is taken back out.
-            cacheManager.Add(frame, bitmap);
-            if (EditedSince(editVersion))
-                cacheManager.DeleteAndUpdateBlocks([(frame, frame + 1)]);
+            return result;
+        }
+    }
+
+    // Takes the bitmap. A frame after the first one an edit dropped would come out of order, so it is drawn again.
+    private EnqueueResult TryQueue(Ref<Bitmap> bitmap, int frame)
+    {
+        lock (_queue)
+        {
+            if (!_restartFrame.HasValue)
+            {
+                _queue.Enqueue(new(bitmap, frame));
+                return EnqueueResult.Queued;
+            }
         }
 
-        return EnqueueResult.Queued;
+        bitmap.Dispose();
+        return EnqueueResult.Dropped;
     }
 
     private bool EditedSince(int editVersion)

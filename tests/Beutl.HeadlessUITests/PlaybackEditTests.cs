@@ -1,7 +1,9 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 
 using Avalonia.Headless.NUnit;
 
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -14,8 +16,8 @@ using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
-// An edit during playback drops the read-ahead frames it changes and their cache, so it shows on the next frame.
-// Edits that keep coming, as a slider drag makes them, drop and draw the frames again each time.
+// An edit during playback drops the read-ahead frames it changes and their cache, so it shows from the next frame.
+// The frame being drawn when it came in is still shown, so edits that keep coming cannot hold playback.
 [NonParallelizable]
 [TestFixture]
 public class PlaybackEditTests
@@ -62,7 +64,10 @@ public class PlaybackEditTests
                 {
                     Assert.That(frame.Time, Is.GreaterThan(lastFrame), "Frames must stay in order.");
                     lastFrame = frame.Time;
-                    AssertFilledWith(frame.Bitmap.Value, color, $"Frame {frame.Time} after step {step}");
+                    Color filled = FillOf(frame.Bitmap.Value, $"Frame {frame.Time} after step {step}");
+                    // Only the frame being drawn when the edits came in may show a color from before them.
+                    if (taken > 0)
+                        Assert.That(filled, Is.EqualTo(color), $"Frame {frame.Time} after step {step}");
                 }
             }
         }
@@ -96,11 +101,92 @@ public class PlaybackEditTests
             using (frame.Bitmap)
             {
                 frames.Add(frame.Time);
-                AssertFilledWith(frame.Bitmap.Value, s_palette[1], $"Frame {frame.Time}");
+                Assert.That(FillOf(frame.Bitmap.Value, $"Frame {frame.Time}"), Is.EqualTo(s_palette[1]));
             }
         }
 
         Assert.That(frames, Is.EqualTo(expected));
+    }
+
+    // Replacing an element sends no range. With the read-ahead full no frame is being drawn, so every frame after
+    // the replacement shows it.
+    [AvaloniaTest]
+    public async Task Replacing_an_element_drops_every_queued_frame()
+    {
+        TestGpu.RequireAnyDevice();
+        const int BudgetFrames = 10;
+        (EditViewModel editor, _) = await OpenEditor(TimeSpan.FromSeconds(30));
+        using var isPlaying = new ReactivePropertySlim<bool>(true);
+        using var player = new BufferedPlayer(editor, isPlaying, Rate, CancellationToken.None)
+        {
+            ReadAheadBytes = ReadAheadBudget.SnapshotBytes(editor.Renderer.Value.DeviceSize) * BudgetFrames,
+        };
+        player.Start(PlaybackRange.From(TimeSpan.Zero, editor.Scene.Start, editor.Scene.Duration, Rate));
+        await HeadlessTestHelpers.WaitUntilAsync(
+            () => player.QueuedFrames == BudgetFrames, TimeSpan.FromMinutes(1), pump: false);
+        await Task.Delay(TimeSpan.FromMilliseconds(100));
+
+        (Element replacement, _) = CreateRectangle(s_palette[2], editor.Scene.Duration);
+        editor.Scene.Children[0] = replacement;
+
+        for (int taken = 0; taken < BudgetFrames; taken++)
+        {
+            BufferedPlayer.Frame frame = await TakeAsync(player);
+            using (frame.Bitmap)
+                Assert.That(FillOf(frame.Bitmap.Value, $"Frame {frame.Time}"), Is.EqualTo(s_palette[2]));
+        }
+    }
+
+    // A drag on a drawable that takes longer to draw than the drag's edits take to come.
+    [AvaloniaTest]
+    public async Task Edits_that_come_faster_than_frames_draw_do_not_hold_playback()
+    {
+        TestGpu.RequireAnyDevice();
+        (EditViewModel editor, _) = await OpenEditor(TimeSpan.FromSeconds(30));
+        var slow = new SlowPlaybackDrawable();
+        var element = new Element { Length = editor.Scene.Duration, ZIndex = 1 };
+        element.AddObject(slow);
+        editor.Scene.Children.Add(element);
+        RenderThreadDrain.Drain(TimeSpan.FromMinutes(2));
+        using var isPlaying = new ReactivePropertySlim<bool>(true);
+        using var player = new BufferedPlayer(editor, isPlaying, Rate, CancellationToken.None);
+        var frames = new ConcurrentQueue<int>();
+        using var stop = new CancellationTokenSource();
+        player.Start(PlaybackRange.From(TimeSpan.Zero, editor.Scene.Start, editor.Scene.Duration, Rate));
+        Task consumer = Task.Run(() =>
+        {
+            while (!stop.IsCancellationRequested)
+            {
+                if (player.TryDequeue(out BufferedPlayer.Frame frame))
+                {
+                    frames.Enqueue(frame.Time);
+                    frame.Bitmap.Dispose();
+                }
+            }
+        });
+
+        try
+        {
+            var stopwatch = Stopwatch.StartNew();
+            for (int edit = 1; stopwatch.Elapsed < TimeSpan.FromSeconds(1.5); edit++)
+            {
+                slow.Opacity.CurrentValue = 100 - (edit * 0.001f);
+                await Task.Delay(5);
+            }
+        }
+        finally
+        {
+            stop.Cancel();
+            await consumer.WaitAsync(TimeSpan.FromSeconds(10));
+        }
+
+        int[] taken = [.. frames];
+        Assert.Multiple(() =>
+        {
+            Assert.That(player.Failure, Is.Null);
+            Assert.That(taken, Has.Length.GreaterThanOrEqualTo(5), "Playback must go on while the edits come.");
+            Assert.That(taken, Is.Ordered.Ascending.And.Unique);
+        });
     }
 
     private static async Task<BufferedPlayer.Frame> TakeAsync(BufferedPlayer player)
@@ -120,37 +206,56 @@ public class PlaybackEditTests
         return frame;
     }
 
-    private static void AssertFilledWith(Bitmap bitmap, Color expected, string message)
+    // The palette color the whole frame is filled with; a frame filled with more than one is torn.
+    private static Color FillOf(Bitmap bitmap, string message)
     {
         using Bitmap bgra = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul);
+        var filled = new List<Color>();
         foreach ((double fx, double fy) in s_samples)
         {
             int x = (int)(fx * (bgra.Width - 1));
             int y = (int)(fy * (bgra.Height - 1));
             Span<byte> pixel = bgra.GetRow(y).Slice(x * 4, 4);
             Color actual = Color.FromArgb(255, pixel[2], pixel[1], pixel[0]);
-            Color nearest = s_palette.Concat(s_unfilled)
-                .MinBy(color => Math.Abs(color.R - actual.R) + Math.Abs(color.G - actual.G) + Math.Abs(color.B - actual.B));
-            Assert.That(nearest, Is.EqualTo(expected), $"{message} at ({x}, {y}) is {actual}.");
+            filled.Add(s_palette.Concat(s_unfilled)
+                .MinBy(color => Math.Abs(color.R - actual.R) + Math.Abs(color.G - actual.G) + Math.Abs(color.B - actual.B)));
         }
+
+        Assert.That(filled.Distinct().Count(), Is.EqualTo(1), $"{message} is not filled with one color: {string.Join(", ", filled)}.");
+        Assert.That(s_unfilled, Does.Not.Contain(filled[0]), $"{message} is not filled.");
+        return filled[0];
     }
 
-    private static async Task<(EditViewModel Editor, SolidColorBrush Fill)> OpenEditor(TimeSpan duration)
+    private static (Element Element, SolidColorBrush Fill) CreateRectangle(Color color, TimeSpan length)
     {
-        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync(
-            "playback-edits", 320, 240, frameRate: Rate, duration: duration);
-        var fill = new SolidColorBrush(s_palette[0]);
-        var element = new Element { Length = duration };
+        var fill = new SolidColorBrush(color);
+        var element = new Element { Length = length };
         element.AddObject(new RectShape
         {
             Width = { CurrentValue = 320 },
             Height = { CurrentValue = 240 },
             Fill = { CurrentValue = fill },
         });
+        return (element, fill);
+    }
+
+    private static async Task<(EditViewModel Editor, SolidColorBrush Fill)> OpenEditor(TimeSpan duration)
+    {
+        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync(
+            "playback-edits", 320, 240, frameRate: Rate, duration: duration);
+        (Element element, SolidColorBrush fill) = CreateRectangle(s_palette[0], duration);
         scene.Children.Add(element);
 
         // Let the preview render queued by the edit above finish first.
         RenderThreadDrain.Drain(TimeSpan.FromMinutes(2));
         return (editor, fill);
     }
+}
+
+// Draws nothing, slowly, each time it changes.
+internal sealed partial class SlowPlaybackDrawable : Drawable
+{
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(16, 16);
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource) => Thread.Sleep(30);
 }
