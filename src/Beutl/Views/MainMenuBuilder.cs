@@ -85,8 +85,8 @@ internal static class MainMenuBuilder
         return menuItem;
     }
 
-    private static KeyGesture? GetGesture(MainMenuItem item) => item.GestureCommand is { } name
-        ? GetCommandGestureExtension.GetKeyGesture(typeof(MainViewExtension), name)
+    private static KeyGesture? GetGesture(MainMenuItem item) => item.GestureCommand is { } id
+        ? GetCommandGestureExtension.GetKeyGesture(typeof(MainViewExtension), id)
         : null;
 
     // Applies each change in place: rebuilding on every change made each open view recreate all its entries.

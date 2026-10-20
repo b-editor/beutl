@@ -16,7 +16,7 @@ public sealed class MainMenuItem(string? header)
 
     public object? CommandParameter { get; init; }
 
-    // The MainViewExtension command whose key gesture the item shows.
+    // The id of the MainViewExtension command whose key gesture the item shows.
     public string? GestureCommand { get; init; }
 
     // The native menu shows no icons.

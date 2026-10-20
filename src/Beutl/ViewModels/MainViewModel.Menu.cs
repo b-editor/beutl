@@ -28,9 +28,9 @@ public sealed partial class MainViewModel
                     [
                         new(Strings.CreateNewProject)
                         {
-                            Command = MenuBar.CreateNewProject, GestureCommand = "CreateNewProject"
+                            Command = MenuBar.CreateNewProject, GestureCommand = "main.createNewProject"
                         },
-                        new(Strings.CreateNewScene) { Command = MenuBar.NewScene, GestureCommand = "CreateNewFile" },
+                        new(Strings.CreateNewScene) { Command = MenuBar.NewScene, GestureCommand = "main.createNewFile" },
                     ]
                 },
                 MainMenuItem.Separator,
@@ -39,16 +39,16 @@ public sealed partial class MainViewModel
                     Icon = Icon.Open,
                     Items =
                     [
-                        new(Strings.Project) { Command = MenuBar.OpenProject, GestureCommand = "OpenProject" },
-                        new(Strings.File) { Command = MenuBar.OpenFile, GestureCommand = "OpenFile" },
+                        new(Strings.Project) { Command = MenuBar.OpenProject, GestureCommand = "main.openProject" },
+                        new(Strings.File) { Command = MenuBar.OpenFile, GestureCommand = "main.openFile" },
                     ]
                 },
                 MainMenuItem.Separator,
                 new(Strings.Close) { Command = MenuBar.CloseFile },
                 new(Strings.CloseProject) { Command = MenuBar.CloseProject },
                 MainMenuItem.Separator,
-                new(Strings.Save) { Command = MenuBar.Save, GestureCommand = "Save", Icon = Icon.Save },
-                new(Strings.SaveAll) { Command = MenuBar.SaveAll, GestureCommand = "SaveAll", Icon = Icon.SaveMultiple },
+                new(Strings.Save) { Command = MenuBar.Save, GestureCommand = "main.save", Icon = Icon.Save },
+                new(Strings.SaveAll) { Command = MenuBar.SaveAll, GestureCommand = "main.saveAll", Icon = Icon.SaveMultiple },
                 MainMenuItem.Separator,
                 new(Strings.ExportProject) { Command = MenuBar.ExportProject, Icon = Icon.ArrowExport },
                 new(Strings.ImportProject) { Command = MenuBar.ImportProject, Icon = Icon.ArrowImport },
@@ -64,15 +64,15 @@ public sealed partial class MainViewModel
                 MainMenuItem.Separator,
                 new(Strings.Settings) { Command = MenuBar.ShowSettings, IsInWindowOnly = true },
                 new(null) { IsInWindowOnly = true },
-                new(Strings.Exit) { Command = MenuBar.Exit, GestureCommand = "Exit" },
+                new(Strings.Exit) { Command = MenuBar.Exit, GestureCommand = "main.exit" },
             ]
         },
         new(Strings.Edit)
         {
             Items =
             [
-                new(Strings.Undo) { Command = MenuBar.Undo, GestureCommand = "Undo", Icon = Icon.ArrowUndo },
-                new(Strings.Redo) { Command = MenuBar.Redo, GestureCommand = "Redo", Icon = Icon.ArrowRedo },
+                new(Strings.Undo) { Command = MenuBar.Undo, GestureCommand = "main.undo", Icon = Icon.ArrowUndo },
+                new(Strings.Redo) { Command = MenuBar.Redo, GestureCommand = "main.redo", Icon = Icon.ArrowRedo },
             ]
         },
         new(Strings.View)
