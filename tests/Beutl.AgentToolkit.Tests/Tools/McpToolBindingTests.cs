@@ -2,6 +2,8 @@
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.Extensions.FFmpeg;
+using Beutl.Graphics.Transitions;
+using Beutl.Services;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
@@ -87,6 +89,32 @@ public sealed class McpToolBindingTests
         {
             AssertToolResultError(result, ErrorCode.CodecUnavailable);
             Assert.That(ReadText(result), Does.Contain("FFmpegWorker"));
+        });
+    }
+
+    // The installed server runs the editor's LibraryRegistrar, so get_schema lists what the app's library lists.
+    [Test]
+    public async Task Get_schema_lists_every_library_type()
+    {
+        await using InProcessAgentToolkitServer server =
+            await InProcessAgentToolkitServer.StartAsync(TestWorkspace.CreateDirectory());
+
+        CallToolResult result = await server.Client.CallToolAsync(
+            "get_schema", new Dictionary<string, object?> { ["includeProperties"] = false });
+
+        AssertToolResultSuccess(result);
+        using JsonDocument document = JsonDocument.Parse(ReadText(result));
+        string[] listed = document.RootElement.GetProperty("value").GetProperty("types").EnumerateArray()
+            .Select(type => type.GetProperty("type").GetString()!)
+            .ToArray();
+        string[] library = typeof(KnownLibraryItemFormats).GetFields()
+            .SelectMany(field => LibraryService.Current.GetTypesFromFormat((string)field.GetValue(null)!))
+            .Select(type => type.FullName!)
+            .ToArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(library, Does.Contain(typeof(CrossDissolveTransition).FullName));
+            Assert.That(library.Except(listed), Is.Empty);
         });
     }
 
