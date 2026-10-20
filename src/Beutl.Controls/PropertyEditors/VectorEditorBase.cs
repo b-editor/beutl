@@ -33,6 +33,7 @@ public abstract class VectorEditorBase : PropertyEditor
     private readonly TextBlock?[] _componentHeaders;
     private Border? _backgroundBorder;
     private HeaderScrubGesture _scrub;
+    private Control? _editSource;
 
     // With componentHeaders, each component has a header that scrubs that component alone; otherwise only the
     // editor's header scrubs, and it scrubs every component.
@@ -53,7 +54,11 @@ public abstract class VectorEditorBase : PropertyEditor
 
     internal string GetText(int index) => _texts[index];
 
-    internal void SetText(int index, string value) => SetAndRaise(_textProperties[index], ref _texts[index], value);
+    internal void SetText(int index, string value)
+    {
+        if (_editSource == null || _editSource != _textBoxes[index])
+            SetAndRaise(_textProperties[index], ref _texts[index], value);
+    }
 
     internal bool SetComponent<T>(DirectPropertyBase<T> property, ref T field, T value)
         => SetAndRaise(property, ref field, value);
@@ -149,14 +154,16 @@ public abstract class VectorEditorBase : PropertyEditor
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
+            Values!.FormatTexts();
             Values!.RaiseConfirmedIfChanged();
         }
     }
 
     private void OnInnerTextBoxTextChanged(TextBox sender, string? newValue, string? oldValue)
     {
-        if (sender.IsKeyboardFocusWithin)
+        if (_editSource == null && sender.IsKeyboardFocusWithin)
         {
+            using var edit = new PropertyEditorEditScope(ref _editSource, sender);
             Values!.Edit(Array.IndexOf(_textBoxes, sender), newValue, oldValue);
         }
 
@@ -180,10 +187,14 @@ public abstract class VectorEditorBase : PropertyEditor
     {
         if (!DataValidationErrors.GetHasErrors(this)
             && sender is TextBox textBox
-            && textBox.IsKeyboardFocusWithin
-            && Values!.Step(Array.IndexOf(_textBoxes, textBox), textBox.Text, e))
+            && textBox.IsKeyboardFocusWithin)
         {
-            e.Handled = true;
+            using var edit = new PropertyEditorEditScope(ref _editSource, this);
+            if (Values!.Step(Array.IndexOf(_textBoxes, textBox), textBox.Text, e))
+            {
+                Values.FormatTexts();
+                e.Handled = true;
+            }
         }
     }
 

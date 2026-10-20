@@ -14,6 +14,9 @@ namespace Beutl.Api.Services;
 
 public record LoadedPackageInfo(LocalPackage Package, PluginLoadContext? LoadContext);
 
+// A package whose assemblies are loaded and whose extensions are not created yet.
+internal sealed record PreparedPackage(LocalPackage Package, Assembly[] Assemblies, PluginLoadContext? LoadContext, Type[] ExtensionTypes);
+
 public sealed partial class PackageManager : IBeutlApiResource
 {
     private readonly InstalledPackageRepository installedPackageRepository;
@@ -271,6 +274,10 @@ public sealed partial class PackageManager : IBeutlApiResource
     }
 
     public Assembly[] Load(LocalPackage package)
+        => Prepare(package) is { } prepared ? Load(prepared) : [];
+
+    // Runs no extension code, so packages can be prepared in parallel.
+    internal PreparedPackage? Prepare(LocalPackage package)
     {
         using (Activity? activity = Telemetry.ActivitySource.StartActivity("Load"))
         {
@@ -283,7 +290,7 @@ public sealed partial class PackageManager : IBeutlApiResource
             if (package.Tags.GetPackageKind() != PackageKind.Extension)
             {
                 activity?.SetTag("AssemblyCount", 0);
-                return [];
+                return null;
             }
 
             if (package.InstalledPath == null)
@@ -299,15 +306,37 @@ public sealed partial class PackageManager : IBeutlApiResource
             activity?.AddEvent(new ActivityEvent("Assemblies loaded"));
             activity?.SetTag("AssemblyCount", result.Assemblies.Length);
 
-            // Strict on purpose: GetExportedTypes throws on an unresolvable type so a broken plugin
-            // fails the load and rolls back instead of registering with extensions silently skipped.
-            // Unload stays lenient (GetLoadableTypes) since cleanup must proceed regardless.
+            try
+            {
+                // Strict on purpose: GetExportedTypes throws on an unresolvable type so a broken plugin
+                // fails the load and rolls back instead of registering with extensions silently skipped.
+                // Unload stays lenient (GetLoadableTypes) since cleanup must proceed regardless.
+                return new PreparedPackage(
+                    package,
+                    result.Assemblies,
+                    result.LoadContext,
+                    [.. result.Assemblies.SelectMany(assembly => assembly.GetExportedTypes())]);
+            }
+            catch
+            {
+                TryUnloadLoadContext(package, result.LoadContext);
+                throw;
+            }
+        }
+    }
+
+    // Creates the extensions and calls their Load; callers load one package at a time.
+    internal Assembly[] Load(PreparedPackage prepared)
+    {
+        using (Activity? activity = Telemetry.ActivitySource.StartActivity("LoadExtensions"))
+        {
+            activity?.SetTag("PackageName", prepared.Package.Name);
             return LoadExtensionsAndRegister(
                 activity,
-                package,
-                result.Assemblies,
-                result.LoadContext,
-                result.Assemblies.SelectMany(assembly => assembly.GetExportedTypes()));
+                prepared.Package,
+                prepared.Assemblies,
+                prepared.LoadContext,
+                prepared.ExtensionTypes);
         }
     }
 
@@ -323,6 +352,8 @@ public sealed partial class PackageManager : IBeutlApiResource
 
         string mainDirectory = Path.Combine(installedPath, "lib", nearest.ToString());
         string[] asmFiles = Directory.GetFiles(mainDirectory, "*.dll");
+        // Extensions load in assembly order, and file systems list files in different orders.
+        Array.Sort(asmFiles, StringComparer.Ordinal);
         EnsureCompatible(package, mainDirectory, reader, asmFiles);
 
         var loadContext = new PluginLoadContext(mainDirectory, reader);

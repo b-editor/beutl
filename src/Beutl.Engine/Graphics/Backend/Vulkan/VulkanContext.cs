@@ -39,6 +39,15 @@ internal sealed unsafe partial class VulkanContext : IGraphicsContext
     private bool _disposed;
 
     public VulkanContext(VulkanInstance vulkanInstance, VulkanPhysicalDeviceInfo physicalDevice)
+        : this(vulkanInstance, physicalDevice, GRContext.CreateVulkan)
+    {
+    }
+
+    // Tests pass their own createSkiaContext to stand in for GRContext.CreateVulkan.
+    internal VulkanContext(
+        VulkanInstance vulkanInstance,
+        VulkanPhysicalDeviceInfo physicalDevice,
+        Func<GRVkBackendContext, GRContext?> createSkiaContext)
     {
         // Ganesh requires Vulkan 1.1 and aborts the process, rather than returning null, on an older device. Refusing
         // the device before anything is created on it lets GraphicsContextFactory fall back to CPU rendering instead
@@ -86,39 +95,40 @@ internal sealed unsafe partial class VulkanContext : IGraphicsContext
 
         if (!physicalDevice.IsMoltenVK)
         {
-            InitializeSkiaVulkanContext();
+            try
+            {
+                InitializeSkiaVulkanContext(physicalDevice, createSkiaContext);
+            }
+            catch
+            {
+                // The factory renders on the CPU after this and never retries, so nothing else frees the device.
+                Dispose();
+                throw;
+            }
         }
 
         s_logger.LogDebug("Vulkan context created successfully");
     }
 
-    private void InitializeSkiaVulkanContext()
+    private void InitializeSkiaVulkanContext(
+        VulkanPhysicalDeviceInfo physicalDevice,
+        Func<GRVkBackendContext, GRContext?> createSkiaContext)
     {
-        try
+        _skiaBackendContext = new GRVkBackendContext
         {
-            _skiaBackendContext = new GRVkBackendContext
-            {
-                VkInstance = _vulkanInstance.Instance.Handle,
-                VkPhysicalDevice = _vulkanDevice.PhysicalDevice.Handle,
-                VkDevice = _vulkanDevice.Device.Handle,
-                VkQueue = _vulkanDevice.GraphicsQueue.Handle,
-                GraphicsQueueIndex = _vulkanDevice.GraphicsQueueFamilyIndex,
-                // Left at 0, Skia assumes the loader's version, which can exceed what the instance was created for.
-                MaxAPIVersion = VulkanInstance.InstanceApiVersion,
-                GetProcedureAddress = GetVulkanProcAddress
-            };
+            VkInstance = _vulkanInstance.Instance.Handle,
+            VkPhysicalDevice = _vulkanDevice.PhysicalDevice.Handle,
+            VkDevice = _vulkanDevice.Device.Handle,
+            VkQueue = _vulkanDevice.GraphicsQueue.Handle,
+            GraphicsQueueIndex = _vulkanDevice.GraphicsQueueFamilyIndex,
+            // Left at 0, Skia assumes the loader's version, which can exceed what the instance was created for.
+            MaxAPIVersion = VulkanInstance.InstanceApiVersion,
+            GetProcedureAddress = GetVulkanProcAddress
+        };
 
-            _skiaContext = GRContext.CreateVulkan(_skiaBackendContext);
-
-            if (_skiaContext == null)
-            {
-                s_logger.LogWarning("Failed to create SkiaSharp Vulkan context");
-            }
-        }
-        catch (Exception ex)
-        {
-            s_logger.LogError(ex, "Failed to initialize SkiaSharp Vulkan backend");
-        }
+        // Skia answers null for a device it cannot drive; refusing the device lets the factory render on the CPU.
+        _skiaContext = createSkiaContext(_skiaBackendContext)
+            ?? throw new NotSupportedException($"Skia cannot create a Vulkan context on {physicalDevice.Name}.");
     }
 
     public GraphicsBackend Backend => GraphicsBackend.Vulkan;

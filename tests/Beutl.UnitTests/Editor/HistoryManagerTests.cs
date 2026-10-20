@@ -2147,6 +2147,32 @@ public class HistoryManagerTests
     }
 
     [Test]
+    public void DescribeNewPendingOperations_ListsEachPendingOperationOnce()
+    {
+        using var manager = new HistoryManager(_sequenceGenerator);
+        Assert.That(manager.DescribeNewPendingOperations(), Is.Null);
+
+        manager.Record(CreateTestOperation());
+        manager.Record(new RemoveCollectionRangeOperation<string>
+        {
+            SequenceNumber = _sequenceGenerator.GetNext(),
+            Object = _root,
+            PropertyPath = "Children.Items",
+            Index = 0,
+            Items = ["A"],
+        });
+
+        Assert.That(manager.DescribeNewPendingOperations(),
+            Is.EqualTo("CustomOperation, RemoveCollectionRangeOperation Children.Items"));
+        Assert.That(manager.DescribeNewPendingOperations(), Is.Null);
+
+        manager.Record(CreateTestOperation());
+        Assert.That(manager.DescribeNewPendingOperations(), Is.EqualTo("CustomOperation"));
+        manager.Commit("committed");
+        Assert.That(manager.DescribeNewPendingOperations(), Is.Null);
+    }
+
+    [Test]
     public void FlushPendingMutations_ShouldFireBeforeMutation()
     {
         using var manager = new HistoryManager(_sequenceGenerator);

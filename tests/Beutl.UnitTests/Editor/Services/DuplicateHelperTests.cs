@@ -8,11 +8,6 @@ namespace Beutl.UnitTests.Editor.Services;
 [TestFixture]
 public class DuplicateHelperTests
 {
-    private static string GetTempPath()
-    {
-        return Path.Combine(Path.GetTempPath(), $"beutl_duplicate_helper_{Guid.NewGuid():N}");
-    }
-
     private static Element CreateElement(TimeSpan start, TimeSpan length, int zIndex = 0, Guid? id = null, string? basePath = null)
     {
         var element = new Element
@@ -127,6 +122,9 @@ public class DuplicateHelperTests
         Assert.That(newA.ZIndex, Is.EqualTo(1));
         Assert.That(newB.ZIndex, Is.EqualTo(1));
         Assert.That(newC.ZIndex, Is.EqualTo(1));
+        // The next save of the scene writes the files.
+        Assert.That(newA.Uri, Is.EqualTo(ElementFileNaming.GetUri(scene.Uri!, newA.Id)));
+        Assert.That(File.Exists(newA.Uri!.LocalPath), Is.False);
     }
 
     [Test]
@@ -269,45 +267,5 @@ public class DuplicateHelperTests
                 sourceElements: [source],
                 anchorStart: TimeSpan.Zero,
                 anchorZIndex: 0));
-    }
-
-    [Test]
-    public void PlaceDuplicates_LeavesSceneUntouched_OnPhase1Failure()
-    {
-        // Asserts the Phase 1 invariant: scene.Children/Groups stay untouched on failure.
-        // Forces Phase 1 to fail by placing a file where StoreToUri expects a directory,
-        // so Directory.CreateDirectory throws.
-        string basePath = GetTempPath();
-        try
-        {
-            Directory.CreateDirectory(basePath);
-            string blocked = Path.Combine(basePath, "blocked");
-            File.WriteAllText(blocked, "not a directory");
-
-            var scene = new Scene(100, 100, string.Empty)
-            {
-                Uri = new Uri(Path.Combine(blocked, "test.scene"))
-            };
-            int sceneChildrenBefore = scene.Children.Count;
-            int sceneGroupsBefore = scene.Groups.Count;
-
-            Element source = CreateElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
-            Element newOne = CreateElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
-
-            Assert.Throws<IOException>(
-                () => DuplicateHelper.PlaceDuplicates(
-                    scene,
-                    newElements: [newOne],
-                    sourceElements: [source],
-                    anchorStart: TimeSpan.Zero,
-                    anchorZIndex: 0));
-
-            Assert.That(scene.Children.Count, Is.EqualTo(sceneChildrenBefore));
-            Assert.That(scene.Groups.Count, Is.EqualTo(sceneGroupsBefore));
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
     }
 }

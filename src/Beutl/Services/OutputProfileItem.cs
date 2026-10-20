@@ -71,52 +71,12 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
             return false;
         }
 
-        IDisposable outputContextSuspension;
-        try
-        {
-            // The execution task is published before changing reactive editor state, so a
-            // re-entrant start observes and joins this execution instead of creating another one.
-            outputContextSuspension = _editorService.SuspendEditor(EditorContext);
-        }
-        catch (Exception ex)
-        {
-            CompleteFailedStart(outputOperation, executionCancellation!, completion!, ex);
-            execution = completion!.Task;
-            return true;
-        }
-
         _ = RunOutputAsync(
             outputOperation,
-            outputContextSuspension,
             executionCancellation!,
             completion!);
         execution = completion!.Task;
         return true;
-    }
-
-    private void CompleteFailedStart(
-        IDisposable outputOperation,
-        CancellationTokenSource executionCancellation,
-        TaskCompletionSource completion,
-        Exception failure)
-    {
-        List<Exception>? failures = [failure];
-        CaptureCleanupFailure(executionCancellation.Dispose, ref failures);
-
-        lock (_outputOperationSync)
-        {
-            if (ReferenceEquals(_executionCancellation, executionCancellation))
-            {
-                _executionCancellation = null;
-            }
-        }
-
-        CompleteExecution(
-            completion,
-            outputOperation,
-            failures,
-            canceled: false,
-            cancellationToken: default);
     }
 
     public void Cancel()
@@ -147,7 +107,6 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
 
     private async Task RunOutputAsync(
         IDisposable outputOperation,
-        IDisposable outputContextSuspension,
         CancellationTokenSource executionCancellation,
         TaskCompletionSource completion)
     {
@@ -180,10 +139,6 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
             }
 
             CaptureCleanupFailure(executionCancellation.Dispose, ref failures);
-
-            // Restore the editor-facing state while the workspace is still reserved. Releasing the
-            // output lease first would let a workspace mutation begin and race this restoration.
-            CaptureCleanupFailure(outputContextSuspension.Dispose, ref failures);
 
             lock (_outputOperationSync)
             {

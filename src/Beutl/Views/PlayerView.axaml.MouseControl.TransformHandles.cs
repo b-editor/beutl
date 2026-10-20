@@ -327,6 +327,8 @@ public partial class PlayerView
                 return;
             }
 
+            // A pending nudge commits now, so the Rollback that cancels this drag cannot revert it.
+            EditViewModel.HistoryManager.FlushPendingMutations();
             CanonicalTransformLayoutResult ensured =
                 CanonicalTransformLayout.Ensure(_press.Drawable, ctx);
 

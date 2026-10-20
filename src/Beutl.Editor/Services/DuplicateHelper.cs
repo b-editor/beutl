@@ -1,17 +1,11 @@
 ﻿using System.Collections.Immutable;
-using Beutl.Logging;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
-using Beutl.Utilities;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Services;
 
 public static class DuplicateHelper
 {
-    private static readonly ILogger s_logger = Log.CreateLogger(typeof(DuplicateHelper));
-
     /// <summary>
     /// Expands the seed set to include every member of any group that overlaps it,
     /// so partial group selections still duplicate the whole group.
@@ -116,13 +110,8 @@ public static class DuplicateHelper
     /// must be non-null.
     /// </summary>
     /// <remarks>
-    /// Two phases:
-    /// <list type="bullet">
-    /// <item>Phase 1 stages every element to disk. On failure, staged files are deleted
-    /// best-effort and the scene is left untouched.</item>
-    /// <item>Phase 2 remaps groups and calls <see cref="Scene.AddChild"/>. Not atomic:
-    /// a failure here can leave partial children and staged files behind.</item>
-    /// </list>
+    /// Writes no file: each element gets its file when the scene is next saved. Not atomic: a failure can leave
+    /// partial children behind.
     /// </remarks>
     public static void PlaceDuplicates(
         Scene scene,
@@ -151,39 +140,11 @@ public static class DuplicateHelper
 
         (TimeSpan minStart, int minZIndex) = ComputeMinOrigin(newElements);
 
-        var stagedFiles = new List<string>(newElements.Length);
-        try
+        foreach (Element newElement in newElements)
         {
-            foreach (Element newElement in newElements)
-            {
-                newElement.Start = newElement.Start - minStart + anchorStart;
-                newElement.ZIndex = newElement.ZIndex - minZIndex + anchorZIndex;
-
-                Uri uri = ElementFileNaming.GetUri(scene.Uri, newElement.Id);
-                CoreSerializer.StoreToUri(newElement, uri, owner: scene);
-                stagedFiles.Add(uri.LocalPath);
-            }
-        }
-        catch (Exception originalEx)
-        {
-            // Best-effort cleanup. Don't mask the original exception with delete errors,
-            // but log them so orphan files can be tracked.
-            foreach (string path in stagedFiles)
-            {
-                try
-                {
-                    if (File.Exists(path)) File.Delete(path);
-                }
-                catch (Exception deleteEx)
-                {
-                    s_logger.LogWarning(
-                        deleteEx,
-                        "Failed to delete staged duplicate file during rollback; orphan file may remain. Path={Path} OriginalCause={Original}",
-                        path, originalEx.Message);
-                }
-            }
-
-            throw;
+            newElement.Start = newElement.Start - minStart + anchorStart;
+            newElement.ZIndex = newElement.ZIndex - minZIndex + anchorZIndex;
+            newElement.Uri = ElementFileNaming.GetUri(scene.Uri, newElement.Id);
         }
 
         var idMapping = new Dictionary<Guid, Guid>(sourceElements.Length);

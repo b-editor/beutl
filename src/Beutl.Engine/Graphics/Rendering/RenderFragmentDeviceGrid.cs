@@ -5,9 +5,8 @@
 /// onto.
 /// </summary>
 /// <remarks>
-/// The unmatched arm answers <see cref="RenderDeviceGridMapping.Remapped"/>, so a form whose target state the
-/// planner cannot analyse — an opaque external barrier, or a kind added after this switch was written — costs
-/// upstream cache reuse instead of serving a phase-dependent raster at the wrong grid phase.
+/// Raw target scopes and commands answer <see cref="RenderDeviceGridMapping.Remapped"/>: the planner cannot analyse
+/// their target state, so they cost upstream cache reuse instead of serving a raster at the wrong grid phase.
 /// </remarks>
 internal static class RenderFragmentDeviceGrid
 {
@@ -36,6 +35,10 @@ internal static class RenderFragmentDeviceGrid
                 or RenderFragmentKind.TargetCommand
                 or RenderFragmentKind.BuiltInBackdropCapture
                 => RenderDeviceGridMapping.Preserved,
-            _ => RenderDeviceGridMapping.Remapped,
+            RenderFragmentKind.RawTargetScope
+                or RenderFragmentKind.RawTargetCommand
+                => RenderDeviceGridMapping.Remapped,
+            _ => throw new InvalidOperationException(
+                $"Fragment kind '{reference.Kind}' has no device-grid rule."),
         };
 }

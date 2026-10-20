@@ -436,7 +436,8 @@ public sealed class EditorServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(editorService.TryBeginWorktreeMutation(), Is.Null);
-            Assert.That(context.IsEnabled.Value, Is.False);
+            // The export renders a snapshot, so it holds the workspace but leaves the editor enabled.
+            Assert.That(context.IsEnabled.Value, Is.True);
             Assert.That(outputContext.DisposeCalls, Is.Zero);
         });
 

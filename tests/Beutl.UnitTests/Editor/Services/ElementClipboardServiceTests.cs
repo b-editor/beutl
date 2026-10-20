@@ -286,6 +286,9 @@ public class ElementClipboardServiceTests
             Assert.That(added, Has.Length.EqualTo(1));
             Assert.That(added[0].Start, Is.EqualTo(TimeSpan.FromSeconds(10)));
             Assert.That(added[0].ZIndex, Is.EqualTo(1));
+            // The next save of the scene writes the file.
+            Assert.That(added[0].Uri, Is.EqualTo(ElementFileNaming.GetUri(_scene.Uri!, added[0].Id)));
+            Assert.That(File.Exists(added[0].Uri!.LocalPath), Is.False);
         });
     }
 

@@ -85,8 +85,21 @@ internal static class SymbolicMetadataCrossCheck
             case RenderFragmentKind.RawTargetScope:
                 return ((RawTargetScopeRenderFragmentPayload)reference.Payload!).Description.Bounds
                     .TransformBounds(RecordedBoundsOf(reference, 0));
-            default:
+            case RenderFragmentKind.ContributeValues:
+            case RenderFragmentKind.Opacity:
+            case RenderFragmentKind.Blend:
+            case RenderFragmentKind.OpacityMask:
+            case RenderFragmentKind.MaterializedInput:
+            case RenderFragmentKind.TargetCapture:
+            case RenderFragmentKind.BuiltInBackdropCapture:
+            case RenderFragmentKind.Layer:
+            case RenderFragmentKind.TargetLayerScope:
+            case RenderFragmentKind.TargetCommand:
+            case RenderFragmentKind.RawTargetCommand:
                 return null;
+            default:
+                throw new InvalidOperationException(
+                    $"Fragment kind '{reference.Kind}' has no bounds cross-check rule.");
         }
     }
 
@@ -156,8 +169,20 @@ internal static class SymbolicMetadataCrossCheck
                     reference.RecordedBounds,
                     options.OutputScale,
                     options.MaxWorkingScale);
-            default:
+            case RenderFragmentKind.ContributeValues:
+            case RenderFragmentKind.Opacity:
+            case RenderFragmentKind.Blend:
+            case RenderFragmentKind.OpacityMask:
+            case RenderFragmentKind.MaterializedInput:
+            case RenderFragmentKind.BuiltInBackdropCapture:
+            case RenderFragmentKind.Layer:
+            case RenderFragmentKind.TargetLayerScope:
+            case RenderFragmentKind.TargetCommand:
+            case RenderFragmentKind.RawTargetCommand:
                 return null;
+            default:
+                throw new InvalidOperationException(
+                    $"Fragment kind '{reference.Kind}' has no scale cross-check rule.");
         }
     }
 

@@ -46,12 +46,14 @@ public class ElementNudgeServiceTests
         int before = _history.UndoCount;
 
         _service.Nudge(_scene, [element], 1);
+        Assert.That(_service.IsPending, Is.True);
         _service.Flush();
 
         Assert.Multiple(() =>
         {
             Assert.That(element.Start, Is.GreaterThan(originalStart));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+            Assert.That(_service.IsPending, Is.False);
         });
     }
 

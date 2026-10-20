@@ -300,11 +300,10 @@ public sealed class ElementClipboardService : IElementClipboardService
         return AddPastedElement(scene, newElement);
     }
 
-    // Saves the element file next to the scene, adds the element and commits the paste.
+    // The element's file is written when the scene is next saved.
     private ElementPasteOutcome AddPastedElement(Scene scene, Element newElement)
     {
-        CoreSerializer.StoreToUri(newElement, ElementFileNaming.GetUri(scene.Uri!, newElement.Id), owner: scene);
-
+        newElement.Uri = ElementFileNaming.GetUri(scene.Uri!, newElement.Id);
         scene.AddChild(newElement);
         _historyManager.Commit(CommandNames.PasteElement);
 

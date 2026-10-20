@@ -1,5 +1,4 @@
 ﻿using System.Text;
-using Beutl.Api.Services;
 using Beutl.Editor.Services.Captions;
 
 namespace Beutl.UnitTests.Editor.Services.Captions;
@@ -11,7 +10,6 @@ public class CaptionDocumentSerializerTests
         CaptionCatalog.ComposeWithDefaultElementFactory(
             "Default",
             [],
-            new ExtensionProvider(),
             new DefaultTextCaptionElementFactory(Beutl.Media.FontFamily.Default)).Serializer;
 
     [Test]

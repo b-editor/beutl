@@ -211,6 +211,7 @@ public partial class MainViewModel
         }
         try
         {
+            _menuSubscriptions.Dispose();
             _aiJobCompletionNotifier.Dispose();
             CommandPalette.Dispose();
             TabSwitcher.Dispose();
@@ -237,24 +238,6 @@ public partial class MainViewModel
         // above. Release their cross-process locks only after every tab has
         // canceled and drained its paid-AI work.
         _aiRequestRecoveryContext.Dispose();
-
-        try
-        {
-            await _aiJobResultHandlers.DisposeAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to drain AI job result handlers during shutdown.");
-        }
-
-        try
-        {
-            await _captionCatalog.DisposeAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to drain caption registrations during shutdown.");
-        }
 
         try
         {
