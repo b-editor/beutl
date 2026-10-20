@@ -28,6 +28,12 @@ public sealed partial class HistoryManager
     }
 
     public EditSession BeginEdit(string? name = null, [CallerArgumentExpression(nameof(name))] string? expression = null)
+        => BeginEditCore(name, expression, yieldsToCommit: false);
+
+    internal EditSession BeginYieldingEdit(string? name, [CallerArgumentExpression(nameof(name))] string? expression = null)
+        => BeginEditCore(name, expression, yieldsToCommit: true);
+
+    private EditSession BeginEditCore(string? name, string? expression, bool yieldsToCommit)
     {
         ThrowIfDisposed();
         // Listeners such as the nudge window complete their own session first.
@@ -43,7 +49,7 @@ public sealed partial class HistoryManager
 
             // Earlier pending edits get their own entry, so undo replays them in the order they were made.
             committed = CommitCurrentTransaction_NoLock(name: null, expression: null);
-            session = new EditSession(this, CreateTransaction(), name, expression);
+            session = new EditSession(this, CreateTransaction(), name, expression, yieldsToCommit);
             _activeSession = session;
         }
 
@@ -159,9 +165,22 @@ public sealed partial class HistoryManager
             throw new InvalidOperationException("The edit session is closed.");
     }
 
+    // Completes a yielding session ahead of a commit of edits made outside it.
+    private bool CompleteYieldingSessionBeforeCommit_NoLock()
+    {
+        if (_activeSession is not { YieldsToCommit: true } session || !_currentTransaction.HasOperations)
+            return false;
+
+        _activeSession = null;
+        if (session.Transaction.HasOperations)
+            PushTransaction_NoLock(session.Transaction, session.Name, session.Expression);
+        return true;
+    }
+
     private void DrainQueuedEdits()
     {
-        if (_drainingQueuedEdits)
+        // A session completed by BeforeMutation must not let writers in before the history move that fired it.
+        if (_drainingQueuedEdits || _beforeMutationDispatch.Value is { IsActive: true })
             return;
 
         _drainingQueuedEdits = true;

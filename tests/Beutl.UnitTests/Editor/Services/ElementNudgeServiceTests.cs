@@ -166,6 +166,60 @@ public class ElementNudgeServiceTests
     }
 
     [Test]
+    public void Nudge_ThenAMoveCommittedInTheWindow_UndoesInOrder()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        TimeSpan original = element.Start;
+
+        _service.Nudge(_scene, [element], 1);
+        TimeSpan nudged = element.Start;
+        element.Start = TimeSpan.FromSeconds(5);
+        _history.Commit("Move");
+        _service.Flush();
+
+        Assert.That(_history.Undo(), Is.True);
+        Assert.That(element.Start, Is.EqualTo(nudged));
+        Assert.That(_history.Undo(), Is.True);
+        Assert.That(element.Start, Is.EqualTo(original));
+    }
+
+    [Test]
+    public void Undo_DuringTheNudgeWindow_RevertsTheNudgeBeforeAQueuedEditRuns()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element other = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2), zIndex: 1);
+        TimeSpan original = element.Start;
+        using IDisposable flush = _history.BeforeMutation.Subscribe(_ => _service.Flush());
+
+        _service.Nudge(_scene, [element], 1);
+        Task queued = _history.RunAfterEditAsync(() => _history.ExecuteInTransaction(() => other.IsEnabled = false, "Agent"));
+        Assert.That(_history.Undo(), Is.True);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Start, Is.EqualTo(original));
+            Assert.That(queued.IsCompletedSuccessfully, Is.True);
+            Assert.That(other.IsEnabled, Is.False);
+            Assert.That(_history.PeekUndo()!.DisplayName, Is.EqualTo("Agent"));
+        });
+    }
+
+    [Test]
+    public void Nudge_ThatThrows_StillClosesItsSession()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        static void Throw(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+            => throw new InvalidOperationException("move failed");
+        element.PropertyChanged += Throw;
+
+        Assert.Throws<InvalidOperationException>(() => _service.Nudge(_scene, [element], 1));
+        element.PropertyChanged -= Throw;
+        _service.Flush();
+
+        Assert.That(_history.IsEditing, Is.False);
+    }
+
+    [Test]
     public void Dispose_FlushesPendingCommit()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));

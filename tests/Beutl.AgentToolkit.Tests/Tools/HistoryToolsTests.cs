@@ -207,6 +207,25 @@ public sealed class HistoryToolsTests
     }
 
     [Test]
+    public async Task Live_undo_fails_with_user_editing_while_a_gesture_holds_history()
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+        using RecordingPipeline recording = RecordingPipeline.Create(scene);
+        var binding = new PlaybackSensitiveLiveBinding(scene, recording.History);
+        var history = new HistoryTools(CreateLiveManager(binding));
+        recording.History.ExecuteInTransaction(() => element.Start = TimeSpan.FromSeconds(7), "edit before the gesture");
+        using EditSession gesture = recording.History.BeginEdit("Drag");
+
+        ToolResult<HistoryStateResponse> undo = await history.Undo();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(undo.Error?.Code, Is.EqualTo(ErrorCode.UserEditing));
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(7)));
+        });
+    }
+
+    [Test]
     public async Task Live_read_history_pauses_before_flushing_pending_work()
     {
         Scene scene = CreateSceneWithElement(out Element element);

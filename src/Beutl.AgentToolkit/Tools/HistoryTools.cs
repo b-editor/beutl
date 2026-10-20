@@ -79,6 +79,9 @@ public sealed class HistoryTools(AgentSessionManager sessions) : ToolBase
                     HistoryTransaction? next = redo ? history.PeekRedo() : history.PeekUndo();
                     if (next is null || !(redo ? history.Redo() : history.Undo()))
                     {
+                        // A gesture that began after the wait holds history; the stack itself is not empty.
+                        if (next is not null && history.IsEditing)
+                            throw new UserEditingException();
                         break;
                     }
 

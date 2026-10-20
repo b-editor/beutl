@@ -67,6 +67,7 @@ public sealed partial class HistoryManager : IDisposable
     {
         ThrowIfDisposed();
         FireBeforeMutation();
+        DrainQueuedEdits();
     }
 
     public ReadOnlyObservableCollection<HistoryEntry> Entries => _readOnlyEntries;
@@ -191,13 +192,17 @@ public sealed partial class HistoryManager : IDisposable
     {
         ThrowIfDisposed();
 
+        bool sessionCompleted;
         lock (_lock)
         {
             ThrowIfHistoryControlIsBlocked_NoLock();
+            sessionCompleted = CompleteYieldingSessionBeforeCommit_NoLock();
             CommitCurrentTransaction_NoLock(name, expression);
         }
 
         NotifyStateChanged();
+        if (sessionCompleted)
+            DrainQueuedEdits();
     }
 
     public void Rollback()
@@ -283,6 +288,7 @@ public sealed partial class HistoryManager : IDisposable
         {
             if (stateChanged)
                 NotifyStateChanged();
+            DrainQueuedEdits();
         }
     }
 
@@ -468,6 +474,7 @@ public sealed partial class HistoryManager : IDisposable
             // surviving state even when replay was stopped at a failure boundary.
             if (attemptedMutation)
                 NotifyStateChanged();
+            DrainQueuedEdits();
         }
     }
 
@@ -578,6 +585,8 @@ public sealed partial class HistoryManager : IDisposable
             {
                 NotifyStateChanged();
             }
+
+            DrainQueuedEdits();
         }
 
         if (failure is not null)

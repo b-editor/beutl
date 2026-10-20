@@ -70,12 +70,19 @@ public sealed class ElementNudgeService : IElementNudgeService
         {
             // Another edit owns history until it ends; a nudge now would land in its entry.
             if (_historyManager.IsEditing) return;
-            _session = _historyManager.BeginEdit(CommandNames.MoveElement);
+            _session = _historyManager.BeginYieldingEdit(CommandNames.MoveElement);
         }
 
-        using (_session.Enter())
-            scene.MoveChildren(0, delta, targets.ToArray());
-        Schedule();
+        try
+        {
+            using (_session.Enter())
+                scene.MoveChildren(0, delta, targets.ToArray());
+        }
+        finally
+        {
+            // The debounce timer closes the session, so a failed move still arms it.
+            Schedule();
+        }
     }
 
     public void Flush()

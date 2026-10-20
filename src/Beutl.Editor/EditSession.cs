@@ -5,13 +5,18 @@ public sealed class EditSession : IDisposable
 {
     private readonly HistoryManager _owner;
 
-    internal EditSession(HistoryManager owner, HistoryTransaction transaction, string? name, string? expression)
+    internal EditSession(
+        HistoryManager owner, HistoryTransaction transaction, string? name, string? expression, bool yieldsToCommit)
     {
         _owner = owner;
         Transaction = transaction;
         Name = name;
         Expression = expression;
+        YieldsToCommit = yieldsToCommit;
     }
+
+    // A commit of edits made outside the session completes it first, so its older entry stays below theirs.
+    internal bool YieldsToCommit { get; }
 
     internal HistoryTransaction Transaction { get; }
 
