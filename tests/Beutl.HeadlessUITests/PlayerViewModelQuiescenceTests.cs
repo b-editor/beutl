@@ -65,7 +65,7 @@ public class PlayerViewModelQuiescenceTests
         EditViewModel editor = await OpenEditor();
         var clock = (IEditorClock)editor.GetService(typeof(IEditorClock))!;
         editor.Scene.Duration = TimeSpan.FromSeconds(30);
-        clock.CurrentTime.Value = TimeSpan.FromSeconds(5);
+        clock.Seek(TimeSpan.FromSeconds(5));
         int startedBuffers = 0;
         using var subscription = editor.BufferStatus.StartTime.Subscribe(time =>
         {
@@ -155,7 +155,7 @@ public class PlayerViewModelQuiescenceTests
         EditViewModel editor = await OpenEditor();
         var clock = (IEditorClock)editor.GetService(typeof(IEditorClock))!;
         editor.Scene.Duration = TimeSpan.FromSeconds(20);
-        clock.CurrentTime.Value = TimeSpan.FromSeconds(5);
+        clock.Seek(TimeSpan.FromSeconds(5));
 
         await MoveAndPause(forward: true);
         await MoveAndPause(forward: false);

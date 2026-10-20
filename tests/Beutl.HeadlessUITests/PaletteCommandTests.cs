@@ -61,7 +61,7 @@ public class PaletteCommandTests
 
     private static void SetPlayhead(EditViewModel editor, double seconds)
     {
-        editor.GetService<IEditorClock>()!.CurrentTime.Value = TimeSpan.FromSeconds(seconds);
+        editor.GetService<IEditorClock>()!.Seek(TimeSpan.FromSeconds(seconds));
     }
 
     private static TimeSpan Playhead(EditViewModel editor) => editor.GetService<IEditorClock>()!.CurrentTime.Value;
@@ -135,7 +135,7 @@ public class PaletteCommandTests
         EditViewModel editor = await OpenEditorForNewScene("palette-goto-999fps", frameRate: 999);
         // 501 / 999 s prints as 00:00:00.501, which snaps back to frame 500.
         TimeSpan frame501 = TimeSpan.FromSeconds(501 / 999d).RoundToRate(999);
-        editor.GetService<IEditorClock>()!.CurrentTime.Value = frame501;
+        editor.GetService<IEditorClock>()!.Seek(frame501);
         HeadlessTestHelpers.Settle();
         string? prefilled = null;
 
@@ -218,7 +218,7 @@ public class PaletteCommandTests
         CloseTimeline(editor);
         Assert.That(CanRun(timeline, Execution("timeline.rename", editor)), Is.False, "Nothing is selected yet.");
 
-        editor.GetService<IEditorSelection>()!.SelectedObject.Value = element;
+        editor.GetService<IEditorSelection>()!.Select(element);
         await RunAsync(timeline, Execution("timeline.rename", editor, new ScriptedInteraction()
             .Input(options => options.Value == element.Name ? "Title" : null)));
         Assert.Multiple(() =>
@@ -314,7 +314,7 @@ public class PaletteCommandTests
         TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
         timeline.SelectElement(timeline.GetViewModelFor(first)!);
         timeline.SelectElement(timeline.GetViewModelFor(second)!);
-        editor.GetService<IEditorSelection>()!.SelectedObject.Value = second;
+        editor.GetService<IEditorSelection>()!.Select(second);
         SetPlayhead(editor, 2);
 
         await RunAsync(TimelineTabExtension.Instance, Execution("timeline.split", editor));
@@ -329,7 +329,7 @@ public class PaletteCommandTests
         EditViewModel editor = await OpenEditorForNewScene("palette-split-subframe");
         Element element = await AddRectAsync(editor, 0, 4, 0);
         CloseTimeline(editor);
-        editor.GetService<IEditorSelection>()!.SelectedObject.Value = element;
+        editor.GetService<IEditorSelection>()!.Select(element);
         // Off the 30 fps grid, so the playhead's frame 31 lands inside the clip but under a frame from its start.
         element.Start = TimeSpan.FromSeconds(1.01);
         SetPlayhead(editor, 31 / 30d);
@@ -350,7 +350,7 @@ public class PaletteCommandTests
         timeline.SelectElement(timeline.GetViewModelFor(first)!);
         timeline.SelectElement(timeline.GetViewModelFor(second)!);
         // The selected clip ends before the playhead; the other selected clip crosses it.
-        editor.GetService<IEditorSelection>()!.SelectedObject.Value = first;
+        editor.GetService<IEditorSelection>()!.Select(first);
         SetPlayhead(editor, 6);
 
         Assert.That(CanRun(TimelineTabExtension.Instance, Execution("timeline.split", editor)), Is.True);
@@ -371,7 +371,7 @@ public class PaletteCommandTests
         EditViewModel editor = await OpenEditorForNewScene("palette-split-follows-playhead");
         Element element = await AddRectAsync(editor, 2, 4, 0);
         IEditorSelection selection = editor.GetService<IEditorSelection>()!;
-        selection.SelectedObject.Value = element;
+        selection.Select(element);
         SetPlayhead(editor, 0);
         CommandPaletteViewModel palette = TestShell.MainViewModel.CommandPalette;
         try
@@ -382,7 +382,7 @@ public class PaletteCommandTests
             SetPlayhead(editor, 3);
             await HeadlessTestHelpers.WaitUntilAsync(() => PaletteSplit(palette).IsEnabled, message: "Split did not follow the playhead into the clip.");
 
-            selection.SelectedObject.Value = null;
+            selection.Select(null);
             await HeadlessTestHelpers.WaitUntilAsync(() => !PaletteSplit(palette).IsEnabled, message: "Split did not follow the cleared selection.");
             Assert.That(palette.Query.Value, Is.Empty);
         }
@@ -402,7 +402,7 @@ public class PaletteCommandTests
         Element second = await AddRectAsync(editor, 5, 4, 1);
         TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
         timeline.SelectElement(timeline.GetViewModelFor(first)!);
-        editor.GetService<IEditorSelection>()!.SelectedObject.Value = first;
+        editor.GetService<IEditorSelection>()!.Select(first);
         SetPlayhead(editor, 6);
         CommandPaletteViewModel palette = TestShell.MainViewModel.CommandPalette;
         try

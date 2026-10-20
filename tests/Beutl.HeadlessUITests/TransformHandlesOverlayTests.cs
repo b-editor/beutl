@@ -306,8 +306,8 @@ public class TransformHandlesOverlayTests
             Element incoming = editor.Scene.Children.Single(e => e != outgoing);
             Assert.That(incoming.ZIndex, Is.EqualTo(outgoing.ZIndex), "The transition joins two clips on one layer.");
             incoming.EnterTransition = new ZoomTransition { Duration = { CurrentValue = TimeSpan.FromSeconds(1) } };
-            editor.GetRequiredService<IEditorClock>().CurrentTime.Value = TimeSpan.FromSeconds(1.5);
-            editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = incoming;
+            editor.GetRequiredService<IEditorClock>().Seek(TimeSpan.FromSeconds(1.5));
+            editor.GetRequiredService<IEditorSelection>().Select(incoming);
             await RenderPreview(editor);
 
             TransformHandlesOverlay overlay = view.transformHandlesOverlay;
@@ -320,7 +320,7 @@ public class TransformHandlesOverlayTests
                 : TransformHandlesOverlay.HandleKind.Center));
             if (!selected)
             {
-                editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = null;
+                editor.GetRequiredService<IEditorSelection>().Select(null);
                 await RenderPreview(editor);
                 Assert.That(overlay.Drawable, Is.Null);
             }
@@ -466,7 +466,7 @@ public class TransformHandlesOverlayTests
         await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
             TimeSpan.Zero, TimeSpan.FromSeconds(4), 0, new ElementSource.EngineObject(() => drawable))],
             CancellationToken.None);
-        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = editor.Scene.Children.Single();
+        editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
 
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 1000, Height = 800 };

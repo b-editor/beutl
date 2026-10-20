@@ -75,7 +75,7 @@ public class PathEditorInteractionTests
         using var editor = await Fixture.Create();
         Element element = editor.Editor.Scene.Children.Single();
         element.Uri = new Uri(Path.Combine(BeutlHomeIsolation.CurrentHome!, $"path-edit-{Guid.NewGuid():N}.belm"));
-        ((IEditorSelection)editor.Editor.GetService(typeof(IEditorSelection))!).SelectedObject.Value = element;
+        ((IEditorSelection)editor.Editor.GetService(typeof(IEditorSelection))!).Select(element);
         GeometryEditorViewModel geometry = editor.Editor.FindToolTab<ElementPropertyTabViewModel>()!.Items
             .SelectMany(item => item.Properties)
             .OfType<GeometryEditorViewModel>()

@@ -173,7 +173,7 @@ public partial class PlayerView
 
             _ensured = null;
 
-            EditorSelection.SelectedObject.Value = element;
+            EditorSelection.Select(element);
             View.framePanel.Cursor = TransformHandlesOverlay.GetCursorForHandle(Kind);
 
             // Capture the pointer so handle drags receive Released even when the cursor leaves
@@ -254,7 +254,7 @@ public partial class PlayerView
 
             if (element != null)
             {
-                EditorSelection.SelectedObject.Value = element;
+                EditorSelection.Select(element);
             }
 
             // A body drag moves the drawable through the matrix it is drawn with, a transition above it included,

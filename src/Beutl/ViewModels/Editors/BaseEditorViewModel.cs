@@ -251,7 +251,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                     TimeSpan start = _element?.Start ?? default;
                     TimeSpan keyTime = EditingKeyFrame.Value.KeyTime;
 
-                    _clock.CurrentTime.Value = animation.UseGlobalClock ? keyTime : keyTime + start;
+                    _clock.Seek(animation.UseGlobalClock ? keyTime : keyTime + start);
                 }
             }
             else

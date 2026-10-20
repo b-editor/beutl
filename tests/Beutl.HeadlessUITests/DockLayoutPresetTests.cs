@@ -229,7 +229,7 @@ public class DockLayoutPresetTests
         HeadlessTestHelpers.Settle();
 
         var selection = (IEditorSelection)editor.GetService(typeof(IEditorSelection))!;
-        selection.SelectedObject.Value = editor.Scene.Children[0];
+        selection.Select(editor.Scene.Children[0]);
         HeadlessTestHelpers.Settle();
 
         // Some tool serializers write their own per-scene config as a side effect. Capturing a

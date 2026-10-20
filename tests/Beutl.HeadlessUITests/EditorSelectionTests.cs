@@ -1,4 +1,6 @@
-﻿using Avalonia.Headless.NUnit;
+﻿using System.Reactive.Linq;
+using Avalonia.Headless.NUnit;
+using Avalonia.Threading;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
@@ -28,9 +30,9 @@ public sealed class EditorSelectionTests
         using (var reopened = new TimelineTabViewModel(editor))
             Assert.That(reopened.SelectedElements.Select(item => item.Model), Is.EquivalentTo(selection.SelectedElements));
 
-        selection.SelectedObject.Value = items[1].Model;
+        selection.Select(items[1].Model);
         Assert.That(selection.SelectedElements, Has.Count.EqualTo(2), "An object inside the selection keeps it.");
-        selection.SelectedObject.Value = items[2].Model;
+        selection.Select(items[2].Model);
         Assert.Multiple(() =>
         {
             Assert.That(selection.SelectedElements, Is.EqualTo(new[] { items[2].Model }));
@@ -65,6 +67,40 @@ public sealed class EditorSelectionTests
         }
 
         Assert.That(editor.Scene.Children, Is.EqualTo(new[] { elements[4] }));
+    }
+
+    [AvaloniaTest]
+    public async Task Selecting_from_another_thread_selects_on_the_UI_thread()
+    {
+        (EditViewModel editor, _) = await OpenAsync("editor-selection-thread", 1);
+        IEditorSelection selection = editor.GetRequiredService<IEditorSelection>();
+        Element element = editor.Scene.Children.Single();
+        selection.Select(null);
+        var notified = new List<bool>();
+        using IDisposable subscription = selection.SelectedObject.Skip(1)
+            .Subscribe(_ => notified.Add(Dispatcher.UIThread.CheckAccess()));
+
+        await Task.Run(() => selection.Select(element));
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(selection.SelectedObject.Value, Is.SameAs(element));
+        Assert.That(notified, Is.EqualTo(new[] { true }));
+    }
+
+    [AvaloniaTest]
+    public async Task Selecting_the_selected_object_notifies_only_when_asked()
+    {
+        (EditViewModel editor, _) = await OpenAsync("editor-selection-again", 1);
+        IEditorSelection selection = editor.GetRequiredService<IEditorSelection>();
+        Element element = editor.Scene.Children.Single();
+        selection.Select(element);
+        int notifications = 0;
+        using IDisposable subscription = selection.SelectedObject.Skip(1).Subscribe(_ => notifications++);
+
+        selection.Select(element);
+        Assert.That(notifications, Is.Zero);
+        selection.Select(element, notifyIfSelected: true);
+        Assert.That(notifications, Is.EqualTo(1));
     }
 
     private static Task<(EditViewModel Editor, TimelineTabViewModel Timeline)> OpenAsync(string name, int count)

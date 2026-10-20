@@ -73,7 +73,7 @@ public sealed partial class TimelineTabViewModel
     {
         if (FindGapNavigationTarget(Scene, CurrentTime.Value, forward) is { } target)
         {
-            CurrentTime.Value = target.Target;
+            Seek(target.Target);
             // Moving the playhead does not scroll while stopped, so scroll to a 1-tick range around the target:
             // a gap wider than the viewport would always intersect it and skip the scroll.
             ScrollTo.Execute((new TimeRange(target.Target, TimeSpan.FromTicks(1)), target.ZIndex));
@@ -86,7 +86,7 @@ public sealed partial class TimelineTabViewModel
             else
             {
                 ClearSelected();
-                EditorContext.GetRequiredService<IEditorSelection>().SelectedObject.Value = null;
+                EditorContext.GetRequiredService<IEditorSelection>().Select(null);
             }
         }
         else
@@ -107,7 +107,7 @@ public sealed partial class TimelineTabViewModel
 
         ClearSelected();
         SelectElement(vm);
-        EditorContext.GetRequiredService<IEditorSelection>().SelectedObject.Value = anchor;
+        EditorContext.GetRequiredService<IEditorSelection>().Select(anchor);
     }
 
     // The search is bounded to the scene by searchRange, and currentTime is not clamped, so a gap touching the

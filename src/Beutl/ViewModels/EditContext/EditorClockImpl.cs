@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using Avalonia.Threading;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Reactive.Bindings;
@@ -8,11 +9,11 @@ namespace Beutl.ViewModels;
 internal sealed class EditorClockImpl : IEditorClock, IDisposable
 {
     private readonly Scene _scene;
+    private readonly ReactivePropertySlim<TimeSpan> _currentTime = new();
 
     public EditorClockImpl(Scene scene)
     {
         _scene = scene;
-        CurrentTime = new ReactivePropertySlim<TimeSpan>();
         MaximumTime = new ReactivePropertySlim<TimeSpan>();
 
         foreach (Element element in _scene.Children)
@@ -26,13 +27,19 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
         CalculateMaximumTime();
     }
 
-    public ReactivePropertySlim<TimeSpan> CurrentTime { get; }
+    public IReadOnlyReactiveProperty<TimeSpan> CurrentTime => _currentTime;
 
     public ReactivePropertySlim<TimeSpan> MaximumTime { get; }
 
-    IReactiveProperty<TimeSpan> IEditorClock.CurrentTime => CurrentTime;
-
     IReadOnlyReactiveProperty<TimeSpan> IEditorClock.MaximumTime => MaximumTime;
+
+    public void Seek(TimeSpan time)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+            _currentTime.Value = time;
+        else
+            Dispatcher.UIThread.Post(() => _currentTime.Value = time);
+    }
 
     private void OnElementAttached(Element obj)
     {
@@ -98,7 +105,7 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
             element.PropertyChanged -= OnElementPropertyChanged;
         }
 
-        CurrentTime.Dispose();
+        _currentTime.Dispose();
         MaximumTime.Dispose();
     }
 }

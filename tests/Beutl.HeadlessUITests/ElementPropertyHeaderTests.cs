@@ -42,7 +42,7 @@ public class ElementPropertyHeaderTests
         var firstObject = element.Objects[0];
         var secondObject = new EllipseShape();
         ((IElementObjectService)editor.GetService(typeof(IElementObjectService))!).Add(element, secondObject);
-        ((IEditorSelection)editor.GetService(typeof(IEditorSelection))!).SelectedObject.Value = element;
+        ((IEditorSelection)editor.GetService(typeof(IEditorSelection))!).Select(element);
         using var model = new ElementPropertyTabViewModel(editor);
         model.Element.Value = element;
         foreach (EngineObjectPropertyViewModel item in model.Items) item.IsExpanded.Value = false;

@@ -94,7 +94,7 @@ public partial class PlayerViewPlaybackInputTests
         EditViewModel editor = await OpenEditor();
         Scene3D? scene = selectedScene ? await Add3DScene(editor) : null;
         var selection = editor.GetRequiredService<IEditorSelection>();
-        selection.SelectedObject.Value = selectedScene ? editor.Scene.Children.Single() : null;
+        selection.Select(selectedScene ? editor.Scene.Children.Single() : null);
         if (scene != null)
         {
             scene.GizmoTarget.CurrentValue = scene.Objects.Single().Id;
@@ -155,7 +155,7 @@ public partial class PlayerViewPlaybackInputTests
         Scene3D scene = await Add3DScene(editor);
         Object3D cube = scene.Objects.Single();
         var camera = scene.Camera.CurrentValue!;
-        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = editor.Scene.Children.Single();
+        editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
         using var release = new CancellationTokenSource();
@@ -227,7 +227,7 @@ public partial class PlayerViewPlaybackInputTests
         EditViewModel editor = await OpenEditor();
         Scene3D scene = await Add3DScene(editor);
         var camera = scene.Camera.CurrentValue!;
-        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = editor.Scene.Children.Single();
+        editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
         Point point = default;
@@ -278,7 +278,7 @@ public partial class PlayerViewPlaybackInputTests
         Scene3D scene = await Add3DScene(editor);
         Object3D cube = scene.Objects.Single();
         var camera = scene.Camera.CurrentValue!;
-        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = editor.Scene.Children.Single();
+        editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
         Point point = default;
@@ -317,8 +317,8 @@ public partial class PlayerViewPlaybackInputTests
         EditViewModel editor = await OpenEditor();
         Scene3D scene = await Add3DScene(editor);
         var camera = scene.Camera.CurrentValue!;
-        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value =
-            selectedScene ? editor.Scene.Children.Single() : null;
+        editor.GetRequiredService<IEditorSelection>().Select(
+            selectedScene ? editor.Scene.Children.Single() : null);
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
         try
@@ -358,7 +358,7 @@ public partial class PlayerViewPlaybackInputTests
         EditViewModel editor = await OpenEditor();
         Scene3D scene = await Add3DScene(editor);
         var camera = scene.Camera.CurrentValue!;
-        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = editor.Scene.Children.Single();
+        editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
         Point point = default;
@@ -396,8 +396,8 @@ public partial class PlayerViewPlaybackInputTests
         await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
             TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4), 0, new ElementSource.EngineObject(() => shape))], CancellationToken.None);
         Element element = editor.Scene.Children.Single();
-        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = element;
-        editor.GetRequiredService<IEditorClock>().CurrentTime.Value = TimeSpan.FromSeconds(2);
+        editor.GetRequiredService<IEditorSelection>().Select(element);
+        editor.GetRequiredService<IEditorClock>().Seek(TimeSpan.FromSeconds(2));
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
         IPointer? captured = null;
@@ -481,7 +481,7 @@ public partial class PlayerViewPlaybackInputTests
             Layer: 0,
             Source: new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None);
         var selection = editor.GetRequiredService<IEditorSelection>();
-        selection.SelectedObject.Value = null;
+        selection.Select(null);
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
         try

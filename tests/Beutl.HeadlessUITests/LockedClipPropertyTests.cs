@@ -77,7 +77,7 @@ public class LockedClipPropertyTests
         property.PrepareToEditAnimation();
         Assert.That(property.SetExpression("1 + 2", out _), Is.False);
 
-        ((IEditorClock)editor.GetService(typeof(IEditorClock))!).CurrentTime.Value = TimeSpan.FromSeconds(0.5);
+        ((IEditorClock)editor.GetService(typeof(IEditorClock))!).Seek(TimeSpan.FromSeconds(0.5));
         tab.Items[0].IsExpanded.Value = false;
         var menu = new PropertyEditorMenu { DataContext = property };
         var objectView = new EngineObjectPropertyView { DataContext = tab.Items[0] };
@@ -432,7 +432,7 @@ public class LockedClipPropertyTests
 
     private static void Select(EditViewModel editor, Element? element)
     {
-        ((IEditorSelection)editor.GetService(typeof(IEditorSelection))!).SelectedObject.Value = element;
+        ((IEditorSelection)editor.GetService(typeof(IEditorSelection))!).Select(element);
         HeadlessTestHelpers.Settle();
     }
 

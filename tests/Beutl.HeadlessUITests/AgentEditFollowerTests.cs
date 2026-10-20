@@ -99,8 +99,8 @@ public sealed class AgentEditFollowerTests
                 Assert.That(fixture.Clock.Value, Is.EqualTo(fixture.Far.Start + second.KeyTime));
             });
 
-            fixture.Selection.Value = fixture.Near;
-            fixture.Clock.Value = TimeSpan.Zero;
+            fixture.Select(fixture.Near);
+            fixture.Seek(TimeSpan.Zero);
             Success(await client.CallToolAsync("undo", Target(fixture.Editor.Scene.Id)));
             HeadlessTestHelpers.Render(2);
 
@@ -132,7 +132,7 @@ public sealed class AgentEditFollowerTests
             Success(await client.CallToolAsync("apply_edit", Patch(fixture, fixture.Far, new JsonObject { ["Width"] = 200 })));
             Success(await client.CallToolAsync("apply_edit", Patch(fixture, fixture.Near, new JsonObject { ["Height"] = 150 })));
             HeadlessTestHelpers.Render(2);
-            fixture.Selection.Value = null;
+            fixture.Select(null);
 
             Dictionary<string, object?> undo = Target(fixture.Editor.Scene.Id);
             undo["steps"] = 2;
@@ -158,7 +158,7 @@ public sealed class AgentEditFollowerTests
         Fixture fixture = await CreateFixtureAsync(follow: true);
         try
         {
-            fixture.Selection.Value = fixture.Far;
+            fixture.Select(fixture.Far);
             fixture.Editor.CloseToolTab(fixture.Editor.FindToolTab<ElementPropertyTabViewModel>()!);
             HeadlessTestHelpers.Render(5);
             Assert.That(fixture.Editor.FindToolTab<ElementPropertyTabViewModel>(), Is.Null);
@@ -288,10 +288,14 @@ public sealed class AgentEditFollowerTests
         string Directory,
         AiAgentConfig Config)
     {
-        public IReactiveProperty<CoreObject?> Selection
+        public IReadOnlyReactiveProperty<CoreObject?> Selection
             => Editor.GetRequiredService<IEditorSelection>().SelectedObject;
 
-        public IReactiveProperty<TimeSpan> Clock => Editor.GetRequiredService<IEditorClock>().CurrentTime;
+        public IReadOnlyReactiveProperty<TimeSpan> Clock => Editor.GetRequiredService<IEditorClock>().CurrentTime;
+
+        public void Select(CoreObject? obj) => Editor.GetRequiredService<IEditorSelection>().Select(obj);
+
+        public void Seek(TimeSpan time) => Editor.GetRequiredService<IEditorClock>().Seek(time);
 
         public TimelineTabViewModel Timeline => Editor.FindToolTab<TimelineTabViewModel>()!;
 
@@ -317,8 +321,8 @@ public sealed class AgentEditFollowerTests
         var window = new Window { Content = new EditView { DataContext = editor }, Width = 1280, Height = 800 };
         window.Show();
         HeadlessTestHelpers.Render(5);
-        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = null;
-        editor.GetRequiredService<IEditorClock>().CurrentTime.Value = TimeSpan.Zero;
+        editor.GetRequiredService<IEditorSelection>().Select(null);
+        editor.GetRequiredService<IEditorClock>().Seek(TimeSpan.Zero);
         HeadlessTestHelpers.Render(2);
 
         var config = new AiAgentConfig { FollowLiveMcpEdits = follow };
