@@ -709,6 +709,7 @@ public sealed class TabSwitcherTests
             }
             catch
             {
+                view.DataContext = null;
                 window.Close();
                 await TestReset.ResetShellAsync();
                 throw;
@@ -731,6 +732,7 @@ public sealed class TabSwitcherTests
         {
             Switcher.Close();
             TestShell.MainViewModel.CommandPalette.Close();
+            View.DataContext = null;
             Window.Close();
             HeadlessTestHelpers.Settle();
             await TestReset.ResetShellAsync();
