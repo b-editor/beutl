@@ -56,7 +56,7 @@ public partial class GraphEditorView
                 try
                 {
                     model.HistoryManager.FlushPendingMutations();
-                    if (!model.HistoryManager.IsEditing)
+                    if (!finished && !model.HistoryManager.IsEditing)
                         session = model.HistoryManager.BeginEdit(CommandNames.EditKeyFrame);
                 }
                 finally { opening = false; }
@@ -103,16 +103,16 @@ public partial class GraphEditorView
             {
                 if (session is { IsOpen: true })
                 {
-                    InvalidateVelocityPreview(model);
-                    bool changed = originals.Any(pair => !SameEasing(pair.Value, pair.Key.Easing));
-                    if (changed && flyout.IsConfirmed && DataContext == model && model.SelectedView.Value == channel)
+                    // Disposing cancels the session unless a confirmed change completed it.
+                    using (session)
                     {
-                        using (session.Enter()) Apply(flyout.Values);
-                        session.Complete();
-                    }
-                    else
-                    {
-                        session.Cancel();
+                        InvalidateVelocityPreview(model);
+                        bool changed = originals.Any(pair => !SameEasing(pair.Value, pair.Key.Easing));
+                        if (changed && flyout.IsConfirmed && DataContext == model && model.SelectedView.Value == channel)
+                        {
+                            using (session.Enter()) Apply(flyout.Values);
+                            session.Complete();
+                        }
                     }
                 }
             }
