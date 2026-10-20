@@ -1,11 +1,11 @@
 ﻿using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Audio;
+using Beutl.Editor.Services.AI;
 using Beutl.Media.Decoding;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
 using Beutl.Services.AI;
-using Beutl.ViewModels.Dialogs;
 
 namespace Beutl.AgentHost;
 
@@ -208,7 +208,7 @@ internal sealed class AgentHostAiBackend(
                 AiTranscriptionSegment[] partSegments;
                 try
                 {
-                    partSegments = AiSubtitleDialogViewModel.ValidateTranscriptionSegments(response.Segments, partSeconds);
+                    partSegments = AiRequestRules.ValidateTranscriptionSegments(response.Segments, partSeconds);
                 }
                 catch (InvalidDataException)
                 {

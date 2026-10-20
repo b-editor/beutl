@@ -4,6 +4,7 @@ using System.Reactive.Disposables;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Editor.Services;
+using Beutl.Editor.Services.AI;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
