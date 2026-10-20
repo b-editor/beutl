@@ -110,7 +110,7 @@ public partial class PlayerView
             if (element != null)
             {
                 var editorSelection = editViewModel.GetService<IEditorSelection>();
-                editorSelection?.SelectedObject.Value = element;
+                editorSelection?.Select(element);
             }
 
             if (containsFe

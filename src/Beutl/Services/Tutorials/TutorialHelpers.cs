@@ -184,7 +184,7 @@ public static class TutorialHelpers
 
         var duration = additionalDuration ?? TimeSpan.FromSeconds(1);
         editVm.Scene.Duration = element.Range.End + duration;
-        clock.CurrentTime.Value = element.Start;
+        clock.Seek(element.Start);
         editVm.HistoryManager.Commit(CommandNames.ChangeSceneDuration);
     }
 

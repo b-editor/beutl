@@ -48,7 +48,7 @@ public partial class PlayerViewModel
         if (Scene is null || !isCurrent())
             return false;
 
-        _editorClock.CurrentTime.Value = failure.Frame.ToTimeSpan(rate);
+        _editorClock.Seek(failure.Frame.ToTimeSpan(rate));
         EditViewModel.FrameCacheManager.Value.CurrentFrame = failure.Frame;
         UpdatePreviewRenderError(MessageStrings.FrameDrawingException, isCurrent);
         IsPlaying.Value = false;
@@ -429,7 +429,7 @@ public partial class PlayerViewModel
 
         if (_editorClock.CurrentTime.Value != timeSpan)
         {
-            _editorClock.CurrentTime.Value = timeSpan;
+            _editorClock.Seek(timeSpan);
         }
     }
 }

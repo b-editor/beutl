@@ -140,12 +140,12 @@ public static class TimelineBasicsTutorial
                         // すでにキーフレームが2つ以上ある場合は現在時間を変更し、次のステップに進む
                         if (animation.KeyFrames.Count >= 2)
                         {
-                            clock.CurrentTime.Value = animation.KeyFrames[1].KeyTime + element.Start;
+                            clock.Seek(animation.KeyFrames[1].KeyTime + element.Start);
                             Dispatcher.UIThread.Post(() => TutorialService.Current.AdvanceStep());
                         }
                         else
                         {
-                            clock.CurrentTime.Value = element.Start + TimeSpan.FromSeconds(2);
+                            clock.Seek(element.Start + TimeSpan.FromSeconds(2));
                             step4Subscription.Current = TutorialHelpers.SubscribeToKeyFrameAdded(
                                 animation,
                                 2,

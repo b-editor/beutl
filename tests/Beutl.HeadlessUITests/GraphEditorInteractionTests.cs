@@ -55,7 +55,7 @@ public class GraphEditorInteractionTests
         using var graph = await GraphScope.CreateAsync(separateHandles: true, selectAll: false);
         using var commandModifier = CommandModifierScope.Use(command);
         graph.Model.IsSpeedGraph.Value = speedGraph;
-        graph.Model.CurrentTime.Value = TimeSpan.FromSeconds(0.2);
+        graph.Model.Seek(TimeSpan.FromSeconds(0.2));
         HeadlessTestHelpers.Render(3);
         graph.Click(graph.Position(graph.First));
         Assert.That(Selected(graph), Is.EqualTo(new[] { graph.First }));

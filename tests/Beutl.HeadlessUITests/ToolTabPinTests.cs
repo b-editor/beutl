@@ -69,7 +69,7 @@ public class ToolTabPinTests
         IEditorSelection selection = SelectionOf(editor);
         ElementPropertyTabViewModel tab = editor.FindToolTab<ElementPropertyTabViewModel>()!;
 
-        selection.SelectedObject.Value = first;
+        selection.Select(first);
         Assert.Multiple(() =>
         {
             Assert.That(tab.Element.Value, Is.SameAs(first));
@@ -78,7 +78,7 @@ public class ToolTabPinTests
         });
 
         tab.IsPinned.Value = true;
-        selection.SelectedObject.Value = second;
+        selection.Select(second);
         Assert.Multiple(() =>
         {
             Assert.That(tab.Element.Value, Is.SameAs(first), "a pinned tab ignores the selection");
@@ -101,9 +101,9 @@ public class ToolTabPinTests
         Element second = await AddElement(editor, 1, () => new EllipseShape());
         IEditorSelection selection = SelectionOf(editor);
         ElementPropertyTabViewModel tab = editor.FindToolTab<ElementPropertyTabViewModel>()!;
-        selection.SelectedObject.Value = first;
+        selection.Select(first);
         tab.IsPinned.Value = true;
-        selection.SelectedObject.Value = second;
+        selection.Select(second);
 
         editor.Scene.RemoveChild(first);
         HeadlessTestHelpers.Settle();
@@ -156,11 +156,11 @@ public class ToolTabPinTests
         EngineObject firstShape = first.Objects[0];
         EngineObject secondShape = second.Objects[0];
         IEditorSelection selection = SelectionOf(editor);
-        selection.SelectedObject.Value = null;
+        selection.Select(null);
         var tab = new ObjectPropertyTabViewModel(editor);
         Assert.That(editor.OpenToolTab(tab), Is.True);
 
-        selection.SelectedObject.Value = firstShape;
+        selection.Select(firstShape);
         Assert.That(tab.ChildContext.Value?.Target, Is.SameAs(firstShape));
         tab.IsPinned.Value = true;
         Assert.Multiple(() =>
@@ -171,7 +171,7 @@ public class ToolTabPinTests
                 "navigating elsewhere opens another tab instead of retargeting the pinned one");
         });
 
-        selection.SelectedObject.Value = secondShape;
+        selection.Select(secondShape);
         ObjectPropertyTabViewModel follower = editor.FindToolTab<ObjectPropertyTabViewModel>(t => !t.IsPinned.Value)!;
         Assert.Multiple(() =>
         {
@@ -211,15 +211,15 @@ public class ToolTabPinTests
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("pin-opens-follower");
         Element ellipse = await AddElement(editor, 0, () => new EllipseShape());
         IEditorSelection selection = SelectionOf(editor);
-        selection.SelectedObject.Value = ellipse;
+        selection.Select(ellipse);
         BeutlToolDockable pinned = editor.DockHost.Factory.EnumerateTools()
             .Single(tool => tool.ToolContext is ElementPropertyTabViewModel);
         var pinnedTab = (ElementPropertyTabViewModel)pinned.ToolContext;
         Assert.That(pinnedTab.Element.Value, Is.SameAs(ellipse));
         pinnedTab.IsPinned.Value = true;
 
-        selection.SelectedObject.Value = null;
-        selection.SelectedObject.Value = ellipse;
+        selection.Select(null);
+        selection.Select(ellipse);
         Assert.That(PropertyTabs(editor), Has.Length.EqualTo(1), "the pinned tab already shows the element");
 
         Element rect = await AddElement(editor, 1, () => new RectShape());
@@ -229,7 +229,7 @@ public class ToolTabPinTests
         {
             window.Show();
             HeadlessTestHelpers.Render();
-            selection.SelectedObject.Value = rect;
+            selection.Select(rect);
             HeadlessTestHelpers.Settle();
 
             BeutlToolDockable[] tabs = PropertyTabs(editor);
@@ -244,7 +244,7 @@ public class ToolTabPinTests
                 Assert.That(dock.ActiveDockable, Is.SameAs(follower), "the following tab comes to the front");
             });
 
-            selection.SelectedObject.Value = ellipse;
+            selection.Select(ellipse);
             HeadlessTestHelpers.Settle();
             Assert.Multiple(() =>
             {
@@ -253,7 +253,7 @@ public class ToolTabPinTests
                     "the other tab keeps what it shows");
             });
 
-            selection.SelectedObject.Value = rect;
+            selection.Select(rect);
             Assert.Multiple(() =>
             {
                 Assert.That(dock.ActiveDockable, Is.SameAs(follower), "the following tab comes back for another element");
@@ -262,22 +262,22 @@ public class ToolTabPinTests
 
             IDockable other = dock.VisibleDockables!.First(d => !ReferenceEquals(d, pinned) && !ReferenceEquals(d, follower));
             editor.DockHost.Factory.SetActiveDockable(other);
-            selection.SelectedObject.Value = ellipse;
+            selection.Select(ellipse);
             Assert.That(dock.ActiveDockable, Is.SameAs(pinned), "the pinned tab comes forward over a different tool too");
 
             editor.DockHost.Factory.SetActiveDockable(other);
-            selection.SelectedObject.Value = rect;
+            selection.Select(rect);
             Assert.That(dock.ActiveDockable, Is.SameAs(follower), "the following tab comes forward over a different tool too");
 
             pinnedTab.IsPinned.Value = false;
-            selection.SelectedObject.Value = rect;
-            selection.SelectedObject.Value = ellipse;
+            selection.Select(rect);
+            selection.Select(ellipse);
             Assert.Multiple(() =>
             {
                 Assert.That(dock.ActiveDockable, Is.SameAs(pinned), "the unpinned tab still showing the element comes forward");
                 Assert.That(pinnedTab.Element.Value, Is.SameAs(ellipse));
             });
-            selection.SelectedObject.Value = rect;
+            selection.Select(rect);
             Assert.Multiple(() =>
             {
                 Assert.That(dock.ActiveDockable, Is.SameAs(follower), "the tab showing the element comes forward");
@@ -305,11 +305,11 @@ public class ToolTabPinTests
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("property-tab-reopens");
         Element element = await AddElement(editor, 0, () => new RectShape());
         IEditorSelection selection = SelectionOf(editor);
-        selection.SelectedObject.Value = null;
+        selection.Select(null);
         editor.CloseToolTab(editor.FindToolTab<ElementPropertyTabViewModel>()!);
         Assert.That(editor.FindToolTab<ElementPropertyTabViewModel>(), Is.Null);
 
-        selection.SelectedObject.Value = element;
+        selection.Select(element);
 
         BeutlToolDockable reopened = editor.DockHost.Factory.EnumerateTools()
             .Single(tool => tool.ToolContext is ElementPropertyTabViewModel);
@@ -332,11 +332,11 @@ public class ToolTabPinTests
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("property-tabs-order");
         Element element = await AddElement(editor, 0, () => new RectShape());
         IEditorSelection selection = SelectionOf(editor);
-        selection.SelectedObject.Value = null;
+        selection.Select(null);
         IToolDock right = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Right)!;
         Assert.That(editor.DockHost.OpenToolTab(new ObjectPropertyTabViewModel(editor), right), Is.True);
 
-        selection.SelectedObject.Value = element;
+        selection.Select(element);
 
         Assert.Multiple(() =>
         {
@@ -350,7 +350,7 @@ public class ToolTabPinTests
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("property-tab-reclick");
         Element element = await AddElement(editor, 0, () => new RectShape());
-        SelectionOf(editor).SelectedObject.Value = element;
+        SelectionOf(editor).Select(element);
         var window = new Window { Content = new EditView { DataContext = editor }, Width = 1200, Height = 700 };
         try
         {
@@ -383,7 +383,7 @@ public class ToolTabPinTests
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("property-tab-layout-change");
         Element element = await AddElement(editor, 0, () => new RectShape());
-        SelectionOf(editor).SelectedObject.Value = element;
+        SelectionOf(editor).Select(element);
 
         editor.DockHost.ResetLayout();
         Assert.That(editor.FindToolTab<ElementPropertyTabViewModel>()?.Element.Value, Is.SameAs(element),
@@ -408,7 +408,7 @@ public class ToolTabPinTests
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("property-tab-layout-new-tab");
         Element element = await AddElement(editor, 0, () => new RectShape());
-        SelectionOf(editor).SelectedObject.Value = element;
+        SelectionOf(editor).Select(element);
         editor.CloseToolTab(editor.FindToolTab<ElementPropertyTabViewModel>()!);
         Assert.That(editor.FindToolTab<ElementPropertyTabViewModel>(), Is.Null);
 
@@ -498,7 +498,7 @@ public class ToolTabPinTests
         Element other = await AddElement(editor, 1, () => new RectShape());
         IEditorSelection selection = SelectionOf(editor);
         ElementPropertyTabViewModel properties = editor.FindToolTab<ElementPropertyTabViewModel>()!;
-        selection.SelectedObject.Value = shaped;
+        selection.Select(shaped);
         GeometryEditorViewModel geometry = properties.Items
             .SelectMany(item => item.Properties)
             .OfType<GeometryEditorViewModel>()
@@ -518,7 +518,7 @@ public class ToolTabPinTests
             Assert.That(tab.Header.Value, Is.EqualTo(PinnedHeader(Strings.PathEditor, shaped)));
         });
 
-        selection.SelectedObject.Value = other;
+        selection.Select(other);
         HeadlessTestHelpers.Settle();
         Assert.Multiple(() =>
         {
@@ -546,7 +546,7 @@ public class ToolTabPinTests
         figure.Segments.Add(new LineSegment(80, 100));
         Element shaped = await AddElement(editor, 0,
             () => new GeometryShape { Data = { CurrentValue = new PathGeometry { Figures = { figure } } } });
-        SelectionOf(editor).SelectedObject.Value = shaped;
+        SelectionOf(editor).Select(shaped);
         GeometryEditorViewModel geometry = editor.FindToolTab<ElementPropertyTabViewModel>()!.Items
             .SelectMany(item => item.Properties)
             .OfType<GeometryEditorViewModel>()
@@ -594,7 +594,7 @@ public class ToolTabPinTests
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("pin-tab-header");
         Element element = await AddElement(editor, 0, () => new RectShape());
-        SelectionOf(editor).SelectedObject.Value = element;
+        SelectionOf(editor).Select(element);
         BeutlToolDockable dockable = editor.DockHost.Factory.EnumerateTools()
             .Single(tool => tool.ToolContext is ElementPropertyTabViewModel);
         IPinnableToolContext pinnable = dockable.Pinnable!;

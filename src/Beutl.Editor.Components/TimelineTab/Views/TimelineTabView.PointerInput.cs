@@ -28,7 +28,7 @@ public sealed partial class TimelineTabView
 
         if (_mouseFlag == MouseFlags.SeekBarPressed)
         {
-            viewModel.CurrentTime.Value = _pointerFrame;
+            viewModel.Seek(_pointerFrame);
         }
         else if (_mouseFlag == MouseFlags.RangeSelectionPressed)
         {
@@ -239,7 +239,7 @@ public sealed partial class TimelineTabView
         _mouseFlag = _rulerDrag.Press(viewModel.Scene, pointerPt.Position.X, scalePoint.Y, startingBarX, endingBarX);
         if (_mouseFlag == MouseFlags.SeekBarPressed)
         {
-            viewModel.CurrentTime.Value = viewModel.ClickedFrame;
+            viewModel.Seek(viewModel.ClickedFrame);
         }
 
         return false;

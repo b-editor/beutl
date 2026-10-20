@@ -124,12 +124,12 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 int rate = GetFrameRate();
                 var endTime = Scene.Start + Scene.Duration - TimeSpan.FromSeconds(1d / rate);
                 // 現在の時間がスタートと同じ場合、0に移動
-                _editorClock.CurrentTime.Value =
+                _editorClock.Seek(
                     _editorClock.CurrentTime.Value > endTime
                         ? endTime
                         : _editorClock.CurrentTime.Value > Scene.Start
                             ? Scene.Start
-                            : TimeSpan.Zero;
+                            : TimeSpan.Zero);
             })
             .DisposeWith(_disposables);
 
@@ -138,14 +138,14 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             {
                 int rate = GetFrameRate();
                 var endTime = Scene.Start + Scene.Duration - TimeSpan.FromSeconds(1d / rate);
-                _editorClock.CurrentTime.Value =
+                _editorClock.Seek(
                     _editorClock.CurrentTime.Value < Scene.Start
                         ? Scene.Start
                         : _editorClock.CurrentTime.Value < endTime
                             ? endTime
                             : Scene.Children.Count > 0
                                 ? Scene.Children.Max(i => i.Start + i.Length) - TimeSpan.FromSeconds(1d / rate)
-                                : TimeSpan.Zero;
+                                : TimeSpan.Zero);
             })
             .DisposeWith(_disposables);
 
@@ -595,7 +595,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         if (_sessionGuard.Owns(generation) && IsLoopEnabled.Value && ticker is { ReachedNaturalEnd: true }
             && Scene is { } loopScene)
         {
-            return await TryApplyOnUIThreadAsync(generation, () => _editorClock.CurrentTime.Value = loopScene.Start);
+            return await TryApplyOnUIThreadAsync(generation, () => _editorClock.Seek(loopScene.Start));
         }
 
         return false;

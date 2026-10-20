@@ -172,7 +172,7 @@ public partial class GraphEditorView : UserControl
                     if (Math.Abs(delta.X) + Math.Abs(delta.Y) >= 3)
                         _seekClickStart = null;
                 }
-                viewModel.CurrentTime.Value = _pointerFrame;
+                viewModel.Seek(_pointerFrame);
                 e.Handled = true;
             }
             else if (_rulerDrag.Move(_mouseFlag, viewModel.EditorContext, viewModel.Scene, _pointerFrame))
@@ -233,9 +233,9 @@ public partial class GraphEditorView : UserControl
                     viewModel.Scene, pointerPt.Position.X, scalePoint.Y, startingBarX, endingBarX);
                 if (_mouseFlag == TimelineHelper.MouseFlags.SeekBarPressed)
                 {
-                    viewModel.CurrentTime.Value = pointerPt.Position.X
+                    viewModel.Seek(pointerPt.Position.X
                         .PixelToTimeSpan(viewModel.Options.Value.Scale)
-                        .RoundToRate(SceneTimeRangeService.GetFrameRate(viewModel.Scene));
+                        .RoundToRate(SceneTimeRangeService.GetFrameRate(viewModel.Scene)));
                 }
 
                 e.Pointer.Capture(RulerBar);

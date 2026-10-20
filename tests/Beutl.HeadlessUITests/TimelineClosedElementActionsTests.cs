@@ -41,8 +41,8 @@ public class TimelineClosedElementActionsTests
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("timeline-closed-paste");
         Element copied = await AddElementAsync(editor, () => new RectShape(), lengthSeconds: 4);
         CloseTimeline(editor);
-        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = copied;
-        editor.GetRequiredService<IEditorClock>().CurrentTime.Value = TimeSpan.FromSeconds(1);
+        editor.GetRequiredService<IEditorSelection>().Select(copied);
+        editor.GetRequiredService<IEditorClock>().Seek(TimeSpan.FromSeconds(1));
         MenuBarViewModel menuBar = TestShell.MainViewModel.MenuBar;
         var window = new Window();
         using var notifications = new NotificationCapture();
@@ -116,7 +116,7 @@ public class TimelineClosedElementActionsTests
         Element element = await AddElementAsync(editor, () => new RectShape(), lengthSeconds: 4);
         var shape = element.Objects.OfType<RectShape>().Single();
         CloseTimeline(editor);
-        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = element;
+        editor.GetRequiredService<IEditorSelection>().Select(element);
         using var tab = new ElementPropertyTabViewModel(editor);
         tab.Element.Value = element;
         HeadlessTestHelpers.Settle();

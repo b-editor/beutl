@@ -166,7 +166,7 @@ public sealed partial class GraphEditorViewModel : IDisposable
 
     public HistoryManager HistoryManager { get; }
 
-    public IReactiveProperty<TimeSpan> CurrentTime => _editorClock.CurrentTime;
+    public IReadOnlyReactiveProperty<TimeSpan> CurrentTime => _editorClock.CurrentTime;
 
     public ReactivePropertySlim<bool> IsSpeedGraph { get; } = new();
 
@@ -189,6 +189,8 @@ public sealed partial class GraphEditorViewModel : IDisposable
     public AsyncReactiveCommand CopyAllKeyFramesCommand { get; }
 
     public AsyncReactiveCommand PasteKeyFrameAtCurrentPositionCommand { get; }
+
+    public void Seek(TimeSpan time) => _editorClock.Seek(time);
 
     public void UpdatePointerPosition(double positionX)
     {

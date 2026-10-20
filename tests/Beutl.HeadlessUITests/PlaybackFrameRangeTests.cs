@@ -31,7 +31,7 @@ public class PlaybackFrameRangeTests
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
         // Where playback leaves the playhead at frame 10: 3,333,333 ticks, which truncates to frame 9.
         TimeSpan playhead = 10.ToTimeSpan(Rate);
-        clock.CurrentTime.Value = playhead;
+        clock.Seek(playhead);
         RenderThreadDrain.Drain(TimeSpan.FromMinutes(2));
 
         // The producer reports each frame it queues on the render thread.

@@ -246,19 +246,27 @@ public class TimelineTabViewModelTests
 
     private sealed class TestEditorClock : IEditorClock
     {
-        public IReactiveProperty<TimeSpan> CurrentTime { get; } = new ReactivePropertySlim<TimeSpan>(TimeSpan.Zero);
+        private readonly ReactivePropertySlim<TimeSpan> _currentTime = new(TimeSpan.Zero);
+
+        public IReadOnlyReactiveProperty<TimeSpan> CurrentTime => _currentTime;
 
         public IReadOnlyReactiveProperty<TimeSpan> MaximumTime { get; } =
             new ReactivePropertySlim<TimeSpan>(TimeSpan.FromSeconds(30));
+
+        public void Seek(TimeSpan time) => _currentTime.Value = time;
     }
 
     private sealed class TestEditorSelection : IEditorSelection
     {
-        public IReactiveProperty<CoreObject?> SelectedObject { get; } = new ReactivePropertySlim<CoreObject?>();
+        private readonly ReactivePropertySlim<CoreObject?> _selectedObject = new();
+
+        public IReadOnlyReactiveProperty<CoreObject?> SelectedObject => _selectedObject;
 
         public IReadOnlyReactiveProperty<int?> SelectedLayerNumber { get; } = new ReactivePropertySlim<int?>();
 
         public ICoreList<Element> SelectedElements { get; } = new CoreList<Element>();
+
+        public void Select(CoreObject? obj, bool notifyIfSelected = false) => _selectedObject.Value = obj;
     }
 
     private sealed class TestBufferStatus : IBufferStatus

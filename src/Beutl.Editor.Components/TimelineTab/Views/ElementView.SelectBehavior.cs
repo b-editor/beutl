@@ -50,10 +50,7 @@ public sealed partial class ElementView
         {
             var selection = timeline.EditorContext.GetRequiredService<IEditorSelection>();
             // Clicking the selected clip again still tells the editor, which reopens a closed property tab on it.
-            if (ReferenceEquals(selection.SelectedObject.Value, obj.ViewModel.Model))
-                selection.SelectedObject.ForceNotify();
-            else
-                selection.SelectedObject.Value = obj.ViewModel.Model;
+            selection.Select(obj.ViewModel.Model, notifyIfSelected: true);
 
             timeline.ClearSelected();
             timeline.SelectElement(obj.ViewModel);
@@ -105,7 +102,7 @@ public sealed partial class ElementView
                                 // Keep the multi-selection, but still point the single selection
                                 // (property tab, keyframe scope) at the pressed clip.
                                 timelineVm.EditorContext.GetRequiredService<IEditorSelection>()
-                                    .SelectedObject.Value = obj.ViewModel.Model;
+                                    .Select(obj.ViewModel.Model);
                             }
                         }
                         else
