@@ -458,6 +458,7 @@ public class DockTabAddButtonTests
         finally
         {
             CultureInfo.CurrentUICulture = previousCulture;
+            view.DataContext = null;
             window.Close();
             HeadlessTestHelpers.Settle();
         }
