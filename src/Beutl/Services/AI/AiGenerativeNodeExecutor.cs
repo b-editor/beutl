@@ -171,7 +171,7 @@ internal sealed class AiGenerativeNodeExecutor(
                 token),
             progress,
             cancellationToken);
-        if (request.Prompt is { } typed)
+        if (requiresPrompt && request.Prompt is { } typed)
             promptLibrary.Record(request.Operation, typed);
         return new GenerativeExecutionResult(new Uri(path), model?.Value, null);
     }

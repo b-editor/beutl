@@ -296,6 +296,18 @@ public sealed class GenerativeNodeModelTests
         });
     }
 
+    [AvaloniaTest]
+    public async Task AnEditRecordsOnlyThePromptItSent()
+    {
+        var library = new RecordingLibrary();
+        var executor = CreateExecutor(new CapturingImages(), library, new CapturingEditing());
+
+        await executor.ExecuteAsync(EditRequest(AiImageEditTask.Upscale, "left from a restyle"), new Progress<GenerativeProgress>(), CancellationToken.None);
+        await executor.ExecuteAsync(EditRequest(AiImageEditTask.Restyle, "as a watercolor"), new Progress<GenerativeProgress>(), CancellationToken.None);
+
+        Assert.That(library.Recorded, Is.EqualTo(new[] { "as a watercolor" }));
+    }
+
     private static AiImageEditNodeRequest EditRequest(AiImageEditTask task, string? prompt)
     {
         using var bitmap = new Bitmap(8, 8);
