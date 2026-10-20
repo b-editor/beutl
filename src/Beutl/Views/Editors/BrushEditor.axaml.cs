@@ -28,11 +28,15 @@ public sealed partial class BrushEditor : UserControl
         AvaloniaProperty.Register<BrushEditor, Media.Brush?>(nameof(OriginalBrush));
 
     private BrushEditorFlyout? _flyout;
+    private readonly GradientStopDrag _gradientStopDrag;
     private Media.DrawableBrush? _followedBrush;
 
     public BrushEditor()
     {
         InitializeComponent();
+        _gradientStopDrag = new GradientStopDrag(
+            () => _flyout?.Popup.Child,
+            () => (_flyout?.Popup.Child as BrushEditorFlyoutPresenter)?.StopGradientStopDrag());
         ExpandTransitionHelper.Attach(expandToggle, content);
         FallbackObjectViewHelper.Attach(this, view => (content.Child as Panel)?.Children.Add(view));
 
@@ -322,14 +326,14 @@ public sealed partial class BrushEditor : UserControl
             Avalonia.Media.GradientStop Object, Avalonia.Media.Immutable.ImmutableGradientStop OldObject) e)
     {
         if (DataContext is BrushEditorViewModel { IsElementEditable: true, Value.Value: GradientBrush { GradientStops: { } list } } viewModel)
-            GradientStopEdits.Release(viewModel, list, e.OldIndex, e.NewIndex);
+            _gradientStopDrag.Release(viewModel, list, e.OldIndex, e.NewIndex);
     }
 
     private void OnGradientStopChanged(object? sender,
         (int OldIndex, int NewIndex, Avalonia.Media.GradientStop Object) e)
     {
         if (DataContext is BrushEditorViewModel { IsElementEditable: true, Value.Value: GradientBrush { GradientStops: { } list } } viewModel)
-            GradientStopEdits.Drag(viewModel, list, e.OldIndex, e.NewIndex, e.Object);
+            _gradientStopDrag.Move(viewModel, list, e.OldIndex, e.NewIndex, e.Object);
     }
 
     private void Menu_Click(object? sender, RoutedEventArgs e)

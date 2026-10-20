@@ -88,6 +88,9 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         set => SetValue(CanEditDrawableProperty, value);
     }
 
+    // Ignores the rest of the gradient stop drag in progress, for a host that ended the gesture itself.
+    public void StopGradientStopDrag() => _gradientStopsSlider?.StopDrag();
+
     public void SetColorPaletteItem(Color2 color)
     {
         if (Content is SimpleColorPicker cp2)

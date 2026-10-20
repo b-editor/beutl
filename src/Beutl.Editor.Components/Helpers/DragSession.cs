@@ -69,11 +69,9 @@ internal sealed class DragSession
             captureOwner.DetachedFromVisualTree -= OnDetached;
         }));
 
-        if (TopLevel.GetTopLevel(captureOwner) is { } top)
-        {
-            top.AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
-            _watches.Add(Disposable.Create(() => top.RemoveHandler(InputElement.KeyDownEvent, OnKeyDown)));
-        }
+        // A class handler sees Escape wherever the focus is, also in a flyout whose events stop at its popup.
+        _watches.Add(InputElement.KeyDownEvent.AddClassHandler<InputElement>(
+            (_, e) => OnKeyDown(e), RoutingStrategies.Tunnel, handledEventsToo: true));
 
         if (editor.GetService<IPreviewPlayer>() is { } player)
         {
@@ -85,7 +83,7 @@ internal sealed class DragSession
 
     private void OnDetached(object? sender, Avalonia.VisualTreeAttachmentEventArgs e) => Confirm();
 
-    private void OnKeyDown(object? sender, KeyEventArgs e)
+    private void OnKeyDown(KeyEventArgs e)
     {
         if (e.Key != Key.Escape)
             return;

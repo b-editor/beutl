@@ -36,6 +36,7 @@ public class GradientStopsSlider : TemplatedControl
     private FAMenuFlyout? _menuFlyout;
     private FAMenuFlyoutItem? _deleteMenuItem;
     private double _oldOffset;
+    private bool _dragStopped;
     private int _oldIndex;
 
     public GradientStops? Stops
@@ -61,6 +62,9 @@ public class GradientStopsSlider : TemplatedControl
     public event EventHandler<(int Index, GradientStop Object)>? Added;
 
     private double DragWidth => _itemsControl!.Bounds.Width - 18;
+
+    // Ignores the rest of the thumb drag in progress, for a host that ended the gesture itself.
+    public void StopDrag() => _dragStopped = true;
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -292,6 +296,7 @@ public class GradientStopsSlider : TemplatedControl
 
     private void ThumbDragStarted(object? sender, VectorEventArgs e)
     {
+        _dragStopped = false;
         if (sender is Thumb { DataContext: GradientStop stop } && Stops != null)
         {
             SelectedStop = stop;
@@ -302,6 +307,7 @@ public class GradientStopsSlider : TemplatedControl
 
     private void ThumbDragDelta(object? sender, VectorEventArgs e)
     {
+        if (_dragStopped) return;
         if (sender is not Thumb { Parent: ContentPresenter presenter, DataContext: GradientStop stop } || _itemsControl == null) return;
         if (Stops == null) return;
 
@@ -331,6 +337,7 @@ public class GradientStopsSlider : TemplatedControl
 
     private void ThumbDragCompleted(object? sender, VectorEventArgs e)
     {
+        if (_dragStopped) return;
         if (sender is Thumb { DataContext: GradientStop stop }
             && Stops != null
             && _itemsControl != null)
