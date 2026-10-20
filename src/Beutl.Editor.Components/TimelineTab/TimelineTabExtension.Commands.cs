@@ -17,7 +17,7 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
 {
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
-        AsyncCommand("timeline.paste", Strings.Paste, Strings.Paste_Description,
+        Command("timeline.paste", Strings.Paste, Strings.Paste_Description,
             [new("Ctrl+V"), new("Cmd+V", OSPlatform.OSX)], timeline => timeline.Paste.ExecuteAsync()),
         // From their gestures, Rename and Split also run on the focused clip.
         new ContextCommandDefinition<ElementViewModel>("timeline.rename", Strings.Rename, Strings.Rename_Description,
@@ -43,11 +43,11 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
         Command("timeline.delete", Strings.Delete, Strings.Delete_Description,
             [new("Ctrl+Delete"), new("Cmd+Back", OSPlatform.OSX)],
             timeline => timeline.SelectedElements.FirstOrDefault()?.Delete.Execute(), HasSelection),
-        AsyncCommand("timeline.copy", Strings.Copy, Strings.Copy_Description,
+        Command("timeline.copy", Strings.Copy, Strings.Copy_Description,
             [new("Ctrl+C"), new("Cmd+C", OSPlatform.OSX)],
             timeline => timeline.SelectedElements.FirstOrDefault()?.Copy.ExecuteAsync() ?? Task.CompletedTask,
             HasSelection),
-        AsyncCommand("timeline.cut", Strings.Cut, Strings.Cut_Description,
+        Command("timeline.cut", Strings.Cut, Strings.Cut_Description,
             [new("Ctrl+X"), new("Cmd+X", OSPlatform.OSX)],
             timeline => timeline.SelectedElements.FirstOrDefault()?.Cut.ExecuteAsync() ?? Task.CompletedTask,
             HasSelection),
@@ -126,7 +126,7 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
     private static bool HasSelection(TimelineTabViewModel timeline) => timeline.SelectedElements.Count > 0;
 
     // A timeline command first commits a pending nudge, so the two do not end up in one undo step.
-    private static ContextCommandDefinition<TimelineTabViewModel> AsyncCommand(
+    private static ContextCommandDefinition<TimelineTabViewModel> Command(
         string id, string displayName, string description, ContextCommandKeyGesture[] keyGestures,
         Func<TimelineTabViewModel, Task> execute, Func<TimelineTabViewModel, bool>? canExecute = null)
         => new(id, displayName, description, keyGestures)
@@ -142,11 +142,7 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
     private static ContextCommandDefinition<TimelineTabViewModel> Command(
         string id, string displayName, string description, ContextCommandKeyGesture[] keyGestures,
         Action<TimelineTabViewModel> execute, Func<TimelineTabViewModel, bool>? canExecute = null)
-        => AsyncCommand(id, displayName, description, keyGestures, timeline =>
-        {
-            execute(timeline);
-            return Task.CompletedTask;
-        }, canExecute);
+        => Command(id, displayName, description, keyGestures, timeline => { execute(timeline); return Task.CompletedTask; }, canExecute);
 
     // A shortcut on a printable key, which does not fire while a text box has the key.
     private static ContextCommandDefinition<TimelineTabViewModel> Shortcut(
