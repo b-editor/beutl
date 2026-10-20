@@ -427,7 +427,8 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
                 GradientStopChanged?.Invoke(this, (index, index, stop));
             }
         }
-        else if (Brush is SolidColorBrush solid)
+        // Showing the brush's own color, as on opening or when following the playhead, is not an edit.
+        else if (Brush is SolidColorBrush solid && solid.Color != (Color)args.NewValue)
         {
             solid.Color = args.NewValue;
             ColorChanged?.Invoke(this, args);

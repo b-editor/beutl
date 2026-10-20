@@ -187,6 +187,52 @@ public sealed class ColorPickerDragTests
         }
     }
 
+    // The flyout's picker follows the color shown at the playhead, which must not become the brush's own color.
+    [AvaloniaTest]
+    public async Task Seeking_with_the_brush_flyout_open_leaves_an_animated_color_unchanged()
+    {
+        var brush = new SolidColorBrush(Colors.Red);
+        var animation = new KeyFrameAnimation<Color>();
+        animation.KeyFrames.Add(new KeyFrame<Color> { KeyTime = TimeSpan.Zero, Value = Colors.Blue });
+        animation.KeyFrames.Add(new KeyFrame<Color> { KeyTime = TimeSpan.FromSeconds(1), Value = Colors.Lime });
+        brush.Color.Animation = animation;
+        var shape = new RectShape { Fill = { CurrentValue = brush } };
+        using var history = new HistoryScope(shape);
+        var time = new ReactivePropertySlim<TimeSpan>(TimeSpan.Zero);
+        var clock = new Mock<IEditorClock>();
+        clock.SetupGet(x => x.CurrentTime).Returns(time);
+        using var viewModel = new BrushEditorViewModel(
+            new SimplePropertyAdapter<Brush?>((SimpleProperty<Brush?>)shape.Fill, shape));
+        viewModel.Accept(new ServiceVisitor((typeof(HistoryManager), history.History), (typeof(IEditorClock), clock.Object)));
+        var editor = new BrushEditor { DataContext = viewModel };
+        var window = new Window { Content = editor, Width = 480, Height = 700 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            editor.BrushPreviewButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Render(3);
+            SimpleColorPicker picker = window.GetVisualDescendants().OfType<SimpleColorPicker>().Single();
+            Color Shown() => Color.FromArgb(picker.Color.A, picker.Color.R, picker.Color.G, picker.Color.B);
+            await HeadlessTestHelpers.WaitUntilAsync(() => Shown() == Colors.Blue, message: "The picker shows the color at 0s.");
+
+            time.Value = TimeSpan.FromSeconds(1);
+            await HeadlessTestHelpers.WaitUntilAsync(() => Shown() == Colors.Lime, message: "The picker follows the seek.");
+            HeadlessTestHelpers.Render(3);
+
+            history.History.Commit();
+            Assert.Multiple(() =>
+            {
+                Assert.That(brush.Color.CurrentValue, Is.EqualTo(Colors.Red));
+                Assert.That(history.History.UndoCount, Is.EqualTo(0), "Following the playhead records nothing.");
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaTest]
     [TestCase(DragEnd.CaptureLoss)]
     [TestCase(DragEnd.Playback)]
