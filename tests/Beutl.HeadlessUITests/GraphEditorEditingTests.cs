@@ -950,6 +950,32 @@ public class GraphEditorEditingTests
     }
 
     [AvaloniaTest]
+    public async Task Velocity_preview_leaves_no_session_when_a_queued_edit_closes_the_flyout()
+    {
+        using var graph = await GraphScope.CreateAsync(separateHandles: true);
+        var history = graph.Model.HistoryManager;
+        // As with the nudge window: a session that BeforeMutation completes, and an edit queued behind it.
+        var other = history.BeginEdit("Other");
+        using IDisposable completeOther = history.BeforeMutation.Subscribe(_ =>
+        {
+            if (other.IsOpen) other.Complete();
+        });
+        Task queued = history.RunAfterEditAsync(() => graph.Model.SelectedView.Value!.SetSelection([graph.First]));
+        var flyout = OpenVelocityFlyout(graph, "Button");
+
+        // The preview flushes history first, which runs the queued edit, and that closes the flyout.
+        flyout.Popup.Child!.GetVisualDescendants().OfType<NumericUpDown>().Single(x => x.Name == "IncomingSpeed").Value = 0;
+        HeadlessTestHelpers.Render(3);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(queued.IsCompleted, Is.True);
+            Assert.That(flyout.IsOpen, Is.False);
+            Assert.That(history.IsEditing, Is.False, "No session may outlive the flyout.");
+        });
+    }
+
+    [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
     public async Task Velocity_picker_disables_the_missing_side_at_endpoints(bool first)

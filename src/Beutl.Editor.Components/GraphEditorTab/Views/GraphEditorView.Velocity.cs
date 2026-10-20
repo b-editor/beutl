@@ -56,11 +56,20 @@ public partial class GraphEditorView
                 try
                 {
                     model.HistoryManager.FlushPendingMutations();
-                    if (!finished && !model.HistoryManager.IsEditing)
+                    // Edits the flush ran may have closed the flyout or changed the graph under it.
+                    if (!finished && DataContext == model && model.SelectedView.Value == channel
+                        && !model.HistoryManager.IsEditing)
                         session = model.HistoryManager.BeginEdit(CommandNames.EditKeyFrame);
                 }
                 finally { opening = false; }
-                // Another gesture holds history, so this one cannot preview.
+                if (finished)
+                {
+                    // Nothing would end a session opened after the flyout closed.
+                    session?.Cancel();
+                    session = null;
+                    return;
+                }
+                // Another gesture holds history, or the graph changed, so this one cannot preview.
                 if (session is null) { flyout.Hide(); return; }
             }
             InvalidateVelocityPreview(model);
