@@ -272,9 +272,10 @@ public partial class Scene
         // Attached children must not retain exclusions left by an earlier removal.
         _excludeElements.RemoveAll(pattern => elementPaths.Contains(pattern)
             || elementPaths.Any(path => AreSameElementPaths(dirPath, pattern, path)));
-        // A deleted element's file is gone by the time its scene is saved, so its exclusion goes too.
+        // The save that deletes an element's file drops its exclusion; a directory's exclusion stays.
         _excludeElements.RemoveAll(pattern => IsLiteralPattern(pattern)
-            && !Path.Exists(Path.GetFullPath(pattern.TrimStart('/'), dirPath)));
+            && pattern.EndsWith(".belm", StringComparison.OrdinalIgnoreCase)
+            && !File.Exists(Path.GetFullPath(pattern.TrimStart('/'), dirPath)));
 
         string[] files = MatchElementFiles(dirPath, _includeElements, _excludeElements);
         foreach (string rel in elementPaths)
