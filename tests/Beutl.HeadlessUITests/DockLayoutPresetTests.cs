@@ -1,10 +1,12 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Editor.Components.LibraryTab;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
@@ -14,6 +16,7 @@ using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
 using Dock.Model.Controls;
 using Dock.Model.Core;
+using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
@@ -149,6 +152,50 @@ public class DockLayoutPresetTests
                 "a surviving tool must still be wired to its context");
             liveBefore[i].IsSelected = selectedBefore[i];
         }
+    }
+
+    // A tool tab type that moves keeps its layouts through FormerPersistedNameAttribute, and is saved under its
+    // current name again.
+    [AvaloniaTest]
+    public async Task A_layout_saved_under_a_former_tool_type_name_opens_the_tool()
+    {
+        const int packageId = -42_879;
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("preset-former-name", 1920, 1080);
+        var renamed = new RenamedToolTabExtension();
+        TestShell.Extensions.AddExtensions(packageId, [renamed]);
+        try
+        {
+            JsonObject layout = editor.DockHost.CaptureLayout();
+            FirstToolList(layout)!.Add(new JsonObject
+            {
+                ["$type"] = "tool",
+                ["extension"] = new JsonObject { ["$type"] = RenamedToolTabExtension.FormerName }
+            });
+
+            Assert.That(editor.DockHost.ApplyLayout(layout), Is.True);
+            Assert.Multiple(() =>
+            {
+                Assert.That(editor.DockHost.Factory.EnumerateTools().Select(tool => tool.ToolContext.Extension),
+                    Does.Contain(renamed));
+                string saved = editor.DockHost.CaptureLayout().ToJsonString();
+                Assert.That(saved, Does.Contain(TypeFormat.ToString(typeof(RenamedToolTabExtension))));
+                Assert.That(saved, Does.Not.Contain(RenamedToolTabExtension.FormerName));
+            });
+        }
+        finally
+        {
+            _ = TestShell.Extensions.RemoveExtensions(packageId);
+            HeadlessTestHelpers.Settle();
+        }
+
+        static JsonArray? FirstToolList(JsonNode? node) => node switch
+        {
+            JsonObject obj when obj["tools"] is JsonArray tools => tools,
+            JsonObject obj => obj.Select(pair => FirstToolList(pair.Value)).FirstOrDefault(found => found is not null),
+            JsonArray array => array.Select(FirstToolList).FirstOrDefault(found => found is not null),
+            _ => null
+        };
     }
 
     [AvaloniaTest]
@@ -373,6 +420,51 @@ public class DockLayoutPresetTests
                 File.SetAttributes(path, FileAttributes.Normal);
                 File.Delete(path);
             }
+        }
+    }
+
+    [FormerPersistedName(FormerName)]
+    private sealed class RenamedToolTabExtension : ToolTabExtension
+    {
+        public const string FormerName = "[Beutl.HeadlessUITests]Former.Namespace:FormerLayoutToolTabExtension";
+
+        public override string Name => "Renamed layout tool";
+
+        public override string DisplayName => "Renamed layout tool";
+
+        public override bool CanMultiple => false;
+
+        public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
+        {
+            control = new Border();
+            return true;
+        }
+
+        public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
+        {
+            context = new ToolContext(this);
+            return true;
+        }
+    }
+
+    private sealed class ToolContext(ToolTabExtension extension) : IToolContext
+    {
+        public ToolTabExtension Extension => extension;
+
+        public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
+
+        public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>("Renamed layout tool");
+
+        public void Dispose() => IsSelected.Dispose();
+
+        public object? GetService(Type serviceType) => null;
+
+        public void ReadFromJson(JsonObject json)
+        {
+        }
+
+        public void WriteToJson(JsonObject json)
+        {
         }
     }
 }
