@@ -1,11 +1,7 @@
 ﻿using System.Collections.Immutable;
-using System.Diagnostics.CodeAnalysis;
-using Beutl.Api.Services;
-using Beutl.Editor.Models;
-using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 
-namespace Beutl.Editor.Services;
+namespace Beutl.Extensibility;
 
 /// <summary>
 /// Opaque, handler-owned state produced during preflight and consumed during materialization.
@@ -188,35 +184,6 @@ public interface IElementSourceHandler
 public abstract class ElementSourceHandlerExtension : Extension
 {
     public abstract IReadOnlyCollection<ElementSourceHandlerRegistration> Registrations { get; }
-}
-
-public sealed record ElementSourceHandlerExtensionFailure(
-    string ExtensionType,
-    Exception Exception);
-
-/// <summary>
-/// Owns a source-handler registration. Retain this object while the handler is available and
-/// asynchronously dispose it before unloading handler-owned resources. Disposal first retires
-/// the handler synchronously, then asynchronously waits for existing operation leases to finish.
-/// </summary>
-public interface IElementSourceHandlerRegistration : IAsyncDisposable
-{
-}
-
-/// <summary>
-/// Keeps a resolved handler alive for one operation. Consumers must not cache
-/// <see cref="Handler"/> beyond this lease.
-/// </summary>
-public interface IElementSourceHandlerLease : IDisposable
-{
-    IElementSourceHandler Handler { get; }
-}
-
-public interface IElementSourceHandlerRegistry
-{
-    bool TryAcquire(
-        Type sourceType,
-        [NotNullWhen(true)] out IElementSourceHandlerLease? lease);
 }
 
 public enum ElementSourceHandlerRegistrationMode

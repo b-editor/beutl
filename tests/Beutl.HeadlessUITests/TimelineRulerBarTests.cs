@@ -8,7 +8,7 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Components.Views;
-using Beutl.Editor.Models;
+using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using RectShape = Beutl.Graphics.Shapes.RectShape;

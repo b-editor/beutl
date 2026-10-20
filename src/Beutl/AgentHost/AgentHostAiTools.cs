@@ -177,7 +177,7 @@ internal sealed class AgentHostAiTools(
             var editTask = (AiImageEditTask)Array.IndexOf(s_imageTasks, taskId);
             // The executor puts its instruction in front of an outpaint's prompt before the same limit.
             int maxPrompt = editTask == AiImageEditTask.Outpaint
-                ? AiRequestLimits.MaxPromptLength - AiGenerativeNodeExecutor.OutpaintInstruction.Length - 1
+                ? AiRequestLimits.MaxPromptLength - AiRequestRules.OutpaintInstruction.Length - 1
                 : AiRequestLimits.MaxPromptLength;
             string? text = requiresPrompt ? RequirePrompt(prompt, maxPrompt) : null;
             GenerativeImageInput image = ReadImage(sourcePath, "source", "sourcePath", AiRequestLimits.MaxImageUploadBytes, out PixelSize size);

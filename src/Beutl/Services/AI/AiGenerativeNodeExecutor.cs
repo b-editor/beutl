@@ -145,7 +145,7 @@ internal sealed class AiGenerativeNodeExecutor(
         {
             uploadBytes = ExpandCanvas(uploadBytes, request.OutpaintExpansionPercent ?? 25);
             uploadName = $"{Path.GetFileNameWithoutExtension(uploadName)}-outpaint.png";
-            prompt = $"{OutpaintInstruction} {prompt}";
+            prompt = AiRequestRules.ToOutpaintPrompt(prompt);
         }
 
         if (uploadBytes.Length > AiRequestLimits.MaxImageUploadBytes)
@@ -581,10 +581,6 @@ internal sealed class AiGenerativeNodeExecutor(
         // An unknown status is not an outcome; the key stays so queueing again collects it.
         throw new GenerativeExecutionException(Strings.AiResultUnavailable);
     }
-
-    /// <summary>Put in front of an outpaint's prompt, as the AI tab puts it; counted in the prompt limit.</summary>
-    internal const string OutpaintInstruction =
-        "Extend the image naturally into the transparent canvas while preserving the original center.";
 
     internal static byte[] ExpandCanvas(byte[] encodedPng, int expansionPercent)
     {

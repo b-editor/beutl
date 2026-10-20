@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
-using Beutl.Editor.Services.Mcp;
 using Beutl.Extensibility;
 
 namespace Beutl.PublicApiContractTests;

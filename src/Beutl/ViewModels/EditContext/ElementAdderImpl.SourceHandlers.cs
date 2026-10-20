@@ -1,7 +1,6 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Audio;
 using Beutl.Composition;
-using Beutl.Editor.Models;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;

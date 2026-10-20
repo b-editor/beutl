@@ -1,8 +1,8 @@
 ﻿using Beutl.Animation;
-using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.Captions;
 using Beutl.Engine.Expressions;
+using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;

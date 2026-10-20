@@ -407,7 +407,7 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
         ArgumentNullException.ThrowIfNull(handler);
         Type sourceType = handler.SourceType
             ?? throw new ArgumentException("A source handler must declare its source type.", nameof(handler));
-        if (!typeof(Models.ElementSource).IsAssignableFrom(sourceType))
+        if (!typeof(ElementSource).IsAssignableFrom(sourceType))
         {
             throw new ArgumentException(
                 $"Source type '{sourceType.FullName}' does not derive from ElementSource.",

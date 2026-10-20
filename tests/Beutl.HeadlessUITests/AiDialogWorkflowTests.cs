@@ -14,6 +14,7 @@ using Beutl.Api.Clients;
 using Beutl.Api.Services;
 using Beutl.Audio;
 using Beutl.Editor.Models;
+using Beutl.Editor.Services.AI;
 using Beutl.Editor.Services.Captions;
 using Beutl.Graphics;
 using Beutl.Language;
@@ -738,7 +739,7 @@ public sealed partial class AiDialogWorkflowTests
                         return JsonResponse(HttpStatusCode.OK, ImageEditCapabilitiesJson());
                     case "/api/v3/ai/images/edit":
                         string body = await request.Content!.ReadAsStringAsync(cancellationToken);
-                        sent.Add((ModelOfMultipart(body), IdempotencyKeyOf(request)));
+                        sent.Add((FieldOfMultipart(body, "model"), IdempotencyKeyOf(request)));
                         // The first response is lost, leaving its name uncollected for the next send.
                         return sent.Count == 1
                             ? throw new HttpRequestException("The connection was reset.")
@@ -779,6 +780,47 @@ public sealed partial class AiDialogWorkflowTests
                     Is.EqualTo(sent[0].Key),
                     "The same request under the same name reaches what it paid for.");
             }
+        }
+        finally
+        {
+            File.Delete(sourcePath);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ImageEdit_AnOutpaintLeadsWithTheInstructionTheNodesUse()
+    {
+        await TestReset.ResetShellAsync();
+        string sourcePath = Path.Combine(Path.GetTempPath(), $"source-{Guid.NewGuid():N}.png");
+        await File.WriteAllBytesAsync(sourcePath, s_png);
+        string? sentPrompt = null;
+        try
+        {
+            await using var api = new ApiScope(new StubHandler(async (request, cancellationToken) =>
+            {
+                switch (request.RequestUri?.AbsolutePath)
+                {
+                    case "/api/v3/user/entitlements":
+                        return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+                    case "/api/v3/ai/images/edit":
+                        string body = await request.Content!.ReadAsStringAsync(cancellationToken);
+                        sentPrompt = FieldOfMultipart(body, "prompt");
+                        return JsonResponse(HttpStatusCode.OK, ImageResponseJson("edit-job", "edit-file"));
+                    case "/api/contents/edit-file":
+                        return ByteResponse(s_png, "image/png");
+                    default:
+                        return JsonResponse(HttpStatusCode.NotFound, "{}");
+                }
+            }));
+            using var viewModel = CreateImageEditDialog(api.Clients);
+            viewModel.SelectedTask.Value = viewModel.Tasks.Single(task => task.Value == "outpaint");
+            viewModel.SourceFilePath.Value = sourcePath;
+            viewModel.Prompt.Value = "a beach";
+            await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value && viewModel.CanEdit.Value);
+
+            await viewModel.Edit.ExecuteAsync();
+
+            Assert.That(sentPrompt, Is.EqualTo(AiRequestRules.ToOutpaintPrompt("a beach")));
         }
         finally
         {
@@ -5271,10 +5313,9 @@ public sealed partial class AiDialogWorkflowTests
         }
         """;
 
-    private static string? ModelOfMultipart(string body)
+    private static string? FieldOfMultipart(string body, string field)
     {
-        const string Marker = "name=\"model\"";
-        int at = body.IndexOf(Marker, StringComparison.Ordinal);
+        int at = body.IndexOf($"name=\"{field}\"", StringComparison.Ordinal);
         if (at < 0) return null;
 
         int start = body.IndexOf("\r\n\r\n", at, StringComparison.Ordinal);

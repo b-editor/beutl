@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Api.Services;
+using Beutl.Extensibility;
 
 namespace Beutl.Editor.Services;
 
