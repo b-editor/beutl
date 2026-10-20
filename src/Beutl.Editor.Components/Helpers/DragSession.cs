@@ -12,20 +12,20 @@ namespace Beutl.Editor.Components.Helpers;
 // A pointer gesture's edit session: release, capture loss, playback start and detach confirm it; Escape and Undo cancel it.
 internal sealed class DragSession
 {
-    private readonly EditSession _session;
+    private readonly EditSession? _session;
     private readonly Action _confirm;
     private readonly Action _cancel;
     private readonly CompositeDisposable _watches = [];
     private bool _ended;
 
-    private DragSession(EditSession session, Action confirm, Action cancel)
+    private DragSession(EditSession? session, Action confirm, Action cancel)
     {
         _session = session;
         _confirm = confirm;
         _cancel = cancel;
     }
 
-    // Null when another gesture holds history; a nudge window is completed first. Capture the pointer on captureOwner.
+    // Null when another gesture holds history. captureOwner holds the pointer capture or contains the control that does.
     public static DragSession? Begin(
         IServiceProvider editor,
         Control captureOwner,
@@ -34,19 +34,23 @@ internal sealed class DragSession
         Action cancel,
         [CallerArgumentExpression(nameof(name))] string? expression = null)
     {
-        if (editor.GetService<HistoryManager>() is not { } history)
-            return null;
+        EditSession? session = null;
+        // Without a history, as in a view hosted on its own, the gesture still ends the same ways.
+        if (editor.GetService<HistoryManager>() is { } history)
+        {
+            history.FlushPendingMutations();
+            if (history.IsEditing)
+                return null;
 
-        history.FlushPendingMutations();
-        if (history.IsEditing)
-            return null;
+            session = history.BeginEdit(name, expression);
+        }
 
-        var drag = new DragSession(history.BeginEdit(name, expression), confirm, cancel);
+        var drag = new DragSession(session, confirm, cancel);
         drag.Watch(editor, captureOwner);
         return drag;
     }
 
-    public IDisposable Enter() => _session.Enter();
+    public IDisposable Enter() => _session?.Enter() ?? Disposable.Empty;
 
     public void Confirm() => End(_confirm, complete: true);
 
@@ -54,7 +58,8 @@ internal sealed class DragSession
 
     private void Watch(IServiceProvider editor, Control captureOwner)
     {
-        _session.CancelRequested = Cancel;
+        if (_session is not null)
+            _session.CancelRequested = Cancel;
 
         captureOwner.AddHandler(InputElement.PointerCaptureLostEvent, OnCaptureLost);
         captureOwner.DetachedFromVisualTree += OnDetached;
@@ -96,14 +101,15 @@ internal sealed class DragSession
 
         _ended = true;
         _watches.Dispose();
-        _session.CancelRequested = null;
+        if (_session is not null)
+            _session.CancelRequested = null;
         try
         {
             finish();
         }
         finally
         {
-            if (_session.IsOpen)
+            if (_session?.IsOpen == true)
             {
                 if (complete)
                     _session.Complete();

@@ -6,6 +6,7 @@ using Avalonia.Media.Transformation;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 
 namespace Beutl.Editor.Components.NodeGraphTab.Views;
@@ -25,6 +26,8 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
     private StackPanel? _stackPanel;
     private Canvas? _canvas;
     private ConnectionLine? _tempLine;
+    private Point _lastCanvasPoint;
+    private DragSession? _drag;
 
     protected override void OnAttached()
     {
@@ -34,17 +37,20 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
             AssociatedObject.AddHandler(InputElement.PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel);
             AssociatedObject.AddHandler(InputElement.PointerMovedEvent, OnPointerMoved, RoutingStrategies.Tunnel);
             AssociatedObject.AddHandler(InputElement.PointerReleasedEvent, OnPointerReleased, RoutingStrategies.Tunnel);
+            AssociatedObject.AddHandler(InputElement.PointerCaptureLostEvent, OnPointerCaptureLost);
         }
     }
 
     protected override void OnDetaching()
     {
         base.OnDetaching();
+        _drag?.Confirm();
         if (AssociatedObject != null)
         {
             AssociatedObject.RemoveHandler(InputElement.PointerPressedEvent, OnPointerPressed);
             AssociatedObject.RemoveHandler(InputElement.PointerMovedEvent, OnPointerMoved);
             AssociatedObject.RemoveHandler(InputElement.PointerReleasedEvent, OnPointerReleased);
+            AssociatedObject.RemoveHandler(InputElement.PointerCaptureLostEvent, OnPointerCaptureLost);
         }
     }
 
@@ -101,11 +107,28 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
                 return;
             }
 
+            // Past the threshold the DragSession opens; null means another gesture holds history.
+            if (AssociatedObject.DataContext is NodePortViewModel viewModel)
+            {
+                _drag = DragSession.Begin(viewModel.GraphNodeViewModel.EditorContext, AssociatedObject,
+                    CommandNames.MoveConnection, ConfirmDrag, CancelDrag);
+            }
+
+            if (_drag is null)
+            {
+                CancelDrag();
+                e.Handled = true;
+                return;
+            }
+
             _dragStarted = true;
             _direction = Math.Abs(deltaY) > Math.Abs(deltaX)
                 ? DragDirection.Vertical
                 : DragDirection.Horizontal;
         }
+
+        if (_canvas != null)
+            _lastCanvasPoint = e.GetPosition(_canvas);
 
         if (_direction == DragDirection.Vertical)
         {
@@ -123,20 +146,47 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
     {
         if (!_enableDrag) return;
 
-        if (_dragStarted)
-        {
-            if (_direction == DragDirection.Vertical)
-            {
-                ReleaseVertical();
-            }
-            else if (_direction == DragDirection.Horizontal)
-            {
-                ReleaseHorizontal(e);
-            }
-        }
+        if (_canvas != null)
+            _lastCanvasPoint = e.GetPosition(_canvas);
+
+        if (_drag is { } drag)
+            drag.Confirm();
+        else
+            CleanUp();
 
         e.Handled = true;
         e.Pointer.Capture(null);
+    }
+
+    // A drag in progress confirms through its DragSession; a press that never moved has nothing to keep.
+    private void OnPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        if (_enableDrag && _drag is null)
+            CleanUp();
+    }
+
+    // Release, capture loss, playback start and detach keep the slot order or the rewiring the drag reached.
+    private void ConfirmDrag()
+    {
+        _drag = null;
+        if (_direction == DragDirection.Vertical)
+        {
+            ReleaseVertical();
+        }
+        else if (_direction == DragDirection.Horizontal)
+        {
+            ReleaseHorizontal(_lastCanvasPoint);
+        }
+
+        CleanUp();
+    }
+
+    // Escape and Undo put the slots back and drop the line without rewiring.
+    private void CancelDrag()
+    {
+        _drag = null;
+        RemoveTransforms();
+        AssociatedObject?.FindAncestorOfType<NodePortView>()?.UpdateNodePortPosition();
         CleanUp();
     }
 
@@ -234,7 +284,7 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
         }
     }
 
-    private void ReleaseHorizontal(PointerReleasedEventArgs e)
+    private void ReleaseHorizontal(Point canvasPoint)
     {
         if (_tempLine != null && _canvas != null)
         {
@@ -244,7 +294,7 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
 
         if (_canvas != null && AssociatedObject != null)
         {
-            IInputElement? elm = _canvas.InputHitTest(e.GetPosition(_canvas));
+            IInputElement? elm = _canvas.InputHitTest(canvasPoint);
             if (elm is NodePortPoint { DataContext: NodePortViewModel targetVM } targetSp
                 && targetSp != AssociatedObject
                 && AssociatedObject.Tag is ConnectionViewModel connVM
