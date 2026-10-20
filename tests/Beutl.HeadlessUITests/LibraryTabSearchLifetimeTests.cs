@@ -153,6 +153,41 @@ public sealed class LibraryTabSearchLifetimeTests
         }
     }
 
+    // Quick changes can end their delays in either order, and an older one must not clear a newer search.
+    [AvaloniaTest]
+    public async Task An_older_query_that_ends_its_delay_last_keeps_the_latest_results()
+    {
+        using var viewModel = CreateViewModel();
+        var item = new LibraryItemViewModel { DisplayName = "Needle", FullDisplayName = "Needle" };
+        viewModel.AllItems.Add(item);
+        var delays = new List<TaskCompletionSource>();
+        var view = new SearchView
+        {
+            DataContext = viewModel,
+            QueryDelay = () =>
+            {
+                var delay = new TaskCompletionSource();
+                delays.Add(delay);
+                return delay.Task;
+            },
+        };
+        using var host = new ControlHost(view, 320, 240);
+        TextBox box = view.FindControl<TextBox>("SearchBox")!;
+
+        box.Text = "";
+        box.Text = "Needle";
+        delays[1].SetResult();
+        await HeadlessTestHelpers.WaitUntilAsync(() => viewModel.SearchResult.Count == 1);
+        delays[0].SetResult();
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.SearchResult, Is.EqualTo(new[] { item }));
+            Assert.That(view.FindControl<ListBox>("searchResult")!.ItemsSource, Is.SameAs(viewModel.SearchResult));
+        });
+    }
+
     private static LibraryTabViewModel CreateViewModel()
     {
         var viewModel = new LibraryTabViewModel();

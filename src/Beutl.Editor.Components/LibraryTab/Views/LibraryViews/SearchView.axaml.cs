@@ -11,6 +11,8 @@ public partial class SearchView : UserControl
 {
     private CancellationTokenSource? _cts;
 
+    internal Func<Task> QueryDelay { get; set; } = static () => Task.Delay(100);
+
     public SearchView()
     {
         InitializeComponent();
@@ -25,7 +27,12 @@ public partial class SearchView : UserControl
         if (DataContext is LibraryTabViewModel viewModel)
         {
             _cts?.Cancel();
-            await Task.Delay(100);
+            var cts = new CancellationTokenSource();
+            _cts = cts;
+            await QueryDelay();
+            // The delays of two quick changes can end in either order, so only the latest change acts.
+            if (!ReferenceEquals(_cts, cts))
+                return;
 
             if (string.IsNullOrWhiteSpace(str))
             {
@@ -34,9 +41,8 @@ public partial class SearchView : UserControl
             }
             else
             {
-                _cts = new CancellationTokenSource();
                 searchResult.ItemsSource = viewModel.SearchResult;
-                await viewModel.Search(str, _cts.Token);
+                await viewModel.Search(str, cts.Token);
             }
         }
     }
