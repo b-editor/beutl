@@ -424,7 +424,7 @@ public sealed partial class HistoryManager : IDisposable
 
         lock (_lock)
         {
-            if (RecordingSuppression.IsSuppressed)
+            if (HistoryReplay.IsActive)
             {
                 _logger.LogDebug("Recording suppressed, ignoring operation: {OperationType}", operation.GetType().Name);
                 return;
@@ -729,10 +729,11 @@ public sealed partial class HistoryManager : IDisposable
         public void Complete() => Volatile.Write(ref _active, 0);
     }
 
-    public IDisposable SuppressRecording()
+    // For writes history must not record, such as a relink; handlers keep recorded children as during a replay.
+    internal IDisposable SuppressRecording()
     {
         ThrowIfDisposed();
-        return RecordingSuppression.Enter();
+        return HistoryReplay.Enter();
     }
 
     private void ThrowIfDisposed()

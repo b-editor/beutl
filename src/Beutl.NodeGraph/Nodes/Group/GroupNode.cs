@@ -112,7 +112,7 @@ public partial class GroupNode : GraphNode
         if (oldObj != null)
         {
             oldObj.Items.CollectionChanged -= OutputItemsCollectionChanged;
-            if (!RecordingSuppression.IsSuppressed)
+            if (!HistoryReplay.IsActive)
                 Items.RemoveRange(0, oldObj.Items.Count);
         }
 
@@ -120,7 +120,7 @@ public partial class GroupNode : GraphNode
         {
             newObj.Items.CollectionChanged += OutputItemsCollectionChanged;
 
-            if (!RecordingSuppression.IsSuppressed)
+            if (!HistoryReplay.IsActive)
             {
                 for (int i = 0; i < newObj.Items.Count; i++)
                     AddOutput(i, (IInputPort)newObj.Items[i]);
@@ -166,7 +166,7 @@ public partial class GroupNode : GraphNode
             }
         }
 
-        if (!RecordingSuppression.IsSuppressed)
+        if (!HistoryReplay.IsActive)
             ApplyItemsCollectionChange(e, Add, Remove, Reset);
         SynchronizePortSubscriptions(Group.Output, _outputPortSubscriptions, outputSide: true);
     }
@@ -177,7 +177,7 @@ public partial class GroupNode : GraphNode
         {
             oldObj.Items.CollectionChanged -= InputItemsCollectionChanged;
 
-            if (!RecordingSuppression.IsSuppressed)
+            if (!HistoryReplay.IsActive)
                 Items.RemoveRange(Group.Output?.Items.Count ?? 0, oldObj.Items.Count);
         }
 
@@ -185,7 +185,7 @@ public partial class GroupNode : GraphNode
         {
             newObj.Items.CollectionChanged += InputItemsCollectionChanged;
 
-            if (!RecordingSuppression.IsSuppressed)
+            if (!HistoryReplay.IsActive)
             {
                 for (int i = 0; i < newObj.Items.Count; i++)
                     AddInput(i, (IGroupPort)newObj.Items[i]);
@@ -241,7 +241,7 @@ public partial class GroupNode : GraphNode
             }
         }
 
-        if (!RecordingSuppression.IsSuppressed)
+        if (!HistoryReplay.IsActive)
             ApplyItemsCollectionChange(e, Add, Remove, Reset);
         SynchronizePortSubscriptions(Group.Input, _inputPortSubscriptions, outputSide: false);
     }

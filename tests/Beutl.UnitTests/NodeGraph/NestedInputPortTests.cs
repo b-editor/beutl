@@ -671,7 +671,7 @@ public class NestedInputPortTests
         var recorded = new List<ChangeOperation>();
         using var subscription = history.Observer.Operations.Subscribe(operation =>
         {
-            if (!RecordingSuppression.IsSuppressed) recorded.Add(operation);
+            if (!HistoryReplay.IsActive) recorded.Add(operation);
         });
         restoredNode.Object.Brush.CurrentValue = repaired;
         history.History.Commit("Repair brush");
