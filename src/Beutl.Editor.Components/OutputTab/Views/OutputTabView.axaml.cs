@@ -6,21 +6,18 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
-using Beutl.Services;
-using Beutl.ViewModels.Dialogs;
-using Beutl.ViewModels.Tools;
+using Beutl.Editor.Components.OutputTab.ViewModels;
 using FluentAvalonia.UI.Controls;
-using AddOutputProfileDialog = Beutl.Views.Dialogs.AddOutputProfileDialog;
 using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
 using Icon = FluentIcons.Common.Icon;
 
-namespace Beutl.Views.Tools;
+namespace Beutl.Editor.Components.OutputTab.Views;
 
-public partial class OutputTab : UserControl
+public partial class OutputTabView : UserControl
 {
     private readonly IDataTemplate _sharedDataTemplate = new _DataTemplate();
 
-    public OutputTab()
+    public OutputTabView()
     {
         InitializeComponent();
         contentControl.ContentTemplate = _sharedDataTemplate;
@@ -30,7 +27,7 @@ public partial class OutputTab : UserControl
     {
         if (DataContext is not OutputTabViewModel viewModel) return;
 
-        var ext = viewModel.GetExtensions(viewModel.EditViewModel.Scene.GetType());
+        var ext = viewModel.GetExtensions(viewModel.Scene.GetType());
         if (ext.Length == 1)
         {
             viewModel.AddItem(ext[0]);
@@ -57,9 +54,10 @@ public partial class OutputTab : UserControl
 
     private void OnConvertPresetClick(object? sender, RoutedEventArgs e)
     {
+        if (DataContext is not OutputTabViewModel viewModel) return;
         if (sender is not ICommandSource { CommandParameter: OutputProfileItem item }) return;
 
-        ConvertToPreset(item);
+        ConvertToPreset(viewModel, item);
     }
 
     private void OnRenameClick(object? sender, RoutedEventArgs e)
@@ -76,10 +74,10 @@ public partial class OutputTab : UserControl
         viewModel.Save();
     }
 
-    private static void ConvertToPreset(OutputProfileItem profile)
+    private static void ConvertToPreset(OutputTabViewModel viewModel, OutputProfileItem profile)
     {
-        OutputPresetService.Instance.AddItem(profile.Context, $"{profile.Context.Name.Value} (Preset)");
-        OutputPresetService.Instance.SaveItems();
+        viewModel.Presets.AddItem(profile.Context, $"{profile.Context.Name.Value} (Preset)");
+        viewModel.Presets.SaveItems();
     }
 
     private sealed class _DataTemplate : IDataTemplate
@@ -171,7 +169,7 @@ public partial class OutputTab : UserControl
                     menu.Items.Add(renameItem);
 
                     var convertItem = new FAMenuFlyoutItem { Text = Language.Strings.Convert_to_preset };
-                    convertItem.Click += (_, _) => ConvertToPreset(profile);
+                    convertItem.Click += (_, _) => ConvertToPreset(viewModel, profile);
                     menu.Items.Add(convertItem);
                     break;
                 }
@@ -184,8 +182,8 @@ public partial class OutputTab : UserControl
                     };
                     removeItem.Click += (_, _) =>
                     {
-                        OutputPresetService.Instance.Items.Remove(preset);
-                        OutputPresetService.Instance.SaveItems();
+                        viewModel.Presets.Items.Remove(preset);
+                        viewModel.Presets.SaveItems();
                     };
                     menu.Items.Add(removeItem);
 
@@ -216,7 +214,7 @@ public partial class OutputTab : UserControl
             else if (preset != null)
             {
                 preset.Name.Value = text ?? "";
-                OutputPresetService.Instance.SaveItems();
+                viewModel.Presets.SaveItems();
             }
         };
         flyout.ShowAt(anchor);

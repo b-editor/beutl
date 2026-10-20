@@ -13,6 +13,7 @@ using Beutl.Editor.Components.HistoryTab;
 using Beutl.Editor.Components.LibraryTab;
 using Beutl.Editor.Components.NodeGraphTab;
 using Beutl.Editor.Components.ObjectPropertyTab;
+using Beutl.Editor.Components.OutputTab;
 using Beutl.Editor.Components.PathEditorTab;
 using Beutl.Editor.Components.PreviewSettingsTab;
 using Beutl.Editor.Components.ProxiesTab;

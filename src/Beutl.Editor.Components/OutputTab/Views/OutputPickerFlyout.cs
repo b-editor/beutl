@@ -1,10 +1,10 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Beutl.Controls.PropertyEditors;
-using Beutl.ViewModels.Tools;
+using Beutl.Editor.Components.OutputTab.ViewModels;
 using FluentAvalonia.Core;
 
-namespace Beutl.Views.Tools;
+namespace Beutl.Editor.Components.OutputTab.Views;
 
 public sealed class OutputPickerFlyout(OutputPickerViewModel viewModel)
     : ConfirmablePickerFlyout<OutputPickerFlyout, OutputPickerFlyoutPresenter>

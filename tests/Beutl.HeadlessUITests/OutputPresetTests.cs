@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
+using Beutl.Editor.Components.OutputTab;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Media;

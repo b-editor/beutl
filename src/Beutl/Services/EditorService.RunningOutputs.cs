@@ -1,9 +1,10 @@
 ﻿using System.Collections.Immutable;
+using Beutl.Editor.Components.OutputTab;
 using Reactive.Bindings;
 
 namespace Beutl.Services;
 
-public partial class EditorService
+public partial class EditorService : IOutputRunHost
 {
     private readonly object _runningOutputsSync = new();
     private readonly ReactivePropertySlim<ImmutableArray<OutputProfileItem>> _runningOutputs = new([]);
@@ -11,6 +12,8 @@ public partial class EditorService
     // Every output profile currently running, across all open editors. Published from whichever
     // thread the output runs on, so subscribers must marshal to the UI thread themselves.
     internal IReadOnlyReactiveProperty<ImmutableArray<OutputProfileItem>> RunningOutputs => _runningOutputs;
+
+    IDisposable IOutputRunHost.TrackRunningOutput(OutputProfileItem item) => TrackRunningOutput(item);
 
     internal IDisposable TrackRunningOutput(OutputProfileItem item)
     {

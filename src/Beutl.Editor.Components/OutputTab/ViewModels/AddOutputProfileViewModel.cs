@@ -1,8 +1,6 @@
-﻿using Beutl.Services;
-using Beutl.ViewModels.Tools;
-using Reactive.Bindings;
+﻿using Reactive.Bindings;
 
-namespace Beutl.ViewModels.Dialogs;
+namespace Beutl.Editor.Components.OutputTab.ViewModels;
 
 public sealed class AddOutputProfileViewModel
 {
@@ -11,7 +9,7 @@ public sealed class AddOutputProfileViewModel
     public AddOutputProfileViewModel(OutputTabViewModel outputTabViewModel)
     {
         _outputTabViewModel = outputTabViewModel;
-        AvailableExtensions = outputTabViewModel.GetExtensions(outputTabViewModel.EditViewModel.Scene.GetType());
+        AvailableExtensions = outputTabViewModel.GetExtensions(outputTabViewModel.Scene.GetType());
     }
 
     public ReactiveProperty<OutputExtension?> SelectedExtension { get; } = new();

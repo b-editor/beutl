@@ -2,6 +2,7 @@
 using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
 using Beutl.Editor;
+using Beutl.Editor.Components.OutputTab;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;

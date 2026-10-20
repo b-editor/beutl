@@ -50,6 +50,8 @@ public partial class EditViewModel
         .Add<IClipboardGateway>(() => _clipboardGateway)
         .Add<IPreviewPlayer>(() => Player)
         .Add<Beutl.Editor.Components.Helpers.IToolDockHost>(() => DockHost)
+        .Add<Beutl.Editor.Components.OutputTab.IOutputRunHost>(() => EditorService)
+        .Add<Beutl.Editor.Components.OutputTab.IOutputPresetStore>(() => OutputPresetService.Instance)
         .Add<PathEditorViewModel>(() => Player?.PathEditor)
         .Add<FrameCacheManager>(() => FrameCacheManager.Value)
         .Add<IBufferStatus>(() => BufferStatus)

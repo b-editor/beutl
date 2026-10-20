@@ -4,11 +4,10 @@ using System.Text.Json;
 using Beutl.Collections;
 using Beutl.Configuration;
 using Beutl.Controls.PropertyEditors;
-using Beutl.Services;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace Beutl.ViewModels.Tools;
+namespace Beutl.Editor.Components.OutputTab.ViewModels;
 
 public sealed class OutputPickerViewModel : IDisposable
 {

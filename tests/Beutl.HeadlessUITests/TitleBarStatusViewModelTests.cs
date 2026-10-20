@@ -4,6 +4,7 @@ using Avalonia.Threading;
 using Beutl.AgentHost;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.OutputTab;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.ProjectSystem;

@@ -8,10 +8,11 @@ using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.OutputTab.ViewModels;
+using Beutl.Editor.Components.OutputTab.Views;
 using Beutl.Language;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
 
 namespace Beutl.HeadlessUITests;
@@ -28,7 +29,7 @@ public class OutputTabBarTests
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("output-tab-bar");
         using var model = new OutputTabViewModel(editor);
-        var view = new OutputTab { DataContext = model };
+        var view = new OutputTabView { DataContext = model };
         var window = new Window
         {
             Content = view,

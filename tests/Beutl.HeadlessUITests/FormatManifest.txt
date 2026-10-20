@@ -1298,6 +1298,8 @@ Beutl.Utilities
   id: Beutl.Editor.Components.NodeGraphTab.NodeGraphTabExtension#<guid>
 [Beutl.Editor.Components].ObjectPropertyTab:ObjectPropertyTabExtension
   id: Beutl.Editor.Components.ObjectPropertyTab.ObjectPropertyTabExtension#<guid>
+[Beutl.Editor.Components].OutputTab:OutputTabExtension
+  id: Beutl.Editor.Components.OutputTab.OutputTabExtension
 [Beutl.Editor.Components].PathEditorTab:PathEditorTabExtension
   id: Beutl.Editor.Components.PathEditorTab.PathEditorTabExtension#<guid>
 [Beutl.Editor.Components].PreviewSettingsTab:PreviewSettingsTabExtension
@@ -1320,8 +1322,6 @@ Beutl.Utilities
   id: Beutl.Services.PrimitiveImpls.AiWorkspaceTabExtension#<guid>
 [Beutl].Services.PrimitiveImpls:MissingMediaTabExtension
   id: Beutl.Services.PrimitiveImpls.MissingMediaTabExtension
-[Beutl].Services.PrimitiveImpls:OutputTabExtension
-  id: Beutl.Services.PrimitiveImpls.OutputTabExtension
 
 ## Keymap
 # keymap.json: the id of every context command of every ViewExtension.
