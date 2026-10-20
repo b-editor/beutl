@@ -90,6 +90,7 @@ public class InlineKeyFrameDragTests
             }
 
             HeadlessTestHelpers.Settle(4);
+            Assert.That(editor.HistoryManager.IsEditing, Is.False, "The end closes the session before any release.");
             // The pointer no longer holds the key, so a further move or release changes nothing.
             graph.Window.MouseMove(moved + new Vector(45, 0), RawInputModifiers.LeftMouseButton);
             graph.Window.MouseUp(moved + new Vector(45, 0), MouseButton.Left);

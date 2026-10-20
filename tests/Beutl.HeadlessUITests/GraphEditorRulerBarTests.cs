@@ -187,6 +187,7 @@ public class GraphEditorRulerBarTests
         }
 
         HeadlessTestHelpers.Settle();
+        Assert.That(history.IsEditing, Is.False, "The end closes the session before any release.");
         graph.Window.MouseMove(OnRuler(240), RawInputModifiers.LeftMouseButton);
         graph.Window.MouseUp(OnRuler(240), MouseButton.Left);
         HeadlessTestHelpers.Settle();

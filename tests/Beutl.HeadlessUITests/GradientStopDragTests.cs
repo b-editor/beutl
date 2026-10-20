@@ -87,6 +87,7 @@ public sealed class GradientStopDragTests
             }
 
             HeadlessTestHelpers.Render(3);
+            Assert.That(history.History.IsEditing, Is.False, "The end closes the session before any release.");
             // The slider no longer drags the stop, so a further move or release changes nothing.
             window.MouseMove(start + new Vector(120, 0), RawInputModifiers.LeftMouseButton);
             window.MouseUp(start + new Vector(120, 0), MouseButton.Left);
@@ -155,6 +156,7 @@ public sealed class GradientStopDragTests
             }
 
             HeadlessTestHelpers.Render(3);
+            Assert.That(history.History.IsEditing, Is.False, "The end closes the session before any release.");
             window.MouseMove(start + new Vector(120, 0), RawInputModifiers.LeftMouseButton);
             window.MouseUp(start + new Vector(120, 0), MouseButton.Left);
             HeadlessTestHelpers.Render(3);

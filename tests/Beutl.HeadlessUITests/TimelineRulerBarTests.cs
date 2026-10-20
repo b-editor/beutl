@@ -21,7 +21,7 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class TimelineRulerBarTests
 {
-    public enum RulerDragEnd { CaptureLoss, Playback, Escape, Undo }
+    public enum RulerDragEnd { CaptureLoss, CaptureMoved, Playback, Escape, Undo }
 
     [AvaloniaTest]
     [TestCase("marker", RulerDragEnd.CaptureLoss)]
@@ -32,6 +32,8 @@ public class TimelineRulerBarTests
     [TestCase("end", RulerDragEnd.Playback)]
     [TestCase("end", RulerDragEnd.Escape)]
     [TestCase("end", RulerDragEnd.Undo)]
+    [TestCase("marker", RulerDragEnd.CaptureMoved)]
+    [TestCase("end", RulerDragEnd.CaptureMoved)]
     [TestCase("start", RulerDragEnd.CaptureLoss)]
     [TestCase("start", RulerDragEnd.Escape)]
     public async Task Capture_loss_and_playback_keep_a_ruler_drag_and_Escape_and_Undo_revert_it(string target, RulerDragEnd end)
@@ -66,11 +68,16 @@ public class TimelineRulerBarTests
         HeadlessTestHelpers.Render();
         Assert.That(Value(), Is.EqualTo(reached));
         Assert.That(history.IsEditing, Is.True, "The drag must hold an edit session.");
+        // The scale under the press holds the capture, inside the ruler bar that the drag watches.
+        Assert.That(pointer!.Captured, Is.SameAs(host.Ruler));
 
         switch (end)
         {
             case RulerDragEnd.CaptureLoss:
                 pointer!.Capture(null);
+                break;
+            case RulerDragEnd.CaptureMoved:
+                pointer!.Capture(host.Timeline);
                 break;
             case RulerDragEnd.Playback:
                 editor.Player.IsPlaying.Value = true;
@@ -87,12 +94,13 @@ public class TimelineRulerBarTests
         }
 
         HeadlessTestHelpers.Settle();
+        Assert.That(history.IsEditing, Is.False, "The end closes the session before any release.");
         // The pointer no longer holds the marker or bar, so a further move or release changes nothing.
         window.MouseMove(moved + new Vector(30, 0), RawInputModifiers.LeftMouseButton);
         window.MouseUp(moved + new Vector(30, 0), MouseButton.Left);
         HeadlessTestHelpers.Settle();
 
-        bool kept = end is RulerDragEnd.CaptureLoss or RulerDragEnd.Playback;
+        bool kept = end is RulerDragEnd.CaptureLoss or RulerDragEnd.CaptureMoved or RulerDragEnd.Playback;
         Assert.Multiple(() =>
         {
             Assert.That(Value(), Is.EqualTo(kept ? reached : initial));

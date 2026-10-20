@@ -234,6 +234,7 @@ public class NodeGraphDragTests
             }
 
             HeadlessTestHelpers.Render(3);
+            Assert.That(History.IsEditing, Is.False, "The end closes the session before any release.");
         }
 
         public void Dispose()

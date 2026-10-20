@@ -77,6 +77,7 @@ public class LayerHeaderDragTests
             }
 
             HeadlessTestHelpers.Settle(4);
+            Assert.That(editor.HistoryManager.IsEditing, Is.False, "The end closes the session before any release.");
             // The pointer no longer holds the header, so a further move or release changes nothing.
             Point further = moved + new Vector(0, FrameNumberHelper.LayerHeight);
             window.MouseMove(further, RawInputModifiers.LeftMouseButton);

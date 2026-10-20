@@ -164,6 +164,7 @@ public sealed class ColorPickerDragTests
             }
 
             HeadlessTestHelpers.Render();
+            Assert.That(history.History.IsEditing, Is.False, "The end closes the session before any release.");
             // Neither a further move nor the release recolors the brush.
             window.MouseMove(At(0.8, 0.2), RawInputModifiers.LeftMouseButton);
             window.MouseUp(At(0.8, 0.2), MouseButton.Left);
@@ -241,6 +242,7 @@ public sealed class ColorPickerDragTests
             }
 
             HeadlessTestHelpers.Render();
+            Assert.That(history.History.IsEditing, Is.False, "The end closes the session before any release.");
             window.MouseMove(start + new Vector(80, 0), RawInputModifiers.LeftMouseButton);
             window.MouseUp(start + new Vector(80, 0), MouseButton.Left);
             HeadlessTestHelpers.Render();

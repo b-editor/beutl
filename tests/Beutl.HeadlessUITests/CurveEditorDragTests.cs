@@ -112,6 +112,7 @@ public sealed class CurveEditorDragTests
             }
 
             HeadlessTestHelpers.Settle(4);
+            Assert.That(editor.HistoryManager.IsEditing, Is.False, "The end closes the session before any release.");
             // The editor no longer drags the point, so a further move or release changes nothing.
             window.MouseMove(At(0.7, 0.8), RawInputModifiers.LeftMouseButton);
             window.MouseUp(At(0.7, 0.8), MouseButton.Left);

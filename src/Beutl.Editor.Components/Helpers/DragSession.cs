@@ -25,7 +25,7 @@ internal sealed class DragSession
         _cancel = cancel;
     }
 
-    // Null when another gesture holds history. captureOwner holds the pointer capture or contains the control that does.
+    // Null when another gesture holds history. Capture loss reaches captureOwner when it or a descendant holds the capture.
     public static DragSession? Begin(
         IServiceProvider editor,
         Control captureOwner,
