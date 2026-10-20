@@ -100,67 +100,6 @@ public sealed class AiRequestKeyTests
     }
 
     [Test]
-    public void DispatchedExactOwnerCanWithdrawAfterAuthoritativeNoReservation()
-    {
-        var store = new FileAiRequestRecoveryStore(_directory);
-        var key = new AiRequestKey(
-            recoveryContext: RecoveryContext(store, () => "account"),
-            operation: "video.generate");
-        AiRequestName issued = key.NameFor("a prompt");
-        AiRequestRecoveryLease claim = key.TryClaim(issued)!;
-        key.MarkClaimDispatched(claim);
-        AiPendingAttempt pending = store.PendingFor("account", "video.generate").Single();
-
-        Assert.That(store.TryWithdraw(
-            pending.AccountId,
-            pending.Operation,
-            pending.Fingerprint,
-            pending.Key), Is.False,
-            "A caller without the dispatch owner cannot clear a paid-job fence.");
-
-        key.WithdrawAfterNoReservation(issued);
-        Assert.Multiple(() =>
-        {
-            Assert.That(store.Find(
-                pending.AccountId,
-                pending.Operation,
-                pending.Fingerprint), Is.Null);
-            Assert.That(claim.IsReleased, Is.True);
-        });
-
-        AiRequestName retry = key.NameFor("a prompt");
-        Assert.Multiple(() =>
-        {
-            Assert.That(retry.Key, Is.EqualTo(issued.Key));
-            Assert.That(retry.IsRepeat, Is.False);
-        });
-    }
-
-    [Test]
-    public void OwnerAuthorizedWithdrawalRequiresTheLiveDispatchLease()
-    {
-        var store = new FileAiRequestRecoveryStore(_directory);
-        var key = new AiRequestKey(
-            recoveryContext: RecoveryContext(store, () => "account"),
-            operation: "video.generate");
-        AiRequestName issued = key.NameFor("a prompt");
-        AiRequestRecoveryLease claim = key.TryClaim(issued)!;
-        key.MarkClaimDispatched(claim);
-        AiPendingAttempt pending = store.PendingFor("account", "video.generate").Single();
-
-        // Process loss releases the in-memory handle, but not the durable
-        // dispatched fence. A later call without the live owner must stay
-        // fail-closed until the provider outcome is known.
-        claim.Dispose();
-        key.WithdrawAfterNoReservation(issued);
-
-        Assert.That(store.Find(
-            pending.AccountId,
-            pending.Operation,
-            pending.Fingerprint), Is.Not.Null);
-    }
-
-    [Test]
     public void Retire_SettlesOneRequestAndLeavesTheOthersOutstanding()
     {
         // A が課金されたまま応答を落とし、入力を変えた B が成功する。B の決着で
@@ -295,17 +234,14 @@ public sealed class AiRequestKeyTests
         string operation,
         string? editTask)
     {
-        var firstStore = new FileAiRequestRecoveryStore(_directory);
         var first = new AiRequestKey(
-            recoveryContext: RecoveryContext(firstStore, () => "account"),
+            recoveryContext: RecoveryContext(new FileAiRequestKeyMap(_directory), () => "account"),
             operation: operation);
         string?[] parts = editTask is null ? ["prompt"] : [editTask, "prompt"];
         AiRequestName issued = first.NameFor(parts);
 
         var restarted = new AiRequestKey(
-            recoveryContext: RecoveryContext(
-                new FileAiRequestRecoveryStore(_directory),
-                () => "account"),
+            recoveryContext: RecoveryContext(new FileAiRequestKeyMap(_directory), () => "account"),
             operation: operation);
         AiRequestName recovered = restarted.NameFor(parts);
 
@@ -326,9 +262,8 @@ public sealed class AiRequestKeyTests
     public void RetireRemovesTheIssuingAccountAfterAnAccountSwitch()
     {
         string? account = "account-a";
-        var store = new FileAiRequestRecoveryStore(_directory);
         var key = new AiRequestKey(
-            recoveryContext: RecoveryContext(store, () => account),
+            recoveryContext: RecoveryContext(new FileAiRequestKeyMap(_directory), () => account),
             operation: "image.generate");
         AiRequestName issued = key.NameFor("prompt");
         account = "account-b";
@@ -338,14 +273,10 @@ public sealed class AiRequestKeyTests
         key.Retire(issued);
 
         var accountA = new AiRequestKey(
-            recoveryContext: RecoveryContext(
-                new FileAiRequestRecoveryStore(_directory),
-                () => "account-a"),
+            recoveryContext: RecoveryContext(new FileAiRequestKeyMap(_directory), () => "account-a"),
             operation: "image.generate");
         var accountB = new AiRequestKey(
-            recoveryContext: RecoveryContext(
-                new FileAiRequestRecoveryStore(_directory),
-                () => "account-b"),
+            recoveryContext: RecoveryContext(new FileAiRequestKeyMap(_directory), () => "account-b"),
             operation: "image.generate");
         Assert.Multiple(() =>
         {
@@ -358,9 +289,8 @@ public sealed class AiRequestKeyTests
     public void AccountSwitchBeforeSendFailsWithoutDeletingTheIssuedRecovery()
     {
         string? account = "account-a";
-        var store = new FileAiRequestRecoveryStore(_directory);
         var key = new AiRequestKey(
-            recoveryContext: RecoveryContext(store, () => account),
+            recoveryContext: RecoveryContext(new FileAiRequestKeyMap(_directory), () => account),
             operation: "image.generate");
         AiRequestName issued = key.NameFor("prompt");
         account = "account-b";
@@ -369,9 +299,7 @@ public sealed class AiRequestKeyTests
             key.EnterAuthenticatedScope(issued));
 
         var accountA = new AiRequestKey(
-            recoveryContext: RecoveryContext(
-                new FileAiRequestRecoveryStore(_directory),
-                () => "account-a"),
+            recoveryContext: RecoveryContext(new FileAiRequestKeyMap(_directory), () => "account-a"),
             operation: "image.generate");
         Assert.That(accountA.NameFor("prompt").Key, Is.EqualTo(issued.Key));
     }
@@ -379,9 +307,10 @@ public sealed class AiRequestKeyTests
     [Test]
     public void StoreFailureDoesNotPublishAnInMemoryOutstandingName()
     {
-        var store = new FileAiRequestRecoveryStore(_directory);
         var key = new AiRequestKey(
-            recoveryContext: RecoveryContext(store, () => "account"),
+            recoveryContext: RecoveryContext(
+                new FileAiRequestKeyMap(_directory) { LockTimeout = TimeSpan.Zero },
+                () => "account"),
             operation: "image.generate");
         string lockPath = Path.Combine(_directory, "ai-request-recovery.json.lock");
         using (var lease = new FileStream(
@@ -405,18 +334,15 @@ public sealed class AiRequestKeyTests
     [Test]
     public void RetireLeavesOtherDurableRequestNamesRecoverable()
     {
-        var store = new FileAiRequestRecoveryStore(_directory);
         var key = new AiRequestKey(
-            recoveryContext: RecoveryContext(store, () => "account"),
+            recoveryContext: RecoveryContext(new FileAiRequestKeyMap(_directory), () => "account"),
             operation: "image.generate");
         AiRequestName first = key.NameFor("first");
         AiRequestName second = key.NameFor("second");
         key.Retire(second);
 
         var restarted = new AiRequestKey(
-            recoveryContext: RecoveryContext(
-                new FileAiRequestRecoveryStore(_directory),
-                () => "account"),
+            recoveryContext: RecoveryContext(new FileAiRequestKeyMap(_directory), () => "account"),
             operation: "image.generate");
         Assert.Multiple(() =>
         {
@@ -427,38 +353,10 @@ public sealed class AiRequestKeyTests
     }
 
     [Test]
-    public void RestartedKeySettlingOneDurableRequestKeepsGateAndOtherModel()
-    {
-        var first = new AiRequestKey(
-            recoveryContext: RecoveryContext(new FileAiRequestRecoveryStore(_directory), () => "account"),
-            operation: "image.generate");
-        string?[] firstParts = ["p1", "", "", "", "model-a"];
-        string?[] secondParts = ["p2", "", "", "", "model-b"];
-        AiRequestName firstName = first.NameFor(firstParts);
-        _ = first.NameFor(secondParts);
-
-        var restarted = new AiRequestKey(
-            recoveryContext: RecoveryContext(new FileAiRequestRecoveryStore(_directory), () => "account"),
-            operation: "image.generate");
-        AiRequestName materialized = restarted.NameFor(firstParts);
-        restarted.Retire(materialized);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(restarted.HasOutstandingName.Value, Is.True);
-            Assert.That(restarted.PersistedModels(AiOperations.ImageGeneration),
-                Does.Contain(new AiModelId("model-b")));
-            Assert.That(materialized.Key, Is.EqualTo(firstName.Key));
-        });
-    }
-
-    [Test]
     public void RetireAllRemovesEveryDurableIdentityBeforeResettingMemory()
     {
         var key = new AiRequestKey(
-            recoveryContext: RecoveryContext(
-                new FileAiRequestRecoveryStore(_directory),
-                () => "account"),
+            recoveryContext: RecoveryContext(new FileAiRequestKeyMap(_directory), () => "account"),
             operation: "image.generate");
         AiRequestName first = key.NameFor("first");
         AiRequestName second = key.NameFor("second");
@@ -466,9 +364,7 @@ public sealed class AiRequestKeyTests
         key.Retire();
 
         var restarted = new AiRequestKey(
-            recoveryContext: RecoveryContext(
-                new FileAiRequestRecoveryStore(_directory),
-                () => "account"),
+            recoveryContext: RecoveryContext(new FileAiRequestKeyMap(_directory), () => "account"),
             operation: "image.generate");
         Assert.Multiple(() =>
         {
@@ -478,321 +374,33 @@ public sealed class AiRequestKeyTests
     }
 
     [Test]
-    public void DurableRecoveryOpensCommandGateButOnlyExactFingerprintIsRepeat()
+    public void PendingRowsFromAnEarlierRunAreListedButHoldNothingOpen()
     {
         var first = new AiRequestKey(
-            recoveryContext: RecoveryContext(
-                new FileAiRequestRecoveryStore(_directory),
-                () => "account"),
+            recoveryContext: RecoveryContext(new FileAiRequestKeyMap(_directory), () => "account"),
             operation: "image.generate");
         AiRequestName paid = first.NameFor("paid prompt");
 
         var restarted = new AiRequestKey(
-            recoveryContext: RecoveryContext(
-                new FileAiRequestRecoveryStore(_directory),
-                () => "account"),
+            recoveryContext: RecoveryContext(new FileAiRequestKeyMap(_directory), () => "account"),
             operation: "image.generate");
         bool gateWasOpen = restarted.HasOutstandingName.Value;
         AiRequestName unrelated = restarted.NameFor("another prompt");
 
         Assert.Multiple(() =>
         {
-            Assert.That(gateWasOpen, Is.True);
+            Assert.That(gateWasOpen, Is.False, "the earlier request is collected through the lookup, not by sending again");
+            Assert.That(restarted.PendingAttempts(AiOperations.ImageGeneration).Select(row => row.Key), Does.Contain(paid.Key));
             Assert.That(unrelated.IsRepeat, Is.False);
             Assert.That(unrelated.Key, Is.Not.EqualTo(paid.Key));
         });
     }
 
     [Test]
-    public void DispatchedRecoveryCanResumeWithTheSameLocalOwner()
-    {
-        var firstStore = new FileAiRequestRecoveryStore(_directory);
-        var first = new AiRequestKey(
-            recoveryContext: RecoveryContext(firstStore, () => "account"),
-            operation: "video.generate");
-        AiRequestName issued = first.NameFor("prompt");
-        AiRequestRecoveryLease original = first.TryClaim(issued)!;
-        first.MarkClaimDispatched(original);
-        string owner = original.OwnerToken;
-        original.Dispose();
-        AiPendingAttempt pending = first.PendingAttempts(AiOperations.VideoGeneration).Single();
-
-        var competingStore = new FileAiRequestRecoveryStore(_directory);
-        AiRequestRecoveryLease? competing = competingStore.Claim(
-            pending.AccountId, pending.Operation, pending.Fingerprint, issued.Key);
-        Assert.That(competing, Is.Null);
-
-        AiRequestName retry = first.NameFor("prompt");
-        AiRequestRecoveryLease? resumed = first.TryClaim(retry);
-        Assert.That(resumed, Is.Not.Null);
-        Assert.That(resumed!.OwnerToken, Is.EqualTo(owner));
-
-        first.Retire(retry);
-        Assert.That(competingStore.Find(
-            pending.AccountId,
-            pending.Operation,
-            pending.Fingerprint), Is.Null);
-    }
-
-    // A request went out without a known result, and its dialog was closed, or the AI tab reopened.
-    // The new dialog's key adopts the dispatched fence at once instead of after its lifetime, while
-    // another process still waits for the fence to expire.
-    [Test]
-    public void NewKeyInTheSameProcessTakesOverTheDispatchedClaimOfADisposedKey()
-    {
-        var store = new FileAiRequestRecoveryStore(_directory);
-        AiRequestRecoveryContext context = RecoveryContext(store, () => "account");
-        var first = new AiRequestKey(recoveryContext: context, operation: "image.generate");
-        AiRequestName issued = first.NameFor("prompt");
-        AiRequestRecoveryLease original = first.TryClaim(issued)!;
-        first.MarkClaimDispatched(original);
-        original.Dispose();
-        first.Dispose();
-
-        var second = new AiRequestKey(recoveryContext: context, operation: "image.generate");
-        AiRequestName resumed = second.NameFor("prompt");
-        AiRequestRecoveryLease? adopted = second.TryClaim(resumed);
-        AiPendingAttempt pending = store.PendingFor("account", "image.generate").Single();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(resumed.Key, Is.EqualTo(issued.Key));
-            Assert.That(resumed.IsRepeat, Is.True);
-            Assert.That(adopted, Is.Not.Null);
-            Assert.That(adopted?.IsDispatched, Is.True);
-            Assert.That(adopted?.OwnerToken, Is.Not.EqualTo(original.OwnerToken));
-            Assert.That(
-                new FileAiRequestRecoveryStore(_directory).Claim(
-                    pending.AccountId,
-                    pending.Operation,
-                    pending.Fingerprint,
-                    pending.Key),
-                Is.Null,
-                "Another process still waits for the fence to expire.");
-        });
-
-        Assert.That(second.Retire(resumed), Is.True);
-        Assert.That(store.Find(pending.AccountId, pending.Operation, pending.Fingerprint), Is.Null);
-        second.Dispose();
-    }
-
-    // A reference image changed after the request went out without a known result, so the attempt
-    // can never be sent again. Abandoning it gives up only the way back through the form, because the
-    // job stays in the account's AI job list.
-    [Test]
-    public void DispatchedAttemptWhoseSourceChangedCanBeAbandoned()
-    {
-        var store = new FileAiRequestRecoveryStore(_directory);
-        var key = new AiRequestKey(
-            recoveryContext: RecoveryContext(store, () => "account"),
-            operation: "image.generate");
-        string inputs = Directory.CreateDirectory(Path.Combine(_directory, "inputs")).FullName;
-        string referencePath = Path.Combine(inputs, "reference.png");
-        File.WriteAllBytes(referencePath, [1, 2, 3]);
-        byte[] reference = File.ReadAllBytes(referencePath);
-        AiRequestRecoverySource source = FileAiRequestRecoveryStore.CreateExternalSource(
-            "reference",
-            referencePath,
-            "reference.png",
-            reference);
-        AiRequestName issued = key.NameFor(
-            ["prompt", AiRequestKey.FileStamp("reference.png", reference)],
-            new AiRequestFormSnapshot(Prompt: "prompt"),
-            [source]);
-        AiRequestRecoveryLease claim = key.TryClaim(issued)!;
-        key.MarkClaimDispatched(claim);
-        claim.Dispose();
-        AiPendingAttempt pending = store.PendingFor("account", "image.generate").Single();
-        File.WriteAllBytes(referencePath, [4, 5, 6]);
-        Assert.Throws<InvalidDataException>(() => key.ResolveSources(pending));
-
-        key.Abandon(pending);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(store.Find(pending.AccountId, pending.Operation, pending.Fingerprint), Is.Null);
-            Assert.That(
-                File.ReadAllText(Path.Combine(_directory, "ai-request-recovery-claims.json")),
-                Does.Not.Contain(pending.Key));
-            Assert.That(key.HasOutstandingName.Value, Is.False);
-        });
-        key.Dispose();
-    }
-
-    [Test]
-    public void ExpiredDispatchedFenceRejectsCompetingClaimButExactOwnerCanSettle()
-    {
-        DateTimeOffset now = DateTimeOffset.UtcNow;
-        var firstStore = new FileAiRequestRecoveryStore(_directory, () => now);
-        var key = new AiRequestKey(
-            recoveryContext: RecoveryContext(firstStore, () => "account"),
-            operation: "video.generate");
-        AiRequestName issued = key.NameFor("prompt");
-        AiRequestRecoveryLease owner = key.TryClaim(issued)!;
-        key.MarkClaimDispatched(owner);
-        AiPendingAttempt pending = firstStore.PendingFor("account", "video.generate").Single();
-        owner.Dispose();
-
-        now = now.AddMinutes(16);
-        var restartedStore = new FileAiRequestRecoveryStore(_directory, () => now);
-        Assert.Throws<InvalidDataException>(() => restartedStore.Claim(
-            pending.AccountId,
-            pending.Operation,
-            pending.Fingerprint,
-            pending.Key + "-wrong"));
-        AiRequestRecoveryLease adopted = restartedStore.Claim(
-            pending.AccountId,
-            pending.Operation,
-            pending.Fingerprint,
-            pending.Key)!;
-        Assert.That(adopted, Is.Not.Null);
-        Assert.Multiple(() =>
-        {
-            Assert.That(adopted.IsDispatched, Is.True);
-            Assert.That(adopted.OwnerToken, Is.Not.EqualTo(owner.OwnerToken));
-            Assert.That(adopted.Generation, Is.EqualTo(owner.Generation));
-            Assert.That(owner.Renew(), Is.False);
-            Assert.That(restartedStore.TrySettle(
-                pending.AccountId,
-                pending.Operation,
-                pending.Fingerprint,
-                pending.Key,
-                owner.OwnerToken,
-                owner.Generation), Is.False);
-            Assert.That(restartedStore.TrySettle(
-                pending.AccountId,
-                pending.Operation,
-                pending.Fingerprint,
-                pending.Key,
-                adopted.OwnerToken,
-                adopted.Generation + 1), Is.False);
-            Assert.That(restartedStore.TrySettle(
-                pending.AccountId,
-                pending.Operation,
-                pending.Fingerprint,
-                pending.Key,
-                adopted.OwnerToken,
-                adopted.Generation), Is.True);
-        });
-        Assert.That(restartedStore.Find(
-            pending.AccountId,
-            pending.Operation,
-            pending.Fingerprint), Is.Null);
-        adopted.Dispose();
-        owner.Dispose();
-    }
-
-    [Test]
-    public void ReacquireFailureRollsBackStateSoDisposeTerminates()
-    {
-        var store = new FileAiRequestRecoveryStore(_directory);
-        var key = new AiRequestKey(
-            recoveryContext: RecoveryContext(store, () => "account"),
-            operation: "image.generate");
-        AiRequestName issued = key.NameFor("prompt");
-        AiRequestRecoveryLease claim = key.TryClaim(issued)!;
-        key.MarkClaimDispatched(claim);
-        claim.Dispose();
-
-        File.WriteAllText(Path.Combine(_directory, "ai-request-recovery-claims.json"), "not-json");
-        Assert.Throws<InvalidDataException>(() => claim.Reacquire());
-
-        Task dispose = Task.Run(claim.Dispose);
-        Assert.That(dispose.Wait(TimeSpan.FromSeconds(2)), Is.True,
-            "Dispose must not spin after a failed reacquire.");
-    }
-
-    [Test]
-    public void DisposeWaitsUntilReacquirePublishesItsRenewalTimer()
-    {
-        using var entered = new ManualResetEventSlim();
-        using var release = new ManualResetEventSlim();
-        try
-        {
-            var store = new FileAiRequestRecoveryStore(_directory);
-            var key = new AiRequestKey(
-                recoveryContext: RecoveryContext(store, () => "account"),
-                operation: "image.generate");
-            AiRequestName issued = key.NameFor("prompt");
-            AiRequestRecoveryLease claim = key.TryClaim(issued)!;
-            key.MarkClaimDispatched(claim);
-            claim.Dispose();
-            claim.BeforeReacquirePublish = () =>
-            {
-                entered.Set();
-                release.Wait();
-            };
-
-            Task<bool> reacquire = Task.Run(claim.Reacquire);
-            Assert.That(entered.Wait(TimeSpan.FromSeconds(2)), Is.True);
-            Task dispose = Task.Run(claim.Dispose);
-            Assert.That(dispose.Wait(TimeSpan.FromMilliseconds(50)), Is.False,
-                "Dispose must wait while timer and dispatched state are being published.");
-
-            release.Set();
-            Assert.That(reacquire.Wait(TimeSpan.FromSeconds(2)), Is.True);
-            Assert.That(reacquire.Result, Is.True);
-            Assert.That(dispose.Wait(TimeSpan.FromSeconds(2)), Is.True);
-            Assert.Multiple(() =>
-            {
-                Assert.That(claim.IsReleased, Is.True);
-                Assert.That(claim.Renew(), Is.False);
-            });
-        }
-        finally
-        {
-            release.Set();
-        }
-    }
-
-    [Test]
-    public void ReacquireLockFailureRollsBackStateSoDisposeTerminates()
-    {
-        var store = new FileAiRequestRecoveryStore(_directory);
-        var key = new AiRequestKey(
-            recoveryContext: RecoveryContext(store, () => "account"),
-            operation: "image.generate");
-        AiRequestName issued = key.NameFor("prompt");
-        AiRequestRecoveryLease claim = key.TryClaim(issued)!;
-        key.MarkClaimDispatched(claim);
-        claim.Dispose();
-
-        string lockPath = Path.Combine(_directory, "ai-request-recovery.json.lock");
-        using var heldLock = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-        Assert.Throws<InvalidDataException>(() => claim.Reacquire());
-
-        Task dispose = Task.Run(claim.Dispose);
-        Assert.That(dispose.Wait(TimeSpan.FromSeconds(2)), Is.True,
-            "Dispose must not spin after a failed lock acquisition.");
-    }
-
-    [Test]
-    public void BulkSettlementCannotRemoveDispatchedRows()
-    {
-        var store = new FileAiRequestRecoveryStore(_directory);
-        var key = new AiRequestKey(
-            recoveryContext: RecoveryContext(store, () => "account"),
-            operation: "video.generate");
-        AiRequestName first = key.NameFor("first");
-        _ = key.NameFor("second");
-        AiRequestRecoveryLease claim = key.TryClaim(first)!;
-        key.MarkClaimDispatched(claim);
-        AiPendingAttempt[] pending = store.PendingFor("account", "video.generate").ToArray();
-
-        Assert.Throws<InvalidDataException>(() => store.SettleMany(
-            "account",
-            "video.generate",
-            pending));
-        Assert.That(store.PendingFor("account", "video.generate"), Has.Count.EqualTo(2));
-        Assert.That(store.Find("account", "video.generate", pending.Single(item => item.Key == first.Key).Fingerprint), Is.Not.Null);
-        claim.Dispose();
-    }
-
-    [Test]
-    public void ExplicitAbandonAdvancesGenerationAndLeavesOtherAccountUntouched()
+    public void SettleAdvancesTheNameAndLeavesOtherAccountUntouched()
     {
         string? account = "account-a";
-        var store = new FileAiRequestRecoveryStore(_directory);
+        var store = new FileAiRequestKeyMap(_directory);
         var keyA = new AiRequestKey(
             recoveryContext: RecoveryContext(store, () => account),
             operation: "image.generate");
@@ -805,39 +413,29 @@ public sealed class AiRequestKeyTests
 
         account = "account-a";
         AiPendingAttempt pendingA = store.PendingFor("account-a", "image.generate").Single();
-        keyA.Abandon(pendingA);
+        keyA.Settle(pendingA);
         AiRequestName next = keyA.NameFor("same");
 
         Assert.Multiple(() =>
         {
             Assert.That(next.Key, Is.Not.EqualTo(abandoned.Key));
             Assert.That(next.IsRepeat, Is.False);
-            Assert.That(store.Find("account-b", "image.generate", pendingA.Fingerprint)?.Key,
-                Is.EqualTo(other.Key));
+            Assert.That(store.PendingFor("account-b", "image.generate").Single().Key, Is.EqualTo(other.Key));
         });
     }
 
     [Test]
-    public void AbandonTreatsAConcurrentSettlementAsIdempotentSuccess()
+    public void SettleAfterAnotherProcessSettledTheRowStillStartsAFreshName()
     {
-        var store = new FileAiRequestRecoveryStore(_directory);
-        var otherProcess = new FileAiRequestRecoveryStore(_directory);
+        var store = new FileAiRequestKeyMap(_directory);
         var key = new AiRequestKey(
-            seed: "stable-seed",
             recoveryContext: RecoveryContext(store, () => "account"),
             operation: "image.generate");
         AiRequestName issued = key.NameFor("same");
         AiPendingAttempt pending = store.PendingFor("account", "image.generate").Single();
-        key.BeforeAbandonPersistedRemoval = () =>
-        {
-            Assert.That(otherProcess.TrySettle(
-                pending.AccountId,
-                pending.Operation,
-                pending.Fingerprint,
-                pending.Key), Is.True);
-        };
+        Assert.That(new FileAiRequestKeyMap(_directory).Remove(pending), Is.True);
 
-        Assert.DoesNotThrow(() => key.Abandon(pending));
+        Assert.DoesNotThrow(() => key.Settle(pending));
         AiRequestName next = key.NameFor("same");
         Assert.Multiple(() =>
         {
@@ -848,184 +446,50 @@ public sealed class AiRequestKeyTests
     }
 
     [Test]
-    public void StaleRetireAndWithdrawCannotDeleteNewGeneration()
+    public void ANameCollectedElsewhereIsSpent()
     {
-        string? account = "account";
-        var store = new FileAiRequestRecoveryStore(_directory);
+        var store = new FileAiRequestKeyMap(_directory);
+        var sender = new AiRequestKey(
+            recoveryContext: RecoveryContext(store, () => "account"),
+            operation: "image.generate");
+        AiRequestName lost = sender.NameFor("same");
+        // Another tab collects the job through the lookup and lets its row go.
+        Assert.That(store.Remove(store.PendingFor("account", "image.generate").Single()), Is.True);
+
+        AiRequestName next = sender.NameFor("same");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(next.Key, Is.Not.EqualTo(lost.Key), "the collected job would answer under the old name");
+            Assert.That(next.IsRepeat, Is.False);
+        });
+    }
+
+    [Test]
+    public void StaleRetireAndWithdrawCannotDeleteANewerRow()
+    {
+        var store = new FileAiRequestKeyMap(_directory);
         var first = new AiRequestKey(
-            recoveryContext: RecoveryContext(store, () => account),
+            recoveryContext: RecoveryContext(store, () => "account"),
             operation: "image.generate");
         AiRequestName oldName = first.NameFor("same");
         var stale = new AiRequestKey(
-            recoveryContext: RecoveryContext(store, () => account),
+            recoveryContext: RecoveryContext(store, () => "account"),
             operation: "image.generate");
         _ = stale.NameFor("same");
         AiPendingAttempt oldAttempt = store.PendingFor("account", "image.generate").Single();
-        first.Abandon(oldAttempt);
+        first.Settle(oldAttempt);
         AiRequestName currentName = first.NameFor("same");
 
         AiRequestName materializedOld = new(oldName.Key, true);
         stale.Retire(materializedOld);
         stale.WithdrawAfterNoReservation(materializedOld);
 
-        Assert.That(store.Find("account", "image.generate", oldAttempt.Fingerprint)?.Key,
-            Is.EqualTo(currentName.Key));
-    }
-
-    [Test]
-    public void RetireReportsCasFailureAndKeepsOutstandingName()
-    {
-        var store = new FileAiRequestRecoveryStore(_directory);
-        var other = new FileAiRequestRecoveryStore(_directory);
-        var key = new AiRequestKey(
-            recoveryContext: RecoveryContext(store, () => "account"),
-            operation: "image.generate");
-        AiRequestName issued = key.NameFor("same");
-        AiPendingAttempt pending = store.PendingFor("account", "image.generate").Single();
-
-        Assert.That(other.TrySettle(
-            pending.AccountId,
-            pending.Operation,
-            pending.Fingerprint,
-            pending.Key), Is.True);
-        other.WriteOrGet(pending with { Key = "new-owner-key" });
-
-        Assert.That(key.Retire(issued), Is.False);
-        Assert.Multiple(() =>
-        {
-            Assert.That(key.HasOutstandingName.Value, Is.True);
-            Assert.That(store.Find("account", "image.generate", pending.Fingerprint)?.Key,
-                Is.EqualTo("new-owner-key"));
-        });
-
-        AiRequestName current = key.NameFor("same");
-        Assert.That(current.Key, Is.EqualTo("new-owner-key"));
-        Assert.That(key.Retire(current), Is.True);
-        Assert.That(key.HasOutstandingName.Value, Is.False);
-    }
-
-    [Test]
-    public void WithdrawAfterNoReservationReportsCasFailureAndKeepsOutstandingName()
-    {
-        var store = new FileAiRequestRecoveryStore(_directory);
-        var other = new FileAiRequestRecoveryStore(_directory);
-        var key = new AiRequestKey(
-            recoveryContext: RecoveryContext(store, () => "account"),
-            operation: "video.generate");
-        AiRequestName issued = key.NameFor("same");
-        AiPendingAttempt pending = store.PendingFor("account", "video.generate").Single();
-
-        Assert.That(other.TryWithdraw(
-            pending.AccountId,
-            pending.Operation,
-            pending.Fingerprint,
-            pending.Key), Is.True);
-        other.WriteOrGet(pending with { Key = "new-owner-key" });
-
-        Assert.That(key.WithdrawAfterNoReservation(issued), Is.False);
-        Assert.Multiple(() =>
-        {
-            Assert.That(key.HasOutstandingName.Value, Is.True);
-            Assert.That(store.Find("account", "video.generate", pending.Fingerprint)?.Key,
-                Is.EqualTo("new-owner-key"));
-        });
-    }
-
-    [Test]
-    public void BulkRetireReportsCasFailureWithoutClearingOtherOutstandingNames()
-    {
-        var store = new FileAiRequestRecoveryStore(_directory);
-        var other = new FileAiRequestRecoveryStore(_directory);
-        var key = new AiRequestKey(
-            recoveryContext: RecoveryContext(store, () => "account"),
-            operation: "image.generate");
-        _ = key.NameFor("first");
-        _ = key.NameFor("second");
-        AiPendingAttempt[] pending = store.PendingFor("account", "image.generate").ToArray();
-        AiPendingAttempt replaced = pending[0];
-        Assert.That(other.TrySettle(
-            replaced.AccountId,
-            replaced.Operation,
-            replaced.Fingerprint,
-            replaced.Key), Is.True);
-        other.WriteOrGet(replaced with { Key = "new-owner-key" });
-
-        Assert.That(key.Retire(), Is.False);
-        Assert.That(key.HasOutstandingName.Value, Is.True);
-        Assert.That(store.PendingFor("account", "image.generate"), Has.Count.EqualTo(2));
-    }
-
-    [Test]
-    public void BulkRetireDoesNotDiscardUnmaterializedDurableRecovery()
-    {
-        var store = new FileAiRequestRecoveryStore(_directory);
-        store.WriteOrGet(new AiPendingAttempt(
-            "account", "image.generate", "same", "persisted-key", null,
-            new AiRequestFormSnapshot(Prompt: "same")));
-        var key = new AiRequestKey(
-            seed: "stable-seed",
-            recoveryContext: RecoveryContext(store, () => "account"),
-            operation: "image.generate");
-
-        Assert.That(key.Retire(), Is.False);
-        Assert.That(store.Find("account", "image.generate", "same"), Is.Not.Null);
-        Assert.That(key.HasOutstandingName.Value, Is.True);
-    }
-
-    [Test]
-    public void BulkRetireDoesNotSettleMaterializedSubsetOfDurableRun()
-    {
-        var store = new FileAiRequestRecoveryStore(_directory);
-        var key = new AiRequestKey(
-            recoveryContext: RecoveryContext(store, () => "account"),
-            operation: "image.generate");
-        _ = key.NameFor("materialized");
-        store.WriteOrGet(new AiPendingAttempt(
-            "account", "image.generate", "not-materialized", "other-key", null,
-            new AiRequestFormSnapshot(Prompt: "other")));
-        AiPendingAttempt[] before = store.PendingFor("account", "image.generate").ToArray();
-
-        Assert.That(key.Retire(), Is.False);
-        Assert.Multiple(() =>
-        {
-            Assert.That(key.HasOutstandingName.Value, Is.True);
-            Assert.That(
-                store.PendingFor("account", "image.generate")
-                    .Select(static item => (item.AccountId, item.Operation, item.Fingerprint, item.Key)),
-                Is.EquivalentTo(before.Select(static item =>
-                    (item.AccountId, item.Operation, item.Fingerprint, item.Key))));
-        });
-    }
-
-    [Test]
-    public void AbandonGenerationSurvivesAProcessRestartWithTheSameSeed()
-    {
-        var first = new AiRequestKey(
-            seed: "stable-seed",
-            recoveryContext: RecoveryContext(
-                new FileAiRequestRecoveryStore(_directory),
-                () => "account"),
-            operation: "image.generate");
-        AiRequestName oldName = first.NameFor("same");
-        AiPendingAttempt pending = first.PendingAttempts(AiOperations.ImageGeneration).Single();
-        first.Abandon(pending);
-
-        var restarted = new AiRequestKey(
-            seed: "stable-seed",
-            recoveryContext: RecoveryContext(
-                new FileAiRequestRecoveryStore(_directory),
-                () => "account"),
-            operation: "image.generate");
-        AiRequestName next = restarted.NameFor("same");
-        Assert.Multiple(() =>
-        {
-            Assert.That(next.Key, Is.Not.EqualTo(oldName.Key));
-            Assert.That(next.IsRepeat, Is.False);
-        });
+        Assert.That(store.PendingFor("account", "image.generate").Single().Key, Is.EqualTo(currentName.Key));
     }
 
     private static AiRequestRecoveryContext RecoveryContext(
-        FileAiRequestRecoveryStore store,
+        FileAiRequestKeyMap store,
         Func<string?> accountProvider)
         => new(
             store,

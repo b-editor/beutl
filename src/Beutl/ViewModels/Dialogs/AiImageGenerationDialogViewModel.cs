@@ -33,6 +33,8 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
     private readonly IAiPlanCoordinator _aiPlanCoordinator;
     private readonly IAiImageGenerationService _images;
     private readonly IAuthenticatedContentService _content;
+    private readonly IAiJobClient _jobs;
+    private readonly IAiJobKindRegistry _jobKinds;
     private readonly AiRequestKey _requestKey;
     private readonly AiRequestRecoveryContext _requestRecoveryContext;
     // Preserve the user's choices separately from the displayed values, which are narrowed when
@@ -55,6 +57,8 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
         IAiPlanCoordinator aiPlanCoordinator,
         IAiImageGenerationService images,
         IAuthenticatedContentService content,
+        IAiJobClient jobs,
+        IAiJobKindRegistry jobKinds,
         EditViewModel? editViewModel,
         AiRequestRecoveryContext requestRecoveryContext)
     {
@@ -65,6 +69,8 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
             ?? throw new ArgumentNullException(nameof(aiPlanCoordinator));
         _images = images ?? throw new ArgumentNullException(nameof(images));
         _content = content ?? throw new ArgumentNullException(nameof(content));
+        _jobs = jobs ?? throw new ArgumentNullException(nameof(jobs));
+        _jobKinds = jobKinds ?? throw new ArgumentNullException(nameof(jobKinds));
         _editViewModel = editViewModel;
         _requestRecoveryContext = requestRecoveryContext;
         _requestKey = new(
@@ -75,15 +81,13 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
             .DisposeWith(_disposables);
         _recovery = new AiRecoveryState(
             _requestKey,
-            ModelPicker,
             AiOperations.ImageGeneration,
             Error,
             new AiRecoveryLogs(
                 ex => _logger.LogError(ex, "Failed to read image-generation recovery attempts."),
                 ex => _logger.LogError(ex, "Failed to clear image-generation state after an account change."),
                 ex => _logger.LogWarning(ex, "Failed to abandon image-generation recovery attempt.")),
-            TryRecoverPendingAttempt,
-            () => ApplyModelCapabilities(ModelPicker.Selected.Value?.Model));
+            CollectAsync);
         EstimatedUsage = new AiUsageEstimateViewModel(
                 Usage,
                 _entitlements.Entitlements.Select(value =>
@@ -136,7 +140,6 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
         // The shape and the background follow the chosen model, so replacing the
         // list under an outstanding name would rewrite the request waiting to be
         // collected.
-        ModelPicker.KeepOffered = operation => _requestKey.PersistedModels(operation);
         ModelPicker.CanReload = _ => !_requestKey.HasOutstandingName.Value;
 
         SelectReferenceImage = new AsyncReactiveCommand()
@@ -176,13 +179,8 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
             .CombineLatest(IsGenerating, (error, generating) => error is null && !generating)
             .WhenAffordable(EstimatedUsage.CanAfford, _requestKey.HasOutstandingName)
             .WhenSomeModelUsable(ModelPicker.OffersNothingUsable, _requestKey.HasOutstandingName)
-            .CombineLatest(
-                ModelPicker.Selected,
-                _recovery.Revision,
-                // An unavailable choice cannot start new work. An outstanding request remains
-                // collectable on its retained model because the server resolves its name before
-                // checking current affordability.
-                (can, selected, _) => can && CanUseSelectedModel(selected))
+            // An unavailable choice cannot start new work; a pending request is collected from the panel.
+            .CombineLatest(ModelPicker.Selected, (can, selected) => can && selected?.IsAvailable != false)
             .WhenModelsLoaded(ModelPicker.IsLoaded)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -382,12 +380,8 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
             IEnumerable<string> aspectRatios = !image.AspectRatios.IsSpecified
                 ? DefaultAspectRatios
                 : image.AspectRatios.Values;
-            var availableAspectRatios = aspectRatios.ToList();
-            if (_recovery.Active?.Form?.AspectRatio is { } recoveredAspect
-                && !availableAspectRatios.Contains(recoveredAspect, StringComparer.Ordinal))
-                availableAspectRatios.Add(recoveredAspect);
             AspectRatioOptions.Replace(
-                availableAspectRatios.Select(value => new AiImageAspectRatioOption(value)));
+                aspectRatios.Select(value => new AiImageAspectRatioOption(value)));
             SelectedAspectRatio.Value =
                 AspectRatioOptions.FirstOrDefault(option => option.Value == _chosenAspectRatio?.Value)
                 ?? AiAspectRatioSuggestion.Choose(AspectRatioOptions, option => option.Value, _editViewModel?.Scene.FrameSize);
@@ -395,34 +389,23 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
             IEnumerable<string> backgrounds = !image.Backgrounds.IsSpecified
                 ? DefaultBackgrounds
                 : image.Backgrounds.Values;
-            var availableBackgrounds = backgrounds.ToList();
-            if (_recovery.Active?.Form?.Background is { } recoveredBackground
-                && !availableBackgrounds.Contains(recoveredBackground, StringComparer.Ordinal))
-                availableBackgrounds.Add(recoveredBackground);
             BackgroundOptions.Replace(
-                availableBackgrounds.Select(value => new AiImageBackgroundOption(value)));
+                backgrounds.Select(value => new AiImageBackgroundOption(value)));
             // Falling back to the first, which is always "leave it to the
             // model": keeping a background the new model does not take would be
             // refused after the usage was reserved.
             SelectedBackground.Value =
                 BackgroundOptions.FirstOrDefault(option => option.Value == _chosenBackground?.Value)
                 ?? BackgroundOptions[0];
-            HasBackgroundChoice.Value = _recovery.Active?.Form?.HasBackgroundChoice
-                ?? BackgroundOptions.Count > 1;
-            SupportsSeed.Value = _recovery.Active?.Form?.SupportsSeed
-                ?? image.SupportsSeed;
+            HasBackgroundChoice.Value = BackgroundOptions.Count > 1;
+            SupportsSeed.Value = image.SupportsSeed;
             Seed.Value = SupportsSeed.Value ? _chosenSeed : null;
             // The model publishes its own count and the price covers a fixed
             // one; whichever is smaller is what may actually be sent, and
             // anything the new model will not take is set aside rather than
             // refused after the usage has been reserved.
-            int maxReferences = Math.Clamp(
-                _recovery.Active?.Form?.MaxReferenceImages
-                    ?? image.MaxReferenceImages,
-                0,
-                AiRequestLimits.MaxImageReferences);
-            SupportsReferenceImage.Value = _recovery.Active?.Form?.SupportsReferenceImage
-                ?? maxReferences > 0;
+            int maxReferences = Math.Clamp(image.MaxReferenceImages, 0, AiRequestLimits.MaxImageReferences);
+            SupportsReferenceImage.Value = maxReferences > 0;
             if (!SupportsReferenceImage.Value)
                 maxReferences = 0;
             MaxReferenceImages.Value = maxReferences;
@@ -489,7 +472,6 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
             await ModelPicker.LoadAsync(
                 AiOperations.ImageGeneration,
                 operation.CancellationToken);
-            _recovery.SelectRecoveredModel();
             TrimReferenceImagesToLimit();
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
@@ -514,13 +496,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
             // under an outstanding name, whose request the picker names.
             if (!ModelPicker.IsLoaded.Value || !_requestKey.HasOutstandingName.Value)
             {
-                AiOperationId op = AiOperations.ImageGeneration;
-                await ModelPicker.LoadAsync(
-                    op,
-                    _requestKey.PreferredPersistedModel(op),
-                    _requestKey.HasExplicitNullPersistedModel(op),
-                    operation.CancellationToken);
-                _recovery.SelectRecoveredModel();
+                await ModelPicker.LoadAsync(AiOperations.ImageGeneration, operation.CancellationToken);
                 TrimReferenceImagesToLimit();
             }
         }
@@ -551,10 +527,6 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
         try
         {
             string prompt = ComposePrompt();
-            string promptField = Prompt.Value;
-            string style = Style.Value;
-            string composition = Composition.Value;
-            string exclusions = Exclusions.Value;
             string aspectRatio = SelectedAspectRatio.Value.Value;
             string[] referencePaths = ReferenceImages.Select(reference => reference.Path).ToArray();
             string background = SelectedBackground.Value.Value;
@@ -562,20 +534,16 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
             // Every picture is part of what makes this request the request it
             // is, so each one is named in the key: the same prompt guided by
             // different pictures is a different run and costs its own.
-            AiImageReferenceLimits referenceLimits = _recovery.Active?.Form?.MaxReferenceTotalBytes
-                is { } persistedReferenceLimit
-                ? new AiImageReferenceLimits(persistedReferenceLimit)
-                : ModelPicker.ImageReferenceLimits;
+            AiImageReferenceLimits referenceLimits = ModelPicker.ImageReferenceLimits;
             // Read once, and named by that reading. Reading again to send would
             // name one set of bytes and upload another if a picture changed in
             // between, and the answer would be recorded under a name that
             // describes something else.
-            (AiUploadSource[] references, string[] referenceStamps, AiRequestRecoverySource[] recoverySources) =
+            (AiUploadSource[] references, string[] referenceStamps) =
                 await ReadReferencesAsync(
                     referencePaths,
                     referenceLimits.MaxTotalBytes,
-                    operation.CancellationToken,
-                    _recovery.Active?.EffectiveSources);
+                    operation.CancellationToken);
             string?[] requestParts =
             [
                 prompt,
@@ -585,45 +553,15 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
                 null,
                 .. referenceStamps,
             ];
-            AiModelId? model = _recovery.ModelForRequest(ModelPicker.SelectedModel);
+            AiModelId? model = ModelPicker.SelectedModel;
             requestParts[ModelPartIndex] = model?.Value;
-            AiRequestFormSnapshot form = new(
-                Prompt: promptField,
-                Style: style,
-                Composition: composition,
-                Exclusions: exclusions,
-                AspectRatio: aspectRatio,
-                Background: background,
-                Seed: seed,
-                MaxReferenceImages: MaxReferenceImages.Value,
-                MaxReferenceTotalBytes: referenceLimits.MaxTotalBytes,
-                SupportsReferenceImage: SupportsReferenceImage.Value,
-                SupportsSeed: SupportsSeed.Value,
-                HasBackgroundChoice: HasBackgroundChoice.Value);
-            if (_recovery.Active is { } selected
-                && !_requestKey.MatchesPending(selected, requestParts))
-            {
-                // The user changed a recovered form. Keep the old paid key
-                // reachable and require an explicit abandon before allowing a
-                // new charge; silently issuing another key would lose the path
-                // back to the original job.
-                operation.TryPublish(() => Error.Value = Strings.AiRequestChanged);
-                return;
-            }
-            AiRequestName name = _requestKey.NameFor(requestParts, form, recoverySources);
+            AiRequestName name = _requestKey.NameFor(requestParts);
             issued = name;
             using IDisposable authenticatedScope = _requestKey.EnterAuthenticatedScope(name);
-            using AiRequestRecoveryLease? claim = _requestKey.TryClaim(name);
-            if (claim is null)
-            {
-                operation.TryPublish(() => Error.Value = Strings.AiResultUnavailable);
-                return;
-            }
 
             AiImageResult response = await AiMeteredDispatch.SendAsync(
                 _requestKey,
                 name,
-                claim,
                 token => _availability.CheckAsync(
                     new AiOperationAvailabilityRequest.Fixed(AiOperations.ImageGeneration, model),
                     token),
@@ -686,6 +624,8 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
                 IsGenerating.Value = false;
                 PreviewImage.Value?.Dispose();
                 PreviewImage.Value = null;
+                // A request whose answer was lost is listed for recovery.
+                _recovery.Revision.Value++;
             });
         }
     }

@@ -2828,6 +2828,9 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
   <data name="AiAbandonedRequestInJobs" xml:space="preserve">
     <value>Se descartó la solicitud pendiente. Si ya se había enviado, puedes consultar su estado o su resultado en Tareas de IA.</value>
   </data>
+  <data name="AiPendingRequestNotReceived" xml:space="preserve">
+    <value>El servidor nunca recibió esta solicitud, así que no se cobró nada. Vuelve a ejecutarla.</value>
+  </data>
   <data name="AiSubtitle_Edit" xml:space="preserve">
     <value>Editar subtítulos</value>
   </data>

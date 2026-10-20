@@ -1,4 +1,7 @@
 ﻿using Beutl.Api.Services;
+using Beutl.Language;
+using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.Services;
 using Beutl.Services.AI;
 using Microsoft.Extensions.Logging;
@@ -14,10 +17,8 @@ internal sealed partial class AiImageEditDialogViewModel
     {
         _runningRequest = null;
         IsEditing.Value = false;
-        _recovery.Clear();
         SourceFilePath.Value = null;
         Prompt.Value = string.Empty;
-        _sourceElementId = null;
         OriginalImage.Value?.Dispose();
         OriginalImage.Value = null;
         ResultImage.Value?.Dispose();
@@ -27,59 +28,75 @@ internal sealed partial class AiImageEditDialogViewModel
         _recovery.Revision.Value++;
     }
 
-    internal bool TryRecoverPendingAttempt(AiPendingAttempt attempt)
+    // Looks a pending request's job up by its key and shows the picture it made.
+    internal async Task CollectAsync(AiPendingAttempt attempt)
     {
-        if (_requestKey.CurrentAccountId is not { } account
-            || !StringComparer.Ordinal.Equals(account, attempt.AccountId))
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
+        if (operation is null
+            || IsEditing.Value
+            || !operation.TryPublish(() =>
+            {
+                Error.Value = null;
+                IsEditing.Value = true;
+            }))
         {
-            Error.Value = Strings.AiAuthenticationRequired;
-            return false;
-        }
-        if (!attempt.HasCanonicalForm
-            || attempt.Form?.Task is not { } task
-            || !string.Equals(attempt.Operation, $"image.edit.{task}", StringComparison.Ordinal))
-        {
-            Error.Value = Strings.AiResultUnavailable;
-            return false;
+            return;
         }
 
-        IReadOnlyList<string> paths;
+        _runningRequest = operation;
         try
         {
-            paths = _requestKey.ResolveSources(attempt);
+            (AiPendingJobState state, AiJob? job) = await AiPendingJobLookup.FindAsync(
+                _jobs, _jobKinds, _requestRecoveryContext, attempt, operation.CancellationToken);
+            switch (state)
+            {
+                case AiPendingJobState.Succeeded:
+                    if (job!.ContentUri is not { } contentUri)
+                    {
+                        operation.TryPublish(() => Error.Value = Strings.AiResultUnavailable);
+                        break;
+                    }
+
+                    Ref<Bitmap> image = await AiImageResultDownload.DownloadBitmapAsync(
+                        _content, contentUri, operation.CancellationToken);
+                    _recovery.TrySettle(attempt);
+                    if (!operation.TryPublish(() =>
+                        {
+                            ResultImage.Value?.Dispose();
+                            ResultImage.Value = image;
+                            SelectedComparisonMode.Value = ComparisonModes[0];
+                        }))
+                    {
+                        image.Dispose();
+                    }
+                    break;
+                case AiPendingJobState.Running:
+                    operation.TryPublish(() => Error.Value = Strings.AiRequestInProgress);
+                    break;
+                default:
+                    _recovery.TrySettle(attempt);
+                    operation.TryPublish(() => Error.Value = AiPendingJobLookup.MessageFor(state, job));
+                    break;
+            }
         }
-        catch (InvalidDataException ex)
+        catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
         {
-            _logger.LogWarning(ex, "Image-edit recovery source is unavailable.");
-            Error.Value = Strings.AiResultUnavailable;
-            return false;
+            operation.TryPublish(() => Error.Value = failure.Message);
         }
-
-        if (attempt.EffectiveSources.Count != 1)
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
-            Error.Value = Strings.AiResultUnavailable;
-            return false;
         }
-
-        AiImageEditTaskOption? taskOption = Tasks.FirstOrDefault(option => option.Value == task);
-        if (taskOption is null)
+        catch (Exception ex)
         {
-            Error.Value = Strings.AiResultUnavailable;
-            return false;
+            _logger.LogError(ex, "Failed to recover an AI edited image.");
+            operation.TryPublish(() => Error.Value = Strings.AiUnexpectedError);
         }
-
-        SelectedTask.Value = taskOption;
-        Prompt.Value = attempt.Form!.Prompt ?? string.Empty;
-        if (attempt.Form.OutpaintExpansionPercent is { } percent
-            && OutpaintExpansionOptions.FirstOrDefault(option => option.Percent == percent) is { } expansion)
-            SelectedOutpaintExpansion.Value = expansion;
-        _sourceElementId = attempt.Form.SourceElementId;
-
-        SourceFilePath.Value = paths[0];
-        _recovery.Activate(attempt);
-        _recovery.Revision.Value++;
-        _recovery.SelectRecoveredModel();
-        return true;
+        finally
+        {
+            if (ReferenceEquals(_runningRequest, operation))
+                _runningRequest = null;
+            operation.TryPublish(() => IsEditing.Value = false);
+        }
     }
 
     internal void AbandonPendingAttempt(AiPendingAttempt attempt) => _recovery.Abandon(attempt);
@@ -90,7 +107,7 @@ internal sealed partial class AiImageEditDialogViewModel
     {
         if (!_requestKey.Retire(name))
             return;
-        ForgetSettled(name);
+        Forget(name);
         // Reloads were held back while that name was outstanding, so this is
         // where an operator's change to the model list finally lands.
         _ = ReloadModelsAsync(SelectedTask.Value);
@@ -101,42 +118,30 @@ internal sealed partial class AiImageEditDialogViewModel
     private void WithdrawRequestName(AiRequestName name)
     {
         if (_requestKey.WithdrawAfterNoReservation(name))
-            ForgetSettled(name);
-    }
-
-    // Forgets a settled name, and the recovered one when that settles the recovery as well.
-    private void ForgetSettled(AiRequestName name)
-    {
-        Forget(name);
-        _recovery.Settle(name, recovered =>
-        {
-            if (!string.Equals(recovered.Key, name.Key, StringComparison.Ordinal))
-                Forget(new AiRequestName(recovered.Key, IsRepeat: true));
-        });
+            Forget(name);
     }
 
     private void Forget(AiRequestName name)
     {
         _outstanding.Forget(name);
         _outstandingRevision.Value++;
+        _recovery.Revision.Value++;
     }
 
-    // Whether any request still waiting to be collected belongs to this task.
+    // Whether any request this tab sent is still waiting to be collected for this task.
     // Each of the five is its own operation with its own models and its own
     // price, so a name outstanding on one says nothing about another.
     private bool HoldsNameFor(string task)
-    {
-        AiOperationId operation = AiOperations.ImageEdit(new AiImageEditTaskId(task));
-        return _outstanding.Any(request => IsFor(request, task))
-            || _requestKey.HasPersistedFor(operation);
-    }
+        => _outstanding.Any(request => IsFor(request, task));
 
-    private AiModelId? ModelOfOutstandingRequestFor(string task)
-        => _outstanding.TryFind(request => IsFor(request, task), out string?[] held)
-            && held[ModelPartIndex] is { } model
-                ? new AiModelId(model)
-                : _requestKey.PreferredPersistedModel(
-                    AiOperations.ImageEdit(new AiImageEditTaskId(task)));
+    private bool TryFindOutstandingModelFor(string task, out AiModelId? model)
+    {
+        model = null;
+        if (!_outstanding.TryFind(request => IsFor(request, task), out string?[] held))
+            return false;
+        model = held[ModelPartIndex] is { } id ? new AiModelId(id) : null;
+        return true;
+    }
 
     private IReadOnlyList<AiModelId> ModelsOfOutstandingRequestsFor(AiOperationId operation)
         => _outstanding.All()
@@ -144,7 +149,6 @@ internal sealed partial class AiImageEditDialogViewModel
                 && AiOperations.ImageEdit(new AiImageEditTaskId(task)) == operation)
             .Select(request => request[ModelPartIndex])
             .OfType<string>()
-            .Concat(_requestKey.PersistedModels(operation).Select(model => model.Value))
             .Distinct(StringComparer.Ordinal)
             .Select(model => new AiModelId(model))
             .ToArray();

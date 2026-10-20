@@ -7,10 +7,6 @@ namespace Beutl.ViewModels.Tools;
 public sealed partial class AiJobCenterViewModel
 {
     private AiJobConfirmationAction _confirmationAction;
-
-    private IAiJobRetryHandler? _confirmationHandler;
-    private Task<AiJobRetryPreflight>? _confirmationPreflightTask;
-    private CancellationTokenSource? _confirmationPreflightCts;
     private long _confirmationRevision;
 
     internal async Task RequestRetryConfirmationAsync(AiJobItemViewModel item)
@@ -22,7 +18,6 @@ public sealed partial class AiJobCenterViewModel
         if (!item.CanRetry || IsDisposed)
             return;
 
-        ReleaseConfirmationResources();
         long revision = Interlocked.Increment(ref _confirmationRevision);
         _confirmationAction = AiJobConfirmationAction.Retry;
         _confirmationItem = item;
@@ -33,109 +28,48 @@ public sealed partial class AiJobCenterViewModel
         IsConfirmationLoading.Value = true;
         IsConfirmationOpen.Value = true;
 
-        IAiJobRetryHandler? retryHandler = null;
-        Task<AiJobRetryPreflight>? preflightTask = null;
-        CancellationTokenSource? preflightCts = null;
         try
         {
-            if (!_jobKinds.TryGetRetryHandler(item.Job.Kind, out retryHandler))
+            AiEntitlements? entitlements = await _entitlements.RefreshAsync(lifetimeOperation.CancellationToken);
+            (string message, bool canSubmit) = entitlements switch
             {
-                SetOperationError(Strings.AiPricingUnavailable);
-                return;
-            }
-
-            _confirmationHandler = retryHandler;
-
-            AiJobStatusSemantics status = _jobKinds.GetStatus(item.Job);
-            if (!retryHandler.CanRetry(item.Job, status))
+                null => (Strings.AiPricingUnavailable, false),
+                { CanUseAi: false } => (string.Join(Environment.NewLine, Strings.AiJobCenter_RetryConfirmation, Strings.AiProRequired), false),
+                // The server refuses a retry that neither the allowance nor purchased credits can pay for.
+                { Balance: { MonthlyUsage.IsExhausted: true, AdditionalCredits: <= 0 } } =>
+                    (string.Join(Environment.NewLine, Strings.AiJobCenter_RetryConfirmation, Strings.AiEstimatedUsageInsufficient), false),
+                _ => (string.Join(
+                    Environment.NewLine,
+                    Strings.AiJobCenter_RetryConfirmation,
+                    entitlements.Balance.MonthlyUsage.IsExhausted
+                        ? Strings.AiEstimatedUsageTopUp
+                        : Strings.AiEstimatedUsageMonthly), true),
+            };
+            if (IsCurrentConfirmation(revision))
             {
-                SetOperationError(Strings.AiPricingUnavailable);
-                ReleaseConfirmationResources();
-                return;
-            }
-
-            preflightCts = CancellationTokenSource.CreateLinkedTokenSource(
-                lifetimeOperation.CancellationToken);
-            _confirmationPreflightCts = preflightCts;
-            preflightTask = retryHandler.GetPreflightAsync(
-                item.Job,
-                preflightCts.Token).AsTask();
-            _confirmationPreflightTask = preflightTask;
-            AiJobRetryPreflight estimate = await preflightTask;
-            if (ReferenceEquals(_confirmationPreflightTask, preflightTask))
-            {
-                _confirmationPreflightTask = null;
-                if (ReferenceEquals(_confirmationPreflightCts, preflightCts))
-                {
-                    _confirmationPreflightCts = null;
-                    preflightCts.Dispose();
-                }
-            }
-            if (!TryPublishConfirmationPreflight(revision, retryHandler, estimate))
-                return;
-            if (!estimate.CanSubmit)
-            {
-                ReleaseConfirmationResources();
-                retryHandler = null;
+                ConfirmationMessage.Value = message;
+                CanConfirm.Value = canSubmit;
             }
         }
         catch (AuthenticationRequiredException)
         {
-            FailConfirmation(revision, retryHandler, Strings.AiAuthenticationRequired);
-        }
-        catch (AiJobRetryPreparationRejectedException)
-        {
-            FailConfirmation(revision, retryHandler, Strings.AiResultUnavailable);
-        }
-        catch (AiJobRetryPreparationUnavailableException)
-        {
-            FailConfirmation(revision, retryHandler, Strings.AiPricingUnavailable);
-        }
-        catch (OperationCanceledException) when (preflightCts?.IsCancellationRequested == true)
-        {
-            if (IsCurrentConfirmation(revision, retryHandler))
-                ReleaseConfirmationResources();
+            if (IsCurrentConfirmation(revision))
+                SetOperationError(Strings.AiAuthenticationRequired);
         }
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
         {
-            if (IsCurrentConfirmation(revision, retryHandler))
-                ReleaseConfirmationResources();
         }
         catch (Exception ex)
         {
-            if (IsCurrentConfirmation(revision, retryHandler))
+            if (IsCurrentConfirmation(revision))
             {
-                _logger.LogDebug(ex, "Failed to refresh authoritative pricing before retrying AI job {JobId}", item.Id);
+                _logger.LogDebug(ex, "Failed to refresh the usage before retrying AI job {JobId}", item.Id);
                 SetOperationError(Strings.AiPricingUnavailable);
-                ReleaseConfirmationResources();
             }
         }
         finally
         {
             CompleteConfirmationLoading(revision);
-        }
-    }
-
-    private bool TryPublishConfirmationPreflight(
-        long revision,
-        IAiJobRetryHandler handler,
-        AiJobRetryPreflight estimate)
-    {
-        lock (_lifetimeGate)
-        {
-            if (revision != _confirmationRevision
-                || _isDisposed
-                || !ReferenceEquals(_confirmationHandler, handler))
-                return false;
-
-            ConfirmationMessage.Value = estimate.IsAvailable
-                ? string.Join(
-                    Environment.NewLine,
-                    Strings.AiJobCenter_RetryConfirmation,
-                    estimate.Explanation)
-                : estimate.Explanation;
-            CanConfirm.Value = estimate.CanSubmit;
-            return true;
         }
     }
 
@@ -148,20 +82,8 @@ public sealed partial class AiJobCenterViewModel
         }
     }
 
-    private bool IsCurrentConfirmation(long revision, IAiJobRetryHandler? handler)
-        => revision == Volatile.Read(ref _confirmationRevision)
-            && !IsDisposed
-            && (handler is null || ReferenceEquals(_confirmationHandler, handler));
-
-    // Says why the confirmation on show cannot go ahead, unless another has replaced it.
-    private void FailConfirmation(long revision, IAiJobRetryHandler? handler, string error)
-    {
-        if (IsCurrentConfirmation(revision, handler))
-        {
-            SetOperationError(error);
-            ReleaseConfirmationResources();
-        }
-    }
+    private bool IsCurrentConfirmation(long revision)
+        => revision == Volatile.Read(ref _confirmationRevision) && !IsDisposed;
 
     internal void RequestDeleteConfirmation(AiJobItemViewModel item)
     {
@@ -169,7 +91,6 @@ public sealed partial class AiJobCenterViewModel
         if (!item.CanDelete || IsDisposed)
             return;
 
-        ReleaseConfirmationResources();
         Interlocked.Increment(ref _confirmationRevision);
         _confirmationAction = AiJobConfirmationAction.Delete;
         _confirmationItem = item;
@@ -191,51 +112,6 @@ public sealed partial class AiJobCenterViewModel
             : normalized[..maximumLength].TrimEnd() + "…";
     }
 
-    private void ReleaseConfirmationResources()
-    {
-        Task<AiJobRetryPreflight>? preflight = Interlocked.Exchange(ref _confirmationPreflightTask, null);
-        CancellationTokenSource? preflightCts = Interlocked.Exchange(
-            ref _confirmationPreflightCts,
-            null);
-        _confirmationHandler = null;
-        CancelPreflight(preflightCts);
-        if (preflight is { IsCompleted: false })
-            _ = DisposeAfterPreflightAsync(preflight, preflightCts);
-        else
-            preflightCts?.Dispose();
-    }
-
-    // The preflight may still use its token until it completes.
-    private async Task DisposeAfterPreflightAsync(
-        Task<AiJobRetryPreflight> preflight,
-        CancellationTokenSource? preflightCts)
-    {
-        using AsyncOperationLifetime.Operation? lifetimeOperation = _operations.TryEnter();
-        try
-        {
-            await preflight;
-        }
-        catch
-        {
-        }
-        preflightCts?.Dispose();
-    }
-
-    private void CancelPreflight(CancellationTokenSource? preflightCts)
-    {
-        if (preflightCts is null)
-            return;
-
-        try
-        {
-            preflightCts.Cancel();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "AI retry preflight cancellation callback failed");
-        }
-    }
-
     private void ClearConfirmationState()
     {
         Interlocked.Increment(ref _confirmationRevision);
@@ -246,11 +122,7 @@ public sealed partial class AiJobCenterViewModel
         CanConfirm.Value = false;
     }
 
-    internal void CancelConfirmation()
-    {
-        ClearConfirmationState();
-        ReleaseConfirmationResources();
-    }
+    internal void CancelConfirmation() => ClearConfirmationState();
 
     internal async Task ConfirmPendingActionAsync()
     {
@@ -261,14 +133,11 @@ public sealed partial class AiJobCenterViewModel
             return;
 
         AiJobConfirmationAction action = _confirmationAction;
-        IAiJobRetryHandler? handler = _confirmationHandler;
-        _confirmationHandler = null;
         ClearConfirmationState();
         switch (action)
         {
             case AiJobConfirmationAction.Retry:
-                // A confirmable retry always holds the handler its preflight took.
-                await RetryJobAsync(item, handler!);
+                await RetryJobAsync(item);
                 break;
             case AiJobConfirmationAction.Delete:
                 await DeleteJobAsync(item);

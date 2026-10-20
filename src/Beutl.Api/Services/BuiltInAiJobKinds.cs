@@ -2,20 +2,9 @@
 
 internal static class BuiltInAiJobKinds
 {
-    public static AiJobKindRegistry Create(
-        IAiImageGenerationService images,
-        IAiVideoService videos,
-        IAiEntitlementService entitlements,
-        IAiOperationAvailabilityService availability,
-        IAiModelCatalogService models,
-        AiRetryAttemptContext retryContext)
+    public static AiJobKindRegistry Create(IAiVideoService videos)
     {
-        ArgumentNullException.ThrowIfNull(images);
         ArgumentNullException.ThrowIfNull(videos);
-        ArgumentNullException.ThrowIfNull(entitlements);
-        ArgumentNullException.ThrowIfNull(availability);
-        ArgumentNullException.ThrowIfNull(models);
-        ArgumentNullException.ThrowIfNull(retryContext);
 
         var statuses = new AiJobStatusMap(
         [
@@ -42,25 +31,7 @@ internal static class BuiltInAiJobKinds
         ];
         return new AiJobKindRegistry(
             kinds.Select(kind => KeyValuePair.Create(kind, (IAiJobStatusResolver)statuses)),
-            [KeyValuePair.Create(AiJobKinds.Video, (IAiJobRefreshHandler)new AiVideoJobRefreshHandler(videos))],
-            [
-                KeyValuePair.Create(
-                    AiJobKinds.Image,
-                    (IAiJobRetryHandler)new AiImageJobRetryHandler(
-                        images,
-                        entitlements,
-                        availability,
-                        models,
-                        retryContext)),
-                KeyValuePair.Create(
-                    AiJobKinds.Video,
-                    (IAiJobRetryHandler)new AiVideoJobRetryHandler(
-                        videos,
-                        entitlements,
-                        availability,
-                        models,
-                        retryContext)),
-            ]);
+            [KeyValuePair.Create(AiJobKinds.Video, (IAiJobRefreshHandler)new AiVideoJobRefreshHandler(videos))]);
     }
 }
 

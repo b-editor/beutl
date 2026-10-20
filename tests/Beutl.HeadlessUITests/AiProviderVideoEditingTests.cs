@@ -23,7 +23,7 @@ public sealed partial class AiDialogWorkflowTests
     [TestCase(AiSourceVideoMode.Edit)]
     [TestCase(AiSourceVideoMode.Extend)]
     [TestCase(AiSourceVideoMode.Motion)]
-    public async Task ProviderEditing_PreservesSourceModeOptionsAndRequestKeyAcrossRestart(AiSourceVideoMode mode)
+    public async Task ProviderEditing_SendsTheSourceModeOptions(AiSourceVideoMode mode)
     {
         await TestReset.ResetShellAsync();
         const string originalPrompt = "  change  the sky\nkeep\tmy subject  ";
@@ -36,9 +36,7 @@ public sealed partial class AiDialogWorkflowTests
             return ProviderVideoResponse(request);
         }));
         BeutlApiApplication clients = api.Clients;
-        DateTimeOffset now = DateTimeOffset.UtcNow;
-        using var store = new FileAiRequestRecoveryStore(Path.Combine(BeutlHomeIsolation.CurrentHome!, "restart-" + Guid.NewGuid().ToString("N")), () => now);
-        using var context = new AiRequestRecoveryContext(store, () => new AiAuthenticatedRequestIdentity("test-user", null));
+        using var context = CreateIdentityContext(() => "test-user");
         string source = Path.Combine(BeutlHomeIsolation.CurrentHome!, "source.webm");
         string character = Path.Combine(BeutlHomeIsolation.CurrentHome!, "character.png");
         await File.WriteAllBytesAsync(source, [1, 2, 3]);
@@ -65,22 +63,9 @@ public sealed partial class AiDialogWorkflowTests
             await vm.Generate.ExecuteAsync();
             Assert.That(sent, Has.Count.EqualTo(1), vm.Error.Value);
             Assert.That(sent[0].Body, Does.Contain("source.webm"));
+            if (mode == AiSourceVideoMode.Motion)
+                Assert.That(sent[0].Body, Does.Contain("\r\n\r\nimage\r\n").And.Contain("\r\n\r\npro\r\n"));
         }
-        now = now.AddMinutes(16); // Let the previous process ownership fence expire.
-        await using var restored = CreateVideoGenerationDialog(clients, context: context, sourceMode: mode);
-        await WaitUntilAsync(() => restored.CanGenerate.Value);
-        Assert.That(restored.SourceDuration.Value, Is.EqualTo(7));
-        Assert.That(restored.Prompt.Value, Is.EqualTo(originalPrompt));
-        Assert.That(restored.SourceVideoPath.Value, Is.EqualTo(source));
-        if (mode == AiSourceVideoMode.Motion)
-        {
-            Assert.That(restored.CharacterImagePath.Value, Is.EqualTo(character));
-            Assert.That(restored.Orientation.Value.Value, Is.EqualTo("image"));
-            Assert.That(restored.Quality.Value.Value, Is.EqualTo("pro"));
-        }
-        await restored.Generate.ExecuteAsync();
-        Assert.That(sent, Has.Count.EqualTo(2), restored.Error.Value);
-        Assert.That(sent[1].Key, Is.EqualTo(sent[0].Key));
     }
 
     [AvaloniaTest]

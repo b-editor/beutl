@@ -86,8 +86,7 @@ internal sealed partial class AiImageGenerationDialogViewModel
 
     private string[] WithinTotalLimit(IEnumerable<string> paths)
     {
-        long limit = _recovery.Active?.Form?.MaxReferenceTotalBytes
-            ?? ModelPicker.ImageReferenceLimits.MaxTotalBytes;
+        long limit = ModelPicker.ImageReferenceLimits.MaxTotalBytes;
         long total = 0;
         var within = new List<string>();
         foreach (string path in paths)
@@ -173,52 +172,29 @@ internal sealed partial class AiImageGenerationDialogViewModel
 
     // Build the upload and its name from the same read. Reading twice could make the dispatched
     // bytes differ from the named bytes and record the result under the wrong request.
-    private async Task<(
-        AiUploadSource[] References,
-        string[] Stamps,
-        AiRequestRecoverySource[] Sources)>
-        ReadReferencesAsync(
-            string[] paths,
-            long totalLimit,
-            CancellationToken cancellationToken,
-            IReadOnlyList<AiRequestRecoverySource>? recoveredSources = null)
+    private async Task<(AiUploadSource[] References, string[] Stamps)> ReadReferencesAsync(
+        string[] paths,
+        long totalLimit,
+        CancellationToken cancellationToken)
     {
         var sources = new AiUploadSource[paths.Length];
         var stamps = new string[paths.Length];
-        var recoverySources = new AiRequestRecoverySource[paths.Length];
         // Each image and the combined set have limits. Read only the remaining allowance so an
         // over-limit set is rejected before every image has been copied into memory.
         long remaining = totalLimit;
         for (int index = 0; index < paths.Length; index++)
         {
-            AiRequestRecoverySource? recovered = recoveredSources is { Count: > 0 }
-                ? recoveredSources.FirstOrDefault(source => source.Role == $"reference-{index.ToString(CultureInfo.InvariantCulture)}")
-                : null;
-            if (recovered is not null && !recovered.MatchesPath(paths[index]))
-            {
-                // A user-selected locator may be replaced after recovery. Read
-                // the current file and let the fingerprint check decide whether
-                // it is still the same request.
-                recovered = null;
-            }
-            string fileName = recovered?.Name ?? Path.GetFileName(paths[index]);
-            byte[] bytes = recovered is not null
-                ? _requestKey.ReadSourceBytes(recovered)
-                : await AiUploadBytes.ReadWithinAsync(
-                    paths[index],
-                    Math.Min(remaining, AiRequestLimits.MaxImageUploadBytes),
-                    cancellationToken);
+            string fileName = Path.GetFileName(paths[index]);
+            byte[] bytes = await AiUploadBytes.ReadWithinAsync(
+                paths[index],
+                Math.Min(remaining, AiRequestLimits.MaxImageUploadBytes),
+                cancellationToken);
             remaining -= bytes.LongLength;
             stamps[index] = AiRequestKey.FileStamp(fileName, bytes);
             sources[index] = AiUploadSource.FromBytes(fileName, bytes);
-            recoverySources[index] = recovered ?? FileAiRequestRecoveryStore.CreateExternalSource(
-                $"reference-{index.ToString(CultureInfo.InvariantCulture)}",
-                paths[index],
-                fileName,
-                bytes);
         }
 
-        return (sources, stamps, recoverySources);
+        return (sources, stamps);
     }
 
     private static long SizeOf(string path)

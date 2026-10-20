@@ -33,7 +33,7 @@ public sealed partial class AiDialogWorkflowTests
     };
 
     [AvaloniaTest]
-    public async Task ProviderInputs_PickKindsInWebOrderAndKeepTheSameRequestAfterRestart()
+    public async Task ProviderInputs_PickKindsInWebOrder()
     {
         await TestReset.ResetShellAsync();
         var requests = new List<(string Key, string Body)>();
@@ -44,10 +44,7 @@ public sealed partial class AiDialogWorkflowTests
             return ProviderVideoResponse(request);
         }));
         BeutlApiApplication clients = api.Clients;
-        DateTimeOffset now = DateTimeOffset.UtcNow;
-        using var store = new FileAiRequestRecoveryStore(Path.Combine(BeutlHomeIsolation.CurrentHome!, "restart-" + Guid.NewGuid().ToString("N")), () => now);
-        using var context = new AiRequestRecoveryContext(store, () => new AiAuthenticatedRequestIdentity("test-user", null));
-        await using (var vm = CreateVideoGenerationDialog(clients, context: context))
+        await using (var vm = CreateVideoGenerationDialog(clients))
         {
             await WaitUntilAsync(() => vm.ReferenceGroups.All(group => group.IsSupported.Value));
             var files = new Dictionary<string, string>();
@@ -68,76 +65,6 @@ public sealed partial class AiDialogWorkflowTests
             Assert.That(requests[0].Body.IndexOf("reference-image"), Is.LessThan(requests[0].Body.IndexOf("reference-video")));
             Assert.That(requests[0].Body.IndexOf("reference-video"), Is.LessThan(requests[0].Body.IndexOf("reference-audio")));
         }
-        now = now.AddMinutes(16); // Let the previous process ownership fence expire.
-        await using var restored = CreateVideoGenerationDialog(clients, context: context);
-        await WaitUntilAsync(() => restored.CanGenerate.Value);
-        Assert.That(restored.ReferenceGroups.Sum(group => group.Files.Count), Is.EqualTo(3));
-        await restored.Generate.ExecuteAsync();
-        Assert.That(requests, Has.Count.EqualTo(2), restored.Error.Value);
-        Assert.That(requests[1].Key, Is.EqualTo(requests[0].Key));
-    }
-
-    [AvaloniaTest]
-    [TestCase(true)]
-    [TestCase(false)]
-    public async Task ProviderInputs_RecoveryKeepsOriginalPromptLimitWhenModelLimitShrinks(bool legacy)
-    {
-        await TestReset.ResetShellAsync();
-        int originalLimit = legacy ? AiRequestLimits.MaxPromptLength : 300;
-        var capabilities = JsonNode.Parse(ProviderVideoCapabilities)!;
-        var model = capabilities["operations"]!["video.generate"]!["models"]![0]!;
-        model["maxPromptLength"] = originalLimit;
-        var requests = new List<(string Key, string Body)>();
-        await using var api = new ApiScope(new StubHandler(async (request, token) =>
-        {
-            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/capabilities")
-                return JsonResponse(HttpStatusCode.OK, capabilities.ToJsonString());
-            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/videos")
-            {
-                requests.Add((request.Headers.GetValues("Idempotency-Key").Single(), await request.Content!.ReadAsStringAsync(token)));
-                return JsonResponse(HttpStatusCode.Conflict, """{"error_code":"aiRequestInProgress","message":"Pending","documentation_url":null}""");
-            }
-            return ProviderVideoResponse(request);
-        }));
-        BeutlApiApplication clients = api.Clients;
-        DateTimeOffset now = DateTimeOffset.UtcNow;
-        using var store = new FileAiRequestRecoveryStore(Path.Combine(BeutlHomeIsolation.CurrentHome!, "prompt-limit-" + Guid.NewGuid().ToString("N")), () => now);
-        using var context = new AiRequestRecoveryContext(store, () => new AiAuthenticatedRequestIdentity("test-user", null));
-        string prompt = new('a', 200);
-        await using (var vm = CreateVideoGenerationDialog(clients, context: context))
-        {
-            vm.Prompt.Value = prompt;
-            await WaitUntilAsync(() => vm.CanGenerate.Value);
-            await vm.Generate.ExecuteAsync();
-            Assert.That(requests, Has.Count.EqualTo(1), vm.Error.Value);
-        }
-        if (legacy)
-        {
-            var document = JsonNode.Parse(await File.ReadAllTextAsync(store.StoragePath))!;
-            Assert.That(document["records"]![0]!["Form"]!.AsObject().Remove("VideoPromptLimit"), Is.True);
-            await File.WriteAllTextAsync(store.StoragePath, document.ToJsonString());
-        }
-        now = now.AddMinutes(16); // Let the previous process ownership fence expire.
-        model["maxPromptLength"] = 80;
-        clients.GetResource<IAiModelCatalogService>().Invalidate();
-        await using (var restored = CreateVideoGenerationDialog(clients, context: context))
-        {
-            await WaitUntilAsync(() => restored.ModelPicker.IsLoaded.Value);
-            Assert.That(restored.ModelPicker.Selected.Value!.Model.Video!.MaxPromptLength, Is.EqualTo(80));
-            Assert.That(restored.MaxPromptLength.Value, Is.EqualTo(originalLimit));
-            Assert.That(restored.Prompt.Value, Is.EqualTo(prompt));
-            await WaitUntilAsync(() => restored.CanGenerate.Value);
-            await restored.Generate.ExecuteAsync();
-            Assert.That(requests, Has.Count.EqualTo(2), restored.Error.Value);
-            Assert.That(requests[1], Is.EqualTo(requests[0]));
-        }
-        using var freshContext = CreateIdentityContext(() => "test-user");
-        await using var fresh = CreateVideoGenerationDialog(clients, context: freshContext);
-        await WaitUntilAsync(() => fresh.ModelPicker.IsLoaded.Value);
-        Assert.That(fresh.MaxPromptLength.Value, Is.EqualTo(80));
-        fresh.Prompt.Value = prompt;
-        Assert.That(fresh.CanGenerate.Value, Is.False);
-        Assert.That(fresh.PromptValidationError.Value, Is.Not.Null);
     }
 
     [AvaloniaTest]

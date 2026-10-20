@@ -16,7 +16,6 @@ internal static class AiMeteredDispatch
     public static async Task<T> SendAsync<T>(
         AiRequestKey requestKey,
         AiRequestName name,
-        AiRequestRecoveryLease? claim,
         Func<CancellationToken, Task<bool>> checkAvailability,
         Func<CancellationToken, Task<T>> send,
         Action<AiRequestName> withdraw,
@@ -44,7 +43,6 @@ internal static class AiMeteredDispatch
 
         try
         {
-            requestKey.MarkClaimDispatched(claim);
             return await send(cancellationToken);
         }
         catch (Exception ex) when (AiRequestOutcome.CanWithdraw(name, ex))

@@ -337,27 +337,11 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
         HasImagePreview = presentation.HasImagePreview && ContentUri is not null;
     }
 
-    // Whether the kind's retry handler takes this job; false without a handler or when it fails.
+    // The server says which jobs it can run again; only a finished one is offered.
     private bool ReadCanRetry(AiJobStatusSemantics status)
-    {
-        bool canRetry = false;
-        if (_jobKinds.TryGetRetryHandler(_response.Kind, out IAiJobRetryHandler? retryHandler))
-        {
-            try
-            {
-                canRetry = retryHandler.CanRetry(_response, status);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(
-                    ex,
-                    "AI job retry handler for '{Kind}' failed while checking eligibility.",
-                    _response.Kind);
-            }
-        }
-
-        return canRetry;
-    }
+        => _response.CanRetry
+            && status.Outcome is { } outcome
+            && (outcome == AiJobOutcomes.Succeeded || outcome == AiJobOutcomes.Failed);
 
     // The kind's own presentation of this job, or fallback without a presenter or when it fails.
     private AiJobPresentation ReadPresentation(AiJobStatusSemantics status, AiJobPresentation fallback)

@@ -1771,6 +1771,68 @@ public sealed partial class AiCapabilityServiceTests
     }
 
     [Test]
+    public async Task JobClient_LooksAJobUpAndRetriesItWithTheKeyInAHeader()
+    {
+        using var handler = new RecordingHandler(request => request.Path switch
+        {
+            "/api/v3/ai/jobs/by-idempotency-key" => TestHttp.Json(HttpStatusCode.OK, """
+                {
+                  "id": "job-1", "kind": "image", "status": "succeeded", "inputParams": null,
+                  "fileId": "file-1", "url": "https://beutl.test/api/contents/file-1", "error": null,
+                  "canRetry": true, "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:01:00Z"
+                }
+                """),
+            "/api/v3/ai/jobs/job-1/retry" => TestHttp.Json(HttpStatusCode.OK, """{ "jobId": "job-2", "fileId": "file-2" }"""),
+            _ => TestHttp.Json(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        ApiTestAuthentication.SignIn(app);
+        IAiJobClient client = app.GetResource<IAiJobClient>();
+
+        AiJob found = await client.GetByIdempotencyKeyAsync("key-1", CancellationToken.None);
+        AiJobId retried = await client.RetryAsync(found.Id, "key-2", CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(found.ContentUri, Is.EqualTo(new Uri("https://beutl.test/api/contents/file-1")));
+            Assert.That(retried, Is.EqualTo(new AiJobId("job-2")));
+            Assert.That(handler.Requests.Select(request => request.IdempotencyKey), Is.EqualTo(new[] { "key-1", "key-2" }));
+            Assert.That(handler.Requests[0].Query, Does.Not.Contain("key-1"), "the key stays out of the URL");
+            Assert.That(handler.Requests[1].Method, Is.EqualTo(HttpMethod.Post));
+        }
+    }
+
+    [TestCase(404, "aiJobNotFound", typeof(AiJobNotFoundException))]
+    [TestCase(409, "aiRequestWasDeleted", typeof(AiRequestWasDeletedException))]
+    public async Task JobClient_SaysWhatALookupFound(int status, string code, Type expected)
+    {
+        using var handler = new RecordingHandler(_ => TestHttp.Json(
+            (HttpStatusCode)status,
+            $$"""{ "error_code": "{{code}}", "message": "No.", "documentation_url": null }"""));
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        ApiTestAuthentication.SignIn(app);
+
+        Exception? error = await AsyncError(() => app.GetResource<IAiJobClient>().GetByIdempotencyKeyAsync("key-1", CancellationToken.None));
+
+        Assert.That(error, Is.TypeOf(expected));
+    }
+
+    private static async Task<Exception?> AsyncError(Func<Task> action)
+    {
+        try
+        {
+            await action();
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return ex;
+        }
+    }
+
+    [Test]
     public async Task AuthenticatedContent_SaysWhenAPaidResultCannotBeFetched()
     {
         using var handler = new RecordingHandler(_ =>

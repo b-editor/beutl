@@ -658,7 +658,6 @@ internal sealed class AiGenerativeNodeExecutor(
             TResponse response = await AiMeteredDispatch.SendAsync(
                 requestKey,
                 name,
-                null,
                 checkAvailability,
                 token => send(name.Key, token),
                 n => requestKey.WithdrawAfterNoReservation(n),

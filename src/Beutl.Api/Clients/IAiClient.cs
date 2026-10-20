@@ -109,6 +109,19 @@ internal interface IAiClient
         string id,
         CancellationToken cancellationToken);
 
+    [Get("/api/v3/ai/jobs/by-idempotency-key")]
+    Task<AiJobHistoryResponse> GetJobByIdempotencyKey(
+        [Header("Authorization")] string authorization,
+        [Header("Idempotency-Key")] string idempotencyKey,
+        CancellationToken cancellationToken);
+
+    [Post("/api/v3/ai/jobs/{id}/retry")]
+    Task<AiJobRetryResponse> RetryJob(
+        [Header("Authorization")] string authorization,
+        [Header("Idempotency-Key")] string idempotencyKey,
+        string id,
+        CancellationToken cancellationToken);
+
     [Post("/api/v3/user/ai-availability")]
     Task<AiOperationAvailabilityResponse> CheckFixedAvailability(
         [Header("Authorization")] string authorization,
