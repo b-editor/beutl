@@ -383,9 +383,12 @@ public sealed class MissingMediaService
             return null;
         }, token);
 
-    public async Task UpdateFingerprintsAsync(Scene scene, CancellationToken token = default, bool force = true)
+    // Caches hashes in the scene folder's .beutl/ only when asked, so a staged package copy gets none.
+    public async Task UpdateFingerprintsAsync(Scene scene, CancellationToken token = default, bool force = true,
+        bool cacheHashes = false)
     {
         Uri[] uris = GetFileUris(scene);
+        Uri? cacheScene = cacheHashes && scene.Uri is { IsFile: true } sceneUri ? sceneUri : null;
         var previous = new Dictionary<string, MediaFileFingerprint>(scene.MediaFingerprints);
         var modelDependencies = new ObjectSearcher(scene, value => value is ModelSource { HasUri: true, MeshCount: > 0 })
             .SearchAll().OfType<ModelSource>().GroupBy(model => model.Uri.AbsoluteUri)
@@ -393,6 +396,7 @@ public sealed class MissingMediaService
                 .Where(path => !FilePathComparison.AreSameCanonicalPath(path, group.First().Uri.LocalPath)).ToArray());
         var updated = await Task.Run(async () =>
         {
+            MediaHashCache? cache = cacheScene is null ? null : MediaHashCache.Load(cacheScene);
             var result = new Dictionary<string, MediaFileFingerprint>(StringComparer.Ordinal);
             foreach (Uri uri in uris)
             {
@@ -400,11 +404,10 @@ public sealed class MissingMediaService
                 previous.TryGetValue(uri.AbsoluteUri, out var fingerprint);
                 try
                 {
-                    // Ordinary reference scans reuse completed hashes. Explicit
-                    // saves/audits force reads, including timestamp-preserving overwrites.
+                    // Ordinary reference scans reuse completed hashes. Explicit saves and audits check every file.
                     if ((force || fingerprint == null) && File.Exists(uri.LocalPath))
                     {
-                        MediaFileFingerprint next = await CaptureFileFingerprintAsync(uri.LocalPath, fingerprint, token);
+                        MediaFileFingerprint next = await CaptureFileFingerprintAsync(uri.LocalPath, fingerprint, cache, token);
                         if (modelDependencies.TryGetValue(uri.AbsoluteUri, out var paths))
                         {
                             // The same manifest may load with optional sidecars
@@ -418,7 +421,7 @@ public sealed class MissingMediaService
                                 string relative = Path.GetRelativePath(Path.GetDirectoryName(uri.LocalPath)!, path).Replace('\\', '/');
                                 MediaFileFingerprint? old = null;
                                 fingerprint?.Dependencies?.TryGetValue(relative, out old);
-                                dependencies[relative] = await CaptureFileFingerprintAsync(path, old, token);
+                                dependencies[relative] = await CaptureFileFingerprintAsync(path, old, cache, token);
                             }
                             var retained = fingerprint?.Dependencies;
                             if (retained is null || retained.Count != dependencies.Count
@@ -432,6 +435,9 @@ public sealed class MissingMediaService
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
                 if (fingerprint != null) result[uri.AbsoluteUri] = fingerprint;
             }
+            // A cache that cannot be written only costs another read.
+            try { cache?.Save(readEveryFile: force); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
             return result;
         }, token);
         token.ThrowIfCancellationRequested();
@@ -449,12 +455,14 @@ public sealed class MissingMediaService
         scene.SetMediaFingerprints(fingerprints);
     }
 
-    private static async Task<MediaFileFingerprint> CaptureFileFingerprintAsync(string path, MediaFileFingerprint? previous, CancellationToken token)
+    private static async Task<MediaFileFingerprint> CaptureFileFingerprintAsync(string path, MediaFileFingerprint? previous,
+        MediaHashCache? cache, CancellationToken token)
     {
         var file = new FileInfo(path);
-        // Size and mtime can survive an overwrite; they do not establish content identity.
-        string hash = await HashFileAsync(file.FullName, token);
-        return new(file.Length, file.LastWriteTimeUtc.Ticks, hash)
+        // A file without a fingerprint, for example one the repair tool relinked, is always read.
+        string hash = (previous is null ? null : cache?.Find(file)) ?? await HashFileAsync(file.FullName, token);
+        cache?.Add(file, hash);
+        return new(file.Length, hash)
         {
             // Retain the bundle manifest while its source is offline and cannot
             // repopulate dependencies, provided the main file still matches.

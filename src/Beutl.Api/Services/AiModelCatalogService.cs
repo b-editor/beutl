@@ -13,29 +13,24 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
     private static readonly TimeSpan s_freshness = TimeSpan.FromMinutes(5);
     private readonly BeutlApiApplication _application;
     private readonly TimeProvider _timeProvider;
-    private readonly IAiOperationCapabilitySchemaProvider _capabilitySchemas;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly IDisposable _authenticationSubscription;
     private readonly object _cacheGate = new();
     private AiModelCatalog? _catalog;
     private AuthenticatedUser? _catalogOwner;
-    private long _catalogSchemaRevision = -1;
     private long _fetchedAt;
     private int _disposed;
 
     public AiModelCatalogService(
         BeutlApiApplication application,
-        IAiOperationCapabilitySchemaProvider capabilitySchemas,
         TimeProvider? timeProvider = null)
     {
         _application = application;
         _timeProvider = timeProvider ?? TimeProvider.System;
-        _capabilitySchemas = capabilitySchemas;
         // The catalog is the list one account may pay for. Another account's is
         // a different list, so signing in as someone else drops it rather than
         // offering them models that were never theirs.
         _authenticationSubscription = application.AuthenticatedUser.Subscribe(_ => Invalidate());
-        _capabilitySchemas.Changed += OnCapabilitySchemasChanged;
     }
 
     public async Task<AiModelCatalog> GetAsync(CancellationToken cancellationToken)
@@ -69,10 +64,8 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
                             _application.Ai.GetCapabilities(authorization, requestToken),
                         token,
                         authenticatedUser);
-                AiOperationCapabilitySchemaSnapshot schemaSnapshot =
-                    _capabilitySchemas.GetSnapshot();
-                AiModelCatalog catalog = AiModelMapper.ToModel(response.Value, schemaSnapshot);
-                return PublishCatalog(response, schemaSnapshot.Revision, catalog);
+                AiModelCatalog catalog = AiModelMapper.ToModel(response.Value);
+                return PublishCatalog(response, catalog);
             }
             catch (ApiException ex)
             {
@@ -89,11 +82,9 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
         }
     }
 
-    // Caches the catalog with the schema revision it was mapped with, so a schema that changed meanwhile makes the
-    // next TryGetFresh fetch it again; an account change returns an empty catalog without caching it.
+    // An account change meanwhile returns an empty catalog without caching it.
     private AiModelCatalog PublishCatalog(
         AuthenticatedApiResult<AiCapabilitiesResponse> response,
-        long schemaRevision,
         AiModelCatalog catalog)
     {
         lock (_cacheGate)
@@ -103,7 +94,6 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
 
             _catalog = catalog;
             _catalogOwner = response.User;
-            _catalogSchemaRevision = schemaRevision;
             _fetchedAt = _timeProvider.GetTimestamp();
         }
 
@@ -116,7 +106,6 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
         {
             _catalog = null;
             _catalogOwner = null;
-            _catalogSchemaRevision = -1;
         }
     }
 
@@ -126,7 +115,6 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
             return;
 
         _authenticationSubscription.Dispose();
-        _capabilitySchemas.Changed -= OnCapabilitySchemasChanged;
         // Dispose is synchronous, while an in-flight GetAsync may still own the
         // semaphore and release it after application-lifetime cancellation. The
         // gate never exposes its wait handle, so keeping it alive avoids turning
@@ -135,16 +123,12 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
 
     private bool TryGetFresh(out AiModelCatalog? catalog)
     {
-        long schemaRevision = _capabilitySchemas.GetSnapshot().Revision;
         lock (_cacheGate)
         {
             catalog = _catalog;
             return catalog is not null
                 && ReferenceEquals(_catalogOwner, _application.AuthenticatedUser.Value)
-                && _catalogSchemaRevision == schemaRevision
                 && _timeProvider.GetElapsedTime(_fetchedAt) < s_freshness;
         }
     }
-
-    private void OnCapabilitySchemasChanged(object? sender, EventArgs e) => Invalidate();
 }

@@ -346,7 +346,23 @@ internal sealed class RenderFragmentReference
                 => Payload is TargetLayerScopeRenderFragmentPayload layer
                    && layer.Region.Kind == TargetRegionKind.Full
                    && inputsWriteSymbolically,
-            _ => inputsWriteSymbolically,
+            RenderFragmentKind.ContributeValues
+                or RenderFragmentKind.Opacity
+                or RenderFragmentKind.Blend
+                or RenderFragmentKind.OpacityMask
+                or RenderFragmentKind.Shader
+                or RenderFragmentKind.Geometry
+                or RenderFragmentKind.OpaqueSource
+                or RenderFragmentKind.OpaqueMap
+                or RenderFragmentKind.OpaqueCombine
+                or RenderFragmentKind.OpaqueExpand
+                or RenderFragmentKind.FilterEffectSegment
+                or RenderFragmentKind.MaterializedInput
+                or RenderFragmentKind.Layer
+                or RenderFragmentKind.TargetScope
+                => inputsWriteSymbolically,
+            _ => throw new InvalidOperationException(
+                $"Fragment kind '{Kind}' has no symbolic target-write rule."),
         };
     }
 
@@ -374,7 +390,19 @@ internal sealed class RenderFragmentReference
                 or RenderFragmentKind.OpacityMask
                 => replayWrites,
             RenderFragmentKind.RawTargetScope => true,
-            _ => false,
+            RenderFragmentKind.ContributeValues
+                or RenderFragmentKind.Shader
+                or RenderFragmentKind.Geometry
+                or RenderFragmentKind.OpaqueSource
+                or RenderFragmentKind.OpaqueMap
+                or RenderFragmentKind.OpaqueCombine
+                or RenderFragmentKind.OpaqueExpand
+                or RenderFragmentKind.FilterEffectSegment
+                or RenderFragmentKind.MaterializedInput
+                or RenderFragmentKind.Layer
+                => false,
+            _ => throw new InvalidOperationException(
+                $"Fragment kind '{Kind}' has no target-write rule."),
         };
     }
 }

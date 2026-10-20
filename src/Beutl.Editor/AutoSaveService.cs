@@ -46,7 +46,8 @@ public sealed class AutoSaveService : IDisposable
     {
         ThrowIfDisposed();
 
-        foreach (CoreObject obj in objectsToSave)
+        // A scene lists the element files it finds on disk, so a new element's file is written first.
+        foreach (CoreObject obj in objectsToSave.OrderBy(obj => obj is Scene))
         {
             try
             {

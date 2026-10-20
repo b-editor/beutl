@@ -2,8 +2,6 @@
 using Beutl.Animation;
 using Beutl.Language;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
-using Beutl.Utilities;
 
 namespace Beutl.Editor.Services;
 
@@ -50,60 +48,50 @@ public sealed class ElementStructureService : IElementStructureService
             return;
         var groupUpdates = new Dictionary<int, List<Guid>>();
 
-        var storedFiles = new List<string>();
-        try
+        _historyManager.ExecuteInTransaction(() =>
         {
-            _historyManager.ExecuteInTransaction(() =>
+            foreach (Element target in targets)
             {
-                foreach (Element target in targets)
+                if (scene.IsElementLocked(target)) continue;
+
+                TimeSpan forwardDuration = at - target.Start;
+                TimeSpan backwardDuration = target.Length - forwardDuration;
+                if (forwardDuration < minDuration || backwardDuration < minDuration) continue;
+
+                ObjectRegenerator.Regenerate(target, out Element backward);
+
+                backward.Start = at;
+                backward.Length = backwardDuration;
+                // The cut joins the two halves directly: the front keeps the clip's start transition and
+                // the back its end transition.
+                backward.EnterTransition = null;
+
+                ShiftLocalKeyFrames(backward, -forwardDuration);
+
+                // The back half's file is written when the scene is next saved.
+                backward.Uri = ElementFileNaming.GetUri(scene.Uri, backward.Id);
+                target.ExitTransition = null;
+                scene.MoveChild(target.ZIndex, target.Start, forwardDuration, target);
+                scene.AddChild(backward);
+                backward.NotifySplitted(true, forwardDuration, -forwardDuration);
+                target.NotifySplitted(false, TimeSpan.Zero, -backwardDuration);
+
+                // Track group membership so back-clips stay in their source's group.
+                int groupIndex = FindGroupIndex(scene, target.Id);
+                if (groupIndex >= 0)
                 {
-                    if (scene.IsElementLocked(target)) continue;
-
-                    TimeSpan forwardDuration = at - target.Start;
-                    TimeSpan backwardDuration = target.Length - forwardDuration;
-                    if (forwardDuration < minDuration || backwardDuration < minDuration) continue;
-
-                    ObjectRegenerator.Regenerate(target, out Element backward);
-
-                    backward.Start = at;
-                    backward.Length = backwardDuration;
-                    // The cut joins the two halves directly: the front keeps the clip's start transition and
-                    // the back its end transition.
-                    backward.EnterTransition = null;
-
-                    ShiftLocalKeyFrames(backward, -forwardDuration);
-
-                    CoreSerializer.StoreToUri(backward, ElementFileNaming.GetUri(scene.Uri, backward.Id), owner: scene);
-                    storedFiles.Add(backward.Uri!.LocalPath);
-                    target.ExitTransition = null;
-                    scene.MoveChild(target.ZIndex, target.Start, forwardDuration, target);
-                    scene.AddChild(backward);
-                    backward.NotifySplitted(true, forwardDuration, -forwardDuration);
-                    target.NotifySplitted(false, TimeSpan.Zero, -backwardDuration);
-
-                    // Track group membership so back-clips stay in their source's group.
-                    int groupIndex = FindGroupIndex(scene, target.Id);
-                    if (groupIndex >= 0)
+                    if (!groupUpdates.TryGetValue(groupIndex, out List<Guid>? newIds))
                     {
-                        if (!groupUpdates.TryGetValue(groupIndex, out List<Guid>? newIds))
-                        {
-                            newIds = [];
-                            groupUpdates.Add(groupIndex, newIds);
-                        }
-
-                        newIds.Add(backward.Id);
+                        newIds = [];
+                        groupUpdates.Add(groupIndex, newIds);
                     }
-                }
 
-                InsertSplitGroups(scene, groupUpdates);
-            }, CommandNames.SplitElement);
-        }
-        catch (Exception failure)
-        {
-            List<Exception> failures = DeleteUnreferencedSidecars(scene, storedFiles, failure);
-            if (failures.Count > 1) throw new AggregateException("Split failed and new sidecars could not all be removed.", failures);
-            throw;
-        }
+                    newIds.Add(backward.Id);
+                }
+            }
+
+            InsertSplitGroups(scene, groupUpdates);
+        }, CommandNames.SplitElement);
     }
 
     private static int FindGroupIndex(Scene scene, Guid id)
@@ -130,25 +118,6 @@ public sealed class ElementStructureService : IElementStructureService
                 scene.Groups.Insert(index + 1, newGroup);
             }
         }
-    }
-
-    // Returns the split failure followed by every cleanup failure, so the caller can rethrow the
-    // original exception unchanged when cleanup succeeded.
-    private static List<Exception> DeleteUnreferencedSidecars(Scene scene, List<string> storedFiles, Exception failure)
-    {
-        List<Exception> failures = [failure];
-        foreach (string path in storedFiles)
-        {
-            try
-            {
-                if (scene.Children.Any(child => child.Uri is { IsFile: true } uri
-                    && FilePathComparison.AreSameCanonicalPath(path, uri.LocalPath)))
-                    continue;
-                File.Delete(path);
-            }
-            catch (Exception cleanup) { failures.Add(cleanup); }
-        }
-        return failures;
     }
 
     public void Group(Scene scene, IReadOnlyCollection<Guid> ids)

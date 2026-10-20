@@ -163,7 +163,7 @@ internal static class FilterEffectStageFallbackExecutor
         SkRuntimeEffectProgramAcquirer acquireProgram,
         StageEnvironment environment)
     {
-        ShaderProgram program = ResolveShaderProgram(description);
+        StandaloneShaderProgram program = StandaloneShaderProgram.For(description);
         using ProgramCacheLease<CachedSkRuntimeEffect> lease = acquireProgram(output, program.Source);
         using var uniforms = new SKRuntimeEffectUniforms(lease.Program.Effect);
         using var runtimeChildren = new SKRuntimeEffectChildren(lease.Program.Effect);
@@ -200,32 +200,10 @@ internal static class FilterEffectStageFallbackExecutor
         }
     }
 
-    /// <summary>The program text a stage runs, and the name its upstream input is bound under.</summary>
-    private readonly record struct ShaderProgram(string ChildName, string Source, SKShaderTileMode TileMode);
-
-    /// <summary>
-    /// Resolves the SkSL a stage runs from its description.
-    /// </summary>
-    /// <remarks>
-    /// A current-pixel description declares only an <c>apply</c> over a colour, so the entry point that feeds
-    /// it the fragment's own sample is written here rather than by the author; a whole-source description
-    /// already carries its own entry point and is run as given.
-    /// </remarks>
-    private static ShaderProgram ResolveShaderProgram(ShaderDescription description)
-    {
-        if (description.Kind != ShaderDescriptionKind.CurrentPixel)
-            return new ShaderProgram("src", description.Source.Text, description.SourceTileMode);
-
-        return new ShaderProgram(
-            SkslSource.CurrentPixelInputName,
-            SkslSource.CreateStandaloneCurrentPixelProgram(description.Source.Text),
-            SKShaderTileMode.Decal);
-    }
-
     /// <summary>Runs the description's binders and hands their results to the runtime effect.</summary>
     private static void BindShaderStage(
         ShaderDescription description,
-        ShaderProgram program,
+        StandaloneShaderProgram program,
         EffectTarget input,
         SKImage inputImage,
         RenderTarget inputTarget,
@@ -272,7 +250,7 @@ internal static class FilterEffectStageFallbackExecutor
     /// </remarks>
     private static void BindShaderStageWithCallbacks(
         ShaderDescription description,
-        ShaderProgram program,
+        StandaloneShaderProgram program,
         EffectTarget input,
         SKImage inputImage,
         RenderTarget inputTarget,
@@ -316,7 +294,7 @@ internal static class FilterEffectStageFallbackExecutor
 
     private static void BindShaderStageCore(
         ShaderDescription description,
-        ShaderProgram program,
+        StandaloneShaderProgram program,
         EffectTarget input,
         SKImage inputImage,
         RenderTarget inputTarget,
@@ -326,24 +304,6 @@ internal static class FilterEffectStageFallbackExecutor
         List<SKShader> children,
         ShaderExecutionContext? context)
     {
-        for (int index = 0; index < description.Uniforms.Count; index++)
-        {
-            ShaderUniformBinding binding = description.Uniforms[index];
-            if (!description.Source.Uniforms.TryGetValue(
-                    binding.Name,
-                    out SkslUniformDeclaration declaration))
-            {
-                throw new InvalidOperationException(
-                    $"Shader uniform '{binding.Name}' was not declared.");
-            }
-
-            SkslUniformAssignment.SetUniform(
-                uniforms,
-                binding.Name,
-                declaration,
-                binding.Bind(declaration, context));
-        }
-
         SKShader inputShader = RasterShaderMapping.CreateSemanticImageShader(
             inputImage,
             inputTarget.RawValue.Context,
@@ -356,19 +316,7 @@ internal static class FilterEffectStageFallbackExecutor
             program.TileMode);
         children.Add(inputShader);
         runtimeChildren[program.ChildName] = inputShader;
-
-        if (description.Resources.Count == 0)
-            return;
-
-        ShaderExecutionContext resourceContext = context
-            ?? throw new InvalidOperationException("A shader resource binding requires an execution context.");
-        for (int index = 0; index < description.Resources.Count; index++)
-        {
-            ShaderResourceBinding binding = description.Resources[index];
-            SKShader child = binding.Bind(resourceContext);
-            children.Add(child);
-            runtimeChildren[binding.Name] = child;
-        }
+        ShaderArgumentBinder.BindStandalone(description, context, uniforms, runtimeChildren, children);
     }
 
     /// <summary>Fills the output buffer with the bound program.</summary>

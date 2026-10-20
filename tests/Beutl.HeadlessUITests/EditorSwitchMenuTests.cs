@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Linq;
-using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
@@ -43,13 +42,13 @@ public class EditorSwitchMenuTests
             started.TrySetResult(); await release.Task.WaitAsync(token);
             scene.SetMediaFingerprints(new Dictionary<string, MediaFileFingerprint>(scene.MediaFingerprints)
             {
-                [new Uri(path).AbsoluteUri] = new MediaFileFingerprint(42, 123, "captured-before-dispose"),
+                [new Uri(path).AbsoluteUri] = new MediaFileFingerprint(42, "captured-before-dispose"),
             });
         };
         try
         {
             editor.ScheduleMediaFingerprints(); await started.Task;
-            Task switching = ExtensionMenuActions.SwitchEditorAsync(TestShell.MainViewModel, tab, new ReplacementEditorExtension());
+            Task switching = TestShell.MainViewModel.SwitchEditorAsync(tab, new ReplacementEditorExtension());
             Assert.That(switching.IsCompleted, Is.False);
             Assert.That(editor.IsDisposingOrDisposed, Is.False);
             release.SetResult(); await switching;
@@ -147,7 +146,7 @@ public class EditorSwitchMenuTests
         var tab = new EditorTabItem(original);
         var replacement = new ReplacementEditorExtension();
         TestShell.Editor.TabItems.Add(tab);
-        Task switching = ExtensionMenuActions.SwitchEditorAsync(TestShell.MainViewModel, tab, replacement);
+        Task switching = TestShell.MainViewModel.SwitchEditorAsync(tab, replacement);
         Assert.That(original.SaveCalls, Is.EqualTo(1));
         var waiting = TestShell.Editor.BeginProjectFileWriteAsync(CancellationToken.None).AsTask();
         Assert.That(waiting.IsCompleted, Is.False);
@@ -167,8 +166,8 @@ public class EditorSwitchMenuTests
         EditorExtension replacement,
         out Action closeMenu)
     {
-        // Initialize only the extension menus: showing the shell starts the real app's
-        // startup work, which is unrelated to the editor-switch click handlers.
+        // Only the menus are built: showing the shell starts the real app's startup work, which is
+        // unrelated to the editor-switch click handlers.
         if (nativeMenu)
         {
             var window = new MacWindow { DataContext = TestShell.MainViewModel };
@@ -177,29 +176,26 @@ public class EditorSwitchMenuTests
                 window.DataContext = null;
                 window.Close();
             };
-            window.InitExtMenuItems(TestShell.MainViewModel);
             HeadlessTestHelpers.Settle();
-            NativeMenu root = NativeMenu.GetMenu(window)!;
-            NativeMenu? viewMenu = MacWindow.FindMenuItem(root, Strings.View)!.Menu;
-            NativeMenu editors = MacWindow.FindMenuItem(viewMenu, Strings.Editors)!.Menu!;
-            NativeMenuItem item = editors.Items.OfType<NativeMenuItem>()
+            NativeMenuItem item = NativeItems(NativeMenu.GetMenu(window)!)
                 .Single(item => ReferenceEquals(item.CommandParameter, replacement));
-            item.IsEnabled = true;
             return ((INativeMenuItemExporterEventsImplBridge)item).RaiseClicked;
         }
         else
         {
             var view = new MainView { DataContext = TestShell.MainViewModel };
             closeMenu = () => view.DataContext = null;
-            typeof(MainView).GetMethod("InitExtMenuItems", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .Invoke(view, [TestShell.MainViewModel]);
             HeadlessTestHelpers.Settle();
-            MenuItem editors = view.FindControl<MenuItem>("editorTabMenuItem")!;
-            MenuItem item = editors.Items.OfType<MenuItem>()
-                .Single(item => ReferenceEquals(item.DataContext, replacement));
-            item.IsVisible = true;
+            MenuItem item = MenuItems(view.FindControl<Menu>("MenuBar")!.Items)
+                .Single(item => ReferenceEquals(item.CommandParameter, replacement));
             return () => item.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
         }
+
+        static IEnumerable<NativeMenuItem> NativeItems(NativeMenu menu) => menu.Items.OfType<NativeMenuItem>()
+            .SelectMany(item => (item.Menu is { } submenu ? NativeItems(submenu) : []).Prepend(item));
+
+        static IEnumerable<MenuItem> MenuItems(ItemCollection items) => items.OfType<MenuItem>()
+            .SelectMany(item => MenuItems(item.Items).Prepend(item));
     }
 
     private class TestEditorContext(CoreObject document, EditorExtension extension) : IEditorContext

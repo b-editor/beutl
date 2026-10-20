@@ -49,7 +49,7 @@ public static class CaptionTemplateDefaults
     /// <summary>
     /// Creates the built-in default template with a host-supplied element factory.
     /// </summary>
-    public static CaptionTemplateRegistrationSet CreateDefaultText(
+    public static CaptionTemplate CreateDefaultText(
         string name,
         ICaptionElementFactory elementFactory)
     {
@@ -59,11 +59,6 @@ public static class CaptionTemplateDefaults
             CaptionTemplateProviders.BuiltIn,
             name,
             order: int.MinValue);
-        return new CaptionTemplateRegistrationSet(
-            new CaptionTemplateDescriptorRegistration(descriptor),
-            new CaptionElementFactoryRegistration(descriptor.Id, elementFactory),
-            new CaptionPlacementPolicyRegistration(
-                descriptor.Id,
-                DefaultCaptionPlacementPolicy.Instance));
+        return new CaptionTemplate(descriptor, elementFactory, DefaultCaptionPlacementPolicy.Instance);
     }
 }

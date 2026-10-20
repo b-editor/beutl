@@ -1392,181 +1392,6 @@ public sealed partial class AiCapabilityServiceTests
     }
 
     [Test]
-    public async Task ModelCatalog_CustomSchemaChangeInvalidatesTheCachedShape()
-    {
-        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """
-            {
-              "operations": {
-                "vendor.video": {
-                  "models": [{ "id": "vendor/model", "isDefault": true }],
-                  "minDurationSeconds": 4,
-                  "maxDurationSeconds": 8,
-                  "resolutions": ["720p"]
-                }
-              }
-            }
-            """));
-        using var httpClient = new HttpClient(handler);
-        var extensions = new ExtensionProvider();
-        await using var app = new BeutlApiApplication(httpClient, extensions);
-        ApiTestAuthentication.SignIn(app);
-        IAiModelCatalogService service = app.GetResource<IAiModelCatalogService>();
-        var operation = new AiOperationId("vendor.video");
-
-        AiModelCatalog before = await service.GetAsync(CancellationToken.None);
-        extensions.AddExtensions(901,
-        [
-            new TestCapabilitySchemaExtension(
-                new AiOperationCapabilitySchemaRegistration(
-                    operation,
-                    AiModelCapabilitySchema.Video)),
-        ]);
-        AiModelCatalog after = await service.GetAsync(CancellationToken.None);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(before.GetCapabilitySchema(operation),
-                Is.EqualTo(AiModelCapabilitySchema.Generic));
-            Assert.That(before.ModelsFor(operation).Single().Video, Is.Null);
-            Assert.That(after.GetCapabilitySchema(operation),
-                Is.EqualTo(AiModelCapabilitySchema.Video));
-            Assert.That(after.ModelsFor(operation).Single().Video, Is.Not.Null);
-            Assert.That(handler.Requests, Has.Count.EqualTo(2));
-        }
-    }
-
-    [Test]
-    public async Task ModelCatalog_SchemaChangeBeforePublicationIsFetchedAgainOnTheNextCall()
-    {
-        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """
-            {
-              "operations": {
-                "vendor.image": {
-                  "models": [{ "id": "vendor/model", "isDefault": true }],
-                  "aspectRatios": ["1:1"],
-                  "maxReferenceImagesTotalBytes": 11534336
-                }
-              }
-            }
-            """));
-        using var httpClient = new HttpClient(handler);
-        var extensions = new ExtensionProvider();
-        await using var app = new BeutlApiApplication(httpClient, extensions);
-        ApiTestAuthentication.SignIn(app);
-        var operation = new AiOperationId("vendor.image");
-        using var service = new AiModelCatalogService(
-            app,
-            new AfterResponseCapabilitySchemas(
-                app.GetResource<IAiOperationCapabilitySchemaProvider>(),
-                handler,
-                () => extensions.AddExtensions(902,
-                [
-                    new TestCapabilitySchemaExtension(
-                        new AiOperationCapabilitySchemaRegistration(
-                            operation,
-                            AiModelCapabilitySchema.Image)),
-                ])));
-
-        AiModelCatalog first = await service.GetAsync(CancellationToken.None);
-        AiModelCatalog second = await service.GetAsync(CancellationToken.None);
-
-        using (Assert.EnterMultipleScope())
-        {
-            // The racing call returns the mapping of the schema it read; the cached
-            // copy is stale, so the next call fetches and maps again.
-            Assert.That(first.GetCapabilitySchema(operation),
-                Is.EqualTo(AiModelCapabilitySchema.Generic));
-            Assert.That(second.GetCapabilitySchema(operation),
-                Is.EqualTo(AiModelCapabilitySchema.Image));
-            Assert.That(second.ModelsFor(operation).Single().Image, Is.Not.Null);
-            Assert.That(second.GetImageReferenceLimits(operation).MaxTotalBytes,
-                Is.EqualTo(11 * 1024 * 1024));
-            Assert.That(handler.Requests, Has.Count.EqualTo(2));
-        }
-    }
-
-    [Test]
-    public async Task ModelCatalog_DoesNotPublishASchemaFromARolledBackExtensionBatch()
-    {
-        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """
-            {
-              "operations": {
-                "video.generate": {
-                  "models": [{ "id": "video/model", "isDefault": true }],
-                  "durationsSeconds": [4],
-                  "resolutions": ["720p"]
-                }
-              }
-            }
-            """));
-        using var httpClient = new HttpClient(handler);
-        var extensions = new ExtensionProvider();
-        await using var app = new BeutlApiApplication(httpClient, extensions);
-        ApiTestAuthentication.SignIn(app);
-        IAiModelCatalogService service = app.GetResource<IAiModelCatalogService>();
-        var observerEntered = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseObserver = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        NotifyCollectionChangedEventHandler failingObserver = (_, args) =>
-        {
-            if (args.Action != NotifyCollectionChangedAction.Add)
-                return;
-            observerEntered.TrySetResult();
-            releaseObserver.Task.GetAwaiter().GetResult();
-            throw new InvalidOperationException("Injected extension observer failure.");
-        };
-        extensions.AllExtensions.CollectionChanged += failingObserver;
-        Task<Exception?> addition = Task.Run(() =>
-        {
-            try
-            {
-                extensions.AddExtensions(903,
-                [
-                    new TestCapabilitySchemaExtension(
-                        new AiOperationCapabilitySchemaRegistration(
-                            AiOperations.VideoGeneration,
-                            AiModelCapabilitySchema.Generic,
-                            AiJobBehaviorRegistrationMode.Replace)),
-                ]);
-                return null;
-            }
-            catch (Exception ex)
-            {
-                return ex;
-            }
-        });
-
-        try
-        {
-            await observerEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            AiModelCatalog duringProvisionalAdd = await service.GetAsync(CancellationToken.None);
-            releaseObserver.TrySetResult();
-            Exception? failure = await addition.WaitAsync(TimeSpan.FromSeconds(5));
-            AiModelCatalog afterRollback = await service.GetAsync(CancellationToken.None);
-
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(failure, Is.TypeOf<ExtensionRegistrationNotificationException>());
-                Assert.That(
-                    duringProvisionalAdd.GetCapabilitySchema(AiOperations.VideoGeneration),
-                    Is.EqualTo(AiModelCapabilitySchema.Video));
-                Assert.That(
-                    duringProvisionalAdd.ModelsFor(AiOperations.VideoGeneration).Single().Video,
-                    Is.Not.Null);
-                Assert.That(afterRollback, Is.SameAs(duringProvisionalAdd));
-                Assert.That(handler.Requests, Has.Count.EqualTo(1));
-            }
-        }
-        finally
-        {
-            releaseObserver.TrySetResult();
-            extensions.AllExtensions.CollectionChanged -= failingObserver;
-            await addition.WaitAsync(TimeSpan.FromSeconds(5));
-        }
-    }
-
-    [Test]
     public async Task ModelCatalog_DisposeDoesNotFaultAnActiveRequestOnGateRelease()
     {
         var response = new TaskCompletionSource<HttpResponseMessage>(
@@ -1613,28 +1438,45 @@ public sealed partial class AiCapabilityServiceTests
     public async Task ModelCatalog_DoesNotPublishAResponseAfterTheAccountChanges()
     {
         int fetches = 0;
-        using var handler = new RecordingHandler(_ =>
+        using var handler = new HeldResponseHandler(() =>
         {
-            fetches++;
-            return TestHttp.Json(HttpStatusCode.OK, "{ \"operations\": {} }");
+            Interlocked.Increment(ref fetches);
+            return TestHttp.Json(HttpStatusCode.OK, """
+                {
+                  "operations": {
+                    "image.generate": { "models": [{ "id": "image/model", "isDefault": true }] }
+                  }
+                }
+                """);
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         ApiTestAuthentication.SignIn(app);
-        using var catalog = new AiModelCatalogService(
-            app,
-            new AfterResponseCapabilitySchemas(
-                EmptyCapabilitySchemas.Instance,
-                handler,
-                () => ApiTestAuthentication.SignIn(app)),
-            new StepTimeProvider());
+        using var catalog = CatalogService(app, new StepTimeProvider());
 
-        AiModelCatalog stale = await catalog.GetAsync(CancellationToken.None);
-        await catalog.GetAsync(CancellationToken.None);
+        // GetAsync resumes on this context once the response is back, so the account changes just before publication.
+        Task<AiModelCatalog> request;
+        SynchronizationContext? previous = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(
+            new BeforeContinuationContext(() => ApiTestAuthentication.SignIn(app)));
+        try
+        {
+            request = catalog.GetAsync(CancellationToken.None);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previous);
+        }
+
+        Assert.That(request.IsCompleted, Is.False);
+        handler.Release();
+        AiModelCatalog stale = await request.WaitAsync(TimeSpan.FromMinutes(1));
+        AiModelCatalog current = await catalog.GetAsync(CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(stale, Is.SameAs(AiModelCatalog.Empty));
+            Assert.That(current.ModelsFor(AiOperations.ImageGeneration), Is.Not.Empty);
             Assert.That(fetches, Is.EqualTo(2));
         }
     }
@@ -2054,7 +1896,7 @@ public sealed partial class AiCapabilityServiceTests
         """;
 
     private static AiModelCatalogService CatalogService(BeutlApiApplication app, TimeProvider timeProvider)
-        => new(app, EmptyCapabilitySchemas.Instance, timeProvider);
+        => new(app, timeProvider);
 
     private sealed record RecordedRequest(
         HttpMethod Method,
@@ -2166,45 +2008,36 @@ public sealed partial class AiCapabilityServiceTests
         }
     }
 
-    private sealed class EmptyCapabilitySchemas : IAiOperationCapabilitySchemaProvider
+    // Holds every response until Release, then answers on a thread-pool thread, not on the caller's context.
+    private sealed class HeldResponseHandler(Func<HttpResponseMessage> respond) : HttpMessageHandler
     {
-        public static EmptyCapabilitySchemas Instance { get; } = new();
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public event EventHandler? Changed
+        public void Release() => _release.TrySetResult();
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
         {
-            add { }
-            remove { }
+            await _release.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            HttpResponseMessage response = respond();
+            response.RequestMessage = request;
+            return response;
         }
-
-        public AiOperationCapabilitySchemaSnapshot GetSnapshot() => AiOperationCapabilitySchemaSnapshot.Empty;
     }
 
-    // Runs an action at the first schema read after the server has answered, so the
-    // catalog maps the earlier snapshot and publishes after the action.
-    private sealed class AfterResponseCapabilitySchemas(
-        IAiOperationCapabilitySchemaProvider inner,
-        RecordingHandler handler,
-        Action afterResponse) : IAiOperationCapabilitySchemaProvider
+    // Runs an action before the first callback posted to it.
+    private sealed class BeforeContinuationContext(Action before) : SynchronizationContext
     {
-        private bool _ran;
+        private int _ran;
 
-        public event EventHandler? Changed
-        {
-            add => inner.Changed += value;
-            remove => inner.Changed -= value;
-        }
-
-        public AiOperationCapabilitySchemaSnapshot GetSnapshot()
-        {
-            AiOperationCapabilitySchemaSnapshot snapshot = inner.GetSnapshot();
-            if (!_ran && handler.Requests.Count > 0)
+        public override void Post(SendOrPostCallback d, object? state)
+            => ThreadPool.QueueUserWorkItem(_ =>
             {
-                _ran = true;
-                afterResponse();
-            }
-
-            return snapshot;
-        }
+                if (Interlocked.Exchange(ref _ran, 1) == 0)
+                    before();
+                d(state);
+            });
     }
 
     // Freshness is measured, not waited for.

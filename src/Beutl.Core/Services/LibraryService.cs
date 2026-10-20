@@ -204,7 +204,10 @@ public sealed class LibraryService
 
     public IReadOnlySet<Type> GetTypesFromFormat(string format)
     {
-        return GetHashSet(format);
+        lock (_lock)
+        {
+            return _formatToType.TryGetValue(format, out HashSet<Type>? types) ? types.ToHashSet() : [];
+        }
     }
 
     private void Register(LibraryItem item)

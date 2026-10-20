@@ -84,32 +84,25 @@ internal sealed class AiJobCompletionNotifier : IDisposable
 
     private void ShowCompletion(AiJob job, AiJobStatusSemantics status)
     {
-        if (!_resultHandlers.TryAcquireCompletionPresenter(
-                job.Kind,
-                out IAiJobCompletionPresenterLease? lease))
+        if (!_resultHandlers.TryGetCompletionPresenter(job.Kind, out IAiJobCompletionPresenter? presenter))
             return;
 
-        using (lease)
+        try
         {
-            try
-            {
-                AiJobCompletionPresentation? completion = lease.Presenter.CreateCompletion(
-                    job,
-                    status);
-                if (completion is null)
-                    return;
+            AiJobCompletionPresentation? completion = presenter.CreateCompletion(job, status);
+            if (completion is null)
+                return;
 
-                NotificationService.Show(
-                    completion.Title,
-                    completion.Message,
-                    ToNotificationType(completion.Notification),
-                    completion.Expiration,
-                    actions: [new NotificationAction(Strings.AiJobCenter, _openJobCenter)]);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "AI job completion handler failed for {JobId}.", job.Id);
-            }
+            NotificationService.Show(
+                completion.Title,
+                completion.Message,
+                ToNotificationType(completion.Notification),
+                completion.Expiration,
+                actions: [new NotificationAction(Strings.AiJobCenter, _openJobCenter)]);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "AI job completion handler failed for {JobId}.", job.Id);
         }
     }
 

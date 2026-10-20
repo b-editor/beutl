@@ -33,7 +33,7 @@ public sealed partial class EditViewModel
     {
         if (_fingerprintCaptureTask.IsCompleted)
             _fingerprintCaptureTask = CaptureMediaFingerprints?.Invoke(scene, _autoSaveCancellation.Token)
-                ?? new MissingMediaService().UpdateFingerprintsAsync(scene, _autoSaveCancellation.Token, force);
+                ?? new MissingMediaService().UpdateFingerprintsAsync(scene, _autoSaveCancellation.Token, force, cacheHashes: true);
         return _fingerprintCaptureTask;
     }
 

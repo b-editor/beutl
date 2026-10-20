@@ -36,11 +36,6 @@ namespace Beutl.HeadlessUITests;
 [TestFixture, NonParallelizable]
 public class AiSubtitleTemplateTests
 {
-    private const int SavedTemplatePackageId = -42_101;
-    private const int CustomTemplatePackageId = -42_102;
-    private const int PreviewTemplatePackageId = -42_103;
-    private const int RemovedTemplatePackageId = -42_104;
-
     private static TranslateTransform GetTranslate(TextBlock textBlock)
     {
         return textBlock.Transform.CurrentValue switch
@@ -52,16 +47,15 @@ public class AiSubtitleTemplateTests
     }
 
     [Test]
-    public async Task CreateCaptionTemplates_UsesExplicitRegistryOrderAndTextTemplatesOnly()
+    public void CreateCaptionTemplates_UsesExplicitRegistryOrderAndTextTemplatesOnly()
     {
         ObjectTemplateItem zulu = ObjectTemplateItem.CreateFromInstance(new TextBlock(), "Zulu");
         ObjectTemplateItem shape = ObjectTemplateItem.CreateFromInstance(new EllipseShape(), "Shape");
         ObjectTemplateItem alpha = ObjectTemplateItem.CreateFromInstance(new TextBlock(), "Alpha");
 
-        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
+        CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
             "Default",
             [zulu, shape, alpha],
-            new ExtensionProvider(),
             new DefaultTextCaptionElementFactory(Beutl.Media.FontFamily.Default));
         IReadOnlyList<CaptionTemplateDescriptor> result = catalog.Templates.Templates;
 
@@ -158,23 +152,19 @@ public class AiSubtitleTemplateTests
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-template-preview");
         var previewFactory = new PreviewCaptionFactory();
-        CaptionTemplateRegistrationSet template = CreateTemplate(
-            new CaptionTemplateId("beutl.tests.preview"),
-            "Preview",
-            previewFactory);
+        CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory("Preview", [], previewFactory);
         AiSubtitleDialogViewModel? ownedViewModel = null;
         AvaloniaWindow? ownedWindow = null;
 
         try
         {
-            TestShell.Extensions.AddExtensions(
-                PreviewTemplatePackageId,
-                CreateTemplateExtensions(template));
-            AiSubtitleDialogViewModel viewModel =
-                TestShell.MainViewModel.CreateAiSubtitleToolViewModel(editor);
+            AiSubtitleDialogViewModel viewModel = AiTestSupport.CreateSubtitleDialog(
+                TestShell.MainViewModel._beutlClients,
+                editor,
+                captionCatalog: catalog);
             ownedViewModel = viewModel;
             viewModel.SelectedCaptionTemplate.Value = viewModel.CaptionTemplates
-                .Single(item => item.Id == template.DescriptorRegistration.Descriptor.Id);
+                .Single(item => item.Id == CaptionTemplateIds.DefaultText);
             viewModel.ResultSegments.Value =
             [
                 new AiTranscriptionSegment { Start = 0, End = 2, Text = "Rendered cue" },
@@ -321,15 +311,8 @@ public class AiSubtitleTemplateTests
             }
             finally
             {
-                try
-                {
-                    if (ownedViewModel is not null)
-                        await ownedViewModel.DisposeAsync();
-                }
-                finally
-                {
-                    TestShell.Extensions.RemoveExtensions(PreviewTemplatePackageId);
-                }
+                if (ownedViewModel is not null)
+                    await ownedViewModel.DisposeAsync();
             }
         }
     }
@@ -392,78 +375,6 @@ public class AiSubtitleTemplateTests
                     },
                     position: new Beutl.Graphics.Point(140, context.DefaultPosition.Y)),
             ];
-        }
-    }
-
-    // A catalog holds no template once it has been disposed.
-    [AvaloniaTest]
-    public async Task ShownTool_OffersNoTemplateOnceTheCatalogIsDisposed()
-    {
-        await TestReset.ResetShellAsync();
-        var clients = TestShell.MainViewModel._beutlClients;
-        CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
-            "Default",
-            [],
-            new ExtensionProvider(),
-            new DefaultTextCaptionElementFactory(Beutl.Media.FontFamily.Default));
-        byte[] png = CreatePng();
-        var viewModel = new AiSubtitleDialogViewModel(
-            clients.GetResource<IAiEntitlementService>(),
-            clients.GetResource<IAiOperationAvailabilityService>(),
-            clients.GetResource<IAiModelCatalogService>(),
-            new Beutl.Services.AiPlanCoordinator(clients.GetResource<IAiEntitlementService>()),
-            clients.GetResource<IAiTranscriptionService>(),
-            clients.GetResource<IAiCaptionTranslationService>(),
-            catalog,
-            CaptionDraftStoreProvider.Current,
-            Observable.Return<CaptionDraftScope?>(null));
-        viewModel.TemplatePreviewRenderer = (_, _, _) => Task.FromResult<byte[]?>(png);
-        viewModel.SelectedSubtitlePageIndex.Value = 1;
-        viewModel.ResultSegments.Value =
-        [
-            new AiTranscriptionSegment { Start = 0, End = 2, Text = "Cue" },
-        ];
-        var view = new AiSubtitleView { DataContext = viewModel };
-        var window = new AvaloniaWindow { Content = view, Width = 460, Height = 640 };
-
-        try
-        {
-            window.Show();
-            HeadlessTestHelpers.Render();
-            AvaloniaComboBox picker = view.GetVisualDescendants()
-                .OfType<AvaloniaComboBox>()
-                .Single(comboBox => comboBox.Name == "CaptionTemplateComboBox");
-            CaptionTemplateDescriptor offered = viewModel.CaptionTemplates.Single();
-            await HeadlessTestHelpers.WaitUntilAsync(
-                () => viewModel.TemplatePreviewImage.Value is not null, TimeSpan.FromSeconds(3));
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(offered.Id, Is.EqualTo(CaptionTemplateIds.DefaultText));
-                Assert.That(viewModel.SelectedCaptionTemplate.Value, Is.EqualTo(offered));
-                Assert.That(picker.SelectedItem, Is.EqualTo(offered));
-                Assert.That(viewModel.CanAddToScene.Value, Is.True);
-                Assert.That(viewModel.TemplatePreviewImage.Value, Is.Not.Null);
-            }
-
-            ValueTask disposal = catalog.DisposeAsync();
-            HeadlessTestHelpers.Render();
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(viewModel.CaptionTemplates, Is.Empty);
-                Assert.That(viewModel.SelectedCaptionTemplate.Value, Is.Null);
-                Assert.That(picker.SelectedItem, Is.Null);
-                Assert.That(viewModel.CanAddToScene.Value, Is.False);
-                Assert.That(viewModel.TemplatePreviewImage.Value, Is.Null);
-            }
-
-            await disposal.AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-        }
-        finally
-        {
-            window.Close();
-            HeadlessTestHelpers.Settle();
-            await viewModel.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            await catalog.DisposeAsync();
         }
     }
 
@@ -805,16 +716,17 @@ public class AiSubtitleTemplateTests
             Transform = { CurrentValue = new TranslateTransform(45, 60) },
         };
         ObjectTemplateItem item = ObjectTemplateItem.CreateFromInstance(source, "Saved subtitle");
-        CaptionTemplateRegistrationSet contribution = TextBlockCaptionTemplateAdapter.TryCreate(item)!;
-        TestShell.Extensions.AddExtensions(
-            SavedTemplatePackageId,
-            CreateTemplateExtensions(contribution));
-        try
+        CaptionTemplate saved = TextBlockCaptionTemplateAdapter.TryCreate(item)!;
+        using (AiSubtitleDialogViewModel viewModel = AiTestSupport.CreateSubtitleDialog(
+                   TestShell.MainViewModel._beutlClients,
+                   editor,
+                   captionCatalog: CaptionCatalog.ComposeWithDefaultElementFactory(
+                       "Default",
+                       [item],
+                       new DefaultTextCaptionElementFactory(Beutl.Media.FontFamily.Default))))
         {
-            using AiSubtitleDialogViewModel viewModel =
-                TestShell.MainViewModel.CreateAiSubtitleToolViewModel(editor);
             viewModel.SelectedCaptionTemplate.Value = viewModel.CaptionTemplates
-                .Single(template => template.Id == contribution.DescriptorRegistration.Descriptor.Id);
+                .Single(template => template.Id == saved.Descriptor.Id);
             viewModel.ResultSegments.Value =
             [
                 new AiTranscriptionSegment { Start = 1, End = 3, Text = "Generated text" },
@@ -823,10 +735,6 @@ public class AiSubtitleTemplateTests
 
             await viewModel.AddToScene.ExecuteAsync();
             HeadlessTestHelpers.Settle();
-        }
-        finally
-        {
-            TestShell.Extensions.RemoveExtensions(SavedTemplatePackageId);
         }
 
         Element element = editor.Scene.Children.Single();
@@ -846,126 +754,6 @@ public class AiSubtitleTemplateTests
         }
     }
 
-    [AvaloniaTest]
-    public async Task AddToScene_WithCustomFactoryAddsEveryElementForEachCue()
-    {
-        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-multi-template");
-        CaptionTemplateRegistrationSet template = CreateTemplate(
-            new CaptionTemplateId("beutl.tests.bilingual"),
-            "Bilingual",
-            new BilingualCaptionFactory());
-        TestShell.Extensions.AddExtensions(
-            CustomTemplatePackageId,
-            CreateTemplateExtensions(template));
-        try
-        {
-            using AiSubtitleDialogViewModel viewModel =
-                TestShell.MainViewModel.CreateAiSubtitleToolViewModel(editor);
-            viewModel.SelectedCaptionTemplate.Value = viewModel.CaptionTemplates
-                .Single(descriptor => descriptor.Id == template.DescriptorRegistration.Descriptor.Id);
-            viewModel.ResultSegments.Value =
-            [
-                new AiTranscriptionSegment { Start = 0, End = 2, Text = "Hello" },
-            ];
-            HeadlessTestHelpers.Settle();
-
-            await viewModel.AddToScene.ExecuteAsync();
-            HeadlessTestHelpers.Settle();
-        }
-        finally
-        {
-            TestShell.Extensions.RemoveExtensions(CustomTemplatePackageId);
-        }
-
-        Element[] elements = editor.Scene.Children.OrderBy(element => element.ZIndex).ToArray();
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(elements, Has.Length.EqualTo(2));
-            Assert.That(elements.Select(element => element.ZIndex), Is.EqualTo(new[] { 0, 1 }));
-            Assert.That(
-                elements.Select(element => element.Objects.OfType<TextBlock>().Single().Text.CurrentValue),
-                Is.EqualTo(new[] { "Hello", "Hello translation" }));
-        }
-    }
-
-    // A package can be unloaded on a worker thread. Until that reaches the UI thread, Add to scene is
-    // still enabled with the template the package took away.
-    [AvaloniaTest]
-    public async Task AddToScene_AddsNothingWithATemplateAWorkerThreadRemoved()
-    {
-        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-removed-template");
-        CaptionTemplateRegistrationSet template = CreateTemplate(
-            new CaptionTemplateId("beutl.tests.removed"),
-            "Removed",
-            new BilingualCaptionFactory());
-        TestShell.Extensions.AddExtensions(
-            RemovedTemplatePackageId,
-            CreateTemplateExtensions(template));
-        try
-        {
-            using AiSubtitleDialogViewModel viewModel =
-                TestShell.MainViewModel.CreateAiSubtitleToolViewModel(editor);
-            viewModel.SelectedCaptionTemplate.Value = viewModel.CaptionTemplates
-                .Single(descriptor => descriptor.Id == template.DescriptorRegistration.Descriptor.Id);
-            viewModel.ResultSegments.Value =
-            [
-                new AiTranscriptionSegment { Start = 0, End = 2, Text = "Hello" },
-            ];
-            HeadlessTestHelpers.Settle();
-
-            // Waiting keeps the UI thread from running the removal's dispatcher job before the command.
-            Assert.That(
-                Task.Run(() => TestShell.Extensions.RemoveExtensions(RemovedTemplatePackageId))
-                    .Wait(TimeSpan.FromSeconds(10)),
-                Is.True);
-            Assert.That(viewModel.CanAddToScene.Value, Is.True);
-            await viewModel.AddToScene.ExecuteAsync();
-            HeadlessTestHelpers.Settle();
-
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(editor.Scene.Children, Is.Empty);
-                Assert.That(viewModel.Error.Value, Is.Null);
-                Assert.That(
-                    viewModel.SelectedCaptionTemplate.Value?.Id,
-                    Is.EqualTo(CaptionTemplateIds.DefaultText));
-            }
-        }
-        finally
-        {
-            TestShell.Extensions.RemoveExtensions(RemovedTemplatePackageId);
-        }
-    }
-
-    private sealed class BilingualCaptionFactory : ICaptionElementFactory
-    {
-        public IReadOnlyList<ElementDescription> CreateElements(
-            CaptionCue cue,
-            CaptionElementContext context)
-            =>
-            [
-                context.CreateDescription(
-                    cue,
-                    () => new TextBlock { Text = { CurrentValue = cue.Text } }),
-                context.CreateDescription(
-                    cue,
-                    () => new TextBlock { Text = { CurrentValue = cue.Text + " translation" } },
-                    layerOffset: 1),
-            ];
-    }
-
-    private static CaptionTemplateRegistrationSet CreateTemplate(
-        CaptionTemplateId id,
-        string name,
-        ICaptionElementFactory factory)
-    {
-        var descriptor = new CaptionTemplateDescriptor(id, new CaptionTemplateProviderId("beutl.tests"), name);
-        return new CaptionTemplateRegistrationSet(
-            new CaptionTemplateDescriptorRegistration(descriptor),
-            new CaptionElementFactoryRegistration(id, factory),
-            new CaptionPlacementPolicyRegistration(id, DefaultCaptionPlacementPolicy.Instance));
-    }
-
     private static byte[] CreatePng()
     {
         using var bitmap = new Beutl.Media.Bitmap(2, 2);
@@ -973,12 +761,4 @@ public class AiSubtitleTemplateTests
         Assert.That(bitmap.Save(stream, EncodedImageFormat.Png), Is.True);
         return stream.ToArray();
     }
-
-    private static Extension[] CreateTemplateExtensions(CaptionTemplateRegistrationSet template)
-        =>
-        [
-            new TestCaptionTemplateDescriptorExtension([template.DescriptorRegistration]),
-            new TestCaptionElementFactoryExtension([template.ElementFactoryRegistration]),
-            new TestCaptionPlacementExtension([template.PlacementPolicyRegistration]),
-        ];
 }

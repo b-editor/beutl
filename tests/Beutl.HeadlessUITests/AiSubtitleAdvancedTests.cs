@@ -443,7 +443,7 @@ public sealed class AiSubtitleAdvancedTests
 
         bool imported = viewModel.ImportCaptionBytes(srt, CaptionFormats.Srt);
         Assert.That(viewModel.TryBuildCaptionDocument(out CaptionDocument? document, out _), Is.True);
-        await using CaptionCatalog catalog = AiTestSupport.CreateCaptionCatalog();
+        CaptionCatalog catalog = AiTestSupport.CreateCaptionCatalog();
         byte[]? exported = null;
         await AiSubtitleDialogViewModel.TryWriteCaptionExportAsync(
             document!,
@@ -543,7 +543,7 @@ public sealed class AiSubtitleAdvancedTests
     [Test]
     public async Task LossySrtExport_DeclinedConfirmationDoesNotWrite()
     {
-        await using CaptionCatalog catalog = AiTestSupport.CreateCaptionCatalog();
+        CaptionCatalog catalog = AiTestSupport.CreateCaptionCatalog();
         var document = new CaptionDocument(
         [
             new CaptionCue(
@@ -583,7 +583,7 @@ public sealed class AiSubtitleAdvancedTests
     [Test]
     public async Task LossySrtExport_ConfirmedProjectionPreservesTheSourceDocument()
     {
-        await using CaptionCatalog catalog = AiTestSupport.CreateCaptionCatalog();
+        CaptionCatalog catalog = AiTestSupport.CreateCaptionCatalog();
         var cue = new CaptionCue(
             TimeSpan.FromSeconds(1),
             TimeSpan.FromSeconds(2),
@@ -626,7 +626,7 @@ public sealed class AiSubtitleAdvancedTests
     public async Task LossySrtExport_CancellationAfterConfirmationDoesNotWrite()
     {
         using var cancellation = new CancellationTokenSource();
-        await using CaptionCatalog catalog = AiTestSupport.CreateCaptionCatalog();
+        CaptionCatalog catalog = AiTestSupport.CreateCaptionCatalog();
         var document = new CaptionDocument(
         [
             new CaptionCue(

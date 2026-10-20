@@ -879,8 +879,7 @@ public partial class MissingMediaTests
             await editor.WaitForMediaFingerprintsAsync();
             var saved = CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri);
             Assert.That(editor.Scene.MediaFingerprints.ContainsKey(new Uri(path).AbsoluteUri), Is.False);
-            // The file's time is not saved, so the stored fingerprint reads it as 0.
-            Assert.That(saved.MediaFingerprints[new Uri(path).AbsoluteUri], Is.EqualTo(fingerprint with { LastWriteTimeUtcTicks = 0 }));
+            Assert.That(saved.MediaFingerprints[new Uri(path).AbsoluteUri], Is.EqualTo(fingerprint));
             Assert.That(File.ReadAllBytes(editor.Scene.Uri.LocalPath), Is.EqualTo(savedBytes));
         }
         finally { await TestReset.ResetShellAsync(); }

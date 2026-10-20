@@ -613,30 +613,25 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
             ImmutableArray<AiJob> pollingJobs = snapshot.Jobs.Where(ShouldPoll).ToImmutableArray();
             foreach (AiJob job in pollingJobs)
             {
-                if (!_jobKinds.TryAcquireRefreshHandler(
-                        job.Kind,
-                        out IAiJobRefreshHandlerLease? refreshLease))
+                if (!_jobKinds.TryGetRefreshHandler(job.Kind, out IAiJobRefreshHandler? refreshHandler))
                 {
                     continue;
                 }
 
-                using (refreshLease)
+                try
                 {
-                    try
-                    {
-                        await refreshLease.Handler.RefreshAsync(job, cancellationToken);
-                    }
-                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                    {
-                        return;
-                    }
-                    catch (AuthenticationRequiredException)
-                    {
-                        break;
-                    }
-                    catch
-                    {
-                    }
+                    await refreshHandler.RefreshAsync(job, cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+                catch (AuthenticationRequiredException)
+                {
+                    break;
+                }
+                catch
+                {
                 }
             }
 
