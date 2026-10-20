@@ -134,6 +134,7 @@ public sealed class CommandPaletteService
             }
 
             object context = snapshotContext;
+            Extension? owner = FindExtension(entry.ExtensionType);
             IObservable<System.Reactive.Unit>? stateChanged =
                 (context as IContextCommandStateNotifier)?.CanExecuteChanged;
 
@@ -143,8 +144,8 @@ public sealed class CommandPaletteService
                 Description: entry.Definition.Description,
                 CategoryName: category,
                 KeyGesture: gesture,
-                CanExecute: () => definition.CanRun(context, CreateExecution(commandId, activeContext, null)),
-                ExecuteAsync: interaction =>
+                CanExecute: () => Guard(owner, () => definition.CanRun(context, CreateExecution(commandId, activeContext, null))),
+                ExecuteAsync: interaction => Guard(owner, () =>
                 {
                     // スロットル窓や状態変化で表示と実行可否がずれる可能性があるため、
                     // 実行直前にもう一度 CanExecute を確認してから Execute する。
@@ -152,7 +153,7 @@ public sealed class CommandPaletteService
                     return definition.CanRun(context, execution)
                         ? definition.RunAsync(context, execution)
                         : Task.CompletedTask;
-                })
+                }))
             {
                 StateChanged = stateChanged
             });
@@ -213,7 +214,7 @@ public sealed class CommandPaletteService
 
         using (lease)
         {
-            return definition.CanRun(null, CreateExecution(definition.Id, editorContext, null));
+            return ExtensionGuard.Call(lease.Extension, () => definition.CanRun(null, CreateExecution(definition.Id, editorContext, null)));
         }
     }
 
@@ -228,10 +229,24 @@ public sealed class CommandPaletteService
         using (lease)
         {
             var execution = CreateExecution(definition.Id, editorContext, interaction);
-            if (definition.CanRun(null, execution))
-                await definition.RunAsync(null, execution);
+            await ExtensionGuard.CallAsync(lease.Extension, async () =>
+            {
+                if (definition.CanRun(null, execution))
+                    await definition.RunAsync(null, execution);
+            });
         }
     }
+
+    // A lambda here would hoist the entry into the snapshot's closure and keep a collectible extension type alive.
+    private Extension? FindExtension(Type type)
+        => _extensionProvider.AllExtensions.FirstOrDefault(extension => extension.GetType() == type);
+
+    // A handler that no registered extension owns is the host's own, and runs unguarded.
+    private static bool Guard(Extension? owner, Func<bool> canExecute)
+        => owner is null ? canExecute() : ExtensionGuard.Call(owner, canExecute);
+
+    private static Task Guard(Extension? owner, Func<Task> execute)
+        => owner is null ? execute() : ExtensionGuard.CallAsync(owner, execute);
 
     private string ResolveCategoryName(Type extensionType)
     {

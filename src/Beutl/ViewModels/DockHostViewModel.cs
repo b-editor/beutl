@@ -170,8 +170,8 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
     private bool OpenToolTabFromExtension(ToolTabExtension ext, IToolDock? target, NewToolTabDockable? replacing)
     {
-        if (!ext.TryCreateContext(_editViewModel, out IToolContext? tab)
-            || tab is null)
+        if (ExtensionGuard.Call(ext, () => ext.TryCreateContext(_editViewModel, out IToolContext? created) ? created : null)
+            is not { } tab)
         {
             return false;
         }

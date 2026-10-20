@@ -20,6 +20,12 @@
   <data name="NoLogoImageAvailable" xml:space="preserve">
     <value>No logo image available</value>
   </data>
+  <data name="ExtensionFailed" xml:space="preserve">
+    <value>{0} ran into an error</value>
+  </data>
+  <data name="ExtensionTurnedOff" xml:space="preserve">
+    <value>It is turned off until Beutl restarts. Package: {0}</value>
+  </data>
   <data name="Package_Screenshots" xml:space="preserve">
     <value>Screenshots</value>
   </data>

@@ -15,6 +15,12 @@
   <data name="NoLogoImageAvailable" xml:space="preserve">
     <value>ロゴ画像がありません</value>
   </data>
+  <data name="ExtensionFailed" xml:space="preserve">
+    <value>{0} でエラーが発生しました</value>
+  </data>
+  <data name="ExtensionTurnedOff" xml:space="preserve">
+    <value>Beutl を再起動するまで無効にします。パッケージ: {0}</value>
+  </data>
   <data name="Package_Screenshots" xml:space="preserve">
     <value>スクリーンショット</value>
   </data>

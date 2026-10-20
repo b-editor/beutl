@@ -1,6 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Api.Services;
 using Beutl.Editor.Components.Helpers;
 using Beutl.ViewModels.Dock;
 
@@ -44,7 +45,10 @@ public sealed class ToolTabContent : ContentControl
 
         if (control is null)
         {
-            if (!dockable.ToolContext.Extension.TryCreateContent(dockable.EditViewModel, out control))
+            ToolTabExtension extension = dockable.ToolContext.Extension;
+            control = ExtensionGuard.Call(extension,
+                () => extension.TryCreateContent(dockable.EditViewModel, out Control? content) ? content : null);
+            if (control is null)
             {
                 Content = CreateErrorContent();
                 return;

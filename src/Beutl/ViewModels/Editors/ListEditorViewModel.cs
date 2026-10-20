@@ -1,6 +1,7 @@
 ﻿using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
+using Beutl.Api.Services;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Services;
@@ -100,7 +101,9 @@ public sealed class ListItemEditorViewModel<TItem> : IDisposable, IListItemEdito
 
         var tmp = new IPropertyAdapter[] { itemAccessor };
         (_, PropertyEditorExtension? ext) = factory.MatchProperty(tmp);
-        if (ext?.TryCreateContextForListItem(itemAccessor, out IPropertyEditorContext? context) == true)
+        if (ext != null
+            && ExtensionGuard.Call(ext, () => ext.TryCreateContextForListItem(itemAccessor, out IPropertyEditorContext? created) ? created : null)
+                is { } context)
         {
             Context = context;
         }

@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
+using Beutl.Api.Services;
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.NodeGraph;
@@ -176,7 +177,8 @@ public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditor
             {
                 atmp[0] = aproperty;
                 (_, PropertyEditorExtension? ext) = this.GetRequiredService<IPropertyEditorFactory>().MatchProperty(atmp);
-                ext?.TryCreateContext(atmp, out context);
+                if (ext != null)
+                    context = ExtensionGuard.Call(ext, () => ext.TryCreateContext(atmp, out IPropertyEditorContext? created) ? created : null);
 
                 context?.Accept(this);
             }

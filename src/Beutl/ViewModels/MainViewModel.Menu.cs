@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.Windows.Input;
+using Beutl.Api.Services;
 using Beutl.Services;
 using DynamicData;
 using DynamicData.Binding;
@@ -123,7 +124,7 @@ public sealed partial class MainViewModel
                 ToolWindowExtensions.ToObservableChangeSet().ObserveOnUIDispatcher(),
                 extension => new MainMenuItem(extension.DisplayName)
                 {
-                    Command = MenuBar.OpenToolWindow, CommandParameter = extension, IconSource = extension.GetIcon()
+                    Command = MenuBar.OpenToolWindow, CommandParameter = extension, IconSource = ExtensionGuard.Call(extension, extension.GetIcon)
                 })
         },
         new(Strings.Scene)
@@ -183,7 +184,7 @@ public sealed partial class MainViewModel
     {
         Command = MenuBar.SwitchEditor,
         CommandParameter = extension,
-        IconSource = extension.GetIcon(),
+        IconSource = ExtensionGuard.Call(extension, extension.GetIcon),
         IsVisible = _editorService.SelectedTabItem
             .Select(tab => tab?.FilePath.Select(path => extension.IsSupported(path)) ?? Observable.Return(false))
             .Switch()
@@ -207,7 +208,8 @@ public sealed partial class MainViewModel
     private void OpenToolTab(ToolTabExtension extension)
     {
         if (_editorService.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
-            && extension.TryCreateContext(editorContext, out IToolContext? toolContext)
+            && ExtensionGuard.Call(extension, () => extension.TryCreateContext(editorContext, out IToolContext? created) ? created : null)
+                is { } toolContext
             && !editorContext.OpenToolTab(toolContext))
         {
             toolContext.Dispose();
@@ -237,15 +239,16 @@ public sealed partial class MainViewModel
 
         if (!ReferenceEquals(selectedTab.Context.Value, original)) return;
 
-        if (editorExtension.TryCreateContext(
+        if (ExtensionGuard.Call(editorExtension, () => editorExtension.TryCreateContext(
                 selectedTab.Context.Value.Object,
                 new EditorContextServices(_editorService, _extensionProvider),
-                out IEditorContext? context))
+                out IEditorContext? created) ? created : null, out bool declined)
+            is { } context)
         {
             selectedTab.Context.Value.Dispose();
             selectedTab.Context.Value = context;
         }
-        else
+        else if (declined)
         {
             NotificationService.ShowInformation(
                 title: MessageStrings.ContextNotCreated,
