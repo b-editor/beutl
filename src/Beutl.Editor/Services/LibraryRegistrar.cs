@@ -10,15 +10,33 @@ using Beutl.Graphics3D;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Models;
 using Beutl.Graphics3D.Primitives;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 
-namespace Beutl.Services;
+namespace Beutl.Editor.Services;
 
-public static class LibraryRegistrar
+// The built-in library items. The app, the installed agent server and the tests all run it, once per process.
+internal static class LibraryRegistrar
 {
+    private static readonly Lock s_lock = new();
+    private static bool s_registered;
+
     public static void RegisterAll()
+    {
+        lock (s_lock)
+        {
+            if (s_registered)
+                return;
+
+            Register();
+            s_registered = true;
+        }
+    }
+
+    private static void Register()
     {
         LibraryService.Current
             .AddMultiple(GraphicsStrings.EllipseShape, m => m

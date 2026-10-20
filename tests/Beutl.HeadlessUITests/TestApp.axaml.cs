@@ -2,6 +2,7 @@
 using Avalonia.Markup.Xaml;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Helpers;
 using Beutl.NodeGraph.Nodes;

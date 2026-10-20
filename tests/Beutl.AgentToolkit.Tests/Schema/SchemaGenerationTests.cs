@@ -13,6 +13,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shaders;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
+using Beutl.Graphics.Transitions;
 using Beutl.Graphics3D;
 using Beutl.Media;
 using Beutl.NodeGraph;
@@ -594,10 +595,26 @@ public sealed class SchemaGenerationTests
         });
     }
 
+    // TypeRegistration runs the editor's LibraryRegistrar, so the installed server lists what the app's library lists.
+    [Test]
+    public void Schema_lists_every_library_type()
+    {
+        CapabilitySchema schema = new SchemaGenerator().Generate(includeProperties: false, includeExamples: false);
+        string[] libraryTypes = typeof(KnownLibraryItemFormats).GetFields()
+            .SelectMany(field => LibraryService.Current.GetTypesFromFormat((string)field.GetValue(null)!))
+            .Select(type => type.FullName!)
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(libraryTypes, Does.Contain(typeof(CrossDissolveTransition).FullName));
+            Assert.That(libraryTypes.Except(schema.Types.Select(type => type.Type)), Is.Empty);
+        });
+    }
+
     [Test]
     public void Engine_object_schema_exposes_drawable_object_3d()
     {
-        // The app adds it through LibraryRegistrar, which headless hosts never run.
         var generator = new SchemaGenerator();
         CapabilitySchema schema = generator.Generate(typeFilter: nameof(DrawableObject3D));
 
@@ -656,7 +673,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void Audio_effect_schema_exposes_every_builtin_audio_effect()
     {
-        // Reflect over the engine, not LibraryService: headless hosts only see what TypeRegistration adds.
+        // Reflect over the engine, so an audio effect that no registration lists fails too.
         string[] builtinEffectTypes = typeof(AudioEffect).Assembly
             .GetExportedTypes()
             .Where(type => type.IsSubclassOf(typeof(AudioEffect))
