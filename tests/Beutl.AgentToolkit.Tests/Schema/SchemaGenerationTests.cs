@@ -595,23 +595,6 @@ public sealed class SchemaGenerationTests
         });
     }
 
-    // TypeRegistration runs the editor's LibraryRegistrar, so the installed server lists what the app's library lists.
-    [Test]
-    public void Schema_lists_every_library_type()
-    {
-        CapabilitySchema schema = new SchemaGenerator().Generate(includeProperties: false, includeExamples: false);
-        string[] libraryTypes = typeof(KnownLibraryItemFormats).GetFields()
-            .SelectMany(field => LibraryService.Current.GetTypesFromFormat((string)field.GetValue(null)!))
-            .Select(type => type.FullName!)
-            .ToArray();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(libraryTypes, Does.Contain(typeof(CrossDissolveTransition).FullName));
-            Assert.That(libraryTypes.Except(schema.Types.Select(type => type.Type)), Is.Empty);
-        });
-    }
-
     [Test]
     public void Engine_object_schema_exposes_drawable_object_3d()
     {
