@@ -6,6 +6,12 @@ namespace Beutl.Editor.Services.AI;
 // AI request rules that the dialogs, the node executor and the agent tools share.
 internal static class AiRequestRules
 {
+    // An outpaint's prompt leads with this, so its length counts against the prompt limit too.
+    public const string OutpaintInstruction =
+        "Extend the image naturally into the transparent canvas while preserving the original center.";
+
+    public static string ToOutpaintPrompt(string? prompt) => $"{OutpaintInstruction} {prompt}";
+
     public static (int Width, int Height, int Horizontal, int Vertical) GetOutpaintDimensions(
         int sourceWidth,
         int sourceHeight,

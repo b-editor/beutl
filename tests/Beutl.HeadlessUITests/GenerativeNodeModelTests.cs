@@ -3,6 +3,7 @@ using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.NodeGraphTab.PropertyEditors;
+using Beutl.Editor.Services.AI;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Language;
@@ -291,7 +292,7 @@ public sealed class GenerativeNodeModelTests
         {
             Assert.That(sent.Image.FileName, Is.EqualTo("image-outpaint.png"));
             Assert.That((widened.Width, widened.Height), Is.EqualTo((60, 30)));
-            Assert.That(sent.Prompt, Does.StartWith("Extend the image naturally").And.EndWith("a beach"));
+            Assert.That(sent.Prompt, Is.EqualTo(AiRequestRules.ToOutpaintPrompt("a beach")));
             Assert.That(sent.Task.Value, Is.EqualTo("outpaint"));
         });
     }
