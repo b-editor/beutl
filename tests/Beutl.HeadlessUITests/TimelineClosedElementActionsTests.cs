@@ -185,11 +185,7 @@ public class TimelineClosedElementActionsTests
         }
 
         public object? GetService(Type serviceType)
-        {
-            if (serviceType == typeof(EditViewModel)) return editor;
-            if (serviceType == typeof(Element)) return element;
-            return null;
-        }
+            => serviceType == typeof(Element) ? element : editor.GetService(serviceType);
     }
 
     private sealed class TestVideoDecoder : IDecoderInfo

@@ -23,7 +23,7 @@ namespace Beutl.ViewModels;
 
 public sealed partial class EditViewModel
     : ISavableEditorContext, IUndoRedoEditorContext, IAiJobResultEditorContext, ISupportAutoSaveEditorContext,
-        IPreviewRenderQuality
+        IPreviewRenderQuality, IFrameCacheInvalidator
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly AutoSaveService _autoSaveService = new();
