@@ -18,6 +18,9 @@ public sealed class EditSession : IDisposable
     // A commit of edits made outside the session completes it first, so its older entry stays below theirs.
     internal bool YieldsToCommit { get; }
 
+    // Set by a gesture, so an Undo request during it cancels the gesture instead of moving history.
+    internal Action? CancelRequested { get; set; }
+
     internal HistoryTransaction Transaction { get; }
 
     internal string? Name { get; }

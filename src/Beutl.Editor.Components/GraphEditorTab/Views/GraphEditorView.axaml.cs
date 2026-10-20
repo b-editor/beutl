@@ -23,13 +23,14 @@ public partial class GraphEditorView : UserControl
 {
     private readonly CompositeDisposable _disposables = [];
     private TimelineHelper.MouseFlags _mouseFlag = TimelineHelper.MouseFlags.Free;
-    private readonly TimelineRulerDrag _rulerDrag = new();
+    private readonly TimelineRulerDrag _rulerDrag;
     private TimeSpan _pointerFrame;
     private int _contextVersion;
 
     public GraphEditorView()
     {
         InitializeComponent();
+        _rulerDrag = new TimelineRulerDrag(() => _mouseFlag = TimelineHelper.MouseFlags.Free);
         KeyModifiers commandModifier = KeyGestureHelper.GetCommandModifier();
         foreach (FAMenuFlyoutItem item in ((FAMenuFlyout)graphPanel.ContextFlyout!).Items.OfType<FAMenuFlyoutItem>())
         {
@@ -175,7 +176,7 @@ public partial class GraphEditorView : UserControl
                 viewModel.Seek(_pointerFrame);
                 e.Handled = true;
             }
-            else if (_rulerDrag.Move(_mouseFlag, viewModel.EditorContext, viewModel.Scene, _pointerFrame))
+            else if (_rulerDrag.Move(_mouseFlag, viewModel.EditorContext, RulerBar, viewModel.Scene, _pointerFrame))
             {
                 e.Handled = true;
             }
@@ -205,12 +206,12 @@ public partial class GraphEditorView : UserControl
 
     private void OnContentPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (DataContext is not GraphEditorViewModel viewModel) return;
+        if (DataContext is not GraphEditorViewModel) return;
         PointerPoint pointerPt = e.GetCurrentPoint(graphPanel);
 
         if (pointerPt.Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased)
         {
-            TimelineRulerDrag.Release(_mouseFlag, viewModel.EditorContext);
+            _rulerDrag.Release();
 
             _mouseFlag = TimelineHelper.MouseFlags.Free;
             e.Pointer.Capture(null);

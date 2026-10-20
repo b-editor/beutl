@@ -68,7 +68,7 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
             _property.Edited -= OnTargetEdited;
             if (!Connection.IsNull && _property.Expression is NodePortExpression<T> expression && !HasOtherConnectedInput())
             {
-                using var suppression = RecordingSuppression.Enter();
+                using var suppression = HistoryReplay.Enter();
                 _property.Expression = expression.Replaced;
             }
         }
@@ -96,7 +96,7 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
         // Observers must update their previous-expression state, but this derived change must not
         // be recorded separately from the connection (or replayed on a replaced object). The user's
         // expression rides along in the port expression, so undoing the connection gives it back.
-        using var suppression = RecordingSuppression.Enter();
+        using var suppression = HistoryReplay.Enter();
         if (!Connection.IsNull && _property.Expression is not NodePortExpression<T>)
             _property.Expression = new NodePortExpression<T> { Replaced = _property.Expression };
         else if (Connection.IsNull && _property.Expression is NodePortExpression<T> expression && !HasOtherConnectedInput())
@@ -111,7 +111,7 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
         }
         else if (_property?.Expression is NodePortExpression<T> expression && !HasOtherConnectedInput(acceptedOnly: true))
         {
-            using var suppression = RecordingSuppression.Enter();
+            using var suppression = HistoryReplay.Enter();
             _property.Expression = expression.Replaced;
         }
     }

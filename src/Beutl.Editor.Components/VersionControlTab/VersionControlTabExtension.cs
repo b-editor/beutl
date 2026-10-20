@@ -3,13 +3,16 @@ using Avalonia.Controls;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
 using Beutl.Editor.Components.VersionControlTab.Views;
 using Beutl.Editor.VersionControl;
+using Beutl.Serialization;
 using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
 using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
 using Icon = FluentIcons.Common.Icon;
 
-namespace Beutl.Services.PrimitiveImpls;
+namespace Beutl.Editor.Components.VersionControlTab;
 
+// Moved from the app; layouts and pins saved before name the former type.
+[FormerPersistedName("[Beutl].Services.PrimitiveImpls:VersionControlTabExtension")]
 public sealed class VersionControlTabExtension : ToolTabExtension
 {
     public static readonly VersionControlTabExtension Instance = new();

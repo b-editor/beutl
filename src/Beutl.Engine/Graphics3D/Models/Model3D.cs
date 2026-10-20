@@ -48,7 +48,7 @@ public sealed partial class Model3D : Group3D
     {
         // History restores the recorded children along with Source. Regenerating
         // them here would replay the collection edits twice and lose their IDs.
-        if (_deserializing || RecordingSuppression.IsSuppressed)
+        if (_deserializing || HistoryReplay.IsActive)
             return;
 
         Children.Clear();

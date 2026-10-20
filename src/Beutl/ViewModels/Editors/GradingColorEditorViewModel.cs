@@ -2,6 +2,7 @@
 using Avalonia.Interactivity;
 
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Media;
 
 using Reactive.Bindings;
@@ -11,6 +12,8 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class GradingColorEditorViewModel : ValueEditorViewModel<GradingColor>, IConfigureLivePreview
 {
+    private readonly LiveEditDrag _drag = new();
+
     public GradingColorEditorViewModel(IPropertyAdapter<GradingColor> property)
         : base(property)
     {
@@ -51,12 +54,17 @@ public sealed class GradingColorEditorViewModel : ValueEditorViewModel<GradingCo
         }
         else if (sender is ColorGradingWheel wheel)
         {
-            wheel.Color = SetCurrentValueAndGetCoerced(wheel.Color);
+            // Only a drag on the wheel opens a session; typed values are confirmed as before.
+            GradingColor coerced = default;
+            _drag.Write(this, wheel.IsDragging ? wheel : null, wheel.StopDrag, () => coerced = SetCurrentValueAndGetCoerced(wheel.Color));
+            wheel.Color = coerced;
         }
     }
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
+        // A drag's session holds its writes; SetValue then finds the value in place and commits nothing more.
+        _drag.Confirm();
         if (e.Expect<GradingColor>(sender) is { } args)
         {
             SetValue(args.OldValue, args.NewValue);

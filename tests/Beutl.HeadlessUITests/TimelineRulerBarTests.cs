@@ -3,7 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Styling;
+using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
@@ -11,6 +13,7 @@ using Beutl.Editor.Components.Views;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
+using Beutl.ViewModels;
 using RectShape = Beutl.Graphics.Shapes.RectShape;
 
 namespace Beutl.HeadlessUITests;
@@ -18,6 +21,110 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class TimelineRulerBarTests
 {
+    public enum RulerDragEnd { CaptureLoss, CaptureMoved, Playback, Escape, Undo }
+
+    [AvaloniaTest]
+    [TestCase("marker", RulerDragEnd.CaptureLoss)]
+    [TestCase("marker", RulerDragEnd.Playback)]
+    [TestCase("marker", RulerDragEnd.Escape)]
+    [TestCase("marker", RulerDragEnd.Undo)]
+    [TestCase("end", RulerDragEnd.CaptureLoss)]
+    [TestCase("end", RulerDragEnd.Playback)]
+    [TestCase("end", RulerDragEnd.Escape)]
+    [TestCase("end", RulerDragEnd.Undo)]
+    [TestCase("marker", RulerDragEnd.CaptureMoved)]
+    [TestCase("end", RulerDragEnd.CaptureMoved)]
+    [TestCase("start", RulerDragEnd.CaptureLoss)]
+    [TestCase("start", RulerDragEnd.Escape)]
+    public async Task Capture_loss_and_playback_keep_a_ruler_drag_and_Escape_and_Undo_revert_it(string target, RulerDragEnd end)
+    {
+        using TimelineTestHost host = await TimelineTestHost.CreateAsync("timeline-ruler-drag-end", TimeSpan.FromSeconds(2));
+        var editor = (EditViewModel)host.Model.EditorContext;
+        HistoryManager history = editor.HistoryManager;
+        Scene scene = host.Scene;
+        Window window = host.Window;
+        var marker = new SceneMarker(TimeSpan.FromSeconds(0.8), name: "Cue");
+        scene.Markers.Add(marker);
+        history.Commit();
+        history.ExecuteInTransaction(() => marker.Note = "earlier", "Earlier");
+        HeadlessTestHelpers.Render();
+        int undoCount = history.UndoCount;
+        IPointer? pointer = null;
+        host.RulerBar.AddHandler(InputElement.PointerPressedEvent, (_, e) => pointer = e.Pointer,
+            RoutingStrategies.Bubble, handledEventsToo: true);
+
+        // 150 px per second: the marker sits at 120 px, the ending bar at 300 px and the starting bar at 0 px.
+        (double from, double to, TimeSpan initial, TimeSpan reached) = target switch
+        {
+            "marker" => (120d, 180d, TimeSpan.FromSeconds(0.8), TimeSpan.FromSeconds(1.2)),
+            "end" => (298d, 270d, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1.8)),
+            _ => (2d, 30d, TimeSpan.Zero, TimeSpan.FromSeconds(0.2))
+        };
+        Point press = host.Ruler.TranslatePoint(new Point(from, 8), window)!.Value;
+        Point moved = host.Ruler.TranslatePoint(new Point(to, 8), window)!.Value;
+        window.MouseMove(press);
+        window.MouseDown(press, MouseButton.Left);
+        window.MouseMove(moved, RawInputModifiers.LeftMouseButton);
+        HeadlessTestHelpers.Render();
+        Assert.That(Value(), Is.EqualTo(reached));
+        Assert.That(history.IsEditing, Is.True, "The drag must hold an edit session.");
+        // The scale under the press holds the capture, inside the ruler bar that the drag watches.
+        Assert.That(pointer!.Captured, Is.SameAs(host.Ruler));
+
+        switch (end)
+        {
+            case RulerDragEnd.CaptureLoss:
+                pointer!.Capture(null);
+                break;
+            case RulerDragEnd.CaptureMoved:
+                pointer!.Capture(host.Timeline);
+                break;
+            case RulerDragEnd.Playback:
+                editor.Player.IsPlaying.Value = true;
+                HeadlessTestHelpers.Settle();
+                editor.Player.IsPlaying.Value = false;
+                break;
+            case RulerDragEnd.Escape:
+                window.KeyPress(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
+                window.KeyRelease(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
+                break;
+            case RulerDragEnd.Undo:
+                Assert.That(await editor.UndoAsync(), Is.True);
+                break;
+        }
+
+        HeadlessTestHelpers.Settle();
+        Assert.That(history.IsEditing, Is.False, "The end closes the session before any release.");
+        // The pointer no longer holds the marker or bar, so a further move or release changes nothing.
+        window.MouseMove(moved + new Vector(30, 0), RawInputModifiers.LeftMouseButton);
+        window.MouseUp(moved + new Vector(30, 0), MouseButton.Left);
+        HeadlessTestHelpers.Settle();
+
+        bool kept = end is RulerDragEnd.CaptureLoss or RulerDragEnd.CaptureMoved or RulerDragEnd.Playback;
+        Assert.Multiple(() =>
+        {
+            Assert.That(Value(), Is.EqualTo(kept ? reached : initial));
+            Assert.That(scene.Start + scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(target == "end" && kept ? 1.8 : 2)));
+            Assert.That(marker.Note, Is.EqualTo("earlier"), "Undo during the drag leaves earlier history alone.");
+            Assert.That(history.UndoCount, Is.EqualTo(undoCount + (kept ? 1 : 0)));
+            Assert.That(history.IsEditing, Is.False);
+            Assert.That(host.View._mouseFlag, Is.EqualTo(TimelineHelper.MouseFlags.Free));
+        });
+
+        if (kept)
+        {
+            Assert.That(history.Undo(), Is.True);
+            Assert.That(Value(), Is.EqualTo(initial), "The drag is one entry.");
+        }
+
+        TimeSpan Value() => target switch
+        {
+            "marker" => marker.Time,
+            "end" => scene.Duration,
+            _ => scene.Start
+        };
+    }
+
     [AvaloniaTest]
     [TestCase(640, false)]
     [TestCase(960, false)]

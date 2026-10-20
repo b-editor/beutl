@@ -210,12 +210,32 @@ public class CurveEditor : Control
         base.OnPointerReleased(e);
         if (_draggingIndex >= 0)
         {
+            EndDrag();
             e.Pointer.Capture(null);
-            DragCompleted?.Invoke(this, EventArgs.Empty);
         }
+    }
 
+    // Capture loss keeps the curve where the drag reached, as release does.
+    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+    {
+        base.OnPointerCaptureLost(e);
+        if (_draggingIndex >= 0)
+            EndDrag();
+    }
+
+    // Ends the drag in progress without DragCompleted, for a host that ended the gesture itself.
+    public void StopDrag()
+    {
         _draggingIndex = -1;
         _dragTarget = DragTarget.None;
+        // The host may revert the points next, and nothing else redraws the curve for that.
+        InvalidateVisual();
+    }
+
+    private void EndDrag()
+    {
+        StopDrag();
+        DragCompleted?.Invoke(this, EventArgs.Empty);
     }
 
     private (int Index, DragTarget Target) HitTest(AvaPoint screenPos)

@@ -18,7 +18,7 @@ This subtree is the **non-UI editor logic** — undo / redo, project packaging, 
 
 Located under `Services/`:
 
-- `ISceneTimeRangeService` — Scene Start / Duration edits. `SetStart` / `SetEnd` are one-shot mutate+commit for keyboard / menu callers; drag callers use `UpdateStartDrag` / `UpdateEndDrag` per pointer frame then call `CommitStartChange` / `CommitEndChange` once on release. No session object; cancellation is the caller re-driving Update with the initial values.
+- `ISceneTimeRangeService` — Scene Start / Duration edits. `SetStart` / `SetEnd` are one-shot mutate+commit for keyboard / menu callers. The ruler drags call `UpdateStartDrag` / `UpdateEndDrag` per pointer frame inside a `DragSession`, whose edit session commits one entry and reverts on Escape or Undo.
 - `IElementMoveService` — single / multi-element move + Alt+drag duplicate. `Move(...)` returns `Moved` / `None`; `DuplicateOrMove(...)` returns `Duplicated`, `FellBackToMove`, or `DuplicateOverlapsSource` and falls back to a plain move when the duplicate cannot be staged.
 - `IElementResizeService` — `Resize(scene, IReadOnlyList<ElementResizeRequest>)` writes the final sizes (per element: start, length, zIndex) in one transaction. The View handles per-frame preview via VM reactive properties; the service is invoked once on drag release.
 - `IElementClipboardService` — Copy / Cut / Paste. Dispatches on `IClipboardGateway` formats (`Elements`, `Element`, `Files`, `Bitmap`) so `Beutl.Editor` stays Avalonia-free.
@@ -33,9 +33,11 @@ Add new edit-pipeline services here, not in `Beutl.Editor.Components`. The View 
 
 ## Mandatory rules
 
-1. **Every undoable model mutation must be recorded by `HistoryManager` (through the observers or `Record`) and committed with `Commit` or `ExecuteInTransaction`.**
-2. **No Avalonia / view types here.** ViewModels live in `Beutl.Editor.Components` (or in the app); this project is consumed by them, not the other way around.
-3. **`AutoSaveService` runs on the UI thread.** The editor calls it through the dispatcher after each history commit.
+1. **Every undoable model mutation is recorded by the observers (or `Record`) and committed by its owner.** A gesture writes inside `Enter()` of the session `BeginEdit` opened and ends it with `Complete` or `Cancel`; a one-shot edit commits with `Commit` or `ExecuteInTransaction`. Other writers go through `RunAfterEditAsync` and run once the session closes.
+2. **State derived from values is recomputed, not recorded.** The `TimeRange` and `ZIndex` that engine objects get from their element and `Connection.Status` are `[NotTracked]`, and an input port writes its connection-driven expression inside the internal `HistoryReplay` scope.
+3. **Children with IDs are recorded in the same transaction as the change that creates them.** Model3D meshes, equalizer bands and GroupNode mirror ports are created by their owner's change handler, which skips rebuilding them while `HistoryReplay.IsActive`, because replay restores the recorded children.
+4. **No Avalonia / view types here.** ViewModels live in `Beutl.Editor.Components` (or in the app); this project is consumed by them, not the other way around.
+5. **`AutoSaveService` runs on the UI thread.** The editor calls it through the dispatcher after each history commit.
 
 ## Tests
 

@@ -151,6 +151,27 @@ public sealed class GraphSnapshotTests
         Assert.That(model.AllConnections.Select(connection => connection.Status), Is.All.EqualTo(ConnectionStatus.Error));
     }
 
+    // Evaluation sets the status again on every pass, so a status change alone must not become an undo step.
+    [Test]
+    public void EvaluatedStatusAddsNoUndoEntry()
+    {
+        var model = new GraphModel();
+        var factory = new FactoryNode<Pen>();
+        model.Nodes.Add(factory);
+        var value = Source(model, 17f);
+        using var history = new HistoryHarness(model);
+        var connection = model.Connect((IInputPort)factory.Items.Single(p => p.Name == "Thickness"), value);
+        history.History.Commit("Connect");
+
+        Evaluate(model);
+        history.History.Commit("After evaluation");
+
+        Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Success));
+        Assert.That(history.History.UndoCount, Is.EqualTo(1));
+        Assert.That(history.History.Undo(), Is.True);
+        Assert.That(model.AllConnections, Is.Empty, "The first Undo removes the connection itself.");
+    }
+
     [Test]
     public void Evaluate_RefreshesRoutingFlagsWithoutRebuild()
     {

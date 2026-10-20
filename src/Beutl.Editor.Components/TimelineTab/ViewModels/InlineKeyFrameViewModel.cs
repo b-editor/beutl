@@ -167,7 +167,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         Left.Value = time.TimeToPixel(scale);
     }
 
-    // For a drag cancelled because the clip got locked: restores only the view and leaves the model as it is.
+    // For a cancelled drag: restores only the view and leaves the model as it is.
     public void RestoreVisualFromModel()
     {
         float scale = Timeline.Options.Value.Scale;

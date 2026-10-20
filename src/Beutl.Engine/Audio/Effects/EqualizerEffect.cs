@@ -54,7 +54,7 @@ public sealed partial class EqualizerEffect : AudioEffect
     private void OnBandCountOptionOnValueChanged(object? o,
         PropertyValueChangedEventArgs<BandCountPreset> propertyValueChangedEventArgs)
     {
-        if (RecordingSuppression.IsSuppressed) return;
+        if (HistoryReplay.IsActive) return;
         InitializeBands(BandCountOption.CurrentValue);
     }
 

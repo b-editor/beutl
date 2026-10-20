@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
@@ -25,6 +26,7 @@ public sealed partial class LayerHeader : UserControl
     private ElementViewModel[] _elements = [];
     private int _newLayer;
     private double _positionY;
+    private DragSession? _drag;
 
     public LayerHeader()
     {
@@ -66,8 +68,16 @@ public sealed partial class LayerHeader : UserControl
     {
         if (_pressed && GetOrFindTimeline() is { } timeline)
         {
-            Point position = e.GetPosition(timeline.TimelinePanel);
             LayerHeaderViewModel vm = ViewModel;
+            // The first move opens the DragSession; null means another gesture holds history.
+            _drag ??= DragSession.Begin(vm.Timeline.EditorContext, border, CommandNames.MoveLayer, ConfirmDrag, CancelDrag);
+            if (_drag is null)
+            {
+                CancelDrag();
+                return;
+            }
+
+            Point position = e.GetPosition(timeline.TimelinePanel);
             var newMargin = new Thickness(0, Math.Max(position.Y - _startRel.Y, 0), 0, 0);
 
             _newLayer = ViewModel.Timeline.ToLayerNumber(newMargin);
@@ -91,12 +101,40 @@ public sealed partial class LayerHeader : UserControl
         // single-click reaching here and triggering an accidental MoveLayer to ZIndex 0.
         if (!_pressed) return;
 
-        _pressed = false;
+        if (_drag is { } drag)
+            drag.Confirm();
+        else
+            ConfirmDrag();
+    }
 
-        LayerHeaderViewModel vm = ViewModel;
+    // A drag in progress confirms through its DragSession; a press that never moved has nothing to keep.
+    private void Border_PointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        if (_pressed && _drag is null)
+            CancelDrag();
+    }
+
+    // Escape and Undo put the header and the clips on its row back.
+    private void CancelDrag()
+    {
+        _drag = null;
+        _pressed = false;
+        ElementViewModel[] directElements = _elements;
+        _elements = [];
+        if (DataContext is LayerHeaderViewModel vm)
+            RestoreDraggedRows(vm, directElements);
+    }
+
+    // Release, capture loss, playback start and detach move the layer to the row the drag reached.
+    private void ConfirmDrag()
+    {
+        _drag = null;
+        _pressed = false;
         int newLayerNum = _newLayer;
         ElementViewModel[] directElements = _elements;
         _elements = [];
+        if (DataContext is not LayerHeaderViewModel vm)
+            return;
 
         if (newLayerNum == vm.Number)
         {

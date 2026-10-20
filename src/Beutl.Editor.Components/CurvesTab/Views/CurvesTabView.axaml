@@ -52,54 +52,63 @@
                Margin="8,0,8,8"
                IsVisible="{Binding HasEffect.Value}">
             <curves:CurveEditor DragCompleted="CurveEditor_DragCompleted"
+                                DragStarted="CurveEditor_DragStarted"
                                 IsVisible="{Binding ShowMasterCurve.Value}"
                                 Points="{Binding MasterCurve.Value.Points}"
                                 Visualization="Master"
                                 VisualizationRenderer="{Binding Renderer}" />
 
             <curves:CurveEditor DragCompleted="CurveEditor_DragCompleted"
+                                DragStarted="CurveEditor_DragStarted"
                                 IsVisible="{Binding ShowRedCurve.Value}"
                                 Points="{Binding RedCurve.Value.Points}"
                                 Visualization="Red"
                                 VisualizationRenderer="{Binding Renderer}" />
 
             <curves:CurveEditor DragCompleted="CurveEditor_DragCompleted"
+                                DragStarted="CurveEditor_DragStarted"
                                 IsVisible="{Binding ShowGreenCurve.Value}"
                                 Points="{Binding GreenCurve.Value.Points}"
                                 Visualization="Green"
                                 VisualizationRenderer="{Binding Renderer}" />
 
             <curves:CurveEditor DragCompleted="CurveEditor_DragCompleted"
+                                DragStarted="CurveEditor_DragStarted"
                                 IsVisible="{Binding ShowBlueCurve.Value}"
                                 Points="{Binding BlueCurve.Value.Points}"
                                 Visualization="Blue"
                                 VisualizationRenderer="{Binding Renderer}" />
 
             <curves:CurveEditor DragCompleted="CurveEditor_DragCompleted"
+                                DragStarted="CurveEditor_DragStarted"
                                 IsVisible="{Binding ShowHueVsHue.Value}"
                                 Points="{Binding HueVsHue.Value.Points}"
                                 Visualization="HueVsHue"
                                 VisualizationRenderer="{Binding Renderer}" />
 
             <curves:CurveEditor DragCompleted="CurveEditor_DragCompleted"
+                                DragStarted="CurveEditor_DragStarted"
                                 IsVisible="{Binding ShowHueVsSaturation.Value}"
                                 Points="{Binding HueVsSaturation.Value.Points}"
                                 Visualization="HueVsSaturation"
                                 VisualizationRenderer="{Binding Renderer}" />
 
             <curves:CurveEditor DragCompleted="CurveEditor_DragCompleted"
+                                DragStarted="CurveEditor_DragStarted"
                                 IsVisible="{Binding ShowHueVsLuminance.Value}"
                                 Points="{Binding HueVsLuminance.Value.Points}"
                                 Visualization="HueVsLuminance"
                                 VisualizationRenderer="{Binding Renderer}" />
 
             <curves:CurveEditor DragCompleted="CurveEditor_DragCompleted"
+                                DragStarted="CurveEditor_DragStarted"
                                 IsVisible="{Binding ShowLuminanceVsSaturation.Value}"
                                 Points="{Binding LuminanceVsSaturation.Value.Points}"
                                 Visualization="LuminanceVsSaturation"
                                 VisualizationRenderer="{Binding Renderer}" />
 
             <curves:CurveEditor DragCompleted="CurveEditor_DragCompleted"
+                                DragStarted="CurveEditor_DragStarted"
                                 IsVisible="{Binding ShowSaturationVsSaturation.Value}"
                                 Points="{Binding SaturationVsSaturation.Value.Points}"
                                 Visualization="SaturationVsSaturation"
