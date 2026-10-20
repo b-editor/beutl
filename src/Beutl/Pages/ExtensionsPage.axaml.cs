@@ -82,7 +82,7 @@ public sealed partial class ExtensionsPage : Window
         [
             new FANavigationViewItem()
             {
-                Content = "Home",
+                Content = Strings.Home,
                 Tag = typeof(DiscoverPage),
                 IconSource = new FluentIconSource
                 {
@@ -91,7 +91,7 @@ public sealed partial class ExtensionsPage : Window
             },
             new FANavigationViewItem()
             {
-                Content = "Library",
+                Content = Strings.Library,
                 Tag = typeof(LibraryPage),
                 IconSource = new FluentIconSource
                 {

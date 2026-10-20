@@ -50,9 +50,9 @@ public sealed class UsageTracking : AvaloniaObject
         {
             if (element is not Interactive candidate || GetClickEvent(candidate) != args.RoutedEvent) continue;
             string? id = GetFeature(candidate);
-            if (id is null || id.Length > 128) continue;
+            if (id is null) continue;
             int dot = id.IndexOf('.');
-            if (dot <= 0 || dot == id.Length - 1) continue;
+            if (dot < 0) continue;
             if (ReferenceEquals(candidate, control))
                 UsageTelemetry.Current?.Record("tool.action", id[..dot], id[(dot + 1)..]);
             return;

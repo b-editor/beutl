@@ -19,7 +19,7 @@
                               HoverInfo="{Binding HoverInfo.Value}"
                               KeyFrameCount="{Binding KeyFrameCount.Value}"
                               KeyFrameIndex="{Binding KeyFrameIndex.Value}"
-                              IsReadOnly="{Binding IsReadOnly.Value}">
+                              IsReadOnly="{Binding !CanEdit.Value}">
             <editor:StringEditor.MenuContent>
                 <local:PropertyEditorMenu />
             </editor:StringEditor.MenuContent>

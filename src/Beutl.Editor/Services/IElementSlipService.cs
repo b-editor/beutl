@@ -3,36 +3,17 @@
 namespace Beutl.Editor.Services;
 
 /// <summary>
-/// Slip: shift the source-media window inside one or more <see cref="Element"/>s without
-/// changing any element's <see cref="Element.Start"/> / <see cref="Element.Length"/>.
-/// Writes the media's in-source offset (<see cref="Beutl.Graphics.SourceVideo.OffsetPosition"/>
-/// / <see cref="Beutl.Audio.Sound.OffsetPosition"/>), not element geometry, and owns
-/// the single history commit boundary for one user-visible slip. Kept separate from
-/// <see cref="IElementResizeService"/> because Slip is media-window-only; Roll / Slide
-/// over there are geometry-primary but also shift the trimmed neighbour's media window
-/// through the same <c>SlippableMedia</c> primitives, so media-offset writes are not
-/// exclusive to this service.
+/// Slip: shifts the source-media window of elements without changing their geometry, committing one history entry.
+/// Roll and Slide in <see cref="IElementResizeService"/> shift media windows through the same <c>SlippableMedia</c>.
 /// </summary>
 public interface IElementSlipService
 {
     /// <summary>
-    /// Shift the source-media window inside every element of <paramref name="elements"/> by
-    /// the timeline-time <paramref name="delta"/>, converted to source time using each stream's
-    /// speed. Adjusts <see cref="Beutl.Graphics.SourceVideo.OffsetPosition"/>
-    /// and <see cref="Beutl.Audio.Sound.OffsetPosition"/> on every slip-able media object
-    /// reachable from <see cref="Element.Objects"/>, including sources nested inside
-    /// Drawable and Sound containers. A single effective delta — the largest the tightest
-    /// stream across all supplied elements can accept without leaving its source — is applied
-    /// to every stream so linked media (e.g. a video + audio pair, whether inside one element
-    /// or grouped across elements) stay in sync. Elements that are duplicated in the list,
-    /// no longer in <paramref name="scene"/>, locked (directly or via their layer), or carry
-    /// no slip-able media are dropped at this mutation boundary (matching
-    /// <see cref="IElementResizeService.Resize"/>) rather than blocking the group. Returns
-    /// <see langword="false"/> (no commit) when <paramref name="delta"/> is zero, no element
-    /// survives that filter, or the shared clamped delta is zero. Unsupported speed expressions or time mappings reject the entire slip before
-    /// any mutation. Supported speed animations and controller mappings use playback clocks;
-    /// drawable controllers do not restrict audio-only edits.
-    /// Flat speed keyframes and empty curves use their animated playback value.
+    /// Shifts the source window of every slip-able stream by one shared delta, converted to source time and clamped
+    /// so that no stream leaves its source, without moving or resizing elements. Sharing the delta keeps linked media
+    /// in sync. Locked, duplicated or off-scene elements are skipped, and an unsupported speed expression or time
+    /// mapping rejects the whole slip before anything changes. Returns <see langword="false"/> without a commit when
+    /// nothing moves.
     /// </summary>
     bool Slip(Scene scene, IReadOnlyList<Element> elements, TimeSpan delta);
 }

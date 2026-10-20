@@ -20,7 +20,6 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
             .Select(hasExpression =>
                 hasExpression && PropertyAdapter is EnginePropertyAdapter<T> { Property: var engineProperty }
                     ? CurrentTime.Select(t => engineProperty.GetValue(new CompositionContext(t)))
-                    // Expressionが設定されていない場合は通常の動作
                     : EditingKeyFrame
                         .Select(x => x?.GetObservable(KeyFrame<T>.ValueProperty))
                         .Select(x => x ?? PropertyAdapter.GetObservable())
@@ -55,9 +54,27 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
 
         editor.AddDisposableHandler(
                 PropertyEditor.ValueConfirmedEvent,
-                (_, e) =>
+                (s, e) =>
                 {
-                    if (e is PropertyEditorValueChangedEventArgs<T> args)
+                    if (e.Expect<T>(s) is { } args)
+                    {
+                        SetValue(args.OldValue, args.NewValue);
+                    }
+                })
+            .DisposeWith(Disposables);
+    }
+
+    // Shows Value in the editor and writes back only the confirmed value.
+    protected void AttachConfirmedValueBinding(PropertyEditor editor, AvaloniaProperty valueProperty)
+    {
+        editor.Bind(valueProperty, Value.ToBinding())
+            .DisposeWith(Disposables);
+
+        editor.AddDisposableHandler(
+                PropertyEditor.ValueConfirmedEvent,
+                (s, e) =>
+                {
+                    if (e.Expect<T>(s) is { } args)
                     {
                         SetValue(args.OldValue, args.NewValue);
                     }

@@ -35,8 +35,6 @@ public sealed class AvaloniaClipboardGateway : IClipboardGateway
         if (clipboard is null) return null;
 
         DataFormat? avFormat = MapFromString(format);
-        if (avFormat is null) return null;
-
         if (avFormat is DataFormat<string> stringFormat)
         {
             return await clipboard.TryGetValueAsync(stringFormat);
@@ -83,8 +81,6 @@ public sealed class AvaloniaClipboardGateway : IClipboardGateway
         using var data = new DataTransfer();
         foreach (ClipboardEntry entry in entries)
         {
-            if (entry.Text is null) continue;
-
             if (entry.Format == BeutlClipboardFormats.Text)
             {
                 // Use the native text slot so other apps see it on a normal "Paste".
@@ -101,13 +97,6 @@ public sealed class AvaloniaClipboardGateway : IClipboardGateway
 
         await clipboard.SetDataAsync(data);
         return true;
-    }
-
-    public async Task ClearAsync()
-    {
-        IClipboard? clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard is null) return;
-        await clipboard.ClearAsync();
     }
 
     private static string MapToString(DataFormat format)

@@ -5,7 +5,7 @@ namespace Beutl.Graphics.Effects;
 /// <summary>
 /// Provides the shared <see cref="ShaderDescriptionKind.CurrentPixel"/> stage that reproduces
 /// <c>SKColorFilter.CreateColorMatrix</c>, so color-matrix filters stay inside a fusable shader chain instead of
-/// falling back to a effect-item Skia color-filter segment.
+/// falling back to an effect-item Skia color-filter segment.
 /// </summary>
 /// <remarks>
 /// Skia unpremultiplies, multiplies the straight components by the matrix, clamps the product to [0, 1], and
@@ -36,11 +36,8 @@ internal static class ColorMatrixShader
 
         half4 apply(half4 color) {
             float alpha = color.a;
-            // Every sample goes through the matrix, including a transparent one: a non-zero offset column -
-            // the alpha offset, matrix[19], in particular - can turn a transparent pixel into a visible one,
-            // and the RGB offsets survive the re-premultiply. Short-circuiting transparent pixels to black
-            // would drop that. The divisor is clamped exactly the way Skia's unpremul() clamps it, which both
-            // bounds the near-zero-alpha band and keeps a non-canonical (a == 0, rgb != 0) sample in parity.
+            // A transparent sample goes through the matrix too, since an offset can make it visible.
+            // The divisor is clamped the way Skia's unpremul() clamps it; see the class remarks.
             float4 straight = float4(color.rgb / max(alpha, 0.0001), alpha);
 
             float4 transformed = clamp(colorMatrix * straight + colorOffset, float4(0.0), float4(1.0));

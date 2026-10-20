@@ -1,23 +1,19 @@
-﻿using System.Collections.Specialized;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using Avalonia;
 using Beutl.Editor.Components.Helpers;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
-using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 
 public sealed partial class TimelineTabViewModel
 {
-    // ClickedPositionから最後にクリックしたレイヤーを計算します。
     public int CalculateClickedLayer()
     {
         _logger.LogDebug("Calculating clicked layer from position {Position}.", ClickedPosition);
         return ToLayerNumber(ClickedPosition.Y);
     }
 
-    // zindexまでLayerHeaderを追加します。
     private void AddLayerHeaders(int count)
     {
         _logger.LogDebug("Adding layer headers up to count {Count}.", count);
@@ -108,7 +104,7 @@ public sealed partial class TimelineTabViewModel
 
         // A snapshot: a header's new model must not be able to change the list under this loop.
         foreach (LayerHeaderViewModel header in LayerHeaders.ToArray())
-            header.SetModel(modelsByRow.GetValueOrDefault(header.Number.Value));
+            header.SetModel(modelsByRow.GetValueOrDefault(header.Number));
     }
 
     private void TryApplyLayerCount(int count)
@@ -122,7 +118,7 @@ public sealed partial class TimelineTabViewModel
                 // A clipless row whose TimelineLayer still carries lock/mute/solo
                 // keeps affecting the editor/compositor; removing its header would
                 // leave no UI to see or clear those flags.
-                if (item.ItemsCount.Value > 0 || HasFlaggedLayerModel(item.Number.Value))
+                if (item.ItemsCount.Value > 0 || HasFlaggedLayerModel(item.Number))
                     break;
 
                 LayerHeaders.RemoveAt(i);
@@ -152,16 +148,13 @@ public sealed partial class TimelineTabViewModel
 
     public IObservable<double> GetTrackedLayerTopObservable(int zIndex)
     {
-        lock (_trackerCache)
+        if (!_trackerCache.TryGetValue(zIndex, out TrackedLayerTopObservable? value))
         {
-            if (!_trackerCache.TryGetValue(zIndex, out TrackedLayerTopObservable? value))
-            {
-                value = new TrackedLayerTopObservable(zIndex, this);
-                _trackerCache.Add(zIndex, value);
-            }
-
-            return value;
+            value = new TrackedLayerTopObservable(zIndex, this);
+            _trackerCache.Add(zIndex, value);
         }
+
+        return value;
     }
 
     public double CalculateLayerTop(int layer)
@@ -221,27 +214,22 @@ public sealed partial class TimelineTabViewModel
     private sealed class TrackedLayerTopObservable(int layerNum, TimelineTabViewModel timeline)
         : LightweightObservableBase<double>, IDisposable
     {
-        private IDisposable? _disposable1;
         private IDisposable? _disposable2;
 
         protected override void Deinitialize()
         {
-            _disposable1?.Dispose();
             _disposable2?.Dispose();
             timeline._trackerCache.Remove(layerNum);
         }
 
         protected override void Initialize()
         {
-            _disposable1 = timeline.LayerHeaders.CollectionChangedAsObservable()
-                .Subscribe(OnCollectionChanged);
-
             _disposable2 = timeline.LayerHeightChanged.Subscribe(OnLayerHeightChanged);
         }
 
         private void OnLayerHeightChanged(LayerHeaderViewModel obj)
         {
-            if (obj.Number.Value < layerNum)
+            if (obj.Number < layerNum)
             {
                 PublishNext(timeline.CalculateLayerTop(layerNum));
             }
@@ -250,19 +238,6 @@ public sealed partial class TimelineTabViewModel
         protected override void Subscribed(IObserver<double> observer, bool first)
         {
             observer.OnNext(timeline.CalculateLayerTop(layerNum));
-        }
-
-        private void OnCollectionChanged(NotifyCollectionChangedEventArgs obj)
-        {
-            if (obj.Action == NotifyCollectionChangedAction.Move)
-            {
-                if (layerNum != obj.OldStartingIndex
-                    && ((layerNum > obj.OldStartingIndex && layerNum <= obj.NewStartingIndex)
-                        || (layerNum < obj.OldStartingIndex && layerNum >= obj.NewStartingIndex)))
-                {
-                    PublishNext(timeline.CalculateLayerTop(layerNum));
-                }
-            }
         }
 
         public void Dispose()

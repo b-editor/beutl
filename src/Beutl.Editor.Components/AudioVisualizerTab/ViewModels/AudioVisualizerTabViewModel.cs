@@ -20,13 +20,11 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
     private readonly IEditorContext _editorContext;
     private readonly IPreviewPlayer _player;
     private readonly IEditorClock _clock;
-    private readonly AudioVisualizerTabExtension _extension;
     private int _composeInFlight;
 
-    public AudioVisualizerTabViewModel(IEditorContext editorContext, AudioVisualizerTabExtension extension)
+    public AudioVisualizerTabViewModel(IEditorContext editorContext)
     {
         _editorContext = editorContext;
-        _extension = extension;
         _player = editorContext.GetRequiredService<IPreviewPlayer>();
         _clock = editorContext.GetRequiredService<IEditorClock>();
 
@@ -38,11 +36,8 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
             .Subscribe(t => PlayheadTime.Value = t)
             .DisposeWith(_disposables);
 
-        // Drives the paused compose path. Including IsSelected in the combined
-        // tuple ensures that opening the tab while paused triggers an initial
-        // snapshot even when CurrentTime hasn't changed since. SelectedMode is
-        // included so that switching modes (e.g. Waveform → Spectrogram) runs a
-        // fresh compose with the new mode's window length.
+        // Drives the paused compose path. IsSelected and SelectedMode are included so that
+        // opening the tab or switching modes while paused also composes again.
         _clock.CurrentTime
             .CombineLatest(
                 _player.IsPlaying,
@@ -82,7 +77,7 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
 
     public IReadOnlyReactiveProperty<string> Header { get; }
 
-    public ToolTabExtension Extension => _extension;
+    public ToolTabExtension Extension => AudioVisualizerTabExtension.Instance;
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
@@ -106,11 +101,8 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
             snapshot.StartTime);
     }
 
-    // Per-mode compose length. Spectrogram needs the full WindowSeconds (default 4s)
-    // of continuous audio, Meter needs LoudnessWindowSeconds (0.4s) plus margin;
-    // the remaining modes only need the short default window. Composing only what
-    // the active mode needs keeps paused scrub cost low for waveform/spectrum
-    // while letting spectrogram stop flickering during frame-step.
+    // Spectrogram needs 4 s and Meter 0.4 s plus margin; the other modes need only the short
+    // default window.
     private TimeSpan GetComposeWindowForMode(AudioVisualizerMode mode)
         => mode switch
         {
@@ -125,12 +117,8 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
         if (Interlocked.Exchange(ref _composeInFlight, 1) != 0) return;
         try
         {
-            // Bounded retry loop: a long compose (e.g. 4s for Spectrogram) can
-            // outlast a rapid scrub, and the throttled subscribe would otherwise
-            // drop the in-flight tick. Re-read the clock after each compose and
-            // compose again if the playhead has moved. Max 3 attempts prevents
-            // runaway work during continuous scrubbing — the next throttle fires
-            // once the user actually pauses for 40ms.
+            // If the playhead moves during a long compose, compose again, up to 3 times;
+            // the next throttle picks up the rest.
             for (int attempt = 0; attempt < 3; attempt++)
             {
                 if (_player.IsPlaying.Value) break;

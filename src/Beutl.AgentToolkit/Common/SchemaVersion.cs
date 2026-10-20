@@ -25,17 +25,36 @@ public static class SchemaVersion
     {
         ArgumentNullException.ThrowIfNull(document);
 
-        string? version = document.TryGetPropertyValue(PropertyName, out JsonNode? node)
-            ? node?.GetValue<string>()
-            : null;
-        EnsureKnown(version);
+        document.TryGetPropertyValue(PropertyName, out JsonNode? node);
+        if (node is null)
+        {
+            EnsureKnown((string?)null);
+            return;
+        }
+
+        if (node is JsonValue value && value.TryGetValue(out string? version))
+        {
+            EnsureKnown(version);
+            return;
+        }
+
+        // An agent can write the version as a number, such as 1, which is a wrong version too.
+        string text = node.ToJsonString();
+        throw new SchemaVersionMismatchException(
+            text,
+            $"The agent toolkit schema version must be the string \"{Current}\", not {text}.");
     }
 }
 
 public sealed class SchemaVersionMismatchException : Exception
 {
     public SchemaVersionMismatchException(string? version)
-        : base($"Unsupported agent toolkit schema version '{version ?? "<missing>"}'.")
+        : this(version, $"Unsupported agent toolkit schema version '{version ?? "<missing>"}'.")
+    {
+    }
+
+    internal SchemaVersionMismatchException(string? version, string message)
+        : base(message)
     {
         Version = version;
     }

@@ -15,8 +15,8 @@ namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 public sealed class GraphEditorViewViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
-    private readonly ConvertToDelegate? _convertTo;
-    private readonly TryConvertFromDelegate? _convertFrom;
+    private readonly ConvertToDelegate _convertTo;
+    private readonly TryConvertFromDelegate _convertFrom;
     private readonly ImmutableSolidColorBrush? _specifiedColor;
     private readonly HashSet<IKeyFrame> _selectedKeyFrames = [];
 
@@ -25,10 +25,9 @@ public sealed class GraphEditorViewViewModel : IDisposable
 
     public GraphEditorViewViewModel(
         GraphEditorViewModel parent,
-        string? viewName = null,
-        ConvertToDelegate? convertTo = null,
-        TryConvertFromDelegate? convertFrom = null,
-        Color? color = null)
+        string viewName,
+        ConvertToDelegate convertTo,
+        TryConvertFromDelegate convertFrom)
     {
         Parent = parent;
         Name = viewName;
@@ -42,24 +41,18 @@ public sealed class GraphEditorViewViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        _specifiedColor = new ImmutableSolidColorBrush(color ?? Color.Parse(viewName switch
-        {
-            "Y" or "Height" or "Green" => "#56B88B",
-            "Z" or "Blue" => "#619FEF",
-            "W" or "Alpha" => "#BE83E8",
-            _ => "#E87070"
-        }));
+        _specifiedColor = new ImmutableSolidColorBrush(GetChannelColor(viewName));
         Stroke = Observable.ReturnThenNever<IBrush?>(_specifiedColor).ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
     }
 
     public GraphEditorViewModel Parent { get; }
 
-    public string? Name { get; }
+    public string Name { get; }
 
     public string DisplayName => GetDisplayName(Name);
 
-    internal static string GetDisplayName(string? name) => name switch
+    internal static string GetDisplayName(string name) => name switch
     {
         "Self" => Strings.GraphValue,
         "Width" => Strings.Width,
@@ -68,7 +61,20 @@ public sealed class GraphEditorViewViewModel : IDisposable
         "Green" => Strings.Green,
         "Blue" => Strings.Blue,
         "Alpha" => Strings.GraphAlpha,
-        _ => name ?? Strings.GraphValue
+        _ => name
+    };
+
+    // A channel's curve and its row in the graph editor's tree share its color.
+    internal static Color GetChannelColor(string name) => name switch
+    {
+        "Red" => Colors.Red,
+        "Green" => Colors.Green,
+        "Blue" => Colors.Blue,
+        "Alpha" => Colors.White,
+        "Y" or "Height" => Color.Parse("#56B88B"),
+        "Z" => Color.Parse("#619FEF"),
+        "W" => Color.Parse("#BE83E8"),
+        _ => Color.Parse("#E87070")
     };
 
     public ReadOnlyReactivePropertySlim<bool> IsSelected { get; }
@@ -103,38 +109,12 @@ public sealed class GraphEditorViewViewModel : IDisposable
 
     public double ConvertToDouble(object? value)
     {
-        if (_convertTo != null)
-        {
-            return _convertTo(value);
-        }
-
-        try
-        {
-            return Convert.ToDouble(value);
-        }
-        catch
-        {
-            return 1d;
-        }
+        return _convertTo(value);
     }
 
     public bool TryConvertFromDouble(object? oldValue, double value, Type type, out object? obj)
     {
-        if (_convertFrom != null)
-        {
-            return _convertFrom(oldValue, value, type, out obj);
-        }
-
-        try
-        {
-            obj = Convert.ChangeType(value, type);
-            return true;
-        }
-        catch
-        {
-            obj = null;
-            return false;
-        }
+        return _convertFrom(oldValue, value, type, out obj);
     }
 
     public void GetGraphRange(ref double min, ref double max, bool selectionOnly = false)

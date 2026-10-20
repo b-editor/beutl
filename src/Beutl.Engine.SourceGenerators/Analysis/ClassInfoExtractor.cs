@@ -46,13 +46,12 @@ public static class ClassInfoExtractor
         var orderedProperties = ImmutableArray.CreateBuilder<object>();
         CollectResourceProperties(symbol, types, valueProperties, objectProperties, listProperties, orderedProperties);
 
-        // NodePort property detection for GraphNode subclasses
         var portProperties = ImmutableArray.CreateBuilder<NodePortPropertyInfo>();
         bool isNodeSubclass = types.Node != null && TypeAnalysisHelpers.InheritsFrom(symbol, types.Node);
 
         if (isNodeSubclass && types.InputPort != null && types.OutputPort != null && types.NodeMember != null)
         {
-            CollectNodePortProperties(symbol, types, valueProperties, objectProperties, listProperties, portProperties);
+            CollectNodePortProperties(symbol, types, portProperties);
         }
 
         INamedTypeSymbol? baseResourceOwner = null;
@@ -71,7 +70,6 @@ public static class ClassInfoExtractor
             listProperties.ToImmutable(),
             portProperties.ToImmutable(),
             orderedProperties.ToImmutable(),
-            isNodeSubclass,
             suppressedResourceClassGeneration);
     }
 
@@ -128,9 +126,6 @@ public static class ClassInfoExtractor
     private static void CollectNodePortProperties(
         INamedTypeSymbol symbol,
         KnownTypes types,
-        ImmutableArray<ValuePropertyInfo>.Builder valueProperties,
-        ImmutableArray<ObjectPropertyInfo>.Builder objectProperties,
-        ImmutableArray<ListPropertyInfo>.Builder listProperties,
         ImmutableArray<NodePortPropertyInfo>.Builder portProperties)
     {
         foreach (ISymbol member in symbol.GetMembers())
@@ -139,12 +134,6 @@ public static class ClassInfoExtractor
                 || !namedType.IsGenericType)
                 continue;
             if (TypeAnalysisHelpers.HasAttribute(propertySymbol, types.SuppressAttribute))
-                continue;
-
-            // Skip if name conflicts with IProperty-based properties
-            if (valueProperties.Any(v => v.Name == propertySymbol.Name)
-                || objectProperties.Any(o => o.Name == propertySymbol.Name)
-                || listProperties.Any(l => l.Name == propertySymbol.Name))
                 continue;
 
             NodePortKind? kind = GetNodePortKind(namedType.ConstructedFrom, types);
@@ -221,7 +210,6 @@ public static class ClassInfoExtractor
                 return null;
             }
 
-            // NodePort type symbols for GraphNode subclasses
             INamedTypeSymbol? inputNodePortSymbol = compilation.GetTypeByMetadataName("Beutl.NodeGraph.InputPort`1");
             INamedTypeSymbol? outputNodePortSymbol = compilation.GetTypeByMetadataName("Beutl.NodeGraph.OutputPort`1");
             INamedTypeSymbol? nodeMemberGenericSymbol = compilation.GetTypeByMetadataName("Beutl.NodeGraph.NodeMember`1");

@@ -1,36 +1,30 @@
-﻿using System.Runtime.InteropServices;
-using Beutl.Audio;
+﻿using Beutl.Audio;
 using Beutl.Audio.Composing;
 using Beutl.Audio.Platforms.XAudio2;
 using Beutl.Editor.Models;
 using Beutl.Media;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Silk.NET.OpenAL;
-using Vortice.Multimedia;
 using AudioContext = Beutl.Audio.Platforms.OpenAL.AudioContext;
 
 namespace Beutl.ViewModels;
 
 public partial class PlayerViewModel
 {
-    internal void PublishAudioSnapshot(Pcm<Stereo32BitFloat>? pcm, TimeSpan startTime)
+    internal void PublishAudioSnapshot(AudioBuffer? audio, TimeSpan startTime)
     {
         // An abandoned audio task may still publish after disposal begins.
-        if (pcm == null || _isDisposing) return;
+        if (audio == null || _isDisposing) return;
 
         // Always publish so the ReplaySubject retains the latest snapshot — a
         // visualizer tab opened after this point can replay it on subscribe.
-        int samples = pcm.NumSamples;
-        int channels = pcm.NumChannels;
-        var interleaved = new float[samples * channels];
-        MemoryMarshal.Cast<Stereo32BitFloat, float>(pcm.DataSpan).CopyTo(interleaved);
+        var interleaved = new float[audio.SampleCount * 2];
+        AudioConversion.Interleave(audio, interleaved);
         // Teardown completes the subject so a racing publish is ignored.
-        _audioFramePushed.OnNext(new AudioFrameSnapshot(interleaved, pcm.SampleRate, channels, startTime));
+        _audioFramePushed.OnNext(new AudioFrameSnapshot(interleaved, audio.SampleRate, 2, startTime));
     }
 
     async Task<AudioFrameSnapshot?> IPreviewPlayer.ComposeAudioAsync(TimeSpan start, TimeSpan duration, CancellationToken ct)
@@ -152,7 +146,7 @@ public partial class PlayerViewModel
         }
     }
 
-    internal (Pcm<Stereo32BitFloat>? Pcm, TimeSpan SceneEnd) FillAudioData(
+    internal (AudioBuffer? Audio, TimeSpan SceneEnd) FillAudioData(
         TimeSpan time, Scene scene, int generation, CancellationToken playbackToken)
     {
         return ComposeThread.Dispatcher.Invoke(() =>
@@ -161,53 +155,47 @@ public partial class PlayerViewModel
             // after its drain barrier. A stopping or retired session must not read scene state,
             // including the interval before a queued PauseCore has retired the generation.
             if (_isPausing || playbackToken.IsCancellationRequested || !_sessionGuard.Owns(generation))
-                return ((Pcm<Stereo32BitFloat>?)null, TimeSpan.Zero);
+                return ((AudioBuffer?)null, TimeSpan.Zero);
 
             TimeSpan sceneEnd = scene.Start + scene.Duration;
             SceneComposer composer = EditViewModel.Composer.Value;
-            using var audio = composer.Compose(new TimeRange(time, s_second));
-            if (audio is null)
-                return ((Pcm<Stereo32BitFloat>?)null, sceneEnd);
+            AudioBuffer? audio = composer.Compose(new TimeRange(time, s_second));
+            if (audio is not null)
+                SilenceTailBeyondSceneEnd(audio, time, sceneEnd);
 
-            var pcm = audio.ToPcm();
-            SilenceTailBeyondSceneEnd(pcm, time, sceneEnd);
-            return (pcm, sceneEnd);
+            return (audio, sceneEnd);
         });
     }
 
     // Scene.Start + Duration を超えた末尾サンプルをゼロ埋めする。
     // 編集中に Duration が縮んでバッファ全体が範囲外になるケースもありうる。
-    private static void SilenceTailBeyondSceneEnd(
-        Pcm<Stereo32BitFloat> pcm, TimeSpan bufferStart, TimeSpan sceneEndTime)
+    internal static void SilenceTailBeyondSceneEnd(
+        AudioBuffer audio, TimeSpan bufferStart, TimeSpan sceneEndTime)
     {
         if (sceneEndTime <= bufferStart)
         {
-            pcm.DataSpan.Clear();
+            audio.Clear();
             return;
         }
 
-        TimeSpan bufferEnd = bufferStart + pcm.Duration;
+        TimeSpan bufferEnd = bufferStart + TimeSpan.FromSeconds(audio.SampleCount / (double)audio.SampleRate);
         if (bufferEnd <= sceneEndTime) return;
 
         double keepSeconds = (sceneEndTime - bufferStart).TotalSeconds;
-        int keepSamples = (int)Math.Ceiling(keepSeconds * pcm.SampleRate);
-        keepSamples = Math.Clamp(keepSamples, 0, pcm.NumSamples);
+        int keepSamples = (int)Math.Ceiling(keepSeconds * audio.SampleRate);
+        keepSamples = Math.Clamp(keepSamples, 0, audio.SampleCount);
 
-        if (keepSamples < pcm.NumSamples)
+        for (int channel = 0; channel < audio.ChannelCount; channel++)
         {
-            pcm.DataSpan[keepSamples..].Clear();
+            audio.GetChannelData(channel)[keepSamples..].Clear();
         }
     }
 
-    private static void Swap<T>(ref T x, ref T y)
-    {
-        (y, x) = (x, y);
-    }
-
-    // オーディオバックエンドが最初のサンプルを出力するまで短いポーリングで待機する。
-    // true を返した場合は実サンプルの観測に成功しており、呼び出し側は安全に AnchorClock できる。
-    // 期限内に進行が観測できなかった場合は false を返し、呼び出し側は音声クロックを諦めて
-    // 壁時計にフォールバックする (サスペンド/切断中のデバイスで無期限ハングするのを防ぐため)。
+    // オーディオバックエンドが最初のサンプルを出力するまで短いポーリングで待機する。出力前にアンカーすると
+    // 映像が先行し、後の AnchorClock で巻き戻る。true を返した場合、呼び出し側は安全に AnchorClock できる。
+    // 期限内に進行が観測できなかった場合と音声がない場合は false を返し、呼び出し側は音声クロックを諦めて
+    // 壁時計にフォールバックする (サスペンド/切断中のデバイスで無期限ハングするのを防ぐため)。このとき
+    // AnchorClock は何もしないので、呼び出し側が SignalStarted で開始を知らせる。
     private static async Task<bool> WaitForFirstSampleAsync(
         Func<bool> hasProgressed, bool hasAudio, CancellationToken token)
     {
@@ -236,7 +224,6 @@ public partial class PlayerViewModel
         cts.Token.ThrowIfCancellationRequested();
         TimeSpan cur = startTime;
         TimeSpan sceneEndTime = default;
-        var fmt = new WaveFormat(sampleRate, 32, 2);
         var source = new XAudioSource(audioContext);
         var primaryBuffer = new XAudioBuffer();
         var secondaryBuffer = new XAudioBuffer();
@@ -249,19 +236,18 @@ public partial class PlayerViewModel
             TimeSpan bufferStartTime = cur;
             var bufferData = FillAudioData(cur, scene, generation, playbackToken);
             sceneEndTime = bufferData.SceneEnd;
-            using Pcm<Stereo32BitFloat>? pcm = bufferData.Pcm;
+            using AudioBuffer? audio = bufferData.Audio;
             cts.Token.ThrowIfCancellationRequested();
-            if (pcm != null)
+            if (audio != null)
             {
                 if (!hasAudio)
                 {
-                    sampleRate = pcm.SampleRate;
-                    fmt = new WaveFormat(sampleRate, 32, 2);
+                    sampleRate = audio.SampleRate;
                 }
 
-                buffer.BufferData(pcm.DataSpan, fmt);
+                buffer.BufferData(audio);
                 hasAudio = true;
-                _sessionGuard.TryApply(generation, () => PublishAudioSnapshot(pcm, bufferStartTime));
+                _sessionGuard.TryApply(generation, () => PublishAudioSnapshot(audio, bufferStartTime));
             }
 
             source.QueueBuffer(buffer);
@@ -282,11 +268,7 @@ public partial class PlayerViewModel
             PrepareBuffer(secondaryBuffer);
 
             source.Play();
-            // Play() 直後は SamplesPlayed が 0 のままで、その時点でアンカーすると
-            // 映像がウォールクロックで先行し、後続の AnchorClock で巻き戻しが発生する。
-            // 実際のサンプル出力が始まるのを観測してからアンカーする。
-            // タイムアウトした場合はバックエンドがハングしている可能性が高いので、
-            // 音声クロックを諦めて壁時計にフォールバックする。
+            // 最初のサンプルが出てからアンカーする (WaitForFirstSampleAsync を参照)。
             audioClockValid = await WaitForFirstSampleAsync(
                     () => source.SamplesPlayed > 0, hasAudio, cts.Token)
                 .ConfigureAwait(false);
@@ -296,8 +278,6 @@ public partial class PlayerViewModel
                     "XAudio2 backend did not advance SamplesPlayed within the startup deadline; falling back to wall-clock timing.");
             }
             AnchorClock();
-            // 壁時計フォールバック時や音声なしの場合は AnchorClock が no-op のため、
-            // ここで明示的に StartedTask をシグナルする。
             clock.SignalStarted();
 
             await Task.Delay(1000, cts.Token).ConfigureAwait(false);
@@ -318,8 +298,7 @@ public partial class PlayerViewModel
 
                 PrepareBuffer(primaryBuffer);
 
-                // バッファを入れ替える
-                Swap(ref primaryBuffer, ref secondaryBuffer);
+                (primaryBuffer, secondaryBuffer) = (secondaryBuffer, primaryBuffer);
 
                 await Task.Delay(1000, cts.Token).ConfigureAwait(false);
                 AnchorClock();
@@ -375,39 +354,40 @@ public partial class PlayerViewModel
             clock.Anchor(startTime + TimeSpan.FromSeconds(seconds));
         }
 
+        // Composes the next second and queues it in the buffer takeBuffer returns once the audio is ready.
+        void FillAndQueue(Func<uint> takeBuffer)
+        {
+            cts.Token.ThrowIfCancellationRequested();
+            TimeSpan bufferStartTime = cur;
+            var bufferData = FillAudioData(cur, scene, generation, playbackToken);
+            sceneEndTime = bufferData.SceneEnd;
+            using AudioBuffer? audio = bufferData.Audio;
+            cts.Token.ThrowIfCancellationRequested();
+            cur += s_second;
+            uint buffer = takeBuffer();
+            int fillSamples = 0;
+            if (audio != null)
+            {
+                if (!hasAudio)
+                {
+                    sampleRate = audio.SampleRate;
+                }
+
+                audioContext.BufferData(buffer, audio);
+                fillSamples = audio.SampleCount;
+                hasAudio = true;
+                _sessionGuard.TryApply(generation, () => PublishAudioSnapshot(audio, bufferStartTime));
+            }
+
+            audioContext.SourceQueueBuffer(source, buffer);
+            queuedBufferSamples.Enqueue(fillSamples);
+        }
+
         try
         {
             foreach (uint buffer in buffers)
             {
-                if (cts.Token.IsCancellationRequested)
-                    break;
-
-                TimeSpan bufferStartTime = cur;
-                var bufferData = FillAudioData(cur, scene, generation, playbackToken);
-                sceneEndTime = bufferData.SceneEnd;
-                using Pcm<Stereo32BitFloat>? pcmf = bufferData.Pcm;
-                if (cts.Token.IsCancellationRequested)
-                    break;
-
-                cur += s_second;
-                int fillSamples = 0;
-                if (pcmf != null)
-                {
-                    using Pcm<Stereo16BitInteger> pcm = pcmf.Convert<Stereo16BitInteger>();
-
-                    if (!hasAudio)
-                    {
-                        sampleRate = pcm.SampleRate;
-                    }
-
-                    audioContext.BufferData(buffer, BufferFormat.Stereo16, pcm.DataSpan, pcm.SampleRate);
-                    fillSamples = pcm.DataSpan.Length;
-                    hasAudio = true;
-                    _sessionGuard.TryApply(generation, () => PublishAudioSnapshot(pcmf, bufferStartTime));
-                }
-
-                audioContext.SourceQueueBuffer(source, buffer);
-                queuedBufferSamples.Enqueue(fillSamples);
+                FillAndQueue(() => buffer);
             }
 
             cts.Token.ThrowIfCancellationRequested();
@@ -415,11 +395,7 @@ public partial class PlayerViewModel
 
             try
             {
-                // SourcePlay() 直後は SampleOffset が 0 のままで、その時点でアンカーすると
-                // 映像がウォールクロックで先行し、後続の AnchorClock で巻き戻しが発生する。
-                // 実際のサンプル出力が始まるのを観測してからアンカーする。
-                // タイムアウトした場合はバックエンドがハングしている可能性が高いので、
-                // 音声クロックを諦めて壁時計にフォールバックする。
+                // 最初のサンプルが出てからアンカーする (WaitForFirstSampleAsync を参照)。
                 audioClockValid = await WaitForFirstSampleAsync(
                         () =>
                         {
@@ -439,8 +415,6 @@ public partial class PlayerViewModel
                         "OpenAL backend did not advance SampleOffset within the startup deadline; falling back to wall-clock timing.");
                 }
                 AnchorClock();
-                // 壁時計フォールバック時や音声なしの場合は AnchorClock が no-op のため、
-                // ここで明示的に StartedTask をシグナルする。
                 clock.SignalStarted();
 
                 while (IsPlaying.Value && !cts.Token.IsCancellationRequested)
@@ -449,34 +423,9 @@ public partial class PlayerViewModel
                     audioContext.GetSource(source, GetSourceInteger.BuffersProcessed, out int processed);
                     while (processed > 0)
                     {
-                        cts.Token.ThrowIfCancellationRequested();
-                        TimeSpan bufferStartTime = cur;
-                        var bufferData = FillAudioData(cur, scene, generation, playbackToken);
-                        sceneEndTime = bufferData.SceneEnd;
-                        using Pcm<Stereo32BitFloat>? pcmf = bufferData.Pcm;
-                        cts.Token.ThrowIfCancellationRequested();
-                        cur += s_second;
-                        uint buffer = audioContext.SourceUnqueueBuffer(source);
-                        int fillSamples = 0;
-                        if (pcmf != null)
-                        {
-                            using Pcm<Stereo16BitInteger> pcm = pcmf.Convert<Stereo16BitInteger>();
-
-                            if (!hasAudio)
-                            {
-                                sampleRate = pcm.SampleRate;
-                            }
-
-                            audioContext.BufferData(buffer, BufferFormat.Stereo16, pcm.DataSpan, pcm.SampleRate);
-                            fillSamples = pcm.DataSpan.Length;
-                            hasAudio = true;
-                            _sessionGuard.TryApply(generation, () => PublishAudioSnapshot(pcmf, bufferStartTime));
-                        }
-
-                        audioContext.SourceQueueBuffer(source, buffer);
-
+                        FillAndQueue(() => audioContext.SourceUnqueueBuffer(source));
+                        // The oldest entry is the reused buffer's; FillAndQueue added the new one behind it.
                         totalProcessedSamples += queuedBufferSamples.Dequeue();
-                        queuedBufferSamples.Enqueue(fillSamples);
                         processed--;
                     }
 

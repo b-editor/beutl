@@ -94,14 +94,14 @@ public class PixelSortEffectTests
     }
 
     [Test]
-    public void ThrowIfDeliveryAllocationFailure_fails_delivery_and_degrades_preview()
+    public void FailDeliveryOrDrop_fails_delivery_and_degrades_preview()
     {
         Assert.Multiple(() =>
         {
             Assert.Throws<InvalidOperationException>(
-                () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(RenderIntent.Delivery, 0));
+                () => EffectTargetAllocation.FailDeliveryOrDrop(RenderIntent.Delivery, null, "No GPU texture."));
             Assert.DoesNotThrow(
-                () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(RenderIntent.Preview, 0));
+                () => EffectTargetAllocation.FailDeliveryOrDrop(RenderIntent.Preview, null, "No GPU texture."));
         });
     }
 

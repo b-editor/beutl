@@ -154,17 +154,10 @@ internal sealed partial class DecodingHandler : IDisposable
         if (state.RingBuffer != null)
             return HandleReadVideoRingBuffer(msg.Id, request.Frame, state.RingBuffer);
 
-        // HandleOpen provisions a VideoRingBuffer for every reader that reports a video stream,
-        // so a null ring buffer here is never a normal "frame not available" result. Fail loudly
-        // with context (instead of a silent Success = false) so both IPC misuse and a broken
-        // invariant surface as an explicit error to the caller.
-        return state.Reader.HasVideo
-            ? IpcMessage.CreateError(
-                msg.Id,
-                $"ReadVideo: reader {request.ReaderId} reports a video stream but has no ring buffer (invariant violation).")
-            : IpcMessage.CreateError(
-                msg.Id,
-                $"ReadVideo: reader {request.ReaderId} is audio-only and cannot satisfy a ReadVideo request.");
+        // HandleOpen gives every reader with a video stream a ring buffer, so only an audio-only reader gets here.
+        return IpcMessage.CreateError(
+            msg.Id,
+            $"ReadVideo: reader {request.ReaderId} is audio-only and cannot satisfy a ReadVideo request.");
     }
 
     private static IpcMessage HandleReadVideoRingBuffer(int msgId, int frame, VideoRingBuffer ringBuffer)
@@ -177,12 +170,9 @@ internal sealed partial class DecodingHandler : IDisposable
             Width = result.Width,
             Height = result.Height,
             BytesPerPixel = result.BytesPerPixel,
-            DataLength = result.DataLength,
-            IsHdr = result.IsHdr,
             SharedMemoryName = result.NewSharedMemoryName,
             RingBufferSlotSize = result.NewSharedMemoryName != null ? result.NewSlotSize : null,
             RingBufferSlotCount = result.NewSharedMemoryName != null ? result.NewSlotCount : null,
-            SlotIndex = result.Success ? result.SlotIndex : null,
             SlotDataOffset = result.SlotDataOffset,
             TransferFn = result.TransferFn,
             ToXyzD50 = result.ToXyzD50,
@@ -202,14 +192,12 @@ internal sealed partial class DecodingHandler : IDisposable
             // 共有メモリに直接デコード
             // 必要なバッファサイズを推定（Stereo32BitFloat = 8 bytes per sample）
             long estimatedSize = (long)request.Length * 8 + 64;
-            string? newShmName = null;
 
+            // The host splits requests into one-second chunks, which fit the buffer created at open.
             if (state.AudioBuffer == null || state.AudioBuffer.Capacity < estimatedSize)
             {
-                state.AudioBuffer?.Dispose();
-                int gen = Interlocked.Increment(ref _shmGeneration);
-                newShmName = $"beutl-ffmpeg-audio-{Environment.ProcessId}-{request.ReaderId}-{gen}";
-                state.AudioBuffer = SharedMemoryBuffer.Create(newShmName, estimatedSize);
+                return IpcMessage.Create(msg.Id, MessageType.ReadAudioResult,
+                    new ReadAudioResponse { Success = false });
             }
 
             byte* ptr = state.AudioBuffer.AcquirePointer();
@@ -229,7 +217,6 @@ internal sealed partial class DecodingHandler : IDisposable
                     SampleRate = audioInfo.SampleRate,
                     NumSamples = audioInfo.NumSamples,
                     DataLength = audioInfo.DataLength,
-                    SharedMemoryName = newShmName,
                 });
             }
             finally
@@ -276,7 +263,7 @@ internal sealed partial class DecodingHandler : IDisposable
                     state.RingBuffer.InvalidateAllSlots();
                 }
 
-                ApplySettings(state.Reader.Settings, request.ThreadCount, request.Acceleration, request.ForceSrgbGamma);
+                state.Reader.Settings.ForceSrgbGamma = request.ForceSrgbGamma;
             }
             finally
             {

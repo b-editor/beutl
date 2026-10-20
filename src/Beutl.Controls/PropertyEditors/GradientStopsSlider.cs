@@ -1,6 +1,4 @@
-﻿#nullable enable
-
-using System.Reactive.Disposables;
+﻿using System.Reactive.Disposables;
 using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
@@ -90,11 +88,7 @@ public class GradientStopsSlider : TemplatedControl
                 .DisposeWith(_disposables);
             _itemsControl.AddDisposableHandler(PointerPressedEvent, OnItemsControlPointerPressed)
                 .DisposeWith(_disposables);
-            _itemsControl.AddDisposableHandler(PointerMovedEvent, OnItemsControlPointerMoved)
-                .DisposeWith(_disposables);
             _itemsControl.AddDisposableHandler(PointerReleasedEvent, OnItemsControlPointerReleased, handledEventsToo: true)
-                .DisposeWith(_disposables);
-            _itemsControl.AddDisposableHandler(PointerExitedEvent, OnItemsControlPointerExited)
                 .DisposeWith(_disposables);
         }
 
@@ -126,12 +120,12 @@ public class GradientStopsSlider : TemplatedControl
         {
             if (change.OldValue is GradientStop oldValue)
             {
-                GetThumbFromGradientStop(oldValue)?.Classes?.Set("selected", false);
+                GetThumbFromGradientStop(oldValue)?.Classes.Set("selected", false);
             }
 
             if (change.NewValue is GradientStop newValue)
             {
-                GetThumbFromGradientStop(newValue)?.Classes?.Set("selected", true);
+                GetThumbFromGradientStop(newValue)?.Classes.Set("selected", true);
             }
         }
     }
@@ -274,11 +268,7 @@ public class GradientStopsSlider : TemplatedControl
         {
             if (GetThumbFromGradientStop(item) is Thumb thumb)
             {
-                if (e.Property == GradientStop.OffsetProperty)
-                {
-                    UpdateThumb(thumb, item);
-                }
-                else if (e.Property == GradientStop.ColorProperty)
+                if (e.Property == GradientStop.OffsetProperty || e.Property == GradientStop.ColorProperty)
                 {
                     UpdateThumb(thumb, item);
                 }
@@ -291,8 +281,6 @@ public class GradientStopsSlider : TemplatedControl
         thumb.DragCompleted -= ThumbDragCompleted;
         thumb.DragDelta -= ThumbDragDelta;
         thumb.DragStarted -= ThumbDragStarted;
-        thumb.KeyDown -= ThumbKeyDown;
-        thumb.KeyUp -= ThumbKeyUp;
     }
 
     private void AddHandlers(Thumb thumb)
@@ -300,16 +288,6 @@ public class GradientStopsSlider : TemplatedControl
         thumb.DragCompleted += ThumbDragCompleted;
         thumb.DragDelta += ThumbDragDelta;
         thumb.DragStarted += ThumbDragStarted;
-        thumb.KeyDown += ThumbKeyDown;
-        thumb.KeyUp += ThumbKeyUp;
-    }
-
-    private void ThumbKeyUp(object? sender, KeyEventArgs e)
-    {
-    }
-
-    private void ThumbKeyDown(object? sender, KeyEventArgs e)
-    {
     }
 
     private void ThumbDragStarted(object? sender, VectorEventArgs e)
@@ -364,10 +342,6 @@ public class GradientStopsSlider : TemplatedControl
         }
     }
 
-    private void OnItemsControlPointerExited(object? sender, PointerEventArgs e)
-    {
-    }
-
     private void OnItemsControlPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (e.InitialPressMouseButton == MouseButton.Right
@@ -413,10 +387,6 @@ public class GradientStopsSlider : TemplatedControl
                 _menuFlyout.ShowAt(this, true);
             }
         }
-    }
-
-    private void OnItemsControlPointerMoved(object? sender, PointerEventArgs e)
-    {
     }
 
     private void OnItemsControlPointerPressed(object? sender, PointerPressedEventArgs e)

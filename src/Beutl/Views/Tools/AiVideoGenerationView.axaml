@@ -1,7 +1,6 @@
 <UserControl x:Class="Beutl.Views.Tools.AiVideoGenerationView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ai="using:Beutl.Services.AI"
              xmlns:btl="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
@@ -16,45 +15,17 @@
              x:CompileBindings="True"
              x:DataType="vm:AiVideoGenerationDialogViewModel"
              mc:Ignorable="d">
-    <UserControl.Styles>
-        <StyleInclude Source="/Views/Tools/AiFileDropStyles.axaml" />
-    </UserControl.Styles>
     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="12,10" Spacing="8">
-            <Border Padding="8"
-                    Background="{DynamicResource ControlFillColorDefaultBrush}"
-                    CornerRadius="4"
-                    IsVisible="{CompiledBinding RecoveryAvailable.Value}">
-                <StackPanel Spacing="6">
-                    <TextBlock Text="{x:Static lang:Strings.AiPendingRequest}" TextWrapping="Wrap" />
-                    <ComboBox AutomationProperties.Name="{x:Static lang:Strings.AiPendingRequest}"
-                              ItemsSource="{CompiledBinding RecoveryAttempts.Value}"
-                              SelectedItem="{CompiledBinding SelectedRecoveryAttempt.Value}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="ai:AiPendingAttempt">
-                                <TextBlock Text="{CompiledBinding DisplayName}" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <WrapPanel Orientation="Horizontal">
-                        <Button Margin="0,0,6,0"
-                                usage:UsageTracking.Feature="AiWorkspace.VideoGeneration.RecoverSelectedAttempt"
-                                Command="{CompiledBinding RecoverSelectedAttempt}"
-                                Content="{x:Static lang:Strings.AiRecoverRequest}" />
-                        <Button usage:UsageTracking.Feature="AiWorkspace.VideoGeneration.AbandonSelectedAttempt"
-                                Command="{CompiledBinding AbandonSelectedAttempt}"
-                                Content="{x:Static lang:Strings.AiAbandonRequest}" />
-                    </WrapPanel>
-                </StackPanel>
-            </Border>
+            <tools:AiRecoveryPanel Feature="AiWorkspace.VideoGeneration" />
             <Expander Header="{x:Static lang:Strings.AiPromptTemplates}">
                 <tools:AiPromptTemplatesView Margin="0,8,0,0"
                                              DataContext="{CompiledBinding PromptLibrary}" />
             </Expander>
 
             <StackPanel Spacing="4">
-                <!--  The history button sits over the box it fills in, so reaching for an
-                      earlier prompt does not mean opening the templates panel below.  -->
+                <!--  The history button sits by the box it fills in, so an earlier prompt can be
+                      recalled without opening the templates.  -->
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBlock VerticalAlignment="Center" Text="{x:Static lang:Strings.AiPrompt}" />
                     <tools:AiPromptHistoryButton Grid.Column="1"
@@ -87,9 +58,7 @@
                           IsEnabled="{CompiledBinding ModelPicker.IsSelectionEnabled.Value}" />
             </StackPanel>
 
-            <!--  A length is one number on a short scale, so it is dragged rather
-                  than picked out of a list: the slider stops on the lengths the
-                  model takes and shows which one it landed on.  -->
+            <!--  A length is one value on a short scale, so it is picked with a slider.  -->
             <StackPanel x:Name="DurationField" Spacing="4" IsVisible="{CompiledBinding CanChooseDuration}">
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBlock VerticalAlignment="Center"
@@ -108,7 +77,7 @@
                         TickFrequency="1"
                         TickPlacement="BottomRight"
                         Value="{CompiledBinding DurationIndex.Value}" />
-                <ItemsControl x:Name="DurationScale" ItemsSource="{CompiledBinding DurationOptions}">
+                <ItemsControl ItemsSource="{CompiledBinding DurationOptions}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <UniformGrid Rows="1" />
@@ -192,7 +161,7 @@
             </Expander>
 
             <Expander Header="{x:Static lang:Strings.AiVideoFrameGuidanceHeader}"
-                      IsVisible="{CompiledBinding SupportsFrameGuidance.Value}">
+                      IsVisible="{CompiledBinding SupportsFirstFrame.Value}">
                 <StackPanel Margin="0,8,0,0" Spacing="8">
                     <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                Text="{x:Static lang:Strings.AiVideoFrameGuidanceDescription}"
@@ -204,8 +173,7 @@
                             Content="{x:Static lang:Strings.AiVideoUseCurrentFrame}"
                             ToolTip.Tip="{x:Static lang:Strings.AiVideoUseCurrentFrame}" />
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{CompiledBinding IsGeneration}">
-                        <StackPanel x:Name="FirstFrameInput" tools:AiFileDrop.Target="FirstFrame"
-                                    IsVisible="{CompiledBinding SupportsFirstFrame.Value}" Spacing="4">
+                        <StackPanel tools:AiFileDrop.Target="FirstFrame" Spacing="4">
                             <TextBlock Text="{x:Static lang:Strings.AiVideoFirstFrame}" />
                             <Border Height="96"
                                     Background="{DynamicResource ControlFillColorDefaultBrush}"
@@ -232,7 +200,7 @@
                                         IsVisible="{CompiledBinding FirstFramePath.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
                             </WrapPanel>
                         </StackPanel>
-                        <StackPanel x:Name="LastFrameInput" tools:AiFileDrop.Target="LastFrame"
+                        <StackPanel tools:AiFileDrop.Target="LastFrame"
                                     Grid.Column="1"
                                     IsVisible="{CompiledBinding SupportsLastFrame.Value}"
                                     Spacing="4">
@@ -376,25 +344,9 @@
                        Text="{CompiledBinding Error.Value}"
                        TextWrapping="Wrap" />
 
-            <StackPanel IsVisible="{CompiledBinding ShowJoinPro.Value}" Spacing="8">
-                <TextBlock Text="{x:Static lang:Strings.AiProRequired}"
-                           TextWrapping="Wrap" />
-                <Button HorizontalAlignment="Left"
-                        usage:UsageTracking.Feature="AiWorkspace.VideoGeneration.OpenAiPlan"
-                        Command="{CompiledBinding OpenAiPlan}"
-                        Content="{x:Static lang:Strings.AiJoinPro}" />
-            </StackPanel>
+            <tools:AiJoinProPanel Feature="AiWorkspace.VideoGeneration" />
 
-            <WrapPanel IsVisible="{CompiledBinding CanAddToScene.Value}" Orientation="Horizontal">
-                <Button Margin="0,0,8,8"
-                        usage:UsageTracking.Feature="AiWorkspace.VideoGeneration.AddToScene"
-                        Command="{CompiledBinding AddToScene}"
-                        Content="{x:Static lang:Strings.AiAddToScene}" />
-                <Button Margin="0,0,0,8"
-                        usage:UsageTracking.Feature="AiWorkspace.VideoGeneration.SaveToFile"
-                        Command="{CompiledBinding SaveToFile}"
-                        Content="{x:Static lang:Strings.AiSaveToFile}" />
-            </WrapPanel>
+            <tools:AiResultActionsPanel Feature="AiWorkspace.VideoGeneration" />
         </StackPanel>
     </ScrollViewer>
 </UserControl>

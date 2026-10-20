@@ -46,7 +46,7 @@ public class ProxyVideoLogicalSizeTests
     [Test]
     public void ProxiedVideo_UsesOriginalLogicalBoundsAndProxySupplyDensity()
     {
-        using var scope = ProxyScope.Create(new PixelSize(100, 80), new PixelSize(50, 40));
+        using var scope = ProxyTestScope.Create(new PixelSize(100, 80), new PixelSize(50, 40), ProxyPreset.Half);
         DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
 
         var source = new VideoSource();
@@ -99,35 +99,16 @@ public class ProxyVideoLogicalSizeTests
     [Test]
     public void PreferProxyResource_ReloadsWhenProxyStoreChanges()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        var store = new ProxyStore(root);
-        DecoderRegistry.ProxyResolver = new ProxyResolver(store);
-        string original = TestMediaHelper.CreateTestVideoFile(100, 80, new Rational(30, 1), 30);
-        File.WriteAllBytes(original, [1, 2, 3, 4]);
-        string proxyTemplate = TestMediaHelper.CreateTestVideoFile(50, 40, new Rational(30, 1), 30);
-        File.WriteAllBytes(proxyTemplate, [1, 2, 3, 4]);
-        string relative = $"proxy/{Path.GetFileName(proxyTemplate)}";
-        string proxy = Path.Combine(root, relative);
-        Directory.CreateDirectory(Path.GetDirectoryName(proxy)!);
-        File.Copy(proxyTemplate, proxy, overwrite: true);
+        using var scope = ProxyTestScope.CreateWithoutProxy(new PixelSize(100, 80));
+        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
 
         var source = new VideoSource();
-        source.ReadFrom(new Uri(original));
+        source.ReadFrom(new Uri(scope.OriginalPath));
         var context = new CompositionContext(TimeSpan.Zero) { PreferProxy = true };
         using var resource = source.ToResource(context);
 
-        var now = DateTime.UtcNow;
-        store.Register(new ProxyEntry(
-            ProxyFingerprint.FromFile(original),
-            ProxyPreset.Quarter,
-            ProxyState.Ready,
-            relative.Replace(Path.DirectorySeparatorChar, '/'),
-            new FileInfo(proxy).Length,
-            new PixelSize(100, 80),
-            new PixelSize(50, 40),
-            now,
-            now,
-            null));
+        ProxyTestScope.RegisterTestVideoProxy(
+            scope.Store, scope.OriginalPath, new PixelSize(100, 80), new PixelSize(50, 40), ProxyPreset.Quarter);
         bool versionBumped = false;
         resource.Reconcile(source, context, ref versionBumped);
 
@@ -142,15 +123,12 @@ public class ProxyVideoLogicalSizeTests
     [Test]
     public void PreferProxyResource_DoesNotReload_WhenAnotherSourcesProxyChanges()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        var store = new ProxyStore(root);
-        DecoderRegistry.ProxyResolver = new ProxyResolver(store);
-
         // Source B is the one we observe: original media, no proxy of its own.
-        string originalB = TestMediaHelper.CreateTestVideoFile(100, 80, new Rational(30, 1), 30);
-        File.WriteAllBytes(originalB, [1, 2, 3, 4]);
+        using var scope = ProxyTestScope.CreateWithoutProxy(new PixelSize(100, 80));
+        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+
         var sourceB = new VideoSource();
-        sourceB.ReadFrom(new Uri(originalB));
+        sourceB.ReadFrom(new Uri(scope.OriginalPath));
         var context = new CompositionContext(TimeSpan.Zero) { PreferProxy = true };
         using var resourceB = sourceB.ToResource(context);
         int versionAfterLoad = resourceB.Version;
@@ -160,26 +138,10 @@ public class ProxyVideoLogicalSizeTests
         // a Ready proxy.
         string originalA = TestMediaHelper.CreateTestVideoFile(120, 90, new Rational(30, 1), 30);
         File.WriteAllBytes(originalA, [1, 2, 3, 4]);
-        string proxyTemplate = TestMediaHelper.CreateTestVideoFile(60, 45, new Rational(30, 1), 30);
-        File.WriteAllBytes(proxyTemplate, [1, 2, 3, 4]);
-        string relative = $"proxy/{Path.GetFileName(proxyTemplate)}";
-        string proxy = Path.Combine(root, relative);
-        Directory.CreateDirectory(Path.GetDirectoryName(proxy)!);
-        File.Copy(proxyTemplate, proxy, overwrite: true);
-        var now = DateTime.UtcNow;
-        store.Register(new ProxyEntry(
-            ProxyFingerprint.FromFile(originalA),
-            ProxyPreset.Quarter,
-            ProxyState.Ready,
-            relative.Replace(Path.DirectorySeparatorChar, '/'),
-            new FileInfo(proxy).Length,
-            new PixelSize(120, 90),
-            new PixelSize(60, 45),
-            now,
-            now,
-            null));
+        ProxyTestScope.RegisterTestVideoProxy(
+            scope.Store, originalA, new PixelSize(120, 90), new PixelSize(60, 45), ProxyPreset.Quarter);
 
-        // B must NOT reopen its reader just because A's proxy changed (FR-023).
+        // B must NOT reopen its reader just because A's proxy changed.
         bool versionBumped = false;
         resourceB.Reconcile(sourceB, context, ref versionBumped);
 
@@ -197,7 +159,7 @@ public class ProxyVideoLogicalSizeTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using var scope = ProxyScope.Create(new PixelSize(100, 80), new PixelSize(50, 40));
+            using var scope = ProxyTestScope.Create(new PixelSize(100, 80), new PixelSize(50, 40), ProxyPreset.Half);
             DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
 
             var source = new VideoSource();
@@ -229,114 +191,50 @@ public class ProxyVideoLogicalSizeTests
     [Test]
     public void SceneRenderer_DrawsProxyVideoAtOriginalLogicalFootprint()
     {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using var scope = ProxyScope.Create(new PixelSize(100, 80), new PixelSize(50, 40));
-            DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
-
-            var media = new VideoSource();
-            media.ReadFrom(new Uri(scope.OriginalPath));
-            var drawable = new SourceVideo();
-            drawable.Source.CurrentValue = media;
-            var element = new Element
-            {
-                Start = TimeSpan.Zero,
-                Length = TimeSpan.FromSeconds(1),
-                IsEnabled = true,
-                Uri = new Uri(Path.Combine(scope.RootPath, $"{Guid.NewGuid():N}.layer")),
-            };
-            element.AddObject(drawable);
-            var scene = new Scene(120, 100, string.Empty)
-            {
-                Uri = new Uri(Path.Combine(scope.RootPath, "test.scene")),
-            };
-            scene.Children.Add(element);
-
-            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
-            renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.FromSeconds(1d / 30d)));
-
-            using Bitmap snapshot = renderer.Snapshot();
-            using Bitmap srgb = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
-            Bgra8888 insideLogicalBounds = srgb.GetRow<Bgra8888>(70)[90];
-            Bgra8888 outsideLogicalBounds = srgb.GetRow<Bgra8888>(90)[110];
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(insideLogicalBounds.R, Is.GreaterThan(0));
-                Assert.That(insideLogicalBounds.G, Is.GreaterThan(0));
-                Assert.That(insideLogicalBounds.B, Is.GreaterThan(0));
-                Assert.That(outsideLogicalBounds.R, Is.EqualTo(0));
-                Assert.That(outsideLogicalBounds.G, Is.EqualTo(0));
-                Assert.That(outsideLogicalBounds.B, Is.EqualTo(0));
-            });
-        });
+        AssertSceneDrawsProxyAtOriginalFootprint(createEffect: null, new PixelSize(120, 100), new PixelPoint(110, 90));
     }
 
     [Test]
     public void SceneRenderer_DrawsFilteredProxyVideoAtOriginalLogicalFootprint()
     {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using var scope = ProxyScope.Create(new PixelSize(100, 80), new PixelSize(50, 40));
-            DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
-
-            var media = new VideoSource();
-            media.ReadFrom(new Uri(scope.OriginalPath));
-            var drawable = new SourceVideo();
-            drawable.Source.CurrentValue = media;
-            drawable.FilterEffect.CurrentValue = new MosaicEffect();
-            var element = new Element
-            {
-                Start = TimeSpan.Zero,
-                Length = TimeSpan.FromSeconds(1),
-                IsEnabled = true,
-                Uri = new Uri(Path.Combine(scope.RootPath, $"{Guid.NewGuid():N}.layer")),
-            };
-            element.AddObject(drawable);
-            var scene = new Scene(120, 100, string.Empty)
-            {
-                Uri = new Uri(Path.Combine(scope.RootPath, "test.scene")),
-            };
-            scene.Children.Add(element);
-
-            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
-            renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.FromSeconds(1d / 30d)));
-
-            using Bitmap snapshot = renderer.Snapshot();
-            using Bitmap srgb = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
-            Bgra8888 insideLogicalBounds = srgb.GetRow<Bgra8888>(70)[90];
-            Bgra8888 outsideLogicalBounds = srgb.GetRow<Bgra8888>(90)[110];
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(insideLogicalBounds.R, Is.GreaterThan(0));
-                Assert.That(insideLogicalBounds.G, Is.GreaterThan(0));
-                Assert.That(insideLogicalBounds.B, Is.GreaterThan(0));
-                Assert.That(outsideLogicalBounds.R, Is.EqualTo(0));
-                Assert.That(outsideLogicalBounds.G, Is.EqualTo(0));
-                Assert.That(outsideLogicalBounds.B, Is.EqualTo(0));
-            });
-        });
+        AssertSceneDrawsProxyAtOriginalFootprint(() => new MosaicEffect(), new PixelSize(120, 100), new PixelPoint(110, 90));
     }
 
     [Test]
     public void SceneRenderer_DrawsSkiaFilteredProxyVideoAtOriginalLogicalFootprint()
     {
+        // The point lies outside the bounds the blur inflates.
+        AssertSceneDrawsProxyAtOriginalFootprint(
+            () =>
+            {
+                var blur = new Blur();
+                blur.Sigma.CurrentValue = new Size(3, 3);
+                return blur;
+            },
+            new PixelSize(160, 130),
+            new PixelPoint(140, 110));
+    }
+
+    // Renders a scene with the 100x80 video through its Half proxy and checks that the video covers (90, 70) and
+    // leaves the outside point black.
+    private static void AssertSceneDrawsProxyAtOriginalFootprint(
+        Func<FilterEffect>? createEffect, PixelSize sceneSize, PixelPoint outside)
+    {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using var scope = ProxyScope.Create(new PixelSize(100, 80), new PixelSize(50, 40));
+            using var scope = ProxyTestScope.Create(new PixelSize(100, 80), new PixelSize(50, 40), ProxyPreset.Half);
             DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
 
             var media = new VideoSource();
             media.ReadFrom(new Uri(scope.OriginalPath));
-            var blur = new Blur();
-            blur.Sigma.CurrentValue = new Size(3, 3);
             var drawable = new SourceVideo();
             drawable.Source.CurrentValue = media;
-            drawable.FilterEffect.CurrentValue = blur;
+            if (createEffect != null)
+            {
+                drawable.FilterEffect.CurrentValue = createEffect();
+            }
+
             var element = new Element
             {
                 Start = TimeSpan.Zero,
@@ -345,7 +243,7 @@ public class ProxyVideoLogicalSizeTests
                 Uri = new Uri(Path.Combine(scope.RootPath, $"{Guid.NewGuid():N}.layer")),
             };
             element.AddObject(drawable);
-            var scene = new Scene(160, 130, string.Empty)
+            var scene = new Scene(sceneSize.Width, sceneSize.Height, string.Empty)
             {
                 Uri = new Uri(Path.Combine(scope.RootPath, "test.scene")),
             };
@@ -357,70 +255,17 @@ public class ProxyVideoLogicalSizeTests
             using Bitmap snapshot = renderer.Snapshot();
             using Bitmap srgb = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
             Bgra8888 insideLogicalBounds = srgb.GetRow<Bgra8888>(70)[90];
-            Bgra8888 outsideInflatedBounds = srgb.GetRow<Bgra8888>(110)[140];
+            Bgra8888 outsideBounds = srgb.GetRow<Bgra8888>(outside.Y)[outside.X];
 
             Assert.Multiple(() =>
             {
                 Assert.That(insideLogicalBounds.R, Is.GreaterThan(0));
                 Assert.That(insideLogicalBounds.G, Is.GreaterThan(0));
                 Assert.That(insideLogicalBounds.B, Is.GreaterThan(0));
-                Assert.That(outsideInflatedBounds.R, Is.EqualTo(0));
-                Assert.That(outsideInflatedBounds.G, Is.EqualTo(0));
-                Assert.That(outsideInflatedBounds.B, Is.EqualTo(0));
+                Assert.That(outsideBounds.R, Is.EqualTo(0));
+                Assert.That(outsideBounds.G, Is.EqualTo(0));
+                Assert.That(outsideBounds.B, Is.EqualTo(0));
             });
         });
-    }
-
-    private sealed class ProxyScope : IDisposable
-    {
-        private readonly string _root;
-
-        private ProxyScope(string root, string originalPath, ProxyStore store)
-        {
-            _root = root;
-            OriginalPath = originalPath;
-            Store = store;
-        }
-
-        public string OriginalPath { get; }
-
-        public string RootPath => _root;
-
-        public ProxyStore Store { get; }
-
-        public static ProxyScope Create(PixelSize originalSize, PixelSize proxySize)
-        {
-            string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-            var store = new ProxyStore(root);
-            string original = TestMediaHelper.CreateTestVideoFile(originalSize.Width, originalSize.Height, new Rational(30, 1), 30);
-            File.WriteAllBytes(original, [1, 2, 3, 4]);
-            string proxyTemplate = TestMediaHelper.CreateTestVideoFile(proxySize.Width, proxySize.Height, new Rational(30, 1), 30);
-            File.WriteAllBytes(proxyTemplate, [1, 2, 3, 4]);
-            string relative = $"proxy/{Path.GetFileName(proxyTemplate)}";
-            string proxy = Path.Combine(root, relative);
-            Directory.CreateDirectory(Path.GetDirectoryName(proxy)!);
-            File.Copy(proxyTemplate, proxy, overwrite: true);
-
-            var now = DateTime.UtcNow;
-            store.Register(new ProxyEntry(
-                ProxyFingerprint.FromFile(original),
-                ProxyPreset.Half,
-                ProxyState.Ready,
-                relative.Replace(Path.DirectorySeparatorChar, '/'),
-                new FileInfo(proxy).Length,
-                originalSize,
-                proxySize,
-                now,
-                now,
-                null));
-
-            return new ProxyScope(root, original, store);
-        }
-
-        public void Dispose()
-        {
-            if (Directory.Exists(_root))
-                Directory.Delete(_root, recursive: true);
-        }
     }
 }

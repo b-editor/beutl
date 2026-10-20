@@ -31,11 +31,6 @@ public partial class ColorSpectrum : ColorPickerComponent
         RenderOptions.SetBitmapInterpolationMode(this, BitmapInterpolationMode.HighQuality);
     }
 
-    static ColorSpectrum()
-    {
-        FocusableProperty.OverrideDefaultValue<ColorSpectrum>(true);
-    }
-
     public override void Render(DrawingContext context)
     {
         if (Shape == ColorSpectrumShape.Triangle)
@@ -63,7 +58,7 @@ public partial class ColorSpectrum : ColorPickerComponent
                 RenderSelectorRects(context, rect.Width, rect.Height);
 
                 if (_borderPen != null)
-                    context.DrawRectangle(new Pen(Brushes.Gray), rect);
+                    context.DrawRectangle(_borderPen, rect);
             }
             else if (Shape == ColorSpectrumShape.Wheel)
             {
@@ -213,7 +208,6 @@ public partial class ColorSpectrum : ColorPickerComponent
         // From WinUI (ColorSpectrum.cpp - SelectionEllipseShouldBeLight)
         // Alt would be to calculate HSL Lightness from HSV
         // Simpler, but may not work as nicely
-        // var light = Color.Valuef * (1 - (Color.Saturationf / 2f));
         newColor.GetRGB(out byte R, out byte G, out byte B, out _);
         var rg = R <= 10 ? R / 3294.0 : Math.Pow(R / 269.0 + 0.0513, 2.4);
         var gg = G <= 10 ? G / 3294.0 : Math.Pow(G / 269.0 + 0.0513, 2.4);
@@ -250,7 +244,7 @@ public partial class ColorSpectrum : ColorPickerComponent
             if (_tempBitmap == null || !(_tempBitmap is WriteableBitmap))
             {
                 _tempBitmap?.Dispose();
-                _tempBitmap = new WriteableBitmap(new PixelSize(500, 500), new Vector(96, 96), Avalonia.Platform.PixelFormat.Bgra8888, Avalonia.Platform.AlphaFormat.Premul);
+                _tempBitmap = new WriteableBitmap(new PixelSize(_defBitmapSize, _defBitmapSize), new Vector(96, 96), Avalonia.Platform.PixelFormat.Bgra8888, Avalonia.Platform.AlphaFormat.Premul);
             }
 
             // Component represents the third, non-displayed, color component
@@ -313,7 +307,6 @@ public partial class ColorSpectrum : ColorPickerComponent
             unsafe
             {
                 var pixels = (uint*)(void*)lok.Address;
-                var count = _defBitmapSize * _defBitmapSize;
                 var hue = Hue;
                 float size = _defBitmapSize;
 
@@ -341,7 +334,6 @@ public partial class ColorSpectrum : ColorPickerComponent
             unsafe
             {
                 var pixels = (uint*)(void*)lok.Address;
-                var count = _defBitmapSize * _defBitmapSize;
                 var sat = Color.Saturationf;
                 float size = _defBitmapSize;
 
@@ -370,7 +362,6 @@ public partial class ColorSpectrum : ColorPickerComponent
             unsafe
             {
                 var pixels = (uint*)(void*)lok.Address;
-                var count = _defBitmapSize * _defBitmapSize;
                 var value = Color.Valuef;
                 float size = _defBitmapSize;
 
@@ -399,7 +390,6 @@ public partial class ColorSpectrum : ColorPickerComponent
             unsafe
             {
                 var pixels = (uint*)(void*)lok.Address;
-                var count = _defBitmapSize * _defBitmapSize;
                 var red = (uint)Color.R;
                 float size = _defBitmapSize;
 
@@ -427,7 +417,6 @@ public partial class ColorSpectrum : ColorPickerComponent
             unsafe
             {
                 var pixels = (uint*)(void*)lok.Address;
-                var count = _defBitmapSize * _defBitmapSize;
                 var green = (uint)Color.G;
                 float size = _defBitmapSize;
 
@@ -455,7 +444,6 @@ public partial class ColorSpectrum : ColorPickerComponent
             unsafe
             {
                 var pixels = (uint*)(void*)lok.Address;
-                var count = _defBitmapSize * _defBitmapSize;
                 var blue = (uint)Color.B;
                 float size = _defBitmapSize;
 
@@ -828,7 +816,7 @@ public partial class ColorSpectrum : ColorPickerComponent
         }
     }
 
-    public static bool PointInTriangle(Point p, Point p0, Point p1, Point p2)
+    private static bool PointInTriangle(Point p, Point p0, Point p1, Point p2)
     {
         // https://stackoverflow.com/questions/2049582/how-to-determine-if-a-point-is-in-a-2d-triangle
         static double sign(Point p1, Point p2, Point p3)

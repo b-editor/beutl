@@ -18,7 +18,6 @@ public sealed class LifetimeCancellationSourceTests
                 source.Dispose,
                 source.Cancel,
                 source.Dispose));
-            Assert.DoesNotThrow(() => _ = token.IsCancellationRequested);
             Assert.That(token.IsCancellationRequested, Is.True);
         }
     }

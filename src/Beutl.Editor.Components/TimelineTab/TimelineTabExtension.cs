@@ -9,7 +9,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Services.PrimitiveImpls;
 
-[PrimitiveImpl]
 public sealed partial class TimelineTabExtension : ToolTabExtension
 {
     public static readonly TimelineTabExtension Instance = new();
@@ -95,10 +94,7 @@ public sealed partial class TimelineTabExtension : ToolTabExtension
         [
             new ContextCommandKeyGesture("OemCloseBrackets")
         ]),
-        // Nudge は矢印キーを避けて , / . に割り当てる。Premiere/DaVinci/Final Cut の
-        // 慣例に合わせるとともに、シーン側 Previous/Next (Left/Right), SeekStart/SeekEnd
-        // (Cmd+Left/Right on macOS), Marker nav (Ctrl+Left/Right, macOS Alt+Left/Right)
-        // との shortcut 衝突を完全に排除する。
+        // Nudge uses , and . so that it does not collide with the existing shortcuts on the arrow keys.
         new ContextCommandDefinition("NudgeLeftFrame", Strings.NudgeLeftFrame, "",
         [
             new ContextCommandKeyGesture("OemComma"),

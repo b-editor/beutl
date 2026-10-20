@@ -1,6 +1,7 @@
 ﻿using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -149,11 +150,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
         IsExpanded.Skip(1)
             .Take(1)
-            // Materializing items resolves IPropertyEditorFactory from the host service chain, which is
-            // only wired once Accept has run. Group editors (filter-effect / transform / geometry /
-            // audio / path) assign their child list already expanded before calling AcceptChild, so
-            // gate the first materialization on the ExtensionProvider becoming available — the same
-            // signal Accept publishes — instead of running it eagerly from the object initializer.
+            // Creating the items uses IPropertyEditorFactory, so wait until Accept delivers the ExtensionProvider.
             .SelectMany(_ => ObserveExtensionProvider().Take(1))
             .Subscribe(_ =>
                 List.Subscribe(list =>
@@ -200,7 +197,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
     {
         void Added(int index, TItem? obj)
         {
-            var visitor = new Visitor(this);
+            var visitor = new ChildVisitor(this);
             var itemAccessor = new ListItemAccessorImpl<TItem?>(index, obj, List.Value!);
             var item = new ListItemEditorViewModel<TItem>(this, itemAccessor, this.GetRequiredService<IPropertyEditorFactory>());
 
@@ -386,18 +383,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
         try
         {
             IsExpanded.Value = (bool)json[nameof(IsExpanded)]!;
-
-            if (json.TryGetPropertyValue(nameof(Items), out JsonNode? propsNode)
-                && propsNode is JsonArray propsArray)
-            {
-                foreach ((JsonNode? node, ListItemEditorViewModel<TItem>? context) in propsArray.Zip(Items))
-                {
-                    if (context != null && node != null)
-                    {
-                        context.ReadFromJson(node.AsObject());
-                    }
-                }
-            }
+            NestedEditorContextHelper.ReadEditorArray(json, nameof(Items), Items);
         }
         catch
         {
@@ -410,24 +396,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
         try
         {
             json[nameof(IsExpanded)] = IsExpanded.Value;
-
-            var array = new JsonArray();
-
-            foreach (ListItemEditorViewModel<TItem> item in Items.GetMarshal().Value)
-            {
-                if (item == null)
-                {
-                    array.Add(null);
-                }
-                else
-                {
-                    var node = new JsonObject();
-                    item.WriteToJson(node);
-                    array.Add(node);
-                }
-            }
-
-            json[nameof(Items)] = array;
+            NestedEditorContextHelper.WriteEditorArray(json, nameof(Items), Items);
         }
         catch
         {
@@ -442,7 +411,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
     private void AcceptChild()
     {
-        var visitor = new Visitor(this);
+        var visitor = new ChildVisitor(this);
         foreach (ListItemEditorViewModel<TItem> item in Items)
         {
             item.Context?.Accept(visitor);
@@ -461,18 +430,6 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
         foreach (ListItemEditorViewModel<TItem> item in Items)
         {
             item.Dispose();
-        }
-    }
-
-    private sealed record Visitor(ListEditorViewModel<TItem> Obj) : IServiceProvider, IPropertyEditorContextVisitor
-    {
-        public object? GetService(Type serviceType)
-        {
-            return Obj.GetService(serviceType);
-        }
-
-        public void Visit(IPropertyEditorContext context)
-        {
         }
     }
 }

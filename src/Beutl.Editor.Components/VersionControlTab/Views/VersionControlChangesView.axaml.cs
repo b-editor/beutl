@@ -17,8 +17,9 @@ internal sealed partial class VersionControlChangesView : UserControl
             && DataContext is VersionControlTabViewModel viewModel
             && sender is ListBox listBox)
         {
-            await VersionControlViewEventBoundary.RunSafelyAsync(() => viewModel.SelectFileAsync(
-                listBox.SelectedItem as VersionControlFileChangeViewModel));
+            await viewModel.RunCommandAsync(
+                () => viewModel.SelectFileAsync(listBox.SelectedItem as VersionControlFileChangeViewModel),
+                nameof(viewModel.SelectFileAsync));
         }
     }
 
@@ -29,8 +30,9 @@ internal sealed partial class VersionControlChangesView : UserControl
                 SelectedCommit.Value: { } selectedCommit,
             } viewModel)
         {
-            await VersionControlViewEventBoundary.RunSafelyAsync(
-                () => viewModel.RestoreAsync(selectedCommit.Commit));
+            await viewModel.RunCommandAsync(
+                () => viewModel.RestoreAsync(selectedCommit.Commit),
+                nameof(viewModel.RestoreAsync));
         }
     }
 
@@ -41,8 +43,9 @@ internal sealed partial class VersionControlChangesView : UserControl
                 SelectedCommit.Value: { } selectedCommit,
             } viewModel)
         {
-            await VersionControlViewEventBoundary.RunSafelyAsync(
-                () => viewModel.RestoreToNewBranchAsync(selectedCommit.Commit));
+            await viewModel.RunCommandAsync(
+                () => viewModel.RestoreToNewBranchAsync(selectedCommit.Commit),
+                nameof(viewModel.RestoreToNewBranchAsync));
         }
     }
 }

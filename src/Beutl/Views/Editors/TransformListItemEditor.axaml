@@ -1,18 +1,18 @@
-<UserControl x:Class="Beutl.Views.Editors.TransformListItemEditor"
-             xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:controls="using:Beutl.Controls"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
-             xmlns:lang="using:Beutl.Language"
-             xmlns:local="using:Beutl.Views.Editors"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:pe="using:Beutl.Controls.PropertyEditors"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
-             xmlns:viewModel="using:Beutl.ViewModels.Editors"
-             d:DesignHeight="450"
-             d:DesignWidth="400"
-             mc:Ignorable="d">
+<local:PresenterListItemEditor x:Class="Beutl.Views.Editors.TransformListItemEditor"
+                               xmlns="https://github.com/avaloniaui"
+                               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                               xmlns:controls="using:Beutl.Controls"
+                               xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                               xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+                               xmlns:lang="using:Beutl.Language"
+                               xmlns:local="using:Beutl.Views.Editors"
+                               xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                               xmlns:pe="using:Beutl.Controls.PropertyEditors"
+                               xmlns:ui="using:FluentAvalonia.UI.Controls"
+                               xmlns:viewModel="using:Beutl.ViewModels.Editors"
+                               d:DesignHeight="450"
+                               d:DesignWidth="400"
+                               mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
         <Grid Margin="8,0,0,0"
               ColumnDefinitions="*,Auto,Auto"
@@ -77,9 +77,7 @@
                IsVisible="{Binding !IsPresenter.Value}">
             <local:PropertiesEditor Margin="16,0,0,0"
                                     Padding="0"
-                                    DataContext="{Binding Properties.Value}"
-                                    IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
-                                                                  Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                    DataContext="{Binding Properties.Value}" />
 
             <ItemsControl DataContext="{Binding Group.Value}" ItemsSource="{Binding Items}">
                 <ItemsControl.ItemTemplate>
@@ -90,4 +88,4 @@
             </ItemsControl>
         </Panel>
     </Grid>
-</UserControl>
+</local:PresenterListItemEditor>

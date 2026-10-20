@@ -1,6 +1,7 @@
 ﻿using System.Text.Json;
 
 using Beutl.Services.AI;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Beutl.HeadlessUITests;
 
@@ -50,7 +51,7 @@ public sealed class PersistentPromptLibraryTests
     [Test]
     public void RecentHistory_IsBoundedAndCoalescesNormalizedDuplicates()
     {
-        var timeProvider = new ManualTimeProvider(new DateTimeOffset(2026, 8, 9, 0, 0, 0, TimeSpan.Zero));
+        var timeProvider = new FakeTimeProvider(new DateTimeOffset(2026, 8, 9, 0, 0, 0, TimeSpan.Zero));
         var options = new PromptLibraryOptions { MaxRecentItems = 2 };
         var library = new PersistentPromptLibrary(_storagePath, options, timeProvider);
 
@@ -153,7 +154,6 @@ public sealed class PersistentPromptLibraryTests
     public async Task SeparateInstanceWaitsForTheCrossProcessWriteLock()
     {
         var library = new PersistentPromptLibrary(_storagePath);
-        Directory.CreateDirectory(Path.GetDirectoryName(_storagePath)!);
         using var heldLock = new FileStream(
             _storagePath + ".lock",
             FileMode.OpenOrCreate,
@@ -205,11 +205,12 @@ public sealed class PersistentPromptLibraryTests
         });
     }
 
-    [Test]
-    public void CorruptJson_IsQuarantinedAndReplacedWithCurrentVersion()
+    // Version 1 was never written by a release, so it is read like any other unusable document.
+    [TestCase("{ definitely not json")]
+    [TestCase("""{ "version": 1, "history": [], "templates": [] }""")]
+    public void UnusableDocument_IsQuarantinedAndReplacedWithCurrentVersion(string contents)
     {
-        const string CorruptContents = "{ definitely not json";
-        File.WriteAllText(_storagePath, CorruptContents);
+        File.WriteAllText(_storagePath, contents);
 
         var library = new PersistentPromptLibrary(_storagePath);
         string[] recoveryFiles = Directory.GetFiles(_tempDirectory, "*.corrupt-*");
@@ -219,7 +220,7 @@ public sealed class PersistentPromptLibraryTests
             Assert.That(library.History, Is.Empty);
             Assert.That(library.Templates, Is.Empty);
             Assert.That(recoveryFiles, Has.Length.EqualTo(1));
-            Assert.That(File.ReadAllText(recoveryFiles[0]), Is.EqualTo(CorruptContents));
+            Assert.That(File.ReadAllText(recoveryFiles[0]), Is.EqualTo(contents));
         });
 
         using JsonDocument replacement = JsonDocument.Parse(File.ReadAllText(_storagePath));
@@ -309,7 +310,7 @@ public sealed class PersistentPromptLibraryTests
     }
 
     [Test]
-    public void Loading_many_pinned_history_items_preserves_and_coalesces_each_prompt()
+    public void Loading_many_pinned_history_items_preserves_each_entry()
     {
         DateTimeOffset timestamp = DateTimeOffset.UtcNow;
         var history = Enumerable.Range(0, 1024).Select(index => new
@@ -327,9 +328,55 @@ public sealed class PersistentPromptLibraryTests
             history,
             templates = Array.Empty<object>(),
         }));
+        string stored = File.ReadAllText(_storagePath);
         var library = new PersistentPromptLibrary(_storagePath);
-        Assert.That(library.History, Has.Count.EqualTo(512));
-        Assert.That(library.History.All(entry => entry.UseCount == 2 && entry.IsPinned), Is.True);
+        // Entries that repeat a prompt are kept as they are, and loading writes nothing.
+        Assert.That(library.History, Has.Count.EqualTo(1024));
+        Assert.That(library.History.All(entry => entry.UseCount == 1 && entry.IsPinned), Is.True);
+        Assert.That(File.ReadAllText(_storagePath), Is.EqualTo(stored));
+    }
+
+    [Test]
+    public void Loading_normalizes_in_memory_and_the_next_change_writes_it()
+    {
+        // Only hand edits leave text or timestamps unnormalized; loading does not rewrite the file for them.
+        string contents = $$"""
+            {
+              "version": {{PersistentPromptLibrary.CurrentStorageVersion}},
+              "history": [],
+              "templates": [
+                {
+                  "id": "{{Guid.NewGuid()}}",
+                  "name": "  Hero shot  ",
+                  "taskKind": "image",
+                  "prompt": "first line\r\nsecond line",
+                  "createdAtUtc": "2026-08-09T09:00:00+09:00",
+                  "updatedAtUtc": "2026-08-09T09:00:00+09:00",
+                  "isPinned": false
+                }
+              ]
+            }
+            """;
+        File.WriteAllText(_storagePath, contents);
+
+        var library = new PersistentPromptLibrary(_storagePath);
+        PromptTemplate loaded = library.Templates.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(loaded.Name, Is.EqualTo("Hero shot"));
+            Assert.That(loaded.Prompt, Is.EqualTo("first line\nsecond line"));
+            Assert.That(loaded.UpdatedAtUtc.Offset, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(File.ReadAllText(_storagePath), Is.EqualTo(contents));
+        });
+
+        library.SaveTemplate("Other", PromptTaskKind.Video, "other prompt");
+        string written = File.ReadAllText(_storagePath);
+        Assert.Multiple(() =>
+        {
+            Assert.That(written, Does.Contain("\"name\": \"Hero shot\""));
+            Assert.That(written, Does.Not.Contain("\\r"));
+            Assert.That(written, Does.Not.Contain("+09:00"));
+        });
     }
 
     [Test]
@@ -351,114 +398,6 @@ public sealed class PersistentPromptLibraryTests
             Assert.That(File.ReadAllText(_storagePath), Is.EqualTo(contents));
             Assert.That(Directory.EnumerateFiles(_tempDirectory, "*.corrupt-*"), Is.Empty);
         });
-    }
-
-    [Test]
-    public void VersionOne_OversizedPromptIsDroppedWithoutResettingValidEntries()
-    {
-        Guid oversizedId = Guid.NewGuid();
-        Guid validHistoryId = Guid.NewGuid();
-        Guid validTemplateId = Guid.NewGuid();
-        string oversizedPrompt = new('x', 4_001);
-        string contents = $$"""
-            {
-              "version": 1,
-              "history": [
-                {
-                  "id": "{{oversizedId}}",
-                  "taskKind": "image",
-                  "prompt": "{{oversizedPrompt}}",
-                  "lastUsedAtUtc": "2026-08-09T01:00:00Z",
-                  "useCount": 1,
-                  "isPinned": true
-                },
-                {
-                  "id": "{{validHistoryId}}",
-                  "taskKind": "video",
-                  "prompt": "keep history",
-                  "lastUsedAtUtc": "2026-08-09T00:00:00Z",
-                  "useCount": 2,
-                  "isPinned": true
-                }
-              ],
-              "templates": [
-                {
-                  "id": "{{validTemplateId}}",
-                  "name": "Keep template",
-                  "taskKind": "imageEdit",
-                  "prompt": "keep template",
-                  "createdAtUtc": "2026-08-09T00:00:00Z",
-                  "updatedAtUtc": "2026-08-09T00:00:00Z",
-                  "isPinned": false
-                }
-              ]
-            }
-            """;
-        File.WriteAllText(_storagePath, contents);
-
-        var library = new PersistentPromptLibrary(_storagePath);
-
-        using JsonDocument migrated = JsonDocument.Parse(File.ReadAllText(_storagePath));
-        Assert.Multiple(() =>
-        {
-            Assert.That(Directory.EnumerateFiles(_tempDirectory, "*.corrupt-*"), Is.Empty);
-            Assert.That(library.History.Select(item => item.Id), Is.EqualTo(new[] { validHistoryId }));
-            Assert.That(library.Templates.Select(item => item.Id), Is.EqualTo(new[] { validTemplateId }));
-            Assert.That(
-                migrated.RootElement.GetProperty("version").GetInt32(),
-                Is.EqualTo(PersistentPromptLibrary.CurrentStorageVersion));
-            Assert.That(File.ReadAllText(_storagePath), Does.Not.Contain(oversizedPrompt));
-        });
-    }
-
-    [Test]
-    public async Task LoadMigrationReloadsAfterTakingTheCrossProcessWriteLock()
-    {
-        var seed = new PersistentPromptLibrary(_storagePath);
-        seed.SaveTemplate("Original", PromptTaskKind.Image, "original prompt");
-        string versionOne = File.ReadAllText(_storagePath).Replace(
-            $"\"version\": {PersistentPromptLibrary.CurrentStorageVersion}",
-            "\"version\": 1",
-            StringComparison.Ordinal);
-        File.WriteAllText(_storagePath, versionOne);
-
-        using var initialReadCompleted = new ManualResetEventSlim();
-        using var releaseMigration = new ManualResetEventSlim();
-        Task<PersistentPromptLibrary> delayedLoad = Task.Run(() =>
-            new PersistentPromptLibrary(
-                _storagePath,
-                beforeNormalizationWriteLock: () =>
-                {
-                    initialReadCompleted.Set();
-                    if (!releaseMigration.Wait(TimeSpan.FromSeconds(5)))
-                        throw new TimeoutException("The delayed migration was not released.");
-                }));
-
-        try
-        {
-            Assert.That(initialReadCompleted.Wait(TimeSpan.FromSeconds(5)), Is.True);
-            var concurrent = new PersistentPromptLibrary(_storagePath);
-            concurrent.SaveTemplate(
-                "Concurrent",
-                PromptTaskKind.Video,
-                "written after the stale read");
-
-            releaseMigration.Set();
-            PersistentPromptLibrary loaded = await delayedLoad.WaitAsync(TimeSpan.FromSeconds(5));
-            var reloaded = new PersistentPromptLibrary(_storagePath);
-
-            string[] expected = ["Concurrent", "Original"];
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(loaded.Templates.Select(item => item.Name), Is.EqualTo(expected));
-                Assert.That(reloaded.Templates.Select(item => item.Name), Is.EqualTo(expected));
-            }
-        }
-        finally
-        {
-            releaseMigration.Set();
-            await delayedLoad.WaitAsync(TimeSpan.FromSeconds(5));
-        }
     }
 
     [Test]
@@ -566,17 +505,5 @@ public sealed class PersistentPromptLibraryTests
         });
 
         Assert.That(File.Exists(_storagePath), Is.False);
-    }
-
-    private sealed class ManualTimeProvider(DateTimeOffset utcNow) : TimeProvider
-    {
-        private DateTimeOffset _utcNow = utcNow;
-
-        public override DateTimeOffset GetUtcNow() => _utcNow;
-
-        public void Advance(TimeSpan duration)
-        {
-            _utcNow += duration;
-        }
     }
 }

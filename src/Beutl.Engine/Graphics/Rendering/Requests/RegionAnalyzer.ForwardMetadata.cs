@@ -10,8 +10,8 @@ internal sealed partial class RegionAnalyzer
     private static IReadOnlyDictionary<RenderFragmentReference, Rect?> ResolveTargetDomains(
         IReadOnlyList<RenderFragmentReference> roots,
         Rect? rootDomain,
-        TargetDependencyPlan targetDependencies,
-        IReadOnlySet<RenderFragmentId> backingTargetBackdropCaptures)
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references,
+        List<(RenderFragmentId FragmentId, TargetScopePlan Scope)> captureScopes)
     {
         var result = new Dictionary<RenderFragmentReference, Rect?>(
             ReferenceEqualityComparer.Instance);
@@ -19,45 +19,8 @@ internal sealed partial class RegionAnalyzer
         foreach (RenderFragmentReference root in roots)
             Visit(root, rootDomain, result, visitedDomains);
 
-        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references = result.Keys
-            .Where(static reference => reference.Id is not null)
-            .ToDictionary(static reference => reference.Id!.Value);
-        IReadOnlyDictionary<TargetScopeId, TargetScopePlan> scopes = targetDependencies.Scopes
-            .ToDictionary(static scope => scope.Id);
-        foreach (TargetDependencyStep capture in targetDependencies.Steps
-                     .Where(static step => step.Kind == TargetDependencyKind.Capture))
-        {
-            RenderFragmentReference reference = references[capture.FragmentId];
-            TargetScopePlan captureScope = scopes[capture.ScopeId];
-            if (backingTargetBackdropCaptures.Contains(capture.FragmentId))
-            {
-                // A value replay map materializes its input before replaying it through a transform. A backdrop
-                // reads the backing target outside that materialization boundary; resolving it inside the map
-                // would inverse-rasterize the target only to transform it forward again during replay.
-                TargetScopePlan current = captureScope;
-                while (current.ParentId is { } parentId)
-                {
-                    RenderFragmentReference? owner = current.OwnerFragmentId is { } ownerId
-                        ? references[ownerId]
-                        : null;
-                    if (owner?.Payload is LayerRenderFragmentPayload
-                        or TargetLayerScopeRenderFragmentPayload)
-                    {
-                        break;
-                    }
-
-                    if (owner?.Payload is TargetScopeRenderFragmentPayload scope
-                        && scope.Description.BuiltInBackdropCapturesBackingTarget)
-                    {
-                        captureScope = scopes[parentId];
-                    }
-
-                    current = scopes[parentId];
-                }
-            }
-
-            result[reference] = captureScope.ResolvedDomain;
-        }
+        foreach ((RenderFragmentId fragmentId, TargetScopePlan scope) in captureScopes)
+            result[references[fragmentId]] = scope.ResolvedDomain;
         return result;
 
         static void Visit(
@@ -106,8 +69,7 @@ internal sealed partial class RegionAnalyzer
     private readonly record struct VisitedDomain(RenderFragmentReference Reference, Rect? Domain);
 
     /// <summary>
-    /// Pairs a fragment with a domain the traversal already lowered it into. One set for the whole traversal
-    /// replaces the per-fragment set the domain map used to hold.
+    /// Pairs a fragment with a domain the traversal already lowered it into.
     /// </summary>
     private sealed class VisitedDomainComparer : IEqualityComparer<VisitedDomain>
     {
@@ -120,45 +82,57 @@ internal sealed partial class RegionAnalyzer
             => HashCode.Combine(RuntimeHelpers.GetHashCode(obj.Reference), obj.Domain);
     }
 
-    private static ImmutableHashSet<RenderFragmentId> FindBackingTargetBackdropCaptures(
-        ImmutableArray<RenderFragmentReference> topologicalOrder,
-        TargetDependencyPlan targetDependencies)
+    /// <summary>Resolves, for each capture step in order, the scope whose domain the capture reads.</summary>
+    /// <remarks>
+    /// A value replay map materializes its input before replaying it through a transform. A backdrop reads the
+    /// backing target outside that materialization boundary; resolving it inside the map would inverse-rasterize
+    /// the target only to transform it forward again during replay. A backdrop whose scope moves outward is one
+    /// that reads the backing target.
+    /// </remarks>
+    private static List<(RenderFragmentId FragmentId, TargetScopePlan Scope)> ResolveCaptureScopes(
+        TargetDependencyPlan targetDependencies,
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references,
+        IReadOnlyDictionary<TargetScopeId, TargetScopePlan> scopes,
+        out ImmutableHashSet<RenderFragmentId> backingTargetBackdropCaptures)
     {
-        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references = topologicalOrder
-            .ToDictionary(GetId);
-        IReadOnlyDictionary<TargetScopeId, TargetScopePlan> scopes = targetDependencies.Scopes
-            .ToDictionary(static scope => scope.Id);
-        var result = ImmutableHashSet.CreateBuilder<RenderFragmentId>();
+        var result = new List<(RenderFragmentId FragmentId, TargetScopePlan Scope)>();
+        var backing = ImmutableHashSet.CreateBuilder<RenderFragmentId>();
         foreach (TargetDependencyStep capture in targetDependencies.Steps
                      .Where(static step => step.Kind == TargetDependencyKind.Capture))
         {
-            if (references[capture.FragmentId].Kind != RenderFragmentKind.BuiltInBackdropCapture)
-                continue;
-
-            TargetScopePlan current = scopes[capture.ScopeId];
-            while (current.ParentId is { } parentId)
+            TargetScopePlan captureScope = scopes[capture.ScopeId];
+            if (references[capture.FragmentId].Kind == RenderFragmentKind.BuiltInBackdropCapture)
             {
-                RenderFragmentReference? owner = current.OwnerFragmentId is { } ownerId
-                    ? references[ownerId]
-                    : null;
-                if (owner?.Payload is LayerRenderFragmentPayload
-                    or TargetLayerScopeRenderFragmentPayload)
+                TargetScopePlan current = captureScope;
+                while (current.ParentId is { } parentId)
                 {
-                    break;
+                    RenderFragmentReference? owner = current.OwnerFragmentId is { } ownerId
+                        ? references[ownerId]
+                        : null;
+                    if (owner?.Payload is LayerRenderFragmentPayload
+                        or TargetLayerScopeRenderFragmentPayload)
+                    {
+                        break;
+                    }
+
+                    if (owner?.Payload is TargetScopeRenderFragmentPayload scope
+                        && scope.Description.BuiltInBackdropCapturesBackingTarget)
+                    {
+                        captureScope = scopes[parentId];
+                    }
+
+                    current = scopes[parentId];
                 }
 
-                if (owner?.Payload is TargetScopeRenderFragmentPayload scope
-                    && scope.Description.BuiltInBackdropCapturesBackingTarget)
-                {
-                    result.Add(capture.FragmentId);
-                    break;
-                }
-
-                current = scopes[parentId];
+                if (captureScope.Id != capture.ScopeId)
+                    backing.Add(capture.FragmentId);
             }
+
+            result.Add((capture.FragmentId, captureScope));
         }
 
-        return result.ToImmutable();
+        backingTargetBackdropCaptures = backing.ToImmutable();
+        return result;
     }
 
     private static ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> ResolveForwardMetadata(
@@ -186,10 +160,7 @@ internal sealed partial class RegionAnalyzer
             }
             else
             {
-                // A symbolic fragment resolves over inputs that were meant to move, so the answer above is
-                // expected to differ from the recorded one and cannot stand in for this comparison. Replaying
-                // the mapping over the inputs' recorded metadata puts it back under the rule the branch above
-                // enforces, at the one input where a recorded answer exists.
+                // Symbolic inputs were meant to move, so replay the mapping over the recorded inputs instead.
                 SymbolicMetadataCrossCheck.VerifyForwardBounds(reference);
             }
 
@@ -232,8 +203,7 @@ internal sealed partial class RegionAnalyzer
                     : "A symbolic full-target capture requires a finite owning target domain.");
         }
 
-        // Only the two arms below read more than the first input's bounds, so the projection array is built
-        // there rather than for every fragment: this runs once per fragment in each of two metadata passes.
+        // Only these arms build a projection array, since this runs per fragment in two metadata passes.
         switch (reference.Kind)
         {
             case RenderFragmentKind.OpaqueSource:
@@ -253,8 +223,8 @@ internal sealed partial class RegionAnalyzer
             RenderFragmentKind.ContributeValues
                 or RenderFragmentKind.Opacity
                 or RenderFragmentKind.Blend
+                or RenderFragmentKind.OpacityMask
                 => reference.Inputs[0].Bounds,
-            RenderFragmentKind.OpacityMask => reference.Inputs[0].Bounds,
             RenderFragmentKind.Shader
                 => ((ShaderRenderFragmentPayload)reference.Payload!).Description.Bounds
                     .TransformBounds(reference.Inputs[0].Bounds),
@@ -274,7 +244,14 @@ internal sealed partial class RegionAnalyzer
             RenderFragmentKind.RawTargetScope
                 => ((RawTargetScopeRenderFragmentPayload)reference.Payload!).Description.Bounds
                     .TransformBounds(reference.Inputs[0].Bounds),
-            _ => reference.RecordedBounds,
+            RenderFragmentKind.MaterializedInput
+                or RenderFragmentKind.TargetCapture
+                or RenderFragmentKind.BuiltInBackdropCapture
+                or RenderFragmentKind.TargetCommand
+                or RenderFragmentKind.RawTargetCommand
+                => reference.RecordedBounds,
+            _ => throw new InvalidOperationException(
+                $"Fragment kind '{reference.Kind}' has no forward bounds rule."),
         };
     }
 
@@ -297,8 +274,7 @@ internal sealed partial class RegionAnalyzer
         Rect resolvedBounds,
         RenderRequestOptions options)
     {
-        // The projection array is built only in the arms that read more than the first input's scale, because
-        // this runs once per fragment in each of two metadata passes.
+        // Only the arms reading more than the first input build a projection array, as this runs per fragment twice.
         switch (reference.Kind)
         {
             case RenderFragmentKind.ContributeValues:
@@ -391,8 +367,16 @@ internal sealed partial class RegionAnalyzer
                     resolvedBounds,
                     options.OutputScale,
                     options.MaxWorkingScale);
-            default:
+            case RenderFragmentKind.MaterializedInput:
+            case RenderFragmentKind.BuiltInBackdropCapture:
+            case RenderFragmentKind.Layer:
+            case RenderFragmentKind.TargetLayerScope:
+            case RenderFragmentKind.TargetCommand:
+            case RenderFragmentKind.RawTargetCommand:
                 return reference.RecordedEffectiveScale;
+            default:
+                throw new InvalidOperationException(
+                    $"Fragment kind '{reference.Kind}' has no forward scale rule.");
         }
     }
 

@@ -21,7 +21,7 @@ public sealed partial class FilterEffectGroup : FilterEffect
         {
             foreach (FilterEffect.Resource item in r.Children)
             {
-                context.ApplyTransactional(item.RequireOriginal(), item);
+                item.RequireOriginal().ApplyTo(context, item);
             }
         });
     }

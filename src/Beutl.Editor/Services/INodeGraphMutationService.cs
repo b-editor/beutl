@@ -6,8 +6,7 @@ namespace Beutl.Editor.Services;
 /// Mutation operations on a <see cref="GraphModel"/>: add/remove/move/rename
 /// nodes, connect/disconnect ports, and the dynamic-port flow unique to
 /// <see cref="GroupInput"/> / <see cref="GroupOutput"/>. Centralizes the
-/// validation branches (GroupInput uniqueness, cascade disconnects) and the
-/// many commit sites that were scattered across the node-graph ViewModels.
+/// validation branches (GroupInput uniqueness, cascade disconnects).
 /// </summary>
 public interface INodeGraphMutationService
 {
@@ -65,14 +64,10 @@ public interface INodeGraphMutationService
     /// <summary>Disconnects a specific known <see cref="Connection"/>.
     /// Commits <c>DisconnectPort</c>.</summary>
     void DisconnectConnection(GraphModel graph, Connection connection);
-}
 
-/// <summary>Optional atomic node creation capability for a port drop on empty graph space.
-/// Implementations of <see cref="INodeGraphMutationService"/> are not required to support it.</summary>
-public interface INodeGraphConnectedNodeMutationService : INodeGraphMutationService
-{
-    /// <summary>Adds a node and connects it in one undo entry. Pass <paramref name="newPort"/>
-    /// as null for a dynamic-port node. Returns false without adding an undo entry when rejected.</summary>
+    /// <summary>Adds a node and connects it in one undo entry, for a port drop on empty graph space. Pass
+    /// <paramref name="newPort"/> as null for a dynamic-port node. Returns false without adding an undo entry
+    /// when rejected.</summary>
     bool AddNodeAndConnect(GraphModel graph, GraphNode node, double x, double y,
         INodePort existingPort, INodePort? newPort);
 }

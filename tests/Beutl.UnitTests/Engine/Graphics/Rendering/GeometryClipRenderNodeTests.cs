@@ -51,12 +51,7 @@ public sealed class GeometryClipRenderNodeTests
     [Test]
     public void Intersect_ClipsOutputBoundsAndHitTesting()
     {
-        var geometry = new RectGeometry
-        {
-            Width = { CurrentValue = 30 },
-            Height = { CurrentValue = 40 },
-        };
-        Geometry.Resource resource = geometry.ToResource(CompositionContext.Default);
+        Geometry.Resource resource = CreateClip(30, 40);
         using var node = new GeometryClipRenderNode(resource, ClipOperation.Intersect);
         node.AddChild(new RectangleRenderNode(
             new Rect(0, 0, 100, 100),

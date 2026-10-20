@@ -7,7 +7,7 @@ import Foundation
 import VideoToolbox
 
 // Writer state machine: create → start → append_video/append_audio* → finish → close.
-// Close is idempotent; finishing is optional (close without finish discards the file).
+// The C# SafeHandle closes exactly once; finishing is optional (close without finish discards the file).
 final class Writer {
     private let writer: AVAssetWriter
     private var videoInput: AVAssetWriterInput?
@@ -17,24 +17,29 @@ final class Writer {
     private var started = false
     private var finished = false
 
-    init(path: String, videoConfig: BeutlVideoEncoderConfig?, audioConfig: BeutlAudioEncoderConfig?) throws {
+    init(path: String, videoConfig: BeutlVideoEncoderConfig, audioConfig: BeutlAudioEncoderConfig) throws {
         let url = URL(fileURLWithPath: path)
         // Overwrite by default so repeated runs don't fail with "file exists".
         try? FileManager.default.removeItem(at: url)
 
         let writer: AVAssetWriter
         do {
-            writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
+            writer = try AVAssetWriter(outputURL: url, fileType: Self.fileType(for: url))
         } catch {
             throw BeutlAVFError.writerFailed(error.localizedDescription)
         }
         self.writer = writer
 
-        if let videoConfig = videoConfig {
-            try configureVideo(config: videoConfig)
-        }
-        if let audioConfig = audioConfig {
-            try configureAudio(config: audioConfig)
+        try configureVideo(config: videoConfig)
+        try configureAudio(config: audioConfig)
+    }
+
+    // .mov and .m4v get their own containers; .mp4 and any other extension get MP4.
+    private static func fileType(for url: URL) -> AVFileType {
+        switch url.pathExtension.lowercased() {
+        case "mov": return .mov
+        case "m4v": return .m4v
+        default: return .mp4
         }
     }
 
@@ -111,10 +116,7 @@ final class Writer {
             mBitsPerChannel: 32,
             mReserved: 0)
 
-        // Tag the format with an explicit Stereo layout so the AAC encoder doesn't have to
-        // guess from mChannelsPerFrame alone. The pre-Swift-rewrite version did this (see
-        // commit 3022d321c, "Specify ChannelLayout in CMAudioFormatDescription") and dropping
-        // it in the rewrite is the regression source for malformed audio output.
+        // Tag an explicit Stereo layout so the AAC encoder doesn't guess it from mChannelsPerFrame.
         var layout = AudioChannelLayout()
         layout.mChannelLayoutTag = kAudioChannelLayoutTag_Stereo
         var formatDesc: CMFormatDescription?
@@ -133,11 +135,7 @@ final class Writer {
         }
 
         let dataLength = numSamples * 8  // 2ch × Float32
-        // Allocate a buffer the CMBlockBuffer fully owns, then memcpy the caller's PCM in.
-        // Going through (memoryBlock: pcm, blockAllocator: kCFAllocatorNull, kCMBlockBufferAlwaysCopyDataFlag)
-        // is ambiguous in practice — kCFAllocatorNull means "don't deallocate", which the docs
-        // pair with non-copy retention, not with the always-copy flag. The pre-rewrite version
-        // passed NULL (= kCFAllocatorDefault) for blockAllocator, not kCFAllocatorNull.
+        // Copy the caller's PCM into memory the CMBlockBuffer owns.
         var blockBuffer: CMBlockBuffer?
         let bbStatus = CMBlockBufferCreateWithMemoryBlock(
             allocator: kCFAllocatorDefault,
@@ -304,7 +302,7 @@ final class Writer {
         if let v = primariesKey { dict[AVVideoColorPrimariesKey] = v }
         if let v = transferKey { dict[AVVideoTransferFunctionKey] = v }
         if let v = matrixKey { dict[AVVideoYCbCrMatrixKey] = v }
-        return dict.isEmpty ? nil : dict
+        return dict
     }
 
     private static func mapPrimaries(_ raw: Int32, isHdr: Bool) -> String? {
@@ -385,7 +383,6 @@ final class Writer {
         switch raw {
         case 2: return .jpeg
         case 3: return .hevc
-        case 1, 0: return .h264
         default: return .h264
         }
     }

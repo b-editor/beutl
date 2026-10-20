@@ -17,6 +17,7 @@ using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
+using Beutl.Editor.Components.PathEditorTab.Views;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
@@ -78,7 +79,6 @@ public partial class PlayerView : UserControl
         framePanel.GetObservable(BoundsProperty)
             .Subscribe(_ => UpdateMaxFrameSize());
 
-        // PlayerView.axaxml.DragAndDrop.cs
         DragDrop.SetAllowDrop(framePanel, true);
         framePanel.AddHandler(DragDrop.DragOverEvent, OnFrameDragOver);
         framePanel.AddHandler(DragDrop.DropEvent, OnFrameDrop);
@@ -90,19 +90,12 @@ public partial class PlayerView : UserControl
     {
         if (DataContext is not PlayerViewModel vm)
         {
-            // A wrong DataContext on a PlayerView event handler is a wiring bug,
-            // not a user error — log at Error level so it surfaces in telemetry,
-            // and show a generic "unexpected error" message instead of the
-            // misleading "Invalid timecode format".
-            _logger.LogError("Timecode submitted but DataContext is not PlayerViewModel; ignoring.");
             e.Reject(Beutl.Language.MessageStrings.UnexpectedError);
             return;
         }
 
-        // Parse synchronously so Player.SubmitCurrentTimeEdit sees the final
-        // Handled/Error state before its post-Invoke check. The actual seek
-        // is applied after awaiting Pause if playback is running, otherwise
-        // the playback timer would overwrite the new playhead on its next tick.
+        // Parse synchronously because Player reads the result right after; seek only after awaiting Pause
+        // during playback so the playback timer does not overwrite the new playhead.
         if (!vm.TryParseTimecode(e.Input, out TimeSpan target, out GotoTimecodeError error))
         {
             e.Reject(PlayerViewModel.GetTimecodeErrorMessage(error));
@@ -312,25 +305,23 @@ public partial class PlayerView : UserControl
     {
         vm.FrameMatrix
             .ObserveOnUIDispatcher()
-            .Select(matrix => (matrix, image, framePanel.Children?.FirstOrDefault()!))
-            .Where(t => t.Item3 != null)
-            .Subscribe(t =>
+            .Subscribe(matrix =>
             {
                 framePanel.RenderTransformOrigin = Avalonia.RelativePoint.TopLeft;
-                framePanel.RenderTransform = new ImmutableTransform(t.matrix.ToAvaMatrix());
+                framePanel.RenderTransform = new ImmutableTransform(matrix.ToAvaMatrix());
                 if (DataContext is PlayerViewModel { Scene: { } } vm)
                 {
                     int width = vm.Scene.FrameSize.Width;
                     if (width == 0) return;
-                    double actualWidth = t.image.Bounds.Width * t.matrix.M11;
+                    double actualWidth = image.Bounds.Width * matrix.M11;
                     double pixelSize = actualWidth / width;
                     if (pixelSize >= 1)
                     {
-                        RenderOptions.SetBitmapInterpolationMode(t.image, BitmapInterpolationMode.None);
+                        RenderOptions.SetBitmapInterpolationMode(image, BitmapInterpolationMode.None);
                     }
                     else
                     {
-                        RenderOptions.SetBitmapInterpolationMode(t.image, BitmapInterpolationMode.HighQuality);
+                        RenderOptions.SetBitmapInterpolationMode(image, BitmapInterpolationMode.HighQuality);
                     }
                 }
             })
@@ -345,9 +336,7 @@ public partial class PlayerView : UserControl
             {
                 if (t.First)
                     framePanel.Cursor = Cursors.Hand;
-                else if (t.Second)
-                    framePanel.Cursor = Cursors.Cross;
-                else if (t.Third)
+                else if (t.Second || t.Third)
                     framePanel.Cursor = Cursors.Cross;
                 else
                     framePanel.Cursor = null;
@@ -421,22 +410,13 @@ public partial class PlayerView : UserControl
             TimeSpan ctxTime = time;
             snap = RenderThread.Dispatcher.Invoke(() => ComputeOverlayGeometry(renderer, target, availableSize, ctxTime));
         }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogError(
-                ex,
-                "GetBoundary/MeasureInternal called from invalid thread for {DrawableType} on element '{Element}'.",
-                drawable.GetType().Name, element.Name);
-            // Partially-updated cache may remain — dispose and let it rebuild.
-            ClearTransformHandleOverlay();
-            return;
-        }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         {
             _logger.LogError(
                 ex,
                 "Unexpected exception while querying transform overlay geometry (drawable={DrawableType}, element='{Element}').",
                 drawable.GetType().Name, element.Name);
+            // Partially-updated cache may remain — dispose and let it rebuild.
             ClearTransformHandleOverlay();
             return;
         }
@@ -627,9 +607,6 @@ public partial class PlayerView : UserControl
 
     private void Player_PreviewInvalidated(object? sender, EventArgs e)
     {
-        if (image == null)
-            return;
-
         Dispatcher.UIThread.InvokeAsync(() =>
         {
             image.InvalidateVisual();
@@ -646,22 +623,7 @@ public partial class PlayerView : UserControl
     {
         if (sender is RadioButton button && DataContext is PlayerViewModel { PathEditor: PathEditorViewModel viewModel })
         {
-            viewModel.Symmetry.Value = false;
-            viewModel.Asymmetry.Value = false;
-            viewModel.Separately.Value = false;
-
-            switch (button.Tag)
-            {
-                case "Symmetry":
-                    viewModel.Symmetry.Value = true;
-                    break;
-                case "Asymmetry":
-                    viewModel.Asymmetry.Value = true;
-                    break;
-                case "Separately":
-                    viewModel.Separately.Value = true;
-                    break;
-            }
+            PathEditorHelper.ApplyDragMode(viewModel, button.Tag);
         }
     }
 }

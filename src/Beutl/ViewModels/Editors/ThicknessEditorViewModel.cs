@@ -60,7 +60,7 @@ public sealed class ThicknessEditorViewModel : ValueEditorViewModel<Graphics.Thi
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<(float Left, float Top, float Right, float Bottom)> args)
+        if (e.Expect<(float Left, float Top, float Right, float Bottom)>(sender) is { } args)
         {
             SetValue(new Graphics.Thickness(args.OldValue.Left, args.OldValue.Top, args.OldValue.Right, args.OldValue.Bottom),
                      new Graphics.Thickness(args.NewValue.Left, args.NewValue.Top, args.NewValue.Right, args.NewValue.Bottom));

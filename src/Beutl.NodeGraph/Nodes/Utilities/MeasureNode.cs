@@ -42,23 +42,15 @@ public partial class MeasureNode : GraphNode
                     // fallback owner for graphs whose Full target access cannot resolve without one.
                     try
                     {
-                        using var renderer = new RenderNodeRenderer(
+                        rect = TargetDomainFallback.Render(
                             renderNode,
-                            new RenderNodeRenderRequest { Intent = RenderIntent.Preview });
-                        rect = renderer.Measure().QueryBounds;
+                            new RenderNodeRenderRequest { Intent = RenderIntent.Preview },
+                            context.TargetDomain,
+                            static renderer => renderer.Measure().QueryBounds);
                     }
                     catch (RenderTargetDomainRequiredException) when (context.TargetDomain is null)
                     {
                         rect = Rect.Empty;
-                    }
-                    catch (RenderTargetDomainRequiredException) when (context.TargetDomain is { } domain)
-                    {
-                        using var renderer = new RenderNodeRenderer(renderNode, new RenderNodeRenderRequest
-                        {
-                            Intent = RenderIntent.Preview,
-                            TargetDomain = domain,
-                        });
-                        rect = renderer.Measure().QueryBounds;
                     }
                 }
             }

@@ -64,7 +64,6 @@ internal sealed partial class AiVideoGenerationDialogViewModel
                 : await _editViewModel.Player.DrawFrameAtFullScale();
             lifetimeToken.ThrowIfCancellationRequested();
 
-            lifetimeToken.ThrowIfCancellationRequested();
             (unpublishedPath, FileStream stream) = AiTemporaryFileStore.Create(
                 "inputs",
                 "frame",
@@ -73,8 +72,6 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             {
                 bitmap.Save(stream, EncodedImageFormat.Png);
             }
-            if (new FileInfo(unpublishedPath).Length > AiRequestLimits.MaxFrameUploadBytes)
-                throw new AiFileTooLargeException();
             lifetimeToken.ThrowIfCancellationRequested();
 
             bool accepted = false;
@@ -102,10 +99,6 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         }
         catch (OperationCanceledException) when (lifetimeToken.IsCancellationRequested)
         {
-        }
-        catch (AiFileTooLargeException)
-        {
-            operation.TryPublish(() => Error.Value = Strings.AiFileTooLarge);
         }
         catch (Exception ex)
         {
@@ -229,7 +222,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
     // The frame the recovered request was named with, as long as the dialog still shows it.
     private AiRequestRecoverySource? FindRecoveredFrameSource(string role, string? path)
     {
-        AiRequestRecoverySource? recovered = _selectedRecovery?.EffectiveSources
+        AiRequestRecoverySource? recovered = _recovery.Active?.EffectiveSources
             .FirstOrDefault(source => source.Role == role);
         if (recovered is not null && !recovered.MatchesPath(path))
             recovered = null;
@@ -244,7 +237,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         string? name,
         byte[] bytes,
         string? elementId)
-        => IsTemporaryFile(path) && _requestKey.HasDurableRecovery
+        => IsTemporaryFile(path)
             ? _requestKey.CreateDurableSource(
                 role,
                 name ?? Path.GetFileName(path),

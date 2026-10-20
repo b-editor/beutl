@@ -26,7 +26,8 @@ public partial class MenuBarViewModel
 
         RemoveFromProject = new(isProjectOpenedAndTabOpened);
 
-        DeleteLayer = new(isSceneOpened);
+        DeleteLayer = new AsyncReactiveCommand(isSceneOpened)
+            .WithSubscribe(OnDeleteElement);
         ExcludeLayer = new ReactiveCommandSlim(isSceneOpened)
             .WithSubscribe(OnExcludeElement);
 
@@ -46,17 +47,6 @@ public partial class MenuBarViewModel
         });
     }
 
-    // Scene
-    //    New
-    //    Remove
-    //    Settings
-    //    Layer
-    //       Add
-    //       Delete
-    //       Exclude
-    //       Cut
-    //       Copy
-    //       Paste
     public AsyncReactiveCommand NewScene { get; } = new();
 
     public ReactiveCommandSlim<EditorTabItem?> RemoveFromProject { get; private set; }
@@ -116,6 +106,19 @@ public partial class MenuBarViewModel
         scene = null;
         element = null;
         return false;
+    }
+
+    private Task OnDeleteElement()
+    {
+        if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
+            && viewModel.Scene is Scene scene
+            && viewModel.GetService<IEditorSelection>() is { } selection)
+        {
+            viewModel.GetRequiredService<IElementStructureService>().Delete(
+                scene, selection.GetTargetElements(scene), GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled);
+        }
+
+        return Task.CompletedTask;
     }
 
     private void OnExcludeElement()

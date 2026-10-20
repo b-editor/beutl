@@ -4,7 +4,6 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
@@ -22,7 +21,7 @@ public sealed class TargetCaptureValueWrapperTests
         Assert.Multiple(() =>
         {
             Assert.That(raster.Bounds, Is.EqualTo(s_bounds));
-            Assert.That(AlphaAt(raster.Bitmap!, 8, 6), Is.EqualTo(0.627f).Within(0.03f));
+            Assert.That(ImageMetrics.AlphaAt(raster.Bitmap!, 8, 6), Is.EqualTo(0.627f).Within(0.03f));
         });
     }
 
@@ -34,7 +33,7 @@ public sealed class TargetCaptureValueWrapperTests
         Assert.Multiple(() =>
         {
             Assert.That(raster.Bounds, Is.EqualTo(s_bounds));
-            Assert.That(AlphaAt(raster.Bitmap!, 8, 6), Is.EqualTo(0.752f).Within(0.03f));
+            Assert.That(ImageMetrics.AlphaAt(raster.Bitmap!, 8, 6), Is.EqualTo(0.752f).Within(0.03f));
         });
     }
 
@@ -54,12 +53,12 @@ public sealed class TargetCaptureValueWrapperTests
             TargetDomain = s_bounds,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             FusionMode = FusionMode.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization raster = renderer.Rasterize();
-        (float leftRed, float leftBlue) = RedBlueAt(raster.Bitmap!, 2, 6);
-        (float capturedLeftRed, float capturedLeftBlue) = RedBlueAt(raster.Bitmap!, 9, 6);
-        (float capturedRightRed, float capturedRightBlue) = RedBlueAt(raster.Bitmap!, 14, 6);
+        (float leftRed, float leftBlue) = ImageMetrics.RedBlueAt(raster.Bitmap!, 2, 6);
+        (float capturedLeftRed, float capturedLeftBlue) = ImageMetrics.RedBlueAt(raster.Bitmap!, 9, 6);
+        (float capturedRightRed, float capturedRightBlue) = ImageMetrics.RedBlueAt(raster.Bitmap!, 14, 6);
 
         Assert.Multiple(() =>
         {
@@ -83,24 +82,9 @@ public sealed class TargetCaptureValueWrapperTests
             TargetDomain = s_bounds,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             FusionMode = FusionMode.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         return renderer.Rasterize();
-    }
-
-    private static float AlphaAt(Bitmap bitmap, int x, int y)
-    {
-        Span<ushort> row = bitmap.GetRow<ushort>(y);
-        return (float)BitConverter.UInt16BitsToHalf(row[(x * 4) + 3]);
-    }
-
-    private static (float Red, float Blue) RedBlueAt(Bitmap bitmap, int x, int y)
-    {
-        Span<ushort> row = bitmap.GetRow<ushort>(y);
-        int offset = x * 4;
-        return (
-            (float)BitConverter.UInt16BitsToHalf(row[offset]),
-            (float)BitConverter.UInt16BitsToHalf(row[offset + 2]));
     }
 
     private enum ValueWrapper
@@ -138,34 +122,4 @@ public sealed class TargetCaptureValueWrapperTests
         }
 
     }
-
-    private sealed class ContributingTargetCaptureNode(Rect bounds) : RenderNode
-    {
-        public override void Process(RenderNodeContext context)
-        {
-            RenderFragmentHandle capture = context.TargetCapture(TargetCaptureDescription.Create(
-                TargetRegion.Region(bounds),
-                bounds,
-                RenderHitTestContract.OutputBounds,
-                TargetCaptureScaleContract.MaterializeAtWorkingScale));
-            context.Publish(context.ContributeValues(capture));
-        }
-    }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

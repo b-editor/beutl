@@ -19,8 +19,8 @@ using Beutl.ViewModels;
 using Beutl.Views;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Client;
-using ModelContextProtocol.Protocol;
 using Reactive.Bindings;
+using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 
@@ -368,24 +368,6 @@ public sealed class AgentEditFollowerTests
     private static bool HasFlash(Control target)
         => Flashed(target.FindAncestorOfType<Window>()!).Contains(target);
 
-    private static async Task<McpClient> ConnectAsync(AgentHostEndpoint host)
-        => await McpClient.CreateAsync(new HttpClientTransport(new HttpClientTransportOptions
-        {
-            Endpoint = host.EndpointUri!,
-            TransportMode = HttpTransportMode.StreamableHttp,
-            AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = "Bearer " + host.Token }
-        }));
-
     private static Dictionary<string, object?> Target(Guid sceneId)
         => new() { ["sceneId"] = sceneId.ToString() };
-
-    private static JsonObject Payload(CallToolResult result)
-        => JsonNode.Parse(result.Content.OfType<TextContentBlock>().First().Text)!.AsObject();
-
-    private static JsonObject Success(CallToolResult result)
-    {
-        JsonObject payload = Payload(result);
-        Assert.That(payload["isSuccess"]!.GetValue<bool>(), Is.True, payload.ToJsonString());
-        return payload["value"]!.AsObject();
-    }
 }

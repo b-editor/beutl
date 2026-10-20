@@ -2,22 +2,20 @@
 using System.IO.Pipes;
 using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Sockets;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
 using Beutl.AgentToolkit;
 using Beutl.AgentToolkit.Live;
-using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
-using Beutl.Testing.Headless;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 
@@ -28,14 +26,14 @@ public sealed class AgentHostInstanceTests
     public async Task A_single_connection_controls_separate_processes_and_detects_a_crashed_target()
     {
         await TestReset.ResetShellAsync();
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-instance-tests-");
         try
         {
             int preferredPort = AvailablePort();
             await using Worker first = await Worker.StartAsync(directory, "process-first", preferredPort);
             await using Worker second = await Worker.StartAsync(directory, "process-second", preferredPort);
             Assert.That(first.Process.Id, Is.Not.EqualTo(second.Process.Id));
-            await using McpClient client = await ConnectAsync(first.EndpointUri);
+            await using McpClient client = await ConnectAsync(first.EndpointUri, AgentHostInstanceTestWorker.Token);
             JsonArray instances = Payload(await client.CallToolAsync("list_instances"))["value"]!["instances"]!.AsArray();
             Assert.Multiple(() =>
             {
@@ -51,7 +49,7 @@ public sealed class AgentHostInstanceTests
                 ["schemaVersion"] = "1",
                 ["patch"] = new JsonObject { ["Id"] = second.SceneId, ["Name"] = "remote-process-edited" }
             };
-            AssertSuccess(await client.CallToolAsync("apply_edit", edit));
+            Success(await client.CallToolAsync("apply_edit", edit));
             JsonObject firstDocument = Payload(await client.CallToolAsync("read_document", firstTarget));
             JsonObject secondDocument = Payload(await client.CallToolAsync("read_document", secondTarget));
             Assert.Multiple(() =>
@@ -74,7 +72,7 @@ public sealed class AgentHostInstanceTests
     public async Task Agent_server_routes_explicit_instances_and_keeps_headless_calls_local(bool crash)
     {
         await TestReset.ResetShellAsync();
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-instance-tests-");
         try
         {
             int preferredPort = AvailablePort();
@@ -121,7 +119,7 @@ public sealed class AgentHostInstanceTests
                 ["schemaVersion"] = "1",
                 ["patch"] = new JsonObject { ["Id"] = second.SceneId, ["Name"] = "edited-through-agent-server" }
             };
-            AssertSuccess(await client.CallToolAsync("apply_edit", edit));
+            Success(await client.CallToolAsync("apply_edit", edit));
 
             if (crash)
                 first.Process.Kill(entireProcessTree: true);
@@ -153,7 +151,7 @@ public sealed class AgentHostInstanceTests
     public async Task Agent_server_announces_live_tools_as_editors_start_and_exit()
     {
         await TestReset.ResetShellAsync();
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-instance-tests-");
         try
         {
             await using AgentServerHarness server = await AgentServerHarness.StartAsync(directory, TimeSpan.FromMilliseconds(100));
@@ -167,7 +165,7 @@ public sealed class AgentHostInstanceTests
             Assert.That((await server.Client.ListToolsAsync()).Select(tool => tool.Name), Does.Not.Contain("list_scenes"));
             AssertError(await server.Client.CallToolAsync("list_scenes"), "validation_rejected");
             // Headless work needs no editor at all.
-            AssertSuccess(await server.Client.CallToolAsync("read_operation_status"));
+            Success(await server.Client.CallToolAsync("read_operation_status"));
 
             Worker worker = await Worker.StartAsync(directory, "appearing", AvailablePort());
             try
@@ -192,14 +190,14 @@ public sealed class AgentHostInstanceTests
     public async Task One_connection_discovers_and_edits_two_hosts_without_shared_selection()
     {
         await TestReset.ResetShellAsync();
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-instance-tests-");
         var firstEditor = new EditorService(TestShell.Extensions);
         var secondEditor = new EditorService(TestShell.Extensions);
         Scene firstScene = OpenScene(firstEditor, directory, "first");
         Scene secondScene = OpenScene(secondEditor, directory, "second");
         int preferredPort = AvailablePort();
-        await using var first = CreateHost(firstEditor, directory, preferredPort);
-        await using var second = CreateHost(secondEditor, directory, preferredPort);
+        await using var first = CreateHost(firstEditor, directory, AgentHostInstanceTestWorker.Token, preferredPort);
+        await using var second = CreateHost(secondEditor, directory, AgentHostInstanceTestWorker.Token, preferredPort);
         try
         {
             await first.StartAsync();
@@ -228,8 +226,8 @@ public sealed class AgentHostInstanceTests
                 Assert.That(instances.Single(info => info!["instanceId"]!.GetValue<string>() == second.InstanceId)!["sceneName"]!.GetValue<string>(), Is.EqualTo("second"));
             });
 
-            AssertSuccess(await client.CallToolAsync("list_scenes", Target(first)));
-            AssertSuccess(await client.CallToolAsync("list_scenes", Target(second)));
+            Success(await client.CallToolAsync("list_scenes", Target(first)));
+            Success(await client.CallToolAsync("list_scenes", Target(second)));
             await Task.WhenAll(
                 RenameAsync(client, second, secondScene, "second-edited"),
                 RenameAsync(otherClient, first, firstScene, "first-edited"));
@@ -239,13 +237,13 @@ public sealed class AgentHostInstanceTests
                 Assert.That(secondScene.Name, Is.EqualTo("second-edited"));
             });
 
-            AssertSuccess(await client.CallToolAsync("undo", Target(second, secondScene)));
+            Success(await client.CallToolAsync("undo", Target(second, secondScene)));
             Assert.Multiple(() =>
             {
                 Assert.That(firstScene.Name, Is.EqualTo("first-edited"));
                 Assert.That(secondScene.Name, Is.EqualTo("second"));
             });
-            AssertSuccess(await client.CallToolAsync("redo", Target(second, secondScene)));
+            Success(await client.CallToolAsync("redo", Target(second, secondScene)));
             JsonObject remote = Payload(await client.CallToolAsync("read_document_summary", Target(second, secondScene)));
             JsonObject local = Payload(await client.CallToolAsync("read_document_summary", Target(first, firstScene)));
             Assert.Multiple(() =>
@@ -269,11 +267,11 @@ public sealed class AgentHostInstanceTests
     public async Task Stopped_instance_and_reused_port_never_redirect_an_edit_to_a_replacement()
     {
         await TestReset.ResetShellAsync();
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-instance-tests-");
         var editor = new EditorService(TestShell.Extensions);
         Scene scene = OpenScene(editor, directory, "replacement");
-        await using var first = CreateHost(new EditorService(TestShell.Extensions), directory);
-        await using var second = CreateHost(new EditorService(TestShell.Extensions), directory);
+        await using var first = CreateHost(new EditorService(TestShell.Extensions), directory, AgentHostInstanceTestWorker.Token);
+        await using var second = CreateHost(new EditorService(TestShell.Extensions), directory, AgentHostInstanceTestWorker.Token);
         try
         {
             await first.StartAsync();
@@ -286,11 +284,11 @@ public sealed class AgentHostInstanceTests
             Assert.That(File.Exists(registrationPath), Is.False);
             AssertError(await client.CallToolAsync("list_scenes", Target(second)), "instance_unavailable");
 
-            await using var replacement = CreateHost(editor, directory, port);
+            await using var replacement = CreateHost(editor, directory, AgentHostInstanceTestWorker.Token, port);
             await replacement.StartAsync();
             Assert.That(replacement.EndpointUri!.Port, Is.EqualTo(port));
             File.WriteAllText(registrationPath, staleRegistration); // Simulate a crashed host's leftover entry.
-            AssertSuccess(await client.CallToolAsync("list_scenes", Target(replacement)));
+            Success(await client.CallToolAsync("list_scenes", Target(replacement)));
             var arguments = Target(second, scene);
             arguments["patch"] = new JsonObject { ["Id"] = scene.Id.ToString(), ["Name"] = "wrong-instance" };
             arguments["schemaVersion"] = "1";
@@ -315,9 +313,9 @@ public sealed class AgentHostInstanceTests
     public async Task Routing_validates_arguments_and_authenticates_instance_discovery()
     {
         await TestReset.ResetShellAsync();
-        string directory = CreateDirectory();
-        await using var first = CreateHost(new EditorService(TestShell.Extensions), directory);
-        await using var second = CreateHost(new EditorService(TestShell.Extensions), directory);
+        string directory = CreateDirectory("beutl-instance-tests-");
+        await using var first = CreateHost(new EditorService(TestShell.Extensions), directory, AgentHostInstanceTestWorker.Token);
+        await using var second = CreateHost(new EditorService(TestShell.Extensions), directory, AgentHostInstanceTestWorker.Token);
         try
         {
             await first.StartAsync();
@@ -328,8 +326,8 @@ public sealed class AgentHostInstanceTests
             var unknown = Target(second);
             unknown["unexpected"] = true;
             AssertError(await client.CallToolAsync("read_operation_status", unknown), "validation_rejected");
-            AssertSuccess(await client.CallToolAsync("read_operation_status", Target(first)));
-            AssertSuccess(await client.CallToolAsync("read_operation_status", Target(second)));
+            Success(await client.CallToolAsync("read_operation_status", Target(first)));
+            Success(await client.CallToolAsync("read_operation_status", Target(second)));
 
             using var http = new HttpClient();
             Uri infoUri = new(first.EndpointUri!, "/agent-host");
@@ -351,7 +349,7 @@ public sealed class AgentHostInstanceTests
     [Test]
     public void Registry_ignores_malformed_remote_and_reused_process_registrations()
     {
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-instance-tests-");
         var registry = new AgentHostInstanceRegistry(directory);
         string instanceId = Guid.NewGuid().ToString("N");
         try
@@ -377,15 +375,16 @@ public sealed class AgentHostInstanceTests
     [Test]
     public void Registry_republishes_the_tools_version_and_removes_the_updated_registration_on_dispose()
     {
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-instance-tests-");
         var registry = new AgentHostInstanceRegistry(directory);
         string instanceId = Guid.NewGuid().ToString("N");
         try
         {
             AgentHostInstanceLease lease = registry.Register(instanceId, new Uri("http://127.0.0.1:59737/mcp"));
-            Assert.That(registry.Read().Single().ToolsVersion, Is.EqualTo(0));
+            AgentHostInstanceRegistration registered = registry.Read().Single();
+            Assert.That(registered.ToolsVersion, Is.EqualTo(0));
             lease.UpdateTools(2);
-            Assert.That(registry.Read().Single(), Is.EqualTo(registry.Read().Single() with { ToolsVersion = 2 }));
+            Assert.That(registry.Read().Single(), Is.EqualTo(registered with { ToolsVersion = 2 }));
             lease.Dispose();
             Assert.That(registry.Read(), Is.Empty);
             Assert.That(Directory.GetFiles(directory), Is.Empty);
@@ -396,7 +395,7 @@ public sealed class AgentHostInstanceTests
     [Test]
     public void Pruning_and_old_leases_preserve_a_replaced_registration()
     {
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-instance-tests-");
         var registry = new AgentHostInstanceRegistry(directory);
         string instanceId = Guid.NewGuid().ToString("N");
         try
@@ -415,7 +414,6 @@ public sealed class AgentHostInstanceTests
     }
 
     [Test]
-    [Platform("Linux,MacOSX")]
     public void Directory_read_permission_errors_return_no_peers_and_preserve_registrations()
     {
         if (OperatingSystem.IsWindows())
@@ -423,7 +421,7 @@ public sealed class AgentHostInstanceTests
             Assert.Ignore("Unix directory permissions are unavailable on Windows.");
             return;
         }
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-instance-tests-");
         var registry = new AgentHostInstanceRegistry(directory);
         UnixFileMode permissions = File.GetUnixFileMode(directory);
         try
@@ -444,50 +442,6 @@ public sealed class AgentHostInstanceTests
         }
     }
 
-    private static AgentHostEndpoint CreateHost(EditorService editor, string directory, int? firstPort = null)
-        => new(new ProjectService(), editor, UnavailableAgentAiBackend.Instance, firstPort ?? AvailablePort(),
-            "instance-test-token", registryDirectory: directory);
-
-    private static int AvailablePort()
-    {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        return ((IPEndPoint)listener.LocalEndpoint).Port;
-    }
-
-    private static string CreateDirectory()
-    {
-        string directory = Path.Combine(Path.GetTempPath(), "beutl-instance-tests-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
-        return directory;
-    }
-
-    private static Scene OpenScene(EditorService editor, string directory, string name)
-    {
-        var scene = new Scene
-        {
-            Name = name,
-            Uri = new Uri(Path.Combine(directory, name + ".scene")),
-            Duration = TimeSpan.FromSeconds(1),
-            FrameSize = new PixelSize(640, 480)
-        };
-        editor.ActivateTabItem(scene);
-        Assert.That(editor.SelectedTabItem.Value, Is.Not.Null);
-        HeadlessTestHelpers.Settle();
-        return scene;
-    }
-
-    private static async Task<McpClient> ConnectAsync(AgentHostEndpoint endpoint)
-        => await ConnectAsync(endpoint.EndpointUri!);
-
-    private static async Task<McpClient> ConnectAsync(Uri endpointUri)
-        => await McpClient.CreateAsync(new HttpClientTransport(new HttpClientTransportOptions
-        {
-            Endpoint = endpointUri,
-            TransportMode = HttpTransportMode.StreamableHttp,
-            AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = "Bearer " + AgentHostInstanceTestWorker.Token }
-        }));
-
     private static Dictionary<string, object?> Target(AgentHostEndpoint endpoint, Scene? scene = null)
     {
         var arguments = new Dictionary<string, object?> { ["instanceId"] = endpoint.InstanceId };
@@ -501,17 +455,8 @@ public sealed class AgentHostInstanceTests
         var arguments = Target(endpoint, scene);
         arguments["patch"] = new JsonObject { ["Id"] = scene.Id.ToString(), ["Name"] = name };
         arguments["schemaVersion"] = "1";
-        AssertSuccess(await client.CallToolAsync("apply_edit", arguments));
+        Success(await client.CallToolAsync("apply_edit", arguments));
     }
-
-    private static JsonObject Payload(CallToolResult result)
-        => JsonNode.Parse(result.Content.OfType<TextContentBlock>().First().Text)!.AsObject();
-
-    private static void AssertSuccess(CallToolResult result)
-        => Assert.That(Payload(result)["isSuccess"]!.GetValue<bool>(), Is.True, Payload(result).ToJsonString());
-
-    private static void AssertError(CallToolResult result, string code)
-        => Assert.That(Payload(result)["error"]?["code"]?.GetValue<string>(), Is.EqualTo(code), Payload(result).ToJsonString());
 
     // The installed MCP server, wired like Program.cs but over an in-memory stdio pair and pointed
     // at the test registry and token; the Beutl instances it routes to are real separate processes.

@@ -48,7 +48,7 @@ public class Tier1ParameterScaleProbeTests
             TestContext.WriteLine($"[PerlinNoiseBrush lossless] 2.0-down vs 1.0 SSIM={ssim:F4} MAE={mae:F4}");
             Assert.That(ssim, Is.GreaterThan(0.9),
                 $"PerlinNoiseBrush SSIM={ssim:F4} — low-frequency noise structure did not survive the lossless " +
-                "(2.0 → 1.0) direction, so the shader is NOT following the CTM (FR-010 violated)");
+                "(2.0 → 1.0) direction, so the shader is NOT following the CTM");
         });
     }
 

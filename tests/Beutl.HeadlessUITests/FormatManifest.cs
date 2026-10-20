@@ -11,7 +11,6 @@ using Beutl.Extensibility;
 using Beutl.Media.Decoding;
 using Beutl.Serialization;
 using Beutl.ViewModels.Dock;
-using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
@@ -319,7 +318,7 @@ internal static partial class FormatManifest
         {
             foreach (ContextCommandDefinition definition in extension.ContextCommands)
             {
-                keymap.Add(ContextCommandHandlerRegistry.GetFullName(extension.GetType(), definition.Name));
+                keymap.Add(ContextCommandManager.GetFullName(extension.GetType(), definition.Name));
             }
         }
 
@@ -372,19 +371,10 @@ internal static partial class FormatManifest
         WriteLines(text, extensions.Where(pair => pair.Value is null).Select(pair => pair.Key.FullName!));
     }
 
-    // The id BeutlToolDockable gives a new tool, which a dock layout saves as tools[].id. CreateId is private, so it is
-    // called by reflection with a context that has only the extension. A tool that can be open more than once gets a
-    // new GUID each time, so the GUID is replaced, and nothing else.
+    // The id BeutlToolDockable gives a new tool, which a dock layout saves as tools[].id. A tool that can be open more
+    // than once gets a new GUID each time, so the GUID is replaced, and nothing else.
     private static string DockId(ToolTabExtension extension)
-    {
-        MethodInfo createId = typeof(BeutlToolDockable).GetMethod(
-                                  "CreateId", BindingFlags.NonPublic | BindingFlags.Static, [typeof(IToolContext)])
-                              ?? throw new InvalidOperationException(
-                                  "BeutlToolDockable.CreateId(IToolContext), which makes the id a dock layout saves, "
-                                  + "is gone. Point FormatManifest.DockId at what makes the id now.");
-        string id = (string)createId.Invoke(null, [new ExtensionOnlyContext(extension)])!;
-        return GeneratedGuid().Replace(id, "<guid>");
-    }
+        => GeneratedGuid().Replace(BeutlToolDockable.CreateId(extension), "<guid>");
 
     [GeneratedRegex("[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}")]
     private static partial Regex GeneratedGuid();
@@ -463,26 +453,6 @@ internal static partial class FormatManifest
         {
             builder.Append('<').AppendJoin(", ", type.GetGenericArguments().Select(FormatName)).Append('>');
         }
-    }
-
-    // A tool context that has only its extension, which is all CreateId reads.
-    private sealed class ExtensionOnlyContext(ToolTabExtension extension) : IToolContext
-    {
-        public ToolTabExtension Extension { get; } = extension;
-
-        public IReactiveProperty<bool> IsSelected => throw new NotSupportedException();
-
-        public IReadOnlyReactiveProperty<string> Header => throw new NotSupportedException();
-
-        public void Dispose()
-        {
-        }
-
-        public object? GetService(Type serviceType) => null;
-
-        public void ReadFromJson(JsonObject json) => throw new NotSupportedException();
-
-        public void WriteToJson(JsonObject json) => throw new NotSupportedException();
     }
 
     // Writes "\n" line endings and no trailing whitespace on every OS.

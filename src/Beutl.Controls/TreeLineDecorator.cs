@@ -1,6 +1,4 @@
-﻿#nullable enable
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -12,20 +10,16 @@ public class TreeLineDecorator : Decorator
     public static readonly StyledProperty<int> IndentLevelProperty =
         AvaloniaProperty.Register<TreeLineDecorator, int>(nameof(IndentLevel), 1);
 
-    public static readonly StyledProperty<double> IndentWidthProperty =
-        AvaloniaProperty.Register<TreeLineDecorator, double>(nameof(IndentWidth), 16.0);
-
     public static readonly StyledProperty<IBrush?> LineBrushProperty =
         AvaloniaProperty.Register<TreeLineDecorator, IBrush?>(nameof(LineBrush));
 
-    public static readonly StyledProperty<double> LineThicknessProperty =
-        AvaloniaProperty.Register<TreeLineDecorator, double>(nameof(LineThickness), 1.0);
+    private const double IndentWidth = 16.0;
+    private const double LineThickness = 1.0;
 
     static TreeLineDecorator()
     {
-        AffectsRender<TreeLineDecorator>(IndentLevelProperty, IndentWidthProperty, LineBrushProperty, LineThicknessProperty, UseLayoutRoundingProperty);
-        AffectsMeasure<TreeLineDecorator>(IndentLevelProperty, IndentWidthProperty);
-        AffectsArrange<TreeLineDecorator>(IndentLevelProperty, IndentWidthProperty);
+        AffectsRender<TreeLineDecorator>(IndentLevelProperty, LineBrushProperty, UseLayoutRoundingProperty);
+        AffectsMeasure<TreeLineDecorator>(IndentLevelProperty);
     }
 
     public int IndentLevel
@@ -34,22 +28,10 @@ public class TreeLineDecorator : Decorator
         set => SetValue(IndentLevelProperty, value);
     }
 
-    public double IndentWidth
-    {
-        get => GetValue(IndentWidthProperty);
-        set => SetValue(IndentWidthProperty, value);
-    }
-
     public IBrush? LineBrush
     {
         get => GetValue(LineBrushProperty);
         set => SetValue(LineBrushProperty, value);
-    }
-
-    public double LineThickness
-    {
-        get => GetValue(LineThicknessProperty);
-        set => SetValue(LineThicknessProperty, value);
     }
 
     public override void Render(DrawingContext context)
@@ -65,7 +47,6 @@ public class TreeLineDecorator : Decorator
             ? LayoutHelper.RoundLayoutValueUp(LineThickness, scale)
             : LineThickness;
 
-        // Draw vertical lines for each indent level
         for (int i = 0; i < IndentLevel; i++)
         {
             double x = (i * IndentWidth) + (IndentWidth / 2.0) - (thickness / 2.0);

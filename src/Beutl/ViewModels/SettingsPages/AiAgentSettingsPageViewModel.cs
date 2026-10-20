@@ -57,7 +57,6 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         InstallSubagents = new ReactivePropertySlim<bool>(_config.InstallSubagents).DisposeWith(_disposables);
         InstallMcp = new ReactivePropertySlim<bool>(_config.InstallMcp).DisposeWith(_disposables);
         FollowLiveMcpEdits = new ReactivePropertySlim<bool>(_config.FollowLiveMcpEdits).DisposeWith(_disposables);
-        IsCustomAgent = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
         IsScopeSelectable = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
         IsProjectFolderVisible = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
         CanInstallSubagents = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
@@ -112,8 +111,6 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
     public ReactivePropertySlim<bool> InstallMcp { get; }
 
     public ReactivePropertySlim<bool> FollowLiveMcpEdits { get; }
-
-    public ReactivePropertySlim<bool> IsCustomAgent { get; }
 
     public ReactivePropertySlim<bool> IsScopeSelectable { get; }
 
@@ -261,7 +258,6 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         ResolvedTargets targets = Resolve();
         bool custom = SelectedAgent.Value.Definition is null;
 
-        IsCustomAgent.Value = custom;
         IsScopeSelectable.Value = !custom;
         IsProjectFolderVisible.Value = custom || SelectedScope.Value.Scope == AgentInstallScope.Project;
         bool commandAvailable = !string.IsNullOrWhiteSpace(McpCommand.Value);
@@ -278,14 +274,13 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
             : DisplayPath(targets.Root, targets.SubagentsDirectory);
         ResolvedMcpConfigPath.Value = targets.McpConfigurationError ?? (targets.McpConfigFileName is not null
             ? DisplayPath(targets.McpConfigRoot, targets.McpConfigFileName)
-            : targets.UseCliForMcp && BuildCliPreview() is { } cliPreview
+            : targets.UseCliForMcp && BuildCliPreview(commandAvailable) is { } cliPreview
                 ? cliPreview
                 : targets.UseCliForMcp ? "—" : SettingsStrings.AiAgents_NotSupported);
     }
 
-    private string? BuildCliPreview()
+    private string? BuildCliPreview(bool commandAvailable)
     {
-        bool commandAvailable = !string.IsNullOrWhiteSpace(McpCommand.Value);
         return InstallMcp.Value && commandAvailable && BuildCliMcpCommand() is { } command
             ? "$ " + command.ToDisplayString()
             : null;
@@ -410,7 +405,6 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         };
     }
 
-    // Reports how many files the install wrote, then any MCP configuration and CLI registration problems.
     private void PublishInstallStatus(string? mcpError, List<string> cliErrors, AgentToolkitInstallResult result)
     {
         Status.Value = string.Format(SettingsStrings.AiAgents_InstallCompleted, InstalledFiles.Count);
@@ -437,11 +431,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         }
     }
 
-    // Prunes files a previous install wrote that the new bundle no longer
-    // ships — but only under the component roots actually installed this run,
-    // so toggling a component off or switching agents never deletes an
-    // existing installation. Records outside the pruned scope are carried
-    // over so a later reinstall can still clean them up.
+    // Remove stale files from the previous install, but only under the components installed this run;
+    // carry other records over for a later reinstall.
     private IReadOnlyList<string> UpdateInstallManifest(
         ResolvedTargets targets,
         AgentToolkitInstallResult result,
@@ -484,11 +475,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                 && File.Exists(f.Path)));
         }
 
-        // The layout advances once this install replaced the MCP entry, when the user opted out of
-        // MCP altogether, or when the selected target cannot take an MCP entry at all, so there is
-        // nothing to migrate there. A missing launcher, a failed CLI registration or an invalid MCP
-        // configuration (a relative CODEX_HOME) keeps the older layout, so the migration notice
-        // returns on the next start instead of being lost.
+        // Advance the MCP layout only when this install replaced the entry or there is nothing to migrate;
+        // otherwise keep the old layout so the notice returns.
         bool mcpSettled = installedMcp
                           || !InstallMcp.Value
                           || (targets.McpConfigurationError is null
@@ -508,8 +496,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         // Resolve both through symlinks before comparing: a lexical check would treat a recorded path
         // under a since-retargeted symlink as in-scope, and RemoveStaleFiles would then delete the
         // link's outside target.
-        string fullRoot = PathBoundary.ResolveDeepestExistingTarget(Path.GetFullPath(root));
-        string fullPath = PathBoundary.ResolveDeepestExistingTarget(Path.GetFullPath(path));
+        string fullRoot = FilePathComparison.ResolveCanonicalPath(Path.GetFullPath(root));
+        string fullPath = FilePathComparison.ResolveCanonicalPath(Path.GetFullPath(path));
         return fullPath.StartsWith(
             fullRoot.EndsWith(Path.DirectorySeparatorChar) ? fullRoot : fullRoot + Path.DirectorySeparatorChar,
             OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);

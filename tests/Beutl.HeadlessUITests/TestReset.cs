@@ -1,5 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using Beutl.Services;
+﻿using Beutl.Services;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
 
@@ -19,8 +18,7 @@ internal static class TestReset
         await DisposeOpenEditorTabsAsync();
 
         await TestShell.Project.CloseProjectAsync();
-        BeutlApplication.Current.Items.Clear();
-        CaptionDraftStoreProvider.SetCurrentForTesting(new TestCaptionDraftStore());
+        CaptionDraftStoreProvider.SetCurrentForTesting(new InMemoryCaptionDraftStore());
         HeadlessTestHelpers.Settle();
     }
 
@@ -36,81 +34,5 @@ internal static class TestReset
         }
 
         HeadlessTestHelpers.Settle();
-    }
-
-    private sealed class TestCaptionDraftStore : ICaptionDraftStore
-    {
-        private readonly Dictionary<CaptionDraftScope, CaptionDraftEntry> _drafts = [];
-        private readonly HashSet<CaptionDraftScope> _owners = [];
-        private readonly object _gate = new();
-
-        public bool TryOpen(
-            CaptionDraftScope scope,
-            [NotNullWhen(true)] out ICaptionDraftSession? session)
-        {
-            lock (_gate)
-            {
-                if (!_owners.Add(scope))
-                {
-                    session = null;
-                    return false;
-                }
-
-                session = new Session(this, scope);
-                return true;
-            }
-        }
-
-        private sealed class Session(TestCaptionDraftStore owner, CaptionDraftScope scope)
-            : ICaptionDraftSession
-        {
-            private TestCaptionDraftStore? _owner = owner;
-
-            public CaptionDraftScope Scope { get; } = scope;
-
-            public CaptionDraftReadResult Read()
-            {
-                TestCaptionDraftStore store = GetOwner();
-                lock (store._gate)
-                {
-                    return store._drafts.GetValueOrDefault(Scope) is { } entry
-                        ? new CaptionDraftReadResult(CaptionDraftReadOutcome.Read, entry)
-                        : CaptionDraftReadResult.Absent;
-                }
-            }
-
-            public void Save(CaptionDraftEntry entry)
-            {
-                TestCaptionDraftStore store = GetOwner();
-                lock (store._gate)
-                {
-                    store._drafts[Scope] = entry;
-                }
-            }
-
-            public void Delete()
-            {
-                TestCaptionDraftStore store = GetOwner();
-                lock (store._gate)
-                {
-                    store._drafts.Remove(Scope);
-                }
-            }
-
-            public void Dispose()
-            {
-                TestCaptionDraftStore? store = Interlocked.Exchange(ref _owner, null);
-                if (store is null)
-                    return;
-
-                lock (store._gate)
-                {
-                    store._owners.Remove(Scope);
-                }
-            }
-
-            private TestCaptionDraftStore GetOwner()
-                => _owner ?? throw new ObjectDisposedException(nameof(Session));
-        }
     }
 }

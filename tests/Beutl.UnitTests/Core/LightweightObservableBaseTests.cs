@@ -16,8 +16,6 @@ public class LightweightObservableBaseTests
         public void EmitNext(int value) => PublishNext(value);
 
         public void EmitCompleted() => PublishCompleted();
-
-        public void EmitError(Exception error) => PublishError(error);
     }
 
     private sealed class RecordingObserver : IObserver<int>
@@ -109,20 +107,6 @@ public class LightweightObservableBaseTests
     }
 
     [Test]
-    public void OnError_NotifiesAllObservers()
-    {
-        var obs = new TestObservable();
-        var observer = new RecordingObserver();
-        using var _ = obs.Subscribe(observer);
-
-        var error = new InvalidOperationException("boom");
-        obs.EmitError(error);
-
-        Assert.That(observer.Error, Is.SameAs(error));
-        Assert.That(obs.DeinitializeCount, Is.EqualTo(1));
-    }
-
-    [Test]
     public void Subscribe_AfterCompleted_OnCompletedImmediately()
     {
         var obs = new TestObservable();
@@ -135,22 +119,6 @@ public class LightweightObservableBaseTests
         var sub = obs.Subscribe(observer);
         Assert.That(observer.CompletedCount, Is.EqualTo(1));
         Assert.That(sub, Is.Not.Null);
-    }
-
-    [Test]
-    public void Subscribe_AfterError_OnErrorImmediately()
-    {
-        var obs = new TestObservable();
-        var firstObserver = new RecordingObserver();
-        using (obs.Subscribe(firstObserver))
-        {
-            obs.EmitError(new InvalidOperationException("done"));
-        }
-
-        var observer = new RecordingObserver();
-        obs.Subscribe(observer);
-
-        Assert.That(observer.Error, Is.Not.Null);
     }
 
     [Test]

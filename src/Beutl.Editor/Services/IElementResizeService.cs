@@ -16,12 +16,9 @@ namespace Beutl.Editor.Services;
 /// across the moving cut (see the shared primitives in <c>SlippableMedia</c>).
 /// </para>
 /// <para>
-/// The pure media-offset shift (the Slip mode) is owned by <see cref="IElementSlipService"/>.
-/// Slip is media-window-only; Roll / Slide are geometry-primary and additionally shift the
-/// trimmed neighbour's media window, so media-offset writes are not exclusive to the slip
-/// service — the shared primitives live in <c>SlippableMedia</c>. Each service owns its own
-/// history commit boundary. These are in-tree editing seams consumed by the Timeline View;
-/// the concrete implementations are wired in <c>EditViewModel.GetService</c>.
+/// The pure media-offset shift (Slip) is <see cref="IElementSlipService"/>, which shares the
+/// <c>SlippableMedia</c> primitives with Roll and Slide. The Timeline View gets both services
+/// from <c>EditViewModel.GetService</c>.
 /// </para>
 /// </summary>
 public interface IElementResizeService
@@ -32,8 +29,7 @@ public interface IElementResizeService
     /// Sets <paramref name="element"/>'s length to its media's original duration, floored to the
     /// scene's frame rate, keeping its start and layer. Without <paramref name="ripple"/>, the clip
     /// stops where the next clip on its layer starts. Returns <see langword="false"/> without a history
-    /// entry when the element is locked or its media has no original duration. Built on
-    /// <see cref="Resize"/>, so replacements written before this member existed get it too.
+    /// entry when the element is locked or its media has no original duration.
     /// </summary>
     bool ResizeToOriginalDuration(Scene scene, Element element, bool ripple = false)
     {
@@ -61,50 +57,19 @@ public interface IElementResizeService
     }
 
     /// <summary>
-    /// Roll: shift the boundary between two adjacent clips, for every supplied pair at
-    /// once. Per pair: <c>front.Length += d</c>, <c>back.Start += d</c>,
-    /// <c>back.Length -= d</c>; total length is preserved. One shared delta — clamped to
-    /// the intersection of every pair's window (see <see cref="GetTrimDeltaBounds"/>) — is
-    /// applied to all pairs so grouped cuts (e.g. a video + audio pair on separate layers)
-    /// move together. Each back clip's media offset uses the delta converted to source time so its
-    /// content stays anchored across the moving cut. Returns <see langword="false"/> (no
-    /// commit) when <paramref name="pairs"/> is empty, any pair is invalid — front and back
-    /// not distinct, on different layers, not both in <paramref name="scene"/>,
-    /// <c>front.End != back.Start</c>, either side locked, or an element appearing in more
-    /// than one pair — or the shared clamped delta is zero. A single invalid pair rejects
-    /// the whole operation (never a partial, desynced roll).
+    /// Roll: moves the cut of every front/back pair by one shared delta, clamped to every pair's window, keeping
+    /// each back clip's content in place. Returns <see langword="false"/> without a commit when any pair is not
+    /// adjacent on one layer of the scene, is locked or repeats an element, or when the delta clamps to zero.
     /// </summary>
     bool Roll(Scene scene, IReadOnlyList<ElementTrimPair> pairs, TimeSpan delta);
 
     /// <summary>
-    /// Slide: shift a run of middle clips in time, for every supplied lane at once. Per
-    /// lane: the front clip grows by the delta, every middle clip's Start shifts by it,
-    /// and the back clip shrinks by it, preserving the total length. One shared delta —
-    /// clamped to the intersection of every lane's front/back window (the middles' lengths
-    /// are unaffected) — is applied to all lanes so a grouped block spanning layers moves
-    /// together. Each back clip's media offset uses the delta converted to source time so its content
-    /// stays anchored; the middle clips only move in time. Returns <see langword="false"/>
-    /// (no commit) when <paramref name="lanes"/> is empty, any lane is invalid — members on
-    /// different layers, not all in <paramref name="scene"/>, the
-    /// front → middles → back chain not contiguously adjacent, any participant locked, or
-    /// an element appearing twice across lanes — or the shared clamped delta is zero. A
-    /// single invalid lane rejects the whole operation (never a partial, desynced slide).
+    /// Slide: moves the middle clips of every lane by one shared delta, clamped to every lane, growing the front and
+    /// shrinking the back with its content kept in place. Returns <see langword="false"/> without a commit when any
+    /// lane is not a contiguous chain on one layer of the scene, has a locked or repeated element, or the delta
+    /// clamps to zero.
     /// </summary>
     bool Slide(Scene scene, IReadOnlyList<ElementSlideLane> lanes, TimeSpan delta);
-
-    /// <summary>
-    /// The delta window shared by <see cref="Roll"/> and <see cref="Slide"/>: the
-    /// intersection over <paramref name="pairs"/> of each front/back window,
-    /// <c>Min ≤ 0 ≤ Max</c>, bounded per pair by both clips keeping at least one frame at
-    /// the scene's frame rate, the back in-point staying at or above zero, and — when the
-    /// editor's ClampResizeToOriginalLength preference is on — the front out-point staying
-    /// within its source. This is an outer envelope: animated clocks and shared media can impose
-    /// additional constraints inside it. The Timeline View and both commit operations
-    /// validate the actual delta using the same media-clock snapshot calculation. <c>(Zero, Zero)</c> when
-    /// <paramref name="pairs"/> is empty or no trim is possible. Adjacency is not validated
-    /// here; callers check it before starting a drag.
-    /// </summary>
-    (TimeSpan Min, TimeSpan Max) GetTrimDeltaBounds(Scene scene, IReadOnlyList<ElementTrimPair> pairs);
 }
 
 public readonly record struct ElementResizeRequest(

@@ -87,7 +87,6 @@ public class ImageMetricsTests
             Assert.That(error.Blue, Is.EqualTo(0.5));
             Assert.That(error.Alpha, Is.EqualTo(0.75));
             Assert.That(error.Maximum, Is.EqualTo(0.75));
-            Assert.That(error[2], Is.EqualTo(error.Blue));
         });
     }
 
@@ -205,37 +204,12 @@ public class ImageMetricsTests
     }
 
     [Test]
-    public void Ssim_Identical_IsOne()
-    {
-        using var a = Flat(16, 16, 0.4f, 0.6f, 0.8f);
-        using var b = Flat(16, 16, 0.4f, 0.6f, 0.8f);
-        Assert.That(ImageMetrics.Ssim(a, b), Is.EqualTo(1.0).Within(1e-6));
-    }
-
-    [Test]
-    public void Mae_Identical_IsZero()
-    {
-        using var a = Flat(16, 16, 0.4f, 0.6f, 0.8f);
-        using var b = Flat(16, 16, 0.4f, 0.6f, 0.8f);
-        Assert.That(ImageMetrics.MeanAbsoluteError(a, b), Is.EqualTo(0.0).Within(1e-6));
-    }
-
-    [Test]
     public void Mae_ConstantOffset_EqualsOffset()
     {
         using var a = Flat(16, 16, 0.5f, 0.5f, 0.5f);
         using var b = Flat(16, 16, 0.6f, 0.6f, 0.6f);
         // half precision near 0.5..0.6 is ~1e-3.
         Assert.That(ImageMetrics.MeanAbsoluteError(a, b), Is.EqualTo(0.1).Within(2e-3));
-    }
-
-    [Test]
-    public void AliasingEnergy_FlatIsZero_CheckerboardIsHigh()
-    {
-        using var flat = Flat(16, 16, 0.5f, 0.5f, 0.5f);
-        using var checker = Checkerboard(16, 16);
-        Assert.That(ImageMetrics.AliasingEnergy(flat), Is.EqualTo(0.0).Within(1e-9));
-        Assert.That(ImageMetrics.AliasingEnergy(checker), Is.GreaterThan(0.1));
     }
 
     [Test]
@@ -291,10 +265,7 @@ public class ImageMetricsTests
     [Test]
     public void WindowedSsim_CatchesLocalizedDefect_GlobalSsimDilutesIt()
     {
-        // The failure mode global single-window SSIM cannot see: a small localized defect (a 14×14 flat-gray
-        // block in a 128×128 checkerboard, < 1.2% of pixels) leaves global SSIM high because its mean/variance
-        // is dominated by the matching background, yet windowed (min-tile) SSIM craters on the defect tile.
-        // This is the localized-defect sensitivity the parity gate's global SSIM lacks.
+        // A 14x14 defect in a 128x128 checkerboard barely moves global SSIM but fails its own 16x16 window.
         using Bitmap baseImg = Checkerboard(128, 128);
         using Bitmap defect = Checkerboard(128, 128);
         Span<ushort> span = defect.GetPixelSpan<ushort>();

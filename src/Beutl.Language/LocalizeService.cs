@@ -15,11 +15,6 @@ public sealed class LocalizeService
         "es",
     ];
 
-    public bool IsSupportedCulture(CultureInfo ci)
-    {
-        return ResolveSupportedCulture(ci) is not null;
-    }
-
     // The list mixes specific ("ja-JP") and neutral ("es") entries, so a specific culture such as
     // es-MX can only match through its parent.
     public CultureInfo? ResolveSupportedCulture(CultureInfo ci)

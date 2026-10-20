@@ -25,8 +25,6 @@ public class TitleBreadcrumbBarViewModel
 
     public ReadOnlyReactivePropertySlim<string?> FileName { get; }
 
-    // TabItems
-    // SelectedTabItem
     public ICoreList<EditorTabItem> TabItems => _editorService.TabItems;
 
     public IReactiveProperty<EditorTabItem?> SelectedTabItem => _editorService.SelectedTabItem;

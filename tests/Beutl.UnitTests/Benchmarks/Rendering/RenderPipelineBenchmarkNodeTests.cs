@@ -9,8 +9,6 @@ using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 
-using SkiaSharp;
-
 namespace Beutl.UnitTests.Benchmarks.Rendering;
 
 public sealed class RenderPipelineBenchmarkNodeTests
@@ -91,8 +89,8 @@ public sealed class RenderPipelineBenchmarkNodeTests
                 typeof(LayerEffect),
                 typeof(Blur),
             }));
-            Assert.That(CompileBoundaryReasons(customEffect), Does.Contain(ExecutionIslandBoundaryReason.CustomEffectItem));
-            Assert.That(CompileBoundaryReasons(mixedEffect), Does.Contain(ExecutionIslandBoundaryReason.CustomEffectItem));
+            Assert.That(CompilesCustomEffectSegmentIsland(customEffect), Is.True);
+            Assert.That(CompilesCustomEffectSegmentIsland(mixedEffect), Is.True);
         });
     }
 
@@ -170,7 +168,7 @@ public sealed class RenderPipelineBenchmarkNodeTests
 
         var first = new RenderPipelineBenchmarkFrameState(0.75f, StructuralVariant: false);
         tail.Apply(first);
-        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(root);
+        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheLifecycle.Create(root);
 
         Assert.Multiple(() =>
         {
@@ -190,7 +188,7 @@ public sealed class RenderPipelineBenchmarkNodeTests
 
         var second = new RenderPipelineBenchmarkFrameState(0.8f, StructuralVariant: false);
         tail.Apply(second);
-        lifecycle = RenderNodeCacheHelper.BeginLifecycle(root);
+        lifecycle = RenderNodeCacheLifecycle.Create(root);
 
         Assert.Multiple(() =>
         {
@@ -213,9 +211,9 @@ public sealed class RenderPipelineBenchmarkNodeTests
             MaxWorkingScale = 1,
             CacheOptions = RenderCacheOptions.Enabled,
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
-    private static IEnumerable<ExecutionIslandBoundaryReason> CompileBoundaryReasons(FilterEffect effect)
+    private static bool CompilesCustomEffectSegmentIsland(FilterEffect effect)
     {
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var node = new FilterEffectRenderNode(resource);
@@ -232,9 +230,10 @@ public sealed class RenderPipelineBenchmarkNodeTests
         {
             RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
             using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
-            return compiled.ExecutionPlan.Boundaries
-                .Select(static boundary => boundary.Reason)
-                .ToArray();
+            return compiled.ExecutionPlan.Islands.Any(island =>
+                island.ShaderRun is null
+                && compiled.Graph.Fragments[island.FragmentIndices[0]].Payload
+                    is FilterEffectSegmentRenderFragmentPayload { HasImperativeItem: true });
         }
         catch
         {
@@ -242,22 +241,4 @@ public sealed class RenderPipelineBenchmarkNodeTests
             throw;
         }
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize);
-    }
-
-    private sealed class CpuRenderTarget(PixelSize size)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                    size.Width,
-                    size.Height,
-                    SKColorType.RgbaF16,
-                    SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear()))
-                ?? throw new InvalidOperationException("Could not create the CPU benchmark-test surface."),
-            size.Width,
-            size.Height);
 }

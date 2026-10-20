@@ -113,8 +113,13 @@ internal sealed partial class RenderRequestExecutor
             if (!input.PreserveImperativeRasterPlacement || CanUseAsSemanticShaderInput(input))
                 return input;
 
-            MaterializedRenderValue normalized = CreateNormalizedSemanticShaderInput(
-                input,
+            MaterializedRenderValue normalized = CreateNormalizedValue(
+                input.Target,
+                input.RasterBounds,
+                input.Bounds,
+                input.EffectiveScale,
+                input.DeviceGridOffset,
+                input.CompleteBounds,
                 addRasterApron: false);
             if (CanUseAsSemanticShaderInput(normalized))
                 return normalized;
@@ -123,32 +128,45 @@ internal sealed partial class RenderRequestExecutor
             // Keep the effect-item exact placement whenever it is sufficient, and add an apron only for
             // the residual case where raster-local pixel rounding still falls outside the image.
             ReleaseUnpublished(normalized);
-            return CreateNormalizedSemanticShaderInput(input, addRasterApron: true);
+            return CreateNormalizedValue(
+                input.Target,
+                input.RasterBounds,
+                input.Bounds,
+                input.EffectiveScale,
+                input.DeviceGridOffset,
+                input.CompleteBounds,
+                addRasterApron: true);
         }
 
-        private MaterializedRenderValue CreateNormalizedSemanticShaderInput(
-            MaterializedRenderValue input,
+        // Redraws a source onto a canonical device grid at a density that fits its physical footprint.
+        private MaterializedRenderValue CreateNormalizedValue(
+            RenderTarget source,
+            Rect rasterBounds,
+            Rect bounds,
+            EffectiveScale scale,
+            Vector deviceGridOffset,
+            Rect completeBounds,
             bool addRasterApron)
         {
-            Rect physicalBounds = input.RasterBounds.Union(input.Bounds);
-            Rect alignedPhysicalBounds = physicalBounds.Translate(input.DeviceGridOffset);
+            Rect physicalBounds = rasterBounds.Union(bounds);
+            Rect alignedPhysicalBounds = physicalBounds.Translate(deviceGridOffset);
             float density = addRasterApron
                 ? BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToRasterApron(
                     alignedPhysicalBounds,
-                    input.EffectiveScale.Value)
+                    scale.Value)
                 : BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(
                     alignedPhysicalBounds,
-                    input.EffectiveScale.Value);
+                    scale.Value);
             EffectiveScale normalizedScale = EffectiveScale.At(density);
             PixelRect normalizedDeviceBounds = PixelRect.FromRect(physicalBounds, density);
             if (addRasterApron)
                 normalizedDeviceBounds = RenderScaleUtilities.AddRasterApron(normalizedDeviceBounds);
             MaterializedRenderValue normalized = CreateOwnedValue(
-                input.Bounds,
+                bounds,
                 normalizedScale,
-                input.CompleteBounds,
+                completeBounds,
                 physicalDeviceBounds: normalizedDeviceBounds,
-                deviceGridOffset: input.DeviceGridOffset,
+                deviceGridOffset: deviceGridOffset,
                 allowPreviewDrop: true);
             bool succeeded = false;
             try
@@ -156,7 +174,7 @@ internal sealed partial class RenderRequestExecutor
                 using var canvas = CreateValueCanvas(normalized);
                 using (canvas.PushTransform(normalized.RasterAlignmentTransform))
                 {
-                    canvas.DrawRenderTargetScaledWithoutFlush(input.Target, input.RasterBounds);
+                    canvas.DrawRenderTargetScaledWithoutFlush(source, rasterBounds);
                 }
 
                 succeeded = true;
@@ -205,7 +223,7 @@ internal sealed partial class RenderRequestExecutor
             ArgumentNullException.ThrowIfNull(target);
             RenderTarget renderTarget = target.RenderTarget
                 ?? throw new InvalidOperationException(
-                    "A effectItem shader program requires a materialized execution destination.");
+                    "An effect-item shader program requires a materialized execution destination.");
             return AcquireStandaloneProgram(renderTarget, source);
         }
 
@@ -253,25 +271,9 @@ internal sealed partial class RenderRequestExecutor
                     output.RasterBounds,
                     output.EffectiveScale.Value)
                 : ShaderEvaluationFrame.Destination(output.DeviceBounds, output.RasterBounds);
-            string childName;
-            string programSource;
-            SKShaderTileMode tileMode;
-            if (description.Kind == ShaderDescriptionKind.CurrentPixel)
-            {
-                childName = "__beutl_src";
-                tileMode = SKShaderTileMode.Decal;
-                programSource = $"uniform shader {childName};\n{description.Source.Text}\n"
-                    + $"half4 main(float2 __beutl_coord) {{ return apply({childName}.eval(__beutl_coord)); }}\n";
-            }
-            else
-            {
-                childName = "src";
-                tileMode = description.SourceTileMode;
-                programSource = description.Source.Text;
-            }
-
+            StandaloneShaderProgram program = StandaloneShaderProgram.For(description);
             using ProgramCacheLease<CachedSkRuntimeEffect> lease =
-                AcquireStandaloneProgram(output.Target, programSource);
+                AcquireStandaloneProgram(output.Target, program.Source);
             using var uniforms = new SKRuntimeEffectUniforms(lease.Program.Effect);
             using var runtimeChildren = new SKRuntimeEffectChildren(lease.Program.Effect);
             var children = new List<SKShader>();
@@ -287,8 +289,7 @@ internal sealed partial class RenderRequestExecutor
                         requiredRegion,
                         inputImage,
                         frame,
-                        childName,
-                        tileMode,
+                        program,
                         uniforms,
                         runtimeChildren,
                         children);
@@ -302,8 +303,7 @@ internal sealed partial class RenderRequestExecutor
                         output,
                         inputImage,
                         frame,
-                        childName,
-                        tileMode,
+                        program,
                         uniforms,
                         runtimeChildren,
                         children);
@@ -314,8 +314,6 @@ internal sealed partial class RenderRequestExecutor
             }
             finally
             {
-                // Reverse index walk: the LINQ form buffers the whole list before yielding, and this runs
-                // in a per-frame teardown path.
                 for (int index = children.Count - 1; index >= 0; index--)
                     children[index].Dispose();
             }
@@ -329,8 +327,7 @@ internal sealed partial class RenderRequestExecutor
             Rect requiredRegion,
             SKImage inputImage,
             ShaderEvaluationFrame frame,
-            string childName,
-            SKShaderTileMode tileMode,
+            StandaloneShaderProgram program,
             SKRuntimeEffectUniforms uniforms,
             SKRuntimeEffectChildren runtimeChildren,
             List<SKShader> children)
@@ -359,8 +356,7 @@ internal sealed partial class RenderRequestExecutor
                         output,
                         inputImage,
                         frame,
-                        childName,
-                        tileMode,
+                        program,
                         uniforms,
                         runtimeChildren,
                         children);
@@ -374,31 +370,11 @@ internal sealed partial class RenderRequestExecutor
             MaterializedRenderValue output,
             SKImage inputImage,
             ShaderEvaluationFrame frame,
-            string childName,
-            SKShaderTileMode tileMode,
+            StandaloneShaderProgram program,
             SKRuntimeEffectUniforms uniforms,
             SKRuntimeEffectChildren runtimeChildren,
             List<SKShader> children)
         {
-            for (int index = 0; index < description.Uniforms.Count; index++)
-            {
-                ShaderUniformBinding binding = description.Uniforms[index];
-                if (!description.Source.Uniforms.TryGetValue(
-                        binding.Name,
-                        out SkslUniformDeclaration declaration))
-                {
-                    throw new InvalidOperationException(
-                        $"Shader uniform '{binding.Name}' was not declared.");
-                }
-
-                ShaderUniformValue value = binding.Bind(declaration, context);
-                SkslUniformAssignment.SetUniform(
-                    uniforms,
-                    binding.Name,
-                    declaration,
-                    value);
-            }
-
             SKShader inputShader = RasterShaderMapping.CreateSemanticImageShader(
                 inputImage,
                 input.Target.RawValue.Context,
@@ -408,19 +384,10 @@ internal sealed partial class RenderRequestExecutor
                 input.RasterBounds,
                 output.EffectiveScale.Value,
                 frame.RasterBounds,
-                tileMode);
+                program.TileMode);
             children.Add(inputShader);
-            runtimeChildren[childName] = inputShader;
-
-            for (int index = 0; index < description.Resources.Count; index++)
-            {
-                ShaderResourceBinding binding = description.Resources[index];
-                SKShader child = binding.Bind(context
-                    ?? throw new InvalidOperationException(
-                        "A shader resource binding requires an execution context."));
-                children.Add(child);
-                runtimeChildren[binding.Name] = child;
-            }
+            runtimeChildren[program.ChildName] = inputShader;
+            ShaderArgumentBinder.BindStandalone(description, context, uniforms, runtimeChildren, children);
         }
 
     }

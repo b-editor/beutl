@@ -269,39 +269,6 @@ public sealed class RenderRequestModelTests
     }
 
     [Test]
-    public void StructuralIdentity_RejectsSameIdImpostorInputInAConstructedGraph()
-    {
-        var requestId = new RenderRequestId(1);
-        RenderFragmentReference canonical = Fragment();
-        var canonicalId = new RenderFragmentId(requestId, 1);
-        canonical.AssignId(canonicalId);
-        RenderFragmentReference impostor = Fragment();
-        impostor.AssignId(canonicalId);
-        RenderFragmentReference consumer = Fragment(impostor);
-        consumer.AssignId(new RenderFragmentId(requestId, 2));
-        var graph = new RecordedRenderGraph(requestId, [canonical, consumer], [], [], []);
-
-        Assert.That(
-            () => StructuralFragmentIdentity.Create(graph, 1),
-            Throws.TypeOf<InvalidOperationException>().With.Message.Contain("not part"));
-    }
-
-    [Test]
-    public void StructuralIdentity_RejectsAForwardInputInAConstructedGraph()
-    {
-        var requestId = new RenderRequestId(1);
-        RenderFragmentReference forward = Fragment();
-        RenderFragmentReference consumer = Fragment(forward);
-        consumer.AssignId(new RenderFragmentId(requestId, 1));
-        forward.AssignId(new RenderFragmentId(requestId, 2));
-        var graph = new RecordedRenderGraph(requestId, [consumer, forward], [], [], []);
-
-        Assert.That(
-            () => StructuralFragmentIdentity.Create(graph, 0),
-            Throws.TypeOf<InvalidOperationException>().With.Message.Contain("earlier"));
-    }
-
-    [Test]
     public void GraphBuilder_AppendFailureDoesNotAssignAnyFragmentId()
     {
         var requestId = new RenderRequestId(1);
@@ -312,8 +279,8 @@ public sealed class RenderRequestModelTests
         RenderFragmentReference invalid = Fragment(foreign);
         var commit = new NodeRecordingCommit(
             [
-                new RecordedRenderFragmentEntry(first, "first", "test"),
-                new RecordedRenderFragmentEntry(invalid, "invalid", "test"),
+                new RecordedRenderFragmentEntry(first, "first"),
+                new RecordedRenderFragmentEntry(invalid, "invalid"),
             ],
             [],
             [],

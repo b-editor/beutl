@@ -94,12 +94,10 @@
                                          Text="{TemplateBinding FirstText, Mode=TwoWay}"
                                          Theme="{StaticResource VectorElementTextBox}">
                                     <TextBox.InnerLeftContent>
+                                        <!--  TemplateBinding and TemplatedParent do not reach InnerLeftContent, so bind by AncestorType.  -->
                                         <TextBlock Margin="8,0,-4,3"
                                                    VerticalAlignment="Center"
                                                    Text="{Binding FirstHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector4Editor}}}" />
-                                        <!--  ↓ 動かない ↓  -->
-                                        <!--  {Binding FirstHeader, RelativeSource={RelativeSource TemplatedParent}}  -->
-                                        <!--  {TemplateBinding FirstHeader}  -->
                                     </TextBox.InnerLeftContent>
                                 </TextBox>
 
@@ -203,12 +201,10 @@
                                              Text="{TemplateBinding FirstText, Mode=TwoWay}"
                                              Theme="{StaticResource VectorElementTextBox}">
                                         <TextBox.InnerLeftContent>
+                                            <!--  TemplateBinding and TemplatedParent do not reach InnerLeftContent, so bind by AncestorType.  -->
                                             <TextBlock Margin="8,0,-4,3"
                                                        VerticalAlignment="Center"
                                                        Text="{Binding FirstHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector4Editor}}}" />
-                                            <!--  ↓ 動かない ↓  -->
-                                            <!--  {Binding FirstHeader, RelativeSource={RelativeSource TemplatedParent}}  -->
-                                            <!--  {TemplateBinding FirstHeader}  -->
                                         </TextBox.InnerLeftContent>
                                     </TextBox>
 
@@ -289,7 +285,7 @@
                                         Expands="True"
                                         Header="{TemplateBinding Header}">
                         <OptionsDisplayItem.Content>
-                            <DataValidationErrors Grid.Row="2" IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:Vector4Editor}}}">
+                            <DataValidationErrors IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:Vector4Editor}}}">
                                 <StackPanel Margin="40,0" Spacing="16">
                                     <Grid Margin="4" ColumnDefinitions="*,Auto">
                                         <TextBlock VerticalAlignment="Center" Text="{Binding FirstHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector4Editor}}}" />
@@ -361,7 +357,7 @@
                                   MinWidth="120"
                                   Margin="4"
                                   ColumnDefinitions="*,Auto">
-                                <DataValidationErrors Grid.Row="2">
+                                <DataValidationErrors>
                                     <Panel>
                                         <Border Name="PART_BackgroundBorder"
                                                 Background="{DynamicResource TextControlBackground}"

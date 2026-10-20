@@ -1,9 +1,6 @@
-﻿using Avalonia;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
-using Avalonia.Input;
 using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Audio;
@@ -14,7 +11,6 @@ using Beutl.Editor.Components.ElementPropertyTab.Views;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Engine;
-using Beutl.Extensibility;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
@@ -69,8 +65,8 @@ public class LockedClipPropertyTests
         });
 
         number.Value = 250;
-        number.RaiseEvent(new PropertyEditorValueChangedEventArgs<float>(250, 100, PropertyEditor.ValueChangedEvent, number));
-        number.RaiseEvent(new PropertyEditorValueChangedEventArgs<float>(250, 100, PropertyEditor.ValueConfirmedEvent, number));
+        number.RaiseEvent(new PropertyEditorValueChangedEventArgs<float>(250, 100, PropertyEditor.ValueChangedEvent));
+        number.RaiseEvent(new PropertyEditorValueChangedEventArgs<float>(250, 100, PropertyEditor.ValueConfirmedEvent));
         property.SetValue(100, 250);
         property.SetValue(250);
         property.Reset();
@@ -96,7 +92,7 @@ public class LockedClipPropertyTests
             window.Show();
             HeadlessTestHelpers.Render();
             Button diamond = menu.GetVisualDescendants().OfType<Button>().First();
-            Click(window, diamond);
+            HeadlessTestHelpers.Click(diamond, ticks: 0);
             Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
             Assert.That(MenuItem(diamond, "editAnimationItem").IsEnabled, Is.False);
             Assert.That(MenuItem(diamond, "editInlineAnimationItem").IsEnabled, Is.False);
@@ -107,7 +103,7 @@ public class LockedClipPropertyTests
 
             ToggleButton visibility = objectView.FindControl<ToggleButton>("VisibilityButton")!;
             Assert.That(visibility.IsEffectivelyEnabled, Is.False);
-            Click(window, visibility);
+            HeadlessTestHelpers.Click(visibility, ticks: 0);
             tab.Items[0].IsEnabled.Value = false; // Also reject a queued binding write.
             objectView.Remove_Click(null, new Avalonia.Interactivity.RoutedEventArgs());
             Assert.Multiple(() =>
@@ -133,7 +129,7 @@ public class LockedClipPropertyTests
             Assert.That(visibility.IsEffectivelyEnabled, Is.True);
             property.SetValue(200, 300);
             property.InsertKeyFrame(TimeSpan.FromSeconds(1.5));
-            Click(window, visibility);
+            HeadlessTestHelpers.Click(visibility, ticks: 0);
             Assert.That(animation.KeyFrames[1].Value, Is.EqualTo(300));
             Assert.That(animation.KeyFrames, Has.Count.EqualTo(3));
             Assert.That(shape.IsEnabled, Is.False);
@@ -254,13 +250,13 @@ public class LockedClipPropertyTests
         Select(editor, element);
         using var tab = new ElementPropertyTabViewModel(editor);
         tab.Element.Value = element;
-        var transform = Editors(tab.Items[0].Properties).OfType<TransformEditorViewModel>().Single();
+        var transform = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false).OfType<TransformEditorViewModel>().Single();
         transform.IsExpanded.Value = true;
         var child = (TransformEditorViewModel)transform.Group.Value!.Items[0].Context!;
         child.IsExpanded.Value = true;
         var x = child.Properties.Value!.Properties.OfType<NumberEditorViewModel<float>>()
             .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), translation.X));
-        var fill = Editors(tab.Items[0].Properties).OfType<BrushEditorViewModel>()
+        var fill = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false).OfType<BrushEditorViewModel>()
             .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), shape.Fill));
         editor.HistoryManager.Commit("test setup");
         element.IsLocked = true;
@@ -321,7 +317,7 @@ public class LockedClipPropertyTests
         Select(editor, element);
         using var tab = new ElementPropertyTabViewModel(editor);
         tab.Element.Value = element;
-        var graph = Editors(tab.Items.Single(item => item.Model == drawable).Properties)
+        var graph = PropertyEditorTestHost.Flatten(tab.Items.Single(item => item.Model == drawable).Properties, includeGroups: false)
             .OfType<GraphModelEditorViewModel>().Single();
         GraphModelNodeMemberViewModel member = graph.NodeMembers.Single();
         member.UpdateName("unlocked rename");
@@ -360,7 +356,7 @@ public class LockedClipPropertyTests
         Select(editor, element);
         using var tab = new ElementPropertyTabViewModel(editor);
         tab.Element.Value = element;
-        var parent = Editors(tab.Items.Single(item => item.Model == sound).Properties)
+        var parent = PropertyEditorTestHost.Flatten(tab.Items.Single(item => item.Model == sound).Properties, includeGroups: false)
             .OfType<AudioEffectEditorViewModel>().Single();
         parent.IsExpanded.Value = true;
         var child = (AudioEffectEditorViewModel)parent.Group.Value!.Items[0].Context!;
@@ -383,7 +379,7 @@ public class LockedClipPropertyTests
         Select(editor, element);
         using var tab = new ElementPropertyTabViewModel(editor);
         tab.Element.Value = element;
-        var parent = Editors(tab.Items[0].Properties).OfType<FilterEffectEditorViewModel>().Single();
+        var parent = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false).OfType<FilterEffectEditorViewModel>().Single();
         parent.IsExpanded.Value = true;
         var child = (FilterEffectEditorViewModel)parent.Group.Value!.Items[0].Context!;
         Assert.That(child.IsPresenter.Value, Is.EqualTo(presenter));
@@ -409,7 +405,7 @@ public class LockedClipPropertyTests
             HeadlessTestHelpers.Settle();
             int before = editor.HistoryManager.UndoCount;
             Assert.That(toggle.IsEffectivelyEnabled, Is.False);
-            Click(window, toggle);
+            HeadlessTestHelpers.Click(toggle, ticks: 0);
             Assert.That(effect.IsEnabled, Is.True);
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before));
 
@@ -417,7 +413,7 @@ public class LockedClipPropertyTests
             element.IsLocked = false;
             HeadlessTestHelpers.Settle();
             Assert.That(toggle.IsEffectivelyEnabled, Is.True);
-            Click(window, toggle);
+            HeadlessTestHelpers.Click(toggle, ticks: 0);
             Assert.That(effect.IsEnabled, Is.False);
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before + 1));
         }
@@ -426,17 +422,8 @@ public class LockedClipPropertyTests
 
     private static async Task<(EditViewModel Editor, Element Element, RectShape Shape)> OpenClip()
     {
-        await TestReset.ResetShellAsync();
-        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"clip-lock-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "clip-lock", root))!;
-        Scene scene = project.Items.OfType<Scene>().First();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        await adder.AddAsync([new ElementDescription(TimeSpan.Zero, TimeSpan.FromSeconds(2), 0,
-            new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None);
+        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("clip-lock");
+        await TestShell.AddElementAsync(editor, () => new RectShape(), TimeSpan.Zero, TimeSpan.FromSeconds(2));
         Element element = scene.Children.First();
         var shape = (RectShape)element.Objects[0];
         shape.Width.CurrentValue = 100;
@@ -450,33 +437,9 @@ public class LockedClipPropertyTests
     }
 
     private static NumberEditorViewModel<float> WidthEditor(ElementPropertyTabViewModel tab, RectShape shape)
-        => Editors(tab.Items[0].Properties).OfType<NumberEditorViewModel<float>>()
+        => PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false).OfType<NumberEditorViewModel<float>>()
             .Single(x => ReferenceEquals(x.PropertyAdapter.GetEngineProperty(), shape.Width));
-
-    private static IEnumerable<IPropertyEditorContext> Editors(IReadOnlyList<IPropertyEditorContext?> properties)
-    {
-        foreach (IPropertyEditorContext? property in properties)
-        {
-            if (property is PropertyEditorGroupContext group)
-            {
-                foreach (IPropertyEditorContext child in Editors(group.Properties))
-                    yield return child;
-            }
-            else if (property != null)
-            {
-                yield return property;
-            }
-        }
-    }
 
     private static FAMenuFlyoutItem MenuItem(Button button, string name)
         => ((FAMenuFlyout)button.ContextFlyout!).Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == name);
-
-    private static void Click(Window window, Control control)
-    {
-        Point center = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
-        window.MouseDown(center, MouseButton.Left);
-        window.MouseUp(center, MouseButton.Left);
-        HeadlessTestHelpers.Settle();
-    }
 }

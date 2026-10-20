@@ -136,7 +136,7 @@ internal sealed class BrowserAdBlockFilterStore
 
     private async Task<PublishedFilters> DownloadAsync(LoadRequest request, CancellationToken cancellationToken)
     {
-        // A stale cache miss/failure must not start a new public UpdateAsync generation.
+        // A superseded request must not start a download.
         EnsureCurrent(request, cancellationToken);
         await _updateLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         string temporary = _cachePath + "." + Guid.NewGuid().ToString("N") + ".tmp";

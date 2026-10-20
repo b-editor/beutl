@@ -109,7 +109,7 @@
         <controls:ToolTabBar x:Name="ToolBar" Grid.Row="0">
             <Grid ColumnDefinitions="*,Auto">
                 <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding !IsStorageView.Value}">
-                    <!--  上へボタン（ディレクトリブラウズ時のみ表示）  -->
+                    <!--  フォルダを選んで開くボタン（ディレクトリブラウズ時のみ表示）  -->
                     <Button Grid.Column="0"
                             usage:UsageTracking.Feature="FileBrowser.OpenFolder"
                             Click="OnOpenFolderClick"
@@ -119,7 +119,6 @@
                         <icons:FluentIcon FontSize="16" Icon="OpenFolder" />
                     </Button>
 
-                    <!--  パス表示（ディレクトリブラウズ時）  -->
                     <ui:FABreadcrumbBar Grid.Column="1"
                                         Margin="8,0"
                                         VerticalAlignment="Center"
@@ -139,7 +138,6 @@
                         </ui:FABreadcrumbBar.ItemTemplate>
                     </ui:FABreadcrumbBar>
 
-                    <!--  ホームヘッダー（ホームビュー時）  -->
                     <TextBlock Grid.Column="1"
                                IsVisible="{Binding IsHomeView.Value}"
                                Text="{x:Static lang:Strings.Home}"
@@ -149,7 +147,6 @@
                     <StackPanel Grid.Column="2"
                                 Orientation="Horizontal"
                                 Spacing="2">
-                        <!--  表示モード切替（ディレクトリブラウズ時のみ）  -->
                         <Button x:Name="ViewModeButton"
                                 usage:UsageTracking.Feature="FileBrowser.CycleViewMode"
                                 Click="OnCycleViewModeClick"
@@ -169,7 +166,6 @@
                             </Panel>
                         </Button>
 
-                        <!--  新規フォルダ（ディレクトリブラウズ時のみ）  -->
                         <Button usage:UsageTracking.Feature="FileBrowser.NewFolder"
                                 Click="OnNewFolderClick"
                                 IsVisible="{Binding !IsHomeView.Value}"
@@ -178,7 +174,6 @@
                             <icons:FluentIcon FontSize="16" Icon="FolderAdd" />
                         </Button>
 
-                        <!--  更新  -->
                         <Button usage:UsageTracking.Feature="FileBrowser.Refresh"
                                 Click="OnRefreshClick"
                                 Theme="{StaticResource ToolTabBarIconButtonTheme}"
@@ -186,7 +181,6 @@
                             <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />
                         </Button>
 
-                        <!--  ホームボタン  -->
                         <Button x:Name="HomeButton"
                                 usage:UsageTracking.Feature="FileBrowser.Home"
                                 Click="OnHomeClick"
@@ -308,7 +302,6 @@
                             </ToggleButton.Tag>
                         </ToggleButton>
                         <Panel x:Name="favoritesContent" Grid.Row="1">
-                            <!--  リスト表示  -->
                             <ListBox IsVisible="{Binding !IsFavoritesIconView.Value}"
                                      ItemTemplate="{StaticResource ListItemTemplate}"
                                      ItemsSource="{Binding FavoriteItems}"
@@ -323,7 +316,6 @@
                                     </Style>
                                 </ListBox.Styles>
                             </ListBox>
-                            <!--  アイコン表示  -->
                             <ListBox IsVisible="{Binding IsFavoritesIconView.Value}"
                                      ItemTemplate="{StaticResource FileItemTemplate}"
                                      ItemsSource="{Binding FavoriteItems}"
@@ -344,7 +336,6 @@
                                     </Style>
                                 </ListBox.Styles>
                             </ListBox>
-                            <!--  空状態テキスト  -->
                             <TextBlock Margin="24,4"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                        IsVisible="{Binding !FavoriteItems.Count}"
@@ -375,7 +366,6 @@
                             </ToggleButton.Tag>
                         </ToggleButton>
                         <Panel x:Name="projectDirContent" Grid.Row="1">
-                            <!--  リスト表示  -->
                             <ListBox IsVisible="{Binding !IsProjectDirIconView.Value}"
                                      ItemTemplate="{StaticResource ListItemTemplate}"
                                      ItemsSource="{Binding ProjectDirectoryItems}"
@@ -390,7 +380,6 @@
                                     </Style>
                                 </ListBox.Styles>
                             </ListBox>
-                            <!--  アイコン表示  -->
                             <ListBox IsVisible="{Binding IsProjectDirIconView.Value}"
                                      ItemTemplate="{StaticResource FileItemTemplate}"
                                      ItemsSource="{Binding ProjectDirectoryItems}"
@@ -437,7 +426,6 @@
                             </ToggleButton.Tag>
                         </ToggleButton>
                         <Panel x:Name="mediaFilesContent" Grid.Row="1">
-                            <!--  検索中のProgressRing  -->
                             <StackPanel Margin="8"
                                         HorizontalAlignment="Center"
                                         IsVisible="{Binding IsLoadingMediaFiles.Value}"
@@ -450,9 +438,7 @@
                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                            Text="{x:Static lang:Strings.SearchingMediaFiles}" />
                             </StackPanel>
-                            <!--  ファイル一覧（読み込み完了後のみ表示）  -->
                             <Panel IsVisible="{Binding !IsLoadingMediaFiles.Value}">
-                                <!--  リスト表示  -->
                                 <ListBox IsVisible="{Binding !IsMediaFilesIconView.Value}"
                                          ItemTemplate="{StaticResource ListItemTemplate}"
                                          ItemsSource="{Binding MediaFileItems}"
@@ -467,7 +453,6 @@
                                         </Style>
                                     </ListBox.Styles>
                                 </ListBox>
-                                <!--  アイコン表示  -->
                                 <ListBox IsVisible="{Binding IsMediaFilesIconView.Value}"
                                          ItemTemplate="{StaticResource FileItemTemplate}"
                                          ItemsSource="{Binding MediaFileItems}"
@@ -489,7 +474,6 @@
                                     </ListBox.Styles>
                                 </ListBox>
                             </Panel>
-                            <!--  空状態テキスト  -->
                             <TextBlock Margin="24,4"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                        IsVisible="{Binding HasNoMediaFiles.Value}"
@@ -501,7 +485,6 @@
 
             <!--  ディレクトリブラウズビュー  -->
             <Panel IsVisible="{Binding !IsHomeView.Value}">
-                <!--  アイコン表示  -->
                 <ListBox x:Name="IconListBox"
                          IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsIcon}}"
                          ItemTemplate="{StaticResource FileItemTemplate}"
@@ -524,7 +507,6 @@
                     </ListBox.Styles>
                 </ListBox>
 
-                <!--  リスト表示  -->
                 <ListBox x:Name="ListViewListBox"
                          IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsList}}"
                          ItemTemplate="{StaticResource ListItemTemplate}"
@@ -541,7 +523,6 @@
                     </ListBox.Styles>
                 </ListBox>
 
-                <!--  ツリー表示  -->
                 <TreeView IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsTree}}"
                           ItemsSource="{Binding TreeRootItems}"
                           SelectedItems="{Binding SelectedItems}"

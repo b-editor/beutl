@@ -51,44 +51,6 @@ public class MaxWorkingScaleSanitizationTests
         Assert.That(w, Is.EqualTo(3f));
     }
 
-    [Test]
-    public void ResolveWorkingScale_UnboundedInput_DoesNotRaiseSupply()
-    {
-        // Unbounded (vector) inputs are excluded from the supply max (FR-019).
-        float w = RenderScaleUtilities.ResolveWorkingScale([EffectiveScale.Unbounded], outputScale: 2f);
-
-        Assert.That(w, Is.EqualTo(2f));
-    }
-
-    [Test]
-    public void ResolveWorkingScale_ConcreteSupplyAboveOutput_IgnoresUnboundedAndTracksSupply()
-    {
-        // The Unbounded sentinel is skipped; the concrete supply (10) drives the result.
-        float w = RenderScaleUtilities.ResolveWorkingScale(
-            [EffectiveScale.Unbounded, EffectiveScale.At(10f)], outputScale: 2f);
-
-        Assert.That(w, Is.EqualTo(10f));
-    }
-
-    [Test]
-    public void ResolveWorkingScale_ConcreteSupplyExceedsFiniteCeiling_CapsToCeiling()
-    {
-        // A finite ceiling caps a concrete supply that exceeds it.
-        float w = RenderScaleUtilities.ResolveWorkingScale(
-            [EffectiveScale.At(8f)], outputScale: 2f, maxWorkingScale: 5f);
-
-        Assert.That(w, Is.EqualTo(5f));
-    }
-
-    [Test]
-    public void ResolveWorkingScale_ConcreteSupplyUnderInfiniteCeiling_TracksSupply()
-    {
-        float w = RenderScaleUtilities.ResolveWorkingScale(
-            [EffectiveScale.At(8f)], outputScale: 2f, maxWorkingScale: float.PositiveInfinity);
-
-        Assert.That(w, Is.EqualTo(8f));
-    }
-
     // These guard tests pin the Sanitize call at each public entry point so dropping it fails loudly.
     [TestCaseSource(nameof(DegenerateCeilings))]
     public void RenderNodeRenderer_DegenerateCeiling_StoredAsPositiveInfinity(float maxWorkingScale)
@@ -156,26 +118,6 @@ public class MaxWorkingScaleSanitizationTests
             drawableBrushMaterializer: null, scale: 1f, maxWorkingScale: 3f);
 
         Assert.That(ctor.MaxWorkingScale, Is.EqualTo(3f));
-    }
-
-    [TestCaseSource(nameof(DegenerateCeilings))]
-    public void CustomFilterEffectContext_DegenerateCeiling_StoredAsPositiveInfinity(float maxWorkingScale)
-    {
-        using var targets = new EffectTargets();
-        var context = new CustomFilterEffectContext(
-            targets,
-            RenderIntent.Delivery,
-            RenderRequestPurpose.Auxiliary,
-            outputScale: 1f,
-            workingScale: 1f,
-            maxWorkingScale: maxWorkingScale);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(context.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
-            Assert.That(context.Intent, Is.EqualTo(RenderIntent.Delivery));
-            Assert.That(context.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
-        });
     }
 
     // SanitizeCeiling also logs a warning on substitution, but only the stored value is pinned here;

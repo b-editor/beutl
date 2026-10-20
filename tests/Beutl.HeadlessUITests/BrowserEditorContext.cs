@@ -22,8 +22,6 @@ internal sealed class BrowserEditorContext(CoreObject? document = null, IBrowser
 
     public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
 
-    public IElementSourceHandlerRegistry SourceHandlers { get; } = new ElementSourceHandlerRegistry();
-
     public T? FindToolTab<T>(Func<T, bool> condition) where T : IToolContext => default;
 
     public T? FindToolTab<T>() where T : IToolContext => default;

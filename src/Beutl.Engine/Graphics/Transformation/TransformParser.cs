@@ -1,6 +1,4 @@
 ﻿using System.Globalization;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 
 using Beutl.Utilities;
 
@@ -53,7 +51,7 @@ internal static class TransformParser
             return Matrix.Identity;
         }
 
-        var builder = new Builder(0);
+        Matrix result = Matrix.Identity;
 
         while (true)
         {
@@ -76,7 +74,7 @@ internal static class TransformParser
 
             ReadOnlySpan<char> valuePart = span.Slice(beginIndex + 1, endIndex - beginIndex - 1).Trim();
 
-            ParseFunction(in valuePart, function, ref builder);
+            ParseFunction(in valuePart, function, ref result);
 
             span = span.Slice(endIndex + 1);
 
@@ -86,36 +84,36 @@ internal static class TransformParser
             }
         }
 
-        return builder.BuildMatrix();
+        return result;
     }
 
     private static void ParseFunction(
         in ReadOnlySpan<char> functionPart,
         TransformFunction function,
-        ref Builder builder)
+        ref Matrix result)
     {
         switch (function)
         {
             case TransformFunction.Scale:
             case TransformFunction.ScaleX:
             case TransformFunction.ScaleY:
-                ParseScaleFunction(functionPart, function, ref builder);
+                ParseScaleFunction(functionPart, function, ref result);
                 break;
             case TransformFunction.Skew:
             case TransformFunction.SkewX:
             case TransformFunction.SkewY:
-                ParseSkewFunction(functionPart, function, ref builder);
+                ParseSkewFunction(functionPart, function, ref result);
                 break;
             case TransformFunction.Rotate:
-                ParseRotateFunction(functionPart, function, ref builder);
+                ParseRotateFunction(functionPart, function, ref result);
                 break;
             case TransformFunction.Translate:
             case TransformFunction.TranslateX:
             case TransformFunction.TranslateY:
-                ParseTranslateFunction(functionPart, function, ref builder);
+                ParseTranslateFunction(functionPart, function, ref result);
                 break;
             case TransformFunction.Matrix:
-                ParseMatrixFunction(functionPart, function, ref builder);
+                ParseMatrixFunction(functionPart, function, ref result);
                 break;
         }
     }
@@ -123,7 +121,7 @@ internal static class TransformParser
     private static void ParseScaleFunction(
         in ReadOnlySpan<char> functionPart,
         TransformFunction function,
-        ref Builder builder)
+        ref Matrix result)
     {
         UnitValue scaleX = UnitValue.One;
         UnitValue scaleY = UnitValue.One;
@@ -148,13 +146,13 @@ internal static class TransformParser
             scaleY = scaleX;
         }
 
-        builder.AppendScale(ToScale(in scaleX), ToScale(in scaleY));
+        result = Matrix.CreateScale(ToScale(in scaleX), ToScale(in scaleY)) * result;
     }
 
     private static void ParseSkewFunction(
         in ReadOnlySpan<char> functionPart,
         TransformFunction function,
-        ref Builder builder)
+        ref Matrix result)
     {
         UnitValue skewX = UnitValue.Zero;
         UnitValue skewY = UnitValue.Zero;
@@ -175,13 +173,13 @@ internal static class TransformParser
             skewX = UnitValue.Zero;
         }
 
-        builder.AppendSkew(ToRadians(in skewX), ToRadians(in skewY));
+        result = Matrix.CreateSkew(ToRadians(in skewX), ToRadians(in skewY)) * result;
     }
 
     private static void ParseRotateFunction(
         in ReadOnlySpan<char> functionPart,
         TransformFunction function,
-        ref Builder builder)
+        ref Matrix result)
     {
         UnitValue angle = UnitValue.Zero;
         UnitValue _ = default;
@@ -195,13 +193,13 @@ internal static class TransformParser
 
         VerifyZeroOrAngle(function, in angle);
 
-        builder.AppendRotate(ToRadians(in angle));
+        result = Matrix.CreateRotation(ToRadians(in angle)) * result;
     }
 
     private static void ParseTranslateFunction(
         in ReadOnlySpan<char> functionPart,
         TransformFunction function,
-        ref Builder builder)
+        ref Matrix result)
     {
         UnitValue translateX = UnitValue.Zero;
         UnitValue translateY = UnitValue.Zero;
@@ -222,13 +220,13 @@ internal static class TransformParser
             translateX = UnitValue.Zero;
         }
 
-        builder.AppendTranslate(translateX.Value, translateY.Value);
+        result = Matrix.CreateTranslation(translateX.Value, translateY.Value) * result;
     }
 
     private static void ParseMatrixFunction(
         in ReadOnlySpan<char> functionPart,
         TransformFunction function,
-        ref Builder builder)
+        ref Matrix result)
     {
         Span<UnitValue> values = stackalloc UnitValue[9];
 
@@ -251,16 +249,16 @@ internal static class TransformParser
                 values[2].Value, values[3].Value,
                 values[4].Value, values[5].Value);
 
-            builder.AppendMatrix(matrix);
+            result = matrix * result;
         }
-        else if (count == 9)
+        else
         {
             var matrix = new Matrix(
                 values[0].Value, values[1].Value, values[2].Value,
                 values[3].Value, values[4].Value, values[5].Value,
                 values[6].Value, values[7].Value, values[8].Value);
 
-            builder.AppendMatrix(matrix);
+            result = matrix * result;
         }
     }
 
@@ -482,136 +480,5 @@ internal static class TransformParser
         SkewY,
         Rotate,
         Matrix
-    }
-
-    public readonly struct Builder(int capacity)
-    {
-        private readonly List<DataLayout> _data = new(capacity);
-
-        public void AppendTranslate(float x, float y)
-        {
-            Unsafe.SkipInit(out DataLayout value);
-            value.Type = DataType.Translate;
-            value.Translate.X = x;
-            value.Translate.Y = y;
-
-            _data.Add(value);
-        }
-
-        public void AppendRotate(float angle)
-        {
-            Unsafe.SkipInit(out DataLayout value);
-            value.Type = DataType.Rotate;
-            value.Rotate.Angle = angle;
-
-            _data.Add(value);
-        }
-
-        public void AppendScale(float x, float y)
-        {
-            Unsafe.SkipInit(out DataLayout value);
-            value.Type = DataType.Scale;
-            value.Scale.X = x;
-            value.Scale.Y = y;
-
-            _data.Add(value);
-        }
-
-        public void AppendSkew(float x, float y)
-        {
-            Unsafe.SkipInit(out DataLayout value);
-            value.Type = DataType.Skew;
-            value.Skew.X = x;
-            value.Skew.Y = y;
-
-            _data.Add(value);
-        }
-
-        public void AppendMatrix(Matrix matrix)
-        {
-            Unsafe.SkipInit(out DataLayout value);
-            value.Type = DataType.Matrix;
-            value.Matrix.Value = matrix;
-
-            _data.Add(value);
-        }
-
-        public Matrix BuildMatrix()
-        {
-            Matrix result = Matrix.Identity;
-            foreach (ref DataLayout item in CollectionsMarshal.AsSpan(_data))
-            {
-                result = item.ToMatrix() * result;
-            }
-
-            return result;
-        }
-    }
-
-    public enum DataType
-    {
-        Translate,
-        Rotate,
-        Scale,
-        Skew,
-        Matrix
-    }
-
-    [StructLayout(LayoutKind.Explicit)]
-    public unsafe struct DataLayout
-    {
-        [FieldOffset(0)] public MatrixLayout Matrix;
-
-        [FieldOffset(0)] public SkewLayout Skew;
-
-        [FieldOffset(0)] public ScaleLayout Scale;
-
-        [FieldOffset(0)] public TranslateLayout Translate;
-
-        [FieldOffset(0)] public RotateLayout Rotate;
-
-        [FieldOffset(4 * 3 * 3)] public DataType Type;
-
-        public readonly Matrix ToMatrix()
-        {
-            return Type switch
-            {
-                DataType.Translate => Graphics.Matrix.CreateTranslation(Translate.X, Translate.Y),
-                DataType.Rotate => Graphics.Matrix.CreateRotation(Rotate.Angle),
-                DataType.Scale => Graphics.Matrix.CreateScale(Scale.X, Scale.Y),
-                DataType.Skew => Graphics.Matrix.CreateSkew(Skew.X, Skew.Y),
-                DataType.Matrix => Matrix.Value,
-                _ => throw new InvalidOperationException(),
-            };
-        }
-
-        public struct MatrixLayout
-        {
-            public Matrix Value;
-        }
-
-        public struct SkewLayout
-        {
-            public float X;
-            public float Y;
-        }
-
-        public struct ScaleLayout
-        {
-            public float X;
-            public float Y;
-        }
-
-        public struct TranslateLayout
-        {
-            public float X;
-            public float Y;
-        }
-
-        public struct RotateLayout
-        {
-            // Radiuans
-            public float Angle;
-        }
     }
 }

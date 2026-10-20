@@ -20,24 +20,14 @@ public class TupleRangeDataAnnotationValidaterTests
         Assert.That(validator.Maximum, Is.EqualTo(new Vector(10, 10)));
     }
 
-    [Test]
-    public void Constructor_RejectsExclusiveBounds()
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    public void Constructor_RejectsExclusiveBounds(bool minimumIsExclusive, bool maximumIsExclusive)
     {
         var attr = new RangeAttribute(typeof(Vector), "0,0", "10,10")
         {
-            MaximumIsExclusive = true
-        };
-
-        Assert.Throws<NotSupportedException>(
-            () => new TupleRangeDataAnnotationValidater<Vector, float>(attr));
-    }
-
-    [Test]
-    public void Constructor_RejectsExclusiveMinimum()
-    {
-        var attr = new RangeAttribute(typeof(Vector), "0,0", "10,10")
-        {
-            MinimumIsExclusive = true
+            MinimumIsExclusive = minimumIsExclusive,
+            MaximumIsExclusive = maximumIsExclusive
         };
 
         Assert.Throws<NotSupportedException>(

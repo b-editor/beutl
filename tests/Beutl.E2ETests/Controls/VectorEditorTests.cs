@@ -76,6 +76,39 @@ public class VectorEditorTests
         Assert.That(editor.ThirdValue, Is.EqualTo(3.5f));
     }
 
+    // The list-item template named its X header PART_HeaderHeaderTextBlock, so dragging it did nothing.
+    // Switches the global pointer-lock setting while it runs.
+    [AvaloniaTest]
+    [NonParallelizable]
+    public void Vector3_list_item_x_header_drag_changes_x()
+    {
+        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        bool pointerLock = config.EnablePointerLockInProperty;
+        config.EnablePointerLockInProperty = false;
+        try
+        {
+            var editor = new Vector3Editor<float>
+            {
+                EditorStyle = PropertyEditorStyle.ListItem,
+                FirstValue = 1,
+                SecondValue = 2,
+                ThirdValue = 3
+            };
+            using var host = new EditorTestHost<Vector3Editor<float>>(editor);
+            TextBlock header = host.Require<TextBlock>("PART_HeaderFirstTextBlock");
+
+            // The text box beside the header covers its right half.
+            host.DragHorizontally(header, 40, new Avalonia.Point(2, header.Bounds.Height / 2));
+
+            Assert.That(editor.FirstValue, Is.Not.EqualTo(1f), "The drag did not change X.");
+            Assert.That((editor.SecondValue, editor.ThirdValue), Is.EqualTo((2f, 3f)));
+        }
+        finally
+        {
+            config.EnablePointerLockInProperty = pointerLock;
+        }
+    }
+
     [AvaloniaTest]
     public void Vector4_editing_all_four_components_composes_the_value()
     {
@@ -165,10 +198,10 @@ public class VectorEditorTests
     {
         using var host = new EditorTestHost<TEditor>(editor);
         int[] applied = PartSubscriptionCounts(editor);
-        // The generic editor and its base each subscribe to template parts. Anything else means the template was
-        // not applied yet or the field moved, and the comparison below would prove nothing.
+        // VectorEditorBase subscribes to the template parts. Anything else means the template was not applied yet
+        // or the field moved, and the comparison below would prove nothing.
         Assert.That(editor.Template, Is.Not.Null, typeof(TEditor).Name);
-        Assert.That(applied, Has.Length.EqualTo(2), typeof(TEditor).Name);
+        Assert.That(applied, Has.Length.EqualTo(1), typeof(TEditor).Name);
         Assert.That(applied, Is.All.GreaterThan(0), typeof(TEditor).Name);
 
         var template = editor.Template;

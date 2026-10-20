@@ -57,39 +57,12 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<ICoreList<Gradie
     }
 
     public void InsertGradientStop(int index, GradientStop item)
-    {
-        if (!IsElementEditable) return;
-        if (Value.Value is { } list)
-        {
-            list.Insert(index, item);
-            Commit();
-        }
-    }
+        => GradientStopEdits.Insert(this, Value.Value, index, item);
 
     public void RemoveGradientStop(int index)
-    {
-        if (!IsElementEditable) return;
-        if (Value.Value is { } list)
-        {
-            list.RemoveAt(index);
-            Commit();
-        }
-    }
+        => GradientStopEdits.Remove(this, Value.Value, index);
 
-    public void ConfirmeGradientStop(
-        int oldIndex, int newIndex,
-        GradientStop.Resource oldObject, GradientStop obj)
-    {
-        if (!IsElementEditable) return;
-        if (Value.Value is { } list)
-        {
-            if (oldIndex != newIndex)
-            {
-                list.Move(oldIndex, newIndex);
-            }
-
-            Commit();
-        }
-    }
+    public void ConfirmeGradientStop(int oldIndex, int newIndex)
+        => GradientStopEdits.Confirm(this, Value.Value, oldIndex, newIndex);
 
 }

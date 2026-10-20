@@ -12,7 +12,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.PathEditorTab;
 
-[PrimitiveImpl]
 public sealed class PathEditorTabExtension : ToolTabExtension
 {
     public static readonly PathEditorTabExtension Instance = new();
@@ -32,7 +31,6 @@ public sealed class PathEditorTabExtension : ToolTabExtension
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
-        // IEditorContextがITimelineOptionsProviderサービスを提供しているかチェック
         if (editorContext.GetService<ITimelineOptionsProvider>() != null)
         {
             control = new PathEditorTabView();

@@ -1,18 +1,17 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Audio;
 using Beutl.Composition;
-using Beutl.Configuration;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
+using static Beutl.UnitTests.TestInfrastructure.TrimTestMedia;
 
 namespace Beutl.UnitTests.Editor.Services;
 
@@ -21,7 +20,7 @@ namespace Beutl.UnitTests.Editor.Services;
 public class TrimDisabledFlowControllerTests
 {
     private SceneHistoryHarness _harness = null!;
-    private bool _originalClamp;
+    private ClampResizeToOriginalLengthScope _clamp = null!;
 
     [OneTimeSetUp]
     public void RegisterDecoder() => TestMediaHelper.RegisterTestDecoder();
@@ -29,8 +28,7 @@ public class TrimDisabledFlowControllerTests
     [SetUp]
     public void SetUp()
     {
-        _originalClamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
-        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = true;
+        _clamp = new ClampResizeToOriginalLengthScope(true);
         _harness = new SceneHistoryHarness("beutl_disabled_flow_trim", duration: Seconds(30));
     }
 
@@ -38,7 +36,7 @@ public class TrimDisabledFlowControllerTests
     public void TearDown()
     {
         _harness.Dispose();
-        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = _originalClamp;
+        _clamp.Dispose();
     }
 
     [Test]
@@ -51,7 +49,7 @@ public class TrimDisabledFlowControllerTests
 
         bool applied = new ElementSlipService(_harness.History).Slip(_harness.Scene, [element], Seconds(1));
         controller.IsEnabled = true;
-        using var compositor = CreateCompositor();
+        using var compositor = CreateCompositor(_harness.Scene);
         double position = Position(Videos(compositor.EvaluateGraphics(Seconds(3.9)).Objects.Single()).Single());
 
         Assert.Multiple(() =>
@@ -75,7 +73,7 @@ public class TrimDisabledFlowControllerTests
         var controller = AddDisabledController(element, controllerSpeed, controllerOffset);
         TimeSpan preview = SlippableMedia.ClampSharedDelta(SlippableMedia.Collect(element), Seconds(requested));
         bool applied = new ElementSlipService(_harness.History).Slip(_harness.Scene, [element], Seconds(requested));
-        using var compositor = CreateCompositor();
+        using var compositor = CreateCompositor(_harness.Scene);
         double plainPosition = Position(Videos(compositor.EvaluateGraphics(Seconds(length - 0.1)).Objects.Single()).Single());
         controller.IsEnabled = true;
         double controlledPosition = Position(Videos(compositor.EvaluateGraphics(Seconds(length - 0.1)).Objects.Single()).Single());
@@ -102,7 +100,7 @@ public class TrimDisabledFlowControllerTests
         new ElementResizeService(_harness.History).Resize(_harness.Scene,
             [new(element, Seconds(leftEdge ? -0.5 : 0), Seconds(4.5), 0)]);
         controller.IsEnabled = true;
-        using var compositor = CreateCompositor();
+        using var compositor = CreateCompositor(_harness.Scene);
         var resource = Videos(compositor.EvaluateGraphics(element.Range.End - Seconds(0.1)).Objects.Single()).Single();
 
         Assert.Multiple(() =>
@@ -131,7 +129,7 @@ public class TrimDisabledFlowControllerTests
             ? service.Slide(_harness.Scene, [new(front, [middle!], back)], Seconds(2))
             : service.Roll(_harness.Scene, pairs, Seconds(2));
         controller.IsEnabled = true;
-        using var compositor = CreateCompositor();
+        using var compositor = CreateCompositor(_harness.Scene);
         var resource = Videos(compositor.EvaluateGraphics(Seconds(3.9)).Objects.Single()).Single();
 
         Assert.Multiple(() =>
@@ -173,7 +171,7 @@ public class TrimDisabledFlowControllerTests
         TimeSpan preview = SlippableMedia.ClampSharedDelta(SlippableMedia.Collect(element), Seconds(2));
         bool applied = new ElementSlipService(_harness.History).Slip(_harness.Scene, [element], Seconds(2));
         disabled.IsEnabled = true;
-        using var compositor = CreateCompositor();
+        using var compositor = CreateCompositor(_harness.Scene);
         var frames = compositor.EvaluateGraphics(Seconds(1.9)).Objects.SelectMany(Videos).ToArray();
         var secondFrame = frames.Single(resource => ReferenceEquals(resource.RequireOriginal(), second));
 
@@ -198,7 +196,7 @@ public class TrimDisabledFlowControllerTests
         Assert.That(new ElementSlipService(_harness.History).Slip(_harness.Scene, [element], Seconds(2)), Is.True);
         first.IsEnabled = true;
         second.IsEnabled = true;
-        using var compositor = CreateCompositor();
+        using var compositor = CreateCompositor(_harness.Scene);
         var resource = Videos(compositor.EvaluateGraphics(Seconds(2.9)).Objects.Single()).Single();
 
         Assert.Multiple(() =>
@@ -220,7 +218,7 @@ public class TrimDisabledFlowControllerTests
 
         Assert.That(new ElementSlipService(_harness.History).Slip(_harness.Scene, [element], Seconds(2)), Is.True);
         controller.IsEnabled = true;
-        using var compositor = CreateCompositor();
+        using var compositor = CreateCompositor(_harness.Scene);
         var resources = compositor.EvaluateGraphics(Seconds(1.9)).Objects.SelectMany(Videos).ToArray();
 
         Assert.Multiple(() =>
@@ -327,7 +325,6 @@ public class TrimDisabledFlowControllerTests
 
             var targets = SlippableMedia.Collect(element);
             TimeSpan clamped = SlippableMedia.ClampSharedDelta(targets, Seconds(15));
-            TestContext.WriteLine($"Reader opens across 128 Flow states: video={decoder.Opens[videoUri.LocalPath]}, audio={decoder.Opens[audioUri.LocalPath]}.");
 
             Assert.Multiple(() =>
             {
@@ -411,7 +408,7 @@ public class TrimDisabledFlowControllerTests
             public override bool HasVideo => true;
             public override bool HasAudio => true;
             public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image) { image = null; return false; }
-            public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound) { sound = null; return false; }
+            public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound) { sound = null; return false; }
             protected override void Dispose(bool disposing) => owner.Disposals++;
         }
     }
@@ -428,20 +425,11 @@ public class TrimDisabledFlowControllerTests
         return controller;
     }
 
-    private SceneCompositor CreateCompositor() => new(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
-
     private Element AddElement(double start, double length, Drawable drawable)
     {
         Element element = _harness.AddElement(Seconds(start), Seconds(length));
         element.Objects.Add(drawable);
         return element;
-    }
-
-    private static SourceVideo CreateVideo(int duration)
-    {
-        var source = new VideoSource();
-        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), duration * 30)));
-        return new SourceVideo { Source = { CurrentValue = source } };
     }
 
     private static IEnumerable<SourceVideo.Resource> Videos(EngineObject.Resource resource)
@@ -457,6 +445,4 @@ public class TrimDisabledFlowControllerTests
     }
 
     private static double Position(SourceVideo.Resource resource) => (resource.RequestedPosition + resource.OffsetPosition).TotalSeconds;
-
-    private static TimeSpan Seconds(double seconds) => TimeSpan.FromSeconds(seconds);
 }

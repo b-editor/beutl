@@ -25,11 +25,8 @@ public sealed partial class Threshold : FilterEffect
             float lower = threshold - smoothness * 0.5;
             float upper = threshold + smoothness * 0.5;
 
-            // A band that collapses to zero width divides by zero inside smoothstep, and equal edges are
-            // undefined in the shading languages: Skia's CPU backend returns NaN there and Metal returns 0,
-            // so the value has to be written out rather than left to the backend. The band is centred on the
-            // threshold, so a band of any positive width evaluates to exactly 0.5 at the threshold; the
-            // collapsed band keeps that value and steps hard on either side of it.
+            // smoothstep over a zero-width band differs by backend (Skia's CPU returns NaN, Metal 0), so the
+            // collapsed band is written out: 0.5 at the threshold, as any positive width gives, and a hard step.
             float t = upper > lower
                 ? smoothstep(lower, upper, luma)
                 : (luma < threshold ? 0.0 : (luma > threshold ? 1.0 : 0.5));
@@ -74,13 +71,8 @@ public sealed partial class Threshold : FilterEffect
     }
 
     /// <remarks>
-    /// The entry point returns <c>half4(t)</c>, so <c>t</c> is the output alpha as well as the colour: at the
-    /// settings where a fully transparent pixel leaves with a non-zero <c>t</c>, the stage paints where its
-    /// input covers nothing, and a hit test forwarded to that input would miss pixels the viewer can see.
-    /// This evaluates the entry point itself at the luma a transparent premultiplied pixel carries - zero -
-    /// rather than restating it as an inequality on the properties: the answer turns over at exactly the
-    /// parameter boundaries a restatement gets wrong, and it has to keep tracking the SkSL above, degenerate
-    /// band included.
+    /// A setting that gives a transparent pixel (luma 0) a positive <c>t</c> makes the hit test the output
+    /// rectangle. The check evaluates the shader expression itself.
     /// </remarks>
     private static bool CreatesAlphaFromATransparentPixel(Resource r)
     {

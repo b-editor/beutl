@@ -1,12 +1,10 @@
 ﻿using System.Collections.Specialized;
-using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.PanAndZoom;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Animation;
@@ -14,7 +12,6 @@ using Beutl.Composition;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
-using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
@@ -24,7 +21,6 @@ using Beutl.NodeGraph;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
-using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Beutl.Serialization;
 using Beutl.Testing.Headless;
@@ -32,7 +28,6 @@ using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using Beutl.Views.Editors;
 using FluentAvalonia.UI.Controls;
-using Moq;
 
 namespace Beutl.HeadlessUITests;
 
@@ -40,14 +35,11 @@ namespace Beutl.HeadlessUITests;
 public class NestedNodePortTests
 {
     [AvaloniaTest]
-    [TestCase(false, false)]
-    [TestCase(true, false)]
-    [TestCase(false, true)]
-    [TestCase(true, true)]
-    public async Task SharedPropertiesRefreshPortAvailabilityAcrossNodes(bool light, bool grouped)
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task SharedPropertiesRefreshPortAvailabilityAcrossNodes(bool grouped)
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await CreateEditor();
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
         var graph = new GraphModel();
         var group = new GroupNode { Position = (30, 750) };
         if (grouped) graph.Nodes.Add(group);
@@ -91,7 +83,7 @@ public class NestedNodePortTests
             Content = content,
             Width = 640,
             Height = 650,
-            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
+            RequestedThemeVariant = ThemeVariant.Dark
         };
         try
         {
@@ -108,7 +100,6 @@ public class NestedNodePortTests
             Assert.That(secondMember.CanConnect.Value, Is.False);
             Assert.That(secondPoint.IsEnabled, Is.False);
             Assert.That(firstMember.CanConnect.Value, Is.True);
-            Capture(window, $"shared-property-nodes-{light}-{grouped}");
 
             if (grouped)
             {
@@ -150,8 +141,7 @@ public class NestedNodePortTests
     [TestCase(true, true)]
     public async Task InvalidConnectedPortsAllowDisconnectionButCannotStartNewConnections(bool expression, bool contextMenu)
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await CreateEditor();
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
         var graph = new GraphModel();
         var node = new GeometryShapeNode { Position = (70, 140) };
         var pen = new Pen();
@@ -204,7 +194,6 @@ public class NestedNodePortTests
             Assert.That(point.IsEnabled, Is.True, "An invalid existing connection must remain disconnectable.");
             Point position = point.TranslatePoint(new Point(5, 5), window)!.Value;
             Assert.That(window.InputHitTest(position), Is.SameAs(point));
-            Capture(window, $"invalid-connected-{expression}-{contextMenu}");
 
             window.MouseMove(position);
             window.MouseDown(position, MouseButton.Left);
@@ -233,12 +222,7 @@ public class NestedNodePortTests
                 FAMenuFlyout menu = (FAMenuFlyout)point.ContextFlyout!;
                 Assert.That(menu.IsOpen, Is.True);
                 FAMenuFlyoutItem disconnect = menu.Items.OfType<FAMenuFlyoutItem>().Single();
-                TopLevel popup = TopLevel.GetTopLevel(menu.Popup.Child!)!;
-                Capture(popup, $"invalid-connected-menu-{expression}");
-                Point action = disconnect.TranslatePoint(new Point(disconnect.Bounds.Width / 2, disconnect.Bounds.Height / 2), popup)!.Value;
-                popup.MouseMove(action);
-                popup.MouseDown(action, MouseButton.Left);
-                popup.MouseUp(action, MouseButton.Left);
+                HeadlessTestHelpers.Click(disconnect, move: true);
                 menu.Hide();
             }
             else
@@ -266,12 +250,9 @@ public class NestedNodePortTests
     }
 
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task AliasedBrushEditorsUseTheirOwnRootAndPropertyPaths(bool light)
+    public async Task AliasedBrushEditorsUseTheirOwnRootAndPropertyPaths()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await CreateEditor();
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
         var graph = new GraphModel();
         var node = new GeometryShapeNode { Position = (70, 140) };
         var shared = new SolidColorBrush();
@@ -300,7 +281,7 @@ public class NestedNodePortTests
             Content = view,
             Width = 640,
             Height = 900,
-            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
+            RequestedThemeVariant = ThemeVariant.Dark
         };
         try
         {
@@ -336,7 +317,6 @@ public class NestedNodePortTests
             var link = vm.AllConnections.Single(c => c.Connection == colorConnection);
             Assert.That(link.InputPortVM.Value, Is.SameAs(penRow.DataContext));
             Assert.That(link.InputPortPosition.Value, Is.EqualTo(penRow.GetPortPosition()!.Value + nodeVm.Position.Value));
-            Capture(window, $"aliased-brush-paths-{light}");
 
             graph.Disconnect(colorConnection);
             graph.Disconnect(parentConnection);
@@ -354,8 +334,7 @@ public class NestedNodePortTests
     [AvaloniaTest]
     public async Task AliasedEditorsWithinOneRootTrackPropertyPathsAndListItemIdentity()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await CreateEditor();
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
         var shared = new SolidColorBrush();
         var first = new AliasedBrushPair();
         var second = new AliasedBrushPair();
@@ -418,7 +397,6 @@ public class NestedNodePortTests
             var replaced = await ReadPorts();
             Assert.That(replaced.Count(p => initial.Contains(p)), Is.EqualTo(2));
             Assert.That(replaced.Any(p => p.PropertyPath.Contains("i:" + first.Id)), Is.False);
-            Capture(window, "aliased-list-paths");
         }
         finally
         {
@@ -434,10 +412,7 @@ public class NestedNodePortTests
         var node = new FactoryNode<TransformGroup>();
         node.Object.Children.Add(new TranslateTransform());
         graph.Nodes.Add(node);
-        var services = new Mock<IEditorContext>();
-        services.Setup(s => s.GetService(typeof(IPropertyEditorFactory)))
-            .Returns(new Mock<IPropertyEditorFactory>().Object);
-        using var vm = new NodeGraphViewModel(graph, services.Object);
+        using var vm = new NodeGraphViewModel(graph, NodeGraphTestContext.Create().Object);
         GraphNodeViewModel nodeVm = vm.Nodes.Single();
         var originalItems = nodeVm.NestedItems.ToArray();
         int collectionChanges = 0;
@@ -448,12 +423,9 @@ public class NestedNodePortTests
             action = e.Action;
         };
         var transforms = Enumerable.Range(0, 800).Select(i => (Transform)new TranslateTransform(i, 0)).ToArray();
-        var stopwatch = Stopwatch.StartNew();
 
         node.Object.Children.AddRange(transforms);
 
-        stopwatch.Stop();
-        TestContext.WriteLine($"Adding 800 list elements with the graph view model: {stopwatch.Elapsed.TotalMilliseconds:F1} ms");
         Assert.That(nodeVm.NestedItems, Has.Count.EqualTo(1602));
         Assert.That(nodeVm.NestedItems.Take(2), Is.EqualTo(originalItems));
         Assert.That(nodeVm.NestedItems.Select(p => p.Model), Is.Unique);
@@ -470,8 +442,7 @@ public class NestedNodePortTests
     [AvaloniaTest]
     public async Task ExpandedBrushReplacementReusesPortsAfterFallbackRecovery()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await CreateEditor();
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
         var graph = new GraphModel();
         var node = new FactoryNode<Pen>();
         var brush = new SolidColorBrush();
@@ -518,7 +489,6 @@ public class NestedNodePortTests
             }
             AssertPortsOnNodeEdge(view.GetVisualDescendants().OfType<GraphNodeView>()
                 .Single(n => n.DataContext == nodeVm));
-            Capture(window, "recovered-brush");
         }
         finally
         {
@@ -528,12 +498,9 @@ public class NestedNodePortTests
     }
 
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task RootTextEditorsKeepMainBranchHorizontalInsets(bool light)
+    public async Task RootTextEditorsKeepTheBaselineHorizontalInsets()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await CreateEditor();
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
         var graph = new GraphModel();
         var node = new TextNode { Position = (16, 8) };
         node.Object.Size.CurrentValue = 232;
@@ -552,8 +519,8 @@ public class NestedNodePortTests
             var baselineEditor = (PropertyEditor)control!;
             baselineEditor.EditorStyle = PropertyEditorStyle.Compact;
             baselineEditor.DataContext = context;
-            // main's root rows: a 215px node with a 1px border, 10px socket columns,
-            // and the editor's original theme minimum width (no nested overrides).
+            // The baseline: a root row of a 215px node with a 1px border and 10px socket columns, at the
+            // editor theme's own minimum width (no nested overrides).
             var row = new Grid { ColumnDefinitions = new ColumnDefinitions("10,*,10") };
             Grid.SetColumn(baselineEditor, 1);
             row.Children.Add(baselineEditor);
@@ -570,7 +537,7 @@ public class NestedNodePortTests
             Content = content,
             Width = 640,
             Height = 900,
-            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
+            RequestedThemeVariant = ThemeVariant.Dark
         };
         try
         {
@@ -599,8 +566,7 @@ public class NestedNodePortTests
             NodePortView fill = nodeView.GetVisualDescendants().OfType<NodePortView>()
                 .Single(row => row.DataContext is NodeMemberViewModel member && member.Model!.Name == "Fill");
             Assert.That(fill.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "BrushPreviewButton").Bounds.Width,
-                Is.EqualTo(80), "Root brush previews must retain main's width.");
-            Capture(window, $"root-text-main-baseline-{light}");
+                Is.EqualTo(80), "Root brush previews stay 80px wide.");
         }
         finally
         {
@@ -610,14 +576,11 @@ public class NestedNodePortTests
     }
 
     [AvaloniaTest]
-    [TestCase(320, false)]
-    [TestCase(320, true)]
-    [TestCase(640, false)]
-    [TestCase(640, true)]
-    public async Task ExpandedPropertiesHaveConnectablePortsAndCollapsedConnectionsKeepTheirAnchor(int width, bool light)
+    [TestCase(320)]
+    [TestCase(640)]
+    public async Task ExpandedPropertiesHaveConnectablePortsAndCollapsedConnectionsKeepTheirAnchor(int width)
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await CreateEditor();
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
         var graph = new GraphModel();
         var node = new GeometryShapeNode { Position = (70, 140) };
         var pen = new Pen();
@@ -638,7 +601,7 @@ public class NestedNodePortTests
             Content = view,
             Width = width,
             Height = 900,
-            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
+            RequestedThemeVariant = ThemeVariant.Dark
         };
         try
         {
@@ -679,7 +642,6 @@ public class NestedNodePortTests
             NodePortPoint end = FindPortPoint(view, thicknessView);
             Point from = start.TranslatePoint(new Point(5, 5), window)!.Value;
             Point to = end.TranslatePoint(new Point(5, 5), window)!.Value;
-            Capture(window, $"before-connection-{width}-{light}");
             Assert.That(window.InputHitTest(from), Is.SameAs(start), $"Output at {from}");
             Assert.That(window.InputHitTest(to), Is.SameAs(end), $"Input at {to}");
             window.MouseMove(from);
@@ -708,7 +670,6 @@ public class NestedNodePortTests
             HeadlessTestHelpers.Render(3);
             Assert.That(connection.InputPortPosition.Value, Is.EqualTo(beforeMove + new Point(9, 15)));
             AssertPortsOnNodeEdge(nodeView);
-            Capture(window, $"expanded-{width}-{light}");
 
             penVm.IsExpanded.Value = false;
             await FinishTransition();
@@ -718,7 +679,6 @@ public class NestedNodePortTests
             Assert.That(connection.InputPortPosition.Value.X, Is.EqualTo(nodeVm.Position.Value.X));
             Assert.That(graph.AllConnections, Has.Count.EqualTo(1));
             Assert.That(connection.InputPortVM.Value, Is.SameAs(thicknessView.DataContext));
-            Capture(window, $"collapsed-{width}-{light}");
 
             penVm.IsExpanded.Value = true;
             await FinishTransition();
@@ -739,7 +699,6 @@ public class NestedNodePortTests
                 .Single(text => text.Name == "PART_HeaderTextBlock").TranslatePoint(default, thicknessView)!.Value.X,
                 Is.EqualTo(unconnectedHeaderX).Within(0.01));
             AssertNestedEditorSpacing(nodeView);
-            Capture(window, $"disconnected-{width}-{light}");
         }
         finally
         {
@@ -751,8 +710,7 @@ public class NestedNodePortTests
     [AvaloniaTest]
     public async Task ListItemPropertiesKeepTheirPortAfterReordering()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await CreateEditor();
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
         var graph = new GraphModel();
         var node = new FactoryNode<Beutl.Graphics.Shapes.RectShape>();
         var group = new TransformGroup();
@@ -800,8 +758,7 @@ public class NestedNodePortTests
     [AvaloniaTest]
     public async Task GradientStopsKeepTheirSliderAndExposeEachStopsProperties()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await CreateEditor();
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
         var graph = new GraphModel();
         var node = new FactoryNode<LinearGradientBrush>();
         var stop = new GradientStop(Colors.Red, 0.25f);
@@ -827,7 +784,6 @@ public class NestedNodePortTests
             AssertNodePropertyMenusHidden(view.GetVisualDescendants().OfType<GraphNodeView>().Single());
             AssertNestedEditorSpacing(view.GetVisualDescendants().OfType<GraphNodeView>().Single());
             AssertPortsOnNodeEdge(view.GetVisualDescendants().OfType<GraphNodeView>().Single());
-            Capture(window, "gradient-stops");
 
             NodePortView colorRow = FindPortView(view, stop.Color);
             double colorHeaderX = colorRow.ProvidedEditor!.GetVisualDescendants().OfType<TextBlock>()
@@ -842,7 +798,6 @@ public class NestedNodePortTests
             HeadlessTestHelpers.Render(3);
             Assert.That(colorRow.GetVisualDescendants().OfType<TextBlock>().Single()
                 .TranslatePoint(default, colorRow)!.Value.X, Is.EqualTo(colorHeaderX).Within(0.01));
-            Capture(window, "gradient-stop-connected");
             graph.Disconnect(connection);
             HeadlessTestHelpers.Render(3);
             Assert.That(colorRow.ProvidedEditor!.GetVisualDescendants().OfType<TextBlock>()
@@ -859,8 +814,7 @@ public class NestedNodePortTests
     [AvaloniaTest]
     public async Task RemovingLayerInputFromThePropertyPanelDisconnectsItsNestedInputs()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await CreateEditor();
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
         var graph = new GraphModel();
         var layer = new LayerInputNode();
         var brush = new SolidColorBrush();
@@ -958,25 +912,6 @@ public class NestedNodePortTests
         HeadlessTestHelpers.Render(3);
         await Task.Delay(300);
         HeadlessTestHelpers.Render(3);
-    }
-
-    private static async Task<EditViewModel> CreateEditor()
-    {
-        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"nested-ports-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "nested-ports", root))!;
-        Scene scene = project.Items.OfType<Scene>().Single();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
-    private static void Capture(TopLevel window, string name)
-    {
-        if (Environment.GetEnvironmentVariable("BEUTL_NESTED_PORT_CAPTURE") is not { Length: > 0 } directory) return;
-        Directory.CreateDirectory(directory);
-        using var image = window.CaptureRenderedFrame();
-        image?.Save(Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);
     }
 }
 

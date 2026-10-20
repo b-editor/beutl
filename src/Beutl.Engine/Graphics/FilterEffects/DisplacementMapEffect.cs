@@ -131,6 +131,5 @@ public partial class DisplacementMapEffect : FilterEffect
         }
 
         context.Targets[index] = replacement;
-        original.Dispose();
     }
 }

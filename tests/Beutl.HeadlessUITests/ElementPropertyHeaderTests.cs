@@ -5,7 +5,6 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Controls;
@@ -34,13 +33,8 @@ public class ElementPropertyHeaderTests
     public async Task HeadersMatchToolBarsAndPreserveExpansionVisibilityAndReordering(int width, bool light)
     {
         await TestReset.ResetShellAsync();
-        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"element-headers-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "element-headers", root))!;
-        Scene scene = project.Items.OfType<Scene>().First();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync($"element-headers-{Guid.NewGuid():N}");
+        Scene scene = editor.Scene;
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         await adder.AddAsync([new ElementDescription(TimeSpan.Zero, TimeSpan.FromSeconds(2), 0,
             new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None);
@@ -86,14 +80,12 @@ public class ElementPropertyHeaderTests
             Assert.That(header.Bounds.Width - chevron.TranslatePoint(default, header)!.Value.X - chevron.Bounds.Width,
                 Is.EqualTo(referenceRightInset));
             Assert.That(((Avalonia.Media.ISolidColorBrush)headerBorder.Background!).Color.A, Is.Zero);
-            Capture("collapsed");
 
             Click(title);
             Assert.That(model.Items[0].IsExpanded.Value, Is.True);
             HeadlessTestHelpers.Render();
             Assert.That(header.Bounds.Height, Is.EqualTo(referenceHeight));
             Assert.That(((Avalonia.Media.ISolidColorBrush)headerBorder.BorderBrush!).Color, Is.EqualTo(referenceStroke));
-            Capture("expanded");
             Click(title);
             Assert.That(model.Items[0].IsExpanded.Value, Is.False);
             Assert.That(header.Focus(), Is.True);
@@ -121,7 +113,6 @@ public class ElementPropertyHeaderTests
             Assert.That(header.Bounds.Height, Is.GreaterThan(referenceHeight));
             Point titlePosition = title.TranslatePoint(default, header)!.Value;
             Assert.That(titlePosition.Y + title.Bounds.Height, Is.LessThanOrEqualTo(header.Bounds.Height));
-            Capture("long-title");
             title.Text = originalTitle;
             HeadlessTestHelpers.Render();
 
@@ -134,8 +125,8 @@ public class ElementPropertyHeaderTests
             HeadlessTestHelpers.Settle();
 
             Border grip = first.FindControl<Border>("dragBorder")!;
-            Point start = Center(grip);
-            Point end = Center(entries[1].FindControl<Border>("dragBorder")!);
+            Point start = HeadlessTestHelpers.Center(grip, window);
+            Point end = HeadlessTestHelpers.Center(entries[1].FindControl<Border>("dragBorder")!, window);
             window.MouseDown(start, MouseButton.Left);
             window.MouseMove(start + new Vector(0, 8), RawInputModifiers.LeftMouseButton);
             window.MouseMove(end, RawInputModifiers.LeftMouseButton);
@@ -144,26 +135,15 @@ public class ElementPropertyHeaderTests
             Assert.That(element.Objects[0], Is.SameAs(secondObject));
             Assert.That(element.Objects[1], Is.SameAs(firstObject));
             Assert.That(model.Items.All(item => !item.IsExpanded.Value), Is.True);
-            Capture("reordered");
         }
         finally { window.Close(); }
 
-        Point Center(Control control) => control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
-
         void Click(Control control, MouseButton button = MouseButton.Left)
         {
-            Point center = Center(control);
+            Point center = HeadlessTestHelpers.Center(control, window);
             window.MouseDown(center, button);
             window.MouseUp(center, button);
             HeadlessTestHelpers.Settle();
-        }
-
-        void Capture(string name)
-        {
-            if (Environment.GetEnvironmentVariable("BEUTL_ELEMENT_HEADER_CAPTURE") is not { Length: > 0 } directory) return;
-            Directory.CreateDirectory(directory);
-            using var image = window.CaptureRenderedFrame();
-            image?.Save(Path.Combine(directory, $"{name}-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
         }
     }
 }

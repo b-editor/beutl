@@ -10,6 +10,8 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.Helpers;
 
+// The render loop installs no unhandled-exception handler, so work run on the render dispatcher contains its
+// own failures.
 public static class EngineObjectHelper
 {
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(EngineObjectHelper));
@@ -19,7 +21,6 @@ public static class EngineObjectHelper
         return Observable.FromEvent<IExpression<T>?>(
                 h => property.ExpressionChanged += h,
                 h => property.ExpressionChanged -= h)
-            .Select(s => s)
             .Publish(property.Expression).RefCount();
     }
 
@@ -51,17 +52,9 @@ public static class EngineObjectHelper
     }
 
     /// <summary>
-    /// Observes <paramref name="obj"/> as a versioned resource whose creation, update, and disposal all run on
-    /// the render dispatcher, and publishes it as a handle the subscriber has to read through.
+    /// Publishes the resource as a handle that lends it out only while the render dispatcher is not rebuilding it.
+    /// Disposing the subscription cancels work that has not started.
     /// </summary>
-    /// <remarks>
-    /// The dispatcher rebuilds the resource in place, so it is a writer the subscriber's own thread races: a
-    /// reader holding the resource itself can walk a list the rebuild is midway through replacing, or reach a
-    /// child it has already disposed. <see cref="EngineResourceHandle{TResource}"/> is what closes that - it
-    /// only lends the resource out while the rebuild is held off, and reports itself empty once the resource
-    /// has been released. Disposing the subscription cancels work that has not started yet, so a resource is
-    /// never created for a subscription that was already gone.
-    /// </remarks>
     public static IObservable<EngineResourceHandle<TResource>> SubscribeEngineVersionedResource<T, TResource>(
         this T obj, IObservable<TimeSpan> time, Func<T, CompositionContext, TResource> createResource)
         where T : EngineObject
@@ -71,8 +64,7 @@ public static class EngineObjectHelper
     }
 
     /// <param name="renderDispatcher">
-    /// The dispatcher that owns the resource. Only a test passes anything but the render thread's, which is
-    /// the one shared dispatcher a test must not shut down.
+    /// The dispatcher that owns the resource. Only tests pass a dispatcher other than the render thread's.
     /// </param>
     /// <inheritdoc cref="SubscribeEngineVersionedResource{T, TResource}(T, IObservable{TimeSpan}, Func{T, CompositionContext, TResource})"/>
     internal static IObservable<EngineResourceHandle<TResource>> SubscribeEngineVersionedResource<T, TResource>(
@@ -161,8 +153,6 @@ public static class EngineObjectHelper
                     }
                     catch (Exception ex)
                     {
-                        // An escaping exception unwinds the shared render-thread loop, which
-                        // installs no unhandled-exception handler.
                         ReportUpdateFailure(ex);
                     }
                     finally
@@ -185,7 +175,10 @@ public static class EngineObjectHelper
                     }
                     catch (Exception disposeFailure)
                     {
-                        ex.Data["EngineVersionedResourceDisposeFailure"] = disposeFailure;
+                        s_logger.LogWarning(
+                            disposeFailure,
+                            "Releasing the versioned resource for '{Object}' failed.",
+                            obj);
                     }
 
                     try
@@ -245,8 +238,6 @@ public static class EngineObjectHelper
 
                 void ReleaseResource()
                 {
-                    // The render loop installs no unhandled-exception handler, so a throwing
-                    // Dispose here would take the render thread down with it.
                     try
                     {
                         resourceGate.Release();
@@ -282,11 +273,7 @@ public static class EngineObjectHelper
     /// Follows a source of engine objects, observing whichever object it currently holds as a versioned
     /// resource and letting go of the previous object's as the source moves on.
     /// </summary>
-    /// <remarks>
-    /// The source is free to hold nothing, so the published handle is nullable: while there is no object the
-    /// result reports <see langword="null"/> rather than going quiet, which is what leaves a subscriber
-    /// showing that absence instead of whatever the previous object last published.
-    /// </remarks>
+    /// <remarks>Publishes null while the source holds no object.</remarks>
     public static IObservable<EngineResourceHandle<TResource>?> SwitchToEngineVersionedResource<T, TResource>(
         this IObservable<T?> source,
         IObservable<TimeSpan> time,
@@ -297,10 +284,7 @@ public static class EngineObjectHelper
         return source.SwitchToEngineVersionedResource(time, createResource, RenderThread.Dispatcher);
     }
 
-    /// <param name="renderDispatcher">
-    /// The dispatcher that owns the resource. Only a test passes anything but the render thread's, which is
-    /// the one shared dispatcher a test must not shut down.
-    /// </param>
+    /// <inheritdoc cref="SubscribeEngineVersionedResource{T, TResource}(T, IObservable{TimeSpan}, Func{T, CompositionContext, TResource}, Dispatcher)" path="/param[@name='renderDispatcher']"/>
     /// <inheritdoc cref="SwitchToEngineVersionedResource{T, TResource}(IObservable{T}, IObservable{TimeSpan}, Func{T, CompositionContext, TResource})"/>
     internal static IObservable<EngineResourceHandle<TResource>?> SwitchToEngineVersionedResource<T, TResource>(
         this IObservable<T?> source,

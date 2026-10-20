@@ -61,48 +61,58 @@ public sealed class CaptionDraftStoreTests
         }
     }
 
-    [Test]
-    public void Load_MigratesEveryRetainedRecoveryBeforeValidation()
+    [TestCase(1)]
+    [TestCase(4)]
+    public void Load_DeletesADraftOfAnEarlierVersion(int version)
     {
+        // Only development builds wrote versions before the current one.
         var store = new FileCaptionDraftStore(_storageDirectory);
         CaptionDraftScope scope = CreateScope();
-        var retained = new CaptionDraftEntry("job-a", CreateResumableSourceDraft());
-        var current = new CaptionDraftEntry(
-            "job-b",
-            CreateResumableSourceDraft(),
-            [retained]);
         Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
         using (session)
         {
-            session!.Save(current);
+            session!.Save(new CaptionDraftEntry("job-1", CreateResumableSourceDraft()));
         }
         string path = store.GetStoragePath(scope);
         File.WriteAllText(
             path,
             File.ReadAllText(path).Replace(
                 $"\"version\":{FileCaptionDraftStore.CurrentVersion}",
-                "\"version\":4",
+                string.Create(CultureInfo.InvariantCulture, $"\"version\":{version}"),
                 StringComparison.Ordinal));
 
         Assert.That(store.TryOpen(scope, out ICaptionDraftSession? reopened), Is.True);
         using (reopened)
         {
-            CaptionDraftEntry? restored = reopened!.Read().Entry;
-
-            Assert.That(restored, Is.Not.Null);
             using (Assert.EnterMultipleScope())
             {
-                Assert.That(restored!.Draft.Version, Is.EqualTo(FileCaptionDraftStore.CurrentVersion));
-                Assert.That(restored.Recoveries, Has.Length.EqualTo(1));
-                Assert.That(
-                    restored.Recoveries[0].Draft.Version,
-                    Is.EqualTo(FileCaptionDraftStore.CurrentVersion));
-                Assert.That(restored.Recoveries[0].JobId, Is.EqualTo("job-a"));
-                Assert.That(
-                    restored.Recoveries[0].Draft.SourceTranscriptionResume!.RequestKeySeed,
-                    Is.EqualTo("seed-of-the-run"));
-                Assert.That(File.Exists(path), Is.True);
+                Assert.That(reopened!.Read().Outcome, Is.EqualTo(CaptionDraftReadOutcome.Absent));
+                Assert.That(File.Exists(path), Is.False);
             }
+        }
+    }
+
+    [Test]
+    public void Load_DeletesASourceRunWithoutItsStart()
+    {
+        // Every build writes the start of the source window; without it a run cannot be matched to its audio.
+        var store = new FileCaptionDraftStore(_storageDirectory);
+        CaptionDraftScope scope = CreateScope();
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
+        using (session)
+        {
+            session!.Save(new CaptionDraftEntry("job-1", CreateResumableSourceDraft()));
+        }
+        string path = store.GetStoragePath(scope);
+        string stored = File.ReadAllText(path);
+        string withoutStart = stored.Replace(",\"sourceStartSamples\":0", string.Empty, StringComparison.Ordinal);
+        Assert.That(withoutStart, Is.Not.EqualTo(stored));
+        File.WriteAllText(path, withoutStart);
+
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? reopened), Is.True);
+        using (reopened)
+        {
+            Assert.That(reopened!.Read().Outcome, Is.EqualTo(CaptionDraftReadOutcome.Absent));
         }
     }
 
@@ -290,98 +300,6 @@ public sealed class CaptionDraftStoreTests
     }
 
     [Test]
-    public void Load_KeepsWhatAnEarlierVersionPaidForAndDropsOnlyItsNames()
-    {
-        // 版 1 の控えには、seed を書いたあとモデルを書く前の時期のものが混じって
-        // いる。seed だけがある状態は「モデルを指定しなかった実行」と見分けが
-        // つかず、取り違えると支払い済みの切れ端に別の名前を付けて買い直す。
-        // 曖昧なのは名前だけなので、支払い済みの結果まで捨てる理由は無い。
-        var store = new FileCaptionDraftStore(_storageDirectory);
-        CaptionDraftScope scope = CreateScope();
-        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
-        using (session)
-        {
-            session!.Save(new CaptionDraftEntry("job-1", CreateResumableSourceDraft()));
-        }
-
-        string path = store.GetStoragePath(scope);
-        string stored = File.ReadAllText(path);
-        File.WriteAllText(
-            path,
-            stored.Replace(
-                $"\"version\":{FileCaptionDraftStore.CurrentVersion}",
-                "\"version\":1"));
-
-        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? reopened), Is.True);
-        using (reopened)
-        {
-            CaptionDraftEntry? restored = reopened!.Read().Entry;
-
-            Assert.That(restored, Is.Not.Null);
-            Assert.Multiple(() =>
-            {
-                Assert.That(restored!.Draft.Cues.Single().Text, Is.EqualTo("paid result"));
-                Assert.That(restored.Draft.CompletedSteps, Is.EqualTo(1));
-                Assert.That(
-                    restored.Draft.SourceTranscriptionResume?.RequestKeySeed,
-                    Is.Empty,
-                    "The names of a version 1 draft cannot be told apart, so they go.");
-                Assert.That(
-                    restored.Draft.SourceTranscriptionResume?.RequestKeyModel,
-                    Is.Empty);
-                Assert.That(
-                    restored.Draft.SourceTranscriptionResume?.RequestKeyNamePending,
-                    Is.False);
-            });
-        }
-    }
-
-    [Test]
-    public void Load_ReadsAVersion2DraftAsStillHoldingItsName()
-    {
-        // 版 2 には「名前を抱えたまま終わったか」が無い。読み落として false に
-        // すると、まだ返ってきていない最初の切れ端を持つ実行が拾い直せず、
-        // 買い直しになる。版 2 は切れ端が返るたびに名前を決着させていなかった
-        // ので、seed があるなら抱えていたということ。
-        var store = new FileCaptionDraftStore(_storageDirectory);
-        CaptionDraftScope scope = CreateScope();
-        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
-        using (session)
-        {
-            session!.Save(new CaptionDraftEntry("job-1", CreateResumableSourceDraft()));
-        }
-
-        string path = store.GetStoragePath(scope);
-        string stored = File.ReadAllText(path);
-        // 版 2 が書いた控えそのもの——版が 2 で、その項目がまだ無い。
-        string asVersion2 = stored
-            .Replace(
-                $"\"version\":{FileCaptionDraftStore.CurrentVersion}",
-                "\"version\":2")
-            .Replace(",\"requestKeyNamePending\":true", string.Empty);
-        Assert.That(asVersion2, Does.Not.Contain("requestKeyNamePending"));
-        File.WriteAllText(path, asVersion2);
-
-        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? reopened), Is.True);
-        using (reopened)
-        {
-            CaptionDraftEntry? restored = reopened!.Read().Entry;
-
-            Assert.That(restored, Is.Not.Null);
-            Assert.Multiple(() =>
-            {
-                Assert.That(
-                    restored!.Draft.SourceTranscriptionResume?.RequestKeySeed,
-                    Is.EqualTo("seed-of-the-run"),
-                    "What it paid for is still named.");
-                Assert.That(
-                    restored.Draft.SourceTranscriptionResume?.RequestKeyNamePending,
-                    Is.True);
-            });
-        }
-    }
-
-    [Test]
     public void Read_SaysUnreadableForADraftANewerVersionWroteInsteadOfDeletingIt()
     {
         // 新しい版で書かれた控えを、古い版に戻して開いたとき。読めないだけで
@@ -447,41 +365,6 @@ public sealed class CaptionDraftStoreTests
         Assert.That(File.Exists(lockPath), Is.True);
         Assert.That(second.TryOpen(scope, out ICaptionDraftSession? afterRelease), Is.True);
         afterRelease!.Dispose();
-    }
-
-    [Test]
-    public void Load_TakesAVersion2DraftAtItsWordWhenItSaysSo()
-    {
-        // 版 2 のうち、その項目を書くようになったあとのもの。書いてある false は
-        // 「決着済み」という意味なので、抱えているものとして復活させてはいけない。
-        var store = new FileCaptionDraftStore(_storageDirectory);
-        CaptionDraftScope scope = CreateScope();
-        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
-        using (session)
-        {
-            session!.Save(new CaptionDraftEntry("job-1", CreateResumableSourceDraft()));
-        }
-
-        string path = store.GetStoragePath(scope);
-        File.WriteAllText(
-            path,
-            File.ReadAllText(path)
-                .Replace(
-                    $"\"version\":{FileCaptionDraftStore.CurrentVersion}",
-                    "\"version\":2")
-                .Replace("\"requestKeyNamePending\":true", "\"requestKeyNamePending\":false"));
-
-        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? reopened), Is.True);
-        using (reopened)
-        {
-            CaptionDraftEntry? restored = reopened!.Read().Entry;
-
-            Assert.That(restored, Is.Not.Null);
-            Assert.That(
-                restored!.Draft.SourceTranscriptionResume?.RequestKeyNamePending,
-                Is.False,
-                "A draft that says the run settled is not a paid recovery.");
-        }
     }
 
     [Test]
@@ -551,7 +434,8 @@ public sealed class CaptionDraftStoreTests
                 1,
                 "seed-of-the-run",
                 "openai/whisper-1",
-                true));
+                true,
+                SourceStartSamples: 0));
     }
 
     private static CaptionDraft CreateUnstartedDraft()
@@ -580,7 +464,8 @@ public sealed class CaptionDraftStoreTests
                 null,
                 0,
                 "seed-of-the-run",
-                "openai/whisper-1"));
+                "openai/whisper-1",
+                SourceStartSamples: 0));
     }
 
     private static CaptionDraft CreateDraft()
@@ -679,6 +564,38 @@ public sealed class CaptionDraftStoreTests
                 Assert.That(restored.Draft.TranslationResume.MaxRequestBytes,
                     Is.EqualTo(96 * 1024));
             }
+        }
+    }
+
+    [Test]
+    public void Save_RejectsATranslationRunWithoutItsLimits()
+    {
+        // Every build records the limits a run was batched with, so a run without them is not a draft.
+        var store = new FileCaptionDraftStore(_storageDirectory);
+        var cue = new StoredCaptionCue(0, TimeSpan.FromSeconds(1).Ticks, "Hello", null, "en", []);
+        var draft = new CaptionDraft(
+            FileCaptionDraftStore.CurrentVersion,
+            [cue],
+            "ja",
+            null,
+            CaptionDraftKind.Translation,
+            1,
+            2,
+            new CaptionTranslationResume(
+                [cue],
+                "en",
+                "en",
+                "ja",
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["line-1"] = "こんにちは" },
+                1),
+            null);
+
+        Assert.That(store.TryOpen(CreateScope(), out ICaptionDraftSession? session), Is.True);
+        using (session)
+        {
+            Assert.That(
+                () => session!.Save(new CaptionDraftEntry("job-translation", draft)),
+                Throws.ArgumentException);
         }
     }
 

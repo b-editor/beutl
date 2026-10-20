@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Beutl.Collections;
@@ -19,109 +18,7 @@ public record ContextCommandEntry(
 
 public record ContextCommandParsedKeyGesture(KeyGesture? KeyGesture, OSPlatform Platform);
 
-public record ContextCommandHandler(MethodInfo MethodInfo, ParameterInfo[] Parameters)
-{
-    public Task InvokeAsync(object context, KeyEventArgs args, ILogger logger)
-    {
-        object? result;
-        switch (Parameters.Length)
-        {
-            case 0:
-                args.Handled = true;
-                result = MethodInfo.Invoke(context, []);
-                break;
-            case 1 when Parameters[0].ParameterType == typeof(KeyEventArgs):
-                result = MethodInfo.Invoke(context, [args]);
-                break;
-            default:
-                logger.LogWarning("Invalid parameter count: {ParameterCount}", Parameters.Length);
-                return Task.CompletedTask;
-        }
-
-        if (result is Task task)
-        {
-            return task;
-        }
-
-        if (result is ValueTask valueTask)
-        {
-            return valueTask.AsTask();
-        }
-
-        if (MethodInfo.ReturnType != typeof(void))
-        {
-            logger.LogWarning(
-                "Invalid context command return type: {ReturnType}",
-                MethodInfo.ReturnType);
-        }
-
-        return Task.CompletedTask;
-    }
-}
-
-public class ContextCommandHandlerRegistry : IBeutlApiResource
-{
-    private readonly ILogger _logger = Log.CreateLogger<ContextCommandHandlerRegistry>();
-    private readonly Dictionary<Type, Dictionary<string, ContextCommandHandler>> _handlers = new();
-
-    internal static string GetFullName(Type extensionType, string name)
-    {
-        return GetFullName(extensionType.Namespace, extensionType.Name, name);
-    }
-
-    internal static string GetFullName(string? typeNamespace, string typeName, string name)
-    {
-        return typeNamespace == null
-            ? $"{typeName}.{name}"
-            : $"{typeNamespace}.{typeName}.{name}";
-    }
-
-    public void Register(Type contextType, Type extensionType)
-    {
-        var dict = _handlers.GetValueOrDefault(contextType);
-        if (dict == null)
-        {
-            dict = new Dictionary<string, ContextCommandHandler>();
-            _handlers[contextType] = dict;
-        }
-
-        foreach (MethodInfo method in contextType.GetMethods())
-        {
-            if (method.GetCustomAttribute<ContextCommandAttribute>() is not { } attr)
-                continue;
-
-            string key = GetFullName(extensionType, attr.Name ?? method.Name);
-            if (!dict.TryAdd(key, new ContextCommandHandler(method, method.GetParameters())))
-            {
-                _logger.LogWarning("Duplicate context command: {Key}", key);
-            }
-        }
-    }
-
-    public ContextCommandHandler? GetHandler(ContextCommandEntry entry)
-    {
-        var key = GetFullName(entry.ExtensionType, entry.Definition.Name);
-        foreach (Dictionary<string, ContextCommandHandler> d in _handlers.Values)
-        {
-            var i = d.GetValueOrDefault(key);
-            if (i != null)
-            {
-                return i;
-            }
-        }
-
-        return null;
-    }
-
-    public bool IsRegistered(Type contextType)
-    {
-        return _handlers.ContainsKey(contextType);
-    }
-}
-
-public class ContextCommandManager(
-    ContextCommandSettingsStore settingsStore,
-    ContextCommandHandlerRegistry handlerRegistry)
+public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
     : IBeutlApiResource
 {
     private readonly ILogger _logger = Log.CreateLogger<ContextCommandManager>();
@@ -229,8 +126,20 @@ public class ContextCommandManager(
             platform);
     }
 
+    internal static string GetFullName(Type extensionType, string name)
+    {
+        return GetFullName(extensionType.Namespace, extensionType.Name, name);
+    }
+
+    internal static string GetFullName(string? typeNamespace, string typeName, string name)
+    {
+        return typeNamespace == null
+            ? $"{typeName}.{name}"
+            : $"{typeNamespace}.{typeName}.{name}";
+    }
+
     private static string GetFullName(ContextCommandEntry entry)
-        => ContextCommandHandlerRegistry.GetFullName(entry.ExtensionType, entry.Definition.Name);
+        => GetFullName(entry.ExtensionType, entry.Definition.Name);
 
     private void Restore(ContextCommandEntry[] entries)
     {
@@ -267,7 +176,7 @@ public class ContextCommandManager(
             settingsStore.Restore(GetFullName(entry)).ToList();
         foreach (FormerTypeName former in TypeFormat.GetFormerNames(entry.ExtensionType))
         {
-            string formerKey = ContextCommandHandlerRegistry.GetFullName(
+            string formerKey = GetFullName(
                 former.Namespace, former.Name, entry.Definition.Name);
             foreach ((OSPlatform Platform, IReadOnlyList<KeyGesture?> Gestures) item in settingsStore.Restore(formerKey))
             {
@@ -293,7 +202,7 @@ public class ContextCommandManager(
                     return;
 
                 await ExecuteSafelyAsync(
-                    () => DispatchAsync(context, args, entries, extension.GetType(), logger),
+                    () => DispatchAsync(context, args, entries),
                     logger);
             };
         }
@@ -317,12 +226,10 @@ public class ContextCommandManager(
         }
     }
 
-    private async Task DispatchAsync(
+    private static async Task DispatchAsync(
         object context,
         KeyEventArgs args,
-        ContextCommandEntry[] entries,
-        Type extensionType,
-        ILogger logger)
+        ContextCommandEntry[] entries)
     {
         OSPlatform pid = CurrentPlatform();
         if (context is IContextCommandHandler compiledHandler)
@@ -347,26 +254,6 @@ public class ContextCommandManager(
                 return;
             }
         }
-
-        Type contextType = context.GetType();
-        if (!handlerRegistry.IsRegistered(contextType))
-        {
-            handlerRegistry.Register(contextType, extensionType);
-        }
-
-        foreach (ContextCommandEntry entry in entries)
-        {
-            if (!HasMatchingGesture(entry, pid, args))
-            {
-                continue;
-            }
-
-            if (handlerRegistry.GetHandler(entry) is { } handler)
-            {
-                await handler.InvokeAsync(context, args, logger);
-                return;
-            }
-        }
     }
 
     private static OSPlatform CurrentPlatform()
@@ -380,7 +267,7 @@ public class ContextCommandManager(
             .All(gesture => gesture.KeyGesture?.Matches(args) != true);
 }
 
-public record ContextCommandSettingsStore : IBeutlApiResource
+public sealed class ContextCommandSettingsStore : IBeutlApiResource
 {
     private const string KeymapFileName = "keymap.json";
 
@@ -400,7 +287,7 @@ public record ContextCommandSettingsStore : IBeutlApiResource
         _persist = persist;
     }
 
-    public virtual void Save(string name, IReadOnlyList<KeyGesture?> gestures, OSPlatform os)
+    public void Save(string name, IReadOnlyList<KeyGesture?> gestures, OSPlatform os)
     {
         string platform = os.ToString();
         if (!_json.TryGetPropertyValue(platform, out var node)
@@ -434,7 +321,7 @@ public record ContextCommandSettingsStore : IBeutlApiResource
     /// its defaults). Entries written before multi-gesture support — a plain string or null
     /// instead of an array — are read as a single-element list.
     /// </summary>
-    public virtual IEnumerable<(OSPlatform Platform, IReadOnlyList<KeyGesture?> Gestures)> Restore(string name)
+    public IEnumerable<(OSPlatform Platform, IReadOnlyList<KeyGesture?> Gestures)> Restore(string name)
     {
         foreach (var (key, node) in _json)
         {

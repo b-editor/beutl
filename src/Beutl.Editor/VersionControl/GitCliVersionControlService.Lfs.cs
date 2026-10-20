@@ -178,14 +178,14 @@ internal sealed partial class GitCliVersionControlService
         GitCommandResult candidates;
         try
         {
+            // The search reads every blob of the target, media included.
             candidates = await runner.RunAsync(
                     repository,
                     grepArguments,
-                    GitCommandOptions.Local with
-                    {
-                        MaxStdoutBytes = MaxLfsObjectListOutputBytes,
-                        CaptureStdoutBytes = true,
-                    },
+                    new GitCommandOptions(
+                        GitCommandExecutionKind.LocalUnbounded,
+                        MaxStdoutBytes: MaxLfsObjectListOutputBytes,
+                        CaptureStdoutBytes: true),
                     cancellationToken)
                 .ConfigureAwait(false);
         }

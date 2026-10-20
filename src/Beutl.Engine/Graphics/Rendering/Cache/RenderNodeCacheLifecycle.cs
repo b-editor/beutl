@@ -12,6 +12,7 @@ internal sealed class RenderNodeCacheLifecycle
 
     internal static RenderNodeCacheLifecycle Create(RenderNode root)
     {
+        ArgumentNullException.ThrowIfNull(root);
         var snapshots = new Dictionary<RenderNode, NodeSnapshot>(ReferenceEqualityComparer.Instance);
         Collect(root, snapshots);
 

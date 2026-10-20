@@ -21,13 +21,10 @@
                 <ResourceInclude Source="/Styling/SimpleBreadcrumbBar.axaml" />
 
                 <ResourceInclude Source="/Styling/ProgressRing.axaml" />
-                <ResourceInclude Source="/Styling/FileInputArea.axaml" />
                 <ResourceInclude Source="/Styling/ContextMenu.axaml" />
                 <ResourceInclude Source="/Styling/Separator.axaml" />
-                <ResourceInclude Source="/Styling/ListRadioButton.axaml" />
                 <ResourceInclude Source="/Styling/SegmentedControl.axaml" />
                 <ResourceInclude Source="/Styling/LiteNav.axaml" />
-                <ResourceInclude Source="/Styling/FlipButton.axaml" />
                 <ResourceInclude Source="/Styling/OptionsDisplayItem.axaml" />
                 <ResourceInclude Source="/Styling/Player.axaml" />
 
@@ -40,7 +37,6 @@
                 <ResourceInclude Source="/Styling/PropertyEditors/AlignmentXEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/BooleanEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/ColorEditor.axaml" />
-                <ResourceInclude Source="/Styling/PropertyEditors/GradingColorComponentsEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/GradingColorEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/GradingColorPicker.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/GradingWheel.axaml" />
@@ -132,20 +128,30 @@
 
     <StyleInclude Source="avares://Beutl.Controls/Styling/ToolTabNavigation.axaml" />
 
-    <!--<Style Selector="PopupRoot">
-        <Setter Property="TransparencyLevelHint" Value="AcrylicBlur" />
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="TransparencyBackgroundFallback" Value="Transparent" />
-    </Style>-->
     <Style Selector="MenuFlyoutPresenter /template/ Border#LayoutRoot">
         <Setter Property="Background" Value="{DynamicResource AcrylicInAppFillColorDefaultBrush}" />
     </Style>
 
-    <Style Selector="Border.CardStyle">
-        <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+    <!--  Opacity rather than IsVisible: the row must not change height when actions appear.  -->
+    <Style Selector="ListBoxItem :is(Button).row-action">
+        <Setter Property="Opacity" Value="0" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+    <Style Selector="ListBoxItem:pointerover :is(Button).row-action">
+        <Setter Property="Opacity" Value="1" />
+        <Setter Property="IsHitTestVisible" Value="True" />
+    </Style>
+    <Style Selector="ListBoxItem:selected :is(Button).row-action">
+        <Setter Property="Opacity" Value="1" />
+        <Setter Property="IsHitTestVisible" Value="True" />
+    </Style>
+
+    <Style Selector="Border.OverlayCard">
+        <Setter Property="Background" Value="{DynamicResource SolidBackgroundFillColorBaseBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource OverlayCornerRadius}" />
+        <Setter Property="BoxShadow" Value="0 8 32 0 #40000000" />
     </Style>
 
     <Style Selector=":is(InputElement).transparent">
@@ -156,6 +162,7 @@
     <Style Selector="ToggleSwitch">
         <Setter Property="OnContent" Value="{x:Static lang:Strings.On}" />
         <Setter Property="OffContent" Value="{x:Static lang:Strings.Off}" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="TextBox">
         <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -163,12 +170,6 @@
     <Style Selector="CheckBox">
         <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
-    <Style Selector="ToggleSwitch">
-        <Setter Property="VerticalContentAlignment" Value="Center" />
-    </Style>
-    <!-- <Style Selector="ComboBox"> -->
-    <!--     <Setter Property="VerticalContentAlignment" Value="Center" /> -->
-    <!-- </Style> -->
     <Style Selector="ComboBox /template/ ContentPresenter#ContentPresenter">
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
@@ -208,6 +209,5 @@
         <Setter Property="FontSize" Value="16" />
     </Style>
 
-    <StyleInclude Source="avares://Beutl.Controls/Styling/NavigationView.axaml" />
     <StyleInclude Source="avares://Beutl.Controls/Styling/Placeholder.axaml" />
 </Styles>

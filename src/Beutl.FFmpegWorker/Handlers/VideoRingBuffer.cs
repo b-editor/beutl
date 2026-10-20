@@ -7,17 +7,13 @@ namespace Beutl.FFmpegWorker.Handlers;
 internal struct RingBufferReadResult
 {
     public bool Success;
-    public int SlotIndex;
     public long SlotDataOffset;
     public int Width;
     public int Height;
     public int BytesPerPixel;
-    public int DataLength;
-    public bool IsHdr;
     public string? NewSharedMemoryName;
     public long NewSlotSize;
     public int NewSlotCount;
-    public bool ColorSpaceChanged;
     public float[]? TransferFn;
     public float[]? ToXyzD50;
 }
@@ -105,7 +101,6 @@ internal sealed class VideoRingBuffer : IDisposable
             _prefetchCts.Cancel();
             try { _prefetchTask?.Wait(); }
             catch (AggregateException) { }
-            catch (OperationCanceledException) { }
             _prefetchCts.Dispose();
             _prefetchCts = null;
             _prefetchTask = null;
@@ -145,14 +140,10 @@ internal sealed class VideoRingBuffer : IDisposable
         return new RingBufferReadResult
         {
             Success = true,
-            SlotIndex = hitSlot,
             SlotDataOffset = hitSlot * _slotSize,
             Width = slotMeta.Width,
             Height = slotMeta.Height,
             BytesPerPixel = slotMeta.BytesPerPixel,
-            DataLength = slotMeta.DataLength,
-            IsHdr = slotMeta.IsHdr,
-            ColorSpaceChanged = colorSpaceChanged,
             TransferFn = colorSpaceChanged ? _lastTransferFn : null,
             ToXyzD50 = colorSpaceChanged ? _lastToXyzD50 : null,
         };
@@ -194,17 +185,13 @@ internal sealed class VideoRingBuffer : IDisposable
         return new RingBufferReadResult
         {
             Success = true,
-            SlotIndex = writeSlot,
             SlotDataOffset = offset,
             Width = fi.Width,
             Height = fi.Height,
             BytesPerPixel = fi.BytesPerPixel,
-            DataLength = fi.DataLength,
-            IsHdr = fi.IsHdr,
             NewSharedMemoryName = newShmName,
             NewSlotSize = newShmName != null ? _slotSize : 0,
             NewSlotCount = newShmName != null ? _slotCount : 0,
-            ColorSpaceChanged = colorSpaceChanged,
             TransferFn = colorSpaceChanged ? _lastTransferFn : null,
             ToXyzD50 = colorSpaceChanged ? _lastToXyzD50 : null,
         };
@@ -215,7 +202,7 @@ internal sealed class VideoRingBuffer : IDisposable
     {
         bool colorSpaceChanged = _lastColorSpace != colorSpace;
         _lastColorSpace = colorSpace;
-        if (colorSpaceChanged || _lastToXyzD50 == null || _lastTransferFn == null)
+        if (colorSpaceChanged)
         {
             (_lastTransferFn, _lastToXyzD50) = ColorSpaceIpcHelper.Extract(colorSpace);
         }
@@ -226,7 +213,7 @@ internal sealed class VideoRingBuffer : IDisposable
     // Call with ReaderLock held.
     private void CommitSlot(int slot, int frame, VideoFrameInfo info)
     {
-        _slots[slot] = SlotMetadata.FromFrameInfo(frame, info);
+        _slots[slot] = SlotMetadata.FromFrameInfo(info);
         _slotFrameNumbers[slot] = frame;
         _nextWriteSlot = (slot + 1) % _slotCount;
     }
@@ -247,7 +234,7 @@ internal sealed class VideoRingBuffer : IDisposable
                 return frameInfo;
 
             // バッファが小さい場合リサイズして再試行
-            if (frameInfo.DataLength > 0 && frameInfo.DataLength > _slotSize)
+            if (frameInfo.DataLength > _slotSize)
             {
                 VideoBuffer.ReleasePointer();
                 ptr = null;
@@ -284,13 +271,11 @@ internal sealed class VideoRingBuffer : IDisposable
         if (_prefetchCts != null)
         {
             _prefetchCts.Cancel();
-            _prefetchSignal.Set(); // Wait中のスレッドを起こす
 
             // ロックを一時解放してプリフェッチスレッドの終了を待つ
             _readerLock.Release();
             try { _prefetchTask?.Wait(); }
             catch (AggregateException) { }
-            catch (OperationCanceledException) { }
             _readerLock.Wait();
 
             _prefetchCts.Dispose();
@@ -397,8 +382,7 @@ internal sealed class VideoRingBuffer : IDisposable
         {
             var destination = new Span<byte>(pfPtr + slotOffset, (int)_slotSize);
 
-            if (_reader.ReadVideo(nextFrame, destination, out var pfInfo)
-                && pfInfo.DataLength <= _slotSize)
+            if (_reader.ReadVideo(nextFrame, destination, out var pfInfo))
             {
                 CommitSlot(writeSlot, nextFrame, pfInfo);
                 return true;
@@ -414,24 +398,18 @@ internal sealed class VideoRingBuffer : IDisposable
 
     internal struct SlotMetadata
     {
-        public int FrameNumber;
         public int Width;
         public int Height;
         public int BytesPerPixel;
-        public int DataLength;
-        public bool IsHdr;
         public BitmapColorSpace ColorSpace;
 
-        public static SlotMetadata FromFrameInfo(int frameNumber, VideoFrameInfo fi)
+        public static SlotMetadata FromFrameInfo(VideoFrameInfo fi)
         {
             return new SlotMetadata
             {
-                FrameNumber = frameNumber,
                 Width = fi.Width,
                 Height = fi.Height,
                 BytesPerPixel = fi.BytesPerPixel,
-                DataLength = fi.DataLength,
-                IsHdr = fi.IsHdr,
                 ColorSpace = fi.ColorSpace
             };
         }

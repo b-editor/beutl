@@ -1,6 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.Reactive.Linq;
+﻿using System.Reactive.Linq;
 
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -11,8 +9,6 @@ using Beutl.Editor.Services;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Models;
-using Beutl.ProjectSystem;
-using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
@@ -27,158 +23,104 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class PreviewRenderErrorTests
 {
-    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
-
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
     private static async Task<EditViewModel> OpenEditorForNewScene(string name)
     {
-        Project project = (await TestShell.Project.CreateProject(
-            320, 240, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        EditViewModel editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-
-        // Opening a scene queues a preview render that is dispatched asynchronously to the
-        // render thread; when it succeeds it posts a clear of PreviewRenderError. Drain it
-        // (and the queued clear) so tests start from a settled state and a manual error set
-        // cannot be clobbered by the scene-open render's completion.
-        DrainPendingPreviewRender();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync(name, 320, 240);
+        // The scene-open preview render is dispatched asynchronously to the render thread;
+        // when it succeeds it queues a clear of PreviewRenderError. Drain it (and the queued
+        // clear) so a manual error set below is guaranteed to be the latest update.
+        RenderThreadDrain.Drain(TimeSpan.FromSeconds(10));
         return editor;
     }
 
-    // The scene-open preview render is dispatched asynchronously to the render thread;
-    // when it succeeds it queues a clear of PreviewRenderError. Drain it (and the queued
-    // clear) so a manual error set below is guaranteed to be the latest update.
-    private static void DrainPendingPreviewRender()
-    {
-        HeadlessTestHelpers.Settle();
-        // The barrier is a blocking call; bound it so a render-thread deadlock or regression
-        // fails the test with a stack trace instead of hanging the whole headless run.
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        RenderThread.Dispatcher.Invoke(static () => { }, ct: timeout.Token);
-        HeadlessTestHelpers.Settle();
-    }
-
-    private static async Task AddFaultingDrawable(EditViewModel editor)
+    private static async Task AddDrawableAsync(EditViewModel editor, Drawable drawable)
     {
         var adder = (IElementAdder)editor.GetRequiredService<IElementAdder>();
         await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.Zero,
             Length: TimeSpan.FromSeconds(2),
             Layer: 0,
-            Source: new ElementSource.EngineObject(() => new PreviewFaultDrawable()))],
+            Source: new ElementSource.EngineObject(() => drawable))],
             CancellationToken.None);
-        editor.FrameCacheManager.Value.Clear();
     }
 
     [AvaloniaTest]
     public async Task QueuePreviewRender_WhenRenderingFails_ShowsPreviewErrorUntilRecoveryWithoutNotification()
     {
         TestGpu.RequireAnyDevice();
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("preview-error");
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
+        using var notifications = new NotificationCapture();
 
-        try
-        {
-            NotificationService.Handler = notifications;
-            var errorReported = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-            using IDisposable subscription = editor.Player.PreviewRenderError
-                .Where(static message => !string.IsNullOrEmpty(message))
-                .Take(1)
-                .Subscribe(message => errorReported.TrySetResult(message!));
+        var errorReported = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using IDisposable subscription = editor.Player.PreviewRenderError
+            .Where(static message => !string.IsNullOrEmpty(message))
+            .Take(1)
+            .Subscribe(message => errorReported.TrySetResult(message!));
 
-            await AddFaultingDrawable(editor);
-            editor.Player.QueuePreviewRender();
+        await AddDrawableAsync(editor, new PreviewFaultDrawable());
+        editor.FrameCacheManager.Value.Clear();
+        editor.Player.QueuePreviewRender();
 
-            string message = await errorReported.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        string message = await errorReported.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-            Assert.That(message, Is.EqualTo(Beutl.Language.MessageStrings.FrameDrawingException));
-            Assert.That(notifications.Notifications, Is.Empty);
+        Assert.That(message, Is.EqualTo(Beutl.Language.MessageStrings.FrameDrawingException));
+        Assert.That(notifications.All, Is.Empty);
 
-            var errorCleared = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            using IDisposable recoverySubscription = editor.Player.PreviewRenderError
-                .Where(static current => string.IsNullOrEmpty(current))
-                .Take(1)
-                .Subscribe(_ => errorCleared.TrySetResult(true));
-            var structure = editor.GetRequiredService<IElementStructureService>();
-            structure.Delete(editor.Scene, editor.Scene.Children.ToArray());
-            editor.FrameCacheManager.Value.Clear();
-            editor.Player.QueuePreviewRender();
+        var errorCleared = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using IDisposable recoverySubscription = editor.Player.PreviewRenderError
+            .Where(static current => string.IsNullOrEmpty(current))
+            .Take(1)
+            .Subscribe(_ => errorCleared.TrySetResult(true));
+        var structure = editor.GetRequiredService<IElementStructureService>();
+        structure.Delete(editor.Scene, editor.Scene.Children.ToArray());
+        editor.FrameCacheManager.Value.Clear();
+        editor.Player.QueuePreviewRender();
 
-            await errorCleared.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await errorCleared.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-            Assert.That(editor.Player.PreviewRenderError.Value, Is.Null);
-            Assert.That(notifications.Notifications, Is.Empty);
-        }
-        finally
-        {
-            NotificationService.Handler = previousHandler;
-        }
+        Assert.That(editor.Player.PreviewRenderError.Value, Is.Null);
+        Assert.That(notifications.All, Is.Empty);
     }
 
     [AvaloniaTest]
     public async Task BufferedPlayer_WhenRenderingFails_StoresFailureWithoutNotification()
     {
         TestGpu.RequireAnyDevice();
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("buffered-preview-error");
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
+        using var notifications = new NotificationCapture();
 
-        try
-        {
-            NotificationService.Handler = notifications;
-            await AddFaultingDrawable(editor);
-            using var isPlaying = new ReactivePropertySlim<bool>(true);
-            using var player = new BufferedPlayer(
-                editor, isPlaying, editor.Player.GetFrameRate(), CancellationToken.None);
-
-            player.Start(PlaybackRangeOf(editor));
-            await WaitUntilAsync(() => player.ProducerStopped, TimeSpan.FromSeconds(5));
-
-            Assert.That(player.Failure, Is.Not.Null);
-            Assert.That(player.Failure!.Exception, Is.TypeOf<InvalidOperationException>());
-            Assert.That(player.Failure.Exception.Message, Is.EqualTo(PreviewFaultDrawable.ErrorMessage));
-            Assert.That(player.Failure.Frame, Is.EqualTo(0));
-            Assert.That(notifications.Notifications, Is.Empty);
-        }
-        finally
-        {
-            NotificationService.Handler = previousHandler;
-        }
-    }
-
-    [AvaloniaTest]
-    public async Task BufferedPlayer_WhenDrawableThrowsObjectDisposed_StoresFailure()
-    {
-        TestGpu.RequireAnyDevice();
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("buffered-object-disposed-error");
-        var adder = (IElementAdder)editor.GetRequiredService<IElementAdder>();
-        await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(2),
-            Layer: 0,
-            Source: new ElementSource.EngineObject(() => new PreviewObjectDisposedFaultDrawable()))],
-            CancellationToken.None);
+        await AddDrawableAsync(editor, new PreviewFaultDrawable());
         editor.FrameCacheManager.Value.Clear();
         using var isPlaying = new ReactivePropertySlim<bool>(true);
         using var player = new BufferedPlayer(
             editor, isPlaying, editor.Player.GetFrameRate(), CancellationToken.None);
 
         player.Start(PlaybackRangeOf(editor));
-        await WaitUntilAsync(() => player.ProducerStopped, TimeSpan.FromSeconds(5));
+        await HeadlessTestHelpers.WaitUntilAsync(() => player.ProducerStopped, TimeSpan.FromSeconds(5), pump: false);
+
+        Assert.That(player.Failure, Is.Not.Null);
+        Assert.That(player.Failure!.Exception, Is.TypeOf<InvalidOperationException>());
+        Assert.That(player.Failure.Exception.Message, Is.EqualTo(PreviewFaultDrawable.ErrorMessage));
+        Assert.That(player.Failure.Frame, Is.EqualTo(0));
+        Assert.That(notifications.All, Is.Empty);
+    }
+
+    [AvaloniaTest]
+    public async Task BufferedPlayer_WhenDrawableThrowsObjectDisposed_StoresFailure()
+    {
+        TestGpu.RequireAnyDevice();
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("buffered-object-disposed-error");
+        await AddDrawableAsync(editor, new PreviewObjectDisposedFaultDrawable());
+        editor.FrameCacheManager.Value.Clear();
+        using var isPlaying = new ReactivePropertySlim<bool>(true);
+        using var player = new BufferedPlayer(
+            editor, isPlaying, editor.Player.GetFrameRate(), CancellationToken.None);
+
+        player.Start(PlaybackRangeOf(editor));
+        await HeadlessTestHelpers.WaitUntilAsync(() => player.ProducerStopped, TimeSpan.FromSeconds(5), pump: false);
 
         Assert.That(player.Failure, Is.Not.Null);
         Assert.That(player.Failure!.Exception, Is.TypeOf<ObjectDisposedException>());
@@ -188,7 +130,7 @@ public class PreviewRenderErrorTests
     [AvaloniaTest]
     public async Task BufferedPlayer_DoesNotStartForACanceledPlaybackSession()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("canceled-buffered-player");
         using var isPlaying = new ReactivePropertySlim<bool>(true);
         using var playbackCts = new CancellationTokenSource();
@@ -200,7 +142,7 @@ public class PreviewRenderErrorTests
             playbackCts.Token);
 
         player.Start(PlaybackRangeOf(editor));
-        await WaitUntilAsync(() => player.ProducerStopped, TimeSpan.FromSeconds(5));
+        await HeadlessTestHelpers.WaitUntilAsync(() => player.ProducerStopped, TimeSpan.FromSeconds(5), pump: false);
 
         Assert.Multiple(() =>
         {
@@ -210,19 +152,15 @@ public class PreviewRenderErrorTests
     }
 
     [AvaloniaTest]
-    public async Task BufferedPlayer_WhenPlaybackIsCanceledDuringRendering_DoesNotStoreFailure()
+    [TestCase("canceled")]
+    [TestCase("disposed")]
+    public async Task BufferedPlayer_WhenStoppedDuringRendering_DoesNotStoreFailure(string stop)
     {
         TestGpu.RequireAnyDevice();
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("canceled-rendering-buffered-player");
-        var drawable = new ArmablePreviewFaultDrawable();
-        var adder = (IElementAdder)editor.GetRequiredService<IElementAdder>();
-        await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(2),
-            Layer: 0,
-            Source: new ElementSource.EngineObject(() => drawable))],
-            CancellationToken.None);
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene($"{stop}-rendering-buffered-player");
+        var drawable = new BlockingPreviewFaultDrawable();
+        await AddDrawableAsync(editor, drawable);
         HeadlessTestHelpers.Settle();
         RenderThread.Dispatcher.Invoke(static () => { });
         editor.FrameCacheManager.Value.Clear();
@@ -234,60 +172,22 @@ public class PreviewRenderErrorTests
             editor,
             isPlaying,
             editor.Player.GetFrameRate(),
-            playbackCts.Token);
+            stop == "canceled" ? playbackCts.Token : CancellationToken.None);
 
         try
         {
             player.Start(PlaybackRangeOf(editor));
             await drawable.RenderEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-            playbackCts.Cancel();
+            if (stop == "canceled")
+                playbackCts.Cancel();
+            else
+                player.Dispose();
+
             drawable.ReleaseRender();
 
-            await WaitUntilAsync(() => player.ProducerStopped, TimeSpan.FromSeconds(5));
-            Assert.That(player.Failure, Is.Null);
-        }
-        finally
-        {
-            drawable.ReleaseRender();
-        }
-    }
-
-    [AvaloniaTest]
-    public async Task BufferedPlayer_WhenDisposedDuringRendering_DoesNotStoreFailure()
-    {
-        TestGpu.RequireAnyDevice();
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("disposed-rendering-buffered-player");
-        var drawable = new ArmablePreviewFaultDrawable();
-        var adder = (IElementAdder)editor.GetRequiredService<IElementAdder>();
-        await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(2),
-            Layer: 0,
-            Source: new ElementSource.EngineObject(() => drawable))],
-            CancellationToken.None);
-        HeadlessTestHelpers.Settle();
-        RenderThread.Dispatcher.Invoke(static () => { });
-        editor.FrameCacheManager.Value.Clear();
-        drawable.Arm();
-
-        using var isPlaying = new ReactivePropertySlim<bool>(true);
-        using var player = new BufferedPlayer(
-            editor,
-            isPlaying,
-            editor.Player.GetFrameRate(),
-            CancellationToken.None);
-
-        try
-        {
-            player.Start(PlaybackRangeOf(editor));
-            await drawable.RenderEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-            player.Dispose();
-            drawable.ReleaseRender();
-
-            await WaitUntilAsync(() => player.ProducerStopped, TimeSpan.FromSeconds(5));
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => player.ProducerStopped, TimeSpan.FromSeconds(5), pump: false);
             Assert.That(player.Failure, Is.Null);
         }
         finally
@@ -300,15 +200,14 @@ public class PreviewRenderErrorTests
     public async Task Play_WhenRenderingFails_ShowsPreviewErrorAndStopsWithoutRenderNotification()
     {
         TestGpu.RequireAnyDevice();
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("playing-preview-error");
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
+        using var notifications = new NotificationCapture();
 
         try
         {
-            NotificationService.Handler = notifications;
-            await AddFaultingDrawable(editor);
+            await AddDrawableAsync(editor, new PreviewFaultDrawable());
+            editor.FrameCacheManager.Value.Clear();
             var errorReported = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
             using IDisposable subscription = editor.Player.PreviewRenderError
                 .Where(static message => !string.IsNullOrEmpty(message))
@@ -318,7 +217,8 @@ public class PreviewRenderErrorTests
             editor.Player.Play();
 
             string message = await errorReported.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            await WaitUntilAsync(() => !editor.Player.IsPlaying.Value, TimeSpan.FromSeconds(5));
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => !editor.Player.IsPlaying.Value, TimeSpan.FromSeconds(5), pump: false);
 
             Assert.Multiple(() =>
             {
@@ -326,21 +226,20 @@ public class PreviewRenderErrorTests
                 Assert.That(editor.Player.IsPlaying.Value, Is.False);
                 Assert.That(editor.FrameCacheManager.Value.CurrentFrame, Is.EqualTo(0));
                 Assert.That(
-                    notifications.Notifications.Select(static notification => notification.Message),
+                    notifications.All.Select(static notification => notification.Message),
                     Does.Not.Contain(Beutl.Language.MessageStrings.FrameDrawingException));
             });
         }
         finally
         {
             await editor.Player.Pause();
-            NotificationService.Handler = previousHandler;
         }
     }
 
     [AvaloniaTest]
     public async Task PlaybackRenderFailure_UpdatesPreviewStateAndStopsPlayback()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("playback-preview-error");
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
         const int frame = 7;
@@ -370,16 +269,11 @@ public class PreviewRenderErrorTests
     public async Task SupersededRenderFailure_DoesNotReplaceTheNewerSuccessfulPreview()
     {
         TestGpu.RequireAnyDevice();
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("superseded-preview-error");
-        var drawable = new SupersededPreviewFaultDrawable();
-        var adder = (IElementAdder)editor.GetRequiredService<IElementAdder>();
-        await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(2),
-            Layer: 0,
-            Source: new ElementSource.EngineObject(() => drawable))],
-            CancellationToken.None);
+        var drawable = new BlockingPreviewFaultDrawable();
+        drawable.Arm();
+        await AddDrawableAsync(editor, drawable);
         editor.FrameCacheManager.Value.Clear();
 
         try
@@ -392,7 +286,7 @@ public class PreviewRenderErrorTests
                 .Take(1)
                 .Subscribe(_ => rendered.TrySetResult(true));
             editor.Player.QueuePreviewRender();
-            drawable.ReleaseFirstRender();
+            drawable.ReleaseRender();
 
             await rendered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             HeadlessTestHelpers.Settle();
@@ -401,14 +295,15 @@ public class PreviewRenderErrorTests
         }
         finally
         {
-            drawable.ReleaseFirstRender();
+            drawable.ReleaseRender();
         }
     }
 
     [AvaloniaTest]
     public async Task PlayerView_TracksPreviewRenderErrorVisibility()
     {
-        await ResetProjectAsync();
+        TestGpu.RequireAnyDevice();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("preview-error-overlay");
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 640, Height = 480 };
@@ -431,7 +326,10 @@ public class PreviewRenderErrorTests
                 Is.EqualTo(AutomationLiveSetting.Assertive));
             Assert.That(overlay.IsVisible, Is.False);
 
-            editor.Player.SetPreviewRenderError(Beutl.Language.MessageStrings.FrameDrawingException);
+            editor.Player.ApplyPlaybackRenderFailure(
+                new BufferedPlayer.RenderFailure(new InvalidOperationException(PreviewFaultDrawable.ErrorMessage), 0),
+                editor.Player.GetFrameRate(),
+                static () => true);
             HeadlessTestHelpers.Render();
 
             Assert.That(overlay.IsVisible, Is.True);
@@ -440,7 +338,9 @@ public class PreviewRenderErrorTests
                 AutomationProperties.GetName(message),
                 Is.EqualTo(Beutl.Language.MessageStrings.FrameDrawingException));
 
-            editor.Player.SetPreviewRenderError(null);
+            // A preview render that succeeds clears the error.
+            editor.Player.QueuePreviewRender();
+            RenderThreadDrain.Drain(TimeSpan.FromSeconds(10));
             HeadlessTestHelpers.Render();
 
             Assert.That(overlay.IsVisible, Is.False);
@@ -453,21 +353,25 @@ public class PreviewRenderErrorTests
     }
 
     [AvaloniaTest]
-    public async Task PreviewRenderError_LatestQueuedUpdateWins()
+    public async Task PlaybackRenderFailure_FromAnotherThread_ShowsPreviewError()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("preview-error-order");
+        int rate = editor.Player.GetFrameRate();
 
-        await Task.Run(() =>
-        {
-            editor.Player.SetPreviewRenderError("superseded");
-            editor.Player.SetPreviewRenderError(Beutl.Language.MessageStrings.FrameDrawingException);
-        });
+        bool applied = await Task.Run(() => editor.Player.ApplyPlaybackRenderFailure(
+            new BufferedPlayer.RenderFailure(new InvalidOperationException(PreviewFaultDrawable.ErrorMessage), 0),
+            rate,
+            static () => true));
         HeadlessTestHelpers.Settle();
 
-        Assert.That(
-            editor.Player.PreviewRenderError.Value,
-            Is.EqualTo(Beutl.Language.MessageStrings.FrameDrawingException));
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(
+                editor.Player.PreviewRenderError.Value,
+                Is.EqualTo(Beutl.Language.MessageStrings.FrameDrawingException));
+        });
     }
 
     // The range PlayerViewModel plays: from the playhead to the end of the scene.
@@ -477,79 +381,35 @@ public class PreviewRenderErrorTests
             editor.Scene.Start,
             editor.Scene.Duration,
             editor.Player.GetFrameRate());
+}
 
-    private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
+// Measures 16x16 and draws nothing; each fault drawable overrides Render.
+internal abstract partial class PreviewFaultDrawableBase : Drawable
+{
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(16, 16);
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
-        var stopwatch = Stopwatch.StartNew();
-        while (!condition())
-        {
-            if (stopwatch.Elapsed >= timeout)
-            {
-                Assert.Fail($"Condition was not met within {timeout}.");
-            }
-
-            await Task.Delay(10);
-        }
-    }
-
-    private sealed class CaptureNotificationHandler : INotificationServiceHandler
-    {
-        public ConcurrentQueue<Notification> Notifications { get; } = new();
-
-        public void Show(Notification notification) => Notifications.Enqueue(notification);
     }
 }
 
-internal sealed partial class PreviewFaultDrawable : Drawable
+internal sealed partial class PreviewFaultDrawable : PreviewFaultDrawableBase
 {
     public const string ErrorMessage = "preview render failed";
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
         => throw new InvalidOperationException(ErrorMessage);
-
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(16, 16);
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
 }
 
-internal sealed partial class SupersededPreviewFaultDrawable : Drawable
-{
-    private readonly TaskCompletionSource<bool> _renderEntered =
-        new(TaskCreationOptions.RunContinuationsAsynchronously);
-    private readonly TaskCompletionSource<bool> _releaseFirstRender =
-        new(TaskCreationOptions.RunContinuationsAsynchronously);
-    private int _renderCount;
-
-    public TaskCompletionSource<bool> RenderEntered => _renderEntered;
-
-    public void ReleaseFirstRender() => _releaseFirstRender.TrySetResult(true);
-
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        if (Interlocked.Increment(ref _renderCount) == 1)
-        {
-            _renderEntered.TrySetResult(true);
-            _releaseFirstRender.Task.GetAwaiter().GetResult();
-            throw new InvalidOperationException(PreviewFaultDrawable.ErrorMessage);
-        }
-    }
-
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(16, 16);
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
-}
-
-internal sealed partial class ArmablePreviewFaultDrawable : Drawable
+// The first render after Arm() blocks until ReleaseRender() and then throws. Other renders draw nothing.
+internal sealed partial class BlockingPreviewFaultDrawable : PreviewFaultDrawableBase
 {
     private readonly TaskCompletionSource<bool> _renderEntered =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource<bool> _releaseRender =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
     private volatile bool _armed;
+    private int _armedRenderCount;
 
     public TaskCompletionSource<bool> RenderEntered => _renderEntered;
 
@@ -563,29 +423,17 @@ internal sealed partial class ArmablePreviewFaultDrawable : Drawable
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
-        if (!_armed)
+        if (!_armed || Interlocked.Increment(ref _armedRenderCount) != 1)
             return;
 
         _renderEntered.TrySetResult(true);
         _releaseRender.Task.GetAwaiter().GetResult();
         throw new InvalidOperationException(PreviewFaultDrawable.ErrorMessage);
     }
-
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(16, 16);
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
 }
 
-internal sealed partial class PreviewObjectDisposedFaultDrawable : Drawable
+internal sealed partial class PreviewObjectDisposedFaultDrawable : PreviewFaultDrawableBase
 {
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
         => throw new ObjectDisposedException(nameof(PreviewObjectDisposedFaultDrawable));
-
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(16, 16);
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
 }

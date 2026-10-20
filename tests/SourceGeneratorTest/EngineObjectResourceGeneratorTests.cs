@@ -44,6 +44,13 @@ public class EngineObjectResourceGeneratorTests
             Assert.That(derived, Does.Contain("X.SetAttributes(\"X\", __attrs_X);"));
             Assert.That(derived, Does.Contain("Y.SetAttributes(\"Y\", __attrs_Y);"));
 
+            Assert.That(derived, Does.Contain("public global::SourceGeneratorTest.TextAlignment TextAlignment"));
+            Assert.That(derived, Does.Contain("set => _textAlignment = value;"));
+            Assert.That(derived, Does.Contain(
+                "ResourceReconciler.ReconcileValue(this, context, ((global::SourceGeneratorTest.Derived)obj).TextAlignment, ref _textAlignment, ref versionBumped);"));
+            Assert.That(derived, Does.Contain("yield return TextAlignment;"));
+            Assert.That(derived, Does.Contain("TextAlignment.SetAttributes(\"TextAlignment\", __attrs_TextAlignment);"));
+
             Assert.That(derived2, Does.Contain("Derived.Resource"));
             Assert.That(derived2, Does.Contain("public float Z"));
             Assert.That(derived2, Does.Contain("yield return Z;"));
@@ -52,18 +59,13 @@ public class EngineObjectResourceGeneratorTests
             Assert.That(derived3, Does.Contain("ResourceReconciler.ReconcileChild(this, context"));
             Assert.That(derived3, Does.Contain("set => _child = value;"));
             Assert.That(derived3, Does.Contain("set => _optionalChild = value;"));
-            Assert.That(derived3, Does.Not.Contain("SetOwnedResource"));
-            Assert.That(derived3, Does.Not.Contain("ReplaceChild("));
-            Assert.That(derived3, Does.Not.Contain("DetachChild()"));
             Assert.That(derived3, Does.Contain(
                 "get => _child ?? throw new global::System.InvalidOperationException"));
-            Assert.That(derived3, Does.Not.Contain("DetachOptionalChild()"));
-            Assert.That(derived3, Does.Not.Contain("ReplaceOptionalChild("));
             Assert.That(derived3, Does.Contain("_child?.Dispose();"));
             Assert.That(derived3, Does.Contain("Items"));
             Assert.That(derived3, Does.Contain("ResourceReconciler.ReconcileChildren(this, context"));
             Assert.That(derived3, Does.Contain("foreach (var item in"));
-            Assert.That(derived3, Does.Contain("item?.Dispose();"));
+            Assert.That(derived3, Does.Contain("item.Dispose();"));
         });
     }
 }

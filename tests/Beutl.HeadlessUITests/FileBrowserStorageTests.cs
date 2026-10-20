@@ -8,7 +8,6 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.Interactivity;
-using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -116,16 +115,11 @@ public sealed class FileBrowserStorageTests
     [AvaloniaTest]
     public async Task BeutlConnectionIsLazyAndReturningToLocalCancelsRequestsAndAuthenticationSubscriptions()
     {
-        using var handler = new Handler();
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SignIn(clients, "a");
-        var provider = BeutlProvider(clients);
-        using var vm = Create(provider);
+        await using BeutlStorage storage = CreateBeutlStorage();
+        var (handler, clients, vm) = storage;
         Assert.That(handler.Requests, Is.Empty);
-        vm.OpenStorage(provider);
-        await WaitFor(() => handler.Requests.Count == 1);
-        var browser = (CloudStorageViewModel)vm.StorageBrowser.Value!;
+        await storage.OpenAsync();
+        CloudStorageViewModel browser = storage.Browser;
         vm.ShowLocalFiles();
         Assert.That(handler.Requests[0].Token.IsCancellationRequested, Is.True);
         handler.Requests[0].Complete(Response());
@@ -160,17 +154,11 @@ public sealed class FileBrowserStorageTests
     }
 
     [AvaloniaTest]
-    public void LegacyStorageVisibilitySettingDoesNotHideRegisteredServices()
+    public void ViewConfigDropsTheRemovedStorageVisibilitySetting()
     {
         var config = new ViewConfig();
         CoreSerializer.PopulateFromJsonObject(config, new JsonObject { ["ShowStorageServices"] = false });
         Assert.That(CoreSerializer.SerializeToJsonObject(config).ContainsKey("ShowStorageServices"), Is.False);
-        var provider = new TestProvider("test", "Test storage");
-        using var vm = Create(provider);
-        Assert.That(vm.HasStorageProviders, Is.True);
-        Assert.That(provider.Browsers, Is.Empty, "Being available in the menu must not connect automatically.");
-        vm.OpenStorage(provider);
-        Assert.That(vm.ActiveStorageProvider.Value, Is.SameAs(provider));
     }
 
     [AvaloniaTest]
@@ -206,17 +194,10 @@ public sealed class FileBrowserStorageTests
     [AvaloniaTest]
     public async Task StorageUsesSharedFileItemsAndToolbarNavigation()
     {
-        using var handler = new Handler();
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SignIn(clients, "a");
-        var provider = BeutlProvider(clients);
-        using var vm = Create(provider);
-        vm.OpenStorage(provider);
-        var browser = (CloudStorageViewModel)vm.StorageBrowser.Value!;
-        await WaitFor(() => handler.Requests.Count == 1);
-        handler.Requests[0].Complete(Response());
-        await WaitFor(() => !browser.IsLoading.Value);
+        await using BeutlStorage storage = CreateBeutlStorage();
+        var (handler, _, vm) = storage;
+        await storage.OpenAsync(Response());
+        CloudStorageViewModel browser = storage.Browser;
         var view = new FileBrowserTabView { DataContext = vm };
         var window = new Window { Content = view, Width = 640, Height = 520 };
         try
@@ -262,16 +243,9 @@ public sealed class FileBrowserStorageTests
     [TestCase(640, true)]
     public async Task IntegratedStorageRemainsUsableAtNarrowWidths(int width, bool light)
     {
-        using var handler = new Handler();
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SignIn(clients, "a");
-        var provider = BeutlProvider(clients);
-        using var vm = Create(provider);
-        vm.OpenStorage(provider);
-        await WaitFor(() => handler.Requests.Count == 1);
-        handler.Requests[0].Complete(Response(name: "非常に長い日本語の映像素材-September-2026.mp4"));
-        await WaitFor(() => !((CloudStorageViewModel)vm.StorageBrowser.Value!).IsLoading.Value);
+        await using BeutlStorage storage = CreateBeutlStorage();
+        FileBrowserTabViewModel vm = storage.Tab;
+        await storage.OpenAsync(Response(name: "非常に長い日本語の映像素材-September-2026.mp4"));
         var view = new FileBrowserTabView { DataContext = vm };
         var window = new Window
         {
@@ -292,12 +266,6 @@ public sealed class FileBrowserStorageTests
                 Assert.That(button.TranslatePoint(default, view)!.Value.X + button.Bounds.Width,
                     Is.LessThanOrEqualTo(width));
             }
-            if (Environment.GetEnvironmentVariable("BEUTL_STORAGE_CAPTURE") is { Length: > 0 } path)
-            {
-                Directory.CreateDirectory(path);
-                using var image = window.CaptureRenderedFrame();
-                image?.Save(Path.Combine(path, $"integrated-storage-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
-            }
         }
         finally { window.Close(); }
     }
@@ -307,17 +275,10 @@ public sealed class FileBrowserStorageTests
     [TestCase(true)]
     public async Task DraggingMoveOnlyItemsToTheRootBreadcrumbDoesNotExportThem(bool isFolder)
     {
-        using var handler = new Handler();
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SignIn(clients, "a");
-        var provider = BeutlProvider(clients);
-        using var vm = Create(provider);
-        vm.OpenStorage(provider);
-        var browser = (CloudStorageViewModel)vm.StorageBrowser.Value!;
-        await WaitFor(() => handler.Requests.Count == 1);
-        handler.Requests[0].Complete(Response());
-        await WaitFor(() => !browser.IsLoading.Value);
+        await using BeutlStorage storage = CreateBeutlStorage();
+        var (handler, _, vm) = storage;
+        await storage.OpenAsync(Response());
+        CloudStorageViewModel browser = storage.Browser;
         var navigation = browser.OpenFolderAsync(browser.Items[0]);
         await WaitFor(() => handler.Requests.Count == 2);
         var response = JsonNode.Parse(Response(folder: "folder & 日本"))!;
@@ -373,18 +334,11 @@ public sealed class FileBrowserStorageTests
     [TestCase(true, true)]
     public async Task NativeStorageMovesReleaseStagingAfterFolderOrBreadcrumbDrops(bool breadcrumb, bool failure)
     {
-        using var handler = new Handler();
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SignIn(clients, "a");
-        var provider = BeutlProvider(clients);
-        using var vm = Create(provider);
-        vm.OpenStorage(provider);
-        var browser = (CloudStorageViewModel)vm.StorageBrowser.Value!;
+        await using BeutlStorage storage = CreateBeutlStorage();
+        var (handler, _, vm) = storage;
         string? sourceFolder = breadcrumb ? "folder & 日本" : null;
-        await WaitFor(() => handler.Requests.Count == 1);
-        handler.Requests[0].Complete(Response(name: "clip.bin", folder: sourceFolder, fileSize: 8));
-        await WaitFor(() => !browser.IsLoading.Value);
+        await storage.OpenAsync(Response(name: "clip.bin", folder: sourceFolder, fileSize: 8));
+        CloudStorageViewModel browser = storage.Browser;
         var view = new FileBrowserTabView { DataContext = vm };
         var window = new Window { Content = view, Width = 640, Height = 520 };
         string? staging = null;
@@ -442,6 +396,49 @@ public sealed class FileBrowserStorageTests
 
     private static BeutlStorageProvider BeutlProvider(BeutlApiApplication clients) =>
         new(clients, () => throw new InvalidOperationException("Not used by this test"));
+
+    // A file browser tab that lists the Beutl storage of a signed-in user, served by a fake handler.
+    private static BeutlStorage CreateBeutlStorage()
+    {
+        var handler = new Handler();
+        var http = new HttpClient(handler);
+        var clients = new BeutlApiApplication(http, new ExtensionProvider());
+        SignIn(clients, "a");
+        BeutlStorageProvider provider = BeutlProvider(clients);
+        return new BeutlStorage(handler, http, clients, provider, Create(provider));
+    }
+
+    private sealed class BeutlStorage(
+        Handler handler, HttpClient http, BeutlApiApplication clients, BeutlStorageProvider provider, FileBrowserTabViewModel tab)
+        : IAsyncDisposable
+    {
+        public Handler Handler => handler;
+
+        public FileBrowserTabViewModel Tab => tab;
+
+        public CloudStorageViewModel Browser => (CloudStorageViewModel)tab.StorageBrowser.Value!;
+
+        public void Deconstruct(out Handler fakeHandler, out BeutlApiApplication apiClients, out FileBrowserTabViewModel browserTab)
+            => (fakeHandler, apiClients, browserTab) = (handler, clients, tab);
+
+        // Opens the storage and waits for its first request, which firstResponse answers when it is given.
+        public async Task OpenAsync(string? firstResponse = null)
+        {
+            tab.OpenStorage(provider);
+            await WaitFor(() => handler.Requests.Count == 1);
+            if (firstResponse is null) return;
+            handler.Requests[0].Complete(firstResponse);
+            await WaitFor(() => !Browser.IsLoading.Value);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            tab.Dispose();
+            await clients.DisposeAsync();
+            http.Dispose();
+            handler.Dispose();
+        }
+    }
 
     private sealed class TestProvider(string id, string displayName) : IFileBrowserStorageProvider
     {

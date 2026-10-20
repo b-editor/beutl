@@ -41,9 +41,6 @@ internal partial class VersionControlCoordinator
         // Set for a project the app has just created, whose tracking the new-project dialog decides.
         public bool IsNewProject { get; }
 
-        // Set when a changed Git executable started the activation, which a newer change restarts.
-        public bool IsRediscovery { get; init; }
-
         // For a new project, the repository its initialization created or attached before it stopped.
         public RepositoryInfo? InterruptedNewProjectRepository { get; init; }
 

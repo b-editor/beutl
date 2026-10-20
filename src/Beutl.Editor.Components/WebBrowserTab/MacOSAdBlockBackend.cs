@@ -12,6 +12,7 @@ internal sealed partial class MacOSAdBlockBackend(nint manager, nint rules) : IB
     private bool _enabled;
     private const string ObjC = "/usr/lib/libobjc.A.dylib";
     private const string SystemLibrary = "/usr/lib/libSystem.B.dylib";
+    // Not beforefieldinit, so the libSystem lookup below runs only on first use, which is on macOS.
     static MacOSAdBlockBackend() { }
 
     internal static async Task<IBrowserAdBlockBackend> CreateAsync(IAppleWKWebViewPlatformHandle handle, BrowserAdBlockRules rules)

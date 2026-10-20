@@ -17,30 +17,6 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class EditorWorkflowTests
 {
-    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
-
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
-    private static async Task<EditViewModel> OpenEditorForNewScene(string name)
-    {
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-
-        EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;
-        // The scene editor's IEditorContext is the EditViewModel itself.
-        return (EditViewModel)tab.Context.Value;
-    }
-
     private static async Task<Element> AddRectangle(EditViewModel editor, TimeSpan start, int layer)
     {
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
@@ -57,20 +33,19 @@ public class EditorWorkflowTests
     [AvaloniaTest]
     public async Task ActivateTabItem_exposes_the_EditViewModel_for_the_scene()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("editvm");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("editvm");
 
         Assert.That(editor, Is.Not.Null);
         Assert.That(editor.Scene, Is.SameAs(TestShell.Editor.SelectedTabItem.Value!.Context.Value.Object));
         Assert.That(editor.HistoryManager, Is.Not.Null);
-        Assert.That(editor.HistoryManager.Root, Is.SameAs(editor.Scene));
     }
 
     [AvaloniaTest]
     public async Task AddElement_through_the_editor_records_history_and_grows_the_scene()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("addelem");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("addelem");
 
         Assert.That(editor.Scene.Children, Is.Empty);
         Assert.That(editor.HistoryManager.CanUndo, Is.False);
@@ -87,8 +62,8 @@ public class EditorWorkflowTests
     [AvaloniaTest]
     public async Task AddElement_uses_temporary_storage_when_the_scene_is_unsaved()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("addelem-unsaved");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("addelem-unsaved");
         Uri savedUri = editor.Scene.Uri!;
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
 
@@ -130,9 +105,9 @@ public class EditorWorkflowTests
     public async Task Save_succeeds_for_a_source_beneath_a_traverse_only_ancestor()
     {
         if (OperatingSystem.IsWindows()) Assert.Ignore("Unix directory permissions are required.");
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("save-traverse-only");
-        string locked = Path.Combine(NewWorkspace("save-traverse-only-media"), "locked");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("save-traverse-only");
+        string locked = Path.Combine(TestShell.NewWorkspace("save-traverse-only-media"), "locked");
         string imagePath = Path.Combine(locked, "media", "frame.png");
         Directory.CreateDirectory(Path.GetDirectoryName(imagePath)!);
         File.WriteAllBytes(imagePath, TinyPng());
@@ -191,32 +166,13 @@ public class EditorWorkflowTests
     }
 
     [AvaloniaTest]
-    public async Task EditProperty_through_the_editor_records_a_second_history_entry()
-    {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("editprop");
-        Element element = await AddRectangle(editor, TimeSpan.Zero, layer: 0);
-        Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(1));
-
-        // Exercises the observer->history pipeline (CLR setter -> CorePropertyOperationObserver ->
-        // pending transaction -> Commit), not a specific edit service; service-level coverage of
-        // attribute edits lives in the Beutl.UnitTests editor-service tests.
-        int originalZIndex = element.ZIndex;
-        element.ZIndex = originalZIndex + 3;
-        editor.HistoryManager.Commit("EditZIndex");
-        HeadlessTestHelpers.Settle();
-
-        Assert.That(element.ZIndex, Is.EqualTo(originalZIndex + 3));
-        Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(2));
-    }
-
-    [AvaloniaTest]
     public async Task Undo_and_redo_restore_a_property_edit()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("undoprop");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("undoprop");
         Element element = await AddRectangle(editor, TimeSpan.Zero, layer: 0);
 
+        // Exercises the observer-to-history pipeline, not an edit service.
         int originalZIndex = element.ZIndex;
         element.ZIndex = originalZIndex + 5;
         editor.HistoryManager.Commit("EditZIndex");
@@ -239,8 +195,8 @@ public class EditorWorkflowTests
     [AvaloniaTest]
     public async Task Undo_removes_the_added_element_and_redo_restores_it()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("undoadd");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("undoadd");
         Element element = await AddRectangle(editor, TimeSpan.Zero, layer: 0);
         Guid elementId = element.Id;
         Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
@@ -263,8 +219,8 @@ public class EditorWorkflowTests
     [TestCase(true)]
     public async Task Undo_redo_through_editor_history_capability(bool useMenu)
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene(useMenu ? "editor-history-menu" : "editor-history");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync(useMenu ? "editor-history-menu" : "editor-history");
         await AddRectangle(editor, TimeSpan.Zero, layer: 0);
         Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
 

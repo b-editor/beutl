@@ -26,12 +26,6 @@ public static class EncoderSettingsJson
         Populate(destination, CoreSerializer.SerializeToJsonObject(source));
     }
 
-    /// <summary>Applies a preset to <paramref name="settings"/>, keeping their source size, output size and frame rate.</summary>
-    public static void PopulateVideoPreset(VideoEncoderSettings settings, JsonObject json)
-    {
-        PopulateVideoPreset(settings, json, appliesFrameSizeAndRate: false);
-    }
-
     /// <summary>Applies a preset to <paramref name="settings"/>, keeping their source size.</summary>
     /// <param name="settings">The settings to apply the preset to.</param>
     /// <param name="json">The preset's video settings.</param>
@@ -61,12 +55,6 @@ public static class EncoderSettingsJson
                 settings.FrameRate = frameRate;
             }
         }
-    }
-
-    /// <summary>Applies a preset to <paramref name="settings"/>, keeping their sample rate.</summary>
-    public static void PopulateAudioPreset(AudioEncoderSettings settings, JsonObject json)
-    {
-        PopulateAudioPreset(settings, json, appliesSampleRate: false);
     }
 
     /// <summary>Applies a preset to <paramref name="settings"/>.</summary>

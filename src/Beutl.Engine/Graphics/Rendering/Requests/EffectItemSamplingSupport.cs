@@ -20,7 +20,7 @@ internal static class EffectItemSamplingSupport
     public static bool TryResolveSampledInput(ImmutableArray<IFEItem> items, Rect output, out Rect input)
     {
         input = default;
-        if (items.IsDefaultOrEmpty || !IsUsable(output))
+        if (items.IsDefaultOrEmpty || !RenderRectValidation.IsFiniteNonNegative(output))
             return false;
 
         Rect region = output;
@@ -28,7 +28,7 @@ internal static class EffectItemSamplingSupport
         {
             if (items[index] is not IFEItem_Skia skia
                 || !skia.TryTransformSamplingBounds(region, out Rect sampled)
-                || !IsUsable(sampled))
+                || !RenderRectValidation.IsFiniteNonNegative(sampled))
             {
                 return false;
             }
@@ -39,12 +39,4 @@ internal static class EffectItemSamplingSupport
         input = region;
         return true;
     }
-
-    private static bool IsUsable(Rect rect)
-        => float.IsFinite(rect.X)
-           && float.IsFinite(rect.Y)
-           && float.IsFinite(rect.Width)
-           && float.IsFinite(rect.Height)
-           && rect.Width >= 0
-           && rect.Height >= 0;
 }

@@ -3,45 +3,31 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
 [TestFixture]
 public sealed class EffectItemRequiredRegionTests
 {
-    [Test]
-    public void SubRegionRequest_RestrictsEffectItemSourceToBackwardRegion()
+    private static IEnumerable<TestCaseData> SubRegionFilters()
     {
-        var sourceBounds = new Rect(0, 0, 400, 400);
-        var requestedRegion = new Rect(0, 0, 50, 50);
-        var observed = new List<Rect>();
-        using FilterEffectRenderNode filter = CreateBlurNode(sigma: 2);
-        filter.AddChild(ScaleRecordingTestHelper.Source(
-            EffectiveScale.At(1),
-            sourceBounds,
-            session => observed.Add(session.RequiredRegion)));
-        using var renderer = new RenderNodeRenderer(filter, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            RequestedRegion = requestedRegion,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new BudgetedCpuTargetFactory(int.MaxValue));
-
-        using RenderNodeRasterization rasterization = renderer.Rasterize();
-
         // Blur declares a 3σ footprint, so the destination's 50×50 region can only be reached by the
         // matching 6-unit apron of the source.
-        Assert.That(observed, Is.EqualTo(new[] { new Rect(0, 0, 56, 56) }));
+        yield return new TestCaseData(new Func<FilterEffectRenderNode>(static () => CreateBlurNode(sigma: 2)))
+            .SetName("SubRegionRequest_RestrictsEffectItemSourceToBackwardRegion");
+        // Erode declares an identity output map yet reads the whole radius neighbourhood, so the
+        // destination's 50×50 region still needs the source's matching 6-unit apron.
+        yield return new TestCaseData(new Func<FilterEffectRenderNode>(static () => CreateErodeNode(radius: 6)))
+            .SetName("SubRegionRequest_RestrictsErodeSourceToItsRadiusNeighbourhood");
     }
 
-    [Test]
-    public void SubRegionRequest_RestrictsErodeSourceToItsRadiusNeighbourhood()
+    [TestCaseSource(nameof(SubRegionFilters))]
+    public void SubRegionRequest_RestrictsTheSourceToTheFilterFootprint(Func<FilterEffectRenderNode> createFilter)
     {
         var sourceBounds = new Rect(0, 0, 400, 400);
         var requestedRegion = new Rect(0, 0, 50, 50);
         var observed = new List<Rect>();
-        using FilterEffectRenderNode filter = CreateErodeNode(radius: 6);
+        using FilterEffectRenderNode filter = createFilter();
         filter.AddChild(ScaleRecordingTestHelper.Source(
             EffectiveScale.At(1),
             sourceBounds,
@@ -55,8 +41,6 @@ public sealed class EffectItemRequiredRegionTests
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
-        // Erode declares an identity output map yet reads the whole radius neighbourhood, so the
-        // destination's 50×50 region still needs the source's matching 6-unit apron.
         Assert.That(observed, Is.EqualTo(new[] { new Rect(0, 0, 56, 56) }));
     }
 
@@ -67,9 +51,9 @@ public sealed class EffectItemRequiredRegionTests
         var requestedRegion = new Rect(30, 30, 40, 40);
 
         (Rect completeBounds, float[] completeAlpha, int completeWidth) =
-            RasterizeErodedSquare(sourceBounds, radius: 6, requestedRegion: null);
+            RasterizeAlpha(CreateErodeNode(radius: 6), sourceBounds, RenderIntent.Preview, requestedRegion: null);
         (Rect partialBounds, float[] partialAlpha, int partialWidth) =
-            RasterizeErodedSquare(sourceBounds, radius: 6, requestedRegion);
+            RasterizeAlpha(CreateErodeNode(radius: 6), sourceBounds, RenderIntent.Preview, requestedRegion);
 
         Assert.That(partialBounds, Is.EqualTo(requestedRegion));
         Assert.That(completeBounds, Is.EqualTo(sourceBounds));
@@ -180,9 +164,9 @@ public sealed class EffectItemRequiredRegionTests
         var sourceBounds = new Rect(0, 0, 120, 80);
 
         (Rect passThroughBounds, float[] passThroughAlpha, int passThroughWidth) =
-            RasterizeDilatedSquare(sourceBounds, radius: 0, intent);
+            RasterizeAlpha(CreateDilateNode(radius: 0), sourceBounds, intent, requestedRegion: null);
         (Rect negativeBounds, float[] negativeAlpha, int negativeWidth) =
-            RasterizeDilatedSquare(sourceBounds, radius: -6, intent);
+            RasterizeAlpha(CreateDilateNode(radius: -6), sourceBounds, intent, requestedRegion: null);
 
         Assert.Multiple(() =>
         {
@@ -201,7 +185,11 @@ public sealed class EffectItemRequiredRegionTests
 
         // A radius past half the shorter side is where an unclamped deflation turns the declared
         // output negative-extent, which the flush reports as a non-allocatable delivery failure.
-        (Rect bounds, float[] alpha, _) = RasterizeDilatedSquare(sourceBounds, radius: -21, RenderIntent.Delivery);
+        (Rect bounds, float[] alpha, _) = RasterizeAlpha(
+            CreateDilateNode(radius: -21),
+            sourceBounds,
+            RenderIntent.Delivery,
+            requestedRegion: null);
 
         Assert.Multiple(() =>
         {
@@ -225,31 +213,6 @@ public sealed class EffectItemRequiredRegionTests
         return new FilterEffectRenderNode(dilate.ToResource(CompositionContext.Default));
     }
 
-    private static (Rect Bounds, float[] Alpha, int Width) RasterizeDilatedSquare(
-        Rect sourceBounds,
-        float radius,
-        RenderIntent intent)
-    {
-        using FilterEffectRenderNode filter = CreateDilateNode(radius);
-        filter.AddChild(new RectangleRenderNode(sourceBounds, Brushes.Resource.White, null));
-        using var renderer = new RenderNodeRenderer(filter, new RenderNodeRenderRequest
-        {
-            Intent = intent,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new BudgetedCpuTargetFactory(int.MaxValue));
-
-        using RenderNodeRasterization rasterization = renderer.Rasterize();
-        Bitmap bitmap = rasterization.Bitmap
-                        ?? throw new InvalidOperationException("The dilate render produced no bitmap.");
-
-        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
-        var alpha = new float[bitmap.Width * bitmap.Height];
-        for (int index = 0; index < alpha.Length; index++)
-            alpha[index] = (float)BitConverter.UInt16BitsToHalf(pixels[(index * 4) + 3]);
-
-        return (rasterization.Bounds, alpha, bitmap.Width);
-    }
-
     private static FilterEffectRenderNode CreateErodeNode(float radius)
     {
         var erode = new Erode();
@@ -258,23 +221,24 @@ public sealed class EffectItemRequiredRegionTests
         return new FilterEffectRenderNode(erode.ToResource(CompositionContext.Default));
     }
 
-    private static (Rect Bounds, float[] Alpha, int Width) RasterizeErodedSquare(
+    private static (Rect Bounds, float[] Alpha, int Width) RasterizeAlpha(
+        FilterEffectRenderNode filter,
         Rect sourceBounds,
-        float radius,
+        RenderIntent intent,
         Rect? requestedRegion)
     {
-        using FilterEffectRenderNode filter = CreateErodeNode(radius);
-        filter.AddChild(new RectangleRenderNode(sourceBounds, Brushes.Resource.White, null));
-        using var renderer = new RenderNodeRenderer(filter, new RenderNodeRenderRequest
+        using FilterEffectRenderNode ownedFilter = filter;
+        ownedFilter.AddChild(new RectangleRenderNode(sourceBounds, Brushes.Resource.White, null));
+        using var renderer = new RenderNodeRenderer(ownedFilter, new RenderNodeRenderRequest
         {
-            Intent = RenderIntent.Preview,
+            Intent = intent,
             RequestedRegion = requestedRegion,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
         }, new BudgetedCpuTargetFactory(int.MaxValue));
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Bitmap bitmap = rasterization.Bitmap
-                        ?? throw new InvalidOperationException("The erode render produced no bitmap.");
+                        ?? throw new InvalidOperationException("The filter render produced no bitmap.");
         Assert.That(bitmap.ColorType, Is.EqualTo(BitmapColorType.RgbaF16));
 
         ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
@@ -312,22 +276,5 @@ public sealed class EffectItemRequiredRegionTests
                 ? null
                 : new CpuRenderTarget(deviceSize.Width, deviceSize.Height);
         }
-    }
-
-    private sealed class CpuRenderTarget : RenderTarget
-    {
-        public CpuRenderTarget(int width, int height)
-            : base(CreateSurface(width, height), width, height)
-        {
-        }
-
-        private static SKSurface CreateSurface(int width, int height)
-            => SKSurface.Create(new SKImageInfo(
-                   width,
-                   height,
-                   SKColorType.RgbaF16,
-                   SKAlphaType.Premul,
-                   SKColorSpace.CreateSrgbLinear()))
-               ?? throw new InvalidOperationException("Failed to create a CPU surface.");
     }
 }

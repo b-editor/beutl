@@ -1,13 +1,21 @@
-﻿using System.Collections.Generic;
-
-using Beutl.Engine;
+﻿using Beutl.Engine;
 
 namespace SourceGeneratorTest;
+
+public enum TextAlignment
+{
+    Start,
+    Center,
+    End,
+}
+
 public partial class Derived : EngineObject
 {
     public IProperty<float> X { get; } = Property.Create(0f);
 
     public IProperty<float> Y { get; } = Property.Create(17f);
+
+    public IProperty<TextAlignment> TextAlignment { get; } = Property.Create(SourceGeneratorTest.TextAlignment.Start);
 }
 
 public partial class Derived2 : Derived
@@ -17,9 +25,6 @@ public partial class Derived2 : Derived
 
 public partial class Derived3 : Derived
 {
-    // Listっぽいもの、Listで終わる型に対して
-    public List<Derived> Children { get; } = [];
-
     // EngineObjectの派生型に対して
     public IProperty<Derived> Child { get; } = Property.Create(new Derived());
 

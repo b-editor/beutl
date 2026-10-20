@@ -36,23 +36,6 @@ public sealed class DefaultPreferences : IPreferences
         Load();
     }
 
-    public bool ContainsKey(string key)
-    {
-        return _preferences.ContainsKey(key);
-    }
-
-    public void Remove(string key)
-    {
-        _preferences.TryRemove(key, out _);
-        Save();
-    }
-
-    public void Clear()
-    {
-        _preferences.Clear();
-        Save();
-    }
-
     public void Set<T>(string key, T value)
     {
         CheckIsSupportedType<T>();
@@ -77,7 +60,6 @@ public sealed class DefaultPreferences : IPreferences
             }
             catch (FormatException)
             {
-                // bad get, fall back to default
             }
         }
 
@@ -104,7 +86,6 @@ public sealed class DefaultPreferences : IPreferences
         }
         catch (JsonException)
         {
-            // if deserialization fails proceed with empty settings
         }
     }
 

@@ -7,6 +7,26 @@ internal static class TargetWriteMetadataResolver
         out Rect? affectedBounds)
     {
         ArgumentNullException.ThrowIfNull(reference);
+        return TryResolve(reference, targetDomain: null, recorded: true, out affectedBounds);
+    }
+
+    public static Rect? Resolve(
+        RenderFragmentReference reference,
+        Rect? targetDomain)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        TryResolve(reference, targetDomain, recorded: false, out Rect? affectedBounds);
+        return affectedBounds;
+    }
+
+    // While recording, the walk reads the recorded metadata and answers false for a write it cannot bound.
+    // When planning, it reads the resolved bounds, and a Full write without a domain throws.
+    private static bool TryResolve(
+        RenderFragmentReference reference,
+        Rect? targetDomain,
+        bool recorded,
+        out Rect? affectedBounds)
+    {
         if (!reference.PotentiallyWritesTarget)
         {
             affectedBounds = null;
@@ -18,66 +38,31 @@ internal static class TargetWriteMetadataResolver
             case RenderFragmentKind.TargetCommand:
                 return TryResolveRegion(
                     ((TargetCommandRenderFragmentPayload)reference.Payload!).Description.AffectedRegion,
-                    targetDomain: null,
+                    targetDomain,
+                    recorded,
                     out affectedBounds);
             case RenderFragmentKind.RawTargetCommand:
             case RenderFragmentKind.RawTargetScope:
-                affectedBounds = null;
-                return false;
+                return TryResolveRegion(TargetRegion.Full, targetDomain, recorded, out affectedBounds);
             case RenderFragmentKind.TargetLayerScope:
                 return TryResolveRegion(
                     ((TargetLayerScopeRenderFragmentPayload)reference.Payload!).Region,
-                    targetDomain: null,
+                    targetDomain,
+                    recorded,
                     out affectedBounds);
             case RenderFragmentKind.TargetScope:
-                return TryResolveFiniteTargetScope(reference, out affectedBounds);
+                return TryResolveTargetScope(reference, targetDomain, recorded, out affectedBounds);
+            case RenderFragmentKind.Blend when RequiresFullTargetRegion(reference):
+                return TryResolveRegion(TargetRegion.Full, targetDomain, recorded, out affectedBounds);
             case RenderFragmentKind.Blend:
-                if (RequiresFullTargetRegion(reference))
-                {
-                    affectedBounds = null;
-                    return false;
-                }
-                return TryResolveFiniteReplay(reference, out affectedBounds);
             case RenderFragmentKind.Opacity:
             case RenderFragmentKind.OpacityMask:
-                return TryResolveFiniteReplay(reference, out affectedBounds);
+                return TryResolveReplay(reference, targetDomain, recorded, out affectedBounds);
             default:
-                affectedBounds = null;
-                return false;
+                // Every other kind cannot write the target, so it returned at the guard above.
+                throw new InvalidOperationException(
+                    $"Fragment kind '{reference.Kind}' has no target-write rule.");
         }
-    }
-
-    public static Rect? Resolve(
-        RenderFragmentReference reference,
-        Rect? targetDomain)
-    {
-        ArgumentNullException.ThrowIfNull(reference);
-        if (!reference.PotentiallyWritesTarget)
-            return null;
-
-        return reference.Kind switch
-        {
-            RenderFragmentKind.TargetCommand
-                => ResolveRegion(
-                    ((TargetCommandRenderFragmentPayload)reference.Payload!).Description.AffectedRegion,
-                    targetDomain),
-            RenderFragmentKind.RawTargetCommand or RenderFragmentKind.RawTargetScope
-                => ResolveRegion(TargetRegion.Full, targetDomain),
-            RenderFragmentKind.TargetLayerScope
-                => ResolveRegion(
-                    ((TargetLayerScopeRenderFragmentPayload)reference.Payload!).Region,
-                    targetDomain),
-            RenderFragmentKind.TargetScope
-                => ResolveTargetScope(reference, targetDomain),
-            RenderFragmentKind.Blend
-                when RequiresFullTargetRegion(reference)
-                => ResolveRegion(TargetRegion.Full, targetDomain),
-            RenderFragmentKind.Blend
-                or RenderFragmentKind.Opacity
-                or RenderFragmentKind.OpacityMask
-                => ResolveReplayBounds(reference, targetDomain),
-            _ => null,
-        };
     }
 
     private static bool RequiresFullTargetRegion(RenderFragmentReference reference)
@@ -86,29 +71,32 @@ internal static class TargetWriteMetadataResolver
             ((BlendRenderFragmentPayload)reference.Payload!).BlendMode);
     }
 
-    private static bool TryResolveFiniteTargetScope(
+    private static bool TryResolveTargetScope(
         RenderFragmentReference reference,
+        Rect? targetDomain,
+        bool recorded,
         out Rect? affectedBounds)
     {
-        if (!TryResolveFiniteReplay(reference, out Rect? replayBounds))
+        var payload = (TargetScopeRenderFragmentPayload)reference.Payload!;
+        Rect? localDomain = targetDomain is { } domain
+            ? payload.Description.Bounds.GetRequiredInputBounds(domain)
+            : null;
+        if (!TryResolveReplay(reference, localDomain, recorded, out Rect? replayBounds))
         {
             affectedBounds = null;
             return false;
         }
 
-        if (replayBounds is not { } bounds)
-        {
-            affectedBounds = null;
-            return true;
-        }
-
-        affectedBounds = ((TargetScopeRenderFragmentPayload)reference.Payload!)
-            .Description.Bounds.TransformBounds(bounds);
+        affectedBounds = replayBounds is { } bounds
+            ? payload.Description.Bounds.TransformBounds(bounds)
+            : null;
         return true;
     }
 
-    private static bool TryResolveFiniteReplay(
+    private static bool TryResolveReplay(
         RenderFragmentReference reference,
+        Rect? targetDomain,
+        bool recorded,
         out Rect? affectedBounds)
     {
         Rect result = default;
@@ -121,17 +109,17 @@ internal static class TargetWriteMetadataResolver
             RenderFragmentReference input = reference.Inputs[i];
             if (input.ContributesValuesToTarget)
             {
-                if (!input.HasConcreteRecordingMetadata)
+                if (recorded && !input.HasConcreteRecordingMetadata)
                 {
                     affectedBounds = null;
                     return false;
                 }
 
-                result = result.Union(input.RecordedBounds);
+                result = result.Union(recorded ? input.RecordedBounds : input.Bounds);
                 hasBounds = true;
             }
 
-            if (!TryResolveFinite(input, out Rect? inputAffectedBounds))
+            if (!TryResolve(input, targetDomain, recorded, out Rect? inputAffectedBounds))
             {
                 affectedBounds = null;
                 return false;
@@ -151,6 +139,7 @@ internal static class TargetWriteMetadataResolver
     private static bool TryResolveRegion(
         TargetRegion region,
         Rect? targetDomain,
+        bool recorded,
         out Rect? affectedBounds)
     {
         switch (region.Kind)
@@ -164,67 +153,14 @@ internal static class TargetWriteMetadataResolver
             case TargetRegionKind.Full when targetDomain is { } domain:
                 affectedBounds = domain;
                 return true;
-            case TargetRegionKind.Full:
+            case TargetRegionKind.Full when recorded:
                 affectedBounds = null;
                 return false;
+            case TargetRegionKind.Full:
+                throw new RenderTargetDomainRequiredException(
+                    "A target-less request with a Full target write requires a finite TargetDomain.");
             default:
                 throw new InvalidOperationException("The target region is uninitialized.");
         }
-    }
-
-    private static Rect? ResolveTargetScope(
-        RenderFragmentReference reference,
-        Rect? targetDomain)
-    {
-        var payload = (TargetScopeRenderFragmentPayload)reference.Payload!;
-        Rect? localDomain = targetDomain is { } domain
-            ? payload.Description.Bounds.GetRequiredInputBounds(domain)
-            : null;
-        Rect? replayBounds = ResolveReplayBounds(reference, localDomain);
-        if (replayBounds is not { } bounds)
-            return null;
-
-        return payload.Description.Bounds.TransformBounds(bounds);
-    }
-
-    private static Rect? ResolveReplayBounds(
-        RenderFragmentReference reference,
-        Rect? targetDomain)
-    {
-        Rect result = default;
-        bool hasBounds = false;
-        int inputCount = reference.Kind == RenderFragmentKind.OpacityMask
-            ? Math.Min(1, reference.Inputs.Length)
-            : reference.Inputs.Length;
-        for (int i = 0; i < inputCount; i++)
-        {
-            RenderFragmentReference input = reference.Inputs[i];
-            if (input.ContributesValuesToTarget)
-            {
-                result = result.Union(input.Bounds);
-                hasBounds = true;
-            }
-
-            if (Resolve(input, targetDomain) is { } affected)
-            {
-                result = result.Union(affected);
-                hasBounds = true;
-            }
-        }
-
-        return hasBounds ? result : null;
-    }
-
-    private static Rect? ResolveRegion(TargetRegion region, Rect? targetDomain)
-    {
-        return region.Kind switch
-        {
-            TargetRegionKind.Empty => null,
-            TargetRegionKind.Region => region.Value,
-            TargetRegionKind.Full when targetDomain is { } domain => domain,
-            TargetRegionKind.Full => throw new RenderTargetDomainRequiredException(
-                "A target-less request with a Full target write requires a finite TargetDomain."),
-            _ => throw new InvalidOperationException("The target region is uninitialized."),
-        };
     }
 }

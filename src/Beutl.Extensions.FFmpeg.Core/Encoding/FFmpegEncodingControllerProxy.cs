@@ -1,4 +1,7 @@
-﻿using Beutl.Extensibility;
+﻿using System.Buffers;
+using System.Runtime.InteropServices;
+using Beutl.Audio;
+using Beutl.Extensibility;
 using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
@@ -52,8 +55,10 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
 
         SharedMemoryBuffer[] videoBuffers = [videoBuffer0, videoBuffer1];
         SharedMemoryBuffer[] audioBuffers = [audioBuffer0, audioBuffer1];
+        long nextSample = 0;
 
         // メッセージループ: Workerからの要求に応答
+        long nextFrame = 0;
         try
         {
             while (!cancellationToken.IsCancellationRequested)
@@ -70,7 +75,12 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                                 ?? throw new InvalidOperationException("Missing payload for RequestFrame");
                             if (frameReq.BufferIndex is not (0 or 1))
                                 throw new InvalidOperationException($"Invalid BufferIndex: {frameReq.BufferIndex}");
-                            using var bitmap = await frameProvider.RenderFrame(frameReq.FrameIndex);
+                            if (frameReq.FrameIndex != nextFrame)
+                                throw new InvalidOperationException(
+                                    $"The worker asked for frame {frameReq.FrameIndex}, but the next frame is {nextFrame}.");
+                            using var bitmap = await frameProvider.ReadNextFrame()
+                                ?? throw new InvalidOperationException($"The frame provider ended before frame {nextFrame}.");
+                            nextFrame++;
 
                             // BufferIndex で指定されたバッファに書き込み (ダブルバッファリング)
                             var targetVideoBuffer = videoBuffers[frameReq.BufferIndex];
@@ -84,7 +94,6 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                                 {
                                     Width = bitmap.Width,
                                     Height = bitmap.Height,
-                                    BytesPerPixel = bitmap.BytesPerPixel,
                                     DataLength = bitmap.ByteCount,
                                     Premul = bitmap.AlphaType == BitmapAlphaType.Premul,
                                     ColorType = (int)bitmap.ColorType
@@ -98,22 +107,32 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                                 ?? throw new InvalidOperationException("Missing payload for RequestSample");
                             if (sampleReq.BufferIndex is not (0 or 1))
                                 throw new InvalidOperationException($"Invalid BufferIndex: {sampleReq.BufferIndex}");
-                            using var pcm = await sampleProvider.Sample(sampleReq.Offset, sampleReq.Length);
+                            if (sampleReq.Offset != nextSample)
+                                throw new InvalidOperationException(
+                                    $"The worker asked for samples from {sampleReq.Offset}, but the next sample is {nextSample}.");
+                            using var audio = await sampleProvider.ReadNextSamples(checked((int)sampleReq.Length))
+                                ?? throw new InvalidOperationException($"The sample provider ended before sample {nextSample}.");
+                            nextSample += sampleReq.Length;
 
                             // BufferIndex で指定されたバッファに書き込み (ダブルバッファリング)
                             var targetAudioBuffer = audioBuffers[sampleReq.BufferIndex];
-                            int dataLen;
-                            unsafe
+                            int length = audio.SampleCount * 2;
+                            float[] interleaved = ArrayPool<float>.Shared.Rent(length);
+                            try
                             {
-                                dataLen = pcm.NumSamples * (int)pcm.SampleSize;
-                                targetAudioBuffer.Write(new ReadOnlySpan<byte>((void*)pcm.Data, dataLen));
+                                AudioConversion.Interleave(audio, interleaved);
+                                targetAudioBuffer.Write(MemoryMarshal.AsBytes(interleaved.AsSpan(0, length)));
+                            }
+                            finally
+                            {
+                                ArrayPool<float>.Shared.Return(interleaved);
                             }
 
                             await connection.SendAsync(IpcMessage.Create(msg.Id, MessageType.ProvideSample,
                                 new ProvideSampleMessage
                                 {
-                                    NumSamples = pcm.NumSamples,
-                                    DataLength = dataLen,
+                                    NumSamples = audio.SampleCount,
+                                    DataLength = length * sizeof(float),
                                 }), cancellationToken);
                             break;
                         }
@@ -166,7 +185,6 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
             VideoOptions = VideoSettings.Options
                 .Where(o => !string.IsNullOrWhiteSpace(o.Name))
                 .ToDictionary(o => o.Name, o => o.Value),
-            IsHdr = IsHdr(),
             AudioSampleRate = AudioSettings.SampleRate,
             AudioChannels = AudioSettings.Channels,
             AudioBitrate = AudioSettings.Bitrate,
@@ -200,10 +218,5 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
         {
             _logger.LogWarning(ex, "Failed to send cancel notification to FFmpeg worker");
         }
-    }
-
-    private bool IsHdr()
-    {
-        return VideoSettings.ColorTrc is FFColorTransfer.SMPTE2084 or FFColorTransfer.ARIB_STD_B67;
     }
 }

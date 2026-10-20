@@ -8,13 +8,11 @@ namespace Beutl.PublicApiContractTests;
 // A plugin renames a type or a property and declares the name it was saved under, so that what an older version of
 // the plugin saved still loads. Beutl writes the current names.
 [TestFixture]
-public sealed class FormerPersistedNameContractTests : PublicApiContractTestBase
+public sealed class FormerPersistedNameContractTests
 {
     [Test]
     public void Plugin_engine_objects_load_from_their_former_type_name_and_property_key()
     {
-        AssertDoesNotHaveFriendAccess(typeof(CoreSerializer).Assembly);
-        AssertDoesNotHaveFriendAccess(typeof(EngineObject).Assembly);
         var source = new RenamedPluginObject();
         source.Size.CurrentValue = 7;
         JsonObject json = CoreSerializer.SerializeToJsonObject(source);

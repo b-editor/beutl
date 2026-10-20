@@ -17,7 +17,6 @@ internal static class FFmpegLoaderWorker
     {
         DynamicallyLoadedBindings.LibrariesPath = GetRootPath();
         DynamicallyLoadedBindings.Initialize();
-        FixDependencyIssue();
         SetupLogging();
 
         var sb = new StringBuilder();
@@ -28,12 +27,6 @@ internal static class FFmpegLoaderWorker
         sb.AppendLine($"  swresample: {GetVersionString(ffmpeg.swresample_version())}");
         sb.AppendLine($"  swscale: {GetVersionString(ffmpeg.swscale_version())}");
         WorkerLog.Information(sb.ToString());
-    }
-
-    private static void FixDependencyIssue()
-    {
-        FunctionResolverBase.LibraryDependenciesMap["avfilter"] = ["avcodec", "avformat", "avutil", "swresample", "swscale"];
-        FunctionResolverBase.LibraryDependenciesMap.Remove("postproc");
     }
 
     private static void SetupLogging()

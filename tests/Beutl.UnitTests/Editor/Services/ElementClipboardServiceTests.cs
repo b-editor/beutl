@@ -48,16 +48,6 @@ public class ElementClipboardServiceTests
     private Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0)
         => _harness.AddElement(start, length, zIndex);
 
-    [Test]
-    public async Task CopyAsync_SingleElement_WritesElementFormat()
-    {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-
-        await _service.CopyAsync([element]);
-
-        IReadOnlyList<string> formats = await _clipboard.GetFormatsAsync();
-        Assert.That(formats, Does.Contain(BeutlClipboardFormats.Element));
-    }
 
     [Test]
     public async Task CopyAsync_MultipleElements_WritesElementsFormat()
@@ -270,7 +260,6 @@ public class ElementClipboardServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(outcome.Pasted, Is.True);
-            Assert.That(outcome.NewElements, Is.EqualTo(created));
             Assert.That(outcome.ScrollTo, Is.EqualTo(created[^1].Range));
             Assert.That(outcome.ScrollToZIndex, Is.EqualTo(created[^1].ZIndex));
             Assert.That(elementAdder.CallCount, Is.EqualTo(1));
@@ -283,19 +272,20 @@ public class ElementClipboardServiceTests
         Element original = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         string json = CoreSerializer.SerializeToJsonString(original);
         _clipboard.SetSingle(BeutlClipboardFormats.Element, json);
-        int childrenBefore = _scene.Children.Count;
+        Element[] childrenBefore = [.. _scene.Children];
         int historyBefore = _history.UndoCount;
 
         ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.FromSeconds(10), 1);
 
+        Element[] added = [.. _scene.Children.Except(childrenBefore)];
         Assert.Multiple(() =>
         {
             Assert.That(outcome.Pasted, Is.True);
-            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore + 1));
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore.Length + 1));
             Assert.That(_history.UndoCount, Is.EqualTo(historyBefore + 1));
-            Assert.That(outcome.NewElements, Has.Count.EqualTo(1));
-            Assert.That(outcome.NewElements[0].Start, Is.EqualTo(TimeSpan.FromSeconds(10)));
-            Assert.That(outcome.NewElements[0].ZIndex, Is.EqualTo(1));
+            Assert.That(added, Has.Length.EqualTo(1));
+            Assert.That(added[0].Start, Is.EqualTo(TimeSpan.FromSeconds(10)));
+            Assert.That(added[0].ZIndex, Is.EqualTo(1));
         });
     }
 
@@ -401,8 +391,6 @@ public class ElementClipboardServiceTests
 
     private sealed class StubElementAdder(IReadOnlyList<Element> result) : IElementAdder
     {
-        public IElementSourceHandlerRegistry SourceHandlers { get; } = new ElementSourceHandlerRegistry();
-
         public int CallCount { get; private set; }
 
         public IReadOnlyList<ElementDescription> Descriptions { get; private set; } = [];

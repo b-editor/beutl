@@ -11,8 +11,7 @@ using Beutl.Views;
 
 namespace Beutl.HeadlessUITests;
 
-// Asserts arranged layout, visibility and hit testing only (no pixel readback): frame capture of an
-// inflated shell view crashes the headless host on software Vulkan.
+// Asserts arranged layout, visibility and hit testing only; it reads back no pixels.
 [TestFixture, NonParallelizable]
 public sealed class ProjectLifecycleOverlayTests
 {

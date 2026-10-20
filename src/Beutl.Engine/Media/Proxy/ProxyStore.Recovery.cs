@@ -345,9 +345,9 @@ public sealed partial class ProxyStore
         {
         }
 
-        // An effect-item single-ProxyEntry sidecar also deserializes as ProxySourceMetadata (Version and
+        // A legacy single-ProxyEntry sidecar also deserializes as ProxySourceMetadata (Version and
         // Entries take their defaults), so only treat it as a wrapper when it actually carries
-        // entries — otherwise fall through to the effect-item ProxyEntry parse so recovery still adopts it.
+        // entries — otherwise fall through to the legacy ProxyEntry parse so recovery still adopts it.
         if (metadata is { Entries.Count: > 0 })
         {
             if (metadata.Version == ProxySourceMetadata.CurrentVersion)
@@ -362,17 +362,17 @@ public sealed partial class ProxyStore
             yield break;
         }
 
-        ProxyEntry? effectItemEntry = null;
+        ProxyEntry? legacyEntry = null;
         try
         {
-            effectItemEntry = JsonSerializer.Deserialize<ProxyEntry>(json, s_jsonOptions);
+            legacyEntry = JsonSerializer.Deserialize<ProxyEntry>(json, s_jsonOptions);
         }
         catch
         {
         }
 
-        if (effectItemEntry != null)
-            yield return effectItemEntry;
+        if (legacyEntry != null)
+            yield return legacyEntry;
     }
 
     private void RemoveMetadataEntry(ProxyEntry removed)

@@ -166,14 +166,9 @@ internal sealed partial class RenderRequestExecutor
         }
 
         /// <summary>
-        /// Copies a value so it can be handed to the render cache, or <see langword="null"/> when a preview
-        /// cannot spare the buffer.
+        /// Copies a value for the render cache, or returns <see langword="null"/> when a preview cannot spare the
+        /// buffer; the frame is correct without it. Delivery still fails.
         /// </summary>
-        /// <remarks>
-        /// This copy exists only to warm a cache: the frame is already correct without it. Allocating it the
-        /// one way that cannot degrade made it the only thing in a preview that could fail a frame whose
-        /// pixels were fine. A delivery session still fails here, because TryAcquire never degrades for one.
-        /// </remarks>
         private MaterializedRenderValue? CopyForCacheCapture(MaterializedRenderValue source)
         {
             MaterializedRenderValue capture;
@@ -244,8 +239,7 @@ internal sealed partial class RenderRequestExecutor
                     ?? throw new InvalidOperationException("A selected render-cache miss was not staged.");
                 if (ReferenceEquals(capture, s_suppressedCacheCapture))
                     continue;
-                RenderNodeCache cache = decision.Candidate.Cache
-                    ?? throw new InvalidOperationException("A production cache capture has no node-cache owner.");
+                RenderNodeCache cache = decision.Candidate.Cache;
                 ObjectDisposedException.ThrowIf(cache.IsDisposed, cache);
                 if (!(seenCaches ??= new(ReferenceEqualityComparer.Instance)).Add(cache))
                 {

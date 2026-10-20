@@ -85,6 +85,16 @@ public sealed class ObjectPropertyTabViewModel : IPinnableToolContext
             retargetAnyOpen: true);
     }
 
+    /// <summary>
+    /// Shows <paramref name="target"/> in the tab <see cref="FindReusable"/> finds, or in a new one, and opens it.
+    /// </summary>
+    public static void Open(IEditorContext editorContext, ICoreObject? target, IServiceProvider? provider)
+    {
+        ObjectPropertyTabViewModel tab = FindReusable(editorContext, target) ?? new ObjectPropertyTabViewModel(editorContext);
+        tab.NavigateCore(target, false, provider);
+        editorContext.OpenToolTab(tab);
+    }
+
     public void Back()
     {
         if (IsPinned.Value) return;

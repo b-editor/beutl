@@ -131,14 +131,9 @@
             <Setter Property="IconTemplate">
                 <DataTemplate DataType="core:IDockable">
                     <!--
-                        Fills PART_IconPresenter, which the tab strip lays out immediately left of the
-                        header. Dockables that expose no icon collapse it so the title keeps the tab's
-                        left edge; the fallback also covers dockables without the property at all.
-
-                        The Viewbox is what sizes the icon: a glyph source draws at its own FontSize
-                        (20 by default) and an icon element has no FontSize to override it, so bounds
-                        alone would leave the glyph overflowing this slot. Scaling also keeps whatever
-                        an extension hands us — glyph, path or bitmap — inside the tab.
+                        Collapses for dockables without an icon so the title keeps the tab's left edge.
+                        A glyph draws at its own FontSize and would overflow the slot, so the Viewbox
+                        scales whatever icon an extension provides to fit.
                     -->
                     <Viewbox Width="{DynamicResource DockToolTabIconSize}"
                              Height="{DynamicResource DockToolTabIconSize}"
@@ -403,10 +398,9 @@
         </Style>
     </Style>
 
-    <!--  Tab item states: only Foreground + BorderBrush change between states  -->
+    <!--  Tab item states  -->
     <Style Selector="ToolTabStripItem">
         <Setter Property="Background" Value="Transparent" />
-        <!-- <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondary}" /> -->
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0,0,0,2" />
 

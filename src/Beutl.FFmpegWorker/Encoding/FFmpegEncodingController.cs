@@ -28,26 +28,6 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
     public override FFmpegAudioEncoderSettings AudioSettings { get; } = new() { OutputFile = outputFile };
 
-    private AVHWDeviceType? GetAVHWDeviceType()
-    {
-        return settings.Acceleration switch
-        {
-            FFmpegEncodingSettings.AccelerationOptions.Software => AVHWDeviceType.AV_HWDEVICE_TYPE_NONE,
-            FFmpegEncodingSettings.AccelerationOptions.VDPAU => AVHWDeviceType.AV_HWDEVICE_TYPE_VDPAU,
-            FFmpegEncodingSettings.AccelerationOptions.CUDA => AVHWDeviceType.AV_HWDEVICE_TYPE_CUDA,
-            FFmpegEncodingSettings.AccelerationOptions.VAAPI => AVHWDeviceType.AV_HWDEVICE_TYPE_VAAPI,
-            FFmpegEncodingSettings.AccelerationOptions.DXVA2 => AVHWDeviceType.AV_HWDEVICE_TYPE_DXVA2,
-            FFmpegEncodingSettings.AccelerationOptions.QSV => AVHWDeviceType.AV_HWDEVICE_TYPE_QSV,
-            FFmpegEncodingSettings.AccelerationOptions.VideoToolbox => AVHWDeviceType.AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
-            FFmpegEncodingSettings.AccelerationOptions.D3D11VA => AVHWDeviceType.AV_HWDEVICE_TYPE_D3D11VA,
-            FFmpegEncodingSettings.AccelerationOptions.DRM => AVHWDeviceType.AV_HWDEVICE_TYPE_DRM,
-            FFmpegEncodingSettings.AccelerationOptions.OpenCL => AVHWDeviceType.AV_HWDEVICE_TYPE_OPENCL,
-            FFmpegEncodingSettings.AccelerationOptions.MediaCodec => AVHWDeviceType.AV_HWDEVICE_TYPE_MEDIACODEC,
-            FFmpegEncodingSettings.AccelerationOptions.Vulkan => AVHWDeviceType.AV_HWDEVICE_TYPE_VULKAN,
-            _ => null
-        };
-    }
-
     private void InitEncodeFilterGraph(MediaEncoder encoder)
     {
         _filterGraph = new MediaFilterGraph();
@@ -149,7 +129,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             codecContext.SampleFmt = format;
             codecContext.BitRate = bitRate;
             codecContext.TimeBase = new AVRational { num = 1, den = sampleRate };
-            codecContext.ThreadCount = Math.Min(Environment.ProcessorCount, 16);
+            codecContext.ThreadCount = ResolveThreadCount(settings.ThreadCount);
 
             if ((outFormat.Flags & ffmpeg.AVFMT_GLOBALHEADER) != 0)
             {
@@ -166,10 +146,10 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         swr = new SampleConverter();
         swr.SetOpts(encoder.ChLayout, encoder.SampleRate, encoder.SampleFmt, nbsamples);
 
-        // src: the sample provider always delivers interleaved stereo, which swr remixes into the encoder's layout
+        // src: the sample provider always delivers planar stereo, which swr remixes into the encoder's layout
         audioFrame.ChLayout = DefaultChannelLayout(2);
         audioFrame.NbSamples = nbsamples;
-        audioFrame.Format = (int)AVSampleFormat.AV_SAMPLE_FMT_FLT;
+        audioFrame.Format = (int)AVSampleFormat.AV_SAMPLE_FMT_FLTP;
         audioFrame.SampleRate = encoder.SampleRate;
         audioFrame.AllocateBuffer();
     }
@@ -233,14 +213,14 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             codecContext.PixFmt = format;
             codecContext.BitRate = bitRate;
             codecContext.GopSize = VideoSettings.KeyframeRate;
-            codecContext.ThreadCount = Math.Min(Environment.ProcessorCount, 16);
+            codecContext.ThreadCount = ResolveThreadCount(settings.ThreadCount);
 
             codecContext.ColorPrimaries = (AVColorPrimaries)(int)VideoSettings.ColorPrimaries;
             codecContext.ColorTrc = (AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc;
             codecContext.Colorspace = (AVColorSpace)(int)VideoSettings.ColorSpace;
             codecContext.ColorRange = (AVColorRange)(int)VideoSettings.ColorRange;
 
-            var hwType = GetAVHWDeviceType();
+            var hwType = HardwareAcceleration.ToHWDeviceType((int)settings.Acceleration);
             codecContext.InitHWDeviceContext(hwType);
 
             if ((outFormat.Flags & ffmpeg.AVFMT_GLOBALHEADER) != 0)
@@ -416,14 +396,14 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     private static async ValueTask<MediaFrame?> GetAudioFrame(MediaFrame frame, SampleConverter swr, EncodeState state,
         ISampleProvider sampleProvider)
     {
-        if (state.NextPts >= sampleProvider.SampleCount)
+        using var audio = await sampleProvider.ReadNextSamples(frame.NbSamples);
+        if (audio is null)
             return null;
 
-        using var pcm = await sampleProvider.Sample(state.NextPts, frame.NbSamples);
         unsafe
         {
-            IntPtr size = pcm.NumSamples * pcm.SampleSize;
-            Buffer.MemoryCopy((void*)pcm.Data, (void*)frame.Data[0], size, size);
+            audio.GetChannelData(0).CopyTo(new Span<float>((void*)frame.Data[0], frame.NbSamples));
+            audio.GetChannelData(1).CopyTo(new Span<float>((void*)frame.Data[1], frame.NbSamples));
         }
 
         var converted = swr.ConvertFrame(frame, out _, out _);
@@ -452,14 +432,13 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     private async ValueTask<MediaFrame?> GetVideoFrame(
         MediaFrame srcFrame, EncodeState state, IFrameProvider frameProvider)
     {
-        if (state.NextPts >= frameProvider.FrameCount)
+        using Bitmap? bitmap = await frameProvider.ReadNextFrame();
+        if (bitmap is null)
             return null;
 
-        using var bitmap = await frameProvider.RenderFrame(state.NextPts);
-
-        using (var converted = _isHdr && _targetColorSpace != null
+        using (var converted = _isHdr
             // Skia: LinearSrgb → ターゲット色空間（例: BT.2020/PQ）
-            ? bitmap.Convert(BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, _targetColorSpace)
+            ? bitmap.Convert(BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, _targetColorSpace!)
             // Skia: LinearSrgb → Bgra8888/Srgb
             : bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb))
         {
@@ -472,7 +451,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             }
         }
 
-        // AVFilter: ゲイン補正(HDRのみ) + PixFmt変換
+        // AVFilter: 画素形式の変換と寸法合わせ
         const int AV_BUFFERSRC_FLAG_KEEP_REF = 8;
         _bufferSrcCtx!.WriteFrame(srcFrame, AV_BUFFERSRC_FLAG_KEEP_REF);
 
@@ -511,8 +490,6 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         foreach (var pkt in encoder.EncodeFrame(frame))
         {
             pkt.StreamIndex = stream.Index;
-            // Console.WriteLine(
-            //     $"pts:{pkt.Pts} pts_time:{0} dst:{pkt.Dts} dts_time:{0} duration:{pkt.Duration} duration_time:{0} stream_index:{streamIndex}");
             // Encoders such as libx264 leave a video packet's duration unset, and the muxer needs it for the last
             // sample, which has no next timestamp to take its length from: a one-frame video would otherwise last
             // zero seconds. Each packet holds one frame, so give it one frame interval in the encoder's time base.
@@ -524,4 +501,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
         return frame != null;
     }
+
+    // The encoding settings' ThreadCount, read as the decoder reads its own: 0 lets FFmpeg choose, a positive
+    // count is capped at the processor count, and the default -1 keeps the automatic count of up to 16.
+    internal static int ResolveThreadCount(int threadCount)
+        => threadCount == 0 ? 0 : Math.Min(Environment.ProcessorCount, threadCount > 0 ? threadCount : 16);
 }

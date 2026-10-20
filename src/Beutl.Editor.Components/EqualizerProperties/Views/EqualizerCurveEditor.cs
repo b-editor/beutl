@@ -215,11 +215,11 @@ public sealed class EqualizerCurveEditor : Control
                 ? FrequencyFromX(point.X)
                 : vm.GetEffectiveValue(band.Frequency, CurrentTime);
 
-            if (!onlyHorizontal && IsGainAdjustable(band.FilterType.CurrentValue)
+            if (!onlyHorizontal && EqualizerBandItemViewModel.IsGainUsed(band.FilterType.CurrentValue)
                 && vm.CanEditProperty(band.Gain, CurrentTime))
             {
                 float targetCompositeDb = GainFromY(point.Y);
-                float othersContribution = CalculateResponseDbExcluding(effectiveFreq, _draggingIndex);
+                float othersContribution = CalculateResponseDb(effectiveFreq, _draggingIndex);
                 float responseRatio = GainToResponseRatioAtF0(band.FilterType.CurrentValue);
                 float newGain = Math.Clamp((targetCompositeDb - othersContribution) / responseRatio, MinGain, MaxGain);
                 float oldGain = vm.GetEffectiveValue(band.Gain, CurrentTime);
@@ -494,20 +494,7 @@ public sealed class EqualizerCurveEditor : Control
         return (float)Math.Clamp(MinGain + t * (MaxGain - MinGain), MinGain, MaxGain);
     }
 
-    private float CalculateResponseDb(float frequency)
-    {
-        if (_bandViewModels is null) return 0f;
-        double total = 0.0;
-        for (int i = 0; i < _bandViewModels.Count; i++)
-        {
-            var vm = _bandViewModels[i];
-            if (!vm.Band.IsEnabled) continue;
-            total += CalculateBandResponseDb(frequency, vm);
-        }
-        return (float)total;
-    }
-
-    private float CalculateResponseDbExcluding(float frequency, int excludeIndex)
+    private float CalculateResponseDb(float frequency, int excludeIndex = -1)
     {
         if (_bandViewModels is null) return 0f;
         double total = 0.0;
@@ -530,12 +517,6 @@ public sealed class EqualizerCurveEditor : Control
         return BiQuadFilter.CalculateResponseDb(
             band.FilterType.CurrentValue, f0, q, gain, EffectiveSampleRate, frequency);
     }
-
-    private static bool IsGainAdjustable(BiQuadFilterType type) => type switch
-    {
-        BiQuadFilterType.Peak or BiQuadFilterType.LowShelf or BiQuadFilterType.HighShelf => true,
-        _ => false
-    };
 
     private static float GainToResponseRatioAtF0(BiQuadFilterType type) => type switch
     {

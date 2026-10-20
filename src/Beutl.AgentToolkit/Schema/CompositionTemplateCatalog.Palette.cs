@@ -23,11 +23,6 @@ public sealed partial class CompositionTemplateCatalog
 
     internal static Palette GeneratePalette(string seed, int offset)
     {
-        const double tealBandStart = 160;
-        const double tealBandEnd = 230;
-        const double maxSaturation = 78; // stays below the oversaturation max-sat threshold (88)
-        const double minAccentLuma = 0.22; // stays above the dark-teal luma threshold (0.16)
-
         var rng = new SeededValues($"{seed}:palette:{offset}");
 
         double baseHue = rng.Range(0f, 360f);
@@ -41,9 +36,9 @@ public sealed partial class CompositionTemplateCatalog
 
         double accentHue = Wrap360(baseHue + accentRotation);
         double secondaryHue = Wrap360(accentHue + secondaryRotation);
-        double backgroundHue = AvoidHueBand(baseHue, tealBandStart, tealBandEnd);
-        double backgroundHueB = AvoidHueBand(baseHue + rng.Range(-12f, 12f), tealBandStart, tealBandEnd);
-        double foregroundHue = AvoidHueBand(baseHue + rng.Range(-8f, 8f), tealBandStart, tealBandEnd);
+        double backgroundHue = Wrap360(baseHue);
+        double backgroundHueB = Wrap360(baseHue + rng.Range(-12f, 12f));
+        double foregroundHue = Wrap360(baseHue + rng.Range(-8f, 8f));
 
         // Backgrounds: subtle dark tints (low saturation, low value).
         double bgSatA = rng.Range(8f, 26f);
@@ -52,7 +47,7 @@ public sealed partial class CompositionTemplateCatalog
         double bgValB = bgValA + rng.Range(6f, 12f);
 
         // Accent: the vivid focal color.
-        double accentSat = rng.Range(52f, (float)maxSaturation);
+        double accentSat = rng.Range(52f, 78f);
         double accentVal = rng.Range(72f, 92f);
 
         // Secondary accent: a muted support color.
@@ -62,9 +57,6 @@ public sealed partial class CompositionTemplateCatalog
         // Foreground: near-white with a faint tint for readability against the dark backgrounds.
         double fgSat = rng.Range(4f, 14f);
         double fgVal = rng.Range(92f, 99f);
-
-        (accentSat, accentVal) = EnsureMinLumaInBand(accentHue, accentSat, accentVal, tealBandStart, tealBandEnd, minAccentLuma);
-        (secondarySat, secondaryVal) = EnsureMinLumaInBand(secondaryHue, secondarySat, secondaryVal, tealBandStart, tealBandEnd, minAccentLuma);
 
         return new Palette(
             HsvHex(backgroundHue, bgSatA, bgValA),
@@ -78,45 +70,6 @@ public sealed partial class CompositionTemplateCatalog
     {
         hue %= 360;
         return hue < 0 ? hue + 360 : hue;
-    }
-
-    // Rotates a hue out of [start, end] (the dark-teal band) toward the nearer edge so a dark tint
-    // built from it can never satisfy the dark-teal predicate.
-    private static double AvoidHueBand(double hue, double start, double end)
-    {
-        double wrapped = Wrap360(hue);
-        if (wrapped < start || wrapped > end)
-        {
-            return wrapped;
-        }
-
-        double mid = (start + end) / 2;
-        return wrapped < mid ? Wrap360(start - 5) : Wrap360(end + 5);
-    }
-
-    // When a non-background hue lands in the dark-teal band, raise value (and shed a little
-    // saturation) until its relative luma clears the dark-teal threshold, so it is never a dark teal.
-    private static (double Saturation, double Value) EnsureMinLumaInBand(
-        double hue, double saturation, double value, double bandStart, double bandEnd, double minLuma)
-    {
-        if (hue < bandStart || hue > bandEnd)
-        {
-            return (saturation, value);
-        }
-
-        for (int i = 0; i < 24 && LumaOf(hue, saturation, value) < minLuma; i++)
-        {
-            value = Math.Min(100, value + 4);
-            saturation = Math.Max(0, saturation - 2);
-        }
-
-        return (saturation, value);
-    }
-
-    private static double LumaOf(double hue, double saturation, double value)
-    {
-        Color color = HsvToColor(hue, saturation, value);
-        return ((0.2126 * color.R) + (0.7152 * color.G) + (0.0722 * color.B)) / 255d;
     }
 
     private static string HsvHex(double hue, double saturation, double value)

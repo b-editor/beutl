@@ -1,33 +1,26 @@
 ﻿using Beutl.Logging;
 
 using Reactive.Bindings;
-using Reactive.Bindings.TinyLinq;
 
 namespace Beutl.PackageTools.UI.Models;
 
-public class VerifyTaskModel : IProgress<double>
+public class VerifyTaskModel : ITaskStepModel
 {
     private readonly ILogger _logger = Log.CreateLogger<VerifyTaskModel>();
     private readonly BeutlApiApplication _app;
     private readonly PackageInstallContext _context;
-    private TaskCompletionSource<bool>? _userInput;
 
     public VerifyTaskModel(BeutlApiApplication app, PackageInstallContext context)
     {
         _app = app;
         _context = context;
-        IsContinuedNull = IsContinued.Select(v => v.HasValue)
-            .ToReadOnlyReactivePropertySlim();
     }
 
     public ReactiveProperty<bool> ShowDetails { get; } = new(false);
 
-    // {PackageFileName}をダウンロード中
     public ReactiveProperty<string> VerifyMessage { get; } = new();
 
-    public ReactiveProperty<double> Progress { get; } = new();
-
-    public ReactiveProperty<bool> IsIndeterminate { get; } = new(false);
+    public ProgressState Progress { get; } = new();
 
     public ReactiveProperty<bool> FailedToVerify { get; } = new();
 
@@ -37,9 +30,7 @@ public class VerifyTaskModel : IProgress<double>
 
     public ReactiveProperty<bool> IsRunning { get; } = new();
 
-    public ReactiveProperty<bool?> IsContinued { get; } = new();
-
-    public ReadOnlyReactivePropertySlim<bool> IsContinuedNull { get; }
+    public UserAnswer ContinueAnswer { get; } = new();
 
     public ReactiveProperty<bool> Skipped { get; } = new();
 
@@ -49,8 +40,7 @@ public class VerifyTaskModel : IProgress<double>
 
     public void Continue(bool value)
     {
-        IsContinued.Value = value;
-        _userInput?.SetResult(value);
+        ContinueAnswer.Answer(value);
     }
 
     public async Task<bool> Run(CancellationToken token)
@@ -61,15 +51,15 @@ public class VerifyTaskModel : IProgress<double>
 
         try
         {
-            if (_context.Asset is { } asset
+            if (_context.Asset is not null
                 && _context.NuGetPackageFile != null)
             {
                 IsProgressBarVisible.Value = true;
-                IsIndeterminate.Value = true;
+                Progress.IsIndeterminate.Value = true;
 
                 VerifyMessage.Value = Strings.VerifyingHashCode;
                 _logger.LogInformation("Verifying hash code for package: {PackageName}, version: {Version}", _context.PackageName, _context.Version);
-                await installer.VerifyPackageFile(_context, this, token);
+                await installer.VerifyPackageFile(_context, Progress, token);
                 VerifyMessage.Value = Strings.Verified;
 
                 FailedToVerify.Value = !_context.HashVerified;
@@ -77,21 +67,9 @@ public class VerifyTaskModel : IProgress<double>
                 {
                     _logger.LogWarning("Hash verification failed for package: {PackageName}, version: {Version}", _context.PackageName, _context.Version);
 
-                    Task<bool>? task;
-                    if (!IsContinued.Value.HasValue)
-                    {
-                        _userInput = new TaskCompletionSource<bool>();
-                        task = _userInput.Task;
-                    }
-                    else
-                    {
-                        task = Task.FromResult(IsContinued.Value.Value);
-                    }
-
-                    if (!await task.WaitAsync(token))
+                    if (!await ContinueAnswer.WaitAsync(token))
                     {
                         _logger.LogInformation("User chose not to continue after verification failure.");
-                        Failed.Value = false;
                         return false;
                     }
                 }
@@ -122,22 +100,9 @@ public class VerifyTaskModel : IProgress<double>
         }
         finally
         {
-            IsIndeterminate.Value = false;
+            Progress.IsIndeterminate.Value = false;
             IsRunning.Value = false;
             _logger.LogInformation("Verification process ended.");
-        }
-    }
-
-    void IProgress<double>.Report(double value)
-    {
-        if (double.IsFinite(value))
-        {
-            Progress.Value = value * 100;
-            IsIndeterminate.Value = false;
-        }
-        else
-        {
-            IsIndeterminate.Value = true;
         }
     }
 }

@@ -804,30 +804,6 @@
   <data name="EnableElement" xml:space="preserve">
     <value>要素を有効化</value>
   </data>
-  <data name="DockArea_BottomLeft" xml:space="preserve">
-    <value>下 左</value>
-  </data>
-  <data name="DockArea_BottomRight" xml:space="preserve">
-    <value>下 右</value>
-  </data>
-  <data name="DockArea_LeftBottom" xml:space="preserve">
-    <value>左 下</value>
-  </data>
-  <data name="DockArea_LeftTop" xml:space="preserve">
-    <value>左 上</value>
-  </data>
-  <data name="DockArea_RightBottom" xml:space="preserve">
-    <value>右 下</value>
-  </data>
-  <data name="DockArea_RightTop" xml:space="preserve">
-    <value>右 上</value>
-  </data>
-  <data name="DockArea_TopLeft" xml:space="preserve">
-    <value>上 左</value>
-  </data>
-  <data name="DockArea_TopRight" xml:space="preserve">
-    <value>上 右</value>
-  </data>
   <data name="MoveTo" xml:space="preserve">
     <value>移動</value>
   </data>
@@ -1564,23 +1540,11 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ProxyUnavailable" xml:space="preserve">
     <value>利用不可</value>
   </data>
-  <data name="ProxyStoreUnavailable" xml:space="preserve">
-    <value>プロキシストアを利用できません。</value>
-  </data>
   <data name="ProxyQueueUnavailable" xml:space="preserve">
     <value>プロキシキューを利用できません。</value>
   </data>
   <data name="ProxyBulkNoEligibleClips" xml:space="preserve">
     <value>一括生成のしきい値を満たすクリップがありません。個別に生成してください。</value>
-  </data>
-  <data name="ProxyQueueIdle" xml:space="preserve">
-    <value>キューは空です</value>
-  </data>
-  <data name="ProxyQueuedJobSingular" xml:space="preserve">
-    <value>1 件のジョブ</value>
-  </data>
-  <data name="ProxyQueuedJobPlural" xml:space="preserve">
-    <value>{0} 件のジョブ</value>
   </data>
   <data name="ProxyDeleteFailedSingular" xml:space="preserve">
     <value>ファイルが使用中のため、プロキシを1件削除できませんでした。</value>
@@ -1596,9 +1560,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="ProxySelectedPlural" xml:space="preserve">
     <value>{0} 件選択</value>
-  </data>
-  <data name="ProxyStoreSummaryFormat" xml:space="preserve">
-    <value>プロジェクト {0} / ストア {1} / 上限 {2}</value>
   </data>
   <data name="ProxySourceInfoFormat" xml:space="preserve">
     <value>ソース {0} / {1}</value>
@@ -2450,6 +2411,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_ActivationFailedFormat" xml:space="preserve">
     <value>このプロジェクトでバージョン管理を有効にできませんでした。{0}</value>
   </data>
+  <data name="VersionControl_RepositoryNotWatchedFormat" xml:space="preserve">
+    <value>このプロジェクトのフォルダーを監視できないため、Beutl の外で行った変更は、次の操作の後でバージョン管理に表示されます。{0}</value>
+  </data>
   <data name="VersionControl_BranchFormat" xml:space="preserve">
     <value>ブランチ: {0}</value>
   </data>
@@ -2633,20 +2597,8 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_Offline" xml:space="preserve">
     <value>リモートに接続できませんでした。ネットワーク接続を確認して再試行してください。</value>
   </data>
-  <data name="VersionControl_StaleLockGuidance" xml:space="preserve">
-    <value>古い Git リポジトリロックにより、バージョン管理操作が妨げられています。</value>
-  </data>
-  <data name="VersionControl_RemoveStaleLock" xml:space="preserve">
-    <value>古いロックを削除</value>
-  </data>
-  <data name="VersionControl_StaleLockConfirmation" xml:space="preserve">
-    <value>Git のリポジトリロックが作成から 10 分以上経過しており、Beutl が実行中の Git プロセスはありません。この古いロックを削除しますか？</value>
-  </data>
-  <data name="VersionControl_StaleLockRemoved" xml:space="preserve">
-    <value>古い Git リポジトリロックを削除しました。バージョン管理操作を再試行してください。</value>
-  </data>
   <data name="VersionControl_StaleLockManualRemovalRequiredFormat" xml:space="preserve">
-    <value>現在のファイルシステムでは、この Git ロックを安全に削除できません。外部の Git ツールを閉じ、Git プロセスが実行中でないことを確認してから、{0} を手動で削除して再試行してください。</value>
+    <value>古い Git リポジトリロックにより、バージョン管理操作が妨げられています。外部の Git ツールを閉じ、Git プロセスが実行中でないことを確認してから、{0} を手動で削除して再試行してください。</value>
   </data>
   <data name="VersionControl_WorktreeOperationInProgress" xml:space="preserve">
     <value>バージョン管理がプロジェクトファイルを更新しています。処理の完了後に再試行してください。</value>
@@ -2677,6 +2629,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="AiPendingRequest" xml:space="preserve">
     <value>保留中の AI リクエスト</value>
+  </data>
+  <data name="AiPendingRequestDefaultModel" xml:space="preserve">
+    <value>{0} (既定のモデル)</value>
   </data>
   <data name="AiRecoverRequest" xml:space="preserve">
     <value>復元</value>

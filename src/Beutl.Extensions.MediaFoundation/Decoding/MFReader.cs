@@ -6,8 +6,6 @@ using System.Runtime.Versioning;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 
@@ -16,6 +14,8 @@ using Microsoft.Extensions.Logging;
 using NAudio.Wave;
 
 using static NAudio.Wave.MediaFoundationReader;
+
+using AudioBuffer = Beutl.Audio.AudioBuffer;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
@@ -48,7 +48,7 @@ public class MFReader : MediaReader
         string file,
         MediaOptions options,
         MFDecodingExtension extension,
-        Func<string, MediaOptions, MFDecodingExtension, IMediaFoundationVideoDecoder> createVideoDecoder,
+        Func<string, MFDecodingExtension, IMediaFoundationVideoDecoder> createVideoDecoder,
         Func<string, MediaFoundationReaderSettings, MediaFoundationReader> createAudioReader,
         Func<string, bool>? hasAudioStream = null,
         Func<string, long>? getFirstVideoTimestamp = null)
@@ -65,7 +65,7 @@ public class MFReader : MediaReader
             {
                 try
                 {
-                    _decoder = createVideoDecoder(file, new MediaOptions(MediaMode.Video), extension);
+                    _decoder = createVideoDecoder(file, extension);
                     MFMediaInfo info = _decoder.GetMediaInfo();
                     _videoInfo = new VideoStreamInfo(
                         info.VideoFormatName ?? "Unknown",
@@ -139,11 +139,8 @@ public class MFReader : MediaReader
         }
     }
 
-    private static IMediaFoundationVideoDecoder CreateVideoDecoder(
-        string file,
-        MediaOptions options,
-        MFDecodingExtension extension)
-        => new MFDecoder(file, options, extension);
+    private static IMediaFoundationVideoDecoder CreateVideoDecoder(string file, MFDecodingExtension extension)
+        => new MFDecoder(file, extension);
 
     private static MediaFoundationReader CreateAudioReader(string file, MediaFoundationReaderSettings settings)
         => new(file, settings);
@@ -226,7 +223,7 @@ public class MFReader : MediaReader
         }
     }
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
     {
         if (MFThread.Dispatcher.CheckAccess())
         {
@@ -238,9 +235,9 @@ public class MFReader : MediaReader
             if (!CanReadAudio())
                 return false;
 
-            (bool result, Ref<IPcm>? sound1) = MFThread.Dispatcher.Invoke(() =>
+            (bool result, AudioBuffer? sound1) = MFThread.Dispatcher.Invoke(() =>
             {
-                bool ret = ReadAudioCore(start, length, out Ref<IPcm>? sound1);
+                bool ret = ReadAudioCore(start, length, out AudioBuffer? sound1);
                 return (ret, sound1);
             });
             sound = sound1!;
@@ -248,7 +245,7 @@ public class MFReader : MediaReader
         }
     }
 
-    private bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    private bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
     {
         sound = null;
         if (!CanReadAudio())
@@ -262,7 +259,7 @@ public class MFReader : MediaReader
         long bytePosition = checked(((long)start + _audioStartSample) * _waveFormat.BlockAlign);
         if (length <= 0 || (_audioReader.Length > 0 && bytePosition >= _audioReader.Length))
         {
-            sound = Ref<IPcm>.Create(new Pcm<Stereo32BitFloat>(_waveFormat.SampleRate, 0));
+            sound = new AudioBuffer(_waveFormat.SampleRate, 2, 0);
             return true;
         }
 

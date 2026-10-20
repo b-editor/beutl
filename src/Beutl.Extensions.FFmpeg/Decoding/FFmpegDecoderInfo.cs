@@ -16,18 +16,18 @@ public sealed class FFmpegDecoderInfo : IDecoderInfo
 {
     private readonly ILogger _logger = Log.CreateLogger<FFmpegDecoderInfo>();
     private readonly FFmpegDecodingSettings _settings;
-    private readonly Func<IpcConnection> _connectToWorker;
+    private readonly Func<MediaOptions, IpcConnection> _connectToWorker;
     private readonly FFmpegReaderIdleTracker _idleTracker;
     private readonly TimeSpan _requestTimeout;
 
     public FFmpegDecoderInfo(FFmpegDecodingSettings settings)
-        : this(settings, () => FFmpegWorkerProcess.DecodingInstance.EnsureStarted(), FFmpegReaderIdleTracker.Shared)
+        : this(settings, options => SelectWorker(options).EnsureStarted(), FFmpegReaderIdleTracker.Shared)
     {
     }
 
     internal FFmpegDecoderInfo(
-        FFmpegDecodingSettings settings, Func<IpcConnection> connectToWorker, FFmpegReaderIdleTracker idleTracker,
-        TimeSpan? requestTimeout = null)
+        FFmpegDecodingSettings settings, Func<MediaOptions, IpcConnection> connectToWorker,
+        FFmpegReaderIdleTracker idleTracker, TimeSpan? requestTimeout = null)
     {
         _settings = settings;
         _connectToWorker = connectToWorker;
@@ -66,12 +66,9 @@ public sealed class FFmpegDecoderInfo : IDecoderInfo
         }
         catch (FFmpegLibrariesNotFoundException)
         {
-            // Record the missing-libraries condition (proxy generation reads it to translate a
-            // fallback-less open failure into "unavailable") but still return null, so a regular open
-            // can fall through to another decoder — e.g. MediaFoundation can open an MP4 without FFmpeg.
-            // Observe-only (no cooldown re-arm): a real worker-start failure arms it; re-arming on a
-            // short-circuited decode would keep the re-probe window from ever elapsing.
-            FFmpegInstallNotifier.RecordMissingObserved();
+            // Record the missing libraries (proxy generation reads it) and return null so another decoder can open
+            // the file. Don't re-arm the cooldown, or the re-probe window would never elapse.
+            FFmpegLibraryState.RecordMissingObserved();
             return null;
         }
         catch (Exception ex)
@@ -81,10 +78,14 @@ public sealed class FFmpegDecoderInfo : IDecoderInfo
         }
     }
 
+    // A file that crashes the background worker leaves the editor's readers running.
+    internal static FFmpegWorkerProcess SelectWorker(MediaOptions options)
+        => options.IsBackground ? FFmpegWorkerProcess.BackgroundDecodingInstance : FFmpegWorkerProcess.DecodingInstance;
+
     // Also used to reopen a suspended reader, so it reads the current decoding settings.
     private (IpcConnection Connection, OpenFileResponse Response) OpenOnWorker(string file, MediaOptions options)
     {
-        var connection = _connectToWorker();
+        var connection = _connectToWorker(options);
 
         var request = new OpenFileRequest
         {

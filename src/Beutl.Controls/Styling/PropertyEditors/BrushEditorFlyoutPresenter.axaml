@@ -1,6 +1,5 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:behaviors="using:Beutl.Controls.Behaviors"
                     xmlns:lang="using:Beutl.Language"
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
                     xmlns:icons="using:FluentIcons.Avalonia.Fluent"
@@ -29,19 +28,10 @@
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
-    <ControlTheme x:Key="{x:Type local:BrushEditorFlyoutPresenter}" TargetType="local:BrushEditorFlyoutPresenter">
+    <ControlTheme x:Key="{x:Type local:BrushEditorFlyoutPresenter}"
+                  BasedOn="{StaticResource {x:Type local:DraggablePickerFlyoutPresenter}}"
+                  TargetType="local:BrushEditorFlyoutPresenter">
         <Setter Property="Width" Value="240" />
-        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-        <Setter Property="VerticalContentAlignment" Value="Stretch" />
-        <Setter Property="Background" Value="{DynamicResource FlyoutPresenterBackground}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource FlyoutBorderThemeBrush}" />
-        <Setter Property="BorderThickness" Value="{StaticResource FlyoutBorderThemeThickness}" />
-        <Setter Property="Padding" Value="0" />
-        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
-        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
-        <Setter Property="CornerRadius" Value="{DynamicResource OverlayCornerRadius}" />
-        <Setter Property="FontSize" Value="{DynamicResource ControlContentThemeFontSize}" />
-        <Setter Property="FontFamily" Value="{DynamicResource ContentControlThemeFontFamily}" />
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Padding="{DynamicResource FlyoutBorderThemePadding}"
@@ -130,10 +120,7 @@
                                     <ComboBoxItem Content="{x:Static lang:Strings.Conical}" />
                                     <ComboBoxItem Content="{x:Static lang:Strings.Radial}" />
                                 </ComboBox>
-                                <local:GradientStopsSlider Name="GradientStopsSlider"
-                                                           Grid.Row="1"
-                                                           Grid.ColumnSpan="3"
-                                                           DockPanel.Dock="Bottom" />
+                                <local:GradientStopsSlider Name="GradientStopsSlider" Grid.Row="1" />
                             </Grid>
                             <Grid Name="DrawableOptions"
                                   Margin="6,0,6,6"
@@ -182,25 +169,14 @@
                                MaxHeight="450"
                                IsVisible="False">
                             <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                                <ItemsRepeater Margin="5" ItemsSource="{DynamicResource PaletteColors}">
+                                <ItemsRepeater Margin="5"
+                                               ItemTemplate="{StaticResource ColorPaletteItemTemplate}"
+                                               ItemsSource="{DynamicResource PaletteColors}">
                                     <ItemsRepeater.Layout>
                                         <UniformGridLayout ItemsStretch="Fill"
                                                            MaximumRowsOrColumns="10"
                                                            Orientation="Horizontal" />
                                     </ItemsRepeater.Layout>
-                                    <ItemsRepeater.ItemTemplate>
-                                        <DataTemplate x:DataType="Color">
-                                            <ui:ColorPaletteItem Height="{Binding $self.Bounds.Width}"
-                                                                 Margin="{DynamicResource ColorPaletteItemMargin}"
-                                                                 BorderBrushPointerOver="{DynamicResource ColorPickerColorPaletteItemBorderBrushPointerOver}"
-                                                                 BorderThicknessPointerOver="1"
-                                                                 Color="{Binding}">
-                                                <Interaction.Behaviors>
-                                                    <behaviors:ColorPaletteItemBehavior />
-                                                </Interaction.Behaviors>
-                                            </ui:ColorPaletteItem>
-                                        </DataTemplate>
-                                    </ItemsRepeater.ItemTemplate>
                                 </ItemsRepeater>
                             </ScrollViewer>
                         </Panel>
@@ -208,13 +184,6 @@
                 </Border>
             </ControlTemplate>
         </Setter>
-
-        <Style Selector="^:acceptdismiss /template/ Panel#AcceptDismissContainer">
-            <Setter Property="IsVisible" Value="True" />
-        </Style>
-        <Style Selector="^:acceptdismiss /template/ Button#CloseButton">
-            <Setter Property="IsVisible" Value="False" />
-        </Style>
 
         <Style Selector="^:palette /template/ ContentPresenter#ContentPresenter">
             <Setter Property="IsVisible" Value="False" />

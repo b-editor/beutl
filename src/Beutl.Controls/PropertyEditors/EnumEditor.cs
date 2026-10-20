@@ -33,15 +33,15 @@ public class EnumEditor : PropertyEditor
         set => SetValue(ItemsProperty, value);
     }
 
-    public virtual int SelectedIndex
+    public int SelectedIndex
     {
         get => _selectedIndex;
         set => SetAndRaise(SelectedIndexProperty, ref _selectedIndex, value);
     }
 
-    protected ComboBox InnerComboBox { get; private set; } = null!;
+    private ComboBox InnerComboBox { get; set; } = null!;
 
-    protected int PrevSelectedIndex { get; set; }
+    private int PrevSelectedIndex { get; set; }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -63,7 +63,7 @@ public class EnumEditor : PropertyEditor
 
     protected virtual void OnComboBoxSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        // 必ず選択されている
+        // A change that only clears the selection is ignored.
         if (e.AddedItems.Count > 0)
         {
             RaiseEvent(new PropertyEditorValueChangedEventArgs<int>(InnerComboBox.SelectedIndex, PrevSelectedIndex, ValueConfirmedEvent));

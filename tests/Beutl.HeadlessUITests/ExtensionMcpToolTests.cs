@@ -1,6 +1,4 @@
-﻿using System.Net;
-using System.Net.Sockets;
-using System.Reflection;
+﻿using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -13,12 +11,11 @@ using Beutl.AgentToolkit.Live;
 using Beutl.Api.Services;
 using Beutl.Editor.Services.Mcp;
 using Beutl.Extensibility;
-using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
-using Beutl.Testing.Headless;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 
@@ -31,7 +28,7 @@ public sealed class ExtensionMcpToolTests
     public async Task Extension_tool_is_listed_and_runs_on_the_ui_thread_with_the_selected_editor()
     {
         await TestReset.ResetShellAsync();
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-extension-mcp-tests-");
         // The shared provider carries the scene editor extension that opening a tab needs.
         ExtensionProvider provider = TestShell.Extensions;
         var editor = new EditorService(provider);
@@ -58,7 +55,7 @@ public sealed class ExtensionMcpToolTests
                 };
                 return new(McpToolResult.Json(JsonSerializer.SerializeToElement(value)));
             })]);
-        await using AgentHostEndpoint host = CreateHost(editor, directory);
+        await using AgentHostEndpoint host = CreateHost(editor, directory, Token);
         try
         {
             await host.StartAsync();
@@ -102,9 +99,9 @@ public sealed class ExtensionMcpToolTests
     public async Task Extension_tools_follow_package_registration_without_restarting_the_endpoint()
     {
         await TestReset.ResetShellAsync();
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-extension-mcp-tests-");
         var provider = new ExtensionProvider();
-        await using AgentHostEndpoint host = CreateHost(new EditorService(provider), directory);
+        await using AgentHostEndpoint host = CreateHost(new EditorService(provider), directory, Token);
         try
         {
             await host.StartAsync();
@@ -148,7 +145,7 @@ public sealed class ExtensionMcpToolTests
     public async Task Package_removal_waits_for_a_running_extension_tool_call()
     {
         await TestReset.ResetShellAsync();
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-extension-mcp-tests-");
         var provider = new ExtensionProvider();
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -160,7 +157,7 @@ public sealed class ExtensionMcpToolTests
                 await release.Task;
                 return McpToolResult.Text("finished");
             })]);
-        await using AgentHostEndpoint host = CreateHost(new EditorService(provider), directory);
+        await using AgentHostEndpoint host = CreateHost(new EditorService(provider), directory, Token);
         try
         {
             await host.StartAsync();
@@ -188,8 +185,8 @@ public sealed class ExtensionMcpToolTests
     public async Task Built_in_tools_keep_closed_argument_schemas()
     {
         await TestReset.ResetShellAsync();
-        string directory = CreateDirectory();
-        await using AgentHostEndpoint host = CreateHost(new EditorService(new ExtensionProvider()), directory);
+        string directory = CreateDirectory("beutl-extension-mcp-tests-");
+        await using AgentHostEndpoint host = CreateHost(new EditorService(new ExtensionProvider()), directory, Token);
         try
         {
             await host.StartAsync();
@@ -219,13 +216,13 @@ public sealed class ExtensionMcpToolTests
     public async Task An_extension_whose_tool_list_throws_does_not_hide_other_tools()
     {
         await TestReset.ResetShellAsync();
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-extension-mcp-tests-");
         var provider = new ExtensionProvider();
         provider.AddExtensions(-45008, [new ToolExtension(new ThrowingToolList(), _ => new(McpToolResult.Text("never")))]);
         provider.AddExtensions(-45009, [new ToolExtension(
             [new McpToolDefinition("test.healthy", "Still listed.")],
             _ => new(McpToolResult.Text("healthy")))]);
-        await using AgentHostEndpoint host = CreateHost(new EditorService(provider), directory);
+        await using AgentHostEndpoint host = CreateHost(new EditorService(provider), directory, Token);
         try
         {
             await host.StartAsync();
@@ -244,7 +241,7 @@ public sealed class ExtensionMcpToolTests
     public async Task Conflicting_and_reserved_extension_tools_are_skipped()
     {
         await TestReset.ResetShellAsync();
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-extension-mcp-tests-");
         var provider = new ExtensionProvider();
         provider.AddExtensions(-45004, [new ToolExtension(
             [
@@ -259,7 +256,7 @@ public sealed class ExtensionMcpToolTests
                     """{"type":"object","properties":{"instanceId":{"type":"string"}}}"""))
             ],
             _ => new(McpToolResult.Text("second")))]);
-        await using AgentHostEndpoint host = CreateHost(new EditorService(provider), directory);
+        await using AgentHostEndpoint host = CreateHost(new EditorService(provider), directory, Token);
         try
         {
             await host.StartAsync();
@@ -301,7 +298,7 @@ public sealed class ExtensionMcpToolTests
     public async Task Extension_results_and_failures_reach_the_agent()
     {
         await TestReset.ResetShellAsync();
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-extension-mcp-tests-");
         var provider = new ExtensionProvider();
         byte[] png = [0x89, 0x50, 0x4E, 0x47];
         provider.AddExtensions(-45006, [new ToolExtension(
@@ -316,7 +313,7 @@ public sealed class ExtensionMcpToolTests
                 "test.reject" => new(McpToolResult.Error("bad input")),
                 _ => throw new InvalidOperationException("boom")
             })]);
-        await using AgentHostEndpoint host = CreateHost(new EditorService(provider), directory);
+        await using AgentHostEndpoint host = CreateHost(new EditorService(provider), directory, Token);
         try
         {
             await host.StartAsync();
@@ -418,44 +415,4 @@ public sealed class ExtensionMcpToolTests
     private static string? ErrorCodeOf(CallToolResult result)
         => JsonNode.Parse(Text(result))?["error"]?["code"]?.GetValue<string>();
 
-    private static AgentHostEndpoint CreateHost(EditorService editor, string directory)
-        => new(new ProjectService(), editor, UnavailableAgentAiBackend.Instance, AvailablePort(), Token,
-            registryDirectory: directory);
-
-    private static async Task<McpClient> ConnectAsync(AgentHostEndpoint endpoint)
-        => await McpClient.CreateAsync(new HttpClientTransport(new HttpClientTransportOptions
-        {
-            Endpoint = endpoint.EndpointUri!,
-            TransportMode = HttpTransportMode.StreamableHttp,
-            AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = "Bearer " + Token }
-        }));
-
-    private static int AvailablePort()
-    {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        return ((IPEndPoint)listener.LocalEndpoint).Port;
-    }
-
-    private static string CreateDirectory()
-    {
-        string directory = Path.Combine(Path.GetTempPath(), "beutl-extension-mcp-tests-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
-        return directory;
-    }
-
-    private static Scene OpenScene(EditorService editor, string directory, string name)
-    {
-        var scene = new Scene
-        {
-            Name = name,
-            Uri = new Uri(Path.Combine(directory, name + ".scene")),
-            Duration = TimeSpan.FromSeconds(1),
-            FrameSize = new PixelSize(640, 480)
-        };
-        editor.ActivateTabItem(scene);
-        Assert.That(editor.SelectedTabItem.Value, Is.Not.Null);
-        HeadlessTestHelpers.Settle();
-        return scene;
-    }
 }

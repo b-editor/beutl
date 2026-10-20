@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.NodeGraph.Composition;
 
@@ -49,47 +50,29 @@ public sealed partial class GeometryShapeNode : GraphNode
             }
             else
             {
-                var geometryResource = _cachedOutput.Geometry?.Resource;
-                var fillResource = _cachedOutput.Fill?.Resource;
-                var penResource = _cachedOutput.Pen?.Resource;
-
-                if (geometryResource?.GetOriginal() != geometry)
-                {
-                    geometryResource?.Dispose();
-                    geometryResource = geometry.ToResource(context);
-                }
-                else
-                {
-                    bool versionBumped = false;
-                    geometryResource.Reconcile(geometry, context, ref versionBumped);
-                }
-
-                if (fill == null || fillResource?.GetOriginal() != fill)
-                {
-                    fillResource?.Dispose();
-                    fillResource = fill?.ToResource(context);
-                }
-                else
-                {
-                    bool versionBumped = false;
-                    fillResource.Reconcile(fill, context, ref versionBumped);
-                }
-
-                if (pen == null || penResource?.GetOriginal() != pen)
-                {
-                    penResource?.Dispose();
-                    penResource = pen?.ToResource(context);
-                }
-                else
-                {
-                    bool versionBumped = false;
-                    penResource.Reconcile(pen, context, ref versionBumped);
-                }
-
+                var geometryResource = Reuse(geometry, _cachedOutput.Geometry?.Resource, context)!;
+                var fillResource = Reuse(fill, _cachedOutput.Fill?.Resource, context);
+                var penResource = Reuse(pen, _cachedOutput.Pen?.Resource, context);
                 _cachedOutput.Update(geometryResource, fillResource, penResource);
             }
 
             Output = _cachedOutput;
+
+            // Rebuilds the resource when the input object changed or went away, and reconciles it otherwise.
+            static TResource? Reuse<TObject, TResource>(TObject? value, TResource? current, GraphCompositionContext context)
+                where TObject : EngineObject
+                where TResource : EngineObject.Resource
+            {
+                if (value == null || current?.GetOriginal() != value)
+                {
+                    current?.Dispose();
+                    return (TResource?)value?.ToResource(context);
+                }
+
+                bool versionBumped = false;
+                current.Reconcile(value, context, ref versionBumped);
+                return current;
+            }
         }
 
         partial void PostDispose(bool disposing)

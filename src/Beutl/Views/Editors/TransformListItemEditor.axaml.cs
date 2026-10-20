@@ -1,68 +1,17 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data.Converters;
-using Avalonia.Interactivity;
-using Beutl.Controls.PropertyEditors;
-using Beutl.Graphics.Transformation;
 using Beutl.ViewModels.Editors;
-using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
 
-public partial class TransformListItemEditor : UserControl, IListItemEditor
+public partial class TransformListItemEditor : PresenterListItemEditor
 {
-    public static readonly DirectProperty<TransformListItemEditor, Control?> ReorderHandleProperty =
-        AvaloniaProperty.RegisterDirect<TransformListItemEditor, Control?>(
-            nameof(ReorderHandle),
-            o => o.ReorderHandle);
-
     public TransformListItemEditor()
     {
         Resources["TransformTypeToIconConverter"] = TransformTypeToIconConverter.Instance;
         InitializeComponent();
-        ExpandTransitionHelper.Attach(reorderHandle, content, ExpandTransitionHelper.ListItemDuration);
-        FallbackObjectViewHelper.Attach(this, view => content.Children.Add(view));
-
-        this.GetObservable(DataContextProperty)
-            .Select(x => x as TransformEditorViewModel)
-            .Select(x => x?.IsPresenter ?? Observable.Return(false))
-            .Switch()
-            .CombineLatest(presenterEditor.GetObservable(PropertyEditor.ReorderHandleProperty))
-            .Subscribe(t => UpdateReorderHandle(t.First, t.Second));
-
-        reorderHandle.ContextFlyout = new FAMenuFlyout { Placement = PlacementMode.Pointer };
-        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)reorderHandle.ContextFlyout);
-    }
-
-    public Control? ReorderHandle
-    {
-        get;
-        private set => SetAndRaise(ReorderHandleProperty, ref field, value);
-    }
-
-    private void UpdateReorderHandle(bool isPresenter, Control? presenterReorderHandle)
-    {
-        ReorderHandle = isPresenter
-            ? presenterReorderHandle
-            : reorderHandle;
-    }
-
-    public event EventHandler? DeleteRequested;
-
-    private void DeleteClick(object? sender, RoutedEventArgs e)
-    {
-        DeleteRequested?.Invoke(this, EventArgs.Empty);
-    }
-
-    private async void SelectTarget_Requested(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is not TransformEditorViewModel { IsDisposed: false } vm) return;
-
-        await TargetSelectionHelper.HandleSelectTargetRequestAsync<TransformEditorViewModel, Transform>(
-            this,
-            vm,
-            vm => vm.GetAvailableTargets(),
-            (vm, target) => vm.SetTarget(target));
+        AttachParts(reorderHandle, content, presenterEditor);
     }
 
     private sealed class TransformTypeToIconConverter : IValueConverter
@@ -71,15 +20,8 @@ public partial class TransformListItemEditor : UserControl, IListItemEditor
 
         public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
-            return value switch
-            {
-                KnownTransformType.Translate => Application.Current!.FindResource("TranslateTransformIconData"),
-                KnownTransformType.Rotation => Application.Current!.FindResource("RotationTransformIconData"),
-                KnownTransformType.Scale => Application.Current!.FindResource("ScaleTransformIconData"),
-                KnownTransformType.Skew => Application.Current!.FindResource("SkewTransformIconData"),
-                KnownTransformType.Rotation3D => Application.Current!.FindResource("Rotation3DTransformIconData"),
-                _ => Application.Current!.FindResource("TransformListItemEditor_ReOrderIcon")
-            };
+            string? key = value is KnownTransformType type ? TransformEditorViewModel.Find(type)?.IconKey : null;
+            return Application.Current!.FindResource(key ?? "TransformListItemEditor_ReOrderIcon");
         }
 
         public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

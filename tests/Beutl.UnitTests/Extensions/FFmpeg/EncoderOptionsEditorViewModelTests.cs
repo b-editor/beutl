@@ -19,14 +19,11 @@ public sealed class EncoderOptionsEditorViewModelTests
         new() { Name = "crf", Kind = EncoderOptionKind.Number, Minimum = -1, Maximum = 51, DefaultValue = "-1" },
     ];
 
-    [TearDown]
-    public void TearDown() => FFmpegOptionsCaches.ClearAll();
-
     [Test]
     public void PackageDiscoveryLoadsTheSpecializedOptionsEditor()
     {
         var provider = new ExtensionProvider();
-        var commands = new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry());
+        var commands = new ContextCommandManager(new ContextCommandSettingsStore());
         var manager = new PackageManager(new InstalledPackageRepository(), provider, commands, apiApplication: null!);
         var loaded = manager.LoadPackageExtensions([typeof(FFmpegEncoderSpecializedPropertyExtension)]);
         var extension = (PropertyEditorExtension)loaded.Single();
@@ -70,6 +67,7 @@ public sealed class EncoderOptionsEditorViewModelTests
         await Cache(settings, Schema("main", "high10"));
         using var model = CreateModel(settings);
         var tenBit = CreateSettings();
+        tenBit.OutputFile = settings.OutputFile;
         tenBit.Format = FFPixelFormat.YUV420P10LE;
         await Cache(tenBit, Schema("high10"));
 
@@ -182,10 +180,11 @@ public sealed class EncoderOptionsEditorViewModelTests
         Assert.That(model.GetWarning(descriptor, null), Is.Null);
     }
 
+    // The option cache is process-wide, so each settings object gets its own output file and cache key.
     private static FFmpegVideoEncoderSettings CreateSettings() => new()
     {
         Codec = new CodecRecord("libx264", "H.264"),
-        OutputFile = "out.mp4",
+        OutputFile = $"{Guid.NewGuid():N}.mp4",
         Format = FFPixelFormat.YUV420P,
     };
 

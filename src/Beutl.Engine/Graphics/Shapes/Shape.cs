@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
@@ -75,6 +76,32 @@ public abstract partial class Shape : Drawable
 
     public abstract partial class Resource
     {
+        private Geometry.Resource? _geometryResource;
+
         public abstract Geometry.Resource? GetGeometry();
+
+        /// <summary>The resource <see cref="ReconcileGeometry"/> keeps for a shape that builds its own geometry.</summary>
+        private protected Geometry.Resource? GeometryResource => _geometryResource;
+
+        /// <summary>
+        /// Reconciles <paramref name="geometry"/>, which the shape configures from its own properties, and moves
+        /// <see cref="EngineObject.Resource.Version"/> when its resource changes.
+        /// </summary>
+        private protected void ReconcileGeometry(Geometry geometry, CompositionContext context)
+        {
+            bool changed = false;
+            ResourceReconciler.ReconcileResource(
+                context: context,
+                value: geometry,
+                field: ref _geometryResource,
+                changed: ref changed);
+            if (changed)
+                Version++;
+        }
+
+        partial void PreDispose(bool disposing)
+        {
+            _geometryResource?.Dispose();
+        }
     }
 }

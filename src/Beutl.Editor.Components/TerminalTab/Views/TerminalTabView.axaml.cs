@@ -46,11 +46,8 @@ public partial class TerminalTabView : UserControl, IDisposable
         {
             if (!ReferenceEquals(_launchedViewModel, _viewModel))
             {
-                // Reset the lifecycle flags only when a recycled view is bound to a DIFFERENT
-                // view-model than the one it launched a PTY for. Comparing against the launched
-                // view-model (not the current DataContext) also preserves the session across a
-                // VM -> null -> same-VM re-fire, where the DataContext momentarily goes null during
-                // a dock/reparent.
+                // Reset only when bound to a different view-model than the launched one; the DataContext
+                // briefly goes null during a reparent.
                 _launched = false;
                 _launching = false;
             }
@@ -104,8 +101,7 @@ public partial class TerminalTabView : UserControl, IDisposable
 
         // Suppress detach-cleanup before spawning so switching away mid-launch re-docks the tab
         // instead of killing the just-spawned PTY. Kept on for the tab's life; disposal calls
-        // EndReparent + Shutdown. The locale fallback is applied per spawn via
-        // Terminal.EnvironmentOverrides, so no process-wide environment mutation happens here.
+        // EndReparent + Shutdown.
         Terminal.BeginReparent();
 
         try
@@ -147,9 +143,8 @@ public partial class TerminalTabView : UserControl, IDisposable
         }
         catch
         {
-            // LaunchAsync is fire-and-forget, and LaunchProcess throws if the template is not applied.
-            // Contain any fault so it never becomes an unobserved task exception; surface it through
-            // the restart UI when the tab is live, or tear down when it is already disposed.
+            // Fire-and-forget: contain any fault and surface it through the restart UI, or tear down if
+            // disposed.
             _launched = false;
             if (_disposed)
             {
@@ -168,7 +163,6 @@ public partial class TerminalTabView : UserControl, IDisposable
         // while the view is transiently unbound still reaches the right view-model.
         if (_launchedViewModel != null && !_disposed)
         {
-            _launchedViewModel.ExitCode.Value = e.ExitCode;
             _launchedViewModel.IsProcessExited.Value = true;
         }
     }

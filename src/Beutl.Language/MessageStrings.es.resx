@@ -38,9 +38,6 @@
   <data name="ExportProjectPartialFailure" xml:space="preserve">
     <value>La exportación se completó, pero {0} recursos no se pudieron copiar. El paquete exportado puede estar incompleto.</value>
   </data>
-  <data name="ConfirmDeleteDirectory" xml:space="preserve">
-    <value>¿Quieres eliminar este directorio?</value>
-  </data>
   <data name="ConfirmDeleteFile" xml:space="preserve">
     <value>¿Quieres eliminar este archivo?</value>
   </data>
@@ -60,17 +57,8 @@
   <data name="EditorContextAlreadyCreated" xml:space="preserve">
     <value>El contexto del editor ya se ha creado.</value>
   </data>
-  <data name="EditorContextNull" xml:space="preserve">
-    <value>Se especificó null para el contexto del editor.</value>
-  </data>
-  <data name="InputRequired" xml:space="preserve">
-    <value>Introduce una cadena.</value>
-  </data>
   <data name="InvalidString" xml:space="preserve">
     <value>Cadena no válida.</value>
-  </data>
-  <data name="MultipleTypesAvailable" xml:space="preserve">
-    <value>Hay varios tipos disponibles.</value>
   </data>
   <data name="AnimationIsEnabled" xml:space="preserve">
     <value>La animación está habilitada</value>

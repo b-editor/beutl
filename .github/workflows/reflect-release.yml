@@ -41,74 +41,38 @@ jobs:
         run: |
           set -euo pipefail
 
-          url_of() {
-            echo "$ASSETS" | jq -r --arg name "$1" \
-              '.[] | select(.name == $name) | .browser_download_url'
-          }
-          url_of_glob() {
-            echo "$ASSETS" | jq -r --arg pat "$1" \
-              '.[] | select(.name | test($pat)) | .browser_download_url' | head -n1
-          }
-
-          # Only self-contained builds ship (#2887), so every registered asset is standalone.
-          WIN_STANDALONE=$(url_of "beutl-standalone-setup.exe")
-          WIN_STANDALONE_ARM64=$(url_of "beutl-standalone-arm64-setup.exe")
-          LINUX_DEB=$(url_of_glob '^beutl_.*_amd64\.deb$')
-          LINUX_ZIP_STANDALONE=$(url_of "Beutl-linux-x64-standalone-$VER.zip")
-          LINUX_FLATPAK=$(url_of "Beutl-$VER.flatpak")
-          LINUX_DEB_ARM64=$(url_of_glob '^beutl_.*_arm64\.deb$')
-          LINUX_ZIP_STANDALONE_ARM64=$(url_of "Beutl-linux-arm64-standalone-$VER.zip")
-          LINUX_FLATPAK_ARM64=$(url_of "Beutl-arm64-$VER.flatpak")
-          MAC_X64=$(url_of "Beutl.osx_x64.app.zip")
-          MAC_ARM64=$(url_of "Beutl.osx_arm64.app.zip")
+          # One row per registered asset: the release asset (or the label of a "pattern"), and the id after
+          # beutl-<version>-. Only self-contained builds ship (#2887), so every registered asset is standalone.
+          rows=$(echo "$ASSETS" | jq -c --arg ver "$VER" '
+            . as $assets
+            | [
+                {name: "beutl-standalone-setup.exe", id: "win-x64-installer-standalone", os: "win", arch: "x64", type: "installer"},
+                {name: "beutl-standalone-arm64-setup.exe", id: "win-arm64-installer-standalone", os: "win", arch: "arm64", type: "installer"},
+                {name: "beutl_*_amd64.deb", pattern: "^beutl_.*_amd64\\.deb$", id: "linux-x64-debian", os: "linux", arch: "x64", type: "debian"},
+                {name: "Beutl-linux-x64-standalone-\($ver).zip", id: "linux-x64-zip-standalone", os: "linux", arch: "x64", type: "zip"},
+                {name: "Beutl-\($ver).flatpak", id: "linux-x64-flatpak", os: "linux", arch: "x64", type: "flatpak"},
+                {name: "beutl_*_arm64.deb", pattern: "^beutl_.*_arm64\\.deb$", id: "linux-arm64-debian", os: "linux", arch: "arm64", type: "debian"},
+                {name: "Beutl-linux-arm64-standalone-\($ver).zip", id: "linux-arm64-zip-standalone", os: "linux", arch: "arm64", type: "zip"},
+                {name: "Beutl-arm64-\($ver).flatpak", id: "linux-arm64-flatpak", os: "linux", arch: "arm64", type: "flatpak"},
+                {name: "Beutl.osx_x64.app.zip", id: "osx-x64-app", os: "osx", arch: "x64", type: "app"},
+                {name: "Beutl.osx_arm64.app.zip", id: "osx-arm64-app", os: "osx", arch: "arm64", type: "app"}
+              ]
+            | map(. as $row
+                | .url = ([$assets[] | select(if $row.pattern then .name | test($row.pattern) else .name == $row.name end)][0].browser_download_url // ""))')
 
           missing=0
-          check() {
-            if [ -z "$2" ] || [ "$2" = "null" ]; then
-              echo "::error::missing asset: $1"
+          while IFS=$'\t' read -r name url; do
+            if [ -z "$url" ]; then
+              echo "::error::missing asset: $name"
               missing=1
             else
-              echo "$1 -> $2"
+              echo "$name -> $url"
             fi
-          }
-          check "beutl-standalone-setup.exe"            "$WIN_STANDALONE"
-          check "beutl-standalone-arm64-setup.exe"      "$WIN_STANDALONE_ARM64"
-          check "beutl_*_amd64.deb"                     "$LINUX_DEB"
-          check "Beutl-linux-x64-standalone-$VER.zip"   "$LINUX_ZIP_STANDALONE"
-          check "Beutl-$VER.flatpak"                   "$LINUX_FLATPAK"
-          check "beutl_*_arm64.deb"                     "$LINUX_DEB_ARM64"
-          check "Beutl-linux-arm64-standalone-$VER.zip" "$LINUX_ZIP_STANDALONE_ARM64"
-          check "Beutl-arm64-$VER.flatpak"             "$LINUX_FLATPAK_ARM64"
-          check "Beutl.osx_x64.app.zip"                 "$MAC_X64"
-          check "Beutl.osx_arm64.app.zip"               "$MAC_ARM64"
+          done < <(echo "$rows" | jq -r '.[] | [.name, .url] | @tsv')
           [ "$missing" -eq 0 ] || exit 1
 
-          body=$(jq -nc \
-            --arg ver "$VER" \
-            --arg winS "$WIN_STANDALONE" \
-            --arg winSa "$WIN_STANDALONE_ARM64" \
-            --arg deb "$LINUX_DEB" \
-            --arg linZS "$LINUX_ZIP_STANDALONE" \
-            --arg flatpak "$LINUX_FLATPAK" \
-            --arg debA "$LINUX_DEB_ARM64" \
-            --arg linZSA "$LINUX_ZIP_STANDALONE_ARM64" \
-            --arg flatpakA "$LINUX_FLATPAK_ARM64" \
-            --arg macX "$MAC_X64" \
-            --arg macA "$MAC_ARM64" \
-            '{
-              assets: [
-                {id:"beutl-\($ver)-win-x64-installer-standalone",   version:$ver, os:"win",   arch:"x64",   type:"installer", standalone:true,  url:$winS},
-                {id:"beutl-\($ver)-win-arm64-installer-standalone", version:$ver, os:"win",   arch:"arm64", type:"installer", standalone:true,  url:$winSa},
-                {id:"beutl-\($ver)-linux-x64-debian",             version:$ver, os:"linux", arch:"x64",   type:"debian",    standalone:true,  url:$deb},
-                {id:"beutl-\($ver)-linux-x64-zip-standalone",     version:$ver, os:"linux", arch:"x64",   type:"zip",       standalone:true,  url:$linZS},
-                {id:"beutl-\($ver)-linux-x64-flatpak",            version:$ver, os:"linux", arch:"x64",   type:"flatpak",   standalone:true,  url:$flatpak},
-                {id:"beutl-\($ver)-linux-arm64-debian",           version:$ver, os:"linux", arch:"arm64", type:"debian",    standalone:true,  url:$debA},
-                {id:"beutl-\($ver)-linux-arm64-zip-standalone",   version:$ver, os:"linux", arch:"arm64", type:"zip",       standalone:true,  url:$linZSA},
-                {id:"beutl-\($ver)-linux-arm64-flatpak",          version:$ver, os:"linux", arch:"arm64", type:"flatpak",   standalone:true,  url:$flatpakA},
-                {id:"beutl-\($ver)-osx-x64-app",                  version:$ver, os:"osx",   arch:"x64",   type:"app",       standalone:true,  url:$macX},
-                {id:"beutl-\($ver)-osx-arm64-app",                version:$ver, os:"osx",   arch:"arm64", type:"app",       standalone:true,  url:$macA}
-              ]
-            }')
+          body=$(echo "$rows" | jq -c --arg ver "$VER" \
+            '{assets: map({id: "beutl-\($ver)-\(.id)", version: $ver, os, arch, type, standalone: true, url})}')
 
           {
             echo "body<<EOF"

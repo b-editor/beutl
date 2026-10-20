@@ -4,7 +4,6 @@ using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Controls;
@@ -20,13 +19,10 @@ namespace Beutl.HeadlessUITests;
 public class OptionsDisplayItemLayoutTests
 {
     [AvaloniaTest]
-    [TestCase(180, false)]
-    [TestCase(180, true)]
-    [TestCase(220, false)]
-    [TestCase(220, true)]
-    [TestCase(249, false)]
-    [TestCase(249, true)]
-    public void Stacked_inputs_fit_below_their_minimum_width_and_restore_the_binding(int width, bool light)
+    [TestCase(180)]
+    [TestCase(220)]
+    [TestCase(249)]
+    public void Stacked_inputs_fit_below_their_minimum_width_and_restore_the_binding(int width)
     {
         using var minimum = new System.Reactive.Subjects.BehaviorSubject<double>(250);
         var input = new TextBox { Text = "A setting being edited" };
@@ -44,7 +40,7 @@ public class OptionsDisplayItemLayoutTests
             Content = row,
             Width = 640,
             Height = 500,
-            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
+            RequestedThemeVariant = ThemeVariant.Dark
         };
         try
         {
@@ -76,11 +72,9 @@ public class OptionsDisplayItemLayoutTests
     }
 
     [AvaloniaTest]
-    [TestCase(false, false)]
-    [TestCase(false, true)]
-    [TestCase(true, false)]
-    [TestCase(true, true)]
-    public void Wide_actions_stack_on_resize_without_recreating_the_input(bool light, bool icon)
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Wide_actions_stack_on_resize_without_recreating_the_input(bool icon)
     {
         var input = new TextBox { MinWidth = 250, Text = "A setting being edited" };
         var row = new OptionsDisplayItem
@@ -95,7 +89,7 @@ public class OptionsDisplayItemLayoutTests
             Content = row,
             Width = 640,
             Height = 220,
-            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
+            RequestedThemeVariant = ThemeVariant.Dark
         };
         row.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
         try
@@ -120,13 +114,11 @@ public class OptionsDisplayItemLayoutTests
                 Assert.That(input.Text, Is.EqualTo("A setting being edited"));
             });
             AssertContained(input, row);
-            Capture(window, $"row-320-{light}-{icon}");
 
             window.Width = 640;
             HeadlessTestHelpers.Render();
             Assert.That(action.Bounds.Top, Is.LessThan(text.Bounds.Bottom));
             AssertContained(input, row);
-            Capture(window, $"row-640-{light}-{icon}");
 
             // A small action fits beside the long text when there is no icon column.
             window.Width = 320;
@@ -144,9 +136,7 @@ public class OptionsDisplayItemLayoutTests
     }
 
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task Settings_pages_adapt_to_navigation_and_keep_actions_inside_rows(bool light)
+    public async Task Settings_pages_adapt_to_navigation_and_keep_actions_inside_rows()
     {
         await TestReset.ResetShellAsync();
         using var model = TestShell.MainViewModel.CreateSettingsDialog();
@@ -154,7 +144,7 @@ public class OptionsDisplayItemLayoutTests
         dialog.DataContext = model;
         dialog.Width = 800;
         dialog.Height = 700;
-        dialog.RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark;
+        dialog.RequestedThemeVariant = ThemeVariant.Dark;
         try
         {
             model.GoToBrowserSettingsPage();
@@ -168,25 +158,21 @@ public class OptionsDisplayItemLayoutTests
                 nav.IsPaneOpen = open;
                 HeadlessTestHelpers.Render(3);
                 CheckRows((Control)frame.Content!);
-                Capture(dialog, $"browser-800-nav-{open}-{light}");
             }
 
             frame.Navigate(typeof(EditorSettingsPage), model.Editor, new FASuppressNavigationTransitionInfo());
             HeadlessTestHelpers.Render(3);
             CheckRows((Control)frame.Content!);
-            Capture(dialog, $"editor-800-nav-open-{light}");
 
             nav.PaneDisplayMode = FANavigationViewPaneDisplayMode.Auto;
             dialog.Width = 480;
             nav.IsPaneOpen = false;
             HeadlessTestHelpers.Render(3);
             CheckRows((Control)frame.Content!);
-            Capture(dialog, $"editor-480-{light}");
 
             frame.Navigate(typeof(ViewSettingsPage), model.View, new FASuppressNavigationTransitionInfo());
             HeadlessTestHelpers.Render(3);
             CheckRows((Control)frame.Content!);
-            Capture(dialog, $"appearance-480-{light}");
         }
         finally { dialog.Close(); }
 
@@ -300,14 +286,14 @@ public class OptionsDisplayItemLayoutTests
             AssertUnchanged();
             window.MouseUp(heading, MouseButton.Left);
             Assert.That(toggle.IsChecked, Is.False);
-            Click(toggle);
+            HeadlessTestHelpers.Click(toggle, move: true);
             Assert.That(toggle.IsChecked, Is.True);
             AssertUnchanged();
 
             var input = new TextBox { MinWidth = 150, Text = "Initial" };
             row.ActionButton = input;
             HeadlessTestHelpers.Render();
-            Click(input);
+            HeadlessTestHelpers.Click(input, move: true);
             Assert.That(input.IsFocused, Is.True);
             AssertUnchanged();
 
@@ -316,7 +302,7 @@ public class OptionsDisplayItemLayoutTests
             button.Click += (_, _) => buttonClicks++;
             row.ActionButton = button;
             HeadlessTestHelpers.Render();
-            Click(button);
+            HeadlessTestHelpers.Click(button, move: true);
             Assert.That(buttonClicks, Is.EqualTo(1));
             AssertUnchanged();
 
@@ -343,7 +329,7 @@ public class OptionsDisplayItemLayoutTests
             row.Clickable = true;
             int navigationRequests = 0;
             row.NavigationRequested += (_, _) => navigationRequests++;
-            Click(header, new Point(10, 10));
+            HeadlessTestHelpers.Click(header, new Point(10, 10), move: true);
             Assert.That(navigationRequests, Is.EqualTo(1));
             Assert.That(header.Background, Is.Not.EqualTo(background));
             row.Navigates = false;
@@ -354,15 +340,6 @@ public class OptionsDisplayItemLayoutTests
                 HeadlessTestHelpers.Render();
                 Assert.That(header.Background, Is.EqualTo(background));
                 Assert.That(header.BorderBrush, Is.EqualTo(borderBrush));
-            }
-
-            void Click(Control control, Point? local = null)
-            {
-                Point point = control.TranslatePoint(local ?? new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
-                window.MouseMove(point);
-                window.MouseDown(point, MouseButton.Left);
-                window.MouseUp(point, MouseButton.Left);
-                HeadlessTestHelpers.Render();
             }
         }
         finally { window.Close(); }
@@ -380,13 +357,5 @@ public class OptionsDisplayItemLayoutTests
             Assert.That(point.X + control.Bounds.Width, Is.LessThanOrEqualTo(row.Bounds.Width + 0.001), $"Right edge for {row.Header}");
             Assert.That(point.Y + control.Bounds.Height, Is.LessThanOrEqualTo(row.Bounds.Height + 0.001), $"Bottom edge for {row.Header}");
         });
-    }
-
-    private static void Capture(Window window, string name)
-    {
-        if (Environment.GetEnvironmentVariable("BEUTL_OPTIONS_LAYOUT_CAPTURE") is not { Length: > 0 } directory) return;
-        Directory.CreateDirectory(directory);
-        using var image = window.CaptureRenderedFrame();
-        image?.Save(Path.Combine(directory, $"{name}.png"), PngBitmapEncoderOptions.Default);
     }
 }

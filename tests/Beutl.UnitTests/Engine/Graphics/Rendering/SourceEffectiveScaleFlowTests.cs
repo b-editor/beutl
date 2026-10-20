@@ -9,6 +9,7 @@ using Beutl.Graphics.Shaders;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
+using Beutl.UnitTests.Engine.Graphics.Rendering.Failure;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 using SkiaSharp;
 
@@ -29,41 +30,16 @@ public class SourceEffectiveScaleFlowTests
         return new FilterEffectRenderNode(mosaic.ToResource(CompositionContext.Default));
     }
 
-    [TestCase(0.5f, 1.0f)]
-    [TestCase(1.0f, 1.0f)]
-    [TestCase(2.0f, 2.0f)]
-    public void ConcreteAtSource_ResolvesWorkingScaleToSupplyOrOutputFloor(float density, float expectedW)
-    {
-        RenderNodeMeasurement measurement = ScaleRecordingTestHelper.MeasureThrough(
-            MosaicNode(),
-            EffectiveScale.At(density));
-
-        Assert.That(measurement.HasFragments, Is.True, "the effect dropped the input fragment");
-        Assert.That(measurement.EffectiveScale.Value, Is.EqualTo(expectedW).Within(1e-4),
-            $"At({density}) source resolved the wrong working scale");
-        Assert.That(measurement.EffectiveScale.IsUnbounded, Is.False,
-            "a concrete source density was lost (treated as re-rasterizable vector)");
-    }
-
-    [Test]
-    public void HighDensitySource_NotClampedByReducedOutputScale()
-    {
-        RenderNodeMeasurement measurement = ScaleRecordingTestHelper.MeasureThrough(
-            MosaicNode(),
-            EffectiveScale.At(2),
-            outputScale: 0.5f);
-
-        Assert.That(measurement.HasFragments, Is.True);
-        Assert.That(measurement.EffectiveScale.Value, Is.EqualTo(2).Within(1e-4),
-            "a 2.0 source was clamped down by the 0.5 output scale — s_out must not cap an intermediate");
-    }
-
+    [TestCase(0.5f, 1.0f, 1.0f)]
+    [TestCase(1.0f, 1.0f, 1.0f)]
+    [TestCase(2.0f, 1.0f, 2.0f)]
+    [TestCase(2.0f, 0.5f, 2.0f, TestName = "HighDensitySource_NotClampedByReducedOutputScale")]
     [TestCase(0.5f, 2.0f, 2.0f)]
     [TestCase(1.0f, 2.0f, 2.0f)]
     [TestCase(2.0f, 2.0f, 2.0f)]
     [TestCase(2.0f, 4.0f, 4.0f)]
     [TestCase(2.0f, 1.5f, 2.0f)]
-    public void ConcreteAtSource_AtSupersampleOutput_ResolvesMaxOfSupplyAndOutput(
+    public void ConcreteAtSource_ResolvesWorkingScaleToSupplyOrOutputFloor(
         float density,
         float outputScale,
         float expectedW)
@@ -73,14 +49,11 @@ public class SourceEffectiveScaleFlowTests
             EffectiveScale.At(density),
             outputScale);
 
-        Assert.That(measurement.HasFragments, Is.True);
+        Assert.That(measurement.HasFragments, Is.True, "the effect dropped the input fragment");
         Assert.That(measurement.EffectiveScale.Value, Is.EqualTo(expectedW).Within(1e-4),
             $"At({density}) @ outputScale {outputScale} resolved the wrong working scale");
-        if (expectedW != 1)
-        {
-            Assert.That(measurement.EffectiveScale.IsUnbounded, Is.False,
-                "a non-unit source density was lost at supersample output");
-        }
+        Assert.That(measurement.EffectiveScale.IsUnbounded, Is.False,
+            "a concrete source density was lost (treated as re-rasterizable vector)");
     }
 
     [TestCase(float.PositiveInfinity, 4.0f)]
@@ -331,7 +304,7 @@ public class SourceEffectiveScaleFlowTests
             Intent = RenderIntent.Preview,
             TargetDomain = domain,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Bitmap bitmap = rasterization.Bitmap!;
         Span<ushort> row = bitmap.GetRow<ushort>((int)domain.Height / 2);
@@ -391,43 +364,18 @@ public class SourceEffectiveScaleFlowTests
             "the over-budget stroke bounds did not clamp the working scale below the nominal 1.0");
     }
 
-    private sealed class ClampToOutputRenderNode(FilterEffect.Resource effect) : FilterEffectRenderNode(effect)
-    {
-        private static readonly RenderScaleContract s_scale = RenderScaleContract.Custom(
-            static metadata => MathF.Min(
-                RenderScaleUtilities.ResolveWorkingScale(
-                    metadata.InputSupplies.ToArray(),
-                    metadata.OutputScale,
-                    metadata.MaxWorkingScale),
-                metadata.OutputScale));
-
-        protected override RenderScaleContract? GetWorkingScaleContract() => s_scale;
-    }
-
     [TestCase(1.0f, 1.0f)]
     [TestCase(0.5f, 0.5f)]
     public void CustomRenderNode_OverridesSupplyDriven_WithClampToOutput(float outputScale, float expectedW)
     {
         RenderNodeMeasurement measurement = ScaleRecordingTestHelper.MeasureThrough(
-            new ClampToOutputRenderNode(new MosaicEffect().ToResource(CompositionContext.Default)),
+            new ClampToOutputEscapeHatchNode(new MosaicEffect().ToResource(CompositionContext.Default)),
             EffectiveScale.At(2),
             outputScale);
 
         Assert.That(measurement.HasFragments, Is.True);
         Assert.That(measurement.EffectiveScale.Value, Is.EqualTo(expectedW).Within(1e-4),
             "the custom render node did not apply its clamp-to-output working scale — the CreateRenderNode() escape hatch is broken");
-    }
-
-    [Test]
-    public void CustomRenderNode_NoOpEffect_PassesInputThroughWithoutApplyingScaleContract()
-    {
-        RenderNodeMeasurement measurement = ScaleRecordingTestHelper.MeasureThrough(
-            new ClampToOutputRenderNode(new FilterEffectGroup().ToResource(CompositionContext.Default)),
-            EffectiveScale.At(2));
-
-        Assert.That(measurement.HasFragments, Is.True);
-        Assert.That(measurement.EffectiveScale, Is.EqualTo(EffectiveScale.At(2)),
-            "an effect that recorded no items must pass through the original input, not its custom working-scale map");
     }
 
     [Test]
@@ -733,7 +681,7 @@ public class SourceEffectiveScaleFlowTests
         RenderExecutionStatistics baseline = RasterizeForStatistics(
             new TargetCommandSourceRenderNode(bounds, owningTargetDomain),
             targetDomain);
-        var owned = new TrackingDisposable();
+        var owned = new FailureTestDisposable();
         var noOp = new WorkingScaleProbeEffect(context => _ = context.Own(owned));
         RenderExecutionStatistics filtered = RasterizeForStatistics(
             ScaleRecordingTestHelper.Pipeline(
@@ -751,13 +699,17 @@ public class SourceEffectiveScaleFlowTests
                 filtered.ShaderRunExecutions,
                 Is.EqualTo(baseline.ShaderRunExecutions),
                 "a no-op effect must not commit an extra shader run");
-            Assert.That(owned.DisposeCount, Is.EqualTo(1),
+            Assert.That(owned.DisposeCalls, Is.EqualTo(1),
                 "a no-op effect must roll back resources that never enter the committed request");
         });
     }
 
-    [Test]
-    public void EffectItem_MaterializesUnboundedInputAtResolvedFragmentScale()
+    [TestCase(2f, 24, 16)]
+    [TestCase(0.5f, 7, 5, TestName = "CustomWorkingScale_EffectItemOperationPreservesSubOutputScale")]
+    public void EffectItem_MaterializesUnboundedInputAtResolvedFragmentScale(
+        float workingScale,
+        int expectedDeviceWidth,
+        int expectedDeviceHeight)
     {
         float observedWorkingScale = 0;
         PixelRect observedDeviceBounds = default;
@@ -774,22 +726,27 @@ public class SourceEffectiveScaleFlowTests
                 }),
             new ConstantWorkingScaleRenderNode(
                 effect.ToResource(CompositionContext.Default),
-                2));
+                workingScale));
         using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            OutputScale = 1,
             TargetDomain = bounds,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
+        RenderNodeMeasurement measurement = renderer.Measure();
         using RenderNodeRasterization result = renderer.Rasterize();
 
         Assert.Multiple(() =>
         {
             Assert.That(result.IsEmpty, Is.False);
-            Assert.That(observedWorkingScale, Is.EqualTo(2));
-            Assert.That(observedDeviceBounds, Is.EqualTo(PixelRect.FromRect(bounds, 2)));
-            Assert.That(observedDeviceBounds.Size, Is.EqualTo(new PixelSize(24, 16)));
+            Assert.That(measurement.EffectiveScale, Is.EqualTo(EffectiveScale.At(workingScale)));
+            Assert.That(observedWorkingScale, Is.EqualTo(workingScale));
+            Assert.That(observedDeviceBounds, Is.EqualTo(PixelRect.FromRect(bounds, workingScale)));
+            Assert.That(
+                observedDeviceBounds.Size,
+                Is.EqualTo(new PixelSize(expectedDeviceWidth, expectedDeviceHeight)));
         });
     }
 
@@ -809,7 +766,7 @@ public class SourceEffectiveScaleFlowTests
             OutputScale = 1,
             MaxWorkingScale = maxWorkingScale,
             TargetDomain = bounds,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization result = renderer.Rasterize();
 
@@ -837,7 +794,7 @@ public class SourceEffectiveScaleFlowTests
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             OutputScale = 1,
             TargetDomain = bounds,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization result = renderer.Rasterize();
 
@@ -861,7 +818,7 @@ public class SourceEffectiveScaleFlowTests
             childBounds,
             session => observedWorkingScales.Add(session.WorkingScale));
         RenderNode layer = ScaleRecordingTestHelper.Layer(layerDomain);
-        WarmForCacheCapture(layer);
+        FailureTestSupport.WarmForCacheCapture(layer);
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, layer);
         using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
@@ -871,7 +828,7 @@ public class SourceEffectiveScaleFlowTests
             MaxWorkingScale = requestedDensity,
             TargetDomain = childBounds,
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization cold = renderer.Rasterize();
         using RenderNodeRasterization warm = renderer.Rasterize();
@@ -884,7 +841,7 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(observedWorkingScales, Has.Count.EqualTo(1));
             Assert.That(observedWorkingScales.Single(), Is.EqualTo(expectedDensity).Within(1e-4));
             Assert.That(layer.Cache.IsCached, Is.True);
-            Assert.That(layer.Cache.IdentityDensity, Is.EqualTo(expectedDensity));
+            Assert.That(layer.Cache.CurrentCacheIdentity().Density, Is.EqualTo(expectedDensity));
         });
     }
 
@@ -901,7 +858,7 @@ public class SourceEffectiveScaleFlowTests
             childBounds,
             _ => executeCount++);
         RenderNode layer = ScaleRecordingTestHelper.Layer(layerDomain);
-        WarmForCacheCapture(layer);
+        FailureTestSupport.WarmForCacheCapture(layer);
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, layer);
         using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
@@ -914,7 +871,7 @@ public class SourceEffectiveScaleFlowTests
             TargetDomain = childBounds,
             RequestedRegion = requestedRegion,
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization first = renderer.Rasterize();
         using RenderNodeRasterization second = renderer.Rasterize();
@@ -942,7 +899,7 @@ public class SourceEffectiveScaleFlowTests
             sourceDeviceBounds.Width,
             sourceDeviceBounds.Height);
         using var node = new MaterializedSourceRenderNode(source, bounds, sourceScale);
-        WarmForCacheCapture(node);
+        FailureTestSupport.WarmForCacheCapture(node);
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
@@ -951,7 +908,7 @@ public class SourceEffectiveScaleFlowTests
             MaxWorkingScale = 4,
             TargetDomain = bounds,
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization cold = renderer.Rasterize();
         using RenderNodeRasterization warm = renderer.Rasterize();
@@ -964,7 +921,7 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(cold.IsEmpty, Is.False);
             Assert.That(warm.IsEmpty, Is.False);
             Assert.That(node.Cache.IsCached, Is.True);
-            Assert.That(node.Cache.IdentityDensity, Is.EqualTo(sourceScale.Value));
+            Assert.That(node.Cache.CurrentCacheIdentity().Density, Is.EqualTo(sourceScale.Value));
             Assert.That(
                 warm.Bitmap!.GetPixelSpan().SequenceEqual(cold.Bitmap!.GetPixelSpan()),
                 Is.True);
@@ -983,7 +940,7 @@ public class SourceEffectiveScaleFlowTests
             sourceDeviceBounds.Height);
         var materializedInput = new MaterializedSourceRenderNode(source, bounds, sourceScale);
         var opacity = new OpacityRenderNode(2);
-        WarmForCacheCapture(opacity);
+        FailureTestSupport.WarmForCacheCapture(opacity);
         using var pipeline = ScaleRecordingTestHelper.Pipeline(materializedInput, opacity);
         using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
@@ -993,7 +950,7 @@ public class SourceEffectiveScaleFlowTests
             MaxWorkingScale = 4,
             TargetDomain = bounds,
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization cold = renderer.Rasterize();
         using RenderNodeRasterization warm = renderer.Rasterize();
@@ -1005,7 +962,7 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(cold.IsEmpty, Is.False);
             Assert.That(warm.IsEmpty, Is.False);
             Assert.That(opacity.Cache.IsCached, Is.True);
-            Assert.That(opacity.Cache.IdentityDensity, Is.EqualTo(expectedDensity));
+            Assert.That(opacity.Cache.CurrentCacheIdentity().Density, Is.EqualTo(expectedDensity));
             Assert.That(
                 warm.Bitmap!.GetPixelSpan().SequenceEqual(cold.Bitmap!.GetPixelSpan()),
                 Is.True);
@@ -1022,7 +979,7 @@ public class SourceEffectiveScaleFlowTests
             sourceDeviceBounds.Width,
             sourceDeviceBounds.Height);
         using var node = new MaterializedSourceRenderNode(source, bounds, sourceScale);
-        WarmForCacheCapture(node);
+        FailureTestSupport.WarmForCacheCapture(node);
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
@@ -1031,7 +988,7 @@ public class SourceEffectiveScaleFlowTests
             MaxWorkingScale = 4,
             TargetDomain = bounds,
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization first = renderer.Rasterize();
         using RenderNodeRasterization second = renderer.Rasterize();
@@ -1059,7 +1016,7 @@ public class SourceEffectiveScaleFlowTests
             sourceDeviceBounds.Width,
             sourceDeviceBounds.Height);
         using var node = new MaterializedSourceRenderNode(source, bounds, sourceScale);
-        WarmForCacheCapture(node);
+        FailureTestSupport.WarmForCacheCapture(node);
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
@@ -1071,7 +1028,7 @@ public class SourceEffectiveScaleFlowTests
             TargetDomain = bounds,
             RequestedRegion = requestedRegion,
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization first = renderer.Rasterize();
         using RenderNodeRasterization second = renderer.Rasterize();
@@ -1083,45 +1040,6 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(first.Bounds, Is.EqualTo(requestedRegion));
             Assert.That(second.Bounds, Is.EqualTo(requestedRegion));
             Assert.That(node.Cache.IsCached, Is.False);
-        });
-    }
-
-    [Test]
-    public void CustomWorkingScale_EffectItemOperationPreservesSubOutputScale()
-    {
-        float observedWorkingScale = 0;
-        PixelRect observedDeviceBounds = default;
-        Rect bounds = new(3, 5, 12, 8);
-        var effect = new WorkingScaleProbeEffect(context => context.Brightness(0.75f));
-        using var pipeline = ScaleRecordingTestHelper.Pipeline(
-            ScaleRecordingTestHelper.Source(
-                EffectiveScale.Unbounded,
-                bounds,
-                session =>
-                {
-                    observedWorkingScale = session.WorkingScale;
-                    observedDeviceBounds = session.DeviceBounds;
-                }),
-            new ConstantWorkingScaleRenderNode(
-                effect.ToResource(CompositionContext.Default),
-                0.5f));
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            OutputScale = 1,
-            TargetDomain = bounds,
-        }, new CpuTargetFactory());
-
-        RenderNodeMeasurement measurement = renderer.Measure();
-        using RenderNodeRasterization result = renderer.Rasterize();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.IsEmpty, Is.False);
-            Assert.That(measurement.EffectiveScale, Is.EqualTo(EffectiveScale.At(0.5f)));
-            Assert.That(observedWorkingScale, Is.EqualTo(0.5f));
-            Assert.That(observedDeviceBounds, Is.EqualTo(PixelRect.FromRect(bounds, 0.5f)));
         });
     }
 
@@ -1158,17 +1076,14 @@ public class SourceEffectiveScaleFlowTests
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             OutputScale = 1,
             TargetDomain = bounds,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         RenderNodeMeasurement measurement = renderer.Measure();
         using RenderNodeRasterization result = renderer.Rasterize();
         float plannedScale = measurement.EffectiveScale.Value;
 
-        // Planning clamps to the engine ceiling so a plan means the same thing wherever it was compiled,
-        // while the site that turns a density into real pixels fits what this device can actually attach.
-        // The two are the same number only on a device that reaches the ceiling. Re-deriving the expected
-        // density here would just restate the production formula against a footprint this fixture only
-        // approximates, so what is pinned instead is the property the clamp exists for: the buffer fits.
+        // Planning clamps to the engine ceiling and allocation to this device's limit, so pin that the buffer
+        // fits rather than re-deriving the density.
         int deviceBudget = BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation).MaxDimension;
         int itemBufferWidth = (int)MathF.Ceiling(
             intermediateFootprint.Width * s_effectItemCustomWorkingScale);
@@ -1225,7 +1140,7 @@ public class SourceEffectiveScaleFlowTests
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             RequestedRegion = firstBounds,
             MaxWorkingScale = 4,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         RenderNodeMeasurement measurement = renderer.Measure();
         using RenderNodeRasterization raster = renderer.Rasterize();
@@ -1253,7 +1168,7 @@ public class SourceEffectiveScaleFlowTests
         RenderExecutionStatistics filtered = RasterizeForStatistics(
             ScaleRecordingTestHelper.Pipeline(
                 ScaleRecordingTestHelper.Source(EffectiveScale.At(2)),
-                new ClampToOutputRenderNode(
+                new ClampToOutputEscapeHatchNode(
                     new FilterEffectGroup().ToResource(CompositionContext.Default))));
 
         Assert.Multiple(() =>
@@ -1282,8 +1197,9 @@ public class SourceEffectiveScaleFlowTests
         RenderExecutionStatistics snapshot = RasterizeForStatistics(
             ScaleRecordingTestHelper.Pipeline(
                 ScaleRecordingTestHelper.Source(EffectiveScale.At(1)),
-                new FixedWorkingScaleRenderNode(
-                    effect.ToResource(CompositionContext.Default))));
+                new ConstantWorkingScaleRenderNode(
+                    effect.ToResource(CompositionContext.Default),
+                    2)));
 
         Assert.Multiple(() =>
         {
@@ -1324,12 +1240,12 @@ public class SourceEffectiveScaleFlowTests
         });
         using var pipeline = ScaleRecordingTestHelper.Pipeline(
             ScaleRecordingTestHelper.Source(EffectiveScale.At(1), bounds),
-            new FixedWorkingScaleRenderNode(effect.ToResource(CompositionContext.Default)));
+            new ConstantWorkingScaleRenderNode(effect.ToResource(CompositionContext.Default), 2));
         using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization result = renderer.Rasterize();
 
@@ -1380,8 +1296,8 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(mismatchRequest.ExecutionPlan.ShaderRuns.Count(), Is.EqualTo(2));
             Assert.That(mismatchRequest.ExecutionPlan.ShaderRuns, Has.All.Matches<CompiledShaderRun>(
                 static run => run.StageFragmentIndices.Length == 1));
-            Assert.That(mismatchRequest.ExecutionPlan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(
-                static boundary => boundary.Reason == ExecutionIslandBoundaryReason.ScaleTransition));
+            Assert.That(mismatchRequest.ExecutionPlan.ShaderRuns.Last().GetInput(mismatchRequest.Graph),
+                Is.SameAs(mismatchRequest.ExecutionPlan.ShaderRuns.First().GetOutput(mismatchRequest.Graph)));
             Assert.That(sameDensityRequest.ExecutionPlan.ShaderRuns.Single().StageFragmentIndices,
                 Has.Length.EqualTo(2));
             Assert.That(adoptedVectorRequest.ExecutionPlan.ShaderRuns.Single().StageFragmentIndices,
@@ -1539,7 +1455,7 @@ public class SourceEffectiveScaleFlowTests
             Intent = RenderIntent.Preview,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             TargetDomain = targetDomain,
-        }, new CpuTargetFactory()))
+        }, new CpuRenderTargetFactory()))
         using (renderer.Rasterize())
         {
             statistics = renderer.LastExecutionStatistics;
@@ -1581,15 +1497,7 @@ public class SourceEffectiveScaleFlowTests
             MaxWorkingScale = 4,
             TargetDomain = targetDomain,
             FusionMode = fusionMode,
-        }, new CpuTargetFactory());
-
-    private static void WarmForCacheCapture(RenderNode node)
-    {
-        for (int i = 0; i < RenderNodeCache.StableRequestCount; i++)
-        {
-            RenderNodeCacheHelper.BeginLifecycle(node).CompleteSuccessfully(advanceWarmup: true);
-        }
-    }
+        }, new CpuRenderTargetFactory());
 
     private static CompiledRenderRequest Compile(RenderNode node)
     {
@@ -1611,15 +1519,6 @@ public class SourceEffectiveScaleFlowTests
         }
     }
 
-    private sealed class FixedWorkingScaleRenderNode(FilterEffect.Resource effect)
-        : FilterEffectRenderNode(effect)
-    {
-        private static readonly RenderScaleContract s_scale = RenderScaleContract.Custom(
-            static _ => 2);
-
-        protected override RenderScaleContract? GetWorkingScaleContract() => s_scale;
-    }
-
     private sealed class ConstantWorkingScaleRenderNode : FilterEffectRenderNode
     {
         private readonly RenderScaleContract _scale;
@@ -1628,7 +1527,7 @@ public class SourceEffectiveScaleFlowTests
             : base(effect)
         {
             _scale = RenderScaleContract.Custom(
-                new ConstantWorkingScaleResolver(scale).Resolve);
+                new ScaleRecordingTestHelper.FixedScaleResolver(scale).Resolve);
         }
 
         protected override RenderScaleContract? GetWorkingScaleContract() => _scale;
@@ -1781,7 +1680,7 @@ public class SourceEffectiveScaleFlowTests
                 RenderHitTestContract.None,
                 RenderValueCardinality.Single,
                 RenderScaleContract.Custom(
-                    new ConstantWorkingScaleResolver(density).Resolve),
+                    new ScaleRecordingTestHelper.FixedScaleResolver(density).Resolve),
                 resources: [s_fillSlot.Bind(fillToken)]);
             RenderFragmentHandle current = context.OpaqueSource(description);
             current = context.RecordNode(_preserve, [current]).Single();
@@ -1833,12 +1732,7 @@ public class SourceEffectiveScaleFlowTests
                 hitTest: RenderHitTestContract.AnyInput,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: RenderScaleContract.Custom(
-                    new ConstantScaleResolver(scale).Resolve));
-
-        private sealed record ConstantScaleResolver(float Scale)
-        {
-            public float Resolve(RenderScaleContext _) => Scale;
-        }
+                    new ScaleRecordingTestHelper.FixedScaleResolver(scale).Resolve));
 
         private sealed class VectorSourceNode(
             Rect bounds,
@@ -1861,13 +1755,6 @@ public class SourceEffectiveScaleFlowTests
                 context.Publish(context.OpaqueSource(source));
             }
         }
-    }
-
-    private sealed class TrackingDisposable : IDisposable
-    {
-        public int DisposeCount { get; private set; }
-
-        public void Dispose() => DisposeCount++;
     }
 
     private static float ThrowWorkingScaleResolver(ResolverCallLog log, RenderScaleContext _)
@@ -1901,11 +1788,6 @@ public class SourceEffectiveScaleFlowTests
         return supply.IsUnbounded ? context.OutputScale : supply.Value;
     }
 
-    private sealed record ConstantWorkingScaleResolver(float Value)
-    {
-        public float Resolve(RenderScaleContext _) => Value;
-    }
-
     private readonly record struct ShaderContextObservation(
         Rect InputBounds,
         Rect OutputBounds,
@@ -1933,23 +1815,6 @@ public class SourceEffectiveScaleFlowTests
         Rect OutputBounds);
 
     private readonly record struct TargetCommandSourceIdentity(Rect Bounds, bool OwningTargetDomain);
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 
     private sealed class OversampleMosaicRenderNode(FilterEffect.Resource effect) : FilterEffectRenderNode(effect)
     {
@@ -2022,7 +1887,7 @@ public class SourceEffectiveScaleFlowTests
 
         Assert.That(container.Children, Has.Count.EqualTo(1), "Push added no render node");
         Assert.That(container.Children[0], Is.TypeOf<ClampToOutputEscapeHatchNode>(),
-            "Push bypassed the overridden CreateRenderNode() escape hatch (FR-036)");
+            "Push bypassed the overridden CreateRenderNode() escape hatch");
 
         RenderNodeMeasurement measurement = ScaleRecordingTestHelper.MeasureThrough(
             container.Children[0],
@@ -2278,7 +2143,7 @@ internal static class ScaleRecordingTestHelper
             => context.Publish(context.Layer(context.Inputs, domain));
     }
 
-    private sealed record FixedScaleResolver(float Value)
+    internal sealed record FixedScaleResolver(float Value)
     {
         public float Resolve(RenderScaleContext _) => Value;
     }

@@ -11,7 +11,7 @@ Node editor (graph-based programming surface). The runtime evaluation happens he
 - `GraphGroup` — sub-graph that exposes a smaller port surface to its parent
 - `IDynamicPort` / `IDynamicPortNode` — nodes that grow / shrink ports at runtime
 - `INestedInputPort` — binds an input to an engine property inside a member's local object or list
-- `GraphNodeRegistry` — discovers node implementations via attribute-based registration
+- `GraphNodeRegistry` — node catalog; `NodesRegistrar.RegisterAll` registers the built-in nodes with explicit `RegisterNode` / `RegisterNodes` calls
 
 ## Nested object inputs
 
@@ -29,8 +29,8 @@ the original type is restored. Bulk list edits publish port changes together; co
 
 ## Mandatory rules
 
-1. **Type compatibility on connect.** `Connection` enforces port type compatibility; do not bypass it. Adding implicit conversions belongs in `Composition/` or a dedicated converter node, not in `Connection.Connect`.
-2. **No allocations per evaluation.** `Evaluate(...)` is called per frame per visible node. Cache reusable buffers on the node instance.
+1. **Type compatibility on connect.** `Connection.Connect` does not check types: the editor's `CompatibleNodeFinder` matches port types, `GraphNode.CanConnectInput` decides whether an input can take a connection, and `ItemValue<T>.PropagateFrom` converts values. Adding implicit conversions belongs in `Composition/` or a dedicated converter node, not in `Connection.Connect`.
+2. **No allocations per evaluation.** `GraphNode.Resource.Update` is called from `GraphSnapshot.Evaluate` per frame per visible node. Cache reusable buffers on the node instance.
 3. **Dynamic ports survive serialization.** When adding an `IDynamicPort` node, ensure save / load round-trips preserve the port arity. Tests under `tests/Beutl.UnitTests/NodeGraph/` cover the basic pattern.
 4. **Group I/O parity.** A `GraphGroup`'s inner inputs / outputs must match its outer ports 1:1. Drift here corrupts loaded files.
 

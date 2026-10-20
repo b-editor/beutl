@@ -23,7 +23,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
 
-public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDisposable, IAiModelListConsumer
+public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDisposable, IAiModelListConsumer, IAiPlanOffer
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly AsyncOperationLifetime _operations = new();
@@ -31,7 +31,8 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
     private readonly LifetimeCancellationSource _lifetimeCts = new();
     private CancellationTokenSource? _requestCts;
     private readonly ILogger _logger = Log.CreateLogger<AiSubtitleDialogViewModel>();
-    private readonly SubtitleAiCapabilities _aiService;
+    private readonly IAiTranscriptionService _transcription;
+    private readonly IAiCaptionTranslationService _translation;
     private readonly IAiEntitlementService _entitlements;
     private readonly IAiOperationAvailabilityService _availability;
     private readonly IAiModelCatalogService _modelCatalog;
@@ -48,7 +49,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
     private readonly IObservable<CaptionDraftScope?> _captionDraftScopes;
     private bool _disposed;
     private bool _updatingAudioSources;
-    private Task? _disposeTask;
+    private readonly OnceAsyncDisposal _disposal;
 
     internal AiSubtitleDialogViewModel(
         IAiEntitlementService entitlements,
@@ -62,14 +63,14 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         IObservable<CaptionDraftScope?> captionDraftScopes,
         EditViewModel? editViewModel = null)
     {
+        _disposal = new OnceAsyncDisposal(_disposeGate);
         _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
         _availability = availability ?? throw new ArgumentNullException(nameof(availability));
         _modelCatalog = modelCatalog ?? throw new ArgumentNullException(nameof(modelCatalog));
         _aiPlanCoordinator = aiPlanCoordinator
             ?? throw new ArgumentNullException(nameof(aiPlanCoordinator));
-        _aiService = new SubtitleAiCapabilities(
-            transcription ?? throw new ArgumentNullException(nameof(transcription)),
-            translation ?? throw new ArgumentNullException(nameof(translation)));
+        _transcription = transcription ?? throw new ArgumentNullException(nameof(transcription));
+        _translation = translation ?? throw new ArgumentNullException(nameof(translation));
         ArgumentNullException.ThrowIfNull(captionCatalog);
         _editViewModel = editViewModel;
         _captionDraftStore = captionDraftStore
@@ -246,67 +247,34 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
 
     public ValueTask DisposeAsync() => new(BeginDisposeAsync());
 
-    private Task BeginDisposeAsync()
+    private Task BeginDisposeAsync() => _disposal.Run(DisposeCoreAsync, () => _disposed = true);
+
+    private async Task DisposeCoreAsync()
     {
-        TaskCompletionSource completion;
-        CancellationTokenSource? previewCts;
-        Task disposeTask;
-        lock (_disposeGate)
-        {
-            if (_disposeTask is not null)
-                return _disposeTask;
-
-            _disposed = true;
-            previewCts = CloseTemplatePreviewAdmission();
-            completion = new TaskCompletionSource(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-            _disposeTask = completion.Task;
-            disposeTask = completion.Task;
-        }
-
-        CancelTemplatePreview(previewCts);
-        _ = CompleteDisposeAsync(completion);
-        return disposeTask;
+        StopTemplatePreviewAdmission();
+        await _operations.DisposeAsync(
+            _lifetimeCts.Cancel,
+            () =>
+            {
+                _registeredCaptionTemplates.CollectionChanged -= OnCaptionTemplatesChanged;
+                DisposeCaptionEditing();
+                AudioSources.Dispose();
+                SelectedAudioSource.Dispose();
+                SelectedCaptionTemplate.Dispose();
+                IsTranscribing.Dispose();
+                ResultSegments.Dispose();
+                PartialResultMessage.Dispose();
+                HasPartialResult.Dispose();
+                HasPendingHistoryResult.Dispose();
+                HistoryOverwriteMessage.Dispose();
+                Error.Dispose();
+                _disposables.Dispose();
+                _lifetimeCts.Dispose();
+                return ValueTask.CompletedTask;
+            });
     }
 
-    private async Task CompleteDisposeAsync(TaskCompletionSource completion)
-    {
-        try
-        {
-            await _operations.DisposeAsync(
-                _lifetimeCts.Cancel,
-                () =>
-                {
-                    _registeredCaptionTemplates.CollectionChanged -= OnCaptionTemplatesChanged;
-                    DisposeCaptionEditing();
-                    AudioSources.Dispose();
-                    SelectedAudioSource.Dispose();
-                    SelectedCaptionTemplate.Dispose();
-                    IsTranscribing.Dispose();
-                    ResultSegments.Dispose();
-                    PartialResultMessage.Dispose();
-                    HasPartialResult.Dispose();
-                    HasPendingHistoryResult.Dispose();
-                    HistoryOverwriteMessage.Dispose();
-                    Error.Dispose();
-                    _disposables.Dispose();
-                    _lifetimeCts.Dispose();
-                    return ValueTask.CompletedTask;
-                });
-            completion.TrySetResult();
-        }
-        catch (Exception ex)
-        {
-            completion.TrySetException(ex);
-        }
-    }
-
-    /// <summary>
-    /// Re-reads the model list. The catalog is cached with a freshness window,
-    /// so this costs nothing while it is fresh and picks up a model an operator
-    /// added, removed or reordered once it is not — which a workspace tab left
-    /// open would otherwise never see.
-    /// </summary>
+    /// <inheritdoc />
     public void RefreshModels() => _ = RefreshModelsAsync();
 
     private async Task RefreshModelsAsync()
@@ -326,14 +294,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
 
         try
         {
-            await TranscriptionModelPicker.LoadAsync(
-                AiOperations.Transcription,
-                _restoredTranscriptionModel,
-                operation.CancellationToken);
-            await TranslationModelPicker.LoadAsync(
-                AiOperations.CaptionTranslation,
-                _restoredTranslationModel,
-                operation.CancellationToken);
+            await LoadModelPickersAsync(operation.CancellationToken);
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
@@ -355,14 +316,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
             // A restored run is put back on the model it was named for; without
             // that, its unfinished pieces would be named differently and bought
             // a second time.
-            await TranscriptionModelPicker.LoadAsync(
-                AiOperations.Transcription,
-                _restoredTranscriptionModel,
-                operation.CancellationToken);
-            await TranslationModelPicker.LoadAsync(
-                AiOperations.CaptionTranslation,
-                _restoredTranslationModel,
-                operation.CancellationToken);
+            await LoadModelPickersAsync(operation.CancellationToken);
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
@@ -371,6 +325,18 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         {
             _logger.LogError(ex, "Failed to load AI entitlements.");
         }
+    }
+
+    private async Task LoadModelPickersAsync(CancellationToken cancellationToken)
+    {
+        await TranscriptionModelPicker.LoadAsync(
+            AiOperations.Transcription,
+            _restoredTranscriptionModel,
+            cancellationToken);
+        await TranslationModelPicker.LoadAsync(
+            AiOperations.CaptionTranslation,
+            _restoredTranslationModel,
+            cancellationToken);
     }
 
     private void LoadAudioSources()
@@ -433,8 +399,8 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
                     && source.HasUri
                     && source.Uri.IsFile)
                 {
-                    // Use the original audio duration. Element length is user-editable and cannot
-                    // be trusted for usage calculation.
+                    // The original audio duration bounds what a run can send; the element can run
+                    // past the end of the audio.
                     TimeSpan duration = sound.TryGetOriginalDuration(out TimeSpan original)
                         ? original
                         : element.Length;
@@ -494,22 +460,14 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         {
             SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiFileTooLarge);
         }
-        // This execution's name belongs to another request. Scene-mixed audio can change whenever
-        // it is recomposed, so a restored execution can arrive here. Keep paid chunks as-is and
-        // purchase the remainder under new names.
-        catch (AiRequestChangedException)
+        // This execution's name belongs to another request (scene-mixed audio can change whenever it
+        // is recomposed, so a restored execution can arrive here), or the job it made is gone.
+        catch (Exception ex) when (ex is AiRequestChangedException or AiRequestWasDeletedException)
         {
             RetireTranscriptionRunNames();
-            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestChanged);
-        }
-        catch (AiRequestWasDeletedException)
-        {
-            // The job those names made is gone, so the rest of the run needs new
-            // ones — written to the draft as well, or a run resumed after a
-            // restart would ask under the same deleted name and stop there for
-            // good. The pieces already paid for stay paid.
-            RetireTranscriptionRunNames();
-            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestWasDeleted);
+            SetCaptionErrorIfCurrent(
+                draftScopeRevision,
+                ex is AiRequestWasDeletedException ? Strings.AiRequestWasDeleted : Strings.AiRequestChanged);
         }
         catch (RejectedTranscriptionResultException ex)
         {
@@ -563,8 +521,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
                 _editViewModel.Scene,
                 _editViewModel.GetRequiredService<IElementAdder>(),
                 document,
-                _captionTemplates,
-                template.Id,
+                _captionTemplates.GetTemplate(template.Id),
                 operation.CancellationToken);
 
             if (result.IsSuccess)
@@ -675,25 +632,6 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         => templates.FirstOrDefault(template => template.Id == preferredId)
             ?? templates.FirstOrDefault(template => template.Id == CaptionTemplateIds.DefaultText)
             ?? templates.FirstOrDefault();
-
-    // This private adapter keeps the partial implementation cohesive while the public API exposes
-    // transcription and translation as independent capabilities.
-    private sealed class SubtitleAiCapabilities(
-        IAiTranscriptionService transcription,
-        IAiCaptionTranslationService translation)
-    {
-        public Task<AiTranscriptionResponse> TranscribeAsync(
-            AiTranscriptionRequest request,
-            CancellationToken cancellationToken)
-            => transcription.TranscribeAsync(request, cancellationToken);
-
-        public Task<AiCaptionTranslationResponse> TranslateAsync(
-            AiCaptionTranslationRequest request,
-            IProgress<AiCaptionTranslationSegment>? progress,
-            CancellationToken cancellationToken)
-            => translation.TranslateAsync(request, progress, cancellationToken);
-    }
-
 }
 
 public sealed class AudioSourceItem

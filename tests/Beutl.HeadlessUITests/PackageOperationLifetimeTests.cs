@@ -1,7 +1,6 @@
 ﻿using System.Net;
 using System.Text;
 using Beutl.Api;
-using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Services;
@@ -23,17 +22,10 @@ public sealed class PackageOperationLifetimeTests
         var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider()), new ProjectService());
         string name = "QueuedDeployment." + Guid.NewGuid().ToString("N");
         var identity = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
-        string directory = Path.Combine(Helper.InstallPath, name + ".1.0.0");
-        Directory.CreateDirectory(Path.Combine(directory, "materials"));
-        File.WriteAllText(Path.Combine(directory, name + ".1.0.0.nupkg"), "");
-        File.WriteAllText(Path.Combine(directory, name + ".nuspec"),
-            $"<package><metadata><id>{name}</id><version>1.0.0</version><authors>test</authors><description>test</description><tags>{PackageKinds.MaterialTag}</tags></metadata></package>");
-        File.WriteAllText(Path.Combine(directory, "materials", "data.txt"), "data");
+        string directory = TestPackages.CreateExtracted(identity, data: true).InstalledPath!;
         using var cancellation = new CancellationTokenSource();
         var existing = Directory.GetDirectories(Helper.AppRoot, ".data-install-*").ToHashSet();
-        var activate = typeof(PackageOperationHandler).GetMethod("ActivateInstalledPackageAsync",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        Task task = (Task)activate.Invoke(operation, new object[] { identity, cancellation.Token })!;
+        Task task = operation.ActivateInstalledPackageAsync(identity, cancellation.Token);
         try
         {
             Assert.That(SpinWait.SpinUntil(() => Directory.GetDirectories(Helper.AppRoot, ".data-install-*")
@@ -63,45 +55,9 @@ public sealed class PackageOperationLifetimeTests
         await using var app = new BeutlApiApplication(http, new ExtensionProvider(),
             () => new HttpClient(downloadHandler, disposeHandler: false));
         var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider()), new ProjectService());
-        var ownerResponse = new ProfileResponse
-        {
-            Id = "owner",
-            Name = "owner",
-            DisplayName = "Owner",
-            Bio = null,
-            IconId = null,
-            IconUrl = null,
-        };
-        var package = new Package(new Profile(ownerResponse, app), new PackageResponse
-        {
-            Id = "package",
-            Owner = ownerResponse,
-            Name = "LifetimeTest." + Guid.NewGuid().ToString("N"),
-            DisplayName = "Package",
-            Description = "",
-            ShortDescription = "",
-            WebSite = "",
-            Tags = [],
-            LogoId = null,
-            LogoUrl = null,
-            Screenshots = [],
-            Currency = null,
-            Price = null,
-            Paid = false,
-            Owned = true,
-        }, app);
-        var release = new Release(package, new ReleaseResponse
-        {
-            Id = "release",
-            Version = "1.0.0",
-            Title = "Release",
-            Description = "",
-            TargetVersion = null,
-            FileId = "archive",
-            FileUrl = null,
-        }, app);
+        Release release = TestStore.CreateRelease(app, "1.0.0", fileId: "archive", name: "LifetimeTest." + Guid.NewGuid().ToString("N"));
         Task install = operation.DownloadAndLoadPackage(release,
-            new PackageIdentity(package.Name, NuGetVersion.Parse("1.0.0")), CancellationToken.None);
+            new PackageIdentity(release.Package.Name, NuGetVersion.Parse("1.0.0")), CancellationToken.None);
         await downloadHandler.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Task shutdown = app.DisposeAsync().AsTask();
         try
@@ -126,42 +82,13 @@ public sealed class PackageOperationLifetimeTests
         using var download = new MemoryDownload();
         await using var app = new BeutlApiApplication(http, new ExtensionProvider(), () => new HttpClient(download, false));
         var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider()), new ProjectService());
-        var owner = new ProfileResponse { Id = "owner", Name = "owner", DisplayName = "Owner", Bio = null, IconId = null, IconUrl = null };
-        var package = new Package(new Profile(owner, app), new PackageResponse
-        {
-            Id = "package",
-            Owner = owner,
-            Name = "HashPolicy." + Guid.NewGuid().ToString("N"),
-            DisplayName = "Package",
-            Description = "",
-            ShortDescription = "",
-            WebSite = "",
-            Tags = [],
-            LogoId = null,
-            LogoUrl = null,
-            Screenshots = [],
-            Currency = null,
-            Price = null,
-            Paid = false,
-            Owned = true,
-        }, app);
-        var release = new Release(package, new ReleaseResponse
-        {
-            Id = "release",
-            Version = "1.0.0",
-            Title = "Release",
-            Description = "",
-            TargetVersion = null,
-            FileId = "archive",
-            FileUrl = null,
-        }, app);
-        var identity = new PackageIdentity(package.Name, NuGetVersion.Parse("1.0.0"));
+        Release release = TestStore.CreateRelease(app, "1.0.0", fileId: "archive", name: "HashPolicy." + Guid.NewGuid().ToString("N"));
+        var identity = new PackageIdentity(release.Package.Name, NuGetVersion.Parse("1.0.0"));
         InvalidDataException? error = await Assert.ThrowsAsync<InvalidDataException>(() => remote
             ? operation.DownloadAndLoadPackage(release, identity, CancellationToken.None)
             : operation.DownloadAndLoadPackage(identity, CancellationToken.None));
         Assert.That(error!.Message, Is.EqualTo("The package hash could not be verified."));
-        Assert.That(app.GetResource<InstalledPackageRepository>().ExistsPackage(package.Name, "1.0.0"), Is.False);
-        await Task.CompletedTask;
+        Assert.That(app.GetResource<InstalledPackageRepository>().ExistsPackage(identity.Id, "1.0.0"), Is.False);
     }
 
     private sealed class MemoryDownload : HttpMessageHandler

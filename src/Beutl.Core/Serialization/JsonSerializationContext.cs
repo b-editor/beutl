@@ -11,8 +11,7 @@ public partial class JsonSerializationContext(
     CoreSerializerOptions? options = null)
     : IJsonSerializationContext
 {
-    public readonly Dictionary<string, (Type DefinedType, Type ActualType)> _knownTypes = [];
-    private List<(object, Guid, Action<ICoreSerializable>)>? _rootResolvers;
+    private List<(Guid, Action<ICoreSerializable>)>? _rootResolvers;
     private List<(Guid, Action<ICoreSerializable>)>? _resolvers;
     private Dictionary<Guid, ICoreSerializable>? _objects;
     private readonly JsonObject _json = json ?? [];
@@ -113,7 +112,10 @@ public partial class JsonSerializationContext(
     {
         CapturedValues?.Clear();
         _json.Clear();
-        JsonDeepClone.CopyTo(obj, _json);
+        foreach (KeyValuePair<string, JsonNode?> item in obj)
+        {
+            _json[item.Key] = item.Value?.DeepClone();
+        }
     }
 
     public JsonNode? GetNode(string name)
@@ -126,7 +128,6 @@ public partial class JsonSerializationContext(
     {
         CapturedValues?.Remove(name);
         _json[name] = node;
-        _knownTypes[name] = (definedType, actualType);
     }
 
     public void Populate(string name, ICoreSerializable obj)
@@ -153,7 +154,7 @@ public partial class JsonSerializationContext(
         if (_resolvers?.Count > 0)
         {
             Root._rootResolvers ??= [];
-            Root._rootResolvers.AddRange(_resolvers.Select(t => ((object)obj, t.Item1, t.Item2)));
+            Root._rootResolvers.AddRange(_resolvers);
             _resolvers.Clear();
         }
 
@@ -168,7 +169,6 @@ public partial class JsonSerializationContext(
         }
     }
 
-    // Resolve references
     private void ResolvePendingRootReferences(CoreObject coreObject)
     {
         if (_rootResolvers is not null && _objects is not null)
@@ -176,7 +176,7 @@ public partial class JsonSerializationContext(
             for (int i = _rootResolvers.Count - 1; i >= 0; i--)
             {
                 var item = _rootResolvers[i];
-                var (self, id, callback) = item;
+                var (id, callback) = item;
                 if (_objects.TryGetValue(id, out var resolved))
                 {
                     callback(resolved);
@@ -190,10 +190,6 @@ public partial class JsonSerializationContext(
                         callback(t.Result);
                         _rootResolvers?.Remove(item);
                     });
-                }
-                else
-                {
-                    // Error
                 }
             }
         }

@@ -10,7 +10,7 @@ using SkiaSharp;
 
 namespace Beutl.Editor.Components.FileBrowserTab.Services;
 
-public sealed class FileThumbnailService : IDisposable
+public sealed class FileThumbnailService
 {
     private readonly record struct CachedThumbnail(WeakReference<Bitmap> Bitmap, DateTime LastWriteUtc);
 
@@ -23,12 +23,10 @@ public sealed class FileThumbnailService : IDisposable
     private readonly ConcurrentDictionary<
         string,
         (MediaFileInfo Info, long LastAccessTicks, (long Length, DateTime LastWriteUtc) File)> _mediaInfoCache = new();
-    private readonly ConcurrentDictionary<TemplateDirectoryMembershipKey, bool>
-        _templateDirectoryMembership = new();
     private readonly SemaphoreSlim _semaphore = new(4); // 同時生成数を制限
     private readonly ILogger _logger = Log.CreateLogger<FileThumbnailService>();
+    // Held so the timer is not collected; the service lives for the whole session.
     private readonly Timer _pruneTimer;
-    private bool _disposed;
 
     private FileThumbnailService()
     {
@@ -37,15 +35,10 @@ public sealed class FileThumbnailService : IDisposable
 
     public static FileThumbnailService Instance => s_instance.Value;
 
-    public int ThumbnailSize { get; set; } = 64;
-
-    internal int TemplateDirectoryMembershipCount => _templateDirectoryMembership.Count;
+    public int ThumbnailSize { get; } = 64;
 
     public async Task<Bitmap?> GetThumbnailAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        if (_disposed)
-            return null;
-
         DateTime lastWriteUtc = GetLastWriteTimeOrDefault(filePath);
 
         // キャッシュを確認
@@ -97,9 +90,6 @@ public sealed class FileThumbnailService : IDisposable
 
     public async Task<MediaFileInfo?> GetMediaInfoAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        if (_disposed)
-            return null;
-
         // A file listed while it was still being copied was probed partway, so a cached result holds
         // only while the file is unchanged.
         (long Length, DateTime LastWriteUtc) file = GetFileStampOrDefault(filePath);
@@ -133,11 +123,6 @@ public sealed class FileThumbnailService : IDisposable
         catch (OperationCanceledException)
         {
             throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Failed to get media info for {FilePath}", filePath);
-            return null;
         }
         finally
         {
@@ -222,7 +207,7 @@ public sealed class FileThumbnailService : IDisposable
         {
             try
             {
-                return DecoderRegistry.OpenMediaFile(filePath, new MediaOptions(mode));
+                return DecoderRegistry.OpenMediaFile(filePath, new MediaOptions(mode) { IsBackground = true });
             }
             catch
             {
@@ -286,23 +271,10 @@ public sealed class FileThumbnailService : IDisposable
             return false;
         }
 
-        if (_templateDirectoryMembership.Count >= 512)
-        {
-            _templateDirectoryMembership.Clear();
-        }
-
-        return _templateDirectoryMembership.GetOrAdd(
-            new TemplateDirectoryMembershipKey(
-                canonicalTemplatesDirectory,
-                canonicalDirectory),
-            static key => FilePathComparison.IsSameOrDescendant(
-                key.TemplatesDirectory,
-                key.CandidateDirectory));
+        return FilePathComparison.IsSameOrDescendantCanonicalPath(
+            canonicalTemplatesDirectory,
+            canonicalDirectory);
     }
-
-    private readonly record struct TemplateDirectoryMembershipKey(
-        string TemplatesDirectory,
-        string CandidateDirectory);
 
     private async Task<Bitmap?> GenerateImageThumbnailAsync(string filePath, CancellationToken cancellationToken)
     {
@@ -354,7 +326,7 @@ public sealed class FileThumbnailService : IDisposable
 
             try
             {
-                var options = new MediaOptions(MediaMode.Video);
+                var options = new MediaOptions(MediaMode.Video) { IsBackground = true };
                 using var reader = DecoderRegistry.OpenMediaFile(filePath, options);
                 if (reader == null || !reader.HasVideo)
                     return null;
@@ -405,9 +377,6 @@ public sealed class FileThumbnailService : IDisposable
 
     private void PruneCaches()
     {
-        if (_disposed)
-            return;
-
         PruneThumbnailCacheIfNeeded();
         EvictMediaInfoCacheIfNeeded();
     }
@@ -500,18 +469,5 @@ public sealed class FileThumbnailService : IDisposable
     {
         _cache.Clear();
         _mediaInfoCache.Clear();
-        _templateDirectoryMembership.Clear();
-    }
-
-    public void Dispose()
-    {
-        if (_disposed)
-            return;
-
-        _disposed = true;
-        _pruneTimer.Dispose();
-        _cache.Clear();
-        _mediaInfoCache.Clear();
-        _semaphore.Dispose();
     }
 }

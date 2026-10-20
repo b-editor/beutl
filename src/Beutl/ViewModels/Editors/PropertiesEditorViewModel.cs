@@ -1,9 +1,8 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.PropertyAdapters;
-using Beutl.Services;
-using DynamicData;
 
 namespace Beutl.ViewModels.Editors;
 
@@ -25,20 +24,6 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
         }
     }
 
-    public PropertiesEditorViewModel(ICoreObject obj, ExtensionProvider extensionProvider, Predicate<CorePropertyMetadata> predicate)
-    {
-        _extensionProvider = extensionProvider;
-        Target = obj;
-        InitializeCoreObject(obj, (_, v) => predicate(v));
-    }
-
-    public PropertiesEditorViewModel(ICoreObject obj, ExtensionProvider extensionProvider, Func<CoreProperty, CorePropertyMetadata, bool> predicate)
-    {
-        _extensionProvider = extensionProvider;
-        Target = obj;
-        InitializeCoreObject(obj, predicate);
-    }
-
     public PropertiesEditorViewModel(EngineObject obj, ExtensionProvider extensionProvider, Func<IProperty, bool> predicate)
     {
         _extensionProvider = extensionProvider;
@@ -52,7 +37,7 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
 
     public void Dispose()
     {
-        foreach (IPropertyEditorContext item in Properties.GetMarshal().Value)
+        foreach (IPropertyEditorContext item in Properties.AsSpan())
         {
             item.Dispose();
         }
@@ -60,38 +45,12 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
 
     public void ReadFromJson(JsonObject json)
     {
-        if (json.TryGetPropertyValue(nameof(Properties), out JsonNode? propsNode)
-            && propsNode is JsonArray propsArray)
-        {
-            foreach ((JsonNode? node, IPropertyEditorContext? context) in propsArray.Zip(Properties))
-            {
-                if (context != null && node != null)
-                {
-                    context.ReadFromJson(node.AsObject());
-                }
-            }
-        }
+        NestedEditorContextHelper.ReadEditorArray(json, nameof(Properties), Properties);
     }
 
     public void WriteToJson(JsonObject json)
     {
-        var array = new JsonArray();
-
-        foreach (IPropertyEditorContext? item in Properties.GetMarshal().Value)
-        {
-            if (item == null)
-            {
-                array.Add(null);
-            }
-            else
-            {
-                var node = new JsonObject();
-                item.WriteToJson(node);
-                array.Add(node);
-            }
-        }
-
-        json[nameof(Properties)] = array;
+        NestedEditorContextHelper.WriteEditorArray(json, nameof(Properties), Properties);
     }
 
     private void InitializeEngineObject(EngineObject obj, Func<IProperty, bool>? predicate = null)
@@ -115,40 +74,14 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
         AddContexts(props);
     }
 
-    private void InitializeCoreObject(ICoreObject obj, Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null)
+    private void InitializeCoreObject(ICoreObject obj)
     {
-        Type objType = obj.GetType();
-        Type adapterType = typeof(CorePropertyAdapter<>);
-
-        List<CoreProperty> cprops = [.. PropertyRegistry.GetRegistered(objType)];
-        cprops.RemoveAll(x => !(predicate?.Invoke(x, x.GetMetadata<CorePropertyMetadata>(objType)) ?? true));
-        List<IPropertyAdapter> props = cprops.ConvertAll(x =>
-        {
-            Type determinedType = adapterType;
-            Type adapterGType = determinedType.MakeGenericType(x.PropertyType);
-            return (IPropertyAdapter)Activator.CreateInstance(adapterGType, x, obj)!;
-        });
-        AddContexts(props);
+        AddContexts(CoreObjectPropertyEditorBuilder.CreateAdapters(obj, null));
     }
 
     private void AddContexts(List<IPropertyAdapter> props)
     {
         Properties.EnsureCapacity(props.Count);
-        IPropertyAdapter[]? foundItems;
-        PropertyEditorExtension? extension;
-
-        do
-        {
-            (foundItems, extension) = PropertyEditorService.MatchProperty(props, _extensionProvider);
-            if (foundItems != null && extension != null)
-            {
-                if (extension.TryCreateContext(foundItems, out IPropertyEditorContext? context))
-                {
-                    Properties.Add(context);
-                }
-
-                props.RemoveMany(foundItems);
-            }
-        } while (foundItems != null && extension != null);
+        CoreObjectPropertyEditorBuilder.CreateContexts(props, _extensionProvider, Properties.Add);
     }
 }

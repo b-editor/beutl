@@ -136,6 +136,7 @@ public sealed class App : Application
 
         PropertyEditorExtension.DefaultHandler = new PropertyEditorService.PropertyEditorExtensionImpl();
         NotificationService.Handler = new NotificationServiceHandler();
+        UiExceptionBoundary.Install(Dispatcher.UIThread);
         TutorialService.Current = new TutorialServiceHandler();
         try
         {
@@ -184,10 +185,6 @@ public sealed class App : Application
             desktop.Exit += (_, _) => _activationCts.Cancel();
             foreach (string argument in desktop.Args ?? [])
                 HandlePackageLink(argument);
-        }
-        else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
-        {
-            singleViewPlatform.MainView = new MainView { DataContext = GetMainViewModel(), };
         }
 
         base.OnFrameworkInitializationCompleted();

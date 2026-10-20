@@ -19,10 +19,22 @@ using Beutl.Services;
 
 namespace Beutl.AgentToolkit.Schema;
 
+// The types the schema describes besides those in LibraryService. The toolkit keeps them itself: the editor lists
+// every LibraryService item in its Library tab and timeline menu, where these raw type names do not belong.
 public static class TypeRegistration
 {
     private static readonly object s_lock = new();
+    private static readonly List<(string Format, Type Type)> s_types = [];
     private static bool s_registered;
+
+    internal static IReadOnlyList<(string Format, Type Type)> Types
+    {
+        get
+        {
+            EnsureRegistered();
+            return s_types;
+        }
+    }
 
     public static void EnsureRegistered()
     {
@@ -92,11 +104,13 @@ public static class TypeRegistration
     {
         Register<FilterEffectGroup>(KnownLibraryItemFormats.FilterEffect);
         Register<Blur>(KnownLibraryItemFormats.FilterEffect);
+        Register<RadialBlur>(KnownLibraryItemFormats.FilterEffect);
         Register<DropShadow>(KnownLibraryItemFormats.FilterEffect);
         Register<InnerShadow>(KnownLibraryItemFormats.FilterEffect);
         Register<FlatShadow>(KnownLibraryItemFormats.FilterEffect);
         Register<StrokeEffect>(KnownLibraryItemFormats.FilterEffect);
         Register<Clipping>(KnownLibraryItemFormats.FilterEffect);
+        Register<DiagonalClipping>(KnownLibraryItemFormats.FilterEffect);
         Register<Dilate>(KnownLibraryItemFormats.FilterEffect);
         Register<Erode>(KnownLibraryItemFormats.FilterEffect);
         Register<HighContrast>(KnownLibraryItemFormats.FilterEffect);
@@ -230,11 +244,5 @@ public static class TypeRegistration
         Register<GraphModel>(KnownLibraryItemFormats.EngineObject);
     }
 
-    private static void Register<T>(string format)
-    {
-        if (!LibraryService.Current.GetTypesFromFormat(format).Contains(typeof(T)))
-        {
-            LibraryService.Current.Register<T>(format, typeof(T).Name);
-        }
-    }
+    private static void Register<T>(string format) => s_types.Add((format, typeof(T)));
 }

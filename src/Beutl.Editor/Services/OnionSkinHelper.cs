@@ -6,12 +6,9 @@ public readonly record struct OnionSkinSample(TimeSpan Time, bool IsPrev, float 
 
 public static class OnionSkinHelper
 {
-    // Enumerate the previous/next frame times to render as semi-transparent onion-skin overlays.
-    // Closest frames receive `baseOpacity`; farther frames fade out linearly. Samples outside
-    // [sceneStart, sceneStart + sceneDuration) are omitted so callers do not need to clamp.
-    // Alpha is re-normalized against the number of samples actually emitted so a partial
-    // clamp (e.g. prevCount=3 near the scene start) does not leave a near frame at a lower
-    // opacity than baseOpacity.
+    // The previous/next frame times to draw as onion skins: the closest at the base opacity, farther ones fading
+    // linearly. Samples outside the scene are omitted, and alpha is spread over the emitted samples only, so a sample
+    // cut off near the scene start does not dim the near frames.
     //
     // Sample times are derived from absolute frame numbers via the shared frame<->time
     // conversion (int.ToTimeSpan(rate)), so they land on exactly the same frame grid the

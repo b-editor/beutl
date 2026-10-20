@@ -17,4 +17,12 @@ public static class EditorConstants
     public const string ViewStateFolder = "view-state";
 
     public const string ProjectPackageExtension = "beutl";
+
+    // Creates, when missing, the view-state folder next to the file at uri and returns its path.
+    internal static string GetViewStateDirectory(Uri uri)
+    {
+        string directory = Path.Combine(Path.GetDirectoryName(uri.LocalPath)!, BeutlFolder, ViewStateFolder);
+        Directory.CreateDirectory(directory);
+        return directory;
+    }
 }

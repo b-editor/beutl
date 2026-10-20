@@ -28,10 +28,9 @@ public sealed class WaveformControl : AudioVisualizerControlBase
         // Render the whole window width: ReadAroundTime zero-pads regions that
         // fall outside the anchor, so samples at their proper time position
         // remain aligned even when the requested window overflows one edge.
-        DrawChannel(context, _left.AsSpan(0, DisplaySamples), midTop, halfHeight, PrimaryBrush);
-        DrawChannel(context, _right.AsSpan(0, DisplaySamples), midBottom, halfHeight, SecondaryBrush);
+        DrawChannel(context, _left, midTop, halfHeight, PrimaryBrush);
+        DrawChannel(context, _right, midBottom, halfHeight, SecondaryBrush);
 
-        // Center axis lines
         IBrush axisBrush = Brushes.Gray;
         var axisPen = new Pen(axisBrush, 0.5) { DashStyle = DashStyle.Dash };
         context.DrawLine(axisPen, new Point(0, midTop), new Point(bounds.Width, midTop));
@@ -41,8 +40,6 @@ public sealed class WaveformControl : AudioVisualizerControlBase
     private void DrawChannel(DrawingContext context, ReadOnlySpan<float> samples, double centerY, double areaHeight, IBrush brush)
     {
         int count = samples.Length;
-        if (count < 2) return;
-
         double width = Bounds.Width;
         double scale = (areaHeight / 2.0) * 0.9;
         double step = width / (count - 1);

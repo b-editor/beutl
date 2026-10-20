@@ -1,18 +1,16 @@
 ﻿using System.Reactive;
 
-using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
-using Beutl.Media;
+using Beutl.Graphics.Shaders;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Fusion;
 
 // A filter-effect segment collects whatever could not lower to a typed fragment — Skia items and typed
-// suffixes as well as custom effects — so the boundary reason has to name what the segment really holds.
+// suffixes as well as custom effects — so its island reports a custom effect only when it really holds one.
 [TestFixture]
 public sealed class FilterEffectSegmentBoundaryReasonTests
 {
@@ -23,11 +21,7 @@ public sealed class FilterEffectSegmentBoundaryReasonTests
     {
         using CompiledRenderRequest compiled = Compile(new Blur { Sigma = { CurrentValue = new(2, 2) } });
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(Reasons(compiled), Does.Contain(ExecutionIslandBoundaryReason.FilterEffectSegment));
-            Assert.That(Reasons(compiled), Does.Not.Contain(ExecutionIslandBoundaryReason.CustomEffectItem));
-        });
+        Assert.That(SegmentIslandPayload(compiled).HasImperativeItem, Is.False);
     }
 
     [Test]
@@ -35,7 +29,7 @@ public sealed class FilterEffectSegmentBoundaryReasonTests
     {
         using CompiledRenderRequest compiled = Compile(new StrokeEffect());
 
-        Assert.That(Reasons(compiled), Does.Contain(ExecutionIslandBoundaryReason.CustomEffectItem));
+        Assert.That(SegmentIslandPayload(compiled).HasImperativeItem, Is.True);
     }
 
     [Test]
@@ -82,37 +76,21 @@ public sealed class FilterEffectSegmentBoundaryReasonTests
         => compiled.Graph.Fragments
             .Single(static fragment => fragment.Kind == RenderFragmentKind.FilterEffectSegment);
 
-    private static IEnumerable<ExecutionIslandBoundaryReason> Reasons(CompiledRenderRequest compiled)
-        => compiled.ExecutionPlan.Boundaries.Select(static boundary => boundary.Reason);
+    // The segment runs as its own semantic island, and its payload says whether it holds a custom effect.
+    private static FilterEffectSegmentRenderFragmentPayload SegmentIslandPayload(CompiledRenderRequest compiled)
+    {
+        ExecutionIsland island = compiled.ExecutionPlan.Islands.Single(island =>
+            island.ShaderRun is null
+            && compiled.Graph.Fragments[island.FragmentIndices[0]].Kind == RenderFragmentKind.FilterEffectSegment);
+        return (FilterEffectSegmentRenderFragmentPayload)compiled.Graph.Fragments[island.FragmentIndices[0]].Payload!;
+    }
 
     private static CompiledRenderRequest Compile(FilterEffect effect, int childCount = 1)
-    {
-        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        using var node = new FilterEffectRenderNode(resource);
-        for (int index = 0; index < childCount; index++)
-        {
-            node.AddChild(new EllipseRenderNode(
-                s_bounds.Translate(new Vector(index, 0)),
-                Brushes.Resource.White,
-                null));
-        }
-
-        var request = new RenderRequest(new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            targetDomain: s_bounds,
-            cachePolicy: RenderCacheOptions.Disabled));
-        try
-        {
-            RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
-            return new RenderRequestCompiler().Compile(request, graph);
-        }
-        catch
-        {
-            request.Dispose();
-            throw;
-        }
-    }
+        => FusionBoundaryExecutionTestSupport.CompileEffect(
+            effect,
+            s_bounds,
+            SkslBackendBudgetResolver.Portable,
+            childCount: childCount);
 }
 
 internal sealed partial class EmptySkiaFilterEffect : FilterEffect

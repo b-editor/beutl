@@ -1,11 +1,8 @@
 ﻿using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
-using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
-using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
@@ -67,27 +64,12 @@ public sealed class WholeSourceFractionalScaleTests
         rectangle.Fill.CurrentValue = new SolidColorBrush(Colors.OrangeRed);
         rectangle.FilterEffect.CurrentValue = effect;
 
-        var scene = new Scene(256, 144, "whole-source-fractional-scale")
-        {
-            Uri = new Uri("file:///whole-source-fractional-scale/scene"),
-        };
-        var element = new Element
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(4),
-            ZIndex = 0,
-            IsEnabled = true,
-            Uri = new Uri("file:///whole-source-fractional-scale/element"),
-        };
-        element.AddObject(rectangle);
-        scene.Children.Add(element);
-
-        using var renderer = new SceneRenderer(scene, RenderIntent.Preview, outputScale, false, outputScale * 2f)
-        {
-            CacheOptions = RenderCacheOptions.Disabled,
-        };
-        renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.Zero));
-        return renderer.Snapshot();
+        return SceneRenderHarness.RenderSingle(
+            rectangle,
+            new PixelSize(256, 144),
+            outputScale,
+            outputScale * 2f,
+            TimeSpan.Zero);
     }
 
     private static long CountNonTransparentPixels(Bitmap bitmap)

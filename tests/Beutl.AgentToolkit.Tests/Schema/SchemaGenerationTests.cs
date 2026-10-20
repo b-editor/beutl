@@ -26,6 +26,27 @@ namespace Beutl.AgentToolkit.Tests.Schema;
 public sealed class SchemaGenerationTests
 {
     [Test]
+    public void DiagonalClipping_ExposesSignedWidthAndAnimatedParametersWithoutMode()
+    {
+        var generator = new SchemaGenerator();
+        CapabilitySchema schema = generator.Generate(typeFilter: nameof(DiagonalClipping));
+        TypeDescriptor descriptor = schema.Types.Single(type => type.Type == typeof(DiagonalClipping).FullName);
+        PropertyDescriptor width = descriptor.Properties.Single(property => property.Name == nameof(DiagonalClipping.Width));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(generator.ListEffects().Select(effect => effect.Name), Does.Contain(nameof(DiagonalClipping)));
+            Assert.That(descriptor.Properties.Select(property => property.Name), Does.Not.Contain("Mode"));
+            Assert.That(width.Default, Is.EqualTo(0f));
+            Assert.That(width.Range is null || width.Range.Minimum < 0, Is.True, "negative widths must be supported");
+            foreach (string property in new[] { nameof(DiagonalClipping.Angle), nameof(DiagonalClipping.Position), nameof(DiagonalClipping.Width) })
+            {
+                Assert.That(descriptor.Properties.Single(value => value.Name == property).Animatable, Is.True, property);
+            }
+        });
+    }
+
+    [Test]
     public void Base_fields_exclude_non_serialized_scalars_but_keep_explicit_lists()
     {
         var generator = new SchemaGenerator();
@@ -68,7 +89,7 @@ public sealed class SchemaGenerationTests
         TypeDescriptor nodeGraphFilterEffect = schema.Types.Single(type => type.Type == typeof(NodeGraphFilterEffect).FullName);
         TypeDescriptor graphModel = schema.Types.Single(type => type.Type == typeof(GraphModel).FullName);
         TypeDescriptor fake = schema.Types.Single(type => type.Type == typeof(FakeExtensionDrawable).FullName);
-        string emptySceneExample = schema.Examples.Single(example => example.Name == "create-empty-scene-motion-graphics").Patch.ToJsonString();
+        string emptySceneExample = schema.Examples.Single(example => example.Name == "create-empty-scene-kinetic-ribbon-title").Patch.ToJsonString();
         string brushEffectExample = schema.Examples.Single(example => example.Name == "apply-gradient-fill-and-effect-chain").Patch.ToJsonString();
         string newAnimatedTextExample = schema.Examples.Single(example => example.Name == "insert-new-animated-text-keyframes").Patch.ToJsonString();
         string geometryShapeExample = schema.Examples.Single(example => example.Name == "insert-new-geometry-shape-path").Patch.ToJsonString();
@@ -87,8 +108,8 @@ public sealed class SchemaGenerationTests
         IReadOnlyList<DeclarativeExample> fillExamples = generator.GenerateExamples(categoryFilter: "fill");
         IReadOnlyList<DeclarativeExample> motionExamples = generator.GenerateExamples(categoryFilter: "motion");
         IReadOnlyList<DeclarativeExampleSummary> exampleSummaries = generator.ListExamples(typeFilter: nameof(TextBlock));
-        IReadOnlyList<DeclarativeExample> namedExamples = generator.GenerateExamples(nameFilter: "create-empty-scene-orbital-radar");
-        textBlockSchema.Examples.Single(example => example.Name == "create-empty-scene-motion-graphics").Patch["Duration"] = "00:00:01";
+        IReadOnlyList<DeclarativeExample> namedExamples = generator.GenerateExamples(nameFilter: "create-empty-scene-orbital-radar-map");
+        textBlockSchema.Examples.Single(example => example.Name == "create-empty-scene-kinetic-ribbon-title").Patch["Duration"] = "00:00:01";
 
         Assert.Multiple(() =>
         {
@@ -161,26 +182,26 @@ public sealed class SchemaGenerationTests
             Assert.That(portalClear.UsageHint, Does.Contain("flow"));
             Assert.That(audioSchema.Types.Any(type => type.Type == typeof(DelayEffect).FullName), Is.True);
             Assert.That(audioSchema.Examples, Is.Empty);
-            Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-motion-graphics"));
-            Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-orbital-radar"));
-            Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-split-screen-typography"));
+            Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-kinetic-ribbon-title"));
+            Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-orbital-radar-map"));
+            Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-split-screen-type-system"));
             Assert.That(brushSchema.Examples.Select(example => example.Name), Does.Contain("apply-gradient-fill-and-effect-chain"));
-            Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-motion-graphics"));
-            Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-orbital-radar"));
-            Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-split-screen-typography"));
+            Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-kinetic-ribbon-title"));
+            Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-orbital-radar-map"));
+            Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("create-empty-scene-split-screen-type-system"));
             Assert.That(textBlockSchema.Examples.Select(example => example.Name), Does.Contain("insert-new-animated-text-keyframes"));
-            Assert.That(freshTextBlockSchema.Examples.Single(example => example.Name == "create-empty-scene-motion-graphics").Patch["Duration"]!.GetValue<string>(), Is.EqualTo("00:00:08"));
+            Assert.That(freshTextBlockSchema.Examples.Single(example => example.Name == "create-empty-scene-kinetic-ribbon-title").Patch["Duration"]!.GetValue<string>(), Is.EqualTo("00:00:08"));
             Assert.That(compactVisualEffectSchema.Types.Any(type => type.Type == typeof(FilterEffectGroup).FullName), Is.True);
             Assert.That(compactVisualEffectSchema.Types.All(type => type.Properties.Count == 0), Is.True);
             Assert.That(compactVisualEffectSchema.Examples, Is.Empty);
-            Assert.That(fillExamples.Select(example => example.Name), Does.Contain("create-empty-scene-orbital-radar"));
-            Assert.That(fillExamples.Select(example => example.Name), Does.Contain("create-empty-scene-split-screen-typography"));
+            Assert.That(fillExamples.Select(example => example.Name), Does.Contain("create-empty-scene-orbital-radar-map"));
+            Assert.That(fillExamples.Select(example => example.Name), Does.Contain("create-empty-scene-split-screen-type-system"));
             Assert.That(fillExamples.Select(example => example.Name), Does.Contain("apply-gradient-fill-and-effect-chain"));
             Assert.That(motionExamples.Select(example => example.Name), Does.Contain("create-empty-scene-liquid-gradient-system"));
             Assert.That(motionExamples.Select(example => example.Name), Does.Contain("create-empty-scene-data-bar-dashboard"));
             Assert.That(motionExamples.Select(example => example.Name), Does.Contain("create-empty-scene-glitch-cutout-collage"));
             Assert.That(exampleSummaries.Count(example => example.Tags.Contains("empty-scene")), Is.GreaterThanOrEqualTo(3));
-            Assert.That(exampleSummaries.Single(example => example.Name == "create-empty-scene-orbital-radar").Tags, Does.Contain("orbital"));
+            Assert.That(exampleSummaries.Single(example => example.Name == "create-empty-scene-orbital-radar-map").Tags, Does.Contain("orbital"));
             Assert.That(namedExamples, Has.Count.EqualTo(1));
             Assert.That(namedExamples.Single().Patch.ToJsonString(), Does.Contain("Orbit map"));
         });
@@ -302,7 +323,7 @@ public sealed class SchemaGenerationTests
             Assert.That(TransformGroupsUseCanonicalOrder(dataRender.Patch), Is.True);
             Assert.That(TransformGroupsUseCanonicalOrder(glitchRender.Patch), Is.True);
             Assert.That(TransformGroupsUseCanonicalOrder(new SchemaGenerator()
-                .GenerateExamples(nameFilter: "create-empty-scene-orbital-radar")
+                .GenerateExamples(nameFilter: "create-empty-scene-orbital-radar-map")
                 .Single()
                 .Patch), Is.True);
         });
@@ -358,7 +379,7 @@ public sealed class SchemaGenerationTests
             Assert.That(script, Does.Not.Contain("0.35"));
         });
 
-        using SKSLShader shader = CompileSkslOrSkip(script);
+        using SKSLShader shader = CompileSksl(script);
         using SKSLShaderBuilder builder = shader.CreateBuilder();
 
         Assert.That(builder.Children.Contains("src"), Is.True);
@@ -373,7 +394,7 @@ public sealed class SchemaGenerationTests
         string organic = generator.GetEffectRecipe("organic-shader-field").Patch.ToJsonString();
         string script = FindRequiredStringProperty(scaffoldRecipe.Patch, nameof(SKSLScriptEffect.Script));
 
-        using SKSLShader shader = CompileSkslOrSkip(script);
+        using SKSLShader shader = CompileSksl(script);
         using SKSLShaderBuilder builder = shader.CreateBuilder();
 
         Assert.Multiple(() =>
@@ -585,13 +606,33 @@ public sealed class SchemaGenerationTests
         Assert.That(drawableObject3D?.Category, Is.EqualTo(KnownLibraryItemFormats.EngineObject));
     }
 
+    // The editor lists every LibraryService item in its Library tab and timeline menu, so the schema's own types
+    // stay out of it.
+    [Test]
+    public void Schema_types_the_app_does_not_register_stay_out_of_the_library_service()
+    {
+        CapabilitySchema schema = new SchemaGenerator().Generate(includeProperties: false, includeExamples: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(LibraryService.Current.FindItem(typeof(SolidColorBrush)), Is.Null);
+            Assert.That(LibraryService.Current.FindItem(typeof(LinearEasing)), Is.Null);
+            Assert.That(LibraryService.Current.GetTypesFromFormat(KnownLibraryItemFormats.Brush), Is.Empty);
+            Assert.That(schema.Types.Single(type => type.Type == typeof(SolidColorBrush).FullName).DisplayName,
+                Is.EqualTo(nameof(SolidColorBrush)));
+            Assert.That(schema.Types.Single(type => type.Type == typeof(LinearEasing).FullName).Category,
+                Is.EqualTo(KnownLibraryItemFormats.Easing));
+        });
+    }
+
     [Test]
     public void Effect_catalog_exposes_recipe_for_every_registered_filter_effect()
     {
-        TypeRegistration.EnsureRegistered();
         var generator = new SchemaGenerator();
-        string[] registeredEffectNames = LibraryService.Current
-            .GetTypesFromFormat(KnownLibraryItemFormats.FilterEffect)
+        string[] registeredEffectNames = TypeRegistration.Types
+            .Where(entry => entry.Format == KnownLibraryItemFormats.FilterEffect)
+            .Select(entry => entry.Type)
+            .Concat(LibraryService.Current.GetTypesFromFormat(KnownLibraryItemFormats.FilterEffect))
             .Select(type => type.Name)
             .Distinct(StringComparer.Ordinal)
             .OrderBy(name => name, StringComparer.Ordinal)
@@ -806,29 +847,10 @@ public sealed class SchemaGenerationTests
         return result!.Value;
     }
 
-    private static SKSLShader CompileSkslOrSkip(string script)
+    private static SKSLShader CompileSksl(string script)
     {
-        if (SKSLShader.TryCreate(script, out SKSLShader? shader, out string? errorText))
-        {
-            return shader!;
-        }
-
-        if (IsNativeSkiaUnavailable(errorText))
-        {
-            Assert.Ignore($"SKSL compilation is unavailable in this environment: {errorText}");
-        }
-
-        Assert.Fail($"SKSL script should compile: {errorText}");
-        return null!;
-    }
-
-    private static bool IsNativeSkiaUnavailable(string? errorText)
-    {
-        return !string.IsNullOrWhiteSpace(errorText)
-               && (errorText.Contains("Unable to load shared library", StringComparison.OrdinalIgnoreCase)
-                   || errorText.Contains("DllNotFoundException", StringComparison.OrdinalIgnoreCase)
-                   || errorText.Contains("libSkiaSharp", StringComparison.OrdinalIgnoreCase)
-                   || errorText.Contains("dlopen", StringComparison.OrdinalIgnoreCase));
+        Assert.That(SKSLShader.TryCreate(script, out SKSLShader? shader, out string? errorText), Is.True, errorText);
+        return shader!;
     }
 
     private static void Visit(JsonNode? node, Action<JsonNode> visitor)

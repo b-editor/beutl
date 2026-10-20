@@ -8,7 +8,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.Editors"
-             x:Name="root"
              d:DesignHeight="70"
              d:DesignWidth="300"
              mc:Ignorable="d">
@@ -53,13 +52,6 @@
             <TextBlock Grid.Row="1"
                        IsVisible="{Binding List.Value, Converter={x:Static ObjectConverters.IsNull}}"
                        Text="{x:Static lang:MessageStrings.PropertyUnset}" />
-
-            <ProgressBar x:Name="progress"
-                         MinWidth="100"
-                         Margin="0,0,8,0"
-                         VerticalAlignment="Center"
-                         IsIndeterminate="True"
-                         IsVisible="False" />
 
             <ItemsControl x:Name="items"
                           Grid.Row="1"

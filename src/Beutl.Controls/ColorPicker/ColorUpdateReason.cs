@@ -3,7 +3,7 @@
 /// <summary>
 /// Defines the source of the change in color of a <see cref="FAColorPicker"/>
 /// </summary>
-public enum ColorUpdateReason
+internal enum ColorUpdateReason
 {
     /// <summary>
     /// The initial setting of the Color property, forces all input areas to have their

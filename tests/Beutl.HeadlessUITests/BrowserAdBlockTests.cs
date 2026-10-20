@@ -1,5 +1,4 @@
-﻿using System.Net;
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.RegularExpressions;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
@@ -86,7 +85,7 @@ public class BrowserAdBlockTests
     public async Task FailedUpdatePreservesLastGoodFiltersAndOfflineCache()
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        using var handler = new ResponseHandler();
+        using var handler = new BrowserAdBlockTestRules.FilterResponseHandler();
         using var client = new HttpClient(handler);
         string path = Path.Combine(root, "filters.json");
         try
@@ -137,7 +136,7 @@ public class BrowserAdBlockTests
     public async Task DisablingDuringPreparationReleasesNavigationAndDisposesLateBackend()
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        using var client = new HttpClient(new ResponseHandler());
+        using var client = new HttpClient(new BrowserAdBlockTestRules.FilterResponseHandler());
         var store = new BrowserAdBlockFilterStore(Path.Combine(root, "filters.json"), client);
         try
         {
@@ -166,7 +165,7 @@ public class BrowserAdBlockTests
     public async Task ClosingDuringPreparationCannotEnableBackendOrNavigate()
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        using var client = new HttpClient(new ResponseHandler());
+        using var client = new HttpClient(new BrowserAdBlockTestRules.FilterResponseHandler());
         var store = new BrowserAdBlockFilterStore(Path.Combine(root, "filters.json"), client);
         try
         {
@@ -192,16 +191,5 @@ public class BrowserAdBlockTests
         internal bool Enabled, Disposed;
         public Task EnableAsync() { Enabled = true; return Task.CompletedTask; }
         public void Dispose() => Disposed = true;
-    }
-
-    private sealed class ResponseHandler : HttpMessageHandler
-    {
-        internal string Response = "[Adblock Plus 2.0]\n||ads.example.test^";
-        internal int Requests;
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            Requests++;
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(Response) });
-        }
     }
 }

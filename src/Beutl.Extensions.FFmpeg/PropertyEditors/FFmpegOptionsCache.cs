@@ -25,13 +25,9 @@ internal sealed class FFmpegOptionsCache<T>
 
     private readonly Dictionary<string, LinkedListNode<(string Key, T[] Items)>> _cache = [];
     private readonly LinkedList<(string Key, T[] Items)> _recency = new();
-
-    // The token distinguishes a query from one that superseded it after a mid-flight Clear(), so the
-    // older query won't cache a stale result or evict the newer registration when it completes.
-    private readonly Dictionary<string, (Task<OptionsQueryResult<T>> Task, long Token)> _inflight = [];
+    private readonly Dictionary<string, Task<OptionsQueryResult<T>>> _inflight = [];
     private readonly object _gate = new();
     private readonly int _maxCachedEntries;
-    private long _nextToken;
 
     /// <param name="maxCachedEntries">
     /// Upper bound on retained entries; the least-recently-used one is evicted past the bound and
@@ -61,22 +57,6 @@ internal sealed class FFmpegOptionsCache<T>
     }
 
     /// <summary>
-    /// Drops every cached entry and the single-flight bookkeeping. In-flight tasks keep running (their
-    /// awaiters still get the result), but a caller arriving after <see cref="Clear"/> may launch a
-    /// fresh query; that superseded query neither caches its result nor disturbs the newer one.
-    /// Used to reset a process-shared cache, e.g. after the FFmpeg worker restarts.
-    /// </summary>
-    public void Clear()
-    {
-        lock (_gate)
-        {
-            _cache.Clear();
-            _recency.Clear();
-            _inflight.Clear();
-        }
-    }
-
-    /// <summary>
     /// Returns the cached result for <paramref name="key"/>, or runs <paramref name="factory"/> once
     /// and caches its items unless the result is degraded. Concurrent calls for the same uncached key
     /// share one task and all receive the same <see cref="OptionsQueryResult{T}"/>.
@@ -91,18 +71,16 @@ internal sealed class FFmpegOptionsCache<T>
                 Touch(node);
                 return Task.FromResult(new OptionsQueryResult<T>(node.Value.Items, Degraded: false));
             }
-            if (_inflight.TryGetValue(key, out var running))
-                return running.Task;
+            if (_inflight.TryGetValue(key, out Task<OptionsQueryResult<T>>? running))
+                return running;
 
-            long token = ++_nextToken;
-            Task<OptionsQueryResult<T>> task = RunAsync(key, token, factory);
-            _inflight[key] = (task, token);
+            Task<OptionsQueryResult<T>> task = RunAsync(key, factory);
+            _inflight[key] = task;
             return task;
         }
     }
 
-    private async Task<OptionsQueryResult<T>> RunAsync(
-        string key, long token, Func<Task<OptionsQueryResult<T>>> factory)
+    private async Task<OptionsQueryResult<T>> RunAsync(string key, Func<Task<OptionsQueryResult<T>>> factory)
     {
         try
         {
@@ -113,12 +91,7 @@ internal sealed class FFmpegOptionsCache<T>
             if (!result.Degraded)
             {
                 lock (_gate)
-                {
-                    // Skip the write if a Clear() or later query superseded us; caching now would
-                    // resurrect a stale result.
-                    if (IsCurrent(key, token))
-                        Store(key, result.Items);
-                }
+                    Store(key, result.Items);
             }
 
             return result;
@@ -126,16 +99,9 @@ internal sealed class FFmpegOptionsCache<T>
         finally
         {
             lock (_gate)
-            {
-                // Remove only our own registration; a newer query may now own this key.
-                if (IsCurrent(key, token))
-                    _inflight.Remove(key);
-            }
+                _inflight.Remove(key);
         }
     }
-
-    private bool IsCurrent(string key, long token)
-        => _inflight.TryGetValue(key, out var entry) && entry.Token == token;
 
     private void Store(string key, T[] items)
     {

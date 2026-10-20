@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 
 using Beutl.Editor.Models;
@@ -37,15 +38,10 @@ public partial class PlayerViewPlaybackInputTests
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
         using var release = new CancellationTokenSource();
-        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Task? render = null;
         try
         {
-            window.Show();
-            HeadlessTestHelpers.Render();
-            await RenderThread.Dispatcher.InvokeAsync(static () => { });
-            HeadlessTestHelpers.Render();
-            Assert.That(view.image.Bounds.Width, Is.GreaterThan(0), "The click must reach the preview hit-test path.");
+            await PreparePreview(view, window);
 
             editor.Player.IsMoveMode.Value = !handMode;
             editor.Player.IsHandMode.Value = handMode;
@@ -54,16 +50,11 @@ public partial class PlayerViewPlaybackInputTests
             var selection = editor.GetRequiredService<IEditorSelection>();
             object? selected = selection.SelectedObject.Value;
             var startMatrix = editor.Player.FrameMatrix.Value;
-            Point point = view.image.TranslatePoint(new Point(view.image.Bounds.Width / 2, view.image.Bounds.Height / 2), window)!.Value;
+            Point point = PreviewCenter(view, window);
 
             // Playback occupies the render dispatcher until its producer exits. Keep it busy in the
             // same way, with an independent deadline so a synchronous hit-test fails without hanging.
-            render = RenderThread.Dispatcher.InvokeAsync(() =>
-            {
-                entered.TrySetResult();
-                release.Token.WaitHandle.WaitOne();
-            });
-            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            render = await BlockRenderThreadAsync(release);
             release.CancelAfter(TimeSpan.FromSeconds(2));
 
             window.MouseDown(point, button);
@@ -112,7 +103,6 @@ public partial class PlayerViewPlaybackInputTests
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
         using var release = new CancellationTokenSource();
-        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Task? render = null;
         try
         {
@@ -126,18 +116,12 @@ public partial class PlayerViewPlaybackInputTests
             Vector3? position = scene?.Objects.Single().Position.CurrentValue;
             Point point = PreviewCenter(view, window);
 
-            render = RenderThread.Dispatcher.InvokeAsync(() =>
-            {
-                entered.TrySetResult();
-                release.Token.WaitHandle.WaitOne();
-            });
-            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            render = await BlockRenderThreadAsync(release);
             release.CancelAfter(TimeSpan.FromSeconds(2));
 
             window.MouseDown(point, button);
             bool returnedWhileRendering = !release.IsCancellationRequested;
-            window.MouseMove(point + new Vector(20, 10), button == MouseButton.Left
-                ? RawInputModifiers.LeftMouseButton : RawInputModifiers.RightMouseButton);
+            window.MouseMove(point + new Vector(20, 10), HeldButton(button));
             window.MouseUp(point, button);
 
             Assert.Multiple(() =>
@@ -175,10 +159,9 @@ public partial class PlayerViewPlaybackInputTests
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
         using var release = new CancellationTokenSource();
-        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Task? render = null;
         Point point = default;
-        RawInputModifiers modifiers = button == MouseButton.Left ? RawInputModifiers.LeftMouseButton : RawInputModifiers.RightMouseButton;
+        RawInputModifiers modifiers = HeldButton(button);
         try
         {
             await PreparePreview(view, window);
@@ -197,12 +180,7 @@ public partial class PlayerViewPlaybackInputTests
 
             editor.Player.IsPlaying.Value = true;
             HeadlessTestHelpers.Settle();
-            render = RenderThread.Dispatcher.InvokeAsync(() =>
-            {
-                entered.TrySetResult();
-                release.Token.WaitHandle.WaitOne();
-            });
-            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            render = await BlockRenderThreadAsync(release);
             release.CancelAfter(TimeSpan.FromSeconds(2));
 
             window.MouseMove(point + new Vector(40, 25), modifiers);
@@ -317,8 +295,7 @@ public partial class PlayerViewPlaybackInputTests
             Vector3 position = cube.Position.CurrentValue;
             Vector3 target = camera.Target.CurrentValue;
             window.MouseDown(point, button);
-            window.MouseMove(point + new Vector(20, 10), button == MouseButton.Left
-                ? RawInputModifiers.LeftMouseButton : RawInputModifiers.RightMouseButton);
+            window.MouseMove(point + new Vector(20, 10), HeldButton(button));
             window.MouseUp(point, button);
 
             Assert.That(button == MouseButton.Left ? cube.Position.CurrentValue != position : camera.Target.CurrentValue != target,
@@ -328,6 +305,131 @@ public partial class PlayerViewPlaybackInputTests
         finally
         {
             window.MouseUp(point, button);
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task The_wheel_dollies_the_camera(bool selectedScene)
+    {
+        EditViewModel editor = await OpenEditor();
+        Scene3D scene = await Add3DScene(editor);
+        var camera = scene.Camera.CurrentValue!;
+        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value =
+            selectedScene ? editor.Scene.Children.Single() : null;
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+        try
+        {
+            await PreparePreview(view, window);
+            editor.Player.IsMoveMode.Value = false;
+            editor.Player.IsCameraMode.Value = true;
+            Vector3 position = camera.Position.CurrentValue;
+            Vector3 target = camera.Target.CurrentValue;
+
+            window.MouseWheel(PreviewCenter(view, window), new Vector(0, 1));
+
+            Vector3 movement = camera.Position.CurrentValue - position;
+            Assert.Multiple(() =>
+            {
+                Assert.That(movement, Is.Not.EqualTo(Vector3.Zero), "The wheel must move the camera.");
+                Assert.That(Vector3.Distance(camera.Target.CurrentValue - target, movement), Is.LessThan(1e-3f),
+                    "The target moves with the camera.");
+            });
+
+            editor.HistoryManager.Undo();
+            Assert.Multiple(() =>
+            {
+                Assert.That(camera.Position.CurrentValue, Is.EqualTo(position));
+                Assert.That(camera.Target.CurrentValue, Is.EqualTo(target));
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task The_wheel_leaves_the_camera_alone_while_a_button_is_held()
+    {
+        EditViewModel editor = await OpenEditor();
+        Scene3D scene = await Add3DScene(editor);
+        var camera = scene.Camera.CurrentValue!;
+        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = editor.Scene.Children.Single();
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+        Point point = default;
+        try
+        {
+            await PreparePreview(view, window);
+            editor.Player.IsMoveMode.Value = false;
+            editor.Player.IsCameraMode.Value = true;
+            point = PreviewCenter(view, window);
+            Vector3 position = camera.Position.CurrentValue;
+
+            window.MouseDown(point, MouseButton.Right);
+            window.MouseMove(point + new Vector(20, 10), RawInputModifiers.RightMouseButton);
+            window.MouseWheel(point + new Vector(20, 10), new Vector(0, 1), RawInputModifiers.RightMouseButton);
+
+            Assert.That(camera.Position.CurrentValue, Is.EqualTo(position),
+                "A wheel step during an orbit would be committed together with the unfinished orbit.");
+
+            window.MouseUp(point + new Vector(20, 10), MouseButton.Right);
+            window.MouseWheel(point, new Vector(0, 1));
+            Assert.That(camera.Position.CurrentValue, Is.Not.EqualTo(position), "After the drag the wheel dollies again.");
+        }
+        finally
+        {
+            window.MouseUp(point, MouseButton.Right);
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Cancelling_a_move_keeps_a_nudge_made_just_before_it()
+    {
+        EditViewModel editor = await OpenEditor();
+        var shape = new RectShape();
+        await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
+            TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4), 0, new ElementSource.EngineObject(() => shape))], CancellationToken.None);
+        Element element = editor.Scene.Children.Single();
+        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = element;
+        editor.GetRequiredService<IEditorClock>().CurrentTime.Value = TimeSpan.FromSeconds(2);
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+        IPointer? captured = null;
+        Point point = default;
+        try
+        {
+            await PreparePreview(view, window);
+            view.FindControl<Panel>("framePanel")!.AddHandler(InputElement.PointerPressedEvent,
+                (_, e) => captured = e.Pointer, RoutingStrategies.Bubble, handledEventsToo: true);
+            int index = editor.HistoryManager.CurrentIndex;
+            point = PreviewCenter(view, window);
+
+            editor.GetRequiredService<IElementNudgeService>().Nudge(editor.Scene, [element], 1);
+            TimeSpan nudged = element.Start;
+            window.MouseDown(point, MouseButton.Left);
+            window.MouseMove(point + new Vector(20, 10), RawInputModifiers.LeftMouseButton);
+            Assert.That(editor.HistoryManager.CurrentIndex, Is.EqualTo(index + 1), "The move commits the nudge before it writes.");
+            Assert.That(editor.HistoryManager.HasPendingOperations, Is.True, "The move must have changed the shape.");
+            captured!.Capture(null);
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(element.Start, Is.EqualTo(nudged));
+                Assert.That(editor.HistoryManager.CurrentIndex, Is.EqualTo(index + 1));
+                Assert.That(editor.HistoryManager.PeekUndo()!.Name, Is.EqualTo("CommandNames.MoveElement"));
+                Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
+            });
+        }
+        finally
+        {
+            window.MouseUp(point, MouseButton.Left);
             window.Close();
         }
     }
@@ -350,11 +452,24 @@ public partial class PlayerViewPlaybackInputTests
         HeadlessTestHelpers.Render();
         await RenderThread.Dispatcher.InvokeAsync(static () => { });
         HeadlessTestHelpers.Render();
-        Assert.That(view.image.Bounds.Width, Is.GreaterThan(0));
+        Assert.That(view.image.Bounds.Width, Is.GreaterThan(0), "The click must reach the preview hit-test path.");
     }
 
     private static Point PreviewCenter(PlayerView view, Window window)
         => view.image.TranslatePoint(new Point(view.image.Bounds.Width / 2, view.image.Bounds.Height / 2), window)!.Value;
+
+    // Returns once a job holds the render thread. The job keeps it until release is canceled.
+    private static async Task<Task> BlockRenderThreadAsync(CancellationTokenSource release)
+    {
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task render = RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            entered.TrySetResult();
+            release.Token.WaitHandle.WaitOne();
+        });
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        return render;
+    }
 
     [AvaloniaTest]
     public async Task Preview_selection_is_available_after_playback_stops()
@@ -371,15 +486,12 @@ public partial class PlayerViewPlaybackInputTests
         var window = new Window { Content = view, Width = 800, Height = 600 };
         try
         {
-            window.Show();
-            HeadlessTestHelpers.Render();
-            await RenderThread.Dispatcher.InvokeAsync(static () => { });
-            HeadlessTestHelpers.Render();
+            await PreparePreview(view, window);
             editor.Player.IsPlaying.Value = true;
             HeadlessTestHelpers.Settle();
             editor.Player.IsPlaying.Value = false;
             HeadlessTestHelpers.Settle();
-            Point point = view.image.TranslatePoint(new Point(view.image.Bounds.Width / 2, view.image.Bounds.Height / 2), window)!.Value;
+            Point point = PreviewCenter(view, window);
 
             window.MouseDown(point, MouseButton.Left);
             window.MouseUp(point, MouseButton.Left);
@@ -392,16 +504,7 @@ public partial class PlayerViewPlaybackInputTests
     }
 
     private static async Task<EditViewModel> OpenEditor()
-    {
-        await TestReset.ResetShellAsync();
-        string name = $"preview-playback-input-{Guid.NewGuid():N}";
-        string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(directory);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, directory))!;
-        TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().First());
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
+        => (await TestShell.OpenNewSceneAsync("preview-playback-input")).Editor;
 
     private static void Capture(Window window, string name)
     {

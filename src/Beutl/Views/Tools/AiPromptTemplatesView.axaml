@@ -13,8 +13,7 @@
              x:DataType="vm:AiPromptLibraryViewModel"
              mc:Ignorable="d">
     <StackPanel Spacing="8">
-        <tools:AiPromptChoiceListView x:Name="TemplateList"
-                                      MaxHeight="240"
+        <tools:AiPromptChoiceListView MaxHeight="240"
                                       Choices="{CompiledBinding Templates}"
                                       IsVisible="{CompiledBinding HasTemplates.Value}" />
         <TextBlock FontSize="11"

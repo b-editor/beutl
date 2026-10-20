@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Models;
@@ -145,19 +146,6 @@ public sealed partial class TimelineTabView
     {
         if (ViewModel == null) return;
 
-        var bpmGrid = ViewModel.Options.Value.BpmGrid;
-        var flyout = new Editor.Components.Views.BpmGridFlyout
-        {
-            IsEnabledChecked = bpmGrid.IsEnabled,
-            Bpm = (decimal)bpmGrid.Bpm,
-            Subdivisions = bpmGrid.Subdivisions,
-            OffsetSeconds = (decimal)bpmGrid.Offset.TotalSeconds,
-        };
-        flyout.OptionsChanged += (_, options) =>
-        {
-            ViewModel.Options.Value = ViewModel.Options.Value with { BpmGrid = options };
-        };
-
-        flyout.ShowAt(TimelinePanel, true);
+        TimelineHelper.ShowBpmGridFlyout(ViewModel.Options, TimelinePanel);
     }
 }

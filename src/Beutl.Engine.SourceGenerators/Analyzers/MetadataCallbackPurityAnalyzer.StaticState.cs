@@ -164,10 +164,8 @@ public sealed partial class MetadataCallbackPurityAnalyzer
                 or SpecialType.System_UIntPtr or SpecialType.System_DateTime
         } => true,
 
-        // The engine's own resource address, which the BESG004 message tells authors to move a
-        // per-recording value onto. The slot is an identity and nothing else, and outside Beutl.Engine it is
-        // a metadata class the walk below is not allowed to read. Leaving it to the walk would have the rule
-        // rejecting the fix it recommends, which is the state authors suppress a rule over.
+        // RenderResourceSlot is where the BESG004 message tells authors to move a per-recording value, so it
+        // is treated as immutable without the walk, which cannot read it outside Beutl.Engine.
         INamedTypeSymbol { Name: "RenderResourceSlot", IsSealed: true } slot
             when slot.ContainingNamespace.ToDisplayString() == "Beutl.Graphics.Rendering" => true,
 
@@ -211,12 +209,8 @@ public sealed partial class MetadataCallbackPurityAnalyzer
         {
             foreach (ISymbol member in current.GetMembers())
             {
-                // A field-like event is a delegate field that is not readonly, written by the compiler
-                // and left out of a source type's member list, which carries the event and its
-                // accessors in its place. Asking about fields alone therefore let a type whose whole
-                // mutable state is an event pass for one carrying none, while the same state spelled
-                // as a plain delegate field failed. An event declared with its own accessors stores
-                // nothing of itself, and whatever those accessors do write is a field this loop sees.
+                // A field-like event's delegate field is left out of a source type's member list, so the
+                // event itself counts as writable state. An event with its own accessors stores nothing.
                 if (member is IEventSymbol { IsStatic: false, AddMethod.IsImplicitlyDeclared: true })
                     return false;
 

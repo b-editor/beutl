@@ -13,6 +13,8 @@ namespace Beutl.Editor.Components.VersionControlTab.Views;
 
 internal sealed partial class VersionControlTabView : UserControl
 {
+    private const double WideLayoutMinimumWidth = 600;
+
     public static readonly StyledProperty<bool> IsNarrowLayoutProperty =
         AvaloniaProperty.Register<VersionControlTabView, bool>(
             nameof(IsNarrowLayout),
@@ -63,7 +65,7 @@ internal sealed partial class VersionControlTabView : UserControl
 
     private void UpdateLayoutMode(double availableWidth)
     {
-        IsNarrowLayout = VersionControlTabLayout.IsNarrow(availableWidth);
+        IsNarrowLayout = availableWidth < WideLayoutMinimumWidth;
     }
 
     private void OnCommitMessageKeyDown(object? sender, KeyEventArgs e)

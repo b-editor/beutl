@@ -1,19 +1,14 @@
 ﻿namespace Beutl.Serialization;
 
 /// <summary>
-/// Thread-local tally of fallback substitutions, letting a caller detect fallbacks created in
+/// Thread-local capture of fallback substitutions, letting a caller detect fallbacks created in
 /// positions a hierarchical traversal of the deserialized result cannot reach (e.g. plain
 /// property values such as keyframe values).
 /// </summary>
 internal static class DeserializationIncidents
 {
     [ThreadStatic]
-    private static int t_fallbackCount;
-
-    [ThreadStatic]
     private static Capture? t_capture;
-
-    internal static int FallbackCount => t_fallbackCount;
 
     internal static Capture BeginCapture() => new(t_capture);
 
@@ -37,7 +32,6 @@ internal static class DeserializationIncidents
 
     private static void Record(DeserializationIncident incident)
     {
-        t_fallbackCount++;
         for (Capture? capture = t_capture; capture != null; capture = capture.Parent)
         {
             capture.Record(incident);
@@ -46,20 +40,18 @@ internal static class DeserializationIncidents
 
     internal sealed class Capture : IDisposable
     {
-        private readonly int _initialCount;
         private List<DeserializationIncident>? _incidents;
         private bool _disposed;
 
         internal Capture(Capture? parent)
         {
             Parent = parent;
-            _initialCount = t_fallbackCount;
             t_capture = this;
         }
 
         internal Capture? Parent { get; }
 
-        internal int Count => t_fallbackCount - _initialCount;
+        internal int Count => _incidents?.Count ?? 0;
 
         internal IReadOnlyList<DeserializationIncident> Incidents => _incidents ?? [];
 

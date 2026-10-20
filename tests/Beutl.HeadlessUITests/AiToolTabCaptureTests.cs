@@ -1,84 +1,28 @@
 ﻿using System.Globalization;
 using System.Text.Json;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Beutl.Api.Services;
 using Beutl.Controls.Styling.Themes;
 using Beutl.Language;
-using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
-using FluentAvalonia.Styling;
 
 namespace Beutl.HeadlessUITests;
 
-// Produces PNG captures of the AI tool tabs that replaced the modal dialogs, so the non-modal
-// layout can be reviewed without launching the desktop shell.
+// Produces PNG captures of the AI workspace pages for manual design review.
 [TestFixture]
 [Explicit("Produces PNG captures for manual design review; not a regression test.")]
 public class AiToolTabCaptureTests
 {
-    private static string OutputDirectory =>
-        Environment.GetEnvironmentVariable("BEUTL_THEME_CAPTURE_DIR")
-        ?? Path.Combine(Path.GetTempPath(), "beutl-ai-captures");
-
-    [AvaloniaTest]
-    public async Task Capture_ai_tool_tabs_dark()
-    {
-        await TestReset.ResetShellAsync();
-        UseCaptureTheme();
-        EditViewModel editor = await OpenEditorForNewScene("ai-tooltab-capture");
-        MainViewModel mainViewModel = TestShell.MainViewModel;
-
-        Capture(
-            new AiImageGenerationView
-            {
-                DataContext = mainViewModel.CreateAiImageGenerationToolViewModel(editor),
-            },
-            420,
-            900,
-            "ai-image-generation-tab.png");
-
-        Capture(
-            new AiImageEditView
-            {
-                DataContext = mainViewModel.CreateAiImageEditToolViewModel(editor),
-            },
-            420,
-            900,
-            "ai-image-edit-tab.png");
-
-        Capture(
-            new AiSubtitleView
-            {
-                DataContext = mainViewModel.CreateAiSubtitleToolViewModel(editor),
-            },
-            460,
-            900,
-            "ai-subtitle-tab.png");
-
-        Capture(
-            new AiVideoGenerationView
-            {
-                DataContext = mainViewModel.CreateAiVideoGenerationToolViewModel(editor),
-            },
-            460,
-            900,
-            "ai-video-generation-tab.png");
-    }
-
     [AvaloniaTest]
     public async Task Capture_ai_workspace_pages_all_locales_dark()
     {
-        await TestReset.ResetShellAsync();
-        UseCaptureTheme();
-        EditViewModel editor = await OpenEditorForNewScene("ai-workspace-capture");
+        ThemeCaptureTests.UseCaptureTheme(ThemeVariant.Dark, BeutlDarkBorderTheme.AccentColor);
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-workspace-capture");
         CultureInfo previousCulture = CultureInfo.CurrentCulture;
         CultureInfo previousUiCulture = CultureInfo.CurrentUICulture;
         try
@@ -117,9 +61,8 @@ public class AiToolTabCaptureTests
     [AvaloniaTest]
     public async Task Capture_ai_job_center_inline_confirmation_dark()
     {
-        await TestReset.ResetShellAsync();
-        UseCaptureTheme();
-        EditViewModel editor = await OpenEditorForNewScene("ai-jobcenter-capture");
+        ThemeCaptureTests.UseCaptureTheme(ThemeVariant.Dark, BeutlDarkBorderTheme.AccentColor);
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-jobcenter-capture");
         AiJobCenterViewModel viewModel = TestShell.MainViewModel.CreateAiJobCenterViewModel(editor);
         viewModel.ApplySnapshot(new AiJobMonitorSnapshot(
             [
@@ -166,13 +109,6 @@ public class AiToolTabCaptureTests
             new DateTimeOffset(2026, 8, 10, 9, 1, 0, TimeSpan.Zero));
     }
 
-    private static void UseCaptureTheme()
-    {
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
-        Application.Current.Styles.OfType<FluentAvaloniaTheme>().Single().CustomAccentColor =
-            BeutlDarkBorderTheme.AccentColor;
-    }
-
     private static void Capture(Control content, int width, int height, string name)
     {
         var window = new Window { Content = content, Width = width, Height = height };
@@ -180,32 +116,12 @@ public class AiToolTabCaptureTests
         {
             window.Show();
             HeadlessTestHelpers.Render(5);
-
-            using WriteableBitmap? frame = window.CaptureRenderedFrame();
-            Assert.That(frame, Is.Not.Null, "Headless frame capture returned null.");
-
-            Directory.CreateDirectory(OutputDirectory);
-            string path = Path.Combine(OutputDirectory, name);
-            frame!.Save(path, PngBitmapEncoderOptions.Default);
-            TestContext.Out.WriteLine($"Saved capture: {path}");
+            ThemeCaptureTests.Capture(window, name);
         }
         finally
         {
             window.Close();
             HeadlessTestHelpers.Settle();
         }
-    }
-
-    private static async Task<EditViewModel> OpenEditorForNewScene(string name)
-    {
-        string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(workspace);
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, workspace))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
     }
 }

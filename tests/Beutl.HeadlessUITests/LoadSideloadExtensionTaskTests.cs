@@ -94,6 +94,8 @@ public sealed class LoadSideloadExtensionTaskTests
         IReadOnlyList<(LocalPackage, Exception)>? reported = null;
         var task = new LoadSideloadExtensionTask(
             () => [package],
+            Prepare,
+            () => Task.CompletedTask,
             _ => throw new InvalidOperationException("boom"),
             _ => Task.FromResult(true),
             failures => reported = failures,
@@ -129,6 +131,36 @@ public sealed class LoadSideloadExtensionTaskTests
         Assert.That(loaded, Is.Empty);
     }
 
+    [Test]
+    public async Task DeferredLoadingTask_LoadsAfterTheInstalledPackagesInNameOrder()
+    {
+        var installed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        LocalPackage broken = new() { Name = "Broken" };
+        var loaded = new List<string>();
+        var task = new LoadSideloadExtensionTask(
+            () => [new LocalPackage { Name = "b" }, broken, new LocalPackage { Name = "A" }, new LocalPackage { Name = "c" }],
+            package => package == broken ? throw new InvalidOperationException("boom") : Prepare(package),
+            () => installed.Task,
+            prepared => loaded.Add(prepared.Package.Name),
+            _ => Task.FromResult(true),
+            _ => { },
+            NullLogger.Instance);
+
+        await task.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(loaded, Is.Empty);
+
+        installed.SetResult();
+        await task.DeferredLoadingTask.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(loaded, Is.EqualTo(new[] { "A", "b", "c" }));
+            Assert.That(task.Failures.Select(failure => failure.Item1), Is.EqualTo(new[] { broken }));
+        });
+    }
+
+    private static PreparedPackage Prepare(LocalPackage package) => new(package, [], null, []);
+
     private static LoadSideloadExtensionTask CreateTask(
         IReadOnlyList<LocalPackage> packages,
         Task<bool> confirmation,
@@ -136,7 +168,9 @@ public sealed class LoadSideloadExtensionTaskTests
     {
         return new LoadSideloadExtensionTask(
             () => packages,
-            load,
+            Prepare,
+            () => Task.CompletedTask,
+            prepared => load(prepared.Package),
             _ => confirmation,
             _ => { },
             NullLogger.Instance);

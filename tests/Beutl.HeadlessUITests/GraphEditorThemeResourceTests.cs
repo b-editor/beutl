@@ -20,11 +20,10 @@ public class GraphEditorThemeResourceTests
     [AvaloniaTest]
     public void DarkTheme_UsesTheTimelinePalette()
     {
-        ThemeVariant? previousVariant = Application.Current!.RequestedThemeVariant;
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        using ThemeVariantScope theme = ThemeVariantScope.Use(ThemeVariant.Dark);
         Uri resourceUri = DarkBorderThemeExtension.Instance.GetThemeDescriptor().ResourceUri!;
         var resources = (IResourceProvider)AvaloniaXamlLoader.Load(resourceUri, null)!;
-        IList<IResourceProvider> merged = Application.Current.Resources.MergedDictionaries;
+        IList<IResourceProvider> merged = Application.Current!.Resources.MergedDictionaries;
         var probe = new Border();
         var window = new Window { Content = probe, Width = 200, Height = 120 };
         try
@@ -55,7 +54,6 @@ public class GraphEditorThemeResourceTests
         {
             window.Close();
             merged.Remove(resources);
-            Application.Current.RequestedThemeVariant = previousVariant;
             HeadlessTestHelpers.Settle();
         }
     }
@@ -69,12 +67,11 @@ public class GraphEditorThemeResourceTests
             ["GraphEditorBackgroundBrush"] = overrideBrush
         };
         IList<IResourceProvider> merged = Application.Current!.Resources.MergedDictionaries;
-        ThemeVariant? previousVariant = Application.Current.RequestedThemeVariant;
+        using ThemeVariantScope theme = ThemeVariantScope.Use(ThemeVariant.Light);
         var view = new GraphEditorView();
         var window = new Window { Content = view, Width = 200, Height = 120 };
         try
         {
-            Application.Current.RequestedThemeVariant = ThemeVariant.Light;
             window.Show();
             HeadlessTestHelpers.Render(1);
 
@@ -96,7 +93,6 @@ public class GraphEditorThemeResourceTests
         {
             window.Close();
             merged.Remove(resources);
-            Application.Current.RequestedThemeVariant = previousVariant;
             HeadlessTestHelpers.Settle();
         }
     }

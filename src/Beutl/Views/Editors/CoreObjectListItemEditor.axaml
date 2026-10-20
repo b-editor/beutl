@@ -1,18 +1,18 @@
-<UserControl x:Class="Beutl.Views.Editors.CoreObjectListItemEditor"
-             xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
-             xmlns:lang="using:Beutl.Language"
-             xmlns:local="using:Beutl.Views.Editors"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:pe="using:Beutl.Controls.PropertyEditors"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
-             xmlns:vm="using:Beutl.ViewModels.Editors"
-             d:DesignHeight="450"
-             d:DesignWidth="400"
-             x:DataType="vm:ICoreObjectEditorViewModel"
-             mc:Ignorable="d">
+<local:PresenterListItemEditor x:Class="Beutl.Views.Editors.CoreObjectListItemEditor"
+                               xmlns="https://github.com/avaloniaui"
+                               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                               xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                               xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+                               xmlns:lang="using:Beutl.Language"
+                               xmlns:local="using:Beutl.Views.Editors"
+                               xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                               xmlns:pe="using:Beutl.Controls.PropertyEditors"
+                               xmlns:ui="using:FluentAvalonia.UI.Controls"
+                               xmlns:vm="using:Beutl.ViewModels.Editors"
+                               d:DesignHeight="450"
+                               d:DesignWidth="400"
+                               x:DataType="vm:ICoreObjectEditorViewModel"
+                               mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
         <Grid Margin="8,0,0,0"
               ColumnDefinitions="*,Auto,Auto"
@@ -53,20 +53,13 @@
                             ToolTip.Tip="{Binding HoverInfo.Value}"
                             TargetName="{Binding CurrentTargetName.Value}">
             <pe:ReferenceEditor.MenuContent>
-                <StackPanel Orientation="Horizontal">
-                    <ToggleButton Margin="4,0,0,0"
-                                  Padding="0"
-                                  Classes="size-24x24"
-                                  IsChecked="{Binding IsEnabled.Value}"
-                                  Theme="{StaticResource VisibilityToggleButtonStyle}" />
-                    <Button Margin="4,0,8,0"
-                            Padding="0"
-                            Classes="size-24x24"
-                            Click="DeleteClick"
-                            Theme="{StaticResource TransparentButton}">
-                        <icons:FluentIcon Icon="Delete" />
-                    </Button>
-                </StackPanel>
+                <Button Margin="4,0,8,0"
+                        Padding="0"
+                        Classes="size-24x24"
+                        Click="DeleteClick"
+                        Theme="{StaticResource TransparentButton}">
+                    <icons:FluentIcon Icon="Delete" />
+                </Button>
             </pe:ReferenceEditor.MenuContent>
         </pe:ReferenceEditor>
 
@@ -75,9 +68,7 @@
                IsVisible="{Binding !IsPresenter.Value}">
             <local:PropertiesEditor Margin="16,0,0,0"
                                     Padding="0"
-                                    DataContext="{Binding Properties.Value}"
-                                    IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
-                                                                  Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                    DataContext="{Binding Properties.Value}" />
         </Panel>
     </Grid>
-</UserControl>
+</local:PresenterListItemEditor>

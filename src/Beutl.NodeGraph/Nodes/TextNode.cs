@@ -17,7 +17,7 @@ public partial class TextNode : GraphNode
             .Accessor(o => o.Object, (o, v) => o.Object = v)
             .Register();
 
-        Hierarchy<TextNode>(ObjectProperty);
+        Hierarchy(ObjectProperty);
     }
 
     public TextNode()
@@ -35,6 +35,7 @@ public partial class TextNode : GraphNode
         AddInput(Object, Object.Fill);
         AddInput(Object, Object.Pen);
         AddInput(Object, Object.SplitByCharacters);
+        AddInput(Object, Object.TextAlignment);
     }
 
     public OutputPort<DrawableRenderNode?> Output { get; }

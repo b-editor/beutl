@@ -397,7 +397,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             "ignored outside project\n");
         var repository = new RepositoryInfo(Root, projectRoot);
         var notices = new List<VersionControlPolicyNotice>();
-        using var service = new GitCliVersionControlService(
+        GitCliVersionControlService Open() => new(
             CreateInstalledLocator(),
             repository,
             watcher: null,
@@ -407,6 +407,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
                 notices.Add(notice);
                 return Task.CompletedTask;
             });
+        using GitCliVersionControlService service = Open();
 
         // The ignored file in project1 must not be read as one inside project[1].
         CommitResult result = await service.CommitAllAsync(
@@ -418,7 +419,9 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         await File.WriteAllTextAsync(
             Path.Combine(projectRoot, ".gitattributes"),
             "ignored project data\n");
-        await service.CommitAllAsync(
+        // An empty listing is repeated only at the next open.
+        using GitCliVersionControlService reopened = Open();
+        await reopened.CommitAllAsync(
             "beutl: snapshot on save",
             SnapshotKind.Save,
             CancellationToken.None);

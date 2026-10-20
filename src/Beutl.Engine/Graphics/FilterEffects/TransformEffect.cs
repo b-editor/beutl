@@ -77,28 +77,43 @@ public sealed partial class TransformEffect : FilterEffect
             if (newBounds.IsEmpty)
             {
                 effectContext.Targets.RemoveAt(i);
-                target.Dispose();
                 i--;
                 continue;
             }
 
-            EffectTarget newTarget = effectContext.CreateTarget(newBounds);
-            if (newTarget.IsEmpty)
-            {
-                newTarget.Dispose();
+            if (RedrawTransformed(effectContext, target, newBounds, m2) is not { } newTarget)
                 continue;
-            }
-
-            using (ImmediateCanvas canvas = effectContext.Open(newTarget))
-            using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
-            using (canvas.PushTransform(m2))
-            {
-                canvas.Clear();
-                target.Draw(canvas);
-            }
 
             effectContext.Targets[i] = newTarget;
-            target.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Draws <paramref name="target"/> through <paramref name="transform"/> into a new target over
+    /// <paramref name="bounds"/>, or returns <see langword="null"/> when that target cannot be allocated.
+    /// </summary>
+    internal static EffectTarget? RedrawTransformed(
+        CustomFilterEffectContext context,
+        EffectTarget target,
+        Rect bounds,
+        Matrix transform)
+    {
+        EffectTarget newTarget = context.CreateTarget(bounds);
+        if (newTarget.IsEmpty)
+        {
+            newTarget.Dispose();
+            return null;
+        }
+
+        // Open bakes the base CTM from the target's density.
+        using (ImmediateCanvas canvas = context.Open(newTarget))
+        using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
+        using (canvas.PushTransform(transform))
+        {
+            canvas.Clear();
+            target.Draw(canvas);
+        }
+
+        return newTarget;
     }
 }

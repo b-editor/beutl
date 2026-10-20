@@ -17,7 +17,7 @@ public partial class FilterEffectNode<T> : ConfigureNode
             .Accessor(o => o.Object, (o, v) => o.Object = v)
             .Register();
 
-        Hierarchy<FilterEffectNode<T>>(ObjectProperty);
+        Hierarchy(ObjectProperty);
     }
 
     public FilterEffectNode()

@@ -4,6 +4,7 @@ using System.Reflection;
 using Beutl.Api.Objects;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
+using NuGet.Frameworks;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
@@ -13,13 +14,15 @@ namespace Beutl.Api.Services;
 
 public record LoadedPackageInfo(LocalPackage Package, PluginLoadContext? LoadContext);
 
-public sealed partial class PackageManager : PackageLoader
+// A package whose assemblies are loaded and whose extensions are not created yet.
+internal sealed record PreparedPackage(LocalPackage Package, Assembly[] Assemblies, PluginLoadContext? LoadContext, Type[] ExtensionTypes);
+
+public sealed partial class PackageManager : IBeutlApiResource
 {
     private readonly InstalledPackageRepository installedPackageRepository;
     private readonly IExtensionRegistry extensionRegistry;
     private readonly ContextCommandManager commandManager;
     private readonly BeutlApiApplication apiApplication;
-    private readonly ILoadContextUnloadDiagnostics? unloadDiagnostics;
     private readonly ILogger _logger = Log.CreateLogger<PackageManager>();
     private readonly ConcurrentDictionary<int, LoadedPackageInfo> _loadedPackages = new();
     private readonly Dictionary<int, Task<bool>> _unloadOperations = [];
@@ -27,19 +30,18 @@ public sealed partial class PackageManager : PackageLoader
     private readonly HashSet<int> _loadingPackages = [];
     private readonly object _packageLifecycleGate = new();
     private readonly ExtensionSettingsStore _settingsStore = new();
+    private readonly PackageCompatibility _compatibility = new(new PackageApiCheckCache());
 
     internal PackageManager(
         InstalledPackageRepository installedPackageRepository,
         IExtensionRegistry extensionRegistry,
         ContextCommandManager commandManager,
-        BeutlApiApplication apiApplication,
-        ILoadContextUnloadDiagnostics? unloadDiagnostics = null)
+        BeutlApiApplication apiApplication)
     {
         this.installedPackageRepository = installedPackageRepository;
         this.extensionRegistry = extensionRegistry;
         this.commandManager = commandManager;
         this.apiApplication = apiApplication;
-        this.unloadDiagnostics = unloadDiagnostics;
     }
 
     public IEnumerable<LocalPackage> LoadedPackage => _loadedPackages.Values.Select(x => x.Package);
@@ -272,6 +274,10 @@ public sealed partial class PackageManager : PackageLoader
     }
 
     public Assembly[] Load(LocalPackage package)
+        => Prepare(package) is { } prepared ? Load(prepared) : [];
+
+    // Runs no extension code, so packages can be prepared in parallel.
+    internal PreparedPackage? Prepare(LocalPackage package)
     {
         using (Activity? activity = Telemetry.ActivitySource.StartActivity("Load"))
         {
@@ -284,7 +290,7 @@ public sealed partial class PackageManager : PackageLoader
             if (package.Tags.GetPackageKind() != PackageKind.Extension)
             {
                 activity?.SetTag("AssemblyCount", 0);
-                return [];
+                return null;
             }
 
             if (package.InstalledPath == null)
@@ -293,26 +299,93 @@ public sealed partial class PackageManager : PackageLoader
                 package.InstalledPath = Helper.PackagePathResolver.GetInstallPath(packageId);
             }
 
-            PackageLoadResult result = !package.SideLoad
-                ? Load(package.InstalledPath)
-                : SideLoad(package.InstalledPath);
+            (Assembly[] Assemblies, PluginLoadContext LoadContext) result = !package.SideLoad
+                ? Load(package, package.InstalledPath)
+                : SideLoad(package, package.InstalledPath);
 
             activity?.AddEvent(new ActivityEvent("Assemblies loaded"));
             activity?.SetTag("AssemblyCount", result.Assemblies.Length);
 
-            // Strict on purpose: GetExportedTypes throws on an unresolvable type so a broken plugin
-            // fails the load and rolls back instead of registering with extensions silently skipped.
-            // Unload stays lenient (GetLoadableTypes) since cleanup must proceed regardless.
-            return LoadExtensionsAndRegister(
-                activity,
-                package,
-                result.Assemblies,
-                result.LoadContext,
-                result.Assemblies.SelectMany(assembly => assembly.GetExportedTypes()));
+            try
+            {
+                // Strict on purpose: GetExportedTypes throws on an unresolvable type so a broken plugin
+                // fails the load and rolls back instead of registering with extensions silently skipped.
+                // Unload stays lenient (GetLoadableTypes) since cleanup must proceed regardless.
+                return new PreparedPackage(
+                    package,
+                    result.Assemblies,
+                    result.LoadContext,
+                    [.. result.Assemblies.SelectMany(assembly => assembly.GetExportedTypes())]);
+            }
+            catch
+            {
+                TryUnloadLoadContext(package, result.LoadContext);
+                throw;
+            }
         }
     }
 
-    private Action<string>? _dumpOpener;
+    // Creates the extensions and calls their Load; callers load one package at a time.
+    internal Assembly[] Load(PreparedPackage prepared)
+    {
+        using (Activity? activity = Telemetry.ActivitySource.StartActivity("LoadExtensions"))
+        {
+            activity?.SetTag("PackageName", prepared.Package.Name);
+            return LoadExtensionsAndRegister(
+                activity,
+                prepared.Package,
+                prepared.Assemblies,
+                prepared.LoadContext,
+                prepared.ExtensionTypes);
+        }
+    }
+
+    private (Assembly[] Assemblies, PluginLoadContext LoadContext) Load(LocalPackage package, string installedPath)
+    {
+        NuGetFramework framework = Helper.GetFrameworkName();
+        using var reader = new PackageFolderReader(installedPath);
+
+        NuGetFramework nearest = Helper.FrameworkReducer
+            .GetNearest(framework, reader.GetLibItems().Select(x => x.TargetFramework))
+            ?? Helper.FrameworkReducer.GetNearest(framework, reader.GetPackageDependencies().Select(x => x.TargetFramework))
+            ?? throw new Exception("Unknown Framework");
+
+        string mainDirectory = Path.Combine(installedPath, "lib", nearest.ToString());
+        string[] asmFiles = Directory.GetFiles(mainDirectory, "*.dll");
+        // Extensions load in assembly order, and file systems list files in different orders.
+        Array.Sort(asmFiles, StringComparer.Ordinal);
+        EnsureCompatible(package, mainDirectory, reader, asmFiles);
+
+        var loadContext = new PluginLoadContext(mainDirectory, reader);
+        Assembly[] assemblies = new Assembly[asmFiles.Length];
+
+        int index = 0;
+        foreach (string asmFile in asmFiles)
+        {
+            assemblies[index++] = loadContext.LoadFromAssemblyPath(asmFile);
+        }
+
+        return (assemblies, loadContext);
+    }
+
+    private (Assembly[] Assemblies, PluginLoadContext LoadContext) SideLoad(LocalPackage package, string installedPath)
+    {
+        string mainDirectory = Path.Combine(installedPath);
+        string name = Path.GetFileName(mainDirectory);
+        string asmFile = Path.Combine(mainDirectory, $"{name}.dll");
+        EnsureCompatible(package, mainDirectory, null, [asmFile]);
+
+        var loadContext = new PluginLoadContext(mainDirectory);
+        return ([loadContext.LoadFromAssemblyPath(asmFile)], loadContext);
+    }
+
+    // Runs before anything loads; references to assemblies that the package brings itself are not checked.
+    private void EnsureCompatible(LocalPackage package, string mainDirectory, PackageFolderReader? reader, string[] assemblies)
+    {
+        _compatibility.EnsureCompatible(package, assemblies, () => PackageCompatibility.HostAssemblies(
+            assemblies.Select(Path.GetFileNameWithoutExtension).OfType<string>()
+                .Concat(new PluginDependencyResolver(mainDirectory, reader).AssemblyNames)));
+    }
 
     public LocalPackage[] FindLoadedPackage(string name)
     {

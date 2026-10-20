@@ -17,10 +17,6 @@ internal sealed class NestedRenderTargetBinding : IDisposable
 
     public float Density { get; private set; }
 
-    public PixelRect DeviceBounds { get; private set; }
-
-    public bool IsReady => _state == NestedRenderTargetBindingState.Ready;
-
     public bool IsDisposed => _state == NestedRenderTargetBindingState.Disposed;
 
     public void Stage(
@@ -47,7 +43,6 @@ internal sealed class NestedRenderTargetBinding : IDisposable
         _lease = lease;
         LogicalBounds = logicalBounds;
         Density = density;
-        DeviceBounds = deviceBounds;
         _state = NestedRenderTargetBindingState.Staged;
     }
 

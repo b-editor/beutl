@@ -1,13 +1,8 @@
 ﻿namespace Beutl.Api.Services;
 
-internal sealed record BuiltInAiJobBehaviorRegistrations(
-    IReadOnlyList<AiJobStatusResolverRegistration> StatusResolvers,
-    IReadOnlyList<AiJobRefreshHandlerRegistration> RefreshHandlers,
-    IReadOnlyList<AiJobRetryHandlerRegistration> RetryHandlers);
-
 internal static class BuiltInAiJobKinds
 {
-    public static BuiltInAiJobBehaviorRegistrations Create(
+    public static AiJobKindRegistry Create(
         IAiImageGenerationService images,
         IAiVideoService videos,
         IAiEntitlementService entitlements,
@@ -45,25 +40,21 @@ internal static class BuiltInAiJobKinds
             AiJobKinds.CaptionTranslation,
             AiJobKinds.Video,
         ];
-        return new BuiltInAiJobBehaviorRegistrations(
-            kinds.Select(kind => new AiJobStatusResolverRegistration(kind, statuses)).ToArray(),
+        return new AiJobKindRegistry(
+            kinds.Select(kind => KeyValuePair.Create(kind, (IAiJobStatusResolver)statuses)),
+            [KeyValuePair.Create(AiJobKinds.Video, (IAiJobRefreshHandler)new AiVideoJobRefreshHandler(videos))],
             [
-                new AiJobRefreshHandlerRegistration(
-                    AiJobKinds.Video,
-                    new AiVideoJobRefreshHandler(videos)),
-            ],
-            [
-                new AiJobRetryHandlerRegistration(
+                KeyValuePair.Create(
                     AiJobKinds.Image,
-                    new AiImageJobRetryHandler(
+                    (IAiJobRetryHandler)new AiImageJobRetryHandler(
                         images,
                         entitlements,
                         availability,
                         models,
                         retryContext)),
-                new AiJobRetryHandlerRegistration(
+                KeyValuePair.Create(
                     AiJobKinds.Video,
-                    new AiVideoJobRetryHandler(
+                    (IAiJobRetryHandler)new AiVideoJobRetryHandler(
                         videos,
                         entitlements,
                         availability,

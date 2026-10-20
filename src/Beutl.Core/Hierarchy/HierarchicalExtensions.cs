@@ -12,74 +12,20 @@ public static class HierarchicalExtensions
 
     public static T? FindHierarchicalParent<T>(this IHierarchical self, bool includeSelf = false)
     {
-        try
+        // A null receiver has no parent to find.
+        IHierarchical? obj = includeSelf ? self : self?.HierarchicalParent;
+
+        while (obj is not T)
         {
-            IHierarchical? obj = includeSelf ? self : self.HierarchicalParent;
-
-            while (obj is not T)
-            {
-                if (obj is null)
-                {
-                    return default;
-                }
-
-                obj = obj.HierarchicalParent;
-            }
-
-            if (obj is T result)
-            {
-                return result;
-            }
-            else
+            if (obj is null)
             {
                 return default;
             }
+
+            obj = obj.HierarchicalParent;
         }
-        catch
-        {
-            return default;
-        }
-    }
 
-    public static IHierarchical FindRequiredHierarchicalParent(this IHierarchical self, Type type, bool includeSelf = false)
-    {
-        IHierarchical? parent = self.FindHierarchicalParent(type, includeSelf);
-        if (parent == null) throw new HierarchyException("Cannot get parent.");
-
-        return parent;
-    }
-
-    public static IHierarchical? FindHierarchicalParent(this IHierarchical self, Type type, bool includeSelf = false)
-    {
-        try
-        {
-            IHierarchical? obj = includeSelf ? self : self.HierarchicalParent;
-            Type? objType = obj?.GetType();
-
-            while (objType?.IsAssignableTo(type) != true)
-            {
-                if (obj is null)
-                {
-                    return default;
-                }
-
-                obj = obj.HierarchicalParent;
-                objType = obj?.GetType();
-            }
-
-            if (obj != null && objType?.IsAssignableTo(type) == true)
-            {
-                return obj;
-            }
-            else
-            {
-                return default;
-            }
-        }
-        catch
-        {
-            return default;
-        }
+        return (T)obj;
     }
 
     public static IHierarchicalRoot? FindHierarchicalRoot(this IHierarchical self)

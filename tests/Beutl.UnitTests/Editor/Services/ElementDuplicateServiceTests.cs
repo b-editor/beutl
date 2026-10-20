@@ -38,26 +38,6 @@ public class ElementDuplicateServiceTests
     }
 
     [Test]
-    public void WouldOverlap_NoOverlap_ReturnsFalse()
-    {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-
-        bool overlap = _service.WouldOverlap([element], TimeSpan.FromSeconds(5), 0);
-
-        Assert.That(overlap, Is.False);
-    }
-
-    [Test]
-    public void WouldOverlap_OnSource_ReturnsTrue()
-    {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-
-        bool overlap = _service.WouldOverlap([element], TimeSpan.FromSeconds(1), 0);
-
-        Assert.That(overlap, Is.True);
-    }
-
-    [Test]
     public void DuplicateAtPosition_NonOverlapping_CommitsOneEntry()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
@@ -116,8 +96,8 @@ public class ElementDuplicateServiceTests
         {
             Assert.That(outcome.Success, Is.True);
             // Spiral search should not land on the existing element.
-            Assert.That(outcome.ScrollToRange.Start, Is.Not.EqualTo(element.Start).Or
-                .Property(nameof(outcome.ScrollToZIndex)).Not.EqualTo(element.ZIndex));
+            Assert.That((outcome.ScrollToRange.Start, outcome.ScrollToZIndex),
+                Is.Not.EqualTo((element.Start, element.ZIndex)));
         });
     }
 

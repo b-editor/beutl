@@ -16,7 +16,6 @@ public abstract partial class GenerativeNode
 
         UpdateBusy();
         _statusMonitor?.Value = FormatStatus();
-        StatusChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Shows a picture in the preview monitor; the monitor takes ownership.</summary>
@@ -71,16 +70,11 @@ public abstract partial class GenerativeNode
     internal Task PreviewLoad { get; private set; } = Task.CompletedTask;
 
     /// <summary>
-    /// Shows the active result in the preview again, replacing a streamed or cleared preview.
-    /// </summary>
-    internal void RestoreActivePreview() => LoadActivePreview();
-
-    /// <summary>
     /// Decodes the active result for the preview straight from its file, off the UI thread.
     /// The preview does not wait for the graph to be evaluated, which only happens while the
     /// graph's element is rendered at the current time.
     /// </summary>
-    private void LoadActivePreview()
+    internal void LoadActivePreview()
     {
         int version = Interlocked.Increment(ref _previewLoadVersion);
         ActiveSnapshot? active = Volatile.Read(ref _active);
@@ -144,7 +138,7 @@ public abstract partial class GenerativeNode
 
         using var reader = Beutl.Media.Decoding.MediaReader.Open(
             path,
-            new Beutl.Media.Decoding.MediaOptions(Beutl.Media.Decoding.MediaMode.Video));
+            new Beutl.Media.Decoding.MediaOptions(Beutl.Media.Decoding.MediaMode.Video) { IsBackground = true });
         if (!reader.ReadVideo(0, out Ref<Bitmap>? frame))
             return null;
         using (frame)

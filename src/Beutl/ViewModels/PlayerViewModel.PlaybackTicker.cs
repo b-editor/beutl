@@ -8,11 +8,9 @@ namespace Beutl.ViewModels;
 
 public partial class PlayerViewModel
 {
-    // Drives one playback run from the frame timer: each tick shows the frames that are due, and the run
-    // completes when playback stops, the renderer fails or the end of the scene is reached.
-    // The timer fires on a thread-pool thread, but the state the editor follows (the shown frame, the clock and
-    // IsPlaying) changes on the UI thread, as in the shuttle loop: subscribers such as the graph editor and the
-    // property editors read collections that the UI thread edits. Ticks post those changes and never wait for them.
+    // Drives one playback run from the frame timer until playback stops, the renderer fails or the scene ends.
+    // Ticks run on the thread pool and post, without waiting, what the editor follows (shown frame, clock and
+    // IsPlaying) to the UI thread, as in the shuttle loop, since subscribers read collections the UI thread edits.
     private sealed class PlaybackTicker
     {
         private readonly PlayerViewModel _owner;
@@ -117,11 +115,8 @@ public partial class PlayerViewModel
                     return;
                 }
 
-                // A Pause() timeout may have disowned this task while it is still blocked in
-                // PlayInternal's WhenAll; once a newer session has claimed, stop the loop instead of
-                // dequeuing frames or writing shared preview state (PreviewImage / CurrentTime /
-                // IsPlaying) over the session that replaced it. The generation guard on PlayInternal's
-                // finally alone runs too late — the timer keeps firing until PlayInternal returns.
+                // Stop once a Pause() timeout has disowned this task and a newer session has claimed; the
+                // check in PlayInternal's finally comes too late, as the timer fires until PlayInternal returns.
                 if (!_owner._sessionGuard.Owns(_generation))
                 {
                     _tcs.TrySetResult(true);
@@ -192,8 +187,6 @@ public partial class PlayerViewModel
                         _nextExpectedFrame = frame.Time + 1;
                         break;
                     }
-
-                    // 期待していたフレームよりも前のフレームが来た場合
                 }
 
                 // Close the race where the producer faults while this timer callback is

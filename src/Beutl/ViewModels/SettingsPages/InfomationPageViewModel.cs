@@ -1,6 +1,4 @@
-﻿#pragma warning disable CS0436
-
-using System.Reflection;
+﻿using System.Reflection;
 using Avalonia.Controls;
 
 using Beutl.Controls.Navigation;
@@ -24,25 +22,20 @@ public sealed class InformationPageViewModel : PageContext
             {
                 GraphicsContextFactory.GetOrCreateShared();
 
-                // Available GPUs
                 var devices = GraphicsContextFactory.GetAvailableDevices();
                 AvailableGpus.Value = devices
                     .Select(d => $"{d.Name} ({d.DeviceType})")
                     .ToArray();
 
-                // Selected GPU details
                 if (GraphicsContextFactory.GetSelectedDevice() is { } selectedDevice)
                 {
                     SelectedGpu.Value = $"{selectedDevice.Name} ({selectedDevice.DeviceType})";
 
-                    // Vulkan version
                     VulkanVersion.Value = selectedDevice.ApiVersion;
 
-                    // Memory info
                     AvailableMemory.Value = $"Total: {selectedDevice.TotalMemoryMB:N0} MB";
                 }
 
-                // Enabled extensions
                 EnabledExtensions.Value = [.. GraphicsContextFactory.GetEnabledExtensions()];
             }
         }, DispatchPriority.Low);

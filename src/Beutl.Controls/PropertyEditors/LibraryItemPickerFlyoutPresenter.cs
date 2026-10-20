@@ -1,6 +1,4 @@
-﻿#nullable enable
-
-using System.Reactive.Disposables;
+﻿using System.Reactive.Disposables;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -83,6 +81,12 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     private TextBox? _searchTextBox;
     private ListBox? _listBox;
     private ListBox? _referenceListBox;
+
+    public LibraryItemPickerFlyoutPresenter()
+    {
+        // The pin buttons belong to the item template, so the presenter handles their clicks.
+        AddHandler(Button.ClickEvent, OnItemButtonClick, handledEventsToo: true);
+    }
 
     public event Action<PinnableLibraryItem>? Pinned;
 
@@ -251,7 +255,7 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         e.Handled = true;
     }
 
-    public void FocusInitialElement()
+    public override void FocusInitialElement()
     {
         Dispatcher.UIThread.Post(() =>
         {
@@ -312,7 +316,15 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
             && GetCurrentListBox() is { ItemCount: 0 });
     }
 
-    internal void UpdatePinState(PinnableLibraryItem item, bool isPinned)
+    private void OnItemButtonClick(object? sender, RoutedEventArgs e)
+    {
+        if (e.Source is ToggleButton { Name: "ToggleButton", DataContext: PinnableLibraryItem item } pinButton)
+        {
+            UpdatePinState(item, pinButton.IsChecked == true);
+        }
+    }
+
+    private void UpdatePinState(PinnableLibraryItem item, bool isPinned)
     {
         if (isPinned)
         {

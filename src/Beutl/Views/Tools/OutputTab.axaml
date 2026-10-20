@@ -9,7 +9,6 @@
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:viewModels="using:Beutl.ViewModels.Tools"
-             Name="Root"
              d:DesignHeight="450"
              d:DesignWidth="400"
              x:CompileBindings="True"

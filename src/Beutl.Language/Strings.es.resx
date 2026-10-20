@@ -788,30 +788,6 @@
   <data name="EnableElement" xml:space="preserve">
     <value>Habilitar elemento</value>
   </data>
-  <data name="DockArea_LeftTop" xml:space="preserve">
-    <value>Superior izquierda</value>
-  </data>
-  <data name="DockArea_LeftBottom" xml:space="preserve">
-    <value>Inferior izquierda</value>
-  </data>
-  <data name="DockArea_RightTop" xml:space="preserve">
-    <value>Superior derecha</value>
-  </data>
-  <data name="DockArea_RightBottom" xml:space="preserve">
-    <value>Inferior derecha</value>
-  </data>
-  <data name="DockArea_BottomLeft" xml:space="preserve">
-    <value>Inferior izquierda</value>
-  </data>
-  <data name="DockArea_BottomRight" xml:space="preserve">
-    <value>Inferior derecha</value>
-  </data>
-  <data name="DockArea_TopLeft" xml:space="preserve">
-    <value>Superior izquierda</value>
-  </data>
-  <data name="DockArea_TopRight" xml:space="preserve">
-    <value>Superior derecha</value>
-  </data>
   <data name="MoveTo" xml:space="preserve">
     <value>Mover a</value>
   </data>
@@ -1477,23 +1453,11 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="ProxyUnavailable" xml:space="preserve">
     <value>No disponible</value>
   </data>
-  <data name="ProxyStoreUnavailable" xml:space="preserve">
-    <value>El almacenamiento de proxies no está disponible.</value>
-  </data>
   <data name="ProxyQueueUnavailable" xml:space="preserve">
     <value>La cola de proxies no está disponible.</value>
   </data>
   <data name="ProxyBulkNoEligibleClips" xml:space="preserve">
     <value>Ningún clip alcanzó el umbral de generación masiva; usa la generación por clip.</value>
-  </data>
-  <data name="ProxyQueueIdle" xml:space="preserve">
-    <value>Cola inactiva</value>
-  </data>
-  <data name="ProxyQueuedJobSingular" xml:space="preserve">
-    <value>1 trabajo en cola</value>
-  </data>
-  <data name="ProxyQueuedJobPlural" xml:space="preserve">
-    <value>{0} trabajos en cola</value>
   </data>
   <data name="ProxyDeleteFailedSingular" xml:space="preserve">
     <value>No se pudo eliminar 1 proxy porque su archivo está en uso.</value>
@@ -1509,9 +1473,6 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="ProxySelectedPlural" xml:space="preserve">
     <value>{0} seleccionados</value>
-  </data>
-  <data name="ProxyStoreSummaryFormat" xml:space="preserve">
-    <value>Proyecto {0} / Almacenamiento {1} / Límite {2}</value>
   </data>
   <data name="ProxySourceInfoFormat" xml:space="preserve">
     <value>Fuente {0} / {1}</value>
@@ -2669,6 +2630,9 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
   <data name="VersionControl_ActivationFailedFormat" xml:space="preserve">
     <value>No se pudo activar el control de versiones para este proyecto. {0}</value>
   </data>
+  <data name="VersionControl_RepositoryNotWatchedFormat" xml:space="preserve">
+    <value>Beutl no puede vigilar la carpeta de este proyecto, así que el control de versiones muestra los cambios hechos fuera de Beutl solo después de su siguiente operación. {0}</value>
+  </data>
   <data name="VersionControl_BranchFormat" xml:space="preserve">
     <value>Rama: {0}</value>
   </data>
@@ -2849,26 +2813,17 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
   <data name="VersionControl_Offline" xml:space="preserve">
     <value>No se pudo conectar con el remoto. Comprueba tu conexión de red e inténtalo de nuevo.</value>
   </data>
-  <data name="VersionControl_StaleLockGuidance" xml:space="preserve">
-    <value>Un bloqueo obsoleto del repositorio de Git impide las operaciones de control de versiones.</value>
-  </data>
-  <data name="VersionControl_RemoveStaleLock" xml:space="preserve">
-    <value>Eliminar bloqueo obsoleto</value>
-  </data>
-  <data name="VersionControl_StaleLockConfirmation" xml:space="preserve">
-    <value>Git dejó un bloqueo del repositorio hace más de 10 minutos y Beutl no tiene ningún proceso de Git activo. ¿Eliminar el bloqueo obsoleto?</value>
-  </data>
-  <data name="VersionControl_StaleLockRemoved" xml:space="preserve">
-    <value>Se ha eliminado el bloqueo obsoleto del repositorio de Git. Vuelve a intentar la operación de control de versiones.</value>
-  </data>
   <data name="VersionControl_StaleLockManualRemovalRequiredFormat" xml:space="preserve">
-    <value>Beutl no puede eliminar este bloqueo de Git de forma segura en el sistema de archivos actual. Cierra las herramientas externas de Git, comprueba que no haya procesos de Git en ejecución y elimina {0} manualmente antes de reintentar.</value>
+    <value>Un bloqueo obsoleto del repositorio de Git impide las operaciones de control de versiones. Cierra las herramientas externas de Git, comprueba que no haya procesos de Git en ejecución y elimina {0} manualmente antes de reintentar.</value>
   </data>
   <data name="VersionControl_WorktreeOperationInProgress" xml:space="preserve">
     <value>El control de versiones está actualizando los archivos del proyecto. Espera a que termine la operación e inténtalo de nuevo.</value>
   </data>
   <data name="AiPendingRequest" xml:space="preserve">
     <value>Solicitud de IA pendiente</value>
+  </data>
+  <data name="AiPendingRequestDefaultModel" xml:space="preserve">
+    <value>{0} (modelo predeterminado)</value>
   </data>
   <data name="AiRecoverRequest" xml:space="preserve">
     <value>Recuperar</value>

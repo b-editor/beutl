@@ -7,7 +7,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
-using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.ProjectSystem;
@@ -112,13 +111,7 @@ public partial class PlayerViewPlaybackInputTests
                 window.KeyPress(Key.W, RawInputModifiers.None, PhysicalKey.W, "w");
             object handler = MouseHandler(view)!;
             int index = editor.HistoryManager.CurrentIndex;
-            var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            render = RenderThread.Dispatcher.InvokeAsync(() =>
-            {
-                entered.TrySetResult();
-                release.Token.WaitHandle.WaitOne();
-            });
-            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            render = await BlockRenderThreadAsync(release);
             PublishPlayingOffUI(editor.Player);
             var position = cube.Position.CurrentValue;
             var target = camera.Target.CurrentValue;
@@ -261,13 +254,7 @@ public partial class PlayerViewPlaybackInputTests
             editor.Player.IsLoopEnabled.Value = true;
             field.SetValue(editor.Player, session.Task);
             Assert.That(editor.Player.IsPlaying.Value, Is.False, "This is the inter-iteration window, not an ordinary playing tick.");
-            var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            render = RenderThread.Dispatcher.InvokeAsync(() =>
-            {
-                entered.TrySetResult();
-                release.Token.WaitHandle.WaitOne();
-            });
-            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            render = await BlockRenderThreadAsync(release);
             release.CancelAfter(TimeSpan.FromSeconds(2));
             Point point = PreviewCenter(view, window);
             window.MouseDown(point, button);

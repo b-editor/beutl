@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
@@ -13,19 +12,13 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
 {
     private static readonly Rect s_bounds = new(0, 0, 32, 24);
 
-    [TestCase((int)RenderCacheBypassReason.CacheDisabled)]
-    [TestCase((int)RenderCacheBypassReason.CapturePublicationDisabled)]
-    [TestCase((int)RenderCacheBypassReason.OutsideCacheRules)]
-    [TestCase((int)RenderCacheBypassReason.UnstableBoundaryPlan)]
-    public void BypassedCandidate_DoesNotSplitMaximalCompatibleRun(
-        int bypassReasonValue)
+    [Test]
+    public void BypassedCandidate_DoesNotSplitMaximalCompatibleRun()
     {
-        var bypassReason = (RenderCacheBypassReason)bypassReasonValue;
         GraphFixture fixture = CreateShaderGraph(includeGeometryPrefix: false);
         RenderCacheResolution resolution = CreateResolution(
             fixture,
-            RenderCacheResolutionKind.Bypass,
-            bypassReason);
+            RenderCacheResolutionKind.Bypass);
 
         ExecutionIslandPlan plan = Plan(fixture, resolution, FusionMode.Enabled);
 
@@ -35,9 +28,6 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
             Assert.That(ResolveFragments(fixture.Graph, plan.ShaderRuns.Single().StageFragmentIndices)
                     .Select(static fragment => fragment.Id),
                 Is.EqualTo(new[] { fixture.CachedProducer.Id, fixture.Tail.Id }));
-            Assert.That(plan.Boundaries, Has.None.Matches<ExecutionIslandBoundary>(static boundary =>
-                boundary.Reason is ExecutionIslandBoundaryReason.CacheInput
-                    or ExecutionIslandBoundaryReason.CacheCapture));
         });
     }
 
@@ -47,25 +37,16 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
         GraphFixture fixture = CreateShaderGraph(includeGeometryPrefix: false);
         RenderCacheResolution resolution = CreateResolution(
             fixture,
-            RenderCacheResolutionKind.Bypass,
-            RenderCacheBypassReason.CacheDisabled);
+            RenderCacheResolutionKind.Bypass);
 
         ExecutionIslandPlan plan = Plan(fixture, resolution, FusionMode.Disabled);
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(plan.ShaderRuns.Select(static run => run.StageFragmentIndices.Length),
-                Is.EqualTo(new[] { 1, 1 }));
-            Assert.That(plan.Boundaries.Count(static boundary =>
-                boundary.Reason == ExecutionIslandBoundaryReason.FusionDisabled), Is.EqualTo(1));
-            Assert.That(plan.Boundaries, Has.None.Matches<ExecutionIslandBoundary>(static boundary =>
-                boundary.Reason is ExecutionIslandBoundaryReason.CacheInput
-                    or ExecutionIslandBoundaryReason.CacheCapture));
-        });
+        Assert.That(plan.ShaderRuns.Select(static run => run.StageFragmentIndices.Length),
+            Is.EqualTo(new[] { 1, 1 }));
     }
 
     [Test]
-    public void SelectedMissCapture_SplitsAfterProducerWithExactCacheCaptureReason()
+    public void SelectedMissCapture_SplitsTheRunAfterTheProducer()
     {
         GraphFixture fixture = CreateShaderGraph(includeGeometryPrefix: false);
         RenderCacheResolution resolution = CreateResolution(
@@ -73,23 +54,10 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
             RenderCacheResolutionKind.MissCapture);
 
         ExecutionIslandPlan plan = Plan(fixture, resolution, FusionMode.Enabled);
-        ExecutionIslandBoundary[] cacheBoundaries = plan.Boundaries
-            .Where(static boundary => boundary.Reason is ExecutionIslandBoundaryReason.CacheInput
-                or ExecutionIslandBoundaryReason.CacheCapture)
-            .ToArray();
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(plan.ShaderRuns.Select(static run => run.StageFragmentIndices.Length),
-                Is.EqualTo(new[] { 1, 1 }));
-            Assert.That(cacheBoundaries, Has.Exactly(1).Items);
-            Assert.That(
-                cacheBoundaries[0].BeforeFragmentIndex,
-                Is.EqualTo(GetFragmentIndex(fixture.Graph, fixture.CachedProducer)));
-            Assert.That(cacheBoundaries[0].AfterFragmentIndex, Is.Null);
-            Assert.That(cacheBoundaries[0].Reason,
-                Is.EqualTo(ExecutionIslandBoundaryReason.CacheCapture));
-        });
+        Assert.That(
+            plan.ShaderRuns.Select(run => ResolveFragments(fixture.Graph, run.StageFragmentIndices).Single()),
+            Is.EqualTo(new[] { fixture.CachedProducer, fixture.Tail }));
     }
 
     [Test]
@@ -101,10 +69,6 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
             RenderCacheResolutionKind.Hit);
 
         ExecutionIslandPlan plan = Plan(fixture, resolution, FusionMode.Enabled);
-        ExecutionIslandBoundary[] cacheBoundaries = plan.Boundaries
-            .Where(static boundary => boundary.Reason is ExecutionIslandBoundaryReason.CacheInput
-                or ExecutionIslandBoundaryReason.CacheCapture)
-            .ToArray();
 
         Assert.Multiple(() =>
         {
@@ -119,15 +83,7 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
                 Has.None.SameAs(fixture.CachedProducer));
             Assert.That(ResolveFragments(fixture.Graph, plan.Islands),
                 Has.None.SameAs(fixture.Prefix));
-            Assert.That(plan.Boundaries, Has.None.Matches<ExecutionIslandBoundary>(static boundary =>
-                boundary.Reason == ExecutionIslandBoundaryReason.Geometry));
-            Assert.That(cacheBoundaries, Has.Exactly(1).Items);
-            Assert.That(cacheBoundaries[0].BeforeFragmentIndex, Is.Null);
-            Assert.That(
-                cacheBoundaries[0].AfterFragmentIndex,
-                Is.EqualTo(GetFragmentIndex(fixture.Graph, fixture.CachedProducer)));
-            Assert.That(cacheBoundaries[0].Reason,
-                Is.EqualTo(ExecutionIslandBoundaryReason.CacheInput));
+            Assert.That(plan.ShaderRuns.Single().GetInput(fixture.Graph), Is.SameAs(fixture.CachedProducer));
         });
     }
 
@@ -149,44 +105,6 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
                 Has.Some.SameAs(fixture.Prefix));
             Assert.That(ResolveFragments(fixture.Graph, plan.Islands),
                 Has.None.SameAs(fixture.CachedProducer));
-            Assert.That(plan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(static boundary =>
-                boundary.Reason == ExecutionIslandBoundaryReason.Geometry));
-            Assert.That(plan.Boundaries.Count(static boundary =>
-                boundary.Reason == ExecutionIslandBoundaryReason.CacheInput), Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public void SameProducerHitAndMultipleMisses_EmitOneBoundaryPerKind()
-    {
-        GraphFixture fixture = CreateShaderGraph(
-            includeGeometryPrefix: false,
-            cacheCandidateCount: 3);
-        RenderCacheResolution resolution = CreateResolution(
-            fixture,
-            [
-                RenderCacheResolutionKind.Hit,
-                RenderCacheResolutionKind.MissCapture,
-                RenderCacheResolutionKind.MissCapture,
-            ]);
-
-        ExecutionIslandPlan plan = Plan(fixture, resolution, FusionMode.Enabled);
-        int producerIndex = GetFragmentIndex(fixture.Graph, fixture.CachedProducer);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(plan.Boundaries.Count(static boundary =>
-                boundary.Reason == ExecutionIslandBoundaryReason.CacheInput), Is.EqualTo(1));
-            Assert.That(plan.Boundaries.Count(static boundary =>
-                boundary.Reason == ExecutionIslandBoundaryReason.CacheCapture), Is.EqualTo(1));
-            Assert.That(plan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(boundary =>
-                boundary.BeforeFragmentIndex is null
-                && boundary.AfterFragmentIndex == producerIndex
-                && boundary.Reason == ExecutionIslandBoundaryReason.CacheInput));
-            Assert.That(plan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(boundary =>
-                boundary.BeforeFragmentIndex == producerIndex
-                && boundary.AfterFragmentIndex is null
-                && boundary.Reason == ExecutionIslandBoundaryReason.CacheCapture));
         });
     }
 
@@ -226,16 +144,6 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
             fusionMode,
             SkslBackendBudget.Unlimited);
 
-    private static int GetFragmentIndex(
-        RecordedRenderGraph graph,
-        RenderFragmentReference fragment)
-    {
-        int index = graph.Fragments.IndexOf(fragment);
-        return index >= 0
-            ? index
-            : throw new InvalidOperationException("The fixture fragment is not part of the recorded graph.");
-    }
-
     private static IEnumerable<RenderFragmentReference> ResolveFragments(
         RecordedRenderGraph graph,
         ExecutionIsland island)
@@ -253,79 +161,23 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
 
     private static RenderCacheResolution CreateResolution(
         GraphFixture fixture,
-        RenderCacheResolutionKind kind,
-        RenderCacheBypassReason bypassReason = RenderCacheBypassReason.None)
+        RenderCacheResolutionKind kind)
     {
         RenderCacheCandidate candidate = fixture.Graph.CacheCandidates.Single();
-        return new RenderCacheResolution(
-            [CreateDecision(fixture, candidate, kind, bypassReason)]);
-    }
-
-    private static RenderCacheResolution CreateResolution(
-        GraphFixture fixture,
-        IReadOnlyList<RenderCacheResolutionKind> kinds)
-    {
-        if (fixture.Graph.CacheCandidates.Length != kinds.Count)
-            throw new ArgumentException("Every cache candidate requires one decision.", nameof(kinds));
-
-        var decisions = ImmutableArray.CreateBuilder<RenderCacheDecision>(kinds.Count);
-        for (int index = 0; index < kinds.Count; index++)
-        {
-            decisions.Add(CreateDecision(
-                fixture,
-                fixture.Graph.CacheCandidates[index],
-                kinds[index],
-                RenderCacheBypassReason.None));
-        }
-        return new RenderCacheResolution(decisions.MoveToImmutable());
+        return new RenderCacheResolution([CreateDecision(fixture, candidate, kind)]);
     }
 
     private static RenderCacheDecision CreateDecision(
         GraphFixture fixture,
         RenderCacheCandidate candidate,
-        RenderCacheResolutionKind kind,
-        RenderCacheBypassReason bypassReason)
-    {
-        var identity = new RenderOutputCacheIdentity(
-            candidate.CacheKey,
-            RenderFragmentOutputIdentity.Create(fixture.CachedProducer, fixture.Graph.RequestId),
-            fixture.CachedProducer.Bounds,
-            RequiredRegion.Full,
-            density: 1,
-            RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame,
-            FusionMode.Enabled,
-            new RenderCacheDeviceContextIdentity("planner-test-device", "planner-test-context"));
-
-        return kind switch
-        {
-            RenderCacheResolutionKind.Bypass => new RenderCacheDecision(
-                candidate,
-                kind,
-                bypassReason,
-                null,
-                null),
-            RenderCacheResolutionKind.Hit => new RenderCacheDecision(
-                candidate,
-                kind,
-                RenderCacheBypassReason.None,
-                null,
-                new RenderCacheEntry(identity, new object())),
-            RenderCacheResolutionKind.MissCapture => new RenderCacheDecision(
-                candidate,
-                kind,
-                RenderCacheBypassReason.None,
-                identity,
-                null),
-            _ => throw new ArgumentOutOfRangeException(nameof(kind)),
-        };
-    }
+        RenderCacheResolutionKind kind)
+        => kind == RenderCacheResolutionKind.Bypass
+            ? new RenderCacheDecision(candidate, kind, null, null)
+            : RenderCacheTestSupport.CreateDecision(candidate, kind, fixture.CachedProducer.Bounds);
 
     private static GraphFixture CreateShaderGraph(
         bool includeGeometryPrefix,
-        bool publishPrefix = false,
-        int cacheCandidateCount = 1)
+        bool publishPrefix = false)
     {
         var requestId = new RenderRequestId(1);
         RenderFragmentReference source = Fragment(
@@ -345,12 +197,7 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
         foreach (RenderFragmentReference reference in references)
             builder.AddFragment(reference);
 
-        for (int index = 0; index < cacheCandidateCount; index++)
-        {
-            builder.AddCacheCandidate(
-                cachedProducer.Id!.Value,
-                index == 0 ? "selected-candidate" : $"selected-candidate-{index}");
-        }
+        builder.AddCacheCandidate(cachedProducer.Id!.Value, "selected-candidate");
         builder.PublishRoot(tail.Id!.Value);
         if (publishPrefix)
             builder.PublishRoot(prefix.Id!.Value);

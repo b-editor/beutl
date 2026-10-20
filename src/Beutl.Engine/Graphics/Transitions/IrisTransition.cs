@@ -24,14 +24,7 @@ public sealed partial class IrisTransition : ClipTransition
 
         public override void Draw(ClipTransitionContext context)
         {
-            if (_mask is { } mask)
-            {
-                context.DrawIris(mask);
-            }
-            else
-            {
-                base.Draw(context);
-            }
+            context.DrawIris(_mask!);
         }
 
         // A disc filling whatever square it is drawn into, opaque inside and clear outside.

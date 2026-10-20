@@ -1,7 +1,6 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -14,56 +13,51 @@ namespace Beutl.UnitTests.ProjectSystem;
 [TestFixture]
 public class SceneDrawableBoundsTests
 {
+    private string _basePath = null!;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _basePath = Path.Combine(Path.GetTempPath(), $"beutl_scenebounds_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(_basePath);
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        if (Directory.Exists(_basePath)) Directory.Delete(_basePath, recursive: true);
+    }
+
     [Test]
     public void NestedScene_WithoutVisualContent_KeepsFrameQueryBounds()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            RenderNodeMeasurement measurement = MeasureNestedScene(CreateInnerScene(basePath, 120, 90));
+        RenderNodeMeasurement measurement = MeasureNestedScene(CreateInnerScene(_basePath, 120, 90));
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(measurement.HasFragments, Is.True);
-                Assert.That(measurement.QueryBounds, Is.EqualTo(new Rect(0, 0, 120, 90)));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+            Assert.That(measurement.HasFragments, Is.True);
+            Assert.That(measurement.QueryBounds, Is.EqualTo(new Rect(0, 0, 120, 90)));
+        });
     }
 
     [Test]
     public void NestedScene_WithOffCenterContent_KeepsFrameQueryBounds()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene inner = CreateInnerScene(basePath, 120, 90);
-            AddTopLeftRect(inner, basePath, 20);
+        Scene inner = CreateInnerScene(_basePath, 120, 90);
+        AddTopLeftRect(inner, _basePath, 20);
 
-            RenderNodeMeasurement measurement = MeasureNestedScene(inner);
+        RenderNodeMeasurement measurement = MeasureNestedScene(inner);
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(measurement.QueryBounds, Is.EqualTo(new Rect(0, 0, 120, 90)));
-                Assert.That(measurement.OutputBounds, Is.EqualTo(new Rect(0, 0, 20, 20)),
-                    "widening the frame's query footprint must not widen what it actually draws");
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+            Assert.That(measurement.QueryBounds, Is.EqualTo(new Rect(0, 0, 120, 90)));
+            Assert.That(measurement.OutputBounds, Is.EqualTo(new Rect(0, 0, 20, 20)),
+                "widening the frame's query footprint must not widen what it actually draws");
+        });
     }
-
-    private static string GetTempPath()
-        => Path.Combine(Path.GetTempPath(), $"beutl_scenebounds_{Guid.NewGuid():N}");
 
     private static Scene CreateInnerScene(string basePath, int width, int height)
     {
-        Directory.CreateDirectory(basePath);
         return new Scene(width, height, string.Empty)
         {
             Uri = new Uri(Path.Combine(basePath, "inner.scene"))
@@ -79,15 +73,7 @@ public class SceneDrawableBoundsTests
             AlignmentX = { CurrentValue = AlignmentX.Left },
             AlignmentY = { CurrentValue = AlignmentY.Top },
         };
-        var element = new Element
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(1),
-            IsEnabled = true,
-            Uri = new Uri(Path.Combine(basePath, $"{Guid.NewGuid():N}.layer"))
-        };
-        element.AddObject(rect);
-        scene.Children.Add(element);
+        SceneDrawableTestHelpers.AddElement(scene, basePath, rect);
     }
 
     private static RenderNodeMeasurement MeasureNestedScene(Scene inner)
@@ -102,12 +88,7 @@ public class SceneDrawableBoundsTests
             drawable.Render(context, resource);
         }
 
-        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            TargetDomain = new Rect(0, 0, inner.FrameSize.Width, inner.FrameSize.Height),
-            CacheOptions = RenderCacheOptions.Disabled,
-        });
+        using RenderNodeRenderer renderer = SceneDrawableTestHelpers.CreateRenderer(root, inner);
         return renderer.Measure();
     }
 }

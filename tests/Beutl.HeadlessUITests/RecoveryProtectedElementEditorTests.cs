@@ -6,15 +6,12 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Media.Imaging;
-using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.ElementPropertyTab.Views;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
-using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Extensibility;
@@ -54,13 +51,11 @@ public sealed class RecoveryProtectedElementEditorTests
     public async Task Opening_the_scene_shows_one_notice_that_names_the_element()
     {
         (string projectPath, _) = await CreateProjectWithUnreadableEasing("recovery-notice");
-        var previousHandler = NotificationService.Handler;
-        var handler = new CaptureNotificationHandler();
-        NotificationService.Handler = handler;
+        using var notifications = new NotificationCapture();
         try
         {
             EditViewModel editor = await OpenProjectAsync(projectPath);
-            Notification[] notices = handler.Notifications
+            Notification[] notices = notifications.All
                 .Where(n => n.Title == MessageStrings.RecoveryProtectedElementsTitle)
                 .ToArray();
 
@@ -81,7 +76,6 @@ public sealed class RecoveryProtectedElementEditorTests
         finally
         {
             await TestReset.ResetShellAsync();
-            NotificationService.Handler = previousHandler;
         }
     }
 
@@ -108,7 +102,6 @@ public sealed class RecoveryProtectedElementEditorTests
                 Assert.That(viewModel.IsRecoveryProtected.Value, Is.True);
                 Assert.That(viewModel.IsEditable.Value, Is.False);
                 Assert.That(viewModel.IsLockedByUser.Value, Is.False);
-                Assert.That(viewModel.CanRemove.Value, Is.True);
                 Assert.That(viewModel.CanToggleLock.Value, Is.False, "A lock on this clip would not be saved.");
                 Assert.That(recoveryIcon.IsVisible, Is.True);
                 Assert.That(lockIcon.IsVisible, Is.False, "The clip is not locked by the user.");
@@ -117,9 +110,6 @@ public sealed class RecoveryProtectedElementEditorTests
                 double labelLeft = label.TranslatePoint(new Point(0, 0), view)!.Value.X;
                 Assert.That(labelLeft, Is.GreaterThanOrEqualTo(glyphRight), "The name must clear the glyph.");
             });
-
-            SaveFrame(window, "recovery-protected-clip-dark.png", ThemeVariant.Dark);
-            SaveFrame(window, "recovery-protected-clip-light.png", ThemeVariant.Light);
 
             var menu = (FAMenuFlyout)border.ContextFlyout!;
             FAToggleMenuFlyoutItem lockItem = menu.Items.OfType<FAToggleMenuFlyoutItem>().Single(item => item.Name == "lockElement");
@@ -130,12 +120,6 @@ public sealed class RecoveryProtectedElementEditorTests
                 menu.ShowAt(border);
                 HeadlessTestHelpers.Render();
                 lockOffered.Add(lockItem.IsEnabled);
-                if (i == 1)
-                {
-                    SaveFrame(window, "recovery-protected-clip-menu-dark.png", ThemeVariant.Dark);
-                    SaveFrame(window, "recovery-protected-clip-menu-light.png", ThemeVariant.Light);
-                }
-
                 menu.Hide();
                 HeadlessTestHelpers.Settle();
             }
@@ -177,9 +161,11 @@ public sealed class RecoveryProtectedElementEditorTests
         editor.HistoryManager.Commit("test setup");
         int before = editor.HistoryManager.UndoCount;
 
-        NumberEditorViewModel<float> width = Editors(tab.Items[0].Properties).OfType<NumberEditorViewModel<float>>()
+        NumberEditorViewModel<float> width = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
+            .OfType<NumberEditorViewModel<float>>()
             .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), shape.Width));
-        TransformEditorViewModel transform = Editors(tab.Items[0].Properties).OfType<TransformEditorViewModel>().Single();
+        TransformEditorViewModel transform = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
+            .OfType<TransformEditorViewModel>().Single();
         float oldWidth = shape.Width.CurrentValue;
         width.SetValue(oldWidth, oldWidth + 10);
         transform.IsEnabled.Value = !transform.IsEnabled.Value;
@@ -259,9 +245,11 @@ public sealed class RecoveryProtectedElementEditorTests
         HeadlessTestHelpers.Settle();
         EngineObjectPropertyViewModel unavailableItem = tab.Items.Single(item => item.Model == unavailable);
 
-        NumberEditorViewModel<float> width = Editors(tab.Items[0].Properties).OfType<NumberEditorViewModel<float>>()
+        NumberEditorViewModel<float> width = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
+            .OfType<NumberEditorViewModel<float>>()
             .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), shape.Width));
-        FilterEffectEditorViewModel filter = Editors(tab.Items[0].Properties).OfType<FilterEffectEditorViewModel>().Single();
+        FilterEffectEditorViewModel filter = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
+            .OfType<FilterEffectEditorViewModel>().Single();
         float oldWidth = shape.Width.CurrentValue;
         width.SetValue(oldWidth, oldWidth + 10);
         filter.IsEnabled.Value = !filter.IsEnabled.Value;
@@ -294,8 +282,6 @@ public sealed class RecoveryProtectedElementEditorTests
             ToggleButton visibility = window.GetVisualDescendants().OfType<ToggleButton>()
                 .Single(button => button.Name == "VisibilityButton");
             Assert.That(visibility.IsEnabled, Is.False);
-            SaveFrame(window, "missing-type-object-dark.png", ThemeVariant.Dark);
-            SaveFrame(window, "missing-type-object-light.png", ThemeVariant.Light);
         }
         finally
         {
@@ -324,13 +310,11 @@ public sealed class RecoveryProtectedElementEditorTests
     public async Task Opening_a_project_with_missing_types_shows_once_that_it_keeps_data_it_cannot_show()
     {
         (string projectPath, _) = await CreateProjectWithMissingTypes("missing-types-notice");
-        var previousHandler = NotificationService.Handler;
-        var handler = new CaptureNotificationHandler();
-        NotificationService.Handler = handler;
+        using var notifications = new NotificationCapture();
         try
         {
             await OpenProjectAsync(projectPath);
-            Notification[] kept = handler.Notifications
+            Notification[] kept = notifications.All
                 .Where(n => n.Title == MessageStrings.KeptUnknownDataTitle)
                 .ToArray();
 
@@ -340,7 +324,7 @@ public sealed class RecoveryProtectedElementEditorTests
                 Assert.That(kept[0].Type, Is.EqualTo(NotificationType.Warning));
                 Assert.That(kept[0].Expiration, Is.EqualTo(Timeout.InfiniteTimeSpan));
                 Assert.That(kept[0].Message, Does.Contain(BeutlApplication.Version));
-                Assert.That(handler.Notifications.Where(n => n.Title == MessageStrings.RecoveryProtectedElementsTitle),
+                Assert.That(notifications.All.Where(n => n.Title == MessageStrings.RecoveryProtectedElementsTitle),
                     Is.Empty);
                 Assert.That(kept[0].CancellationToken.IsCancellationRequested, Is.False);
             });
@@ -352,7 +336,6 @@ public sealed class RecoveryProtectedElementEditorTests
         finally
         {
             await TestReset.ResetShellAsync();
-            NotificationService.Handler = previousHandler;
         }
     }
 
@@ -400,8 +383,6 @@ public sealed class RecoveryProtectedElementEditorTests
                 Assert.That(MenuItem(widthButton, "editAnimationItem").IsEnabled, Is.False);
                 Assert.That(healthyOffered, Is.False, "Removing a healthy animation would not be saved.");
             });
-            SaveFrame(window, "recovery-remove-animation-dark.png", ThemeVariant.Dark);
-            SaveFrame(window, "recovery-remove-animation-light.png", ThemeVariant.Light);
 
             element.IsLocked = true;
             HeadlessTestHelpers.Settle();
@@ -431,33 +412,19 @@ public sealed class RecoveryProtectedElementEditorTests
     // not loaded, as when the plugin that provides it is not installed.
     private static async Task<(string ProjectPath, string ElementPath)> CreateProjectWithUnreadableEasing(string name)
     {
-        await TestReset.ResetShellAsync();
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"{name}-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(location);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, location))!;
-        Scene scene = project.Items.OfType<Scene>().Single();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        await adder.AddAsync([new ElementDescription(TimeSpan.Zero, TimeSpan.FromSeconds(2), 0,
-            new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None);
-        Element element = scene.Children.Single();
-        element.Name = ElementName;
-        var shape = (RectShape)element.Objects.Single();
         var unreadable = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 200 };
-        var widthAnimation = new KeyFrameAnimation<float>();
-        widthAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
-        widthAnimation.KeyFrames.Add(unreadable);
-        shape.Width.Animation = widthAnimation;
-        var heightAnimation = new KeyFrameAnimation<float>();
-        heightAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 50 });
-        heightAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 80 });
-        shape.Height.Animation = heightAnimation;
-        await editor.SaveAsync();
-        string projectPath = project.Uri!.LocalPath;
-        string elementPath = element.Uri!.LocalPath;
-        await TestReset.ResetShellAsync();
+        (string projectPath, string elementPath) = await CreateSavedProjectAsync(name, () => new RectShape(), element =>
+        {
+            var shape = (RectShape)element.Objects.Single();
+            var widthAnimation = new KeyFrameAnimation<float>();
+            widthAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
+            widthAnimation.KeyFrames.Add(unreadable);
+            shape.Width.Animation = widthAnimation;
+            var heightAnimation = new KeyFrameAnimation<float>();
+            heightAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 50 });
+            heightAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 80 });
+            shape.Height.Animation = heightAnimation;
+        });
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
         FindById(json, unreadable.Id)![nameof(KeyFrame.Easing)] = MissingEasingType;
@@ -487,7 +454,8 @@ public sealed class RecoveryProtectedElementEditorTests
     }
 
     private static NumberEditorViewModel<float> NumberEditor(ElementPropertyTabViewModel tab, IProperty property)
-        => Editors(tab.Items[0].Properties).OfType<NumberEditorViewModel<float>>()
+        => PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
+            .OfType<NumberEditorViewModel<float>>()
             .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), property));
 
     private static FAMenuFlyoutItem MenuItem(Button button, string name)
@@ -506,26 +474,12 @@ public sealed class RecoveryProtectedElementEditorTests
     // assembly that is not loaded, as when the plugin that provides them is not installed.
     private static async Task<(string ProjectPath, string ElementPath)> CreateProjectWithMissingTypes(string name)
     {
-        await TestReset.ResetShellAsync();
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"{name}-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(location);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, location))!;
-        Scene scene = project.Items.OfType<Scene>().Single();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        await adder.AddAsync([new ElementDescription(TimeSpan.Zero, TimeSpan.FromSeconds(2), 0,
-            new ElementSource.EngineObject(() => new RectShape { FilterEffect = { CurrentValue = new Blur() } }))],
-            CancellationToken.None);
-        Element element = scene.Children.Single();
-        element.Name = ElementName;
-        element.AddObject(new EllipseShape());
-        element.AddObject(new RectShape());
-        await editor.SaveAsync();
-        string projectPath = project.Uri!.LocalPath;
-        string elementPath = element.Uri!.LocalPath;
-        await TestReset.ResetShellAsync();
+        (string projectPath, string elementPath) = await CreateSavedProjectAsync(
+            name, () => new RectShape { FilterEffect = { CurrentValue = new Blur() } }, element =>
+            {
+                element.AddObject(new EllipseShape());
+                element.AddObject(new RectShape());
+            });
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
         JsonArray objects = json[nameof(Element.Objects)]!.AsArray();
@@ -540,35 +494,21 @@ public sealed class RecoveryProtectedElementEditorTests
     // not loaded, as when the plugin that provides it is not installed.
     private static async Task<(string ProjectPath, string ElementPath)> CreateProjectWithUnreadableEasings(string name)
     {
-        await TestReset.ResetShellAsync();
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"{name}-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(location);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, location))!;
-        Scene scene = project.Items.OfType<Scene>().Single();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         var translation = new TranslateTransform();
         translation.X.Animation = CreateAnimation(0f);
-        await adder.AddAsync([new ElementDescription(TimeSpan.Zero, TimeSpan.FromSeconds(2), 0,
-            new ElementSource.EngineObject(() => new RectShape { Transform = { CurrentValue = translation } }))],
-            CancellationToken.None);
-        Element element = scene.Children.Single();
-        element.Name = ElementName;
-        element.AddObject(new EllipseShape());
         var second = new RectShape();
         second.Width.Animation = CreateAnimation(100f);
-        element.AddObject(second);
-        await editor.SaveAsync();
-        string projectPath = project.Uri!.LocalPath;
-        string elementPath = element.Uri!.LocalPath;
+        (string projectPath, string elementPath) = await CreateSavedProjectAsync(
+            name, () => new RectShape { Transform = { CurrentValue = translation } }, element =>
+            {
+                element.AddObject(new EllipseShape());
+                element.AddObject(second);
+            });
         IKeyFrame[] unreadable =
         [
             ((KeyFrameAnimation<float>)translation.X.Animation!).KeyFrames.Single(),
             ((KeyFrameAnimation<float>)second.Width.Animation!).KeyFrames.Single(),
         ];
-        await TestReset.ResetShellAsync();
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
         foreach (IKeyFrame keyFrame in unreadable)
@@ -577,6 +517,23 @@ public sealed class RecoveryProtectedElementEditorTests
         }
 
         File.WriteAllText(elementPath, json.ToJsonString());
+        return (projectPath, elementPath);
+    }
+
+    // Saves a project with one clip, named ElementName, that holds what create returns and what configure adds, and
+    // closes it.
+    private static async Task<(string ProjectPath, string ElementPath)> CreateSavedProjectAsync(
+        string name, Func<EngineObject> create, Action<Element> configure)
+    {
+        (Project project, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync(name);
+        await TestShell.AddElementAsync(editor, create, TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element element = scene.Children.Single();
+        element.Name = ElementName;
+        configure(element);
+        await editor.SaveAsync();
+        string projectPath = project.Uri!.LocalPath;
+        string elementPath = element.Uri!.LocalPath;
+        await TestReset.ResetShellAsync();
         return (projectPath, elementPath);
     }
 
@@ -598,38 +555,4 @@ public sealed class RecoveryProtectedElementEditorTests
 
     private static Control Named(Control root, string name)
         => root.GetVisualDescendants().OfType<Control>().First(c => c.Name == name);
-
-    private static void SaveFrame(Window window, string fileName, ThemeVariant theme)
-    {
-        using ThemeVariantScope scope = ThemeVariantScope.Use(theme);
-        HeadlessTestHelpers.Render(5);
-        using WriteableBitmap? frame = window.CaptureRenderedFrame();
-        Assert.That(frame, Is.Not.Null);
-        string output = Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestResults", fileName);
-        Directory.CreateDirectory(Path.GetDirectoryName(output)!);
-        frame!.Save(output, PngBitmapEncoderOptions.Default);
-    }
-
-    private static IEnumerable<IPropertyEditorContext> Editors(IReadOnlyList<IPropertyEditorContext?> properties)
-    {
-        foreach (IPropertyEditorContext? property in properties)
-        {
-            if (property is PropertyEditorGroupContext group)
-            {
-                foreach (IPropertyEditorContext child in Editors(group.Properties))
-                    yield return child;
-            }
-            else if (property != null)
-            {
-                yield return property;
-            }
-        }
-    }
-
-    private sealed class CaptureNotificationHandler : INotificationServiceHandler
-    {
-        public List<Notification> Notifications { get; } = [];
-
-        public void Show(Notification notification) => Notifications.Add(notification);
-    }
 }

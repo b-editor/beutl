@@ -5,12 +5,7 @@ using Microsoft.CodeAnalysis.CSharp;
 namespace Beutl.Engine.SourceGenerators.Analyzers;
 
 /// <summary>Answers whether a call survives into the program the compiler emits.</summary>
-/// <remarks>
-/// <see cref="ConditionalAttribute"/> is a binding-time omission and not a preprocessor one, so the call
-/// site is written and parsed the same either way and nothing in the syntax says which build keeps it.
-/// Every analyzer that reasons about what a body runs has to ask this question, and has to ask it the same
-/// way, or the two rules disagree about which program the author is shipping.
-/// </remarks>
+/// <remarks>Shared so that the analyzers agree on which calls <see cref="ConditionalAttribute"/> removes.</remarks>
 internal static class ConditionalCompilation
 {
     private const string ConditionalAttributeMetadataName = "System.Diagnostics.ConditionalAttribute";

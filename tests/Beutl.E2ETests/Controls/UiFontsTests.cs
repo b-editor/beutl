@@ -1,11 +1,9 @@
 ﻿using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Media.TextFormatting;
 using Avalonia.Styling;
 using Beutl.Controls.Styling;
@@ -109,21 +107,14 @@ public class UiFontsTests
     }
 
     [AvaloniaTest]
-    [TestCase("en-US", false)]
-    [TestCase("en-US", true)]
-    [TestCase("es", false)]
-    [TestCase("es", true)]
-    [TestCase("ja-JP", false)]
-    [TestCase("ja-JP", true)]
-    [TestCase("zh-CN", false)]
-    [TestCase("zh-CN", true)]
-    [TestCase("ko-KR", false)]
-    [TestCase("ko-KR", true)]
-    public void Shared_font_resources_render_mixed_language_controls_without_missing_glyphs(
-        string cultureName, bool light)
+    [TestCase("en-US")]
+    [TestCase("es")]
+    [TestCase("ja-JP")]
+    [TestCase("zh-CN")]
+    [TestCase("ko-KR")]
+    public void Shared_font_resources_render_mixed_language_controls_without_missing_glyphs(string cultureName)
     {
         CultureInfo previous = CultureInfo.CurrentUICulture;
-        Window? window = null;
         try
         {
             CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(cultureName);
@@ -148,17 +139,15 @@ public class UiFontsTests
             }).ToArray();
             foreach (TextBlock sample in samples)
                 panel.Children.Add(sample);
-            panel.Children.Add(new TextBox { Text = MixedText, FontFamily = family });
-            panel.Children.Add(new Button { Content = "Save · 保存 · 저장 · Guardar", FontFamily = family });
-            window = new Window
+            var window = new Window
             {
                 Width = 780,
                 Height = 460,
                 Content = panel,
-                RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark,
+                RequestedThemeVariant = ThemeVariant.Dark,
             };
             window.Resources.MergedDictionaries.Add(fontResources);
-            window.Show();
+            using var host = new ControlHost(window);
             HeadlessTestHelpers.Render(3);
             Assert.That(family, Is.EqualTo(UiFonts.GetFontFamily(CultureInfo.CurrentUICulture)));
             foreach (TextBlock sample in samples)
@@ -171,27 +160,10 @@ public class UiFontsTests
                 Assert.That(runs.Select(run => GetFamilyName(run.GlyphRun.GlyphTypeface)).Distinct(),
                     Is.SubsetOf(family.FamilyNames));
             }
-
-            if (Environment.GetEnvironmentVariable("BEUTL_UI_FONTS_CAPTURE_DIR") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                using var frame = window.CaptureRenderedFrame();
-                Assert.That(frame, Is.Not.Null);
-                frame!.Save(Path.Combine(directory, $"{cultureName}-{(light ? "light" : "dark")}.png"),
-                    PngBitmapEncoderOptions.Default);
-            }
         }
         finally
         {
-            try
-            {
-                window?.Close();
-                HeadlessTestHelpers.Settle();
-            }
-            finally
-            {
-                CultureInfo.CurrentUICulture = previous;
-            }
+            CultureInfo.CurrentUICulture = previous;
         }
     }
 

@@ -90,12 +90,10 @@ public sealed class TransitionTabViewModel : IPinnableToolContext
 
     public ReactivePropertySlim<ClipTransition?> Transition { get; } = new();
 
-    // The name of the transition's type, or null when the edge has none.
     public ReadOnlyReactivePropertySlim<string?> TypeName { get; }
 
     public ReactivePropertySlim<bool> CanEdit { get; } = new();
 
-    // Whether there is a transition to delete and it can be edited.
     public ReadOnlyReactivePropertySlim<bool> CanDelete { get; }
 
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();

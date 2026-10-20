@@ -102,15 +102,14 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
         if (r._shader is not null)
         {
             context.CustomEffect(
-                (Resource: r.Progress, duration: r.Duration, time: r.Time, shader: r._shader,
-                    compileError: r._compileError),
+                (Resource: r.Progress, duration: r.Duration, time: r.Time, shader: r._shader),
                 OnApplyTo,
                 static (_, r) => r);
         }
     }
 
     private static void OnApplyTo(
-        (float progress, float duration, float time, SKSLShader shader, string? compileError) data,
+        (float progress, float duration, float time, SKSLShader shader) data,
         CustomFilterEffectContext c)
     {
         for (int i = 0; i < c.Targets.Count; i++)
@@ -173,7 +172,6 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
                     data.shader.RenderToTarget(c, builder, output);
                 }
 
-                effectTarget.Dispose();
                 c.Targets[i] = output;
             }
             catch
@@ -191,28 +189,21 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
         internal string? _compiledScript;
         internal string? _compileError;
 
-        public float Progress { get; private set; }
+        private ScriptTimeline _timeline;
 
-        public float Duration { get; private set; }
+        public float Progress => _timeline.Progress;
 
-        public float Time { get; private set; }
+        public float Duration => _timeline.Duration;
+
+        public float Time => _timeline.Time;
 
         partial void PostReconcile(SKSLScriptEffect obj, CompositionContext context)
         {
-            float duration = (float)obj.TimeRange.Duration.TotalSeconds;
-            float time = (float)(context.Time - obj.TimeRange.Start).TotalSeconds;
-            float progress = duration > 0 ? time / duration : 0;
-
-            // ReSharper disable CompareOfFloatsByEqualityOperator
-            if (Duration != duration || Time != time || Progress != progress)
+            if (_timeline.Update(obj, context))
             {
                 Version++;
             }
-            // ReSharper restore CompareOfFloatsByEqualityOperator
 
-            Duration = duration;
-            Time = time;
-            Progress = progress;
             CompileScript(Script);
         }
 

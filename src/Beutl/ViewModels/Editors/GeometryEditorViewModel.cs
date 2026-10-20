@@ -125,42 +125,12 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
         if (!CanReplaceContent) return false;
         if (template.CreateInstance() is not Geometry instance) return false;
         IsExpanded.Value = true;
-        if (EditingKeyFrame.Value is { } keyFrame)
-        {
-            SetValue(keyFrame.Value, instance, CommandNames.ApplyTemplate);
-        }
-        else
-        {
-            SetValue(PropertyAdapter.GetValue(), instance, CommandNames.ApplyTemplate);
-        }
-
+        SetValue(GetEditingValue(), instance, CommandNames.ApplyTemplate);
         return true;
     }
 
     public override bool TryPasteJson(string json)
-    {
-        // Pasting into a list inserts an item, an ordinary edit; otherwise SetValue checks the value it replaces.
-        bool inserts = EditingKeyFrame.Value is null && PropertyAdapter is ListItemAccessorImpl<Geometry>;
-        if (!(inserts ? IsElementEditable : CanReplaceContent)) return false;
-        if (!CoreObjectClipboard.TryDeserializeJson<Geometry>(json, out var pasted)) return false;
-
-        IsExpanded.Value = true;
-        if (EditingKeyFrame.Value is { } kf)
-        {
-            SetValue(kf.Value, pasted, CommandNames.PasteObject);
-        }
-        else if (PropertyAdapter is ListItemAccessorImpl<Geometry> listItemAccessor)
-        {
-            listItemAccessor.List.Insert(listItemAccessor.Index, pasted);
-            Commit(CommandNames.PasteObject);
-        }
-        else
-        {
-            SetValue(PropertyAdapter.GetValue(), pasted, CommandNames.PasteObject);
-        }
-
-        return true;
-    }
+        => GroupedEditorHelper.TryPasteJson(json, this, IsExpanded, null);
 
     public void AddItem()
     {

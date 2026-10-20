@@ -16,6 +16,7 @@ using Beutl.Services;
 using Beutl.ViewModels;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 
@@ -24,24 +25,9 @@ public sealed class AgentHostEndpointTests
     [AvaloniaTest]
     public async Task Live_session_rejects_mutations_while_the_editor_is_disabled()
     {
-        await TestReset.ResetShellAsync();
         try
         {
-            string location = Path.Combine(
-                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
-                "agent-live-disabled-editor");
-            Directory.CreateDirectory(location);
-            Project project = (await TestShell.Project.CreateProject(
-                640,
-                480,
-                30,
-                44100,
-                "live",
-                location))!;
-            Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
-            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
-            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("agent-live-disabled-editor");
             var binding = new EditViewModelLiveBinding(editor);
             LiveEditingSession session = LiveEditingSession.Create(binding);
             int invocations = 0;
@@ -83,24 +69,11 @@ public sealed class AgentHostEndpointTests
     [AvaloniaTest]
     public async Task Add_scene_rejects_a_disabled_live_editor_without_mutating_the_project()
     {
-        await TestReset.ResetShellAsync();
         try
         {
-            string location = Path.Combine(
-                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
-                "agent-add-scene-disabled-editor");
-            Directory.CreateDirectory(location);
-            Project project = (await TestShell.Project.CreateProject(
-                640,
-                480,
-                30,
-                44100,
-                "live",
-                location))!;
-            Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
-            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
-            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            (Project project, _, EditViewModel editor) =
+                await TestShell.OpenNewSceneAsync("agent-add-scene-disabled-editor");
+            string location = Path.GetDirectoryName(project.Uri!.LocalPath)!;
             LiveEditingSession session = LiveEditingSession.Create(new EditViewModelLiveBinding(editor));
             var gateway = new EditorProjectSessionGateway(TestShell.Project, TestShell.Editor);
             Dictionary<string, string> filesBefore = SnapshotFiles(location);
@@ -169,24 +142,9 @@ public sealed class AgentHostEndpointTests
     [AvaloniaTest]
     public async Task Live_session_reports_unavailable_as_soon_as_editor_disposal_starts()
     {
-        await TestReset.ResetShellAsync();
         try
         {
-            string location = Path.Combine(
-                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
-                "agent-live-disposed-editor-state");
-            Directory.CreateDirectory(location);
-            Project project = (await TestShell.Project.CreateProject(
-                640,
-                480,
-                30,
-                44100,
-                "live",
-                location))!;
-            Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
-            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
-            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("agent-live-disposed-editor-state");
             var binding = new EditViewModelLiveBinding(editor);
             LiveEditingSession session = LiveEditingSession.Create(binding);
 
@@ -212,24 +170,9 @@ public sealed class AgentHostEndpointTests
     [AvaloniaTest]
     public async Task Live_binding_reports_unavailable_when_its_scene_is_cleared()
     {
-        await TestReset.ResetShellAsync();
         try
         {
-            string location = Path.Combine(
-                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
-                "agent-live-cleared-scene");
-            Directory.CreateDirectory(location);
-            Project project = (await TestShell.Project.CreateProject(
-                640,
-                480,
-                30,
-                44100,
-                "live",
-                location))!;
-            Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
-            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
-            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("agent-live-cleared-scene");
             var binding = new EditViewModelLiveBinding(editor);
             FieldInfo sceneField = typeof(EditViewModel).GetField(
                 "<Scene>k__BackingField",
@@ -258,7 +201,7 @@ public sealed class AgentHostEndpointTests
         await using var endpoint = new AgentHostEndpoint(
             new ProjectService(), new EditorService(new ExtensionProvider()),
             UnavailableAgentAiBackend.Instance,
-            GetAvailableLoopbackPort(), "test-token");
+            AvailablePort(), "test-token");
         await endpoint.StartAsync();
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         typeof(AgentHostEndpoint).GetField("_startupTask",
@@ -286,7 +229,7 @@ public sealed class AgentHostEndpointTests
         await using var endpoint = new AgentHostEndpoint(
             new ProjectService(), new EditorService(new ExtensionProvider()),
             UnavailableAgentAiBackend.Instance,
-            GetAvailableLoopbackPort(), "test-token", _ =>
+            AvailablePort(), "test-token", _ =>
             {
                 entered.TrySetResult();
                 release.Wait();
@@ -308,7 +251,7 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
-    public async Task Endpoint_binds_default_loopback_port_uses_fixed_token_and_stops_cleanly()
+    public async Task Endpoint_binds_default_loopback_port_accepts_only_its_bearer_token_and_stops_cleanly()
     {
         await TestReset.ResetShellAsync();
         if (!CanBindLoopbackPort(AgentHostEndpoint.DefaultPort))
@@ -336,7 +279,7 @@ public sealed class AgentHostEndpointTests
             using HttpResponseMessage rejected = await client.GetAsync(endpoint.EndpointUri);
             Assert.That((int)rejected.StatusCode, Is.EqualTo(401));
 
-            // The query-token form was removed; only the Authorization header authenticates.
+            // A token in the query string does not authenticate.
             using HttpResponseMessage queryRejected = await client.GetAsync(
                 new Uri(endpoint.EndpointUri + "?token=" + endpoint.Token));
             Assert.That((int)queryRejected.StatusCode, Is.EqualTo(401));
@@ -467,7 +410,7 @@ public sealed class AgentHostEndpointTests
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
             UnavailableAgentAiBackend.Instance,
-            GetAvailableLoopbackPort(),
+            AvailablePort(),
             "test-token",
             async token =>
             {
@@ -549,7 +492,7 @@ public sealed class AgentHostEndpointTests
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
             UnavailableAgentAiBackend.Instance,
-            GetAvailableLoopbackPort(),
+            AvailablePort(),
             "test-token",
             async _ =>
             {
@@ -583,7 +526,7 @@ public sealed class AgentHostEndpointTests
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
             UnavailableAgentAiBackend.Instance,
-            GetAvailableLoopbackPort(),
+            AvailablePort(),
             "test-token",
             async _ =>
             {
@@ -613,23 +556,14 @@ public sealed class AgentHostEndpointTests
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
             UnavailableAgentAiBackend.Instance,
-            GetAvailableLoopbackPort(),
+            AvailablePort(),
             "test-token");
 
         try
         {
             await endpoint.StartAsync();
 
-            var transport = new HttpClientTransport(new HttpClientTransportOptions
-            {
-                Endpoint = endpoint.EndpointUri!,
-                TransportMode = HttpTransportMode.StreamableHttp,
-                AdditionalHeaders = new Dictionary<string, string>
-                {
-                    ["Authorization"] = "Bearer " + endpoint.Token
-                }
-            });
-            await using McpClient client = await McpClient.CreateAsync(transport);
+            await using McpClient client = await ConnectAsync(endpoint);
 
             string[] toolNames = [.. (await client.ListToolsAsync()).Select(tool => tool.Name)];
 
@@ -657,23 +591,14 @@ public sealed class AgentHostEndpointTests
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
             UnavailableAgentAiBackend.Instance,
-            GetAvailableLoopbackPort(),
+            AvailablePort(),
             "test-token");
 
         try
         {
             await endpoint.StartAsync();
 
-            var transport = new HttpClientTransport(new HttpClientTransportOptions
-            {
-                Endpoint = endpoint.EndpointUri!,
-                TransportMode = HttpTransportMode.StreamableHttp,
-                AdditionalHeaders = new Dictionary<string, string>
-                {
-                    ["Authorization"] = "Bearer " + endpoint.Token
-                }
-            });
-            await using McpClient client = await McpClient.CreateAsync(transport);
+            await using McpClient client = await ConnectAsync(endpoint);
 
             CallToolResult result = await client.CallToolAsync(
                 "analyze_audio_rhythm",
@@ -737,26 +662,5 @@ public sealed class AgentHostEndpointTests
         try { await task.WaitAsync(TimeSpan.FromSeconds(5)); }
         catch (OperationCanceledException) { return; }
         Assert.Fail("Expected startup cancellation.");
-    }
-
-    private static int GetAvailableLoopbackPort()
-    {
-        using TcpListener listener = new(IPAddress.Loopback, 0);
-        listener.Start();
-        return ((IPEndPoint)listener.LocalEndpoint).Port;
-    }
-
-    private static bool CanBindLoopbackPort(int port)
-    {
-        try
-        {
-            using TcpListener listener = new(IPAddress.Loopback, port);
-            listener.Start();
-            return true;
-        }
-        catch (SocketException ex) when (ex.SocketErrorCode is SocketError.AddressAlreadyInUse or SocketError.AccessDenied)
-        {
-            return false;
-        }
     }
 }

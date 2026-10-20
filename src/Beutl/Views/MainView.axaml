@@ -2,11 +2,9 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:h="using:Beutl.Editor.Components.Helpers"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:p="using:Beutl.Services.PrimitiveImpls"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:tutorial="using:Beutl.Views.Tutorial"
              xmlns:views="using:Beutl.Views"
@@ -23,14 +21,6 @@
     <Design.DataContext>
         <vm:MainViewModel />
     </Design.DataContext>
-
-    <UserControl.Resources>
-        <ControlTheme x:Key="SmallPaddingFlyoutPresenterStyle"
-                      BasedOn="{StaticResource {x:Type FlyoutPresenter}}"
-                      TargetType="FlyoutPresenter">
-            <Setter Property="Padding" Value="4" />
-        </ControlTheme>
-    </UserControl.Resources>
 
     <Grid RowDefinitions="Auto,1,*">
         <Grid x:Name="Titlebar"
@@ -52,211 +42,7 @@
 
             <Menu x:Name="MenuBar"
                   Grid.Column="1"
-                  WindowDecorationProperties.ElementRole="User">
-                <!--  ファイル  -->
-                <MenuItem Header="{x:Static lang:Strings.File}">
-                    <!--  新規作成  -->
-                    <MenuItem Header="{x:Static lang:Strings.CreateNew}">
-                        <MenuItem.Icon>
-                            <icons:FluentIcon Icon="New" />
-                        </MenuItem.Icon>
-                        <!--  プロジェクト  -->
-                        <MenuItem Command="{CompiledBinding MenuBar.CreateNewProject}"
-                                  Header="{x:Static lang:Strings.CreateNewProject}"
-                                  InputGesture="{h:GetCommandGesture CreateNewProject,
-                                                                     ExtensionType={x:Type p:MainViewExtension}}" />
-                        <!--  ファイル  -->
-                        <MenuItem Command="{CompiledBinding MenuBar.NewScene}"
-                                  Header="{x:Static lang:Strings.CreateNewScene}"
-                                  InputGesture="{h:GetCommandGesture CreateNewFile,
-                                                                     ExtensionType={x:Type p:MainViewExtension}}" />
-                    </MenuItem>
-                    <Separator />
-                    <!--  開く  -->
-                    <MenuItem Header="{x:Static lang:Strings.Open}">
-                        <MenuItem.Icon>
-                            <icons:FluentIcon Icon="Open" />
-                        </MenuItem.Icon>
-                        <!--  プロジェクト  -->
-                        <MenuItem Command="{CompiledBinding MenuBar.OpenProject}"
-                                  Header="{x:Static lang:Strings.Project}"
-                                  InputGesture="{h:GetCommandGesture OpenProject,
-                                                                     ExtensionType={x:Type p:MainViewExtension}}" />
-                        <!--  ファイル  -->
-                        <MenuItem Command="{CompiledBinding MenuBar.OpenFile}"
-                                  Header="{x:Static lang:Strings.File}"
-                                  InputGesture="{h:GetCommandGesture OpenFile,
-                                                                     ExtensionType={x:Type p:MainViewExtension}}" />
-                    </MenuItem>
-                    <Separator />
-                    <!--  閉じる  -->
-                    <MenuItem Command="{CompiledBinding MenuBar.CloseFile}" Header="{x:Static lang:Strings.Close}" />
-                    <!--  プロジェクトを閉じる  -->
-                    <MenuItem Command="{CompiledBinding MenuBar.CloseProject}"
-                              Header="{x:Static lang:Strings.CloseProject}"
-                              IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
-                    <Separator />
-                    <!--  上書き保存  -->
-                    <MenuItem Command="{CompiledBinding MenuBar.Save}"
-                              Header="{x:Static lang:Strings.Save}"
-                              InputGesture="{h:GetCommandGesture Save,
-                                                                 ExtensionType={x:Type p:MainViewExtension}}"
-                              IsEnabled="{CompiledBinding IsProjectOpened.Value}">
-                        <MenuItem.Icon>
-                            <icons:FluentIcon Icon="Save" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <!--  すべて保存  -->
-                    <MenuItem Command="{CompiledBinding MenuBar.SaveAll}"
-                              Header="{x:Static lang:Strings.SaveAll}"
-                              InputGesture="{h:GetCommandGesture SaveAll,
-                                                                 ExtensionType={x:Type p:MainViewExtension}}"
-                              IsEnabled="{CompiledBinding IsProjectOpened.Value}">
-                        <MenuItem.Icon>
-                            <icons:FluentIcon Icon="SaveMultiple" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <Separator />
-                    <!--  プロジェクトをエクスポート  -->
-                    <MenuItem Command="{CompiledBinding MenuBar.ExportProject}"
-                              Header="{x:Static lang:Strings.ExportProject}"
-                              IsEnabled="{CompiledBinding IsProjectOpened.Value}">
-                        <MenuItem.Icon>
-                            <icons:FluentIcon Icon="ArrowExport" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <!--  プロジェクトをインポート  -->
-                    <MenuItem Command="{CompiledBinding MenuBar.ImportProject}"
-                              Header="{x:Static lang:Strings.ImportProject}">
-                        <MenuItem.Icon>
-                            <icons:FluentIcon Icon="ArrowImport" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <Separator />
-                    <!--  最近使ったプロジェクト  -->
-                    <MenuItem x:Name="recentFiles" Header="{x:Static lang:Strings.RecentFiles}" />
-                    <MenuItem x:Name="recentProjects" Header="{x:Static lang:Strings.RecentProjects}" />
-
-                    <Separator />
-                    <MenuItem Click="OpenSettingsDialog" Header="{x:Static lang:Strings.Settings}" />
-                    <Separator />
-                    <!--  終了  -->
-                    <MenuItem Command="{CompiledBinding MenuBar.Exit}"
-                              Header="{x:Static lang:Strings.Exit}"
-                              InputGesture="{h:GetCommandGesture Exit,
-                                                                 ExtensionType={x:Type p:MainViewExtension}}" />
-                </MenuItem>
-                <!--  編集  -->
-                <MenuItem Header="{x:Static lang:Strings.Edit}">
-                    <!--  元に戻す  -->
-                    <MenuItem Command="{CompiledBinding MenuBar.Undo}"
-                              Header="{x:Static lang:Strings.Undo}"
-                              InputGesture="{h:GetCommandGesture Undo,
-                                                                 ExtensionType={x:Type p:MainViewExtension}}"
-                              IsEnabled="{CompiledBinding IsProjectOpened.Value}">
-                        <MenuItem.Icon>
-                            <icons:FluentIcon Icon="ArrowUndo" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <!--  やり直し  -->
-                    <MenuItem Command="{CompiledBinding MenuBar.Redo}"
-                              Header="{x:Static lang:Strings.Redo}"
-                              InputGesture="{h:GetCommandGesture Redo,
-                                                                 ExtensionType={x:Type p:MainViewExtension}}"
-                              IsEnabled="{CompiledBinding IsProjectOpened.Value}">
-                        <MenuItem.Icon>
-                            <icons:FluentIcon Icon="ArrowRedo" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                </MenuItem>
-                <!--  表示  -->
-                <MenuItem x:Name="viewMenuItem" Header="{x:Static lang:Strings.View}">
-                    <MenuItem x:Name="editorTabMenuItem" Header="{x:Static lang:Strings.Editors}" />
-                    <MenuItem x:Name="toolTabMenuItem" Header="{x:Static lang:Strings.Tools}" />
-                    <Separator />
-                    <MenuItem Command="{CompiledBinding MenuBar.ResetDockLayout}"
-                              Header="{x:Static lang:Strings.ResetDockLayout}" />
-                    <MenuItem x:Name="dockLayoutPresetMenuItem" Header="{x:Static lang:Strings.ApplyDockLayout}" />
-                    <MenuItem Command="{CompiledBinding MenuBar.OpenDockLayoutTab}"
-                              Header="{x:Static lang:Strings.ManageDockLayouts}" />
-                </MenuItem>
-                <MenuItem x:Name="toolWindowMenuItem" Header="{x:Static lang:Strings.Tools}" />
-                <!--  シーン  -->
-                <MenuItem Header="{x:Static lang:Strings.Scene}">
-                    <MenuItem Command="{CompiledBinding MenuBar.NewScene}" Header="{x:Static lang:Strings.CreateNew}" />
-                    <MenuItem Command="{CompiledBinding MenuBar.RemoveFromProject}" Header="{x:Static lang:Strings.Remove}" />
-                    <MenuItem Command="{CompiledBinding MenuBar.ShowSceneSettings}" Header="{x:Static lang:Strings.SceneSettings}" />
-                    <MenuItem Command="{CompiledBinding MenuBar.RelinkMedia}" Header="{x:Static lang:MissingMediaStrings.Title}" />
-                    <!--  要素  -->
-                    <MenuItem Header="{x:Static lang:Strings.Element}">
-                        <MenuItem Command="{CompiledBinding MenuBar.DeleteLayer}" Header="{x:Static lang:Strings.Delete}" />
-                        <MenuItem Command="{CompiledBinding MenuBar.ExcludeLayer}" Header="{x:Static lang:Strings.Exclude}" />
-                        <MenuItem Command="{CompiledBinding MenuBar.CutLayer}" Header="{x:Static lang:Strings.Cut}" />
-                        <MenuItem Command="{CompiledBinding MenuBar.CopyLayer}" Header="{x:Static lang:Strings.Copy}" />
-                        <MenuItem Command="{CompiledBinding MenuBar.PasteLayer}" Header="{x:Static lang:Strings.Paste}" />
-                    </MenuItem>
-                </MenuItem>
-                <!--  AI  -->
-                <MenuItem Header="{x:Static lang:Strings.Ai}">
-                    <MenuItem Command="{CompiledBinding MenuBar.ShowAiJobs}"
-                              Header="{x:Static lang:Strings.AiJobCenter}">
-                        <MenuItem.Icon>
-                            <icons:FluentIcon Icon="History" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <Separator />
-                    <MenuItem Command="{CompiledBinding MenuBar.GenerateImage}"
-                              Header="{x:Static lang:Strings.AiGenerateImage}">
-                        <MenuItem.Icon>
-                            <icons:FluentIcon Icon="SparkleCircle" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <MenuItem Command="{CompiledBinding MenuBar.GenerateSubtitles}"
-                              Header="{x:Static lang:Strings.AiGenerateSubtitles}">
-                        <MenuItem.Icon>
-                            <icons:FluentIcon Icon="Subtitles" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <MenuItem Command="{CompiledBinding MenuBar.EditImage}"
-                              Header="{x:Static lang:Strings.AiEditImage}">
-                        <MenuItem.Icon>
-                            <icons:FluentIcon Icon="ImageEdit" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <MenuItem Command="{CompiledBinding MenuBar.GenerateVideo}"
-                              Header="{x:Static lang:Strings.AiGenerateVideo}">
-                        <MenuItem.Icon>
-                            <icons:FluentIcon Icon="Video" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <MenuItem Command="{CompiledBinding MenuBar.EditVideo}" Header="{x:Static lang:Strings.AiVideoEditing}">
-                        <MenuItem.Icon>
-                            <icons:FluentIcon Icon="VideoClipWand" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                </MenuItem>
-                <!--  ヘルプ  -->
-                <MenuItem Header="{x:Static lang:Strings.Help}">
-                    <MenuItem Click="OpenTutorialsDialog" Header="{x:Static lang:Strings.Tutorials}" />
-                    <Separator />
-                    <MenuItem Click="GC_Collect_Click"
-                              Header="GC.Collect"
-                              IsVisible="{Binding IsDebuggerAttached}" />
-                    <MenuItem Click="MonitorKeyModifier_Click"
-                              Header="Monitor KeyModifier"
-                              IsVisible="{Binding IsDebuggerAttached}" />
-                    <MenuItem Click="ThrowUnhandledException_Click"
-                              Header="Throw Unhandled Exception"
-                              IsVisible="{Binding IsDebuggerAttached}" />
-                    <MenuItem Click="StartWindowCapture_Click"
-                              Header="Start Window Capture"
-                              IsVisible="{Binding IsDebuggerAttached}" />
-                    <MenuItem Click="StopWindowCapture_Click"
-                              Header="Stop Window Capture"
-                              IsVisible="{Binding IsDebuggerAttached}" />
-                    <MenuItem Click="GoToInformationPage" Header="{x:Static lang:Strings.Info}" />
-                </MenuItem>
-            </Menu>
+                  WindowDecorationProperties.ElementRole="User" />
 
             <StackPanel Grid.Column="2"
                         Orientation="Horizontal"
@@ -283,26 +69,23 @@
                            IsVisible="{CompiledBinding IsDebuggerAttached}"
                            Text="{x:Static lang:Strings.Debug}" />
 
-                <Button x:Name="OpenFeedbackButton"
-                        WindowDecorationProperties.ElementRole="User"
+                <Button WindowDecorationProperties.ElementRole="User"
                         Click="OpenFeedbackClick"
                         ToolTip.Tip="{x:Static lang:Strings.Feedback}"
                         Theme="{StaticResource TitleBarButtonStyle}">
                     <icons:FluentIcon Icon="Chat" Margin="0,0,0,2" />
                 </Button>
 
-                <views:TitleBarStatusView x:Name="TitleBarStatus"
-                                          WindowDecorationProperties.ElementRole="User"
+                <views:TitleBarStatusView WindowDecorationProperties.ElementRole="User"
                                           DataContext="{Binding Status}" />
 
                 <Button x:Name="OpenNotificationsButton"
                         HorizontalContentAlignment="Stretch"
                         VerticalContentAlignment="Stretch"
                         WindowDecorationProperties.ElementRole="User"
-                        Click="OpenNotificationsClick"
                         Theme="{StaticResource TitleBarButtonStyle}">
                     <Button.Flyout>
-                        <Flyout FlyoutPresenterTheme="{StaticResource SmallPaddingFlyoutPresenterStyle}">
+                        <Flyout FlyoutPresenterTheme="{StaticResource CompactFlyoutPresenterTheme}">
                             <ScrollViewer>
                                 <StackPanel x:Name="HiddenNotificationPanel" Spacing="4" />
                             </ScrollViewer>
@@ -414,12 +197,9 @@
             </StackPanel.Styles>
         </StackPanel>
 
-        <!-- チュートリアルオーバーレイ -->
         <tutorial:TutorialOverlay x:Name="TutorialOverlayPanel"
-                                  Grid.RowSpan="3"
-                                  IsVisible="False" />
+                                  Grid.RowSpan="3" />
 
-        <!-- コマンドパレット -->
         <views:CommandPaletteView Grid.RowSpan="3"
                                   DataContext="{Binding CommandPalette}" />
         <views:TabSwitcherView x:Name="TabSwitcherOverlay"

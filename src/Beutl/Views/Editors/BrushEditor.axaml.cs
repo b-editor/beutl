@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Beutl.Controls;
@@ -27,7 +28,7 @@ public sealed partial class BrushEditor : UserControl
         AvaloniaProperty.Register<BrushEditor, Media.Brush?>(nameof(OriginalBrush));
 
     private BrushEditorFlyout? _flyout;
-    private bool _flyoutOpen;
+    private Media.DrawableBrush? _followedBrush;
 
     public BrushEditor()
     {
@@ -35,6 +36,8 @@ public sealed partial class BrushEditor : UserControl
         ExpandTransitionHelper.Attach(expandToggle, content);
         FallbackObjectViewHelper.Attach(this, view => (content.Child as Panel)?.Children.Add(view));
 
+        AddBrushTypeItems((FAMenuFlyout)ExpandMenuButton.ContextFlyout!);
+        AddBrushTypeItems((FAMenuFlyout)ReferenceMenuButton.Flyout!);
         EditorMenuHelper.AttachCopyPasteAndTemplateMenus(
             this,
             (FAMenuFlyout)ExpandMenuButton.ContextFlyout!,
@@ -43,6 +46,33 @@ public sealed partial class BrushEditor : UserControl
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, DragOver);
         AddHandler(DragDrop.DropEvent, Drop);
+    }
+
+    // The type menu and the reference editor's menu offer the same brush types.
+    private void AddBrushTypeItems(FAMenuFlyout flyout)
+    {
+        var items = new (string Tag, string IsChecked, string Text)[]
+        {
+            ("Solid", "IsSolid.Value", GraphicsStrings.SolidColorBrush),
+            ("LinearGradient", "IsLinearGradient.Value", GraphicsStrings.LinearGradientBrush),
+            ("ConicGradient", "IsConicGradient.Value", GraphicsStrings.ConicGradientBrush),
+            ("RadialGradient", "IsRadialGradient.Value", GraphicsStrings.RadialGradientBrush),
+            ("PerlinNoise", "IsPerlinNoise.Value", GraphicsStrings.PerlinNoiseBrush),
+            ("Drawable", "IsDrawable.Value", GraphicsStrings.Drawable),
+            ("Presenter", "IsPresenter.Value", GraphicsStrings.Presenter),
+            ("Null", "!Value.Value", Strings.Null)
+        };
+        foreach ((string tag, string isChecked, string text) in items)
+        {
+            var item = new FARadioMenuFlyoutItem
+            {
+                Tag = tag,
+                Text = text,
+                [!FARadioMenuFlyoutItem.IsCheckedProperty] = new ReflectionBinding(isChecked) { Mode = BindingMode.OneWay }
+            };
+            item.Click += ChangeBrushType;
+            flyout.Items.Add(item);
+        }
     }
 
     private void Drop(object? sender, DragEventArgs e)
@@ -93,32 +123,28 @@ public sealed partial class BrushEditor : UserControl
             _flyout.OriginalBrush = OriginalBrush;
             _flyout.DrawableName = GetDrawableName((OriginalBrush as Media.DrawableBrush)?.Drawable.CurrentValue);
             _flyout.CanEditDrawable = (OriginalBrush as Media.DrawableBrush)?.Drawable.CurrentValue is not null;
-
-            if (change.OldValue is Media.DrawableBrush oldBrush)
-            {
-                oldBrush.Drawable.ValueChanged -= OnDrawableBrushPropertyChanged;
-            }
-
-            if (change.NewValue is Media.DrawableBrush newBrush)
-            {
-                newBrush.Drawable.ValueChanged += OnDrawableBrushPropertyChanged;
-            }
+            if (_flyout.IsOpen)
+                FollowDrawable(OriginalBrush as Media.DrawableBrush);
         }
+    }
+
+    // Follows the drawable of the brush the open flyout shows, so that its name stays current. Following
+    // only while the flyout is open keeps the brush from holding on to an editor that was removed.
+    private void FollowDrawable(Media.DrawableBrush? brush)
+    {
+        if (_followedBrush != null)
+            _followedBrush.Drawable.ValueChanged -= OnDrawableBrushPropertyChanged;
+        _followedBrush = brush;
+        if (brush != null)
+            brush.Drawable.ValueChanged += OnDrawableBrushPropertyChanged;
     }
 
     private void OnDrawableBrushPropertyChanged(object? sender, PropertyValueChangedEventArgs<Drawable?> e)
     {
         if (_flyout == null) return;
 
-        if (e.NewValue != null)
-        {
-            _flyout.DrawableName = GetDrawableName(e.NewValue);
-            _flyout.CanEditDrawable = true;
-        }
-        else
-        {
-            _flyout.CanEditDrawable = false;
-        }
+        _flyout.DrawableName = GetDrawableName(e.NewValue);
+        _flyout.CanEditDrawable = e.NewValue is not null;
     }
 
     private static string GetDrawableName(Drawable? drawable)
@@ -132,14 +158,11 @@ public sealed partial class BrushEditor : UserControl
         return TypeDisplayHelpers.GetLocalizedName(type);
     }
 
-    private async Task<object?> SelectTypeOrReference()
+    private Task<object?> SelectTypeOrReference()
     {
-        if (_flyoutOpen) return null;
-
-        try
+        return PickerGuard.RunAsync(this, () =>
         {
-            _flyoutOpen = true;
-            var selectVm = new SelectDrawableTypeViewModel();
+            var selectVm = new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.Drawable, typeof(Drawable));
 
             if (DataContext is BrushEditorViewModel { IsDisposed: false } vm)
             {
@@ -147,12 +170,8 @@ public sealed partial class BrushEditor : UserControl
                 selectVm.InitializeReferences(targets);
             }
 
-            return await LibraryItemPickerHelper.ShowAsync(this, selectVm, KnownLibraryItemFormats.Drawable);
-        }
-        finally
-        {
-            _flyoutOpen = false;
-        }
+            return LibraryItemPickerHelper.ShowAsync(this, selectVm, KnownLibraryItemFormats.Drawable);
+        });
     }
 
     private void OpenFlyout_Click(object? sender, RoutedEventArgs e)
@@ -171,6 +190,7 @@ public sealed partial class BrushEditor : UserControl
             _flyout.BrushTypeChanged += OnBrushTypeChanged;
             _flyout.ChangeDrawableClicked += OnChangeDrawableClicked;
             _flyout.EditDrawableClicked += OnEditDrawableClicked;
+            _flyout.Closed += (_, _) => FollowDrawable(null);
         }
 
         _flyout.Brush = Brush;
@@ -179,22 +199,16 @@ public sealed partial class BrushEditor : UserControl
         _flyout.CanEditDrawable = (OriginalBrush as Media.DrawableBrush)?.Drawable.CurrentValue is not null;
 
         _flyout.ShowAt(this, true);
+        FollowDrawable(OriginalBrush as Media.DrawableBrush);
     }
 
     private void OnEditDrawableClicked(object? sender, EventArgs e)
     {
-        // TODO: DrawablePropertyEditorを開く
-        // ObjectPropertyEditorは不要なプロパティも表示されてしまうので
         if (DataContext is not BrushEditorViewModel { IsDisposed: false } viewModel) return;
         if (viewModel.Value.Value is not DrawableBrush { Drawable.CurrentValue: { } drawable }) return;
         if (viewModel.GetService<EditViewModel>() is not { } editViewModel) return;
 
-        ObjectPropertyTabViewModel objViewModel
-            = ObjectPropertyTabViewModel.FindReusable(editViewModel, drawable)
-              ?? new ObjectPropertyTabViewModel(editViewModel);
-
-        objViewModel.NavigateCore(drawable, false, viewModel);
-        editViewModel.OpenToolTab(objViewModel);
+        ObjectPropertyTabViewModel.Open(editViewModel, drawable, viewModel);
     }
 
     private async void OnChangeDrawableClicked(object? sender, Button e)
@@ -307,38 +321,15 @@ public sealed partial class BrushEditor : UserControl
         (int OldIndex, int NewIndex,
             Avalonia.Media.GradientStop Object, Avalonia.Media.Immutable.ImmutableGradientStop OldObject) e)
     {
-        if (DataContext is not BrushEditorViewModel { IsElementEditable: true } viewModel) return;
-        if (viewModel.Value.Value is not GradientBrush { GradientStops: { } list }) return;
-        if (viewModel.IsDisposed) return;
-
-        if (e.OldIndex < 0 || e.OldIndex >= list.Count
-            || e.NewIndex < 0 || e.NewIndex >= list.Count)
-            return;
-
-        if (e.NewIndex != e.OldIndex)
-            list.Move(e.NewIndex, e.OldIndex);
-        GradientStop obj = list[e.OldIndex];
-        viewModel.ConfirmeGradientStop(e.OldIndex, e.NewIndex, e.OldObject.ToBtlImmutableGradientStop(), obj);
+        if (DataContext is BrushEditorViewModel { IsElementEditable: true, Value.Value: GradientBrush { GradientStops: { } list } } viewModel)
+            GradientStopEdits.Release(viewModel, list, e.OldIndex, e.NewIndex);
     }
 
     private void OnGradientStopChanged(object? sender,
         (int OldIndex, int NewIndex, Avalonia.Media.GradientStop Object) e)
     {
-        if (DataContext is not BrushEditorViewModel { IsElementEditable: true } viewModel) return;
-        if (viewModel.Value.Value is not GradientBrush { GradientStops: { } list }) return;
-        if (viewModel.IsDisposed) return;
-
-        if (e.OldIndex < 0 || e.OldIndex >= list.Count
-            || e.NewIndex < 0 || e.NewIndex >= list.Count)
-            return;
-
-        GradientStop obj = list[e.OldIndex];
-        obj.Offset.CurrentValue = (float)e.Object.Offset;
-        obj.Color.CurrentValue = e.Object.Color.ToBtlColor();
-        if (e.NewIndex != e.OldIndex)
-            list.Move(e.OldIndex, e.NewIndex);
-
-        viewModel.InvalidateFrameCache();
+        if (DataContext is BrushEditorViewModel { IsElementEditable: true, Value.Value: GradientBrush { GradientStops: { } list } } viewModel)
+            GradientStopEdits.Drag(viewModel, list, e.OldIndex, e.NewIndex, e.Object);
     }
 
     private void Menu_Click(object? sender, RoutedEventArgs e)
@@ -378,20 +369,11 @@ public sealed partial class BrushEditor : UserControl
     private async void SelectTarget_Requested(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not BrushEditorViewModel { IsDisposed: false } vm) return;
-        if (_flyoutOpen) return;
 
-        try
-        {
-            _flyoutOpen = true;
-            await TargetSelectionHelper.HandleSelectTargetRequestAsync<BrushEditorViewModel, Brush>(
-                this,
-                vm,
-                vm => vm.GetAvailableTargets(),
-                (vm, target) => vm.SetTarget(target));
-        }
-        finally
-        {
-            _flyoutOpen = false;
-        }
+        await TargetSelectionHelper.HandleSelectTargetRequestAsync<BrushEditorViewModel, Brush>(
+            this,
+            vm,
+            vm => vm.GetAvailableTargets(),
+            (vm, target) => vm.SetTarget(target));
     }
 }

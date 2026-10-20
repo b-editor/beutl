@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
 using Beutl.Api;
+using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.UnitTests.TestInfrastructure;
@@ -58,11 +59,19 @@ public sealed class ProfileLifetimeTests
         {
             requestStarted.TrySetResult();
             await releaseRequest.Task;
-            // Return a valid response even though the token was cancelled; the method must
+            // Return a valid, different profile even though the token was cancelled; the method must
             // recheck the lifetime token before publishing the refreshed state.
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = JsonContent.Create(ApiTestAuthentication.CreateProfileResponse())
+                Content = JsonContent.Create(new ProfileResponse
+                {
+                    Id = "test-user",
+                    Name = "test",
+                    DisplayName = "Refreshed",
+                    Bio = null,
+                    IconId = null,
+                    IconUrl = null,
+                })
             };
         });
         using var httpClient = new HttpClient(handler);
@@ -76,6 +85,7 @@ public sealed class ProfileLifetimeTests
 
         await Assert.CatchAsync<OperationCanceledException>(async () =>
             await refresh.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.That(profile.DisplayName.Value, Is.EqualTo("Test User"));
     }
 
     [Test]

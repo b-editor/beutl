@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using System.Reactive;
-using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -11,7 +10,7 @@ namespace Beutl.Serialization;
 public partial class JsonSerializationContext
 {
     private static JsonNode? Serialize(
-        string name, object value, Type actualType, Type baseType, ICoreSerializationContext? parent)
+        object value, Type actualType, Type baseType, ICoreSerializationContext? parent)
     {
         switch (value)
         {
@@ -49,7 +48,6 @@ public partial class JsonSerializationContext
         ICoreSerializable coreSerializable, Type actualType, Type baseType, ICoreSerializationContext? parent)
     {
         SerializedObjectCapture.Record(coreSerializable);
-        // 外部ファイル参照として保存するケース
         if (coreSerializable is CoreObject { Uri: not null } coreObject && parent != null)
         {
             return SerializeObjectFile(coreObject, parent);
@@ -65,7 +63,6 @@ public partial class JsonSerializationContext
 
         JsonObject obj = innerContext.GetJsonObject();
 
-        // 型判別子を書き込む（Fallbackでなく、sealedでない場合）
         if (coreSerializable is not IFallback && !baseType.IsSealed)
         {
             obj.WriteDiscriminator(actualType);
@@ -79,13 +76,11 @@ public partial class JsonSerializationContext
     {
         Type elementType = ArrayTypeHelpers.GetElementType(actualType) ?? typeof(object);
 
-        // Dictionary<string, T> の場合
         if (TrySerializeDictionary(enumerable, actualType, baseType, parent, out JsonNode? result))
         {
             return result;
         }
 
-        // 通常の配列/リスト
         return SerializeArray(enumerable, elementType, parent);
     }
 
@@ -113,7 +108,6 @@ public partial class JsonSerializationContext
             return false;
         }
 
-        // 値型の場合はJsonSerializerに委譲
         if (valueType.IsValueType)
         {
             result = SerializeWithJsonSerializer(enumerable, baseType);
@@ -121,10 +115,9 @@ public partial class JsonSerializationContext
         }
 
         var jobj = new JsonObject();
-        foreach (object? item in enumerable)
+        foreach (DictionaryEntry entry in (IDictionary)enumerable)
         {
-            StringValuePair<object> typed = Unsafe.As<StringValuePair<object>>(item);
-            jobj[typed.Key] = Serialize(typed.Key, typed.Value, typed.Value.GetType(), valueType, parent);
+            jobj[(string)entry.Key] = Serialize(entry.Value!, entry.Value!.GetType(), valueType, parent);
         }
 
         result = jobj;
@@ -135,52 +128,32 @@ public partial class JsonSerializationContext
         IEnumerable enumerable, Type elementType, ICoreSerializationContext? parent)
     {
         var jarray = new JsonArray();
-        int index = 0;
 
         foreach (object? item in enumerable)
         {
-            string innerName = index.ToString();
-            jarray.Add(Serialize(innerName, item, item.GetType(), elementType, parent));
-            index++;
+            jarray.Add(Serialize(item, item.GetType(), elementType, parent));
         }
 
         return jarray;
     }
 
-    private static JsonNode SerializeObjectFile(CoreObject value, ICoreSerializationContext parent)
+    internal static JsonNode SerializeObjectFile(CoreObject value, ICoreSerializationContext parent)
     {
-        // 参照オブジェクトを保存
         if (parent.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
         {
-            SaveObjectToFile(value);
+            CoreSerializer.StoreToUri(value, value.Uri!,
+                CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects);
         }
 
-        Uri serializedUri = ResolveSerializationUri(value.Uri!, parent);
+        Uri serializedUri = UriHelper.ToSerializedUri(value.Uri!, parent.BaseUri);
 
-        // 埋め込みモードの場合はオブジェクト全体を含める
-        if (parent.Mode.HasFlag(CoreSerializationMode.EmbedReferencedObjects))
+        if (parent.Mode.HasFlag(CoreSerializationMode.EmbedReferencedObjects)
+            && CoreSerializer.SerializeEmbeddedReference(value, serializedUri) is { } node)
         {
-            return CreateEmbeddedObjectNode(value, serializedUri);
+            return node;
         }
 
         return (JsonValue)serializedUri.ToString();
-    }
-
-    private static void SaveObjectToFile(CoreObject value)
-    {
-        CoreSerializer.StoreToUri(value, value.Uri!,
-            CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects);
-    }
-
-    private static Uri ResolveSerializationUri(Uri objectUri, ICoreSerializationContext parent)
-    {
-        return UriHelper.ToSerializedUri(objectUri, parent.BaseUri);
-    }
-
-    private static JsonNode CreateEmbeddedObjectNode(CoreObject value, Uri serializedUri)
-    {
-        return (JsonNode?)CoreSerializer.SerializeEmbeddedReference(value, serializedUri)
-               ?? (JsonValue)serializedUri.ToString();
     }
 
     public void SetValue<T>(string name, T? value)
@@ -195,48 +168,28 @@ public partial class JsonSerializationContext
 
     private void SetValueCore(string name, object? value, Type baseType)
     {
-        // Unit型は削除
         if (value is Unit)
         {
             RemoveValue(name);
             return;
         }
 
-        // nullの場合
         if (value == null)
         {
             CaptureValue(name, value);
             _json[name] = null;
-            _knownTypes.Remove(name);
             return;
         }
 
         Type actualType = value.GetType();
         using var objects = CapturedValues is not null ? new SerializedObjectCapture() : null;
-        _json[name] = SerializeValue(value, actualType, baseType);
-        _knownTypes[name] = (baseType, actualType);
+        _json[name] = Serialize(value, actualType, baseType, this);
         CaptureValue(name, value, objects);
-    }
-
-    private JsonNode? SerializeValue(object value, Type actualType, Type baseType)
-    {
-        if (value is ICoreSerializable or IEnumerable or IReference)
-        {
-            return Serialize(string.Empty, value, actualType, baseType, this);
-        }
-
-        if (value is JsonNode jsonNode)
-        {
-            return jsonNode;
-        }
-
-        return JsonSerializer.SerializeToNode(value, baseType, JsonHelper.SerializerOptions);
     }
 
     private void RemoveValue(string name)
     {
         CapturedValues?.Remove(name);
         _json.Remove(name);
-        _knownTypes.Remove(name);
     }
 }

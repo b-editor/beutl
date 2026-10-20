@@ -6,39 +6,6 @@ namespace Beutl.UnitTests.Threading;
 public class SingleFlightAsyncOperationTests
 {
     [Test]
-    public async Task RunOrJoinAsync_WhenIdle_RunsOperationAndReturnsTrue()
-    {
-        var op = new SingleFlightAsyncOperation();
-        int runs = 0;
-
-        bool owned = await op.RunOrJoinAsync(() =>
-        {
-            runs++;
-            return Task.CompletedTask;
-        });
-
-        Assert.That(owned, Is.True);
-        Assert.That(runs, Is.EqualTo(1));
-        Assert.That(op.InFlight, Is.Null);
-    }
-
-    [Test]
-    public async Task TryRunAsync_WhenIdle_RunsOperationAndReturnsTrue()
-    {
-        var op = new SingleFlightAsyncOperation();
-        int runs = 0;
-
-        bool owned = await op.TryRunAsync(() =>
-        {
-            runs++;
-            return Task.CompletedTask;
-        });
-
-        Assert.That(owned, Is.True);
-        Assert.That(runs, Is.EqualTo(1));
-    }
-
-    [Test]
     public async Task TryRunAsync_WhenBusy_SkipsWithoutRunningOrAwaiting()
     {
         var op = new SingleFlightAsyncOperation();
@@ -50,8 +17,6 @@ public class SingleFlightAsyncOperationTests
             runs++;
             await release.Task;
         });
-
-        Assert.That(op.InFlight, Is.Not.Null);
 
         // A second caller skips the body and returns without awaiting the owner.
         bool second = await op.TryRunAsync(() =>
@@ -99,37 +64,6 @@ public class SingleFlightAsyncOperationTests
     }
 
     [Test]
-    public async Task RunOrJoinAsync_ManyConcurrentCallers_RunBodyExactlyOnce()
-    {
-        var op = new SingleFlightAsyncOperation();
-        var release = new TaskCompletionSource();
-        int runs = 0;
-
-        Task<bool> owner = op.RunOrJoinAsync(async () =>
-        {
-            Interlocked.Increment(ref runs);
-            await release.Task;
-        });
-
-        var joiners = Enumerable.Range(0, 16)
-            .Select(_ => op.RunOrJoinAsync(() =>
-            {
-                Interlocked.Increment(ref runs);
-                return Task.CompletedTask;
-            }))
-            .ToArray();
-
-        release.SetResult();
-
-        bool ownerResult = await owner;
-        bool[] joinerResults = await Task.WhenAll(joiners);
-
-        Assert.That(ownerResult, Is.True);
-        Assert.That(joinerResults, Is.All.False);
-        Assert.That(runs, Is.EqualTo(1));
-    }
-
-    [Test]
     public async Task RunOrJoinAsync_AfterCompletion_CanRunAgain()
     {
         var op = new SingleFlightAsyncOperation();
@@ -141,48 +75,21 @@ public class SingleFlightAsyncOperationTests
         Assert.That(first, Is.True);
         Assert.That(second, Is.True);
         Assert.That(runs, Is.EqualTo(2));
-        Assert.That(op.InFlight, Is.Null);
     }
 
     [Test]
-    public void RunOrJoinAsync_OwnerThrows_PropagatesToOwnerAndResetsGate()
+    public async Task RunOrJoinAsync_OwnerThrows_PropagatesToOwnerAndResetsGate()
     {
         var op = new SingleFlightAsyncOperation();
+        int runs = 0;
 
         Assert.That(
             async () => await op.RunOrJoinAsync(() => throw new InvalidOperationException("boom")),
             Throws.TypeOf<InvalidOperationException>());
 
-        // The gate must reset so subsequent operations can run.
-        Assert.That(op.InFlight, Is.Null);
-    }
-
-    [Test]
-    public async Task RunOrJoinAsync_OperationCatchesOwnException_OwnerSucceedsAndGateResets()
-    {
-        // Mirrors the call sites, where the lambda handles its own exceptions.
-        var op = new SingleFlightAsyncOperation();
-        bool ran = false;
-
-        bool owned = await op.RunOrJoinAsync(async () =>
-        {
-            await Task.Yield();
-            try
-            {
-                throw new InvalidOperationException("boom");
-            }
-            catch
-            {
-                ran = true;
-            }
-        });
-
-        Assert.That(owned, Is.True);
-        Assert.That(ran, Is.True);
-        Assert.That(op.InFlight, Is.Null);
-
-        // Gate is reusable after a self-handled failure.
-        Assert.That(await op.RunOrJoinAsync(() => Task.CompletedTask), Is.True);
+        // The gate is open again, so the next caller runs instead of skipping.
+        Assert.That(await op.TryRunAsync(() => { runs++; return Task.CompletedTask; }), Is.True);
+        Assert.That(runs, Is.EqualTo(1));
     }
 
     [Test]

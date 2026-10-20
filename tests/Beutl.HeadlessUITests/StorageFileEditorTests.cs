@@ -344,6 +344,7 @@ public class StorageFileEditorTests
             HeadlessTestHelpers.Render();
             Assert.That(editor.Value?.FullName, Is.EqualTo(path));
             Assert.That(confirmations, Is.EqualTo(1));
+            storage.Verify(x => x.OpenFilePickerAsync(It.IsAny<FilePickerOpenOptions>()), Times.Once);
         }
         finally { window.Close(); }
     }
@@ -357,8 +358,7 @@ public class StorageFileEditorTests
         string output = Environment.GetEnvironmentVariable("BEUTL_FILE_EDITOR_CAPTURE_DIR")
             ?? Path.Combine(Path.GetTempPath(), "beutl-file-editor-captures");
         Directory.CreateDirectory(output);
-        ThemeVariant? previousTheme = Application.Current!.RequestedThemeVariant;
-        Application.Current.RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark;
+        using var theme = ThemeVariantScope.Use(light ? ThemeVariant.Light : ThemeVariant.Dark);
         var panel = new StackPanel { Spacing = 12, Margin = new Thickness(16) };
         var editors = new[] { PropertyEditorStyle.Normal, PropertyEditorStyle.Compact, PropertyEditorStyle.ListItem, PropertyEditorStyle.Settings }
             .Select(style => new StorageFileEditor { Header = $"{style} file", EditorStyle = style, OpenOptions = Options("*.png") }).ToArray();
@@ -382,11 +382,7 @@ public class StorageFileEditorTests
             HeadlessTestHelpers.Render(3);
             Capture("after");
         }
-        finally
-        {
-            window.Close();
-            Application.Current.RequestedThemeVariant = previousTheme;
-        }
+        finally { window.Close(); }
 
         void Capture(string state)
         {

@@ -5,6 +5,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.RenderGraphTestSupport;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
@@ -60,19 +61,5 @@ public sealed class BrushSourceRecordingTests
         var brush = new DrawableBrush(content);
         brush.Stretch.CurrentValue = Stretch.Fill;
         return brush;
-    }
-
-    private static RenderRequest CreateRequest(RenderRequestOwner owner)
-        => new(new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            outputScale: 1,
-            maxWorkingScale: 1,
-            owner: owner));
-
-    private static RenderFragmentReference GetSingleRoot(RecordedRenderGraph graph)
-    {
-        RenderFragmentId rootId = graph.PublicationRoots.Single();
-        return graph.GetFragment(rootId);
     }
 }

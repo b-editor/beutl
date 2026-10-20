@@ -1,7 +1,4 @@
-﻿using Avalonia;
-using Avalonia.Interactivity;
-
-using Beutl.Controls.PropertyEditors;
+﻿using Beutl.Controls.PropertyEditors;
 using Beutl.Media;
 
 namespace Beutl.ViewModels.Editors;
@@ -13,18 +10,19 @@ public sealed class AlignmentXEditorViewModel(IPropertyAdapter<AlignmentX> prope
         base.Accept(visitor);
         if (visitor is AlignmentXEditor view && !Disposables.IsDisposed)
         {
-            view.Bind(AlignmentXEditor.ValueProperty, Value.ToBinding())
-                .DisposeWith(Disposables);
-            view.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
-                .DisposeWith(Disposables);
+            AttachConfirmedValueBinding(view, AlignmentXEditor.ValueProperty);
         }
     }
+}
 
-    private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
+public sealed class TextAlignmentEditorViewModel(IPropertyAdapter<TextAlignment> property) : ValueEditorViewModel<TextAlignment>(property)
+{
+    public override void Accept(IPropertyEditorContextVisitor visitor)
     {
-        if (e is PropertyEditorValueChangedEventArgs<AlignmentX> args)
+        base.Accept(visitor);
+        if (visitor is TextAlignmentEditor view && !Disposables.IsDisposed)
         {
-            SetValue(args.OldValue, args.NewValue);
+            AttachConfirmedValueBinding(view, TextAlignmentEditor.ValueProperty);
         }
     }
 }

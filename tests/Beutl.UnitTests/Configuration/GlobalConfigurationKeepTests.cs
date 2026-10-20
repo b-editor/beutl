@@ -10,32 +10,11 @@ namespace Beutl.UnitTests.Configuration;
 // the sections it does not know, so an older build keeps what a newer one added, and it copies a file it cannot
 // read aside before a save replaces it.
 [TestFixture]
-public class GlobalConfigurationKeepTests
+public class GlobalConfigurationKeepTests() : GlobalConfigurationFileFixture("global-config-keep-")
 {
-    private string _directory = null!;
-
-    [SetUp]
-    public void SetUp() => _directory = Directory.CreateTempSubdirectory("global-config-keep-").FullName;
-
-    [TearDown]
-    public void TearDown() => Directory.Delete(_directory, recursive: true);
-
-    private string SettingsPath => Path.Combine(_directory, "settings.json");
-
-    private static GlobalConfiguration CreateConfiguration()
-        => (GlobalConfiguration)Activator.CreateInstance(typeof(GlobalConfiguration), nonPublic: true)!;
-
-    private GlobalConfiguration Restore(string text)
-    {
-        File.WriteAllText(SettingsPath, text);
-        GlobalConfiguration config = CreateConfiguration();
-        config.Restore(SettingsPath);
-        return config;
-    }
-
     private JsonObject ReadSaved() => JsonNode.Parse(File.ReadAllText(SettingsPath))!.AsObject();
 
-    private string[] UnreadableCopies() => Directory.GetFiles(_directory, "settings.json.corrupt-*");
+    private string[] UnreadableCopies() => Directory.GetFiles(DirectoryPath, "settings.json.corrupt-*");
 
     [Test]
     public void Sections_this_build_does_not_know_are_written_back_when_a_setting_changes()
@@ -87,6 +66,35 @@ public class GlobalConfigurationKeepTests
             Assert.That(saved["Graphics"]?["SelectedGpuName"]?.GetValue<string>(), Is.EqualTo("after"));
             Assert.That(JsonNode.DeepEquals(saved["Graphics"]?["FutureSetting"], future), Is.True,
                 saved.ToJsonString());
+        });
+    }
+
+    // Settings that were removed are read and dropped, not written back like ones from a newer build.
+    [Test]
+    public void Removed_settings_are_dropped_when_a_setting_changes()
+    {
+        GlobalConfiguration config = Restore(new JsonObject
+        {
+            ["Backup"] = new JsonObject { ["BackupSettings"] = false },
+            ["backup"] = new JsonObject { ["BackupSettings"] = false },
+            ["Tutorial"] = new JsonObject
+            {
+                ["CompletedTutorialIds"] = new JsonArray("intro"),
+                ["ShowTutorialsOnStartup"] = false,
+            },
+            ["Graphics"] = new JsonObject { ["SelectedGpuName"] = "before" },
+        }.ToJsonString());
+
+        config.GraphicsConfig.SelectedGpuName = "after";
+
+        JsonObject saved = ReadSaved();
+        Assert.Multiple(() =>
+        {
+            Assert.That(config.RestoreFailures, Is.Empty);
+            Assert.That(saved.ContainsKey("Backup"), Is.False);
+            Assert.That(saved.ContainsKey("backup"), Is.False);
+            Assert.That(saved["Tutorial"]!.AsObject().ContainsKey("ShowTutorialsOnStartup"), Is.False);
+            Assert.That(saved["Tutorial"]?["CompletedTutorialIds"]?[0]?.GetValue<string>(), Is.EqualTo("intro"));
         });
     }
 
@@ -217,12 +225,12 @@ public class GlobalConfigurationKeepTests
         File.WriteAllText(SettingsPath, Text);
         GlobalConfiguration config = CreateConfiguration();
         // A folder this process cannot write to keeps the copy from being made, as a full disk would.
-        File.SetUnixFileMode(_directory, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        File.SetUnixFileMode(DirectoryPath, UnixFileMode.UserRead | UnixFileMode.UserExecute);
         try
         {
             try
             {
-                File.WriteAllText(Path.Combine(_directory, "probe"), string.Empty);
+                File.WriteAllText(Path.Combine(DirectoryPath, "probe"), string.Empty);
                 Assert.Ignore("This process can write to a folder it has no permission to write to.");
             }
             catch (UnauthorizedAccessException)
@@ -233,7 +241,7 @@ public class GlobalConfigurationKeepTests
         }
         finally
         {
-            File.SetUnixFileMode(_directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            File.SetUnixFileMode(DirectoryPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         }
 
         // The folder can be written to again, so only the failed copy keeps these saves from replacing the file.
@@ -259,7 +267,7 @@ public class GlobalConfigurationKeepTests
         {
             Assert.That(config.RestoreFileFailure, Is.Null);
             Assert.That(config.RestoreBackupPath, Is.Null);
-            Assert.That(Directory.GetFileSystemEntries(_directory), Is.Empty);
+            Assert.That(Directory.GetFileSystemEntries(DirectoryPath), Is.Empty);
         });
     }
 }

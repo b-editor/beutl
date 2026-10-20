@@ -1,4 +1,5 @@
 ﻿using Beutl.AgentToolkit.Schema;
+using Beutl.Media;
 
 namespace Beutl.AgentToolkit.Tests.Schema;
 
@@ -27,4 +28,16 @@ public class GenerativePaletteTests
         Assert.That(palettes.Count, Is.GreaterThan(20), $"Only {palettes.Count} distinct palettes across 50 seeds.");
     }
 
+    // Hues from 160 to 230 were once pushed out of the backgrounds and the foreground to suit a quality check that
+    // no longer exists. The foreground is bright enough to keep its hue through the hex color. The test looks for
+    // 170 to 220, so a hue pushed to the band's edge cannot pass after rounding.
+    [Test]
+    public void GeneratePalette_ForegroundCanBeTealTinted()
+    {
+        bool anyTeal = Enumerable.Range(0, 200)
+            .Select(i => Color.Parse(CompositionTemplateCatalog.GeneratePalette($"teal-seed-{i}", 0).Foreground).ToHsv().H)
+            .Any(hue => hue is > 170 and < 220);
+
+        Assert.That(anyTeal, Is.True);
+    }
 }

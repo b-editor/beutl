@@ -2,7 +2,7 @@ import CBeutlAVFTypes
 import Foundation
 
 // Increment on any breaking ABI change (struct layout, function signature).
-private let abiVersion: Int32 = 2
+private let abiVersion: Int32 = 3
 
 @_cdecl("beutl_avf_version")
 public func beutl_avf_version() -> Int32 {
@@ -43,14 +43,12 @@ public func beutl_avf_reader_open(
             throw BeutlAVFError.invalidArgument("path is null")
         }
 
-        let options: BeutlReaderOptions = optionsPtr?.pointee ?? BeutlReaderOptions(
-            maxVideoBufferSize: 4,
-            maxAudioBufferSize: 20,
-            thresholdFrameCount: 30,
-            thresholdSampleCount: 30000)
+        guard let optionsPtr = optionsPtr else {
+            throw BeutlAVFError.invalidArgument("options is null")
+        }
 
         let path = String(cString: pathPtr)
-        let reader = try Reader(path: path, modeFlags: modeFlags, options: options)
+        let reader = try Reader(path: path, modeFlags: modeFlags, options: optionsPtr.pointee)
         outHandle.pointee = HandleRegistry.retain(reader)
     }
 }
@@ -200,11 +198,17 @@ public func beutl_avf_writer_create(
         guard let pathPtr = pathPtr else {
             throw BeutlAVFError.invalidArgument("path is null")
         }
+        guard let videoConfigPtr = videoConfigPtr else {
+            throw BeutlAVFError.invalidArgument("videoConfig is null")
+        }
+        guard let audioConfigPtr = audioConfigPtr else {
+            throw BeutlAVFError.invalidArgument("audioConfig is null")
+        }
         let path = String(cString: pathPtr)
         let writer = try Writer(
             path: path,
-            videoConfig: videoConfigPtr?.pointee,
-            audioConfig: audioConfigPtr?.pointee)
+            videoConfig: videoConfigPtr.pointee,
+            audioConfig: audioConfigPtr.pointee)
         outHandle.pointee = HandleRegistry.retain(writer)
     }
 }

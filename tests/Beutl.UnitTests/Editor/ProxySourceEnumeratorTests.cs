@@ -269,7 +269,7 @@ public class ProxySourceEnumeratorTests
         ((IModifiableHierarchical)referenceToB).AddChild(sceneB);
         ((IModifiableHierarchical)referenceToA).AddChild(sceneA);
 
-        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateMediaFileSources(sceneA);
+        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateFileSources(sceneA);
 
         Assert.That(collected.Select(Path.GetFileName), Is.SupersetOf(new[] { "in-a.mov", "in-b.mov" }));
     }
@@ -472,7 +472,7 @@ public class ProxySourceEnumeratorTests
     // Export preflight must reach image/audio held inside a referenced scene: those are not
     // hierarchical children (the scene is a property value), so the broad property walk misses them.
     [Test]
-    public void EnumerateMediaFileSources_CoversImageAndSoundInsideReferencedScene()
+    public void EnumerateFileSources_CoversImageAndSoundInsideReferencedScene()
     {
         Scene childScene = CreateScene("child.scene");
         var childImage = new SourceImage();
@@ -486,7 +486,7 @@ public class ProxySourceEnumeratorTests
         Scene root = CreateScene("root.scene");
         root.Children.Add(ElementWith(sceneDrawable));
 
-        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateMediaFileSources(root);
+        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateFileSources(root);
 
         Assert.That(
             collected.Select(Path.GetFileName),
@@ -496,7 +496,7 @@ public class ProxySourceEnumeratorTests
     // A SceneSound (a Sound, not a Drawable) referencing a scene must also have its nested media
     // enumerated; the deep walk descends Sound references, not just SceneDrawable.
     [Test]
-    public void EnumerateMediaFileSources_CoversMediaInsideSceneSoundReference()
+    public void EnumerateFileSources_CoversMediaInsideSceneSoundReference()
     {
         Scene childScene = CreateScene("sound-child.scene");
         var childSound = new SourceSound();
@@ -508,7 +508,7 @@ public class ProxySourceEnumeratorTests
         Scene root = CreateScene("sound-root.scene");
         root.Children.Add(ElementWith(sceneSound));
 
-        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateMediaFileSources(root);
+        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateFileSources(root);
 
         Assert.That(collected.Select(Path.GetFileName), Does.Contain("scene-sound.mp3"));
     }
@@ -516,7 +516,7 @@ public class ProxySourceEnumeratorTests
     // A non-video graph input (ImageSourceNode.Source) is an IPropertyAdapter port, invisible to the
     // broad property walk; the export preflight must still enumerate it.
     [Test]
-    public void EnumerateMediaFileSources_CoversImageSourceNodeGraphInput()
+    public void EnumerateFileSources_CoversImageSourceNodeGraphInput()
     {
         var node = new ImageSourceNode();
         node.Source.Property!.SetValue(CreateImageSource("graph-image.png"));
@@ -525,7 +525,7 @@ public class ProxySourceEnumeratorTests
         Scene root = CreateScene("graph-image.scene");
         root.Children.Add(ElementWith(drawable));
 
-        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateMediaFileSources(root);
+        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateFileSources(root);
 
         Assert.That(collected.Select(Path.GetFileName), Does.Contain("graph-image.png"));
     }
@@ -550,7 +550,7 @@ public class ProxySourceEnumeratorTests
     // AudioVisualizerDrawable.Source can be a SoundGroup; the graphics render composes the group and
     // its child Sounds, so a nested audio file must be enumerated.
     [Test]
-    public void EnumerateMediaFileSources_CoversSoundGroupInsideAudioVisualizer()
+    public void EnumerateFileSources_CoversSoundGroupInsideAudioVisualizer()
     {
         var nestedSound = new SourceSound();
         nestedSound.Source.CurrentValue = CreateSoundSource("visualized.mp3");
@@ -561,7 +561,7 @@ public class ProxySourceEnumeratorTests
         Scene root = CreateScene("visualizer.scene");
         root.Children.Add(ElementWith(visualizer));
 
-        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateMediaFileSources(root);
+        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateFileSources(root);
 
         Assert.That(collected.Select(Path.GetFileName), Does.Contain("visualized.mp3"));
     }
@@ -570,7 +570,7 @@ public class ProxySourceEnumeratorTests
     // set to an ImageBrush) is opened by ToResource at render, so preflight must recurse the value, not
     // only report values that are themselves IFileSource.
     [Test]
-    public void EnumerateMediaFileSources_CoversObjectValuedNodeInput()
+    public void EnumerateFileSources_CoversObjectValuedNodeInput()
     {
         var brush = new ImageBrush();
         brush.Source.CurrentValue = CreateImageSource("node-fill.png");
@@ -581,7 +581,7 @@ public class ProxySourceEnumeratorTests
         Scene root = CreateScene("node-fill.scene");
         root.Children.Add(ElementWith(drawable));
 
-        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateMediaFileSources(root);
+        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateFileSources(root);
 
         Assert.That(collected.Select(Path.GetFileName), Does.Contain("node-fill.png"));
     }
@@ -701,7 +701,7 @@ public class ProxySourceEnumeratorTests
 
         Assert.That(files, Is.EquivalentTo(new[] { "base-local.png", "animated-local.png" }));
         Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { "animated-local.png" }));
-        Assert.That(ProxySourceEnumerator.EnumerateMediaFileSources(scene).Select(Path.GetFileName),
+        Assert.That(ProxySourceEnumerator.EnumerateFileSources(scene).Select(Path.GetFileName),
             Does.Contain("unused-layer.png"), "Stored output values must remain available to the asset scan.");
     }
 
@@ -768,7 +768,7 @@ public class ProxySourceEnumeratorTests
         missing = Missing(scene, TimeSpan.Zero);
         Assert.That(files, Is.EqualTo(new[] { fallback }));
         Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { fallback }));
-        Assert.That(ProxySourceEnumerator.EnumerateMediaFileSources(scene).Select(Path.GetFileName), Does.Contain(expected));
+        Assert.That(ProxySourceEnumerator.EnumerateFileSources(scene).Select(Path.GetFileName), Does.Contain(expected));
     }
 
     [TestCase(false, false)]
@@ -803,7 +803,7 @@ public class ProxySourceEnumeratorTests
         {
             using var snapshot = new GraphSnapshot();
             snapshot.Build(graph, CompositionContext.Default);
-            snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+            snapshot.Evaluate(CompositionContext.Default);
         }
         IExpression? expressionBeforeWalk = brush.Source.Expression;
         Element element = ElementWith(drawable);
@@ -954,7 +954,7 @@ public class ProxySourceEnumeratorTests
         {
             Assert.That(files, Is.EqualTo(new[] { "inner-upstream.png" }));
             Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { "inner-upstream.png" }));
-            Assert.That(ProxySourceEnumerator.EnumerateMediaFileSources(scene).Select(Path.GetFileName),
+            Assert.That(ProxySourceEnumerator.EnumerateFileSources(scene).Select(Path.GetFileName),
                 Does.Contain("stale-outer-alias.png"), "The broad asset scan must retain stored media for later disconnection.");
         });
     }
@@ -1050,7 +1050,7 @@ public class ProxySourceEnumeratorTests
     // base/animation, so the render opens whatever file source it resolves to. Preflight must resolve
     // the reference (by id, no evaluation) and enumerate the target's sources.
     [Test]
-    public void EnumerateMediaFileSources_CoversReferenceExpressionTarget()
+    public void EnumerateFileSources_CoversReferenceExpressionTarget()
     {
         var referenced = new SourceImage();
         referenced.Source.CurrentValue = CreateImageSource("expr-target.png");
@@ -1062,7 +1062,7 @@ public class ProxySourceEnumeratorTests
         root.Children.Add(ElementWith(referenced));
         root.Children.Add(ElementWith(driven));
 
-        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateMediaFileSources(root);
+        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateFileSources(root);
 
         Assert.That(collected.Select(Path.GetFileName), Does.Contain("expr-target.png"));
     }

@@ -37,7 +37,7 @@ public sealed class EasingEditorViewModel<T>(IPropertyAdapter<T?> property) : Va
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is not PropertyEditorValueChangedEventArgs<Easing?> { NewValue: T newValue } args) return;
+        if (e.Expect<Easing?>(sender) is not { NewValue: T newValue } args) return;
 
         if (ReferenceEquals(args.OldValue, newValue))
         {
@@ -54,7 +54,7 @@ public sealed class EasingEditorViewModel<T>(IPropertyAdapter<T?> property) : Va
         if (sender is EasingEditor editor)
         {
             // A validator may keep the current value, which raises no change to refresh the editor.
-            editor.Value = EditingKeyFrame.Value is { } keyFrame ? keyFrame.Value : PropertyAdapter.GetValue();
+            editor.Value = GetEditingValue();
         }
     }
 }

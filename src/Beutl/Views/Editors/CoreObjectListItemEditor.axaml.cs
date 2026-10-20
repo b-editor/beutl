@@ -1,93 +1,20 @@
-﻿using Avalonia.Controls;
-using Avalonia.Interactivity;
-using Beutl.Engine;
-using Beutl.ViewModels.Dialogs;
+﻿using Avalonia.Interactivity;
 using Beutl.ViewModels.Editors;
-using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
 
-public partial class CoreObjectListItemEditor : UserControl, IListItemEditor
+public partial class CoreObjectListItemEditor : PresenterListItemEditor
 {
-    private bool _flyoutOpen;
-
     public CoreObjectListItemEditor()
     {
         InitializeComponent();
-        ExpandTransitionHelper.Attach(reorderHandle, content, ExpandTransitionHelper.ListItemDuration);
-        FallbackObjectViewHelper.Attach(this, view => content.Children.Add(view));
-
-        reorderHandle.ContextFlyout = new FAMenuFlyout { Placement = PlacementMode.Pointer };
-        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)reorderHandle.ContextFlyout);
-    }
-
-    public Control? ReorderHandle => reorderHandle;
-
-    public event EventHandler? DeleteRequested;
-
-    private void DeleteClick(object? sender, RoutedEventArgs e)
-    {
-        DeleteRequested?.Invoke(this, EventArgs.Empty);
+        AttachParts(reorderHandle, content, presenterEditor);
     }
 
     private async void NewClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return;
 
-        Type propertyType = viewModel.PropertyAdapter.PropertyType;
-
-        if (propertyType.IsSealed)
-        {
-            viewModel.SetNewInstance(propertyType);
-            return;
-        }
-
-        object? result = await SelectTypeOrReference();
-
-        switch (result)
-        {
-            case Type selectedType:
-                viewModel.SetNewInstance(selectedType);
-                break;
-            case CoreObject target:
-                viewModel.SetTarget(target);
-                break;
-        }
-    }
-
-    private async void SelectTarget_Requested(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } vm) return;
-        if (_flyoutOpen) return;
-
-        try
-        {
-            _flyoutOpen = true;
-            await TargetSelectionHelper.HandleSelectTargetRequestAsync<ICoreObjectEditorViewModel, CoreObject>(
-                this,
-                vm,
-                viewModel => viewModel.GetAvailableTargets(),
-                (viewModel, target) => viewModel.SetTarget(target));
-        }
-        finally
-        {
-            _flyoutOpen = false;
-        }
-    }
-
-    private async Task<object?> SelectTypeOrReference()
-    {
-        if (_flyoutOpen) return null;
-        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return null;
-
-        try
-        {
-            _flyoutOpen = true;
-            return await CoreObjectPickerHelper.ShowTypeOrReferenceAsync(this, viewModel);
-        }
-        finally
-        {
-            _flyoutOpen = false;
-        }
+        await CoreObjectPickerHelper.NewInstanceOrPickAsync(this, viewModel);
     }
 }

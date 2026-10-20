@@ -1,1 +1,5 @@
-<Project Sdk="Microsoft.NET.Sdk" />
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <BeutlPublicLibrary>true</BeutlPublicLibrary>
+  </PropertyGroup>
+</Project>

@@ -7,11 +7,11 @@ using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Media;
 using Beutl.NodeGraph;
-using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.Serialization;
 using Beutl.UnitTests.TestInfrastructure;
+using static Beutl.UnitTests.NodeGraph.NodeGraphTestHelpers;
 
 namespace Beutl.UnitTests.NodeGraph;
 
@@ -42,8 +42,8 @@ public class InvalidNestedInputExpressionTests
         second.Fill.Property!.SetValue(separate);
         graph.Nodes.Add(first);
         otherGraph.Nodes.Add(second);
-        var firstConnection = graph.Connect(Find(first, shared.Opacity), Source(graph, 12f));
-        var secondConnection = otherGraph.Connect(Find(second, separate.Opacity), Source(otherGraph, 90f));
+        var firstConnection = graph.Connect(Find(first, shared.Opacity), Source(graph, 12f, "Opacity"));
+        var secondConnection = otherGraph.Connect(Find(second, separate.Opacity), Source(otherGraph, 90f, "Opacity"));
         Evaluate(graph);
         using var resource = shared.ToResource(CompositionContext.Default);
         Assert.That(resource.Opacity, Is.EqualTo(12f));
@@ -51,7 +51,7 @@ public class InvalidNestedInputExpressionTests
         var recordedExpressions = new List<ChangeOperation>();
         using var subscription = history.Observer.Operations.Subscribe(operation =>
         {
-            if (!RecordingSuppression.IsSuppressed && operation is IPropertyPathProvider path
+            if (!RecordingSuppression.IsSuppressed && operation is UpdatePropertyValueOperation<IExpression<float>> path
                 && path.PropertyPath.EndsWith(".Expression", StringComparison.Ordinal))
                 recordedExpressions.Add(operation);
         });
@@ -102,7 +102,7 @@ public class InvalidNestedInputExpressionTests
         var brush = new SolidColorBrush();
         node.Object.Brush.CurrentValue = brush;
         graph.Nodes.Add(node);
-        var connection = graph.Connect(Find(node, brush.Opacity), Source(graph, 12f));
+        var connection = graph.Connect(Find(node, brush.Opacity), Source(graph, 12f, "Opacity"));
         var expression = Expression.Create<float>("73");
         brush.Opacity.Expression = expression;
         node.Object.Brush.Expression = Expression.CreateReference<Brush>(Guid.NewGuid());
@@ -122,7 +122,7 @@ public class InvalidNestedInputExpressionTests
         var brush = new SolidColorBrush();
         node.Object.Brush.CurrentValue = brush;
         graph.Nodes.Add(node);
-        IOutputPort source = Source(graph, 12f);
+        IOutputPort source = Source(graph, 12f, "Opacity");
         using var history = new HistoryHarness(graph);
         var expression = Expression.Create<float>("73");
         brush.Opacity.Expression = expression;
@@ -150,7 +150,7 @@ public class InvalidNestedInputExpressionTests
         graph.Nodes.Add(node);
         brush.Opacity.Expression = Expression.Create<float>("73");
         INestedInputPort port = Find(node, brush.Opacity);
-        graph.Connect(port, Source(graph, 12f));
+        graph.Connect(port, Source(graph, 12f, "Opacity"));
 
         var json = CoreSerializer.SerializeToJsonObject(graph);
         var restored = (GraphModel)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
@@ -162,26 +162,5 @@ public class InvalidNestedInputExpressionTests
         restored.Disconnect(restored.AllConnections.Single());
 
         Assert.That(restoredOpacity.Expression?.ExpressionString, Is.EqualTo("73"));
-    }
-
-    private static INestedInputPort Find(GraphNode node, IProperty property)
-        => node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), property));
-
-    private static IOutputPort Source(GraphModel graph, float value)
-    {
-        var source = new LayerInputNode();
-        var output = new LayerInputNode.LayerInputPort<float>();
-        output.SetupProperty("Opacity");
-        output.Property!.SetValue(value);
-        source.Items.Add(output);
-        graph.Nodes.Add(source);
-        return output;
-    }
-
-    private static void Evaluate(GraphModel graph)
-    {
-        using var snapshot = new GraphSnapshot();
-        snapshot.Build(graph, CompositionContext.Default);
-        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
     }
 }

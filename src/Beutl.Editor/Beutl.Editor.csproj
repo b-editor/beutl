@@ -1,12 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
+        <BeutlPublicLibrary>true</BeutlPublicLibrary>
+        <BeutlSdkAutoReference>Editor</BeutlSdkAutoReference>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <ItemGroup>
         <InternalsVisibleTo Include="Beutl" />
+        <InternalsVisibleTo Include="Beutl.AgentToolkit" />
         <InternalsVisibleTo Include="Beutl.Editor.Components" />
         <InternalsVisibleTo Include="Beutl.HeadlessUITests" />
         <InternalsVisibleTo Include="Beutl.UnitTests" />

@@ -1,20 +1,16 @@
-﻿using System.Diagnostics;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
-using Beutl.Editor.Services;
 using Beutl.Engine.Expressions;
-using Beutl.Extensibility;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.Testing.Headless;
-using Moq;
 
 namespace Beutl.HeadlessUITests;
 
@@ -129,10 +125,7 @@ public class NestedNodePortLayoutTests
             window.Show();
             HeadlessTestHelpers.Render(3);
             Assert.That(view.GetVisualDescendants().OfType<NodePortView>().Count(), Is.GreaterThanOrEqualTo(itemCount * 2));
-            var watch = Stopwatch.StartNew();
-            for (int i = 0; i < 10; i++) view.UpdateNodePortPosition();
-            watch.Stop();
-            TestContext.WriteLine($"PORT_LAYOUT items={itemCount} ports={rows.Length} meanMs={watch.Elapsed.TotalMilliseconds / 10:F2}");
+            view.UpdateNodePortPosition();
 
             var connection = vm.AllConnections.Single();
             Point position = rows[^1].GetPortPosition()!.Value + nodeVm.Position.Value;
@@ -212,13 +205,7 @@ public class NestedNodePortLayoutTests
     private static NodePortView CreateRow(InputPortViewModel member)
         => new() { ProvidedEditor = new Border { Height = 18 }, DataContext = member };
 
-    private static NodeGraphViewModel CreateViewModel(GraphModel graph)
-    {
-        var services = new Mock<IEditorContext>();
-        services.Setup(s => s.GetService(typeof(IPropertyEditorFactory)))
-            .Returns(new Mock<IPropertyEditorFactory>().Object);
-        return new NodeGraphViewModel(graph, services.Object);
-    }
+    private static NodeGraphViewModel CreateViewModel(GraphModel graph) => new(graph, NodeGraphTestContext.Create().Object);
 
     private static IOutputPort AddSource<T>(GraphModel graph, T value)
     {

@@ -5,26 +5,12 @@ namespace Beutl.Api.Services;
 
 public class PackageUninstallContext
 {
-    public PackageUninstallContext(PackageIdentity packageIdentity, string? installedPath = null)
+    public PackageUninstallContext(PackageIdentity packageIdentity, string installedPath)
     {
         Id = packageIdentity;
         PackageId = Id.Id;
         Version = Id.Version.ToString();
-        InstalledPath = installedPath ?? ResolveInstalledPath(packageIdentity);
-    }
-
-    // Must recognise the same installations Clean / Uninstall do, which reach a package whose .nupkg
-    // is gone but whose extracted files remain.
-    private static string ResolveInstalledPath(PackageIdentity packageIdentity)
-    {
-        string directory = Helper.ResolveInstalledDirectory(packageIdentity);
-        if (!Directory.Exists(directory))
-        {
-            throw new ArgumentException(
-                $"Package '{packageIdentity}' is not installed.", nameof(packageIdentity));
-        }
-
-        return directory;
+        InstalledPath = installedPath;
     }
 
     public PackageIdentity Id { get; }

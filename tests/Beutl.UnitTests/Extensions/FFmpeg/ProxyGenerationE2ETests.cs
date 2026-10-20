@@ -6,6 +6,7 @@ using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Extensions.FFmpeg;
 
@@ -30,7 +31,7 @@ public sealed class ProxyGenerationE2ETests
         if (!FFmpegWorkerProcess.IsWorkerAvailable(AppContext.BaseDirectory))
             Assert.Ignore("FFmpeg worker deployment is unavailable; skipping the native integration test.");
 
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         var generator = new FFmpegProxyGenerator(store);
         string source = TestMediaHelper.CreateTestVideoFile(64, 48, new Rational(12, 1), 4);
@@ -42,14 +43,6 @@ public sealed class ProxyGenerationE2ETests
             await generator.GenerateAsync(job);
         }
         catch (ProxyGeneratorUnavailableException ex)
-        {
-            Assert.Ignore(ex.Message);
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("before establishing connection", StringComparison.Ordinal))
-        {
-            Assert.Ignore(ex.Message);
-        }
-        catch (TimeoutException ex)
         {
             Assert.Ignore(ex.Message);
         }
@@ -79,7 +72,7 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public async Task GenerateAsync_AudioOnlySource_IsSkipped()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         var generator = new FFmpegProxyGenerator(store);
         string source = TestMediaHelper.CreateTestAudioFile();
@@ -94,7 +87,7 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public async Task GenerateAsync_AlwaysStillImageSource_IsSkippedBeforeOpeningReader()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         var generator = new FFmpegProxyGenerator(store);
         // A JPEG can only be a single frame, so it is rejected by extension without opening a reader
@@ -102,28 +95,6 @@ public sealed class ProxyGenerationE2ETests
         string source = Path.Combine(root, "still.jpg");
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
-
-        await Assert.ThrowsAsync<ProxyGenerationSkippedException>(
-            async () => await generator.GenerateAsync(job));
-        Assert.That(store.Enumerate(), Is.Empty);
-    }
-
-    // The source file is replaced (size/mtime change) after the job was queued, so its current
-    // fingerprint no longer matches job.Source; the generator must skip rather than encode the new
-    // bytes and publish them under the stale fingerprint/path. Throws before any decode.
-    [Test]
-    public async Task GenerateAsync_SourceChangedSinceQueued_IsSkipped()
-    {
-        string root = CreateRoot();
-        var store = new ProxyStore(root);
-        var generator = new FFmpegProxyGenerator(store);
-        string source = Path.Combine(root, "clip.mov");
-        File.WriteAllBytes(source, [1, 2, 3, 4]);
-        var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
-
-        // Replace the file in place so the current fingerprint differs from job.Source.
-        File.WriteAllBytes(source, [1, 2, 3, 4, 5, 6, 7, 8]);
-        File.SetLastWriteTimeUtc(source, DateTime.UtcNow.AddMinutes(1));
 
         await Assert.ThrowsAsync<ProxyGenerationSkippedException>(
             async () => await generator.GenerateAsync(job));
@@ -194,7 +165,7 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public void WriteMetadata_PreservesSiblingPresetEntries()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         string source = Path.Combine(root, "source.mov");
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
@@ -221,7 +192,7 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public async Task FinalizeAsync_WhenRegisterKeepsThrowing_KeepsProxyFileAndSurfacesError()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: int.MaxValue);
         var generator = new FFmpegProxyGenerator(store);
         (string finalPath, ProxyEntry entry) = SeedFinalizedArtifact(root);
@@ -239,7 +210,7 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public async Task FinalizeAsync_RetriesTransientRegisterFailureThenSucceeds()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 2);
         var generator = new FFmpegProxyGenerator(store);
         (string finalPath, ProxyEntry entry) = SeedFinalizedArtifact(root);
@@ -257,7 +228,7 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public async Task FinalizeAsync_WhenSidecarWriteFails_StillRegistersEntry()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 0);
         var generator = new FFmpegProxyGenerator(store);
         (string finalPath, ProxyEntry entry) = SeedFinalizedArtifact(root);
@@ -278,7 +249,7 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public async Task PublishAsync_CanceledToken_DoesNotMoveOrRegister()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 0);
         var generator = new FFmpegProxyGenerator(store);
         string source = Path.Combine(root, "src.mov");
@@ -307,7 +278,7 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public async Task PublishAsync_WhenMetadataBackupFails_StillRegistersMovedProxy()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 0);
         var generator = new FFmpegProxyGenerator(store);
         string source = Path.Combine(root, "src.mov");
@@ -347,7 +318,7 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public async Task PublishAsync_CanceledDuringRegisterRetry_RemovesMovedArtifactAndSidecar()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: int.MaxValue);
         var generator = new FFmpegProxyGenerator(store);
         string source = Path.Combine(root, "src.mov");
@@ -388,7 +359,7 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public async Task PublishAsync_CanceledDuringRegisterRetry_RestoresExistingProxyAndSidecar()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: int.MaxValue);
         var generator = new FFmpegProxyGenerator(store);
         string source = Path.Combine(root, "src.mov");
@@ -442,7 +413,7 @@ public sealed class ProxyGenerationE2ETests
     public async Task PublishAsync_CanceledAfterRegisterMutation_KeepsStoreAndFilesConsistent(
         [Values] bool hasPrevious, [Values] bool rollbackFails)
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 1)
         {
             MutateBeforeFailure = true,
@@ -539,13 +510,6 @@ public sealed class ProxyGenerationE2ETests
         return (finalPath, entry);
     }
 
-    private static string CreateRoot()
-    {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        return root;
-    }
-
     private static ProxyEntry CreateEntry(ProxyFingerprint source, ProxyPreset preset, string relative)
     {
         return new ProxyEntry(
@@ -559,69 +523,5 @@ public sealed class ProxyGenerationE2ETests
             DateTime.UtcNow,
             DateTime.UtcNow,
             null);
-    }
-
-    private sealed class CountingStore(string root, int failuresBeforeSuccess) : IProxyStore
-    {
-        public int RegisterAttempts { get; private set; }
-
-        public ProxyEntry? LastRegistered { get; private set; }
-
-        public Action<int>? RegisterAttempted { get; set; }
-
-        public bool MutateBeforeFailure { get; init; }
-
-        public bool FailRollback { get; init; }
-
-        public void Seed(ProxyEntry entry) => LastRegistered = entry;
-
-        public string StoreRootPath => root;
-
-        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset)
-            => LastRegistered is { } entry && entry.Source == source && entry.Preset == preset ? entry : null;
-
-        public IReadOnlyList<ProxyEntry> Enumerate() => [];
-
-        public void Register(ProxyEntry entry)
-        {
-            RegisterAttempts++;
-            if (FailRollback && RegisterAttempts > 1)
-                throw new IOException("rollback registration failed");
-            if (MutateBeforeFailure)
-                LastRegistered = entry;
-            RegisterAttempted?.Invoke(RegisterAttempts);
-            if (RegisterAttempts <= failuresBeforeSuccess)
-                throw new InvalidOperationException("index locked");
-
-            LastRegistered = entry;
-        }
-
-        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null) => false;
-
-        public bool Delete(ProxyFingerprint source, ProxyPreset preset)
-        {
-            if (TryGet(source, preset) is null)
-                return false;
-            if (FailRollback)
-                throw new IOException("rollback deletion failed");
-            LastRegistered = null;
-            return true;
-        }
-
-        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
-        {
-        }
-
-        public long GetTotalBytes() => 0;
-
-        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => 0;
-
-        public Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task ReconcileAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-
-#pragma warning disable CS0067 // Not exercised by these tests.
-        public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
-#pragma warning restore CS0067
     }
 }

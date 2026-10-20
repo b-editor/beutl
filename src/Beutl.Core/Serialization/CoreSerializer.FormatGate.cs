@@ -29,13 +29,16 @@ public static partial class CoreSerializer
         {
             if (minNode is not JsonValue minValue || !minValue.TryGetValue(out minAppVersion))
             {
-                throw new UnsupportedFileVersionException(uri, minNode.ToJsonString());
+                // Refused whatever it holds, but named as a newer version when its text reads as one.
+                string recorded = minNode.ToJsonString();
+                throw new UnsupportedFileVersionException(
+                    uri, recorded, FileFormat.Compare(recorded, BeutlApplication.Version) > 0);
             }
 
-            if (!NuGetVersion.TryParse(minAppVersion, out NuGetVersion? required)
-                || VersionComparer.VersionRelease.Compare(required, NuGetVersion.Parse(BeutlApplication.Version)) > 0)
+            int? order = FileFormat.Compare(minAppVersion, BeutlApplication.Version);
+            if (order is null or > 0)
             {
-                throw new UnsupportedFileVersionException(uri, minAppVersion);
+                throw new UnsupportedFileVersionException(uri, minAppVersion, order > 0);
             }
         }
 
@@ -46,8 +49,7 @@ public static partial class CoreSerializer
     private static void RecordRead(ICoreSerializable obj, StoredVersion version, Uri uri)
     {
         RootFileVersions.RecordRead(obj, version.MinAppVersion);
-        // Only a project file records the version that last saved it. Another file read with an appVersion,
-        // which earlier development builds wrote, loses it on its next save.
+        // Another file read with an appVersion, which earlier development builds wrote, loses it on its next save.
         if (obj is Project project)
         {
             RootFileVersions.RecordAppVersion(project, version.AppVersion);
@@ -83,45 +85,15 @@ public static partial class CoreSerializer
     }
 
     // Writes minAppVersion, and appVersion when one is given, which only a project file records. A field
-    // the file already has stays where it is. A new one goes first, after the Id and Name an object such as
-    // a project starts with, which is where project files have always had them, and minAppVersion right
-    // after appVersion.
+    // the file already has stays where it is; a new one goes at the end. Every build reads them by name.
     private static void WriteVersionFields(JsonObject json, string? appVersion, string minAppVersion)
     {
         if (appVersion is not null)
         {
-            SetVersionField(json, FileFormat.AppVersionKey, appVersion, CountLeadingIdAndName(json));
+            json[FileFormat.AppVersionKey] = appVersion;
         }
 
-        int appVersionIndex = json.IndexOf(FileFormat.AppVersionKey);
-        SetVersionField(
-            json,
-            FileFormat.MinAppVersionKey,
-            minAppVersion,
-            appVersionIndex >= 0 ? appVersionIndex + 1 : CountLeadingIdAndName(json));
-    }
-
-    private static void SetVersionField(JsonObject json, string key, string value, int index)
-    {
-        if (json.ContainsKey(key))
-        {
-            json[key] = value;
-        }
-        else
-        {
-            json.Insert(index, key, value);
-        }
-    }
-
-    private static int CountLeadingIdAndName(JsonObject json)
-    {
-        int count = 0;
-        while (count < json.Count && json.GetAt(count).Key is nameof(CoreObject.Id) or nameof(CoreObject.Name))
-        {
-            count++;
-        }
-
-        return count;
+        json[FileFormat.MinAppVersionKey] = minAppVersion;
     }
 
     /// <summary>
@@ -129,12 +101,10 @@ public static partial class CoreSerializer
     /// before another file of the project, which this build writes, reaches the disk.
     /// </summary>
     /// <remarks>
-    /// Released builds check only the project file's version fields before they open a project, so it
-    /// has to be raised before any other file of the project reaches the disk. Only those two fields are
-    /// rewritten: the save that follows can still fail, and the project file must not then point at files
-    /// that were never written. A project without a file yet is left alone, because the save that writes
-    /// it records the version; so is a file no build can open. A file that cannot be read stops the write,
-    /// because a save must not walk past a gate it could not establish.
+    /// Only the two version fields are rewritten: the save that follows can still fail, and the project file
+    /// must not then point at files that were never written. A project without a file yet is left alone,
+    /// because the save that writes it records the version; so is a file no build can open. A file that cannot
+    /// be read stops the write, because a save must not walk past a gate it could not establish.
     /// </remarks>
     private static void RaiseProjectFile(Project project, string minAppVersion)
     {
@@ -228,9 +198,7 @@ public static partial class CoreSerializer
         {
             null => true,
             JsonValue value when value.TryGetValue(out string? recorded) =>
-                NuGetVersion.TryParse(recorded, out NuGetVersion? recordedVersion)
-                && NuGetVersion.TryParse(required, out NuGetVersion? requiredVersion)
-                && VersionComparer.VersionRelease.Compare(recordedVersion, requiredVersion) < 0,
+                FileFormat.Compare(recorded, required) < 0,
             _ => false,
         };
     }

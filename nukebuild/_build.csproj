@@ -12,19 +12,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyModel" />
     <PackageReference Include="Nuke.Common" />
     <!-- Nuke.Common pulls NuGet.Packaging 6.12.1, which carries a known advisory (NU1901). Pin the
-         same 7.6.0 the app projects use. -->
+         version in Directory.Packages.props. -->
     <PackageReference Include="NuGet.Packaging" />
-    <PackageReference Include="Serilog.Sinks.File" />
     <!-- Nuke.Common -> Microsoft.Build.Tasks.Core pulls System.Security.Cryptography.Xml 9.0.0,
          which has known high-severity advisories (NU1903). Lift it to a patched 10.x. -->
     <PackageReference Include="System.Security.Cryptography.Xml" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageDownload Include="nbgv" Version="[3.10.94]" />
   </ItemGroup>
 
 </Project>

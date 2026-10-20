@@ -152,11 +152,8 @@ public readonly struct RenderScaleContract
     /// </param>
     /// <returns>A custom supply-resolving contract.</returns>
     /// <remarks>
-    /// A custom resolver declares no backward map, and none can be attached to one: an output demand reaches
-    /// this operation's inputs unchanged. That is correct only when this operation consumes its inputs at the
-    /// density its own consumer demands. A one-input operation that resamples must instead use
-    /// <see cref="MapInputSupply"/>, whose second callback carries the demand back; declaring the density here
-    /// rather than there lets an unbounded input materialize below the density this operation consumes.
+    /// A custom resolver declares no backward map, so an output demand reaches this operation's inputs unchanged.
+    /// A one-input operation that resamples must use <see cref="MapInputSupply"/> instead.
     /// </remarks>
     public static RenderScaleContract Custom(
         Func<RenderScaleContext, float> resolve)

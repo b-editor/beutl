@@ -7,12 +7,8 @@
 /// latest one.
 /// </summary>
 /// <remarks>
-/// The mutating members (<see cref="StartNew"/>, <see cref="Supersede"/>, <see cref="Dispose"/>)
-/// are expected to be called on a single thread — the UI thread for the editors — and are not
-/// synchronized for concurrent callers. Only <see cref="IsCurrent"/> is read cross-thread: a
-/// captured token's cancelled state stays readable even after its source has been disposed, which
-/// is what lets a fire-and-forget update marshal back to the UI thread and re-check whether it is
-/// still the latest request.
+/// Call the mutating members only on the UI thread. Only <see cref="IsCurrent"/> is read from other threads,
+/// which works even after disposal because a captured token stays readable once its source is disposed.
 /// </remarks>
 internal sealed class LatestRefreshTracker : IDisposable
 {

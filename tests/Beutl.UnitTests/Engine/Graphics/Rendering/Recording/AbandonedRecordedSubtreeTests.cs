@@ -5,7 +5,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
-using SkiaSharp;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.Golden.ImageMetrics;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
@@ -108,33 +108,13 @@ public sealed class AbandonedRecordedSubtreeTests
         return (Brush.Resource)new DrawableBrush(drawable).ToResource(CompositionContext.Default);
     }
 
-    private static float AlphaAt(Bitmap bitmap, int x, int y)
-        => (float)BitConverter.UInt16BitsToHalf(bitmap.GetRow<ushort>(y)[(x * 4) + 3]);
-
     private static RenderNodeRasterization Rasterize(RenderNode node)
     {
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
         return renderer.Rasterize();
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

@@ -38,9 +38,6 @@
   <data name="ExportProjectPartialFailure" xml:space="preserve">
     <value>导出已完成，但 {0} 个资源复制失败。导出的包可能不完整。</value>
   </data>
-  <data name="ConfirmDeleteDirectory" xml:space="preserve">
-    <value>是否要删除此目录？</value>
-  </data>
   <data name="ConfirmDeleteFile" xml:space="preserve">
     <value>是否要删除此文件？</value>
   </data>
@@ -60,17 +57,8 @@
   <data name="EditorContextAlreadyCreated" xml:space="preserve">
     <value>编辑器上下文已创建。</value>
   </data>
-  <data name="EditorContextNull" xml:space="preserve">
-    <value>为编辑器上下文指定了 null。</value>
-  </data>
-  <data name="InputRequired" xml:space="preserve">
-    <value>请输入字符串。</value>
-  </data>
   <data name="InvalidString" xml:space="preserve">
     <value>无效的字符串。</value>
-  </data>
-  <data name="MultipleTypesAvailable" xml:space="preserve">
-    <value>有多个可用类型。</value>
   </data>
   <data name="AnimationIsEnabled" xml:space="preserve">
     <value>动画已启用</value>

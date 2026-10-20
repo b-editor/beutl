@@ -1,7 +1,5 @@
-﻿using Beutl.Composition;
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Effects;
-using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 
@@ -13,6 +11,8 @@ public sealed class ThresholdDegenerateBandTests
 {
     private const int Size = 100;
 
+    private static readonly Rect s_content = new(0, 0, Size, Size);
+
     // Inside the ellipse's bounding box but outside the ellipse, so the stage is handed a transparent pixel.
     private static readonly Point s_corner = new(2, 2);
 
@@ -20,13 +20,12 @@ public sealed class ThresholdDegenerateBandTests
     private static readonly float[] s_smoothnesses = [0f, 1f, 50f, 100f];
 
     [TestCaseSource(nameof(ParameterGrid))]
-    [Category("GpuPassFusionGpu")]
     public void EveryParameterPair_PaintsFinitePixels(float value, float smoothness, float strength)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap rendered = Render(Effect(value, smoothness, strength));
+            using Bitmap rendered = FilteredShapeHarness.Render(s_content, Effect(value, smoothness, strength));
 
             Assert.That(
                 ImageMetrics.FirstNonFinite(("threshold", rendered)),
@@ -37,17 +36,16 @@ public sealed class ThresholdDegenerateBandTests
     }
 
     [TestCaseSource(nameof(ParameterGrid))]
-    [Category("GpuPassFusionGpu")]
     public void TheHitTestContract_AgreesWithWhatTheStagePainted(float value, float smoothness, float strength)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap rendered = Render(Effect(value, smoothness, strength));
-            bool painted = Alpha(rendered, (int)s_corner.X, (int)s_corner.Y) > 0f;
+            using Bitmap rendered = FilteredShapeHarness.Render(s_content, Effect(value, smoothness, strength));
+            bool painted = ImageMetrics.AlphaAt(rendered, (int)s_corner.X, (int)s_corner.Y) > 0f;
 
             Assert.That(
-                HitTest(Effect(value, smoothness, strength)),
+                FilteredShapeHarness.HitTest(s_content, Effect(value, smoothness, strength), s_corner),
                 Is.EqualTo(painted),
                 $"Threshold Value = {value}, Smoothness = {smoothness}, Strength = {strength}: the hit test "
                 + $"{(painted ? "misses a corner the stage painted" : "claims a corner the stage left clear")}.");
@@ -58,16 +56,15 @@ public sealed class ThresholdDegenerateBandTests
     [TestCase(1f)]
     [TestCase(50f)]
     [TestCase(100f)]
-    [Category("GpuPassFusionGpu")]
     public void AZeroThreshold_LeavesATransparentPixelHalfOpaqueAtEverySmoothness(float smoothness)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap rendered = Render(Effect(0f, smoothness, 100f));
+            using Bitmap rendered = FilteredShapeHarness.Render(s_content, Effect(0f, smoothness, 100f));
 
             Assert.That(
-                Alpha(rendered, (int)s_corner.X, (int)s_corner.Y),
+                ImageMetrics.AlphaAt(rendered, (int)s_corner.X, (int)s_corner.Y),
                 Is.EqualTo(0.5f).Within(0.003f),
                 $"Threshold Value = 0, Smoothness = {smoothness} moved the value the stage carries at its "
                 + "own threshold.");
@@ -95,51 +92,4 @@ public sealed class ThresholdDegenerateBandTests
             Smoothness = { CurrentValue = smoothness },
             Strength = { CurrentValue = strength },
         };
-
-    private static bool HitTest(FilterEffect effect)
-    {
-        using RenderNode root = BuildTree(effect);
-        using var renderer = new RenderNodeRenderer(root, Options());
-        return renderer.HitTest(s_corner);
-    }
-
-    private static Bitmap Render(FilterEffect effect)
-    {
-        using RenderTarget target = RenderTarget.Create(Size, Size)
-            ?? throw new InvalidOperationException("Could not allocate the threshold render target.");
-        using var canvas = new ImmediateCanvas(
-            target, RenderIntent.Preview, 1f, logicalSize: new Size(Size, Size));
-        canvas.Clear(Colors.Transparent);
-
-        using (RenderNode root = BuildTree(effect))
-        using (var renderer = new RenderNodeRenderer(root, Options()))
-        {
-            renderer.Render(canvas);
-        }
-
-        return target.Snapshot();
-    }
-
-    private static RenderNode BuildTree(FilterEffect effect)
-    {
-        var node = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
-        node.AddChild(new EllipseRenderNode(new Rect(0, 0, Size, Size), Brushes.Resource.White, null));
-        return node;
-    }
-
-    private static RenderNodeRenderRequest Options()
-        => new()
-        {
-            Intent = RenderIntent.Delivery,
-            TargetDomain = new Rect(0, 0, Size, Size),
-            OutputScale = 1f,
-            MaxWorkingScale = 1f,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        };
-
-    private static float Alpha(Bitmap bitmap, int x, int y)
-    {
-        ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y);
-        return (float)BitConverter.UInt16BitsToHalf(row[(x * 4) + 3]);
-    }
 }

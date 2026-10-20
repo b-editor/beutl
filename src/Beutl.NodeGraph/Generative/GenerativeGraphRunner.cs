@@ -121,7 +121,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
                 {
                     if (ex.SettledRequest)
                         node.RenewRequestKey();
-                    node.RestoreActivePreview();
+                    node.LoadActivePreview();
                     node.SetStatus(GenerativeNodeStatus.Failed, ex.Message);
                 });
             }
@@ -133,7 +133,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
                 failed.Add(node);
                 await host.InvokeOnUIThreadAsync(() =>
                 {
-                    node.RestoreActivePreview();
+                    node.LoadActivePreview();
                     node.SetStatus(GenerativeNodeStatus.Failed);
                 });
                 if (unexpected is null)
@@ -198,7 +198,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
         {
             for (int j = from; j < order.Count; j++)
             {
-                order[j].RestoreActivePreview();
+                order[j].LoadActivePreview();
                 order[j].SetStatus(GenerativeNodeStatus.Canceled);
             }
         });
@@ -212,7 +212,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
         var context = new CompositionContext(host.CurrentTime);
         using var snapshot = new GraphSnapshot();
         snapshot.Build(model, context);
-        snapshot.Evaluate(CompositionTarget.Graphics, context);
+        snapshot.Evaluate(context);
         GraphSnapshot? owner = FindOwningSnapshot(snapshot, model, node);
         int slot = owner?.FindSlotIndex(node) ?? -1;
         if (owner?.GetResource(slot) is not { } resource || owner.GetContext(slot) is not { } nodeContext)

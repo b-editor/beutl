@@ -9,11 +9,8 @@ internal sealed class AiUsageEstimateViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
 
-    // Availability is decided by the server. The client only reflects it, so no
-    // pricing information is needed here. Until the server has answered the
-    // state is Unknown, which is neither a go-ahead nor a shortfall: the run
-    // stays offered and nothing is claimed about the balance, because the
-    // authoritative check runs again before the paid request is sent.
+    // The server decides availability. Until it answers the state is Unknown: the run stays offered and nothing
+    // is claimed about the balance, as the server checks again before the paid request is sent.
     public AiUsageEstimateViewModel(
         AiUsageViewModel usage,
         IObservable<AiOperationAvailabilityState> availability)

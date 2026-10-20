@@ -116,19 +116,16 @@
                                     Orientation="Horizontal">
 
                             <Button Name="PART_StartButton"
-                                    Grid.Column="1"
                                     Theme="{StaticResource TransparentButton}">
                                 <icons:FluentIcon Icon="Previous" />
                             </Button>
 
                             <RepeatButton Name="PART_PreviousButton"
-                                          Grid.Column="2"
                                           Theme="{StaticResource TransparentButton}">
                                 <icons:FluentIcon Icon="Rewind" />
                             </RepeatButton>
 
                             <ToggleButton Name="PART_PlayButton"
-                                          Grid.Column="3"
                                           IsChecked="{TemplateBinding IsPlaying, Mode=OneWay}"
                                           Theme="{StaticResource TransparentToggleButton}">
                                 <ToggleButton.Styles>
@@ -150,22 +147,19 @@
                             </ToggleButton>
 
                             <RepeatButton Name="PART_NextButton"
-                                          Grid.Column="4"
                                           Theme="{StaticResource TransparentButton}">
                                 <icons:FluentIcon Icon="FastForward" />
                             </RepeatButton>
 
                             <Button Name="PART_EndButton"
-                                    Grid.Column="5"
                                     Theme="{StaticResource TransparentButton}">
                                 <icons:FluentIcon Icon="Next" />
                             </Button>
 
                             <ToggleButton Name="PART_LoopButton"
-                                          Grid.Column="6"
                                           IsChecked="{TemplateBinding IsLoopEnabled, Mode=TwoWay}"
                                           Theme="{StaticResource TransparentToggleButton}"
-                                          ToolTip.Tip="Loop">
+                                          ToolTip.Tip="{x:Static lang:Strings.ToggleLoop}">
                                 <icons:FluentIcon Icon="ArrowRepeat1" />
                             </ToggleButton>
                         </StackPanel>

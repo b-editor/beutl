@@ -12,59 +12,16 @@ jobs:
 
   daily-build:
     needs: determine-version
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rid: [linux_x64, linux_arm64, win_x64, win_arm64, osx_x64, osx_arm64]
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v7.0.1
-      with:
-        submodules: recursive
-        persist-credentials: false
-
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v6.0.0
-      with:
-        global-json-file: global.json
-
-    - name: Verify bundled libSkiaSharp
-      run: python3 native/SkiaSharp/verify.py
-
-    - name: Restore
-      run: |
-        chmod +x build.sh
-        ./build.sh restore --runtime ${{ matrix.rid }}
-
-    - name: Build
-      run: |
-        ./build.sh publish \
-          --runtime ${{ matrix.rid }} \
-          --skip restore \
-          --version ${{ needs.determine-version.outputs.nugetVer }} \
-          --assembly-version ${{ needs.determine-version.outputs.asmVer }} \
-          --informational-version ${{ needs.determine-version.outputs.infoVer }}
-
-    - name: Verify native architecture
-      run: python3 build/verify_native_architecture.py --rid ${{ matrix.rid }} output/Beutl
-
-    # The release build runs the same check (build-executable.yml); here it fails before a release does.
-    - name: Smoke-test the FFmpeg worker and the MCP host
-      if: matrix.rid == 'linux_x64'
-      run: python3 build/smoke_test_output.py output/Beutl
-
-    - name: Zip
-      run: |
-        ./build.sh zip \
-          --runtime ${{ matrix.rid }} \
-          --skip publish \
-          --version ${{ needs.determine-version.outputs.nugetVer }}
-
-    - name: Save
-      uses: actions/upload-artifact@v7.0.2
-      with:
-        name: beutl_${{ matrix.rid }}
-        path: ./artifacts/
+    uses: ./.github/workflows/build-executable.yml
+    with:
+      semVer: ${{ needs.determine-version.outputs.semVer }}
+      nugetVer: ${{ needs.determine-version.outputs.nugetVer }}
+      asmVer: ${{ needs.determine-version.outputs.asmVer }}
+      infoVer: ${{ needs.determine-version.outputs.infoVer }}
+      rids: '["linux_x64", "linux_arm64", "win_x64", "win_arm64", "osx_x64", "osx_arm64"]'
+      selfContained: false
+      metadata: false
+      artifactName: 'beutl_{0}'
 
   # A failing nightly build went unnoticed for five days, until a release failed the same way (#2887).
   # One open issue with a fixed title tracks failures: the first failure opens it, later ones comment on it.

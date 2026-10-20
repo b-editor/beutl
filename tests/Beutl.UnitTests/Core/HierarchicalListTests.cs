@@ -118,14 +118,11 @@ public class HierarchicalListTests
     [Test]
     public void DefaultConstructor_AttachedDetachedNotInvokedAutomatically()
     {
-        // 親なしコンストラクタはイベント購読を行わない
         var list = new HierarchicalList<IHierarchical>();
         var child = new TestNode();
 
         list.Add(child);
-        list.Remove(child);
 
-        // 親が居ないのでアタッチされていないこと
         Assert.That(((IHierarchical)child).HierarchicalParent, Is.Null);
     }
 }

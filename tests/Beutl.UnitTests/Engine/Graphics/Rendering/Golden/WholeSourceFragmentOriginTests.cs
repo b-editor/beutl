@@ -54,10 +54,8 @@ public sealed class WholeSourceFragmentOriginTests
         }
         """;
 
-    [Test]
     [TestCase(true)]
     [TestCase(false)]
-    [Category("GpuPassFusionGpu")]
     public void FragmentCoordinate_SpansTheCompleteOutput_WhenTheRequiredRegionIsAStrictSubset(bool fused)
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -98,10 +96,8 @@ public sealed class WholeSourceFragmentOriginTests
         });
     }
 
-    [Test]
     [TestCase(true)]
     [TestCase(false)]
-    [Category("GpuPassFusionGpu")]
     public void HorizontalFlip_MirrorsTheCompleteOutput_WhenTheRequiredRegionIsAStrictSubset(bool fused)
     {
         VulkanTestEnvironment.EnsureAvailable();

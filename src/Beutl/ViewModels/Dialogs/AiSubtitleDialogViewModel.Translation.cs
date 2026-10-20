@@ -26,7 +26,6 @@ public sealed partial class AiSubtitleDialogViewModel
         Error.Value = null;
         IsTranslating.Value = true;
         TranslationPreview.Value = null;
-        TranslatedLineCount.Value = 0;
         using CancellationTokenSource requestCts =
             CancellationTokenSource.CreateLinkedTokenSource(
                 operationLifetime.CancellationToken,
@@ -63,91 +62,56 @@ public sealed partial class AiSubtitleDialogViewModel
                 AiRequestName name = operation.RequestNameFor(index, runModel);
                 AiCaptionTranslationLimits requestLimits = operation.Limits;
                 UpdateOutstandingCaptionRequest();
-                // Anything that ends here ends before the request went out, so
-                // the name reached nothing — a refusal, a run stopped while the
-                // check was in the air, any of it.
-                try
+                if (!await RecordRunPieceAsync(
+                        operation,
+                        name,
+                        () => CreateTranslationAvailabilityRequest(
+                            batch,
+                            runModel,
+                            requestLimits),
+                        PublishTranslationPartial,
+                        WithdrawTranslationName))
                 {
-                    if (!name.IsRepeat)
-                    {
-                        await EnsureAvailableAsync(
-                            CreateTranslationAvailabilityRequest(
-                                batch,
-                                runModel,
-                                requestLimits));
-                    }
-
-                    // Written before the batch goes out, not after it comes
-                    // back. The first batch is the one most likely to be charged
-                    // and lost, and without this the name that charged it would
-                    // die with the session: the next run would name the same
-                    // batch differently and buy it again. A run that cannot be
-                    // written down is not started at all — sending it would be
-                    // paying for something no later session could ask for.
-                    if (!CanRunContinue(PublishTranslationPartial(operation)))
-                        return;
-                }
-                catch
-                {
-                    WithdrawTranslationName(operation, name);
-                    throw;
+                    return;
                 }
 
-                AiCaptionTranslationResponse response;
-                Dictionary<string, string> translatedBatch;
-                try
-                {
-                    response = await _aiService.TranslateAsync(
-                        new AiCaptionTranslationRequest(
-                            batch.Pieces.Select(piece => new AiCaptionTranslationSegment
-                            {
-                                Id = piece.Id,
-                                Text = piece.Text,
-                                Context = new AiCaptionTranslationSegmentContext(
-                                    piece.GroupId,
-                                    piece.ContextPartIndex,
-                                    piece.Start,
-                                    piece.End),
-                            }).ToArray(),
-                            operation.TargetLanguage,
-                            operation.SourceLanguage,
-                            model: runModel,
-                            idempotencyKey: name.Key,
-                            limits: requestLimits),
-                        new Progress<AiCaptionTranslationSegment>(segment =>
-                            operationLifetime.TryPublish(() => ShowTranslatedLine(segment))),
-                        RequestToken);
-                    translatedBatch = ValidateTranslatedBatch(batch, response);
-                }
-                catch (AiProviderErrorException)
-                {
-                    // Failed or invalid settled responses need a fresh key on retry.
-                    // Its key would keep answering with that failure, so what is
-                    // left of the run goes out under new ones — and the resume
-                    // state is rewritten with them, or a run resumed after a
-                    // restart would ask under the spent key again.
-                    if (operation.RequestKey.Retire())
-                    {
-                        UpdateOutstandingCaptionRequest();
-                        PublishTranslationPartial(operation);
-                    }
-                    throw;
-                }
-                catch (Exception ex) when (AiRequestOutcome.CanWithdraw(name, ex))
-                {
-                    WithdrawTranslationName(operation, name);
-                    throw;
-                }
-                if (!operation.RequestKey.Retire(name))
+                (bool settled, (AiCaptionTranslationResponse response, Dictionary<string, string> translatedBatch)) =
+                    await SendRunPieceAsync(
+                        operation,
+                        name,
+                        async () =>
+                        {
+                            AiCaptionTranslationResponse translation = await _translation.TranslateAsync(
+                                new AiCaptionTranslationRequest(
+                                    batch.Pieces.Select(piece => new AiCaptionTranslationSegment
+                                    {
+                                        Id = piece.Id,
+                                        Text = piece.Text,
+                                        Context = new AiCaptionTranslationSegmentContext(
+                                            piece.GroupId,
+                                            piece.ContextPartIndex,
+                                            piece.Start,
+                                            piece.End),
+                                    }).ToArray(),
+                                    operation.TargetLanguage,
+                                    operation.SourceLanguage,
+                                    model: runModel,
+                                    idempotencyKey: name.Key,
+                                    limits: requestLimits),
+                                new Progress<AiCaptionTranslationSegment>(segment =>
+                                    operationLifetime.TryPublish(() => ShowTranslatedLine(segment))),
+                                RequestToken);
+                            return (translation, ValidateTranslatedBatch(batch, translation));
+                        },
+                        PublishTranslationPartial,
+                        WithdrawTranslationName);
+                if (!settled)
                     return;
                 AddTranslatedBatch(operation, translatedBatch);
                 RecordCaptionDraftJob(response.JobId, operation.ExpectedDraftScopeRevision);
                 operation.CompletedBatchCount++;
                 UpdateOutstandingCaptionRequest();
-                // If this cannot be written down, the response may already have
-                // been charged. Stop before the final ClearPartialResult can delete
-                // the previous durable seed; the next attempt can persist this
-                // in-memory progress and resume by idempotency key.
+                // Stop if this cannot be written down, as in TranscribeSourceFileAsync.
                 if (!CanRunContinue(PublishTranslationPartial(operation)))
                     return;
                 RefreshTranslationEstimate();
@@ -168,28 +132,13 @@ public sealed partial class AiSubtitleDialogViewModel
         {
             operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, message));
         }
-        // This run's name belongs to another request, so name the remainder anew.
-        catch (AiRequestChangedException)
+        // This run's name belongs to another request, or the job it made is gone.
+        catch (Exception ex) when (ex is AiRequestChangedException or AiRequestWasDeletedException)
         {
-            if (_pendingTranslation?.RequestKey.Retire() == true)
-            {
-                UpdateOutstandingCaptionRequest();
-                if (_pendingTranslation is { } changed)
-                    PublishTranslationPartial(changed);
-            }
-            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestChanged));
-        }
-        catch (AiRequestWasDeletedException)
-        {
-            // The job those names made is gone, so the rest of the run needs
-            // new ones; the partial that has been paid for is still good.
-            if (_pendingTranslation?.RequestKey.Retire() == true)
-            {
-                UpdateOutstandingCaptionRequest();
-                if (_pendingTranslation is { } deleted)
-                    PublishTranslationPartial(deleted);
-            }
-            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestWasDeleted));
+            RetireTranslationRunName();
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(
+                draftScopeRevision,
+                ex is AiRequestWasDeletedException ? Strings.AiRequestWasDeleted : Strings.AiRequestChanged));
         }
         catch (SubtitleInputException ex)
         {
@@ -256,7 +205,7 @@ public sealed partial class AiSubtitleDialogViewModel
             {
                 _retainedCaptionRecoveries.Remove(retained);
                 operation = RestoreTranslationOperation(
-                    retained.Draft,
+                    retained.Draft.TranslationResume!,
                     captionRevision,
                     draftScopeRevision);
                 _captionDraftJobId = retained.JobId;
@@ -295,10 +244,7 @@ public sealed partial class AiSubtitleDialogViewModel
                 selectedSourceLanguage,
                 StringComparison.Ordinal);
 
-    // A run is worth picking up as soon as it has named a piece, not only once a
-    // piece has come back. The first piece is the one most likely to have been
-    // charged and lost: starting a new run instead would name it differently and
-    // buy it again.
+    // A run is worth picking up as soon as it has named a piece; see CanResumeSceneTranscription.
     private bool CanUseTranslationOperation(
         TranslationOperation operation,
         CaptionDocument document,
@@ -362,14 +308,15 @@ public sealed partial class AiSubtitleDialogViewModel
     }
 
     private static TranslationOperation RestoreTranslationOperation(
-        CaptionDraft draft,
+        CaptionTranslationResume resume,
         long captionRevision,
         long draftScopeRevision)
     {
-        CaptionTranslationResume resume = draft.TranslationResume
-            ?? throw new InvalidDataException("The retained translation has no resume state.");
         var sourceDocument = new CaptionDocument(RestoreCues(resume.SourceCues));
-        AiCaptionTranslationLimits limits = TranslationLimitsOf(resume);
+        var limits = new AiCaptionTranslationLimits(
+            resume.MaxSegments,
+            resume.MaxCharacters,
+            resume.MaxRequestBytes);
         AiModelId? model = ModelIdOrNull(resume.RequestKeyModel);
         List<TranslationBatch> batches = CaptionTranslationBatcher.CreateBatches(
             sourceDocument,
@@ -389,7 +336,7 @@ public sealed partial class AiSubtitleDialogViewModel
             draftScopeRevision,
             limits,
             batches,
-            SeedOrNull(resume.RequestKeySeed),
+            resume.RequestKeySeed,
             resume.RequestKeyNamePending)
         {
             CompletedBatchCount = resume.CompletedBatchCount,
@@ -405,23 +352,9 @@ public sealed partial class AiSubtitleDialogViewModel
         {
             throw new InvalidDataException("The retained translated segments are invalid.");
         }
-        foreach ((string id, string text) in resume.TranslatedPieces)
-        {
-            operation.TranslatedPieces.Add(id, text);
-        }
+        AddTranslatedBatch(operation, resume.TranslatedPieces);
         return operation;
     }
-
-    private static AiCaptionTranslationLimits TranslationLimitsOf(
-        CaptionTranslationResume resume)
-        => resume.MaxSegments > 0
-            && resume.MaxCharacters > 0
-            && resume.MaxRequestBytes > 0
-                ? new AiCaptionTranslationLimits(
-                    resume.MaxSegments,
-                    resume.MaxCharacters,
-                    resume.MaxRequestBytes)
-                : AiCaptionTranslationLimits.Default;
 
     private static bool CaptionDocumentsEqual(CaptionDocument left, CaptionDocument right)
         => StoredCuesEqual(StoreCues(left.Cues), right.Cues);
@@ -616,6 +549,16 @@ public sealed partial class AiSubtitleDialogViewModel
         return CaptionDraftOutcome.Recorded;
     }
 
+    // Names the remainder of the run anew; the partial that has been paid for is still good.
+    private void RetireTranslationRunName()
+    {
+        if (_pendingTranslation?.RequestKey.Retire() == true)
+        {
+            UpdateOutstandingCaptionRequest();
+            PublishTranslationPartial(_pendingTranslation);
+        }
+    }
+
     private void WithdrawTranslationName(
         TranslationOperation operation,
         AiRequestName name)
@@ -673,7 +616,7 @@ public sealed partial class AiSubtitleDialogViewModel
                     TranslationModelPicker.SelectedModel,
                     limits)
                 .FirstOrDefault() is { } batch
-                ? CreateTranslationAvailabilityRequest(batch, limits: limits)
+                ? CreateTranslationAvailabilityRequest(batch, TranslationModelPicker.SelectedModel, limits)
                 : null;
         }
 
@@ -681,24 +624,14 @@ public sealed partial class AiSubtitleDialogViewModel
     }
 
     // The line the model has just translated, shown while the rest is still
-    // being worked on. It is a preview: what ends up on the cues is the batch
-    // the server returns, checked as it always was.
+    // being worked on. A preview only: the cues take the batch the server returns, after validation.
     private void ShowTranslatedLine(AiCaptionTranslationSegment segment)
     {
         if (_disposed || string.IsNullOrEmpty(segment.Text))
             return;
 
         TranslationPreview.Value = segment.Text;
-        TranslatedLineCount.Value++;
     }
-
-    private AiOperationAvailabilityRequest.Translation CreateTranslationAvailabilityRequest(
-        TranslationBatch batch,
-        AiCaptionTranslationLimits limits)
-        => CreateTranslationAvailabilityRequest(
-            batch,
-            TranslationModelPicker.SelectedModel,
-            limits);
 
     private static AiOperationAvailabilityRequest.Translation CreateTranslationAvailabilityRequest(
         TranslationBatch batch,
@@ -724,10 +657,9 @@ public sealed partial class AiSubtitleDialogViewModel
         IReadOnlyList<TranslationBatch> batches,
         string? requestKeySeed = null,
         bool requestKeyNamePending = false)
+        : CaptionRunOperation(expectedCaptionRevision, expectedDraftScopeRevision, requestKeySeed, requestKeyNamePending)
     {
         public CaptionDocument SourceDocument { get; } = sourceDocument;
-
-        public long ExpectedCaptionRevision { get; set; } = expectedCaptionRevision;
 
         public string? SourceLanguage { get; } = sourceLanguage;
 
@@ -735,30 +667,13 @@ public sealed partial class AiSubtitleDialogViewModel
 
         public string TargetLanguage { get; } = targetLanguage;
 
-        public long ExpectedDraftScopeRevision { get; } = expectedDraftScopeRevision;
-
         public AiCaptionTranslationLimits Limits { get; } = limits;
 
         public IReadOnlyList<TranslationBatch> Batches { get; } = batches;
 
-        /// <summary>
-        /// Names this run's requests, one key per batch. Restored with the rest
-        /// of the resume state so a batch resumed after a restart asks for the
-        /// translation it already paid for instead of buying a second one.
-        /// </summary>
-        public AiRequestKey RequestKey { get; } = new(requestKeySeed, requestKeyNamePending);
-
-        public string RequestKeySeed => RequestKey.Seed;
-
-
-        /// <summary>The model the names handed out so far were built from.</summary>
-        public string RequestKeyModel { get; set; } = string.Empty;
-
-        public AiRequestName RequestNameFor(int batchIndex, AiModelId? model)
-        {
-            RequestKeyModel = model?.Value ?? string.Empty;
-            return RequestKey.NameFor(batchIndex, model?.Value, TargetLanguage, SourceLanguage);
-        }
+        // A batch is named for the languages as well.
+        protected override AiRequestName NameFor(int index, string? model)
+            => RequestKey.NameFor(index, model, TargetLanguage, SourceLanguage);
 
         public Dictionary<string, string> TranslatedPieces { get; } = new(StringComparer.Ordinal);
 

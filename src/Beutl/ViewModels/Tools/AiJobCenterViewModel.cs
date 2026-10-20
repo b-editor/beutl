@@ -91,8 +91,6 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
 
     internal AiUsageViewModel Usage { get; }
 
-    internal EditViewModel Editor => _editViewModel;
-
     public ReactivePropertySlim<bool> IsLoading { get; } = new();
 
     public ReactivePropertySlim<bool> IsInitialLoading { get; } = new();
@@ -167,50 +165,23 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
         }
     }
 
-    public async Task RetryJobAsync(AiJobItemViewModel item)
-        => await RetryJobAsync(item, confirmedLease: null, confirmedHandler: null);
-
-    private async Task RetryJobAsync(
-        AiJobItemViewModel item,
-        IAiJobRetryHandlerLease? confirmedLease,
-        IAiJobRetryHandler? confirmedHandler)
+    // Retries with the handler the confirmation took.
+    private async Task RetryJobAsync(AiJobItemViewModel item, IAiJobRetryHandler handler)
     {
         using AsyncOperationLifetime.Operation? lifetimeOperation = _operations.TryEnter();
         if (lifetimeOperation is null)
-        {
-            confirmedLease?.Dispose();
             return;
-        }
         ArgumentNullException.ThrowIfNull(item);
         if (!item.CanRetry)
-        {
-            confirmedLease?.Dispose();
             return;
-        }
 
         using IDisposable? operation = TryBeginOperation(item);
         if (operation is null)
-        {
-            confirmedLease?.Dispose();
             return;
-        }
-
-        IAiJobRetryHandlerLease? lease = confirmedLease;
 
         try
         {
-            if (lease is null && !_jobKinds.TryAcquireRetryHandler(item.Job.Kind, out lease))
-            {
-                SetOperationError(Strings.AiPricingUnavailable);
-                return;
-            }
-
-            if (!await SubmitRetryAsync(
-                    item,
-                    lease,
-                    confirmed: confirmedLease is not null,
-                    confirmedHandler,
-                    lifetimeOperation.CancellationToken))
+            if (!await SubmitRetryAsync(item, handler, lifetimeOperation.CancellationToken))
             {
                 return;
             }
@@ -251,53 +222,34 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
         }
     }
 
-    // Sends the retry under the lease, which is disposed once it has gone out or been refused.
-    // False when it was refused, with the reason already shown.
+    // False when the retry was refused, with the reason already shown.
     private async Task<bool> SubmitRetryAsync(
         AiJobItemViewModel item,
-        IAiJobRetryHandlerLease lease,
-        bool confirmed,
-        IAiJobRetryHandler? confirmedHandler,
+        IAiJobRetryHandler retryHandler,
         CancellationToken cancellationToken)
     {
-        using (lease)
+        AiJobStatusSemantics status = _jobKinds.GetStatus(item.Job);
+        if (!retryHandler.CanRetry(item.Job, status))
         {
-            AiJobStatusSemantics status = _jobKinds.GetStatus(item.Job);
-            IAiJobRetryHandler retryHandler = confirmedHandler ?? lease.Handler;
-            if (!retryHandler.CanRetry(item.Job, status))
+            SetOperationError(Strings.AiPricingUnavailable);
+            return false;
+        }
+
+        AiJobRetryPreparationResult prepared = await retryHandler.PrepareAsync(
+            item.Job,
+            cancellationToken);
+        await using (prepared)
+        {
+            if (!prepared.IsReady)
             {
-                SetOperationError(Strings.AiPricingUnavailable);
+                SetOperationError(prepared.Explanation);
                 return false;
             }
 
-            if (!confirmed)
+            IAiJobRetryPreparation preparation = prepared.TakePreparation();
+            await using (preparation)
             {
-                AiJobRetryPreflight estimate = await retryHandler.GetPreflightAsync(
-                    item.Job,
-                    cancellationToken);
-                if (!estimate.CanSubmit)
-                {
-                    SetOperationError(estimate.Explanation);
-                    return false;
-                }
-            }
-
-            AiJobRetryPreparationResult prepared = await retryHandler.PrepareAsync(
-                item.Job,
-                cancellationToken);
-            await using (prepared)
-            {
-                if (!prepared.IsReady)
-                {
-                    SetOperationError(prepared.Explanation);
-                    return false;
-                }
-
-                IAiJobRetryPreparation preparation = prepared.TakePreparation();
-                await using (preparation)
-                {
-                    await preparation.ExecuteAsync(cancellationToken);
-                }
+                await preparation.ExecuteAsync(cancellationToken);
             }
         }
 
@@ -341,24 +293,16 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
         try
         {
             AiJobStatusSemantics status = _jobKinds.GetStatus(item.Job);
-            if (!_resultHandlers.TryAcquireApplicator(
-                    item.Job.Kind,
-                    out IAiJobResultApplicatorLease? applicatorLease))
+            if (!_resultHandlers.TryGetApplicator(item.Job.Kind, out IAiJobResultApplicator? applicator)
+                || !applicator.CanApply(item.Job, status))
             {
                 return;
             }
 
-            using (applicatorLease)
-            {
-                IAiJobResultApplicator applicator = applicatorLease.Applicator;
-                if (!applicator.CanApply(item.Job, status))
-                    return;
-
-                await applicator.ApplyAsync(
-                    item.Job,
-                    _resultContext,
-                    lifetimeOperation.CancellationToken);
-            }
+            await applicator.ApplyAsync(
+                item.Job,
+                _resultContext,
+                lifetimeOperation.CancellationToken);
         }
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
         {

@@ -72,9 +72,9 @@ public sealed partial class NodeGraphDrawable : Drawable
                 {
                     _snapshot.Build(_model, context);
 
-                    _snapshot.Evaluate(CompositionTarget.Graphics, context);
+                    _snapshot.Evaluate(context);
 
-                    PullOutputValue(_model);
+                    _snapshot.CollectOutputRenderNodes(_model, OutputRenderNode);
 
                     Version++;
                     versionBumped = true;
@@ -90,11 +90,6 @@ public sealed partial class NodeGraphDrawable : Drawable
         private void OnModelTopologyChanged(object? sender, EventArgs e)
         {
             _snapshot.MarkDirty();
-        }
-
-        private void PullOutputValue(GraphModel model)
-        {
-            _snapshot.CollectOutputRenderNodes(model, OutputRenderNode);
         }
 
         protected override void Dispose(bool disposing)

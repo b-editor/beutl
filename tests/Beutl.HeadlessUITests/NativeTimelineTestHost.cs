@@ -11,9 +11,9 @@ using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
-using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using static Beutl.HeadlessUITests.MacNative;
 
 namespace Beutl.HeadlessUITests;
 
@@ -54,14 +54,7 @@ internal static partial class NativeTimelineTestHost
         int exitCode = 1;
         try
         {
-            await TestReset.ResetShellAsync();
-            string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, "project");
-            Directory.CreateDirectory(root);
-            Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "native-scroll", root))!;
-            Scene scene = project.Items.OfType<Scene>().Single();
-            scene.Duration = TimeSpan.FromSeconds(30);
-            TestShell.Editor.ActivateTabItem(scene);
-            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("native-scroll", duration: TimeSpan.FromSeconds(30));
             TimelineTabViewModel model = editor.FindToolTab<TimelineTabViewModel>()!;
             view = new TimelineTabView { DataContext = model }; // Use the production detector.
             window = new Window
@@ -187,8 +180,6 @@ internal static partial class NativeTimelineTestHost
         }
     }
 
-    private const string ObjC = "/usr/lib/libobjc.A.dylib";
-    private const string CoreGraphics = "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics";
     [StructLayout(LayoutKind.Sequential)]
     private readonly record struct NativePoint(double X, double Y);
     [StructLayout(LayoutKind.Sequential)]
@@ -196,14 +187,6 @@ internal static partial class NativeTimelineTestHost
 
     private static nint CreateString(string value) => String(GetClass("NSString"), Selector("stringWithUTF8String:"), value);
 
-    [LibraryImport(ObjC, EntryPoint = "objc_getClass", StringMarshalling = StringMarshalling.Utf8)]
-    private static partial nint GetClass(string name);
-    [LibraryImport(ObjC, EntryPoint = "sel_registerName", StringMarshalling = StringMarshalling.Utf8)]
-    private static partial nint Selector(string name);
-    [LibraryImport(ObjC, EntryPoint = "objc_msgSend")]
-    private static partial nint Send(nint receiver, nint selector);
-    [LibraryImport(ObjC, EntryPoint = "objc_msgSend")]
-    private static partial nint Send(nint receiver, nint selector, nint argument);
     [LibraryImport(ObjC, EntryPoint = "objc_msgSend")]
     private static partial NativePoint ConvertPoint(nint receiver, nint selector, NativePoint point);
     [LibraryImport(ObjC, EntryPoint = "objc_msgSend", StringMarshalling = StringMarshalling.Utf8)]
@@ -213,8 +196,6 @@ internal static partial class NativeTimelineTestHost
     [LibraryImport(ObjC, EntryPoint = "objc_msgSend")]
     private static partial nint NextEvent(nint receiver, nint selector, ulong mask, nint date, nint mode, byte dequeue);
     [LibraryImport(CoreGraphics)]
-    private static partial nint CGEventCreateScrollWheelEvent2(nint source, uint units, uint wheelCount, int wheel1, int wheel2, int wheel3);
-    [LibraryImport(CoreGraphics)]
     private static partial void CGEventSetLocation(nint cgEvent, NativePoint point);
     [LibraryImport(CoreGraphics)]
     private static partial void CGEventSetFlags(nint cgEvent, ulong flags);
@@ -222,12 +203,6 @@ internal static partial class NativeTimelineTestHost
     private static partial uint CGMainDisplayID();
     [LibraryImport(CoreGraphics)]
     private static partial NativeRect CGDisplayBounds(uint display);
-    [LibraryImport(CoreGraphics)]
-    private static partial void CGEventSetTimestamp(nint cgEvent, ulong timestamp);
-    [LibraryImport(CoreGraphics)]
-    private static partial void CGEventSetIntegerValueField(nint cgEvent, uint field, long value);
-    [LibraryImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
-    private static partial void CFRelease(nint value);
 }
 
 [TestFixture]

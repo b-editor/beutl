@@ -29,19 +29,22 @@ internal sealed partial class VersionControlHistoryView : UserControl
         {
             if (DrillDownOnSelection)
             {
-                await VersionControlViewEventBoundary.RunSafelyAsync(
-                    () => viewModel.OpenCommitDetailAsync(commit));
+                await viewModel.RunCommandAsync(
+                    () => viewModel.OpenCommitDetailAsync(commit),
+                    nameof(viewModel.OpenCommitDetailAsync));
             }
             else
             {
-                await VersionControlViewEventBoundary.RunSafelyAsync(
-                    () => viewModel.SelectCommitAsync(commit));
+                await viewModel.RunCommandAsync(
+                    () => viewModel.SelectCommitAsync(commit),
+                    nameof(viewModel.SelectCommitAsync));
             }
         }
         else if (!DrillDownOnSelection)
         {
-            await VersionControlViewEventBoundary.RunSafelyAsync(
-                () => viewModel.SelectCommitAsync(null));
+            await viewModel.RunCommandAsync(
+                () => viewModel.SelectCommitAsync(null),
+                nameof(viewModel.SelectCommitAsync));
         }
     }
 

@@ -1,4 +1,5 @@
-﻿using Avalonia.Threading;
+﻿using System.Collections.ObjectModel;
+using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Services;
 using Beutl.Services.AI;
@@ -89,5 +90,22 @@ internal static class AiFormRecovery
                 Path.GetFullPath(source.Path ?? string.Empty),
                 Path.GetFullPath(path),
                 StringComparison.Ordinal);
+    }
+
+    public static IDisposable RememberChoice<T>(
+        this IObservable<T> source,
+        Func<bool> isApplying,
+        Action<T> remember)
+        => source.Subscribe(value =>
+        {
+            if (!isApplying())
+                remember(value);
+        });
+
+    public static void Replace<T>(this ObservableCollection<T> target, IEnumerable<T> values)
+    {
+        target.Clear();
+        foreach (T value in values)
+            target.Add(value);
     }
 }

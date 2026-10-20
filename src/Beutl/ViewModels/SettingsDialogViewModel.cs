@@ -27,7 +27,7 @@ public sealed class SettingsDialogViewModel : IDisposable
         ArgumentNullException.ThrowIfNull(aiPlanCoordinator);
         _account = new(() => new AccountSettingsPageViewModel(clients, aiPlanCoordinator));
         _editor = new(() => new EditorSettingsPageViewModel());
-        _view = new(() => new ViewSettingsPageViewModel(_editor));
+        _view = new(() => new ViewSettingsPageViewModel());
         _font = new(() => new FontSettingsPageViewModel());
         _extensionsPage = new(() => new ExtensionsSettingsPageViewModel(extensionProvider));
         _information = new(() => new InformationPageViewModel());

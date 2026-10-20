@@ -44,7 +44,8 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
 
         public GraphModel? Model { get; private set; }
 
-        public TimeSpan? LastTime { get; private set; }
+        // Set by each Reconcile that leaves a Model, so it is valid whenever Model is not null.
+        public TimeSpan LastTime { get; private set; }
 
         // Composition flags captured from the build-time context; the render node replays the graph
         // with a fresh context and must restore them. Otherwise graph video inputs always evaluate

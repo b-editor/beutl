@@ -2,7 +2,6 @@
 using System.Net.Http;
 
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -12,6 +11,7 @@ using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
 using Beutl.Extensibility;
+using Beutl.Testing.Headless;
 
 using Moq;
 using SkiaSharp;
@@ -88,13 +88,7 @@ public class BrowserBookmarkIconTests
             await Task.WhenAll(icons.Select(icon => icon.Loading));
             Assert.That(icons, Has.Length.EqualTo(2));
             Assert.That(icons.All(icon => icon.Source != null), Is.True);
-            if (Environment.GetEnvironmentVariable("BEUTL_BROWSER_CAPTURE") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                Dispatcher.UIThread.RunJobs();
-                using var image = window.CaptureRenderedFrame();
-                image?.Save(Path.Combine(directory, "live-bookmark-icons.png"), PngBitmapEncoderOptions.Default);
-            }
+            HeadlessCapture.SaveIfRequested(window, nameof(BrowserBookmarkIconTests), "live-bookmark-icons");
         });
     }
 

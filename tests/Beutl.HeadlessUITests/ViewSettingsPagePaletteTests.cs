@@ -41,41 +41,46 @@ public class ViewSettingsPagePaletteTests
 
     private static void AssertSwatchesBindToTheirColorItem()
     {
-        var viewModel = new ViewSettingsPageViewModel(
-            new Lazy<EditorSettingsPageViewModel>(() => new EditorSettingsPageViewModel()));
+        using var viewModel = new ViewSettingsPageViewModel();
         var page = new ViewSettingsPage { DataContext = viewModel };
         var window = new Window { Content = page, Width = 900, Height = 700 };
 
         window.Show();
-
-        // The palette lives inside the collapsed accent OptionsDisplayItem, so its containers are
-        // not realized until it expands.
-        foreach (OptionsDisplayItem item in page.GetLogicalDescendants().OfType<OptionsDisplayItem>()
-                     .Where(x => x.Expands))
+        try
         {
-            item.IsExpanded = true;
+            // The palette lives inside the collapsed accent OptionsDisplayItem, so its containers are
+            // not realized until it expands.
+            foreach (OptionsDisplayItem item in page.GetLogicalDescendants().OfType<OptionsDisplayItem>()
+                         .Where(x => x.Expands))
+            {
+                item.IsExpanded = true;
+            }
+
+            window.UpdateLayout();
+
+            ListBox palette = page.GetLogicalDescendants().OfType<ListBox>()
+                .First(x => ReferenceEquals(x.ItemsSource, viewModel.PredefinedColors));
+            palette.UpdateLayout();
+
+            Color expected = viewModel.PredefinedColors[0];
+            var container = palette.ContainerFromIndex(0) as ListBoxItem;
+            Assert.That(container, Is.Not.Null, "the palette should realize its item containers once expanded");
+            container!.ApplyTemplate();
+
+            SolidColorBrush?[] brushes = container.GetVisualDescendants()
+                .OfType<Border>()
+                .Select(x => x.Background as SolidColorBrush)
+                .Where(x => x != null)
+                .ToArray();
+
+            Assert.That(brushes, Is.Not.Empty, "the swatch template should produce a SolidColorBrush");
+            Assert.That(
+                brushes.Select(x => x!.Color), Does.Contain(expected),
+                $"a swatch should paint its own palette color ({expected}), not the page's DataContext");
         }
-
-        window.UpdateLayout();
-
-        ListBox palette = page.GetLogicalDescendants().OfType<ListBox>()
-            .First(x => ReferenceEquals(x.ItemsSource, viewModel.PredefinedColors));
-        palette.UpdateLayout();
-
-        Color expected = viewModel.PredefinedColors[0];
-        var container = palette.ContainerFromIndex(0) as ListBoxItem;
-        Assert.That(container, Is.Not.Null, "the palette should realize its item containers once expanded");
-        container!.ApplyTemplate();
-
-        SolidColorBrush?[] brushes = container.GetVisualDescendants()
-            .OfType<Border>()
-            .Select(x => x.Background as SolidColorBrush)
-            .Where(x => x != null)
-            .ToArray();
-
-        Assert.That(brushes, Is.Not.Empty, "the swatch template should produce a SolidColorBrush");
-        Assert.That(
-            brushes.Select(x => x!.Color), Does.Contain(expected),
-            $"a swatch should paint its own palette color ({expected}), not the page's DataContext");
+        finally
+        {
+            window.Close();
+        }
     }
 }

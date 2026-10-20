@@ -1,13 +1,11 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
-using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 
@@ -23,7 +21,7 @@ public sealed class ComposedSceneRenderCacheTests
     {
         RenderThread.Dispatcher.Invoke(() =>
         {
-            Drawable.Resource[] resources = CreateSceneResources();
+            Drawable.Resource[] resources = RenderCacheTestSupport.CreateRepresentativeScene();
             try
             {
                 using var root = new DrawableRenderNode(resources[0]);
@@ -94,7 +92,7 @@ public sealed class ComposedSceneRenderCacheTests
             };
             using Drawable.Resource resource = text.ToResource(CompositionContext.Default);
 
-            AssertCacheAdmissionParity<TextRenderNode>(resource, expectCacheHit: false);
+            AssertCacheAdmissionParity<TextRenderNode>(resource);
         });
     }
 
@@ -105,7 +103,7 @@ public sealed class ComposedSceneRenderCacheTests
         {
             using Drawable.Resource resource = CreateDrawableBrushHost(0.5f);
 
-            AssertCacheAdmissionParity<GeometryRenderNode>(resource, expectCacheHit: false);
+            AssertCacheAdmissionParity<GeometryRenderNode>(resource);
         });
     }
 
@@ -125,10 +123,7 @@ public sealed class ComposedSceneRenderCacheTests
             };
             using Drawable.Resource resource = text.ToResource(CompositionContext.Default);
 
-            AssertProductionCacheSequenceParity(
-                resource,
-                RenderCacheOptions.Enabled,
-                expectCacheHit: false);
+            AssertProductionCacheSequence(resource, RenderCacheOptions.Enabled);
         });
     }
 
@@ -156,10 +151,7 @@ public sealed class ComposedSceneRenderCacheTests
             });
             using Drawable.Resource resource = group.ToResource(CompositionContext.Default);
 
-            AssertProductionCacheSequenceParity(
-                resource,
-                RenderCacheOptions.Enabled,
-                expectCacheHit: false);
+            AssertProductionCacheSequence(resource, RenderCacheOptions.Enabled);
         });
     }
 
@@ -178,10 +170,7 @@ public sealed class ComposedSceneRenderCacheTests
             });
             using Drawable.Resource resource = group.ToResource(CompositionContext.Default);
 
-            AssertProductionCacheSequenceParity(
-                resource,
-                RenderCacheOptions.Enabled,
-                expectCacheHit: false);
+            AssertProductionCacheSequence(resource, RenderCacheOptions.Enabled);
         });
     }
 
@@ -216,7 +205,7 @@ public sealed class ComposedSceneRenderCacheTests
                 Intent = RenderIntent.Preview,
                 TargetDomain = s_frameBounds,
                 Purpose = RenderRequestPurpose.Frame,
-            }, new CpuTargetFactory());
+            }, new CpuRenderTargetFactory());
             using RenderNodeRasterization first = renderer.Rasterize();
             using RenderNodeRasterization second = renderer.Rasterize();
 
@@ -244,10 +233,7 @@ public sealed class ComposedSceneRenderCacheTests
             };
             using Drawable.Resource resource = ellipse.ToResource(CompositionContext.Default);
 
-            AssertProductionCacheSequenceParity(
-                resource,
-                RenderCacheOptions.Default,
-                expectCacheHit: false);
+            AssertProductionCacheSequence(resource, RenderCacheOptions.Default);
         });
     }
 
@@ -291,10 +277,7 @@ public sealed class ComposedSceneRenderCacheTests
                 width: 120,
                 height: 120);
 
-            AssertProductionCacheSequenceParity(
-                resource,
-                RenderCacheOptions.Enabled,
-                expectCacheHit: false);
+            AssertProductionCacheSequence(resource, RenderCacheOptions.Enabled);
         });
     }
 
@@ -333,9 +316,7 @@ public sealed class ComposedSceneRenderCacheTests
         return host.ToResource(CompositionContext.Default);
     }
 
-    private static void AssertCacheAdmissionParity<TNode>(
-        Drawable.Resource resource,
-        bool expectCacheHit)
+    private static void AssertCacheAdmissionParity<TNode>(Drawable.Resource resource)
         where TNode : RenderNode
     {
         using var root = new DrawableRenderNode(resource);
@@ -360,6 +341,7 @@ public sealed class ComposedSceneRenderCacheTests
         byte[] controlPixels = GetPixels(control);
         Assert.Multiple(() =>
         {
+            Assert.That(cacheable.Cache.IsCached, Is.False, "the bypassed candidate must not be admitted");
             Assert.That(
                 admissionPixels,
                 Is.EqualTo(controlPixels),
@@ -383,32 +365,14 @@ public sealed class ComposedSceneRenderCacheTests
             TargetDomain = s_frameBounds,
             CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
     }
-
-    private static void AssertProductionCacheSequenceParity(
-        Drawable.Resource resource,
-        RenderCacheOptions cacheOptions,
-        bool expectCacheHit)
-        => AssertProductionCacheSequence(
-            resource,
-            cacheOptions,
-            expectCacheHit,
-            assertPixelParity: true);
 
     private static void AssertProductionCacheSequence(
         Drawable.Resource resource,
-        RenderCacheOptions cacheOptions,
-        bool expectCacheHit,
-        bool assertPixelParity)
+        RenderCacheOptions cacheOptions)
     {
-        using var cachedRenderer = new Renderer(
-            s_frameSize.Width,
-            s_frameSize.Height,
-            RenderIntent.Preview,
-            renderScale: 1,
-            maxWorkingScale: float.PositiveInfinity,
-            surface: null)
+        using var cachedRenderer = new Renderer(s_frameSize.Width, s_frameSize.Height, RenderIntent.Preview)
         {
             CacheOptions = cacheOptions,
         };
@@ -429,17 +393,14 @@ public sealed class ComposedSceneRenderCacheTests
             using Bitmap control = uncachedRenderer.Snapshot();
             byte[] expected = control.GetPixelSpan().ToArray();
             byte[] actualPixels = actual.GetPixelSpan().ToArray();
-            if (assertPixelParity)
-            {
-                Assert.That(
-                    HasFiniteVisibleContent(control),
-                    Is.True,
-                    $"cache parity control frame {frame} must contain finite visible content (SC-013 non-vacuity).");
-                Assert.That(
-                    actualPixels,
-                    Is.EqualTo(expected),
-                    $"cache policy changed frame {frame}. {DescribeDifference(expected, actualPixels)}");
-            }
+            Assert.That(
+                HasFiniteVisibleContent(control),
+                Is.True,
+                $"cache parity control frame {frame} must contain finite visible content.");
+            Assert.That(
+                actualPixels,
+                Is.EqualTo(expected),
+                $"cache policy changed frame {frame}. {DescribeDifference(expected, actualPixels)}");
         }
 
     }
@@ -524,65 +485,6 @@ public sealed class ComposedSceneRenderCacheTests
 
         return $"{differing} bytes differ; first index {first}; maximum byte delta {maximum}.";
     }
-
-    private static Drawable.Resource[] CreateSceneResources()
-    {
-        var background = new RectShape
-        {
-            Width = { CurrentValue = 240 },
-            Height = { CurrentValue = 160 },
-            Fill = { CurrentValue = Brushes.CornflowerBlue },
-        };
-
-        var accent = new EllipseShape
-        {
-            Width = { CurrentValue = 76 },
-            Height = { CurrentValue = 76 },
-            Fill = { CurrentValue = Brushes.OrangeRed },
-            FilterEffect =
-            {
-                CurrentValue = new Brightness
-                {
-                    Amount = { CurrentValue = 78 },
-                },
-            },
-            Transform = { CurrentValue = new TranslateTransform(44, -18) },
-        };
-
-        var label = new TextBlock
-        {
-            FontFamily = { CurrentValue = FontFamily.Default },
-            Size = { CurrentValue = 28 },
-            Fill = { CurrentValue = Brushes.White },
-            Text = { CurrentValue = "CACHE" },
-            Transform = { CurrentValue = new TranslateTransform(-28, 30) },
-        };
-
-        CompositionContext context = CompositionContext.Default;
-        return
-        [
-            background.ToResource(context),
-            accent.ToResource(context),
-            label.ToResource(context),
-        ];
-    }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 
     private readonly record struct Rgba(float Red, float Green, float Blue, float Alpha);
 }

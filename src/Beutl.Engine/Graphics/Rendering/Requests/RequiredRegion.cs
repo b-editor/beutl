@@ -54,7 +54,7 @@ internal readonly record struct RequiredRegion
         if (IsEmpty)
             return Empty;
         if (IsFull)
-            return bounds.Width == 0 || bounds.Height == 0 ? Empty : Region(bounds);
+            return Region(bounds);
         return Region(_value.Intersect(bounds));
     }
 

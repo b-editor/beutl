@@ -194,6 +194,7 @@ public sealed class NewToolTabDockable : Tool
         ApplyFilter();
     }
 
+    // Test seam: only tests ask whether the menu still holds an extension.
     internal bool References(ToolTabExtension extension)
     {
         return _items.Any(item => item.Extension == extension)

@@ -1,7 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 
-using Beutl.Controls.Converters;
 
 namespace Beutl.Views.Editors;
 
@@ -11,7 +10,6 @@ public partial class PropertyEditorGroup : UserControl
 
     public PropertyEditorGroup()
     {
-        Resources["ViewModelToViewConverter"] = PropertyEditorContextToViewConverter.Instance;
         InitializeComponent();
 
         separator.PointerPressed += OnSeparatorPointerPressed;

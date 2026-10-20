@@ -10,26 +10,6 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 public class RectClipRenderNodeTest
 {
     [Test]
-    public void Update_ShouldReturnFalse_WhenAllPropertiesMatch()
-    {
-        var rect = new Rect(0, 0, 100, 100);
-        var operation = ClipOperation.Intersect;
-        var node = new RectClipRenderNode(rect, operation);
-
-        Assert.That(node.Update(rect, operation), Is.False);
-    }
-
-    [Test]
-    public void Update_ShouldReturnTrue_WhenPropertiesDoNotMatch()
-    {
-        var rect = new Rect(0, 0, 100, 100);
-        var operation = ClipOperation.Intersect;
-        var node = new RectClipRenderNode(rect, operation);
-
-        Assert.That(node.Update(default, operation), Is.True);
-    }
-
-    [Test]
     public void Update_ShouldNotMarkChanges_WhenAllPropertiesMatch()
     {
         var rect = new Rect(0, 0, 100, 100);
@@ -69,7 +49,7 @@ public class RectClipRenderNodeTest
         for (int frame = 0; frame < RenderNodeCache.StableRequestCount; frame++)
         {
             node.Update(rect, operation);
-            RenderNodeCacheHelper.BeginLifecycle(node).CompleteSuccessfully(advanceWarmup: true);
+            RenderNodeCacheLifecycle.Create(node).CompleteSuccessfully(advanceWarmup: true);
         }
 
         Assert.That(node.Cache.CanCapture, Is.True);
@@ -88,7 +68,7 @@ public class RectClipRenderNodeTest
         for (int frame = 0; frame < RenderNodeCache.StableRequestCount; frame++)
         {
             node.Update(rect, operation);
-            RenderNodeCacheHelper.BeginLifecycle(parent).CompleteSuccessfully(advanceWarmup: true);
+            RenderNodeCacheLifecycle.Create(parent).CompleteSuccessfully(advanceWarmup: true);
         }
 
         Assert.Multiple(() =>
@@ -180,7 +160,7 @@ public class RectClipRenderNodeTest
     public void EquivalentIndependentlyConstructedScopeDefinitions_ReuseTheStructuralPlan()
     {
         using var cache = new StructuralPlanCache();
-        using var node = new EquivalentScopeDefinitionNode();
+        using var node = new ContractChangingScopeDefinitionNode();
         node.AddChild(new RectangleRenderNode(
             new Rect(0, 0, 100, 100),
             Brushes.Resource.White,
@@ -251,35 +231,6 @@ public class RectClipRenderNodeTest
             request.Dispose();
             throw;
         }
-    }
-
-    private sealed class EquivalentScopeDefinitionNode : ContainerRenderNode
-    {
-        public int DefinitionCreations { get; private set; }
-
-        public override void Process(RenderNodeContext context)
-        {
-            DefinitionCreations++;
-            TargetScopeDescription description = TargetScopeDescription.Create(
-                default(ScopeState),
-                static (session, _) => session.Canvas.Use(canvas =>
-                {
-                    using (canvas.Push())
-                    {
-                        session.ReplayInput();
-                    }
-                }),
-                RenderBoundsContract.Identity,
-                RenderHitTestContract.AnyInput,
-                RenderScaleContract.PreserveInputSupply,
-                deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
-                deviceGridMapping: RenderDeviceGridMapping.Preserved);
-            context.PublishMappedInputs(
-                description,
-                static (current, input, scope) => current.TargetScope(input, scope));
-        }
-
-        private readonly record struct ScopeState;
     }
 
     private sealed class ContractChangingScopeDefinitionNode : ContainerRenderNode

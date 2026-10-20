@@ -164,8 +164,7 @@ public class SceneTimeRangeServiceTests
     [Test]
     public void UpdateEndDrag_PointerBeforeStart_KeepsStartPinned()
     {
-        // End marker dragged past Start must pin Start and clamp duration to >= 1 frame,
-        // not shift the whole range back like the old one-shot SetEnd did (Codex review #r3278970042).
+        // Moving the end before the start keeps the start and rounds the duration up to one frame.
         TimeSpan initialStart = _scene.Start;
 
         _service.UpdateEndDrag(_scene, TimeSpan.Zero);
@@ -181,8 +180,7 @@ public class SceneTimeRangeServiceTests
     [Test]
     public void UpdateStartDrag_PointerAfterInitialEnd_ClampsToOneFrameBeforeEnd()
     {
-        // Start marker dragged past initial end must clamp to (initialEnd - 1 frame), not shift
-        // the end forward: the drag loop must never re-extend the range (same regression family).
+        // Moving the start past the end does not extend the end; the start stops one frame before it.
         TimeSpan initialStart = _scene.Start;
         TimeSpan initialDuration = _scene.Duration;
         TimeSpan initialEnd = initialStart + initialDuration;

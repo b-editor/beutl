@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using Avalonia.Headless.NUnit;
+﻿using Avalonia.Headless.NUnit;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Services;
@@ -20,15 +19,15 @@ public class PackagePublicationFailureTests
     public async Task FailedActivation_RestoresPayloadAndPreviousRegistration(string mode, bool existing)
     {
         await TestReset.ResetShellAsync();
-        string registrationFile = Path.Combine(Helper.AppRoot, "installedPackages.json");
-        byte[]? originalRegistration = File.Exists(registrationFile) ? File.ReadAllBytes(registrationFile) : null;
-        if (originalRegistration is null) File.WriteAllText(registrationFile, "[]");
+        using var registration = new AppRootFileBackup("installedPackages.json");
+        string registrationFile = registration.Path;
+        if (!registration.Existed) File.WriteAllText(registrationFile, "[]");
         string backup = registrationFile + ".test-backup";
         string name = "PublicationFailure." + Guid.NewGuid().ToString("N");
         var oldId = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
         var newId = new PackageIdentity(name, NuGetVersion.Parse("2.0.0"));
-        LocalPackage old = CreatePackage(oldId, data: true);
-        LocalPackage next = CreatePackage(newId, data: mode == "data", loadable: mode == "register-extension");
+        LocalPackage old = TestPackages.CreateExtracted(oldId, data: true);
+        LocalPackage next = TestPackages.CreateExtracted(newId, data: mode == "data", loadable: mode == "register-extension");
         using var http = new HttpClient();
         await using var app = new BeutlApiApplication(http, new ExtensionProvider());
         var installer = app.GetResource<PackageInstaller>();
@@ -38,13 +37,12 @@ public class PackagePublicationFailureTests
         string templates = Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), name);
         bool extensionRegistered = false;
         var manager = app.GetResource<PackageManager>();
-        typeof(PackageManager).GetProperty("AfterExtensionRegistration", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(manager, (Action)(() => extensionRegistered = true));
+        manager.AfterExtensionRegistration = () => extensionRegistered = true;
         try
         {
             if (existing)
             {
-                repository.UpgradePackages(oldId);
+                repository.UpgradePackagesAndDeferNotifications(oldId)();
                 installer.InstallDataPackage(old);
             }
             byte[]? oldMarker = existing ? File.ReadAllBytes(Path.Combine(materials, ".beutl-package-owner")) : null;
@@ -53,9 +51,8 @@ public class PackagePublicationFailureTests
                 File.Move(registrationFile, backup);
                 Directory.CreateDirectory(registrationFile);
             }
-            var method = typeof(PackageOperationHandler).GetMethod("ActivateInstalledPackageAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
             Exception? failure = null;
-            try { await ((Task)method.Invoke(operation, new object[] { newId, CancellationToken.None })!).WaitAsync(TimeSpan.FromSeconds(10)); }
+            try { await operation.ActivateInstalledPackageAsync(newId, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10)); }
             catch (Exception ex) { failure = ex; }
             Assert.That(failure, Is.Not.Null.And.Not.TypeOf<TimeoutException>());
             Assert.Multiple(() =>
@@ -81,8 +78,6 @@ public class PackagePublicationFailureTests
         {
             if (Directory.Exists(registrationFile)) Directory.Delete(registrationFile);
             if (File.Exists(backup)) File.Move(backup, registrationFile, true);
-            if (originalRegistration is not null) File.WriteAllBytes(registrationFile, originalRegistration);
-            else File.Delete(registrationFile);
             foreach (string directory in new[] { old.InstalledPath!, next.InstalledPath!, materials, templates })
                 if (Directory.Exists(directory)) Directory.Delete(directory, true);
         }
@@ -92,13 +87,12 @@ public class PackagePublicationFailureTests
     public async Task CommittedPackageObserver_CanUseTheInstallerFromAnotherThread()
     {
         await TestReset.ResetShellAsync();
-        string registrationFile = Path.Combine(Helper.AppRoot, "installedPackages.json");
-        byte[]? original = File.Exists(registrationFile) ? File.ReadAllBytes(registrationFile) : null;
+        using var registration = new AppRootFileBackup("installedPackages.json");
         using var http = new HttpClient();
         await using var app = new BeutlApiApplication(http, new ExtensionProvider());
         string name = "PublicationObserver." + Guid.NewGuid().ToString("N");
         var identity = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
-        LocalPackage package = CreatePackage(identity, data: true);
+        LocalPackage package = TestPackages.CreateExtracted(identity, data: true);
         var installer = app.GetResource<PackageInstaller>();
         var repository = app.GetResource<InstalledPackageRepository>();
         var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider()), new ProjectService());
@@ -112,8 +106,7 @@ public class PackagePublicationFailureTests
         });
         try
         {
-            var method = typeof(PackageOperationHandler).GetMethod("ActivateInstalledPackageAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
-            await ((Task)method.Invoke(operation, new object[] { identity, CancellationToken.None })!).WaitAsync(TimeSpan.FromSeconds(10));
+            await operation.ActivateInstalledPackageAsync(identity, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
             Assert.That(completedInCallback, Is.True, "Repository observers must run after releasing the payload gate.");
             Assert.That(repository.ExistsPackage(identity), Is.True);
         }
@@ -122,30 +115,6 @@ public class PackagePublicationFailureTests
             if (nested is not null) await nested;
             installer.UninstallDataPackage(name);
             Directory.Delete(package.InstalledPath!, true);
-            if (original is not null) File.WriteAllBytes(registrationFile, original);
-            else File.Delete(registrationFile);
         }
-    }
-
-    private static LocalPackage CreatePackage(PackageIdentity identity, bool data, bool loadable = false)
-    {
-        string version = identity.Version.ToString();
-        string directory = Path.Combine(Helper.InstallPath, $"{identity.Id}.{version}");
-        Directory.CreateDirectory(directory);
-        string[] tags = data ? [PackageKinds.MaterialTag, PackageKinds.TemplateTag] : ["effects"];
-        File.WriteAllText(Path.Combine(directory, $"{identity.Id}.{version}.nupkg"), "");
-        string dependencies = loadable ? "<dependencies><group targetFramework=\"net10.0\" /></dependencies>" : "";
-        if (loadable) Directory.CreateDirectory(Path.Combine(directory, "lib", Helper.GetFrameworkName().ToString()));
-        File.WriteAllText(Path.Combine(directory, identity.Id + ".nuspec"),
-            $"<package><metadata><id>{identity.Id}</id><version>{version}</version><authors>test</authors><description>test</description><tags>{string.Join(' ', tags)}</tags>{dependencies}</metadata></package>");
-        if (data)
-        {
-            foreach (string kind in new[] { "materials", "templates" })
-            {
-                Directory.CreateDirectory(Path.Combine(directory, kind));
-                File.WriteAllText(Path.Combine(directory, kind, "item.txt"), version);
-            }
-        }
-        return new LocalPackage { Name = identity.Id, Version = version, Tags = [.. tags], InstalledPath = directory };
     }
 }

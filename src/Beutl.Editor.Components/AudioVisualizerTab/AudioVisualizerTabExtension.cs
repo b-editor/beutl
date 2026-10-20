@@ -8,7 +8,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.AudioVisualizerTab;
 
-[PrimitiveImpl]
 public sealed class AudioVisualizerTabExtension : ToolTabExtension
 {
     public static readonly AudioVisualizerTabExtension Instance = new();
@@ -36,7 +35,7 @@ public sealed class AudioVisualizerTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        context = new AudioVisualizerTabViewModel(editorContext, Instance);
+        context = new AudioVisualizerTabViewModel(editorContext);
         return true;
     }
 }

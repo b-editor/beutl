@@ -41,7 +41,7 @@ public sealed class OptionsGroupPanel : StackPanel
     {
         base.OnPropertyChanged(change);
         if (change.Property == SeparatorBrushProperty)
-            _separatorLayer?.InvalidateVisual();
+            _separatorLayer.InvalidateVisual();
     }
 
     protected override Size ArrangeOverride(Size finalSize)

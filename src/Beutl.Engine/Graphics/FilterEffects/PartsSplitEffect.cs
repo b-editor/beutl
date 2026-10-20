@@ -25,7 +25,6 @@ public partial class PartsSplitEffect : FilterEffect
             RenderTarget srcRenderTarget = target.RenderTarget!;
             using Bitmap src = srcRenderTarget.SnapshotAlpha();
 
-            // 輪郭検出（階層付き）
             ContourTracer.FindContoursWithHierarchy(src, out var points, out var parentIndices);
             using (points)
             using (parentIndices)
@@ -42,7 +41,6 @@ public partial class PartsSplitEffect : FilterEffect
                         continue;
                     }
 
-                    target.Dispose();
                     context.Targets.RemoveAt(i);
                     int inserted = newTargets.Count;
                     context.Targets.InsertRange(i, newTargets);

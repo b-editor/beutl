@@ -23,6 +23,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     private readonly Subject<LayerHeaderViewModel> _layerHeightChanged = new();
     private readonly Subject<System.Reactive.Unit> _canExecuteChangedSubject = new();
     private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = [];
+    private readonly IEditorSelection _selection;
     private bool _isDisposed;
     private bool _updatingToolMode;
     private bool _addingLayerHeaders;
@@ -47,33 +48,8 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        StartingBarMargin = Scene.GetObservable(Scene.StartProperty)
-            .CombineLatest(Scale)
-            .Select(item => item.First.TimeToPixel(item.Second))
-            .Select(p => new Thickness(p, 0, 0, 0))
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(_disposables);
-
-        EndingBarMargin = Scene.GetObservable(Scene.DurationProperty)
-            .CombineLatest(Scale, StartingBarMargin)
-            .Select(item => item.First.TimeToPixel(item.Second) + item.Third.Left)
-            .Select(p => new Thickness(p, 0, 0, 0))
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(_disposables);
-
-        PanelWidth = MaximumTime
-            .CombineLatest(
-                Scene.GetObservable(Scene.DurationProperty),
-                Scene.GetObservable(Scene.StartProperty),
-                CurrentTime)
-            .Select(i => TimeSpan.FromTicks(
-                Math.Max(
-                    Math.Max(i.First.Ticks, i.Second.Ticks + i.Third.Ticks),
-                    i.Fourth.Ticks)))
-            .CombineLatest(Scale)
-            .Select(i => i.First.TimeToPixel(i.Second) + 500)
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(_disposables);
+        (StartingBarMargin, EndingBarMargin, PanelWidth) = TimelineHelper.CreateSceneBarMargins(
+            Scene, editorClock, Scale, _disposables);
 
         AddElement.WithSubscribe(AddElementCore).AddTo(_disposables);
 
@@ -133,9 +109,24 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
                 })
             .AddTo(_disposables);
 
+        // SelectedElements mirrors the editor's selection, which outlives this tab.
+        _selection = editorContext.GetRequiredService<IEditorSelection>();
+        _selection.SelectedElements.ForEachItem(
+                element => SetSelected(element, true),
+                element => SetSelected(element, false),
+                () =>
+                {
+                    foreach (ElementViewModel item in SelectedElements)
+                        item.IsSelected.Value = false;
+                    SelectedElements.Clear();
+                    RaiseCanExecuteChanged();
+                })
+            .AddTo(_disposables);
+
         Options.Select(x => x.MaxLayerCount)
             .DistinctUntilChanged()
-            .Subscribe(TryApplyLayerCount);
+            .Subscribe(TryApplyLayerCount)
+            .AddTo(_disposables);
 
         SetStartTimeToPointerPosition.Subscribe(OnSetStartTimeToPointerPosition);
         SetEndTimeToPointerPosition.Subscribe(OnSetEndTimeToPointerPosition);
@@ -209,20 +200,14 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         SubscribeToolMode(IsRollMode);
         SubscribeToolMode(IsSlideMode);
 
-        // The Undo/Redo flush hook now lives in ElementNudgeService, wired to
-        // HistoryManager.BeforeMutation by the editor context.
-
         _logger.LogInformation("TimelineTabViewModel initialized successfully.");
     }
 
     private async Task AddElementCore(ElementDescription description)
         => await AddElementWithResultAsync(description);
 
-    public Task<ElementAddResult> AddElementWithResultAsync(ElementDescription description)
-        => AddElementWithResultAsync(description, CancellationToken.None);
-
     public async Task<ElementAddResult> AddElementWithResultAsync(
-        ElementDescription description, CancellationToken cancellationToken)
+        ElementDescription description, CancellationToken cancellationToken = default)
     {
         ElementAddResult result = await EditorContext
             .GetRequiredService<IElementAdder>()
@@ -388,7 +373,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         // 以降の OnNext を抑止してから内部 Subject を Dispose する。
         _isDisposed = true;
         _disposables.Dispose();
-        foreach (ElementViewModel? item in Elements.GetMarshal().Value)
+        foreach (ElementViewModel? item in Elements.AsSpan())
         {
             item.Dispose();
         }
@@ -403,14 +388,10 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             item.Dispose();
         }
 
-        if (_trackerCache.Values.Count > 0)
+        // A copy, since disposing a tracker runs its Deinitialize, which removes it from _trackerCache.
+        foreach (TrackedLayerTopObservable? item in _trackerCache.Values.ToArray())
         {
-            // ToArrayの理由は
-            // TrackedLayerTopObservable.DisposeでDeinitializeが呼び出され、_trackerCacheが変更されるので
-            foreach (TrackedLayerTopObservable? item in _trackerCache.Values.ToArray())
-            {
-                item.Dispose();
-            }
+            item.Dispose();
         }
 
         _layerHeightChanged.Dispose();
@@ -440,13 +421,6 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             .Where(x => ids.Contains(x.Model.Id))
             .Select(x => x.Model)
             .ToArray();
-        if (sources.Length == 0)
-        {
-            _logger.LogWarning(
-                "Duplicate skipped: selected element IDs did not resolve to Elements. Ids={Ids}",
-                string.Join(", ", ids));
-            return;
-        }
 
         try
         {
@@ -526,18 +500,8 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             return;
         }
 
-        // タイムラインのタブを開く
-        Type type = typeof(InlineAnimationLayerViewModel<>).MakeGenericType(property.PropertyType);
-        if (Activator.CreateInstance(type, property, this, viewModel) is InlineAnimationLayerViewModel
-            anmTimelineViewModel)
-        {
-            Inlines.Add(anmTimelineViewModel);
-            _logger.LogInformation("Inline animation attached successfully for element {ElementId}.", element.Id);
-        }
-        else
-        {
-            _logger.LogError("Failed to attach inline animation for element {ElementId}.", element.Id);
-        }
+        Inlines.Add(new InlineAnimationLayerViewModel(property, this, viewModel));
+        _logger.LogInformation("Inline animation attached successfully for element {ElementId}.", element.Id);
     }
 
     public void DetachInline(InlineAnimationLayerViewModel item)
@@ -556,33 +520,31 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public void ClearSelected()
     {
-        foreach (ElementViewModel item in SelectedElements)
-        {
-            item.IsSelected.Value = false;
-        }
-
-        SelectedElements.Clear();
-        RaiseCanExecuteChanged();
+        _selection.SelectedElements.Clear();
     }
 
     public void SelectElement(ElementViewModel item)
     {
-        SelectedElements.Add(item);
-        item.IsSelected.Value = true;
-        RaiseCanExecuteChanged();
+        if (!_selection.SelectedElements.Contains(item.Model))
+            _selection.SelectedElements.Add(item.Model);
     }
 
     public void SwitchSelectedElement(ElementViewModel item)
     {
-        item.IsSelected.Value = !item.IsSelected.Value;
-        if (item.IsSelected.Value)
-        {
+        if (!_selection.SelectedElements.Remove(item.Model))
+            _selection.SelectedElements.Add(item.Model);
+    }
+
+    private void SetSelected(Element element, bool selected)
+    {
+        if (GetViewModelFor(element) is not { } item)
+            return;
+
+        item.IsSelected.Value = selected;
+        if (selected)
             SelectedElements.Add(item);
-        }
         else
-        {
             SelectedElements.Remove(item);
-        }
 
         RaiseCanExecuteChanged();
     }

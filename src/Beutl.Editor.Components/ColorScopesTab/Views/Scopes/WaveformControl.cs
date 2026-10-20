@@ -18,22 +18,11 @@ public class WaveformControl : HdrScopeControlBase
         AvaloniaProperty.RegisterDirect<WaveformControl, WaveformMode>(
             nameof(Mode), o => o.Mode, (o, v) => o.Mode = v, WaveformMode.Luma);
 
-    public static readonly DirectProperty<WaveformControl, float> ThicknessProperty =
-        AvaloniaProperty.RegisterDirect<WaveformControl, float>(
-            nameof(Thickness), o => o.Thickness, (o, v) => o.Thickness = v, 5f);
-
-    public static readonly DirectProperty<WaveformControl, float> GainProperty =
-        AvaloniaProperty.RegisterDirect<WaveformControl, float>(
-            nameof(Gain), o => o.Gain, (o, v) => o.Gain = v, 10.0f);
-
-    public static readonly DirectProperty<WaveformControl, bool> ShowGridProperty =
-        AvaloniaProperty.RegisterDirect<WaveformControl, bool>(
-            nameof(ShowGrid), o => o.ShowGrid, (o, v) => o.ShowGrid = v, true);
+    private const float Thickness = 5f;
+    private const float Gain = 10.0f;
+    private const bool ShowGrid = true;
 
     private WaveformMode _mode = WaveformMode.Luma;
-    private float _thickness = 5f;
-    private float _gain = 10.0f;
-    private bool _showGrid = true;
 
     // Cached gridStrength array (invalidated on height/hdrRange change)
     private float[]? _cachedGridStrength;
@@ -42,14 +31,11 @@ public class WaveformControl : HdrScopeControlBase
 
     private static readonly string[] s_verticalLabelsSdr = ["1.0", "0.8", "0.5", "0.3", "0"];
     private static readonly (float R, float G, float B) s_colorLuma = (0.85f, 0.92f, 1.00f);
-    private static readonly (float R, float G, float B) s_colorRed = (1.00f, 0.25f, 0.25f);
-    private static readonly (float R, float G, float B) s_colorGreen = (0.25f, 1.00f, 0.35f);
-    private static readonly (float R, float G, float B) s_colorBlue = (0.35f, 0.60f, 1.00f);
     private static readonly (float R, float G, float B) s_colorGrid = (0.08f, 0.08f, 0.09f);
 
     static WaveformControl()
     {
-        AffectsRender<WaveformControl>(ModeProperty, ThicknessProperty, GainProperty, ShowGridProperty);
+        AffectsRender<WaveformControl>(ModeProperty);
         ModeProperty.Changed.AddClassHandler<WaveformControl>((o, _) => o.Refresh());
     }
 
@@ -59,24 +45,6 @@ public class WaveformControl : HdrScopeControlBase
     {
         get => _mode;
         set => SetAndRaise(ModeProperty, ref _mode, value);
-    }
-
-    public float Thickness
-    {
-        get => _thickness;
-        set => SetAndRaise(ThicknessProperty, ref _thickness, value);
-    }
-
-    public float Gain
-    {
-        get => _gain;
-        set => SetAndRaise(GainProperty, ref _gain, value);
-    }
-
-    public bool ShowGrid
-    {
-        get => _showGrid;
-        set => SetAndRaise(ShowGridProperty, ref _showGrid, value);
     }
 
     protected override string[]? VerticalAxisLabels =>
@@ -98,7 +66,7 @@ public class WaveformControl : HdrScopeControlBase
 
         int sourceWidth = sourceBitmap.Width;
         int sourceHeight = sourceBitmap.Height;
-        if (targetWidth == 0 || targetHeight == 0 || sourceWidth == 0 || sourceHeight == 0)
+        if (sourceWidth == 0 || sourceHeight == 0)
         {
             return result;
         }
@@ -110,8 +78,8 @@ public class WaveformControl : HdrScopeControlBase
         float hdrRange = HdrRange;
         float[]? gridStrength = showGrid ? GetGridStrength(targetHeight, hdrRange) : null;
         int sampleCount = (int)Math.Clamp(sourceBitmap.Height * 0.25f, 32f, 1024f);
-        float invSamplesGain = gain / Math.Max(sampleCount, 1);
-        float invHdr = 1f / MathF.Max(hdrRange, 1e-6f);
+        float invSamplesGain = gain / sampleCount;
+        float invHdr = 1f / hdrRange;
 
         float[] kernelArr = CreateKernel(thickness, out int kernelRadius);
         int[] srcYArr = CreateSourceRows(sampleCount, sourceHeight);
@@ -307,15 +275,15 @@ public class WaveformControl : HdrScopeControlBase
             var vLumaR = new VectorF(s_colorLuma.R);
             var vLumaG = new VectorF(s_colorLuma.G);
             var vLumaB = new VectorF(s_colorLuma.B);
-            var vRedR = new VectorF(s_colorRed.R);
-            var vRedG = new VectorF(s_colorRed.G);
-            var vRedB = new VectorF(s_colorRed.B);
-            var vGreenR = new VectorF(s_colorGreen.R);
-            var vGreenG = new VectorF(s_colorGreen.G);
-            var vGreenB = new VectorF(s_colorGreen.B);
-            var vBlueR = new VectorF(s_colorBlue.R);
-            var vBlueG = new VectorF(s_colorBlue.G);
-            var vBlueB = new VectorF(s_colorBlue.B);
+            var vRedR = new VectorF(ScopeBitmaps.ChannelRed.R);
+            var vRedG = new VectorF(ScopeBitmaps.ChannelRed.G);
+            var vRedB = new VectorF(ScopeBitmaps.ChannelRed.B);
+            var vGreenR = new VectorF(ScopeBitmaps.ChannelGreen.R);
+            var vGreenG = new VectorF(ScopeBitmaps.ChannelGreen.G);
+            var vGreenB = new VectorF(ScopeBitmaps.ChannelGreen.B);
+            var vBlueR = new VectorF(ScopeBitmaps.ChannelBlue.R);
+            var vBlueG = new VectorF(ScopeBitmaps.ChannelBlue.G);
+            var vBlueB = new VectorF(ScopeBitmaps.ChannelBlue.B);
             var vGridR = new VectorF(s_colorGrid.R);
             var vGridG = new VectorF(s_colorGrid.G);
             var vGridB = new VectorF(s_colorGrid.B);
@@ -361,7 +329,6 @@ public class WaveformControl : HdrScopeControlBase
                 colG = SysVector.SquareRoot(valG) * (v065 + v035 * valG);
                 colB = SysVector.SquareRoot(valB) * (v065 + v035 * valB);
 
-                // Clamp to [0,1] and scale to 0-255
                 colR = SysVector.Min(vOne, SysVector.Max(vZero, colR)) * v255;
                 colG = SysVector.Min(vOne, SysVector.Max(vZero, colG)) * v255;
                 colB = SysVector.Min(vOne, SysVector.Max(vZero, colB)) * v255;
@@ -408,9 +375,9 @@ public class WaveformControl : HdrScopeControlBase
             }
             else
             {
-                colR = rr * s_colorRed.R + gg * s_colorGreen.R + bb * s_colorBlue.R;
-                colG = rr * s_colorRed.G + gg * s_colorGreen.G + bb * s_colorBlue.G;
-                colB = rr * s_colorRed.B + gg * s_colorGreen.B + bb * s_colorBlue.B;
+                colR = rr * ScopeBitmaps.ChannelRed.R + gg * ScopeBitmaps.ChannelGreen.R + bb * ScopeBitmaps.ChannelBlue.R;
+                colG = rr * ScopeBitmaps.ChannelRed.G + gg * ScopeBitmaps.ChannelGreen.G + bb * ScopeBitmaps.ChannelBlue.G;
+                colB = rr * ScopeBitmaps.ChannelRed.B + gg * ScopeBitmaps.ChannelGreen.B + bb * ScopeBitmaps.ChannelBlue.B;
             }
 
             float valR = MathF.Max(0f, colR + gridR);

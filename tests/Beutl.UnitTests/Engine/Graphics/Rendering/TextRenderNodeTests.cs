@@ -5,6 +5,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.RenderGraphTestSupport;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -30,7 +31,7 @@ public class TextRenderNodeTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(RootOf(graph).RecordedBounds, Is.EqualTo(text.ActualBounds));
+            Assert.That(GetSingleRoot(graph).RecordedBounds, Is.EqualTo(text.ActualBounds));
             Assert.That(text.GetRasterBounds(outputScale), Is.Not.EqualTo(text.ActualBounds),
                 "The fixture must exercise a density whose mask reaches outside the text's own bounds.");
         });
@@ -52,7 +53,7 @@ public class TextRenderNodeTests
             owner: owner));
 
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
-        RenderFragmentReference root = RootOf(graph);
+        RenderFragmentReference root = GetSingleRoot(graph);
         var payload = (OpaqueRenderFragmentPayload)root.Payload!;
         Rect footprint = root.RecordedBounds.Inflate(payload.Description.Bounds.RasterOutset);
 
@@ -70,21 +71,10 @@ public class TextRenderNodeTests
             Text = "Raster footprint",
         };
 
-    private static RenderFragmentReference RootOf(RecordedRenderGraph graph)
-    {
-        RenderFragmentId rootId = graph.PublicationRoots.Single();
-        return graph.GetFragment(rootId);
-    }
-
     [Test]
     public void Measure_UsesRasterBoundsForTheEmptinessGate()
     {
-        using var text = new FormattedText
-        {
-            Font = TypefaceProvider.Typeface().FontFamily,
-            Size = 48f,
-            Text = "Raster footprint",
-        };
+        using FormattedText text = CreateText();
         Rect rasterBounds = text.RasterBounds;
 
         // Current public font backends did not expose a glyph with a degenerate outline but a non-empty
@@ -113,25 +103,4 @@ public class TextRenderNodeTests
         });
     }
 
-}
-
-internal sealed partial class TextBrushBoundsProbeDrawable : Drawable
-{
-    private readonly ICollection<Size> _observedSizes;
-
-    public TextBrushBoundsProbeDrawable(ICollection<Size> observedSizes)
-    {
-        _observedSizes = observedSizes;
-    }
-
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
-    {
-        _observedSizes.Add(availableSize);
-        return new Size(1, 1);
-    }
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        context.DrawRectangle(new Rect(0, 0, 1, 1), Brushes.Resource.White, null);
-    }
 }

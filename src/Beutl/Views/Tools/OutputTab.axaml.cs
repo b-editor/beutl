@@ -19,7 +19,6 @@ namespace Beutl.Views.Tools;
 public partial class OutputTab : UserControl
 {
     private readonly IDataTemplate _sharedDataTemplate = new _DataTemplate();
-    private OutputPickerFlyout? _activeFlyout;
 
     public OutputTab()
     {
@@ -115,17 +114,13 @@ public partial class OutputTab : UserControl
         pickerVm.SetInitialSelection(viewModel.SelectedItem.Value);
 
         var flyout = new OutputPickerFlyout(pickerVm);
-        _activeFlyout = flyout;
         flyout.Confirmed += OnPickerConfirmed;
-        flyout.Dismissed += OnPickerDismissed;
         flyout.MoreMenuRequested += OnPickerMoreMenuRequested;
         flyout.Closed += (_, _) =>
         {
             flyout.Confirmed -= OnPickerConfirmed;
-            flyout.Dismissed -= OnPickerDismissed;
             flyout.MoreMenuRequested -= OnPickerMoreMenuRequested;
             pickerVm.Dispose();
-            if (ReferenceEquals(_activeFlyout, flyout)) _activeFlyout = null;
         };
 
         flyout.ShowAt(ProfilesButton, true);
@@ -151,10 +146,6 @@ public partial class OutputTab : UserControl
                 viewModel.SelectedItem.Value = profile;
             }
         }
-    }
-
-    private void OnPickerDismissed(OutputPickerFlyout sender, EventArgs e)
-    {
     }
 
     private void OnPickerMoreMenuRequested(OutputPickerFlyout sender, MoreMenuRequestedArgs args)

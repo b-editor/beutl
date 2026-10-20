@@ -1,5 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
@@ -32,26 +31,10 @@ namespace Beutl.HeadlessUITests;
 [NonParallelizable]
 public class ElementAddEntryPointTests
 {
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
     private static async Task<(EditViewModel Editor, TimelineTabViewModel Timeline)> OpenEditorForNewScene(
         string name)
     {
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-
-        EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;
-        var editor = (EditViewModel)tab.Context.Value!;
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync(name);
         TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()
                                             ?? throw new InvalidOperationException(
                                                 "The default editor layout did not create a timeline tab.");
@@ -86,7 +69,7 @@ public class ElementAddEntryPointTests
             Assert.That(scrolls, Has.Count.EqualTo(1));
             Assert.That(scrolls[0].Range, Is.EqualTo(created.Range));
             Assert.That(scrolls[0].ZIndex, Is.EqualTo(created.ZIndex));
-            Assert.That(notifications.Notifications, Is.Empty);
+            Assert.That(notifications.All, Is.Empty);
         }
     }
 
@@ -201,7 +184,7 @@ public class ElementAddEntryPointTests
                 Assert.That(scrolls, Has.Count.EqualTo(1));
                 Assert.That(scrolls[0].Range, Is.EqualTo(created.Range));
                 Assert.That(scrolls[0].ZIndex, Is.EqualTo(created.ZIndex));
-                Assert.That(notifications.Notifications, Is.Empty);
+                Assert.That(notifications.All, Is.Empty);
             }
         }
         finally
@@ -269,7 +252,7 @@ public class ElementAddEntryPointTests
                 Assert.That(scrolls, Has.Count.EqualTo(1));
                 Assert.That(scrolls[0].Range, Is.EqualTo(created.Range));
                 Assert.That(scrolls[0].ZIndex, Is.EqualTo(created.ZIndex));
-                Assert.That(notifications.Notifications, Is.Empty);
+                Assert.That(notifications.All, Is.Empty);
             }
         }
         finally
@@ -326,7 +309,7 @@ public class ElementAddEntryPointTests
                 imageCenter,
                 KeyModifiers.None);
             framePanel.RaiseEvent(lockedDrop);
-            await WaitUntilAsync(() => notifications.Notifications.Count >= 1);
+            await HeadlessTestHelpers.WaitUntilAsync(() => notifications.All.Count >= 1);
 
             editor.Scene.Layers.Single(layer => layer.ZIndex == 0).IsLocked = false;
             using IStorageFile unsupportedFile = await GetStorageFile(window, unsupportedPath);
@@ -339,10 +322,10 @@ public class ElementAddEntryPointTests
                 imageCenter,
                 KeyModifiers.None);
             framePanel.RaiseEvent(unsupportedDrop);
-            await WaitUntilAsync(() => notifications.Notifications.Count >= 2);
+            await HeadlessTestHelpers.WaitUntilAsync(() => notifications.All.Count >= 2);
             HeadlessTestHelpers.Settle();
 
-            Notification[] shown = notifications.Notifications.ToArray();
+            Notification[] shown = notifications.All.ToArray();
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(lockedDrop.Handled, Is.True);
@@ -402,7 +385,7 @@ public class ElementAddEntryPointTests
             transfer.Add(DataTransferItem.Create(StorageDragData.Format, new StorageDragData("test", new object(), [], sources, () => true, _ => Task.FromResult(false))));
             var args = new DragEventArgs(DragDrop.DropEvent, transfer, panel, new AvaPoint(10, 5), KeyModifiers.None);
             panel.RaiseEvent(args);
-            await WaitUntilAsync(() => notifications.Notifications.Count == 1);
+            await HeadlessTestHelpers.WaitUntilAsync(() => notifications.All.Count == 1);
             HeadlessTestHelpers.Settle();
 
             string storage = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "resources", "storage");
@@ -426,7 +409,7 @@ public class ElementAddEntryPointTests
         (EditViewModel editor, TimelineTabViewModel timeline) = await OpenEditorForNewScene("storage-drop-layers");
         var handler = new LayeredFileSourceHandler(companions);
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        await using var registration = adder.SourceHandlers.Register(new ElementSourceHandlerRegistration(handler, ElementSourceHandlerRegistrationMode.Replace));
+        await using var registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler, ElementSourceHandlerRegistrationMode.Replace);
         string[] sources = rejectFirst
             ? [CreatePngFile(editor, "rejected.png"), CreatePngFile(editor, "first.png"), CreatePngFile(editor, "second.png")]
             : [CreatePngFile(editor, "first.png"), CreatePngFile(editor, "second.png")];
@@ -443,12 +426,12 @@ public class ElementAddEntryPointTests
             var args = new DragEventArgs(DragDrop.DropEvent, transfer, panel, new AvaPoint(180, 5), KeyModifiers.None);
             panel.RaiseEvent(args);
             int count = companions ? 4 : 2;
-            await WaitUntilAsync(() => editor.Scene.Children.Count == count);
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.Scene.Children.Count == count);
             HeadlessTestHelpers.Settle();
             Assert.That(editor.Scene.Children.Select(element => element.ZIndex).Order(), Is.EqualTo(Enumerable.Range(0, count)));
             Assert.That(editor.Scene.Children.All(element => element.Start == timeline.ClickedFrame), Is.True);
             Assert.That(handler.RequestedLayers, Is.EqualTo(rejectFirst ? new[] { 0, 0, 2 } : new[] { 0, companions ? 2 : 1 }));
-            Assert.That(notifications.Notifications, Has.Count.EqualTo(rejectFirst ? 1 : 0));
+            Assert.That(notifications.All, Has.Count.EqualTo(rejectFirst ? 1 : 0));
         }
         finally { window.Close(); HeadlessTestHelpers.Settle(); }
     }
@@ -475,7 +458,7 @@ public class ElementAddEntryPointTests
         await using var scope = new CloudStorageIncrementalTests.StorageScope();
         await scope.LoadFirstAsync(CloudStorageTests.Response(name: outcome == "unsupported" ? "rejected.png" : "dropped.bin", fileSize: 8));
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        await using var registration = adder.SourceHandlers.Register(new ElementSourceHandlerRegistration(new LayeredFileSourceHandler(false), ElementSourceHandlerRegistrationMode.Replace));
+        await using var registration = PackageSourceHandlers.Register(editor.ExtensionProvider, new LayeredFileSourceHandler(false), ElementSourceHandlerRegistrationMode.Replace);
         var source = new CloudStorageView { DataContext = scope.ViewModel };
         Control target = playerTarget ? new PlayerView { DataContext = editor.Player } : new TimelineTabView { DataContext = timeline };
         editor.Player.CurrentFrame.Value = TimeSpan.FromSeconds(4);
@@ -519,7 +502,7 @@ public class ElementAddEntryPointTests
             };
             window.MouseDown(start, MouseButton.Left);
             window.MouseMove(end, RawInputModifiers.LeftMouseButton);
-            await WaitUntilAsync(() => scope.Handler.Requests.Count == 2);
+            await HeadlessTestHelpers.WaitUntilAsync(() => scope.Handler.Requests.Count == 2);
             if (!nativeReady)
             {
                 window.MouseUp(end, MouseButton.Left);
@@ -533,20 +516,20 @@ public class ElementAddEntryPointTests
             string storage = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "resources", "storage");
             if (outcome == "success")
             {
-                await WaitUntilAsync(() => editor.Scene.Children.Count == 1);
+                await HeadlessTestHelpers.WaitUntilAsync(() => editor.Scene.Children.Count == 1);
                 Assert.That(editor.Scene.Children[0].Start, Is.EqualTo(droppedFrame));
                 Assert.That(File.ReadAllText(Directory.GetFiles(storage, "*.bin", SearchOption.AllDirectories).Single()), Is.EqualTo("exported"));
             }
             else
             {
-                await WaitUntilAsync(() => !scope.ViewModel.IsTransferring.Value);
-                if (outcome is "busy" or "unsupported") await WaitUntilAsync(() => notifications.Notifications.Count == 1);
+                await HeadlessTestHelpers.WaitUntilAsync(() => !scope.ViewModel.IsTransferring.Value);
+                if (outcome is "busy" or "unsupported") await HeadlessTestHelpers.WaitUntilAsync(() => notifications.All.Count == 1);
                 HeadlessTestHelpers.Settle();
                 Assert.That(editor.Scene.Children, Is.Empty);
                 Assert.That(!Directory.Exists(storage) || !Directory.EnumerateFileSystemEntries(storage).Any(), Is.True);
             }
-            await WaitUntilAsync(() => !Directory.Exists(downloads) || !Directory.GetDirectories(downloads).Except(originalDownloads).Any());
-            Assert.That(notifications.Notifications, Has.Count.EqualTo(outcome is "busy" or "unsupported" ? 1 : 0));
+            await HeadlessTestHelpers.WaitUntilAsync(() => !Directory.Exists(downloads) || !Directory.GetDirectories(downloads).Except(originalDownloads).Any());
+            Assert.That(notifications.All, Has.Count.EqualTo(outcome is "busy" or "unsupported" ? 1 : 0));
             Assert.That(scope.ViewModel.ActionError.Value, Is.Null);
         }
         finally { window.MouseUp(new AvaPoint(0, 0), MouseButton.Left); window.Close(); HeadlessTestHelpers.Settle(); }
@@ -582,9 +565,7 @@ public class ElementAddEntryPointTests
         EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;
         var handler = new BlockingFileSourceHandler();
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        _ = adder.SourceHandlers.Register(new ElementSourceHandlerRegistration(
-            handler,
-            ElementSourceHandlerRegistrationMode.Replace));
+        await using IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler, ElementSourceHandlerRegistrationMode.Replace);
         var view = new PlayerView();
         var description = new ElementDescription(
             TimeSpan.Zero,
@@ -667,49 +648,8 @@ public class ElementAddEntryPointTests
         }
     }
 
-    private static async Task WaitUntilAsync(Func<bool> condition)
-    {
-        const int DelayMilliseconds = 10;
-        for (int attempt = 0; attempt < 500; attempt++)
-        {
-            if (condition())
-                return;
-            await Task.Delay(DelayMilliseconds);
-        }
-
-        Assert.Fail("The expected asynchronous UI state was not reached.");
-    }
-
-    private sealed class NotificationCapture : INotificationServiceHandler, IDisposable
-    {
-        private readonly INotificationServiceHandler _previousHandler;
-
-        public NotificationCapture()
-        {
-            _previousHandler = NotificationService.Handler;
-            NotificationService.Handler = this;
-        }
-
-        public ConcurrentQueue<Notification> Notifications { get; } = new();
-
-        public void Show(Notification notification) => Notifications.Enqueue(notification);
-
-        public Notification Single()
-        {
-            Assert.That(Notifications, Has.Count.EqualTo(1));
-            return Notifications.Single();
-        }
-
-        public void Dispose()
-        {
-            NotificationService.Handler = _previousHandler;
-        }
-    }
-
     private sealed class FailingElementAdder(Exception failure) : IElementAdder
     {
-        public IElementSourceHandlerRegistry SourceHandlers => null!;
-
         public ValueTask<ElementAddResult> AddAsync(
             IReadOnlyList<ElementDescription> descriptions,
             CancellationToken cancellationToken)

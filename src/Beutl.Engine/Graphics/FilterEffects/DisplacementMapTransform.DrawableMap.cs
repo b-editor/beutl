@@ -104,7 +104,6 @@ public abstract partial class DisplacementMapTransform
                     continue;
                 }
 
-                effectTarget.Dispose();
                 context.Targets[i] = output;
             }
             catch

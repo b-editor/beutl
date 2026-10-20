@@ -264,7 +264,7 @@ public partial class ImmediateCanvas
         if (IsGuardedCallbackCanvas)
         {
             throw new InvalidOperationException(
-                "Nested render work, snapshots, and effectItem raw callbacks are not available on a guarded callback canvas.");
+                "Nested render work, snapshots, and effect-item raw callbacks are not available on a guarded callback canvas.");
         }
     }
 

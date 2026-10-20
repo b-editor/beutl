@@ -21,7 +21,6 @@ using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
@@ -44,7 +43,7 @@ public class TimelineMediaDurationTests
     public async Task OriginalDuration_UsesRemainingTimelineTimeAndKeepsMinimumFrame(
         double? sourceSeconds, double offsetSeconds, float speed, double expectedSeconds)
     {
-        using var configuration = new RippleDisabledScope();
+        using var configuration = new EditorConfigScope();
         SceneSound sound = CreateSound(sourceSeconds, offsetSeconds, speed);
         ElementViewModel model = await OpenElement(sound);
         var editor = (EditViewModel)model.Timeline.EditorContext;
@@ -69,7 +68,7 @@ public class TimelineMediaDurationTests
     [AvaloniaTest]
     public async Task OriginalDuration_UsesTightestNestedStream()
     {
-        using var configuration = new RippleDisabledScope();
+        using var configuration = new EditorConfigScope();
         SceneSound slower = CreateSound(5, 0, 100);
         SceneSound faster = CreateSound(5, 1, 200);
         var group = new SoundGroup();
@@ -98,68 +97,41 @@ public class TimelineMediaDurationTests
     public async Task RightEdgeDrag_PreviewsAndCommitsMediaBoundWithoutChangingOffset(
         double? sourceSeconds, double offsetSeconds, float speed, bool clamp, double expectedSeconds)
     {
-        using var configuration = new RippleDisabledScope();
+        using var configuration = new EditorConfigScope(clamp: clamp);
         SceneSound sound = CreateSound(sourceSeconds, offsetSeconds, speed);
         ElementViewModel model = await OpenElement(sound);
         TimelineTabViewModel timeline = model.Timeline;
         timeline.ClearSelected();
         timeline.SelectElement(model);
-        var view = new TimelineTabView { DataContext = timeline };
-        var window = new Window { Content = view, Width = 1200, Height = 420 };
-        bool originalClamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
-        try
+        using var view = OpenTimelineView(model, width: 1200);
+        Border border = view.Border;
+        Assert.That(border.Bounds.Width, Is.GreaterThan(40), "The resize edge must be laid out and hit-testable.");
+        float scale = view.Scale;
+        double y = border.Bounds.Height / 2;
+        Point press = border.TranslatePoint(new Point(border.Bounds.Width - 2, y), view.Window)!.Value;
+        Point release = border.TranslatePoint(new Point(TimeSpan.FromSeconds(4).TimeToPixel(scale), y), view.Window)!.Value;
+
+        view.Drag(press, release, RawInputModifiers.Alt, () =>
         {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = clamp;
-            window.Show();
-            HeadlessTestHelpers.Render(5);
-            ElementView element = view.GetVisualDescendants().OfType<ElementView>()
-                .Single(v => ReferenceEquals(v.DataContext, model));
-            Border border = element.FindControl<Border>("border")!;
-            Assert.That(border.Bounds.Width, Is.GreaterThan(40), "The resize edge must be laid out and hit-testable.");
-            float scale = timeline.Options.Value.Scale;
-            double y = border.Bounds.Height / 2;
-            Point press = border.TranslatePoint(new Point(border.Bounds.Width - 2, y), window)!.Value;
-            Point release = border.TranslatePoint(new Point(TimeSpan.FromSeconds(4).TimeToPixel(scale), y), window)!.Value;
-
-            // Hover establishes the actual resize handle; Alt bypasses timeline snapping.
-            window.MouseMove(press, RawInputModifiers.Alt);
-            window.MouseDown(press, MouseButton.Left, RawInputModifiers.Alt);
-            try
-            {
-                window.MouseMove(release, RawInputModifiers.Alt | RawInputModifiers.LeftMouseButton);
-                HeadlessTestHelpers.Render(5);
-                CapturePreview(window, $"source-{sourceSeconds?.ToString() ?? "unknown"}-offset-{offsetSeconds}-clamp-{clamp}");
-
-                Assert.Multiple(() =>
-                {
-                    Assert.That(model.Width.Value,
-                        Is.EqualTo(ExpectedLength(expectedSeconds).TimeToPixel(scale)).Within(0.0001));
-                    Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(1)),
-                        "Dragging previews geometry without writing the element.");
-                    Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(offsetSeconds)));
-                });
-            }
-            finally
-            {
-                window.MouseUp(release, MouseButton.Left, RawInputModifiers.Alt);
-                HeadlessTestHelpers.Settle(4);
-            }
+            CapturePreview(view.Window, $"source-{sourceSeconds?.ToString() ?? "unknown"}-offset-{offsetSeconds}-clamp-{clamp}");
 
             Assert.Multiple(() =>
             {
-                Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
-                Assert.That(model.Model.Length, Is.EqualTo(ExpectedLength(expectedSeconds)));
-                Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(offsetSeconds)),
-                    "Normal edge resize remains geometry-only.");
+                Assert.That(model.Width.Value,
+                    Is.EqualTo(ExpectedLength(expectedSeconds).TimeToPixel(scale)).Within(0.0001));
+                Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(1)),
+                    "Dragging previews geometry without writing the element.");
+                Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(offsetSeconds)));
             });
-        }
-        finally
+        });
+
+        Assert.Multiple(() =>
         {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = originalClamp;
-            view.DataContext = null;
-            window.Close();
-            HeadlessTestHelpers.Settle();
-        }
+            Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(model.Model.Length, Is.EqualTo(ExpectedLength(expectedSeconds)));
+            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(offsetSeconds)),
+                "Normal edge resize remains geometry-only.");
+        });
     }
 
     [AvaloniaTest]
@@ -169,75 +141,50 @@ public class TimelineMediaDurationTests
     public async Task LeftEdgeDrag_ClampsStartAndPreservesEnd(
         double sourceSeconds, double requestedStartSeconds, double expectedStartSeconds, bool clamp)
     {
-        using var configuration = new RippleDisabledScope();
+        using var configuration = new EditorConfigScope(clamp: clamp);
         SceneSound sound = CreateSound(sourceSeconds, 1, 200);
         ElementViewModel model = await OpenElement(sound, startSeconds: 5, lengthSeconds: 2);
         TimelineTabViewModel timeline = model.Timeline;
         timeline.ClearSelected();
         timeline.SelectElement(model);
-        var view = new TimelineTabView { DataContext = timeline };
-        var window = new Window { Content = view, Width = 1600, Height = 420 };
-        bool originalClamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
-        try
+        using var view = OpenTimelineView(model, width: 1600);
+        ElementView element = view.Element;
+        Border border = view.Border;
+        float scale = view.Scale;
+        Point press = border.TranslatePoint(new Point(2, border.Bounds.Height / 2), view.Window)!.Value;
+        Point release = element.TranslatePoint(new Point(
+            TimeSpan.FromSeconds(requestedStartSeconds).TimeToPixel(scale), element.Bounds.Height / 2), view.Window)!.Value;
+        TimeSpan expectedStart = TimeSpan.FromSeconds(expectedStartSeconds);
+        TimeSpan end = TimeSpan.FromSeconds(7);
+
+        view.Drag(press, release, RawInputModifiers.Alt, () =>
         {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = clamp;
-            window.Show();
-            HeadlessTestHelpers.Render(5);
-            ElementView element = view.GetVisualDescendants().OfType<ElementView>()
-                .Single(v => ReferenceEquals(v.DataContext, model));
-            Border border = element.FindControl<Border>("border")!;
-            float scale = timeline.Options.Value.Scale;
-            Point press = border.TranslatePoint(new Point(2, border.Bounds.Height / 2), window)!.Value;
-            Point release = element.TranslatePoint(new Point(
-                TimeSpan.FromSeconds(requestedStartSeconds).TimeToPixel(scale), element.Bounds.Height / 2), window)!.Value;
-            TimeSpan expectedStart = TimeSpan.FromSeconds(expectedStartSeconds);
-            TimeSpan end = TimeSpan.FromSeconds(7);
-
-            window.MouseMove(press, RawInputModifiers.Alt);
-            window.MouseDown(press, MouseButton.Left, RawInputModifiers.Alt);
-            try
-            {
-                window.MouseMove(release, RawInputModifiers.Alt | RawInputModifiers.LeftMouseButton);
-                HeadlessTestHelpers.Render(5);
-                CapturePreview(window, $"left-source-{sourceSeconds}-clamp-{clamp}");
-
-                Assert.Multiple(() =>
-                {
-                    Assert.That(model.BorderMargin.Value.Left, Is.EqualTo(expectedStart.TimeToPixel(scale)).Within(0.0001));
-                    Assert.That(model.Width.Value, Is.EqualTo((end - expectedStart).TimeToPixel(scale)).Within(0.0001));
-                    Assert.That(model.BorderMargin.Value.Left + model.Width.Value, Is.EqualTo(end.TimeToPixel(scale)).Within(0.0001));
-                    Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
-                    Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-                    Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
-                });
-            }
-            finally
-            {
-                window.MouseUp(release, MouseButton.Left, RawInputModifiers.Alt);
-                HeadlessTestHelpers.Settle(4);
-            }
+            CapturePreview(view.Window, $"left-source-{sourceSeconds}-clamp-{clamp}");
 
             Assert.Multiple(() =>
             {
-                Assert.That(model.Model.Start, Is.EqualTo(expectedStart));
-                Assert.That(model.Model.Range.End, Is.EqualTo(end), "The untouched right edge must not move on commit.");
-                Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)),
-                    "Normal left-edge resize remains geometry-only.");
+                Assert.That(model.BorderMargin.Value.Left, Is.EqualTo(expectedStart.TimeToPixel(scale)).Within(0.0001));
+                Assert.That(model.Width.Value, Is.EqualTo((end - expectedStart).TimeToPixel(scale)).Within(0.0001));
+                Assert.That(model.BorderMargin.Value.Left + model.Width.Value, Is.EqualTo(end.TimeToPixel(scale)).Within(0.0001));
+                Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
+                Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+                Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
             });
-        }
-        finally
+        });
+
+        Assert.Multiple(() =>
         {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = originalClamp;
-            view.DataContext = null;
-            window.Close();
-            HeadlessTestHelpers.Settle();
-        }
+            Assert.That(model.Model.Start, Is.EqualTo(expectedStart));
+            Assert.That(model.Model.Range.End, Is.EqualTo(end), "The untouched right edge must not move on commit.");
+            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)),
+                "Normal left-edge resize remains geometry-only.");
+        });
     }
 
     [AvaloniaTest]
     public async Task RollDrag_LocalDeceleratingBack_ClampsPreviewAndCommitToSourceEnd()
     {
-        using var configuration = new RippleDisabledScope();
+        using var configuration = new EditorConfigScope(clamp: true);
         SceneSound sound = CreateSound(9, 0, 300);
         var speed = new KeyFrameAnimation<float> { UseGlobalClock = false };
         speed.KeyFrames.Add(new KeyFrame<float>
@@ -267,29 +214,19 @@ public class TimelineMediaDurationTests
         timeline.ClearSelected();
         timeline.SelectElement(front);
         timeline.IsRollMode.Value = true;
-        var view = new TimelineTabView { DataContext = timeline };
-        var window = new Window { Content = view, Width = 1600, Height = 420 };
-        bool originalClamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
         try
         {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = true;
-            window.Show();
-            HeadlessTestHelpers.Render(5);
-            ElementView element = view.GetVisualDescendants().OfType<ElementView>()
-                .Single(v => ReferenceEquals(v.DataContext, front));
-            Border border = element.FindControl<Border>("border")!;
-            float scale = timeline.Options.Value.Scale;
-            Point press = border.TranslatePoint(new Point(border.Bounds.Width - 2, border.Bounds.Height / 2), window)!.Value;
+            using var view = OpenTimelineView(front, width: 1600);
+            Border border = view.Border;
+            float scale = view.Scale;
+            Point press = border.TranslatePoint(
+                new Point(border.Bounds.Width - 2, border.Bounds.Height / 2), view.Window)!.Value;
             Point release = press.WithX(press.X + TimeSpan.FromSeconds(2).TimeToPixel(scale));
             double previewDeltaSeconds = 0;
 
-            window.MouseMove(press, RawInputModifiers.Alt);
-            window.MouseDown(press, MouseButton.Left, RawInputModifiers.Alt);
-            try
+            view.Drag(press, release, RawInputModifiers.Alt, () =>
             {
-                window.MouseMove(release, RawInputModifiers.Alt | RawInputModifiers.LeftMouseButton);
-                HeadlessTestHelpers.Render(5);
-                CapturePreview(window, "roll-local-decelerating-back");
+                CapturePreview(view.Window, "roll-local-decelerating-back");
                 previewDeltaSeconds = back.BorderMargin.Value.Left.PixelToTimeSpan(scale).TotalSeconds - 4;
 
                 // F(t) = 3t - t²/4. After rolling by d the local clock restarts, so
@@ -304,12 +241,7 @@ public class TimelineMediaDurationTests
                     Assert.That(back.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
                     Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
                 });
-            }
-            finally
-            {
-                window.MouseUp(release, MouseButton.Left, RawInputModifiers.Alt);
-                HeadlessTestHelpers.Settle(4);
-            }
+            });
 
             using var integrator = new SpeedIntegrator(44100);
             integrator.EnsureCache(speed);
@@ -327,18 +259,14 @@ public class TimelineMediaDurationTests
         }
         finally
         {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = originalClamp;
             timeline.IsRollMode.Value = false;
-            view.DataContext = null;
-            window.Close();
-            HeadlessTestHelpers.Settle();
         }
     }
 
     [AvaloniaTest]
     public async Task OriginalDuration_FrozenMedia_RemainsAvailable()
     {
-        using var configuration = new RippleDisabledScope();
+        using var configuration = new EditorConfigScope();
         ElementViewModel model = await OpenElement(CreateSound(5, 0, 0));
         Assert.That(model.HasOriginalDuration(), Is.True);
         model.ChangeToOriginalDuration.Execute();
@@ -349,7 +277,7 @@ public class TimelineMediaDurationTests
     [AvaloniaTest]
     public async Task OriginalDuration_ExtensionProvider_RemainsAvailable()
     {
-        using var configuration = new RippleDisabledScope();
+        using var configuration = new EditorConfigScope();
         ElementViewModel model = await OpenElement(new DurationProviderObject());
         Assert.That(model.HasOriginalDuration(), Is.True);
         model.ChangeToOriginalDuration.Execute();
@@ -372,7 +300,7 @@ public class TimelineMediaDurationTests
     [AvaloniaTest]
     public async Task OriginalDuration_NeighbourCap_RemainsSafeWhenEdgeClampingIsDisabled()
     {
-        using var configuration = new RippleDisabledScope();
+        using var configuration = new EditorConfigScope(clamp: false);
         ElementViewModel model = await OpenElement(CreateDurationVideo(), startSeconds: 5);
         model.Model.Objects.Add(new DrawableTimeController
         {
@@ -385,19 +313,10 @@ public class TimelineMediaDurationTests
             Start: TimeSpan.FromSeconds(6.5), Length: TimeSpan.FromSeconds(1), Layer: 0,
             Source: new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None)).IsSuccess, Is.True);
         HeadlessTestHelpers.Settle();
-        bool originalClamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
-        try
-        {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = false;
-            model.ChangeToOriginalDuration.Execute();
-            HeadlessTestHelpers.Settle(4);
-            Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(1)),
-                "The neighbour's 1.5s limit is an unsafe loop period and must be revalidated.");
-        }
-        finally
-        {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = originalClamp;
-        }
+        model.ChangeToOriginalDuration.Execute();
+        HeadlessTestHelpers.Settle(4);
+        Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(1)),
+            "The neighbour's 1.5s limit is an unsafe loop period and must be revalidated.");
     }
 
     [AvaloniaTest]
@@ -405,7 +324,7 @@ public class TimelineMediaDurationTests
     [TestCase(true)]
     public async Task EdgeDrag_LaterSafeLoopPhase_IsNotLimitedByAnEarlierFailedProbe(bool leftEdge)
     {
-        using var configuration = new RippleDisabledScope();
+        using var configuration = new EditorConfigScope(clamp: true);
         ElementViewModel model = await OpenElement(CreateDurationVideo(), startSeconds: 5);
         model.Model.Objects.Add(new DrawableTimeController
         {
@@ -416,38 +335,19 @@ public class TimelineMediaDurationTests
         var timeline = model.Timeline;
         timeline.ClearSelected();
         timeline.SelectElement(model);
-        var view = new TimelineTabView { DataContext = timeline };
-        var window = new Window { Content = view, Width = 1600, Height = 420 };
-        bool originalClamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
-        try
+        using var view = OpenTimelineView(model, width: 1600);
+        Border border = view.Border;
+        float scale = view.Scale;
+        double y = border.Bounds.Height / 2;
+        Point press = border.TranslatePoint(new Point(leftEdge ? 2 : border.Bounds.Width - 2, y), view.Window)!.Value;
+        Point release = border.TranslatePoint(new Point(TimeSpan.FromSeconds(leftEdge ? -1.8 : 1.6).TimeToPixel(scale), y), view.Window)!.Value;
+        view.Drag(press, release, RawInputModifiers.Alt, () =>
         {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = true;
-            window.Show();
-            HeadlessTestHelpers.Render(5);
-            ElementView element = view.GetVisualDescendants().OfType<ElementView>().Single(v => ReferenceEquals(v.DataContext, model));
-            Border border = element.FindControl<Border>("border")!;
-            float scale = timeline.Options.Value.Scale;
-            double y = border.Bounds.Height / 2;
-            Point press = border.TranslatePoint(new Point(leftEdge ? 2 : border.Bounds.Width - 2, y), window)!.Value;
-            Point release = border.TranslatePoint(new Point(TimeSpan.FromSeconds(leftEdge ? -1.8 : 1.6).TimeToPixel(scale), y), window)!.Value;
-            window.MouseMove(press, RawInputModifiers.Alt);
-            window.MouseDown(press, MouseButton.Left, RawInputModifiers.Alt);
-            window.MouseMove(release, RawInputModifiers.Alt | RawInputModifiers.LeftMouseButton);
-            HeadlessTestHelpers.Render(5);
-            CapturePreview(window, leftEdge ? "later-safe-left-loop-phase" : "later-safe-loop-phase");
+            CapturePreview(view.Window, leftEdge ? "later-safe-left-loop-phase" : "later-safe-loop-phase");
             Assert.That(model.Width.Value, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 2 : 1.6).TimeToPixel(scale)).Within(0.0001));
-            window.MouseUp(release, MouseButton.Left, RawInputModifiers.Alt);
-            HeadlessTestHelpers.Settle(4);
-            Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 2 : 1.6)));
-            Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 4 : 5)));
-        }
-        finally
-        {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = originalClamp;
-            view.DataContext = null;
-            window.Close();
-            HeadlessTestHelpers.Settle();
-        }
+        });
+        Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 2 : 1.6)));
+        Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 4 : 5)));
     }
 
     [AvaloniaTest]
@@ -455,7 +355,7 @@ public class TimelineMediaDurationTests
     [TestCase(true)]
     public async Task EdgeDrag_PortalBecomesActive_PreviewsAndCommitsSourceBounds(bool leftEdge)
     {
-        using var configuration = new RippleDisabledScope();
+        using var configuration = new EditorConfigScope(clamp: true, snap: false);
         ElementViewModel model = await OpenElement(new DrawableTimeController { Speed = { CurrentValue = 50 } },
             startSeconds: leftEdge ? 4 : 1, lengthSeconds: leftEdge ? 1 : 0.5);
         model.Model.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
@@ -472,47 +372,19 @@ public class TimelineMediaDurationTests
         timeline.ClearSelected();
         timeline.SelectElement(model);
         HeadlessTestHelpers.Settle();
-        var view = new TimelineTabView { DataContext = timeline };
-        var window = new Window { Content = view, Width = 1600, Height = 420 };
-        bool originalClamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
-        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled;
-        try
+        using var view = OpenTimelineView(model, width: 1600);
+        Border border = view.Border;
+        float scale = view.Scale;
+        double y = border.Bounds.Height / 2;
+        Point press = border.TranslatePoint(new Point(leftEdge ? 2 : border.Bounds.Width - 2, y), view.Window)!.Value;
+        Point release = border.TranslatePoint(new Point(TimeSpan.FromSeconds(leftEdge ? -4 : 3).TimeToPixel(scale), y), view.Window)!.Value;
+        view.Drag(press, release, RawInputModifiers.Alt, () =>
         {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = true;
-            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = false;
-            window.Show();
-            HeadlessTestHelpers.Render(5);
-            ElementView element = view.GetVisualDescendants().OfType<ElementView>().Single(v => ReferenceEquals(v.DataContext, model));
-            Border border = element.FindControl<Border>("border")!;
-            float scale = timeline.Options.Value.Scale;
-            double y = border.Bounds.Height / 2;
-            Point press = border.TranslatePoint(new Point(leftEdge ? 2 : border.Bounds.Width - 2, y), window)!.Value;
-            Point release = border.TranslatePoint(new Point(TimeSpan.FromSeconds(leftEdge ? -4 : 3).TimeToPixel(scale), y), window)!.Value;
-            window.MouseMove(press, RawInputModifiers.Alt);
-            window.MouseDown(press, MouseButton.Left, RawInputModifiers.Alt);
-            try
-            {
-                window.MouseMove(release, RawInputModifiers.Alt | RawInputModifiers.LeftMouseButton);
-                HeadlessTestHelpers.Render(5);
-                CapturePreview(window, $"portal-new-overlap-left-{leftEdge}");
-                Assert.That(model.Width.Value, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 4 : 2).TimeToPixel(scale)).Within(0.0001));
-            }
-            finally
-            {
-                window.MouseUp(release, MouseButton.Left, RawInputModifiers.Alt);
-                HeadlessTestHelpers.Settle(4);
-            }
-            Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 4 : 2)));
-        }
-        finally
-        {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = originalClamp;
-            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = originalSnap;
-            view.DataContext = null;
-            window.Close();
-            HeadlessTestHelpers.Settle();
-        }
+            CapturePreview(view.Window, $"portal-new-overlap-left-{leftEdge}");
+            Assert.That(model.Width.Value, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 4 : 2).TimeToPixel(scale)).Within(0.0001));
+        });
+        Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 4 : 2)));
     }
 
     [AvaloniaTest]
@@ -520,66 +392,38 @@ public class TimelineMediaDurationTests
     [TestCase(true)]
     public async Task EdgeDrag_DisabledFlowController_PreservesSafeBoundsForReenabling(bool leftEdge)
     {
-        using var configuration = new RippleDisabledScope();
+        using var configuration = new EditorConfigScope(clamp: true, snap: false);
         ElementViewModel model = await OpenElement(CreateDurationVideo(), startSeconds: leftEdge ? 2 : 1, lengthSeconds: 0.5);
         var controller = new DrawableTimeController { IsEnabled = false, OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(0.2) } };
         model.Model.Objects.Add(controller);
         var timeline = model.Timeline;
         timeline.ClearSelected();
         timeline.SelectElement(model);
-        var view = new TimelineTabView { DataContext = timeline };
-        var window = new Window { Content = view, Width = 1600, Height = 420 };
-        bool originalClamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
-        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled;
-        try
+        using var view = OpenTimelineView(model, width: 1600);
+        Border border = view.Border;
+        float scale = view.Scale;
+        double y = border.Bounds.Height / 2;
+        Point press = border.TranslatePoint(new Point(leftEdge ? 2 : border.Bounds.Width - 2, y), view.Window)!.Value;
+        Point release = border.TranslatePoint(new Point(TimeSpan.FromSeconds(leftEdge ? -1 : 1.5).TimeToPixel(scale), y), view.Window)!.Value;
+        view.Drag(press, release, RawInputModifiers.Alt, () =>
         {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = true;
-            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = false;
-            window.Show();
-            HeadlessTestHelpers.Render(5);
-            ElementView element = view.GetVisualDescendants().OfType<ElementView>().Single(v => ReferenceEquals(v.DataContext, model));
-            Border border = element.FindControl<Border>("border")!;
-            float scale = timeline.Options.Value.Scale;
-            double y = border.Bounds.Height / 2;
-            Point press = border.TranslatePoint(new Point(leftEdge ? 2 : border.Bounds.Width - 2, y), window)!.Value;
-            Point release = border.TranslatePoint(new Point(TimeSpan.FromSeconds(leftEdge ? -1 : 1.5).TimeToPixel(scale), y), window)!.Value;
-            window.MouseMove(press, RawInputModifiers.Alt);
-            window.MouseDown(press, MouseButton.Left, RawInputModifiers.Alt);
-            try
-            {
-                window.MouseMove(release, RawInputModifiers.Alt | RawInputModifiers.LeftMouseButton);
-                HeadlessTestHelpers.Render(5);
-                CapturePreview(window, $"disabled-flow-controller-left-{leftEdge}");
-                Assert.Multiple(() =>
-                {
-                    Assert.That(model.Width.Value, Is.EqualTo(TimeSpan.FromSeconds(0.8).TimeToPixel(scale)).Within(0.0001));
-                    Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(0.5)), "Preview must not mutate the element.");
-                });
-            }
-            finally
-            {
-                window.MouseUp(release, MouseButton.Left, RawInputModifiers.Alt);
-                HeadlessTestHelpers.Settle(4);
-            }
-            controller.IsEnabled = true;
-            using var compositor = new SceneCompositor(model.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
-            var resource = compositor.EvaluateGraphics(model.Model.Range.End - OneFrameAt30).Objects.OfType<DrawableTimeController.Resource>().Single();
-            var video = (SourceVideo.Resource)resource.Target!;
+            CapturePreview(view.Window, $"disabled-flow-controller-left-{leftEdge}");
             Assert.Multiple(() =>
             {
-                Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 1.7 : 1)));
-                Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(0.8)));
-                Assert.That(video.RequestedPosition + video.OffsetPosition, Is.LessThanOrEqualTo(TimeSpan.FromSeconds(1)));
+                Assert.That(model.Width.Value, Is.EqualTo(TimeSpan.FromSeconds(0.8).TimeToPixel(scale)).Within(0.0001));
+                Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(0.5)), "Preview must not mutate the element.");
             });
-        }
-        finally
+        });
+        controller.IsEnabled = true;
+        using var compositor = new SceneCompositor(model.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        var resource = compositor.EvaluateGraphics(model.Model.Range.End - OneFrameAt30).Objects.OfType<DrawableTimeController.Resource>().Single();
+        var video = (SourceVideo.Resource)resource.Target!;
+        Assert.Multiple(() =>
         {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = originalClamp;
-            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = originalSnap;
-            view.DataContext = null;
-            window.Close();
-            HeadlessTestHelpers.Settle();
-        }
+            Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 1.7 : 1)));
+            Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(0.8)));
+            Assert.That(video.RequestedPosition + video.OffsetPosition, Is.LessThanOrEqualTo(TimeSpan.FromSeconds(1)));
+        });
     }
 
     private static SourceVideo CreateDurationVideo()
@@ -608,7 +452,7 @@ public class TimelineMediaDurationTests
         public override bool HasVideo => true;
         public override bool HasAudio => false;
         public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Beutl.Media.Bitmap>? image) { image = null; return false; }
-        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound) { sound = null; return false; }
+        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound) { sound = null; return false; }
     }
 
     private static TimeSpan ExpectedLength(double seconds)
@@ -628,7 +472,7 @@ public class TimelineMediaDurationTests
     [AvaloniaTest]
     public async Task Move_GlobalSpeed_PreservesPreviewWidthOnRelease()
     {
-        using var configuration = new RippleDisabledScope();
+        using var configuration = new EditorConfigScope(clamp: true, snap: false);
         SceneSound sound = CreateSound(3, 0, 100);
         var animation = new KeyFrameAnimation<float> { UseGlobalClock = true };
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
@@ -639,54 +483,25 @@ public class TimelineMediaDurationTests
         timeline.Options.Value = timeline.Options.Value with { Scale = 0.5f };
         timeline.ClearSelected();
         timeline.SelectElement(model);
-        var view = new TimelineTabView { DataContext = timeline };
-        var window = new Window { Content = view, Width = 1200, Height = 420 };
-        bool originalClamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
-        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled;
-        try
+        using var view = OpenTimelineView(model, width: 1200);
+        Border border = view.Border;
+        float scale = view.Scale;
+        double width = model.Width.Value;
+        Point press = border.TranslatePoint(new Point(border.Bounds.Width / 2, border.Bounds.Height / 2), view.Window)!.Value;
+        Point release = press + new Avalonia.Vector(TimeSpan.FromSeconds(6).TimeToPixel(scale), 0);
+        view.Drag(press, release, RawInputModifiers.None, () =>
         {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = true;
-            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = false;
-            window.Show();
-            HeadlessTestHelpers.Render(5);
-            ElementView element = view.GetVisualDescendants().OfType<ElementView>()
-                .Single(v => ReferenceEquals(v.DataContext, model));
-            Border border = element.FindControl<Border>("border")!;
-            float scale = timeline.Options.Value.Scale;
-            double width = model.Width.Value;
-            Point press = border.TranslatePoint(new Point(border.Bounds.Width / 2, border.Bounds.Height / 2), window)!.Value;
-            Point release = press + new Avalonia.Vector(TimeSpan.FromSeconds(6).TimeToPixel(scale), 0);
-            window.MouseMove(press, RawInputModifiers.None);
-            window.MouseDown(press, MouseButton.Left, RawInputModifiers.None);
-            try
-            {
-                window.MouseMove(release, RawInputModifiers.LeftMouseButton);
-                HeadlessTestHelpers.Render(5);
-                CapturePreview(window, "move-global-speed");
-                Assert.That(model.Width.Value, Is.EqualTo(width).Within(0.0001));
-            }
-            finally
-            {
-                window.MouseUp(release, MouseButton.Left, RawInputModifiers.None);
-                HeadlessTestHelpers.Settle(4);
-            }
-            Assert.Multiple(() =>
-            {
-                Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(7)));
-                Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-                Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            });
-            HeadlessTestHelpers.Render(5);
-            CapturePreview(window, "move-global-speed-committed");
-        }
-        finally
+            CapturePreview(view.Window, "move-global-speed");
+            Assert.That(model.Width.Value, Is.EqualTo(width).Within(0.0001));
+        });
+        Assert.Multiple(() =>
         {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = originalClamp;
-            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = originalSnap;
-            view.DataContext = null;
-            window.Close();
-            HeadlessTestHelpers.Settle();
-        }
+            Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(7)));
+            Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        });
+        HeadlessTestHelpers.Render(5);
+        CapturePreview(view.Window, "move-global-speed-committed");
     }
 
     [AvaloniaTest]
@@ -695,7 +510,7 @@ public class TimelineMediaDurationTests
     [TestCase(false, true)]
     public async Task GroupedResize_SharedTargetOwner_PreviewsAndCommitsTheSameEdge(bool leftEdge, bool subFrameStarts)
     {
-        using var configuration = new RippleDisabledScope();
+        using var configuration = new EditorConfigScope(clamp: true);
         SourceVideo video = CreateDurationVideo();
         video.Speed.CurrentValue = 200;
         ElementViewModel owner = await OpenElement(video, lengthSeconds: 0.4);
@@ -727,57 +542,31 @@ public class TimelineMediaDurationTests
         owner.GroupSelectedElements.Execute();
         HeadlessTestHelpers.Settle();
         Assert.That(presented.GetGroupOrSelectedElements(), Has.Count.EqualTo(2));
-        var view = new TimelineTabView { DataContext = timeline };
-        var window = new Window { Content = view, Width = 1200, Height = 420 };
-        bool originalClamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
-        try
+        using var view = OpenTimelineView(presented, width: 1200);
+        Border border = view.Border;
+        float scale = view.Scale;
+        Point press = border.TranslatePoint(new Point(leftEdge ? 2 : border.Bounds.Width - 2, border.Bounds.Height / 2), view.Window)!.Value;
+        double releaseX = TimeSpan.FromSeconds(leftEdge ? -0.35 : 0.75).TimeToPixel(scale);
+        Point release = border.TranslatePoint(new Point(releaseX, border.Bounds.Height / 2), view.Window)!.Value;
+        view.Drag(press, release, RawInputModifiers.Alt, () =>
         {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = true;
-            window.Show();
-            HeadlessTestHelpers.Render(5);
-            ElementView element = view.GetVisualDescendants().OfType<ElementView>()
-                .Single(v => ReferenceEquals(v.DataContext, presented));
-            Border border = element.FindControl<Border>("border")!;
-            float scale = timeline.Options.Value.Scale;
-            Point press = border.TranslatePoint(new Point(leftEdge ? 2 : border.Bounds.Width - 2, border.Bounds.Height / 2), window)!.Value;
-            double releaseX = TimeSpan.FromSeconds(leftEdge ? -0.35 : 0.75).TimeToPixel(scale);
-            Point release = border.TranslatePoint(new Point(releaseX, border.Bounds.Height / 2), window)!.Value;
-            window.MouseMove(press, RawInputModifiers.Alt);
-            window.MouseDown(press, MouseButton.Left, RawInputModifiers.Alt);
-            try
-            {
-                window.MouseMove(release, RawInputModifiers.Alt | RawInputModifiers.LeftMouseButton);
-                HeadlessTestHelpers.Render(5);
-                CapturePreview(window, $"grouped-shared-clock-left-{leftEdge}-subframe-{subFrameStarts}");
-                Assert.Multiple(() =>
-                {
-                    Assert.That(owner.Width.Value, Is.EqualTo(TimeSpan.FromSeconds(0.5).TimeToPixel(scale)).Within(0.0001));
-                    Assert.That(presented.BorderMargin.Value.Left + presented.Width.Value,
-                        Is.EqualTo(owner.BorderMargin.Value.Left + owner.Width.Value).Within(0.0001));
-                });
-            }
-            finally
-            {
-                window.MouseUp(release, MouseButton.Left, RawInputModifiers.Alt);
-                HeadlessTestHelpers.Settle(4);
-            }
+            CapturePreview(view.Window, $"grouped-shared-clock-left-{leftEdge}-subframe-{subFrameStarts}");
             Assert.Multiple(() =>
             {
-                Assert.That(owner.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(subFrameStarts ? 0.495 : 0.5)));
-                Assert.That(owner.Model.Start, Is.EqualTo(subFrameStarts ? TimeSpan.FromTicks(10050000) : TimeSpan.FromSeconds(leftEdge ? 0.9 : 1)));
-                Assert.That(peer.Start, Is.EqualTo(subFrameStarts ? TimeSpan.FromTicks(10200000) : TimeSpan.FromSeconds(leftEdge ? 0.9 : 1)));
-                Assert.That(peer.Range.End, Is.EqualTo(owner.Model.Range.End));
+                Assert.That(owner.Width.Value, Is.EqualTo(TimeSpan.FromSeconds(0.5).TimeToPixel(scale)).Within(0.0001));
+                Assert.That(presented.BorderMargin.Value.Left + presented.Width.Value,
+                    Is.EqualTo(owner.BorderMargin.Value.Left + owner.Width.Value).Within(0.0001));
             });
-            HeadlessTestHelpers.Render(5);
-            CapturePreview(window, $"grouped-shared-clock-left-{leftEdge}-subframe-{subFrameStarts}-committed");
-        }
-        finally
+        });
+        Assert.Multiple(() =>
         {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = originalClamp;
-            view.DataContext = null;
-            window.Close();
-            HeadlessTestHelpers.Settle();
-        }
+            Assert.That(owner.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(subFrameStarts ? 0.495 : 0.5)));
+            Assert.That(owner.Model.Start, Is.EqualTo(subFrameStarts ? TimeSpan.FromTicks(10050000) : TimeSpan.FromSeconds(leftEdge ? 0.9 : 1)));
+            Assert.That(peer.Start, Is.EqualTo(subFrameStarts ? TimeSpan.FromTicks(10200000) : TimeSpan.FromSeconds(leftEdge ? 0.9 : 1)));
+            Assert.That(peer.Range.End, Is.EqualTo(owner.Model.Range.End));
+        });
+        HeadlessTestHelpers.Render(5);
+        CapturePreview(view.Window, $"grouped-shared-clock-left-{leftEdge}-subframe-{subFrameStarts}-committed");
     }
 
     [AvaloniaTest]
@@ -786,7 +575,7 @@ public class TimelineMediaDurationTests
     [TestCase("presenter")]
     public async Task OriginalDuration_UnsupportedMapping_IsUnavailableAndPreservesGeometry(string kind)
     {
-        using var configuration = new RippleDisabledScope();
+        using var configuration = new EditorConfigScope();
         SourceVideo video = CreateDurationVideo();
         EngineObject root = video;
         if (kind == "source") video.Source.Expression = Expression.Create<VideoSource?>("null");
@@ -818,15 +607,7 @@ public class TimelineMediaDurationTests
 
     private static async Task<ElementViewModel> OpenElement(EngineObject media, double startSeconds = 1, double lengthSeconds = 1)
     {
-        await TestReset.ResetShellAsync();
-        string name = $"timeline-media-duration-{Guid.NewGuid():N}";
-        string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(directory);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, directory))!;
-        Scene scene = project.Items.OfType<Scene>().Single();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("timeline-media-duration");
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         ElementAddResult added = await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.FromSeconds(startSeconds), Length: TimeSpan.FromSeconds(lengthSeconds), Layer: 0,
@@ -845,15 +626,91 @@ public class TimelineMediaDurationTests
         return timeline.GetViewModelFor(element)!;
     }
 
-    private sealed class RippleDisabledScope : IDisposable
+    // Turns ripple editing off and applies the given clamp and snap settings. Dispose restores all three.
+    private sealed class EditorConfigScope : IDisposable
     {
-        private readonly bool _original = GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled;
+        private readonly bool _ripple = GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled;
+        private readonly bool _clamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
+        private readonly bool _snap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled;
 
-        public RippleDisabledScope()
-            => GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled = false;
+        public EditorConfigScope(bool? clamp = null, bool? snap = null)
+        {
+            EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+            config.IsRippleEnabled = false;
+            if (clamp is { } clampValue)
+                config.ClampResizeToOriginalLength = clampValue;
+            if (snap is { } snapValue)
+                config.IsTimelineSnapEnabled = snapValue;
+        }
 
         public void Dispose()
-            => GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled = _original;
+        {
+            EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+            config.IsRippleEnabled = _ripple;
+            config.ClampResizeToOriginalLength = _clamp;
+            config.IsTimelineSnapEnabled = _snap;
+        }
+    }
+
+    private static TimelineViewScope OpenTimelineView(ElementViewModel target, int width) => new(target, width);
+
+    // The timeline in a shown window, with the ElementView and border of one element laid out.
+    private sealed class TimelineViewScope : IDisposable
+    {
+        private readonly TimelineTabView _view;
+
+        public TimelineViewScope(ElementViewModel target, int width)
+        {
+            _view = new TimelineTabView { DataContext = target.Timeline };
+            Window = new Window { Content = _view, Width = width, Height = 420 };
+            try
+            {
+                Window.Show();
+                HeadlessTestHelpers.Render(5);
+                Element = _view.GetVisualDescendants().OfType<ElementView>()
+                    .Single(v => ReferenceEquals(v.DataContext, target));
+                Border = Element.FindControl<Border>("border")!;
+                Scale = target.Timeline.Options.Value.Scale;
+            }
+            catch
+            {
+                Dispose();
+                throw;
+            }
+        }
+
+        public Window Window { get; }
+
+        public ElementView Element { get; }
+
+        public Border Border { get; }
+
+        public float Scale { get; }
+
+        // Hovering first establishes the resize handle under the press; Alt bypasses timeline snapping.
+        public void Drag(Point press, Point release, RawInputModifiers modifiers, Action whilePressed)
+        {
+            Window.MouseMove(press, modifiers);
+            Window.MouseDown(press, MouseButton.Left, modifiers);
+            try
+            {
+                Window.MouseMove(release, modifiers | RawInputModifiers.LeftMouseButton);
+                HeadlessTestHelpers.Render(5);
+                whilePressed();
+            }
+            finally
+            {
+                Window.MouseUp(release, MouseButton.Left, modifiers);
+                HeadlessTestHelpers.Settle(4);
+            }
+        }
+
+        public void Dispose()
+        {
+            _view.DataContext = null;
+            Window.Close();
+            HeadlessTestHelpers.Settle();
+        }
     }
 
     private static void CapturePreview(Window window, string name)

@@ -1,17 +1,11 @@
 ﻿namespace Beutl.ViewModels;
 
-// Arbitrates ownership of PlayerViewModel's single shared playback session. Play() and StartShuttle
-// claim a new session; Pause() disowns it before draining scene work. A playback
-// task captures its token at start and only restores shared session state (IsPlaying, the preview
-// subscriptions, the loop re-arm) while it still owns the session, so a task that a timeout abandoned
-// cannot stomp the session that replaced it when it finally unblocks.
+// Ownership of PlayerViewModel's playback session: Play() and StartShuttle claim it and Pause() gives it up,
+// so a task a timeout abandoned cannot overwrite the state of the session that replaced it.
 internal sealed class PlaybackSessionGuard
 {
     private readonly object _sync = new();
     private int _generation;
-
-    // Claim a fresh session and return the token that identifies the claiming task.
-    public int Claim() => Claim(static () => { });
 
     // Claim and initialize the shared session state atomically with respect to a prior owner's
     // final guarded write. This prevents a late failure from clearing the new owner's state.
@@ -30,16 +24,12 @@ internal sealed class PlaybackSessionGuard
     public bool Owns(int token) => Volatile.Read(ref _generation) == token;
 
     // Disown the current owner on pause so its late restore
-    // becomes a no-op; the next Claim() starts a new session.
-    public void Disown() => Disown(static () => { });
-
-    public void Disown(Action restore)
+    // becomes a no-op; the next Claim starts a new session.
+    public void Disown()
     {
-        ArgumentNullException.ThrowIfNull(restore);
         lock (_sync)
         {
             Interlocked.Increment(ref _generation);
-            restore();
         }
     }
 

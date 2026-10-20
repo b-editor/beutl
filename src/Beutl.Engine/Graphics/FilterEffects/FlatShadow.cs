@@ -119,7 +119,6 @@ public partial class FlatShadow : FilterEffect
                 }
             }
 
-            target.Dispose();
             context.Targets[ii] = newTarget;
         }
     }

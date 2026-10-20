@@ -6,5 +6,5 @@ public struct ConnectionSnapshot
     public int OutputItemIndex;
     public int InputSlotIndex;
     public int InputItemIndex;
-    public Connection? OriginalConnection;
+    public Connection OriginalConnection;
 }

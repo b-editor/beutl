@@ -4,7 +4,6 @@ using Beutl.Collections;
 
 namespace Beutl;
 
-// TODO: 複数の親要素（参照元）を持てるようにする
 public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHierarchical
 {
     public static readonly CoreProperty<IHierarchical?> HierarchicalParentProperty;
@@ -48,8 +47,7 @@ public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHiera
 
     public event EventHandler<HierarchyAttachmentEventArgs>? DetachedFromHierarchy;
 
-    protected static void Hierarchy<T>(params CoreProperty[] properties)
-        where T : Hierarchical
+    protected static void Hierarchy(params CoreProperty[] properties)
     {
         foreach (CoreProperty item in properties)
         {
@@ -147,7 +145,7 @@ public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHiera
             _root.OnDescendantAttached(this);
         }
 
-        foreach (IHierarchical item in _hierarchicalChildren.GetMarshal().Value)
+        foreach (IHierarchical item in _hierarchicalChildren.AsSpan())
         {
             (item as IModifiableHierarchical)?.NotifyAttachedToHierarchy(new(e.Root, this));
         }
@@ -162,7 +160,7 @@ public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHiera
             DetachedFromHierarchy?.Invoke(this, e);
             e.Root.OnDescendantDetached(this);
 
-            foreach (IHierarchical item in _hierarchicalChildren.GetMarshal().Value)
+            foreach (IHierarchical item in _hierarchicalChildren.AsSpan())
             {
                 (item as IModifiableHierarchical)?.NotifyDetachedFromHierarchy(new(e.Root, this));
             }

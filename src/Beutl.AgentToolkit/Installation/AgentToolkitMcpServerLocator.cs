@@ -10,8 +10,8 @@ public static class AgentToolkitMcpServerLocator
     {
         string startDirectory = Path.GetFullPath(baseDirectory ?? AppContext.BaseDirectory);
 
-        AgentToolkitMcpServerCommand? published = FindPublishedServer(startDirectory)
-                                                  ?? FindPublishedServer(Path.Combine(startDirectory, "AgentToolkitMcp"));
+        // Beutl's own builds (nukebuild/Build.cs Publish and the macOS bundle) put the server next to the app.
+        AgentToolkitMcpServerCommand? published = FindPublishedServer(startDirectory);
         if (published is not null)
         {
             return published;

@@ -14,7 +14,8 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
     private readonly ReactivePropertySlim<T?> _rxProperty = new();
     private IAnimation<T>? _animation;
 
-    public NodePropertyAdapter(string name, T? value, IAnimation<T>? animation)
+    // For tests, which start an adapter with a value or an animation.
+    internal NodePropertyAdapter(string name, T? value, IAnimation<T>? animation)
     {
         Name = name;
         Animation = animation;
@@ -175,7 +176,7 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
     // Writes the value alone, for a port that finds its property by its own Name.
     internal void SerializeValue(ICoreSerializationContext context)
     {
-        context.SetValue("Setter", PropertyEntrySerializer.ToJson(_rxProperty.Value, Animation, PropertyType));
+        context.SetValue("Setter", PropertyEntrySerializer.ToJson(_rxProperty.Value, Animation));
     }
 
     public void Deserialize(ICoreSerializationContext context)

@@ -10,7 +10,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Services.PrimitiveImpls;
 
-[PrimitiveImpl]
 public sealed class VersionControlTabExtension : ToolTabExtension
 {
     public static readonly VersionControlTabExtension Instance = new();

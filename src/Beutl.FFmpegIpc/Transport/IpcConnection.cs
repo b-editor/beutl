@@ -65,23 +65,8 @@ public sealed class IpcConnection : IDisposable
     public Action<IpcMessage>? DroppedResponseHandler { get; set; }
 
     /// <summary>
-    /// 異常系の診断メッセージを上位レイヤーのロガーに流すためのフック
-    /// (例: ハンドラ例外 / Dispose タイムアウト / 受信ループ終了時の根因)。
-    /// <para>
-    /// 第 1 引数はメッセージ、第 2 引数は関連例外 (無い場合は null)。
-    /// </para>
-    /// <para>
-    /// 本ライブラリは依存ゼロを保つため <see cref="System.Diagnostics.Trace"/> を
-    /// デフォルトの出力先とするが、ホスト側 (例: Beutl.Extensions.FFmpeg の
-    /// <c>Microsoft.Extensions.Logging.ILogger</c>) やワーカー側 (例: Beutl.FFmpegWorker
-    /// の <c>WorkerLog</c>) はこのフックを設定して各レイヤーの慣習に合わせたロガーへ
-    /// 転送できる。フックが <c>null</c> の場合、メッセージは <see cref="System.Diagnostics.Trace.TraceError(string)"/>
-    /// に出力される。
-    /// </para>
-    /// <para>
-    /// フック内例外は飲み込まれ、診断は <see cref="System.Diagnostics.Trace"/> に
-    /// フォールバックする。受信ループや Dispose を巻き込まないことを優先する。
-    /// </para>
+    /// 異常時の診断メッセージ (と関連例外) の出力先。null なら
+    /// <see cref="System.Diagnostics.Trace.TraceError(string)"/> に出し、フックの例外は Trace に記録して無視する。
     /// </summary>
     public Action<string, Exception?>? DiagnosticLogger { get; set; }
 
@@ -115,14 +100,8 @@ public sealed class IpcConnection : IDisposable
 
     private async Task RunReceiveLoopAsync(CancellationToken loopCt)
     {
-        // 受信ループが終了する理由を以下のように区別する:
-        //   - loopCt キャンセル/ObjectDisposedException: 自プロセス由来の停止。
-        //     finally で待機中 TCS を TrySetCanceled(loopCt) してキャンセル扱い。
-        //   - EOF (msg == null) / IOException: 相手側起因の切断。
-        //     terminationError に詰めて TrySetException で伝播し、
-        //     「ユーザーがキャンセル」と「接続が死んだ」を呼び出し元から区別可能にする。
-        //   - 想定外例外 (プロトコル破損/JSON 失敗 など): 同じ termination 経路に集約し、
-        //     IOException として待機中 TCS と _receiveLoopFault に伝播する。
+        // 自プロセスの停止 (loopCt / ObjectDisposedException) は待機中の要求をキャンセル扱いにし、相手側の切断
+        // (EOF / IOException) と想定外の例外は IOException として伝えて、呼び出し元が両者を区別できるようにする。
         Exception? terminationError = null;
         try
         {
@@ -148,22 +127,15 @@ public sealed class IpcConnection : IDisposable
         }
         catch (Exception ex) when (!IsFatal(ex))
         {
-            // プロトコル破損 (length out of range, JSON deserialize 失敗, 想定外の状態) など
-            // I/O 以外の例外も同じ termination 経路に集約し、呼び出し元から
-            // 「キャンセル」と「ループが死んだ」を区別可能にする。
-            // 致命系 (OOM/SOE/AVE) は IOException に包んで誤魔化さず、プロセス側に
-            // 元のクラッシュ意図を伝播させる (InvokeDroppedResponseHandler と同じ規約)。
+            // プロトコル破損など I/O 以外の例外も同じ終了経路で伝える。
+            // 致命系 (OOM/SOE/AVE) は IOException に包まず、そのまま伝播させる。
             terminationError = new IOException(
                 "IPC receive loop terminated due to an unexpected protocol or deserialization error.", ex);
         }
         finally
         {
-            // ストア順序: Volatile.Write (release) → foreach の順を厳守する。
-            // 送信側は TryAdd 後に Volatile.Read (acquire) で fault を読み直すので、
-            // この release/acquire ペアが ARM などの弱メモリモデルでも保証される。
-            // 逆順だと foreach で拾われなかった TCS が永久 await になる。
-            // clean-cancel の場合も「fault 無し」ではなく ObjectDisposedException を
-            // 載せて fail-fast を保証する。
+            // Volatile.Write を foreach より先に行う。送信側は TryAdd の後に fault を読み直すので、逆にすると
+            // foreach が拾わなかった待機中の TCS が永久に待つ。clean-cancel でも fault を載せて fail-fast にする。
             Volatile.Write(
                 ref _receiveLoopFault,
                 terminationError ?? (Exception)new ObjectDisposedException(
@@ -309,10 +281,6 @@ public sealed class IpcConnection : IDisposable
         var request = IpcMessage.Create(id, requestType, payload);
         var response = await SendAndReceiveAsync(request, ct).ConfigureAwait(false);
 
-        if (response.Type == MessageType.Error)
-            throw new FFmpegWorkerException(
-                response.Error ?? "Unknown error", response.ErrorStackTrace, response.ErrorCode);
-
         if (response.Type != responseType)
             throw new InvalidOperationException(
                 $"Unexpected response type: expected {responseType}, got {response.Type}");
@@ -401,11 +369,6 @@ public sealed class IpcConnection : IDisposable
         }
     }
 
-    /// <summary>
-    /// 異常系の診断メッセージを出力する。<see cref="DiagnosticLogger"/> が設定されていれば
-    /// そちらへ、無ければ <see cref="Trace.TraceError(string)"/> へフォールバックする。
-    /// フック自身が例外を投げても受信ループ / Dispose を巻き込まないよう Trace に切り替える。
-    /// </summary>
     private void WriteDiagnostic(string message, Exception? exception = null)
     {
         var logger = DiagnosticLogger;
@@ -436,29 +399,22 @@ public sealed class IpcConnection : IDisposable
         {
             _receiveLoopCts?.Cancel();
 
-            // 受信ループを待ってからパイプ/セマフォを破棄する。先にパイプを破棄すると
-            // 進行中の ReadMessageAsync が ObjectDisposedException で死に、自己 Dispose が
-            // 誤って "broken pipe" として pending リクエストに伝播してしまう。
-            // 上限を切って待つので、ループが loopCt を尊重しない異常状態でも Dispose は完走する。
+            // 受信ループを待ってからパイプを破棄する。先に破棄すると自己 Dispose が "broken pipe" として
+            // 待機中の要求に伝わる。待機には上限があるので、ループが止まらなくても Dispose は完走する。
             try
             {
                 if (_receiveLoopTask is { } task && !task.Wait(TimeSpan.FromSeconds(5)))
                 {
-                    // タイムアウト = ループが停止しなかった。続行するとパイプ破棄で
-                    // ObjectDisposedException を引き起こし、その先で診断が消える。
-                    // 続行はするが、痕跡が残るよう上位ロガーへ出す。
+                    // ループが止まらなかった。続行はするが、痕跡を残す。
                     WriteDiagnostic("IpcConnection.Dispose: receive loop did not exit within 5s; proceeding with disposal.");
                 }
             }
             catch (AggregateException ex)
             {
-                // 受信ループ内例外は finally で pending TCS / _receiveLoopFault へ伝播済みだが、
-                // Dispose 時の根因をたどれるよう原例外を残す。
+                // 例外は待機中の要求へ伝播済みだが、根因をたどれるよう記録する。
                 WriteDiagnostic("IpcConnection.Dispose: receive loop ended with exception.", ex);
 
-                // 受信ループの generic catch が除外している致命系 (OOM/SOE/AVE) は
-                // Dispose 経路でも握りつぶさず再 throw する。リソース解放後に投げ直すため
-                // ExceptionDispatchInfo として捕捉だけしておく。
+                // 致命系 (OOM/SOE/AVE) は握りつぶさず、リソースを解放した後に投げ直す。
                 var fatal = ex.InnerExceptions.FirstOrDefault(IsFatal);
                 if (fatal != null)
                 {
@@ -468,8 +424,7 @@ public sealed class IpcConnection : IDisposable
         }
         finally
         {
-            // task.Wait が AggregateException 以外の例外 (ObjectDisposedException 等) で
-            // 抜けても、パイプ/セマフォ/CTS は必ず解放してハンドルリークを防ぐ。
+            // task.Wait がほかの例外で抜けても、ハンドルを必ず解放する。
             _receiveLoopCts?.Dispose();
             _requestLock.Dispose();
             _writeLock.Dispose();

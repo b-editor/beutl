@@ -12,7 +12,6 @@ using Avalonia.Styling;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Components.PathEditorTab.Views;
 using Beutl.Language;
-using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using ShapePath = Avalonia.Controls.Shapes.Path;
@@ -33,14 +32,7 @@ public class PathEditorToolGroupTests
     [TestCase(640, 420, true)]
     public async Task Tool_groups_expose_names_and_preserve_mouse_and_keyboard_operations(int width, int height, bool light)
     {
-        await TestReset.ResetShellAsync();
-        string root = System.IO.Path.Combine(BeutlHomeIsolation.CurrentHome!, $"path-tools-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "path-tools", root))!;
-        Scene scene = project.Items.OfType<Scene>().Single();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("path-tools");
         using var model = new PathEditorTabViewModel(editor);
         var view = new PathEditorTabView { DataContext = model };
         var window = new Window
@@ -120,8 +112,7 @@ public class PathEditorToolGroupTests
 
             if (Environment.GetEnvironmentVariable("BEUTL_PATH_TOOLS_CAPTURE") is { Length: > 0 } directory)
             {
-                // A sample path makes the outline/fill display controls visible without
-                // involving geometry editing, which this toolbar change does not affect.
+                // A sample path makes the outline and fill visible in the capture.
                 path.Data = Geometry.Parse("M 80,45 C 130,10 200,140 270,50 L 270,140 L 80,140 Z");
                 window.MouseMove(new Point(width - 1, height - 1));
                 HeadlessTestHelpers.Render();

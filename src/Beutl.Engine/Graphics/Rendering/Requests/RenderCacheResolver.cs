@@ -22,25 +22,18 @@ internal sealed partial class RenderCacheResolver
         RegionAnalysis regions,
         IReadOnlyList<RenderFragmentReference> roots,
         RenderCacheResolutionContext context,
-        IRenderCacheLookup? lookup = null)
+        IRenderCacheLookup? lookup)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(regions);
         ArgumentNullException.ThrowIfNull(roots);
-        context.Format.ThrowIfUninitialized(nameof(context));
-        context.DeviceContext.ThrowIfUninitialized(nameof(context));
         ValidateRequest(request, graph);
 
         var index = new ResolverIndex(graph);
         var lookupMemo = new LookupMemo(lookup);
         var planningBoundaries = new HashSet<RenderFragmentReference>(
             ReferenceEqualityComparer.Instance);
-        var visitedBoundarySets = new HashSet<HashSet<RenderFragmentReference>>(
-            RenderFragmentReferenceSetComparer.Instance)
-        {
-            planningBoundaries,
-        };
         RenderMaterializationDemandResolution? uncachedDemandResolution = null;
         // Selecting a hit or miss changes a fragment from target replay to value
         // materialization, which can change descendant density and therefore identity.
@@ -80,11 +73,6 @@ internal sealed partial class RenderCacheResolver
                     demandResolution.PreviewDropEligibleMaterializations);
             }
 
-            if (!visitedBoundarySets.Add(nextPlanningBoundaries))
-            {
-                return CreateUnstableBoundaryFallback(graph, uncachedDemandResolution!);
-            }
-
             planningBoundaries = nextPlanningBoundaries;
         }
 
@@ -101,10 +89,10 @@ internal sealed partial class RenderCacheResolver
     {
         var result = new HashSet<RenderFragmentReference>(
             ReferenceEqualityComparer.Instance);
-        Dictionary<RenderFragmentOutputIdentityMemoKey, RenderFragmentOutputIdentity>? identityMemo =
+        Dictionary<RenderFragmentReference, RenderFragmentOutputIdentity>? identityMemo =
             context.AllowCapturePublication
                 ? null
-                : [];
+                : new(ReferenceEqualityComparer.Instance);
         foreach (RenderCacheCandidate candidate in index.Graph.CacheCandidates)
         {
             RenderFragmentReference reference = index.Graph.GetFragment(candidate.FragmentId);
@@ -116,7 +104,7 @@ internal sealed partial class RenderCacheResolver
                 materializationDemands,
                 index.DeviceGridAffectedReferences,
                 index.TransformDependentReferences);
-            if (evaluation.BypassReason != RenderCacheBypassReason.None)
+            if (!evaluation.IsEligible)
                 continue;
 
             if (context.AllowCapturePublication)
@@ -130,7 +118,6 @@ internal sealed partial class RenderCacheResolver
                 candidate,
                 reference,
                 evaluation,
-                regions,
                 context,
                 materializationDemands,
                 identityMemo!);
@@ -161,7 +148,8 @@ internal sealed partial class RenderCacheResolver
         IReadOnlyList<RenderCacheCandidate> candidates = topology is null
             ? index.Graph.CacheCandidates
             : topology.ParentFirst;
-        var identityMemo = new Dictionary<RenderFragmentOutputIdentityMemoKey, RenderFragmentOutputIdentity>();
+        var identityMemo = new Dictionary<RenderFragmentReference, RenderFragmentOutputIdentity>(
+            ReferenceEqualityComparer.Instance);
         var decisions = new RenderCacheDecision[index.Graph.CacheCandidates.Length];
         var selectedHits = new List<RenderCacheCandidateId>();
         foreach (RenderCacheCandidate candidate in candidates)
@@ -180,7 +168,7 @@ internal sealed partial class RenderCacheResolver
 
                 if (superseding.Value > 0)
                 {
-                    decisions[GetCandidateIndex(candidate.Id)] = Superseded(candidate, superseding);
+                    decisions[GetCandidateIndex(candidate.Id)] = Superseded(candidate);
                     continue;
                 }
             }
@@ -226,24 +214,19 @@ internal sealed partial class RenderCacheResolver
         RenderMaterializationDemandResolution uncachedDemandResolution)
     {
         var resolution = new RenderCacheResolution(
-            [.. graph.CacheCandidates.Select(candidate =>
-                Bypass(candidate, RenderCacheBypassReason.UnstableBoundaryPlan))]);
+            [.. graph.CacheCandidates.Select(Bypass)]);
         return new RenderCachePlanningResult(
             resolution,
             uncachedDemandResolution.Demands,
             uncachedDemandResolution.PreviewDropEligibleMaterializations);
     }
 
-    private static RenderCacheDecision Superseded(
-        RenderCacheCandidate candidate,
-        RenderCacheCandidateId superseding)
+    private static RenderCacheDecision Superseded(RenderCacheCandidate candidate)
         => new(
             candidate,
             RenderCacheResolutionKind.Superseded,
-            RenderCacheBypassReason.None,
             null,
-            null,
-            superseding);
+            null);
 
     private static int GetCandidateIndex(RenderCacheCandidateId id)
         => checked((int)id.Value - 1);
@@ -256,7 +239,7 @@ internal sealed partial class RenderCacheResolver
         RenderCacheResolutionContext context,
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands,
         LookupMemo lookupMemo,
-        IDictionary<RenderFragmentOutputIdentityMemoKey, RenderFragmentOutputIdentity> identityMemo,
+        IDictionary<RenderFragmentReference, RenderFragmentOutputIdentity> identityMemo,
         IReadOnlySet<RenderFragmentReference> deviceGridAffectedReferences,
         IReadOnlySet<RenderFragmentReference> transformDependentReferences)
     {
@@ -268,15 +251,14 @@ internal sealed partial class RenderCacheResolver
             materializationDemands,
             deviceGridAffectedReferences,
             transformDependentReferences);
-        if (evaluation.BypassReason != RenderCacheBypassReason.None)
-            return Bypass(candidate, evaluation.BypassReason);
+        if (!evaluation.IsEligible)
+            return Bypass(candidate);
 
         RenderOutputCacheIdentity identity = CreateIdentity(
             request,
             candidate,
             reference,
             evaluation,
-            regions,
             context,
             materializationDemands,
             identityMemo);
@@ -287,18 +269,16 @@ internal sealed partial class RenderCacheResolver
             return new RenderCacheDecision(
                 candidate,
                 RenderCacheResolutionKind.Hit,
-                RenderCacheBypassReason.None,
                 null,
                 entry);
         }
 
         if (!context.AllowCapturePublication)
-            return Bypass(candidate, RenderCacheBypassReason.CapturePublicationDisabled);
+            return Bypass(candidate);
 
         return new RenderCacheDecision(
             candidate,
             RenderCacheResolutionKind.MissCapture,
-            RenderCacheBypassReason.None,
             identity,
             null);
     }
@@ -308,10 +288,9 @@ internal sealed partial class RenderCacheResolver
         RenderCacheCandidate candidate,
         RenderFragmentReference reference,
         CandidateEvaluation evaluation,
-        RegionAnalysis regions,
         RenderCacheResolutionContext context,
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands,
-        IDictionary<RenderFragmentOutputIdentityMemoKey, RenderFragmentOutputIdentity> identityMemo)
+        IDictionary<RenderFragmentReference, RenderFragmentOutputIdentity> identityMemo)
         => new(
             candidate.CacheKey,
             RenderFragmentOutputIdentity.Create(
@@ -320,8 +299,7 @@ internal sealed partial class RenderCacheResolver
                 materializationDemands,
                 identityMemo,
                 request.Options.OutputScale,
-                request.Options.MaxWorkingScale,
-                regions),
+                request.Options.MaxWorkingScale),
             evaluation.Metadata.Bounds,
             evaluation.Coverage,
             evaluation.Density,
@@ -342,23 +320,22 @@ internal sealed partial class RenderCacheResolver
         IReadOnlySet<RenderFragmentReference> transformDependentReferences)
     {
         if (!request.Options.CachePolicy.IsEnabled || request.HasCacheDisabledInput(reference))
-            return CandidateEvaluation.Bypass(RenderCacheBypassReason.CacheDisabled);
+            return CandidateEvaluation.Bypass;
         if (request.Options.Purpose is RenderRequestPurpose.Bounds or RenderRequestPurpose.HitTest)
-            return CandidateEvaluation.Bypass(RenderCacheBypassReason.MetadataOnlyPurpose);
+            return CandidateEvaluation.Bypass;
         if (!context.AllowPersistentLookup && !context.AllowCapturePublication)
-            return CandidateEvaluation.Bypass(RenderCacheBypassReason.PersistentLookupDisabled);
+            return CandidateEvaluation.Bypass;
         if (ContainsRawTargetWork(reference))
-            return CandidateEvaluation.Bypass(RenderCacheBypassReason.RawTargetWork);
+            return CandidateEvaluation.Bypass;
         if (RenderFragmentTargetDependency.HasExternalTargetDependency(reference))
-            return CandidateEvaluation.Bypass(RenderCacheBypassReason.TargetTokenDependency);
+            return CandidateEvaluation.Bypass;
         if (!reference.CanBeUsedAsValueInput || reference.ValueCardinality.Maximum == 0)
-            return CandidateEvaluation.Bypass(RenderCacheBypassReason.NotMaterializable);
+            return CandidateEvaluation.Bypass;
         if (reference.Kind == RenderFragmentKind.MaterializedInput
             && reference.Payload is MaterializedInputRenderFragmentPayload input
             && !BufferDimensionBudget.EngineCeiling.Fits(input.Description.DeviceBounds.Size))
         {
-            return CandidateEvaluation.Bypass(
-                RenderCacheBypassReason.ExternalInputExceedsBufferBudget);
+            return CandidateEvaluation.Bypass;
         }
 
         RenderFragmentId fragmentId = reference.Id
@@ -366,10 +343,10 @@ internal sealed partial class RenderCacheResolver
         if (!regions.FragmentRequirements.TryGetValue(fragmentId, out RequiredRegion requirement)
             || !regions.Metadata.TryGetValue(fragmentId, out ResolvedFragmentMetadata metadata))
         {
-            return CandidateEvaluation.Bypass(RenderCacheBypassReason.EmptyRequirement);
+            return CandidateEvaluation.Bypass;
         }
         if (requirement.IsEmpty)
-            return CandidateEvaluation.Bypass(RenderCacheBypassReason.EmptyRequirement);
+            return CandidateEvaluation.Bypass;
 
         float density = ResolveMaterializationDensity(
             reference,
@@ -378,7 +355,7 @@ internal sealed partial class RenderCacheResolver
             || (deviceGridAffectedReferences.Contains(reference)
                 && DeviceGridAlignment.NormalizePhase(context.DeviceGridOffset, density) != default))
         {
-            return CandidateEvaluation.Bypass(RenderCacheBypassReason.DeviceGridDependentOutput);
+            return CandidateEvaluation.Bypass;
         }
 
         if (!TryResolveCacheCaptureSize(
@@ -389,11 +366,11 @@ internal sealed partial class RenderCacheResolver
                 density,
                 out PixelSize captureSize))
         {
-            return CandidateEvaluation.Bypass(RenderCacheBypassReason.NotMaterializable);
+            return CandidateEvaluation.Bypass;
         }
         if (!request.Options.CachePolicy.Rules.Match(captureSize))
         {
-            return CandidateEvaluation.Bypass(RenderCacheBypassReason.OutsideCacheRules);
+            return CandidateEvaluation.Bypass;
         }
 
         return CandidateEvaluation.Eligible(
@@ -504,32 +481,28 @@ internal sealed partial class RenderCacheResolver
         return false;
     }
 
-    private static RenderCacheDecision Bypass(
-        RenderCacheCandidate candidate,
-        RenderCacheBypassReason reason)
+    private static RenderCacheDecision Bypass(RenderCacheCandidate candidate)
         => new(
             candidate,
             RenderCacheResolutionKind.Bypass,
-            reason,
             null,
             null);
 
     private readonly record struct CandidateEvaluation(
-        RenderCacheBypassReason BypassReason,
+        bool IsEligible,
         ResolvedFragmentMetadata Metadata,
         RequiredRegion Coverage,
         float Density,
         Vector DeviceGridOffset)
     {
-        public static CandidateEvaluation Bypass(RenderCacheBypassReason reason)
-            => new(reason, default, default, default, default);
+        public static CandidateEvaluation Bypass => default;
 
         public static CandidateEvaluation Eligible(
             ResolvedFragmentMetadata metadata,
             RequiredRegion coverage,
             float density,
             Vector deviceGridOffset = default)
-            => new(RenderCacheBypassReason.None, metadata, coverage, density, deviceGridOffset);
+            => new(true, metadata, coverage, density, deviceGridOffset);
     }
 
     internal sealed record CandidateTopology(
@@ -570,28 +543,6 @@ internal sealed partial class RenderCacheResolver
             entry = found ? candidateEntry : null;
             candidates.Add(identity, entry);
             return found;
-        }
-    }
-
-    private sealed class RenderFragmentReferenceSetComparer
-        : IEqualityComparer<HashSet<RenderFragmentReference>>
-    {
-        public static RenderFragmentReferenceSetComparer Instance { get; } = new();
-
-        public bool Equals(
-            HashSet<RenderFragmentReference>? x,
-            HashSet<RenderFragmentReference>? y)
-            => ReferenceEquals(x, y)
-               || x is not null
-               && y is not null
-               && x.SetEquals(y);
-
-        public int GetHashCode(HashSet<RenderFragmentReference> set)
-        {
-            int hash = set.Count;
-            foreach (RenderFragmentReference reference in set)
-                hash ^= ReferenceEqualityComparer.Instance.GetHashCode(reference);
-            return hash;
         }
     }
 
@@ -651,5 +602,3 @@ internal sealed partial class RenderCacheResolver
         }
     }
 }
-
-internal readonly record struct RenderFragmentOutputIdentityMemoKey(RenderFragmentReference Reference);

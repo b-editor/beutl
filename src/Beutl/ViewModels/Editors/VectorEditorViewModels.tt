@@ -87,7 +87,7 @@ namespace Beutl.ViewModels.Editors
 
         private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
-            if (e is PropertyEditorValueChangedEventArgs<(<#= t.Element #> <#= t.FieldX #>, <#= t.Element #> <#= t.FieldY #>)> args)
+            if (e.Expect<(<#= t.Element #> <#= t.FieldX #>, <#= t.Element #> <#= t.FieldY #>)>(sender) is { } args)
             {
                 SetValue(new <#= fullName #>(args.OldValue.<#= t.FieldX #>, args.OldValue.<#= t.FieldY #>),
                          new <#= fullName #>(args.NewValue.<#= t.FieldX #>, args.NewValue.<#= t.FieldY #>));
@@ -167,7 +167,7 @@ namespace Beutl.ViewModels.Editors
 
         private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
-            if (e is PropertyEditorValueChangedEventArgs<(<#= t.Element #> <#= t.FieldX #>, <#= t.Element #> <#= t.FieldY #>, <#= t.Element #> <#= t.FieldZ #>)> args)
+            if (e.Expect<(<#= t.Element #> <#= t.FieldX #>, <#= t.Element #> <#= t.FieldY #>, <#= t.Element #> <#= t.FieldZ #>)>(sender) is { } args)
             {
                 SetValue(new <#= fullName #>(args.OldValue.<#= t.FieldX #>, args.OldValue.<#= t.FieldY #>, args.OldValue.<#= t.FieldZ #>),
                          new <#= fullName #>(args.NewValue.<#= t.FieldX #>, args.NewValue.<#= t.FieldY #>, args.NewValue.<#= t.FieldZ #>));
@@ -263,7 +263,7 @@ namespace Beutl.ViewModels.Editors
 
         private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
-            if (e is PropertyEditorValueChangedEventArgs<(<#= t.Element #> <#= t.FieldX #>, <#= t.Element #> <#= t.FieldY #>, <#= t.Element #> <#= t.FieldZ #>, <#= t.Element #> <#= t.FieldW #>)> args)
+            if (e.Expect<(<#= t.Element #> <#= t.FieldX #>, <#= t.Element #> <#= t.FieldY #>, <#= t.Element #> <#= t.FieldZ #>, <#= t.Element #> <#= t.FieldW #>)>(sender) is { } args)
             {
                 SetValue(new <#= fullName #>(args.OldValue.<#= t.FieldX #>, args.OldValue.<#= t.FieldY #>, args.OldValue.<#= t.FieldZ #>, args.OldValue.<#= t.FieldW #>),
                          new <#= fullName #>(args.NewValue.<#= t.FieldX #>, args.NewValue.<#= t.FieldY #>, args.NewValue.<#= t.FieldZ #>, args.NewValue.<#= t.FieldW #>));

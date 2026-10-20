@@ -5,11 +5,12 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.Views;
+using static Beutl.HeadlessUITests.MacNative;
 
 namespace Beutl.HeadlessUITests;
 
 [TestFixture]
-public partial class NativeScrollInputTests
+public class NativeScrollInputTests
 {
     [Test]
     [TestCase(true)]
@@ -266,31 +267,4 @@ public partial class NativeScrollInputTests
             Send(pool, Selector("drain"));
         }
     }
-
-    private const string ObjC = "/usr/lib/libobjc.A.dylib";
-    private const string CoreGraphics = "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics";
-
-    [LibraryImport(ObjC, EntryPoint = "objc_getClass", StringMarshalling = StringMarshalling.Utf8)]
-    private static partial nint GetClass(string name);
-
-    [LibraryImport(ObjC, EntryPoint = "sel_registerName", StringMarshalling = StringMarshalling.Utf8)]
-    private static partial nint Selector(string name);
-
-    [LibraryImport(ObjC, EntryPoint = "objc_msgSend")]
-    private static partial nint Send(nint receiver, nint selector);
-
-    [LibraryImport(ObjC, EntryPoint = "objc_msgSend")]
-    private static partial nint Send(nint receiver, nint selector, nint argument);
-
-    [LibraryImport(CoreGraphics)]
-    private static partial nint CGEventCreateScrollWheelEvent2(nint source, uint units, uint wheelCount, int wheel1, int wheel2, int wheel3);
-
-    [LibraryImport(CoreGraphics)]
-    private static partial void CGEventSetTimestamp(nint cgEvent, ulong timestamp);
-
-    [LibraryImport(CoreGraphics)]
-    private static partial void CGEventSetIntegerValueField(nint cgEvent, uint field, long value);
-
-    [LibraryImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
-    private static partial void CFRelease(nint value);
 }

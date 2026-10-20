@@ -40,10 +40,9 @@ public sealed record AiContentMetadata
             downloaded.ContentType ?? declared.ContentType);
     }
 
-    public string GetFileExtension(string fallbackExtension, string requiredMediaKind)
+    // The extension a downloaded video is saved with: the content type's, else the file name's, else .mp4.
+    public string GetFileExtension()
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(requiredMediaKind);
-        string normalizedFallback = NormalizeExtension(fallbackExtension);
         string? contentTypeExtension = ExtensionForContentType(ContentType);
         if (ContentType is not null && contentTypeExtension is null)
             throw new AiException("The AI content type is unsupported.");
@@ -62,10 +61,9 @@ public sealed record AiContentMetadata
             throw new AiException("The AI content filename and content type describe different formats.");
         }
 
-        string result = contentTypeExtension ?? fileNameExtension ?? normalizedFallback;
-        bool mediaKindMatches = MatchesMediaKind(result, requiredMediaKind);
-        if (!mediaKindMatches)
-            throw new AiException($"The AI content is not valid {requiredMediaKind} media.");
+        string result = contentTypeExtension ?? fileNameExtension ?? ".mp4";
+        if (result is not (".mp4" or ".webm" or ".mov" or ".mkv"))
+            throw new AiException("The AI content is not valid video media.");
         return result;
     }
 
@@ -89,25 +87,13 @@ public sealed record AiContentMetadata
             _ => null,
         };
 
-    // The parameter keeps the public method's name: the ArgumentException reports it as ParamName.
-    private static bool MatchesMediaKind(string result, string requiredMediaKind)
-        => requiredMediaKind switch
-        {
-            "image" => result is ".png" or ".jpg" or ".jpeg" or ".webp" or ".gif",
-            "video" => result is ".mp4" or ".webm" or ".mov" or ".mkv",
-            "audio" => result is ".wav" or ".mp3" or ".flac" or ".m4a" or ".ogg" or ".webm",
-            _ => throw new ArgumentException("The required media kind is invalid.", nameof(requiredMediaKind)),
-        };
-
     private static string NormalizeExtension(string extension)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(extension);
         string normalized = extension.StartsWith('.') ? extension : $".{extension}";
-        if (normalized.Length is < 2 or > 11
-            || normalized.Skip(1).Any(character => !char.IsAsciiLetterOrDigit(character)))
-        {
-            throw new ArgumentException("The file extension is invalid.", nameof(extension));
-        }
+        // Checked before lowering, which turns a few non-ASCII letters such as the Kelvin sign into ASCII ones.
+        if (!System.Text.Ascii.IsValid(normalized))
+            throw new AiException("The AI content uses an unsupported file format.");
 
         normalized = normalized.ToLowerInvariant();
         if (normalized is not (

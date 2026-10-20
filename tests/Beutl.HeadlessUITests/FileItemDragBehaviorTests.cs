@@ -58,14 +58,9 @@ public class FileItemDragBehaviorTests
             folderSource.SetResult(folder.Object);
             HeadlessTestHelpers.Settle();
             window.MouseUp(new Point(60, 60), MouseButton.Left);
-            for (int attempt = 0; attempt < 100 && FileItemDragBehavior.IsInternalDragInProgress; attempt++)
-            {
-                await Task.Delay(10);
-                HeadlessTestHelpers.Settle();
-            }
-
-            Assert.That(FileItemDragBehavior.IsInternalDragInProgress, Is.False,
-                "Completing or cancelling the drag must clear the shared internal-drag flag.");
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => !FileItemDragBehavior.IsInternalDragInProgress,
+                message: "Completing or cancelling the drag must clear the shared internal-drag flag.");
             window.MouseMove(new Point(80, 80));
             Assert.That(FileItemDragBehavior.IsInternalDragInProgress, Is.False);
         }

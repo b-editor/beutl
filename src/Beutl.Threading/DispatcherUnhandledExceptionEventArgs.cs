@@ -1,6 +1,7 @@
 ﻿namespace Beutl.Threading;
 
-public class DispatcherUnhandledExceptionEventArgs(Exception exception) : EventArgs
+// For tests: the arguments of Dispatcher.UnhandledException, which only tests subscribe to.
+internal class DispatcherUnhandledExceptionEventArgs(Exception exception) : EventArgs
 {
     public bool Handled { get; set; }
 

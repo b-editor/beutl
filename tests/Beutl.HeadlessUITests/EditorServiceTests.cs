@@ -269,15 +269,8 @@ public sealed class EditorServiceTests
         var editorService = new EditorService(new ExtensionProvider());
         var project = new Project();
 
-        InvalidOperationException? exception = null;
-        try
-        {
-            await editorService.SaveProjectFilesAsync(project, CancellationToken.None);
-        }
-        catch (InvalidOperationException ex)
-        {
-            exception = ex;
-        }
+        InvalidOperationException? exception = await Assert.CatchAsync<InvalidOperationException>(async () =>
+            await editorService.SaveProjectFilesAsync(project, CancellationToken.None));
 
         Assert.That(exception, Is.Not.Null);
     }
@@ -443,7 +436,8 @@ public sealed class EditorServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(editorService.TryBeginWorktreeMutation(), Is.Null);
-            Assert.That(context.IsEnabled.Value, Is.False);
+            // The export renders a snapshot, so it holds the workspace but leaves the editor enabled.
+            Assert.That(context.IsEnabled.Value, Is.True);
             Assert.That(outputContext.DisposeCalls, Is.Zero);
         });
 
@@ -540,19 +534,13 @@ public sealed class EditorServiceTests
             PasteCalls++;
             pasteStarted.TrySetResult();
             await releasePaste;
-            return new ElementPasteOutcome(true, [], default, 0, null);
+            return new ElementPasteOutcome(true, default, 0, null);
         }
     }
 
     private class StubEditorContext : IEditorContext
     {
-        public int AsyncDisposeCount { get; private set; }
-
-        public ValueTask DisposeAsync()
-        {
-            AsyncDisposeCount++;
-            return ValueTask.CompletedTask;
-        }
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         public CoreObject Object { get; } = new Scene { Uri = new Uri("file:///scene.scene") };
 
@@ -606,12 +594,6 @@ public sealed class EditorServiceTests
         public CoreObject Object { get; } = obj;
 
         public IReactiveProperty<string> Name { get; } = new ReactivePropertySlim<string>("Output");
-
-        public IReadOnlyReactiveProperty<bool> IsIndeterminate { get; }
-            = new ReactivePropertySlim<bool>();
-
-        public IReadOnlyReactiveProperty<double> Progress { get; }
-            = new ReactivePropertySlim<double>();
 
         public async Task RunAsync(CancellationToken cancellationToken)
         {

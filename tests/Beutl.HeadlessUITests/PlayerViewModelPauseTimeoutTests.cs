@@ -12,8 +12,7 @@ public class PlayerViewModelPauseTimeoutTests
     {
         var logger = new CapturingLogger();
         var timeout = TimeSpan.FromMilliseconds(200);
-        // A task that never completes stands in for a playback loop stuck in a blocking
-        // OS audio/COM call — the exact case the unbounded await would hang on.
+        // Stands in for a playback loop stuck in a blocking OS audio call.
         Task neverCompletes = new TaskCompletionSource().Task;
 
         var sw = Stopwatch.StartNew();
@@ -43,8 +42,7 @@ public class PlayerViewModelPauseTimeoutTests
         var logger = new CapturingLogger();
         Task faulted = Task.FromException(new InvalidOperationException("boom"));
 
-        // A task that completed before the timeout still has its fault re-thrown so Pause()'s
-        // existing catch can drop and reset it — the pre-existing behaviour must be preserved.
+        // Pause() catches and resets a fault that completes before the timeout.
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await PlayerViewModel.WaitForPlaybackStopAsync(faulted, TimeSpan.FromSeconds(5), logger, "scene-1"));
     }

@@ -55,4 +55,31 @@
   <data name="Cache" xml:space="preserve">
     <value>캐시</value>
   </data>
+  <data name="EncodingName" xml:space="preserve">
+    <value>Media Foundation 인코딩</value>
+  </data>
+  <data name="UseHardwareAcceleration" xml:space="preserve">
+    <value>하드웨어 가속 사용</value>
+  </data>
+  <data name="Codec" xml:space="preserve">
+    <value>코덱</value>
+  </data>
+  <data name="AutoByExtension" xml:space="preserve">
+    <value>자동</value>
+  </data>
+  <data name="DisableStream" xml:space="preserve">
+    <value>출력 안 함</value>
+  </data>
+  <data name="VideoCodecDescription" xml:space="preserve">
+    <value>자동은 확장자에 맞는 코덱을 선택합니다. HEVC에는 호환되는 Windows 인코더가 필요합니다. 오디오 전용 파일은 비디오를 출력하지 않습니다. AVI는 비압축 RGB32를 사용합니다.</value>
+  </data>
+  <data name="AudioCodecDescription" xml:space="preserve">
+    <value>자동은 확장자에 맞는 코덱을 선택합니다. 압축 오디오는 지원되는 가장 가까운 비트레이트를 사용하며, 무손실 오디오와 PCM은 비트레이트 설정을 사용하지 않습니다.</value>
+  </data>
+  <data name="BitDepth" xml:space="preserve">
+    <value>비트 심도</value>
+  </data>
+  <data name="BitDepthDescription" xml:space="preserve">
+    <value>PCM, FLAC, ALAC에 사용합니다. 지원되는 심도는 인코더에 따라 다릅니다. 부동 소수점 PCM은 항상 32비트입니다.</value>
+  </data>
 </root>

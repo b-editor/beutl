@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Beutl.Animation;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.ProjectSystem;
@@ -38,19 +39,16 @@ public sealed partial class PropertyEditorMenu : UserControl
         toggleLivePreview.IsVisible = DataContext is IConfigureLivePreview;
         uniformEditorToggle.IsVisible = DataContext is IConfigureUniformEditor;
 
-        // アニメーションの編集メニューはIAnimatablePropertyAdapterをサポートするプロパティでのみ表示
         bool supportsAnimation = DataContext is BaseEditorViewModel { PropertyAdapter: IAnimatablePropertyAdapter };
         editAnimationItem.IsVisible = supportsAnimation;
         editInlineAnimationItem.IsVisible = supportsAnimation;
         removeAnimationItem.IsVisible = supportsAnimation;
 
-        // 式の編集メニューはIExpressionPropertyAdapterをサポートするプロパティでのみ表示
         bool supportsExpression = DataContext is BaseEditorViewModel { PropertyAdapter: IExpressionPropertyAdapter };
         expressionSeparator.IsVisible = supportsExpression;
         editExpressionItem.IsVisible = supportsExpression;
         removeExpressionItem.IsVisible = supportsExpression;
 
-        // プロパティパスのコピーはEnginePropertyの場合のみ表示
         bool isEngineProperty = (DataContext as BaseEditorViewModel)?.PropertyAdapter.GetEngineProperty() != null;
         copyPropertyPathSeparator.IsVisible = isEngineProperty;
         copyPropertyPathItem.IsVisible = isEngineProperty;
@@ -100,15 +98,15 @@ public sealed partial class PropertyEditorMenu : UserControl
         {
             viewModel.PrepareToEditAnimation();
 
-            // タイムラインのタブを開く
+            // Shows the animation in a graph editor tab.
             Element? element = viewModel.GetService<Element>();
             var animation = animatableProperty.Animation as KeyFrameAnimation;
-            GraphEditorTabViewModel anmTimelineTabViewModel =
+            GraphEditorTabViewModel graphEditorTab =
                 GraphEditorTabViewModel.FindReusable(editViewModel, element, animation)
                 ?? new GraphEditorTabViewModel(editViewModel);
-            anmTimelineTabViewModel.Element.Value = element;
-            anmTimelineTabViewModel.Select(animation);
-            editViewModel.OpenToolTab(anmTimelineTabViewModel);
+            graphEditorTab.Element.Value = element;
+            graphEditorTab.Select(animation);
+            editViewModel.OpenToolTab(graphEditorTab);
         }
     }
 
@@ -207,27 +205,24 @@ public sealed partial class PropertyEditorMenu : UserControl
         }
     }
 
-    private static string GetTypeAlias(Type type)
+    // The type as C# code names it without usings: keywords, "Outer.Inner" for a nested type and the type
+    // arguments in angle brackets, where Type.FullName gives "Outer+Inner" and "List`1[[...]]".
+    internal static string GetTypeAlias(Type type)
     {
-        // プリミティブ型のエイリアス
-        return type switch
-        {
-            _ when type == typeof(bool) => "bool",
-            _ when type == typeof(byte) => "byte",
-            _ when type == typeof(sbyte) => "sbyte",
-            _ when type == typeof(char) => "char",
-            _ when type == typeof(short) => "short",
-            _ when type == typeof(ushort) => "ushort",
-            _ when type == typeof(int) => "int",
-            _ when type == typeof(uint) => "uint",
-            _ when type == typeof(long) => "long",
-            _ when type == typeof(ulong) => "ulong",
-            _ when type == typeof(float) => "float",
-            _ when type == typeof(double) => "double",
-            _ when type == typeof(decimal) => "decimal",
-            _ when type == typeof(string) => "string",
-            _ when type == typeof(object) => "object",
-            _ => type.FullName ?? type.Name
-        };
+        if (Nullable.GetUnderlyingType(type) is { } underlying)
+            return $"{GetTypeAlias(underlying)}?";
+        if (type.IsArray)
+            return $"{GetTypeAlias(type.GetElementType()!)}[{new string(',', type.GetArrayRank() - 1)}]";
+        if (CSharpTypeKeywords.TryGetCSharpKeyword(type, out string? keyword))
+            return keyword;
+
+        string name = type.Name;
+        int tick = name.IndexOf('`');
+        if (tick >= 0)
+            name = $"{name[..tick]}<{string.Join(", ", type.GetGenericArguments().Select(GetTypeAlias))}>";
+
+        if (type.IsNested)
+            return $"{GetTypeAlias(type.DeclaringType!)}.{name}";
+        return type.Namespace is { } ns ? $"{ns}.{name}" : name;
     }
 }

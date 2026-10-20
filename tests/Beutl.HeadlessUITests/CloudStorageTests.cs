@@ -6,22 +6,21 @@ using System.Text;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
+using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
-using Beutl.Api.Services;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Language;
 using Beutl.Testing.Headless;
-using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
+using Moq;
 using Reactive.Bindings;
+using StorageScope = Beutl.HeadlessUITests.CloudStorageIncrementalTests.StorageScope;
 
 namespace Beutl.HeadlessUITests;
 
@@ -31,17 +30,15 @@ public sealed class CloudStorageTests
     [AvaloniaTest]
     public async Task SignedOut_ShowsAccountEntryWithoutRequestingStorage()
     {
-        using var handler = new Handler();
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        using var vm = Create(clients);
+        await using var scope = new StorageScope(signInAs: null);
+        var vm = scope.ViewModel;
         var view = new CloudStorageView { DataContext = vm };
         var window = new Window { Content = view, Width = 320, Height = 520 };
         try
         {
             window.Show();
             HeadlessTestHelpers.Render();
-            Assert.That(handler.Requests, Is.Empty);
+            Assert.That(scope.Handler.Requests, Is.Empty);
             Assert.That(view.FindControl<StackPanel>("SignInState")!.IsEffectivelyVisible, Is.True);
             Assert.That(view.FindControl<Button>("AccountSettingsButton")!.IsEffectivelyVisible, Is.True);
             Assert.That(((System.Windows.Input.ICommand)vm.Refresh).CanExecute(null), Is.False);
@@ -60,15 +57,9 @@ public sealed class CloudStorageTests
         try
         {
             CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja");
-            using var handler = new Handler { UsagePlan = plan };
-            using var http = new HttpClient(handler);
-            await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-            SignIn(clients, "a");
-            using var vm = Create(clients);
-            await WaitFor(() => handler.Requests.Count == 1);
-            handler.Requests[0].Complete(Response());
-            await WaitFor(() => !vm.IsLoading.Value);
-            Assert.That(vm.UsageText.Value, Does.EndWith(expected));
+            await using var scope = new StorageScope(usagePlan: plan);
+            await scope.LoadFirstAsync(Response());
+            Assert.That(scope.ViewModel.UsageText.Value, Does.EndWith(expected));
         }
         finally { CultureInfo.CurrentUICulture = originalCulture; }
     }
@@ -76,15 +67,12 @@ public sealed class CloudStorageTests
     [AvaloniaTest]
     public async Task UsesAuthenticatedApiAndNavigatesFoldersByKeyboard()
     {
-        using var handler = new Handler();
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SignIn(clients, "a");
-        using var vm = Create(clients);
-        await WaitFor(() => handler.Requests.Count == 1);
-        Assert.That(handler.Requests[0].Authorization, Is.EqualTo("Bearer token-a"));
-        Assert.That(handler.Requests[0].Uri.AbsolutePath, Is.EqualTo("/api/v3/storage/entries"));
-        handler.Requests[0].Complete(Response());
+        await using var scope = new StorageScope();
+        var vm = scope.ViewModel;
+        await WaitFor(() => scope.Handler.Requests.Count == 1);
+        Assert.That(scope.Handler.Requests[0].Authorization, Is.EqualTo("Bearer token-a"));
+        Assert.That(scope.Handler.Requests[0].Uri.AbsolutePath, Is.EqualTo("/api/v3/storage/entries"));
+        scope.Handler.Requests[0].Complete(Response());
         await WaitFor(() => !vm.IsLoading.Value);
         Assert.That(vm.Items.Select(x => x.Id), Is.EqualTo(new[] { "folder & 日本", "file" }));
         Assert.That(vm.UsagePercent.Value, Is.EqualTo(50));
@@ -99,9 +87,9 @@ public sealed class CloudStorageTests
             var list = view.FindControl<ListBox>("StorageItems")!;
             list.SelectedIndex = 0;
             list.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
-            await WaitFor(() => handler.Requests.Count == 2);
-            Assert.That(Uri.UnescapeDataString(handler.Requests[1].Uri.Query), Does.Contain("parentId=folder & 日本"));
-            handler.Requests[1].Complete(Response(folder: "folder & 日本"));
+            await WaitFor(() => scope.Handler.Requests.Count == 2);
+            Assert.That(Uri.UnescapeDataString(scope.Handler.Requests[1].Uri.Query), Does.Contain("parentId=folder & 日本"));
+            scope.Handler.Requests[1].Complete(Response(folder: "folder & 日本"));
             await WaitFor(() => !vm.IsLoading.Value);
             Assert.That(vm.Breadcrumbs.Last().FolderId, Is.EqualTo("folder & 日本"));
             Assert.That(vm.Breadcrumbs.Last().Name, Is.EqualTo("素材"));
@@ -113,28 +101,23 @@ public sealed class CloudStorageTests
     [AvaloniaTest]
     public async Task IncrementalLoadingKeepsTheFolderAndStopsAtTheEnd()
     {
-        using var handler = new Handler();
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SignIn(clients, "a");
-        using var vm = Create(clients);
-        await WaitFor(() => handler.Requests.Count == 1);
-        handler.Requests[0].Complete(Response());
-        await WaitFor(() => !vm.IsLoading.Value);
+        await using var scope = new StorageScope();
+        var vm = scope.ViewModel;
+        await scope.LoadFirstAsync(Response());
 
         var navigation = vm.OpenFolderAsync(vm.Items[0]);
-        await WaitFor(() => handler.Requests.Count == 2);
-        Assert.That(Uri.UnescapeDataString(handler.Requests[1].Uri.Query), Does.Contain("parentId=folder & 日本"));
-        handler.Requests[1].Complete(Response(folder: "folder & 日本", pageCount: 2));
+        await WaitFor(() => scope.Handler.Requests.Count == 2);
+        Assert.That(Uri.UnescapeDataString(scope.Handler.Requests[1].Uri.Query), Does.Contain("parentId=folder & 日本"));
+        scope.Handler.Requests[1].Complete(Response(folder: "folder & 日本", pageCount: 2));
         await navigation;
         await WaitFor(() => !vm.IsLoading.Value);
         Assert.That(vm.Items.All(x => !x.IsFolder), Is.True);
         Assert.That(vm.HasMore.Value, Is.True);
         var append = vm.LoadMoreAsync();
-        await WaitFor(() => handler.Requests.Count == 3);
-        Assert.That(handler.Requests[2].Uri.Query, Does.Contain("cursor=cursor-2"));
-        Assert.That(Uri.UnescapeDataString(handler.Requests[2].Uri.Query), Does.Contain("parentId=folder & 日本"));
-        handler.Requests[2].Complete(Response(folder: "folder & 日本", page: 2, pageCount: 2, fileId: "second"));
+        await WaitFor(() => scope.Handler.Requests.Count == 3);
+        Assert.That(scope.Handler.Requests[2].Uri.Query, Does.Contain("cursor=cursor-2"));
+        Assert.That(Uri.UnescapeDataString(scope.Handler.Requests[2].Uri.Query), Does.Contain("parentId=folder & 日本"));
+        scope.Handler.Requests[2].Complete(Response(folder: "folder & 日本", page: 2, pageCount: 2, fileId: "second"));
         await append;
         await WaitFor(() => !vm.IsLoading.Value);
         Assert.That(vm.HasMore.Value, Is.False);
@@ -144,30 +127,27 @@ public sealed class CloudStorageTests
     [AvaloniaTest]
     public async Task AccountSwitchAndSignOutDiscardDelayedResponsesAndClearUsage()
     {
-        using var handler = new Handler();
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SignIn(clients, "a");
-        using var vm = Create(clients);
-        await WaitFor(() => handler.Requests.Count == 1);
-        SignIn(clients, "b");
-        await WaitFor(() => handler.Requests.Count == 2);
-        Assert.That(handler.Requests[0].Token.IsCancellationRequested, Is.True);
-        handler.Requests[1].Complete(Response(name: "account-b"));
+        await using var scope = new StorageScope();
+        var vm = scope.ViewModel;
+        await WaitFor(() => scope.Handler.Requests.Count == 1);
+        SignIn(scope.Clients, "b");
+        await WaitFor(() => scope.Handler.Requests.Count == 2);
+        Assert.That(scope.Handler.Requests[0].Token.IsCancellationRequested, Is.True);
+        scope.Handler.Requests[1].Complete(Response(name: "account-b"));
         await WaitFor(() => !vm.IsLoading.Value);
-        handler.Requests[0].Complete(Response(name: "account-a"));
+        scope.Handler.Requests[0].Complete(Response(name: "account-a"));
         await Drain();
         Assert.That(vm.Items.Last().Name, Is.EqualTo("account-b"));
         var refresh = vm.LoadAsync();
-        await WaitFor(() => handler.Requests.Count == 3);
-        SignIn(clients, null);
+        await WaitFor(() => scope.Handler.Requests.Count == 3);
+        SignIn(scope.Clients, null);
         Assert.That(vm.Items, Is.Empty);
         Assert.That(vm.UsageText.Value, Is.Empty);
         Assert.That(vm.HasUsage.Value, Is.False);
         Assert.That(vm.SignedIn.Value, Is.False);
         Assert.That(vm.IsLoading.Value, Is.False);
-        Assert.That(handler.Requests[2].Token.IsCancellationRequested, Is.True);
-        handler.Requests[2].Complete(Response(name: "late-account-b"));
+        Assert.That(scope.Handler.Requests[2].Token.IsCancellationRequested, Is.True);
+        scope.Handler.Requests[2].Complete(Response(name: "late-account-b"));
         await refresh;
         Assert.That(vm.Items, Is.Empty);
         Assert.That(vm.Error.Value, Is.Null);
@@ -176,16 +156,13 @@ public sealed class CloudStorageTests
     [AvaloniaTest]
     public async Task BackgroundSignOutBeforeUiCommitCannotRestoreThePreviousAccount()
     {
-        using var handler = new Handler();
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SignIn(clients, "a");
-        using var vm = Create(clients);
-        await WaitFor(() => handler.Requests.Count == 1);
-        handler.Requests[0].Complete(Response(name: "old-account"));
+        await using var scope = new StorageScope();
+        var vm = scope.ViewModel;
+        await WaitFor(() => scope.Handler.Requests.Count == 1);
+        scope.Handler.Requests[0].Complete(Response(name: "old-account"));
         // Keep the UI occupied while the response and account notification queue up.
         // Neither is allowed to publish the old account once the UI resumes.
-        SignInOnBackgroundThread(clients, null);
+        SignInOnBackgroundThread(scope.Clients, null);
         await WaitFor(() => !vm.SignedIn.Value);
         await Drain();
         Assert.That(vm.Items, Is.Empty);
@@ -197,24 +174,21 @@ public sealed class CloudStorageTests
     [AvaloniaTest]
     public async Task NewerRefreshWinsAndDisposalCancelsPendingWork()
     {
-        using var handler = new Handler();
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SignIn(clients, "a");
-        using var vm = Create(clients);
-        await WaitFor(() => handler.Requests.Count == 1);
+        await using var scope = new StorageScope();
+        var vm = scope.ViewModel;
+        await WaitFor(() => scope.Handler.Requests.Count == 1);
         var newer = vm.LoadAsync();
-        await WaitFor(() => handler.Requests.Count == 2);
-        handler.Requests[1].Complete(Response(name: "newer"));
+        await WaitFor(() => scope.Handler.Requests.Count == 2);
+        scope.Handler.Requests[1].Complete(Response(name: "newer"));
         await newer;
-        handler.Requests[0].Complete(Response(name: "older"));
+        scope.Handler.Requests[0].Complete(Response(name: "older"));
         await Drain();
         Assert.That(vm.Items.Last().Name, Is.EqualTo("newer"));
         var pending = vm.LoadAsync();
-        await WaitFor(() => handler.Requests.Count == 3);
+        await WaitFor(() => scope.Handler.Requests.Count == 3);
         vm.Dispose();
-        Assert.That(handler.Requests[2].Token.IsCancellationRequested, Is.True);
-        handler.Requests[2].Complete(Response());
+        Assert.That(scope.Handler.Requests[2].Token.IsCancellationRequested, Is.True);
+        scope.Handler.Requests[2].Complete(Response());
         await pending;
         Assert.That(vm.Items, Is.Empty);
     }
@@ -224,20 +198,17 @@ public sealed class CloudStorageTests
     [TestCase(HttpStatusCode.NotFound)]
     public async Task FailedLoadHasRetryAndDoesNotAppearEmpty(HttpStatusCode status)
     {
-        using var handler = new Handler();
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SignIn(clients, "a");
-        using var vm = Create(clients);
-        await WaitFor(() => handler.Requests.Count == 1);
-        handler.Requests[0].Complete("{}", status);
+        await using var scope = new StorageScope();
+        var vm = scope.ViewModel;
+        await WaitFor(() => scope.Handler.Requests.Count == 1);
+        scope.Handler.Requests[0].Complete("{}", status);
         await WaitFor(() => !vm.IsLoading.Value);
         Assert.That(vm.Error.Value, Is.EqualTo(status == HttpStatusCode.NotFound
             ? Strings.CloudStorageUnavailable : Strings.CloudStorageLoadFailed));
         Assert.That(vm.IsEmpty.Value, Is.False);
         vm.Refresh.Execute();
-        await WaitFor(() => handler.Requests.Count == 2);
-        handler.Requests[1].Complete(Response(empty: true));
+        await WaitFor(() => scope.Handler.Requests.Count == 2);
+        scope.Handler.Requests[1].Complete(Response(empty: true));
         await WaitFor(() => !vm.IsLoading.Value);
         Assert.That(vm.Error.Value, Is.Null);
         Assert.That(vm.IsEmpty.Value, Is.True);
@@ -250,14 +221,9 @@ public sealed class CloudStorageTests
     [TestCase(640, true)]
     public async Task LayoutKeepsNavigationVisibleAtNarrowWidths(int width, bool light)
     {
-        using var handler = new Handler();
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SignIn(clients, "a");
-        using var vm = Create(clients);
-        await WaitFor(() => handler.Requests.Count == 1);
-        handler.Requests[0].Complete(Response(name: "非常に長い日本語の映像素材のファイル名です-September-2026.mp4"));
-        await WaitFor(() => !vm.IsLoading.Value);
+        await using var scope = new StorageScope();
+        var vm = scope.ViewModel;
+        await scope.LoadFirstAsync(Response(name: "非常に長い日本語の映像素材のファイル名です-September-2026.mp4"));
         var view = new CloudStorageView { DataContext = vm };
         var window = new Window
         {
@@ -286,26 +252,16 @@ public sealed class CloudStorageTests
             var tile = label.FindAncestorOfType<ListBoxItem>()!;
             var labelPosition = label.TranslatePoint(default, tile)!.Value;
             Assert.That(labelPosition.Y + label.Bounds.Height, Is.LessThanOrEqualTo(tile.Bounds.Height));
-            if (Environment.GetEnvironmentVariable("BEUTL_STORAGE_CAPTURE") is { Length: > 0 } path)
-            {
-                Directory.CreateDirectory(path);
-                using var image = window.CaptureRenderedFrame();
-                image?.Save(Path.Combine(path, $"cloud-storage-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
-            }
         }
         finally { window.Close(); }
     }
 
     [AvaloniaTest]
-    public async Task FileBrowserIsAvailableWithoutASeparateStorageTab()
+    public async Task FileBrowserIsAmongTheToolTabs()
     {
         await TestReset.ResetShellAsync();
         Assert.That(TestShell.MainViewModel.ToolTabExtensions, Does.Contain(FileBrowserTabExtension.Instance));
-        Assert.That(TestShell.MainViewModel.ToolTabExtensions.Any(x => x.Name == "CloudStorage"), Is.False);
     }
-
-    private static CloudStorageViewModel Create(BeutlApiApplication clients) =>
-        new(clients, () => throw new InvalidOperationException("Not used by this test"));
 
     internal static void SignInOnBackgroundThread(BeutlApiApplication clients, string? id)
     {
@@ -379,13 +335,37 @@ public sealed class CloudStorageTests
         fileCountLimit = 10000,
     });
 
-    internal static async Task WaitFor(Func<bool> predicate)
-    {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        while (!predicate()) { HeadlessTestHelpers.Settle(); await Task.Delay(10, timeout.Token); }
-    }
+    internal static Task WaitFor(Func<bool> predicate)
+        => HeadlessTestHelpers.WaitUntilAsync(predicate, TimeSpan.FromSeconds(10));
 
     private static async Task Drain() { await Task.Delay(50); HeadlessTestHelpers.Settle(); }
+
+    internal static IStorageFile FileSource(string name, string content)
+        => FileSource(name, () => Task.FromResult<Stream>(new MemoryStream(Encoding.UTF8.GetBytes(content))));
+
+    internal static IStorageFile FileSource(string name, Func<Task<Stream>> read)
+    {
+        var file = new Mock<IStorageFile>();
+        file.SetupGet(x => x.Name).Returns(name);
+        file.SetupGet(x => x.Path).Returns(new Uri($"content://files/{name}"));
+        file.Setup(x => x.OpenReadAsync()).Returns(read);
+        return file.Object;
+    }
+
+    internal static IStorageFolder Folder(string name, params IStorageItem[] children)
+    {
+        var folder = new Mock<IStorageFolder>();
+        folder.SetupGet(x => x.Name).Returns(name);
+        folder.SetupGet(x => x.Path).Returns(new Uri($"content://folders/{name}"));
+        folder.Setup(x => x.GetItemsAsync()).Returns(Children(children));
+        return folder.Object;
+    }
+
+    internal static async IAsyncEnumerable<IStorageItem> Children(params IStorageItem[] children)
+    {
+        foreach (var child in children) yield return child;
+        await Task.CompletedTask;
+    }
 
     internal sealed class Pending(HttpRequestMessage request, CancellationToken token)
     {

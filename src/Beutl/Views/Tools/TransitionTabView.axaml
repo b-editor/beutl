@@ -8,7 +8,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:viewModels="using:Beutl.ViewModels.Tools"
-             x:Name="root"
              d:DesignHeight="450"
              d:DesignWidth="320"
              x:CompileBindings="True"
@@ -17,8 +16,6 @@
              mc:Ignorable="d">
     <!--  Empty until a transition is opened, as the property tabs are until something is selected.  -->
     <ScrollViewer IsVisible="{Binding HasTarget.Value}">
-        <!--  The type is picked as a font family is, the delete button removes the transition, and the
-              transition's properties follow at the same level.  -->
         <StackPanel Margin="0,4">
             <pe:DropDownPickerEditor x:Name="typeEditor"
                                      DropDownClick="OnTypeDropDownClick"
@@ -42,9 +39,7 @@
             </pe:DropDownPickerEditor>
 
             <editors:PropertiesEditor Padding="0"
-                                      DataContext="{Binding Properties.Value}"
-                                      IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
-                                                                    Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                      DataContext="{Binding Properties.Value}" />
         </StackPanel>
     </ScrollViewer>
 </UserControl>

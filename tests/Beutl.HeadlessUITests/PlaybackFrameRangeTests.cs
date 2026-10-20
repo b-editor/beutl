@@ -1,5 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using System.Diagnostics;
 
 using Avalonia.Headless.NUnit;
 
@@ -33,7 +32,7 @@ public class PlaybackFrameRangeTests
         // Where playback leaves the playhead at frame 10: 3,333,333 ticks, which truncates to frame 9.
         TimeSpan playhead = 10.ToTimeSpan(Rate);
         clock.CurrentTime.Value = playhead;
-        DrainPreviewRender();
+        RenderThreadDrain.Drain(TimeSpan.FromMinutes(2));
 
         // The producer reports each frame it queues on the render thread.
         var queued = new ConcurrentQueue<TimeSpan>();
@@ -46,7 +45,7 @@ public class PlaybackFrameRangeTests
         try
         {
             editor.Player.Play();
-            await WaitUntilAsync(() => queued.Count >= 3, TimeSpan.FromMinutes(2));
+            await HeadlessTestHelpers.WaitUntilAsync(() => queued.Count >= 3, TimeSpan.FromMinutes(2), pump: false);
         }
         finally
         {
@@ -67,13 +66,13 @@ public class PlaybackFrameRangeTests
         TimeSpan end = TimeSpan.FromSeconds(4d / Rate).RoundToRate(Rate);
         scene.Start = TimeSpan.FromSeconds(1d / Rate).RoundToRate(Rate);
         scene.Duration = end - scene.Start;
-        DrainPreviewRender();
+        RenderThreadDrain.Drain(TimeSpan.FromMinutes(2));
 
         using var isPlaying = new ReactivePropertySlim<bool>(true);
         using var player = new BufferedPlayer(editor, isPlaying, Rate, CancellationToken.None);
 
         player.Start(PlaybackRange.From(scene.Start, scene.Start, scene.Duration, Rate));
-        await WaitUntilAsync(() => player.ProducerStopped, TimeSpan.FromMinutes(2));
+        await HeadlessTestHelpers.WaitUntilAsync(() => player.ProducerStopped, TimeSpan.FromMinutes(2), pump: false);
 
         var frames = new List<int>();
         while (player.TryDequeue(out BufferedPlayer.Frame frame))
@@ -91,37 +90,10 @@ public class PlaybackFrameRangeTests
 
     private static async Task<EditViewModel> OpenEditor()
     {
-        await TestReset.ResetShellAsync();
-        string name = $"playback-frame-range-{Guid.NewGuid():N}";
-        string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(directory);
-        Project project = (await TestShell.Project.CreateProject(320, 240, Rate, 44100, name, directory))!;
-        HeadlessTestHelpers.Settle();
-        TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().First());
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("playback-frame-range", 320, 240, frameRate: Rate);
 
         // Let the preview render queued by opening the scene finish first.
-        DrainPreviewRender();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
-    // Runs the UI job that hands a queued preview render to the render thread, then waits for the render thread.
-    private static void DrainPreviewRender()
-    {
-        HeadlessTestHelpers.Settle();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        RenderThread.Dispatcher.Invoke(static () => { }, ct: timeout.Token);
-        HeadlessTestHelpers.Settle();
-    }
-
-    private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
-    {
-        var stopwatch = Stopwatch.StartNew();
-        while (!condition())
-        {
-            if (stopwatch.Elapsed >= timeout)
-                Assert.Fail($"Condition was not met within {timeout}.");
-
-            await Task.Delay(10);
-        }
+        RenderThreadDrain.Drain(TimeSpan.FromMinutes(2));
+        return editor;
     }
 }

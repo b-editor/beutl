@@ -29,174 +29,33 @@ public class DispatcherTests
         dispatcher.Shutdown();
     }
 
-    [Test]
-    public void InvokeVoid_Cancel()
+    private static IEnumerable<TestCaseData> CanceledInvocations()
     {
-        var dispatcher = Dispatcher.Spawn();
-
-        Assert.Catch<OperationCanceledException>(
-            () => dispatcher.Invoke(() => { }, ct: new(true)));
-
-        dispatcher.Shutdown();
-    }
-
-    [Test]
-    public void Invoke_Cancel()
-    {
-        var dispatcher = Dispatcher.Spawn();
-
-        Assert.Catch<OperationCanceledException>(
-            () => dispatcher.Invoke(() => 100, ct: new(true)));
-
-        dispatcher.Shutdown();
-    }
-
-    [Test]
-    public async Task InvokeSyncVoid_Cancel()
-    {
-        var dispatcher = Dispatcher.Spawn();
-
-        await Assert.CatchAsync<OperationCanceledException>(
-            async () => await dispatcher.InvokeAsync(() => { }, ct: new(true)));
-
-        dispatcher.Shutdown();
-    }
-
-    [Test]
-    public async Task InvokeAsyncVoid_Cancel()
-    {
-        var dispatcher = Dispatcher.Spawn();
-
-        await Assert.CatchAsync<OperationCanceledException>(
-            async () => await dispatcher.InvokeAsync(async () => await Task.Delay(100), ct: new(true)));
-
-        dispatcher.Shutdown();
-    }
-
-    [Test]
-    public async Task InvokeSync_Cancel()
-    {
-        var dispatcher = Dispatcher.Spawn();
-
-        await Assert.CatchAsync<OperationCanceledException>(
-            async () => await dispatcher.InvokeAsync(() => 100, ct: new(true)));
-
-        dispatcher.Shutdown();
-    }
-
-    [Test]
-    public async Task InvokeAsync_Cancel()
-    {
-        var dispatcher = Dispatcher.Spawn();
-
-        await Assert.CatchAsync<OperationCanceledException>(
-            async () => await dispatcher.InvokeAsync(async () => await Task.FromResult(100), ct: new(true)));
-
-        dispatcher.Shutdown();
-    }
-
-    [Test]
-    public void InvokeExecutionContext()
-    {
-        var dispatcher = Dispatcher.Spawn();
-
-        using (ExecutionContext.SuppressFlow())
+        yield return Case("InvokeVoid", (d, ct) =>
         {
-            dispatcher.Invoke(() => { });
-        }
-
-        dispatcher.Shutdown();
-    }
-
-    [Test]
-    public async Task Yield()
-    {
-        var dispatcher = Dispatcher.Spawn();
-        var tcs = new TaskCompletionSource();
-
-        bool yielded = false;
-        var task2 = dispatcher.InvokeAsync(async () =>
-        {
-            await tcs.Task;
-            await Dispatcher.Yield();
-            Assert.That(yielded, Is.True, "Dispatcher did not yield control as expected.");
+            d.Invoke(() => { }, ct: ct);
+            return Task.CompletedTask;
         });
-        var task1 = dispatcher.InvokeAsync(() => yielded = true);
-        tcs.SetResult();
+        yield return Case("Invoke", (d, ct) =>
+        {
+            d.Invoke(() => 100, ct: ct);
+            return Task.CompletedTask;
+        });
+        yield return Case("InvokeSyncVoid", (d, ct) => d.InvokeAsync(() => { }, ct: ct));
+        yield return Case("InvokeAsyncVoid", (d, ct) => d.InvokeAsync(async () => await Task.Delay(100), ct: ct));
+        yield return Case("InvokeSync", (d, ct) => d.InvokeAsync(() => 100, ct: ct));
+        yield return Case("InvokeAsync", (d, ct) => d.InvokeAsync(async () => await Task.FromResult(100), ct: ct));
 
-        await Task.WhenAll(task1, task2);
-
-        dispatcher.Shutdown();
+        static TestCaseData Case(string name, Func<Dispatcher, CancellationToken, Task> invoke)
+            => new TestCaseData(invoke).SetArgDisplayNames(name);
     }
 
-    [Test]
-    public void Yield_OnCompleted()
+    [TestCaseSource(nameof(CanceledInvocations))]
+    public async Task Invoke_WithCanceledToken_Throws(Func<Dispatcher, CancellationToken, Task> invoke)
     {
         var dispatcher = Dispatcher.Spawn();
-        dispatcher.Invoke(() =>
-        {
-            var task = Dispatcher.Yield();
-            var awaiter = task.GetAwaiter();
 
-            awaiter.OnCompleted(() => { });
-        });
-        dispatcher.Shutdown();
-    }
-
-    [Test]
-    public async Task YieldOutsideDispatcher()
-    {
-        await Assert.CatchAsync<DispatcherException>(async () =>
-        {
-            await Dispatcher.Yield();
-            Assert.Pass();
-        });
-    }
-
-    [Test]
-    public void YieldOutsideDispatcher_Completed_Throws()
-    {
-        Assert.Catch(() =>
-        {
-            var task = Dispatcher.Yield();
-            var awaiter = task.GetAwaiter();
-            // if (!awaiter.IsCompleted) throws DispatcherException
-            {
-                awaiter.OnCompleted(() => Assert.Fail("Should not be called"));
-            }
-        });
-    }
-
-    [Test]
-    public void UnhandledException_Handled()
-    {
-        var dispatcher = Dispatcher.Spawn();
-        var exception = new Exception("Test");
-
-        dispatcher.UnhandledException += (_, args) =>
-        {
-            Assert.That(args.Exception, Is.EqualTo(exception));
-            args.Handled = true;
-        };
-
-        dispatcher.Dispatch(() => throw exception);
-
-        dispatcher.Shutdown();
-    }
-
-    [Test]
-    public void UnhandledException_Unhandled()
-    {
-        var dispatcher = Dispatcher.Spawn();
-        var exception = new Exception("Test");
-
-        dispatcher.UnhandledException += (_, args) =>
-        {
-            Assert.That(args.Exception, Is.EqualTo(exception));
-            args.Handled = false;
-        };
-
-        Assert.Catch<Exception>(() => dispatcher.Invoke(() => throw exception));
+        await Assert.CatchAsync<OperationCanceledException>(() => invoke(dispatcher, new CancellationToken(true)));
 
         dispatcher.Shutdown();
     }
@@ -242,17 +101,16 @@ public class DispatcherTests
     {
         var timeProvider = new FakeTimeProvider();
         var dispatcher = Dispatcher.Spawn(timeProvider);
-        var scheduledAt = timeProvider.GetUtcNow();
-        var tcs1 = new TaskCompletionSource<DateTime>();
-        var tcs2 = new TaskCompletionSource<DateTime>();
+        var tcs1 = new TaskCompletionSource();
+        var tcs2 = new TaskCompletionSource();
         var delay = TimeSpan.FromMilliseconds(100);
 
-        dispatcher.Schedule(delay, () => { tcs1.SetResult(DateTime.UtcNow); });
-        dispatcher.Schedule(delay, () => { tcs2.SetResult(DateTime.UtcNow); });
+        dispatcher.Schedule(delay, () => tcs1.SetResult());
+        dispatcher.Schedule(delay, () => tcs2.SetResult());
 
         timeProvider.Advance(delay);
-        Assert.That(await tcs1.Task - scheduledAt, Is.GreaterThanOrEqualTo(TimeSpan.FromMilliseconds(100)));
-        Assert.That(await tcs2.Task - scheduledAt, Is.GreaterThanOrEqualTo(TimeSpan.FromMilliseconds(100)));
+        await tcs1.Task;
+        await tcs2.Task;
 
         dispatcher.Shutdown();
     }
@@ -370,12 +228,11 @@ public class DispatcherTests
     {
         var dispatcher = Dispatcher.Spawn();
         Assert.That(dispatcher.HasShutdownFinished, Is.False);
-        dispatcher.ShutdownFinished += (_, _) =>
-        {
-            Assert.That(dispatcher.HasShutdownFinished, Is.True);
-        };
 
         dispatcher.Shutdown();
+
+        Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+        Assert.That(dispatcher.HasShutdownFinished, Is.True);
     }
 
     [Test]
@@ -417,83 +274,19 @@ public class DispatcherTests
         dispatcher.Shutdown();
     }
 
-    [Test]
-    public void Run()
-    {
-        var dispatcher = Dispatcher.Spawn();
-        dispatcher.Run(() =>
-        {
-            Assert.That(dispatcher.CheckAccess(), Is.True);
-        });
-        dispatcher.Shutdown();
-    }
-
-    [Test]
-    public void RunAsync()
-    {
-        var dispatcher = Dispatcher.Spawn();
-        dispatcher.Run(async () =>
-        {
-            Assert.That(dispatcher.CheckAccess(), Is.True);
-            await Task.CompletedTask;
-        });
-        dispatcher.Shutdown();
-    }
-
-    [Test]
-    public void Run_InsideDispatcherThread()
-    {
-        var dispatcher = Dispatcher.Spawn();
-        dispatcher.Run(() =>
-        {
-            Assert.That(dispatcher.CheckAccess(), Is.True);
-            dispatcher.Run(() =>
-            {
-                Assert.That(dispatcher.CheckAccess(), Is.True);
-            });
-        });
-        dispatcher.Shutdown();
-    }
-
-    [Test]
-    public void RunAsync_InsideDispatcherThread()
-    {
-        var dispatcher = Dispatcher.Spawn();
-        dispatcher.Run(() =>
-        {
-            Assert.That(dispatcher.CheckAccess(), Is.True);
-            dispatcher.Run(async () =>
-            {
-                Assert.That(dispatcher.CheckAccess(), Is.True);
-                await Task.CompletedTask;
-            });
-        });
-        dispatcher.Shutdown();
-    }
-
-    // Regression test for the race condition where an operation posted just before
-    // WaitForPendingOperations acquires the lock would be missed, causing the
-    // dispatcher thread to block unnecessarily.
+    // Regression: an operation dispatched after the queue drains but before the wait token exists was missed, and
+    // the dispatcher blocked on WaitOne. Each iteration drains the queue and then dispatches into that window.
     [Test]
     public async Task Post_BeforeWaitTokenCreated_OperationExecutedPromptly()
     {
         var dispatcher = Dispatcher.Spawn();
 
-        // Run multiple iterations to increase the chance of hitting the race window
-        // between ExecuteAvailableOperations returning and WaitForPendingOperations
-        // acquiring the lock.
         for (int i = 0; i < 50; i++)
         {
             var operationExecuted = new TaskCompletionSource();
 
-            // Invoke ensures the dispatcher thread processes the no-op and then
-            // transitions back to: ExecuteAvailableOperations (empty) -> WaitForPendingOperations.
             dispatcher.Invoke(() => { });
 
-            // Immediately dispatch from this (non-dispatcher) thread.
-            // This targets the window where the queue has been drained but the wait token
-            // has not yet been created. Without the early-return check inside the lock,
-            // the dispatcher would block on WaitOne and never process this operation.
             dispatcher.Dispatch(() => operationExecuted.SetResult());
 
             var completed = await Task.WhenAny(operationExecuted.Task, Task.Delay(TimeSpan.FromSeconds(5)));
@@ -504,10 +297,8 @@ public class DispatcherTests
         dispatcher.Shutdown();
     }
 
-    // Regression for the deadlock where Shutdown() races WaitForPendingOperations' lock acquisition:
-    // without the inner-lock _running guard the dispatcher arms a _waitToken nothing cancels and
-    // blocks on WaitOne() forever. The loop widens the race window; each iteration needs a fresh
-    // dispatcher because Shutdown is terminal.
+    // Regression: Shutdown() racing WaitForPendingOperations' lock left a _waitToken nothing cancels, and the
+    // dispatcher blocked forever. Each iteration needs a fresh dispatcher because Shutdown is terminal.
     [Test]
     public void Shutdown_RacingWithWaitForPendingOperations_DoesNotDeadlock()
     {

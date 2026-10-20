@@ -28,9 +28,8 @@ public sealed partial class ProxiesTabViewModel : IDisposable, IToolContext
         ProxyPreset.Eighth,
     ];
 
-    // Heaviness floor for the bulk "generate all" action (SC-001 targets >= 4K / >= 60 Mbps
-    // media). Coarse heuristics that should become user-configurable and metadata-driven
-    // later. Original resolution is only known once a proxy entry exists, so never-proxied
+    // Heaviness floor for the bulk "generate all" action. Coarse heuristics that should become
+    // user-configurable and metadata-driven later. Original resolution is only known once a proxy entry exists, so never-proxied
     // clips fall back to the file-size floor as a rough bitrate x duration proxy.
     private const long MinBulkSourcePixelCount = 1920L * 1080L;
     private const long MinBulkSourceFileBytes = 32L * 1024L * 1024L;
@@ -69,24 +68,18 @@ public sealed partial class ProxiesTabViewModel : IDisposable, IToolContext
             .DisposeWith(_disposables);
         SelectionSummary = new ReactiveProperty<string>()
             .DisposeWith(_disposables);
-        JobSummary = new ReactiveProperty<string>()
-            .DisposeWith(_disposables);
         ProjectUsageText = new ReactiveProperty<string>()
             .DisposeWith(_disposables);
         StoreUsageText = new ReactiveProperty<string>()
             .DisposeWith(_disposables);
         StoreCapText = new ReactiveProperty<string>()
             .DisposeWith(_disposables);
-        StoreSummary = new ReactiveProperty<string>()
-            .DisposeWith(_disposables);
-        StatusMessage = new ReactiveProperty<string>(Strings.ProxyReady)
-            .DisposeWith(_disposables);
 
         GenerateSelectedCommand = new AsyncReactiveCommand()
-            .WithSubscribe(GenerateSelectedAsync)
+            .WithSubscribe(() => GenerateSelectedAsync(refreshClips: false))
             .DisposeWith(_disposables);
         RegenerateSelectedCommand = new AsyncReactiveCommand()
-            .WithSubscribe(RegenerateSelectedAsync)
+            .WithSubscribe(() => GenerateSelectedAsync(refreshClips: true))
             .DisposeWith(_disposables);
         DeleteSelectedCommand = new ReactiveCommand()
             .WithSubscribe(DeleteSelected)
@@ -149,17 +142,11 @@ public sealed partial class ProxiesTabViewModel : IDisposable, IToolContext
 
     public ReactiveProperty<string> SelectionSummary { get; }
 
-    public ReactiveProperty<string> JobSummary { get; }
-
     public ReactiveProperty<string> ProjectUsageText { get; }
 
     public ReactiveProperty<string> StoreUsageText { get; }
 
     public ReactiveProperty<string> StoreCapText { get; }
-
-    public ReactiveProperty<string> StoreSummary { get; }
-
-    public ReactiveProperty<string> StatusMessage { get; }
 
     public AsyncReactiveCommand GenerateSelectedCommand { get; }
 
@@ -174,12 +161,8 @@ public sealed partial class ProxiesTabViewModel : IDisposable, IToolContext
     public ReactiveCommand RefreshCommand { get; }
 
     /// <summary>
-    /// Confirms the destructive "delete all proxies for this project" action. The proxy store
-    /// is a machine-wide shared cache (FR-011), so the entries removed here may also be relied
-    /// on by other projects that reference the same source files; those projects must then
-    /// regenerate them. The argument is the number of cached proxy entries that would be
-    /// deleted. The default shows a confirmation dialog; tests substitute it to drive the
-    /// accept and decline paths without a UI. Returns <see langword="true"/> to proceed.
+    /// Confirms deleting the given number of the project's proxies, which other projects may share.
+    /// Returns <see langword="true"/> to proceed.
     /// </summary>
     public Func<int, Task<bool>> ConfirmDeleteAllForProjectAsync { get; set; }
         = ShowDeleteAllForProjectConfirmationAsync;

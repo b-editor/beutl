@@ -8,7 +8,6 @@ using Avalonia.LogicalTree;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Beutl.Controls;
-using Beutl.Editor.Components.AudioVisualizerTab;
 using Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
 using Beutl.Editor.Components.AudioVisualizerTab.Views;
 using Beutl.Editor.Components.ColorGradingTab.ViewModels;
@@ -17,7 +16,6 @@ using Beutl.Editor.Components.ColorScopesTab.ViewModels;
 using Beutl.Editor.Components.ColorScopesTab.Views;
 using Beutl.Editor.Components.CurvesTab.ViewModels;
 using Beutl.Editor.Components.CurvesTab.Views;
-using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 
@@ -63,18 +61,11 @@ public class SelectorToolTabBarTests
     [TestCase(640, true)]
     public async Task Selectors_and_settings_remain_usable_at_narrow_widths(int width, bool light)
     {
-        await TestReset.ResetShellAsync();
-        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"selector-bars-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "selector-bars", root))!;
-        Scene scene = project.Items.OfType<Scene>().First();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("selector-bars");
         using var curves = new CurvesTabViewModel(editor);
         using var grading = new ColorGradingTabViewModel(editor);
         using var scopes = new ColorScopesTabViewModel(editor);
-        using var audio = new AudioVisualizerTabViewModel(editor, AudioVisualizerTabExtension.Instance);
+        using var audio = new AudioVisualizerTabViewModel(editor);
         var curvesView = new CurvesTabView { DataContext = curves };
         var gradingView = new ColorGradingTabView { DataContext = grading };
         var scopesView = new ColorScopesTabView { DataContext = scopes };

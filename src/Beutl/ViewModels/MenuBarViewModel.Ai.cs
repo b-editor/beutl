@@ -22,11 +22,6 @@ public partial class MenuBarViewModel
         EditVideo = new ReactiveCommandSlim(isSceneOpened);
     }
 
-    // AI
-    //    Generate image
-    //    Generate subtitles
-    //    Edit image
-    //    Generate video
     public ReactiveCommandSlim ShowAiJobs { get; private set; } = null!;
 
     public ReactiveCommandSlim GenerateImage { get; private set; } = null!;

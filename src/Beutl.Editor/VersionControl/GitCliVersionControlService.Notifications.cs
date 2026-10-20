@@ -13,11 +13,15 @@ internal sealed partial class GitCliVersionControlService
         });
     }
 
-    private async Task TryQueueStatusChangedCoreAsync()
+    // The status read has no time limit, so the operation's token stops it; the operation stands.
+    private async Task TryQueueStatusChangedCoreAsync(CancellationToken cancellationToken)
     {
         try
         {
-            await QueueStatusChangedCoreAsync(CancellationToken.None).ConfigureAwait(false);
+            await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
@@ -119,9 +123,10 @@ internal sealed partial class GitCliVersionControlService
         }
         catch (Exception ex)
         {
+            RepositoryWatcherFailure = ex;
             LogWarningBestEffort(
                 ex,
-                "Failed to start repository watching after initializing version control.");
+                "Failed to start repository watching; version control continues without live refresh.");
         }
     }
 
@@ -252,7 +257,7 @@ internal sealed partial class GitCliVersionControlService
                             {
                                 kind = RepositoryChangeKind.All;
                             }
-                            return QueueStatusChangedCoreAsync(CancellationToken.None, kind);
+                            return QueueStatusChangedCoreAsync(_retirementCancellation.Token, kind);
                         },
                         CancellationToken.None)
                     .ConfigureAwait(false);

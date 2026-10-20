@@ -24,8 +24,7 @@ namespace Beutl.Views;
 
 public partial class PlayerView
 {
-    private FAMenuFlyoutItem? _saveElementAsImage;
-    private FAMenuFlyoutItem? _saveFrameAsImage;
+    private FAMenuFlyoutItem _saveElementAsImage = null!;
     private void ConfigureFrameContextMenu(Control control)
     {
         _saveElementAsImage = new FAMenuFlyoutItem
@@ -34,7 +33,7 @@ public partial class PlayerView
             IsEnabled = false
         };
         _saveElementAsImage.Click += OnSaveElementAsImageClick;
-        _saveFrameAsImage = new FAMenuFlyoutItem
+        var saveFrameAsImage = new FAMenuFlyoutItem
         {
             Text = Strings.SaveFrameAsImage,
             IconSource = new FluentIconSource
@@ -42,7 +41,7 @@ public partial class PlayerView
                 Icon = Icon.Image
             },
         };
-        _saveFrameAsImage.Click += OnSaveFrameAsImageClick;
+        saveFrameAsImage.Click += OnSaveFrameAsImageClick;
         var resetZoom = new FAMenuFlyoutItem
         {
             Text = Strings.ResetZoom
@@ -53,7 +52,7 @@ public partial class PlayerView
         {
             Items =
             {
-                _saveFrameAsImage,
+                saveFrameAsImage,
                 _saveElementAsImage,
                 resetZoom
             }
@@ -79,10 +78,7 @@ public partial class PlayerView
             return;
         }
 
-        if (_saveElementAsImage != null)
-        {
-            _saveElementAsImage.IsEnabled = _lastSelected.TryGetTarget(out _);
-        }
+        _saveElementAsImage.IsEnabled = _lastSelected.TryGetTarget(out _);
     }
 
     internal static async Task<IStorageFile?> SaveImageFilePicker(string name, IStorageProvider storage)
@@ -93,7 +89,7 @@ public partial class PlayerView
         return await storage.SaveFilePickerAsync(options);
     }
 
-    internal static async Task SaveImage(IStorageFile file, Bitmap bitmap)
+    internal static Task SaveImage(IStorageFile file, Bitmap bitmap)
     {
         string extension = Path.GetExtension(file.Name).ToLowerInvariant();
         EncodedImageFormat format = extension switch
@@ -103,27 +99,14 @@ public partial class PlayerView
             ".webp" => EncodedImageFormat.Webp,
             _ => throw new NotSupportedException($"{Strings.Unsupported}: {extension}"),
         };
-        if (file.TryGetLocalPath() is { } path)
-        {
-            using var output = new StagedOutputFile(path);
-            if (!bitmap.Save(output.TemporaryPath, format))
-                throw new IOException(MessageStrings.FailedToSaveImage);
-            output.Commit(CancellationToken.None);
-            return;
-        }
-
-        // Opaque storage providers have no sibling path to stage to. Encode completely
-        // before opening their output so an encoder failure cannot truncate an existing file.
-        using var encoded = new MemoryStream();
-        if (!bitmap.Save(encoded, format))
+        // Every desktop save picker hands out files with a local path.
+        string path = file.TryGetLocalPath()
+            ?? throw new NotSupportedException("Images can only be saved to a local file.");
+        using var output = new StagedOutputFile(path);
+        if (!bitmap.Save(output.TemporaryPath, format))
             throw new IOException(MessageStrings.FailedToSaveImage);
-        encoded.Position = 0;
-        await using Stream stream = await file.OpenWriteAsync();
-        if (stream.CanSeek)
-            stream.Position = 0;
-        await encoded.CopyToAsync(stream);
-        if (stream.CanSeek)
-            stream.SetLength(stream.Position);
+        output.Commit(CancellationToken.None);
+        return Task.CompletedTask;
     }
 
     // Prompts for the output-resolution multiplier. Returns the chosen scale, or null on cancel.
@@ -192,7 +175,7 @@ public partial class PlayerView
                 {
                     using Bitmap bitmap = await viewModel.DrawFrameAtScale(scale);
                     await SaveImage(file, bitmap);
-                    _logger.LogInformation("FAFrame saved as image: {FilePath}", file.Path);
+                    _logger.LogInformation("Frame saved as image: {FilePath}", file.Path);
                 }
             }
             catch (Exception ex)

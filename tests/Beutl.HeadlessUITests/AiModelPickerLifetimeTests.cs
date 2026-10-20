@@ -150,16 +150,6 @@ public sealed class AiModelPickerLifetimeTests
         }
     }
 
-    private sealed class FixedCatalog(AiModelCatalog catalog) : IAiModelCatalogService
-    {
-        public Task<AiModelCatalog> GetAsync(CancellationToken cancellationToken)
-            => Task.FromResult(catalog);
-
-        public void Invalidate()
-        {
-        }
-    }
-
     private sealed class StubEntitlements : IAiEntitlementService, IDisposable
     {
         private readonly ReactivePropertySlim<AiEntitlements?> _entitlements = new();

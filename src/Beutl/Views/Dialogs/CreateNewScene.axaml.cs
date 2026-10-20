@@ -15,7 +15,6 @@ public sealed partial class CreateNewScene : FAContentDialog
 
     protected override Type StyleKeyOverride => typeof(FAContentDialog);
 
-    // 場所を選択
     private async void PickLocation(object? sender, RoutedEventArgs e)
     {
         if (DataContext is CreateNewSceneViewModel vm

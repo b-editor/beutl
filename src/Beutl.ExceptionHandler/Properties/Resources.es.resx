@@ -71,9 +71,6 @@ Si la recopilación de telemetría está habilitada, los registros se recopilan 
   <data name="ErrorOccurred" xml:space="preserve">
     <value>Se produjo un error.</value>
   </data>
-  <data name="LogFileNotFound" xml:space="preserve">
-    <value>No se encontró el archivo de registro</value>
-  </data>
   <data name="MoreDetails" xml:space="preserve">
     <value>Más detalles</value>
   </data>

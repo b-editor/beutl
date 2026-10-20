@@ -8,23 +8,14 @@ using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
-using Beutl.ViewModels;
 using Moq;
+using static Beutl.HeadlessUITests.CommandPaletteTestHost;
 
 namespace Beutl.HeadlessUITests;
 
 [TestFixture, NonParallelizable]
 public sealed class CommandPaletteReviewTests
 {
-    private static (CommandPaletteViewModel Palette, EditorService Editor) CreatePalette(Func<ContextCommandExecution, Task> execute)
-    {
-        var provider = new ExtensionProvider();
-        var editor = new EditorService(provider);
-        var manager = new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry());
-        manager.Register(new PromptExtension());
-        return (new CommandPaletteViewModel(new CommandPaletteService(manager, new Handler(execute), () => null, editor, provider), editor), editor);
-    }
-
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
@@ -71,9 +62,7 @@ public sealed class CommandPaletteReviewTests
     [TestCase("initial")]
     public async Task Validator_failures_abort_the_interaction_and_report_an_error(string phase)
     {
-        var notifications = new CapturedNotifications();
-        INotificationServiceHandler previous = NotificationService.Handler;
-        NotificationService.Handler = notifications;
+        using var notifications = new NotificationCapture();
         bool fail = phase == "initial";
         string? result = "pending";
         var (palette, _) = CreatePalette(async execution =>
@@ -103,13 +92,12 @@ public sealed class CommandPaletteReviewTests
                     Assert.That(failure, Is.Null);
                     Assert.That(closed, Is.True);
                     Assert.That(result, Is.Null);
-                    Assert.That(notifications.Items, Has.Count.EqualTo(1));
+                    Assert.That(notifications.All, Has.Count.EqualTo(1));
                 });
             }
             finally
             {
                 palette.Close();
-                NotificationService.Handler = previous;
             }
         }
     }
@@ -117,9 +105,7 @@ public sealed class CommandPaletteReviewTests
     [AvaloniaTest]
     public async Task Cancellation_callback_failures_cannot_skip_prompt_cleanup()
     {
-        var notifications = new CapturedNotifications();
-        INotificationServiceHandler previous = NotificationService.Handler;
-        NotificationService.Handler = notifications;
+        using var notifications = new NotificationCapture();
         string? result = "pending";
         var (palette, _) = CreatePalette(async execution =>
         {
@@ -143,13 +129,12 @@ public sealed class CommandPaletteReviewTests
                     Assert.That(failure, Is.Null);
                     Assert.That(closed, Is.True);
                     Assert.That(result, Is.Null);
-                    Assert.That(notifications.Items, Has.Count.EqualTo(1));
+                    Assert.That(notifications.All, Has.Count.EqualTo(1));
                 });
             }
             finally
             {
                 palette.Close();
-                NotificationService.Handler = previous;
             }
         }
     }
@@ -179,9 +164,9 @@ public sealed class CommandPaletteReviewTests
         var extension = (ViewExtension)Activator.CreateInstance(type)!;
         var provider = new ExtensionProvider();
         provider.AddExtensions(-43004, [extension]);
-        var manager = new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry());
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore());
         manager.Register(extension);
-        var service = new CommandPaletteService(manager, new Handler(_ => Task.CompletedTask), () => null, new EditorService(provider), provider);
+        var service = new CommandPaletteService(manager, new FixedHandlerProvider(new Handler(_ => Task.CompletedTask)), () => null, new EditorService(provider), provider);
         IReadOnlyList<PaletteCommand> snapshot = service.EnumerateCommands();
         manager.Unregister(extension);
         provider.RemoveExtensions(-43004).DrainAsync().AsTask().GetAwaiter().GetResult();
@@ -195,33 +180,5 @@ public sealed class CommandPaletteReviewTests
             new("Collectible", "Collectible command") { Scope = ContextCommandScope.Extension }
         ];
         public Task ExecuteAsync(ContextCommandExecution execution) => Task.CompletedTask;
-    }
-
-    private sealed class PromptExtension : ViewExtension
-    {
-        public override IEnumerable<ContextCommandDefinition> ContextCommands => [new("Prompt", "Prompt")];
-    }
-
-    private sealed class Handler(Func<ContextCommandExecution, Task> execute) : ICommandPaletteHandlerProvider, IContextCommandHandler
-    {
-        public IContextCommandHandler? Resolve(Type extensionType) => this;
-        public Task ExecuteAsync(ContextCommandExecution execution) => execute(execution);
-    }
-
-    private sealed class CapturedNotifications : INotificationServiceHandler
-    {
-        public List<Notification> Items { get; } = [];
-        public void Show(Notification notification) => Items.Add(notification);
-    }
-
-    private static async Task UntilAsync(Func<bool> predicate)
-    {
-        for (int i = 0; i < 100; i++)
-        {
-            HeadlessTestHelpers.Render();
-            if (predicate()) return;
-            await Task.Delay(10);
-        }
-        Assert.Fail("The palette did not reach the expected state.");
     }
 }

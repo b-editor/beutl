@@ -29,10 +29,7 @@ public sealed class HistoryViewModel : IToolContext
 
         Entries = new ReadOnlyObservableCollection<HistoryEntry>(_entries);
 
-        // Atomically capture entries snapshot, current index, and subscribe in
-        // one lock acquisition. Reading CurrentIndex separately would let a
-        // commit slip in between the index read and the subscription, leaving
-        // _currentIndex stale until the next history mutation.
+        // SubscribeEntries takes the snapshot, current index and subscription under one lock, so no commit slips in between.
         (IDisposable subscription, HistoryEntry[] initialSnapshot, int initialCurrentIndex) =
             _historyManager.SubscribeEntries(OnManagerEntriesChanged);
         _disposables.Add(subscription);
@@ -55,10 +52,7 @@ public sealed class HistoryViewModel : IToolContext
                 })
             .DisposeWith(_disposables);
 
-        // A commit/clear/jump that fired between SubscribeEntries returning
-        // and the StateChanged subscription above would have updated entries
-        // (delivered to OnManagerEntriesChanged) but bypassed CurrentIndex.
-        // Re-sync once now to close that window.
+        // Re-sync once to cover a change made between SubscribeEntries and the StateChanged subscription.
         DispatchToUI(SyncCurrentIndex);
     }
 
@@ -104,7 +98,6 @@ public sealed class HistoryViewModel : IToolContext
 
     public void WriteToJson(JsonObject json)
     {
-        // History is editor-session state and is not persisted across loads.
     }
 
     private void OnManagerEntriesChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -112,31 +105,22 @@ public sealed class HistoryViewModel : IToolContext
         DispatchToUI(() => ApplyManagerChange(e));
     }
 
-    // Mirrors a single CollectionChanged event from HistoryManager onto the
-    // UI-thread-bound _entries. Granular Add/Remove/Replace/Move events let
-    // the ListBox preserve selection, scroll position, and virtualization
-    // caches instead of being torn down by a Reset on every commit.
+    // Mirrors each change granularly so the ListBox keeps selection and scroll. HistoryManager sends
+    // only Add, Replace and Remove, each with one entry at a valid index.
     private void ApplyManagerChange(NotifyCollectionChangedEventArgs e)
     {
         try
         {
             switch (e.Action)
             {
-                case NotifyCollectionChangedAction.Add when e.NewItems is not null:
-                    ApplyAdd(e.NewStartingIndex, e.NewItems);
+                case NotifyCollectionChangedAction.Add:
+                    ApplyAdd(e.NewStartingIndex, e.NewItems!);
                     break;
-                case NotifyCollectionChangedAction.Remove when e.OldItems is not null:
-                    ApplyRemove(e.OldStartingIndex, e.OldItems);
+                case NotifyCollectionChangedAction.Remove:
+                    ApplyRemove(e.OldStartingIndex, e.OldItems!);
                     break;
-                case NotifyCollectionChangedAction.Replace when e.NewItems is not null:
-                    ApplyReplace(e.NewStartingIndex, e.NewItems);
-                    break;
-                case NotifyCollectionChangedAction.Move:
-                    ApplyMove(e.OldStartingIndex, e.NewStartingIndex);
-                    break;
-                case NotifyCollectionChangedAction.Reset:
-                default:
-                    ResyncEntries();
+                case NotifyCollectionChangedAction.Replace:
+                    ApplyReplace(e.NewStartingIndex, e.NewItems!);
                     break;
             }
         }
@@ -149,63 +133,33 @@ public sealed class HistoryViewModel : IToolContext
         SyncCurrentIndex();
     }
 
-    private void ApplyAdd(int startingIndex, IList newItems)
+    private void ApplyAdd(int insertIndex, IList newItems)
     {
-        int insertIndex = startingIndex >= 0 ? startingIndex : _entries.Count;
-        foreach (object? item in newItems)
+        foreach (HistoryEntry entry in newItems)
         {
-            if (item is HistoryEntry entry)
-            {
-                _entries.Insert(insertIndex++, entry);
-            }
+            _entries.Insert(insertIndex++, entry);
         }
     }
 
     private void ApplyRemove(int removeAt, IList oldItems)
     {
-        if (removeAt < 0)
+        for (int i = 0; i < oldItems.Count; i++)
         {
-            ResyncEntries();
-        }
-        else
-        {
-            for (int i = 0; i < oldItems.Count; i++)
+            if (removeAt < _entries.Count)
             {
-                if (removeAt < _entries.Count)
-                {
-                    _entries.RemoveAt(removeAt);
-                }
+                _entries.RemoveAt(removeAt);
             }
         }
     }
 
     private void ApplyReplace(int start, IList newItems)
     {
-        if (start < 0)
-        {
-            ResyncEntries();
-            return;
-        }
         for (int i = 0; i < newItems.Count; i++)
         {
-            if (newItems[i] is HistoryEntry entry && start + i < _entries.Count)
+            if (start + i < _entries.Count)
             {
-                _entries[start + i] = entry;
+                _entries[start + i] = (HistoryEntry)newItems[i]!;
             }
-        }
-    }
-
-    private void ApplyMove(int oldIndex, int newIndex)
-    {
-        if (oldIndex < 0 || newIndex < 0
-            || oldIndex >= _entries.Count
-            || newIndex >= _entries.Count)
-        {
-            ResyncEntries();
-        }
-        else
-        {
-            _entries.Move(oldIndex, newIndex);
         }
     }
 

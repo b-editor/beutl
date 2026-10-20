@@ -1,4 +1,5 @@
-﻿using Beutl.Services.AI;
+﻿using Beutl.Language;
+using Beutl.Services.AI;
 
 namespace Beutl.UnitTests.Services.AI;
 
@@ -22,17 +23,22 @@ public sealed class FileAiRequestRecoveryStoreTests
     }
 
     [Test]
-    public void LegacyNonGuidSourceIdentifierDoesNotHideOtherPendingRequests()
+    public void PendingAttemptsAreNamedWithTheTranslatedOperation()
     {
-        using var store = new FileAiRequestRecoveryStore(_directory);
-        var valid = Record("account", "video.generate", "valid", "valid-key");
-        var legacy = new AiPendingAttempt("account", "video.edit", "legacy", "legacy-key",
-            Form: new AiRequestFormSnapshot(SourceJobId: "provider-job-17"));
-        store.WriteOrGet(valid);
-        store.WriteOrGet(legacy);
-        using var reopened = new FileAiRequestRecoveryStore(_directory);
-        Assert.That(reopened.Find("account", "video.generate", "valid")?.Key, Is.EqualTo(valid.Key));
-        Assert.That(reopened.PendingFor("account", "video.edit").Single().Form!.SourceJobId, Is.EqualTo("provider-job-17"));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(Attempt("video.extend").DisplayName,
+                Is.EqualTo(string.Format(Strings.AiPendingRequestDefaultModel, Strings.AiVideoExtend)));
+            Assert.That(Attempt("video.edit", "model-a").DisplayName,
+                Is.EqualTo($"{Strings.AiVideoEditing} (model-a)"));
+            Assert.That(Attempt("video.motion").DisplayName,
+                Is.EqualTo(string.Format(Strings.AiPendingRequestDefaultModel, Strings.AiVideoMotion)));
+            Assert.That(Attempt("image.edit.upscale").DisplayName,
+                Is.EqualTo(string.Format(Strings.AiPendingRequestDefaultModel, Strings.AiImageEdit)));
+        }
+
+        static AiPendingAttempt Attempt(string operation, string? model = null)
+            => new("account", operation, "fingerprint", "key", model);
     }
 
     [Test]

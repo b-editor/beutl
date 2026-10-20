@@ -28,7 +28,7 @@ internal partial class VersionControlCoordinator
             return;
         }
 
-        _pendingConfigurationActivation = null;
+        _rediscoveryRequested = false;
         AdvanceProjectServiceEpoch();
         if (IsInternalVersionControlTransition(transition))
         {
@@ -57,11 +57,12 @@ internal partial class VersionControlCoordinator
 
         try
         {
-            if (GetOwnedBackend() is { Repository: { } repository } preservedService
+            if (_state.OwnedService is { Repository: { } repository } preservedService
                 && PathsEqual(repository.ProjectRoot, GetProjectRoot(project)))
             {
                 SetVisibleService(preservedService);
-                QueueRepositoryHygieneConfigurationIfDirty(project);
+                // An LFS setting changed while the operation ran applies to the backend it kept.
+                StartConfigurationActivation();
                 return;
             }
         }
@@ -83,8 +84,7 @@ internal partial class VersionControlCoordinator
         Project? project,
         bool newProject,
         PreparedNewProject? preparedNewProject,
-        CancellationToken cancellationToken,
-        bool isRediscovery = false)
+        CancellationToken cancellationToken)
     {
         IProjectVersionControlBackend? preparedService = preparedNewProject?.Service;
         try
@@ -124,12 +124,12 @@ internal partial class VersionControlCoordinator
                     cancellationToken,
                     _lifetimeCancellation.Token))
             {
-                IsRediscovery = isRediscovery,
                 InterruptedNewProjectRepository = preparedNewProject?.InterruptedRepository,
             };
             ActivationContext? previousActivation = _activation;
             _activation = activation;
             TransitionOwnedService(service, service, projectRoot, previousActivation);
+            WarnIfRepositoryIsNotWatched(service);
             CancelActivation(previousActivation);
             _ = ActivateRepositoryAsync(activation);
             return activation;
@@ -210,6 +210,7 @@ internal partial class VersionControlCoordinator
             if (IsCurrentActivation(activation))
             {
                 TransitionOwnedService(trackedService, trackedService, activation.ProjectRoot, activation);
+                WarnIfRepositoryIsNotWatched(trackedService);
             }
         }
         catch (OperationCanceledException) when (activation.CancellationToken.IsCancellationRequested)
@@ -244,11 +245,9 @@ internal partial class VersionControlCoordinator
     {
         GitAvailability availability = await activation.Service.GetAvailabilityAsync(
             activation.CancellationToken);
-        // A project created in this session opens with the backend its creation left: tracked when the
-        // new-project dialog chose tracking and initialization recorded the first version, untracked
-        // otherwise. The dialog already decided, so discovery neither adopts an enclosing repository
-        // nor asks again; initialization did both before the project opened. Discovery only looks
-        // again at a repository that initialization created or attached before it stopped.
+        // A project created in this session keeps the backend its creation left, as the new-project
+        // dialog already decided. Discovery only looks again at a repository that initialization
+        // created or attached before it stopped.
         if (availability.State != GitAvailabilityState.Installed
             || activation.IsNewProject && activation.InterruptedNewProjectRepository is null)
         {
@@ -262,22 +261,12 @@ internal partial class VersionControlCoordinator
                 activation.ProjectRoot,
                 activation.CancellationToken);
         }
-        catch (ArgumentException ex) when (activation.ProjectRoot.Any(char.IsControl))
-        {
-            // Git commands cannot safely carry control-character repository paths through the
-            // line-oriented discovery protocol. Version control is optional, so the project stays
-            // untracked.
-            _logger.LogInformation(
-                ex,
-                "Opened {ProjectFile} without version control because its path is unsupported by repository discovery.",
-                activation.ProjectFile);
-            return null;
-        }
         catch (Exception ex)
             when (ex is not OperationCanceledException and not OutOfMemoryException)
         {
             // Git refused the folder itself (for example dubious ownership on a shared or
-            // removable volume). The project stays open without version control and says why.
+            // removable volume), or discovery cannot pass its path to Git (control characters).
+            // The project stays open without version control and says why.
             _logger.LogWarning(
                 ex,
                 "Opened {ProjectFile} without version control because repository discovery failed.",
@@ -348,12 +337,9 @@ internal partial class VersionControlCoordinator
         return true;
     }
 
-    // Version tracking stays opt-in per project, so merely opening a project whose directory the
-    // user has already made a repository must not start writing hygiene files and commits. Only a
-    // repository that already records an earlier opt-in resumes tracking without asking.
-    // Adopting a foreign work tree is the user's call, but only the first time: a repository that
-    // already records an opt-in resumes tracking without asking, exactly like a non-nested one.
-    // Asking on every open would turn a dismissed prompt into a session with no snapshots at all.
+    // Tracking is opt-in per project: a repository that records an earlier opt-in resumes without
+    // asking, and any other asks only the first time. Asking on every open would turn a dismissed
+    // prompt into a session with no snapshots at all.
     private async Task<bool> ConfirmUseEnclosingRepositoryIfNeededAsync(
         IProjectVersionControlBackend service,
         RepositoryInfo repository,
@@ -370,5 +356,16 @@ internal partial class VersionControlCoordinator
     {
         return await service.HasVersionTrackingOptInAsync(repository, cancellationToken)
                || await ConfirmAdoptExistingRepositoryAsync(repository, cancellationToken);
+    }
+
+    private void WarnIfRepositoryIsNotWatched(IProjectVersionControlBackend service)
+    {
+        if (service.RepositoryWatcherFailure is { } failure)
+        {
+            PublishNotification(() =>
+                NotificationService.ShowWarning(
+                    Strings.VersionControl,
+                    string.Format(Strings.VersionControl_RepositoryNotWatchedFormat, GetErrorText(failure))));
+        }
     }
 }

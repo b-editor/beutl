@@ -12,6 +12,11 @@ namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
 internal static class ScopeBitmaps
 {
+    // The channel colors the histogram and the waveform share.
+    public static readonly (float R, float G, float B) ChannelRed = (1.00f, 0.25f, 0.25f);
+    public static readonly (float R, float G, float B) ChannelGreen = (0.25f, 1.00f, 0.35f);
+    public static readonly (float R, float G, float B) ChannelBlue = (0.35f, 0.60f, 1.00f);
+
     public static BitmapColorSpace ToBitmapColorSpace(ScopeColorSpace colorSpace)
     {
         return colorSpace == ScopeColorSpace.Linear
@@ -47,8 +52,7 @@ internal static class ScopeBitmaps
         return result;
     }
 
-    // Per-sample helpers for the scope inner loops; they keep the exact float expressions of the loops they
-    // replace, so the rendered bytes do not change. Only a fractional alpha is divided out: a zero alpha has
+    // Per-sample helpers for the scope inner loops. Only a fractional alpha is divided out: a zero alpha has
     // no colour left to recover and an alpha of one or more is left as is.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void ReadUnpremultiplied(in RgbaF16 pixel, bool premul, out float r, out float g, out float b)

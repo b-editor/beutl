@@ -422,6 +422,168 @@ public class FilePathComparisonTests
     }
 
     [Test]
+    public void ResolveCanonicalPath_BrokenSymlink_FollowsLinkTargetOutsideRoot()
+    {
+        string root = CreateWorkDirectoryRoot();
+        try
+        {
+            string linkPath = Path.Combine(root, "escape");
+            string missingTarget = Path.Combine(Path.GetTempPath(), "pb-target-" + Guid.NewGuid().ToString("N"));
+            SymbolicLinks.CreateOrIgnore(linkPath, missingTarget);
+
+            string resolved = FilePathComparison.ResolveCanonicalPath(linkPath);
+
+            Assert.That(
+                resolved.StartsWith(root, PathBoundary.Comparison),
+                Is.False,
+                $"A broken symlink must resolve to its target, not its in-root path. Got: {resolved}");
+            Assert.That(resolved, Is.EqualTo(Path.GetFullPath(missingTarget)));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Test]
+    public void ResolveCanonicalPath_BrokenSymlinkWithRelativeTarget_ResolvesAgainstLinkDirectory()
+    {
+        string root = CreateWorkDirectoryRoot();
+        try
+        {
+            string linkDir = Path.Combine(root, "sub");
+            Directory.CreateDirectory(linkDir);
+            string linkPath = Path.Combine(linkDir, "escape");
+            // A broken link's relative target resolves against the link's own directory, not the process CWD.
+            string relativeTarget = Path.Combine("..", "pb-rel-missing-" + Guid.NewGuid().ToString("N"));
+            SymbolicLinks.CreateOrIgnore(linkPath, relativeTarget);
+
+            string resolved = FilePathComparison.ResolveCanonicalPath(linkPath);
+
+            Assert.That(resolved, Is.EqualTo(Path.GetFullPath(Path.Combine(linkDir, relativeTarget))));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Test]
+    public void ResolveCanonicalPath_PlainMissingPath_ReappendsRemainderUnderRoot()
+    {
+        string root = CreateWorkDirectoryRoot();
+        try
+        {
+            string missing = Path.Combine(root, "a", "b", "c.txt");
+
+            string resolved = FilePathComparison.ResolveCanonicalPath(missing);
+
+            Assert.That(resolved, Is.EqualTo(Path.GetFullPath(missing)));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // A leaf-only check would accept this in-root path while a write follows the link outside the root.
+    [Test]
+    public void ResolveCanonicalPath_IntermediateSymlinkedDirectory_FollowsLinkTargetOutsideRoot()
+    {
+        string root = CreateWorkDirectoryRoot();
+        string outsideRoot = Path.Combine(Path.GetTempPath(), "pb-outside-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(outsideRoot);
+        try
+        {
+            string outsideLeaf = Path.Combine(outsideRoot, "leaf.txt");
+            File.WriteAllText(outsideLeaf, "x");
+
+            string link = Path.Combine(root, "link");
+            SymbolicLinks.CreateOrIgnore(link, outsideRoot, directory: true);
+
+            string resolved = FilePathComparison.ResolveCanonicalPath(Path.Combine(link, "leaf.txt"));
+
+            Assert.That(
+                resolved.StartsWith(root, PathBoundary.Comparison),
+                Is.False,
+                $"An intermediate symlinked directory must resolve to its target, not its in-root path. Got: {resolved}");
+            Assert.That(resolved, Is.EqualTo(outsideLeaf));
+        }
+        finally
+        {
+            Directory.Delete(outsideRoot, true);
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Test]
+    public void ResolveCanonicalPath_RootedRelativeSymlinkTarget_ResolvesAgainstLinkDirectory()
+    {
+        string root = CreateWorkDirectoryRoot();
+        string outsideRoot = Path.Combine(Path.GetTempPath(), "pb-rel-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(outsideRoot);
+        try
+        {
+            string outsideLeaf = Path.Combine(outsideRoot, "leaf.txt");
+            File.WriteAllText(outsideLeaf, "x");
+
+            // A relative symlink target resolves against the link's own directory, not the process CWD.
+            string linkDir = Path.Combine(root, "links");
+            Directory.CreateDirectory(linkDir);
+            string link = Path.Combine(linkDir, "link");
+            SymbolicLinks.CreateOrIgnore(link, Path.GetRelativePath(linkDir, outsideLeaf));
+
+            string resolved = FilePathComparison.ResolveCanonicalPath(link);
+
+            Assert.That(resolved, Is.EqualTo(outsideLeaf));
+        }
+        finally
+        {
+            Directory.Delete(outsideRoot, true);
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Test]
+    public void ResolveCanonicalPath_SymbolicLinkCycle_StopsAtTheHopLimit()
+    {
+        string root = CreateWorkDirectoryRoot();
+        try
+        {
+            string first = Path.Combine(root, "first");
+            SymbolicLinks.CreateOrIgnore(first, "second");
+            SymbolicLinks.CreateOrIgnore(Path.Combine(root, "second"), "first");
+
+            IOException? failure = Assert.Throws<IOException>(() => FilePathComparison.ResolveCanonicalPath(first));
+
+            Assert.That(failure!.Message, Does.Contain("exceeds the symbolic-link resolution limit"));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Test]
+    public void ResolveCanonicalPath_PlainExistingPath_ReturnsCanonicalFullPath()
+    {
+        string root = CreateWorkDirectoryRoot();
+        try
+        {
+            string leaf = Path.Combine(root, "leaf.txt");
+            File.WriteAllText(leaf, "x");
+
+            string resolved = FilePathComparison.ResolveCanonicalPath(leaf);
+
+            Assert.That(resolved, Is.EqualTo(Path.GetFullPath(leaf)));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Test]
     public void Windows_drive_root_casing_is_canonicalized()
     {
         if (!OperatingSystem.IsWindows())
@@ -734,6 +896,15 @@ public class FilePathComparisonTests
         string path = Path.Combine(
             Path.GetTempPath(),
             $"beutl-path-comparison-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(path);
+        return path;
+    }
+
+    private static string CreateWorkDirectoryRoot()
+    {
+        string path = Path.Combine(
+            TestContext.CurrentContext.WorkDirectory,
+            "path-boundary-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(path);
         return path;
     }

@@ -9,13 +9,6 @@ internal record FEItem_Skia<T>(
     public Func<T, SKImageFilter?, SKImageFilter?>? DirectFactory { get; init; }
 
     /// <summary>
-    /// Always <see langword="false"/>: this item's mapping is fixed at construction. Deferral is
-    /// <see cref="IFEItem_DeferredBounds"/>, which hands each activation its own resolution instead of
-    /// letting one recorded item carry the first activation's.
-    /// </summary>
-    public bool ResolveBoundsAtExecutionTime => false;
-
-    /// <summary>
     /// Maps a requested output region to the input region the built <see cref="SKImageFilter"/> reads, or
     /// <see langword="null"/> when the footprint is not proven.
     /// </summary>

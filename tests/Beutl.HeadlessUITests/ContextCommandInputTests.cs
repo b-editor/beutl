@@ -72,58 +72,53 @@ public class ContextCommandInputTests
         await TestReset.ResetShellAsync();
         try
         {
-            string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "context-command-input-terminal");
-            Directory.CreateDirectory(location);
-            Project project = (await TestShell.Project.CreateProject(
-                640, 480, 30, 44100, "terminal-keys", location))!;
-            Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
-            HeadlessTestHelpers.Settle();
-            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("context-command-input-terminal");
+            Scene scene = editor.Scene;
 
             using var terminalVm = new TerminalTabViewModel(editor);
             using var terminalTab = new TerminalTabView { DataContext = terminalVm };
             var window = new Window { Content = terminalTab };
             window.Show();
-            using var _ = new WindowCloser(window);
-            HeadlessTestHelpers.Render();
-            TerminalControl control = terminalTab.FindControl<TerminalControl>("Terminal")!;
-            // The focused element (and so the KeyDown source) is the inner TerminalView, not the templated control.
-            TerminalView terminalView = control.GetVisualDescendants().OfType<TerminalView>().Single();
-            int markersBefore = scene.Markers.Count;
-
-            Assert.That(ContextCommandInput.GetIsTextInput(control), Is.True);
-
-            // Typing "m" into the terminal must not toggle a marker, and the key must stay unhandled so
-            // Avalonia still delivers the TextInput to the shell.
-            KeyEventArgs fromTerminal = KeyDownFrom(terminalView, Key.M);
-            await editor.ExecuteAsync(new ContextCommandExecution("ToggleMarker") { KeyEventArgs = fromTerminal });
-
-            Assert.Multiple(() =>
+            try
             {
-                Assert.That(scene.Markers.Count, Is.EqualTo(markersBefore));
-                Assert.That(fromTerminal.Handled, Is.False);
-            });
+                HeadlessTestHelpers.Render();
+                TerminalControl control = terminalTab.FindControl<TerminalControl>("Terminal")!;
+                // The focused element (and so the KeyDown source) is the inner TerminalView, not the templated control.
+                TerminalView terminalView = control.GetVisualDescendants().OfType<TerminalView>().Single();
+                int markersBefore = scene.Markers.Count;
 
-            // Negative control: the same gesture from a non-text control still runs the shortcut.
-            KeyEventArgs fromEditor = KeyDownFrom(new Border(), Key.M);
-            await editor.ExecuteAsync(new ContextCommandExecution("ToggleMarker") { KeyEventArgs = fromEditor });
+                Assert.That(ContextCommandInput.GetIsTextInput(control), Is.True);
 
-            Assert.Multiple(() =>
+                // Typing "m" into the terminal must not toggle a marker, and the key must stay unhandled so
+                // Avalonia still delivers the TextInput to the shell.
+                KeyEventArgs fromTerminal = KeyDownFrom(terminalView, Key.M);
+                await editor.ExecuteAsync(new ContextCommandExecution("ToggleMarker") { KeyEventArgs = fromTerminal });
+
+                Assert.Multiple(() =>
+                {
+                    Assert.That(scene.Markers.Count, Is.EqualTo(markersBefore));
+                    Assert.That(fromTerminal.Handled, Is.False);
+                });
+
+                // Negative control: the same gesture from a non-text control still runs the shortcut.
+                KeyEventArgs fromEditor = KeyDownFrom(new Border(), Key.M);
+                await editor.ExecuteAsync(new ContextCommandExecution("ToggleMarker") { KeyEventArgs = fromEditor });
+
+                Assert.Multiple(() =>
+                {
+                    Assert.That(scene.Markers.Count, Is.EqualTo(markersBefore + 1));
+                    Assert.That(fromEditor.Handled, Is.True);
+                });
+            }
+            finally
             {
-                Assert.That(scene.Markers.Count, Is.EqualTo(markersBefore + 1));
-                Assert.That(fromEditor.Handled, Is.True);
-            });
+                window.Close();
+            }
         }
         finally
         {
             await TestReset.ResetShellAsync();
         }
-    }
-
-    private sealed class WindowCloser(Window window) : IDisposable
-    {
-        public void Dispose() => window.Close();
     }
 
     private static KeyEventArgs KeyDownFrom(Interactive source, Key key = Key.M)

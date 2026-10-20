@@ -5,28 +5,18 @@ using Beutl.ProjectSystem;
 namespace Beutl.UnitTests.TestInfrastructure;
 
 /// <summary>
-/// Wires the repeated <see cref="OperationSequenceGenerator"/> + <see cref="HistoryManager"/> +
-/// <see cref="CoreObjectOperationObserver"/> + <c>Subscribe</c> setup that the editor-service fixtures
-/// share, and disposes the observer and history in reverse order on teardown.
+/// Wires <see cref="OperationSequenceGenerator"/>, <see cref="HistoryManager"/> and a subscribed
+/// <see cref="CoreObjectOperationObserver"/> for any <see cref="CoreObject"/> root.
 /// </summary>
-/// <remarks>
-/// This is the non-Scene-specific portion: any fixture whose root is a plain <see cref="CoreObject"/>
-/// (an <see cref="Element"/>, a node graph, a bespoke test model, ...) can reuse it directly.
-/// Scene-rooted fixtures that also need a backing temp directory use <see cref="SceneHistoryHarness"/>,
-/// which composes this type.
-/// </remarks>
 public sealed class HistoryHarness : IDisposable
 {
     public HistoryHarness(CoreObject root)
     {
-        Root = root;
         Sequence = new OperationSequenceGenerator();
-        History = new HistoryManager(root, Sequence);
+        History = new HistoryManager(Sequence);
         Observer = new CoreObjectOperationObserver(null, root, Sequence);
         History.Subscribe(Observer);
     }
-
-    public CoreObject Root { get; }
 
     public OperationSequenceGenerator Sequence { get; }
 
@@ -42,11 +32,8 @@ public sealed class HistoryHarness : IDisposable
 }
 
 /// <summary>
-/// Disposable harness for the Scene-rooted editor-service fixtures that persist elements to disk. It
-/// owns a temp working directory, builds a <see cref="Scene"/> whose <see cref="Scene.Uri"/> points
-/// into it, and exposes a <see cref="HistoryHarness"/> so the history/observer plumbing is shared with
-/// the non-Scene fixtures. Each fixture keeps its own dimensions, time range, and temp-directory prefix
-/// by passing them to the constructor.
+/// Owns a temp directory holding the <see cref="Scene"/> file, and composes <see cref="HistoryHarness"/> for
+/// the history wiring.
 /// </summary>
 public sealed class SceneHistoryHarness : IDisposable
 {
@@ -56,21 +43,17 @@ public sealed class SceneHistoryHarness : IDisposable
     /// Prefix for the temp directory, kept per-fixture so concurrent runs do not collide and so the
     /// directory name stays recognizable in a crash dump.
     /// </param>
-    /// <param name="width">Scene frame width.</param>
-    /// <param name="height">Scene frame height.</param>
     /// <param name="start">Scene start; <see langword="null"/> leaves the property default.</param>
     /// <param name="duration">Scene duration; <see langword="null"/> leaves the property default.</param>
     public SceneHistoryHarness(
         string namePrefix,
-        int width = 100,
-        int height = 100,
         TimeSpan? start = null,
         TimeSpan? duration = null)
     {
         BasePath = Path.Combine(Path.GetTempPath(), $"{namePrefix}_{Guid.NewGuid():N}");
         Directory.CreateDirectory(BasePath);
 
-        Scene = new Scene(width, height, string.Empty)
+        Scene = new Scene(100, 100, string.Empty)
         {
             Uri = new Uri(Path.Combine(BasePath, "test.scene")),
         };
@@ -84,17 +67,12 @@ public sealed class SceneHistoryHarness : IDisposable
 
     public Scene Scene { get; }
 
-    public OperationSequenceGenerator Sequence => _history.Sequence;
-
     public HistoryManager History => _history.History;
 
-    public CoreObjectOperationObserver Observer => _history.Observer;
-
     /// <summary>
-    /// Creates an <see cref="Element"/> backed by a fresh layer file under <see cref="BasePath"/> and
-    /// appends it to <see cref="Scene"/>'s children. <see cref="Element.IsEnabled"/> defaults to
-    /// <see langword="true"/>, matching the engine default, so callers that never enabled it explicitly
-    /// keep the same value.
+    /// Creates an <see cref="Element"/> backed by a fresh <c>.belm</c> file under <see cref="BasePath"/> and
+    /// appends it to <see cref="Scene"/>'s children. The scene's default include matcher reads <c>.belm</c>
+    /// files back from disk.
     /// </summary>
     public Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0, bool isEnabled = true)
     {
@@ -104,7 +82,7 @@ public sealed class SceneHistoryHarness : IDisposable
             Length = length,
             ZIndex = zIndex,
             IsEnabled = isEnabled,
-            Uri = new Uri(Path.Combine(BasePath, $"{Guid.NewGuid():N}.layer")),
+            Uri = new Uri(Path.Combine(BasePath, $"{Guid.NewGuid():N}.belm")),
         };
         Scene.Children.Add(element);
         return element;

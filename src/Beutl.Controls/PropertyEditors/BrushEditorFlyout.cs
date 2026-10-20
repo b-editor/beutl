@@ -7,8 +7,6 @@ using Avalonia.Media.Immutable;
 using FluentAvalonia.UI.Controls.Primitives;
 using FluentAvalonia.UI.Media;
 
-#nullable enable
-
 namespace Beutl.Controls.PropertyEditors;
 
 public enum BrushType

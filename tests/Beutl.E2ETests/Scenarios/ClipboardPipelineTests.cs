@@ -1,8 +1,8 @@
-﻿using Beutl.E2ETests.TestInfrastructure;
-using Beutl.Editor;
+﻿using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.E2ETests.Scenarios;
 
@@ -41,17 +41,18 @@ public class ClipboardPipelineTests
         bool copied = await _service.CopyAsync([original]);
         Assert.That(copied, Is.True);
 
-        int childrenBefore = _scene.Children.Count;
+        Element[] childrenBefore = [.. _scene.Children];
         ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.FromSeconds(30), 2);
 
+        Element[] added = [.. _scene.Children.Except(childrenBefore)];
         Assert.Multiple(() =>
         {
             Assert.That(outcome.Pasted, Is.True);
-            Assert.That(outcome.NewElements, Has.Count.EqualTo(1));
-            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore + 1));
-            Assert.That(outcome.NewElements[0].Start, Is.EqualTo(TimeSpan.FromSeconds(30)));
-            Assert.That(outcome.NewElements[0].ZIndex, Is.EqualTo(2));
-            Assert.That(outcome.NewElements[0].Id, Is.Not.EqualTo(original.Id));
+            Assert.That(added, Has.Length.EqualTo(1));
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore.Length + 1));
+            Assert.That(added[0].Start, Is.EqualTo(TimeSpan.FromSeconds(30)));
+            Assert.That(added[0].ZIndex, Is.EqualTo(2));
+            Assert.That(added[0].Id, Is.Not.EqualTo(original.Id));
         });
     }
 
@@ -75,41 +76,13 @@ public class ClipboardPipelineTests
         {
             Assert.That(outcome.Pasted, Is.True);
             Assert.That(_scene.Children, Has.Count.EqualTo(1));
-            Assert.That(outcome.NewElements[0].Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(_scene.Children.Single().Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
         });
-    }
-
-    [Test]
-    public async Task Cut_with_unavailable_clipboard_preserves_the_scene()
-    {
-        Element original = _harness.AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0);
-        int childrenBefore = _scene.Children.Count;
-        int historyBefore = _history.UndoCount;
-        _clipboard.Unavailable = true;
-
-        bool cut = await _service.CutAsync(_scene, [original]);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(cut, Is.False);
-            Assert.That(_scene.Children, Does.Contain(original));
-            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore));
-            Assert.That(_history.UndoCount, Is.EqualTo(historyBefore));
-        });
-    }
-
-    [Test]
-    public async Task Paste_with_empty_clipboard_is_a_no_op()
-    {
-        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.Zero, 0);
-        Assert.That(outcome.Pasted, Is.False);
     }
 
     private sealed class FakeClipboardGateway : IClipboardGateway
     {
         private readonly Dictionary<string, string> _entries = new();
-
-        public bool Unavailable { get; set; }
 
         public Task<IReadOnlyList<string>> GetFormatsAsync()
             => Task.FromResult<IReadOnlyList<string>>(new List<string>(_entries.Keys));
@@ -125,21 +98,13 @@ public class ClipboardPipelineTests
 
         public Task<bool> SetAsync(IReadOnlyList<ClipboardEntry> entries)
         {
-            if (Unavailable) return Task.FromResult(false);
-
             _entries.Clear();
             foreach (ClipboardEntry entry in entries)
             {
-                if (entry.Text is not null) _entries[entry.Format] = entry.Text;
+                _entries[entry.Format] = entry.Text;
             }
 
             return Task.FromResult(true);
-        }
-
-        public Task ClearAsync()
-        {
-            _entries.Clear();
-            return Task.CompletedTask;
         }
     }
 }

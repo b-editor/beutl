@@ -1,22 +1,17 @@
 ﻿using Beutl.Animation.Easings;
 using Beutl.Editor;
 using Beutl.Editor.Operations;
-using Beutl.Logging;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Editor;
 
 public class UpdateSplineEasingOperationTests
 {
     private OperationSequenceGenerator _sequenceGenerator = null!;
-    private TestCoreObject _parent = null!;
 
     [SetUp]
     public void Setup()
     {
-        Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
         _sequenceGenerator = new OperationSequenceGenerator();
-        _parent = new TestCoreObject();
     }
 
     private UpdateSplineEasingOperation CreateOp(
@@ -69,11 +64,10 @@ public class UpdateSplineEasingOperationTests
     {
         var easing = new SplineEasing(0.25f, 0.1f, 0.75f, 0.9f);
         var op = CreateOp(easing, propertyName, newValue, oldValue);
-        var context = new OperationExecutionContext(_parent);
 
-        op.Apply(context);
+        op.Apply();
         var valueAfterApply = GetControlPoint(easing, propertyName);
-        op.Revert(context);
+        op.Revert();
         var valueAfterRevert = GetControlPoint(easing, propertyName);
 
         Assert.Multiple(() =>
@@ -95,11 +89,10 @@ public class UpdateSplineEasingOperationTests
     {
         var easing = new SplineEasing(0.25f, 0.1f, 0.75f, 0.9f);
         var op = CreateOp(easing, propertyPath, newValue, oldValue);
-        var context = new OperationExecutionContext(_parent);
 
-        op.Apply(context);
+        op.Apply();
         var valueAfterApply = GetControlPoint(easing, propertyName);
-        op.Revert(context);
+        op.Revert();
         var valueAfterRevert = GetControlPoint(easing, propertyName);
 
         Assert.Multiple(() =>
@@ -116,14 +109,13 @@ public class UpdateSplineEasingOperationTests
     {
         var easing = new SplineEasing();
         var op = CreateOp(easing, propertyPath, 0.5f, 0.0f);
-        var context = new OperationExecutionContext(_parent);
 
         var ex = Assert.Throws<ArgumentException>(() =>
         {
             if (revert)
-                op.Revert(context);
+                op.Revert();
             else
-                op.Apply(context);
+                op.Apply();
         });
         Assert.That(ex!.Message, Does.Contain($"Unknown property name: {propertyName}"));
     }
@@ -133,15 +125,14 @@ public class UpdateSplineEasingOperationTests
     {
         var easing = new SplineEasing(0.25f, 0.1f, 0.75f, 0.9f);
         var op = CreateOp(easing, "X1", 0.5f, 0.25f);
-        var context = new OperationExecutionContext(_parent);
 
-        op.Apply(context);
+        op.Apply();
         var valueAfterFirstApply = easing.X1;
 
         // Simulate something changed the value
         easing.X1 = 0.3f;
 
-        op.Apply(context);
+        op.Apply();
         var valueAfterSecondApply = easing.X1;
 
         Assert.Multiple(() =>
@@ -156,15 +147,14 @@ public class UpdateSplineEasingOperationTests
     {
         var easing = new SplineEasing(0.5f, 0.1f, 0.75f, 0.9f);
         var op = CreateOp(easing, "X1", 0.5f, 0.25f);
-        var context = new OperationExecutionContext(_parent);
 
-        op.Revert(context);
+        op.Revert();
         var valueAfterFirstRevert = easing.X1;
 
         // Simulate something changed the value
         easing.X1 = 0.6f;
 
-        op.Revert(context);
+        op.Revert();
         var valueAfterSecondRevert = easing.X1;
 
         Assert.Multiple(() =>
@@ -285,12 +275,11 @@ public class UpdateSplineEasingOperationTests
         var opY1 = CreateOp(easing, "Y1", 0.5f, 0.1f);
         var opX2 = CreateOp(easing, "X2", 0.5f, 0.75f);
         var opY2 = CreateOp(easing, "Y2", 0.5f, 0.9f);
-        var context = new OperationExecutionContext(_parent);
 
-        opX1.Apply(context);
-        opY1.Apply(context);
-        opX2.Apply(context);
-        opY2.Apply(context);
+        opX1.Apply();
+        opY1.Apply();
+        opX2.Apply();
+        opY2.Apply();
 
         Assert.Multiple(() =>
         {
@@ -300,10 +289,10 @@ public class UpdateSplineEasingOperationTests
             Assert.That(easing.Y2, Is.EqualTo(0.5f));
         });
 
-        opY2.Revert(context);
-        opX2.Revert(context);
-        opY1.Revert(context);
-        opX1.Revert(context);
+        opY2.Revert();
+        opX2.Revert();
+        opY1.Revert();
+        opX1.Revert();
 
         Assert.Multiple(() =>
         {
@@ -322,24 +311,23 @@ public class UpdateSplineEasingOperationTests
         var op1 = CreateOp(easing, "X1", 0.3f, 0.25f);
         var op2 = CreateOp(easing, "X1", 0.4f, 0.3f);
         var op3 = CreateOp(easing, "X1", 0.5f, 0.4f);
-        var context = new OperationExecutionContext(_parent);
 
         // Apply first, then merge subsequent operations
-        op1.Apply(context);
+        op1.Apply();
         Assert.That(easing.X1, Is.EqualTo(0.3f));
 
         op1.TryMerge(op2);
-        op1.Apply(context);
+        op1.Apply();
         Assert.That(easing.X1, Is.EqualTo(0.4f));
 
         op1.TryMerge(op3);
-        op1.Apply(context);
+        op1.Apply();
         Assert.That(easing.X1, Is.EqualTo(0.5f));
 
-        op1.Revert(context);
+        op1.Revert();
         Assert.That(easing.X1, Is.EqualTo(0.25f));
 
-        op1.Apply(context);
+        op1.Apply();
         Assert.That(easing.X1, Is.EqualTo(0.5f));
     }
 
@@ -347,17 +335,13 @@ public class UpdateSplineEasingOperationTests
 
     #region Test Helper Classes
 
-    private class TestCoreObject : CoreObject
-    {
-    }
-
     private class TestChangeOperation : ChangeOperation
     {
-        public override void Apply(OperationExecutionContext context)
+        public override void Apply()
         {
         }
 
-        public override void Revert(OperationExecutionContext context)
+        public override void Revert()
         {
         }
     }

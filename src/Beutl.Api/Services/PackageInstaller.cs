@@ -57,10 +57,14 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 </configuration>
 ";
 
-    public PackageInstaller(HttpClient httpClient, InstalledPackageRepository installedPackageRepository, BeutlApiApplication apiApplication)
+    internal PackageInstaller(
+        HttpClient httpClient,
+        bool ownsHttpClient,
+        InstalledPackageRepository installedPackageRepository,
+        BeutlApiApplication apiApplication)
     {
         _httpClient = httpClient;
-        _ownsHttpClient = false;
+        _ownsHttpClient = ownsHttpClient;
         _installedPackageRepository = installedPackageRepository;
         _apiApplication = apiApplication;
 
@@ -79,16 +83,6 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         };
 
         _resolver = new PackageResolver();
-    }
-
-    internal PackageInstaller(
-        HttpClient httpClient,
-        bool ownsHttpClient,
-        InstalledPackageRepository installedPackageRepository,
-        BeutlApiApplication apiApplication)
-        : this(httpClient, installedPackageRepository, apiApplication)
-    {
-        _ownsHttpClient = ownsHttpClient;
     }
 
     private static void EnsureNuGetConfig(string configPath)
@@ -419,7 +413,6 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                     ClientPolicyContext.GetClientPolicy(_settings, logger),
                     logger);
 
-                var installedPaths = new List<string>(packagesToInstall.Length);
                 foreach (SourcePackageDependencyInfo packageToInstall in packagesToInstall)
                 {
                     if (CoreLibraries.IncludedInPackageDependencies(packageToInstall.Id, packageToInstall.Version))
@@ -427,17 +420,15 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                         continue;
                     }
 
-                    string? installedPath = Helper.PackagePathResolver.GetInstalledPath(packageToInstall)
-                        ?? await InstallResolvedPackageAsync(
+                    if (Helper.PackagePathResolver.GetInstalledPath(packageToInstall) == null)
+                    {
+                        await InstallResolvedPackageAsync(
                                 packageToInstall,
                                 context,
                                 packageExtractionContext,
                                 logger,
                                 cancellationToken)
                             .ConfigureAwait(false);
-                    if (installedPath != null)
-                    {
-                        installedPaths.Add(installedPath);
                     }
                 }
 
@@ -445,7 +436,6 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                 ResolvedPackageDependencies.Save(Helper.ResolveInstalledDirectory(package), nuGetFramework,
                     packagesToInstall.Where(item => !CoreLibraries.IncludedInPackageDependencies(item.Id, item.Version)));
                 context.Phase = PackageInstallPhase.ResolvedDependencies;
-                context.InstalledPaths = installedPaths;
             }
         }
         finally
@@ -466,8 +456,8 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             NuGet.Protocol.FeedType.FileSystemPackagesConfig);
     }
 
-    // Downloads and extracts a resolved package that is not installed yet; returns where it landed, or null.
-    private async Task<string?> InstallResolvedPackageAsync(
+    // Downloads and extracts a resolved package that is not installed yet.
+    private async Task InstallResolvedPackageAsync(
         SourcePackageDependencyInfo packageToInstall,
         PackageInstallContext context,
         PackageExtractionContext packageExtractionContext,
@@ -509,8 +499,6 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                 context.LicensesRequiringApproval.Add((packageToInstall, license));
             }
         }
-
-        return installedPath;
     }
 
     // NuGet reports a package it could not find, or a cancelled download, as a result with neither a

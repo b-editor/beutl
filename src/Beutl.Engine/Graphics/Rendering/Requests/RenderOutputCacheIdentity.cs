@@ -37,14 +37,6 @@ internal sealed class RenderOutputCacheIdentity : IEquatable<RenderOutputCacheId
             throw new ArgumentException("Cache bounds must be finite and non-negative.", nameof(bounds));
         if (!float.IsFinite(density) || density <= 0)
             throw new ArgumentOutOfRangeException(nameof(density), density, "Cache density must be finite and positive.");
-        format.ThrowIfUninitialized(nameof(format));
-        deviceContext.ThrowIfUninitialized(nameof(deviceContext));
-        if (!Enum.IsDefined(intent))
-            throw new ArgumentOutOfRangeException(nameof(intent));
-        if (!Enum.IsDefined(purpose))
-            throw new ArgumentOutOfRangeException(nameof(purpose));
-        if (!Enum.IsDefined(fusionMode))
-            throw new ArgumentOutOfRangeException(nameof(fusionMode));
 
         _candidateKey = candidateKey;
         _fragment = fragment;
@@ -58,8 +50,6 @@ internal sealed class RenderOutputCacheIdentity : IEquatable<RenderOutputCacheId
         _deviceContext = deviceContext;
         _deviceGridOffset = deviceGridOffset;
     }
-
-    public Rect Bounds => _bounds;
 
     public float Density => BitConverter.Int32BitsToSingle(_densityBits);
 

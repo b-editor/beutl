@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <BeutlHostLibrary>true</BeutlHostLibrary>
     <TargetFramework></TargetFramework><!-- empty so the TFMs below cross-target -->
     <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
     <OutputType>WinExe</OutputType>
-    <SelfContained>false</SelfContained>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
@@ -20,9 +20,7 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Desktop" />
-    <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="AvaloniaUI.DiagnosticsSupport" />
-    <PackageReference Include="DynamicData" />
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="FluentIcons.Avalonia.Fluent" />
     <PackageReference Include="AsyncImageLoader.Avalonia" />
@@ -41,17 +39,9 @@
     <ProjectReference Include="..\Beutl.Controls\Beutl.Controls.csproj" />
   </ItemGroup>
 
-  <!--<ItemGroup Condition="'$(Configuration)' == 'Debug'">
-    <ProjectReference Include="..\Beutl\Beutl.csproj" />
-  </ItemGroup>-->
-
   <ItemGroup>
     <Compile Include="..\Beutl\Services\Telemetry.cs" />
     <Compile Include="..\Beutl\Services\LinuxDistro.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Update="Resources\Strings.resx" />
   </ItemGroup>
 
 </Project>

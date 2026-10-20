@@ -3,7 +3,6 @@
 using Beutl.Reactive;
 
 using NuGet.Packaging.Core;
-using NuGet.Versioning;
 
 namespace Beutl.Api.Services;
 
@@ -31,9 +30,9 @@ public class PackageChangesQueue : IBeutlApiResource
         return _uninstalls;
     }
 
-    public IObservable<EventType> GetObservable(string name, string? version = null)
+    public IObservable<EventType> GetObservable(string name)
     {
-        return new _Observable(this, name, version);
+        return new _Observable(this, name);
     }
 
     public void UninstallQueue(PackageIdentity packageIdentity)
@@ -48,13 +47,6 @@ public class PackageChangesQueue : IBeutlApiResource
         _uninstalls.Remove(packageIdentity);
         _installs.Add(packageIdentity);
         _subject.OnNext((packageIdentity, EventType.Install));
-    }
-
-    public void Cancel(PackageIdentity packageIdentity)
-    {
-        _uninstalls.Remove(packageIdentity);
-        _installs.Remove(packageIdentity);
-        _subject.OnNext((packageIdentity, EventType.None));
     }
 
     public void Cancel(string name)
@@ -87,51 +79,27 @@ public class PackageChangesQueue : IBeutlApiResource
     {
         private readonly PackageChangesQueue _queue;
         private readonly string _name;
-        private readonly PackageIdentity? _packageIdentity;
         private IDisposable? _disposable;
 
-        public _Observable(PackageChangesQueue queue, string name, string? version)
+        public _Observable(PackageChangesQueue queue, string name)
         {
             _queue = queue;
             _name = name;
-
-            if (version is { })
-            {
-                _packageIdentity = new PackageIdentity(name, new NuGetVersion(version));
-            }
         }
 
         protected override void Subscribed(IObserver<EventType> observer, bool first)
         {
-            if (_packageIdentity is { })
+            if (_queue._installs.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, _name)))
             {
-                if (_queue._installs.Contains(_packageIdentity))
-                {
-                    observer.OnNext(EventType.Install);
-                }
-                else if (_queue._uninstalls.Contains(_packageIdentity))
-                {
-                    observer.OnNext(EventType.Uninstall);
-                }
-                else
-                {
-                    observer.OnNext(EventType.None);
-                }
+                observer.OnNext(EventType.Install);
+            }
+            else if (_queue._uninstalls.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, _name)))
+            {
+                observer.OnNext(EventType.Uninstall);
             }
             else
             {
-                if (_queue._installs.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, _name)))
-                {
-                    observer.OnNext(EventType.Install);
-                }
-                else if (_queue._uninstalls.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, _name)))
-                {
-                    observer.OnNext(EventType.Uninstall);
-                }
-                else
-                {
-                    observer.OnNext(EventType.None);
-                }
+                observer.OnNext(EventType.None);
             }
         }
 
@@ -149,8 +117,7 @@ public class PackageChangesQueue : IBeutlApiResource
 
         private void OnReceived((PackageIdentity Package, EventType Type) obj)
         {
-            if ((_packageIdentity != null && _packageIdentity == obj.Package)
-                || StringComparer.OrdinalIgnoreCase.Equals(obj.Package.Id, _name))
+            if (StringComparer.OrdinalIgnoreCase.Equals(obj.Package.Id, _name))
             {
                 PublishNext(obj.Type);
             }

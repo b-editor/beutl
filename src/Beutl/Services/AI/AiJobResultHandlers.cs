@@ -43,9 +43,7 @@ internal sealed class AiJobResultContext(
 
 internal static class BuiltInAiJobResultCapabilities
 {
-    public static AiJobResultRegistry CreateRegistry(
-        IExtensionRegistry? extensionProvider = null,
-        Action<AiJobResultExtensionFailure>? reportFailure = null)
+    public static AiJobResultRegistry CreateRegistry()
     {
         (AiJobKindId Kind, BuiltInAiJobResultCapability Capability)[] capabilities =
         [
@@ -69,17 +67,9 @@ internal static class BuiltInAiJobResultCapabilities
         ];
 
         return new AiJobResultRegistry(
-            capabilities.Select(item => new AiJobPresentationRegistration(
-                item.Kind,
-                item.Capability)),
-            capabilities.Select(item => new AiJobCompletionRegistration(
-                item.Kind,
-                item.Capability)),
-            capabilities.Select(item => new AiJobResultApplicatorRegistration(
-                item.Kind,
-                item.Capability)),
-            extensionProvider,
-            reportFailure);
+            capabilities.Select(item => KeyValuePair.Create(item.Kind, (IAiJobPresenter)item.Capability)),
+            capabilities.Select(item => KeyValuePair.Create(item.Kind, (IAiJobCompletionPresenter)item.Capability)),
+            capabilities.Select(item => KeyValuePair.Create(item.Kind, (IAiJobResultApplicator)item.Capability)));
     }
 }
 
@@ -271,7 +261,7 @@ internal sealed class VideoAiJobResultCapabilities()
             AiContentMetadata? metadata = AiContentMetadata.Combine(
                 job.ContentMetadata,
                 download.Metadata);
-            string extension = metadata?.GetFileExtension(".mp4", "video") ?? ".mp4";
+            string extension = metadata?.GetFileExtension() ?? ".mp4";
 
             TimeSpan duration = TimeSpan.FromSeconds(AiJobResultInput.GetInt32(job, "durationSeconds") ?? 6);
             if (AiJobResultInput.GetString(job, "mode") is "edit" or "extend" or "motion")
@@ -283,7 +273,8 @@ internal sealed class VideoAiJobResultCapabilities()
                 duration = await Task.Run(() =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    using var reader = MediaReader.Open(ownedPath, new MediaOptions(MediaMode.Video) { PreferProxy = false });
+                    using var reader = MediaReader.Open(
+                        ownedPath, new MediaOptions(MediaMode.Video) { PreferProxy = false, IsBackground = true });
                     double seconds = reader.HasVideo ? reader.VideoInfo.Duration.ToDouble() : 0;
                     // Some backends can decode frames without duration metadata. Keep the
                     // retained/default length in that case; the importer still validates decoding.
@@ -348,18 +339,11 @@ internal sealed class CaptionAiJobResultCapabilities(
             TimeSpan.FromSeconds(segment.End),
             segment.Text,
             language: recovered.Language)));
-        CaptionTemplateRegistrationSet template =
-            CaptionPresentationDefaults.CreateDefaultText(Strings.AiSubtitle_DefaultTemplate);
-        await using var templates = new CaptionTemplateRegistry(
-            [template.DescriptorRegistration],
-            [template.ElementFactoryRegistration],
-            [template.PlacementPolicyRegistration]);
         CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
             context.Editor.Scene,
             context.Editor.ElementAdder,
             document,
-            templates,
-            CaptionTemplateIds.DefaultText,
+            CaptionPresentationDefaults.CreateDefaultText(Strings.AiSubtitle_DefaultTemplate),
             cancellationToken);
         if (result.IsSuccess)
         {

@@ -11,15 +11,9 @@ public enum CaptionValidationIssueKind
 }
 
 /// <param name="CueIndex">The zero-based index of the cue containing the issue.</param>
-/// <param name="RelatedCueIndex">The zero-based index of a related cue, when applicable.</param>
-/// <param name="LineIndex">The zero-based line index, when applicable.</param>
 public sealed record CaptionValidationIssue(
     CaptionValidationIssueKind Kind,
-    int CueIndex,
-    int? RelatedCueIndex = null,
-    int? LineIndex = null,
-    int? ActualValue = null,
-    int? Limit = null);
+    int CueIndex);
 
 public static class CaptionDocumentValidator
 {
@@ -64,8 +58,7 @@ public static class CaptionDocumentValidator
             {
                 issues.Add(new CaptionValidationIssue(
                     CaptionValidationIssueKind.OutOfOrder,
-                    i,
-                    i - 1));
+                    i));
             }
         }
     }
@@ -86,7 +79,6 @@ public static class CaptionDocumentValidator
             return;
 
         TimeSpan greatestEnd = ordered[0].Cue.End;
-        int greatestEndIndex = ordered[0].Index;
         for (int i = 1; i < ordered.Length; i++)
         {
             (CaptionCue cue, int index) = ordered[i];
@@ -94,14 +86,12 @@ public static class CaptionDocumentValidator
             {
                 issues.Add(new CaptionValidationIssue(
                     CaptionValidationIssueKind.Overlap,
-                    index,
-                    greatestEndIndex));
+                    index));
             }
 
             if (cue.End > greatestEnd)
             {
                 greatestEnd = cue.End;
-                greatestEndIndex = index;
             }
         }
     }
@@ -118,9 +108,7 @@ public static class CaptionDocumentValidator
             {
                 issues.Add(new CaptionValidationIssue(
                     CaptionValidationIssueKind.TooManyLines,
-                    cueIndex,
-                    ActualValue: lines.Length,
-                    Limit: constraints.MaximumLineCount));
+                    cueIndex));
             }
 
             for (int lineIndex = 0; lineIndex < lines.Length; lineIndex++)
@@ -130,10 +118,7 @@ public static class CaptionDocumentValidator
                 {
                     issues.Add(new CaptionValidationIssue(
                         CaptionValidationIssueKind.LineTooLong,
-                        cueIndex,
-                        LineIndex: lineIndex,
-                        ActualValue: lineLength,
-                        Limit: constraints.MaximumLineLength));
+                        cueIndex));
                 }
             }
         }

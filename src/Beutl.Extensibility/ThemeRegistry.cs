@@ -4,15 +4,8 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensibility;
 
-// Static registry of ThemeDescriptor instances. A ThemeExtension registers its descriptor at
-// Load() and unregisters at Unload(); the host resolves the selected theme id and re-applies when
-// the set changes. Ids are unique and a repeat Register overwrites, so a re-Load after a rolled-back
-// partial init is idempotent; the ids reserved for built-ins (BuiltinThemeIds.IsReserved) are the
-// exception and an extension cannot claim one. Registration is keyed on the descriptor instance, not
-// the record's value: only the instance that registered an id may Unregister it, so an extension
-// replaced by another cannot evict its successor. The owning ThemeExtension is kept alongside the
-// descriptor so the host can notify it on apply/revert without a separate lookup; null means the
-// host registered it.
+// Static registry of ThemeDescriptor instances. Registration is keyed on the descriptor instance: only the
+// instance that registered an id may Unregister it.
 public static class ThemeRegistry
 {
     private static readonly ILogger s_logger = Log.CreateLogger(nameof(ThemeRegistry));
@@ -87,23 +80,11 @@ public static class ThemeRegistry
         }
     }
 
-    // The ThemeExtension that registered the descriptor, or null for a host-registered built-in.
-    public static ThemeExtension? GetExtension(string? id)
-    {
-        if (string.IsNullOrEmpty(id))
-            return null;
-
-        lock (s_lock)
-        {
-            return s_themes.TryGetValue(id, out var entry) ? entry.Extension : null;
-        }
-    }
-
     /// <summary>
     /// The <see cref="ThemeExtension"/> that registered this exact <paramref name="descriptor"/>, or
     /// null when it is a host-registered built-in or no longer the registration under its id.
-    /// Prefer this over <see cref="GetExtension(string?)"/> when holding a descriptor: an id lookup
-    /// can hand back the owner of a replacement registered since the descriptor was resolved.
+    /// Matching the instance rather than the id keeps it from handing back the owner of a
+    /// replacement registered since the descriptor was resolved.
     /// </summary>
     public static ThemeExtension? GetOwner(ThemeDescriptor descriptor)
     {

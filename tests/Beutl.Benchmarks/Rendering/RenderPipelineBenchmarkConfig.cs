@@ -46,12 +46,6 @@ internal sealed class RenderPipelineBenchmarkConfig : ManualConfig
 
     public const string BenchmarkJobId = "RenderPipeline";
 
-    public static string ExpectedJobDisplay =>
-        $"{BenchmarkJobId}(InvocationCount={BenchmarkInvocationCount}, "
-        + $"IterationCount={BenchmarkIterationCount}, LaunchCount={BenchmarkLaunchCount}, "
-        + $"RunStrategy={RunStrategy.Monitoring}, UnrollFactor={BenchmarkUnrollFactor}, "
-        + $"WarmupCount={BenchmarkWarmupCount})";
-
     public const string LifetimeContract =
         "persistent-root-pipeline-and-version-available-structural-program-render-cache-target-pool-state";
 

@@ -5,17 +5,12 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Extensibility;
 
-// ファイルのエディタを追加
 public abstract class EditorExtension : ViewExtension
 {
     public abstract FilePickerFileType GetFilePickerFileType();
 
-    /// <summary>Gets the editor icon using FluentAvalonia 3's icon source contract.</summary>
-    /// <remarks>
-    /// The Avalonia 12 host requires extensions to be rebuilt against the matching Beutl SDK.
-    /// Overrides compiled with FluentAvalonia 2's IconSource return type are not binary compatible.
-    /// See docs/extension-authoring/avalonia-12-migration.md for the migration steps.
-    /// </remarks>
+    /// <summary>Gets the editor icon as a FluentAvalonia 3 <see cref="FAIconSource"/>.</summary>
+    /// <remarks>See docs/extension-authoring/avalonia-12-migration.md for the migration steps.</remarks>
     public abstract FAIconSource? GetIcon();
 
     public abstract bool TryCreateEditor(

@@ -170,6 +170,7 @@ public partial class MainViewModel
         }
     }
 
+    // For tests: completes when the shutdown request in flight, if any, has finished.
     internal Task WaitForShutdownRequestAsync()
     {
         lock (_disposeGate)
@@ -210,6 +211,7 @@ public partial class MainViewModel
         }
         try
         {
+            _menuSubscriptions.Dispose();
             _aiJobCompletionNotifier.Dispose();
             CommandPalette.Dispose();
             TabSwitcher.Dispose();
@@ -239,24 +241,6 @@ public partial class MainViewModel
 
         try
         {
-            await _aiJobResultHandlers.DisposeAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to drain AI job result handlers during shutdown.");
-        }
-
-        try
-        {
-            await _captionCatalog.DisposeAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to drain caption registrations during shutdown.");
-        }
-
-        try
-        {
             if (ProxyMediaServices.Current is { } proxyMediaServices)
             {
                 await proxyMediaServices.DisposeAsync();
@@ -265,15 +249,6 @@ public partial class MainViewModel
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Proxy media services failed to dispose during shutdown.");
-        }
-
-        try
-        {
-            BeutlApplication.Current.Items.Clear();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to clear application services during shutdown.");
         }
 
         await CompleteShutdownAsync();
@@ -301,19 +276,11 @@ public partial class MainViewModel
     internal void RegisterExitHandler(IControlledApplicationLifetime lifetime)
     {
         ArgumentNullException.ThrowIfNull(lifetime);
-        lifetime.Exit -= OnExit;
         lifetime.Exit += OnExit;
 
         if (lifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            if (_desktopLifetime is { } previous && !ReferenceEquals(previous, desktop))
-            {
-                previous.Exit -= OnExit;
-                previous.ShutdownRequested -= OnShutdownRequested;
-            }
-
             _desktopLifetime = desktop;
-            desktop.ShutdownRequested -= OnShutdownRequested;
             desktop.ShutdownRequested += OnShutdownRequested;
         }
     }
@@ -410,9 +377,6 @@ public partial class MainViewModel
 
     private async Task CompleteShutdownAsync()
     {
-        if (Interlocked.Exchange(ref _shutdownCompleted, 1) != 0)
-            return;
-
         try
         {
             if (_waitForPackageInstallerIdle is not null)
@@ -435,7 +399,14 @@ public partial class MainViewModel
         }
         finally
         {
-            await DisposeApiClientsAsync();
+            try
+            {
+                await _beutlClients.DisposeAsync();
+            }
+            finally
+            {
+                _authHttpClient.Dispose();
+            }
         }
     }
 
@@ -506,26 +477,6 @@ public partial class MainViewModel
             {
                 startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
             }
-        }
-    }
-
-    private Task DisposeApiClientsAsync()
-    {
-        lock (_apiClientDisposeGate)
-        {
-            return _apiClientDisposeTask ??= DisposeApiClientsCoreAsync();
-        }
-    }
-
-    private async Task DisposeApiClientsCoreAsync()
-    {
-        try
-        {
-            await _beutlClients.DisposeAsync();
-        }
-        finally
-        {
-            _authHttpClient.Dispose();
         }
     }
 }

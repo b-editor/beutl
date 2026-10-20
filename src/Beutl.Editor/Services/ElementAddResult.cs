@@ -97,10 +97,7 @@ public sealed record UnsupportedElementSourceFailure : ElementAddFailure
             message ?? $"No element source handler is registered for '{sourceType.FullName}'.")
     {
         ArgumentNullException.ThrowIfNull(sourceType);
-        SourceType = sourceType;
     }
-
-    public Type SourceType { get; }
 }
 
 public sealed record LockedElementLayerFailure : ElementAddFailure
@@ -108,10 +105,7 @@ public sealed record LockedElementLayerFailure : ElementAddFailure
     public LockedElementLayerFailure(int layer)
         : base(ElementAddFailureIds.LockedLayer, $"Timeline layer {layer} is locked.")
     {
-        Layer = layer;
     }
-
-    public int Layer { get; }
 }
 
 public sealed record ElementSourcePreflightFailure : ElementAddFailure
@@ -154,13 +148,7 @@ public sealed record ElementSceneChangedFailure : ElementAddFailure
             ElementAddFailureIds.SceneChanged,
             $"The target scene changed from '{expectedSceneId}' to '{actualSceneId}' while elements were materialized.")
     {
-        ExpectedSceneId = expectedSceneId;
-        ActualSceneId = actualSceneId;
     }
-
-    public Guid ExpectedSceneId { get; }
-
-    public Guid ActualSceneId { get; }
 }
 
 public sealed record ElementSceneMutationFailure : ElementAddFailure
@@ -204,13 +192,11 @@ public sealed class ElementAddResult
 {
     private ElementAddResult(
         IReadOnlyList<ElementAddItemResult> items,
-        ElementAddFailure? failure,
-        ElementDescription? failedDescription)
+        ElementAddFailure? failure)
     {
         Items = Array.AsReadOnly(items.ToArray());
         Elements = Array.AsReadOnly(Items.SelectMany(item => item.Elements).ToArray());
         Failure = failure;
-        FailedDescription = failedDescription;
     }
 
     public bool IsSuccess => Failure is null;
@@ -221,8 +207,6 @@ public sealed class ElementAddResult
 
     public ElementAddFailure? Failure { get; }
 
-    public ElementDescription? FailedDescription { get; }
-
     public static ElementAddResult Succeeded(IReadOnlyList<ElementAddItemResult> items)
     {
         ArgumentNullException.ThrowIfNull(items);
@@ -231,14 +215,12 @@ public sealed class ElementAddResult
         if (items.Any(item => item is null))
             throw new ArgumentException("A successful add cannot contain null items.", nameof(items));
 
-        return new ElementAddResult(items, null, null);
+        return new ElementAddResult(items, null);
     }
 
-    public static ElementAddResult Failed(
-        ElementAddFailure failure,
-        ElementDescription? failedDescription = null)
+    public static ElementAddResult Failed(ElementAddFailure failure)
     {
         ArgumentNullException.ThrowIfNull(failure);
-        return new ElementAddResult([], failure, failedDescription);
+        return new ElementAddResult([], failure);
     }
 }

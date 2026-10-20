@@ -6,7 +6,7 @@ internal static class TargetDependencyLowerer
 {
     public static TargetDependencyPlan Lower(
         ImmutableArray<RenderFragmentReference> roots,
-        Rect? rootDomain = null)
+        Rect? rootDomain)
     {
         var builder = new Builder();
         TargetScopeId rootScope = builder.CreateScope(
@@ -100,11 +100,21 @@ internal static class TargetDependencyLowerer
                 case RenderFragmentKind.OpacityMask:
                     LowerOpacityMask(reference, scopeId, compositeOutput);
                     return;
-                default:
+                case RenderFragmentKind.Shader:
+                case RenderFragmentKind.Geometry:
+                case RenderFragmentKind.OpaqueSource:
+                case RenderFragmentKind.OpaqueMap:
+                case RenderFragmentKind.OpaqueCombine:
+                case RenderFragmentKind.OpaqueExpand:
+                case RenderFragmentKind.FilterEffectSegment:
+                case RenderFragmentKind.MaterializedInput:
                     LowerDependencies(reference, scopeId);
                     if (compositeOutput && reference.ContributesValuesToTarget)
                         AddStep(reference, scopeId, TargetDependencyKind.Composite);
                     return;
+                default:
+                    throw new InvalidOperationException(
+                        $"Fragment kind '{reference.Kind}' has no target lowering rule.");
             }
         }
 
@@ -356,16 +366,9 @@ internal static class TargetDependencyLowerer
             TargetRegion region,
             Rect? ownerDomain,
             RenderFragmentReference owner)
-        {
-            return region.Kind switch
-            {
-                TargetRegionKind.Empty => Rect.Empty,
-                TargetRegionKind.Region => region.Value,
-                TargetRegionKind.Full when ownerDomain is { } domain => domain,
-                TargetRegionKind.Full => throw new RenderTargetDomainRequiredException(
-                    $"A reachable Full target access on {owner.Kind} requires a finite owning target domain."),
-                _ => throw new InvalidOperationException("The target region is uninitialized."),
-            };
-        }
+            => region.TryResolve(ownerDomain, out Rect resolved)
+                ? resolved
+                : throw new RenderTargetDomainRequiredException(
+                    $"A reachable Full target access on {owner.Kind} requires a finite owning target domain.");
     }
 }

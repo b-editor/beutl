@@ -168,6 +168,11 @@ internal sealed partial class GitCliVersionControlService
         IGitCliRunner runner,
         CancellationToken cancellationToken)
     {
+        if (_ignoredProjectFilesListedEmpty)
+        {
+            return;
+        }
+
         string acknowledgementKey = GetNoticeAcknowledgementKey(
             IgnoredProjectFilesNoticeConfigKeyPrefix,
             repository);
@@ -194,6 +199,7 @@ internal sealed partial class GitCliVersionControlService
 
         if (ignoredPaths.Count == 0)
         {
+            _ignoredProjectFilesListedEmpty = true;
             return;
         }
 
@@ -254,13 +260,7 @@ internal sealed partial class GitCliVersionControlService
                 continue;
             }
 
-            if (IsTemporaryProjectFile(projectRelativePath.TrimEnd('/'))
-                || projectRelativePath
-                    .Split('/', StringSplitOptions.RemoveEmptyEntries)
-                    .Any(static segment => string.Equals(
-                        segment,
-                        EditorConstants.BeutlFolder,
-                        StringComparison.OrdinalIgnoreCase)))
+            if (ProjectPathRules.IsReserved(projectRelativePath.TrimEnd('/')))
             {
                 continue;
             }

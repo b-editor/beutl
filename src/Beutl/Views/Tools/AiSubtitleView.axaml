@@ -16,9 +16,6 @@
              x:CompileBindings="True"
              x:DataType="vm:AiSubtitleDialogViewModel"
              mc:Ignorable="d">
-    <UserControl.Styles>
-        <StyleInclude Source="/Views/Tools/AiFileDropStyles.axaml" />
-    </UserControl.Styles>
     <UserControl.Resources>
         <!--  A caption set runs to hundreds of cues, so a row is the two things
               needed to find one; the row that is selected turns into the editor.  -->
@@ -177,7 +174,7 @@
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
                                    AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_TemplatePreview}"
-                                   FontSize="{CompiledBinding TemplatePreviewFontSize.Value}"
+                                   FontSize="24"
                                    IsVisible="{CompiledBinding TemplatePreviewImage.Value, Converter={x:Static ObjectConverters.IsNull}}"
                                    Text="{CompiledBinding TemplatePreviewText.Value}"
                                    TextAlignment="Center"
@@ -224,14 +221,12 @@
                                Text="{CompiledBinding HistoryOverwriteMessage.Value}"
                                TextWrapping="Wrap" />
                     <WrapPanel Orientation="Horizontal">
-                        <Button x:Name="ConfirmHistoryOverwriteButton"
-                                Margin="0,0,8,0"
+                        <Button Margin="0,0,8,0"
                                 usage:UsageTracking.Feature="AiWorkspace.Subtitle.ConfirmHistoryOverwrite"
                                 AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_HistoryOverwriteApply}"
                                 Click="OnConfirmHistoryOverwriteClick"
                                 Content="{x:Static lang:Strings.AiSubtitle_HistoryOverwriteApply}" />
-                        <Button x:Name="CancelHistoryOverwriteButton"
-                                usage:UsageTracking.Feature="AiWorkspace.Subtitle.CancelHistoryOverwrite"
+                        <Button usage:UsageTracking.Feature="AiWorkspace.Subtitle.CancelHistoryOverwrite"
                                 AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
                                 Click="OnCancelHistoryOverwriteClick"
                                 Content="{x:Static lang:Strings.Cancel}" />
@@ -280,7 +275,7 @@
                 <!--  Reading a file in or out is about the whole set; the icons below
                       act on the one cue that is selected. Keeping them apart is what
                       says which is which.  -->
-                <StackPanel x:Name="CaptionFileInput" tools:AiFileDrop.Target="Captions" Spacing="4">
+                <StackPanel tools:AiFileDrop.Target="Captions" Spacing="4">
                     <TextBlock Text="{x:Static lang:Strings.AiSubtitle_CaptionsFile}" />
                     <WrapPanel Orientation="Horizontal">
                         <Button Margin="0,0,6,0"
@@ -479,13 +474,7 @@
                        Text="{CompiledBinding Error.Value}"
                        TextWrapping="Wrap" />
 
-            <StackPanel IsVisible="{CompiledBinding ShowJoinPro.Value}" Spacing="8">
-                <TextBlock Text="{x:Static lang:Strings.AiProRequired}" TextWrapping="Wrap" />
-                <Button HorizontalAlignment="Left"
-                        usage:UsageTracking.Feature="AiWorkspace.Subtitle.OpenAiPlan"
-                        Command="{CompiledBinding OpenAiPlan}"
-                        Content="{x:Static lang:Strings.AiJoinPro}" />
-            </StackPanel>
+            <tools:AiJoinProPanel Feature="AiWorkspace.Subtitle" />
 
             <Button usage:UsageTracking.Feature="AiWorkspace.Subtitle.AddToScene"
                     Command="{CompiledBinding AddToScene}"

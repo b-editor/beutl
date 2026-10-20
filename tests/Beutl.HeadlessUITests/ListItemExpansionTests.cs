@@ -6,7 +6,6 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Api.Services;
@@ -69,7 +68,7 @@ public class ListItemExpansionTests
             Uri = new Uri(Path.Combine(BeutlHomeIsolation.CurrentHome!, $"list-expansion-{Guid.NewGuid():N}.belm")),
             Objects = { card }
         };
-        using var history = new HistoryManager(element, new OperationSequenceGenerator());
+        using var history = new HistoryManager(new OperationSequenceGenerator());
         using var selected = new ReactivePropertySlim<CoreObject?>(null);
         var selection = new Mock<IEditorSelection>();
         selection.SetupGet(s => s.SelectedObject).Returns(selected);
@@ -94,7 +93,7 @@ public class ListItemExpansionTests
         {
             model.Element.Value = element;
             window.Show();
-            foreach (var context in Flatten(model.Items.Single().Properties))
+            foreach (var context in PropertyEditorTestHost.Flatten(model.Items.Single().Properties, includeGroups: true))
             {
                 if (context is FilterEffectEditorViewModel filter) filter.IsExpanded.Value = true;
                 if (context is TransformEditorViewModel transform) transform.IsExpanded.Value = true;
@@ -115,20 +114,17 @@ public class ListItemExpansionTests
             await Settle();
             var closedBackground = GripBackground(filterHeader);
             var closedTransformBackground = GripBackground(transformHeader);
-            Capture("collapsed");
 
             window.MouseMove(Center(Grip(filterHeader)));
             await Settle();
             var closedHoverBackground = GripBackground(filterHeader);
             Assert.That(closedHoverBackground.Color.A, Is.GreaterThan(0));
-            Capture("hover-collapsed", keepPointer: true);
-            Click(Grip(filterHeader));
+            HeadlessTestHelpers.Click(Grip(filterHeader), ticks: 3);
             await Settle();
             AssertState(filterHeader, true);
             Assert.That(GripBackground(filterHeader), Is.EqualTo(closedHoverBackground));
-            Capture("hover-expanded", keepPointer: true);
 
-            Click(Grip(transformHeader));
+            HeadlessTestHelpers.Click(Grip(transformHeader), ticks: 3);
             window.MouseMove(default);
             await Settle();
             AssertState(filterHeader, true);
@@ -155,10 +151,9 @@ public class ListItemExpansionTests
                         Is.EqualTo(view.Bounds.Width / 2).Within(1), editor.Header);
                 }
             }
-            Capture("expanded");
 
-            Click(Title(filterHeader));
-            Click(Title(transformHeader));
+            HeadlessTestHelpers.Click(Title(filterHeader), ticks: 3);
+            HeadlessTestHelpers.Click(Title(transformHeader), ticks: 3);
             await Settle();
             AssertState(filterHeader, false);
             AssertState(transformHeader, false);
@@ -173,10 +168,10 @@ public class ListItemExpansionTests
 
             var visibility = filterRows[0].GetVisualDescendants().OfType<ToggleButton>()
                 .Single(b => b.IsEffectivelyVisible && b != filterHeader);
-            Click(visibility);
+            HeadlessTestHelpers.Click(visibility, ticks: 3);
             Assert.That(blur.IsEnabled, Is.False);
             AssertState(filterHeader, false);
-            Click(visibility);
+            HeadlessTestHelpers.Click(visibility, ticks: 3);
             Assert.That(blur.IsEnabled, Is.True);
 
             var otherHeader = (ToggleButton)filterRows[1].ReorderHandle!;
@@ -197,11 +192,10 @@ public class ListItemExpansionTests
                 ((FilterEffectEditorViewModel)r.DataContext!).Value.Value == shadow).ReorderHandle!;
             AssertState(filterHeader, false);
             AssertState(otherHeader, false);
-            Capture("reordered");
 
             var delete = ((Panel)filterHeader.Parent!).Children.OfType<Button>()
                 .Single(b => b is not ToggleButton);
-            Click(delete);
+            HeadlessTestHelpers.Click(delete, ticks: 3);
             Assert.That(effects.Children, Has.Count.EqualTo(1));
             Assert.That(effects.Children[0], Is.SameAs(shadow));
             AssertState((ToggleButton)view.GetVisualDescendants().OfType<FilterEffectListItemEditor>()
@@ -215,28 +209,11 @@ public class ListItemExpansionTests
             HeadlessTestHelpers.Render(3);
         }
         Point Center(Control control) => control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
-        void Click(Control control)
-        {
-            Point point = Center(control);
-            window.MouseDown(point, MouseButton.Left);
-            window.MouseUp(point, MouseButton.Left);
-            HeadlessTestHelpers.Render(3);
-        }
         void PressSpace()
         {
             window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
             window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
             HeadlessTestHelpers.Render(3);
-        }
-        void Capture(string state, bool keepPointer = false)
-        {
-            if (Environment.GetEnvironmentVariable("BEUTL_LIST_EXPANSION_CAPTURE") is not { Length: > 0 } directory) return;
-            Directory.CreateDirectory(directory);
-            if (!keepPointer) window.MouseMove(default);
-            HeadlessTestHelpers.Render(3);
-            using var frame = window.CaptureRenderedFrame();
-            Assert.That(frame, Is.Not.Null);
-            frame!.Save(Path.Combine(directory, $"{state}-{width}-{(light ? "light" : "dark")}.png"), PngBitmapEncoderOptions.Default);
         }
     }
 
@@ -255,15 +232,5 @@ public class ListItemExpansionTests
     {
         return Grip(header).Background is ISolidColorBrush { Color.A: > 0, Opacity: > 0 } brush
             ? (brush.Color, brush.Opacity) : default;
-    }
-    private static IEnumerable<IPropertyEditorContext> Flatten(IEnumerable<IPropertyEditorContext?> contexts)
-    {
-        foreach (var context in contexts)
-        {
-            if (context is null) continue;
-            yield return context;
-            if (context is PropertyEditorGroupContext group)
-                foreach (var nested in Flatten(group.Properties)) yield return nested;
-        }
     }
 }

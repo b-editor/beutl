@@ -49,7 +49,7 @@
   </data>
   <data name="OpenUrl_Content" xml:space="preserve">
     <value>You are trying to open '{0}'.
-If the URL is ɑn suspicious, we recommend that you do not open it.</value>
+If the URL is suspicious, we recommend that you do not open it.</value>
   </data>
   <data name="Search_Packages" xml:space="preserve">
     <value>Packages</value>
@@ -162,5 +162,20 @@ To force installation, use the CLI tool.</value>
   </data>
   <data name="RequestedVersionUnavailable" xml:space="preserve">
     <value>Version {0} is no longer available. Select an available version to continue.</value>
+  </data>
+  <data name="PackageNotLoaded" xml:space="preserve">
+    <value>{0} was not loaded</value>
+  </data>
+  <data name="PackageNotInstalled" xml:space="preserve">
+    <value>{0} was not installed</value>
+  </data>
+  <data name="PackageNotUpdated" xml:space="preserve">
+    <value>{0} was not updated</value>
+  </data>
+  <data name="PackageUsesMissingApisForVersion" xml:space="preserve">
+    <value>It was built for Beutl {0} and uses {1} APIs that Beutl {2} lacks, such as {3}.</value>
+  </data>
+  <data name="PackageUsesMissingApis" xml:space="preserve">
+    <value>It uses {0} APIs that Beutl {1} lacks, such as {2}.</value>
   </data>
 </root>

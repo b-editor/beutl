@@ -63,21 +63,9 @@ public sealed class OpaqueRenderBoundsContract
     /// bounds it publishes. Must be non-negative and finite.
     /// </param>
     /// <remarks>
-    /// <para>
-    /// Both values answer from the moment this contract is built, and the state a call supplies never reaches
-    /// them. The state-passing overloads of <see cref="Combine{TState}"/> and <see cref="FullInputs{TState}"/>
-    /// are no exception: they bind their state here too, and exist only so a mapping the engine invokes later
-    /// can stay <see langword="static"/>-declared. A bounds contract is operation shape either way.
-    /// </para>
-    /// <para>
-    /// A source whose place, size, or outset is a per-recording value therefore builds its
-    /// <see cref="OpaqueRenderDescription"/> inside <see cref="RenderNode.Process"/>, over the values it is
-    /// moving by. That costs no plan: this contract contributes only its kind to the structural identity,
-    /// and an execution callback bound to the node that declares it contributes its method, so two nodes of
-    /// one type standing at different places compile one plan and re-run it over their own rectangles. A
-    /// source that draws outside the rectangle its description declared fails at
-    /// <see cref="OpaqueRenderSession.CreateOutput"/> rather than escaping the bounds it published.
-    /// </para>
+    /// Both values are fixed when this contract is built. A source whose place, size, or outset moves per frame
+    /// builds its <see cref="OpaqueRenderDescription"/> inside <see cref="RenderNode.Process"/>, which still
+    /// compiles one plan, because this contract contributes only its kind to the structural identity.
     /// </remarks>
     public static OpaqueRenderBoundsContract Source(Rect outputBounds, Thickness rasterOutset = default)
     {

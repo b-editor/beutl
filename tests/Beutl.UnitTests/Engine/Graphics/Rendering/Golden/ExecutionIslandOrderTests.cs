@@ -3,14 +3,12 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
 /// <summary>
-/// Pixel coverage for the order execution islands run in. The ledger no longer checks completion order at
-/// runtime, so a traversal that entered islands out of dependency or painter order would raise nothing: only
-/// the composited pixels report it.
+/// Pixel coverage for the order execution islands run in. The ledger does not check completion order at
+/// runtime, so only the composited pixels reveal an island run out of order.
 /// </summary>
 [NonParallelizable]
 [TestFixture]
@@ -28,9 +26,9 @@ public sealed class ExecutionIslandOrderTests
         root.AddChild(new RectangleRenderNode(new Rect(4, 0, 12, 12), blue, null));
 
         using RenderNodeRasterization raster = Rasterize(root);
-        (float leftRed, float leftBlue) = RedBlueAt(raster.Bitmap!, 2, 6);
-        (float overlapRed, float overlapBlue) = RedBlueAt(raster.Bitmap!, 8, 6);
-        (float rightRed, float rightBlue) = RedBlueAt(raster.Bitmap!, 14, 6);
+        (float leftRed, float leftBlue) = ImageMetrics.RedBlueAt(raster.Bitmap!, 2, 6);
+        (float overlapRed, float overlapBlue) = ImageMetrics.RedBlueAt(raster.Bitmap!, 8, 6);
+        (float rightRed, float rightBlue) = ImageMetrics.RedBlueAt(raster.Bitmap!, 14, 6);
 
         Assert.Multiple(() =>
         {
@@ -58,7 +56,7 @@ public sealed class ExecutionIslandOrderTests
 
         // 0.502 + 0.502 * (1 - 0.502): the captured coverage composited over the coverage it captured.
         // A capture that ran first would sample an untouched target and leave 0.502.
-        Assert.That(AlphaAt(raster.Bitmap!, x, y), Is.EqualTo(0.752f).Within(0.03f));
+        Assert.That(ImageMetrics.AlphaAt(raster.Bitmap!, x, y), Is.EqualTo(0.752f).Within(0.03f));
     }
 
     [Test]
@@ -74,9 +72,12 @@ public sealed class ExecutionIslandOrderTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(AlphaAt(raster.Bitmap!, 2, 6), Is.EqualTo(1f).Within(0.03f), "the unblended half stays opaque");
             Assert.That(
-                AlphaAt(raster.Bitmap!, 12, 6),
+                ImageMetrics.AlphaAt(raster.Bitmap!, 2, 6),
+                Is.EqualTo(1f).Within(0.03f),
+                "the unblended half stays opaque");
+            Assert.That(
+                ImageMetrics.AlphaAt(raster.Bitmap!, 12, 6),
                 Is.EqualTo(0f).Within(0.03f),
                 "the blend must erase the destination the earlier island wrote, not an empty target");
         });
@@ -90,7 +91,7 @@ public sealed class ExecutionIslandOrderTests
         using var root = new ReversePublicationContainerRenderNode();
         root.AddChild(new RectangleRenderNode(new Rect(0, 0, 12, 12), red, null));
         root.AddChild(new RectangleRenderNode(new Rect(4, 0, 12, 12), blue, null));
-        using RenderNodeRenderer renderer = CreateRenderer(root, RenderCacheOptions.Disabled);
+        using RenderNodeRenderer renderer = CreateRenderer(root);
 
         using RenderNodeRasterization cold = renderer.Rasterize();
         using RenderNodeRasterization warm = renderer.Rasterize();
@@ -107,28 +108,24 @@ public sealed class ExecutionIslandOrderTests
 
     private static RenderNodeRasterization Rasterize(RenderNode root)
     {
-        using RenderNodeRenderer renderer = CreateRenderer(
-            root,
-            RenderCacheOptions.Disabled);
+        using RenderNodeRenderer renderer = CreateRenderer(root);
 
         return renderer.Rasterize();
     }
 
-    private static RenderNodeRenderer CreateRenderer(
-        RenderNode root,
-        RenderCacheOptions cacheOptions)
+    private static RenderNodeRenderer CreateRenderer(RenderNode root)
         => new(root, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
             TargetDomain = s_frame,
-            CacheOptions = cacheOptions,
-        }, new CpuTargetFactory());
+            CacheOptions = RenderCacheOptions.Disabled,
+        }, new CpuRenderTargetFactory());
 
     private static void AssertReversePublicationOrder(Bitmap bitmap, string frame)
     {
-        (float leftRed, float leftBlue) = RedBlueAt(bitmap, 2, 6);
-        (float overlapRed, float overlapBlue) = RedBlueAt(bitmap, 8, 6);
-        (float rightRed, float rightBlue) = RedBlueAt(bitmap, 14, 6);
+        (float leftRed, float leftBlue) = ImageMetrics.RedBlueAt(bitmap, 2, 6);
+        (float overlapRed, float overlapBlue) = ImageMetrics.RedBlueAt(bitmap, 8, 6);
+        (float rightRed, float rightBlue) = ImageMetrics.RedBlueAt(bitmap, 14, 6);
 
         Assert.Multiple(() =>
         {
@@ -139,34 +136,6 @@ public sealed class ExecutionIslandOrderTests
                 $"{frame}: the earlier blue publication must be covered in the overlap");
             Assert.That(rightBlue, Is.GreaterThan(rightRed), $"{frame}: only blue covers the right columns");
         });
-    }
-
-    private static float AlphaAt(Bitmap bitmap, int x, int y)
-    {
-        Span<ushort> row = bitmap.GetRow<ushort>(y);
-        return (float)BitConverter.UInt16BitsToHalf(row[(x * 4) + 3]);
-    }
-
-    private static (float Red, float Blue) RedBlueAt(Bitmap bitmap, int x, int y)
-    {
-        Span<ushort> row = bitmap.GetRow<ushort>(y);
-        int offset = x * 4;
-        return (
-            (float)BitConverter.UInt16BitsToHalf(row[offset]),
-            (float)BitConverter.UInt16BitsToHalf(row[offset + 2]));
-    }
-
-    private sealed class ContributingTargetCaptureNode(Rect bounds) : RenderNode
-    {
-        public override void Process(RenderNodeContext context)
-        {
-            RenderFragmentHandle capture = context.TargetCapture(TargetCaptureDescription.Create(
-                TargetRegion.Region(bounds),
-                bounds,
-                RenderHitTestContract.OutputBounds,
-                TargetCaptureScaleContract.MaterializeAtWorkingScale));
-            context.Publish(context.ContributeValues(capture));
-        }
     }
 
     private sealed class BlendedRectangleNode(Rect rect, Brush.Resource fill, BlendMode blendMode) : RenderNode
@@ -193,21 +162,17 @@ public sealed class ExecutionIslandOrderTests
                 context.Publish(context.Inputs[index]);
         }
     }
+}
 
-    private sealed class CpuTargetFactory : IRenderTargetFactory
+internal sealed class ContributingTargetCaptureNode(Rect bounds) : RenderNode
+{
+    public override void Process(RenderNodeContext context)
     {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
+        RenderFragmentHandle capture = context.TargetCapture(TargetCaptureDescription.Create(
+            TargetRegion.Region(bounds),
+            bounds,
+            RenderHitTestContract.OutputBounds,
+            TargetCaptureScaleContract.MaterializeAtWorkingScale));
+        context.Publish(context.ContributeValues(capture));
     }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

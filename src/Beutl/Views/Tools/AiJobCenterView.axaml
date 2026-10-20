@@ -73,14 +73,12 @@
                                      AutomationProperties.Name="{x:Static lang:Strings.AiJobCenter_CheckingRetryCost}"
                                      IsIndeterminate="True"
                                      IsVisible="{CompiledBinding IsConfirmationLoading.Value}" />
-                    <Button x:Name="ConfirmationCancelButton"
-                            Margin="0,0,8,8"
+                    <Button Margin="0,0,8,8"
                             usage:UsageTracking.Feature="AiWorkspace.JobCenter.CancelConfirmation"
                             AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
                             Click="OnCancelConfirmationClick"
                             Content="{x:Static lang:Strings.Cancel}" />
-                    <Button x:Name="ConfirmationConfirmButton"
-                            Margin="0,0,0,8"
+                    <Button Margin="0,0,0,8"
                             usage:UsageTracking.Feature="AiWorkspace.JobCenter.Confirm"
                             AutomationProperties.Name="{CompiledBinding ConfirmationActionText.Value}"
                             Click="OnConfirmClick"

@@ -1,14 +1,9 @@
-﻿using Avalonia;
-using Avalonia.Animation;
-using Avalonia.Controls;
-using Avalonia.Controls.Presenters;
-using Avalonia.Controls.Primitives;
-using Avalonia.Input;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
+using Beutl.Controls.Behaviors;
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Services;
@@ -18,278 +13,33 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
 
-public sealed class ListEditorDragBehavior : Behavior<Control>
+public sealed class ListEditorDragBehavior : GenericDragBehavior
 {
-    private bool _enableDrag;
-    private bool _dragStarted;
-    private Point _start;
-    private int _draggedIndex;
-    private int _targetIndex;
-    private ItemsControl? _itemsControl;
-    private Control? _draggedContainer;
+    // The reorder handle can be the item's expander toggle, so the press and the pointer capture stay with it and
+    // only a release that ends a drag is handled here.
+    protected override bool CapturesPointer => false;
 
-    public static readonly StyledProperty<double> DragThresholdProperty =
-        AvaloniaProperty.Register<ListEditorDragBehavior, double>(nameof(DragThreshold), 3);
+    protected override DragEventHandling HandledEvents => DragEventHandling.WhileDragging;
 
-    public static readonly StyledProperty<Control> DragControlProperty =
-        AvaloniaProperty.Register<ListEditorDragBehavior, Control>(nameof(DragControl));
+    protected override bool CountsItems => true;
 
-    public double DragThreshold
-    {
-        get => GetValue(DragThresholdProperty);
-        set => SetValue(DragThresholdProperty, value);
-    }
+    protected override bool CancelsDragOnDetach => false;
 
-    [ResolveByName]
-    public Control DragControl
-    {
-        get => GetValue(DragControlProperty);
-        set => SetValue(DragControlProperty, value);
-    }
-
-    protected override void OnAttached()
-    {
-        base.OnAttached();
-
-        if (DragControl is { })
-        {
-            DragControl.AddHandler(InputElement.PointerReleasedEvent, Released, RoutingStrategies.Tunnel);
-            DragControl.AddHandler(InputElement.PointerPressedEvent, Pressed, RoutingStrategies.Tunnel);
-            DragControl.AddHandler(InputElement.PointerMovedEvent, Moved, RoutingStrategies.Tunnel);
-            DragControl.AddHandler(InputElement.PointerCaptureLostEvent, CaptureLost, RoutingStrategies.Tunnel);
-        }
-    }
-
-    protected override void OnDetaching()
-    {
-        base.OnDetaching();
-
-        if (DragControl is { })
-        {
-            DragControl.RemoveHandler(InputElement.PointerReleasedEvent, Released);
-            DragControl.RemoveHandler(InputElement.PointerPressedEvent, Pressed);
-            DragControl.RemoveHandler(InputElement.PointerMovedEvent, Moved);
-            DragControl.RemoveHandler(InputElement.PointerCaptureLostEvent, CaptureLost);
-        }
-    }
-
-    private void Pressed(object? sender, PointerPressedEventArgs e)
-    {
-        PointerPointProperties properties = e.GetCurrentPoint(AssociatedObject).Properties;
-        if (properties.IsLeftButtonPressed
-            && AssociatedObject?.FindLogicalAncestorOfType<ItemsControl>() is { } itemsControl)
-        {
-            _enableDrag = true;
-            _dragStarted = false;
-            _start = e.GetPosition(itemsControl);
-            _draggedIndex = -1;
-            _targetIndex = -1;
-            _itemsControl = itemsControl;
-            _draggedContainer = AssociatedObject?.FindAncestorOfType<ContentPresenter>();
-
-            if (_draggedContainer is { })
-            {
-                ReorderDragHelper.SetDraggingPseudoClasses(_draggedContainer, true);
-            }
-
-            ResetTransforms(_itemsControl);
-        }
-    }
-
-    private void Released(object? sender, PointerReleasedEventArgs e)
-    {
-        if (_enableDrag)
-        {
-            if (_dragStarted)
-            {
-                e.Handled = true;
-            }
-
-            if (e.InitialPressMouseButton == MouseButton.Left)
-            {
-                Released();
-            }
-        }
-    }
-
-    private void CaptureLost(object? sender, PointerCaptureLostEventArgs e)
-    {
-        if (_dragStarted)
-        {
-            e.Handled = true;
-        }
-
-        Released();
-    }
-
-    private void Released()
-    {
-        if (!_enableDrag)
-        {
-            return;
-        }
-
-        ResetTransforms(_itemsControl);
-
-        if (_itemsControl is { })
-        {
-            foreach (Control container in _itemsControl.GetRealizedContainers())
-            {
-                ReorderDragHelper.SetDraggingPseudoClasses(container, true);
-            }
-        }
-
-        if (_dragStarted && _draggedIndex >= 0 && _targetIndex >= 0 && _draggedIndex != _targetIndex)
-        {
-            OnMoveDraggedItem(_itemsControl, _draggedIndex, _targetIndex);
-        }
-
-        if (_itemsControl is { })
-        {
-            foreach (Control container in _itemsControl.GetRealizedContainers())
-            {
-                ReorderDragHelper.SetDraggingPseudoClasses(container, false);
-            }
-        }
-
-        if (_draggedContainer is { })
-        {
-            ReorderDragHelper.SetDraggingPseudoClasses(_draggedContainer, false);
-        }
-
-        _draggedIndex = -1;
-        _targetIndex = -1;
-        _enableDrag = false;
-        _dragStarted = false;
-        _itemsControl = null;
-
-        _draggedContainer = null;
-    }
-
-    private static void ResetTransforms(ItemsControl? itemsControl)
-    {
-        if (itemsControl?.Items is null)
-        {
-            return;
-        }
-
-        ReorderDragHelper.ResetTranslateTransforms(itemsControl, itemsControl.Items);
-    }
-
-    private static void OnMoveDraggedItem(ItemsControl? itemsControl, int oldIndex, int newIndex)
+    protected override void OnMoveDraggedItem(ItemsControl? itemsControl, int oldIndex, int newIndex)
     {
         if (itemsControl?.DataContext is IListEditorViewModel viewModel)
         {
             viewModel.MoveItem(oldIndex, newIndex);
         }
     }
-
-    private void Moved(object? sender, PointerEventArgs e)
-    {
-        PointerPointProperties? properties = e.GetCurrentPoint(AssociatedObject).Properties;
-        if (_enableDrag
-            && properties?.IsLeftButtonPressed == true)
-        {
-            if (_itemsControl?.Items is null || _draggedContainer?.RenderTransform is null || !_enableDrag)
-            {
-                return;
-            }
-
-            Point position = e.GetPosition(_itemsControl);
-            double delta = position.Y - _start.Y;
-
-            if (!_dragStarted)
-            {
-                Point diff = _start - position;
-                double dragThreshold = DragThreshold;
-
-                if (Math.Abs(diff.Y) > dragThreshold)
-                {
-                    _dragStarted = true;
-                }
-                else
-                {
-                    return;
-                }
-            }
-
-            ReorderDragHelper.SetTranslateTransform(_draggedContainer, 0, delta);
-
-            _draggedIndex = _itemsControl.IndexFromContainer(_draggedContainer);
-            _targetIndex = -1;
-
-            Rect draggedBounds = _draggedContainer.Bounds;
-            double draggedStart = draggedBounds.Y;
-            double draggedDeltaStart = draggedBounds.Y + delta;
-            double draggedDeltaEnd = draggedBounds.Y + delta + draggedBounds.Height;
-
-            int i = 0;
-
-            foreach (object? _ in _itemsControl.Items)
-            {
-                Control? targetContainer = _itemsControl.ContainerFromIndex(i);
-                if (targetContainer?.RenderTransform is null || ReferenceEquals(targetContainer, _draggedContainer))
-                {
-                    i++;
-                    continue;
-                }
-
-                Rect targetBounds = targetContainer.Bounds;
-                double targetStart = targetBounds.Y;
-                double targetMid = targetBounds.Y + targetBounds.Height / 2;
-                int targetIndex = _itemsControl.IndexFromContainer(targetContainer);
-
-                if (targetStart > draggedStart && draggedDeltaEnd >= targetMid)
-                {
-                    ReorderDragHelper.SetTranslateTransform(targetContainer, 0, -draggedBounds.Height);
-
-                    _targetIndex = _targetIndex == -1 ? targetIndex :
-                        targetIndex > _targetIndex ? targetIndex : _targetIndex;
-                }
-                else if (targetStart < draggedStart && draggedDeltaStart <= targetMid)
-                {
-                    ReorderDragHelper.SetTranslateTransform(targetContainer, 0, draggedBounds.Height);
-
-                    _targetIndex = _targetIndex == -1 ? targetIndex :
-                        targetIndex < _targetIndex ? targetIndex : _targetIndex;
-                }
-                else
-                {
-                    ReorderDragHelper.SetTranslateTransform(targetContainer, 0, 0);
-                }
-
-                i++;
-            }
-        }
-    }
 }
 
 public partial class ListEditor : UserControl
 {
-    private static readonly Lazy<CrossFade> s_crossFade = new(() => new(TimeSpan.FromSeconds(0.25)));
-    private CancellationTokenSource? _lastTransitionCts;
-    private bool _flyoutOpen;
-
     public ListEditor()
     {
         InitializeComponent();
-        expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
-            .Subscribe(async value =>
-            {
-                _lastTransitionCts?.Cancel();
-                _lastTransitionCts = new CancellationTokenSource();
-
-                if (value == true)
-                {
-                    await s_crossFade.Value.Start(null, expandItem, _lastTransitionCts.Token);
-                }
-                else
-                {
-                    await s_crossFade.Value.Start(expandItem, null, _lastTransitionCts.Token);
-                }
-
-                expandItem.IsVisible = value == true;
-            });
+        ExpandTransitionHelper.Attach(expandToggle, expandItem);
     }
 
     private void InitializeClick(object? sender, RoutedEventArgs e)
@@ -322,24 +72,18 @@ public partial class ListEditor : UserControl
         }
     }
 
-    private async Task<object?> SelectTypeOrReference()
+    private Task<object?> SelectTypeOrReference()
     {
-        if (_flyoutOpen) return null;
-        if (DataContext is not IListEditorViewModel { IsDisposed: false } viewModel) return null;
+        if (DataContext is not IListEditorViewModel { IsDisposed: false } viewModel) return Task.FromResult<object?>(null);
 
-        try
+        return PickerGuard.RunAsync(this, () =>
         {
-            _flyoutOpen = true;
             Type propertyType = viewModel.ItemType;
             string format = propertyType.FullName!;
             var selectVm = new SelectLibraryItemDialogViewModel(format, propertyType);
 
-            return await LibraryItemPickerHelper.ShowAsync(this, selectVm, format);
-        }
-        finally
-        {
-            _flyoutOpen = false;
-        }
+            return LibraryItemPickerHelper.ShowAsync(this, selectVm, format);
+        });
     }
 
     private async void Add_Click(object? sender, RoutedEventArgs e)
@@ -352,66 +96,17 @@ public partial class ListEditor : UserControl
             }
             else if (!viewModel.IsListNull)
             {
-                progress.IsVisible = progress.IsIndeterminate = true;
-
-                var availableTypes = await Task.Run(() => FindAddableItemTypes(viewModel.ItemType));
-
-                progress.IsVisible = progress.IsIndeterminate = false;
-
-                Type? selectedType = await ChooseItemTypeAsync(availableTypes);
-
-                if (selectedType != null)
+                Type itemType = viewModel.ItemType;
+                if (itemType.IsSealed
+                    && (itemType.GetConstructor([]) != null || itemType.GetConstructors().Length == 0))
+                {
+                    viewModel.AddItem(itemType);
+                }
+                else if (await SelectTypeOrReference() is Type selectedType)
                 {
                     viewModel.AddItem(selectedType);
                 }
-                else
-                {
-                    NotificationService.ShowError(Strings.Error, "ListEditor<TItem>.OnAddClick");
-                }
             }
         }
-    }
-
-    private static Type[] FindAddableItemTypes(Type itemType)
-    {
-        Type[]? availableTypes;
-
-        if (itemType.IsSealed
-            && (itemType.GetConstructor([]) != null
-                || itemType.GetConstructors().Length == 0))
-        {
-            availableTypes = [itemType];
-        }
-        else
-        {
-            availableTypes = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(x => x.GetTypes())
-                .Where(x => !x.IsAbstract
-                            && x.IsPublic
-                            && x.IsAssignableTo(itemType)
-                            && (x.GetConstructor([]) != null
-                                || x.GetConstructors().Length == 0))
-                .ToArray();
-        }
-
-        return availableTypes;
-    }
-
-    private async Task<Type?> ChooseItemTypeAsync(Type[] availableTypes)
-    {
-        Type? selectedType = null;
-
-        if (availableTypes.Length == 1)
-        {
-            selectedType = availableTypes[0];
-        }
-        else if (availableTypes.Length > 1)
-        {
-            var result = await SelectTypeOrReference();
-            if (result is Type t)
-                selectedType = t;
-        }
-
-        return selectedType;
     }
 }

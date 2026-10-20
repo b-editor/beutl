@@ -24,13 +24,13 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store) : IProxyGene
     };
 
     public bool IsAvailable
-        => !FFmpegInstallNotifier.IsLibrariesMissing
-            && !FFmpegInstallNotifier.IsVerificationInProgress;
+        => !FFmpegLibraryState.IsLibrariesMissing
+            && !FFmpegLibraryState.IsVerificationInProgress;
 
     public event EventHandler? AvailabilityChanged
     {
-        add => FFmpegInstallNotifier.AvailabilityChanged += value;
-        remove => FFmpegInstallNotifier.AvailabilityChanged -= value;
+        add => FFmpegLibraryState.AvailabilityChanged += value;
+        remove => FFmpegLibraryState.AvailabilityChanged -= value;
     }
 
     public async ValueTask GenerateAsync(ProxyJob job)
@@ -41,15 +41,11 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store) : IProxyGene
         if (!File.Exists(sourcePath))
             throw new FileNotFoundException(null, sourcePath);
 
-        // The file at this path can be replaced while the job waits in the queue; encoding the new
-        // bytes but publishing under job.Source (the old fingerprint / proxy path) would report
-        // success yet leave the current fingerprint with no usable proxy and an orphaned entry. Skip
-        // instead — a fresh job keyed on the new fingerprint is enqueued by the normal UI scan.
+        // The file may have been replaced while queued, and publishing its new bytes under the old fingerprint
+        // would orphan the entry. Skip instead; the UI scan queues a job for the new fingerprint.
         if (ProxyFingerprint.FromFile(sourcePath) != job.Source)
         {
-            // Mark the old proxies stale before skipping: they no longer match the replaced file, and if
-            // that replacement goes offline before ProxyResolver notices, offline resolution (which
-            // cannot restat the source) would otherwise rank a Ready same-fingerprint proxy for the file.
+            // Mark the old proxies stale first: offline resolution cannot restat the source and would still pick them.
             MarkSourceProxiesStale(store, job.Source, "Source changed since the job was queued.");
             throw new ProxyGenerationSkippedException("Source changed since the job was queued.");
         }
@@ -100,11 +96,8 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store) : IProxyGene
         });
     }
 
-    // Re-stat the source after the encode so a Ready proxy is never published for bytes that no longer
-    // match the current source — a stale same-path proxy the resolver could later select once the
-    // original is gone. A source that vanished mid-encode (deleted/moved) is an obsolete job like a
-    // content change, so TryFromFile keeps it Skipped rather than letting FromFile's exception surface
-    // as a Failed generation.
+    // Re-stat the source after the encode so no Ready proxy is published for bytes that changed. A source that
+    // vanished mid-encode is skipped like a changed one rather than reported as a failed generation.
     internal static void EnsureSourceUnchanged(IProxyStore store, ProxyJob job, string sourcePath)
     {
         if (!ProxyFingerprint.TryFromFile(sourcePath, out ProxyFingerprint current))
@@ -116,10 +109,8 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store) : IProxyGene
         }
     }
 
-    // A source path can back Ready proxies for several presets (Half, Quarter, …), all sharing the same
-    // fingerprint. Offline ResolveByPath groups by that fingerprint and cannot restat the file, so leaving
-    // any preset Ready lets it serve stale bytes for a replaced/missing source. Mark every Ready entry for
-    // this fingerprint stale, not just the queued preset.
+    // All presets of a source share its fingerprint, and offline ResolveByPath cannot restat the file, so mark
+    // every Ready entry of that fingerprint stale, not just the queued preset.
     internal static void MarkSourceProxiesStale(IProxyStore store, ProxyFingerprint source, string reason)
     {
         foreach (ProxyEntry entry in store.Enumerate())
@@ -203,13 +194,13 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store) : IProxyGene
         {
             return MediaReader.Open(
                 sourcePath,
-                new MediaOptions(MediaMode.Video) { PreferProxy = false });
+                new MediaOptions(MediaMode.Video) { PreferProxy = false, IsBackground = true });
         }
         catch (FFmpegLibrariesNotFoundException ex)
         {
             throw CreateUnavailableException(ex);
         }
-        catch (Exception ex) when (FFmpegInstallNotifier.IsLibrariesMissing)
+        catch (Exception ex) when (FFmpegLibraryState.IsLibrariesMissing)
         {
             // The FFmpeg decoder recorded the libraries missing while opening and no fallback decoder
             // could open this source; treat it as unavailable so the queue pauses rather than draining

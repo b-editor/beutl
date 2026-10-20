@@ -3,6 +3,7 @@ using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 
 namespace Beutl.Editor.Components.GraphEditorTab.Views;
 
@@ -28,7 +29,7 @@ internal sealed class GraphEditorDragSnapshot
         foreach (var key in channel.KeyFrames)
             _originalEasings[key.Model] = key.Model.Easing;
         foreach (var key in channel.KeyFrames.Where(x => x.IsSelected.Value))
-            Velocities[key.Model] = (GraphEditorView.GetKeyVelocity(key), GraphEditorView.GetKeyVelocity(key, true));
+            Velocities[key.Model] = (GraphEditorCurveMath.KeyVelocity(key), GraphEditorCurveMath.KeyVelocity(key, true));
         for (int i = 1; i < channel.KeyFrames.Count; i++)
         {
             var item = channel.KeyFrames[i];
@@ -61,7 +62,7 @@ internal sealed class GraphEditorDragSnapshot
     {
         if (Entries.Length == 0) return false;
         var editor = _channel.Parent;
-        int rate = editor.Scene.FindHierarchicalParent<Project>().GetFrameRate();
+        int rate = SceneTimeRangeService.GetFrameRate(editor.Scene);
         var changes = Entries.Select(entry => (Entry: entry, Result: transform(entry))).ToArray();
         if (changes.Any(change => !double.IsFinite(change.Result.Time))) return false;
         // Clamp the group as a whole so its spacing is preserved at time zero.

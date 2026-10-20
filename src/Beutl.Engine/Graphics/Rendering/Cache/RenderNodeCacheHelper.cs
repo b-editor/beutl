@@ -7,12 +7,6 @@ internal static class RenderNodeCacheHelper
 {
     internal static readonly ILogger _logger = Log.CreateLogger("RenderNodeCache");
 
-    internal static RenderNodeCacheLifecycle BeginLifecycle(RenderNode root)
-    {
-        ArgumentNullException.ThrowIfNull(root);
-        return RenderNodeCacheLifecycle.Create(root);
-    }
-
     /// <summary>Resets the cache of <paramref name="node"/> and of every node it owns.</summary>
     /// <remarks>
     /// Ownership, not <see cref="RenderNode.ChildNodes"/>: a merely referenced node is shared with other

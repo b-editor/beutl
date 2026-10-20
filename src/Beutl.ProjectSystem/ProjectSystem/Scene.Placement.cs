@@ -43,7 +43,7 @@ public partial class Scene
         Element? coverTmp = null;
         TimeRange range = element.Range;
 
-        foreach (Element? item in Children.GetMarshal().Value)
+        foreach (Element? item in Children.AsSpan())
         {
             if (item != element && item.ZIndex == element.ZIndex)
             {
@@ -151,255 +151,168 @@ public partial class Scene
         return (element.Range, NearestLayerNumber(element));
     }
 
-    private sealed class AddCommand(Scene scene, Element element, ElementOverlapHandling overlapHandling)
+    private void AddChildCore(Element element, ElementOverlapHandling overlapHandling)
     {
-        private readonly bool _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
-        private int _zIndex;
-        private TimeRange _range;
+        bool adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
+        (TimeRange range, int zIndex) = GetCorrectPosition(element, overlapHandling);
+        element.Start = range.Start;
+        element.Length = range.Duration;
+        element.ZIndex = zIndex;
+        Children.Add(element);
 
-        public void Do()
+        if (adjustSceneDuration && Duration + Start < range.End)
         {
-            (_range, _zIndex) = scene.GetCorrectPosition(element, overlapHandling);
-            element.Start = _range.Start;
-            element.Length = _range.Duration;
-            element.ZIndex = _zIndex;
-            scene.Children.Add(element);
-
-            if (_adjustSceneDuration && scene.Duration + scene.Start < _range.End)
-            {
-                scene.Duration = _range.End - scene.Start;
-            }
+            Duration = range.End - Start;
         }
     }
 
-    private sealed class DeleteCommand
+    private void DeleteChildCore(Element element)
     {
-        private readonly Scene _scene;
-        private Element? _element;
-
-        public DeleteCommand(Scene scene, Element element)
+        string fileName = element.Uri!.LocalPath;
+        if (element.SuppressedStorageSource is null && File.Exists(fileName))
         {
-            _scene = scene;
-            _element = element;
+            File.Delete(fileName);
         }
 
-        public void Do()
-        {
-            if (_element != null)
-            {
-                string fileName = _element.Uri!.LocalPath;
-                if (_element.SuppressedStorageSource is null && File.Exists(fileName))
-                {
-                    File.Delete(fileName);
-                }
-
-                _scene.Children.Remove(_element);
-                _element = null;
-            }
-        }
+        Children.Remove(element);
     }
 
-    private sealed class MoveCommand(
-        int zIndex,
-        Element element,
-        TimeSpan newStart,
-        TimeSpan oldStart,
-        TimeSpan newLength,
-        TimeSpan oldLength,
-        Scene scene)
+    private void MoveChildCore(int zIndex, TimeSpan newStart, TimeSpan newLength, Element element)
     {
-        private readonly int _oldZIndex = element.ZIndex;
-        private readonly TimeSpan _oldSceneDuration = scene.Duration;
-        private readonly bool _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
+        bool adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
+        TimeSpan newEnd = newStart + newLength;
+        (Element? before, Element? after, Element? cover) =
+            element.GetBeforeAndAfterAndCover(zIndex, newStart, newEnd);
 
-        public void Do()
+        if (before != null && before.Range.End >= newStart)
         {
-            TimeSpan newEnd = newStart + newLength;
-            (Element? before, Element? after, Element? cover) =
-                element.GetBeforeAndAfterAndCover(zIndex, newStart, newEnd);
-
-            if (before != null && before.Range.End >= newStart)
+            if ((after != null && (after.Start - before.Range.End) >= newLength) || after == null)
             {
-                if ((after != null && (after.Start - before.Range.End) >= newLength) || after == null)
-                {
-                    element.Start = before.Range.End;
-                    element.Length = newLength;
-                    element.ZIndex = zIndex;
-                }
-                else
-                {
-                    Undo();
-                }
-            }
-            else if (after != null && after.Start < newEnd)
-            {
-                TimeSpan ns = after.Start - newLength;
-                if (((before != null && (after.Start - before.Range.End) >= newLength) || before == null) &&
-                    ns >= TimeSpan.Zero)
-                {
-                    element.Start = ns;
-                    element.Length = newLength;
-                    element.ZIndex = zIndex;
-                }
-                else
-                {
-                    Undo();
-                }
-            }
-            else if (cover != null)
-            {
-                Undo();
-            }
-            else
-            {
-                element.Start = newStart;
+                element.Start = before.Range.End;
                 element.Length = newLength;
                 element.ZIndex = zIndex;
             }
-
-            TimeRange range = element.Range;
-            if (_adjustSceneDuration && scene.Duration + scene.Start < range.End)
+        }
+        else if (after != null && after.Start < newEnd)
+        {
+            TimeSpan ns = after.Start - newLength;
+            if (((before != null && (after.Start - before.Range.End) >= newLength) || before == null) &&
+                ns >= TimeSpan.Zero)
             {
-                scene.Duration = range.End - scene.Start;
+                element.Start = ns;
+                element.Length = newLength;
+                element.ZIndex = zIndex;
+            }
+        }
+        else if (cover == null)
+        {
+            element.Start = newStart;
+            element.Length = newLength;
+            element.ZIndex = zIndex;
+        }
+
+        TimeRange range = element.Range;
+        if (adjustSceneDuration && Duration + Start < range.End)
+        {
+            Duration = range.End - Start;
+        }
+    }
+
+    private void MoveChildrenCore(Element[] elements, int deltaZIndex, TimeSpan deltaTime)
+    {
+        foreach (Element item in elements)
+        {
+            if (!HasConflict(elements, deltaZIndex, deltaTime))
+            {
+                break;
+            }
+
+            TimeSpan? newDeltaStart = DeltaStart(item, elements, deltaZIndex, deltaTime);
+            if (newDeltaStart.HasValue)
+            {
+                deltaTime = newDeltaStart.Value;
             }
         }
 
-        public void Undo()
+        bool conflict = HasConflict(elements, deltaZIndex, deltaTime);
+        bool adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
+        TimeSpan newSceneDuration = Duration;
+        if (adjustSceneDuration)
         {
-            element.ZIndex = _oldZIndex;
-            element.Start = oldStart;
-            element.Length = oldLength;
-            if (_adjustSceneDuration)
+            TimeSpan maxEndingTime = elements.Max(i => i.Range.End + deltaTime);
+            if (newSceneDuration + Start < maxEndingTime)
             {
-                scene.Duration = _oldSceneDuration;
+                newSceneDuration = maxEndingTime - Start;
+            }
+        }
+
+        if (!conflict)
+        {
+            foreach (Element item in elements)
+            {
+                item.Start += deltaTime;
+                item.ZIndex += deltaZIndex;
+            }
+
+            if (adjustSceneDuration)
+            {
+                Duration = newSceneDuration;
             }
         }
     }
 
-    private sealed class MultipleMoveCommand
+    private bool HasConflict(Element[] elements, int deltaZIndex, TimeSpan deltaTime)
     {
-        private readonly Scene _scene;
-        private readonly Element[] _elements;
-        private readonly int _deltaZIndex;
-        private readonly TimeSpan _deltaTime;
-        private readonly bool _conflict;
-        private readonly bool _adjustSceneDuration;
-        private readonly TimeSpan _oldSceneDuration;
-        private readonly TimeSpan _newSceneDuration;
-
-        public MultipleMoveCommand(
-            Scene scene,
-            Element[] elements,
-            int deltaZIndex,
-            TimeSpan deltaTime)
+        Element[] others = Children.Except(elements).ToArray();
+        foreach (Element item in elements)
         {
-            _scene = scene;
-            _elements = elements;
-            _deltaZIndex = deltaZIndex;
-            _deltaTime = deltaTime;
+            TimeRange newRange = item.Range.AddStart(deltaTime);
+            int newLayer = item.ZIndex + deltaZIndex;
+            if (newLayer < 0 || newRange.Start.Ticks < 0)
+                return true;
 
-            foreach (Element item in elements)
+            foreach (Element other in others)
             {
-                _conflict = HasConflict(scene, _deltaZIndex, _deltaTime);
-                if (!_conflict)
+                if (other.ZIndex == newLayer && other.Range.Intersects(newRange))
                 {
-                    break;
-                }
-                else
-                {
-                    TimeSpan? newDeltaStart = DeltaStart(item);
-                    if (newDeltaStart.HasValue)
-                    {
-                        _deltaTime = newDeltaStart.Value;
-                    }
-                }
-            }
-
-            _conflict = HasConflict(scene, _deltaZIndex, _deltaTime);
-            _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
-
-            if (_adjustSceneDuration)
-            {
-                _oldSceneDuration = _newSceneDuration = scene.Duration;
-
-                TimeSpan maxEndingTime = elements.Max(i => i.Range.End + _deltaTime);
-                if (_oldSceneDuration + scene.Start < maxEndingTime)
-                {
-                    _newSceneDuration = maxEndingTime - scene.Start;
-                }
-            }
-        }
-
-        private bool HasConflict(Scene scene, int deltaZIndex, TimeSpan deltaTime)
-        {
-            Element[] others = scene.Children.Except(_elements).ToArray();
-            foreach (Element item in _elements)
-            {
-                TimeRange newRange = item.Range.AddStart(deltaTime);
-                int newLayer = item.ZIndex + deltaZIndex;
-                if (newLayer < 0 || newRange.Start.Ticks < 0)
                     return true;
-
-                foreach (Element other in others)
-                {
-                    if (other.ZIndex == newLayer && other.Range.Intersects(newRange))
-                    {
-                        return true;
-                    }
                 }
             }
-
-            return false;
         }
 
-        private TimeSpan? DeltaStart(Element element)
+        return false;
+    }
+
+    private static TimeSpan? DeltaStart(Element element, Element[] elements, int deltaZIndex, TimeSpan deltaTime)
+    {
+        TimeSpan newStart = element.Start + deltaTime;
+
+        TimeSpan newEnd = newStart + element.Length;
+        int newIndex = element.ZIndex + deltaZIndex;
+        (Element? before, Element? after, Element? _) =
+            element.GetBeforeAndAfterAndCover(newIndex, newStart, elements);
+
+        if (before != null && before.Range.End >= newStart)
         {
-            TimeSpan newStart = element.Start + _deltaTime;
-
-            TimeSpan newEnd = newStart + element.Length;
-            int newIndex = element.ZIndex + _deltaZIndex;
-            (Element? before, Element? after, Element? _) =
-                element.GetBeforeAndAfterAndCover(newIndex, newStart, _elements);
-
-            if (before != null && before.Range.End >= newStart)
+            if ((after != null && (after.Start - before.Range.End) >= element.Length) || after == null)
             {
-                if ((after != null && (after.Start - before.Range.End) >= element.Length) || after == null)
-                {
-                    return before.Range.End - element.Start;
-                }
+                return before.Range.End - element.Start;
             }
-            else if (after != null && after.Start < newEnd)
-            {
-                TimeSpan ns = after.Start - element.Length;
-                if (((before != null && (after.Start - before.Range.End) >= element.Length) || before == null) &&
-                    ns >= TimeSpan.Zero)
-                {
-                    return ns - element.Start;
-                }
-            }
-            else if (newStart.Ticks < 0)
-            {
-                return -element.Start;
-            }
-
-            return null;
         }
-
-        public void Do()
+        else if (after != null && after.Start < newEnd)
         {
-            if (!_conflict)
+            TimeSpan ns = after.Start - element.Length;
+            if (((before != null && (after.Start - before.Range.End) >= element.Length) || before == null) &&
+                ns >= TimeSpan.Zero)
             {
-                foreach (Element item in _elements)
-                {
-                    item.Start += _deltaTime;
-                    item.ZIndex += _deltaZIndex;
-                }
-
-                if (_adjustSceneDuration)
-                {
-                    _scene.Duration = _newSceneDuration;
-                }
+                return ns - element.Start;
             }
         }
+        else if (newStart.Ticks < 0)
+        {
+            return -element.Start;
+        }
+
+        return null;
     }
 }

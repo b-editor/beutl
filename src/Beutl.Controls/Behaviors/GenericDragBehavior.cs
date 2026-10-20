@@ -6,15 +6,12 @@ using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Layout;
 using Avalonia.LogicalTree;
 using Avalonia.Media.Transformation;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
 
 namespace Beutl.Controls.Behaviors;
-
-#nullable enable
 
 public class GenericDragBehavior : Behavior<Control>
 {
@@ -28,29 +25,11 @@ public class GenericDragBehavior : Behavior<Control>
     private Control? _subscribedDragControl;
     private IPointer? _activePointer;
 
-    public static readonly StyledProperty<Orientation> OrientationProperty =
-        AvaloniaProperty.Register<GenericDragBehavior, Orientation>(nameof(Orientation));
-
-    public static readonly StyledProperty<double> HorizontalDragThresholdProperty =
-        AvaloniaProperty.Register<GenericDragBehavior, double>(nameof(HorizontalDragThreshold), 3);
-
     public static readonly StyledProperty<double> VerticalDragThresholdProperty =
         AvaloniaProperty.Register<GenericDragBehavior, double>(nameof(VerticalDragThreshold), 3);
 
     public static readonly StyledProperty<Control?> DragControlProperty =
         AvaloniaProperty.Register<GenericDragBehavior, Control?>(nameof(DragControl));
-
-    public Orientation Orientation
-    {
-        get => GetValue(OrientationProperty);
-        set => SetValue(OrientationProperty, value);
-    }
-
-    public double HorizontalDragThreshold
-    {
-        get => GetValue(HorizontalDragThresholdProperty);
-        set => SetValue(HorizontalDragThresholdProperty, value);
-    }
 
     public double VerticalDragThreshold
     {
@@ -64,6 +43,20 @@ public class GenericDragBehavior : Behavior<Control>
         get => GetValue(DragControlProperty);
         set => SetValue(DragControlProperty, value);
     }
+
+    // The options below keep how the reorder behaviors of the app handled the pointer before they derived from
+    // this one.
+
+    // Without the capture, moves and the release count while a press has armed the drag.
+    protected virtual bool CapturesPointer => true;
+
+    protected virtual DragEventHandling HandledEvents => DragEventHandling.Always;
+
+    // Whether the containers are counted through ItemsControl.Items instead of ItemsSource.
+    protected virtual bool CountsItems => false;
+
+    // Whether detaching, or switching DragControl, cancels a drag in progress.
+    protected virtual bool CancelsDragOnDetach => true;
 
     protected override void OnAttached()
     {
@@ -94,11 +87,14 @@ public class GenericDragBehavior : Behavior<Control>
         if (_subscribedDragControl is { } previous)
         {
             // A control switch cancels the current gesture before its capture-lost handler is removed.
-            _dragStarted = false;
-            if (_activePointer is { } pointer && ReferenceEquals(pointer.Captured, previous))
-                pointer.Capture(null);
-            Released();
-            _activePointer = null;
+            if (CancelsDragOnDetach)
+            {
+                _dragStarted = false;
+                if (_activePointer is { } pointer && ReferenceEquals(pointer.Captured, previous))
+                    pointer.Capture(null);
+                Released();
+                _activePointer = null;
+            }
 
             previous.RemoveHandler(InputElement.PointerReleasedEvent, Released);
             previous.RemoveHandler(InputElement.PointerPressedEvent, Pressed);
@@ -116,17 +112,9 @@ public class GenericDragBehavior : Behavior<Control>
         control.AddHandler(InputElement.PointerCaptureLostEvent, CaptureLost, RoutingStrategies.Tunnel);
     }
 
-    protected virtual ContentPresenter? OnFindDraggedContainer()
+    protected virtual Control? OnFindDraggedContainer()
     {
         return AssociatedObject?.FindAncestorOfType<ContentPresenter>();
-    }
-
-    protected virtual void OnStartedDragging()
-    {
-    }
-
-    protected virtual void OnFinishedDragging()
-    {
     }
 
     private void Pressed(object? sender, PointerPressedEventArgs e)
@@ -150,30 +138,57 @@ public class GenericDragBehavior : Behavior<Control>
 
             ResetTransforms(_itemsControl);
 
-            e.Pointer.Capture(DragControl);
-            _activePointer = e.Pointer;
-            e.Handled = true;
+            if (CapturesPointer)
+            {
+                e.Pointer.Capture(DragControl);
+                _activePointer = e.Pointer;
+            }
+
+            if (ShouldMarkHandled())
+                e.Handled = true;
         }
+    }
+
+    private bool IsDragPointer(IPointer pointer)
+    {
+        return CapturesPointer ? Equals(pointer.Captured, DragControl) : _enableDrag;
+    }
+
+    // Read before Released() resets the drag.
+    private bool ShouldMarkHandled()
+    {
+        return HandledEvents switch
+        {
+            DragEventHandling.Always => true,
+            DragEventHandling.WhileDragging => _dragStarted,
+            _ => false
+        };
     }
 
     private void Released(object? sender, PointerReleasedEventArgs e)
     {
-        if (Equals(e.Pointer.Captured, DragControl))
+        if (IsDragPointer(e.Pointer))
         {
+            bool handled = ShouldMarkHandled();
             if (e.InitialPressMouseButton == MouseButton.Left)
             {
                 Released();
             }
 
-            e.Pointer.Capture(null);
-            e.Handled = true;
+            if (CapturesPointer)
+                e.Pointer.Capture(null);
+
+            if (handled)
+                e.Handled = true;
         }
     }
 
     private void CaptureLost(object? sender, PointerCaptureLostEventArgs e)
     {
+        bool handled = ShouldMarkHandled();
         Released();
-        e.Handled = true;
+        if (handled)
+            e.Handled = true;
     }
 
     private void Released()
@@ -190,7 +205,6 @@ public class GenericDragBehavior : Behavior<Control>
         if (_dragStarted && _draggedIndex >= 0 && _targetIndex >= 0 && _draggedIndex != _targetIndex)
         {
             OnMoveDraggedItem(_itemsControl, _draggedIndex, _targetIndex);
-            OnFinishedDragging();
         }
 
         SetRealizedContainersDragging(_itemsControl, false);
@@ -210,16 +224,21 @@ public class GenericDragBehavior : Behavior<Control>
         _activePointer = null;
     }
 
-    private static void ResetTransforms(ItemsControl? itemsControl)
+    private IEnumerable? GetItems(ItemsControl? itemsControl)
     {
-        if (itemsControl?.ItemsSource is null)
+        return CountsItems ? itemsControl?.Items : itemsControl?.ItemsSource;
+    }
+
+    private void ResetTransforms(ItemsControl? itemsControl)
+    {
+        if (itemsControl is null || GetItems(itemsControl) is not { } items)
         {
             return;
         }
 
         int i = 0;
 
-        foreach (object? _ in itemsControl.ItemsSource)
+        foreach (object? _ in items)
         {
             Control? container = itemsControl.ContainerFromIndex(i);
             if (container is not null)
@@ -251,77 +270,49 @@ public class GenericDragBehavior : Behavior<Control>
     private void Moved(object? sender, PointerEventArgs e)
     {
         PointerPointProperties? properties = e.GetCurrentPoint(AssociatedObject).Properties;
-        if (Equals(e.Pointer.Captured, DragControl)
+        if (IsDragPointer(e.Pointer)
             && properties?.IsLeftButtonPressed == true)
         {
-            if (_itemsControl?.ItemsSource is null || _draggedContainer?.RenderTransform is null || !_enableDrag)
+            if (_itemsControl is null
+                || GetItems(_itemsControl) is not { } items
+                || _draggedContainer?.RenderTransform is null
+                || !_enableDrag)
             {
                 return;
             }
 
-            Orientation orientation = Orientation;
             Point position = e.GetPosition(_itemsControl);
-            double delta = orientation == Orientation.Horizontal ? position.X - _start.X : position.Y - _start.Y;
+            double delta = position.Y - _start.Y;
 
             if (!_dragStarted)
             {
-                OnStartedDragging();
-
                 Point diff = _start - position;
-                double horizontalDragThreshold = HorizontalDragThreshold;
-                double verticalDragThreshold = VerticalDragThreshold;
-
-                if (orientation == Orientation.Horizontal)
+                if (Math.Abs(diff.Y) > VerticalDragThreshold)
                 {
-                    if (Math.Abs(diff.X) > horizontalDragThreshold)
-                    {
-                        _dragStarted = true;
-                    }
-                    else
-                    {
-                        return;
-                    }
+                    _dragStarted = true;
                 }
                 else
                 {
-                    if (Math.Abs(diff.Y) > verticalDragThreshold)
-                    {
-                        _dragStarted = true;
-                    }
-                    else
-                    {
-                        return;
-                    }
+                    return;
                 }
             }
 
-            if (orientation == Orientation.Horizontal)
-            {
-                SetTranslateTransform(_draggedContainer, delta, 0);
-            }
-            else
-            {
-                SetTranslateTransform(_draggedContainer, 0, delta);
-            }
+            SetTranslateTransform(_draggedContainer, 0, delta);
 
             _draggedIndex = _itemsControl.IndexFromContainer(_draggedContainer);
             _targetIndex = -1;
 
             Rect draggedBounds = _draggedContainer.Bounds;
 
-            double draggedStart = orientation == Orientation.Horizontal ? draggedBounds.X : draggedBounds.Y;
+            double draggedStart = draggedBounds.Y;
 
-            double draggedDeltaStart = orientation == Orientation.Horizontal
-                ? draggedBounds.X + delta
-                : draggedBounds.Y + delta;
+            double draggedDeltaStart = draggedBounds.Y + delta;
 
-            double draggedDeltaEnd = orientation == Orientation.Horizontal
-                ? draggedBounds.X + delta + draggedBounds.Width
-                : draggedBounds.Y + delta + draggedBounds.Height;
+            double draggedDeltaEnd = draggedBounds.Y + delta + draggedBounds.Height;
 
             int i = 0;
 
-            foreach (object? _ in _itemsControl.ItemsSource)
+            foreach (object? _ in items)
             {
                 Control? targetContainer = _itemsControl.ContainerFromIndex(i);
                 if (targetContainer?.RenderTransform is null || ReferenceEquals(targetContainer, _draggedContainer))
@@ -331,7 +322,7 @@ public class GenericDragBehavior : Behavior<Control>
                 }
 
                 ShiftTarget(
-                    _itemsControl, targetContainer, orientation, draggedBounds,
+                    _itemsControl, targetContainer, draggedBounds,
                     draggedStart, draggedDeltaStart, draggedDeltaEnd);
 
                 i++;
@@ -340,57 +331,34 @@ public class GenericDragBehavior : Behavior<Control>
     }
 
     private void ShiftTarget(
-        ItemsControl itemsControl, Control targetContainer, Orientation orientation, Rect draggedBounds,
+        ItemsControl itemsControl, Control targetContainer, Rect draggedBounds,
         double draggedStart, double draggedDeltaStart, double draggedDeltaEnd)
     {
         Rect targetBounds = targetContainer.Bounds;
 
-        double targetStart = orientation == Orientation.Horizontal ? targetBounds.X : targetBounds.Y;
+        double targetStart = targetBounds.Y;
 
-        double targetMid = orientation == Orientation.Horizontal
-            ? targetBounds.X + targetBounds.Width / 2
-            : targetBounds.Y + targetBounds.Height / 2;
+        double targetMid = targetBounds.Y + targetBounds.Height / 2;
 
         int targetIndex = itemsControl.IndexFromContainer(targetContainer);
 
         if (targetStart > draggedStart && draggedDeltaEnd >= targetMid)
         {
-            if (orientation == Orientation.Horizontal)
-            {
-                SetTranslateTransform(targetContainer, -draggedBounds.Width, 0);
-            }
-            else
-            {
-                SetTranslateTransform(targetContainer, 0, -draggedBounds.Height);
-            }
+            SetTranslateTransform(targetContainer, 0, -draggedBounds.Height);
 
             _targetIndex = _targetIndex == -1 ? targetIndex :
                 targetIndex > _targetIndex ? targetIndex : _targetIndex;
         }
         else if (targetStart < draggedStart && draggedDeltaStart <= targetMid)
         {
-            if (orientation == Orientation.Horizontal)
-            {
-                SetTranslateTransform(targetContainer, draggedBounds.Width, 0);
-            }
-            else
-            {
-                SetTranslateTransform(targetContainer, 0, draggedBounds.Height);
-            }
+            SetTranslateTransform(targetContainer, 0, draggedBounds.Height);
 
             _targetIndex = _targetIndex == -1 ? targetIndex :
                 targetIndex < _targetIndex ? targetIndex : _targetIndex;
         }
         else
         {
-            if (orientation == Orientation.Horizontal)
-            {
-                SetTranslateTransform(targetContainer, 0, 0);
-            }
-            else
-            {
-                SetTranslateTransform(targetContainer, 0, 0);
-            }
+            SetTranslateTransform(targetContainer, 0, 0);
         }
     }
 
@@ -423,4 +391,16 @@ public class GenericDragBehavior : Behavior<Control>
         transformBuilder.AppendTranslate(x, y);
         control.RenderTransform = transformBuilder.Build();
     }
+}
+
+// Which pointer events of a drag GenericDragBehavior marks handled.
+public enum DragEventHandling
+{
+    // The press, the release and the capture loss.
+    Always,
+
+    // The release and the capture loss that end a drag past its threshold.
+    WhileDragging,
+
+    Never,
 }

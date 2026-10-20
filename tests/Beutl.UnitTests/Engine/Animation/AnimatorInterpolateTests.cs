@@ -134,9 +134,7 @@ public class AnimatorInterpolateTests
     public void Int64Animator_PreservesPrecisionForLargeValues()
     {
         var animator = new Int64Animator();
-        // 旧実装は (float)long.MaxValue で正規化するため、結果が float の精度に丸まり
-        // 入力の絶対値とは無関係に誤差が乗る (この入力では 1024 ずれて 49_999_998_976L を返す)。
-        // 新実装の double 補間では完全に一致する。
+        // Normalizing through float rounded this result off by 1024.
         Assert.That(animator.Interpolate(0.5f, 0L, 100_000_000_000L), Is.EqualTo(50_000_000_000L));
     }
 

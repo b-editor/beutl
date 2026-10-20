@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
@@ -18,13 +20,15 @@ namespace Beutl.Api;
 
 public partial class BeutlApiApplication : IAsyncDisposable
 {
-#if false
-    public const string BaseUrl = "http://localhost:3001";
-    public const string UserFileName = "user.local.json";
-#else
-    public const string BaseUrl = "https://beutl.beditor.net";
-    public const string UserFileName = "user.json";
-#endif
+    private const string DefaultBaseUrl = "https://beutl.beditor.net";
+
+    // BEUTL_API_BASE_URL points the client at another server, such as a local one at http://localhost:3001.
+    // Each other server keeps its sign-in in a file named from a hash of its origin, so its tokens are never
+    // sent to a different server; a host such as [::1] could not go in a Windows file name as it is.
+    public static readonly string BaseUrl = ResolveBaseUrl(Environment.GetEnvironmentVariable("BEUTL_API_BASE_URL"));
+    public static readonly string UserFileName = BaseUrl == DefaultBaseUrl
+        ? "user.json"
+        : $"user.{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(BaseUrl)))[..16]}.json";
     private readonly HttpClient _httpClient;
     private readonly ExtensionProvider _extensionProvider;
     private readonly Func<HttpClient> _packageInstallerHttpClientFactory;
@@ -162,6 +166,18 @@ public partial class BeutlApiApplication : IAsyncDisposable
     public static async Task<AssetMetadataJson?> LoadMetadata()
     {
         return await s_metadata;
+    }
+
+    // A value that is not an absolute http or https URL is ignored, so a mistyped variable keeps the production
+    // server. So is a path, query or fragment: the client, the sign-in pages and the plan pages would each
+    // combine it with their own paths differently.
+    private static string ResolveBaseUrl(string? configured)
+    {
+        return Uri.TryCreate(configured?.Trim(), UriKind.Absolute, out Uri? uri)
+               && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+               && uri.AbsolutePath == "/" && uri.Query.Length == 0 && uri.Fragment.Length == 0
+            ? uri.AbsoluteUri.TrimEnd('/')
+            : DefaultBaseUrl;
     }
 
     public T GetResource<T>()
@@ -341,10 +357,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
         Register(() => new DiscoverService(this));
         Register(() => _extensionProvider);
         Register(() => new ContextCommandSettingsStore());
-        Register(() => new ContextCommandHandlerRegistry());
-        Register(() => new ContextCommandManager(
-            GetResource<ContextCommandSettingsStore>(),
-            GetResource<ContextCommandHandlerRegistry>()));
+        Register(() => new ContextCommandManager(GetResource<ContextCommandSettingsStore>()));
         Register(() => new InstalledPackageRepository());
         Register(() => new AcceptedLicenseManager());
         Register(() => new PackageChangesQueue());
@@ -354,11 +367,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
         Register(() => new AiEntitlementService(
             this,
             GetResource<AiEntitlementStore>()));
-        Register<IAiOperationCapabilitySchemaProvider>(() =>
-            new AiOperationCapabilitySchemaRegistry(GetResource<IExtensionRegistry>()));
-        Register(() => new AiModelCatalogService(
-            this,
-            GetResource<IAiOperationCapabilitySchemaProvider>()));
+        Register(() => new AiModelCatalogService(this));
         Register(() => new AiOperationAvailabilityService(this));
         Register(() => new AiImageGenerationService(
             this,
@@ -390,8 +399,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
             GetResource<IAiEntitlementService>(),
             GetResource<IAiOperationAvailabilityService>(),
             GetResource<IAiModelCatalogService>(),
-            GetResource<AiRetryAttemptContext>(),
-            GetResource<IExtensionRegistry>()));
+            GetResource<AiRetryAttemptContext>()));
         Register(() => new AiJobMonitor(
             this,
             GetResource<IAiJobClient>(),
@@ -399,18 +407,9 @@ public partial class BeutlApiApplication : IAsyncDisposable
             GetResource<AiJobChangeNotifier>().Changes,
             TimeSpan.FromSeconds(5)));
         Register(CreatePackageInstaller);
-        Register(() =>
-        {
-            // Unload diagnostics take a heavy ClrMD self-snapshot and write a dump; they are a development-only aid,
-            // so Release builds wire null and neither snapshot, dump, nor log on an unload failure.
-            ILoadContextUnloadDiagnostics? unloadDiagnostics = null;
-#if DEBUG
-            unloadDiagnostics = new ClrmdLoadContextUnloadDiagnostics();
-#endif
-            return new PackageManager(
-                GetResource<InstalledPackageRepository>(), GetResource<ExtensionProvider>(),
-                GetResource<ContextCommandManager>(), this, unloadDiagnostics);
-        });
+        Register(() => new PackageManager(
+            GetResource<InstalledPackageRepository>(), GetResource<ExtensionProvider>(),
+            GetResource<ContextCommandManager>(), this));
     }
 
     private void Register<T>(Func<T> factory)

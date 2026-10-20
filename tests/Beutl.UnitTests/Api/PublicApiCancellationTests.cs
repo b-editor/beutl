@@ -13,10 +13,10 @@ namespace Beutl.UnitTests.Api;
 public sealed class PublicApiCancellationTests
 {
     private static readonly string[] s_discoverOperations =
-        ["GetPackage", "GetProfile", "GetFeatured", "Search"];
+        ["GetPackage", "GetFeatured", "Search"];
 
     private static readonly string[] s_libraryOperations =
-        ["GetPackage", "GetProfile", "GetPackages", "Acquire", "RemovePackage"];
+        ["GetPackage", "GetPackages", "Acquire", "RemovePackage"];
 
     private static readonly string[] s_packageOperations =
         ["RefreshAsync", "GetReleaseAsync", "GetReleasesAsync"];
@@ -88,7 +88,6 @@ public sealed class PublicApiCancellationTests
         Task operation = operationName switch
         {
             "GetPackage" => service.GetPackage("package-name", cancellationTokenSource.Token),
-            "GetProfile" => service.GetProfile("profile-name", cancellationTokenSource.Token),
             "GetFeatured" => service.GetFeatured(cancellationTokenSource.Token),
             "Search" => service.Search("query", cancellationTokenSource.Token),
             _ => throw new ArgumentOutOfRangeException(nameof(operationName)),
@@ -110,7 +109,6 @@ public sealed class PublicApiCancellationTests
         Task operation = operationName switch
         {
             "GetPackage" => service.GetPackage("package-name", cancellationTokenSource.Token),
-            "GetProfile" => service.GetProfile("profile-name", cancellationTokenSource.Token),
             "GetPackages" => service.GetPackages(cancellationTokenSource.Token),
             "Acquire" => service.Acquire(package, cancellationTokenSource.Token),
             "RemovePackage" => service.RemovePackage(package, cancellationTokenSource.Token),

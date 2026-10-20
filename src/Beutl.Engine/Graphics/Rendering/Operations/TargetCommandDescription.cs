@@ -95,6 +95,7 @@ public sealed class TargetCommandDescription
     /// The opt-out for a callback whose pixel-affecting state cannot be expressed as copied, deeply immutable
     /// CPU state. The callback may capture, and the recorded output takes a fresh request-local identity every
     /// time.
+    /// Test seam: only tests call this.
     /// </remarks>
     internal static TargetCommandDescription CreateRequestLocal(
         Action<TargetCommandSession> execute,

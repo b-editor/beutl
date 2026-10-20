@@ -19,14 +19,18 @@ internal sealed partial class RenderRequestExecutor
                 "Only a request with an empty selected output can complete without execution.");
         }
 
-        CompleteNoOp(request);
+        CompleteNoOpCore(request);
     }
 
     public void CompleteNoOp(CompiledRenderRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         ObjectDisposedException.ThrowIf(request.IsDisposed, request);
+        CompleteNoOpCore(request);
+    }
 
+    private void CompleteNoOpCore(CompiledRenderRequest request)
+    {
         ValidateFamilyForExecution(request);
         foreach (CompiledRenderRequest member in EnumerateFamilyDepthFirst(request))
             member.Request.TransitionTo(RenderRequestState.Executing);
@@ -39,7 +43,7 @@ internal sealed partial class RenderRequestExecutor
         owner.Cleanup();
         ImmutableArray<Exception> ownerCleanupFailures = owner.CleanupFailures;
         for (int index = ownerCleanupStart; index < ownerCleanupFailures.Length; index++)
-            AppendCleanupFailures(cleanupFailures, ownerCleanupFailures[index]);
+            CleanupFailures.Append(cleanupFailures, ownerCleanupFailures[index]);
 
         try
         {
@@ -50,7 +54,7 @@ internal sealed partial class RenderRequestExecutor
         }
         catch (Exception ex)
         {
-            AppendCleanupFailures(cleanupFailures, ex);
+            CleanupFailures.Append(cleanupFailures, ex);
         }
 
         if (cleanupFailures.Count != 0)

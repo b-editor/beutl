@@ -18,10 +18,7 @@ public class RenderNodeCacheTests
     {
         using var node = new ContainerRenderNode();
 
-        for (int i = 0; i < RenderNodeCache.StableRequestCount; i++)
-        {
-            node.Cache.RecordSuccessfulStableRequest();
-        }
+        node.Cache.RecordStableRequests();
 
         Assert.That(node.Cache.CanCapture, Is.True);
     }
@@ -32,20 +29,18 @@ public class RenderNodeCacheTests
         using var node = new ContainerRenderNode();
         RenderNodeCache.PublishAtomically(
             [RenderCacheTestSupport.CreatePublication(node.Cache, RenderTarget.CreateNull(1, 1), new Rect(0, 0, 1, 1))]);
-        for (int i = 0; i < RenderNodeCache.StableRequestCount; i++)
-        {
-            node.Cache.RecordSuccessfulStableRequest();
-        }
+        node.Cache.RecordStableRequests();
         node.MarkChanged();
 
-        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(node);
+        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheLifecycle.Create(node);
 
         Assert.Multiple(() =>
         {
             Assert.That(node.Cache.IsCached, Is.False);
-            Assert.That(node.Cache.SuccessfulStableRequestCount, Is.Zero);
+            Assert.That(node.Cache.CanCapture, Is.False);
             Assert.That(node.HasChanges, Is.True);
         });
+        node.Cache.AssertWarmupRestarted();
 
         lifecycle.CompleteSuccessfully(advanceWarmup: true);
 
@@ -70,28 +65,27 @@ public class RenderNodeCacheTests
             RenderCacheTestSupport.CreatePublication(dirtyLeaf.Cache, RenderTarget.CreateNull(1, 1), new Rect(0, 0, 1, 1)),
             RenderCacheTestSupport.CreatePublication(sibling.Cache, RenderTarget.CreateNull(1, 1), new Rect(0, 0, 1, 1)),
         ]);
-        for (int i = 0; i < RenderNodeCache.StableRequestCount; i++)
-        {
-            root.Cache.RecordSuccessfulStableRequest();
-            dirtyBranch.Cache.RecordSuccessfulStableRequest();
-            dirtyLeaf.Cache.RecordSuccessfulStableRequest();
-            sibling.Cache.RecordSuccessfulStableRequest();
-        }
+        root.Cache.RecordStableRequests();
+        dirtyBranch.Cache.RecordStableRequests();
+        dirtyLeaf.Cache.RecordStableRequests();
+        sibling.Cache.RecordStableRequests();
         dirtyBranch.MarkChanged();
 
-        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(root);
+        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheLifecycle.Create(root);
 
         Assert.Multiple(() =>
         {
             Assert.That(root.Cache.IsCached, Is.False, "a dirty descendant must invalidate its ancestor");
             Assert.That(dirtyBranch.Cache.IsCached, Is.False);
-            Assert.That(root.Cache.SuccessfulStableRequestCount, Is.Zero);
-            Assert.That(dirtyBranch.Cache.SuccessfulStableRequestCount, Is.Zero);
+            Assert.That(root.Cache.CanCapture, Is.False);
+            Assert.That(dirtyBranch.Cache.CanCapture, Is.False);
             Assert.That(dirtyLeaf.Cache.IsCached, Is.True, "an unchanged descendant remains reusable");
             Assert.That(dirtyLeaf.Cache.CanCapture, Is.True, "an unchanged descendant retains its warm-up");
             Assert.That(sibling.Cache.IsCached, Is.True, "an unrelated sibling remains reusable");
             Assert.That(sibling.Cache.CanCapture, Is.True, "an unrelated sibling retains its warm-up");
         });
+        root.Cache.AssertWarmupRestarted();
+        dirtyBranch.Cache.AssertWarmupRestarted();
 
         lifecycle.CompleteSuccessfully(advanceWarmup: true);
 
@@ -155,7 +149,7 @@ public class RenderNodeCacheTests
             new RenderNodeCachePublication(
                 cache,
                 identity,
-                [new RenderNodeCachedValue(target, bounds, EffectiveScale.At(1))]),
+                [new RenderNodeCachedValue(target, bounds, EffectiveScale.At(1), PixelRect.FromRect(bounds, 1))]),
         ]);
         return new WeakReference(cache);
     }

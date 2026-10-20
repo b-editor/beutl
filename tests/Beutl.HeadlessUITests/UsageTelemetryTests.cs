@@ -282,8 +282,8 @@ public sealed class UsageTelemetryTests
         element.Objects.Add(video);
         element.Objects.Add(sound);
         scene.Children.Add(element);
-        var application = new BeutlApplication();
-        application.Items.Add(scene);
+        var application = new BeutlApplication { Project = new Project() };
+        application.Project!.Items.Add(scene);
         TimeRange originalRange = element.Range;
         using var tracked = new TrackedHistory(scene);
         tracked.Tracker.ActivateTool(new object(), "Timeline");
@@ -471,7 +471,7 @@ public sealed class UsageTelemetryTests
             _config.Beutl_Application = true;
         });
         UsageTelemetry.Current = usage;
-        using var history = new HistoryManager(scene, new OperationSequenceGenerator());
+        using var history = new HistoryManager(new OperationSequenceGenerator());
         using var first = new EditorUsageTracker(scene, history);
         using var second = new EditorUsageTracker(scene, history);
         usage.Flush();
@@ -610,7 +610,7 @@ public sealed class UsageTelemetryTests
     {
         _config.Beutl_Application = false;
         (Scene scene, _, _) = CreateShapeScene(new Blur());
-        using var history = new HistoryManager(scene, new OperationSequenceGenerator());
+        using var history = new HistoryManager(new OperationSequenceGenerator());
         using var tracker = new EditorUsageTracker(scene, history);
         _usage.Flush();
         Assert.That(_summaries, Is.Empty);
@@ -633,7 +633,7 @@ public sealed class UsageTelemetryTests
     {
         _config.Beutl_Application = false;
         (Scene scene, _, _) = CreateShapeScene(new Blur());
-        using var history = new HistoryManager(scene, new OperationSequenceGenerator());
+        using var history = new HistoryManager(new OperationSequenceGenerator());
         var tracker = new EditorUsageTracker(scene, history);
         Task.Run(() => _config.Beutl_Application = true).GetAwaiter().GetResult();
         tracker.Dispose();
@@ -664,7 +664,7 @@ public sealed class UsageTelemetryTests
     public void Tab_open_and_real_interaction_are_distinct()
     {
         var scene = new Scene(640, 480, "usage-test");
-        using var history = new HistoryManager(scene, new OperationSequenceGenerator());
+        using var history = new HistoryManager(new OperationSequenceGenerator());
         using var tracker = new EditorUsageTracker(scene, history);
         object first = new(), second = new();
         tracker.ActivateTool(first, "ColorScopes");
@@ -702,7 +702,7 @@ public sealed class UsageTelemetryTests
     {
         _config.Beutl_Application = previouslyEnabled;
         var scene = new Scene(640, 480, "usage-test");
-        using var history = new HistoryManager(scene, new OperationSequenceGenerator());
+        using var history = new HistoryManager(new OperationSequenceGenerator());
         using var tracker = new EditorUsageTracker(scene, history);
         object timeline = new();
         tracker.ActivateTool(timeline, "Timeline");
@@ -779,7 +779,7 @@ public sealed class UsageTelemetryTests
     [TestCase(true)]
     public async Task Library_search_does_not_cross_consent_periods_while_waiting(bool initiallyEnabled)
     {
-        using var library = new LibraryTabViewModel(new Mock<IEditorContext>().Object);
+        using var library = new LibraryTabViewModel();
         var gate = (SemaphoreSlim)typeof(LibraryTabViewModel)
             .GetField("_asyncLock", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(library)!;
         await gate.WaitAsync();
@@ -801,7 +801,7 @@ public sealed class UsageTelemetryTests
     [AvaloniaTest]
     public async Task Library_search_that_follows_a_library_change_records_no_usage()
     {
-        using var library = new LibraryTabViewModel(new Mock<IEditorContext>().Object);
+        using var library = new LibraryTabViewModel();
         await library.Search("Xyzzy", CancellationToken.None);
         _usage.Flush();
         Assert.That(_summaries.Count(s => s.Key.Event == "tool.command"), Is.EqualTo(1));
@@ -809,7 +809,7 @@ public sealed class UsageTelemetryTests
         {
             LibraryService.Current.Register<LateLibraryItem>("Beutl.HeadlessUITests.LateLibraryItem", "Xyzzy");
             await HeadlessTestHelpers.WaitUntilAsync(
-                () => library.SearchResult.Any(item => item.Value.DisplayName == "Xyzzy"));
+                () => library.SearchResult.Any(item => item.DisplayName == "Xyzzy"));
 
             _usage.Flush();
             Assert.That(_summaries.Count(s => s.Key.Event == "tool.command"), Is.EqualTo(1),
@@ -850,7 +850,7 @@ public sealed class UsageTelemetryTests
         {
             var sequence = new OperationSequenceGenerator();
             _observer = new CoreObjectOperationObserver(null, scene, sequence);
-            History = new HistoryManager(scene, sequence);
+            History = new HistoryManager(sequence);
             _subscription = History.Subscribe(_observer);
             Tracker = new EditorUsageTracker(scene, History);
         }

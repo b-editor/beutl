@@ -9,67 +9,21 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class MainViewModelExtensionTests
 {
-    private static MainViewModel SharedMainViewModel => TestShell.MainViewModel;
-
-    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
-
     [AvaloniaTest]
-    public async Task ToolTabExtensions_include_the_built_in_timeline_tab()
+    public void The_composition_root_exposes_every_loaded_extension_list()
     {
-        await ResetProjectAsync();
-        MainViewModel vm = SharedMainViewModel;
+        MainViewModel vm = TestShell.MainViewModel;
 
-        Assert.That(vm.ToolTabExtensions, Is.Not.Empty);
-        Assert.That(vm.ToolTabExtensions, Does.Contain(TimelineTabExtension.Instance));
-    }
-
-    [AvaloniaTest]
-    public async Task ToolTabExtensions_include_the_built_in_terminal_tab()
-    {
-        await ResetProjectAsync();
-        MainViewModel vm = SharedMainViewModel;
-
-        Assert.That(vm.ToolTabExtensions, Does.Contain(TerminalTabExtension.Instance));
-    }
-
-    [AvaloniaTest]
-    public async Task ToolTabExtensions_include_the_dock_layout_tab()
-    {
-        await ResetProjectAsync();
-        MainViewModel vm = SharedMainViewModel;
-
-        // The tab is how the user saves and applies dock layouts, so it has to be listed in
-        // the tool tab menu.
-        Assert.That(vm.ToolTabExtensions, Does.Contain(DockLayoutTabExtension.Instance));
-    }
-
-    [AvaloniaTest]
-    public async Task ToolTabExtensions_include_the_built_in_web_browser_tab()
-    {
-        await ResetProjectAsync();
-        MainViewModel vm = SharedMainViewModel;
-
-        Assert.That(vm.ToolTabExtensions, Does.Contain(WebBrowserTabExtension.Instance));
-    }
-
-    [AvaloniaTest]
-    public async Task EditorExtensions_include_the_scene_editor()
-    {
-        await ResetProjectAsync();
-        MainViewModel vm = SharedMainViewModel;
-
-        Assert.That(vm.EditorExtensions, Is.Not.Empty);
-        Assert.That(vm.EditorExtensions, Does.Contain(SceneEditorExtension.Instance));
-    }
-
-    [AvaloniaTest]
-    public async Task The_composition_root_exposes_every_loaded_extension_list()
-    {
-        await ResetProjectAsync();
-        MainViewModel vm = SharedMainViewModel;
-
-        Assert.That(vm.ToolTabExtensions, Does.Contain(TimelineTabExtension.Instance));
-        Assert.That(vm.EditorExtensions, Does.Contain(SceneEditorExtension.Instance));
-        Assert.That(vm.ToolWindowExtensions, Is.Not.Empty);
+        Assert.Multiple(() =>
+        {
+            Assert.That(vm.ToolTabExtensions, Does.Contain(TimelineTabExtension.Instance));
+            Assert.That(vm.ToolTabExtensions, Does.Contain(TerminalTabExtension.Instance));
+            // The tab is how the user saves and applies dock layouts, so it has to be listed in
+            // the tool tab menu.
+            Assert.That(vm.ToolTabExtensions, Does.Contain(DockLayoutTabExtension.Instance));
+            Assert.That(vm.ToolTabExtensions, Does.Contain(WebBrowserTabExtension.Instance));
+            Assert.That(vm.EditorExtensions, Does.Contain(SceneEditorExtension.Instance));
+            Assert.That(vm.ToolWindowExtensions, Is.Not.Empty);
+        });
     }
 }

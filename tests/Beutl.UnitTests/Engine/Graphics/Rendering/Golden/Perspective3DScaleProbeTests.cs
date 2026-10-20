@@ -7,10 +7,8 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// T045 (open part) / research D6: does a Rotation3DTransform perspective child render consistently across
-// render scales? The S·P ≠ P·S trap: if the root device scale lands on the wrong side of the projective
-// matrix, foreshortening differs per scale. A high SSIM confirms the root scale is composed correctly
-// (appended after, not prepended into the W column).
+// A perspective child must render the same at every scale; a root scale applied on the wrong side of the
+// projective matrix would change the foreshortening.
 [NonParallelizable]
 [TestFixture]
 public class Perspective3DScaleProbeTests
@@ -36,38 +34,24 @@ public class Perspective3DScaleProbeTests
         return shape.ToResource(CompositionContext.Default);
     }
 
-    [Test]
-    public void Rotation3DPerspective_ReducedScale_IsConsistent()
+    [TestCase(0.5f, TestName = "Rotation3DPerspective_ReducedScale_IsConsistent")]
+    [TestCase(2f, TestName = "Rotation3DPerspective_Supersample_IsConsistent")]
+    public void Rotation3DPerspective_IsConsistentAcrossScales(float scale)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using Bitmap full = GoldenImageHarness.RenderAtScale(MakePerspectiveShape(), Frame, 1f);
-            using Bitmap half = GoldenImageHarness.RenderAtScale(MakePerspectiveShape(), Frame, 0.5f);
-            using Bitmap upscaled = GoldenImageHarness.MitchellResampleTo(half, new PixelSize(full.Width, full.Height));
-            double ssim = ImageMetrics.Ssim(full, upscaled);
-            double mae = ImageMetrics.MeanAbsoluteError(full, upscaled);
-            TestContext.WriteLine($"[Rotation3D 0.5x] SSIM={ssim:F4} MAE={mae:F4}");
+            using Bitmap scaled = GoldenImageHarness.RenderAtScale(MakePerspectiveShape(), Frame, scale);
+            using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(
+                scaled,
+                new PixelSize(full.Width, full.Height));
+            double ssim = ImageMetrics.Ssim(full, delivered);
+            double mae = ImageMetrics.MeanAbsoluteError(full, delivered);
+            TestContext.WriteLine($"[Rotation3D {scale:F1}x] SSIM={ssim:F4} MAE={mae:F4}");
             // An S·P≠P·S break would distort foreshortening per scale, a gross structural mismatch.
             Assert.That(ssim, Is.GreaterThan(GoldenThresholds.ExactSsimMin),
-                $"Rotation3D perspective diverged across scale: SSIM={ssim:F4}");
-        });
-    }
-
-    [Test]
-    public void Rotation3DPerspective_Supersample_IsConsistent()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using Bitmap full = GoldenImageHarness.RenderAtScale(MakePerspectiveShape(), Frame, 1f);
-            using Bitmap ss = GoldenImageHarness.RenderAtScale(MakePerspectiveShape(), Frame, 2f);
-            using Bitmap down = GoldenImageHarness.MitchellResampleTo(ss, new PixelSize(full.Width, full.Height));
-            double ssim = ImageMetrics.Ssim(full, down);
-            double mae = ImageMetrics.MeanAbsoluteError(full, down);
-            TestContext.WriteLine($"[Rotation3D 2.0x] SSIM={ssim:F4} MAE={mae:F4}");
-            Assert.That(ssim, Is.GreaterThan(GoldenThresholds.ExactSsimMin),
-                $"Rotation3D perspective diverged under SSAA: SSIM={ssim:F4}");
+                $"Rotation3D perspective diverged at scale {scale}: SSIM={ssim:F4}");
         });
     }
 }

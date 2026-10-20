@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Editor.Infrastructure;
 using Beutl.Editor.Operations;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
@@ -51,10 +52,8 @@ public partial class EditViewModel
         }
     }
 
-    // The CacheOptions setter waits for the render thread, which playback holds until its producer reaches the end of
-    // the scene, so the options are applied there without waiting for it. They are read here, on the UI thread, which
-    // writes EditorConfig. A renderer replaced in the meantime is created with the new options and the old one is
-    // disposed, so a disposed renderer is skipped.
+    // Applied on the render thread, which playback holds, so the CacheOptions setter does not wait for it.
+    // A renderer replaced in the meantime has been disposed and is skipped.
     private void ApplyNodeCacheOptions(SceneRenderer renderer, RenderCacheOptions options)
     {
         RenderThread.Dispatcher.Dispatch(() =>
@@ -70,7 +69,7 @@ public partial class EditViewModel
             {
                 // Disposed on the UI thread after the check above.
             }
-            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+            catch (Exception ex) when (ex is not OutOfMemoryException)
             {
                 // An exception that escapes a render-thread job ends the process.
                 _logger.LogError(ex, "Failed to apply the node cache options. ({SceneId})", SceneId);
@@ -116,9 +115,7 @@ public partial class EditViewModel
             _proxyInvalidationScheduled = true;
         }
 
-        // A bulk generate (FR-008 / US2 AC4) fires one store event per proxy state change.
-        // Coalesce the burst into a single UI-thread scene walk per tick instead of one
-        // walk per event, so the timeline stays smooth while proxies are generated.
+        // A bulk generate raises one event per proxy state change, so the burst is coalesced into one UI post.
         if (schedule)
         {
             Dispatcher.UIThread.Post(FlushPendingProxyInvalidations);
@@ -143,10 +140,7 @@ public partial class EditViewModel
             _pendingProxyInvalidations.Clear();
         }
 
-        // Invalidate only frames of clips that use a changed source, not the whole
-        // timeline cache (FR-023; unrelated clips stay editable during a bulk generate).
-        // FrameCacheManager only invalidates by frame range, so each changed source is
-        // mapped to the ranges of the elements that reference it.
+        // Invalidate only the ranges of the clips that use a changed source.
         FrameCacheManager cache = FrameCacheManager.Value;
         if (cache.IsDisposed)
         {
@@ -217,15 +211,14 @@ public partial class EditViewModel
             return;
         }
 
-        // 影響を受けるタイムレンジを取得
         if (MediaReferencesChanged())
         {
             ScheduleMediaFingerprints();
             NotifyMissingMedia();
         }
+        // 影響を受けるタイムレンジを取得
         List<TimeRange> affectedRanges = GetAffectedTimeRanges(list);
 
-        // フレームキャッシュを更新
         if (affectedRanges.Count > 0)
         {
             Task.Run(() =>
@@ -236,7 +229,6 @@ public partial class EditViewModel
             });
         }
 
-        // 自動保存
         if (!IsAutoSaveSuppressedForTesting)
         {
             AutoSave(list);
@@ -293,7 +285,6 @@ public partial class EditViewModel
 
     private IEnumerable<TimeRange> GetAffectedTimeRangesFromOperation(ChangeOperation operation)
     {
-        // IUpdatePropertyValueOperationの場合
         if (operation is IUpdatePropertyValueOperation updateOp)
         {
             TimeRange? range = GetAffectedTimeRangeFromUpdateOperation(updateOp);
@@ -305,17 +296,14 @@ public partial class EditViewModel
             yield break;
         }
 
-        // ICollectionChangeOperationの場合
         if (operation is ICollectionChangeOperation collectionOp)
         {
-            // Objectプロパティから影響を受けるElementを探す
             Element? element = FindElementFromObject(collectionOp.Object);
             if (element != null)
             {
                 yield return element.Range;
             }
 
-            // Itemsから複数のElementを探す
             foreach (Element? item in collectionOp.Items
                          .Select(i => i is CoreObject coreObj ? FindElementFromObject(coreObj) : null)
                          .Where(i => i != null))
@@ -330,16 +318,13 @@ public partial class EditViewModel
         CoreObject obj = updateOp.Object;
         string propertyPath = updateOp.PropertyPath;
 
-        // ElementのStartまたはLengthプロパティの変更の場合
         if (obj is Element element)
         {
-            string propertyName = GetPropertyNameFromPath(propertyPath);
+            string propertyName = PropertyPathHelper.GetPropertyNameFromPath(propertyPath);
             if (propertyName == nameof(Element.Start) || propertyName == nameof(Element.Length))
             {
-                // 変更前後の両方の範囲を含む
                 TimeRange currentRange = element.Range;
 
-                // OldValueから変更前の範囲を計算
                 if (updateOp.OldValue is TimeSpan oldTimeSpan)
                 {
                     TimeRange oldRange = propertyName == nameof(Element.Start)
@@ -351,7 +336,6 @@ public partial class EditViewModel
                 return currentRange;
             }
 
-            // その他のElementプロパティの場合
             return element.Range;
         }
 
@@ -359,7 +343,7 @@ public partial class EditViewModel
         // via audio-driven visualizers); only lock is editor-only and cache-neutral.
         if (obj is TimelineLayer layer)
         {
-            string propertyName = GetPropertyNameFromPath(propertyPath);
+            string propertyName = PropertyPathHelper.GetPropertyNameFromPath(propertyPath);
             // ZIndex is absent because a layer's ZIndex only changes in
             // LayerMoveService.ApplyMove, whose Element.ZIndex writes already
             // invalidate the same frame ranges via the Element branch above.
@@ -380,7 +364,6 @@ public partial class EditViewModel
             return union;
         }
 
-        // Element以外のオブジェクトの場合、親を辿ってElementを探す
         Element? parentElement = FindElementFromObject(obj);
         if (parentElement != null)
         {
@@ -388,17 +371,6 @@ public partial class EditViewModel
         }
 
         return null;
-    }
-
-    private static string GetPropertyNameFromPath(string propertyPath)
-    {
-        if (propertyPath.Contains('.'))
-        {
-            string[] parts = propertyPath.Split('.');
-            return parts[^1];
-        }
-
-        return propertyPath;
     }
 
     private static Element? FindElementFromObject(CoreObject obj)

@@ -6,27 +6,6 @@ namespace Beutl.UnitTests.Editor.Services.Captions;
 public class CaptionDocumentTests
 {
     [Test]
-    public void CollectionEdits_UpdateDocumentWithoutExposingMutableList()
-    {
-        var first = new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(1), "first");
-        var second = new CaptionCue(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), "second");
-        var replacement = new CaptionCue(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), "replacement");
-        var document = new CaptionDocument([first]);
-
-        document.Add(second);
-        document.Insert(1, replacement);
-        document.Replace(0, second);
-        CaptionCue removed = document.RemoveAt(1);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(document.Cues, Is.Not.InstanceOf<List<CaptionCue>>());
-            Assert.That(document.Cues, Is.EqualTo(new[] { second, second }));
-            Assert.That(removed, Is.SameAs(replacement));
-        });
-    }
-
-    [Test]
     public void SplitCue_RetainsMetadataAndSplitsTimeAndText()
     {
         var cue = new CaptionCue(
@@ -45,6 +24,7 @@ public class CaptionDocumentTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(document.Cues, Is.Not.InstanceOf<List<CaptionCue>>());
             Assert.That(document.Count, Is.EqualTo(2));
             Assert.That(first, Is.EqualTo(new CaptionCue(
                 TimeSpan.FromSeconds(1),
@@ -109,7 +89,7 @@ public class CaptionDocumentTests
                 Metadata((CaptionMetadataKeys.AssStyle, "Default"), ("second-only", "value"))),
         ]);
 
-        CaptionCue merged = document.MergeWithNext(0, " / ");
+        CaptionCue merged = document.MergeWithNext(0);
 
         Assert.Multiple(() =>
         {
@@ -117,7 +97,7 @@ public class CaptionDocumentTests
             Assert.That(merged, Is.EqualTo(new CaptionCue(
                 TimeSpan.FromSeconds(1),
                 TimeSpan.FromSeconds(4),
-                "one / two",
+                "one\ntwo",
                 "Alice",
                 "en",
                 Metadata((CaptionMetadataKeys.AssStyle, "Default")))));

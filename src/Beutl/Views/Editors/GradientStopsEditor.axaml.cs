@@ -41,25 +41,14 @@ public sealed partial class GradientStopsEditor : UserControl
         object? sender,
         (int OldIndex, int NewIndex, AM.GradientStop Object, ImmutableGradientStop OldObject) e)
     {
-        if (DataContext is not GradientStopsEditorViewModel { IsElementEditable: true, Value.Value: { } list } viewModel) return;
-        if (viewModel.IsDisposed) return;
-
-        if (e.NewIndex != e.OldIndex)
-            list.Move(e.NewIndex, e.OldIndex);
-        GradientStop obj = list[e.OldIndex];
-        viewModel.ConfirmeGradientStop(e.OldIndex, e.NewIndex, e.OldObject.ToBtlImmutableGradientStop(), obj);
+        if (DataContext is GradientStopsEditorViewModel { IsElementEditable: true, Value.Value: { } list } viewModel)
+            GradientStopEdits.Release(viewModel, list, e.OldIndex, e.NewIndex);
     }
 
     private void OnSliderChanged(object? sender, (int OldIndex, int NewIndex, AM.GradientStop Object) e)
     {
-        if (DataContext is not GradientStopsEditorViewModel { IsElementEditable: true, Value.Value: { } list } viewModel) return;
-        if (viewModel.IsDisposed) return;
-
-        GradientStop obj = list[e.OldIndex];
-        obj.Offset.CurrentValue = (float)e.Object.Offset;
-        obj.Color.CurrentValue = e.Object.Color.ToBtlColor();
-        if (e.NewIndex != e.OldIndex)
-            list.Move(e.OldIndex, e.NewIndex);
+        if (DataContext is GradientStopsEditorViewModel { IsElementEditable: true, Value.Value: { } list } viewModel)
+            GradientStopEdits.Drag(viewModel, list, e.OldIndex, e.NewIndex, e.Object);
     }
 
     private void Delete_Click(object? sender, RoutedEventArgs e)
@@ -82,14 +71,7 @@ public sealed partial class GradientStopsEditor : UserControl
             int index = viewModel.Stops.Value.IndexOf(astop);
             var bstop = viewModel.Value.Value[index];
             bstop.Color.CurrentValue = args.NewColor.Value.ToBtlColor();
-            viewModel.ConfirmeGradientStop(
-                index, index,
-                new GradientStop.Resource
-                {
-                    Offset = bstop.Offset.CurrentValue,
-                    Color = args.OldColor.Value.ToBtlColor()
-                },
-                bstop);
+            viewModel.ConfirmeGradientStop(index, index);
         }
     }
 }

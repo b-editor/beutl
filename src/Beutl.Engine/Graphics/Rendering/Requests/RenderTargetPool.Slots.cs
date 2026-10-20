@@ -104,7 +104,6 @@ internal sealed partial class RenderTargetPool
             failedLease.State = RenderTargetLeaseState.Evicted;
             _leasedTargets--;
         }
-        RemoveAvailable(slot);
         RemoveOwnedSlot(slot);
         _evictions++;
         try

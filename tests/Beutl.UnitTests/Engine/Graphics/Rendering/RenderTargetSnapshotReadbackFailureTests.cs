@@ -3,8 +3,6 @@
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
-using SkiaSharp;
-
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
 [TestFixture]
@@ -62,7 +60,7 @@ public sealed class RenderTargetSnapshotReadbackFailureTests
     [Test]
     public void Snapshot_ReturnsALiveBitmap_WhenTheReadbackSucceeds()
     {
-        using RenderTarget target = new RasterRenderTarget(Width, Height);
+        using RenderTarget target = new CpuRenderTarget(Width, Height);
 
         using Bitmap snapshot = target.Snapshot();
         using Bitmap alpha = target.SnapshotAlpha();
@@ -196,18 +194,4 @@ public sealed class RenderTargetSnapshotReadbackFailureTests
             _ = new Bitmap(Width, Height, colorType, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
         }
     }
-
-    /// <summary>
-    /// A CPU-raster target, whose surface serves a readback. The control for the null-surface fixture.
-    /// </summary>
-    private sealed class RasterRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

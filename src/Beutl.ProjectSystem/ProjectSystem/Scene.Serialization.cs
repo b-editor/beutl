@@ -32,12 +32,7 @@ public partial class Scene
     internal void SetMediaFingerprints(IEnumerable<KeyValuePair<string, MediaFileFingerprint>> fingerprints)
     {
         if (MediaFingerprintFile is { IsFromLaterVersion: true }) return;
-        var file = new MediaFingerprintFile();
-        foreach ((string key, MediaFileFingerprint fingerprint) in fingerprints)
-        {
-            file.Fingerprints[key] = fingerprint;
-        }
-
+        var file = new MediaFingerprintFile(fingerprints);
         MediaFingerprintFile = file.Fingerprints.Count == 0 ? null : file;
     }
 
@@ -151,14 +146,12 @@ public partial class Scene
                 IEnumerable<string> includes = [];
                 IEnumerable<string> excludes = [];
 
-                // 含めるクリップ
                 if (elementsObject.TryGetPropertyValue("Include", out JsonNode? includeNode))
                 {
                     ReadElementPatterns(includeNode!, _includeElements);
                     includes = _includeElements;
                 }
 
-                // 除外するクリップ
                 if (elementsObject.TryGetPropertyValue("Exclude", out JsonNode? excludeNode))
                 {
                     ReadElementPatterns(excludeNode!, _excludeElements);
@@ -254,9 +247,7 @@ public partial class Scene
             return UriHelper.CreateFromPath(fullPath);
         }).ToArray();
 
-        // 削除するElements
         Element[] elementsRemove = Children.ExceptBy(uriToElement, x => x.Uri).ToArray();
-        // 追加するElements
         Uri[] urisAdd = uriToElement.Except(Children.Select(x => x.Uri).Where(u => u != null)).ToArray()!;
 
         foreach (Element item in elementsRemove)
@@ -272,15 +263,6 @@ public partial class Scene
         activity?.SetTag("childrenCount", Children.Count);
     }
 
-    internal static SuppressedStorageSource? TryResumeElementPersistence(Element element)
-        => SceneRecovery.TryResumeElementPersistence(element);
-
-    internal static bool HasUnresolvedRecoveryBlocker(Element element)
-        => SceneRecovery.HasUnresolvedRecoveryBlocker(element);
-
-    internal static bool HoldsRecoveryBlocker(object? content)
-        => SceneRecovery.HoldsRecoveryBlocker(content);
-
     private void UpdateInclude()
     {
         string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;
@@ -294,7 +276,6 @@ public partial class Scene
         string[] files = MatchElementFiles(dirPath, _includeElements, _excludeElements);
         foreach (string rel in elementPaths)
         {
-            // 含まれていない場合追加
             if (!files.Contains(rel) && !_includeElements.Contains(rel))
             {
                 _includeElements.Add(rel);

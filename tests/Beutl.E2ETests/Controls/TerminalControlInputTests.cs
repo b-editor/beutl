@@ -11,7 +11,7 @@ namespace Beutl.E2ETests.Controls;
 public class TerminalControlInputTests
 {
     [AvaloniaTest]
-    public void ShiftedLetter_IsSentOnce_ViaTextInput()
+    public async Task ShiftedLetter_IsSentOnce_ViaTextInput()
     {
         if (OperatingSystem.IsWindows())
         {
@@ -19,14 +19,14 @@ public class TerminalControlInputTests
         }
 
         var terminal = new TerminalControl { Process = "/bin/cat" };
-        var window = new Window { Width = 640, Height = 320, Content = terminal };
-        window.Show();
-        HeadlessTestHelpers.Settle();
+        var host = new ControlHost(terminal, 640, 320);
+        Window window = host.Window;
 
         try
         {
             terminal.Focus();
-            WaitUntil(() => terminal.Pid > 0, "the PTY process did not start");
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => terminal.Pid > 0, TimeSpan.FromSeconds(5), "the PTY process did not start");
 
             // A real desktop keystroke of Shift+A arrives as KeyDown (KeySymbol is the
             // unshifted "a" on macOS) followed by a TextInput event carrying "A".
@@ -36,7 +36,8 @@ public class TerminalControlInputTests
 
             // /bin/cat runs with tty echo on, so what the control writes to the PTY
             // comes straight back into the terminal buffer.
-            WaitUntil(() => ScreenText(terminal).Contains('A'), "the echoed input never appeared");
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => ScreenText(terminal).Contains('A'), TimeSpan.FromSeconds(5), "the echoed input never appeared");
 
             string text = ScreenText(terminal);
             Assert.That(text.Trim(), Is.EqualTo("A"),
@@ -53,8 +54,7 @@ public class TerminalControlInputTests
                 // The PTY may never have started; closing the window is what matters.
             }
 
-            window.Close();
-            HeadlessTestHelpers.Settle();
+            host.Dispose();
         }
     }
 
@@ -68,21 +68,5 @@ public class TerminalControlInputTests
         }
 
         return string.Join("\n", lines);
-    }
-
-    private static void WaitUntil(Func<bool> condition, string failureMessage, int timeoutMs = 5000)
-    {
-        for (int elapsed = 0; elapsed < timeoutMs; elapsed += 50)
-        {
-            HeadlessTestHelpers.Settle();
-            if (condition())
-            {
-                return;
-            }
-
-            Thread.Sleep(50);
-        }
-
-        Assert.Fail(failureMessage);
     }
 }

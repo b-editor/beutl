@@ -788,30 +788,6 @@
   <data name="EnableElement" xml:space="preserve">
     <value>启用元素</value>
   </data>
-  <data name="DockArea_LeftTop" xml:space="preserve">
-    <value>左上</value>
-  </data>
-  <data name="DockArea_LeftBottom" xml:space="preserve">
-    <value>左下</value>
-  </data>
-  <data name="DockArea_RightTop" xml:space="preserve">
-    <value>右上</value>
-  </data>
-  <data name="DockArea_RightBottom" xml:space="preserve">
-    <value>右下</value>
-  </data>
-  <data name="DockArea_BottomLeft" xml:space="preserve">
-    <value>左下</value>
-  </data>
-  <data name="DockArea_BottomRight" xml:space="preserve">
-    <value>右下</value>
-  </data>
-  <data name="DockArea_TopLeft" xml:space="preserve">
-    <value>左上</value>
-  </data>
-  <data name="DockArea_TopRight" xml:space="preserve">
-    <value>右上</value>
-  </data>
   <data name="MoveTo" xml:space="preserve">
     <value>移动到</value>
   </data>
@@ -1477,23 +1453,11 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="ProxyUnavailable" xml:space="preserve">
     <value>不可用</value>
   </data>
-  <data name="ProxyStoreUnavailable" xml:space="preserve">
-    <value>代理存储不可用。</value>
-  </data>
   <data name="ProxyQueueUnavailable" xml:space="preserve">
     <value>代理队列不可用。</value>
   </data>
   <data name="ProxyBulkNoEligibleClips" xml:space="preserve">
     <value>没有剪辑达到批量生成阈值；请使用逐剪辑生成。</value>
-  </data>
-  <data name="ProxyQueueIdle" xml:space="preserve">
-    <value>队列空闲</value>
-  </data>
-  <data name="ProxyQueuedJobSingular" xml:space="preserve">
-    <value>1 个排队任务</value>
-  </data>
-  <data name="ProxyQueuedJobPlural" xml:space="preserve">
-    <value>{0} 个排队任务</value>
   </data>
   <data name="ProxyDeleteFailedSingular" xml:space="preserve">
     <value>1 个代理无法删除，因为其文件正在使用中。</value>
@@ -1509,9 +1473,6 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="ProxySelectedPlural" xml:space="preserve">
     <value>已选择 {0} 个</value>
-  </data>
-  <data name="ProxyStoreSummaryFormat" xml:space="preserve">
-    <value>项目 {0} / 存储 {1} / 上限 {2}</value>
   </data>
   <data name="ProxySourceInfoFormat" xml:space="preserve">
     <value>源 {0} / {1}</value>
@@ -2669,6 +2630,9 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="VersionControl_ActivationFailedFormat" xml:space="preserve">
     <value>无法为此项目启用版本控制。{0}</value>
   </data>
+  <data name="VersionControl_RepositoryNotWatchedFormat" xml:space="preserve">
+    <value>无法监视此项目文件夹，因此在 Beutl 之外所做的更改只会在其下一次操作后显示在版本控制中。{0}</value>
+  </data>
   <data name="VersionControl_BranchFormat" xml:space="preserve">
     <value>分支：{0}</value>
   </data>
@@ -2849,26 +2813,17 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="VersionControl_Offline" xml:space="preserve">
     <value>无法连接远程。请检查网络连接后重试。</value>
   </data>
-  <data name="VersionControl_StaleLockGuidance" xml:space="preserve">
-    <value>过期的 Git 仓库锁阻止了版本控制操作。</value>
-  </data>
-  <data name="VersionControl_RemoveStaleLock" xml:space="preserve">
-    <value>移除过期锁</value>
-  </data>
-  <data name="VersionControl_StaleLockConfirmation" xml:space="preserve">
-    <value>Git 仓库锁已存在超过 10 分钟，且 Beutl 没有正在运行的 Git 进程。要移除过期锁吗？</value>
-  </data>
-  <data name="VersionControl_StaleLockRemoved" xml:space="preserve">
-    <value>已移除过期的 Git 仓库锁。请重试版本控制操作。</value>
-  </data>
   <data name="VersionControl_StaleLockManualRemovalRequiredFormat" xml:space="preserve">
-    <value>Beutl 无法在当前文件系统上安全移除此 Git 锁。请关闭外部 Git 工具，确认没有 Git 进程运行，然后手动删除 {0} 并重试。</value>
+    <value>过期的 Git 仓库锁阻止了版本控制操作。请关闭外部 Git 工具，确认没有 Git 进程运行，然后手动删除 {0} 并重试。</value>
   </data>
   <data name="VersionControl_WorktreeOperationInProgress" xml:space="preserve">
     <value>版本控制正在更新项目文件。请等待操作完成后重试。</value>
   </data>
   <data name="AiPendingRequest" xml:space="preserve">
     <value>待处理的 AI 请求</value>
+  </data>
+  <data name="AiPendingRequestDefaultModel" xml:space="preserve">
+    <value>{0} (默认模型)</value>
   </data>
   <data name="AiRecoverRequest" xml:space="preserve">
     <value>恢复</value>

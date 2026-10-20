@@ -7,7 +7,6 @@ using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Language;
-using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -23,55 +22,18 @@ namespace Beutl.HeadlessUITests;
 public sealed class AiWorkspaceGateTests
 {
     [AvaloniaTest]
-    public async Task SignedOut_ShowsSignInGate()
+    [TestCase(false, null, true, false, true)]
+    // A signed-in account without a snapshot is still loading, so the content stays visible.
+    [TestCase(true, null, false, false, false)]
+    [TestCase(true, false, false, true, true)]
+    [TestCase(true, true, false, false, false)]
+    public async Task Gate_FollowsTheAccountAndItsPlan(
+        bool signedIn, bool? canUseAi, bool requiresSignIn, bool requiresPlan, bool gateOpen)
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-signed-out");
-        using var auth = new ReactivePropertySlim<AuthenticatedUser?>();
-        using var entitlements = new ReactivePropertySlim<AiEntitlements?>();
-        var plans = new StubPlanCoordinator();
-        await using var workspace = new AiWorkspaceViewModel(
-            editor, _ => new StubPage(), entitlements, auth, plans, _ => Task.CompletedTask);
-
-        HeadlessTestHelpers.Settle();
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(workspace.RequiresSignIn.Value, Is.True);
-            Assert.That(workspace.RequiresPlan.Value, Is.False);
-            Assert.That(workspace.IsGateOpen.Value, Is.True);
-        }
-    }
-
-    [AvaloniaTest]
-    public async Task SignedInWithoutSnapshot_KeepsContentVisibleWhileLoading()
-    {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-loading");
-        using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
-        using var entitlements = new ReactivePropertySlim<AiEntitlements?>();
-        var plans = new StubPlanCoordinator();
-        await using var workspace = new AiWorkspaceViewModel(
-            editor, _ => new StubPage(), entitlements, auth, plans, _ => Task.CompletedTask);
-
-        HeadlessTestHelpers.Settle();
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(workspace.RequiresSignIn.Value, Is.False);
-            Assert.That(workspace.RequiresPlan.Value, Is.False);
-            Assert.That(workspace.IsGateOpen.Value, Is.False);
-        }
-    }
-
-    [AvaloniaTest]
-    public async Task SignedInWithoutPlan_ShowsPlanGate()
-    {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-no-plan");
-        using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync($"ai-gate-{signedIn}-{canUseAi}");
+        using var auth = new ReactivePropertySlim<AuthenticatedUser?>(signedIn ? CreateUser("user-a") : null);
         using var entitlements = new ReactivePropertySlim<AiEntitlements?>(
-            CreateEntitlements(canUseAi: false));
+            canUseAi is { } plan ? CreateEntitlements(canUseAi: plan) : null);
         var plans = new StubPlanCoordinator();
         await using var workspace = new AiWorkspaceViewModel(
             editor, _ => new StubPage(), entitlements, auth, plans, _ => Task.CompletedTask);
@@ -80,34 +42,16 @@ public sealed class AiWorkspaceGateTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(workspace.RequiresSignIn.Value, Is.False);
-            Assert.That(workspace.RequiresPlan.Value, Is.True);
-            Assert.That(workspace.IsGateOpen.Value, Is.True);
+            Assert.That(workspace.RequiresSignIn.Value, Is.EqualTo(requiresSignIn));
+            Assert.That(workspace.RequiresPlan.Value, Is.EqualTo(requiresPlan));
+            Assert.That(workspace.IsGateOpen.Value, Is.EqualTo(gateOpen));
         }
-    }
-
-    [AvaloniaTest]
-    public async Task SignedInWithPlan_ShowsContent()
-    {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-with-plan");
-        using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
-        using var entitlements = new ReactivePropertySlim<AiEntitlements?>(
-            CreateEntitlements(canUseAi: true));
-        var plans = new StubPlanCoordinator();
-        await using var workspace = new AiWorkspaceViewModel(
-            editor, _ => new StubPage(), entitlements, auth, plans, _ => Task.CompletedTask);
-
-        HeadlessTestHelpers.Settle();
-
-        Assert.That(workspace.IsGateOpen.Value, Is.False);
     }
 
     [AvaloniaTest]
     public async Task SignIn_RefreshesEntitlementsAndShowsPlanGateForNonProAccount()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-sign-in");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-gate-sign-in");
         using var auth = new ReactivePropertySlim<AuthenticatedUser?>();
         var entitlements = new StubEntitlementService
         {
@@ -148,8 +92,7 @@ public sealed class AiWorkspaceGateTests
     [AvaloniaTest]
     public async Task SignInFailure_SurfacesLocalizedErrorAndReleasesTheButton()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-sign-in-failure");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-gate-sign-in-failure");
         using var auth = new ReactivePropertySlim<AuthenticatedUser?>();
         using var entitlements = new ReactivePropertySlim<AiEntitlements?>();
         var plans = new StubPlanCoordinator();
@@ -175,8 +118,7 @@ public sealed class AiWorkspaceGateTests
     [AvaloniaTest]
     public async Task SignInRefreshFailure_KeepsGateOpenWithRetry()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-refresh-failure");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-gate-refresh-failure");
         using var auth = new ReactivePropertySlim<AuthenticatedUser?>();
         var entitlements = new StubEntitlementService
         {
@@ -229,8 +171,7 @@ public sealed class AiWorkspaceGateTests
     [AvaloniaTest]
     public async Task RetryWhileSignedOut_RunsSignInAgain()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-retry-signed-out");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-gate-retry-signed-out");
         using var auth = new ReactivePropertySlim<AuthenticatedUser?>();
         var entitlements = new StubEntitlementService
         {
@@ -265,8 +206,7 @@ public sealed class AiWorkspaceGateTests
     [AvaloniaTest]
     public async Task StaleFailure_ClearedByNewSnapshotAndAccountChange()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-stale-failure");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-gate-stale-failure");
         using var auth = new ReactivePropertySlim<AuthenticatedUser?>();
         var entitlements = new StubEntitlementService
         {
@@ -314,7 +254,8 @@ public sealed class AiWorkspaceGateTests
         entitlements.RefreshResult = CreateEntitlements(canUseAi: true);
         int refreshesBeforeSwitch = entitlements.RefreshCount;
         auth.Value = CreateUser("user-b");
-        await WaitUntilAsync(() => entitlements.RefreshCount == refreshesBeforeSwitch + 1);
+        await HeadlessTestHelpers.WaitUntilAsync(
+            () => entitlements.RefreshCount == refreshesBeforeSwitch + 1, TimeSpan.FromSeconds(1));
         HeadlessTestHelpers.Settle();
 
         using (Assert.EnterMultipleScope())
@@ -329,8 +270,7 @@ public sealed class AiWorkspaceGateTests
     [AvaloniaTest]
     public async Task OpenAiPlan_NeverEscapesCoordinatorFailures()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-plan-failure");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-gate-plan-failure");
         using var auth = new ReactivePropertySlim<AuthenticatedUser?>();
         using var entitlements = new ReactivePropertySlim<AiEntitlements?>();
         var plans = new StubPlanCoordinator
@@ -347,8 +287,7 @@ public sealed class AiWorkspaceGateTests
     [AvaloniaTest]
     public async Task SignIn_ReloadsActivePageModels()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-model-reload");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-gate-model-reload");
         using var auth = new ReactivePropertySlim<AuthenticatedUser?>();
         var entitlements = new StubEntitlementService
         {
@@ -383,8 +322,7 @@ public sealed class AiWorkspaceGateTests
     [AvaloniaTest]
     public async Task AccountChange_RefreshesEntitlements()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-account-change");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-gate-account-change");
         using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
         var entitlements = new StubEntitlementService
         {
@@ -403,7 +341,8 @@ public sealed class AiWorkspaceGateTests
 
         int refreshesBeforeSwitch = entitlements.RefreshCount;
         auth.Value = CreateUser("user-b");
-        await WaitUntilAsync(() => entitlements.RefreshCount == refreshesBeforeSwitch + 1);
+        await HeadlessTestHelpers.WaitUntilAsync(
+            () => entitlements.RefreshCount == refreshesBeforeSwitch + 1, TimeSpan.FromSeconds(1));
         HeadlessTestHelpers.Settle();
 
         using (Assert.EnterMultipleScope())
@@ -416,8 +355,7 @@ public sealed class AiWorkspaceGateTests
     [AvaloniaTest]
     public async Task NullRefreshResult_KeepsGateOpenWithRetry()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-null-refresh");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-gate-null-refresh");
         using var auth = new ReactivePropertySlim<AuthenticatedUser?>();
         // A 401 answers without throwing and publishes no snapshot.
         var entitlements = new StubEntitlementService { RefreshResult = null };
@@ -450,14 +388,13 @@ public sealed class AiWorkspaceGateTests
     }
 
     [AvaloniaTest]
-    public async Task WorkspaceView_PlanReturnOnJobs_UpdatesGateWithoutModelRefresh()
+    public async Task WorkspaceView_PlanReturn_KeepsTheGateOpenUntilEntitlementsArrive()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-plan-return");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-gate-plan-return");
         using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
         using var entitlements = new ReactivePropertySlim<AiEntitlements?>();
         var plans = new StubPlanCoordinator();
-        // Jobs has no model list: the workspace callback only maintains the gate.
+        // The pages are stubs, so a plan return only updates the gate.
         await using var workspace = new AiWorkspaceViewModel(
             editor, _ => new StubPage(), entitlements, auth, plans, _ => Task.CompletedTask);
         var view = new AiWorkspaceView { DataContext = workspace };
@@ -496,8 +433,7 @@ public sealed class AiWorkspaceGateTests
     [AvaloniaTest]
     public async Task PlanReturnWithoutSnapshot_KeepsGateOpen()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-plan-return-null");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-gate-plan-return-null");
         using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
         using var entitlements = new ReactivePropertySlim<AiEntitlements?>();
         var plans = new StubPlanCoordinator();
@@ -536,8 +472,7 @@ public sealed class AiWorkspaceGateTests
     [AvaloniaTest]
     public async Task Retry_HidesSignInActionWhileRefreshing()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-retry-progress");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-gate-retry-progress");
         using var auth = new ReactivePropertySlim<AuthenticatedUser?>();
         var entitlements = new StubEntitlementService
         {
@@ -572,7 +507,7 @@ public sealed class AiWorkspaceGateTests
         };
 
         Task retry = workspace.RetryGateLoad.ExecuteAsync();
-        await WaitUntilAsync(() => workspace.IsSigningIn.Value);
+        await HeadlessTestHelpers.WaitUntilAsync(() => workspace.IsSigningIn.Value, TimeSpan.FromSeconds(1));
         HeadlessTestHelpers.Settle();
 
         using (Assert.EnterMultipleScope())
@@ -596,66 +531,16 @@ public sealed class AiWorkspaceGateTests
     }
 
     [AvaloniaTest]
-    public async Task AccountChangeDuringFlight_RefreshesForNewAccount()
+    [TestCase(typeof(InvalidOperationException))]
+    // An HTTP timeout surfaces as cancellation without cancelling our token.
+    [TestCase(typeof(TaskCanceledException))]
+    public async Task InitialLoadFailure_OpensRetryGate(Type failure)
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-flight-change");
-        using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
-        var entitlements = new StubEntitlementService();
-        var plans = new StubPlanCoordinator();
-        await using var workspace = new AiWorkspaceViewModel(
-            editor,
-            _ => new StubPage(),
-            entitlements.Entitlements,
-            auth,
-            plans,
-            signIn: null,
-            entitlements);
-
-        // The first refresh is cancelled by the session change mid-flight; the
-        // second one serves the new account.
-        var releaseRefresh = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        int refreshCalls = 0;
-        entitlements.RefreshHandler = async _ =>
-        {
-            await releaseRefresh.Task;
-            if (Interlocked.Increment(ref refreshCalls) == 1)
-                throw new OperationCanceledException();
-            return CreateEntitlements(canUseAi: true);
-        };
-
-        int refreshesBeforeRetry = entitlements.RefreshCount;
-        Task retry = workspace.RetryGateLoad.ExecuteAsync();
-        await WaitUntilAsync(() => workspace.IsSigningIn.Value);
-
-        // Dropped by the in-flight guard; the post-flight recheck must recover it.
-        auth.Value = CreateUser("user-b");
-        releaseRefresh.TrySetResult();
-        await retry;
-        await WaitUntilAsync(() => workspace.HasEntitlementsSnapshot.Value);
-        HeadlessTestHelpers.Settle();
-
-        using (Assert.EnterMultipleScope())
-        {
-            // The retry itself plus the post-flight recheck for the new account.
-            // The construction-time initial load is excluded via the baseline.
-            Assert.That(
-                entitlements.RefreshCount,
-                Is.EqualTo(refreshesBeforeRetry + 2));
-            Assert.That(workspace.GateRefreshFailed.Value, Is.False);
-            Assert.That(workspace.IsGateOpen.Value, Is.False);
-        }
-    }
-
-    [AvaloniaTest]
-    public async Task InitialLoadFailure_OpensRetryGate()
-    {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-initial-failure");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-gate-initial-failure-" + failure.Name);
         using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
         var entitlements = new StubEntitlementService
         {
-            Failure = new InvalidOperationException("entitlements unavailable"),
+            Failure = (Exception)Activator.CreateInstance(failure)!,
         };
         var plans = new StubPlanCoordinator();
         await using var workspace = new AiWorkspaceViewModel(
@@ -667,7 +552,7 @@ public sealed class AiWorkspaceGateTests
             signIn: null,
             entitlements);
 
-        await WaitUntilAsync(() => workspace.GateRefreshFailed.Value);
+        await HeadlessTestHelpers.WaitUntilAsync(() => workspace.GateRefreshFailed.Value, TimeSpan.FromSeconds(1));
         HeadlessTestHelpers.Settle();
 
         using (Assert.EnterMultipleScope())
@@ -691,41 +576,9 @@ public sealed class AiWorkspaceGateTests
     }
 
     [AvaloniaTest]
-    public async Task RefreshTimeout_OpensRetryGate()
-    {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-timeout");
-        using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
-        // An HTTP timeout surfaces as cancellation without cancelling our token.
-        var entitlements = new StubEntitlementService
-        {
-            Failure = new TaskCanceledException("The request timed out."),
-        };
-        var plans = new StubPlanCoordinator();
-        await using var workspace = new AiWorkspaceViewModel(
-            editor,
-            _ => new StubPage(),
-            entitlements.Entitlements,
-            auth,
-            plans,
-            signIn: null,
-            entitlements);
-
-        await WaitUntilAsync(() => workspace.GateRefreshFailed.Value);
-        HeadlessTestHelpers.Settle();
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(workspace.IsGateOpen.Value, Is.True);
-            Assert.That(workspace.SignInError.Value, Is.EqualTo(MessageStrings.UnexpectedError));
-        }
-    }
-
-    [AvaloniaTest]
     public async Task Dispose_CancelsInitialLoadSilently()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-dispose-load");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-gate-dispose-load");
         using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
         var entitlements = new StubEntitlementService();
         var plans = new StubPlanCoordinator();
@@ -744,7 +597,7 @@ public sealed class AiWorkspaceGateTests
             plans,
             signIn: null,
             entitlements);
-        await WaitUntilAsync(() => entitlements.RefreshCount == 1);
+        await HeadlessTestHelpers.WaitUntilAsync(() => entitlements.RefreshCount == 1, TimeSpan.FromSeconds(1));
 
         await workspace.DisposeAsync();
         releaseRefresh.TrySetResult();
@@ -760,8 +613,7 @@ public sealed class AiWorkspaceGateTests
     [AvaloniaTest]
     public async Task SignInTimeout_ShowsError()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-sign-in-timeout");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-gate-sign-in-timeout");
         using var auth = new ReactivePropertySlim<AuthenticatedUser?>();
         var entitlements = new StubEntitlementService();
         var plans = new StubPlanCoordinator();
@@ -787,10 +639,12 @@ public sealed class AiWorkspaceGateTests
     }
 
     [AvaloniaTest]
-    public async Task SupersededSessionConversion_RecoversNewAccount()
+    [TestCase("cancellation")]
+    [TestCase("authentication")]
+    [TestCase("api")]
+    public async Task RefreshFailureDuringAccountSwitch_RecoversNewAccount(string failure)
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-session-conversion");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-gate-account-switch-" + failure);
         using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
         var entitlements = new StubEntitlementService();
         var plans = new StubPlanCoordinator();
@@ -803,30 +657,43 @@ public sealed class AiWorkspaceGateTests
             signIn: null,
             entitlements);
 
-        // Production converts a superseded session's cancellation into
-        // AuthenticationRequiredException, which must not flag the new account.
+        // The first refresh fails after the session change: it is cancelled mid-flight, production converts
+        // the superseded session's cancellation into AuthenticationRequiredException, or the old request's
+        // HTTP error wins the race with the cancellation. None of them may flag the new account; the second
+        // refresh serves it.
         var releaseRefresh = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         int refreshCalls = 0;
         entitlements.RefreshHandler = async _ =>
         {
             await releaseRefresh.Task;
             if (Interlocked.Increment(ref refreshCalls) == 1)
-                throw new AuthenticationRequiredException();
+            {
+                throw failure switch
+                {
+                    "cancellation" => new OperationCanceledException(),
+                    "authentication" => new AuthenticationRequiredException(),
+                    _ => (Exception)await CreateApiException("{\"error_code\":\"unknown\"}"),
+                };
+            }
             return CreateEntitlements(canUseAi: true);
         };
 
         int refreshesBeforeRetry = entitlements.RefreshCount;
         Task retry = workspace.RetryGateLoad.ExecuteAsync();
-        await WaitUntilAsync(() => workspace.IsSigningIn.Value);
+        await HeadlessTestHelpers.WaitUntilAsync(() => workspace.IsSigningIn.Value, TimeSpan.FromSeconds(1));
 
+        // Dropped by the in-flight guard; the post-flight recheck must recover it.
         auth.Value = CreateUser("user-b");
         releaseRefresh.TrySetResult();
         await retry;
-        await WaitUntilAsync(() => workspace.HasEntitlementsSnapshot.Value);
+        await HeadlessTestHelpers.WaitUntilAsync(
+            () => workspace.HasEntitlementsSnapshot.Value, TimeSpan.FromSeconds(1));
         HeadlessTestHelpers.Settle();
 
         using (Assert.EnterMultipleScope())
         {
+            // The retry itself plus the post-flight recheck for the new account.
+            // The construction-time initial load is excluded via the baseline.
             Assert.That(
                 entitlements.RefreshCount,
                 Is.EqualTo(refreshesBeforeRetry + 2));
@@ -834,67 +701,6 @@ public sealed class AiWorkspaceGateTests
             Assert.That(workspace.SignInError.Value, Is.Null);
             Assert.That(workspace.IsGateOpen.Value, Is.False);
         }
-    }
-
-    [AvaloniaTest]
-    public async Task StaleApiErrorAfterAccountSwitch_RecoversNewAccount()
-    {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-gate-stale-api-error");
-        using var auth = new ReactivePropertySlim<AuthenticatedUser?>(CreateUser("user-a"));
-        var entitlements = new StubEntitlementService();
-        var plans = new StubPlanCoordinator();
-        await using var workspace = new AiWorkspaceViewModel(
-            editor,
-            _ => new StubPage(),
-            entitlements.Entitlements,
-            auth,
-            plans,
-            signIn: null,
-            entitlements);
-
-        // The old request's HTTP error must not flag the replacement account when
-        // it wins the race with session cancellation.
-        var releaseRefresh = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        int refreshCalls = 0;
-        entitlements.RefreshHandler = async _ =>
-        {
-            await releaseRefresh.Task;
-            if (Interlocked.Increment(ref refreshCalls) == 1)
-                throw await CreateApiException("{\"error_code\":\"unknown\"}");
-            return CreateEntitlements(canUseAi: true);
-        };
-
-        int refreshesBeforeRetry = entitlements.RefreshCount;
-        Task retry = workspace.RetryGateLoad.ExecuteAsync();
-        await WaitUntilAsync(() => workspace.IsSigningIn.Value);
-
-        auth.Value = CreateUser("user-b");
-        releaseRefresh.TrySetResult();
-        await retry;
-        await WaitUntilAsync(() => workspace.HasEntitlementsSnapshot.Value);
-        HeadlessTestHelpers.Settle();
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(
-                entitlements.RefreshCount,
-                Is.EqualTo(refreshesBeforeRetry + 2));
-            Assert.That(workspace.GateRefreshFailed.Value, Is.False);
-            Assert.That(workspace.SignInError.Value, Is.Null);
-            Assert.That(workspace.IsGateOpen.Value, Is.False);
-        }
-    }
-
-    private static async Task WaitUntilAsync(Func<bool> condition)
-    {
-        for (int attempt = 0; attempt < 100 && !condition(); attempt++)
-        {
-            HeadlessTestHelpers.Settle();
-            await Task.Delay(10);
-        }
-
-        Assert.That(condition(), Is.True);
     }
 
     private static async Task<ApiException> CreateApiException(string content)
@@ -940,18 +746,6 @@ public sealed class AiWorkspaceGateTests
             canUseAi,
             new AiBalance(new AiMonthlyUsage(0, 100, false), 0, false),
             new AiOperationAvailability([]));
-
-    private static async Task<EditViewModel> OpenEditor(string name)
-    {
-        string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(workspace);
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, workspace))!;
-        Scene scene = project.Items.OfType<Scene>().First();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
-    }
 
     private sealed class StubPage : IAsyncDisposable
     {
@@ -1003,9 +797,7 @@ public sealed class AiWorkspaceGateTests
 
         public Exception? OpenPlanFailure { get; set; }
 
-#pragma warning disable CS0067 // Required by IAiPlanCoordinator; this stub never raises it.
         public event EventHandler? Refreshed;
-#pragma warning restore CS0067
 
         public void RaiseRefreshed() => Refreshed?.Invoke(this, EventArgs.Empty);
 

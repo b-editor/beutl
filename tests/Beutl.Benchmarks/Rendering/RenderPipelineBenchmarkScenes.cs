@@ -105,8 +105,7 @@ internal sealed record RenderPipelineBenchmarkSceneDefinition
 }
 
 /// <summary>
-/// Stable workload metadata and source pixels shared by the baseline and feature render-pipeline benchmarks.
-/// Scene construction belongs in the benchmark harness so both worktrees consume these exact definitions.
+/// Stable workload metadata and source pixels for the render-pipeline benchmarks.
 /// </summary>
 internal static class RenderPipelineBenchmarkScenes
 {
@@ -117,8 +116,6 @@ internal static class RenderPipelineBenchmarkScenes
     public static readonly PixelSize ReferenceSize = new(384, 216);
 
     public static readonly Rect TargetDomain = new(0, 0, ReferenceSize.Width, ReferenceSize.Height);
-
-    public static readonly PixelSize Hd1080 = new(1920, 1080);
 
     private static readonly RenderPipelineBenchmarkSceneDefinition[] s_all =
     [
@@ -214,10 +211,6 @@ internal static class RenderPipelineBenchmarkScenes
     /// <summary>
     /// Bounds of one of a scene's top-level drawables, in the target domain.
     /// </summary>
-    /// <remarks>
-    /// The benchmark harness draws from this and the frozen-workload gate checks recorded counters
-    /// against it, so the two cannot drift into disagreeing about a scene's rendered extent.
-    /// </remarks>
     public static Rect GetDrawableBounds(RenderPipelineBenchmarkSceneDefinition scene, int index)
     {
         ArgumentNullException.ThrowIfNull(scene);
@@ -245,29 +238,6 @@ internal static class RenderPipelineBenchmarkScenes
             default:
                 return TargetDomain;
         }
-    }
-
-    /// <summary>
-    /// Device extent a scene rasterizes to, which is the union of its top-level drawables.
-    /// </summary>
-    public static PixelSize GetOutputSize(RenderPipelineBenchmarkSceneDefinition scene)
-    {
-        ArgumentNullException.ThrowIfNull(scene);
-        Rect union = GetDrawableBounds(scene, 0);
-        for (int index = 1; index < scene.TopLevelDrawableCount; index++)
-            union = union.Union(GetDrawableBounds(scene, index));
-        return new PixelSize((int)union.Width, (int)union.Height);
-    }
-
-    public static Half[] CreateLinearPremultipliedRgba16F(
-        RenderPipelineBenchmarkSceneDefinition scene,
-        PixelSize size)
-    {
-        ArgumentNullException.ThrowIfNull(scene);
-        int length = GetRequiredComponentCount(size);
-        var result = new Half[length];
-        FillLinearPremultipliedRgba16F(result, scene, size);
-        return result;
     }
 
     public static void FillLinearPremultipliedRgba16F(

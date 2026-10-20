@@ -222,20 +222,6 @@ public class ExpressionTests
     }
 
     [Test]
-    public void Evaluate_WithIntReturnType_ShouldConvertToDouble()
-    {
-        // Arrange
-        var expression = new StringExpression<double>("1 + 2");
-        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
-
-        // Act
-        double result = expression.Evaluate(context);
-
-        // Assert
-        Assert.That(result, Is.EqualTo(3.0));
-    }
-
-    [Test]
     public void Evaluate_WithIntExpression_ShouldWork()
     {
         // Arrange

@@ -71,9 +71,9 @@ public class EditorHostViewModel
                     RestoreAfterAbortedCloseAsync(project, selectedObject, projectClosed));
             }
 
-            await DispatchProjectChangeAsync(null, project,
-                saveChanges: closeContext.CloseIntent == ProjectService.ProjectCloseIntent.SaveChanges
-                             && !ReferenceEquals(closeContext.PreparedEditorService, _editorService));
+            bool saveChanges = closeContext.CloseIntent == ProjectService.ProjectCloseIntent.SaveChanges
+                               && !ReferenceEquals(closeContext.PreparedEditorService, _editorService);
+            await DispatchAsync(() => OnProjectChangedAsync(null, project, saveChanges));
         });
     }
 
@@ -81,12 +81,18 @@ public class EditorHostViewModel
     {
         return QueueOperationAsync(async () =>
         {
-            await DispatchProjectChangeAsync(project, null);
+            await DispatchAsync(() => OnProjectChangedAsync(project, null, saveChanges: true));
             if (_closedSelections.TryGetValue(project, out ClosedProjectSelection? selection))
             {
                 _closedSelections.Remove(project);
                 if (selection.SelectedObject is ProjectItem item && project.Items.Contains(item))
-                    await DispatchAsync(() => _editorService.ActivateTabItem(item));
+                {
+                    await DispatchAsync(() =>
+                    {
+                        _editorService.ActivateTabItem(item);
+                        return Task.CompletedTask;
+                    });
+                }
             }
         });
     }
@@ -94,19 +100,6 @@ public class EditorHostViewModel
     private sealed record ClosedProjectSelection(CoreObject? SelectedObject);
 
     internal sealed record ProjectLifecycleProgress(string Title, string Message);
-
-    private async Task DispatchProjectChangeAsync(Project? @new, Project? old, bool saveChanges = true)
-    {
-        if (Dispatcher.UIThread.CheckAccess())
-        {
-            await OnProjectChangedAsync(@new, old, saveChanges);
-        }
-        else
-        {
-            await Dispatcher.UIThread.InvokeAsync(async () =>
-                await OnProjectChangedAsync(@new, old, saveChanges));
-        }
-    }
 
     private Task RestoreAfterAbortedCloseAsync(
         Project project,
@@ -122,19 +115,23 @@ public class EditorHostViewModel
         return QueueOperationAsync(async () =>
         {
             // A save veto leaves the original tabs published. Only rebuild tabs that were torn down.
-            await DispatchProjectChangeAsync(project, null, saveChanges: false);
+            await DispatchAsync(() => OnProjectChangedAsync(project, null, saveChanges: false));
             if (selectedObject is ProjectItem selectedItem && project.Items.Contains(selectedItem))
             {
-                await DispatchAsync(() => _editorService.ActivateTabItem(selectedItem));
+                await DispatchAsync(() =>
+                {
+                    _editorService.ActivateTabItem(selectedItem);
+                    return Task.CompletedTask;
+                });
             }
         });
     }
 
-    private static async Task DispatchAsync(Action action)
+    private static async Task DispatchAsync(Func<Task> action)
     {
         if (Dispatcher.UIThread.CheckAccess())
         {
-            action();
+            await action();
         }
         else
         {

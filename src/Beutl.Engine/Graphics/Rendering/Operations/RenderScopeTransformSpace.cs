@@ -4,13 +4,8 @@
 /// Declares the space a guarded target scope's replay transform is defined in.
 /// </summary>
 /// <remarks>
-/// A scope's declared <see cref="RenderScaleContract"/> can carry an output demand back to its input only when
-/// the transform between them is expressed in the input's own coordinates. A scope that instead places its
-/// replay by writing the destination's own matrix has that scale carried there, where the value graph has no
-/// representation of it, so raising the input's demand would rasterize it enlarged and then draw it enlarged
-/// again. An engine transform scope declares its matrix rather than writing one, and every composition of one -
-/// <c>TransformOperator.Append</c> and <c>TransformOperator.Set</c> included - is resolved into the input's own
-/// space before planning reads it, so all of them are <see cref="InputLogical"/>.
+/// Only a transform defined in the input's logical space lets the backward map of the scope's
+/// <see cref="RenderScaleContract"/> carry an output demand to the input.
 /// </remarks>
 public enum RenderScopeTransformSpace : byte
 {

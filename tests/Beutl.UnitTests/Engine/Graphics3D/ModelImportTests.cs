@@ -1,5 +1,4 @@
 ﻿using System.Numerics;
-using System.Text.Json;
 using Beutl.Graphics3D.Materials;
 using Beutl.Graphics3D.Models;
 using Beutl.Graphics3D.Textures;
@@ -152,12 +151,16 @@ public sealed class ModelImportTests
     {
         // Two nodes instance the same triangle. The first inherits a translation and a
         // quarter-turn from its parent, then scales each local axis by a different amount.
-        string path = WriteGltf(
-        [
-            new { translation = new[] { 10f, 20f, 30f }, rotation = new[] { 0f, 0f, MathF.Sqrt(0.5f), MathF.Sqrt(0.5f) }, children = new[] { 1 } },
-            new { mesh = 0, scale = new[] { 2f, 3f, 4f } },
-            new { mesh = 0, translation = new[] { -5f, 0f, 0f } }
-        ], [0, 2]);
+        string path = ModelTestFiles.WriteGltf(
+            _root,
+            nodes:
+            [
+                new { translation = new[] { 10f, 20f, 30f }, rotation = new[] { 0f, 0f, MathF.Sqrt(0.5f), MathF.Sqrt(0.5f) }, children = new[] { 1 } },
+                new { mesh = 0, scale = new[] { 2f, 3f, 4f } },
+                new { mesh = 0, translation = new[] { -5f, 0f, 0f } }
+            ],
+            roots: [0, 2],
+            normals: true);
         var source = new ModelSource();
 
         source.ReadFrom(new Uri(path));
@@ -176,7 +179,7 @@ public sealed class ModelImportTests
     public void ModelSource_MirroredNodesKeepWindingConsistentWithNormals()
     {
         var source = new ModelSource();
-        source.ReadFrom(new Uri(WriteGltf([new { mesh = 0, scale = new[] { -1f, 1f, 1f } }], [0])));
+        source.ReadFrom(new Uri(ModelTestFiles.WriteGltf(_root, nodes: [new { mesh = 0, scale = new[] { -1f, 1f, 1f } }], normals: true)));
 
         MeshData mesh = source.GetMeshData(0);
 
@@ -193,7 +196,7 @@ public sealed class ModelImportTests
     public void Model3D_SaveAndReopenKeepsBakedPositionsWithoutApplyingTheTransformAgain()
     {
         var source = new ModelSource();
-        source.ReadFrom(new Uri(WriteGltf([new { mesh = 0, translation = new[] { 5f, 0f, 0f } }], [0])));
+        source.ReadFrom(new Uri(ModelTestFiles.WriteGltf(_root, nodes: [new { mesh = 0, translation = new[] { 5f, 0f, 0f } }], normals: true)));
         var model = new Model3D();
         model.Source.CurrentValue = source;
         var uri = new Uri(Path.Combine(_root, "model.json"));
@@ -207,40 +210,6 @@ public sealed class ModelImportTests
             Is.EquivalentTo(new[] { 5f, 6f, 5f }));
         Assert.That(child.Position.CurrentValue, Is.EqualTo(Vector3.Zero));
         Assert.That(child.Scale.CurrentValue, Is.EqualTo(Vector3.One));
-    }
-
-    private string WriteGltf(object[] nodes, int[] roots)
-    {
-        Vector3 normal = Vector3.Normalize(new Vector3(0, -1, 1));
-        float[] data =
-        [
-            0, 0, 0, 1, 0, 0, 0, 1, 1,
-            normal.X, normal.Y, normal.Z, normal.X, normal.Y, normal.Z, normal.X, normal.Y, normal.Z,
-        ];
-        byte[] buffer = new byte[data.Length * sizeof(float)];
-        Buffer.BlockCopy(data, 0, buffer, 0, buffer.Length);
-        var gltf = new
-        {
-            asset = new { version = "2.0" },
-            scene = 0,
-            scenes = new[] { new { nodes = roots } },
-            nodes,
-            meshes = new[] { new { primitives = new[] { new { attributes = new { POSITION = 0, NORMAL = 1 }, mode = 4 } } } },
-            buffers = new[] { new { uri = "data:application/octet-stream;base64," + Convert.ToBase64String(buffer), byteLength = buffer.Length } },
-            bufferViews = new[]
-            {
-                new { buffer = 0, byteOffset = 0, byteLength = 36, target = 34962 },
-                new { buffer = 0, byteOffset = 36, byteLength = 36, target = 34962 },
-            },
-            accessors = new object[]
-            {
-                new { bufferView = 0, componentType = 5126, count = 3, type = "VEC3", min = new[] { 0f, 0f, 0f }, max = new[] { 1f, 1f, 1f } },
-                new { bufferView = 1, componentType = 5126, count = 3, type = "VEC3" },
-            }
-        };
-        string path = Path.Combine(_root, "model.gltf");
-        File.WriteAllText(path, JsonSerializer.Serialize(gltf));
-        return path;
     }
 
     private static void AssertVertices(MeshData mesh, Vector3[] expected)

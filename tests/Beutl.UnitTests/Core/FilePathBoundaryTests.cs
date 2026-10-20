@@ -6,7 +6,7 @@ public sealed class PathBoundaryTests
     public void IsPathInsideRoot_DoesNotFoldNonexistentPathComponents()
     {
         string parent = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        Assert.That(PathBoundary.IsPathInsideRoot(Path.Combine(parent, "Project"),
+        Assert.That(FilePathComparison.IsSameOrDescendant(Path.Combine(parent, "Project"),
             Path.Combine(parent, "project", "sidecar.json")), Is.False);
     }
 
@@ -22,7 +22,7 @@ public sealed class PathBoundaryTests
             bool sameDirectory = Directory.Exists(alternate);
             if (!sameDirectory)
                 Directory.CreateDirectory(alternate);
-            Assert.That(PathBoundary.IsPathInsideRoot(root, Path.Combine(alternate, "sidecar.json")), Is.EqualTo(sameDirectory));
+            Assert.That(FilePathComparison.IsSameOrDescendant(root, Path.Combine(alternate, "sidecar.json")), Is.EqualTo(sameDirectory));
         }
         finally
         {
@@ -45,9 +45,9 @@ public sealed class PathBoundaryTests
             Directory.CreateSymbolicLink(alias, root);
             Assert.Multiple(() =>
             {
-                Assert.That(PathBoundary.IsPathInsideRoot(root, Path.Combine(root, "escape", "new.json")), Is.False);
-                Assert.That(PathBoundary.IsPathInsideRoot(root, Path.Combine(alias, "new.json")), Is.True);
-                Assert.That(PathBoundary.ResolveExistingPath(alias), Is.EqualTo(PathBoundary.ResolveExistingPath(root)));
+                Assert.That(FilePathComparison.IsSameOrDescendant(root, Path.Combine(root, "escape", "new.json")), Is.False);
+                Assert.That(FilePathComparison.IsSameOrDescendant(root, Path.Combine(alias, "new.json")), Is.True);
+                Assert.That(FilePathComparison.ResolveCanonicalPath(alias), Is.EqualTo(FilePathComparison.ResolveCanonicalPath(root)));
             });
         }
         catch (UnauthorizedAccessException) when (OperatingSystem.IsWindows())

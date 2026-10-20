@@ -53,40 +53,6 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
         _commandStateChangedSubject.Dispose();
     }
 
-    // IContextCommandHandler を実装しない場合、以下のように ContextCommandAttribute を使用してコマンドを定義します。
-    // [ContextCommand]
-    // public void PlayPause(KeyEventArgs e)
-    // {
-    //     if (e.Source is TextBox)
-    //         return;
-    //     Player.PlayPause.Execute();
-    //     e.Handled = true;
-    // }
-    //
-    // [ContextCommand]
-    // public void Next()
-    // {
-    //     Player.Next.Execute();
-    // }
-    //
-    // [ContextCommand]
-    // public void Previous()
-    // {
-    //     Player.Previous.Execute();
-    // }
-    //
-    // [ContextCommand]
-    // public void SeekStart()
-    // {
-    //     Player.Start.Execute();
-    // }
-    //
-    // [ContextCommand]
-    // public void SeekEnd()
-    // {
-    //     Player.End.Execute();
-    // }
-
     public bool CanExecute(ContextCommandExecution execution)
     {
         return execution.CommandName switch
@@ -188,11 +154,18 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
         return operation;
     }
 
-    private void ToggleMarkerAtCurrentTime()
+    // The frame the playhead is on, never before zero, and the name a new marker gets there.
+    private (int Rate, TimeSpan Time, string DefaultName) GetMarkerPlacement()
     {
         int rate = Player.GetFrameRate();
         TimeSpan time = _editorClock.CurrentTime.Value.RoundToRate(rate);
         if (time < TimeSpan.Zero) time = TimeSpan.Zero;
+        return (rate, time, $"Marker {Scene.Markers.Count + 1}");
+    }
+
+    private void ToggleMarkerAtCurrentTime()
+    {
+        (int rate, TimeSpan time, string defaultName) = GetMarkerPlacement();
 
         SceneMarker? existing = Scene.Markers
             .FirstOrDefault(m => m.Time.RoundToRate(rate) == time);
@@ -203,7 +176,7 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
         }
         else
         {
-            Scene.Markers.Add(new SceneMarker(time, $"Marker {Scene.Markers.Count + 1}"));
+            Scene.Markers.Add(new SceneMarker(time, defaultName));
             _logger.LogInformation("Added marker at {Time}.", time);
         }
 

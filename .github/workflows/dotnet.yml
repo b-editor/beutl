@@ -108,11 +108,6 @@ jobs:
             find . -type d -name obj -prune -exec rm -rf {} +
           }
 
-          if [[ ! "$CACHED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-            clear_cache
-            exit 0
-          fi
-
           if ! git cat-file -e "${CACHED_SHA}^{commit}" 2>/dev/null; then
             if ! git fetch --no-tags --depth=1 origin "$CACHED_SHA"; then
               clear_cache
@@ -159,12 +154,8 @@ jobs:
           path: ~/.nuget/packages
           key: dotnet-nuget-v1-${{ runner.os }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', '!**/obj/**', '!**/bin/**') }}
 
-      # Archive test outputs once, including their copied app/worker dependencies.
-      # Subprocess tests launch their own assembly or the worker copied next to it.
-      # tar preserves executable bits; test jobs run DLLs directly, so they need no
-      # obj directories, package restore or repeated solution build. The SDK's
-      # RID graph preserves host-compatible native/managed fallbacks while other
-      # platforms' assets are omitted from this Linux-only test artifact.
+      # Archive the test outputs, including the copied worker, once. tar keeps executable bits, and only
+      # the assets of RIDs compatible with this Linux host are kept.
       - name: Archive test binaries
         run: |
           coverlet_version=$(python3 -c 'import xml.etree.ElementTree as ET; print(next(p.attrib["Version"] for p in ET.parse("Directory.Packages.props").iter("PackageVersion") if p.attrib.get("Include") == "coverlet.collector"))')
@@ -207,7 +198,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.1
         with:
-          submodules: recursive
           persist-credentials: false
 
       - name: Setup .NET
@@ -483,3 +473,28 @@ jobs:
           path: TestResults/mediafoundation/
           if-no-files-found: ignore
           retention-days: 7
+
+  # Builds an extension against the packed SDK, as authors do; nothing else consumes it (#1648, #2730).
+  sdk-package:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Pack the SDK and the libraries
+        run: ./build.sh nuget-pack --version 0.0.0-ci --assembly-version 0.0.0.0 --informational-version 0.0.0-ci
+
+      - name: Build, pack and check a minimal extension
+        run: python3 build/check_extension_package.py artifacts --version 0.0.0-ci

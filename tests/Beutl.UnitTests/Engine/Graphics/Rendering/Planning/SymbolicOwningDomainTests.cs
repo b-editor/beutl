@@ -8,7 +8,8 @@ using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
-using SkiaSharp;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.Golden.ImageMetrics;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.RenderGraphTestSupport;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Planning;
 
@@ -80,7 +81,7 @@ public sealed class SymbolicOwningDomainTests
             Intent = RenderIntent.Preview,
             TargetDomain = s_rootDomain,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
         using var target = new CpuRenderTarget(100, 60);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
 
@@ -144,7 +145,7 @@ public sealed class SymbolicOwningDomainTests
         {
             Intent = RenderIntent.Preview,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
         using var target = new CpuRenderTarget(64, 48);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
 
@@ -388,7 +389,7 @@ public sealed class SymbolicOwningDomainTests
             Intent = RenderIntent.Preview,
             TargetDomain = s_rootDomain,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
         using var target = new CpuRenderTarget(100, 60);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
 
@@ -415,7 +416,7 @@ public sealed class SymbolicOwningDomainTests
             Intent = RenderIntent.Preview,
             TargetDomain = s_rootDomain,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
         using var target = new CpuRenderTarget(100, 60);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
 
@@ -452,7 +453,7 @@ public sealed class SymbolicOwningDomainTests
             OutputScale = density,
             MaxWorkingScale = 4,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
         PixelSize deviceSize = PixelRect.FromRect(domain, density).Size;
         using var target = new CpuRenderTarget(deviceSize.Width, deviceSize.Height);
         using var canvas = new ImmediateCanvas(
@@ -516,35 +517,6 @@ public sealed class SymbolicOwningDomainTests
         return new RenderRequestCompiler().Compile(request, graph);
     }
 
-    private static IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> References(
-        RecordedRenderGraph graph)
-        => graph.Fragments.ToDictionary(
-            static fragment => fragment.Id!.Value,
-            static fragment => fragment);
-
-    private static float AlphaAt(Bitmap bitmap, int x, int y)
-    {
-        Span<ushort> row = bitmap.GetRow<ushort>(y);
-        return (float)BitConverter.UInt16BitsToHalf(row[(x * 4) + 3]);
-    }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
-
     private sealed class BuiltInCaptureProbeNode : RenderNode, IBuiltInBackdropCaptureSink
     {
         public int CaptureCount { get; private set; }
@@ -559,12 +531,13 @@ public sealed class SymbolicOwningDomainTests
             context.Publish(context.BuiltInBackdropCapture(this));
         }
 
-        void IBuiltInBackdropCaptureSink.CommitBackdropCapture(Bitmap bitmap, float density)
+        bool IBuiltInBackdropCaptureSink.TryCommitBackdropCapture(Bitmap bitmap, float density)
         {
             CaptureCount++;
             CapturedDeviceSize = new PixelSize(bitmap.Width, bitmap.Height);
             CapturedDensity = density;
             bitmap.Dispose();
+            return true;
         }
     }
 
@@ -592,8 +565,11 @@ public sealed class SymbolicOwningDomainTests
             context.Publish(context.Layer([contributing], secondConsumerDomain));
         }
 
-        void IBuiltInBackdropCaptureSink.CommitBackdropCapture(Bitmap bitmap, float density)
-            => bitmap.Dispose();
+        bool IBuiltInBackdropCaptureSink.TryCommitBackdropCapture(Bitmap bitmap, float density)
+        {
+            bitmap.Dispose();
+            return true;
+        }
     }
 
     private sealed class UnknownEffectItemDerivedFanOutNode : RenderNode
@@ -663,9 +639,6 @@ internal sealed partial class SymbolicDomainFilterEffect : FilterEffect
 
     public new sealed class Resource : FilterEffect.Resource
     {
-        public Resource()
-        {
-        }
     }
 }
 
@@ -693,8 +666,5 @@ internal sealed partial class FiniteEffectItemEffect : FilterEffect
 
     public new sealed class Resource : FilterEffect.Resource
     {
-        public Resource()
-        {
-        }
     }
 }

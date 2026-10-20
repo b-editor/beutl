@@ -20,6 +20,20 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public sealed class ProxiesTabViewModelTests
 {
+    private readonly List<string> _roots = [];
+
+    [TearDown]
+    public void DeleteRoots()
+    {
+        foreach (string root in _roots)
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+
+        _roots.Clear();
+    }
+
     [Test]
     public void Refresh_ShowsFailureReasonOnlyForTheCurrentFailedFingerprint()
     {
@@ -87,8 +101,6 @@ public sealed class ProxiesTabViewModelTests
                 Is.EqualTo(string.Format(CultureInfo.CurrentCulture, Strings.ProxyClipSummaryFormat, 1, 1, 0, 0, 0)));
             Assert.That(viewModel.ProjectUsageText.Value, Is.EqualTo("1.5 KB"));
             Assert.That(viewModel.StoreUsageText.Value, Is.EqualTo("1.5 KB"));
-            Assert.That(viewModel.JobSummary.Value, Is.EqualTo(Strings.ProxyQueueIdle));
-            Assert.That(viewModel.StatusMessage.Value, Is.EqualTo(Strings.ProxyReady));
             Assert.That(clip.Preset.Value, Is.EqualTo(ProxyPreset.Quarter));
             Assert.That(clip.State.Value, Is.EqualTo(Strings.ProxyReady));
             Assert.That(clip.IsReady.Value, Is.True);
@@ -465,7 +477,7 @@ public sealed class ProxiesTabViewModelTests
 
         using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, sourcePath));
 
-        await viewModel.RegenerateAsync(viewModel.Clips.Single());
+        await viewModel.GenerateAsync(viewModel.Clips.Single());
 
         Assert.Multiple(() =>
         {
@@ -493,7 +505,6 @@ public sealed class ProxiesTabViewModelTests
         ProxyClipViewModel clip = viewModel.Clips.Single();
         Assert.Multiple(() =>
         {
-            Assert.That(viewModel.JobSummary.Value, Is.EqualTo(Strings.ProxyQueuedJobSingular));
             Assert.That(clip.HasJob.Value, Is.True);
             Assert.That(clip.JobStatus.Value, Is.EqualTo(Strings.ProxyJobStatusRunning));
             Assert.That(clip.JobProgressValue.Value, Is.EqualTo(0.42).Within(0.001));
@@ -601,6 +612,8 @@ public sealed class ProxiesTabViewModelTests
 
         // A Touch event (preview resolving a proxy) must not rebuild the clip list and drop selection.
         store.Touch(fingerprint, ProxyPreset.Quarter, DateTime.UtcNow);
+        // Write the touch now, or its deferred flush recreates the root after TearDown deletes it.
+        store.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
 
         Assert.Multiple(() =>
         {
@@ -839,7 +852,6 @@ public sealed class ProxiesTabViewModelTests
 
         viewModel.Delete(clip);
 
-        Assert.That(viewModel.StatusMessage.Value, Is.EqualTo(Strings.ProxyDeleteFailedSingular));
         Assert.That(notifications.Single().Message, Is.EqualTo(Strings.ProxyDeleteFailedSingular));
         Assert.That(notifications.Single().Type, Is.EqualTo(NotificationType.Error));
     }
@@ -856,12 +868,14 @@ public sealed class ProxiesTabViewModelTests
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
         RegisterProxyEntry(inner, ReadyEntry(fingerprint));
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, new RestoreFileOnDeleteStore(inner), sourcePath));
+        var notifications = new List<Notification>();
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, new RestoreFileOnDeleteStore(inner), sourcePath)) { Notify = notifications.Add };
         ProxyClipViewModel clip = viewModel.Clips.Single();
 
         viewModel.Delete(clip);
 
-        Assert.That(viewModel.StatusMessage.Value, Is.EqualTo(Strings.ProxyDeleteFailedSingular));
+        Assert.That(notifications.Single().Message, Is.EqualTo(Strings.ProxyDeleteFailedSingular));
+        Assert.That(notifications.Single().Type, Is.EqualTo(NotificationType.Error));
     }
 
     [Test]
@@ -871,14 +885,15 @@ public sealed class ProxiesTabViewModelTests
         string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+        var notifications = new List<Notification>();
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath)) { Notify = notifications.Add };
         ProxyClipViewModel clip = viewModel.Clips.Single();
 
         // No entry is registered, so Delete returns false for "not found" — a benign race,
         // not an in-use failure the user must be told about.
         viewModel.Delete(clip);
 
-        Assert.That(viewModel.StatusMessage.Value, Is.Not.EqualTo(Strings.ProxyDeleteFailedSingular));
+        Assert.That(notifications, Is.Empty);
     }
 
     [Test]
@@ -1246,7 +1261,6 @@ public sealed class ProxiesTabViewModelTests
         Assert.Multiple(() =>
         {
             Assert.That(viewModel.Clips, Has.Count.EqualTo(2));
-            Assert.That(viewModel.StatusMessage.Value, Is.EqualTo(Strings.ProxyBulkNoEligibleClips));
             Assert.That(queue.Pending(), Is.Empty);
             Assert.That(notifications.Single().Message, Is.EqualTo(Strings.ProxyBulkNoEligibleClips));
             Assert.That(notifications.Single().Type, Is.EqualTo(NotificationType.Information));
@@ -1343,10 +1357,11 @@ public sealed class ProxiesTabViewModelTests
         return new ProxyEntry(source, preset, ProxyState.Ready, file, bytes, new PixelSize(1920, 1080), size, now, now, null);
     }
 
-    private static string CreateRoot()
+    private string CreateRoot()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
+        _roots.Add(root);
         return root;
     }
 

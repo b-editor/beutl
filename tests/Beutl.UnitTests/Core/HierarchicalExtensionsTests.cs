@@ -1,4 +1,5 @@
 ﻿using Beutl.Collections;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Core;
 
@@ -11,27 +12,29 @@ public class HierarchicalExtensionsTests
 
     private sealed class SpecialNode : TestNode;
 
-    private sealed class TestRoot : Hierarchical, IHierarchicalRoot, IModifiableHierarchical
+    private sealed class ThrowingParentNode : IHierarchical
     {
-        public new ICoreList<IHierarchical> HierarchicalChildren => base.HierarchicalChildren;
+        public IHierarchical? HierarchicalParent => throw new InvalidOperationException("The parent cannot be read.");
 
-        public event EventHandler<IHierarchical>? DescendantAttached;
-        public event EventHandler<IHierarchical>? DescendantDetached;
+        public IHierarchicalRoot? HierarchicalRoot => null;
 
-        public void OnDescendantAttached(IHierarchical descendant) => DescendantAttached?.Invoke(this, descendant);
-        public void OnDescendantDetached(IHierarchical descendant) => DescendantDetached?.Invoke(this, descendant);
+        public ICoreReadOnlyList<IHierarchical> HierarchicalChildren { get; } = new CoreList<IHierarchical>();
+
+        public event EventHandler<HierarchyAttachmentEventArgs> AttachedToHierarchy { add { } remove { } }
+
+        public event EventHandler<HierarchyAttachmentEventArgs> DetachedFromHierarchy { add { } remove { } }
     }
 
     [Test]
     public void FindHierarchicalParent_Generic_FindsAncestor()
     {
-        var root = new TestRoot();
+        var root = new TestHierarchicalRoot();
         var middle = new TestNode();
         var leaf = new SpecialNode();
         root.HierarchicalChildren.Add(middle);
         middle.HierarchicalChildren.Add(leaf);
 
-        TestRoot? found = ((IHierarchical)leaf).FindHierarchicalParent<TestRoot>();
+        TestHierarchicalRoot? found = ((IHierarchical)leaf).FindHierarchicalParent<TestHierarchicalRoot>();
 
         Assert.That(found, Is.SameAs(root));
     }
@@ -51,7 +54,23 @@ public class HierarchicalExtensionsTests
     {
         var root = new TestNode();
 
-        TestRoot? found = ((IHierarchical)root).FindHierarchicalParent<TestRoot>();
+        TestHierarchicalRoot? found = ((IHierarchical)root).FindHierarchicalParent<TestHierarchicalRoot>();
+
+        Assert.That(found, Is.Null);
+    }
+
+    [Test]
+    public void FindHierarchicalParent_Generic_LetsAThrowingParentGetterThrow()
+    {
+        var node = new ThrowingParentNode();
+
+        Assert.That(() => node.FindHierarchicalParent<TestHierarchicalRoot>(), Throws.InvalidOperationException);
+    }
+
+    [Test]
+    public void FindHierarchicalParent_Generic_NullReceiver_ReturnsDefault([Values] bool includeSelf)
+    {
+        TestHierarchicalRoot? found = ((IHierarchical)null!).FindHierarchicalParent<TestHierarchicalRoot>(includeSelf);
 
         Assert.That(found, Is.Null);
     }
@@ -62,58 +81,26 @@ public class HierarchicalExtensionsTests
         var root = new TestNode();
 
         Assert.That(
-            () => ((IHierarchical)root).FindRequiredHierarchicalParent<TestRoot>(),
+            () => ((IHierarchical)root).FindRequiredHierarchicalParent<TestHierarchicalRoot>(),
             Throws.TypeOf<HierarchyException>());
     }
 
     [Test]
     public void FindRequiredHierarchicalParent_Generic_ReturnsAncestor()
     {
-        var root = new TestRoot();
+        var root = new TestHierarchicalRoot();
         var leaf = new TestNode();
         root.HierarchicalChildren.Add(leaf);
 
-        TestRoot found = ((IHierarchical)leaf).FindRequiredHierarchicalParent<TestRoot>();
+        TestHierarchicalRoot found = ((IHierarchical)leaf).FindRequiredHierarchicalParent<TestHierarchicalRoot>();
 
         Assert.That(found, Is.SameAs(root));
-    }
-
-    [Test]
-    public void FindHierarchicalParent_Type_FindsAncestor()
-    {
-        var root = new TestRoot();
-        var leaf = new TestNode();
-        root.HierarchicalChildren.Add(leaf);
-
-        IHierarchical? found = ((IHierarchical)leaf).FindHierarchicalParent(typeof(TestRoot));
-
-        Assert.That(found, Is.SameAs(root));
-    }
-
-    [Test]
-    public void FindHierarchicalParent_Type_IncludeSelf_ReturnsSelfWhenMatching()
-    {
-        var leaf = new TestNode();
-
-        IHierarchical? found = ((IHierarchical)leaf).FindHierarchicalParent(typeof(TestNode), includeSelf: true);
-
-        Assert.That(found, Is.SameAs(leaf));
-    }
-
-    [Test]
-    public void FindRequiredHierarchicalParent_Type_NoMatch_Throws()
-    {
-        var root = new TestNode();
-
-        Assert.That(
-            () => ((IHierarchical)root).FindRequiredHierarchicalParent(typeof(TestRoot)),
-            Throws.TypeOf<HierarchyException>());
     }
 
     [Test]
     public void FindHierarchicalRoot_FromLeaf_FindsRoot()
     {
-        var root = new TestRoot();
+        var root = new TestHierarchicalRoot();
         var leaf = new TestNode();
         root.HierarchicalChildren.Add(leaf);
 
@@ -151,7 +138,7 @@ public class HierarchicalExtensionsTests
     [Test]
     public void EnumerateAncestors_IteratesUpwardIncludingSelf()
     {
-        var root = new TestRoot();
+        var root = new TestHierarchicalRoot();
         var middle = new TestNode();
         var leaf = new SpecialNode();
         root.HierarchicalChildren.Add(middle);
@@ -160,6 +147,7 @@ public class HierarchicalExtensionsTests
         IHierarchical[] ancestors = ((IHierarchical)leaf).EnumerateAncestors<IHierarchical>().ToArray();
 
         Assert.That(ancestors[0], Is.SameAs(leaf));
+        Assert.That(ancestors[1], Is.SameAs(middle));
         Assert.That(ancestors[^1], Is.SameAs(root));
     }
 }

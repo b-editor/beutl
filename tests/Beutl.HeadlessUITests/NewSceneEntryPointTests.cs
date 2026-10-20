@@ -13,10 +13,8 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;
 
-// File > New > Scene, Ctrl+N and the start screen's New > Scene used to run a command that nothing
-// subscribed to, so they did nothing (#2857). Each must run MenuBar.NewScene, the command whose
-// handler opens the new scene dialog (Scene > New uses it too). The dialog itself cannot open in
-// the headless host: FAContentDialog.ShowAsync() needs an application lifetime to find its window.
+// Guards #2857: every New Scene entry point runs MenuBar.NewScene. The dialog itself cannot open in the
+// headless host, because FAContentDialog.ShowAsync() needs an application lifetime to find its window.
 [TestFixture]
 public class NewSceneEntryPointTests
 {
@@ -69,9 +67,9 @@ public class NewSceneEntryPointTests
 
             MenuItem fileNewScene = view.GetLogicalDescendants().OfType<MenuItem>()
                 .Single(item => Equals(item.Header, Strings.CreateNewScene));
-            NativeMenu macFileMenu = MacWindow.FindMenuItem(NativeMenu.GetMenu(macWindow), Strings.File)!.Menu!;
-            NativeMenu macNewMenu = MacWindow.FindMenuItem(macFileMenu, Strings.CreateNew)!.Menu!;
-            NativeMenuItem macNewScene = MacWindow.FindMenuItem(macNewMenu, Strings.CreateNewScene)!;
+            NativeMenu macFileMenu = FindMenuItem(NativeMenu.GetMenu(macWindow)!, Strings.File).Menu!;
+            NativeMenu macNewMenu = FindMenuItem(macFileMenu, Strings.CreateNew).Menu!;
+            NativeMenuItem macNewScene = FindMenuItem(macNewMenu, Strings.CreateNewScene);
 
             // The start screen catches the dialog's failure to open in the headless host
             EditorHostFallback startScreen = view.GetVisualDescendants().OfType<EditorHostFallback>().Single();
@@ -99,4 +97,7 @@ public class NewSceneEntryPointTests
             await TestReset.ResetShellAsync();
         }
     }
+
+    private static NativeMenuItem FindMenuItem(NativeMenu menu, string header)
+        => menu.Items.OfType<NativeMenuItem>().First(item => item.Header == header);
 }

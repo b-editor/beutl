@@ -66,6 +66,24 @@ public class JsonConvertersTests
     }
 
     [Test]
+    [SetCulture("es-ES")]
+    public void Vector3AndQuaternion_WriteInvariantNumbers_InACultureWithADecimalComma()
+    {
+        var v = new Vector3(1.5f, -2.5f, 3.5f);
+        var q = new Quaternion(0.1f, 0.2f, 0.3f, 1f);
+        string vectorJson = JsonSerializer.Serialize(v, s_options);
+        string quaternionJson = JsonSerializer.Serialize(q, s_options);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(vectorJson, Is.EqualTo("\"1.5,-2.5,3.5\""));
+            Assert.That(quaternionJson, Is.EqualTo("\"0.1,0.2,0.3,1\""));
+            Assert.That(JsonSerializer.Deserialize<Vector3>(vectorJson, s_options), Is.EqualTo(v));
+            Assert.That(JsonSerializer.Deserialize<Quaternion>(quaternionJson, s_options), Is.EqualTo(q));
+        });
+    }
+
+    [Test]
     public void Rational_FromString_Reads()
     {
         Rational r = JsonSerializer.Deserialize<Rational>("\"3/4\"", s_options);
@@ -73,11 +91,10 @@ public class JsonConvertersTests
     }
 
     [Test]
-    public void Rational_FromObject_ReadsNumeratorDenominator()
+    public void Rational_FromObject_Throws()
     {
-        const string json = "{\"Numerator\":7,\"Denominator\":2}";
-        Rational r = JsonSerializer.Deserialize<Rational>(json, s_options);
-        Assert.That(r, Is.EqualTo(new Rational(7, 2)));
+        // The converter has always written a string; no release wrote this form.
+        Assert.Catch(() => JsonSerializer.Deserialize<Rational>("{\"Numerator\":7,\"Denominator\":2}", s_options));
     }
 
     [Test]

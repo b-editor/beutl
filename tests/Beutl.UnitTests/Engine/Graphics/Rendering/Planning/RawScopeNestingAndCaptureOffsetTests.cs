@@ -3,8 +3,6 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Media;
-using Beutl.UnitTests.Engine.Graphics.Rendering.Failure;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Planning;
 
@@ -338,18 +336,10 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
 
         bool IBuiltInBackdropCaptureSink.TryCommitBackdropCapture(Bitmap bitmap, float density)
         {
-            Record(bitmap, density);
-            return true;
-        }
-
-        void IBuiltInBackdropCaptureSink.CommitBackdropCapture(Bitmap bitmap, float density)
-            => Record(bitmap, density);
-
-        private void Record(Bitmap bitmap, float density)
-        {
             CapturedDeviceSize = new PixelSize(bitmap.Width, bitmap.Height);
             CapturedDensity = density;
             bitmap.Dispose();
+            return true;
         }
     }
 
@@ -408,7 +398,7 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
             TargetDomain = domain,
             OutputScale = 1,
             CacheOptions = RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
         => new(node, new RenderNodeRenderRequest
@@ -472,23 +462,4 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
             context.Publish(context.ContributeValues(capture));
         }
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-        {
-            PixelSize deviceSize = allocation.DeviceSize;
-            SKSurface surface = SKSurface.Create(new SKImageInfo(
-                    deviceSize.Width,
-                    deviceSize.Height,
-                    SKColorType.RgbaF16,
-                    SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear()))
-                ?? throw new InvalidOperationException("Could not create the CPU capture test surface.");
-            return new CpuRenderTarget(surface, deviceSize);
-        }
-    }
-
-    private sealed class CpuRenderTarget(SKSurface surface, PixelSize size)
-        : RenderTarget(surface, size.Width, size.Height);
 }

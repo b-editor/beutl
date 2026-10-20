@@ -5,6 +5,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.SceneSettingsTab.Views;
 using Beutl.Editor.Services;
@@ -25,14 +26,7 @@ public class SceneSettingsLayoutTests
     [TestCase(640, 420, true)]
     public async Task Inputs_and_actions_remain_reachable_in_short_docks(int width, int height, bool light)
     {
-        await TestReset.ResetShellAsync();
-        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"scene-settings-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "scene-settings", root))!;
-        Scene scene = project.Items.OfType<Scene>().Single();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("scene-settings");
         var options = (ITimelineOptionsProvider)editor.GetService(typeof(ITimelineOptionsProvider))!;
         using var model = new SceneSettingsTabViewModel(editor);
         var view = new SceneSettingsTabView { DataContext = model };
@@ -52,7 +46,7 @@ public class SceneSettingsLayoutTests
             Button revert = view.FindControl<Button>("RevertButton")!;
             TextBox start = view.FindControl<TextBox>("StartInputTextBox")!;
             TextBox duration = view.FindControl<TextBox>("DurationInputTextBox")!;
-            IntEditor layers = view.FindControl<IntEditor>("countEditor")!;
+            NumberEditor<int> layers = view.FindControl<NumberEditor<int>>("countEditor")!;
             Capture(window, $"initial-{width}x{height}-{light}");
 
             if (height == 160)

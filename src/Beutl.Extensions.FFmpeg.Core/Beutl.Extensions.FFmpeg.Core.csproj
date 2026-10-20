@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <BeutlHostLibrary>true</BeutlHostLibrary>
     <RepositoryUrl>https://github.com/b-editor/beutl</RepositoryUrl>
     <Description>Headless FFmpeg encoding core for Beutl</Description>
     <PackageTags>ffmpeg;encoder;encoding;video;audio</PackageTags>
@@ -10,6 +11,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Beutl.UnitTests" />
+    <InternalsVisibleTo Include="Beutl.FFmpegIpc.Tests" />
   </ItemGroup>
 
   <ItemGroup>

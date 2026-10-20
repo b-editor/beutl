@@ -70,31 +70,27 @@ internal partial class VersionControlCoordinator
             return;
         }
 
-        bool executablePathChanged =
-            TryCaptureGitExecutablePathChange(out string? executablePath);
-        bool useLfsWhenAvailableChanged = TryCaptureUseLfsWhenAvailableChange(
-            out bool useLfsWhenAvailable);
+        bool executablePathChanged = TryCaptureGitExecutablePathChange();
         if (executablePathChanged)
         {
             AdvanceProjectServiceEpoch();
         }
 
-        if ((executablePathChanged || useLfsWhenAvailableChanged)
-            && _projectService.CurrentProject.Value is { } project)
+        CaptureUseLfsWhenAvailableChange();
+        if (executablePathChanged
+            && _projectService.CurrentProject.Value is not null
+            && _state.OwnedService?.Repository is null)
         {
-            QueueConfigurationActivation(
-                project,
-                useLfsWhenAvailable,
-                rediscoverUnassociatedBackend: executablePathChanged,
-                reapplyTrackedRepositoryHygiene: useLfsWhenAvailableChanged);
+            _rediscoveryRequested = true;
         }
 
+        StartConfigurationActivation();
         StartAvailabilityRefresh();
     }
 
-    private bool TryCaptureGitExecutablePathChange(out string? executablePath)
+    private bool TryCaptureGitExecutablePathChange()
     {
-        executablePath = NormalizeGitExecutablePath(_config.GitExecutablePath);
+        string? executablePath = NormalizeGitExecutablePath(_config.GitExecutablePath);
         if (NullablePathsEqual(executablePath, _observedGitExecutablePath))
         {
             return false;
@@ -104,83 +100,27 @@ internal partial class VersionControlCoordinator
         return true;
     }
 
-    private bool TryCaptureUseLfsWhenAvailableChange(out bool useLfsWhenAvailable)
+    private void CaptureUseLfsWhenAvailableChange()
     {
-        useLfsWhenAvailable = _config.UseLfsWhenAvailable;
+        bool useLfsWhenAvailable = _config.UseLfsWhenAvailable;
         if (useLfsWhenAvailable == _observedUseLfsWhenAvailable)
         {
-            return false;
+            return;
         }
 
         _observedUseLfsWhenAvailable = useLfsWhenAvailable;
-        if (_state.OwnedService?.Repository is not null)
+        // An activation in progress may have read the old setting for the backend it is preparing.
+        if (_state.OwnedService?.Repository is not null || _activation is not null)
         {
             _repositoryHygieneConfigurationDirty = true;
         }
-
-        return true;
-    }
-
-    // A version-control operation that closed and reopened the project kept its backend, so an LFS setting
-    // that changed meanwhile is applied to that backend now.
-    private void QueueRepositoryHygieneConfigurationIfDirty(Project project)
-    {
-        if (_repositoryHygieneConfigurationDirty)
-        {
-            QueueConfigurationActivation(
-                project,
-                _observedUseLfsWhenAvailable,
-                rediscoverUnassociatedBackend: false,
-                reapplyTrackedRepositoryHygiene: true);
-        }
-    }
-
-    // A changed Git executable rediscovers the repository of a project that is not tracked yet, and a
-    // changed LFS setting applies the repository hygiene to a tracked one. Changes that arrive before the
-    // previous one ran are merged into it.
-    private void QueueConfigurationActivation(
-        Project project,
-        bool useLfsWhenAvailable,
-        bool rediscoverUnassociatedBackend,
-        bool reapplyTrackedRepositoryHygiene)
-    {
-        string projectRoot = GetProjectRoot(project);
-        if (_disposed || !ReferenceEquals(_projectService.CurrentProject.Value, project))
-        {
-            return;
-        }
-
-        if (_state.ProjectRoot is { } stateRoot
-            && PathsEqual(stateRoot, projectRoot)
-            && _state.OwnedService?.Repository is not null
-            && !reapplyTrackedRepositoryHygiene)
-        {
-            return;
-        }
-
-        ConfigurationActivationRequest? pending = _pendingConfigurationActivation;
-        _pendingConfigurationActivation = new ConfigurationActivationRequest(
-            project,
-            projectRoot,
-            useLfsWhenAvailable,
-            rediscoverUnassociatedBackend
-            || pending?.RediscoverUnassociatedBackend == true,
-            reapplyTrackedRepositoryHygiene
-            || pending?.ReapplyTrackedRepositoryHygiene == true);
-        // A rediscovery for an executable that changed again starts over with the newer one.
-        if (rediscoverUnassociatedBackend && _activation is { IsRediscovery: true } rediscovery)
-        {
-            CancelActivation(rediscovery);
-        }
-
-        StartConfigurationActivation();
     }
 
     private void StartConfigurationActivation()
     {
         if (_configurationActivationRunning
             || _disposed
-            || _pendingConfigurationActivation is null)
+            || !(_rediscoveryRequested || _repositoryHygieneConfigurationDirty))
         {
             return;
         }
@@ -189,8 +129,8 @@ internal partial class VersionControlCoordinator
         _ = RunConfigurationActivationsAsync();
     }
 
-    // Applies the queued changes one after another under the operation gate, so no operation runs between
-    // them, after any activation in progress has decided how the project is tracked.
+    // Applies the changes under the operation gate, so no operation runs between them, after any activation
+    // in progress has decided how the project is tracked.
     private async Task RunConfigurationActivationsAsync()
     {
         using RunningWork work = BeginWork();
@@ -209,12 +149,10 @@ internal partial class VersionControlCoordinator
                     await activation.Completion.WaitAsync(operation.CancellationToken);
                 }
 
-                if (TakePendingConfigurationActivation() is not { } start)
+                if (!await ApplyConfigurationChangeAsync(operation.CancellationToken))
                 {
                     break;
                 }
-
-                await RunConfigurationActivationAsync(start, operation.CancellationToken);
             }
         }
         catch (Exception ex)
@@ -234,31 +172,33 @@ internal partial class VersionControlCoordinator
         }
     }
 
-    private async Task RunConfigurationActivationAsync(
-        ConfigurationActivationStart start,
-        CancellationToken cancellationToken)
+    // Applies the current settings once and returns false when nothing is left. The flag is cleared first,
+    // so a change that arrives meanwhile sets it again and the caller runs once more.
+    private async Task<bool> ApplyConfigurationChangeAsync(CancellationToken cancellationToken)
     {
-        ConfigurationActivationRequest request = start.Request;
+        IProjectVersionControlBackend? trackedService =
+            _state.OwnedService is { Repository: not null } owned ? owned : null;
+        // A tracked backend picks up a new executable itself; an activation applies the current LFS setting.
+        bool pending = trackedService is null ? _rediscoveryRequested : _repositoryHygieneConfigurationDirty;
+        _rediscoveryRequested = false;
+        _repositoryHygieneConfigurationDirty = false;
+        if (!pending || _disposed || _projectService.CurrentProject.Value is not { } project)
+        {
+            return false;
+        }
+
         try
         {
-            if (start.TrackedService is { } trackedService)
+            if (trackedService is not null)
             {
                 await trackedService.EnsureRepositoryHygieneAsync(cancellationToken);
-                if (ReferenceEquals(_state.OwnedService, trackedService)
-                    && trackedService.Repository is not null
-                    && request.UseLfsWhenAvailable == _observedUseLfsWhenAvailable)
-                {
-                    _repositoryHygieneConfigurationDirty = false;
-                }
             }
             else if (ActivateProject(
-                         request.Project,
+                         project,
                          newProject: false,
                          preparedNewProject: null,
-                         cancellationToken,
-                         isRediscovery: true) is { } activation)
+                         cancellationToken) is { } activation)
             {
-                // A newer executable cancels this activation and leaves its change queued instead.
                 await activation.Completion;
             }
 
@@ -266,55 +206,22 @@ internal partial class VersionControlCoordinator
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // Tried again if a close stopped it and then left the project open.
-            _pendingConfigurationActivation ??= request;
+            // Applied again if a close stopped it and then left the project open.
+            _repositoryHygieneConfigurationDirty |= trackedService is not null;
+            _rediscoveryRequested |= trackedService is null;
             throw;
         }
         catch (Exception ex)
         {
+            // Kept for the next run, which a later setting change, close or transition starts.
+            _repositoryHygieneConfigurationDirty |= trackedService is not null;
             _logger.LogError(ex, "Failed to apply a version-control configuration change.");
-        }
-    }
-
-    private ConfigurationActivationStart? TakePendingConfigurationActivation()
-    {
-        while (_pendingConfigurationActivation is { } request)
-        {
-            _pendingConfigurationActivation = null;
-            if (_disposed
-                || !ReferenceEquals(_projectService.CurrentProject.Value, request.Project)
-                || _state.ProjectRoot is { } stateRoot && !PathsEqual(stateRoot, request.ProjectRoot))
-            {
-                continue;
-            }
-
-            if (_state.ProjectRoot is not null && _state.OwnedService?.Repository is not null)
-            {
-                if (request.ReapplyTrackedRepositoryHygiene)
-                {
-                    return new ConfigurationActivationStart(request, _state.OwnedService);
-                }
-            }
-            else if (request.RediscoverUnassociatedBackend)
-            {
-                return new ConfigurationActivationStart(request, TrackedService: null);
-            }
+            return false;
         }
 
-        return null;
+        return true;
     }
 
     private static string? NormalizeGitExecutablePath(string? path)
         => string.IsNullOrWhiteSpace(path) ? null : path;
-
-    private sealed record ConfigurationActivationRequest(
-        Project Project,
-        string ProjectRoot,
-        bool UseLfsWhenAvailable,
-        bool RediscoverUnassociatedBackend,
-        bool ReapplyTrackedRepositoryHygiene);
-
-    private sealed record ConfigurationActivationStart(
-        ConfigurationActivationRequest Request,
-        IProjectVersionControlBackend? TrackedService);
 }

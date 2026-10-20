@@ -16,7 +16,6 @@ internal static class ToolTabReuse
         bool retargetAnyOpen)
         where T : IToolContext
     {
-        // Prefer matching and idle tabs before occupied tabs.
         return editorContext.FindToolTab(isExactMatch)
                ?? editorContext.FindToolTab<T>(t => !IsPinned(t) && isIdle(t))
                ?? (retargetAnyOpen ? editorContext.FindToolTab<T>(t => !IsPinned(t)) : default);

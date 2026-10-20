@@ -132,9 +132,9 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
 
     private void RemoveItems(int index, int count)
     {
-        foreach (EngineObjectPropertyViewModel item in Items.GetMarshal().Value.Slice(index, count))
+        foreach (EngineObjectPropertyViewModel item in Items.AsSpan().Slice(index, count))
         {
-            item?.Dispose();
+            item.Dispose();
         }
         Items.RemoveRange(index, count);
     }
@@ -163,9 +163,9 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
     // Returns false when the target is the element itself or not shown here.
     public bool Reveal(CoreObject target, string? propertyName)
     {
-        foreach (EngineObjectPropertyViewModel? item in Items)
+        foreach (EngineObjectPropertyViewModel item in Items)
         {
-            if (item is null || !IsWithin(target, item.Model))
+            if (!IsWithin(target, item.Model))
                 continue;
 
             item.IsExpanded.Value = true;
@@ -178,13 +178,7 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
 
     internal static bool IsWithin(CoreObject target, IHierarchical root)
     {
-        for (IHierarchical? current = target as IHierarchical; current is not null; current = current.HierarchicalParent)
-        {
-            if (ReferenceEquals(current, root))
-                return true;
-        }
-
-        return false;
+        return (target as IHierarchical)?.EnumerateAncestors<IHierarchical>().Any(h => ReferenceEquals(h, root)) == true;
     }
 
     public void Dispose()
@@ -206,15 +200,7 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
 
     private static string ViewStateDirectory(Element element)
     {
-        string directory = Path.GetDirectoryName(element.Uri!.LocalPath)!;
-
-        directory = Path.Combine(directory, EditorConstants.BeutlFolder, EditorConstants.ViewStateFolder);
-        if (!Directory.Exists(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        return directory;
+        return EditorConstants.GetViewStateDirectory(element.Uri!);
     }
 
     // Creates the view-state directory when it is missing.
@@ -229,9 +215,9 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
     {
         string viewStateFile = ViewStateFile(element);
         var json = new JsonArray();
-        foreach (EngineObjectPropertyViewModel? item in Items)
+        foreach (EngineObjectPropertyViewModel item in Items)
         {
-            json.Add(item?.SaveState());
+            json.Add(item.SaveState());
         }
 
         json.JsonSave(viewStateFile);
@@ -260,9 +246,9 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
 
     private void ClearItems()
     {
-        foreach (EngineObjectPropertyViewModel? item in Items.GetMarshal().Value)
+        foreach (EngineObjectPropertyViewModel item in Items.AsSpan())
         {
-            item?.Dispose();
+            item.Dispose();
         }
         Items.Clear();
     }

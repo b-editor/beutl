@@ -14,7 +14,6 @@ namespace Beutl.UnitTests.Engine.Graphics.Backend;
 public class VulkanDeviceLifetimeTests
 {
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void DeferRelease_AfterDeviceDestroyed_DropsTheRelease()
     {
         VulkanContext shared = VulkanTestEnvironment.EnsureVulkanContext();
@@ -39,7 +38,6 @@ public class VulkanDeviceLifetimeTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void DeferRelease_AfterPoolDisposedWhileDeviceAlive_StillRunsTheRelease()
     {
         VulkanContext shared = VulkanTestEnvironment.EnsureVulkanContext();

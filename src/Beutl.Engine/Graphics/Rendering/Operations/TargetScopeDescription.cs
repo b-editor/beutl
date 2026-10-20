@@ -52,8 +52,7 @@ public sealed class TargetScopeDescription
 
     /// <summary>Gets whether the renderer lowers this scope into the value graph.</summary>
     /// <remarks>
-    /// Engine-owned and not declarable: it requires the callback to be mechanically restricted to
-    /// allocation-free target state plus exactly one replay. <see cref="TransformSpace"/> is the separate,
+    /// Set only by <see cref="CreateValueReplayMap{TState}"/>. <see cref="TransformSpace"/> is the separate,
     /// author-declarable question of where the replay transform lives.
     /// </remarks>
     internal bool IsValueReplayMap { get; }
@@ -117,6 +116,7 @@ public sealed class TargetScopeDescription
     /// The opt-out for a callback whose pixel-affecting state cannot be expressed as copied, deeply immutable
     /// CPU state. The callback may capture, and the recorded output takes a fresh request-local identity every
     /// time.
+    /// Test seam: only tests call this.
     /// </remarks>
     internal static TargetScopeDescription CreateRequestLocal(
         Action<TargetScopeSession> execute,

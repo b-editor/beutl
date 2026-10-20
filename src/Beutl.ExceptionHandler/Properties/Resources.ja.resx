@@ -129,9 +129,6 @@ Beutlで正常に処理されないエラーが発生しました。
   <data name="ErrorOccurred" xml:space="preserve">
     <value>エラーが発生しました。</value>
   </data>
-  <data name="LogFileNotFound" xml:space="preserve">
-    <value>ログファイルが見つかりませんでした</value>
-  </data>
   <data name="MoreDetails" xml:space="preserve">
     <value>詳細を表示</value>
   </data>

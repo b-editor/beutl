@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.ExceptionServices;
+using Beutl.Audio;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.SharedMemory;
@@ -7,8 +8,6 @@ using Beutl.FFmpegIpc.Transport;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using Microsoft.Extensions.Logging;
 
@@ -66,9 +65,6 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
             {
                 Duration = new Rational(vi.DurationNum, vi.DurationDen)
             };
-
-            // 色空間復元
-            _colorSpace = BuildColorSpace(openResponse);
 
             // リングバッファ情報
             _ringSlotCount = openResponse.VideoRingBufferSlotCount;
@@ -204,7 +200,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         Volatile.Write(ref _memoryBytes, _ringSlotSize * _ringSlotCount);
 
         // 共有メモリから読み取り（Worker側でリサイズされた場合は名前が変わる）
-        EnsureVideoBuffer(response, response.SharedMemoryName);
+        EnsureVideoBuffer(response.SharedMemoryName);
 
         // 色空間情報は差分送信: Worker側から送られた場合のみキャッシュを更新
         if (response.TransferFn != null && response.ToXyzD50 != null)
@@ -237,7 +233,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         }
     }
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
     {
         try
         {
@@ -282,7 +278,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         }
     }
 
-    private unsafe bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    private unsafe bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
     {
         var request = new ReadAudioRequest { ReaderId = _readerId, Start = start, Length = length };
         var response = Request<ReadAudioRequest, ReadAudioResponse>(
@@ -294,27 +290,27 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
             return false;
         }
 
-        EnsureAudioBuffer(response.DataLength, response.SharedMemoryName);
+        EnsureAudioBuffer(response.DataLength);
 
-        // ゼロコピー: 共有メモリを直接ポインタで参照するPcmを作成
+        // Copied out, because the worker reuses the shared memory for the next read.
         var buffer = _audioBuffer!;
         byte* ptr = buffer.AcquirePointer();
         try
         {
-            var pcm = new Pcm<Stereo32BitFloat>(response.SampleRate, response.NumSamples, (IntPtr)ptr);
-            sound = Ref<IPcm>.Create(pcm, onRelease: buffer.ReleasePointer);
+            var audio = new AudioBuffer(response.SampleRate, 2, response.NumSamples);
+            AudioConversion.Deinterleave(new ReadOnlySpan<float>(ptr, response.NumSamples * 2), audio);
+            sound = audio;
             return true;
         }
-        catch
+        finally
         {
             buffer.ReleasePointer();
-            throw;
         }
     }
 
-    private bool ReadAudioChunked(int start, int length, int chunkSize, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    private bool ReadAudioChunked(int start, int length, int chunkSize, [NotNullWhen(true)] out AudioBuffer? sound)
     {
-        var scratch = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
+        var scratch = new AudioBuffer(AudioInfo.SampleRate, 2, length);
         try
         {
             int offset = 0;
@@ -322,7 +318,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
             {
                 int currentChunk = Math.Min(chunkSize, length - offset);
 
-                if (!ReadAudioCore(start + offset, currentChunk, out Ref<IPcm>? chunkRef))
+                if (!ReadAudioCore(start + offset, currentChunk, out AudioBuffer? chunk))
                 {
                     // A genuine failure (IPC error / disposed) aborts the whole request.
                     scratch.Dispose();
@@ -330,31 +326,31 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
                     return false;
                 }
 
-                using (chunkRef)
+                using (chunk)
                 {
-                    var chunk = (Pcm<Stereo32BitFloat>)chunkRef.Value;
-                    // NumSamples == 0 is the ReadAudio end-of-stream signal: stop without advancing
+                    // SampleCount == 0 is the ReadAudio end-of-stream signal: stop without advancing
                     // offset and report exactly the frames decoded so far.
-                    if (chunk.NumSamples == 0)
+                    if (chunk.SampleCount == 0)
                         break;
 
-                    chunk.DataSpan.CopyTo(scratch.DataSpan.Slice(offset, chunk.NumSamples));
-                    offset += chunk.NumSamples;
+                    chunk.GetChannelData(0).CopyTo(scratch.GetChannelData(0)[offset..]);
+                    chunk.GetChannelData(1).CopyTo(scratch.GetChannelData(1)[offset..]);
+                    offset += chunk.SampleCount;
                 }
             }
 
             if (offset == length)
             {
-                sound = Ref<IPcm>.Create(scratch);
+                sound = scratch;
             }
             else
             {
                 // Trim the trailing over-allocation so callers see the real decoded length
-                // (NumSamples == offset), not a zero-filled tail.
-                var trimmed = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, offset);
-                scratch.DataSpan.Slice(0, offset).CopyTo(trimmed.DataSpan);
+                // (SampleCount == offset), not a zero-filled tail.
+                var trimmed = new AudioBuffer(AudioInfo.SampleRate, 2, offset);
+                scratch.CopyTo(trimmed, 0, offset);
                 scratch.Dispose();
-                sound = Ref<IPcm>.Create(trimmed);
+                sound = trimmed;
             }
             return true;
         }
@@ -474,7 +470,6 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         _audioShmName = response.AudioSharedMemoryName;
         if (response.HasVideo)
         {
-            _colorSpace = BuildColorSpace(response);
             _ringSlotCount = response.VideoRingBufferSlotCount;
             _ringSlotSize = response.VideoRingBufferSlotSize;
             Volatile.Write(ref _memoryBytes, _ringSlotSize * _ringSlotCount);
@@ -559,16 +554,14 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
             ExceptionDispatchInfo.Throw(cause);
     }
 
-    private void EnsureVideoBuffer(ReadVideoResponse response, string? newShmName)
+    private void EnsureVideoBuffer(string? newShmName)
     {
         bool nameChanged = newShmName != null;
         if (nameChanged)
             _videoShmName = newShmName;
 
-        // リングバッファの場合: 全体サイズで確保
-        long requiredCapacity = _ringSlotCount > 0
-            ? _ringSlotSize * _ringSlotCount
-            : response.DataLength;
+        // A video reader always has a ring buffer, so the whole ring is mapped.
+        long requiredCapacity = _ringSlotSize * _ringSlotCount;
 
         if (!nameChanged && _videoBuffer != null && _videoBuffer.Capacity >= requiredCapacity)
             return;
@@ -579,34 +572,15 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         _videoBuffer = SharedMemoryBuffer.Open(shmName, requiredCapacity);
     }
 
-    private void EnsureAudioBuffer(int requiredSize, string? newShmName)
+    private void EnsureAudioBuffer(int requiredSize)
     {
-        bool nameChanged = newShmName != null;
-        if (nameChanged)
-            _audioShmName = newShmName;
-
-        if (!nameChanged && _audioBuffer != null && _audioBuffer.Capacity >= requiredSize)
+        if (_audioBuffer != null && _audioBuffer.Capacity >= requiredSize)
             return;
 
         _audioBuffer?.Dispose();
         string shmName = _audioShmName
             ?? throw new InvalidOperationException("Audio shared memory name not provided");
         _audioBuffer = SharedMemoryBuffer.Open(shmName, requiredSize);
-    }
-
-    private static BitmapColorSpace? BuildColorSpace(OpenFileResponse response)
-    {
-        if (response.IccProfile != null)
-        {
-            return BitmapColorSpace.CreateIcc(response.IccProfile);
-        }
-
-        if (response.TransferFn != null && response.ToXyzD50 != null)
-        {
-            return BuildColorSpaceFromArrays(response.TransferFn, response.ToXyzD50);
-        }
-
-        return BitmapColorSpace.Srgb;
     }
 
     private static BitmapColorSpace BuildColorSpaceFromArrays(float[] transferFn, float[] toXyzD50)

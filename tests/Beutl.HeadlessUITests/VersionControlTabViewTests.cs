@@ -199,7 +199,7 @@ public class VersionControlTabViewTests
 
             await view.HandleBranchFlyoutOpeningAsync();
             using var invalidBranch = new TitleBarBranchItemViewModel(
-                new BranchInfo(string.Empty, false, null),
+                new BranchInfo(string.Empty, false),
                 viewModel.IsBusy);
             var invalidBranchButton = new Button { DataContext = invalidBranch };
             await view.HandleBranchClickAsync(invalidBranchButton);
@@ -338,7 +338,7 @@ public class VersionControlTabViewTests
             HeadlessTestHelpers.Settle();
             Assert.That(handler.LastExecution?.CommandName, Is.EqualTo("EnableVersionControl"));
 
-            bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+            bool initialized = await GitTestSupport.InitializeCurrentProjectAsync(
                 TestShell.Project.CurrentProject.Value!,
                 _ => Task.FromResult<GitIdentity?>(new GitIdentity(
                     "Beutl Headless Test",
@@ -517,7 +517,7 @@ public class VersionControlTabViewTests
             Notification notification;
             using (var notificationHandler = new NotificationCapture())
             {
-                await viewModel.ShowRemoteResultAsync(new RemoteOpResult.Offline());
+                await viewModel.ShowRemoteResultAsync(new RemoteOpResult.Offline(string.Empty));
                 notification = notificationHandler.All.Single();
             }
 
@@ -831,7 +831,7 @@ public class VersionControlTabViewTests
                 "remote-credentials",
                 initialize: false);
             TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().Single());
-            Assert.That(await TestShell.VersionControl.InitializeCurrentProjectAsync(
+            Assert.That(await GitTestSupport.InitializeCurrentProjectAsync(
                 project,
                 _ => Task.FromResult<GitIdentity?>(new GitIdentity("Beutl Headless Test", "headless@example.invalid"))),
                 Is.True);

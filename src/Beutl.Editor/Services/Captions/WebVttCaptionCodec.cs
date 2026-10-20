@@ -12,13 +12,12 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
         ArgumentNullException.ThrowIfNull(content);
 
         string[] lines = CaptionTextUtilities.GetLines(content);
-        if (lines.Length == 0 || !IsHeader(lines[0]))
+        if (!IsHeader(lines[0]))
         {
             return CaptionImportResult.Failure(
             [
                 new CaptionDiagnostic(
                     CaptionDiagnosticKinds.InvalidHeader,
-                    1,
                     "A WebVTT document must begin with WEBVTT."),
             ]);
         }
@@ -51,13 +50,11 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
             {
                 errors.Add(new CaptionDiagnostic(
                     CaptionDiagnosticKinds.UnsupportedMarkup,
-                    index + 1,
                     "WebVTT STYLE and REGION blocks cannot be represented and were removed."));
                 SkipBlock(lines, ref index);
                 continue;
             }
 
-            int cueLine = index + 1;
             if (!lines[index].Contains("-->", StringComparison.Ordinal))
             {
                 index++;
@@ -65,7 +62,6 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
                 {
                     errors.Add(new CaptionDiagnostic(
                         CaptionDiagnosticKinds.InvalidStructure,
-                        cueLine,
                         "The WebVTT cue identifier is not followed by a timing line."));
                     SkipBlock(lines, ref index);
                     continue;
@@ -73,11 +69,9 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
             }
 
             string timingLine = lines[index];
-            int timingLineNumber = index + 1;
             index++;
             bool timingIsValid = TryParseTiming(
                 timingLine,
-                timingLineNumber,
                 errors,
                 out TimeSpan start,
                 out TimeSpan end);
@@ -90,7 +84,7 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
             {
                 string payload = string.Join('\n', lines[textStart..index]);
                 ParsedWebVttText parsed = ParseText(payload);
-                AddUnsupportedTextDiagnostics(parsed, textStart + 1, errors);
+                AddUnsupportedTextDiagnostics(parsed, errors);
                 CaptionMetadata metadata = parsed.Classes is null
                     ? CaptionMetadata.Empty
                     : CaptionMetadata.Empty.Set(CaptionMetadataKeys.WebVttClasses, parsed.Classes);
@@ -139,41 +133,36 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
     }
 
     private static void AddUnsupportedTextDiagnostics(
-        ParsedWebVttText parsed, int lineNumber, List<CaptionDiagnostic> errors)
+        ParsedWebVttText parsed, List<CaptionDiagnostic> errors)
     {
         if (parsed.HasMultipleVoiceSpans)
         {
             errors.Add(new CaptionDiagnostic(
                 CaptionDiagnosticKinds.UnsupportedMarkup,
-                lineNumber,
                 "A WebVTT cue with multiple voice spans cannot be represented by one caption speaker."));
         }
         else if (parsed.HasPartialVoiceSpan)
         {
             errors.Add(new CaptionDiagnostic(
                 CaptionDiagnosticKinds.UnsupportedMarkup,
-                lineNumber,
                 "A WebVTT voice span that does not cover the whole cue cannot be represented by one caption speaker."));
         }
         if (parsed.HasMultipleLanguageSpans)
         {
             errors.Add(new CaptionDiagnostic(
                 CaptionDiagnosticKinds.UnsupportedMarkup,
-                lineNumber,
                 "A WebVTT cue with multiple language spans cannot be represented by one caption language."));
         }
         else if (parsed.HasPartialLanguageSpan)
         {
             errors.Add(new CaptionDiagnostic(
                 CaptionDiagnosticKinds.UnsupportedMarkup,
-                lineNumber,
                 "A WebVTT language span that does not cover the whole cue cannot be represented by one caption language."));
         }
         if (parsed.HasUnsupportedInlineMarkup)
         {
             errors.Add(new CaptionDiagnostic(
                 CaptionDiagnosticKinds.UnsupportedMarkup,
-                lineNumber,
                 "WebVTT inline formatting, ruby, and timestamp tags cannot be represented by a plain caption cue."));
         }
     }
@@ -332,13 +321,6 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
             }
         }
 
-        if (cue.Speaker?.IndexOfAny('\r', '\n') >= 0)
-        {
-            throw new CaptionExportException(
-                cueIndex,
-                "A WebVTT voice annotation cannot contain a line break.");
-        }
-
         if (cue.Language is not null && !cue.Language.All(IsLanguageCharacter))
         {
             throw new CaptionExportException(
@@ -356,7 +338,6 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
 
     private static bool TryParseTiming(
         string line,
-        int lineNumber,
         List<CaptionDiagnostic> errors,
         out TimeSpan start,
         out TimeSpan end)
@@ -370,7 +351,6 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
         {
             errors.Add(new CaptionDiagnostic(
                 CaptionDiagnosticKinds.InvalidTiming,
-                lineNumber,
                 "The WebVTT timing is malformed or does not end after it starts."));
             return false;
         }
@@ -379,7 +359,6 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
         {
             errors.Add(new CaptionDiagnostic(
                 CaptionDiagnosticKinds.UnsupportedMarkup,
-                lineNumber,
                 "WebVTT cue settings cannot be represented and were removed."));
         }
 

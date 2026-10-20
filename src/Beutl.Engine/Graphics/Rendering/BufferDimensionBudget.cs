@@ -7,12 +7,8 @@ namespace Beutl.Graphics.Rendering;
 /// The largest device extent an allocation held to this budget may have, on either axis.
 /// </summary>
 /// <remarks>
-/// Every buffer-dimension question is asked of one of these: whether an extent may be handed to an
-/// allocator at all (<see cref="Fits"/>), and how far a density has to come down for one to fit
-/// (<see cref="ClampWorkingScale"/>). Which budget applies is decided once, where the caller knows what it
-/// is doing, and then passed - planning keeps <see cref="EngineCeiling"/> so a plan means the same thing on
-/// every device, while an allocation site takes <see cref="Resolve"/> with
-/// <see cref="BufferBudgetScope.Allocation"/> so the buffer it asks for is one the device can attach.
+/// Planning keeps <see cref="EngineCeiling"/> so a plan means the same on every device, while an allocation site
+/// takes <see cref="Resolve"/> with <see cref="BufferBudgetScope.Allocation"/> so the device can attach its buffer.
 /// </remarks>
 public readonly record struct BufferDimensionBudget
 {
@@ -28,9 +24,8 @@ public readonly record struct BufferDimensionBudget
 
     /// <summary>Gets the largest device extent an allocation may have on either axis.</summary>
     /// <remarks>
-    /// A <see langword="default"/> budget names nothing, and reading a dimension from one is refused rather
-    /// than answered with zero: a caller that compares its own extents against that number would report every
-    /// size as over the limit, silently, which is the one failure a budget exists to make loud.
+    /// A <see langword="default"/> budget refuses rather than answering zero, which would silently put every size
+    /// over the limit.
     /// </remarks>
     /// <exception cref="InvalidOperationException">This is a <see langword="default"/> budget.</exception>
     public int MaxDimension
@@ -46,10 +41,8 @@ public readonly record struct BufferDimensionBudget
     /// Gets the engine's own ceiling, device-independent, which is what planning measures against.
     /// </summary>
     /// <remarks>
-    /// A plan clamped to whichever device compiled it would mean something else on the next one, so a plan
-    /// is expressed against this and an allocation site whose density is its own re-clamps to
-    /// <see cref="Resolve"/>. What a device can actually attach is <see cref="ForDevice"/>, which is smaller
-    /// on some, and a buffer this large is not allocatable there.
+    /// A plan is expressed against this so it means the same on every device. What a device can attach is
+    /// <see cref="ForDevice"/>, which is smaller on some.
     /// </remarks>
     public static BufferDimensionBudget EngineCeiling { get; } = new(EngineCeilingDimension);
 
@@ -68,9 +61,8 @@ public readonly record struct BufferDimensionBudget
 
     /// <summary>Gets a budget that names <paramref name="maxDimension"/> rather than resolving one.</summary>
     /// <remarks>
-    /// Naming one lets a caller bound an allocator of its own, and lets a test pin a limit below every
-    /// device it runs on so a refusal is observable without depending on the machine's GPU. It is not held
-    /// to <see cref="EngineCeiling"/>: a caller that names a budget is speaking for its own allocator.
+    /// Lets a caller bound its own allocator, or a test pin a limit below every device. It is not held to
+    /// <see cref="EngineCeiling"/>.
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxDimension"/> is not positive.</exception>
     public static BufferDimensionBudget Named(int maxDimension)
@@ -105,7 +97,7 @@ public readonly record struct BufferDimensionBudget
     /// <remarks>
     /// Only <see langword="default"/> reaches here - <see cref="Named"/> refuses a non-positive dimension and
     /// the resolvers cannot produce one - but a type that holds a budget for later should say so at the
-    /// boundary it was handed one, the way it did when the budget was an <see cref="int"/>.
+    /// boundary it was handed one.
     /// </remarks>
     internal static void ThrowIfUninitialized(BufferDimensionBudget? budget, string paramName)
     {
@@ -118,9 +110,8 @@ public readonly record struct BufferDimensionBudget
 
     /// <summary>Answers whether an allocation of <paramref name="deviceSize"/> fits this budget.</summary>
     /// <remarks>
-    /// A caller that owns its density reduces it with <see cref="ClampWorkingScale"/> instead. This is for
-    /// the ones that cannot - a pool sees pixels rather than a density, and the executor has to keep the
-    /// density its plan and its cache entries were keyed on.
+    /// For a caller that cannot lower its density, such as a pool or the executor. One that owns its density uses
+    /// <see cref="ClampWorkingScale"/> instead.
     /// </remarks>
     /// <exception cref="InvalidOperationException">This is a <see langword="default"/> budget.</exception>
     public bool Fits(PixelSize deviceSize)
@@ -136,11 +127,8 @@ public readonly record struct BufferDimensionBudget
     /// within the budget so the result stays independent of where the caller finally places the buffer.
     /// </summary>
     /// <remarks>
-    /// A site whose density is the plan's cannot re-clamp against a device budget: the render cache keys an
-    /// entry on the planned materialization density and rejects a payload recorded at any other, so lowering
-    /// the density there turns a cacheable fragment into a failed capture. Those sites clamp against
-    /// <see cref="EngineCeiling"/> and let the allocation refuse instead - see <see cref="Fits"/>, which
-    /// degrades a preview and fails a delivery render through the lease session's existing contract.
+    /// A site whose density is the plan's clamps against <see cref="EngineCeiling"/>, because the render cache
+    /// rejects a payload at any other density, and lets the allocation refuse through <see cref="Fits"/>.
     /// </remarks>
     /// <exception cref="InvalidOperationException">This is a <see langword="default"/> budget.</exception>
     public float ClampWorkingScale(Rect logicalBounds, float workingScale)

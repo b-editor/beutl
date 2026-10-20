@@ -11,7 +11,6 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Platform.Storage;
 using Beutl.Api;
 using Beutl.Api.Clients;
-using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Audio;
 using Beutl.Editor.Models;
@@ -29,7 +28,7 @@ using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Tools;
 using FluentAvalonia.UI.Controls;
-using Reactive.Bindings;
+using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
 
@@ -45,14 +44,12 @@ public sealed partial class AiDialogWorkflowTests
         await TestReset.ResetShellAsync();
         string account = "account-a";
         using var context = CreateIdentityContext(() => account);
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         var generation = CreateImageGenerationDialog(clients, context: context);
         var edit = CreateImageEditDialog(clients, context: context);
         var video = CreateVideoGenerationDialog(clients, context: context);
@@ -72,14 +69,12 @@ public sealed partial class AiDialogWorkflowTests
         await TestReset.ResetShellAsync();
         string account = "account-a";
         using var context = CreateIdentityContext(() => account);
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateImageEditDialog(clients, context: context);
         var picker = new TaskCompletionSource<string?>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -102,14 +97,12 @@ public sealed partial class AiDialogWorkflowTests
         await TestReset.ResetShellAsync();
         string account = "account-a";
         using var context = CreateIdentityContext(() => account);
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateImageGenerationDialog(clients, context: context);
         var picker = new TaskCompletionSource<IReadOnlyList<string>>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -138,15 +131,13 @@ public sealed partial class AiDialogWorkflowTests
             "retained-reference.png");
         await File.WriteAllBytesAsync(removedPath, s_png);
         await File.WriteAllBytesAsync(retainedPath, s_png);
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             "/api/v3/ai/capabilities" => JsonResponse(HttpStatusCode.OK, ImageCapabilitiesJson()),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.ModelPicker.Options.Count == 3);
         viewModel.BeforeReferenceImageSizeProbe = path =>
@@ -180,14 +171,12 @@ public sealed partial class AiDialogWorkflowTests
         await TestReset.ResetShellAsync();
         string account = "account-a";
         using var context = CreateIdentityContext(() => account);
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         await using var viewModel = CreateVideoGenerationDialog(clients, context: context);
         var picker = new TaskCompletionSource<string?>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -240,7 +229,7 @@ public sealed partial class AiDialogWorkflowTests
     {
         await TestReset.ResetShellAsync();
         int entitlementRequests = 0;
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => ++entitlementRequests == 1
                 ? JsonResponse(HttpStatusCode.ServiceUnavailable, "{}")
@@ -249,10 +238,8 @@ public sealed partial class AiDialogWorkflowTests
                 HttpStatusCode.OK,
                 ImageCapabilitiesJson()),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => Volatile.Read(ref entitlementRequests) == 1);
 
@@ -268,18 +255,15 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task ImageGeneration_GeneratesAndImportsResult()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-image-dialog");
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-image-dialog");
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             "/api/v3/ai/images" => JsonResponse(HttpStatusCode.OK, ImageResponseJson("image-job", "image-file")),
             "/api/contents/image-file" => ByteResponse(s_png, "image/png"),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateImageGenerationDialog(clients, editor);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
         viewModel.Prompt.Value = "A calm blue sky";
@@ -302,7 +286,7 @@ public sealed partial class AiDialogWorkflowTests
     public async Task ImageGeneration_SaveRejectsNonPngDestinationWithoutReplacingFile()
     {
         await TestReset.ResetShellAsync();
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             "/api/v3/ai/images" => JsonResponse(
@@ -310,10 +294,8 @@ public sealed partial class AiDialogWorkflowTests
                 ImageResponseJson("image-save-job", "image-save-file")),
             "/api/contents/image-save-file" => ByteResponse(s_png, "image/png"),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
         viewModel.Prompt.Value = "Save as PNG";
@@ -349,7 +331,7 @@ public sealed partial class AiDialogWorkflowTests
         bool affordable = false;
         bool failAvailability = false;
         var sentModels = new List<string?>();
-        using var handler = new StubHandler(async (request, token) =>
+        await using var api = new ApiScope(new StubHandler(async (request, token) =>
         {
             switch (request.RequestUri?.AbsolutePath)
             {
@@ -380,10 +362,8 @@ public sealed partial class AiDialogWorkflowTests
                 default:
                     return JsonResponse(HttpStatusCode.NotFound, "{}");
             }
-        }, handleAvailability: false);
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }, handleAvailability: false));
+        BeutlApiApplication clients = api.Clients;
         using AiImageGenerationDialogViewModel viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.ModelPicker.Options.Count == 3);
         viewModel.Prompt.Value = "A calm blue sky";
@@ -425,7 +405,7 @@ public sealed partial class AiDialogWorkflowTests
         await TestReset.ResetShellAsync();
         int availabilityRequests = 0;
         var sentKeys = new List<string?>();
-        using var handler = new StubHandler(
+        await using var api = new ApiScope(new StubHandler(
             (request, _) => Task.FromResult(request.RequestUri?.AbsolutePath switch
             {
                 "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
@@ -434,10 +414,8 @@ public sealed partial class AiDialogWorkflowTests
                 "/api/v3/ai/images" => RejectAuthentication(request),
                 _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
             }),
-            handleAvailability: false);
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+            handleAvailability: false));
+        BeutlApiApplication clients = api.Clients;
         using AiImageGenerationDialogViewModel viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.ModelPicker.IsLoaded.Value);
@@ -468,13 +446,7 @@ public sealed partial class AiDialogWorkflowTests
         HttpResponseMessage RejectAuthentication(HttpRequestMessage request)
         {
             sentKeys.Add(IdempotencyKeyOf(request));
-            return JsonResponse(HttpStatusCode.Unauthorized, """
-                {
-                  "error_code": "authenticationIsRequired",
-                  "message": "Sign in again.",
-                  "documentation_url": null
-                }
-                """);
+            return ErrorResponse(HttpStatusCode.Unauthorized, "authenticationIsRequired", "Sign in again.");
         }
     }
 
@@ -488,7 +460,7 @@ public sealed partial class AiDialogWorkflowTests
         int availabilityRequests = 0;
         int imageRequests = 0;
         bool contentIsReachable = false;
-        using var handler = new StubHandler(
+        await using var api = new ApiScope(new StubHandler(
             (request, _) => Task.FromResult(request.RequestUri?.AbsolutePath switch
             {
                 "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
@@ -496,19 +468,11 @@ public sealed partial class AiDialogWorkflowTests
                 "/api/v3/ai/images" => RecordImageRequest(request),
                 "/api/contents/image-file" => contentIsReachable
                     ? ByteResponse(s_png, "image/png")
-                    : JsonResponse(HttpStatusCode.Unauthorized, """
-                        {
-                          "error_code": "authenticationIsRequired",
-                          "message": "Sign in again.",
-                          "documentation_url": null
-                        }
-                        """),
+                    : ErrorResponse(HttpStatusCode.Unauthorized, "authenticationIsRequired", "Sign in again."),
                 _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
             }),
-            handleAvailability: false);
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+            handleAvailability: false));
+        BeutlApiApplication clients = api.Clients;
         using AiImageGenerationDialogViewModel viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
         viewModel.Prompt.Value = "A calm blue sky";
@@ -547,13 +511,7 @@ public sealed partial class AiDialogWorkflowTests
             sentKeys.Add(IdempotencyKeyOf(request));
             if (++imageRequests == 2)
             {
-                return JsonResponse(HttpStatusCode.Unauthorized, """
-                    {
-                      "error_code": "authenticationIsRequired",
-                      "message": "Sign in again.",
-                      "documentation_url": null
-                    }
-                    """);
+                return ErrorResponse(HttpStatusCode.Unauthorized, "authenticationIsRequired", "Sign in again.");
             }
             if (imageRequests == 3)
             {
@@ -575,7 +533,7 @@ public sealed partial class AiDialogWorkflowTests
         // B must not discard every name or returning to A would purchase it again under a new key.
         await TestReset.ResetShellAsync();
         var sentKeys = new List<(string prompt, string? key)>();
-        using var handler = new StubHandler(async (request, token) =>
+        await using var api = new ApiScope(new StubHandler(async (request, token) =>
         {
             switch (request.RequestUri?.AbsolutePath)
             {
@@ -591,23 +549,18 @@ public sealed partial class AiDialogWorkflowTests
                             ? JsonResponse(
                                 HttpStatusCode.OK,
                                 ImageResponseJson("image-job", "image-file"))
-                            : JsonResponse(HttpStatusCode.Conflict, """
-                                {
-                                  "error_code": "aiRequestInProgress",
-                                  "message": "The first attempt is still running.",
-                                  "documentation_url": null
-                                }
-                                """);
+                            : ErrorResponse(
+                                HttpStatusCode.Conflict,
+                                "aiRequestInProgress",
+                                "The first attempt is still running.");
                     }
                 case "/api/contents/image-file":
                     return ByteResponse(s_png, "image/png");
                 default:
                     return JsonResponse(HttpStatusCode.NotFound, "{}");
             }
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using AiImageGenerationDialogViewModel viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
 
@@ -636,7 +589,7 @@ public sealed partial class AiDialogWorkflowTests
         // prompt and X; leaving Y selected correctly creates a newly charged request for Y.
         await TestReset.ResetShellAsync();
         var sent = new List<(string Prompt, string? Model, string? Key)>();
-        using var handler = new StubHandler(async (request, token) =>
+        await using var api = new ApiScope(new StubHandler(async (request, token) =>
         {
             switch (request.RequestUri?.AbsolutePath)
             {
@@ -659,23 +612,18 @@ public sealed partial class AiDialogWorkflowTests
                             ? JsonResponse(
                                 HttpStatusCode.OK,
                                 ImageResponseJson("image-job", "image-file"))
-                            : JsonResponse(HttpStatusCode.Conflict, """
-                                {
-                                  "error_code": "aiRequestInProgress",
-                                  "message": "The first attempt is still running.",
-                                  "documentation_url": null
-                                }
-                                """);
+                            : ErrorResponse(
+                                HttpStatusCode.Conflict,
+                                "aiRequestInProgress",
+                                "The first attempt is still running.");
                     }
                 case "/api/contents/image-file":
                     return ByteResponse(s_png, "image/png");
                 default:
                     return JsonResponse(HttpStatusCode.NotFound, "{}");
             }
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using AiImageGenerationDialogViewModel viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.ModelPicker.Options.Count == 3);
 
@@ -721,17 +669,15 @@ public sealed partial class AiDialogWorkflowTests
         // Comparing models narrows displayed values to each model's limits. Those automatic
         // values must not replace the user's choices or restoring the old model changes the request.
         await TestReset.ResetShellAsync();
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             "/api/v3/ai/capabilities" => JsonResponse(
                 HttpStatusCode.OK,
                 ImageCapabilitiesJson()),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using AiImageGenerationDialogViewModel viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.ModelPicker.Options.Count == 3);
 
@@ -782,7 +728,7 @@ public sealed partial class AiDialogWorkflowTests
         var sent = new List<(string? Model, string? Key)>();
         try
         {
-            using var handler = new StubHandler(async (request, cancellationToken) =>
+            await using var api = new ApiScope(new StubHandler(async (request, cancellationToken) =>
             {
                 switch (request.RequestUri?.AbsolutePath)
                 {
@@ -804,10 +750,8 @@ public sealed partial class AiDialogWorkflowTests
                     default:
                         return JsonResponse(HttpStatusCode.NotFound, "{}");
                 }
-            });
-            using var httpClient = new HttpClient(handler);
-            await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-            SetAuthenticatedUser(clients, httpClient);
+            }));
+            BeutlApiApplication clients = api.Clients;
             using var viewModel = CreateImageEditDialog(clients);
             viewModel.SelectedTask.Value = viewModel.Tasks
                 .First(option => option.Value == "upscale");
@@ -852,23 +796,18 @@ public sealed partial class AiDialogWorkflowTests
         await File.WriteAllBytesAsync(sourcePath, s_png);
         try
         {
-            using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+            await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
             {
                 "/api/v3/user/entitlements" => JsonResponse(
                     HttpStatusCode.OK,
                     EntitlementsJson()),
-                "/api/v3/ai/images/edit" => JsonResponse(HttpStatusCode.Conflict, """
-                    {
-                      "error_code": "aiRequestInProgress",
-                      "message": "The first attempt is still running.",
-                      "documentation_url": null
-                    }
-                    """),
+                "/api/v3/ai/images/edit" => ErrorResponse(
+                    HttpStatusCode.Conflict,
+                    "aiRequestInProgress",
+                    "The first attempt is still running."),
                 _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-            });
-            using var httpClient = new HttpClient(handler);
-            await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-            SetAuthenticatedUser(clients, httpClient);
+            }));
+            BeutlApiApplication clients = api.Clients;
             using var viewModel = CreateImageEditDialog(clients);
             viewModel.SelectedTask.Value = viewModel.Tasks
                 .Single(task => task.Value == "upscale");
@@ -904,35 +843,19 @@ public sealed partial class AiDialogWorkflowTests
     {
         // A run whose first chunk received no response has no visible partial result or cue, but
         // its name may still represent paid work and history import must not discard it silently.
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-subtitle-history-guard");
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-history-guard");
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
-            "/api/v3/ai/transcriptions" => JsonResponse(HttpStatusCode.Conflict, """
-                {
-                  "error_code": "aiRequestInProgress",
-                  "message": "The first attempt is still running.",
-                  "documentation_url": null
-                }
-                """),
+            "/api/v3/ai/transcriptions" => ErrorResponse(
+                HttpStatusCode.Conflict,
+                "aiRequestInProgress",
+                "The first attempt is still running."),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(clients, editor);
-        viewModel.SceneMixChunkDuration = TimeSpan.FromMilliseconds(50);
-        viewModel.SceneMixAudioComposer = (start, duration, cancellationToken) =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            int sampleCount = Math.Max(1, (int)Math.Ceiling(duration.TotalSeconds * 16_000));
-            return Task.FromResult<AudioFrameSnapshot?>(new AudioFrameSnapshot(
-                new float[sampleCount],
-                16_000,
-                1,
-                start));
-        };
+        UseSilentSceneMix(viewModel, TimeSpan.FromMilliseconds(50));
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
         editor.Scene.Start = TimeSpan.Zero;
@@ -972,8 +895,7 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task ImageGeneration_ShowsTheRoughPictureWhileTheModelWorks()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-image-streaming");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-image-streaming");
         // A reply that is still arriving, which is the whole point: the rough
         // version has to be on screen while the run is still going on.
         var pipe = new Pipe();
@@ -982,16 +904,14 @@ public sealed partial class AiDialogWorkflowTests
             + Convert.ToBase64String(s_png)
             + "\"}\n\n"));
         await pipe.Writer.FlushAsync();
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             "/api/contents/image-file" => ByteResponse(s_png, "image/png"),
             "/api/v3/ai/images" => EventStreamResponse(pipe.Reader.AsStream()),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateImageGenerationDialog(clients, editor);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
         viewModel.Prompt.Value = "A calm blue sky";
@@ -1020,18 +940,15 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task SceneMixTranscription_TakesItsRangeFromTheSceneItself()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-subtitle-scene-range");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-scene-range");
         editor.Scene.Start = TimeSpan.Zero;
         editor.Scene.Duration = TimeSpan.Zero;
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(clients, editor);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
@@ -1049,12 +966,11 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task SceneMixTranscription_ComposesTheSceneInSlicesRatherThanOneLongCall()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-subtitle-scene-mix-slices");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-scene-mix-slices");
         var requestedDurations = new List<TimeSpan>();
         byte[]? uploaded = null;
         int transcriptionRequests = 0;
-        using var handler = new StubHandler(async (request, cancellationToken) =>
+        await using var api = new ApiScope(new StubHandler(async (request, cancellationToken) =>
         {
             switch (request.RequestUri?.AbsolutePath)
             {
@@ -1067,10 +983,8 @@ public sealed partial class AiDialogWorkflowTests
                 default:
                     return JsonResponse(HttpStatusCode.NotFound, "{}");
             }
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(clients, editor);
         viewModel.SceneMixChunkDuration = TimeSpan.FromSeconds(12);
         viewModel.SceneMixAudioComposer = (start, duration, cancellationToken) =>
@@ -1117,12 +1031,12 @@ public sealed partial class AiDialogWorkflowTests
     public async Task Transcription_stops_before_purchasing_more_chunks_after_audio_changes(bool sceneMix, bool editElement)
     {
         await TestReset.ResetShellAsync();
-        EditViewModel? editor = sceneMix ? await OpenEditor("changed-scene-transcription-" + editElement) : null;
+        EditViewModel? editor = sceneMix ? (await TestShell.OpenNewSceneAsync("changed-scene-transcription-" + editElement)).Editor : null;
         string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"changed-source-{sceneMix}.wav");
         WritePcmWave(path, 16000, 2400);
         AiSubtitleDialogViewModel? dialog = null;
         int requests = 0;
-        using var handler = new StubHandler(async (request, _) =>
+        await using var api = new ApiScope(new StubHandler(async (request, _) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -1148,15 +1062,11 @@ public sealed partial class AiDialogWorkflowTests
                 return CreateTranscriptionResponse("changed-audio");
             }
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(clients, editor);
         dialog = viewModel;
-        viewModel.SceneMixChunkDuration = TimeSpan.FromMilliseconds(50);
-        viewModel.SceneMixAudioComposer = (start, duration, _) => Task.FromResult<AudioFrameSnapshot?>(
-            new AudioFrameSnapshot(new float[Math.Max(1, (int)(duration.TotalSeconds * 16000))], 16000, 1, start));
+        UseSilentSceneMix(viewModel, TimeSpan.FromMilliseconds(50));
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
         if (sceneMix)
             editor!.Scene.Duration = TimeSpan.FromMilliseconds(150);
@@ -1171,10 +1081,9 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task Silent_transcription_chunk_completes_before_the_next_spoken_chunk()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("silent-transcription-chunk");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("silent-transcription-chunk");
         var keys = new List<string?>();
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -1186,14 +1095,10 @@ public sealed partial class AiDialogWorkflowTests
                     : JsonResponse(HttpStatusCode.OK, """{"segments":[{"start":0,"end":0.05,"text":"speech"}]}""");
             }
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var dialog = CreateSubtitleDialog(clients, editor);
-        dialog.SceneMixChunkDuration = TimeSpan.FromMilliseconds(50);
-        dialog.SceneMixAudioComposer = (start, duration, _) => Task.FromResult<AudioFrameSnapshot?>(
-            new AudioFrameSnapshot(new float[Math.Max(1, (int)(duration.TotalSeconds * 16000))], 16000, 1, start));
+        UseSilentSceneMix(dialog, TimeSpan.FromMilliseconds(50));
         await WaitUntilAsync(() => dialog.Usage.HasSnapshot.Value && dialog.SelectedAudioSource.Value?.IsSceneMix == true);
         editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
         await WaitUntilAsync(() => dialog.CanTranscribe.Value);
@@ -1210,10 +1115,9 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task Rejected_successful_transcription_keeps_its_key_until_explicit_discard()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("rejected-transcription-key");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("rejected-transcription-key");
         var keys = new List<string?>();
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -1225,14 +1129,10 @@ public sealed partial class AiDialogWorkflowTests
                     : JsonResponse(HttpStatusCode.OK, """{"segments":[{"start":0,"end":0.07,"text":"valid-retry"}]}""");
             }
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var dialog = CreateSubtitleDialog(clients, editor);
-        dialog.SceneMixChunkDuration = TimeSpan.FromMilliseconds(50);
-        dialog.SceneMixAudioComposer = (start, duration, _) => Task.FromResult<AudioFrameSnapshot?>(
-            new AudioFrameSnapshot(new float[Math.Max(1, (int)(duration.TotalSeconds * 16000))], 16000, 1, start));
+        UseSilentSceneMix(dialog, TimeSpan.FromMilliseconds(50));
         await WaitUntilAsync(() => dialog.Usage.HasSnapshot.Value && dialog.SelectedAudioSource.Value?.IsSceneMix == true);
         editor.Scene.Duration = TimeSpan.FromMilliseconds(50);
         await WaitUntilAsync(() => dialog.CanTranscribe.Value);
@@ -1260,7 +1160,7 @@ public sealed partial class AiDialogWorkflowTests
     {
         await TestReset.ResetShellAsync();
         var keys = new List<string?>();
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -1270,10 +1170,8 @@ public sealed partial class AiDialogWorkflowTests
                 return JsonResponse(HttpStatusCode.OK, """{"segments":[]}""");
             }
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var dialog = CreateSubtitleDialog(clients);
         await WaitUntilAsync(() => dialog.Usage.HasSnapshot.Value);
         dialog.ResultSegments.Value = [new AiTranscriptionSegment { Start = 0, End = 1, Text = "Translate me" }];
@@ -1296,7 +1194,7 @@ public sealed partial class AiDialogWorkflowTests
         await File.WriteAllBytesAsync(referencePath, s_png);
         string? jsonBody = null;
         string? uploadBody = null;
-        using var handler = new StubHandler(async (request, cancellationToken) =>
+        await using var api = new ApiScope(new StubHandler(async (request, cancellationToken) =>
         {
             switch (request.RequestUri?.AbsolutePath)
             {
@@ -1319,10 +1217,8 @@ public sealed partial class AiDialogWorkflowTests
                 default:
                     return JsonResponse(HttpStatusCode.NotFound, "{}");
             }
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         try
         {
             using var viewModel = CreateImageGenerationDialog(clients);
@@ -1365,7 +1261,7 @@ public sealed partial class AiDialogWorkflowTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         bool blockAvailability = false;
         string? requestBody = null;
-        using var handler = new StubHandler(async (request, cancellationToken) =>
+        await using var api = new ApiScope(new StubHandler(async (request, cancellationToken) =>
         {
             switch (request.RequestUri?.AbsolutePath)
             {
@@ -1386,10 +1282,8 @@ public sealed partial class AiDialogWorkflowTests
                 default:
                     return JsonResponse(HttpStatusCode.NotFound, "{}");
             }
-        }, handleAvailability: false);
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }, handleAvailability: false));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
         viewModel.Prompt.Value = "Seed snapshot";
@@ -1418,7 +1312,7 @@ public sealed partial class AiDialogWorkflowTests
             $"beutl-ai-reference-{Guid.NewGuid():N}.png");
         await File.WriteAllBytesAsync(referencePath, s_png);
         bool lastRequestWasUpload = true;
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             switch (request.RequestUri?.AbsolutePath)
             {
@@ -1432,10 +1326,8 @@ public sealed partial class AiDialogWorkflowTests
                 default:
                     return JsonResponse(HttpStatusCode.NotFound, "{}");
             }
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         try
         {
             using var viewModel = CreateImageGenerationDialog(clients);
@@ -1463,55 +1355,6 @@ public sealed partial class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
-    public async Task VideoGeneration_SendsTheSeedItWasGiven()
-    {
-        await TestReset.ResetShellAsync();
-        string? requestBody = null;
-        using var handler = new StubHandler(async (request, cancellationToken) =>
-        {
-            switch (request.RequestUri?.AbsolutePath)
-            {
-                case "/api/v3/user/entitlements":
-                    return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
-                case "/api/v3/ai/videos":
-                    requestBody = await request.Content!.ReadAsStringAsync(cancellationToken);
-                    return JsonResponse(HttpStatusCode.OK, """
-                        {
-                          "jobId": "video-job",
-                          "status": "queued"
-                        }
-                        """);
-                case "/api/v3/ai/videos/video-job":
-                    return JsonResponse(HttpStatusCode.OK, """
-                        {
-                          "jobId": "video-job",
-                          "status": "succeeded",
-                          "fileId": "video-file",
-                          "url": "https://beutl.beditor.net/api/contents/video-file",
-                          "error": null
-                        }
-                        """);
-                case "/api/contents/video-file":
-                    return ByteResponse([1, 2, 3, 4], "video/mp4");
-                default:
-                    return JsonResponse(HttpStatusCode.NotFound, "{}");
-            }
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
-        await using AiVideoGenerationDialogViewModel viewModel = CreateVideoGenerationDialog(clients);
-        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
-            && viewModel.EstimatedUsage.State.Value == AiOperationAvailabilityState.Available);
-        viewModel.Prompt.Value = "A slow camera pan";
-        viewModel.Seed.Value = 77;
-
-        await viewModel.Generate.ExecuteAsync();
-
-        Assert.That(requestBody, Does.Contain("\"seed\":77"));
-    }
-
-    [AvaloniaTest]
     public async Task VideoGeneration_UsesTheSeedSnapshottedBeforeAvailability()
     {
         await TestReset.ResetShellAsync();
@@ -1521,7 +1364,7 @@ public sealed partial class AiDialogWorkflowTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         bool blockAvailability = false;
         string? requestBody = null;
-        using var handler = new StubHandler(async (request, cancellationToken) =>
+        await using var api = new ApiScope(new StubHandler(async (request, cancellationToken) =>
         {
             switch (request.RequestUri?.AbsolutePath)
             {
@@ -1552,10 +1395,8 @@ public sealed partial class AiDialogWorkflowTests
                 default:
                     return JsonResponse(HttpStatusCode.NotFound, "{}");
             }
-        }, handleAvailability: false);
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }, handleAvailability: false));
+        BeutlApiApplication clients = api.Clients;
         await using var viewModel = CreateVideoGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.EstimatedUsage.State.Value == AiOperationAvailabilityState.Available);
@@ -1582,7 +1423,7 @@ public sealed partial class AiDialogWorkflowTests
         await TestReset.ResetShellAsync();
         var keys = new List<string?>();
         int creates = 0;
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             switch (request.RequestUri?.AbsolutePath)
             {
@@ -1598,13 +1439,7 @@ public sealed partial class AiDialogWorkflowTests
                         }
                         """);
                 case "/api/v3/ai/videos/video-1":
-                    return JsonResponse(HttpStatusCode.NotFound, """
-                        {
-                          "error_code": "aiJobNotFound",
-                          "message": "The job no longer exists.",
-                          "documentation_url": null
-                        }
-                        """);
+                    return ErrorResponse(HttpStatusCode.NotFound, "aiJobNotFound", "The job no longer exists.");
                 case "/api/v3/ai/videos/video-2":
                     return JsonResponse(HttpStatusCode.OK, """
                         {
@@ -1616,10 +1451,8 @@ public sealed partial class AiDialogWorkflowTests
                 default:
                     return JsonResponse(HttpStatusCode.NotFound, "{}");
             }
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         await using AiVideoGenerationDialogViewModel viewModel =
             CreateVideoGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
@@ -1656,7 +1489,7 @@ public sealed partial class AiDialogWorkflowTests
         bool cutFirstAttempt = true;
         try
         {
-            using var handler = new StubHandler(request =>
+            await using var api = new ApiScope(new StubHandler(request =>
             {
                 switch (request.RequestUri?.AbsolutePath)
                 {
@@ -1692,10 +1525,8 @@ public sealed partial class AiDialogWorkflowTests
                     default:
                         return JsonResponse(HttpStatusCode.NotFound, "{}");
                 }
-            });
-            using var httpClient = new HttpClient(handler);
-            await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-            SetAuthenticatedUser(clients, httpClient);
+            }));
+            BeutlApiApplication clients = api.Clients;
             await using AiVideoGenerationDialogViewModel viewModel =
                 CreateVideoGenerationDialog(clients);
             await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
@@ -1726,17 +1557,15 @@ public sealed partial class AiDialogWorkflowTests
     public async Task VideoOptions_FollowTheChosenModel()
     {
         await TestReset.ResetShellAsync();
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             "/api/v3/ai/capabilities" => JsonResponse(
                 HttpStatusCode.OK,
                 VideoCapabilitiesJson()),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         await using AiVideoGenerationDialogViewModel viewModel =
             CreateVideoGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.ModelPicker.Options.Count == 2);
@@ -1759,13 +1588,12 @@ public sealed partial class AiDialogWorkflowTests
 
         using (Assert.EnterMultipleScope())
         {
-            // What the model renders at, not what the dialog used to offer.
+            // The resolutions this model publishes.
             Assert.That(
                 viewModel.ResolutionOptions.Select(option => option.Value),
                 Is.EqualTo(new[] { "2K" }));
             Assert.That(viewModel.SelectedResolution.Value.Value, Is.EqualTo("2K"));
-            // The lengths this model takes, not the three the dialog used to
-            // offer: 5 and 7 were unreachable before.
+            // The lengths this model takes.
             Assert.That(
                 viewModel.DurationOptions.Select(option => option.Seconds),
                 Is.EqualTo(new[] { 5, 6, 7, 8 }));
@@ -1782,17 +1610,15 @@ public sealed partial class AiDialogWorkflowTests
     public async Task ImageBackgrounds_FollowTheChosenModel()
     {
         await TestReset.ResetShellAsync();
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             "/api/v3/ai/capabilities" => JsonResponse(
                 HttpStatusCode.OK,
                 ImageCapabilitiesJson()),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using AiImageGenerationDialogViewModel viewModel =
             CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.ModelPicker.Options.Count == 3);
@@ -1839,17 +1665,15 @@ public sealed partial class AiDialogWorkflowTests
     public async Task ImageGeneration_UnavailableSelectedModelDisablesANewRequest()
     {
         await TestReset.ResetShellAsync();
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(
                 HttpStatusCode.OK,
                 EntitlementsWithUnavailableImageModelJson()),
             "/api/v3/ai/capabilities" => JsonResponse(HttpStatusCode.OK, ImageCapabilitiesJson()),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using AiImageGenerationDialogViewModel viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.ModelPicker.Options.Count == 3);
         viewModel.Prompt.Value = "A model availability test";
@@ -1872,14 +1696,12 @@ public sealed partial class AiDialogWorkflowTests
     public async Task ComposedPromptLimit_DisablesImageAndVideoCommandsBeforeSubmission()
     {
         await TestReset.ResetShellAsync();
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var image = CreateImageGenerationDialog(clients);
         await using var video = CreateVideoGenerationDialog(clients);
         await WaitUntilAsync(() => image.Usage.HasSnapshot.Value
@@ -1906,22 +1728,19 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task ImageEdit_UsesResultSnapshotWhenTaskChangesBeforeImport()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-image-edit-dialog");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-image-edit-dialog");
         string sourcePath = Path.Combine(Path.GetTempPath(), $"source-{Guid.NewGuid():N}.png");
         await File.WriteAllBytesAsync(sourcePath, s_png);
         try
         {
-            using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+            await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
             {
                 "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
                 "/api/v3/ai/images/edit" => JsonResponse(HttpStatusCode.OK, ImageResponseJson("edit-job", "edit-file")),
                 "/api/contents/edit-file" => ByteResponse(s_png, "image/png"),
                 _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-            });
-            using var httpClient = new HttpClient(handler);
-            await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-            SetAuthenticatedUser(clients, httpClient);
+            }));
+            BeutlApiApplication clients = api.Clients;
             using var viewModel = CreateImageEditDialog(clients, editor);
             viewModel.SourceFilePath.Value = sourcePath;
             await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value && viewModel.CanEdit.Value);
@@ -1947,15 +1766,14 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task ImageEdit_SaveRejectsNonPngDestinationWithoutReplacingFile()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-image-edit-save-format");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-image-edit-save-format");
         string sourcePath = Path.Combine(
             BeutlHomeIsolation.CurrentHome!,
             "edit-source.png");
         await File.WriteAllBytesAsync(sourcePath, s_png);
         try
         {
-            using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+            await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
             {
                 "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
                 "/api/v3/ai/images/edit" => JsonResponse(
@@ -1963,10 +1781,8 @@ public sealed partial class AiDialogWorkflowTests
                     ImageResponseJson("edit-save-job", "edit-save-file")),
                 "/api/contents/edit-save-file" => ByteResponse(s_png, "image/png"),
                 _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-            });
-            using var httpClient = new HttpClient(handler);
-            await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-            SetAuthenticatedUser(clients, httpClient);
+            }));
+            BeutlApiApplication clients = api.Clients;
             using var viewModel = CreateImageEditDialog(clients, editor);
             viewModel.SourceFilePath.Value = sourcePath;
             await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value && viewModel.CanEdit.Value);
@@ -2079,9 +1895,8 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task VideoGeneration_PollsResultAndDisposeRemovesPreviewFile()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-video-dialog");
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-video-dialog");
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             "/api/v3/ai/videos" => JsonResponse(HttpStatusCode.OK, """
@@ -2101,10 +1916,8 @@ public sealed partial class AiDialogWorkflowTests
                 """),
             "/api/contents/video-file" => ByteResponse([1, 2, 3, 4], "video/mp4"),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         var viewModel = CreateVideoGenerationDialog(clients, editor);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.EstimatedUsage.State.Value == AiOperationAvailabilityState.Available);
@@ -2128,7 +1941,7 @@ public sealed partial class AiDialogWorkflowTests
     public async Task VideoGeneration_SaveRejectsMismatchedDestinationFormatWithoutReplacingFile()
     {
         await TestReset.ResetShellAsync();
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             "/api/v3/ai/videos" => JsonResponse(HttpStatusCode.OK, "{\"jobId\":\"video-save-job\",\"status\":\"queued\"}"),
@@ -2144,10 +1957,8 @@ public sealed partial class AiDialogWorkflowTests
                 """),
             "/api/contents/video-save-file" => ByteResponse([1, 2, 3, 4], "video/mp4"),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         await using var viewModel = CreateVideoGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.EstimatedUsage.State.Value == AiOperationAvailabilityState.Available);
@@ -2205,7 +2016,7 @@ public sealed partial class AiDialogWorkflowTests
         }
 
         await TestReset.ResetShellAsync();
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             "/api/v3/ai/videos" => JsonResponse(
@@ -2223,10 +2034,8 @@ public sealed partial class AiDialogWorkflowTests
                 """),
             "/api/contents/video-mode-file" => ByteResponse([1, 2, 3, 4], "video/mp4"),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         await using var viewModel = CreateVideoGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.EstimatedUsage.State.Value == AiOperationAvailabilityState.Available);
@@ -2261,7 +2070,7 @@ public sealed partial class AiDialogWorkflowTests
         using var blockedStream = new CancellationObservingStream();
         using var blockedContent = new StreamContent(blockedStream);
         blockedContent.Headers.ContentType = new("video/mp4");
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             "/api/v3/ai/videos" => JsonResponse(
@@ -2282,10 +2091,8 @@ public sealed partial class AiDialogWorkflowTests
                 Content = blockedContent,
             },
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         await using var viewModel = CreateVideoGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.EstimatedUsage.State.Value == AiOperationAvailabilityState.Available);
@@ -2312,16 +2119,14 @@ public sealed partial class AiDialogWorkflowTests
     {
         await TestReset.ResetShellAsync();
         var keys = new List<string?>();
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             "/api/v3/ai/videos" => UnknownVideoCreate(keys, request),
             "/api/v3/ai/videos/future-job" => JsonResponse(HttpStatusCode.OK, "{\"jobId\":\"future-job\",\"status\":\"future\"}"),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         await using var viewModel = CreateVideoGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.EstimatedUsage.State.Value == AiOperationAvailabilityState.Available);
@@ -2350,12 +2155,11 @@ public sealed partial class AiDialogWorkflowTests
         HttpResponseMessage PollVideo()
             => Interlocked.Increment(ref polls) switch
             {
-                1 => JsonResponse(HttpStatusCode.InternalServerError, """
-                    {
-                      "error_code": "aiProviderError",
-                      "message": "Provider status is temporarily unavailable."
-                    }
-                    """),
+                1 => ErrorResponse(
+                    HttpStatusCode.InternalServerError,
+                    "aiProviderError",
+                    "Provider status is temporarily unavailable.",
+                    withDocumentationUrl: false),
                 2 => throw new TaskCanceledException("The HTTP status request timed out."),
                 3 => throw new TimeoutException("The video status request timed out."),
                 _ => JsonResponse(HttpStatusCode.OK, """
@@ -2369,7 +2173,7 @@ public sealed partial class AiDialogWorkflowTests
                     }
                     """),
             };
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             "/api/v3/ai/videos" => JsonResponse(HttpStatusCode.OK, """
@@ -2378,10 +2182,8 @@ public sealed partial class AiDialogWorkflowTests
             "/api/v3/ai/videos/webm-job" => PollVideo(),
             "/api/contents/webm-file" => ByteResponse([1, 2, 3, 4], "video/webm"),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         var viewModel = CreateVideoGenerationDialog(clients);
         viewModel.PollDelayAsync = (delay, _) =>
         {
@@ -2425,7 +2227,7 @@ public sealed partial class AiDialogWorkflowTests
         var sixSecondCheckStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var sixSecondCheckCanceled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var durations = new List<int>();
-        using var handler = new StubHandler(async (request, cancellationToken) =>
+        await using var api = new ApiScope(new StubHandler(async (request, cancellationToken) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -2453,10 +2255,8 @@ public sealed partial class AiDialogWorkflowTests
                     "{ \"available\": true }");
             }
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        }, handleAvailability: false);
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }, handleAvailability: false));
+        BeutlApiApplication clients = api.Clients;
         await using var viewModel = CreateVideoGenerationDialog(clients);
         await sixSecondCheckStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -2481,7 +2281,7 @@ public sealed partial class AiDialogWorkflowTests
     {
         await TestReset.ResetShellAsync();
         int submissions = 0;
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             string path = request.RequestUri?.AbsolutePath ?? string.Empty;
             if (path == "/api/v3/user/entitlements")
@@ -2510,10 +2310,8 @@ public sealed partial class AiDialogWorkflowTests
             if (path.StartsWith("/api/contents/video-file-", StringComparison.Ordinal))
                 return ByteResponse([1, 2, 3, 4], "video/mp4");
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         var viewModel = CreateVideoGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.EstimatedUsage.State.Value == AiOperationAvailabilityState.Available);
@@ -2535,30 +2333,6 @@ public sealed partial class AiDialogWorkflowTests
         Assert.That(File.Exists(secondPath), Is.False);
     }
 
-    [AvaloniaTest]
-    public async Task ProviderFailure_ShowsRefundSafeRetryMessage()
-    {
-        await TestReset.ResetShellAsync();
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
-        {
-            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
-            "/api/v3/ai/images" => JsonResponse(HttpStatusCode.InternalServerError, """
-                { "error_code": "aiProviderError", "message": "Provider failed.", "documentation_url": null }
-                """),
-            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
-        using var viewModel = CreateImageGenerationDialog(clients);
-        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
-        viewModel.Prompt.Value = "A prompt";
-
-        await viewModel.Generate.ExecuteAsync();
-
-        Assert.That(viewModel.Error.Value, Is.EqualTo(Beutl.Language.Strings.AiProviderError));
-    }
-
     // The three ways one run can end, and what each one means for the key that
     // named it: unknown keeps it, a settled failure spends it, a result spends it.
     [AvaloniaTest]
@@ -2567,7 +2341,7 @@ public sealed partial class AiDialogWorkflowTests
         await TestReset.ResetShellAsync();
         var keys = new List<string?>();
         bool cutFirstAttempt = true;
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             switch (request.RequestUri?.AbsolutePath)
             {
@@ -2589,10 +2363,8 @@ public sealed partial class AiDialogWorkflowTests
                 default:
                     return JsonResponse(HttpStatusCode.NotFound, "{}");
             }
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
         viewModel.Prompt.Value = "A calm blue sky";
@@ -2614,7 +2386,7 @@ public sealed partial class AiDialogWorkflowTests
     {
         await TestReset.ResetShellAsync();
         var keys = new List<string?>();
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             switch (request.RequestUri?.AbsolutePath)
             {
@@ -2628,10 +2400,8 @@ public sealed partial class AiDialogWorkflowTests
                 default:
                     return JsonResponse(HttpStatusCode.NotFound, "{}");
             }
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
         viewModel.Prompt.Value = "A calm blue sky";
@@ -2654,7 +2424,7 @@ public sealed partial class AiDialogWorkflowTests
         await TestReset.ResetShellAsync();
         var keys = new List<string?>();
         bool failFirstAttempt = true;
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             switch (request.RequestUri?.AbsolutePath)
             {
@@ -2667,9 +2437,11 @@ public sealed partial class AiDialogWorkflowTests
                         failFirstAttempt = false;
                         // Failed and refunded server-side. The job is settled,
                         // so its key can only ever answer with that failure.
-                        return JsonResponse(HttpStatusCode.InternalServerError, """
-                            { "error_code": "aiProviderError", "message": "Provider failed." }
-                            """);
+                        return ErrorResponse(
+                            HttpStatusCode.InternalServerError,
+                            "aiProviderError",
+                            "Provider failed.",
+                            withDocumentationUrl: false);
                     }
 
                     return JsonResponse(HttpStatusCode.OK, ImageResponseJson("image-job", "image-file"));
@@ -2678,10 +2450,8 @@ public sealed partial class AiDialogWorkflowTests
                 default:
                     return JsonResponse(HttpStatusCode.NotFound, "{}");
             }
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
         viewModel.Prompt.Value = "A calm blue sky";
@@ -2706,7 +2476,7 @@ public sealed partial class AiDialogWorkflowTests
         var keys = new List<string?>();
         bool cutFirstAttempt = true;
         bool anythingLeftToSpend = true;
-        using var handler = new StubHandler(
+        await using var api = new ApiScope(new StubHandler(
             (request, _) =>
             {
                 switch (request.RequestUri?.AbsolutePath)
@@ -2740,10 +2510,8 @@ public sealed partial class AiDialogWorkflowTests
                         return Task.FromResult(JsonResponse(HttpStatusCode.NotFound, "{}"));
                 }
             },
-            handleAvailability: false);
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+            handleAvailability: false));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
         viewModel.Prompt.Value = "A calm blue sky";
@@ -2769,7 +2537,7 @@ public sealed partial class AiDialogWorkflowTests
         await TestReset.ResetShellAsync();
         var keys = new List<string?>();
         bool reportDeleted = true;
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             switch (request.RequestUri?.AbsolutePath)
             {
@@ -2782,9 +2550,11 @@ public sealed partial class AiDialogWorkflowTests
                         reportDeleted = false;
                         // The job that key created was deleted, so the key can
                         // only ever answer with this.
-                        return JsonResponse(HttpStatusCode.Conflict, """
-                            { "error_code": "aiRequestWasDeleted", "message": "Gone." }
-                            """);
+                        return ErrorResponse(
+                            HttpStatusCode.Conflict,
+                            "aiRequestWasDeleted",
+                            "Gone.",
+                            withDocumentationUrl: false);
                     }
 
                     return JsonResponse(HttpStatusCode.OK, ImageResponseJson("image-job", "image-file"));
@@ -2793,10 +2563,8 @@ public sealed partial class AiDialogWorkflowTests
                 default:
                     return JsonResponse(HttpStatusCode.NotFound, "{}");
             }
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
         viewModel.Prompt.Value = "A calm blue sky";
@@ -2821,7 +2589,7 @@ public sealed partial class AiDialogWorkflowTests
         await TestReset.ResetShellAsync();
         var keys = new List<string?>();
         bool reportInProgress = true;
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             switch (request.RequestUri?.AbsolutePath)
             {
@@ -2834,9 +2602,11 @@ public sealed partial class AiDialogWorkflowTests
                         reportInProgress = false;
                         // The first attempt is still running and already paid
                         // for; its key is the only way back to it.
-                        return JsonResponse(HttpStatusCode.Conflict, """
-                            { "error_code": "aiRequestInProgress", "message": "Still running." }
-                            """);
+                        return ErrorResponse(
+                            HttpStatusCode.Conflict,
+                            "aiRequestInProgress",
+                            "Still running.",
+                            withDocumentationUrl: false);
                     }
 
                     return JsonResponse(HttpStatusCode.OK, ImageResponseJson("image-job", "image-file"));
@@ -2845,10 +2615,8 @@ public sealed partial class AiDialogWorkflowTests
                 default:
                     return JsonResponse(HttpStatusCode.NotFound, "{}");
             }
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
         viewModel.Prompt.Value = "A calm blue sky";
@@ -2880,7 +2648,7 @@ public sealed partial class AiDialogWorkflowTests
             await File.WriteAllBytesAsync(path, s_png);
 
         string? uploadBody = null;
-        using var handler = new StubHandler(async (request, cancellationToken) =>
+        await using var api = new ApiScope(new StubHandler(async (request, cancellationToken) =>
         {
             switch (request.RequestUri?.AbsolutePath)
             {
@@ -2896,10 +2664,8 @@ public sealed partial class AiDialogWorkflowTests
                 default:
                     return JsonResponse(HttpStatusCode.NotFound, "{}");
             }
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         try
         {
             using var viewModel = CreateImageGenerationDialog(clients);
@@ -2935,7 +2701,7 @@ public sealed partial class AiDialogWorkflowTests
         await TestReset.ResetShellAsync();
         var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var cancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var handler = new StubHandler(async (request, cancellationToken) =>
+        await using var api = new ApiScope(new StubHandler(async (request, cancellationToken) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -2956,10 +2722,8 @@ public sealed partial class AiDialogWorkflowTests
             }
 
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         var viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
         viewModel.Prompt.Value = "Cancel this request";
@@ -2980,7 +2744,7 @@ public sealed partial class AiDialogWorkflowTests
         var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseRequest = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         int contentRequests = 0;
-        using var handler = new StubHandler(async (request, _) =>
+        await using var api = new ApiScope(new StubHandler(async (request, _) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -2997,10 +2761,8 @@ public sealed partial class AiDialogWorkflowTests
             }
 
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         var viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
         viewModel.Prompt.Value = "Do not publish";
@@ -3036,7 +2798,7 @@ public sealed partial class AiDialogWorkflowTests
             var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var releaseRequest = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             int contentRequests = 0;
-            using var handler = new StubHandler(async (request, _) =>
+            await using var api = new ApiScope(new StubHandler(async (request, _) =>
             {
                 if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                     return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -3053,10 +2815,8 @@ public sealed partial class AiDialogWorkflowTests
                 }
 
                 return JsonResponse(HttpStatusCode.NotFound, "{}");
-            });
-            using var httpClient = new HttpClient(handler);
-            await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-            SetAuthenticatedUser(clients, httpClient);
+            }));
+            BeutlApiApplication clients = api.Clients;
             var viewModel = CreateImageEditDialog(clients);
             viewModel.SourceFilePath.Value = sourcePath;
             await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value && viewModel.CanEdit.Value);
@@ -3096,7 +2856,7 @@ public sealed partial class AiDialogWorkflowTests
         string[] filesBefore = Directory.Exists(resultDirectory)
             ? Directory.GetFiles(resultDirectory, "ai-video-*")
             : [];
-        using var handler = new StubHandler(async (request, cancellationToken) =>
+        await using var api = new ApiScope(new StubHandler(async (request, cancellationToken) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -3117,10 +2877,8 @@ public sealed partial class AiDialogWorkflowTests
             }
 
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         var viewModel = CreateVideoGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.EstimatedUsage.State.Value == AiOperationAvailabilityState.Available);
@@ -3143,22 +2901,19 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task DisposingVideoDialog_DuringBlockedFrameRenderPublishesNoFileOrPreview()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-video-frame-capture-disposal");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-video-frame-capture-disposal");
         var renderStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseRender = new TaskCompletionSource<Bitmap>(TaskCreationOptions.RunContinuationsAsynchronously);
         string inputDirectory = AiTemporaryFileStore.GetCategoryDirectory("inputs");
         string[] filesBefore = Directory.Exists(inputDirectory)
             ? Directory.GetFiles(inputDirectory, "frame-*.png")
             : [];
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         var viewModel = CreateVideoGenerationDialog(clients, editor);
         viewModel.CurrentFrameRenderer = async _ =>
         {
@@ -3192,16 +2947,13 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task CapturingOrClearingFrame_RemovesSupersededTemporaryInput()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-video-frame-capture-replacement");
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-video-frame-capture-replacement");
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         await using var viewModel = CreateVideoGenerationDialog(clients, editor);
         viewModel.CurrentFrameRenderer = _ => Task.FromResult(new Bitmap(2, 2));
 
@@ -3306,7 +3058,7 @@ public sealed partial class AiDialogWorkflowTests
     {
         await TestReset.ResetShellAsync();
         var sentPieces = new List<string>();
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -3322,32 +3074,15 @@ public sealed partial class AiDialogWorkflowTests
             }
             if (request.RequestUri?.AbsolutePath == "/api/v3/ai/translations")
             {
-                string body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
-                using JsonDocument json = JsonDocument.Parse(body);
-                object[] segments = json.RootElement.GetProperty("segments")
-                    .EnumerateArray()
-                    .Select(segment =>
-                    {
-                        string text = segment.GetProperty("text").GetString()!;
-                        sentPieces.Add(text);
-                        return (object)new
-                        {
-                            id = segment.GetProperty("id").GetString(),
-                            text,
-                        };
-                    })
-                    .ToArray();
-                return JsonResponse(HttpStatusCode.OK, JsonSerializer.Serialize(new
+                return CreateTranslationResponse(request, $"word-boundary-{sentPieces.Count}", text =>
                 {
-                    jobId = $"word-boundary-{sentPieces.Count}",
-                    segments,
-                }));
+                    sentPieces.Add(text);
+                    return text;
+                });
             }
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.TranslationModelPicker.Options.Count == 2);
@@ -3365,37 +3100,20 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task SubtitleTranslation_BatchesAtomicallyAndImportsTranslatedCaptions()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-subtitle-translation");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-translation");
         int translationRequests = 0;
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
             if (request.RequestUri?.AbsolutePath == "/api/v3/ai/translations")
             {
                 int requestNumber = Interlocked.Increment(ref translationRequests);
-                string body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
-                using JsonDocument json = JsonDocument.Parse(body);
-                object[] segments = json.RootElement.GetProperty("segments")
-                    .EnumerateArray()
-                    .Select(segment => (object)new
-                    {
-                        id = segment.GetProperty("id").GetString(),
-                        text = "T-" + segment.GetProperty("text").GetString(),
-                    })
-                    .ToArray();
-                return JsonResponse(HttpStatusCode.OK, JsonSerializer.Serialize(new
-                {
-                    jobId = $"translation-{requestNumber}",
-                    segments,
-                }));
+                return CreateTranslationResponse(request, $"translation-{requestNumber}");
             }
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(clients, editor);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
         viewModel.ResultSegments.Value = Enumerable.Range(0, 201)
@@ -3424,41 +3142,24 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task SubtitleTranslation_WrapsProviderTextWithoutValidationWarningOrDataLoss()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-subtitle-translation-wrap");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-translation-wrap");
         const string translatedText =
             "This translated caption is intentionally longer than the default line length.";
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
             if (request.RequestUri?.AbsolutePath == "/api/v3/ai/translations")
             {
-                string body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
-                using JsonDocument json = JsonDocument.Parse(body);
-                object[] segments = json.RootElement.GetProperty("segments")
-                    .EnumerateArray()
-                    .Select(segment => (object)new
-                    {
-                        id = segment.GetProperty("id").GetString(),
-                        // Providers may return text that exceeds the editor's
-                        // line-length limit. The imported value must be wrapped,
-                        // not rejected (or truncated) as a validation error.
-                        text = translatedText,
-                    })
-                    .ToArray();
-                return JsonResponse(HttpStatusCode.OK, JsonSerializer.Serialize(new
-                {
-                    jobId = "translation-wrap",
-                    segments,
-                }));
+                // Providers may return text that exceeds the editor's
+                // line-length limit. The imported value must be wrapped,
+                // not rejected (or truncated) as a validation error.
+                return CreateTranslationResponse(request, "translation-wrap", _ => translatedText);
             }
 
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(clients, editor);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
         viewModel.ResultSegments.Value =
@@ -3473,7 +3174,7 @@ public sealed partial class AiDialogWorkflowTests
         Assert.Multiple(() =>
         {
             Assert.That(viewModel.CaptionValidationMessage.Value, Is.Null,
-                "Translation used to surface the exact line-count warning after import.");
+                "A wrapped translation must not leave a line-count warning.");
             Assert.That(importedText.Replace("\n", " ", StringComparison.Ordinal)
                     .Replace("  ", " ", StringComparison.Ordinal),
                 Is.EqualTo(translatedText),
@@ -3485,39 +3186,20 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task SubtitleTranslation_SplitsOverlongProviderTextWithoutLineCountWarning()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-subtitle-translation-split");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-translation-split");
         const string translatedText =
             "これは字幕エディターの既定の一行あたりの文字数を大きく超えるように意図的に作成された長い翻訳結果です。"
             + "翻訳された文章の内容を一文字も失わず、読みやすい複数の字幕へ分割して表示できることを確認します。";
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
             if (request.RequestUri?.AbsolutePath == "/api/v3/ai/translations")
-            {
-                string body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
-                using JsonDocument json = JsonDocument.Parse(body);
-                object[] segments = json.RootElement.GetProperty("segments")
-                    .EnumerateArray()
-                    .Select(segment => (object)new
-                    {
-                        id = segment.GetProperty("id").GetString(),
-                        text = translatedText,
-                    })
-                    .ToArray();
-                return JsonResponse(HttpStatusCode.OK, JsonSerializer.Serialize(new
-                {
-                    jobId = "translation-split",
-                    segments,
-                }));
-            }
+                return CreateTranslationResponse(request, "translation-split", _ => translatedText);
 
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(clients, editor);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
         viewModel.ResultSegments.Value =
@@ -3550,10 +3232,9 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task SubtitleTranslation_SecondBatchFailureKeepsPaidPartialAndResumesWithoutRebilling()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-subtitle-translation-failure");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-translation-failure");
         int translationRequests = 0;
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -3562,20 +3243,12 @@ public sealed partial class AiDialogWorkflowTests
                 int requestNumber = Interlocked.Increment(ref translationRequests);
                 return requestNumber is 1 or 3
                     ? CreateTranslationResponse(request, "translation-first")
-                    : JsonResponse(HttpStatusCode.InternalServerError, """
-                        {
-                          "error_code": "aiProviderError",
-                          "message": "Provider failed.",
-                          "documentation_url": null
-                        }
-                        """);
+                    : ErrorResponse(HttpStatusCode.InternalServerError, "aiProviderError", "Provider failed.");
             }
 
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(clients, editor);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
         viewModel.ResultSegments.Value = CreateTranslationBatchSegments();
@@ -3622,7 +3295,7 @@ public sealed partial class AiDialogWorkflowTests
         var sentModels = new List<string?>();
         var availability = new RecordingAvailabilityService();
         int translationRequests = 0;
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -3638,19 +3311,11 @@ public sealed partial class AiDialogWorkflowTests
                 int requestNumber = ++translationRequests;
                 return requestNumber is 1 or 3
                     ? CreateTranslationResponse(request, $"translation-{requestNumber}")
-                    : JsonResponse(HttpStatusCode.InternalServerError, """
-                        {
-                          "error_code": "aiProviderError",
-                          "message": "Provider failed.",
-                          "documentation_url": null
-                        }
-                        """);
+                    : ErrorResponse(HttpStatusCode.InternalServerError, "aiProviderError", "Provider failed.");
             }
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(
             clients,
             availabilityService: availability);
@@ -3713,7 +3378,7 @@ public sealed partial class AiDialogWorkflowTests
         bool publishModels = false;
         int translationRequests = 0;
         var availability = new RecordingAvailabilityService();
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -3730,19 +3395,11 @@ public sealed partial class AiDialogWorkflowTests
                 int requestNumber = ++translationRequests;
                 return requestNumber == 1
                     ? CreateTranslationResponse(request, "translation-unmodeled")
-                    : JsonResponse(HttpStatusCode.InternalServerError, """
-                        {
-                          "error_code": "aiProviderError",
-                          "message": "Provider failed.",
-                          "documentation_url": null
-                        }
-                        """);
+                    : ErrorResponse(HttpStatusCode.InternalServerError, "aiProviderError", "Provider failed.");
             }
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(
             clients,
             availabilityService: availability);
@@ -3780,7 +3437,7 @@ public sealed partial class AiDialogWorkflowTests
     {
         await TestReset.ResetShellAsync();
         var bodies = new List<string>();
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -3800,10 +3457,8 @@ public sealed partial class AiDialogWorkflowTests
                 return CreateTranslationResponse(request, $"limited-{bodies.Count}");
             }
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.TranslationModelPicker.Options.Count == 2);
@@ -3841,12 +3496,11 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task SubtitleTranslation_SecondBatchCancellationPreservesOriginalCues()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-subtitle-translation-cancel");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-translation-cancel");
         int translationRequests = 0;
         var secondRequestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var cancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var handler = new StubHandler(async (request, cancellationToken) =>
+        await using var api = new ApiScope(new StubHandler(async (request, cancellationToken) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -3871,10 +3525,8 @@ public sealed partial class AiDialogWorkflowTests
             }
 
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(clients, editor);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
         viewModel.ResultSegments.Value = CreateTranslationBatchSegments();
@@ -3915,7 +3567,7 @@ public sealed partial class AiDialogWorkflowTests
         IObservable<CaptionDraftScope?> draftScopes =
             Observable.Return<CaptionDraftScope?>(draftScope);
         int translationRequests = 0;
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -3924,20 +3576,12 @@ public sealed partial class AiDialogWorkflowTests
                 int requestNumber = Interlocked.Increment(ref translationRequests);
                 return requestNumber is 1 or 3
                     ? CreateTranslationResponse(request, $"translation-{requestNumber}")
-                    : JsonResponse(HttpStatusCode.InternalServerError, """
-                        {
-                          "error_code": "aiProviderError",
-                          "message": "Provider failed.",
-                          "documentation_url": null
-                        }
-                        """);
+                    : ErrorResponse(HttpStatusCode.InternalServerError, "aiProviderError", "Provider failed.");
             }
 
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
 
         await using (var firstDialog = CreateSubtitleDialog(
                    clients,
@@ -3978,11 +3622,11 @@ public sealed partial class AiDialogWorkflowTests
     public async Task SubtitleTranslation_SaveFailureAfterPaidResponsePreservesSeedForRestart()
     {
         await TestReset.ResetShellAsync();
-        var draftStore = new FailingCaptionDraftStore(failOnSave: 2);
+        var draftStore = new InMemoryCaptionDraftStore { FailOnSave = 2 };
         CaptionDraftScope scope = new("user-a", Guid.NewGuid(), Guid.NewGuid());
         IObservable<CaptionDraftScope?> scopes = Observable.Return<CaptionDraftScope?>(scope);
         var keys = new List<string?>();
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -3992,10 +3636,8 @@ public sealed partial class AiDialogWorkflowTests
                 return CreateTranslationResponse(request, "translation-paid");
             }
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
 
         await using (var first = CreateSubtitleDialog(clients, draftStore: draftStore, draftScopes: scopes))
         {
@@ -4029,15 +3671,14 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task SubtitleTranslation_EditDuringDeferredResponsePreservesUserRevisionAndJobMetadata()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-subtitle-translation-stale-response");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-translation-stale-response");
         var draftStore = new FileCaptionDraftStore(Path.Combine(
             BeutlHomeIsolation.CurrentHome!,
             "translation-stale-drafts"));
         CaptionDraftScope draftScope = new("user-a", Guid.NewGuid(), editor.Scene.Id);
         var translationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseTranslation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var handler = new StubHandler(async (request, cancellationToken) =>
+        await using var api = new ApiScope(new StubHandler(async (request, cancellationToken) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -4049,10 +3690,8 @@ public sealed partial class AiDialogWorkflowTests
             }
 
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(
             clients,
             editor,
@@ -4097,7 +3736,7 @@ public sealed partial class AiDialogWorkflowTests
         IObservable<CaptionDraftScope?> scopes = Observable.Return<CaptionDraftScope?>(draftScope);
         var keys = new List<string?>();
         int requestCount = 0;
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -4107,21 +3746,16 @@ public sealed partial class AiDialogWorkflowTests
                 int sequence = ++requestCount;
                 if (sequence == 1)
                 {
-                    return JsonResponse(HttpStatusCode.ServiceUnavailable, """
-                        {
-                          "error_code": "aiResultUnavailable",
-                          "message": "The paid result is temporarily unavailable.",
-                          "documentation_url": null
-                        }
-                        """);
+                    return ErrorResponse(
+                        HttpStatusCode.ServiceUnavailable,
+                        "aiResultUnavailable",
+                        "The paid result is temporarily unavailable.");
                 }
                 return CreateTranslationResponse(request, $"translation-{sequence}");
             }
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
 
         await using (var firstDialog = CreateSubtitleDialog(
                    clients,
@@ -4196,7 +3830,7 @@ public sealed partial class AiDialogWorkflowTests
         CaptionDraftScope draftScope = new("user-a", Guid.NewGuid(), Guid.NewGuid());
         IObservable<CaptionDraftScope?> scopes = Observable.Return<CaptionDraftScope?>(draftScope);
         var keys = new List<string?>();
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -4204,20 +3838,15 @@ public sealed partial class AiDialogWorkflowTests
             {
                 keys.Add(IdempotencyKeyOf(request));
                 return keys.Count == 1
-                    ? JsonResponse(HttpStatusCode.ServiceUnavailable, """
-                        {
-                          "error_code": "aiResultUnavailable",
-                          "message": "The paid result is temporarily unavailable.",
-                          "documentation_url": null
-                        }
-                        """)
+                    ? ErrorResponse(
+                        HttpStatusCode.ServiceUnavailable,
+                        "aiResultUnavailable",
+                        "The paid result is temporarily unavailable.")
                     : CreateTranslationResponse(request, "translation-recovered");
             }
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
 
         await using (var firstDialog = CreateSubtitleDialog(
                    clients,
@@ -4279,7 +3908,7 @@ public sealed partial class AiDialogWorkflowTests
         var transcriptionStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseTranscription = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         int transcriptionRequests = 0;
-        using var handler = new StubHandler(async (request, cancellationToken) =>
+        await using var api = new ApiScope(new StubHandler(async (request, cancellationToken) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -4292,10 +3921,8 @@ public sealed partial class AiDialogWorkflowTests
             }
 
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(
             clients,
             draftStore: draftStore,
@@ -4359,8 +3986,7 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task SourceFileTranscription_RestartWithDifferentSourceWindowStartsANewRun()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-source-window-draft-identity");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-source-window-draft-identity");
         var draftStore = new FileCaptionDraftStore(Path.Combine(
             BeutlHomeIsolation.CurrentHome!,
             "source-window-draft-identity"));
@@ -4373,7 +3999,7 @@ public sealed partial class AiDialogWorkflowTests
         WritePcmWave(sourcePath, sampleRate, sampleCount: sampleRate * 2);
         var keys = new List<string?>();
         int requestCount = 0;
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -4382,21 +4008,16 @@ public sealed partial class AiDialogWorkflowTests
                 keys.Add(IdempotencyKeyOf(request));
                 if (++requestCount == 1)
                 {
-                    return JsonResponse(HttpStatusCode.ServiceUnavailable, """
-                        {
-                          "error_code": "aiResultUnavailable",
-                          "message": "The paid result is temporarily unavailable.",
-                          "documentation_url": null
-                        }
-                        """);
+                    return ErrorResponse(
+                        HttpStatusCode.ServiceUnavailable,
+                        "aiResultUnavailable",
+                        "The paid result is temporarily unavailable.");
                 }
                 return CreateTranscriptionResponse("replacement-source-window");
             }
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         Guid elementId = Guid.NewGuid();
         var originalWindow = new AudioSourceItem(
             "Source",
@@ -4449,15 +4070,14 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task SourceFileTranscription_SaveFailureAfterFinalResponsePreservesSeedForRestart()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-source-save-failure");
-        var draftStore = new FailingCaptionDraftStore(failOnSave: 2);
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-source-save-failure");
+        var draftStore = new InMemoryCaptionDraftStore { FailOnSave = 2 };
         CaptionDraftScope scope = new("user-a", Guid.NewGuid(), editor.Scene.Id);
         IObservable<CaptionDraftScope?> scopes = Observable.Return<CaptionDraftScope?>(scope);
         string sourcePath = Path.Combine(BeutlHomeIsolation.CurrentHome!, "source-save-failure.wav");
         WritePcmWave(sourcePath, 16_000, 16_000);
         var keys = new List<string?>();
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -4467,10 +4087,8 @@ public sealed partial class AiDialogWorkflowTests
                 return CreateTranscriptionResponse("source-paid");
             }
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         try
         {
             var source = new AudioSourceItem("Source", sourcePath, TimeSpan.FromSeconds(1));
@@ -4510,8 +4128,7 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task SceneTranscription_ResponseLossSurvivesRangeLanguageChangeAndRestart()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-scene-transcription-ledger");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-scene-transcription-ledger");
         var draftStore = new FileCaptionDraftStore(Path.Combine(
             BeutlHomeIsolation.CurrentHome!,
             "scene-transcription-ledger-drafts"));
@@ -4519,7 +4136,7 @@ public sealed partial class AiDialogWorkflowTests
         IObservable<CaptionDraftScope?> scopes = Observable.Return<CaptionDraftScope?>(draftScope);
         var keys = new List<string?>();
         int requestCount = 0;
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -4529,21 +4146,16 @@ public sealed partial class AiDialogWorkflowTests
                 int sequence = ++requestCount;
                 if (sequence == 1)
                 {
-                    return JsonResponse(HttpStatusCode.ServiceUnavailable, """
-                        {
-                          "error_code": "aiResultUnavailable",
-                          "message": "The paid result is temporarily unavailable.",
-                          "documentation_url": null
-                        }
-                        """);
+                    return ErrorResponse(
+                        HttpStatusCode.ServiceUnavailable,
+                        "aiResultUnavailable",
+                        "The paid result is temporarily unavailable.");
                 }
                 return CreateTranscriptionResponse($"transcription-{sequence}");
             }
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         editor.Scene.Start = TimeSpan.Zero;
         editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
 
@@ -4553,7 +4165,7 @@ public sealed partial class AiDialogWorkflowTests
                    draftStore,
                    scopes))
         {
-            ConfigureSceneMix(firstDialog);
+            UseSilentSceneMix(firstDialog, TimeSpan.FromSeconds(1));
             await WaitUntilAsync(() => firstDialog.Usage.HasSnapshot.Value
                 && firstDialog.SelectedAudioSource.Value?.IsSceneMix == true
                 && firstDialog.CanTranscribe.Value);
@@ -4598,7 +4210,7 @@ public sealed partial class AiDialogWorkflowTests
             editor,
             draftStore,
             scopes);
-        ConfigureSceneMix(restoredDialog);
+        UseSilentSceneMix(restoredDialog, TimeSpan.FromSeconds(1));
         await WaitUntilAsync(() => restoredDialog.Usage.HasSnapshot.Value
             && restoredDialog.SelectedAudioSource.Value?.IsSceneMix == true
             && restoredDialog.TranscriptionModelPicker.IsLoaded.Value
@@ -4612,28 +4224,12 @@ public sealed partial class AiDialogWorkflowTests
             Assert.That(keys[2], Is.EqualTo(keys[0]));
             Assert.That(restoredDialog.HasOutstandingTranscriptionRequest.Value, Is.False);
         }
-
-        static void ConfigureSceneMix(AiSubtitleDialogViewModel dialog)
-        {
-            dialog.SceneMixChunkDuration = TimeSpan.FromSeconds(1);
-            dialog.SceneMixAudioComposer = (start, duration, cancellationToken) =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                int sampleCount = Math.Max(1, (int)Math.Ceiling(duration.TotalSeconds * 16_000));
-                return Task.FromResult<AudioFrameSnapshot?>(new AudioFrameSnapshot(
-                    new float[sampleCount],
-                    16_000,
-                    1,
-                    start));
-            };
-        }
     }
 
     [AvaloniaTest]
     public async Task SceneTranscription_PartialCompletedDraftStartsFreshAfterRestart()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-scene-transcription-session-fence");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-scene-transcription-session-fence");
         var draftStore = new FileCaptionDraftStore(Path.Combine(
             BeutlHomeIsolation.CurrentHome!,
             "scene-transcription-session-fence-drafts"));
@@ -4641,7 +4237,7 @@ public sealed partial class AiDialogWorkflowTests
         IObservable<CaptionDraftScope?> scopes = Observable.Return<CaptionDraftScope?>(draftScope);
         var keys = new List<string?>();
         int requestCount = 0;
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -4651,13 +4247,10 @@ public sealed partial class AiDialogWorkflowTests
                 int sequence = ++requestCount;
                 if (sequence == 2)
                 {
-                    return JsonResponse(HttpStatusCode.ServiceUnavailable, """
-                        {
-                          "error_code": "aiResultUnavailable",
-                          "message": "The paid result is temporarily unavailable.",
-                          "documentation_url": null
-                        }
-                        """);
+                    return ErrorResponse(
+                        HttpStatusCode.ServiceUnavailable,
+                        "aiResultUnavailable",
+                        "The paid result is temporarily unavailable.");
                 }
 
                 return JsonResponse(HttpStatusCode.OK, JsonSerializer.Serialize(new
@@ -4677,10 +4270,8 @@ public sealed partial class AiDialogWorkflowTests
             }
 
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         editor.Scene.Start = TimeSpan.Zero;
         editor.Scene.Duration = TimeSpan.FromMilliseconds(200);
 
@@ -4690,7 +4281,7 @@ public sealed partial class AiDialogWorkflowTests
                          draftStore,
                          scopes))
         {
-            ConfigureSceneMix(firstDialog);
+            UseSilentSceneMix(firstDialog, TimeSpan.FromMilliseconds(100));
             await WaitUntilAsync(() => firstDialog.Usage.HasSnapshot.Value
                 && firstDialog.SelectedAudioSource.Value?.IsSceneMix == true
                 && firstDialog.CanTranscribe.Value);
@@ -4709,7 +4300,7 @@ public sealed partial class AiDialogWorkflowTests
             editor,
             draftStore,
             scopes);
-        ConfigureSceneMix(restoredDialog);
+        UseSilentSceneMix(restoredDialog, TimeSpan.FromMilliseconds(100));
         await WaitUntilAsync(() => restoredDialog.Usage.HasSnapshot.Value
             && restoredDialog.SelectedAudioSource.Value?.IsSceneMix == true
             && restoredDialog.CanTranscribe.Value);
@@ -4725,33 +4316,17 @@ public sealed partial class AiDialogWorkflowTests
                 restoredDialog.ResultSegments.Value?.Select(segment => segment.Text),
                 Is.EqualTo(new[] { "transcription-3", "transcription-4" }));
         }
-
-        static void ConfigureSceneMix(AiSubtitleDialogViewModel dialog)
-        {
-            dialog.SceneMixChunkDuration = TimeSpan.FromMilliseconds(100);
-            dialog.SceneMixAudioComposer = (start, duration, cancellationToken) =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                int sampleCount = Math.Max(1, (int)Math.Ceiling(duration.TotalSeconds * 16_000));
-                return Task.FromResult<AudioFrameSnapshot?>(new AudioFrameSnapshot(
-                    new float[sampleCount],
-                    16_000,
-                    1,
-                    start));
-            };
-        }
     }
 
     [AvaloniaTest]
     public async Task SceneTranscription_SaveFailureAfterFinalResponsePreservesSeedForRestart()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-scene-save-failure");
-        var draftStore = new FailingCaptionDraftStore(failOnSave: 2);
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-scene-save-failure");
+        var draftStore = new InMemoryCaptionDraftStore { FailOnSave = 2 };
         CaptionDraftScope scope = new("user-a", Guid.NewGuid(), editor.Scene.Id);
         IObservable<CaptionDraftScope?> scopes = Observable.Return<CaptionDraftScope?>(scope);
         var keys = new List<string?>();
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -4761,28 +4336,14 @@ public sealed partial class AiDialogWorkflowTests
                 return CreateTranscriptionResponse("scene-paid");
             }
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         editor.Scene.Start = TimeSpan.Zero;
         editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
 
-        static void ConfigureSceneMix(AiSubtitleDialogViewModel dialog)
-        {
-            dialog.SceneMixChunkDuration = TimeSpan.FromSeconds(1);
-            dialog.SceneMixAudioComposer = (start, duration, cancellationToken) =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                int sampleCount = Math.Max(1, (int)Math.Ceiling(duration.TotalSeconds * 16_000));
-                return Task.FromResult<AudioFrameSnapshot?>(new AudioFrameSnapshot(
-                    new float[sampleCount], 16_000, 1, start));
-            };
-        }
-
         await using (var first = CreateSubtitleDialog(clients, editor, draftStore, scopes))
         {
-            ConfigureSceneMix(first);
+            UseSilentSceneMix(first, TimeSpan.FromSeconds(1));
             await WaitUntilAsync(() => first.Usage.HasSnapshot.Value
                 && first.SelectedAudioSource.Value?.IsSceneMix == true
                 && first.CanTranscribe.Value);
@@ -4795,7 +4356,7 @@ public sealed partial class AiDialogWorkflowTests
 
         draftStore.FailOnSave = null;
         await using var restored = CreateSubtitleDialog(clients, editor, draftStore, scopes);
-        ConfigureSceneMix(restored);
+        UseSilentSceneMix(restored, TimeSpan.FromSeconds(1));
         await WaitUntilAsync(() => restored.Usage.HasSnapshot.Value
             && restored.SelectedAudioSource.Value?.IsSceneMix == true
             && restored.CanTranscribe.Value);
@@ -4838,36 +4399,20 @@ public sealed partial class AiDialogWorkflowTests
         // Transcription and translation are charged separately. Sharing one name would let a
         // pending transcription bypass translation's balance and model checks and dispatch new
         // work the account cannot afford.
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-subtitle-outstanding-scope");
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-outstanding-scope");
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             // The request is still running, not settled, so its name remains held.
-            "/api/v3/ai/transcriptions" => JsonResponse(HttpStatusCode.Conflict, """
-                {
-                  "error_code": "aiRequestInProgress",
-                  "message": "The first attempt is still running.",
-                  "documentation_url": null
-                }
-                """),
+            "/api/v3/ai/transcriptions" => ErrorResponse(
+                HttpStatusCode.Conflict,
+                "aiRequestInProgress",
+                "The first attempt is still running."),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(clients, editor);
-        viewModel.SceneMixChunkDuration = TimeSpan.FromMilliseconds(50);
-        viewModel.SceneMixAudioComposer = (start, duration, cancellationToken) =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            int sampleCount = Math.Max(1, (int)Math.Ceiling(duration.TotalSeconds * 16_000));
-            return Task.FromResult<AudioFrameSnapshot?>(new AudioFrameSnapshot(
-                new float[sampleCount],
-                16_000,
-                1,
-                start));
-        };
+        UseSilentSceneMix(viewModel, TimeSpan.FromMilliseconds(50));
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
         editor.Scene.Start = TimeSpan.Zero;
@@ -4895,8 +4440,7 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task SceneMixTranscription_SecondChunkFailureKeepsPaidPartialAndResumesWithoutRebilling()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-subtitle-scene-mix-failure");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-scene-mix-failure");
         var draftStore = new FileCaptionDraftStore(Path.Combine(
             BeutlHomeIsolation.CurrentHome!,
             "scene-mix-failure-drafts"));
@@ -4912,7 +4456,7 @@ public sealed partial class AiDialogWorkflowTests
         string[] filesBefore = Directory.Exists(audioDirectory)
             ? Directory.GetFiles(audioDirectory, "scene-mix-*.wav")
             : [];
-        using var handler = new StubHandler(async (request, cancellationToken) =>
+        await using var api = new ApiScope(new StubHandler(async (request, cancellationToken) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -4927,36 +4471,18 @@ public sealed partial class AiDialogWorkflowTests
                     : await request.Content.ReadAsStringAsync(cancellationToken));
                 return requestNumber is 1 or 3
                     ? CreateTranscriptionResponse("transcription-first")
-                    : JsonResponse(HttpStatusCode.InternalServerError, """
-                        {
-                          "error_code": "aiProviderError",
-                          "message": "Provider failed.",
-                          "documentation_url": null
-                        }
-                        """);
+                    : ErrorResponse(HttpStatusCode.InternalServerError, "aiProviderError", "Provider failed.");
             }
 
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(
             clients,
             editor,
             draftStore,
             Observable.Return<CaptionDraftScope?>(draftScope));
-        viewModel.SceneMixChunkDuration = TimeSpan.FromMilliseconds(50);
-        viewModel.SceneMixAudioComposer = (start, duration, cancellationToken) =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            int sampleCount = Math.Max(1, (int)Math.Ceiling(duration.TotalSeconds * 16_000));
-            return Task.FromResult<AudioFrameSnapshot?>(new AudioFrameSnapshot(
-                new float[sampleCount],
-                16_000,
-                1,
-                start));
-        };
+        UseSilentSceneMix(viewModel, TimeSpan.FromMilliseconds(50));
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.SelectedAudioSource.Value?.IsSceneMix == true
             && viewModel.TranscriptionModelPicker.Options.Count == 2);
@@ -5052,13 +4578,14 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task SceneMixResumeRevision_ChangesWhenSceneContentIsEdited()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-subtitle-scene-revision");
-        using var httpClient = new HttpClient(new StubHandler(request =>
-            request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements"
-                ? JsonResponse(HttpStatusCode.OK, EntitlementsJson())
-                : JsonResponse(HttpStatusCode.NotFound, "{}")));
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-scene-revision");
+        await using var api = new ApiScope(
+            new StubHandler(request =>
+                request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements"
+                    ? JsonResponse(HttpStatusCode.OK, EntitlementsJson())
+                    : JsonResponse(HttpStatusCode.NotFound, "{}")),
+            signIn: false);
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(clients, editor);
         long before = viewModel.SceneAudioRevision;
         var element = new Element
@@ -5078,17 +4605,18 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task AudioSourcesRefreshWithSceneEditsAndKeepTheSelectedElement()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-subtitle-live-audio-sources");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-live-audio-sources");
         string sourcePath = Path.Combine(
             BeutlHomeIsolation.CurrentHome!,
             "live-audio-source.wav");
         WritePcmWave(sourcePath, sampleRate: 16_000, sampleCount: 64_000);
-        using var httpClient = new HttpClient(new StubHandler(request =>
-            request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements"
-                ? JsonResponse(HttpStatusCode.OK, EntitlementsJson())
-                : JsonResponse(HttpStatusCode.NotFound, "{}")));
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var api = new ApiScope(
+            new StubHandler(request =>
+                request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements"
+                    ? JsonResponse(HttpStatusCode.OK, EntitlementsJson())
+                    : JsonResponse(HttpStatusCode.NotFound, "{}")),
+            signIn: false);
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(clients, editor);
         var soundSource = new SoundSource();
         soundSource.ReadFrom(new Uri(sourcePath));
@@ -5148,7 +4676,7 @@ public sealed partial class AiDialogWorkflowTests
         const int sampleRate = 16_000;
         WritePcmWave(sourcePath, sampleRate, sampleCount: sampleRate * 10);
         byte[]? uploaded = null;
-        using var handler = new StubHandler(async (request, cancellationToken) =>
+        await using var api = new ApiScope(new StubHandler(async (request, cancellationToken) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -5158,10 +4686,8 @@ public sealed partial class AiDialogWorkflowTests
                 return CreateTranscriptionResponse("trimmed-source-window");
             }
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(clients);
 
         try
@@ -5191,8 +4717,7 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task SceneMixTranscription_SecondChunkCancellationPreservesResultAndDeletesTemporaryFiles()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-subtitle-scene-mix-cancel");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-scene-mix-cancel");
         int transcriptionRequests = 0;
         var secondRequestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var cancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -5200,7 +4725,7 @@ public sealed partial class AiDialogWorkflowTests
         string[] filesBefore = Directory.Exists(audioDirectory)
             ? Directory.GetFiles(audioDirectory, "scene-mix-*.wav")
             : [];
-        using var handler = new StubHandler(async (request, cancellationToken) =>
+        await using var api = new ApiScope(new StubHandler(async (request, cancellationToken) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -5225,22 +4750,10 @@ public sealed partial class AiDialogWorkflowTests
             }
 
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(clients, editor);
-        viewModel.SceneMixChunkDuration = TimeSpan.FromMilliseconds(50);
-        viewModel.SceneMixAudioComposer = (start, duration, cancellationToken) =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            int sampleCount = Math.Max(1, (int)Math.Ceiling(duration.TotalSeconds * 16_000));
-            return Task.FromResult<AudioFrameSnapshot?>(new AudioFrameSnapshot(
-                new float[sampleCount],
-                16_000,
-                1,
-                start));
-        };
+        UseSilentSceneMix(viewModel, TimeSpan.FromMilliseconds(50));
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
         editor.Scene.Start = TimeSpan.Zero;
@@ -5282,12 +4795,11 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task SceneMixTranscription_EditDuringFinalChunkKeepsPaidResultRecoverable()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-subtitle-scene-mix-stale-response");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-scene-mix-stale-response");
         int transcriptionRequests = 0;
         var secondRequestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseSecondRequest = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var handler = new StubHandler(async (request, cancellationToken) =>
+        await using var api = new ApiScope(new StubHandler(async (request, cancellationToken) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
@@ -5303,22 +4815,10 @@ public sealed partial class AiDialogWorkflowTests
             }
 
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(clients, editor);
-        viewModel.SceneMixChunkDuration = TimeSpan.FromMilliseconds(50);
-        viewModel.SceneMixAudioComposer = (start, duration, cancellationToken) =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            int sampleCount = Math.Max(1, (int)Math.Ceiling(duration.TotalSeconds * 16_000));
-            return Task.FromResult<AudioFrameSnapshot?>(new AudioFrameSnapshot(
-                new float[sampleCount],
-                16_000,
-                1,
-                start));
-        };
+        UseSilentSceneMix(viewModel, TimeSpan.FromMilliseconds(50));
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
         editor.Scene.Start = TimeSpan.Zero;
@@ -5368,6 +4868,12 @@ public sealed partial class AiDialogWorkflowTests
             .ToArray();
 
     private static HttpResponseMessage CreateTranslationResponse(HttpRequestMessage request, string jobId)
+        => CreateTranslationResponse(request, jobId, text => "T-" + text);
+
+    private static HttpResponseMessage CreateTranslationResponse(
+        HttpRequestMessage request,
+        string jobId,
+        Func<string, string> translate)
     {
         string body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
         using JsonDocument json = JsonDocument.Parse(body);
@@ -5376,7 +4882,7 @@ public sealed partial class AiDialogWorkflowTests
             .Select(segment => (object)new
             {
                 id = segment.GetProperty("id").GetString(),
-                text = "T-" + segment.GetProperty("text").GetString(),
+                text = translate(segment.GetProperty("text").GetString()!),
             })
             .ToArray();
         return JsonResponse(HttpStatusCode.OK, JsonSerializer.Serialize(new
@@ -5397,13 +4903,12 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task SceneMixTranscription_ShowsProgressWhileAudioIsPrepared()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-subtitle-scene-mix-progress");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-scene-mix-progress");
         var preparationStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releasePreparation = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        using var handler = new StubHandler((request, cancellationToken) =>
+        await using var api = new ApiScope(new StubHandler((request, cancellationToken) =>
             request.RequestUri?.AbsolutePath switch
             {
                 "/api/v3/user/entitlements" => Task.FromResult(
@@ -5411,10 +4916,8 @@ public sealed partial class AiDialogWorkflowTests
                 "/api/v3/ai/transcriptions" => Task.FromResult(
                     CreateTranscriptionResponse("progress-transcription")),
                 _ => Task.FromResult(JsonResponse(HttpStatusCode.NotFound, "{}")),
-            });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+            }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(clients, editor);
         viewModel.SceneMixChunkDuration = TimeSpan.FromSeconds(1);
         viewModel.SceneMixAudioComposer = async (start, duration, cancellationToken) =>
@@ -5481,11 +4984,10 @@ public sealed partial class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task SceneMixTranscription_StopsWhereItIsWhenAskedTo()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-subtitle-scene-mix-stop");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-scene-mix-stop");
         int transcriptionRequests = 0;
         int composeCalls = 0;
-        using var handler = new StubHandler(async (request, cancellationToken) =>
+        await using var api = new ApiScope(new StubHandler(async (request, cancellationToken) =>
         {
             switch (request.RequestUri?.AbsolutePath)
             {
@@ -5498,10 +5000,8 @@ public sealed partial class AiDialogWorkflowTests
                 default:
                     return JsonResponse(HttpStatusCode.NotFound, "{}");
             }
-        });
-        using var httpClient = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(clients, httpClient);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateSubtitleDialog(clients, editor);
         viewModel.SceneMixChunkDuration = TimeSpan.FromSeconds(60);
         viewModel.SceneMixAudioComposer = (start, duration, cancellationToken) =>
@@ -5557,51 +5057,21 @@ public sealed partial class AiDialogWorkflowTests
             ? values.SingleOrDefault()
             : null;
 
-    private static AiImageGenerationDialogViewModel CreateImageGenerationDialog(
-        BeutlApiApplication clients,
-        EditViewModel? editor = null,
-        AiRequestRecoveryContext? context = null)
-        => new(
-            clients.GetResource<IAiEntitlementService>(),
-            clients.GetResource<IAiOperationAvailabilityService>(),
-            clients.GetResource<IAiModelCatalogService>(),
-            CreatePlanCoordinator(clients),
-            clients.GetResource<IAiImageGenerationService>(),
-            clients.GetResource<IAuthenticatedContentService>(),
-            editor,
-            context ?? AiRetryTestContext.CreateForm());
-
-    private static AiImageEditDialogViewModel CreateImageEditDialog(
-        BeutlApiApplication clients,
-        EditViewModel? editor = null,
-        AiRequestRecoveryContext? context = null)
-        => new(
-            clients.GetResource<IAiEntitlementService>(),
-            clients.GetResource<IAiOperationAvailabilityService>(),
-            clients.GetResource<IAiModelCatalogService>(),
-            CreatePlanCoordinator(clients),
-            clients.GetResource<IAiImageEditingService>(),
-            clients.GetResource<IAuthenticatedContentService>(),
-            editor,
-            context ?? AiRetryTestContext.CreateForm());
-
-    private static AiVideoGenerationDialogViewModel CreateVideoGenerationDialog(
-        BeutlApiApplication clients,
-        EditViewModel? editor = null,
-        AiRequestRecoveryContext? context = null,
-        AiSourceVideoMode? sourceMode = null,
-        IAiOperationAvailabilityService? availability = null)
-        => new(
-            clients.GetResource<IAiEntitlementService>(),
-            availability ?? clients.GetResource<IAiOperationAvailabilityService>(),
-            clients.GetResource<IAiModelCatalogService>(),
-            CreatePlanCoordinator(clients),
-            clients.GetResource<IAiVideoService>(),
-            clients.GetResource<IAuthenticatedContentService>(),
-            clients.GetResource<IAiJobKindRegistry>(),
-            clients.GetResource<IAiJobMonitor>(),
-            editor,
-            context ?? AiRetryTestContext.CreateForm(), sourceMode);
+    // Composes the scene mix as 16 kHz mono silence, in chunks of the given length.
+    private static void UseSilentSceneMix(AiSubtitleDialogViewModel dialog, TimeSpan chunk)
+    {
+        dialog.SceneMixChunkDuration = chunk;
+        dialog.SceneMixAudioComposer = (start, duration, cancellationToken) =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            int sampleCount = Math.Max(1, (int)Math.Ceiling(duration.TotalSeconds * 16_000));
+            return Task.FromResult<AudioFrameSnapshot?>(new AudioFrameSnapshot(
+                new float[sampleCount],
+                16_000,
+                1,
+                start));
+        };
+    }
 
     private static AiRequestRecoveryContext CreateIdentityContext(Func<string?> account)
         => new(
@@ -5613,24 +5083,6 @@ public sealed partial class AiDialogWorkflowTests
             () => account() is { } value
                 ? new AiAuthenticatedRequestIdentity(value, User: null)
                 : null);
-
-    private static AiSubtitleDialogViewModel CreateSubtitleDialog(
-        BeutlApiApplication clients,
-        EditViewModel? editor = null,
-        ICaptionDraftStore? draftStore = null,
-        IObservable<CaptionDraftScope?>? draftScopes = null,
-        IAiOperationAvailabilityService? availabilityService = null)
-        => new(
-            clients.GetResource<IAiEntitlementService>(),
-            availabilityService ?? clients.GetResource<IAiOperationAvailabilityService>(),
-            clients.GetResource<IAiModelCatalogService>(),
-            CreatePlanCoordinator(clients),
-            clients.GetResource<IAiTranscriptionService>(),
-            clients.GetResource<IAiCaptionTranslationService>(),
-            CaptionCatalog.CreateDefault("Default"),
-            draftStore ?? CaptionDraftStoreProvider.Current,
-            draftScopes ?? Observable.Return<CaptionDraftScope?>(null),
-            editor);
 
     private sealed class RecordingAvailabilityService : IAiOperationAvailabilityService
     {
@@ -5660,9 +5112,6 @@ public sealed partial class AiDialogWorkflowTests
         }
     }
 
-    private static IAiPlanCoordinator CreatePlanCoordinator(BeutlApiApplication clients)
-        => new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>());
-
     private static void AssertStoredCaptionDraftJob(
         FileCaptionDraftStore store,
         CaptionDraftScope scope,
@@ -5678,51 +5127,8 @@ public sealed partial class AiDialogWorkflowTests
             .GetField("_lifetimeCts", BindingFlags.NonPublic | BindingFlags.Instance)!
             .GetValue(viewModel)!;
 
-    private static async Task<EditViewModel> OpenEditor(string name)
-    {
-        string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(workspace);
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, workspace))!;
-        Scene scene = project.Items.OfType<Scene>().First();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
-    }
-
-    private static async Task WaitUntilAsync(Func<bool> condition)
-    {
-        using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        while (!condition())
-        {
-            HeadlessTestHelpers.Settle();
-            await Task.Delay(10, cancellationTokenSource.Token);
-        }
-    }
-
-    private static void SetAuthenticatedUser(BeutlApiApplication app, HttpClient httpClient)
-    {
-        httpClient.BaseAddress = new Uri("https://beutl.beditor.net");
-        var profile = new Profile(new ProfileResponse
-        {
-            Id = "test-user",
-            Name = "test",
-            DisplayName = "Test User",
-            Bio = null,
-            IconId = null,
-            IconUrl = null,
-        }, app);
-        var user = new AuthenticatedUser(profile, new AuthResponse
-        {
-            Token = "token",
-            RefreshToken = "refresh-token",
-            Expiration = DateTime.UtcNow.AddHours(1),
-        }, app, DateTime.UtcNow);
-        FieldInfo field = typeof(BeutlApiApplication).GetField(
-            "_authenticatedUser",
-            BindingFlags.NonPublic | BindingFlags.Instance)!;
-        ((ReactivePropertySlim<AuthenticatedUser?>)field.GetValue(app)!).Value = user;
-    }
+    private static Task WaitUntilAsync(Func<bool> condition)
+        => HeadlessTestHelpers.WaitUntilAsync(condition, TimeSpan.FromSeconds(5));
 
     // Two video models with different shapes: one takes 4/6/8 seconds at 720p or
     // 1080p, the other renders only at 2K, refuses anything under five seconds
@@ -5892,36 +5298,6 @@ public sealed partial class AiDialogWorkflowTests
         return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
     }
 
-    private static string EntitlementsJson() => """
-        {
-          "plan": "pro",
-          "subscriptionStatus": "active",
-          "currentPeriodStart": "2026-08-01T00:00:00Z",
-          "currentPeriodEnd": "2026-09-01T00:00:00Z",
-          "canUseAi": true,
-          "balance": {
-            "monthlyUsage": {
-              "usedPercent": 0,
-              "remainingPercent": 100,
-              "isExhausted": false
-            },
-            "additionalCredits": 0,
-            "hasAdditionalCreditDebt": false
-          },
-          "availability": {
-            "image.generate": true,
-            "image.edit.remove_background": true,
-            "image.edit.upscale": true,
-            "image.edit.restyle": true,
-            "image.edit.remove_object": true,
-            "image.edit.outpaint": true,
-            "audio.transcribe": true,
-            "subtitle.translate": true,
-            "video.generate": true
-          }
-        }
-        """;
-
     private static string EntitlementsWithUnavailableImageModelJson()
         => EntitlementsJson().Replace(
             "\"availability\": {",
@@ -5943,101 +5319,14 @@ public sealed partial class AiDialogWorkflowTests
         }
         """;
 
-    private static HttpResponseMessage JsonResponse(HttpStatusCode status, string json)
-        => new(status)
-        {
-            Content = new StringContent(json, Encoding.UTF8, "application/json"),
-        };
-
-    private static HttpResponseMessage ByteResponse(byte[] bytes, string mediaType)
-        => new(HttpStatusCode.OK)
-        {
-            Content = new ByteArrayContent(bytes)
-            {
-                Headers = { ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(mediaType) },
-            },
-        };
-
-    private sealed class FailingCaptionDraftStore(int? failOnSave) : ICaptionDraftStore
+    // The server's error body. withDocumentationUrl: false leaves the field out, which is not the same as
+    // null: the client's ApiErrorResponse requires it.
+    private static HttpResponseMessage ErrorResponse(
+        HttpStatusCode status, string code, string message, bool withDocumentationUrl = true)
     {
-        private readonly Dictionary<CaptionDraftScope, CaptionDraftEntry> _drafts = [];
-        private readonly HashSet<CaptionDraftScope> _owners = [];
-        private readonly object _gate = new();
-        private int _saveCount;
-
-        public int? FailOnSave { get; set; } = failOnSave;
-
-        public bool TryOpen(
-            CaptionDraftScope scope,
-            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)]
-            out ICaptionDraftSession? session)
-        {
-            lock (_gate)
-            {
-                if (!_owners.Add(scope))
-                {
-                    session = null;
-                    return false;
-                }
-
-                session = new Session(this, scope);
-                return true;
-            }
-        }
-
-        private sealed class Session(FailingCaptionDraftStore owner, CaptionDraftScope scope)
-            : ICaptionDraftSession
-        {
-            private FailingCaptionDraftStore? _owner = owner;
-
-            public CaptionDraftScope Scope { get; } = scope;
-
-            public CaptionDraftReadResult Read()
-            {
-                FailingCaptionDraftStore store = GetOwner();
-                lock (store._gate)
-                {
-                    return store._drafts.GetValueOrDefault(Scope) is { } entry
-                        ? new CaptionDraftReadResult(CaptionDraftReadOutcome.Read, entry)
-                        : CaptionDraftReadResult.Absent;
-                }
-            }
-
-            public void Save(CaptionDraftEntry entry)
-            {
-                FailingCaptionDraftStore store = GetOwner();
-                lock (store._gate)
-                {
-                    int save = ++store._saveCount;
-                    if (store.FailOnSave == save)
-                        throw new IOException("Injected caption draft save failure.");
-                    store._drafts[Scope] = entry;
-                }
-            }
-
-            public void Delete()
-            {
-                FailingCaptionDraftStore store = GetOwner();
-                lock (store._gate)
-                {
-                    store._drafts.Remove(Scope);
-                }
-            }
-
-            public void Dispose()
-            {
-                FailingCaptionDraftStore? store = Interlocked.Exchange(ref _owner, null);
-                if (store is null)
-                    return;
-                lock (store._gate)
-                {
-                    store._owners.Remove(Scope);
-                }
-            }
-
-            private FailingCaptionDraftStore GetOwner()
-                => _owner ?? throw new ObjectDisposedException(nameof(Session));
-        }
+        var body = new Dictionary<string, string?> { ["error_code"] = code, ["message"] = message };
+        if (withDocumentationUrl) body["documentation_url"] = null;
+        return JsonResponse(status, JsonSerializer.Serialize(body));
     }
 
     private sealed class CancellationObservingStream : Stream
@@ -6104,28 +5393,5 @@ public sealed partial class AiDialogWorkflowTests
 
         public override void Write(byte[] buffer, int offset, int count)
             => throw new NotSupportedException();
-    }
-
-    private sealed class StubHandler(
-        Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responder,
-        bool handleAvailability = true) : HttpMessageHandler
-    {
-        public StubHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
-            : this((request, _) => Task.FromResult(responder(request)))
-        {
-        }
-
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request,
-            CancellationToken cancellationToken)
-        {
-            HttpResponseMessage response = handleAvailability
-                && request.RequestUri?.AbsolutePath
-                == "/api/v3/user/ai-availability"
-                ? JsonResponse(HttpStatusCode.OK, "{ \"available\": true }")
-                : await responder(request, cancellationToken);
-            response.RequestMessage = request;
-            return response;
-        }
     }
 }

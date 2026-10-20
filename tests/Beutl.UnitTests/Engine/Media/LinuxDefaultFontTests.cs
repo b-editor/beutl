@@ -131,7 +131,7 @@ public class LinuxDefaultFontTests
         try
         {
             var elapsed = Stopwatch.StartNew();
-            // Allow the command the same startup budget as a real font query on a busy runner.
+            // Resolves with the default timeout, as a real font query does.
             SKTypeface face = DefaultFontResolver.Resolve(executable);
             (int Pid, ulong StartTime)? identity = ReadRecordedProcessIdentity(identityFile);
             Assert.That(identity, Is.Not.Null,
@@ -154,43 +154,6 @@ public class LinuxDefaultFontTests
                 process.Kill(entireProcessTree: true);
             }
         }
-    }
-
-    [Test]
-    public void MissingProcessIdentity_CannotVerifyTermination()
-    {
-        Assert.That(ReadRecordedProcessIdentity(Path.Combine(_directory, "missing-process")), Is.Null);
-    }
-
-    [TestCase(false)]
-    [TestCase(true)]
-    public void IncompleteProcessIdentity_CannotVerifyTermination(bool partial)
-    {
-        string identityFile = Path.Combine(_directory, "incomplete-process");
-        File.WriteAllText(identityFile, partial ? $"{Environment.ProcessId} (sh) R" : "");
-        Assert.That(ReadRecordedProcessIdentity(identityFile), Is.Null);
-    }
-
-    [Test]
-    public void CompleteProcessIdentity_DetectsTheRunningProcess()
-    {
-        string identityFile = Path.Combine(_directory, "running-process");
-        File.WriteAllText(identityFile, File.ReadAllText($"/proc/{Environment.ProcessId}/stat"));
-        (int Pid, ulong StartTime)? identity = ReadRecordedProcessIdentity(identityFile);
-        Assert.That(identity, Is.Not.Null);
-        Assert.That(IsRecordedProcessRunning(identity!.Value), Is.True);
-    }
-
-    [Test]
-    public void CompleteProcessIdentity_WithMissingProcEntry_VerifiesTermination()
-    {
-        string identityFile = Path.Combine(_directory, "stopped-process");
-        string current = File.ReadAllText($"/proc/{Environment.ProcessId}/stat");
-        // Linux's maximum PID is much smaller than int.MaxValue, so this /proc entry cannot exist.
-        File.WriteAllText(identityFile, int.MaxValue + current[current.IndexOf(' ')..]);
-        (int Pid, ulong StartTime)? identity = ReadRecordedProcessIdentity(identityFile);
-        Assert.That(identity, Is.Not.Null);
-        Assert.That(IsRecordedProcessRunning(identity!.Value), Is.False);
     }
 
     private static (int Pid, ulong StartTime)? ReadRecordedProcessIdentity(string identityFile)

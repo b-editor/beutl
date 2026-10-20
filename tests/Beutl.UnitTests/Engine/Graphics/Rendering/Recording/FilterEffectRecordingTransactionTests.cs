@@ -341,13 +341,5 @@ internal sealed partial class CallbackFilterEffect(
 
     public new sealed class Resource : FilterEffect.Resource
     {
-        public Resource()
-        {
-        }
     }
-}
-
-internal static class FilterEffectRecordingTransactionSlots
-{
-    internal static readonly RenderResourceSlot<object> Shared = new();
 }

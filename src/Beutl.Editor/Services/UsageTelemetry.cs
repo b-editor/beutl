@@ -41,11 +41,6 @@ internal sealed class UsageTelemetry : IDisposable
         && config.Beutl_Api_Client.HasValue && config.Beutl_PackageManagement.HasValue
         && config.Beutl_Logging.HasValue;
 
-    internal bool IsEnabled
-    {
-        get { lock (_gate) return _enabled && !_disposed; }
-    }
-
     internal bool TryGetCollectionEpoch(out long epoch)
     {
         lock (_gate)

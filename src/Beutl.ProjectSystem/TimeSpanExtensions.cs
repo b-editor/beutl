@@ -17,11 +17,6 @@ public static class TimeSpanExtensions
         return ts.TotalSeconds * rate;
     }
 
-    public static double ToFrameNumber(this TimeSpan ts, int rate)
-    {
-        return ts.TotalSeconds * rate;
-    }
-
     public static TimeSpan ToTimeSpan(this double f, double rate)
     {
         return TimeSpan.FromSeconds(f / rate);

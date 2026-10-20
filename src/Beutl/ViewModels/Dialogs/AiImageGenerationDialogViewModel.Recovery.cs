@@ -7,49 +7,14 @@ namespace Beutl.ViewModels.Dialogs;
 
 internal sealed partial class AiImageGenerationDialogViewModel
 {
-    private IReadOnlyList<AiPendingAttempt> GetPendingRecoveryAttempts()
-    {
-        try
-        {
-            return _requestKey.PendingAttempts(AiOperations.ImageGeneration);
-        }
-        catch (InvalidDataException ex)
-        {
-            _logger.LogError(ex, "Failed to read image-generation recovery attempts.");
-            return Array.Empty<AiPendingAttempt>();
-        }
-    }
-
-    private void TryAutoRecoverSingleAttempt()
-    {
-        IReadOnlyList<AiPendingAttempt> attempts = GetPendingRecoveryAttempts();
-        if (attempts.Count == 1 && attempts[0].HasCanonicalForm)
-        {
-            if (!TryRecoverPendingAttempt(attempts[0]))
-                ClearActiveRecovery();
-        }
-
-        _recoveryRevision.Value++;
-    }
-
     private void OnIdentityChanged()
-        => AiFormRecovery.SwitchIdentity(
-            _identityOperations,
-            ClearIdentityState,
-            TryAutoRecoverForCurrentIdentity,
-            ex => _logger.LogError(ex, "Failed to clear image-generation state after an account change."));
-
-    private void TryAutoRecoverForCurrentIdentity()
-    {
-        if (_requestKey.CurrentAccountId is not null)
-            TryAutoRecoverSingleAttempt();
-    }
+        => _recovery.SwitchIdentity(_identityOperations, ClearIdentityState);
 
     private void ClearIdentityState()
     {
         _runningRequest = null;
         IsGenerating.Value = false;
-        ClearActiveRecovery();
+        _recovery.Clear();
         _chosenAspectRatio = null;
         _chosenBackground = null;
         _chosenSeed = null;
@@ -65,8 +30,7 @@ internal sealed partial class AiImageGenerationDialogViewModel
         Error.Value = null;
         ModelPicker.ReconcileRecoveryModels();
         ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
-        UpdateReferenceImageState();
-        _recoveryRevision.Value++;
+        _recovery.Revision.Value++;
     }
 
     internal bool TryRecoverPendingAttempt(AiPendingAttempt attempt)
@@ -100,11 +64,6 @@ internal sealed partial class AiImageGenerationDialogViewModel
 
         AiRequestFormSnapshot form = attempt.Form!;
         string[] referencePaths = paths.ToArray();
-        if (referencePaths.Length != attempt.EffectiveSources.Count)
-        {
-            Error.Value = Strings.AiResultUnavailable;
-            return false;
-        }
 
         _applyingCapabilities = true;
         try
@@ -133,9 +92,7 @@ internal sealed partial class AiImageGenerationDialogViewModel
             _applyingCapabilities = false;
         }
 
-        foreach (AiReferenceImageViewModel reference in ReferenceImages)
-            reference.Dispose();
-        ReferenceImages.Clear();
+        DisposeReferenceImages();
         _chosenReferencePaths.Clear();
         foreach (string path in referencePaths)
         {
@@ -165,53 +122,21 @@ internal sealed partial class AiImageGenerationDialogViewModel
             }
         }
 
-        ActivateRecovery(attempt);
-        SelectRecoveredModel();
+        _recovery.Activate(attempt);
+        _recovery.SelectRecoveredModel();
         ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
-        UpdateReferenceImageState();
-        _recoveryRevision.Value++;
+        _recovery.Revision.Value++;
         return true;
     }
 
-    internal void AbandonPendingAttempt(AiPendingAttempt attempt)
-    {
-        try
-        {
-            _requestKey.Abandon(attempt);
-            if (_selectedRecovery is { } selected
-                && AiFormRecovery.IsSameAttempt(selected, attempt))
-            {
-                ClearActiveRecovery();
-                ModelPicker.ReconcileRecoveryModels();
-                ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
-                UpdateReferenceImageState();
-            }
-
-            _recoveryRevision.Value++;
-            // A request that was sent before may still finish, or may already have been paid for.
-            // Either way its job stays in the account's AI job list.
-            NotificationService.ShowInformation(Strings.AiPendingRequest, Strings.AiAbandonedRequestInJobs);
-        }
-        catch (Exception ex) when (ex is InvalidDataException or AuthenticationRequiredException)
-        {
-            _logger.LogWarning(ex, "Failed to abandon image-generation recovery attempt.");
-            Error.Value = Strings.AiResultUnavailable;
-        }
-    }
-
-    // The model a request should carry: the one the outstanding name was built
-    // from while there is one, and the picker's otherwise.
-    private AiModelId? ModelForRequest(AiModelId? selected)
-        => _selectedRecovery is { } attempt
-            ? attempt.Model is { } model ? new AiModelId(model) : null
-            : selected;
+    internal void AbandonPendingAttempt(AiPendingAttempt attempt) => _recovery.Abandon(attempt);
 
     private bool CanUseSelectedModel(AiModelPickerOption? selected)
     {
         if (selected is null || selected.IsAvailable)
             return true;
         if (!_requestKey.HasOutstandingName.Value
-            || _selectedRecovery is not { Model: { } model } recovery
+            || _recovery.Active is not { Model: { } model } recovery
             || !_requestKey.IsCurrentPending(recovery))
         {
             return false;
@@ -220,38 +145,13 @@ internal sealed partial class AiImageGenerationDialogViewModel
         return selected.Id == new AiModelId(model);
     }
 
-    private void ActivateRecovery(AiPendingAttempt attempt)
-    {
-        _selectedRecovery = attempt;
-        SelectedRecoveryAttempt.Value = attempt;
-        ModelPicker.IsSelectionEnabled.Value = false;
-    }
-
-    private void ClearActiveRecovery()
-    {
-        _selectedRecovery = null;
-        SelectedRecoveryAttempt.Value = null;
-        ModelPicker.IsSelectionEnabled.Value = true;
-    }
-
-    private void SelectRecoveredModel()
-        => AiFormRecovery.SelectRecoveredModel(ModelPicker, _selectedRecovery);
-
     // Only this one request is settled. Retiring the whole run instead would
     // throw away the name of anything else still waiting to be collected.
     private void RetireRequestName(AiRequestName name)
     {
         if (!_requestKey.Retire(name))
             return;
-        if (_selectedRecovery is { } selected
-            && AiFormRecovery.IsSettledBy(_requestKey, selected, name))
-        {
-            ClearActiveRecovery();
-            ModelPicker.ReconcileRecoveryModels();
-            ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
-            UpdateReferenceImageState();
-            _recoveryRevision.Value++;
-        }
+        _recovery.Settle(name);
         // Reloads were held back while that name was outstanding, so this is
         // where an operator's change to the model list finally lands.
         _ = RefreshModelsAsync();
@@ -261,16 +161,7 @@ internal sealed partial class AiImageGenerationDialogViewModel
     // move again and puts the balance check back in front of the next attempt.
     private void WithdrawRequestName(AiRequestName name)
     {
-        if (!_requestKey.WithdrawAfterNoReservation(name))
-            return;
-        if (_selectedRecovery is { } selected
-            && AiFormRecovery.IsSettledBy(_requestKey, selected, name))
-        {
-            ClearActiveRecovery();
-            ModelPicker.ReconcileRecoveryModels();
-            ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
-            UpdateReferenceImageState();
-            _recoveryRevision.Value++;
-        }
+        if (_requestKey.WithdrawAfterNoReservation(name))
+            _recovery.Settle(name);
     }
 }

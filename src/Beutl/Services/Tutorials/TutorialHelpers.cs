@@ -27,7 +27,7 @@ public static class TutorialHelpers
         var editVm = GetEditViewModel(editorService);
         if (editVm == null) return false;
 
-        var tab = editVm.FindToolTab<LibraryTabViewModel>() ?? new LibraryTabViewModel(editVm);
+        var tab = editVm.FindToolTab<LibraryTabViewModel>() ?? new LibraryTabViewModel();
         editVm.OpenToolTab(tab);
         return true;
     }
@@ -35,18 +35,13 @@ public static class TutorialHelpers
     public static async Task<bool> EnsureProjectAsync(ProjectService projectService, EditorService editorService, string projectName = "Tutorial")
     {
         Project? currentProject = projectService.CurrentProject.Value;
-        // プロジェクトが開いていない場合、新規プロジェクトを作成
         if (currentProject == null)
         {
-            // ~/.beutl/tmp/tutorials フォルダに保存
-            string tutorialDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".beutl", "tmp", "tutorials");
+            string tutorialDir = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "tutorials");
             Directory.CreateDirectory(tutorialDir);
 
             string fullProjectName = $"{projectName}_{DateTime.Now:yyyyMMddHHmmss}";
 
-            // プロジェクト作成処理
             currentProject = await projectService.CreateProject(
                 width: 1920,
                 height: 1080,

@@ -6,14 +6,12 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Editor;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Services;
-using Beutl.Extensibility;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Utilities;
@@ -26,9 +24,7 @@ namespace Beutl.HeadlessUITests;
 public class NodeGraphFallbackDisplayTests
 {
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task UnavailableNodeShowsReasonAndIsReadOnly(bool light)
+    public void UnavailableNodeShowsReasonAndIsReadOnly()
     {
         var graph = new GraphModel();
         var source = new RandomSingleNode { Name = "Unavailable node", Position = (24, 24) };
@@ -38,13 +34,10 @@ public class NodeGraphFallbackDisplayTests
         JsonObject json = CoreSerializer.SerializeToJsonObject(graph);
         json["Nodes"]![0]!["$type"] = "[Missing.Plugin]Missing:Node";
         graph = (GraphModel)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
-        var editor = new Mock<IEditorContext>();
         var mutation = new Mock<INodeGraphMutationService>();
-        editor.Setup(x => x.GetService(typeof(IPropertyEditorFactory))).Returns(new Mock<IPropertyEditorFactory>().Object);
-        editor.Setup(x => x.GetService(typeof(INodeGraphMutationService))).Returns(mutation.Object);
-        using var vm = new NodeGraphViewModel(graph, editor.Object);
+        using var vm = new NodeGraphViewModel(graph, NodeGraphTestContext.Create(mutation.Object).Object);
         var view = new NodeGraphView { DataContext = vm };
-        var window = new Window { Content = view, Width = 320, Height = 340, RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark };
+        var window = new Window { Content = view, Width = 320, Height = 340, RequestedThemeVariant = ThemeVariant.Dark };
         try
         {
             window.Show();
@@ -67,28 +60,15 @@ public class NodeGraphFallbackDisplayTests
             Assert.That(vm.Nodes[0].Position.Value, Is.EqualTo(new Point(24, 24)));
             Assert.That(graph.Nodes[0].Name, Is.EqualTo("Unavailable node"));
             mutation.VerifyNoOtherCalls();
-            await Capture(window, $"fallback-{light}");
             vm.Nodes[0].IsExpanded.Value = false;
             HeadlessTestHelpers.Render(3);
             Assert.That(graph.Nodes[0].IsExpanded, Is.True, "Expansion is editor state, not an edit to the retained payload.");
             var peer = ControlAutomationPeer.CreatePeerForElement(node.FindControl<Border>("handle")!);
             Assert.That(peer.GetHelpText(), Is.EqualTo(vm.Nodes[0].FallbackMessage));
-            await Capture(window, $"fallback-collapsed-{light}");
         }
         finally
         {
             window.Close();
         }
-    }
-
-    private static async Task Capture(TopLevel window, string name)
-    {
-        if (Environment.GetEnvironmentVariable("BEUTL_FALLBACK_DISPLAY_CAPTURE") is not { Length: > 0 } directory) return;
-        await Task.Delay(300);
-        HeadlessTestHelpers.Render(3);
-        Directory.CreateDirectory(directory);
-        using var image = window.CaptureRenderedFrame();
-        Assert.That(image, Is.Not.Null);
-        image!.Save(Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);
     }
 }

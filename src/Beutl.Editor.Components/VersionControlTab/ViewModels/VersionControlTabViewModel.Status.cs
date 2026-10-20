@@ -267,16 +267,7 @@ internal partial class VersionControlTabViewModel
             return false;
         }
 
-        try
-        {
-            cancellationToken =
-                _serviceBindingCancellation?.Token ?? CancellationToken.None;
-        }
-        catch (ObjectDisposedException)
-        {
-            return false;
-        }
-
+        cancellationToken = _serviceBindingCancellation!.Token;
         return IsCurrentService(service, revision, cancellationToken);
     }
 
@@ -293,7 +284,6 @@ internal partial class VersionControlTabViewModel
 
     internal static string GetAvailabilityMessage(GitAvailability availability)
     {
-        ArgumentNullException.ThrowIfNull(availability);
         string stateMessage = availability.State switch
         {
             GitAvailabilityState.VersionTooOld => string.Format(
@@ -362,7 +352,7 @@ internal partial class VersionControlTabViewModel
     private async Task RunLatestStatusRefreshAsync(Func<CancellationToken, Task> refresh)
     {
         var cancellation = CancellationTokenSource.CreateLinkedTokenSource(
-            _serviceBindingCancellation?.Token ?? CancellationToken.None);
+            _serviceBindingCancellation!.Token);
         CancellationTokenSource? previous = _statusRefreshCancellation;
         _statusRefreshCancellation = cancellation;
         previous?.Cancel();
@@ -450,23 +440,15 @@ internal partial class VersionControlTabViewModel
         });
     }
 
-    // A lock Beutl cannot remove gets the manual-removal steps instead of a remove action that
-    // could never succeed.
     private void ShowRecoverableLock(RepositoryLockInfo? lockInfo)
     {
-        StaleLockGuidance.Value = lockInfo is { RequiresManualRemoval: true }
-            ? FormatStaleLockManualRemovalGuidance(lockInfo)
-            : Strings.VersionControl_StaleLockGuidance;
-        CanRemoveStaleLock.Value = lockInfo is { RequiresManualRemoval: false };
+        StaleLockGuidance.Value = lockInfo is null
+            ? string.Empty
+            : string.Format(
+                CultureInfo.CurrentCulture,
+                Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
+                lockInfo.LockPath);
         HasRecoverableLock.Value = lockInfo is not null;
-    }
-
-    private static string FormatStaleLockManualRemovalGuidance(RepositoryLockInfo lockInfo)
-    {
-        return string.Format(
-            CultureInfo.CurrentCulture,
-            Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
-            lockInfo.LockPath);
     }
 
     private void ApplyStatus(WorkspaceStatus status)

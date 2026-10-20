@@ -35,8 +35,6 @@ public sealed class FilterEffectExecutorReentrancyTests
     private sealed record ReentrantSkiaItem(FilterEffectContext Reentrant)
         : FEItem<FilterEffectContext>(Reentrant, static (_, rect) => rect), IFEItem_Skia
     {
-        public bool ResolveBoundsAtExecutionTime => false;
-
         public bool SupportsDirectReplay => false;
 
         public bool TryTransformSamplingBounds(Rect output, out Rect input)

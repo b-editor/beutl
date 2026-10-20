@@ -1,12 +1,8 @@
-﻿using System.Collections.Immutable;
-using Beutl.Composition;
-using Beutl.Engine;
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
-using Beutl.Media;
 using Beutl.Threading;
-using SkiaSharp;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.RendererTestSupport;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -19,9 +15,9 @@ public sealed class RendererIntentTests
     {
         RenderThread.Dispatcher.Invoke(() =>
         {
-            using Renderer renderer = CreateRenderer(intent);
+            using Renderer renderer = CreateCpuRenderer(8, 8, intent, maxWorkingScale: 1);
 
-            renderer.Render(CreateEmptyFrame());
+            renderer.Render(CreateFrame(new(8, 8)));
 
             Assert.That(renderer.FrameRequestIntent, Is.EqualTo(intent),
                 "The frame renderer issues every request, so it must carry the renderer's intent.");
@@ -33,11 +29,11 @@ public sealed class RendererIntentTests
     {
         RenderThread.Dispatcher.Invoke(() =>
         {
-            using Renderer renderer = CreateRenderer(RenderIntent.Delivery);
+            using Renderer renderer = CreateCpuRenderer(8, 8, RenderIntent.Delivery, maxWorkingScale: 1);
 
             renderer.CacheOptions = RenderCacheOptions.Disabled;
             renderer.ClearAllCaches();
-            renderer.Render(CreateEmptyFrame());
+            renderer.Render(CreateFrame(new(8, 8)));
 
             Assert.That(renderer.FrameRequestIntent, Is.EqualTo(RenderIntent.Delivery),
                 "Rebuilding the frame renderer for new cache options must not reset its intent to the default.");
@@ -46,40 +42,19 @@ public sealed class RendererIntentTests
 
     // The canvas is the switch every brush-owned intermediate reads to choose degrade vs fail;
     // BrushIntermediateAllocationIntentTests covers the outcome itself.
-    [TestCase(RenderIntent.Preview)]
-    [TestCase(RenderIntent.Delivery)]
-    public void ThePaintingCanvasCarriesTheRendererIntent(RenderIntent intent)
+    [TestCase(RenderIntent.Preview, 1f)]
+    [TestCase(RenderIntent.Delivery, 1f)]
+    [TestCase(RenderIntent.Preview, float.PositiveInfinity)]
+    public void ThePaintingCanvasCarriesTheRendererIntent(RenderIntent intent, float maxWorkingScale)
     {
         RenderThread.Dispatcher.Invoke(() =>
         {
-            using Renderer renderer = CreateRenderer(intent);
+            using Renderer renderer = CreateCpuRenderer(8, 8, intent, maxWorkingScale);
 
             Assert.Multiple(() =>
             {
                 Assert.That(renderer.Intent, Is.EqualTo(intent));
                 Assert.That(Renderer.GetInternalCanvas(renderer).Intent, Is.EqualTo(intent));
-            });
-        });
-    }
-
-    [Test]
-    public void PreviewIsTheDefaultEvenWithoutAWorkingScaleCeiling()
-    {
-        RenderThread.Dispatcher.Invoke(() =>
-        {
-            using var renderer = new Renderer(
-                width: 8,
-                height: 8,
-                RenderIntent.Preview,
-                renderScale: 1,
-                maxWorkingScale: float.PositiveInfinity,
-                surface: new CpuRenderTarget(8, 8));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(renderer.Intent, Is.EqualTo(RenderIntent.Preview));
-                Assert.That(Renderer.GetInternalCanvas(renderer).Intent, Is.EqualTo(RenderIntent.Preview),
-                    "An unbounded working scale must not promote a preview renderer to delivery fail-fast.");
             });
         });
     }
@@ -108,30 +83,4 @@ public sealed class RendererIntentTests
 
         Assert.That(surface.IsDisposed, Is.True);
     }
-
-    private static Renderer CreateRenderer(RenderIntent intent)
-        => new(
-            width: 8,
-            height: 8,
-            renderScale: 1,
-            maxWorkingScale: 1,
-            surface: new CpuRenderTarget(8, 8),
-            intent: intent);
-
-    private static CompositionFrame CreateEmptyFrame() => new(
-        ImmutableArray<EngineObject.Resource>.Empty,
-        new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-        new PixelSize(8, 8),
-        null);
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

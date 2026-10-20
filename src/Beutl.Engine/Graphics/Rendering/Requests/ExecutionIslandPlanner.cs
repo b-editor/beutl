@@ -38,103 +38,58 @@ internal sealed class ExecutionIslandPlanner
         ArgumentNullException.ThrowIfNull(budget);
 
         RenderFragmentReference[] references = GetOrderedReferences(graph, roots, cacheResolution);
-        ThrowIfRootNotReferenced(references, roots);
 
         Dictionary<RenderFragmentReference, int> consumerCounts = CountConsumers(
             references,
             roots,
             cacheResolution);
-        ClassifyStageCandidates(
+        Dictionary<RenderFragmentReference, StageCandidate> stageCandidates = ClassifyStageCandidates(
             references,
             cacheResolution,
-            fusionMode,
-            out Dictionary<RenderFragmentReference, StageCandidate> stageCandidates,
-            out Dictionary<RenderFragmentReference, ExecutionIslandClassification> rejectedStageClassifications);
+            fusionMode);
 
         Dictionary<RenderFragmentReference, RenderFragmentReference> successors = BuildMergeableSuccessors(
             references,
             stageCandidates,
             consumerCounts,
             cacheResolution);
-        var stages = new StageGraph(stageCandidates, successors, InvertSuccessors(successors), consumerCounts);
+        var stages = new StageGraph(stageCandidates, successors, InvertSuccessors(successors));
 
         var drafts = new List<IslandDraft>();
-        var boundaries = new List<ExecutionIslandBoundary>();
-        AddSelectedCacheBoundaries(
-            references,
-            cacheResolution,
-            boundaries);
         HashSet<RenderFragmentReference> compiledFragments = AddShaderRunDrafts(
             references,
             stages,
-            rejectedStageClassifications,
-            cacheResolution,
             fusionMode,
             budget,
-            drafts,
-            boundaries);
+            drafts);
         AddStandaloneIslandDrafts(
             references,
             compiledFragments,
-            rejectedStageClassifications,
             cacheResolution,
-            drafts,
-            boundaries);
-        return AssemblePlan(graph, drafts, boundaries);
+            drafts);
+        return AssemblePlan(graph, drafts);
     }
 
-    private static void ThrowIfRootNotReferenced(
-        RenderFragmentReference[] references,
-        ImmutableArray<RenderFragmentReference> roots)
-    {
-        var referenceSet = new HashSet<RenderFragmentReference>(
-            references,
-            ReferenceEqualityComparer.Instance);
-        foreach (RenderFragmentReference root in roots)
-        {
-            if (!referenceSet.Contains(root))
-                throw new ArgumentException("A publication root is not part of the recorded graph.", nameof(roots));
-        }
-    }
-
-    private static void ClassifyStageCandidates(
+    private static Dictionary<RenderFragmentReference, StageCandidate> ClassifyStageCandidates(
         RenderFragmentReference[] references,
         RenderCacheResolution cacheResolution,
-        FusionMode fusionMode,
-        out Dictionary<RenderFragmentReference, StageCandidate> stageCandidates,
-        out Dictionary<RenderFragmentReference, ExecutionIslandClassification> rejectedStageClassifications)
+        FusionMode fusionMode)
     {
-        stageCandidates = new Dictionary<RenderFragmentReference, StageCandidate>(
-            ReferenceEqualityComparer.Instance);
-        rejectedStageClassifications = new Dictionary<RenderFragmentReference, ExecutionIslandClassification>(
+        var stageCandidates = new Dictionary<RenderFragmentReference, StageCandidate>(
             ReferenceEqualityComparer.Instance);
         foreach (RenderFragmentReference reference in references)
         {
             if (cacheResolution.HasHitProducer(GetId(reference)))
                 continue;
 
-            if (TryCreateStage(reference, out StageCandidate stage, out ExecutionIslandBoundaryReason reason))
+            if (TryCreateStage(reference, out StageCandidate stage)
+                && !(fusionMode == FusionMode.Disabled && stage.IsWholeSourceHeadOnly))
             {
-                if (fusionMode == FusionMode.Disabled && stage.IsWholeSourceHeadOnly)
-                {
-                    rejectedStageClassifications.Add(
-                        reference,
-                        new ExecutionIslandClassification(
-                            ExecutionIslandBoundaryReason.WholeSourceShader,
-                            []));
-                }
-                else
-                {
-                    stageCandidates.Add(reference, stage);
-                }
-            }
-            else if (reference.Kind is RenderFragmentKind.Shader or RenderFragmentKind.Opacity)
-            {
-                rejectedStageClassifications.Add(
-                    reference,
-                    new ExecutionIslandClassification(reason, []));
+                stageCandidates.Add(reference, stage);
             }
         }
+
+        return stageCandidates;
     }
 
     private static Dictionary<RenderFragmentReference, RenderFragmentReference> InvertSuccessors(
@@ -150,12 +105,9 @@ internal sealed class ExecutionIslandPlanner
     private static HashSet<RenderFragmentReference> AddShaderRunDrafts(
         RenderFragmentReference[] references,
         StageGraph stages,
-        Dictionary<RenderFragmentReference, ExecutionIslandClassification> rejectedStageClassifications,
-        RenderCacheResolution cacheResolution,
         FusionMode fusionMode,
         SkslBackendBudget budget,
-        List<IslandDraft> drafts,
-        List<ExecutionIslandBoundary> boundaries)
+        List<IslandDraft> drafts)
     {
         var compiledFragments = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
         var visitedStages = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
@@ -177,42 +129,11 @@ internal sealed class ExecutionIslandPlanner
             if (!chain.Any(static item => item.Fragment.Kind == RenderFragmentKind.Shader))
                 continue;
 
-            IReadOnlyList<ProgramGroup> groups = BuildProgramGroups(chain, fusionMode, budget);
-            ProgramGroup? previous = null;
-            foreach (ProgramGroup group in groups)
+            foreach (ProgramGroup group in BuildProgramGroups(chain, fusionMode, budget))
             {
-                if (previous is { } previousGroup)
-                {
-                    ExecutionIslandBoundaryReason splitReason = fusionMode == FusionMode.Disabled
-                        ? ExecutionIslandBoundaryReason.FusionDisabled
-                        : ExecutionIslandBoundaryReason.BackendLimit;
-                    boundaries.Add(new ExecutionIslandBoundary(
-                        GetFragmentIndex(previousGroup.Stages[^1].Fragment),
-                        GetFragmentIndex(group.Stages[0].Fragment),
-                        splitReason,
-                        splitReason == ExecutionIslandBoundaryReason.BackendLimit
-                            ? GetSplitLimits(previousGroup.Stages, group.Stages, budget)
-                            : []));
-                }
-                else
-                {
-                    AddRunEntryBoundary(
-                        chain[0],
-                        stages.Candidates,
-                        stages.ConsumerCounts,
-                        cacheResolution,
-                        boundaries);
-                }
-
+                // A stage that overflows the budget on its own runs as a standalone island instead.
                 if (group.Program.RequiresStandaloneExecution)
-                {
-                    StageCandidate standalone = group.Stages.Single();
-                    rejectedStageClassifications[standalone.Fragment] = new ExecutionIslandClassification(
-                        ExecutionIslandBoundaryReason.BackendLimit,
-                        group.Program.OverflowReasons);
-                    previous = group;
                     continue;
-                }
 
                 ImmutableArray<int> stageFragmentIndices =
                 [.. group.Stages.Select(static item => GetFragmentIndex(item.Fragment))];
@@ -232,7 +153,6 @@ internal sealed class ExecutionIslandPlanner
                     group.Program));
                 foreach (StageCandidate stage in group.Stages)
                     compiledFragments.Add(stage.Fragment);
-                previous = group;
             }
         }
 
@@ -242,10 +162,8 @@ internal sealed class ExecutionIslandPlanner
     private static void AddStandaloneIslandDrafts(
         RenderFragmentReference[] references,
         HashSet<RenderFragmentReference> compiledFragments,
-        Dictionary<RenderFragmentReference, ExecutionIslandClassification> rejectedStageClassifications,
         RenderCacheResolution cacheResolution,
-        List<IslandDraft> drafts,
-        List<ExecutionIslandBoundary> boundaries)
+        List<IslandDraft> drafts)
     {
         foreach (RenderFragmentReference reference in references)
         {
@@ -256,50 +174,16 @@ internal sealed class ExecutionIslandPlanner
                 continue;
             }
 
-            if (!TryClassifyExecutionIsland(
-                    reference,
-                    rejectedStageClassifications,
-                    out ExecutionIslandClassification item))
-                continue;
-
-            bool requiresReadback = RequiresDeclaredReadback(reference);
             drafts.Add(new IslandDraft(
                 GetId(reference).Value,
                 [GetFragmentIndex(reference)],
                 Program: null));
-            boundaries.Add(CreateInputEdgeBoundary(reference, item.Reason, item.BackendLimits));
-            if (requiresReadback && item.Reason != ExecutionIslandBoundaryReason.Readback)
-            {
-                boundaries.Add(CreateInputEdgeBoundary(
-                    reference,
-                    ExecutionIslandBoundaryReason.Readback,
-                    []));
-            }
-            if (item.Reason == ExecutionIslandBoundaryReason.ThreeD)
-            {
-                boundaries.Add(CreateInputEdgeBoundary(
-                    reference,
-                    ExecutionIslandBoundaryReason.BackendTransition,
-                    []));
-            }
         }
     }
 
-    // Boundary between the fragment's first input (null when it has none) and the fragment itself.
-    private static ExecutionIslandBoundary CreateInputEdgeBoundary(
-        RenderFragmentReference reference,
-        ExecutionIslandBoundaryReason reason,
-        ImmutableArray<SkslBackendLimit> backendLimits)
-        => new(
-            reference.Inputs.IsDefaultOrEmpty ? null : GetFragmentIndex(reference.Inputs[0]),
-            GetFragmentIndex(reference),
-            reason,
-            backendLimits);
-
     private static ExecutionIslandPlan AssemblePlan(
         RecordedRenderGraph graph,
-        List<IslandDraft> drafts,
-        List<ExecutionIslandBoundary> boundaries)
+        List<IslandDraft> drafts)
     {
         IslandDraft[] orderedDrafts = [.. drafts.OrderBy(static item => item.AuthoredOrder)];
         var islands = ImmutableArray.CreateBuilder<ExecutionIsland>(orderedDrafts.Length);
@@ -316,13 +200,7 @@ internal sealed class ExecutionIslandPlanner
                 run));
         }
 
-        ImmutableArray<ExecutionIslandBoundary> orderedBoundaries =
-        [.. boundaries
-            .Distinct(ExecutionIslandBoundaryComparer.Instance)
-            .OrderBy(static item => item.AfterFragmentIndex ?? int.MinValue)
-            .ThenBy(static item => item.BeforeFragmentIndex ?? int.MinValue)
-            .ThenBy(static item => item.Reason)];
-        return new ExecutionIslandPlan(graph.Fragments.Length, islands.MoveToImmutable(), orderedBoundaries);
+        return new ExecutionIslandPlan(graph.Fragments.Length, islands.MoveToImmutable());
     }
 
     private static RenderFragmentReference[] GetOrderedReferences(
@@ -453,8 +331,7 @@ internal sealed class ExecutionIslandPlanner
         RenderFragmentReference? current = first;
         while (current is not null)
         {
-            if (!visited.Add(current))
-                throw new InvalidOperationException("The eligible Shader-stage graph contains a cycle.");
+            visited.Add(current);
             result.Add(stages[current]);
             current = successors.TryGetValue(current, out RenderFragmentReference? next) ? next : null;
         }
@@ -491,95 +368,15 @@ internal sealed class ExecutionIslandPlanner
         return result;
     }
 
-    private static void AddRunEntryBoundary(
-        StageCandidate first,
-        IReadOnlyDictionary<RenderFragmentReference, StageCandidate> stages,
-        IReadOnlyDictionary<RenderFragmentReference, int> consumerCounts,
-        RenderCacheResolution cacheResolution,
-        ICollection<ExecutionIslandBoundary> boundaries)
-    {
-        RenderFragmentReference input = first.Fragment.Inputs.Single();
-        RenderFragmentId inputId = GetId(input);
-        if (cacheResolution.HasHitProducer(inputId)
-            || cacheResolution.HasMissCaptureProducer(inputId))
-            return;
-
-        ExecutionIslandBoundaryReason reason;
-        if (stages.ContainsKey(input))
-        {
-            if (first.IsWholeSourceHeadOnly)
-            {
-                reason = ExecutionIslandBoundaryReason.WholeSourceShader;
-            }
-            else if (consumerCounts[input] != 1)
-            {
-                reason = ExecutionIslandBoundaryReason.Branching;
-            }
-            else if (!HasCompatibleMergeScale(input, first.Fragment))
-            {
-                reason = ExecutionIslandBoundaryReason.ScaleTransition;
-            }
-            else
-            {
-                throw new InvalidOperationException(
-                    "A mergeable Shader-stage input cannot begin a separate execution chain.");
-            }
-        }
-        else
-        {
-            reason = input.Kind == RenderFragmentKind.MaterializedInput
-                ? ExecutionIslandBoundaryReason.MaterializedInput
-                : ExecutionIslandBoundaryReason.CoverageResolution;
-        }
-
-        boundaries.Add(new ExecutionIslandBoundary(
-            GetFragmentIndex(input),
-            GetFragmentIndex(first.Fragment),
-            reason,
-            []));
-    }
-
-    private static void AddSelectedCacheBoundaries(
-        IReadOnlyList<RenderFragmentReference> references,
-        RenderCacheResolution cacheResolution,
-        ICollection<ExecutionIslandBoundary> boundaries)
-    {
-        foreach (RenderFragmentReference reference in references)
-        {
-            RenderFragmentId producerId = GetId(reference);
-            if (cacheResolution.HasHitProducer(producerId))
-            {
-                boundaries.Add(new ExecutionIslandBoundary(
-                    BeforeFragmentIndex: null,
-                    AfterFragmentIndex: GetFragmentIndex(producerId),
-                    ExecutionIslandBoundaryReason.CacheInput,
-                    []));
-            }
-            if (cacheResolution.HasMissCaptureProducer(producerId))
-            {
-                boundaries.Add(new ExecutionIslandBoundary(
-                    BeforeFragmentIndex: GetFragmentIndex(producerId),
-                    AfterFragmentIndex: null,
-                    ExecutionIslandBoundaryReason.CacheCapture,
-                    []));
-            }
-        }
-    }
-
     private static bool TryCreateStage(
         RenderFragmentReference fragment,
-        out StageCandidate stage,
-        out ExecutionIslandBoundaryReason rejectionReason)
+        out StageCandidate stage)
     {
         stage = default;
-        rejectionReason = ExecutionIslandBoundaryReason.UnsafeComposite;
         if (fragment.Kind is not (RenderFragmentKind.Shader or RenderFragmentKind.Opacity))
             return false;
         if (fragment.Inputs.Length != 1)
-        {
-            rejectionReason = ExecutionIslandBoundaryReason.DynamicTopology;
             return false;
-        }
         RenderFragmentReference input = fragment.Inputs[0];
         bool isOptionalStage =
             fragment.ValueCardinality.Equals(RenderValueCardinality.ZeroOrOne)
@@ -587,7 +384,6 @@ internal sealed class ExecutionIslandPlanner
         if (!fragment.ValueCardinality.Equals(RenderValueCardinality.Single)
             && !isOptionalStage)
         {
-            rejectionReason = ExecutionIslandBoundaryReason.DynamicTopology;
             return false;
         }
         if (!fragment.CanBeUsedAsValueInput
@@ -595,7 +391,6 @@ internal sealed class ExecutionIslandPlanner
             || fragment.HasTargetEffects != input.HasTargetEffects
             || fragment.HasOpaqueExternalWork != input.HasOpaqueExternalWork)
         {
-            rejectionReason = ExecutionIslandBoundaryReason.ScopeMismatch;
             return false;
         }
 
@@ -604,10 +399,7 @@ internal sealed class ExecutionIslandPlanner
         {
             var payload = (ShaderRenderFragmentPayload?)fragment.Payload;
             if (payload is null)
-            {
-                rejectionReason = ExecutionIslandBoundaryReason.WholeSourceShader;
                 return false;
-            }
             description = payload.Description;
         }
         else
@@ -618,7 +410,6 @@ internal sealed class ExecutionIslandPlanner
                 || payload.Opacity > 1
                 || !HasCompatibleOpacityFusionMetadata(input, fragment))
             {
-                rejectionReason = ExecutionIslandBoundaryReason.UnsafeComposite;
                 return false;
             }
             description = payload.FusionDescription;
@@ -627,80 +418,6 @@ internal sealed class ExecutionIslandPlanner
         stage = new StageCandidate(fragment, description);
         return true;
     }
-
-    // A segment also collects Skia items and typed suffixes, so a custom effect is only the reason
-    // the island cannot fuse when the segment actually contains one.
-    private static ExecutionIslandBoundaryReason SegmentBoundaryReason(
-        FilterEffectSegmentRenderFragmentPayload payload)
-        => payload.HasImperativeItem
-            ? ExecutionIslandBoundaryReason.CustomEffectItem
-            : ExecutionIslandBoundaryReason.FilterEffectSegment;
-
-    private static bool TryClassifyExecutionIsland(
-        RenderFragmentReference reference,
-        IReadOnlyDictionary<RenderFragmentReference, ExecutionIslandClassification> rejectedStageClassifications,
-        out ExecutionIslandClassification result)
-    {
-        if (rejectedStageClassifications.TryGetValue(reference, out result))
-            return true;
-
-        result = reference.Kind switch
-        {
-            RenderFragmentKind.Opacity => new(ExecutionIslandBoundaryReason.SemanticComposite, []),
-            RenderFragmentKind.Shader => new(ExecutionIslandBoundaryReason.WholeSourceShader, []),
-            RenderFragmentKind.Geometry => new(ExecutionIslandBoundaryReason.Geometry, []),
-            RenderFragmentKind.OpaqueSource
-                or RenderFragmentKind.OpaqueMap
-                or RenderFragmentKind.OpaqueCombine
-                or RenderFragmentKind.OpaqueExpand
-                when reference.Payload is OpaqueRenderFragmentPayload opaque
-                     && opaque.Description.BackendBoundary
-                     == RenderBackendBoundary.Graphics3D => new(ExecutionIslandBoundaryReason.ThreeD, []),
-            RenderFragmentKind.OpaqueSource
-                or RenderFragmentKind.OpaqueMap
-                or RenderFragmentKind.OpaqueCombine
-                or RenderFragmentKind.OpaqueExpand => new(ExecutionIslandBoundaryReason.Opaque, []),
-            RenderFragmentKind.FilterEffectSegment => new(
-                SegmentBoundaryReason((FilterEffectSegmentRenderFragmentPayload)reference.Payload!),
-                []),
-            RenderFragmentKind.TargetCapture
-                or RenderFragmentKind.BuiltInBackdropCapture => new(
-                    ExecutionIslandBoundaryReason.TargetCapture, []),
-            RenderFragmentKind.Layer => new(ExecutionIslandBoundaryReason.Layer, []),
-            RenderFragmentKind.TargetLayerScope
-                or RenderFragmentKind.TargetScope => new(ExecutionIslandBoundaryReason.TargetScope, []),
-            RenderFragmentKind.RawTargetScope
-                or RenderFragmentKind.RawTargetCommand => new(ExecutionIslandBoundaryReason.RawCanvas, []),
-            RenderFragmentKind.TargetCommand
-                when ((TargetCommandRenderFragmentPayload)reference.Payload!).Description.Access
-                     == TargetAccess.Readback => new(ExecutionIslandBoundaryReason.Readback, []),
-            RenderFragmentKind.TargetCommand => new(ExecutionIslandBoundaryReason.TargetCommand, []),
-            RenderFragmentKind.Blend
-                or RenderFragmentKind.OpacityMask => new(ExecutionIslandBoundaryReason.UnsafeComposite, []),
-            _ => default,
-        };
-        return result != default;
-    }
-
-    private static bool RequiresDeclaredReadback(RenderFragmentReference reference)
-        => reference.Payload switch
-        {
-            GeometryRenderFragmentPayload geometry => geometry.Description.RequiresReadback,
-            OpaqueRenderFragmentPayload opaque
-                => opaque.InputReadbacks.Any(static item => item.RequiresAnyReadback),
-            TargetCommandRenderFragmentPayload command
-                => command.Description.Access == TargetAccess.Readback
-                   || command.InputReadbacks.Any(static item => item.RequiresAnyReadback),
-            _ => false,
-        };
-
-    private static ImmutableArray<SkslBackendLimit> GetSplitLimits(
-        IReadOnlyList<StageCandidate> previous,
-        IReadOnlyList<StageCandidate> current,
-        SkslBackendBudget budget)
-        => SkslSnippetMerger.Merge(
-            previous.Concat(current.Take(1)).Select(static item => item.Description).ToArray(),
-            budget).OverflowReasons;
 
     private static RenderFragmentId GetId(RenderFragmentReference reference)
         => reference.Id
@@ -719,12 +436,11 @@ internal sealed class ExecutionIslandPlanner
         public bool IsWholeSourceHeadOnly => Description.Kind == ShaderDescriptionKind.WholeSource;
     }
 
-    // The read-only stage maps the shader-run pass walks; the dictionaries are passed through, not copied.
+    // The read-only stage maps the shader-run pass walks.
     private readonly record struct StageGraph(
         Dictionary<RenderFragmentReference, StageCandidate> Candidates,
         Dictionary<RenderFragmentReference, RenderFragmentReference> Successors,
-        Dictionary<RenderFragmentReference, RenderFragmentReference> Predecessors,
-        Dictionary<RenderFragmentReference, int> ConsumerCounts);
+        Dictionary<RenderFragmentReference, RenderFragmentReference> Predecessors);
 
     private readonly record struct ProgramGroup(
         IReadOnlyList<StageCandidate> Stages,
@@ -734,30 +450,4 @@ internal sealed class ExecutionIslandPlanner
         long AuthoredOrder,
         ImmutableArray<int> FragmentIndices,
         SkslMergedProgram? Program);
-
-    private readonly record struct ExecutionIslandClassification(
-        ExecutionIslandBoundaryReason Reason,
-        ImmutableArray<SkslBackendLimit> BackendLimits);
-
-    private sealed class ExecutionIslandBoundaryComparer : IEqualityComparer<ExecutionIslandBoundary>
-    {
-        public static ExecutionIslandBoundaryComparer Instance { get; } = new();
-
-        public bool Equals(ExecutionIslandBoundary x, ExecutionIslandBoundary y)
-            => x.BeforeFragmentIndex == y.BeforeFragmentIndex
-               && x.AfterFragmentIndex == y.AfterFragmentIndex
-               && x.Reason == y.Reason
-               && x.BackendLimits.AsSpan().SequenceEqual(y.BackendLimits.AsSpan());
-
-        public int GetHashCode(ExecutionIslandBoundary obj)
-        {
-            var hash = new HashCode();
-            hash.Add(obj.BeforeFragmentIndex);
-            hash.Add(obj.AfterFragmentIndex);
-            hash.Add(obj.Reason);
-            foreach (SkslBackendLimit limit in obj.BackendLimits)
-                hash.Add(limit);
-            return hash.ToHashCode();
-        }
-    }
 }

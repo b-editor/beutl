@@ -9,7 +9,7 @@ internal sealed partial class GitCliVersionControlService
             : EscapeGitGlobPath(repository.Pathspec) + "/";
         // Broad staging always excludes Beutl's per-user state and `.tmp` scratch files, the same
         // paths the generated ignore rules name.
-        return s_ignoredOptionalProjectPathspecSuffixes
+        return ProjectPathRules.ExcludedPathspecSuffixes
             .Select(suffix => $":(top,exclude,glob){prefix}{suffix}")
             .ToArray();
     }
@@ -99,7 +99,7 @@ internal sealed partial class GitCliVersionControlService
             return new CommitResult.NoChanges();
         }
 
-        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+        await TryQueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
         return new CommitResult.Committed(revision);
     }
 
@@ -268,7 +268,7 @@ internal sealed partial class GitCliVersionControlService
             throw;
         }
 
-        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+        await TryQueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
         return revision is null
             ? new CommitResult.NoChanges()
             : new CommitResult.Committed(revision);

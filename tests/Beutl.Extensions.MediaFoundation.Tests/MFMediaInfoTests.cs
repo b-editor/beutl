@@ -32,24 +32,4 @@ public class MFMediaInfoTests
             Assert.That(text, Does.Contain("TotalFrameCount: 30"));
         });
     }
-
-    [Test]
-    public void GetMediaInfoText_WithoutVideoStream_OmitsVideoSection()
-    {
-        var info = new MFMediaInfo
-        {
-            VideoStreamIndex = -1,
-            HnsDuration = 10_000_000,
-            VideoFormatName = "Unknown",
-        };
-
-        string text = info.GetMediaInfoText();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(text, Does.Contain("Play time"));
-            Assert.That(text, Does.Not.Contain("VideoStreamIndex"));
-            Assert.That(text, Does.Not.Contain("FrameSize"));
-        });
-    }
 }

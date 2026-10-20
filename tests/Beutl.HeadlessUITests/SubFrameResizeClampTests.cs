@@ -8,8 +8,6 @@ using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
@@ -46,32 +44,12 @@ public class SubFrameResizeClampTests
         }
     }
 
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
-    private static async Task<EditViewModel> OpenEditorForNewScene(string name)
-    {
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
-    // Primary telemetry stack (4 of 5 sessions):
     // ElementViewModel.OnChangeToOriginalDuration -> ElementResizeService.Resize -> Scene.MoveChild.
     [AvaloniaTest]
     public async Task ChangeToOriginalDuration_SubFrameMedia_ClampsToOneFrameWithoutCrashing()
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("original-duration-subframe");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("original-duration-subframe");
         RegisterSubFrameDecoder();
 
         string path = CreateSubFrameAudioFile();
@@ -128,15 +106,14 @@ public class SubFrameResizeClampTests
         });
     }
 
-    // Second telemetry stack (preview.6, OnBorderPointerReleased -> Resize -> MoveChild): the
-    // pointer-release resize submits Width/BorderMargin pixels rounded to frames, and a clip whose
-    // visual width rounds to zero frames used to reach Scene.MoveChild with length == 0 through
-    // SubmitViewModelChanges.
+    // OnBorderPointerReleased -> Resize -> MoveChild: the pointer-release resize submits Width/BorderMargin
+    // pixels rounded to frames, so a clip whose visual width rounds to zero frames submits length == 0
+    // through SubmitViewModelChanges.
     [AvaloniaTest]
     public async Task SubmitViewModelChanges_ZeroPixelWidth_ClampsToOneFrameWithoutCrashing()
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("resize-zero-width");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("resize-zero-width");
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         ElementAddResult added = await adder.AddAsync([new ElementDescription(
@@ -190,7 +167,7 @@ public class SubFrameResizeClampTests
     public async Task SubmitLeftEdge_OffFrameEnd_PreservesEnd(bool ripple, double endSeconds)
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene($"left-edge-{ripple}-{endSeconds}");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync($"left-edge-{ripple}-{endSeconds}");
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         TimeSpan end = TimeSpan.FromSeconds(endSeconds);
         ElementAddResult added = await adder.AddAsync([new ElementDescription(
@@ -276,12 +253,12 @@ public class SubFrameResizeClampTests
             return false;
         }
 
-        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
         {
             // Report end-of-stream with an empty buffer instead of a decode failure (false signals
             // an unrecoverable error): HasAudio stays truthful while sample consumers see silence,
             // matching SampleProviderReader's empty-result pattern.
-            sound = Ref<IPcm>.Create(new Pcm<Stereo32BitFloat>(_audioInfo.SampleRate, 0));
+            sound = new AudioBuffer(_audioInfo.SampleRate, 2, 0);
             return true;
         }
     }

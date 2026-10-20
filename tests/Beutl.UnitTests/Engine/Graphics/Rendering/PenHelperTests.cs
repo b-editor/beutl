@@ -10,8 +10,6 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 [TestFixture]
 public class PenHelperTests
 {
-    // --- GetBounds tests ---
-
     [Test]
     public void GetBounds_WithPositiveOffset_ExpandsBounds()
     {
@@ -21,35 +19,18 @@ public class PenHelperTests
 
         var result = PenHelper.GetBounds(rect, penResource);
 
-        Assert.That(result.Width, Is.GreaterThan(rect.Width));
-        Assert.That(result.Height, Is.GreaterThan(rect.Height));
         Assert.That(result, Is.EqualTo(new Rect(-10, -10, 120, 120)));
     }
 
-    [Test]
-    public void GetBounds_WithNegativeOffset_DoesNotExpandBounds()
+    [TestCase(-10f, TestName = "GetBounds_WithNegativeOffset_DoesNotExpandBounds")]
+    [TestCase(0f, TestName = "GetBounds_WithZeroOffset_DoesNotExpandBounds")]
+    public void GetBounds_WithNonPositiveOffset_DoesNotExpandBounds(float offset)
     {
         var rect = new Rect(0, 0, 100, 100);
         var pen = new Pen
         {
             Thickness = { CurrentValue = 0 },
-            Offset = { CurrentValue = -10 }
-        };
-        var penResource = pen.ToResource(CompositionContext.Default);
-
-        var result = PenHelper.GetBounds(rect, penResource);
-
-        Assert.That(result, Is.EqualTo(rect));
-    }
-
-    [Test]
-    public void GetBounds_WithZeroOffset_DoesNotExpandBounds()
-    {
-        var rect = new Rect(0, 0, 100, 100);
-        var pen = new Pen
-        {
-            Thickness = { CurrentValue = 0 },
-            Offset = { CurrentValue = 0 }
+            Offset = { CurrentValue = offset }
         };
         var penResource = pen.ToResource(CompositionContext.Default);
 
@@ -64,8 +45,6 @@ public class PenHelperTests
         builder.AddRect(rect);
         return builder.Detach();
     }
-
-    // --- CreateOffsetPath tests ---
 
     [Test]
     public void CreateOffsetPath_WithZeroOffset_ReturnsNull()
@@ -117,8 +96,6 @@ public class PenHelperTests
         Assert.That(resultBounds.Width, Is.LessThan(originalBounds.Width));
         Assert.That(resultBounds.Height, Is.LessThan(originalBounds.Height));
     }
-
-    // --- CreateStrokePath (public, end-to-end) tests ---
 
     [Test]
     public void CreateStrokePath_WithPositiveOffset_ProducesLargerStroke()

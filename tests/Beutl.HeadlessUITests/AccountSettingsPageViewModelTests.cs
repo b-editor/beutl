@@ -1,6 +1,5 @@
 ﻿using System.Net;
 using System.Reflection;
-using System.Text;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Api;
@@ -13,6 +12,7 @@ using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.SettingsPages;
 using Reactive.Bindings;
+using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
 
@@ -236,33 +236,53 @@ public sealed class AccountSettingsPageViewModelTests
         }
     }
 
-    private static void SetAuthenticatedUser(BeutlApiApplication clients, string? userId)
+    // The page shows the signed-in account's display name as it changes, and stops following an account once
+    // another one signs in.
+    [AvaloniaTest]
+    public async Task DisplayName_FollowsOnlyTheSignedInAccount()
+    {
+        using var handler = new ControlledHandler(honorCancellation: true);
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        AuthenticatedUser first = CreateUser(clients, "user-a");
+        SetUser(clients, first);
+        using var viewModel = new AccountSettingsPageViewModel(clients, CreateCoordinator(clients));
+
+        SetDisplayName(first.Profile, "Alice");
+        string renamed = viewModel.DisplayName.Value!;
+        SetUser(clients, CreateUser(clients, "user-b"));
+        SetDisplayName(first.Profile, "Alice again");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(renamed, Is.EqualTo("Alice"));
+            Assert.That(viewModel.DisplayName.Value, Is.EqualTo("user-b"));
+        }
+    }
+
+    private static void SetUser(BeutlApiApplication clients, AuthenticatedUser user)
     {
         FieldInfo field = typeof(BeutlApiApplication).GetField(
             "_authenticatedUser",
             BindingFlags.NonPublic | BindingFlags.Instance)!;
-        var state = (ReactivePropertySlim<AuthenticatedUser?>)field.GetValue(clients)!;
-        if (userId is null)
-        {
-            state.Value = null;
-            return;
-        }
+        ((ReactivePropertySlim<AuthenticatedUser?>)field.GetValue(clients)!).Value = user;
+    }
 
-        var profile = new Profile(new ProfileResponse
+    // What a profile refresh does when the account's display name changed on the server.
+    private static void SetDisplayName(Profile profile, string displayName)
+    {
+        FieldInfo field = typeof(Profile).GetField("_response", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var response = (ReactivePropertySlim<ProfileResponse>)field.GetValue(profile)!;
+        ProfileResponse current = response.Value;
+        response.Value = new ProfileResponse
         {
-            Id = userId,
-            Name = userId,
-            DisplayName = userId,
-            Bio = null,
-            IconId = null,
-            IconUrl = null,
-        }, clients);
-        state.Value = new AuthenticatedUser(profile, new AuthResponse
-        {
-            Token = $"token-{userId}",
-            RefreshToken = $"refresh-{userId}",
-            Expiration = DateTime.UtcNow.AddHours(1),
-        }, clients, DateTime.UtcNow);
+            Id = current.Id,
+            Name = current.Name,
+            DisplayName = displayName,
+            Bio = current.Bio,
+            IconId = current.IconId,
+            IconUrl = current.IconUrl,
+        };
     }
 
     private static AiPlanCoordinator CreateCoordinator(BeutlApiApplication clients)
@@ -271,42 +291,12 @@ public sealed class AccountSettingsPageViewModelTests
             _ => { },
             () => "en");
 
-    private static HttpResponseMessage JsonResponse(HttpStatusCode statusCode, string json)
-        => new(statusCode)
-        {
-            Content = new StringContent(json, Encoding.UTF8, "application/json"),
-        };
+    private static string EntitlementsJson(bool cancelAtPeriodEnd = false)
+        => AiTestSupport.EntitlementsJson(
+            ["image.generate"], usedPercent: 2, additionalCredits: 5, cancelAtPeriodEnd: cancelAtPeriodEnd);
 
-    private static string EntitlementsJson(bool cancelAtPeriodEnd = false) => $$"""
-        {
-          "plan": "pro",
-          "subscriptionStatus": "active",
-          "currentPeriodStart": "2026-08-01T00:00:00Z",
-          "currentPeriodEnd": "2026-09-01T00:00:00Z",
-          "cancelAtPeriodEnd": {{(cancelAtPeriodEnd ? "true" : "false")}},
-          "canUseAi": true,
-          "balance": {
-            "monthlyUsage": {
-              "usedPercent": 2,
-              "remainingPercent": 98,
-              "isExhausted": false
-            },
-            "additionalCredits": 5,
-            "hasAdditionalCreditDebt": false
-          },
-          "availability": { "image.generate": true }
-        }
-        """;
-
-    private static async Task WaitUntilAsync(Func<bool> condition)
-    {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        while (!condition())
-        {
-            HeadlessTestHelpers.Settle();
-            await Task.Delay(10, timeout.Token);
-        }
-    }
+    private static Task WaitUntilAsync(Func<bool> condition)
+        => HeadlessTestHelpers.WaitUntilAsync(condition, TimeSpan.FromSeconds(5));
 
     private sealed class ControlledHandler(bool honorCancellation) : HttpMessageHandler
     {

@@ -57,6 +57,47 @@ public sealed partial class StillRenderer
         double backgroundLuma = borderPixels == 0 ? meanLuma : borderLuma / borderPixels;
         int lumaRange = maxLuma - minLuma;
         int foregroundDeltaThreshold = Math.Clamp(lumaRange / 3, 4, maxForegroundDeltaThreshold);
+        ForegroundCoverage coverage = MeasureForeground(
+            bitmap, (r, g, b) => Math.Abs(Rec709Luma(r, g, b) - backgroundLuma) > foregroundDeltaThreshold);
+
+        return new StillFrameVisibilityAnalysis(
+            totalPixels,
+            visiblePixels,
+            visibleRatio,
+            coverage.ForegroundPixels,
+            coverage.ForegroundPixelRatio,
+            coverage.OccupiedBoundsRatio,
+            coverage.MaxQuadrantForegroundRatio,
+            coverage.Left,
+            coverage.Top,
+            coverage.Right,
+            coverage.Bottom,
+            minLuma,
+            maxLuma,
+            meanLuma,
+            lumaStdDev,
+            backgroundLuma,
+            nearBlackThreshold,
+            foregroundDeltaThreshold,
+            []);
+    }
+
+    internal readonly record struct ForegroundCoverage(
+        int ForegroundPixels,
+        double ForegroundPixelRatio,
+        double OccupiedBoundsRatio,
+        double MaxQuadrantForegroundRatio,
+        int Left,
+        int Top,
+        int Right,
+        int Bottom);
+
+    // Counts the pixels whose sRGB color isForeground accepts, with their bounds and the share of them in the
+    // busiest quadrant. FrameDifferenceAnalyzer measures its frames with it too.
+    internal static ForegroundCoverage MeasureForeground(Bitmap bitmap, Func<byte, byte, byte, bool> isForeground)
+    {
+        LumaPixelReader reader = GetLumaPixelReader(bitmap);
+        int totalPixels = bitmap.Width * bitmap.Height;
         int foregroundPixels = 0;
         int left = bitmap.Width;
         int top = bitmap.Height;
@@ -69,10 +110,8 @@ public sealed partial class StillRenderer
             Span<byte> row = bitmap.GetRow(y);
             for (int x = 0; x < bitmap.Width; x++)
             {
-                int pixelOffset = x * bitmap.BytesPerPixel;
-                reader.Read(row, pixelOffset, out byte fr, out byte fg, out byte fb);
-                int luma = Rec709Luma(fr, fg, fb);
-                if (Math.Abs(luma - backgroundLuma) <= foregroundDeltaThreshold)
+                reader.Read(row, x * bitmap.BytesPerPixel, out byte r, out byte g, out byte b);
+                if (!isForeground(r, g, b))
                 {
                     continue;
                 }
@@ -87,46 +126,27 @@ public sealed partial class StillRenderer
             }
         }
 
-        double foregroundRatio = foregroundPixels / (double)totalPixels;
-        double occupiedBoundsRatio = 0;
-        double maxQuadrantRatio = 0;
-        if (foregroundPixels > 0)
+        if (foregroundPixels == 0)
         {
-            int boundsPixels = (right - left + 1) * (bottom - top + 1);
-            occupiedBoundsRatio = boundsPixels / (double)totalPixels;
-            int maxQuadrantPixels = 0;
-            for (int i = 0; i < quadrants.Length; i++)
-            {
-                maxQuadrantPixels = Math.Max(maxQuadrantPixels, quadrants[i]);
-            }
-
-            maxQuadrantRatio = maxQuadrantPixels / (double)foregroundPixels;
-        }
-        else
-        {
-            left = top = right = bottom = 0;
+            return new ForegroundCoverage(0, 0, 0, 0, 0, 0, 0, 0);
         }
 
-        return new StillFrameVisibilityAnalysis(
-            totalPixels,
-            visiblePixels,
-            visibleRatio,
+        int maxQuadrantPixels = 0;
+        for (int i = 0; i < quadrants.Length; i++)
+        {
+            maxQuadrantPixels = Math.Max(maxQuadrantPixels, quadrants[i]);
+        }
+
+        int boundsPixels = (right - left + 1) * (bottom - top + 1);
+        return new ForegroundCoverage(
             foregroundPixels,
-            foregroundRatio,
-            occupiedBoundsRatio,
-            maxQuadrantRatio,
+            foregroundPixels / (double)totalPixels,
+            boundsPixels / (double)totalPixels,
+            maxQuadrantPixels / (double)foregroundPixels,
             left,
             top,
             right,
-            bottom,
-            minLuma,
-            maxLuma,
-            meanLuma,
-            lumaStdDev,
-            backgroundLuma,
-            nearBlackThreshold,
-            foregroundDeltaThreshold,
-            []);
+            bottom);
     }
 
     private static StillFrameVisibilityAnalysis EmptyAnalysis(
@@ -347,7 +367,7 @@ public sealed partial class StillRenderer
     // The renderer hands back RgbaF16 — linear, premultiplied half-floats — so reading bytes
     // positionally yields a number that looks like a luma and is not one. The reader decodes to
     // sRGB-encoded 0..255 so reported values match the PNG a human looks at.
-    private readonly struct LumaPixelReader
+    internal readonly struct LumaPixelReader
     {
         public void Read(Span<byte> row, int pixelOffset, out byte r, out byte g, out byte b)
         {
@@ -393,7 +413,7 @@ public sealed partial class StillRenderer
     }
 
     // Render snapshots are always premultiplied RgbaF16.
-    private static LumaPixelReader GetLumaPixelReader(Bitmap bitmap)
+    internal static LumaPixelReader GetLumaPixelReader(Bitmap bitmap)
     {
         if (bitmap.ColorType is not (BitmapColorType.RgbaF16 or BitmapColorType.RgbaF16Clamped)
             || bitmap.BytesPerPixel < 8

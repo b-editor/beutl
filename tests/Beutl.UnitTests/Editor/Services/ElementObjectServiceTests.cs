@@ -60,6 +60,19 @@ public class ElementObjectServiceTests
         public IProperty<EngineObject?> Child { get; } = Property.Create<EngineObject?>();
     }
 
+    // Takes obj out of the element by removing it or by pasting a new object over it, and returns whether it did.
+    private bool RemoveOrPasteOver(string operation, EngineObject obj)
+        => operation switch
+        {
+            "Remove" => _service.Remove(_element, obj),
+            "PasteOver" => _service.PasteOver(
+                    _element,
+                    _element.Objects.IndexOf(obj),
+                    CoreSerializer.SerializeToJsonString(new TestEngineObject()))
+                == ObjectPasteOutcome.Pasted,
+            _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, null),
+        };
+
     [Test]
     public void Constructor_NullHistoryManager_Throws()
     {
@@ -132,26 +145,9 @@ public class ElementObjectServiceTests
         });
     }
 
-    [Test]
-    public void Remove_LastFallback_ClearsPersistenceSuppression()
-    {
-        var fallback = CreateBlocker();
-        _service.Add(_element, fallback);
-        var suppression = new SuppressedStorageSource([], _element.Uri!);
-        _element.SuppressedStorageSource = suppression;
-
-        bool removed = _service.Remove(_element, fallback);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(removed, Is.True);
-            Assert.That(_element.Objects, Is.Empty);
-            Assert.That(_element.SuppressedStorageSource, Is.Null);
-        });
-    }
-
-    [Test]
-    public void Remove_LastFallback_UndoRestoresPersistenceSuppressionAndPreservesSidecar()
+    [TestCase("Remove")]
+    [TestCase("PasteOver")]
+    public void RemoveOrPasteOver_LastFallback_UndoRestoresPersistenceSuppressionAndPreservesSidecar(string operation)
     {
         var fallback = CreateBlocker();
         _service.Add(_element, fallback);
@@ -160,13 +156,13 @@ public class ElementObjectServiceTests
         var suppression = new SuppressedStorageSource(originalBytes, _element.Uri);
         _element.SuppressedStorageSource = suppression;
 
-        bool removed = _service.Remove(_element, fallback);
+        bool done = RemoveOrPasteOver(operation, fallback);
         bool undone = _history.Undo();
         CoreSerializer.StoreToUri(_element, _element.Uri);
 
         Assert.Multiple(() =>
         {
-            Assert.That(removed, Is.True);
+            Assert.That(done, Is.True);
             Assert.That(undone, Is.True);
             Assert.That(_element.Objects.Single(), Is.SameAs(fallback));
             Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
@@ -174,8 +170,9 @@ public class ElementObjectServiceTests
         });
     }
 
-    [Test]
-    public void Remove_ContainerWithLastNestedFallback_KeepsSuppressionUntilContainerRemoved()
+    [TestCase("Remove")]
+    [TestCase("PasteOver")]
+    public void RemoveOrPasteOver_ContainerWithLastNestedFallback_KeepsSuppressionUntilContainerGoes(string operation)
     {
         var container = new FallbackContainer
         {
@@ -187,21 +184,21 @@ public class ElementObjectServiceTests
         var suppression = new SuppressedStorageSource([], _element.Uri!);
         _element.SuppressedStorageSource = suppression;
 
-        // The protected element is read-only: removing an object that holds nothing unavailable is
-        // refused instead of being accepted and then dropped by the save.
-        bool removedOther = _service.Remove(_element, other);
+        // The protected element is read-only: removing or replacing an object that holds nothing unavailable
+        // is refused instead of being accepted and then dropped by the save.
+        bool doneOnOther = RemoveOrPasteOver(operation, other);
         Assert.Multiple(() =>
         {
-            Assert.That(removedOther, Is.False);
+            Assert.That(doneOnOther, Is.False);
             Assert.That(_element.Objects, Is.EqualTo(new EngineObject[] { container, other }));
             Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
         });
 
-        bool removed = _service.Remove(_element, container);
+        bool done = RemoveOrPasteOver(operation, container);
 
         Assert.Multiple(() =>
         {
-            Assert.That(removed, Is.True);
+            Assert.That(done, Is.True);
             Assert.That(_element.SuppressedStorageSource, Is.Null);
         });
     }
@@ -261,8 +258,9 @@ public class ElementObjectServiceTests
         });
     }
 
-    [Test]
-    public void Remove_WhenAnotherFallbackRemains_KeepsPersistenceSuppression()
+    [TestCase("Remove")]
+    [TestCase("PasteOver")]
+    public void RemoveOrPasteOver_WhenAnotherFallbackRemains_KeepsPersistenceSuppression(string operation)
     {
         var first = CreateBlocker();
         var second = CreateBlocker();
@@ -271,12 +269,13 @@ public class ElementObjectServiceTests
         var suppression = new SuppressedStorageSource([], _element.Uri!);
         _element.SuppressedStorageSource = suppression;
 
-        bool removed = _service.Remove(_element, first);
+        bool done = RemoveOrPasteOver(operation, first);
 
         Assert.Multiple(() =>
         {
-            Assert.That(removed, Is.True);
-            Assert.That(_element.Objects.Single(), Is.SameAs(second));
+            Assert.That(done, Is.True);
+            Assert.That(_element.Objects, Does.Not.Contain(first));
+            Assert.That(_element.Objects, Does.Contain(second));
             Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
         });
     }
@@ -367,80 +366,6 @@ public class ElementObjectServiceTests
     }
 
     [Test]
-    public void PasteOver_LastFallback_ClearsPersistenceSuppression()
-    {
-        _service.Add(_element, CreateBlocker());
-        _element.SuppressedStorageSource = new SuppressedStorageSource([], _element.Uri!);
-        string json = CoreSerializer.SerializeToJsonString(new TestEngineObject());
-
-        ObjectPasteOutcome outcome = _service.PasteOver(_element, 0, json);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(outcome, Is.EqualTo(ObjectPasteOutcome.Pasted));
-            Assert.That(_element.SuppressedStorageSource, Is.Null);
-        });
-    }
-
-    [Test]
-    public void PasteOver_LastFallback_UndoRestoresPersistenceSuppressionAndPreservesSidecar()
-    {
-        var fallback = CreateBlocker();
-        _service.Add(_element, fallback);
-        byte[] originalBytes = "{ preserved fallback bytes"u8.ToArray();
-        File.WriteAllBytes(_element.Uri!.LocalPath, originalBytes);
-        var suppression = new SuppressedStorageSource(originalBytes, _element.Uri);
-        _element.SuppressedStorageSource = suppression;
-        string json = CoreSerializer.SerializeToJsonString(new TestEngineObject());
-
-        ObjectPasteOutcome outcome = _service.PasteOver(_element, 0, json);
-        bool undone = _history.Undo();
-        CoreSerializer.StoreToUri(_element, _element.Uri);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(outcome, Is.EqualTo(ObjectPasteOutcome.Pasted));
-            Assert.That(undone, Is.True);
-            Assert.That(_element.Objects.Single(), Is.SameAs(fallback));
-            Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
-            Assert.That(File.ReadAllBytes(_element.Uri.LocalPath), Is.EqualTo(originalBytes));
-        });
-    }
-
-    [Test]
-    public void PasteOver_ContainerWithLastNestedFallback_KeepsSuppressionUntilContainerReplaced()
-    {
-        var container = new FallbackContainer
-        {
-            Child = { CurrentValue = CreateBlocker() },
-        };
-        var other = new TestEngineObject();
-        _service.Add(_element, container);
-        _service.Add(_element, other);
-        var suppression = new SuppressedStorageSource([], _element.Uri!);
-        _element.SuppressedStorageSource = suppression;
-        string json = CoreSerializer.SerializeToJsonString(new TestEngineObject());
-
-        // Replacing an object that holds nothing unavailable is an ordinary edit, which the
-        // protected element refuses.
-        ObjectPasteOutcome intermediate = _service.PasteOver(_element, 1, json);
-        Assert.Multiple(() =>
-        {
-            Assert.That(intermediate, Is.EqualTo(ObjectPasteOutcome.NotEditable));
-            Assert.That(_element.Objects[1], Is.SameAs(other));
-            Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
-        });
-
-        ObjectPasteOutcome outcome = _service.PasteOver(_element, 0, json);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(outcome, Is.EqualTo(ObjectPasteOutcome.Pasted));
-            Assert.That(_element.SuppressedStorageSource, Is.Null);
-        });
-    }
-
-    [Test]
     public void PasteOver_StaleNonFallbackIncidentFlagWithoutLiveMarker_ResumesPersistence()
     {
         _service.Add(_element, CreateBlocker());
@@ -458,24 +383,6 @@ public class ElementObjectServiceTests
             Assert.That(outcome, Is.EqualTo(ObjectPasteOutcome.Pasted));
             Assert.That(_element.SuppressedStorageSource, Is.Null);
             Assert.That(File.ReadAllBytes(_element.Uri.LocalPath), Is.Not.EqualTo(originalBytes));
-        });
-    }
-
-    [Test]
-    public void PasteOver_WhenAnotherFallbackRemains_KeepsPersistenceSuppression()
-    {
-        _service.Add(_element, CreateBlocker());
-        _service.Add(_element, CreateBlocker());
-        var suppression = new SuppressedStorageSource([], _element.Uri!);
-        _element.SuppressedStorageSource = suppression;
-        string json = CoreSerializer.SerializeToJsonString(new TestEngineObject());
-
-        ObjectPasteOutcome outcome = _service.PasteOver(_element, 0, json);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(outcome, Is.EqualTo(ObjectPasteOutcome.Pasted));
-            Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
         });
     }
 

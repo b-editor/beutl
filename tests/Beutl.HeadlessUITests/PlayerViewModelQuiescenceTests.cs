@@ -7,12 +7,9 @@ using Beutl.Audio.Composing;
 using Beutl.Audio.Graph;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Rendering;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
-using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Reactive.Bindings;
 
@@ -332,7 +329,7 @@ public class PlayerViewModelQuiescenceTests
                     thread.Start();
                 Assert.That(callersStarted.Wait(TimeSpan.FromSeconds(5)), Is.True);
                 // Hold startup before its first await. Both callers must reach the contended
-                // lock before releasing it, so the old check-then-start race is deterministic.
+                // lock before releasing it, so the check-then-start race is deterministic.
                 Assert.That(SpinWait.SpinUntil(() => threads.All(thread =>
                     (thread.ThreadState & System.Threading.ThreadState.WaitSleepJoin) != 0),
                     TimeSpan.FromSeconds(5)), Is.True);
@@ -379,12 +376,12 @@ public class PlayerViewModelQuiescenceTests
                 throw new TimeoutException("The test did not release the compose dispatcher.");
         });
         Task? pause = null;
-        Task<(Pcm<Stereo32BitFloat>? Pcm, TimeSpan SceneEnd)>? buffer = null;
+        Task<(AudioBuffer? Audio, TimeSpan SceneEnd)>? buffer = null;
         bool bufferWasComposed = false;
         try
         {
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            int generation = GetSessionGuard(editor.Player).Claim();
+            int generation = GetSessionGuard(editor.Player).Claim(static () => { });
             buffer = ComposeThread.Dispatcher.InvokeAsync(() =>
                 editor.Player.FillAudioData(TimeSpan.Zero, editor.Scene, generation, cts.Token));
             if (cancelToken)
@@ -405,8 +402,8 @@ public class PlayerViewModelQuiescenceTests
             await blocker.WaitAsync(TimeSpan.FromSeconds(5));
             if (buffer is not null)
             {
-                using var pcm = (await buffer.WaitAsync(TimeSpan.FromSeconds(5))).Pcm;
-                bufferWasComposed = pcm is not null;
+                using var audio = (await buffer.WaitAsync(TimeSpan.FromSeconds(5))).Audio;
+                bufferWasComposed = audio is not null;
             }
             if (pause is not null)
                 await pause.WaitAsync(TimeSpan.FromSeconds(5));
@@ -502,16 +499,7 @@ public class PlayerViewModelQuiescenceTests
     }
 
     private static async Task<EditViewModel> OpenEditor()
-    {
-        await TestReset.ResetShellAsync();
-        string name = $"playback-quiescence-{Guid.NewGuid():N}";
-        string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(directory);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, directory))!;
-        TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().First());
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
+        => (await TestShell.OpenNewSceneAsync("playback-quiescence")).Editor;
 
     private static BlockingPlaybackSound AddBlockingSound(Scene scene)
     {
@@ -524,11 +512,11 @@ public class PlayerViewModelQuiescenceTests
 
     private static Task StartComposition(EditViewModel editor)
     {
-        int generation = GetSessionGuard(editor.Player).Claim();
+        int generation = GetSessionGuard(editor.Player).Claim(static () => { });
         Task playback = Task.Run(() =>
         {
-            using var pcm = editor.Player.FillAudioData(
-                TimeSpan.Zero, editor.Scene, generation, CancellationToken.None).Pcm;
+            using var audio = editor.Player.FillAudioData(
+                TimeSpan.Zero, editor.Scene, generation, CancellationToken.None).Audio;
         });
         SetPlaybackTask(editor.Player, playback);
         return playback;

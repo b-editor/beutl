@@ -83,15 +83,11 @@ public sealed class SKSLScriptEffectShaderTests
             new Invert { Amount = { CurrentValue = 25f } });
 
         CompiledShaderRun run = compiled.ExecutionPlan.ShaderRuns.Single();
-        TestContext.WriteLine(
-            $"SKSL apply -> Invert: {compiled.ExecutionPlan.Islands.Length} islands, "
-            + $"{compiled.ExecutionPlan.ShaderRuns.Count()} shader run, {run.StageFragmentIndices.Length} stages");
         Assert.Multiple(() =>
         {
             Assert.That(
                 compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is not null),
                 Is.EqualTo(new[] { false, true }));
-            Assert.That(compiled.ExecutionPlan.ShaderRuns, Has.Exactly(1).Items);
             Assert.That(run.StageFragmentIndices, Has.Length.EqualTo(2));
             Assert.That(
                 Enumerable.Range(0, run.StageFragmentIndices.Length)
@@ -105,54 +101,31 @@ public sealed class SKSLScriptEffectShaderTests
         });
     }
 
-    [Test]
-    public void ReservedBindingName_FallsBackToCustomEffectItem()
+    [TestCase(
+        """
+        uniform shader src;
+        uniform float fe0_value;
+
+        half4 main(float2 fragCoord) {
+            return src.eval(fragCoord) + half4(fe0_value);
+        }
+        """,
+        TestName = "ReservedBindingName_FallsBackToCustomEffectItem")]
+    [TestCase(
+        """
+        uniform shader src;
+        uniform int values[2];
+
+        half4 main(float2 fragCoord) {
+            return src.eval(fragCoord) + half4(float(values[0]));
+        }
+        """,
+        TestName = "IntegerArrayWithoutCanonicalZero_FallsBackToCustomEffectItem")]
+    public void UnsupportedScript_FallsBackToCustomEffectItem(string script)
     {
         var effect = new SKSLScriptEffect
         {
-            Script =
-            {
-                CurrentValue =
-                    """
-                    uniform shader src;
-                    uniform float fe0_value;
-
-                    half4 main(float2 fragCoord) {
-                        return src.eval(fragCoord) + half4(fe0_value);
-                    }
-                    """,
-            },
-        };
-        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        using var context = new FilterEffectContext(s_bounds);
-
-        context.ApplyTransactional(effect, resource);
-
-        IReadOnlyList<IFEItem> items = context.GetOrderedItems();
-        Assert.Multiple(() =>
-        {
-            Assert.That(items.OfType<IFEItem_Custom>(), Has.Exactly(1).Items);
-            Assert.That(items.OfType<FEItem_Shader>(), Is.Empty);
-        });
-    }
-
-    [Test]
-    public void IntegerArrayWithoutCanonicalZero_FallsBackToCustomEffectItem()
-    {
-        var effect = new SKSLScriptEffect
-        {
-            Script =
-            {
-                CurrentValue =
-                    """
-                    uniform shader src;
-                    uniform int values[2];
-
-                    half4 main(float2 fragCoord) {
-                        return src.eval(fragCoord) + half4(float(values[0]));
-                    }
-                    """,
-            },
+            Script = { CurrentValue = script },
         };
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(s_bounds);
@@ -281,7 +254,7 @@ public sealed class SKSLScriptEffectShaderTests
                 new CompositionContext(TimeSpan.FromSeconds(6)),
                 ref versionBumped);
 
-            using var targetRegistry = new RenderTargetPool(new CpuTargetFactory());
+            using var targetRegistry = new RenderTargetPool(new CpuRenderTargetFactory());
             using RenderTargetLeaseSession targets = targetRegistry.BeginSession(RenderIntent.Preview);
             PixelRect deviceBounds = PixelRect.FromRect(compiled.ExecutionTargetBounds, 1);
             using RenderTargetLease output = targets.Acquire(deviceBounds.Size);
@@ -370,49 +343,5 @@ public sealed class SKSLScriptEffectShaderTests
     }
 
     private static CompiledRenderRequest Compile(params FilterEffect[] effects)
-    {
-        var group = new FilterEffectGroup();
-        foreach (FilterEffect effect in effects)
-            group.Children.Add(effect);
-
-        using FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
-        using var node = new FilterEffectRenderNode(resource);
-        node.AddChild(new EllipseRenderNode(s_bounds, Brushes.Resource.White, null));
-        var request = new RenderRequest(new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            targetDomain: s_bounds,
-            requestedRegion: null,
-            cachePolicy: Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            fusionMode: FusionMode.Enabled));
-        try
-        {
-            RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
-            return new RenderRequestCompiler().Compile(request, graph, SkslBackendBudgetResolver.Portable);
-        }
-        catch
-        {
-            request.Dispose();
-            throw;
-        }
-    }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(CreateSurface(width, height), width, height)
-    {
-        private static SKSurface CreateSurface(int width, int height)
-            => SKSurface.Create(new SKImageInfo(
-                   width,
-                   height,
-                   SKColorType.RgbaF16,
-                   SKAlphaType.Premul,
-                   SKColorSpace.CreateSrgbLinear()))
-               ?? throw new InvalidOperationException("Failed to create the CPU test surface.");
-    }
+        => FusionBoundaryExecutionTestSupport.CompileEffects(s_bounds, effects, SkslBackendBudgetResolver.Portable);
 }

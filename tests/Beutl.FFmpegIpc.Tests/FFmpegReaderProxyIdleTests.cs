@@ -190,12 +190,12 @@ public class FFmpegReaderProxyIdleTests
         Assert.That(_tracker.TrackedCount, Is.Zero);
         Assert.That(reader.ReadAudio(0, 100, out var single), Is.True);
         using (single)
-            Assert.That(single!.Value.NumSamples, Is.EqualTo(100));
+            Assert.That(single!.SampleCount, Is.EqualTo(100));
 
         // Longer than one second, so the proxy splits the request into chunks.
         Assert.That(reader.ReadAudio(0, 9000, out var chunked), Is.True);
         using (chunked)
-            Assert.That(chunked!.Value.NumSamples, Is.EqualTo(9000));
+            Assert.That(chunked!.SampleCount, Is.EqualTo(9000));
     }
 
     // The sweep runs on a timer thread; it must never close the worker reader under a read in progress.
@@ -329,16 +329,6 @@ public class FFmpegReaderProxyIdleTests
     }
 
     [Test]
-    public void ReadAudio_FollowsTheSharedMemoryTheWorkerRecreated()
-    {
-        OpenFileResponse response = _worker.OpenAudio(sampleRate: 8000, capacitySamples: 100);
-        using var reader = new FFmpegReaderProxy(_worker.Connection, response.ReaderId, response);
-
-        Assert.That(ReadSamples(reader, 1000), Is.EqualTo(1000));
-        Assert.That(ReadSamples(reader, 500), Is.EqualTo(500));
-    }
-
-    [Test]
     public void DecoderInfo_Open_SendsTheDecodingSettings_AndTracksTheReader()
     {
         var settings = new FFmpegDecodingSettings
@@ -347,7 +337,7 @@ public class FFmpegReaderProxyIdleTests
             Acceleration = FFmpegDecodingSettings.AccelerationOptions.D3D11VA,
             ForceSrgbGamma = false,
         };
-        var decoderInfo = new FFmpegDecoderInfo(settings, () => _worker.Connection, _tracker);
+        var decoderInfo = new FFmpegDecoderInfo(settings, _ => _worker.Connection, _tracker);
 
         using var reader = decoderInfo.Open("clip.mp4", new MediaOptions(MediaMode.Video)) as FFmpegReaderProxy;
 
@@ -369,7 +359,7 @@ public class FFmpegReaderProxyIdleTests
     public void DecoderInfo_Reopen_SendsTheCurrentDecodingSettings()
     {
         var settings = new FFmpegDecodingSettings { ThreadCount = 2 };
-        var decoderInfo = new FFmpegDecoderInfo(settings, () => _worker.Connection, _tracker);
+        var decoderInfo = new FFmpegDecoderInfo(settings, _ => _worker.Connection, _tracker);
         using var reader = (FFmpegReaderProxy)decoderInfo.Open("clip.mp4", new MediaOptions(MediaMode.Video))!;
         Assert.That(_worker.OpenRequests.TryDequeue(out _), Is.True);
 
@@ -379,6 +369,29 @@ public class FFmpegReaderProxyIdleTests
 
         Assert.That(_worker.OpenRequests.TryDequeue(out OpenFileRequest? reopenRequest), Is.True);
         Assert.That(reopenRequest!.ThreadCount, Is.EqualTo(6));
+    }
+
+    // The options pick the worker, so a background reader whose worker exits reopens on the background worker.
+    [Test]
+    public void DecoderInfo_ReopensWithTheOpenOptions_AfterTheWorkerExits()
+    {
+        using var restartedWorker = new FakeWorker(firstReaderId: 9);
+        var connected = new List<MediaOptions>();
+        var decoderInfo = new FFmpegDecoderInfo(new FFmpegDecodingSettings(), options =>
+        {
+            connected.Add(options);
+            return connected.Count == 1 ? _worker.Connection : restartedWorker.Connection;
+        }, _tracker);
+        var background = new MediaOptions(MediaMode.Video) { IsBackground = true };
+        using var reader = (FFmpegReaderProxy)decoderInfo.Open("clip.mp4", background)!;
+
+        _worker.Exit();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ReadFirstByte(reader, 1), Is.EqualTo(FakeWorker.PixelValue(9, 1)));
+            Assert.That(connected, Is.EqualTo(new[] { background, background }));
+        });
     }
 
     // The idle budget counts the ring buffer the worker allocated: HDR slots take 8 bytes per pixel, and
@@ -690,7 +703,7 @@ public class FFmpegReaderProxyIdleTests
     public void DecoderInfo_Open_GivesUpOnAWorkerThatDoesNotAnswer_AndClosesTheLateReader()
     {
         var decoderInfo = new FFmpegDecoderInfo(
-            new FFmpegDecodingSettings(), () => _worker.Connection, _tracker, TimeSpan.FromSeconds(3));
+            new FFmpegDecodingSettings(), _ => _worker.Connection, _tracker, TimeSpan.FromSeconds(3));
         _worker.ReleaseOpens.Reset();
         try
         {
@@ -715,7 +728,7 @@ public class FFmpegReaderProxyIdleTests
     {
         Assert.That(reader.ReadAudio(0, length, out var sound), Is.True);
         using (sound)
-            return sound!.Value.NumSamples;
+            return sound!.SampleCount;
     }
 
     private FFmpegReaderProxy CreateVideoProxy(
@@ -812,11 +825,11 @@ public class FFmpegReaderProxyIdleTests
             };
         }
 
-        public OpenFileResponse OpenAudio(int sampleRate, int capacitySamples = -1)
+        public OpenFileResponse OpenAudio(int sampleRate)
         {
             int id = Interlocked.Increment(ref _nextReaderId);
             string name = $"beutl-fake-audio-{Guid.NewGuid():N}";
-            _buffers[id] = SharedMemoryBuffer.Create(name, (capacitySamples < 0 ? sampleRate : capacitySamples) * 8L + 64);
+            _buffers[id] = SharedMemoryBuffer.Create(name, sampleRate * 8L + 64);
             return new OpenFileResponse
             {
                 ReaderId = id,
@@ -961,8 +974,6 @@ public class FFmpegReaderProxyIdleTests
                 Width = width,
                 Height = height,
                 BytesPerPixel = BytesPerPixel,
-                DataLength = length,
-                SlotIndex = 0,
                 SlotDataOffset = 0,
                 SharedMemoryName = newName,
                 RingBufferSlotSize = newSlotSize,
@@ -976,14 +987,11 @@ public class FFmpegReaderProxyIdleTests
             if (!_buffers.TryGetValue(payload.ReaderId, out SharedMemoryBuffer? buffer))
                 return IpcMessage.CreateError(request.Id, $"Unknown reader ID: {payload.ReaderId}");
 
-            // Like the worker, grow the buffer under a new name when the request does not fit.
-            string? newName = null;
-            long required = payload.Length * 8L + 64;
-            if (buffer.Capacity < required)
+            // Like the worker, fail a request that does not fit the buffer created at open.
+            if (buffer.Capacity < payload.Length * 8L + 64)
             {
-                newName = $"beutl-fake-audio-{Guid.NewGuid():N}";
-                _retiredBuffers.Add(buffer);
-                _buffers[payload.ReaderId] = SharedMemoryBuffer.Create(newName, required);
+                return IpcMessage.Create(
+                    request.Id, MessageType.ReadAudioResult, new ReadAudioResponse { Success = false });
             }
 
             // Fresh buffers are zero-filled, which is silence for stereo float samples.
@@ -993,7 +1001,6 @@ public class FFmpegReaderProxyIdleTests
                 SampleRate = 8000,
                 NumSamples = payload.Length,
                 DataLength = payload.Length * 8,
-                SharedMemoryName = newName,
             });
         }
 

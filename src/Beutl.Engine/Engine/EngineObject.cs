@@ -75,7 +75,9 @@ public class EngineObject : Hierarchical, INotifyEdited
         set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
     }
 
+    // ZIndex and TimeRange follow the element or parent object, so replaying its edits restores them.
     [NotAutoSerialized]
+    [NotTracked]
     public int ZIndex
     {
         get => _zIndex;
@@ -83,6 +85,7 @@ public class EngineObject : Hierarchical, INotifyEdited
     }
 
     [NotAutoSerialized]
+    [NotTracked]
     public TimeRange TimeRange
     {
         get => _timeRange;

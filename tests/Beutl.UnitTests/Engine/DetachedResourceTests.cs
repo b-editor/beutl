@@ -33,22 +33,13 @@ public class DetachedResourceTests
         var brush = new SolidColorBrush(Colors.Red);
         using SolidColorBrush.Resource resource = brush.ToResource(CompositionContext.Default);
 
+        SolidColorBrush? original = resource.GetOriginal();
+
         Assert.Multiple(() =>
         {
             Assert.That(resource.IsAttached, Is.True);
-            Assert.That(resource.GetOriginal(), Is.SameAs(brush));
+            Assert.That(original, Is.SameAs(brush));
             Assert.That(resource.RequireOriginal(), Is.SameAs(brush));
         });
-    }
-
-    [Test]
-    public void GetOriginal_IsTypedToTheDeclaringEngineObject()
-    {
-        var brush = new SolidColorBrush(Colors.Red);
-        using SolidColorBrush.Resource resource = brush.ToResource(CompositionContext.Default);
-
-        SolidColorBrush? original = resource.GetOriginal();
-
-        Assert.That(original, Is.SameAs(brush));
     }
 }

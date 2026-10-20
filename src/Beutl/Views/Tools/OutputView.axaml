@@ -3,9 +3,9 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:converters="using:Beutl.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:editors="using:Beutl.Views.Editors"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:tools="using:Beutl.Views.Tools"
              xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:viewModel="using:Beutl.ViewModels.Tools"
              Name="Root"
@@ -19,7 +19,6 @@
             <StackPanel Spacing="6">
                 <TextBlock Margin="0,8,0,0" Text="{Binding ProgressText.Value}" />
                 <ProgressBar Margin="0,0,8,0"
-                             IsIndeterminate="{Binding IsIndeterminate.Value}"
                              Maximum="{Binding ProgressMax.Value}"
                              Value="{Binding ProgressValue.Value}" />
                 <StackPanel IsVisible="{Binding IsEncoding.Value}"
@@ -145,12 +144,12 @@
                    Text="{x:Static lang:Strings.Video}"
                    Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-        <tools:OutputPropertiesEditor DataContext="{Binding VideoSettings.Value}" />
+        <editors:PropertiesEditor DataContext="{Binding VideoSettings.Value}" HideMenu="True" />
 
         <TextBlock Margin="8,16,0,0"
                    Text="{x:Static lang:Strings.Audio}"
                    Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-        <tools:OutputPropertiesEditor DataContext="{Binding AudioSettings.Value}" />
+        <editors:PropertiesEditor DataContext="{Binding AudioSettings.Value}" HideMenu="True" />
     </StackPanel>
 </UserControl>

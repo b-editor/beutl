@@ -8,7 +8,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.GraphEditorTab;
 
-[PrimitiveImpl]
 public sealed class GraphEditorTabExtension : ToolTabExtension
 {
     public static readonly GraphEditorTabExtension Instance = new();
@@ -17,7 +16,7 @@ public sealed class GraphEditorTabExtension : ToolTabExtension
 
     public override string Name => "Graph Editor Tab";
 
-    public override string DisplayName => "Graph Editor Tab";
+    public override string DisplayName => Strings.GraphEditor;
 
     public override DockAnchor DefaultAnchor => DockAnchor.Bottom;
 

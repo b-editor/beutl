@@ -80,12 +80,6 @@ public sealed class ConnectionLine : Line
         _strokeBinding?.Dispose();
     }
 
-    public bool Match(NodePortViewModel? first, NodePortViewModel? second)
-    {
-        return (InputPort == first && OutputPort == second)
-               || (OutputPort == first && InputPort == second);
-    }
-
     public bool Match(NodePortViewModel? port)
     {
         return InputPort == port || OutputPort == port;
@@ -95,28 +89,6 @@ public sealed class ConnectionLine : Line
     {
         return InputPort == port ? OutputPort
             : OutputPort == port ? InputPort : null;
-    }
-
-    public bool Match(Connection connection)
-    {
-        return ConnectionViewModel?.Connection == connection;
-    }
-
-    public bool Match(INodePort? first, INodePort? second)
-    {
-        return (InputPort?.Model == first && OutputPort?.Model == second)
-               || (OutputPort?.Model == first && InputPort?.Model == second);
-    }
-
-    public bool Match(INodePort? port)
-    {
-        return InputPort?.Model == port || OutputPort?.Model == port;
-    }
-
-    public INodePort? GetTarget(INodePort? port)
-    {
-        return InputPort?.Model == port ? OutputPort?.Model
-            : OutputPort?.Model == port ? InputPort?.Model : null;
     }
 
     public bool SetNodePort(NodePortViewModel port)
@@ -145,17 +117,7 @@ public sealed class ConnectionLine : Line
 
         context.BeginFigure(StartPoint, false);
 
-        double delta = 0;
-        if (StartPoint.X < EndPoint.X)
-        {
-            delta = (EndPoint.X - StartPoint.X) / 2;
-        }
-        else
-        {
-            delta = (StartPoint.X - EndPoint.X) / 2;
-        }
-
-        delta = Math.Clamp(delta, 10, 50);
+        double delta = Math.Clamp(Math.Abs(EndPoint.X - StartPoint.X) / 2, 10, 50);
 
         context.CubicBezierTo(StartPoint.WithX(StartPoint.X - delta), EndPoint.WithX(EndPoint.X + delta), EndPoint);
 

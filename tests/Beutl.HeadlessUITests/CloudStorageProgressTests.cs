@@ -1,8 +1,6 @@
 ﻿using System.Net;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
@@ -62,7 +60,6 @@ public sealed class CloudStorageProgressTests
             Assert.That(ring.Bounds.Width, Is.EqualTo(icons ? 48 : 20));
             Assert.That(itemView.Bounds.Size, Is.EqualTo(originalSize));
             Assert.That(itemView.GetVisualDescendants().OfType<FluentIcon>().All(icon => !icon.IsEffectivelyVisible), Is.True);
-            await Capture(window, $"progress-{icons}-{drag}");
 
             stream.Resume.TrySetResult();
             Assert.That(await operation, Is.True);
@@ -141,17 +138,6 @@ public sealed class CloudStorageProgressTests
 
     private static async Task<bool> StartTransfer(CloudStorageViewModel vm, StorageActionContext context, Stream destination, string directory, bool drag)
         => drag ? await vm.ExportStorageItemsAsync(context, directory) != null : await vm.DownloadAsync(context, destination, CancellationToken.None);
-
-    private static async Task Capture(Window window, string name)
-    {
-        if (Environment.GetEnvironmentVariable("BEUTL_STORAGE_PROGRESS_CAPTURE") is not { Length: > 0 } directory) return;
-        // Allow the progress ring's composition animation to reach the requested value.
-        await Task.Delay(800);
-        HeadlessTestHelpers.Render(5);
-        Directory.CreateDirectory(directory);
-        using var image = window.CaptureRenderedFrame();
-        image?.Save(Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);
-    }
 
     private sealed class GatedStream : Stream
     {

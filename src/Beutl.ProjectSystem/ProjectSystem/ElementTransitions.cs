@@ -46,7 +46,7 @@ internal static class ElementTransitions
         if (element.HierarchicalParent is not Scene scene) return null;
 
         Element? previous = null;
-        foreach (Element item in scene.Children.GetMarshal().Value)
+        foreach (Element item in scene.Children.AsSpan())
         {
             if (AreAdjacent(item, element) && (previous == null || item.Range.End > previous.Range.End))
             {
@@ -62,7 +62,7 @@ internal static class ElementTransitions
         if (element.HierarchicalParent is not Scene scene) return null;
 
         Element? next = null;
-        foreach (Element item in scene.Children.GetMarshal().Value)
+        foreach (Element item in scene.Children.AsSpan())
         {
             if (AreAdjacent(element, item) && (next == null || item.Start < next.Start))
             {
@@ -116,7 +116,7 @@ internal static class ElementTransitions
     public static HashSet<Element> GetParticipants(Scene scene)
     {
         HashSet<Element>? participants = null;
-        ReadOnlySpan<Element> children = scene.Children.GetMarshal().Value;
+        ReadOnlySpan<Element> children = scene.Children.AsSpan();
         foreach (Element element in children)
         {
             bool enter = IsActive(element.EnterTransition);

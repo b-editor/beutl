@@ -9,6 +9,10 @@ namespace Beutl.Graphics.AudioVisualizers;
 /// </summary>
 internal static class BarGeometry
 {
+    /// <summary>Resolves the top and the height of bar <paramref name="index"/> of a waveform.</summary>
+    public delegate (float Top, float Height) WaveformBar(
+        in WaveformRenderContext context, int index, float centerY, float halfHeight);
+
     /// <summary>
     /// Resolves how wide one bar is drawn.
     /// </summary>
@@ -99,5 +103,60 @@ internal static class BarGeometry
     {
         using SKPath path = builder.Detach();
         canvas.Canvas.DrawPath(path, paint);
+    }
+
+    /// <summary>
+    /// Draws one bar per waveform slot, batched into one path when <paramref name="cornerRadius"/> rounds the
+    /// corners and as plain rectangles otherwise.
+    /// </summary>
+    public static void DrawWaveformBars(
+        in WaveformRenderContext context,
+        ref SKPaint? paint,
+        ref SKPathBuilder? builder,
+        float requestedWidth,
+        in CornerRadius cornerRadius,
+        WaveformBar resolveBar)
+    {
+        ImmediateCanvas canvas = context.Canvas;
+        Rect bounds = context.Bounds;
+        Brush.Resource fill = context.Fill;
+
+        int barCount = context.Mins.Length;
+        if (barCount == 0) return;
+
+        float width = (float)bounds.Width;
+        float height = (float)bounds.Height;
+        float halfHeight = height * 0.5f;
+        float centerY = (float)bounds.Y + halfHeight;
+        float slotWidth = width / barCount;
+        float barWidth = ResolveWidth(requestedWidth, slotWidth);
+        float offsetX = (slotWidth - barWidth) * 0.5f;
+
+        bool round = !cornerRadius.IsEmpty;
+
+        if (round)
+        {
+            BeginRoundedBars(ref paint, ref builder, canvas, bounds, fill);
+        }
+
+        for (int i = 0; i < barCount; i++)
+        {
+            (float topY, float barHeight) = resolveBar(in context, i, centerY, halfHeight);
+            float x = (float)bounds.X + i * slotWidth + offsetX;
+
+            if (round)
+            {
+                AddRoundedBar(builder!, x, topY, barWidth, barHeight, cornerRadius);
+            }
+            else
+            {
+                canvas.DrawRectangle(new Rect(x, topY, barWidth, barHeight), fill, null);
+            }
+        }
+
+        if (round)
+        {
+            DrawRoundedBars(canvas, builder!, paint!);
+        }
     }
 }

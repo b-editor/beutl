@@ -170,21 +170,9 @@ public sealed partial class GraphEditorTabViewModel
         }
     }
 
-    private static Color ChannelColor(string name) => name switch
-    {
-        "Red" => Colors.Red,
-        "Green" => Colors.Green,
-        "Blue" => Colors.Blue,
-        "Alpha" => Colors.White,
-        "Y" or "Height" => Color.Parse("#56B88B"),
-        "Z" => Color.Parse("#619FEF"),
-        "W" => Color.Parse("#BE83E8"),
-        _ => Color.Parse("#E87070")
-    };
-
     private void UpdatePropertyItem(GraphEditorTreeItemViewModel item, bool canAnimate, HashSet<string> used, HashSet<object> ancestors)
     {
-        var factory = item.ValueType is { } valueType ? GraphEditorViewViewModelFactory.GetFactory(valueType).FirstOrDefault() : null;
+        var factory = item.ValueType is { } valueType ? GraphEditorViewViewModelFactory.GetFactory(valueType) : null;
         item.CanAnimate.Value = canAnimate && factory != null && item.Animation is null or KeyFrameAnimation;
         item.CanRemoveAnimation.Value = item.Animation != null;
         item.HasAnimation.Value = item.Animation != null;
@@ -200,7 +188,7 @@ public sealed partial class GraphEditorTabViewModel
                     if (channel.ChannelName != name)
                     {
                         channel.ChannelName = name;
-                        channel.ChannelBrush.Value = new SolidColorBrush(ChannelColor(name));
+                        channel.ChannelBrush.Value = new SolidColorBrush(GraphEditorViewViewModel.GetChannelColor(name));
                     }
                     channel.HasAnimation.Value = item.HasAnimation.Value;
                     children.Add(channel);
@@ -247,7 +235,7 @@ public sealed partial class GraphEditorTabViewModel
     {
         if (_disposed) return;
         var element = Element.Value;
-        int rate = element?.FindHierarchicalParent<Project>()?.GetFrameRate() ?? 30;
+        int rate = (element?.FindHierarchicalParent<Project>()).GetFrameRate();
         TimeSpan globalTime = _clock.CurrentTime.Value;
         foreach (var item in _treeCache.Values)
         {

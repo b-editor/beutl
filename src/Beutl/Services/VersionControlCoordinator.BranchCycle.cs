@@ -73,9 +73,7 @@ internal partial class VersionControlCoordinator
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        // Held until the project is closed further down: the awaits between this save
-        // and the close run real Git commands, and an edit made in that window would
-        // miss the safety snapshot and be discarded when the editors close.
+        // Held until the project is closed, for the reason given in RestoreWithinTransactionAsync.
         using IDisposable editorSuspension = _editorService.SuspendEditors();
         if (!await TrySaveOpenProjectAsync(project, CancellationToken.None))
         {
@@ -110,10 +108,7 @@ internal partial class VersionControlCoordinator
             return false;
         }
 
-        // The switch below runs uncancellable with the project closed, and its LFS
-        // smudge filter would download missing objects there - a stalled endpoint
-        // would strand the closed project. Pull them in first, while the operation
-        // is still cancellable and the project is still open.
+        // Prefetched for the reason given in RestoreWithinTransactionAsync.
         await service.PrefetchBranchLfsObjectsAsync(branchName, cancellationToken);
 
         bool projectClosed = false;

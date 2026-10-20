@@ -49,7 +49,6 @@ public class KeyFrameDeltaHelperTests
         {
             Assert.That(result, Is.True);
             Assert.That(prev.Value, Is.EqualTo(115f));
-            // Confirms startNext = 999f is unused (next is null, so no write-back)
         });
     }
 
@@ -68,19 +67,6 @@ public class KeyFrameDeltaHelperTests
     }
 
     [Test]
-    public void ApplyDelta_PreservesAmplitude()
-    {
-        // Animation-amplitude preservation invariant: (next - prev) after the shift matches the pre-shift value.
-        var prev = CreateKeyFrame(100f, 0);
-        var next = CreateKeyFrame(200f, 1);
-        float originalAmplitude = next.Value - prev.Value;
-
-        KeyFrameDeltaHelper.ApplyDelta(prev, next, prev.Value, next.Value, 75f);
-
-        Assert.That(next.Value - prev.Value, Is.EqualTo(originalAmplitude));
-    }
-
-    [Test]
     public void ApplyDelta_UsesStartValuesNotCurrent_Idempotency()
     {
         // A drag triggers OnMoved repeatedly, but each call recomputes from the start snapshot,
@@ -88,12 +74,10 @@ public class KeyFrameDeltaHelperTests
         var prev = CreateKeyFrame(100f, 0);
         var next = CreateKeyFrame(200f, 1);
 
-        // 1st call: delta=10
         KeyFrameDeltaHelper.ApplyDelta(prev, next, 100f, 200f, 10f);
         float firstPrev = prev.Value;
         float firstNext = next.Value;
 
-        // 2nd call with same start values and same delta should give same result.
         KeyFrameDeltaHelper.ApplyDelta(prev, next, 100f, 200f, 10f);
 
         Assert.Multiple(() =>

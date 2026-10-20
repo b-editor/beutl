@@ -65,7 +65,6 @@ public sealed class AiCaptionHistoryResultParserTests
     [Test]
     public void TryParse_TranslationWithoutTimingsKeepsItsOrderAndIsCollectable()
     {
-        // Untimed translations must remain collectable in input order.
         byte[] bytes = Encoding.UTF8.GetBytes("""
             {
               "version": 1,

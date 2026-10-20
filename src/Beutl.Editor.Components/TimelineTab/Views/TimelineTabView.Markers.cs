@@ -1,10 +1,9 @@
 ﻿using Avalonia;
 using Avalonia.Input;
+using Beutl.Controls;
 using Beutl.Editor.Components.Views;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
-using AvaColor = Avalonia.Media.Color;
-using BtlColor = Beutl.Media.Color;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
@@ -31,10 +30,9 @@ public sealed partial class TimelineTabView
 
         var flyout = new MarkerEditFlyout
         {
-            Time = marker.Time,
             MarkerName = marker.Name,
             Note = marker.Note,
-            Color = AvaColor.FromArgb(marker.Color.A, marker.Color.R, marker.Color.G, marker.Color.B),
+            Color = marker.Color.ToAvaColor(),
         };
 
         flyout.ValuesChanged += (_, values) =>
@@ -42,7 +40,7 @@ public sealed partial class TimelineTabView
             if (deleted) return;
             marker.Name = values.Name;
             marker.Note = values.Note;
-            marker.Color = BtlColor.FromArgb(values.Color.A, values.Color.R, values.Color.G, values.Color.B);
+            marker.Color = values.Color.ToBtlColor();
         };
 
         flyout.DeleteRequested += (_, _) =>

@@ -20,9 +20,6 @@ public interface IOutputOperationLeaseProvider
 /// </summary>
 public sealed class StandaloneOutputOperationLeaseProvider : IOutputOperationLeaseProvider
 {
-    /// <summary>
-    /// Gets the shared standalone provider.
-    /// </summary>
     public static StandaloneOutputOperationLeaseProvider Instance { get; } = new();
 
     private StandaloneOutputOperationLeaseProvider()

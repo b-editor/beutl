@@ -20,11 +20,6 @@ public static partial class AvaloniaTypeConverter
         return new Media.GradientStop(obj.Color.ToBtlColor(), (float)obj.Offset);
     }
 
-    public static GradientStop.Resource ToBtlImmutableGradientStop(this Avalonia.Media.IGradientStop obj)
-    {
-        return new GradientStop.Resource { Color = obj.Color.ToBtlColor(), Offset = (float)obj.Offset, };
-    }
-
     private static IDisposable AdaptEngineObject<T, TResource>(T obj, IObservable<TimeSpan> time,
         Func<T, CompositionContext, TResource> createResource, Action<TResource> onUpdated)
         where T : EngineObject

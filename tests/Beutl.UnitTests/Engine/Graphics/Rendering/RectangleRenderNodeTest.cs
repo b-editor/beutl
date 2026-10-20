@@ -9,55 +9,19 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 [TestFixture]
 public class RectangleRenderNodeTest
 {
-    [Test]
-    public void Update_ShouldReturnFalse_WhenAllPropertiesMatch()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Update_ShouldNotMarkChanges_WhenAllPropertiesMatch(bool withPen)
     {
         var rect = new Rect(0, 0, 100, 100);
         var fill = Brushes.Resource.Red;
-        var pen = new Pen();
-        pen.Brush.CurrentValue = Brushes.Black;
-        pen.Thickness.CurrentValue = 1;
-        var penResource = pen.ToResource(CompositionContext.Default);
-
-        var node = new RectangleRenderNode(rect, fill, penResource);
-
-        Assert.That(node.Update(rect, fill, penResource), Is.False);
-    }
-
-    [Test]
-    public void Update_ShouldReturnTrue_WhenPropertiesDoNotMatch()
-    {
-        var rect1 = new Rect(0, 0, 100, 100);
-        var rect2 = new Rect(0, 0, 200, 200);
-        var fill1 = Brushes.Resource.Red;
-        var fill2 = Brushes.Resource.Blue;
-        var pen1 = new Pen();
-        pen1.Brush.CurrentValue = Brushes.Black;
-        pen1.Thickness.CurrentValue = 1;
-        var pen2 = new Pen();
-        pen2.Brush.CurrentValue = Brushes.Black;
-        pen2.Thickness.CurrentValue = 2;
-        var penResource1 = pen1.ToResource(CompositionContext.Default);
-        var penResource2 = pen2.ToResource(CompositionContext.Default);
-
-        var node = new RectangleRenderNode(rect1, fill1, penResource1);
-
-        Assert.That(node.Update(rect2, fill1, penResource1), Is.True);
-        Assert.That(node.Update(rect1, fill2, penResource1), Is.True);
-        Assert.That(node.Update(rect1, fill1, penResource2), Is.True);
-    }
-
-    [Test]
-    public void Update_ShouldNotMarkChanges_WhenAllPropertiesMatch()
-    {
-        var rect = new Rect(0, 0, 100, 100);
-        var fill = Brushes.Resource.Red;
-        using var node = new RectangleRenderNode(rect, fill, null);
+        Pen.Resource? pen = withPen ? CreatePen(thickness: 1) : null;
+        using var node = new RectangleRenderNode(rect, fill, pen);
         node.ClearChanges(node.ChangeVersion);
 
         Assert.Multiple(() =>
         {
-            Assert.That(node.Update(rect, fill, null), Is.False);
+            Assert.That(node.Update(rect, fill, pen), Is.False);
             Assert.That(node.HasChanges, Is.False);
         });
     }
@@ -69,10 +33,8 @@ public class RectangleRenderNodeTest
         var rect2 = new Rect(0, 0, 200, 200);
         var fill1 = Brushes.Resource.Red;
         var fill2 = Brushes.Resource.Blue;
-        var pen = new Pen();
-        pen.Brush.CurrentValue = Brushes.Black;
-        pen.Thickness.CurrentValue = 1;
-        var penResource = pen.ToResource(CompositionContext.Default);
+        Pen.Resource penResource = CreatePen(thickness: 1);
+        Pen.Resource otherPenResource = CreatePen(thickness: 2);
         using var node = new RectangleRenderNode(rect1, fill1, null);
 
         node.ClearChanges(node.ChangeVersion);
@@ -87,6 +49,10 @@ public class RectangleRenderNodeTest
         bool penChanged = node.Update(rect2, fill2, penResource);
         bool penMarked = node.HasChanges;
 
+        node.ClearChanges(node.ChangeVersion);
+        bool otherPenChanged = node.Update(rect2, fill2, otherPenResource);
+        bool otherPenMarked = node.HasChanges;
+
         Assert.Multiple(() =>
         {
             Assert.That(rectChanged, Is.True);
@@ -95,7 +61,17 @@ public class RectangleRenderNodeTest
             Assert.That(fillMarked, Is.True);
             Assert.That(penChanged, Is.True);
             Assert.That(penMarked, Is.True);
+            Assert.That(otherPenChanged, Is.True);
+            Assert.That(otherPenMarked, Is.True);
         });
+    }
+
+    private static Pen.Resource CreatePen(float thickness)
+    {
+        var pen = new Pen();
+        pen.Brush.CurrentValue = Brushes.Black;
+        pen.Thickness.CurrentValue = thickness;
+        return pen.ToResource(CompositionContext.Default);
     }
 
     [Test]
@@ -108,13 +84,13 @@ public class RectangleRenderNodeTest
         for (int frame = 0; frame < RenderNodeCache.StableRequestCount; frame++)
         {
             node.Update(rect, fill, null);
-            RenderNodeCacheHelper.BeginLifecycle(node).CompleteSuccessfully(advanceWarmup: true);
+            RenderNodeCacheLifecycle.Create(node).CompleteSuccessfully(advanceWarmup: true);
         }
 
         Assert.That(node.Cache.CanCapture, Is.True, "a stable rectangle must become a cache candidate");
 
         node.Update(new Rect(0, 0, 200, 200), fill, null);
-        RenderNodeCacheHelper.BeginLifecycle(node);
+        RenderNodeCacheLifecycle.Create(node);
 
         Assert.That(node.Cache.CanCapture, Is.False);
     }

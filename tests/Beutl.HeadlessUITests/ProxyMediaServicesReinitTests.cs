@@ -23,154 +23,86 @@ public sealed class ProxyMediaServicesReinitTests
     [AvaloniaTest]
     public void StoreRootPath_change_rebuilds_store_behind_the_stable_facade()
     {
-        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
-        (string Root, long Cap) prior = Snapshot(config);
-        string first = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
-        string second = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
-        config.StoreRootPath = first;
+        using var fixture = ProxyServicesFixture.Start();
+        ProxyMediaServices services = fixture.Services;
+        IProxyStore facade = services.StoreFacade;
+        Assert.That(facade.StoreRootPath, Is.EqualTo(Path.GetFullPath(fixture.First)));
 
-        ProxyMediaServices services = ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
-        try
+        fixture.Config.StoreRootPath = fixture.Second;
+
+        Assert.Multiple(() =>
         {
-            IProxyStore facade = services.StoreFacade;
-            Assert.That(facade.StoreRootPath, Is.EqualTo(Path.GetFullPath(first)));
-
-            config.StoreRootPath = second;
-
-            Assert.Multiple(() =>
-            {
-                // Same facade instance, now pointing at the rebuilt store on the new path.
-                Assert.That(services.StoreFacade, Is.SameAs(facade));
-                Assert.That(facade.StoreRootPath, Is.EqualTo(Path.GetFullPath(second)));
-                Assert.That(services.Store.StoreRootPath, Is.EqualTo(Path.GetFullPath(second)));
-            });
-        }
-        finally
-        {
-            services.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            Restore(config, prior);
-            TryDelete(first);
-            TryDelete(second);
-        }
+            Assert.That(services.StoreFacade, Is.SameAs(facade));
+            Assert.That(facade.StoreRootPath, Is.EqualTo(Path.GetFullPath(fixture.Second)));
+            Assert.That(services.Store.StoreRootPath, Is.EqualTo(Path.GetFullPath(fixture.Second)));
+        });
     }
 
     [AvaloniaTest]
     public void MaxTotalBytes_change_rebuilds_eviction_cap()
     {
-        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
-        (string Root, long Cap) prior = Snapshot(config);
-        string root = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
-        config.StoreRootPath = root;
         // MaxTotalBytes clamps to [MinTotalBytes (5 GiB), MaxTotalBytesLimit]; pick values above the floor.
-        config.MaxTotalBytes = 8L * 1024 * 1024 * 1024;
+        using var fixture = ProxyServicesFixture.Start(maxTotalBytes: 8L * 1024 * 1024 * 1024);
+        ProxyMediaServices services = fixture.Services;
+        IProxyStoreCapInfo capFacade = services.CapInfoFacade;
+        Assert.That(capFacade.MaxTotalBytes, Is.EqualTo(8L * 1024 * 1024 * 1024));
+        // A cap-only change must not tear down the store/queue (that would cancel in-flight jobs).
+        ProxyStore storeBefore = services.Store;
+        ProxyJobQueue queueBefore = services.Queue;
 
-        ProxyMediaServices services = ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
-        try
+        fixture.Config.MaxTotalBytes = 16L * 1024 * 1024 * 1024;
+
+        Assert.Multiple(() =>
         {
-            IProxyStoreCapInfo capFacade = services.CapInfoFacade;
-            Assert.That(capFacade.MaxTotalBytes, Is.EqualTo(8L * 1024 * 1024 * 1024));
-            // A cap-only change must not tear down the store/queue (that would cancel in-flight jobs).
-            ProxyStore storeBefore = services.Store;
-            ProxyJobQueue queueBefore = services.Queue;
-
-            config.MaxTotalBytes = 16L * 1024 * 1024 * 1024;
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(services.CapInfoFacade, Is.SameAs(capFacade));
-                Assert.That(capFacade.MaxTotalBytes, Is.EqualTo(16L * 1024 * 1024 * 1024));
-                // The store root did not change, so the facade must keep serving that same path.
-                Assert.That(services.StoreFacade.StoreRootPath, Is.EqualTo(Path.GetFullPath(root)));
-                // Same live store and queue — the cap change retargeted eviction in place.
-                Assert.That(services.Store, Is.SameAs(storeBefore));
-                Assert.That(services.Queue, Is.SameAs(queueBefore));
-            });
-        }
-        finally
-        {
-            services.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            Restore(config, prior);
-            TryDelete(root);
-        }
+            Assert.That(services.CapInfoFacade, Is.SameAs(capFacade));
+            Assert.That(capFacade.MaxTotalBytes, Is.EqualTo(16L * 1024 * 1024 * 1024));
+            Assert.That(services.StoreFacade.StoreRootPath, Is.EqualTo(Path.GetFullPath(fixture.First)));
+            Assert.That(services.Store, Is.SameAs(storeBefore));
+            Assert.That(services.Queue, Is.SameAs(queueBefore));
+        });
     }
 
     [AvaloniaTest]
     public void StoreRootPath_change_bumps_resolver_source_version()
     {
-        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
-        (string Root, long Cap) prior = Snapshot(config);
-        string first = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
-        string second = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
-        config.StoreRootPath = first;
+        using var fixture = ProxyServicesFixture.Start();
+        ProxyMediaServices services = fixture.Services;
+        // A reader keys reuse on GetSourceVersion; a startup-index entry reports 0 on both stores, so
+        // without a version bump the swap would go unnoticed. The rebuilt resolver must report a
+        // strictly larger version for the same source so the open reader reopens against the new store.
+        string sourceKey = Path.Combine(fixture.First, "clip.mov");
+        long versionBefore = services.ResolverFacade.GetSourceVersion(sourceKey);
 
-        ProxyMediaServices services = ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
-        try
-        {
-            // A reader keys reuse on GetSourceVersion; a startup-index entry reports 0 on both stores, so
-            // without a version bump the swap would go unnoticed. The rebuilt resolver must report a
-            // strictly larger version for the same source so the open reader reopens against the new store.
-            string sourceKey = Path.Combine(first, "clip.mov");
-            long versionBefore = services.ResolverFacade.GetSourceVersion(sourceKey);
+        fixture.Config.StoreRootPath = fixture.Second;
 
-            config.StoreRootPath = second;
-
-            long versionAfter = services.ResolverFacade.GetSourceVersion(sourceKey);
-            Assert.That(versionAfter, Is.GreaterThan(versionBefore));
-        }
-        finally
-        {
-            services.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            Restore(config, prior);
-            TryDelete(first);
-            TryDelete(second);
-        }
+        long versionAfter = services.ResolverFacade.GetSourceVersion(sourceKey);
+        Assert.That(versionAfter, Is.GreaterThan(versionBefore));
     }
 
     [AvaloniaTest]
     public void Store_facade_forwards_Changed_events_across_a_rebuild()
     {
-        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
-        (string Root, long Cap) prior = Snapshot(config);
-        string first = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
-        string second = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
-        config.StoreRootPath = first;
-
-        ProxyMediaServices services = ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
+        using var fixture = ProxyServicesFixture.Start();
+        ProxyMediaServices services = fixture.Services;
         int changedCount = 0;
         void Handler(object? sender, ProxyStoreChangedEventArgs e) => changedCount++;
-        services.StoreFacade.Changed += Handler;
-        try
-        {
-            config.StoreRootPath = second;
+        fixture.OnStoreChanged(Handler);
 
-            // A subscriber bound to the facade before the rebuild must receive events from the new store.
-            var fingerprint = new ProxyFingerprint(Path.Combine(second, "source.mov"), 1, DateTime.UtcNow);
-            services.Store.Register(new ProxyEntry(
-                fingerprint, ProxyPreset.Quarter, ProxyState.Generating, $"proxy/{Guid.NewGuid():N}.mp4", 0,
-                new PixelSize(100, 100), default, DateTime.UtcNow, DateTime.UtcNow, null));
+        fixture.Config.StoreRootPath = fixture.Second;
 
-            Assert.That(changedCount, Is.GreaterThan(0));
-        }
-        finally
-        {
-            services.StoreFacade.Changed -= Handler;
-            services.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            Restore(config, prior);
-            TryDelete(first);
-            TryDelete(second);
-        }
+        // A subscriber bound to the facade before the rebuild must receive events from the new store.
+        var fingerprint = new ProxyFingerprint(Path.Combine(fixture.Second, "source.mov"), 1, DateTime.UtcNow);
+        services.Store.Register(new ProxyEntry(
+            fingerprint, ProxyPreset.Quarter, ProxyState.Generating, $"proxy/{Guid.NewGuid():N}.mp4", 0,
+            new PixelSize(100, 100), default, DateTime.UtcNow, DateTime.UtcNow, null));
+
+        Assert.That(changedCount, Is.GreaterThan(0));
     }
 
     [AvaloniaTest]
     public void Store_facade_raises_Reset_on_store_swap()
     {
-        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
-        (string Root, long Cap) prior = Snapshot(config);
-        string first = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
-        string second = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
-        config.StoreRootPath = first;
-
-        ProxyMediaServices services = ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
+        using var fixture = ProxyServicesFixture.Start();
         int resetCount = 0;
         void Handler(object? sender, ProxyStoreChangedEventArgs e)
         {
@@ -178,23 +110,13 @@ public sealed class ProxyMediaServicesReinitTests
                 resetCount++;
         }
 
-        services.StoreFacade.Changed += Handler;
-        try
-        {
-            // The new store loads its index in the constructor (no Registered events), so a swap must
-            // raise a Reset for open Proxies tabs / badges to refresh to the new store's state.
-            config.StoreRootPath = second;
+        fixture.OnStoreChanged(Handler);
 
-            Assert.That(resetCount, Is.EqualTo(1));
-        }
-        finally
-        {
-            services.StoreFacade.Changed -= Handler;
-            services.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            Restore(config, prior);
-            TryDelete(first);
-            TryDelete(second);
-        }
+        // The new store loads its index in the constructor (no Registered events), so a swap must
+        // raise a Reset for open Proxies tabs / badges to refresh to the new store's state.
+        fixture.Config.StoreRootPath = fixture.Second;
+
+        Assert.That(resetCount, Is.EqualTo(1));
     }
 
     [AvaloniaTest]
@@ -205,46 +127,28 @@ public sealed class ProxyMediaServicesReinitTests
             Assert.Ignore("Case-insensitive path comparison only applies on Windows/macOS.");
         }
 
-        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
-        (string Root, long Cap) prior = Snapshot(config);
-        string lower = Path.Combine(Path.GetTempPath(), $"proxy-case-{Guid.NewGuid():N}");
-        config.StoreRootPath = lower;
+        using var fixture = ProxyServicesFixture.Start();
+        ProxyMediaServices services = fixture.Services;
+        ProxyStore storeBefore = services.Store;
+        ProxyJobQueue queueBefore = services.Queue;
 
-        ProxyMediaServices services = ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
-        try
+        // Same directory, different case: on Windows/macOS this is the same filesystem location, so
+        // the store/queue must not be torn down (which would cancel in-flight jobs).
+        fixture.Config.StoreRootPath = fixture.First.ToUpperInvariant();
+
+        Assert.Multiple(() =>
         {
-            ProxyStore storeBefore = services.Store;
-            ProxyJobQueue queueBefore = services.Queue;
-
-            // Same directory, different case: on Windows/macOS this is the same filesystem location, so
-            // the store/queue must not be torn down (which would cancel in-flight jobs).
-            config.StoreRootPath = lower.ToUpperInvariant();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(services.Store, Is.SameAs(storeBefore));
-                Assert.That(services.Queue, Is.SameAs(queueBefore));
-            });
-        }
-        finally
-        {
-            services.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            Restore(config, prior);
-            TryDelete(lower);
-        }
+            Assert.That(services.Store, Is.SameAs(storeBefore));
+            Assert.That(services.Queue, Is.SameAs(queueBefore));
+        });
     }
 
     [AvaloniaTest]
     public void Store_reset_fires_after_resolver_and_queue_facades_repoint()
     {
-        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
-        (string Root, long Cap) prior = Snapshot(config);
-        string first = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
-        string second = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
-        config.StoreRootPath = first;
-
-        ProxyMediaServices services = ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
-        string sourceKey = Path.Combine(first, "clip.mov");
+        using var fixture = ProxyServicesFixture.Start();
+        ProxyMediaServices services = fixture.Services;
+        string sourceKey = Path.Combine(fixture.First, "clip.mov");
         long versionBefore = services.ResolverFacade.GetSourceVersion(sourceKey);
         long versionAtReset = long.MinValue;
         void Handler(object? sender, ProxyStoreChangedEventArgs e)
@@ -256,58 +160,35 @@ public sealed class ProxyMediaServicesReinitTests
                 versionAtReset = services.ResolverFacade.GetSourceVersion(sourceKey);
         }
 
-        services.StoreFacade.Changed += Handler;
-        try
-        {
-            config.StoreRootPath = second;
+        fixture.OnStoreChanged(Handler);
 
-            Assert.That(versionAtReset, Is.GreaterThan(versionBefore));
-        }
-        finally
-        {
-            services.StoreFacade.Changed -= Handler;
-            services.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            Restore(config, prior);
-            TryDelete(first);
-            TryDelete(second);
-        }
+        fixture.Config.StoreRootPath = fixture.Second;
+
+        Assert.That(versionAtReset, Is.GreaterThan(versionBefore));
     }
 
     [AvaloniaTest]
     public void StoreRootPath_invalidPath_keepsPreviousStore_andDoesNotThrow()
     {
-        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
-        (string Root, long Cap) prior = Snapshot(config);
-        string good = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
+        using var fixture = ProxyServicesFixture.Start();
+        ProxyMediaServices services = fixture.Services;
+        string good = fixture.First;
         // An existing file cannot be opened as a store directory: ProxyStore's Directory.CreateDirectory
         // throws, and the rebuild must swallow that and keep the live store rather than escaping the setter.
-        string badFile = Path.Combine(Path.GetTempPath(), $"proxy-reinit-file-{Guid.NewGuid():N}");
+        string badFile = fixture.Second;
         File.WriteAllBytes(badFile, [1]);
-        config.StoreRootPath = good;
+        ProxyStore storeBefore = services.Store;
 
-        ProxyMediaServices services = ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
-        try
+        Assert.DoesNotThrow(() => fixture.Config.StoreRootPath = badFile);
+
+        Assert.Multiple(() =>
         {
-            ProxyStore storeBefore = services.Store;
-
-            Assert.DoesNotThrow(() => config.StoreRootPath = badFile);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(services.Store, Is.SameAs(storeBefore));
-                Assert.That(services.Store.StoreRootPath, Is.EqualTo(Path.GetFullPath(good)));
-                Assert.That(services.StoreFacade.StoreRootPath, Is.EqualTo(Path.GetFullPath(good)));
-                // The rejected path must be reverted so GlobalConfiguration's auto-save does not persist it.
-                Assert.That(config.StoreRootPath, Is.EqualTo(Path.GetFullPath(good)));
-            });
-        }
-        finally
-        {
-            services.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            Restore(config, prior);
-            TryDelete(good);
-            try { File.Delete(badFile); } catch { /* best-effort test cleanup */ }
-        }
+            Assert.That(services.Store, Is.SameAs(storeBefore));
+            Assert.That(services.Store.StoreRootPath, Is.EqualTo(Path.GetFullPath(good)));
+            Assert.That(services.StoreFacade.StoreRootPath, Is.EqualTo(Path.GetFullPath(good)));
+            // The rejected path must be reverted so GlobalConfiguration's auto-save does not persist it.
+            Assert.That(fixture.Config.StoreRootPath, Is.EqualTo(Path.GetFullPath(good)));
+        });
     }
 
     [AvaloniaTest]
@@ -345,43 +226,78 @@ public sealed class ProxyMediaServicesReinitTests
     [AvaloniaTest]
     public void Store_swap_completes_even_if_a_Reset_subscriber_throws()
     {
-        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
-        (string Root, long Cap) prior = Snapshot(config);
-        string first = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
-        string second = Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
-        config.StoreRootPath = first;
-
-        ProxyMediaServices services = ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
+        using var fixture = ProxyServicesFixture.Start();
+        ProxyMediaServices services = fixture.Services;
+        string sourceKey = Path.Combine(fixture.First, "clip.mov");
+        long versionBefore = services.ResolverFacade.GetSourceVersion(sourceKey);
         void Throwing(object? sender, ProxyStoreChangedEventArgs e) => throw new InvalidOperationException("boom");
-        services.StoreFacade.Changed += Throwing;
-        try
-        {
-            // A throwing Reset subscriber must not abort the swap: the other facades still repoint.
-            config.StoreRootPath = second;
+        fixture.OnStoreChanged(Throwing);
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(services.Store.StoreRootPath, Is.EqualTo(Path.GetFullPath(second)));
-                Assert.That(services.ResolverFacade, Is.Not.Null);
-                Assert.That(services.QueueFacade, Is.Not.Null);
-            });
-        }
-        finally
+        // A throwing Reset subscriber must not abort the swap.
+        fixture.Config.StoreRootPath = fixture.Second;
+
+        Assert.Multiple(() =>
         {
-            services.StoreFacade.Changed -= Throwing;
-            services.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            Restore(config, prior);
-            TryDelete(first);
-            TryDelete(second);
-        }
+            Assert.That(services.Store.StoreRootPath, Is.EqualTo(Path.GetFullPath(fixture.Second)));
+            Assert.That(services.ResolverFacade.GetSourceVersion(sourceKey), Is.GreaterThan(versionBefore));
+        });
     }
 
-    private static void TryDelete(string dir)
+    // Points the proxy store at the new temp folder First and starts the services. Dispose unsubscribes
+    // the store handlers, stops the services, restores the configuration and deletes First and Second.
+    private sealed class ProxyServicesFixture : IDisposable
+    {
+        private readonly (string Root, long Cap) _prior;
+        private readonly List<EventHandler<ProxyStoreChangedEventArgs>> _storeHandlers = [];
+
+        private ProxyServicesFixture(long? maxTotalBytes)
+        {
+            _prior = Snapshot(Config);
+            Config.StoreRootPath = First;
+            if (maxTotalBytes is { } cap)
+                Config.MaxTotalBytes = cap;
+
+            Services = ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
+        }
+
+        public ProxyStoreConfig Config { get; } = GlobalConfiguration.Instance.ProxyStoreConfig;
+
+        public string First { get; } = NewTempPath();
+
+        public string Second { get; } = NewTempPath();
+
+        public ProxyMediaServices Services { get; }
+
+        public static ProxyServicesFixture Start(long? maxTotalBytes = null) => new(maxTotalBytes);
+
+        public void OnStoreChanged(EventHandler<ProxyStoreChangedEventArgs> handler)
+        {
+            Services.StoreFacade.Changed += handler;
+            _storeHandlers.Add(handler);
+        }
+
+        public void Dispose()
+        {
+            foreach (EventHandler<ProxyStoreChangedEventArgs> handler in _storeHandlers)
+                Services.StoreFacade.Changed -= handler;
+
+            Services.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            Restore(Config, _prior);
+            TryDelete(First);
+            TryDelete(Second);
+        }
+
+        private static string NewTempPath() => Path.Combine(Path.GetTempPath(), $"proxy-reinit-{Guid.NewGuid():N}");
+    }
+
+    private static void TryDelete(string path)
     {
         try
         {
-            if (Directory.Exists(dir))
-                Directory.Delete(dir, recursive: true);
+            if (Directory.Exists(path))
+                Directory.Delete(path, recursive: true);
+            else
+                File.Delete(path);
         }
         catch
         {

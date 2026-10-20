@@ -120,7 +120,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                 string beutlVersion = BeutlApplication.Version;
 
-                if (v?.TargetVersion?.Value is { } target
+                if (v.TargetVersion?.Value is { } target
                     && VersionRange.TryParse(target, out VersionRange? versionRange)
                     && NuGetVersion.TryParse(beutlVersion, out NuGetVersion? version))
                 {
@@ -230,7 +230,6 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
         try
         {
-            // 価格が設定されていて所有していない場合はストアページを開く
             if (Package.Price.Value != null && Package.Price.Value > 0 && !Package.Owned.Value)
             {
                 string url = $"https://beutl.beditor.net/store/{Package.Name}";

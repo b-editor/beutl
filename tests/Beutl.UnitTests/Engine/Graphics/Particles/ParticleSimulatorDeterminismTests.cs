@@ -198,37 +198,9 @@ public sealed class ParticleSimulatorDeterminismTests
 
     private static void Simulate(ParticleSimulator simulator, float time, ParticlePreset preset)
     {
-        bool near = preset == ParticlePreset.Near;
-        simulator.Simulate(
-            time,
-            seed: near ? 9203 : 4711,
-            EmitterShape.Box,
-            emitterWidth: near ? 2200 : 2400,
-            emitterHeight: near ? 1200 : 1300,
-            maxParticles: near ? 600 : 420,
-            emissionRate: near ? 44 : 20,
-            lifetime: near ? 6 : 9,
-            lifetimeRandom: near ? 3 : 4,
-            speed: near ? 34 : 16,
-            speedRandom: near ? 22 : 10,
-            direction: near ? 176 : 178,
-            spread: near ? 16 : 22,
-            gravity: near ? -4 : 0,
-            airResistance: near ? 0.1f : 0.2f,
-            turbulenceStrength: near ? 14 : 6,
-            turbulenceScale: near ? 0.0026f : 0.0016f,
-            turbulenceSpeed: near ? 0.4f : 0.25f,
-            particleSize: near ? 2.2f : 9,
-            sizeRandom: near ? 2.4f : 5,
-            near ? new Color(255, 178, 193, 210) : new Color(255, 132, 161, 194),
-            particleOpacity: 9,
-            initialRotation: 0,
-            initialRotationRandom: 0,
-            angularVelocity: 0,
-            endSizeMultiplier: near ? 0.6f : 1.2f,
-            endOpacityMultiplier: 0,
-            Colors.White,
-            useEndColor: false);
+        ParticleSettings settings = ParticleEmitter.Resource.CreateSettings(
+            CreateEmitter(preset), new CompositionContext(TimeSpan.Zero));
+        simulator.Simulate(time, in settings);
     }
 
     private static ParticleEmitter CreateEmitter(ParticlePreset preset)

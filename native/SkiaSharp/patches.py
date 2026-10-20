@@ -1,10 +1,17 @@
-"""Patches and manifest hashes shared by the native builder and verifier."""
+"""Runtimes, library names, patches and manifest hashes shared by the native builder and verifier."""
 
 import hashlib
 from pathlib import Path
 
 
 HERE = Path(__file__).resolve().parent
+RIDS = ("linux-x64", "linux-arm64", "win-x64", "win-arm64", "osx")
+
+
+def library_name(rid):
+    if rid == "osx":
+        return "libSkiaSharp.dylib"
+    return "libSkiaSharp.so" if rid.startswith("linux-") else "libSkiaSharp.dll"
 
 
 def patches_for(rid):

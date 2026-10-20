@@ -3,7 +3,6 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 
@@ -35,7 +34,7 @@ public sealed class ContributeValuesCacheHitExecutionTests
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
             Purpose = RenderRequestPurpose.Frame,
             FusionMode = FusionMode.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization miss = renderer.Rasterize();
         Assert.That(producer.Cache.IsCached, Is.True,
@@ -66,7 +65,7 @@ public sealed class ContributeValuesCacheHitExecutionTests
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
             Purpose = RenderRequestPurpose.Frame,
             FusionMode = FusionMode.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization miss = renderer.Rasterize();
         using RenderNodeRasterization hit = renderer.Rasterize();
@@ -100,7 +99,7 @@ public sealed class ContributeValuesCacheHitExecutionTests
                 new RenderCacheRules(MaxPixels: 200, MinPixels: 1)),
             Purpose = RenderRequestPurpose.Frame,
             FusionMode = FusionMode.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization first = renderer.Rasterize();
         using RenderNodeRasterization second = renderer.Rasterize();
@@ -180,7 +179,6 @@ public sealed class ContributeValuesCacheHitExecutionTests
     private sealed class EmptyCombineContributionNode : RenderNode
     {
         private readonly ExecutionProbe _probe = new();
-        private readonly object _probeKey = new();
 
         public int ExecuteCount => _probe.Count;
 
@@ -209,7 +207,6 @@ public sealed class ContributeValuesCacheHitExecutionTests
     private sealed class IndependentDensityProducerNode : RenderNode
     {
         private readonly ExecutionProbe _probe = new();
-        private readonly object _probeKey = new();
 
         public int ExecuteCount => _probe.Count;
 
@@ -241,7 +238,6 @@ public sealed class ContributeValuesCacheHitExecutionTests
     private sealed class IndependentDensityObserverNode(IndependentDensityProducerNode producer) : RenderNode
     {
         private readonly RecordingProbe<float[]> _scaleProbe = new();
-        private readonly object _probeKey = new();
 
         public IReadOnlyList<float[]> ObservedScales => _scaleProbe.Records;
 
@@ -278,23 +274,6 @@ public sealed class ContributeValuesCacheHitExecutionTests
             base.OnDispose(disposing);
         }
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }
 
 internal static class ContributeValuesCacheHitExecutionSlots

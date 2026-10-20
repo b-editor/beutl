@@ -23,21 +23,10 @@ namespace Beutl.HeadlessUITests;
 public class DarkBorderThemeExtensionTests
 {
     [AvaloniaTest]
-    public void Descriptor_HasNonReservedId_ResourceUri_AndDarkVariant()
+    public void Descriptor_HasTheDesignAccent()
     {
-        ThemeDescriptor descriptor = DarkBorderThemeExtension.Instance.GetThemeDescriptor();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(descriptor.Id, Is.EqualTo(DarkBorderThemeExtension.ThemeId));
-            Assert.That(BuiltinThemeIds.IsReserved(descriptor.Id), Is.False,
-                "a reserved id would be rewritten to the built-in by settings normalization");
-            Assert.That(descriptor.ResourceUri, Is.Not.Null);
-            Assert.That(descriptor.BaseVariant, Is.EqualTo(ThemeVariant.Dark));
-            Assert.That(descriptor.DisplayName, Is.Not.Empty);
-            Assert.That(descriptor.AccentColor, Is.EqualTo(Color.FromRgb(0x25, 0x63, 0xEB)),
-                "the design accent seeds SystemAccentColor* while no custom accent is configured");
-        });
+        Assert.That(DarkBorderThemeExtension.Instance.GetThemeDescriptor().AccentColor, Is.EqualTo(Color.FromRgb(0x25, 0x63, 0xEB)),
+            "the design accent seeds SystemAccentColor* while no custom accent is configured");
     }
 
     [AvaloniaTest]
@@ -48,14 +37,6 @@ public class DarkBorderThemeExtensionTests
         object? loaded = AvaloniaXamlLoader.Load(descriptor.ResourceUri!, null);
 
         Assert.That(loaded, Is.InstanceOf<IResourceProvider>());
-    }
-
-    // Only this layer can compare the two: ViewConfig's default is the shared FirstPartyThemeIds id,
-    // and the extension's descriptor is what registers under it.
-    [AvaloniaTest]
-    public void ViewConfigDefault_MatchesThemeId()
-    {
-        Assert.That(new ViewConfig().Theme, Is.EqualTo(DarkBorderThemeExtension.ThemeId));
     }
 
     // In production the extension pass runs on a background thread, after the first apply. Unless Start

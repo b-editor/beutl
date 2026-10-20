@@ -67,12 +67,13 @@ internal partial class VersionControlTabViewModel
                 out IProjectVersionControlCoordinator? coordinator,
                 out IProjectVersionControlService? service,
                 out int revision,
-                out CancellationToken cancellationToken)
-            || IsRemoteOperationRunning.Value)
+                out CancellationToken cancellationToken))
         {
             return false;
         }
 
+        // The caller's lease keeps a remote operation from running at the same time.
+        Debug.Assert(!IsRemoteOperationRunning.Value);
         TaskCompletionSource completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
         _configureRemoteCompletion = completion;
         _isConfiguringRemote.Value = true;
@@ -143,8 +144,7 @@ internal partial class VersionControlTabViewModel
         finally
         {
             completion.TrySetResult();
-            if (!_disposed
-                && ReferenceEquals(completion, _configureRemoteCompletion))
+            if (!_disposed)
             {
                 _isConfiguringRemote.Value = false;
             }
@@ -161,6 +161,7 @@ internal partial class VersionControlTabViewModel
             lease: null);
     }
 
+    // Test seam: tests await these after starting an operation through a command.
     internal Task RemoteOperationCompletion => _remoteOperationCompletion.Task;
     internal Task ConfigureRemoteCompletion => _configureRemoteCompletion.Task;
 
@@ -249,7 +250,6 @@ internal partial class VersionControlTabViewModel
         CancellationTokenSource operationCancellation = new();
         IProjectVersionControlService operationService = _service;
         int operationRevision = _serviceRevision;
-        int operationGeneration = Interlocked.Increment(ref _remoteOperationGeneration);
         TaskCompletionSource operationCompletion = completionOverride ?? new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         if (completionOverride is null)
@@ -257,46 +257,21 @@ internal partial class VersionControlTabViewModel
             _remoteOperationCompletion = operationCompletion;
         }
         bool operationFinished = false;
-        CancellationTokenSource? previous = Interlocked.Exchange(
-            ref _remoteOperationCancellation,
-            operationCancellation);
-        previous?.Dispose();
+        // The lease allows one remote operation at a time, and each clears the field when it ends.
+        Debug.Assert(_remoteOperationCancellation is null);
+        _remoteOperationCancellation = operationCancellation;
         Volatile.Write(ref _remoteOperationUserCancellation, 0);
         IsRemoteOperationRunning.Value = true;
         RemoteProgress.Value = initialProgress;
-        CancellationToken serviceBindingToken;
-        try
-        {
-            serviceBindingToken = _serviceBindingCancellation?.Token
-                ?? CancellationToken.None;
-        }
-        catch (ObjectDisposedException)
-        {
-            serviceBindingToken = new CancellationToken(canceled: true);
-        }
+        CancellationToken serviceBindingToken = _serviceBindingCancellation!.Token;
         bool IsCurrentOperation() =>
             !operationFinished
-            && operationGeneration == Volatile.Read(ref _remoteOperationGeneration)
-            && ReferenceEquals(
-                operationCancellation,
-                Volatile.Read(ref _remoteOperationCancellation))
             && !operationCancellation.IsCancellationRequested
-            && operationService is not null
             && IsCurrentService(operationService, operationRevision, serviceBindingToken);
-        bool IsCurrentOperationForCancellation() =>
-            operationGeneration == Volatile.Read(ref _remoteOperationGeneration)
-            && ReferenceEquals(
-                operationCancellation,
-                Volatile.Read(ref _remoteOperationCancellation))
-            && operationService is not null
-            && IsCurrentService(
-                operationService,
-                operationRevision,
-                serviceBindingToken);
         void ReportUserCancellation()
         {
             if (Volatile.Read(ref _remoteOperationUserCancellation) != 0
-                && IsCurrentOperationForCancellation())
+                && IsCurrentService(operationService, operationRevision, serviceBindingToken))
             {
                 StatusMessage.Value = Strings.VersionControl_RemoteOperationCanceled;
             }
@@ -340,12 +315,9 @@ internal partial class VersionControlTabViewModel
                 }
                 StatusMessage.Value = Strings.VersionControl_RemoteOperationSucceeded;
             }
-            else if (result is not RemoteOpResult.Failed { Stderr.Length: 0 })
+            else if (result is not RemoteOpResult.Failed { Stderr.Length: 0 } && IsCurrentOperation())
             {
-                await DispatchRemoteResultAsync(
-                    result,
-                    IsCurrentOperation,
-                    operationCancellation.Token);
+                await ShowRemoteResultAsync(result);
             }
         }
         catch (VersionControlConflictedException ex)
@@ -379,21 +351,12 @@ internal partial class VersionControlTabViewModel
         }
         finally
         {
-            bool isCurrentOperation = ReferenceEquals(
-                operationCancellation,
-                Volatile.Read(ref _remoteOperationCancellation));
             operationFinished = true;
-            if (isCurrentOperation)
+            if (!_disposed)
             {
-                if (!_disposed)
-                {
-                    IsRemoteOperationRunning.Value = false;
-                }
-                Interlocked.CompareExchange(
-                    ref _remoteOperationCancellation,
-                    null,
-                    operationCancellation);
+                IsRemoteOperationRunning.Value = false;
             }
+            _remoteOperationCancellation = null;
             operationCancellation.Dispose();
             operationCompletion.TrySetResult();
             if (ownsMutation)
@@ -409,97 +372,27 @@ internal partial class VersionControlTabViewModel
         TryCancel(Volatile.Read(ref _remoteOperationCancellation));
     }
 
-    private Task DispatchRemoteResultAsync(
-        RemoteOpResult result,
-        Func<bool> isCurrentOperation,
-        CancellationToken cancellationToken)
-    {
-        var completion = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        CancellationTokenRegistration registration = default;
-        try
-        {
-            registration = cancellationToken.Register(
-                static state =>
-                {
-                    ((TaskCompletionSource)state!).TrySetCanceled();
-                },
-                completion);
-            _postToUi(() => _ = DispatchRemoteResultCoreAsync(
-                result,
-                isCurrentOperation,
-                completion,
-                cancellationToken));
-        }
-        catch (Exception ex)
-        {
-            completion.TrySetException(ex);
-        }
-
-        return AwaitDispatchCompletionAsync(completion.Task, registration);
-    }
-
-    private static async Task AwaitDispatchCompletionAsync(
-        Task completion,
-        CancellationTokenRegistration registration)
-    {
-        try
-        {
-            await completion;
-        }
-        finally
-        {
-            registration.Dispose();
-        }
-    }
-
-    private async Task DispatchRemoteResultCoreAsync(
-        RemoteOpResult result,
-        Func<bool> isCurrentOperation,
-        TaskCompletionSource completion,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            if (!completion.Task.IsCompleted
-                && !cancellationToken.IsCancellationRequested
-                && isCurrentOperation())
-            {
-                await ShowRemoteResultAsync(result);
-            }
-
-            completion.TrySetResult();
-        }
-        catch (Exception ex)
-        {
-            completion.TrySetException(ex);
-        }
-    }
-
     private static void TryCancel(CancellationTokenSource? cancellation)
     {
-        try
-        {
-            cancellation?.Cancel();
-        }
-        catch (ObjectDisposedException)
-        {
-        }
+        cancellation?.Cancel();
     }
 
     internal static string GetRemoteResultMessage(RemoteOpResult result)
     {
-        ArgumentNullException.ThrowIfNull(result);
         return result switch
         {
-            RemoteOpResult.AuthFailed authFailed => authFailed.Guidance,
-            RemoteOpResult.Diverged => Strings.VersionControl_Diverged,
-            RemoteOpResult.Offline => Strings.VersionControl_Offline,
+            RemoteOpResult.AuthFailed authFailed => WithStderr(authFailed.Guidance, authFailed.Stderr),
+            RemoteOpResult.Diverged diverged => WithStderr(Strings.VersionControl_Diverged, diverged.Stderr),
+            RemoteOpResult.Offline offline => WithStderr(Strings.VersionControl_Offline, offline.Stderr),
             RemoteOpResult.RepositoryDirty => Strings.VersionControl_RepositoryDirty,
             RemoteOpResult.Failed failed => failed.Stderr,
             _ => string.Empty,
         };
     }
+
+    // Git's own error says what failed, so the guidance never hides it.
+    private static string WithStderr(string guidance, string stderr)
+        => string.IsNullOrWhiteSpace(stderr) ? guidance : $"{guidance}\n{stderr.Trim()}";
 
     private static Task ShowRemoteResultNotificationAsync(RemoteOpResult result)
     {

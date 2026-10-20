@@ -1,5 +1,4 @@
 ﻿using Beutl.Composition;
-using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -32,7 +31,7 @@ public sealed class LosslessCompositeCoverageTests
             using Bitmap expected = RenderDirect(resource, density);
             using Bitmap actual = RenderThroughPipeline(resource, density);
 
-            AssertByteIdentical(expected, actual, $"effect-free ellipse at density {density}");
+            GoldenImageHarness.AssertByteIdentical(expected, actual, $"effect-free ellipse at density {density}");
         });
     }
 
@@ -50,7 +49,7 @@ public sealed class LosslessCompositeCoverageTests
             using Bitmap expected = RenderThroughPipeline(plain, density);
             using Bitmap actual = RenderThroughPipeline(filtered, density);
 
-            AssertByteIdentical(expected, actual, $"identity Brightness at density {density}");
+            GoldenImageHarness.AssertByteIdentical(expected, actual, $"identity Brightness at density {density}");
         });
     }
 
@@ -74,7 +73,7 @@ public sealed class LosslessCompositeCoverageTests
             using Bitmap expected = RenderThroughPipeline(plain, density, s_fractionalFrame);
             using Bitmap actual = RenderThroughPipeline(filtered, density, s_fractionalFrame);
 
-            AssertByteIdentical(
+            GoldenImageHarness.AssertByteIdentical(
                 expected,
                 actual,
                 $"identity Brightness at fractional device position and density {density}");
@@ -95,7 +94,7 @@ public sealed class LosslessCompositeCoverageTests
             using Bitmap expected = RenderThroughPipeline(plain, density, s_fractionalFrame);
             using Bitmap actual = RenderThroughPipeline(filtered, density, s_fractionalFrame);
 
-            AssertByteIdentical(
+            GoldenImageHarness.AssertByteIdentical(
                 expected,
                 actual,
                 $"identity Brightness on fractionally positioned text at density {density}");
@@ -152,7 +151,7 @@ public sealed class LosslessCompositeCoverageTests
             using var controlRenderer = CreateNodeRenderer(controlRoot, useRenderCache: false);
             using Bitmap expected = RenderNodeRendererToBitmap(controlRenderer);
 
-            AssertByteIdentical(
+            GoldenImageHarness.AssertByteIdentical(
                 expected,
                 actual,
                 $"{(typedShader ? "typed shader" : "effectItem filter")} after a device-phase cache move");
@@ -193,7 +192,7 @@ public sealed class LosslessCompositeCoverageTests
 
             Assert.Multiple(() =>
             {
-                AssertByteIdentical(
+                GoldenImageHarness.AssertByteIdentical(
                     expected,
                     actual,
                     "identity effect after an integral destination move at density 0.75");
@@ -242,7 +241,7 @@ public sealed class LosslessCompositeCoverageTests
                     filter.Cache.IsCached,
                     Is.False,
                     "The composed transform is translation-only even though neither transform is.");
-                AssertByteIdentical(first, second, "repeated cancelling-transform render");
+                GoldenImageHarness.AssertByteIdentical(first, second, "repeated cancelling-transform render");
             });
         });
     }
@@ -451,75 +450,10 @@ public sealed class LosslessCompositeCoverageTests
     private static double ReadRed(Bitmap bitmap, int x, int y)
         => (double)BitConverter.UInt16BitsToHalf(bitmap.GetPixelSpan<ushort>()[((y * bitmap.Width) + x) * 4]);
 
-    private static PixelRect MeasureAlphaBounds(Bitmap bitmap)
-    {
-        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
-        int left = bitmap.Width;
-        int top = bitmap.Height;
-        int right = 0;
-        int bottom = 0;
-        for (int y = 0; y < bitmap.Height; y++)
-        {
-            for (int x = 0; x < bitmap.Width; x++)
-            {
-                int pixelOffset = ((y * bitmap.Width) + x) * 4;
-                float alpha = (float)BitConverter.UInt16BitsToHalf(pixels[pixelOffset + 3]);
-                Assert.That(
-                    float.IsFinite(alpha),
-                    Is.True,
-                    $"The footprint alpha at ({x}, {y}) must be finite.");
-                if (alpha <= 0)
-                    continue;
-                left = Math.Min(left, x);
-                top = Math.Min(top, y);
-                right = Math.Max(right, x + 1);
-                bottom = Math.Max(bottom, y + 1);
-            }
-        }
-
-        Assert.That(right, Is.GreaterThan(left), "The footprint fixture must render non-transparent pixels.");
-        Assert.That(bottom, Is.GreaterThan(top), "The footprint fixture must render non-transparent pixels.");
-        return new PixelRect(left, top, right - left, bottom - top);
-    }
-
-    private static void AssertByteIdentical(Bitmap expected, Bitmap actual, string scenario)
-    {
-        int differing = 0;
-        double maximum = 0;
-        ReadOnlySpan<ushort> a = expected.GetPixelSpan<ushort>();
-        ReadOnlySpan<ushort> b = actual.GetPixelSpan<ushort>();
-        for (int index = 0; index < a.Length; index++)
-        {
-            double left = (double)BitConverter.UInt16BitsToHalf(a[index]);
-            double right = (double)BitConverter.UInt16BitsToHalf(b[index]);
-            if (a[index] != b[index])
-                differing++;
-            maximum = Math.Max(maximum, Math.Abs(left - right));
-        }
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(actual.Width, Is.EqualTo(expected.Width));
-            Assert.That(actual.Height, Is.EqualTo(expected.Height));
-            Assert.That(differing, Is.Zero,
-                $"{scenario}: {differing} channels differ, maximum delta {maximum:F6}.");
-        });
-    }
-
     /// <summary>
-    /// Asserts byte identity, except for the one half-float step a device that truncates half-float writes
-    /// adds to anti-aliased edge coverage rasterized at another absolute position.
+    /// Byte identity, except one half-float step at partially covered pixels on devices that truncate half
+    /// writes (AMD Radeon on Windows); the step comes from rasterizing the same edge at another absolute position.
     /// </summary>
-    /// <remarks>
-    /// A typed shader materializes its input, so the filtered rectangle is rasterized into an intermediate at
-    /// the same device phase but a different absolute position than the unfiltered one. Interpolated coverage
-    /// then differs in its last float bits. Rounding to nearest hides that; truncation - AMD Radeon on Windows
-    /// does it - turns a coverage a hair below an exact value such as 0.625 into the half below it. Skia alone
-    /// shows the same drift on that device for one rectangle drawn at two integer-shifted positions, so the
-    /// step is the rasterizer's, not the shader path's. It can only land where the reference is partially
-    /// covered, so solid and empty pixels stay exact, as does every pixel on a device that rounds. Anything
-    /// larger - a phase error or a resample - fails everywhere.
-    /// </remarks>
     private static void AssertIdenticalUpToHalfWriteTruncation(Bitmap expected, Bitmap actual, string scenario)
     {
         int edgeSteps = DeviceTruncatesHalfWrites() ? 1 : 0;
@@ -534,7 +468,7 @@ public sealed class LosslessCompositeCoverageTests
             int allowedSteps = expectedAlpha is > 0 and < 1 ? edgeSteps : 0;
             for (int index = pixel; index < pixel + 4; index++)
             {
-                int steps = Math.Abs(OrderedHalfBits(a[index]) - OrderedHalfBits(b[index]));
+                int steps = ImageMetrics.StorageCodeDistance(a[index], b[index]);
                 if (steps == 0)
                     continue;
                 differing++;
@@ -553,9 +487,6 @@ public sealed class LosslessCompositeCoverageTests
                 + $"exceed the allowance ({edgeSteps} at anti-aliased edges on this device, none elsewhere).");
         });
     }
-
-    private static int OrderedHalfBits(ushort bits)
-        => (bits & 0x8000) != 0 ? -(bits & 0x7FFF) : bits;
 
     /// <summary>
     /// Writes the float just below 0.625, which half represents exactly, and reads back which half it became.
@@ -829,59 +760,24 @@ public sealed class LosslessCompositeCoverageTests
         Drawable.Resource resource,
         float density,
         PixelSize frame)
-    {
-        using var node = new DrawableRenderNode(resource);
-        using (var context = new GraphicsContext2D(node, frame.ToSize(1), density))
-        {
-            resource.RequireOriginal().Render(context, resource);
-        }
-
-        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Delivery,
-            TargetDomain = new Rect(default, frame.ToSize(1)),
-            OutputScale = density,
-            MaxWorkingScale = density,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            Purpose = RenderRequestPurpose.Frame,
-        });
-
-        using RenderTarget target = CreateFrameTarget(density, frame);
-        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, density, logicalSize: frame.ToSize(1));
-        canvas.Clear();
-        renderer.Render(canvas);
-        return target.Snapshot();
-    }
+        => GoldenImageHarness.RenderAtScale(
+            resource,
+            frame,
+            density,
+            clearColor: Colors.Transparent,
+            maxWorkingScale: density,
+            purpose: RenderRequestPurpose.Frame);
 
     private static RenderTarget CreateFrameTarget(float density)
-        => CreateFrameTarget(density, s_frame);
-
-    private static RenderTarget CreateFrameTarget(float density, PixelSize frame)
         => RenderTarget.Create(
-               (int)MathF.Ceiling(frame.Width * density),
-               (int)MathF.Ceiling(frame.Height * density))
+               (int)MathF.Ceiling(s_frame.Width * density),
+               (int)MathF.Ceiling(s_frame.Height * density))
            ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
 }
 
-[SuppressResourceClassGeneration]
 internal sealed partial class IdentityTypedShaderEffect : FilterEffect
 {
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
         => context.Shader(ShaderDescription.CurrentPixel(
             "half4 apply(half4 color) { return color; }"));
-
-    public override Resource ToResource(CompositionContext context)
-    {
-        var resource = new Resource();
-        bool versionBumped = true;
-        resource.Reconcile(this, context, ref versionBumped);
-        return resource;
-    }
-
-    public new sealed class Resource : FilterEffect.Resource
-    {
-        public Resource()
-        {
-        }
-    }
 }

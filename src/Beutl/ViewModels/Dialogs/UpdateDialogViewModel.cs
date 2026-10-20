@@ -25,6 +25,7 @@ public class UpdateDialogViewModel
     {
     }
 
+    // Test seam: the app passes neither flatpak nor httpClient and uses the defaults.
     internal UpdateDialogViewModel(AppUpdateResponse update, bool isFlatpak,
         FlatpakUpdater? flatpak = null, HttpClient? httpClient = null)
     {
@@ -47,6 +48,7 @@ public class UpdateDialogViewModel
     public ReactiveProperty<bool> IsPrimaryButtonEnabled { get; } = new();
 
     internal bool IsFlatpak { get; }
+    // Test seam: tests await the started update.
     internal Task? UpdateTask => _startTask;
 
     public string PrimaryButtonText => IsFlatpak ? "" : Strings.Next;
@@ -353,7 +355,6 @@ public class UpdateDialogViewModel
         var file = destinationPath ?? response.Content.Headers.ContentDisposition?.FileName;
         if (file == null)
         {
-            // urlからファイル名を取得
             var arr = Update.DownloadUrl!.Split('/');
             file = arr[^1].Length == 0 ? arr[^2] : arr[^1];
         }
@@ -372,6 +373,7 @@ public class UpdateDialogViewModel
         return file;
     }
 
+    // Test seam: only tests pass maximumBytes.
     internal async Task<string?> DownloadFile(string? destinationPath = null, HttpClient? httpClient = null, long? maximumBytes = null)
     {
         try
@@ -531,7 +533,6 @@ public class UpdateDialogViewModel
         string destination,
         CancellationToken ct)
     {
-        // dittoを使って展開
         IsIndeterminate.Value = true;
         var psi = new ProcessStartInfo("/usr/bin/ditto")
         {

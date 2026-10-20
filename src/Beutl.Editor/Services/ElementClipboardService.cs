@@ -23,7 +23,7 @@ public sealed class ElementClipboardService : IElementClipboardService
     private readonly Func<Color> _imageAccentColorFactory;
 
     /// <param name="imageAccentColorFactory">Accent color for an element created
-    /// from a bitmap paste. Production passes <c>ColorGenerator.GenerateColor</c>;
+    /// from a bitmap paste. Production passes <c>ElementAccentColorGenerator.GenerateColor</c>;
     /// tests can pass a fixed color.</param>
     public ElementClipboardService(
         HistoryManager historyManager,
@@ -47,15 +47,15 @@ public sealed class ElementClipboardService : IElementClipboardService
         string singleJson = CoreSerializer.SerializeToJsonString(elements[0]);
         var entries = new List<ClipboardEntry>(3)
         {
-            new(BeutlClipboardFormats.Element, singleJson, null),
-            new(BeutlClipboardFormats.Text, singleJson, null),
+            new(BeutlClipboardFormats.Element, singleJson),
+            new(BeutlClipboardFormats.Text, singleJson),
         };
 
         if (elements.Count > 1)
         {
             JsonNode multiNode = new JsonArray(
                 elements.Select(JsonNode (e) => CoreSerializer.SerializeToJsonObject(e)).ToArray());
-            entries.Add(new ClipboardEntry(BeutlClipboardFormats.Elements, multiNode.ToJsonString(), null));
+            entries.Add(new ClipboardEntry(BeutlClipboardFormats.Elements, multiNode.ToJsonString()));
         }
 
         return await _clipboard.SetAsync(entries);
@@ -165,7 +165,6 @@ public sealed class ElementClipboardService : IElementClipboardService
 
         return new ElementPasteOutcome(
             Pasted: true,
-            NewElements: [],
             ScrollTo: outcome.ScrollToRange,
             ScrollToZIndex: outcome.ScrollToZIndex,
             AddFailure: null);
@@ -203,17 +202,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         newElement.Start = clickedFrame;
         newElement.ZIndex = clickedLayer;
 
-        CoreSerializer.StoreToUri(newElement, ElementFileNaming.GetUri(scene.Uri, newElement.Id), owner: scene);
-
-        scene.AddChild(newElement);
-        _historyManager.Commit(CommandNames.PasteElement);
-
-        return new ElementPasteOutcome(
-            Pasted: true,
-            NewElements: [newElement],
-            ScrollTo: newElement.Range,
-            ScrollToZIndex: newElement.ZIndex,
-            AddFailure: null);
+        return AddPastedElement(scene, newElement);
     }
 
     private async Task<ElementPasteOutcome> PasteFilesAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer)
@@ -234,17 +223,14 @@ public sealed class ElementClipboardService : IElementClipboardService
         {
             return new ElementPasteOutcome(
                 Pasted: false,
-                NewElements: [],
                 ScrollTo: default,
                 ScrollToZIndex: 0,
                 AddFailure: result.Failure);
         }
 
-        IReadOnlyList<Element> newElements = result.Elements;
         Element scrollTarget = result.Items[^1].PrimaryElement;
         return new ElementPasteOutcome(
             Pasted: true,
-            NewElements: newElements,
             ScrollTo: scrollTarget.Range,
             ScrollToZIndex: scrollTarget.ZIndex,
             AddFailure: null);
@@ -311,14 +297,19 @@ public sealed class ElementClipboardService : IElementClipboardService
         };
         newElement.AddObject(sourceImage);
 
-        CoreSerializer.StoreToUri(newElement, ElementFileNaming.GetUri(scene.Uri, newElement.Id), owner: scene);
+        return AddPastedElement(scene, newElement);
+    }
+
+    // Saves the element file next to the scene, adds the element and commits the paste.
+    private ElementPasteOutcome AddPastedElement(Scene scene, Element newElement)
+    {
+        CoreSerializer.StoreToUri(newElement, ElementFileNaming.GetUri(scene.Uri!, newElement.Id), owner: scene);
 
         scene.AddChild(newElement);
         _historyManager.Commit(CommandNames.PasteElement);
 
         return new ElementPasteOutcome(
             Pasted: true,
-            NewElements: [newElement],
             ScrollTo: newElement.Range,
             ScrollToZIndex: newElement.ZIndex,
             AddFailure: null);

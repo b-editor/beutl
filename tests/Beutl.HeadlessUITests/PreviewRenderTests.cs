@@ -1,7 +1,5 @@
 ﻿using Avalonia.Headless.NUnit;
 using Beutl.Composition;
-using Beutl.Editor.Models;
-using Beutl.Editor.Services;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
@@ -9,56 +7,32 @@ using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
 using Beutl.Services;
-using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 
 namespace Beutl.HeadlessUITests;
 
-// GPU-gated (B2): renders a real preview frame through SceneRenderer. Skips cleanly when no
+// GPU-gated: renders a real preview frame through SceneRenderer. Skips cleanly when no
 // Vulkan/MoltenVK/SwiftShader device is available; runs (e.g. on macOS/MoltenVK) when one is.
 [TestFixture]
 public class PreviewRenderTests
 {
-    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
-
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
     private static async Task<Scene> NewSceneWithRectangle(string name)
     {
-        Project project = (await TestShell.Project.CreateProject(
-            320, 240, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(2),
-            Layer: 0,
-            Source: new ElementSource.EngineObject(() => new RectShape
-            {
-                Width = { CurrentValue = 200 },
-                Height = { CurrentValue = 150 },
-                Fill = { CurrentValue = new SolidColorBrush(Colors.Red) }
-            }))], CancellationToken.None);
-        HeadlessTestHelpers.Settle();
-        return scene;
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync(name, 320, 240);
+        await TestShell.AddElementAsync(editor, () => new RectShape
+        {
+            Width = { CurrentValue = 200 },
+            Height = { CurrentValue = 150 },
+            Fill = { CurrentValue = new SolidColorBrush(Colors.Red) }
+        }, TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        return editor.Scene;
     }
 
     [AvaloniaTest]
     public async Task SceneRenderer_renders_a_non_empty_preview_frame()
     {
         TestGpu.RequireAnyDevice();
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
 
         Scene scene = await NewSceneWithRectangle("preview");
 
@@ -72,7 +46,6 @@ public class PreviewRenderTests
 
         using (snapshot)
         {
-            Assert.That(snapshot, Is.Not.Null);
             Assert.That(snapshot.Width, Is.EqualTo(320));
             Assert.That(snapshot.Height, Is.EqualTo(240));
             AssertContainsRedPixel(snapshot);
@@ -83,7 +56,7 @@ public class PreviewRenderTests
     public async Task SceneRenderer_renders_through_the_player_view_model()
     {
         TestGpu.RequireAnyDevice();
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
 
         Scene scene = await NewSceneWithRectangle("playerpreview");
         var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
@@ -104,9 +77,8 @@ public class PreviewRenderTests
         }
     }
 
-    // ByteCount > 0 only proves a buffer was allocated; the scene's sole content is an opaque red
-    // rectangle, so a blank/transparent frame (broken rendering) is caught only by finding its pixels.
-    // The render surface is RgbaF16, so convert to 8-bit BGRA before sampling.
+    // The scene holds only an opaque red rectangle, so a red pixel proves the frame was drawn.
+    // The surface is RgbaF16, so convert to BGRA first.
     private static void AssertContainsRedPixel(Bitmap snapshot)
     {
         using Bitmap bgra = snapshot.Convert(BitmapColorType.Bgra8888);

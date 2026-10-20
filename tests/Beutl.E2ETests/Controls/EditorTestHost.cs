@@ -16,38 +16,27 @@ namespace Beutl.E2ETests.Controls;
 internal sealed class EditorTestHost<TEditor> : IDisposable
     where TEditor : PropertyEditor
 {
+    private readonly ControlHost _host;
+
     public EditorTestHost(TEditor editor, double width = 480, double height = 200)
     {
         Editor = editor;
         Sink = new Button { Content = "sink" };
-        Window = new Window
-        {
-            Width = width,
-            Height = height,
-            Content = new StackPanel { Children = { editor, Sink } },
-        };
-        Window.Show();
-        HeadlessTestHelpers.Settle();
+        _host = new ControlHost(new StackPanel { Children = { editor, Sink } }, width, height);
     }
 
-    public void Dispose()
-    {
-        Window.Close();
-        HeadlessTestHelpers.Settle();
-    }
+    public void Dispose() => _host.Dispose();
 
     public TEditor Editor { get; }
 
-    public Window Window { get; }
+    public Window Window => _host.Window;
 
     public Button Sink { get; }
-
-    public TextBox FirstTextBox => RequireDescendant<TextBox>();
 
     public T Require<T>(string name)
         where T : Control
     {
-        T? found = FindNamed<T>(Editor, name);
+        T? found = Editor.FindDescendantOfType<T>(false, control => control.Name == name);
         Assert.That(found, Is.Not.Null, $"Template part '{name}' was not found.");
         return found!;
     }
@@ -91,11 +80,12 @@ internal sealed class EditorTestHost<TEditor> : IDisposable
         HeadlessTestHelpers.Settle();
     }
 
-    public void DragHorizontally(Control control, double deltaX)
+    // Presses at the control's center, or at a point of the control when one is given.
+    public void DragHorizontally(Control control, double deltaX, Point? at = null)
     {
         // Lay out first so the center is real, and let the hover settle before the press.
         HeadlessTestHelpers.Settle();
-        Point start = Center(control);
+        Point start = at is { } point ? control.TranslatePoint(point, Window)!.Value : Center(control);
         Point end = start + new Vector(deltaX, 0);
         Window.MouseMove(start);
         HeadlessTestHelpers.Settle();
@@ -144,25 +134,5 @@ internal sealed class EditorTestHost<TEditor> : IDisposable
         Point? p = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), Window);
         Assert.That(p, Is.Not.Null, "Control is not connected to the window.");
         return p!.Value;
-    }
-
-    private static T? FindNamed<T>(Visual root, string name)
-        where T : Control
-    {
-        foreach (Visual child in root.GetVisualChildren())
-        {
-            if (child is T match && match.Name == name)
-            {
-                return match;
-            }
-
-            T? found = FindNamed<T>(child, name);
-            if (found is not null)
-            {
-                return found;
-            }
-        }
-
-        return null;
     }
 }

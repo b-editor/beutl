@@ -6,15 +6,13 @@ internal interface IProjectVersionControlInitializer
 
     Task<bool> InitializeCurrentProjectAsync(
         Project expectedProject,
-        Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync,
         CancellationToken cancellationToken);
 
     /// <summary>
     /// Starts creating a project that is tracked from its first version, so the project opens only after
     /// that version is recorded.
     /// </summary>
-    INewProjectVersionControlSetup BeginNewProject(
-        Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync);
+    INewProjectVersionControlSetup BeginNewProject();
 }
 
 /// <summary>

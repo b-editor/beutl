@@ -38,9 +38,7 @@ public sealed class ProxyStoreConfig : ConfigurationBase
 
     public string StoreRootPath
     {
-        // NormalizeStoreRootPath already returns an absolute path (or the default), so no further
-        // Path.GetFullPath here — a second call could throw for a malformed persisted value, defeating the
-        // startup fallback that reads this accessor during recovery.
+        // NormalizeStoreRootPath returns an absolute path; a second GetFullPath could throw for a malformed value.
         get => NormalizeStoreRootPath(GetValue(StoreRootPathProperty));
         set => SetValue(StoreRootPathProperty, NormalizeStoreRootPath(value));
     }

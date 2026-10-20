@@ -55,7 +55,7 @@ public sealed partial class EditViewModel
     private KeyFrameClipboardService? _keyFrameClipboardService;
     private NodeGraphMutationService? _nodeGraphMutationService;
     private ElementObjectService? _elementObjectService;
-    private IClipboardGateway? _clipboardGateway;
+    private readonly IClipboardGateway _clipboardGateway = new Beutl.Editor.Components.Services.AvaloniaClipboardGateway();
     private Services.Adapters.PropertyEditorFactoryAdapter? _propertyEditorFactory;
     private Services.Adapters.PropertiesEditorFactoryImpl? _propertiesEditorFactory;
     private volatile bool _viewStateSaveSuppressed;
@@ -92,7 +92,6 @@ public sealed partial class EditViewModel
         PreviewSurfaceSize = new ReactivePropertySlim<Beutl.Graphics.Size>(default)
             .DisposeWith(_disposables);
 
-        // Rebuild only when the resolved output scale actually changes (DistinctUntilChanged).
         IObservable<(PixelSize FrameSize, float OutputScale)> frameSizeAndScale =
             scene.GetObservable(Scene.FrameSizeProperty)
                 .CombineLatest(PreviewScale, PreviewSurfaceSize,
@@ -161,9 +160,10 @@ public sealed partial class EditViewModel
         var sequenceGenerator = new OperationSequenceGenerator();
         var observer = new CoreObjectOperationObserver(null, Scene, sequenceGenerator)
             .DisposeWith(_disposables);
-        HistoryManager = new HistoryManager(Scene, sequenceGenerator);
+        HistoryManager = new HistoryManager(sequenceGenerator);
         HistoryManager.Subscribe(observer)
             .DisposeWith(_disposables);
+        WarnAboutEditsPendingAfterInput();
         Usage = new EditorUsageTracker(Scene, HistoryManager).DisposeWith(_disposables);
 
         observer.Operations
@@ -174,13 +174,12 @@ public sealed partial class EditViewModel
         BufferStatus = new BufferStatusViewModel(this)
             .DisposeWith(_disposables);
 
-        DockHost = new DockHostViewModel(SceneId, this);
+        DockHost = new DockHostViewModel(this);
         _editorSelection.SelectedObject
             .Subscribe(OpenSelectionInPropertyTabs)
             .DisposeWith(_disposables);
 
         _elementAdder = new ElementAdderImpl(this);
-        _clipboardGateway = new Beutl.Editor.Components.Services.AvaloniaClipboardGateway();
 
         _autoSaveService.SaveError
             .Subscribe(_ =>
@@ -526,8 +525,7 @@ public sealed partial class EditViewModel
         _logger.LogInformation("Saving scene ({SceneId}).", scene.Id);
         Uri sceneUri = scene.Uri
             ?? throw new InvalidOperationException("An unsaved scene needs a destination before it can be saved.");
-        UnsavedSceneStorage.SaveRelocation relocation =
-            UnsavedSceneStorage.PrepareSave(scene, sceneUri);
+        UnsavedSceneStorage.SaveRelocation relocation = new(scene, sceneUri);
         // A failure at any step restores the project, scene, element and resource files this
         // save replaced, instead of leaving the files written before it on disk.
         using (StorageWriteTransaction transaction = StorageWriteTransaction.Begin())

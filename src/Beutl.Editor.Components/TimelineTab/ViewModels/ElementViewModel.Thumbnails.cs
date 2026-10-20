@@ -12,14 +12,11 @@ public sealed partial class ElementViewModel
 {
     private void InitializeThumbnails()
     {
-        // プレビュー無効化の初期値を設定
         IsThumbnailsDisabled.Value = Timeline.ThumbnailsDisabledElements.Contains(Model.Id);
 
-        // ThumbnailsDisabledElementsの変更を購読
         Timeline.ThumbnailsDisabledElements.Attached += OnThumbnailsDisabledElementsAttached;
         Timeline.ThumbnailsDisabledElements.Detached += OnThumbnailsDisabledElementsDetached;
 
-        // IsThumbnailsDisabledが変更されたらThumbnailsDisabledElementsを更新し、プレビューを再読み込み
         IsThumbnailsDisabled.Skip(1)
             .Subscribe(isDisabled =>
             {
@@ -39,7 +36,6 @@ public sealed partial class ElementViewModel
             })
             .AddTo(_disposables);
 
-        // Width変更とThumbnailsInvalidatedイベントをマージして、いずれかが発生してから500ms後に更新
         Observable.Merge(
                 Width.Select(_ => Unit.Default),
                 _thumbnailsInvalidatedSubject.AsObservable())
@@ -48,7 +44,6 @@ public sealed partial class ElementViewModel
             .Subscribe(_ => UpdateThumbnailsAsync())
             .AddTo(_disposables);
 
-        // スクロール時の可視範囲変更をスロットルして追加生成
         _visibleRangeSubject
             .Where(_ => !IsThumbnailsDisabled.Value)
             .Throttle(TimeSpan.FromMilliseconds(50))
@@ -118,7 +113,6 @@ public sealed partial class ElementViewModel
 
     private async void UpdateThumbnailsAsync()
     {
-        // プレビューが無効化されている場合は何もしない
         if (IsThumbnailsDisabled.Value)
         {
             CancelThumbnailsLoading();
@@ -130,7 +124,6 @@ public sealed partial class ElementViewModel
 
         var provider = FindThumbnailsProvider();
 
-        // プロバイダーが変更された場合、イベント購読を更新
         if (_currentThumbnailsProvider != provider)
         {
             SwitchThumbnailsProvider(provider);
@@ -169,7 +162,6 @@ public sealed partial class ElementViewModel
         }
         finally
         {
-            // 生成完了後、このCTSがまだ現役なら解放する
             if (_thumbnailsCts is { } cts && cts.Token == ct)
             {
                 _thumbnailsCts = null;
@@ -196,7 +188,6 @@ public sealed partial class ElementViewModel
                 if (oldKey != null)
                     InvalidateAllThumbnailCacheKeys(_thumbnailCacheService, oldKey);
 
-                // 新しいキーをキャプチャ
                 _lastThumbnailsCacheKey = _currentThumbnailsProvider?.GetThumbnailsCacheKey();
 
                 _thumbnailsInvalidatedSubject.OnNext(Unit.Default);
@@ -245,35 +236,20 @@ public sealed partial class ElementViewModel
 
     private void OnProxyStoreChangedForThumbnails(ProxyStoreChangedEventArgs e)
     {
-        if (_isDisposed)
-            return;
-
-        // Filmstrip thumbnails are cached without proxy availability in the key, so a proxy
-        // registered/deleted/changed for this element's source (in prefer-proxy mode) leaves the
-        // strip decoded from the previous path until an unrelated edit; drop the cache and re-render.
-        // A store swap (Reset) moves the whole store — the same invalidating kinds as the badge — so share
-        // that gate, and (like the badge path) bypass the per-source relevance check for a Reset, which
-        // carries no specific Source.
-        if (!PreferProxyForThumbnails || !AffectsProxyBadge(e.Kind))
+        // The filmstrip's cache key does not include whether a proxy exists, so a relevant store change drops
+        // the cache and re-renders. A Reset skips the relevance check, as it does for the badge.
+        if (_isDisposed || !PreferProxyForThumbnails || !AffectsProxyBadge(e.Kind))
         {
             return;
         }
 
-        if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        OnUIThreadIfRelevant(GetChangedSourceKey(e), () =>
         {
-            Avalonia.Threading.Dispatcher.UIThread.Post(() => OnProxyStoreChangedForThumbnails(e));
-            return;
-        }
+            if (_lastThumbnailsCacheKey != null)
+                InvalidateAllThumbnailCacheKeys(_thumbnailCacheService, _lastThumbnailsCacheKey);
 
-        if (e.Kind != ProxyStoreChangeKind.Reset && !ElementUsesChangedSourceCached(e.Source.AbsolutePath))
-        {
-            return;
-        }
-
-        if (_lastThumbnailsCacheKey != null)
-            InvalidateAllThumbnailCacheKeys(_thumbnailCacheService, _lastThumbnailsCacheKey);
-
-        UpdateThumbnailsAsync();
+            UpdateThumbnailsAsync();
+        });
     }
 
     public void OnVisibleRangeChanged(int start, int end)
@@ -291,7 +267,6 @@ public sealed partial class ElementViewModel
         if (provider == null || provider.ThumbnailsKind != Engine.ThumbnailsKind.Video)
             return;
 
-        // Width変更による生成が進行中ならキャンセルする
         CancelThumbnailsLoading();
 
         var missing = GetMissingThumbnailIndices?.Invoke(start, end);
@@ -320,7 +295,6 @@ public sealed partial class ElementViewModel
         }
         finally
         {
-            // 新しい要求に差し替えられていなければ、このCTSを解放する
             if (_scrollThumbnailsCts is { } cts && cts.Token == ct)
             {
                 _scrollThumbnailsCts = null;

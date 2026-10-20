@@ -62,8 +62,6 @@ public sealed class ItemValue<T> : IReadOnlyItemValue<T>
         return false;
     }
 
-    public void SetFromObject(object? value) => Value = (T?)value;
-
     public object? GetBoxed() => Value;
 
     public bool TryLoadFromAnimation(IAnimation animation, TimeSpan time)

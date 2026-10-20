@@ -147,25 +147,6 @@ public class CoreListTests
     }
 
     [Test]
-    public void Replace_DetachesAndAttachesItems()
-    {
-        var list = new CoreList<int>(new[] { 1, 2 });
-        var attached = new List<int>();
-        var detached = new List<int>();
-        list.Attached += attached.Add;
-        list.Detached += detached.Add;
-
-        list.Replace(new[] { 9, 8, 7 });
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(list, Is.EqualTo(new[] { 9, 8, 7 }));
-            Assert.That(detached, Is.EqualTo(new[] { 1, 2 }));
-            Assert.That(attached, Is.EqualTo(new[] { 9, 8, 7 }));
-        });
-    }
-
-    [Test]
     public void Clear_FiresRemoveOrResetBasedOnBehavior()
     {
         var removeList = new CoreList<int>(new[] { 1, 2 }) { ResetBehavior = ResetBehavior.Remove };
@@ -199,31 +180,10 @@ public class CoreListTests
     }
 
     [Test]
-    public void GetMarshal_ProvidesCurrentSpan()
+    public void AsSpan_ProvidesCurrentSpan()
     {
         var list = new CoreList<int>(new[] { 10, 20, 30 });
-        CoreListMarshal<int> marshal = list.GetMarshal();
-        Assert.That(marshal.Value.ToArray(), Is.EqualTo(new[] { 10, 20, 30 }));
-    }
-
-    [Test]
-    public void GetMarshal_ThrowsAfterMutation()
-    {
-        var list = new CoreList<int>(new[] { 10 });
-        CoreListMarshal<int> marshal = list.GetMarshal();
-        list.Add(20);
-
-        bool threw = false;
-        try
-        {
-            _ = marshal.Value.Length;
-        }
-        catch (InvalidOperationException)
-        {
-            threw = true;
-        }
-
-        Assert.That(threw, Is.True);
+        Assert.That(list.AsSpan().ToArray(), Is.EqualTo(new[] { 10, 20, 30 }));
     }
 
     [Test]

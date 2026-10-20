@@ -117,7 +117,7 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
     {
         // Logarithmic bar layout: groups bins into ~96 display bands.
         int bands = Math.Min(96, bins);
-        Span<float> bandPeaks = bands <= 256 ? stackalloc float[bands] : new float[bands];
+        Span<float> bandPeaks = stackalloc float[bands];
         ReduceBinsToBands(bins, bands, bandPeaks);
 
         switch (Shape)
@@ -186,8 +186,6 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
     private void DrawLineShape(DrawingContext context, Rect plotBounds, ReadOnlySpan<float> bandPeaks)
     {
         int bands = bandPeaks.Length;
-        if (bands < 2) return;
-
         double slotWidth = plotBounds.Width / bands;
         double height = plotBounds.Height - 2;
         var geometry = new StreamGeometry();
@@ -210,8 +208,6 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
     private void DrawFilledAreaShape(DrawingContext context, Rect plotBounds, ReadOnlySpan<float> bandPeaks)
     {
         int bands = bandPeaks.Length;
-        if (bands < 2) return;
-
         double slotWidth = plotBounds.Width / bands;
         double height = plotBounds.Height - 2;
         var geometry = new StreamGeometry();

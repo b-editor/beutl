@@ -1,9 +1,11 @@
 ﻿using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
+using Beutl.Audio;
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.FFmpegIpc;
@@ -35,12 +37,11 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     private static readonly object s_reportedFailureKey = new();
     private readonly EditViewModel _editViewModel;
     private readonly ILogger _logger = Log.CreateLogger<OutputViewModel>();
-    private readonly ReactiveProperty<bool> _isIndeterminate = new();
     private readonly ReactiveProperty<bool> _isEncoding = new();
-    private readonly ReactivePropertySlim<double> _progress = new();
     private readonly ReadOnlyObservableCollection<ControllableEncodingExtension> _encoders;
     private readonly CompositeDisposable _disposable = [];
     private string? _activeDestination;
+    private long _totalFrames;
 
     public OutputViewModel(EditViewModel editViewModel)
     {
@@ -97,10 +98,21 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 
-        // Pre-validate that FrameSize * factor fits the per-axis buffer limit.
+        var videoEnabled = Controller
+            .Select(c => c == null || SelectedEncoder.Value?.IsSupported(c.OutputFile) != true
+                ? Observable.Return(true)
+                : Observable.FromEventPattern<PropertyChangedEventHandler, PropertyChangedEventArgs>(
+                        h => c.VideoSettings.PropertyChanged += h, h => c.VideoSettings.PropertyChanged -= h)
+                    .Select(_ => c.IsVideoEnabled)
+                    .StartWith(c.IsVideoEnabled))
+            .Switch()
+            .DistinctUntilChanged();
+
+        // Pre-validate the render surface only when the output uses video.
         SupersampleWarning = SupersampleFactor
-            .CombineLatest(Model.GetObservable(Scene.FrameSizeProperty), (factor, frameSize) =>
+            .CombineLatest(Model.GetObservable(Scene.FrameSizeProperty), videoEnabled, (factor, frameSize, enabled) =>
             {
+                if (!enabled) return null;
                 BufferDimensionBudget budget = BufferDimensionBudget.Resolve(BufferBudgetScope.Prediction);
                 if (ExportSupersampling.FitsBufferLimit(frameSize, factor, budget)) return null;
 
@@ -172,8 +184,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public ReactiveProperty<string> ProgressMain { get; } = new(string.Empty);
 
-    public ReactiveProperty<string> ProgressSub { get; } = new(string.Empty);
-
     public ReactiveProperty<string> Elapsed { get; } = new("00:00:00");
 
     public ReactiveProperty<string> Eta { get; } = new("--:--:--");
@@ -182,21 +192,11 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public ReactiveProperty<string> EstimatedSize { get; } = new("-- MB");
 
-    public ReactiveProperty<long> CurrentFrame { get; } = new();
-
-    public ReactiveProperty<long> TotalFrames { get; } = new();
-
     public ReactiveProperty<string> FrameProgressText { get; } = new("0 / 0");
-
-    public ReactiveProperty<bool> IsCompleted { get; } = new();
 
     public ReactiveProperty<bool> WasCancelled { get; } = new();
 
-    public IReadOnlyReactiveProperty<bool> IsIndeterminate => _isIndeterminate;
-
     public IReadOnlyReactiveProperty<bool> IsEncoding => _isEncoding;
-
-    IReadOnlyReactiveProperty<double> IOutputContext.Progress => _progress;
 
     public FilePickerFileType[] GetFilePickerFileTypes()
     {
@@ -261,19 +261,34 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            HandlePreflightCancellation();
+            HandleCancellation();
             throw;
         }
 
-        // Defensive re-check: reject if supersampled surface cannot be allocated.
-        EnsureSupersamplingFits();
+        // Read once: the panel stays editable during the export, and the export must use what it validated.
+        int supersampleFactor = SupersampleFactor.Value;
+        string? destinationFile = DestinationFile.Value;
+        ControllableEncodingExtension? selectedEncoder = SelectedEncoder.Value;
+        EncodingController? settingsController = Controller.Value;
+        bool videoEnabled = settingsController?.IsVideoEnabled != false;
+        if (videoEnabled)
+            EnsureSupersamplingFits();
 
-        // Snapshot the referenced paths on the UI thread (the scene graph is mutable and not thread-safe),
-        // then run only the per-path File.Exists — which can stall on slow storage — off-thread.
-        // Export renders [Scene.Start, Scene.Start + Duration) (FrameProviderImpl/SampleProviderImpl add
-        // Scene.Start), so the preflight must scan the same interval — not [0, Duration).
+        if (settingsController == null)
+            throw new InvalidOperationException(MessageStrings.UnexpectedError);
+
+        bool audioEnabled = settingsController.IsAudioEnabled;
+        JsonObject? videoSettingsJson = EncoderSettingsJson.Serialize(settingsController.VideoSettings);
+        JsonObject? audioSettingsJson = EncoderSettingsJson.Serialize(settingsController.AudioSettings);
+
+        // The export renders this copy, taken on the UI thread, so edits made while it runs do not reach it.
+        Scene scene = SceneSnapshot.Create(Model);
+
+        // Collect sources on the UI thread and check File.Exists off-thread; scan [Start, Start + Duration),
+        // the range export renders.
         IReadOnlySet<string> referencedSources =
-            ExportSourceValidator.CollectRenderableSources(Model, new TimeRange(Model.Start, Model.Duration));
+            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(scene.Start, scene.Duration),
+                videoEnabled, audioEnabled);
         IReadOnlyList<string> missingSources;
         try
         {
@@ -284,7 +299,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            HandlePreflightCancellation();
+            HandleCancellation();
             throw;
         }
 
@@ -295,16 +310,16 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         try
         {
             WasCancelled.Value = false;
-            string destination = DestinationFile.Value
+            string destination = destinationFile
                 ?? throw new InvalidOperationException(MessageStrings.UnexpectedError);
-            ControllableEncodingExtension encoder = SelectedEncoder.Value
-                ?? throw new InvalidOperationException(MessageStrings.UnexpectedError);
-            EncodingController settingsController = Controller.Value
+            ControllableEncodingExtension encoder = selectedEncoder
                 ?? throw new InvalidOperationException(MessageStrings.UnexpectedError);
             using var output = new StagedOutputFile(destination);
             EncodingController controller = encoder.CreateController(output.TemporaryPath);
-            EncoderSettingsJson.CopyTo(settingsController.VideoSettings, controller.VideoSettings);
-            EncoderSettingsJson.CopyTo(settingsController.AudioSettings, controller.AudioSettings);
+            if (videoSettingsJson != null)
+                EncoderSettingsJson.Populate(controller.VideoSettings, videoSettingsJson);
+            if (audioSettingsJson != null)
+                EncoderSettingsJson.Populate(controller.AudioSettings, audioSettingsJson);
             VideoEncoderSettings videoSettings = controller.VideoSettings;
             AudioEncoderSettings audioSettings = controller.AudioSettings;
 
@@ -315,6 +330,10 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             stopwatch.Start();
 
             await Task.Run(() => EncodeOnWorkerAsync(
+                scene,
+                supersampleFactor,
+                videoEnabled,
+                audioEnabled,
                 controller,
                 videoSettings,
                 audioSettings,
@@ -376,21 +395,22 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     private void BeginProgress()
     {
         _isEncoding.Value = true;
-        IsCompleted.Value = false;
         ProgressText.Value = "";
         ProgressMain.Value = Strings.Encoding;
-        ProgressSub.Value = string.Empty;
         Elapsed.Value = "00:00:00";
         Eta.Value = "--:--:--";
         CurrentSize.Value = "0 MB";
         EstimatedSize.Value = "-- MB";
-        CurrentFrame.Value = 0;
-        TotalFrames.Value = 0;
+        _totalFrames = 0;
         FrameProgressText.Value = "0 / 0";
     }
 
     // Runs on a worker thread, from Task.Run, for the whole length of the encode.
     private async Task EncodeOnWorkerAsync(
+        Scene scene,
+        int supersampleFactor,
+        bool videoEnabled,
+        bool audioEnabled,
         EncodingController controller,
         VideoEncoderSettings videoSettings,
         AudioEncoderSettings audioSettings,
@@ -398,33 +418,39 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         Stopwatch stopwatch,
         CancellationToken cancellationToken)
     {
-        _isIndeterminate.Value = false;
-        videoSettings.SourceSize = Model.FrameSize;
+        videoSettings.SourceSize = scene.FrameSize;
 
-        ProgressMax.Value = Model.Duration.TotalSeconds * 2;
+        ProgressMax.Value = scene.Duration.TotalSeconds * ((videoEnabled ? 1 : 0) + (audioEnabled ? 1 : 0));
 
         double frameRate = videoSettings.FrameRate.ToDouble();
         if (!double.IsFinite(frameRate) || frameRate <= 0) frameRate = 30;
-        // The number of frames the frame provider renders
-        long totalFrames = FrameProviderImpl.ToFrameCount(Model.Duration, videoSettings.FrameRate);
-        TotalFrames.Value = totalFrames;
+        long totalFrames = videoEnabled ? FrameProviderImpl.ToFrameCount(scene.Duration, videoSettings.FrameRate) : 0;
+        _totalFrames = totalFrames;
         FrameProgressText.Value = $"0 / {totalFrames}";
 
         _logger.LogInformation("Using encoding controller: {Controller}", controller);
 
-        ClearEditViewModelCaches();
+        if (videoEnabled)
+            ClearEditViewModelCaches();
 
-        float renderScale = Math.Max(1, SupersampleFactor.Value);
-        using var renderer = ExportRendererFactory.Create(Model, renderScale);
-        var frameProgress = new Subject<TimeSpan>();
-        using var frameProvider = new FrameProviderImpl(Model, videoSettings.FrameRate, renderer, frameProgress);
-        using var composer = new SceneComposer(Model, disableResourceShare: true, forceOriginalSource: true)
+        float renderScale = Math.Max(1, supersampleFactor);
+        using var renderer = videoEnabled ? ExportRendererFactory.Create(scene, renderScale) : null;
+        using var frameProgress = new Subject<TimeSpan>();
+        using IFrameProvider frameProvider = renderer != null
+            ? new FrameProviderImpl(scene, videoSettings.FrameRate, renderer, frameProgress)
+            : DisabledMediaProvider.Instance;
+        using var composer = audioEnabled ? new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
         {
             SampleRate = audioSettings.SampleRate
-        };
-        var sampleProgress = new Subject<TimeSpan>();
-        using var sampleProvider = new SampleProviderImpl(
-            Model, composer, audioSettings.SampleRate, sampleProgress);
+        } : null;
+        using var sampleProgress = new Subject<TimeSpan>();
+        using ISampleProvider sampleProvider = composer != null
+            ? new SampleProviderImpl(scene, composer, audioSettings.SampleRate, sampleProgress)
+            : DisabledMediaProvider.Instance;
+
+        IObservable<TimeSpan> progress = videoEnabled && audioEnabled
+            ? frameProgress.CombineLatest(sampleProgress, (video, audio) => video + audio)
+            : videoEnabled ? frameProgress : sampleProgress;
 
         string destinationPath = output.TemporaryPath;
 
@@ -432,15 +458,14 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                    .Subscribe(t =>
                    {
                        long frame = (long)Math.Round(t.TotalSeconds * frameRate);
-                       CurrentFrame.Value = frame;
                        FrameProgressText.Value = totalFrames > 0
                            ? $"{frame} / {totalFrames}"
                            : $"{frame}";
                    }))
-        using (frameProgress.CombineLatest(sampleProgress)
+        using (progress
                    .Subscribe(t =>
                    {
-                       double value = t.Item1.TotalSeconds + t.Item2.TotalSeconds;
+                       double value = t.TotalSeconds;
                        ProgressValue.Value = value;
                        UpdateProgressIndicators(stopwatch.Elapsed, value, ProgressMax.Value, destinationPath);
                    }))
@@ -449,16 +474,27 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
     }
 
+    private sealed class DisabledMediaProvider : IFrameProvider, ISampleProvider
+    {
+        public static DisabledMediaProvider Instance { get; } = new();
+        public long FrameCount => 0;
+        public Rational FrameRate => new(0, 1);
+        public long SampleCount => 0;
+        public long SampleRate => 0;
+        public ValueTask<Bitmap?> ReadNextFrame() => ValueTask.FromResult<Bitmap?>(null);
+        public ValueTask<AudioBuffer?> ReadNextSamples(int length)
+            => ValueTask.FromResult<AudioBuffer?>(null);
+        public void Dispose() { }
+    }
+
     private void ShowCompletedProgress()
     {
         ProgressValue.Value = ProgressMax.Value;
-        CurrentFrame.Value = TotalFrames.Value;
-        FrameProgressText.Value = TotalFrames.Value > 0
-            ? $"{TotalFrames.Value} / {TotalFrames.Value}"
+        FrameProgressText.Value = _totalFrames > 0
+            ? $"{_totalFrames} / {_totalFrames}"
             : FrameProgressText.Value;
         ProgressText.Value = Strings.Completed;
         ProgressMain.Value = Strings.Completed;
-        ProgressSub.Value = string.Empty;
         Eta.Value = "00:00:00";
         _logger.LogInformation("Encoding process completed successfully.");
     }
@@ -467,13 +503,11 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     {
         string userMessage = TranslateEncodingFailure(ex);
 
-        // Keep the translated message visible after failure.
         ProgressText.Value = userMessage;
         NotificationService.ShowError(MessageStrings.OutputException, userMessage);
         MarkFailureAsReported(ex);
         if (ex is FFmpegWorkerException { FFmpegErrorCode: { } ffmpegErrorCode })
         {
-            // Keep the code for diagnostics.
             _logger.LogError(
                 ex, "An exception occurred during the encoding process. FFmpegErrorCode={FFmpegErrorCode}",
                 ffmpegErrorCode);
@@ -484,12 +518,11 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
     }
 
-    // Translate known FFmpeg failures for users.
     private static string TranslateEncodingFailure(Exception ex)
     {
         string userMessage = ex.Message;
         if (ex is FFmpegWorkerException ffmpegEx
-            && FFmpegErrorMessageMapper.TryClassify(ffmpegEx.FFmpegErrorCode, ffmpegEx.Message) is { } ffmpegErrorKind)
+            && FFmpegErrorMessageMapper.TryClassify(ffmpegEx.FFmpegErrorCode) is { } ffmpegErrorKind)
         {
             userMessage = ffmpegErrorKind switch
             {
@@ -509,10 +542,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     {
         stopwatch.Stop();
         Elapsed.Value = FormatDuration(stopwatch.Elapsed);
-        _progress.Value = 0;
-        _isIndeterminate.Value = false;
         _isEncoding.Value = false;
-        IsCompleted.Value = succeeded;
         string? completedPath = _activeDestination;
         _activeDestination = null;
         _logger.LogInformation("Encoding process finished.");
@@ -550,12 +580,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         var failure = new InvalidOperationException(message);
         MarkFailureAsReported(failure);
         return failure;
-    }
-
-    private void HandlePreflightCancellation()
-    {
-        IsCompleted.Value = false;
-        HandleCancellation();
     }
 
     private void HandleCancellation()
@@ -608,8 +632,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 EstimatedSize.Value = FormatBytes(estimatedTotal);
             }
         }
-
-        ProgressSub.Value = $"{Elapsed.Value} / {Eta.Value}";
     }
 
     private static string FormatDuration(TimeSpan span)

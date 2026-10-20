@@ -232,6 +232,12 @@
   <data name="Clipping_Top" xml:space="preserve">
     <value>上</value>
   </data>
+  <data name="DiagonalClipping" xml:space="preserve">
+    <value>斜めクリッピング</value>
+  </data>
+  <data name="DiagonalClipping_Width_Description" xml:space="preserve">
+    <value>0は片側を切り落とします。正の値は帯の外側、負の値は帯の内側を切り落とします。絶対値が帯の幅になります。</value>
+  </data>
   <data name="ColorGrading" xml:space="preserve">
     <value>カラーグレーディング</value>
   </data>
@@ -730,6 +736,15 @@
   <data name="StrokeEffect_Style" xml:space="preserve">
     <value>ボーダースタイル</value>
   </data>
+  <data name="TextAlignment_Center" xml:space="preserve">
+    <value>中央揃え</value>
+  </data>
+  <data name="TextAlignment_Left" xml:space="preserve">
+    <value>左揃え</value>
+  </data>
+  <data name="TextAlignment_Right" xml:space="preserve">
+    <value>右揃え</value>
+  </data>
   <data name="TextBlock" xml:space="preserve">
     <value>テキスト</value>
   </data>
@@ -753,6 +768,9 @@
   </data>
   <data name="TextBlock_Text" xml:space="preserve">
     <value>テキスト</value>
+  </data>
+  <data name="TextBlock_TextAlignment" xml:space="preserve">
+    <value>行揃え</value>
   </data>
   <data name="Threshold" xml:space="preserve">
     <value>二階調化</value>
@@ -1285,17 +1303,11 @@
   <data name="EndPoint" xml:space="preserve">
     <value>終了点</value>
   </data>
-  <data name="FixImageSize" xml:space="preserve">
-    <value>画像サイズを固定</value>
-  </data>
   <data name="Group" xml:space="preserve">
     <value>グループ</value>
   </data>
   <data name="Height" xml:space="preserve">
     <value>高さ</value>
-  </data>
-  <data name="KernelSize" xml:space="preserve">
-    <value>カーネルサイズ</value>
   </data>
   <data name="Offset" xml:space="preserve">
     <value>オフセット</value>
@@ -1545,5 +1557,29 @@
   </data>
   <data name="ClipTransitionOrientation_Vertical" xml:space="preserve">
     <value>垂直</value>
+  </data>
+  <data name="RadialBlur" xml:space="preserve">
+    <value>放射ブラー</value>
+  </data>
+  <data name="RadialBlur_Mode" xml:space="preserve">
+    <value>種類</value>
+  </data>
+  <data name="RadialBlur_Center" xml:space="preserve">
+    <value>中心</value>
+  </data>
+  <data name="RadialBlur_Amount" xml:space="preserve">
+    <value>強さ</value>
+  </data>
+  <data name="RadialBlur_Amount_Description" xml:space="preserve">
+    <value>ズーム型では拡大率（%）、回転型では全体の回転角度（度）を指定します。</value>
+  </data>
+  <data name="RadialBlur_Samples" xml:space="preserve">
+    <value>サンプル数</value>
+  </data>
+  <data name="RadialBlurMode_Zoom" xml:space="preserve">
+    <value>ズーム</value>
+  </data>
+  <data name="RadialBlurMode_Spin" xml:space="preserve">
+    <value>回転</value>
   </data>
 </root>

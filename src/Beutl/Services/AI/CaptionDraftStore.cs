@@ -29,7 +29,7 @@ internal sealed record CaptionTranslationResume(
     Dictionary<string, string> TranslatedPieces,
     int CompletedBatchCount,
     // The names this run's batches went to the server under, so a later session asks again for translations
-    // already paid for. Empty in a draft written before this was recorded, which resumes as a run of its own.
+    // already paid for.
     string RequestKeySeed = "",
     // The model those names were built from; the picker returns to it so unfinished batches keep their names.
     string RequestKeyModel = "",
@@ -73,15 +73,15 @@ internal sealed record CaptionSourceTranscriptionResume(
     string? DetectedLanguage,
     int CompletedChunkCount,
     // The names this run's chunks went to the server under, so a later session asks again for transcriptions
-    // already paid for. Empty in a draft written before this was recorded, which resumes as a run of its own.
+    // already paid for.
     string RequestKeySeed = "",
     // The model those names were built from; the picker returns to it so unfinished chunks keep their names.
     string RequestKeyModel = "",
     // Whether the draft ended holding a dispatched, unsettled name; unreserved and refunded requests keep seeds too.
     bool RequestKeyNamePending = false,
     // The canonical start of the selected source window. Together with TotalSamples this identifies
-    // the exact audio submitted for this run. Null marks a legacy draft that cannot safely resume.
-    long? SourceStartSamples = null);
+    // the exact audio submitted for this run. Every build writes it; a draft without it is invalid.
+    long SourceStartSamples = -1);
 
 internal sealed record CaptionDraft(
     int Version,
@@ -197,13 +197,8 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
 {
     private const int UnixLockExclusive = 2;
     private const int UnixLockNonBlocking = 4;
-    // Version 2 records what a run's requests were named before its first piece
-    // comes back; version 3 records whether one of those names was outstanding;
-    // version 4 retains more than one paid recovery for a scene.
+    // Every released build writes version 5; earlier versions came only from development builds.
     internal const int CurrentVersion = 5;
-    // Read old drafts too. Only their request-name fields are ambiguous, so normalize those fields
-    // rather than discarding already-paid results.
-    internal const int OldestSupportedVersion = 1;
     internal const int MaximumStorageBytes = 8 * 1024 * 1024;
     internal const int MaximumRetainedRecoveries = 63;
     private const int MaximumCueCount = 10_000;
@@ -345,29 +340,15 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                     return CaptionDraftReadResult.Unreadable;
 
                 if (envelope is null
-                    || envelope.Version < OldestSupportedVersion
+                    || envelope.Version != CurrentVersion
                     || envelope.Scope != scope)
                 {
                     DeleteInvalidFile(storagePath);
                     return CaptionDraftReadResult.Absent;
                 }
 
-                bool recordsNamePending = RecordsNamePending(bytes, envelope.Version);
-                CaptionDraft draft = Migrate(
-                    envelope.Draft,
-                    envelope.Version,
-                    recordsNamePending);
-                CaptionDraftEntry[] storedRecoveries = envelope.Recoveries ?? [];
-                if (!TryMigrateRecoveries(
-                        storedRecoveries,
-                        envelope.Version,
-                        recordsNamePending,
-                        out CaptionDraftEntry[] recoveries))
-                {
-                    DeleteInvalidFile(storagePath);
-                    return CaptionDraftReadResult.Absent;
-                }
-                var entry = new CaptionDraftEntry(envelope.JobId, draft, recoveries);
+                // IsValid also rejects a missing recovery entry.
+                var entry = new CaptionDraftEntry(envelope.JobId, envelope.Draft, envelope.Recoveries);
                 if (!IsValid(entry))
                 {
                     DeleteInvalidFile(storagePath);
@@ -386,28 +367,6 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                 return CaptionDraftReadResult.Absent;
             }
         }
-    }
-
-    // False on a missing entry, which makes the whole document invalid.
-    private static bool TryMigrateRecoveries(
-        CaptionDraftEntry[] storedRecoveries,
-        int version,
-        bool recordsNamePending,
-        out CaptionDraftEntry[] recoveries)
-    {
-        recoveries = new CaptionDraftEntry[storedRecoveries.Length];
-        for (int index = 0; index < storedRecoveries.Length; index++)
-        {
-            CaptionDraftEntry? recovery = storedRecoveries[index];
-            if (recovery is null)
-                return false;
-            recoveries[index] = new CaptionDraftEntry(
-                recovery.JobId,
-                Migrate(recovery.Draft, version, recordsNamePending),
-                recovery.Recoveries);
-        }
-
-        return true;
     }
 
     private void Save(CaptionDraftScope scope, Guid leaseId, CaptionDraftEntry entry)
@@ -510,121 +469,6 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
         return options;
     }
 
-    // Version 1 spans the period after seeds were stored but before models were stored. A seed
-    // without a model is indistinguishable from a request that intentionally omitted the model;
-    // guessing wrong would rename and repurchase already-paid chunks.
-    //
-    // Only the name is ambiguous, so drop the name while preserving paid results; unsent chunks
-    // are then priced as new work. This flag records whether the draft actually stored its
-    // pending-name state. Version 2 contains documents from before and after that field was added,
-    // and a stored false is otherwise indistinguishable from a missing false.
-    private static bool RecordsNamePending(byte[] bytes, int version)
-    {
-        if (version != 2)
-            return false;
-
-        try
-        {
-            using JsonDocument document = JsonDocument.Parse(bytes);
-            if (!document.RootElement.TryGetProperty("draft", out JsonElement draft))
-                return false;
-
-            foreach (string resume in
-                (string[])["translationResume", "sourceTranscriptionResume", "sceneTranscriptionResume"])
-            {
-                if (draft.TryGetProperty(resume, out JsonElement element)
-                    && element.ValueKind == JsonValueKind.Object
-                    && element.TryGetProperty("requestKeyNamePending", out _))
-                {
-                    return true;
-                }
-            }
-        }
-        catch (JsonException)
-        {
-        }
-
-        return false;
-    }
-
-    private static CaptionDraft Migrate(CaptionDraft draft, int version, bool recordsNamePending)
-    {
-        if (version >= CurrentVersion)
-            return draft;
-
-        if (version >= 3)
-            return draft with { Version = CurrentVersion };
-
-        // Honor an explicitly stored value. A missing value came from version 2 before the field
-        // existed, where a seed means the draft held a name.
-        if (version == 2 && recordsNamePending)
-            return draft with { Version = CurrentVersion };
-
-        // Version 2 did not store whether a name remained pending. Reading that as false would
-        // make a run with an unanswered first chunk unrecoverable and charge again. Version 2 also
-        // did not settle names after each returned chunk, so a seed is treated as a held name. If
-        // that guess is too cautious and the server finds nothing, it simply handles a normal new charge.
-        if (version == 2)
-        {
-            return draft with
-            {
-                Version = CurrentVersion,
-                TranslationResume = draft.TranslationResume is { } pendingTranslation
-                    ? pendingTranslation with
-                    {
-                        RequestKeyNamePending =
-                            !string.IsNullOrEmpty(pendingTranslation.RequestKeySeed),
-                    }
-                    : null,
-                SourceTranscriptionResume =
-                    draft.SourceTranscriptionResume is { } pendingSource
-                        ? pendingSource with
-                        {
-                            RequestKeyNamePending =
-                                !string.IsNullOrEmpty(pendingSource.RequestKeySeed),
-                        }
-                        : null,
-                SceneTranscriptionResume =
-                    draft.SceneTranscriptionResume is { } pendingScene
-                        ? pendingScene with
-                        {
-                            RequestKeyNamePending =
-                                !string.IsNullOrEmpty(pendingScene.RequestKeySeed),
-                        }
-                        : null,
-            };
-        }
-
-        return draft with
-        {
-            Version = CurrentVersion,
-            TranslationResume = draft.TranslationResume is { } translation
-                ? translation with
-                {
-                    RequestKeySeed = string.Empty,
-                    RequestKeyModel = string.Empty,
-                    RequestKeyNamePending = false,
-                }
-                : null,
-            SourceTranscriptionResume = draft.SourceTranscriptionResume is { } source
-                ? source with
-                {
-                    RequestKeySeed = string.Empty,
-                    RequestKeyModel = string.Empty,
-                    RequestKeyNamePending = false,
-                }
-                : null,
-            SceneTranscriptionResume = draft.SceneTranscriptionResume is { } scene
-                ? scene with
-                {
-                    RequestKeySeed = string.Empty,
-                    RequestKeyModel = string.Empty,
-                    RequestKeyNamePending = false,
-                }
-                : null,
-        };
-    }
-
     private static bool IsValid(CaptionDraft draft)
     {
         if (draft.Version != CurrentVersion
@@ -678,12 +522,9 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
             CompletedBatchCount: >= 0,
         }
             && !string.IsNullOrWhiteSpace(resume.TargetLanguage)
-            && (resume.MaxSegments == 0
-                && resume.MaxCharacters == 0
-                && resume.MaxRequestBytes == 0
-                || resume.MaxSegments > 0
-                && resume.MaxCharacters > 0
-                && resume.MaxRequestBytes > 0)
+            && resume.MaxSegments > 0
+            && resume.MaxCharacters > 0
+            && resume.MaxRequestBytes > 0
             && resume.SourceCues.All(HasValidCueShape)
             && resume.TranslatedPieces is not null
             && (resume.CompletedBatchCount > 0) == (resume.TranslatedPieces.Count > 0)
@@ -728,7 +569,7 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
             && resume.FileLength > 0
             && resume.LastWriteTimeUtcTicks >= 0
             && resume.LastWriteTimeUtcTicks <= DateTime.MaxValue.Ticks
-            && resume.SourceStartSamples is null or >= 0
+            && resume.SourceStartSamples >= 0
             && resume.Segments.All(IsValidSegment);
 
     // Stored data is read back from JSON, so declared non-null members can still be null here.

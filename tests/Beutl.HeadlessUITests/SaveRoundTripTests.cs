@@ -21,22 +21,13 @@ public class SaveRoundTripTests
         Scene,
     }
 
-    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
-
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
     [AvaloniaTest]
     public async Task Mutation_made_through_the_editor_survives_save_and_reopen()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
 
         Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, "saveroundtrip", NewWorkspace("saveroundtrip")))!;
+            640, 480, 30, 44100, "saveroundtrip", TestShell.NewWorkspace("saveroundtrip")))!;
         HeadlessTestHelpers.Settle();
         string projectFile = project.Uri!.LocalPath;
         Scene scene = project.Items.OfType<Scene>().First();
@@ -65,8 +56,9 @@ public class SaveRoundTripTests
         bool saved = await editor.SaveAsync();
         HeadlessTestHelpers.Settle();
         Assert.That(saved, Is.True);
+        Assert.That(File.Exists(element.Uri!.LocalPath), Is.True);
 
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
 
         await TestShell.Project.OpenProject(projectFile);
         HeadlessTestHelpers.Settle();
@@ -79,38 +71,6 @@ public class SaveRoundTripTests
 
         RectShape reopenedRect = reopenedElement.Objects.OfType<RectShape>().Single();
         Assert.That(reopenedRect.Width.CurrentValue, Is.EqualTo(321));
-    }
-
-    [AvaloniaTest]
-    public async Task Saving_writes_the_element_file_to_disk()
-    {
-        await ResetProjectAsync();
-
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, "savewrites", NewWorkspace("savewrites")))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(2),
-            Layer: 0,
-            Source: new ElementSource.EngineObject(() => new RectShape()))],
-            CancellationToken.None);
-        HeadlessTestHelpers.Settle();
-
-        Element element = editor.Scene.Children.Single();
-        bool saved = await editor.SaveAsync();
-        HeadlessTestHelpers.Settle();
-
-        Assert.That(saved, Is.True);
-        Assert.That(File.Exists(element.Uri!.LocalPath), Is.True);
-        Assert.That(new FileInfo(element.Uri!.LocalPath).Length, Is.GreaterThan(0));
     }
 
     [AvaloniaTest]
@@ -173,9 +133,7 @@ public class SaveRoundTripTests
     {
         MigratedProject migrated = await OpenMigratedProjectAsync($"migrated-save-blocked-{blockedStep}");
         SavedFiles before = migrated.ReadFiles();
-        Project project = TestShell.Project.CurrentProject.Value!;
         Scene scene = migrated.Editor.Scene;
-        Uri projectUri = project.Uri!;
         Uri sceneUri = scene.Uri!;
         // The project file has to be raised before anything else is written, and one held open
         // without sharing cannot be. An existing file cannot serve as the scene's parent directory.
@@ -193,7 +151,6 @@ public class SaveRoundTripTests
         finally
         {
             lockedProject?.Dispose();
-            project.Uri = projectUri;
             scene.Uri = sceneUri;
         }
 
@@ -247,14 +204,15 @@ public class SaveRoundTripTests
         Assert.That(ReadJson(migrated.ElementFile)["$type"], Is.Not.Null);
     }
 
-    // Opens a project whose element predates discriminators, so saving its scene raises minAppVersion.
+    // Opens a project as a 1.x build saved it (the project file records 1.0.0 and the element has no $type), so
+    // saving its scene raises minAppVersion to the floor.
     // A second scene has an unsaved rename that a save of the first must not write.
     private static async Task<MigratedProject> OpenMigratedProjectAsync(string name)
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
 
         Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, NewWorkspace(name)))!;
+            640, 480, 30, 44100, name, TestShell.NewWorkspace(name)))!;
         string projectFile = project.Uri!.LocalPath;
         Scene sourceScene = project.Items.OfType<Scene>().Single();
         TestShell.Editor.ActivateTabItem(sourceScene);
@@ -284,7 +242,7 @@ public class SaveRoundTripTests
             project,
             project.Uri,
             CoreSerializationMode.Write);
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
 
         JsonObject projectJson = ReadJson(projectFile);
         projectJson["appVersion"] = "1.0.0";

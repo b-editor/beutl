@@ -49,20 +49,16 @@ public class PropertyEditorGridTests
             HeadlessTestHelpers.Render(3);
             GetBox(nested).MinWidth = minimum;
             HeadlessTestHelpers.Render(3);
-            MoveSplitterToMaximum(window, outer);
+            MoveSplitter(window, outer, Key.Right, PhysicalKey.ArrowRight, window.Width);
             AssertValuesFit(scope, [outer, .. nestedEditors]);
             double rightmost = GetBox(outer).TranslatePoint(default, scope)!.Value.X;
             Assert.That(rightmost, Is.GreaterThan(width / 2));
 
-            MoveSplitterToMaximum(window, outer);
+            MoveSplitter(window, outer, Key.Right, PhysicalKey.ArrowRight, window.Width);
             Assert.That(GetBox(outer).TranslatePoint(default, scope)!.Value.X, Is.EqualTo(rightmost).Within(1));
             AssertValuesFit(scope, [outer, .. nestedEditors]);
 
-            var splitter = outer.GetVisualDescendants().OfType<GridSplitter>().Single();
-            splitter.KeyboardIncrement = 30;
-            window.KeyPress(Key.Left, RawInputModifiers.None, PhysicalKey.ArrowLeft, null);
-            window.KeyRelease(Key.Left, RawInputModifiers.None, PhysicalKey.ArrowLeft, null);
-            HeadlessTestHelpers.Render(3);
+            MoveSplitter(window, outer, Key.Left, PhysicalKey.ArrowLeft, 30);
             Assert.That(GetBox(outer).TranslatePoint(default, scope)!.Value.X, Is.LessThan(rightmost));
             AssertValuesFit(scope, [outer, .. nestedEditors]);
         }
@@ -94,7 +90,7 @@ public class PropertyEditorGridTests
         {
             window.Show();
             HeadlessTestHelpers.Render(3);
-            MoveSplitterToMaximum(window, outer);
+            MoveSplitter(window, outer, Key.Right, PhysicalKey.ArrowRight, window.Width);
             double ratio = PropertyEditorGrid.GetValueColumnRatio(scope);
             if (reveal) branch.IsVisible = true;
             else window.Width = 640;
@@ -105,13 +101,43 @@ public class PropertyEditorGridTests
         finally { window.Close(); }
     }
 
-    private static void MoveSplitterToMaximum(Window window, PropertyEditor editor)
+    // The keyframe buttons and the menu shared the last column and overlapped.
+    [AvaloniaTest]
+    public void Boolean_editor_puts_the_menu_after_the_keyframe_buttons()
+    {
+        var editor = new BooleanEditor
+        {
+            Header = "Visible",
+            KeyFrameCount = 3,
+            KeyFrameIndex = 1,
+            MenuContent = new Border { Width = 24, Height = 24 }
+        };
+        var window = new Window { Content = editor, Width = 400, Height = 100 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            Control buttons = editor.GetVisualDescendants().OfType<StackPanel>().Single(panel => panel.Name == "LeftRightButtons");
+            Control menu = editor.GetVisualDescendants().OfType<Control>().Single(presenter => presenter.Name == "PART_MenuContentPresenter");
+            Assert.That(buttons.IsEffectivelyVisible, Is.True);
+            Assert.That(menu.TranslatePoint(default, editor)!.Value.X,
+                Is.GreaterThanOrEqualTo(buttons.TranslatePoint(new Point(buttons.Bounds.Width, 0), editor)!.Value.X));
+        }
+        finally { window.Close(); }
+    }
+
+    private static void MoveSplitter(Window window, PropertyEditor editor, Key key, PhysicalKey physicalKey, double increment)
     {
         var splitter = editor.GetVisualDescendants().OfType<GridSplitter>().Single();
         Assert.That(splitter.Focus(), Is.True);
-        splitter.KeyboardIncrement = window.Width;
-        window.KeyPress(Key.Right, RawInputModifiers.None, PhysicalKey.ArrowRight, null);
-        window.KeyRelease(Key.Right, RawInputModifiers.None, PhysicalKey.ArrowRight, null);
+        splitter.KeyboardIncrement = increment;
+        PressKey(window, key, physicalKey);
+    }
+
+    private static void PressKey(Window window, Key key, PhysicalKey physicalKey)
+    {
+        window.KeyPress(key, RawInputModifiers.None, physicalKey, null);
+        window.KeyRelease(key, RawInputModifiers.None, physicalKey, null);
         HeadlessTestHelpers.Render(3);
     }
 
@@ -163,7 +189,7 @@ public class PropertyEditorGridTests
         {
             window.Show();
             HeadlessTestHelpers.Render(3);
-            MoveSplitterToMinimum(window, outer);
+            MoveSplitter(window, outer, Key.Left, PhysicalKey.ArrowLeft, window.Width);
             double before = GetBox(outer).TranslatePoint(default, scope)!.Value.X;
 
             if (addAfterLayout) scope.Children.Add(branch);
@@ -208,7 +234,7 @@ public class PropertyEditorGridTests
             window.Show();
             window.SetRenderScaling(scale);
             HeadlessTestHelpers.Render(3);
-            MoveSplitterToMinimum(window, outer);
+            MoveSplitter(window, outer, Key.Left, PhysicalKey.ArrowLeft, window.Width);
             double before = PropertyEditorGrid.GetValueColumnRatio(scope);
 
             window.Width = width;
@@ -225,16 +251,6 @@ public class PropertyEditorGridTests
                     Is.EqualTo(scope.Bounds.Width * ratio).Within(1));
         }
         finally { window.Close(); }
-    }
-
-    private static void MoveSplitterToMinimum(Window window, PropertyEditor editor)
-    {
-        var splitter = editor.GetVisualDescendants().OfType<GridSplitter>().Single();
-        Assert.That(splitter.Focus(), Is.True);
-        splitter.KeyboardIncrement = window.Width;
-        window.KeyPress(Key.Left, RawInputModifiers.None, PhysicalKey.ArrowLeft, null);
-        window.KeyRelease(Key.Left, RawInputModifiers.None, PhysicalKey.ArrowLeft, null);
-        HeadlessTestHelpers.Render(3);
     }
 
     private static void AssertMinimumAlignment(Control scope, PropertyEditor outer, PropertyEditor nested)
@@ -271,29 +287,22 @@ public class PropertyEditorGridTests
             var splitter = (moveNested ? nested : outer).GetVisualDescendants().OfType<GridSplitter>().Single();
             Assert.That(splitter.Focus(), Is.True);
             splitter.KeyboardIncrement = width;
-            Move(Key.Left, PhysicalKey.ArrowLeft);
+            PressKey(window, Key.Left, PhysicalKey.ArrowLeft);
             double minimum = GetBox(outer).TranslatePoint(default, scope)!.Value.X;
             Assert.That(minimum, Is.LessThan(width / 2));
             AssertAligned();
 
             // Repeated movement against the limit must not disconnect any row.
-            Move(Key.Left, PhysicalKey.ArrowLeft);
+            PressKey(window, Key.Left, PhysicalKey.ArrowLeft);
             Assert.That(GetBox(outer).TranslatePoint(default, scope)!.Value.X, Is.EqualTo(minimum).Within(1));
             AssertAligned();
 
             splitter.KeyboardIncrement = 30;
-            Move(Key.Right, PhysicalKey.ArrowRight);
+            PressKey(window, Key.Right, PhysicalKey.ArrowRight);
             Assert.That(GetBox(outer).TranslatePoint(default, scope)!.Value.X, Is.GreaterThan(minimum));
             AssertAligned();
         }
         finally { window.Close(); }
-
-        void Move(Key key, PhysicalKey physicalKey)
-        {
-            window.KeyPress(key, RawInputModifiers.None, physicalKey, null);
-            window.KeyRelease(key, RawInputModifiers.None, physicalKey, null);
-            HeadlessTestHelpers.Render(3);
-        }
 
         void AssertAligned()
         {
@@ -476,9 +485,7 @@ public class PropertyEditorGridTests
 
             var splitter = outer.GetVisualDescendants().OfType<GridSplitter>().Single();
             Assert.That(splitter.Focus(), Is.True);
-            window.KeyPress(Key.Right, RawInputModifiers.None, PhysicalKey.ArrowRight, null);
-            window.KeyRelease(Key.Right, RawInputModifiers.None, PhysicalKey.ArrowRight, null);
-            HeadlessTestHelpers.Render(3);
+            PressKey(window, Key.Right, PhysicalKey.ArrowRight);
             double moved = GetBox(outer).TranslatePoint(default, scope)!.Value.X;
             Assert.That(moved, Is.GreaterThan(380));
             AssertAligned(moved);

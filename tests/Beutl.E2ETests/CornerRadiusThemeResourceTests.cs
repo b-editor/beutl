@@ -60,22 +60,4 @@ public class CornerRadiusThemeResourceTests
 
         Assert.That(item.CornerRadius, Is.EqualTo(new CornerRadius(8)));
     }
-
-    private sealed class ControlHost : IDisposable
-    {
-        private readonly Window _window;
-
-        public ControlHost(Control content)
-        {
-            _window = new Window { Width = 320, Height = 200, Content = content };
-            _window.Show();
-            HeadlessTestHelpers.Settle();
-        }
-
-        public void Dispose()
-        {
-            _window.Close();
-            HeadlessTestHelpers.Settle();
-        }
-    }
 }

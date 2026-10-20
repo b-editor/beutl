@@ -16,10 +16,6 @@ public class MFDecodingSettingsTests
         });
     }
 
-    [Test]
-    public void SampleCacheOptions_DefaultBufferSize_Is4()
-        => Assert.That(new MFSampleCacheOptions().MaxVideoBufferSize, Is.EqualTo(4));
-
     // Guards the AffectsConfig re-registration: PackageManager only persists extension settings from
     // the ConfigurationChanged event, so without AffectsConfig these live settings would apply only
     // in memory and reset on reload. Dropping the AffectsConfig call must fail these tests.

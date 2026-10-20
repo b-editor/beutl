@@ -1,11 +1,11 @@
-﻿using System.Diagnostics;
+﻿using System.Buffers;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+using Beutl.Audio;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
@@ -21,6 +21,9 @@ public sealed class FFmpegReader : MediaReader
     // Every reader lives in the same worker process, and frame threading keeps a decoded frame and
     // decoder state alive per thread, so the automatic count stays below FFmpeg's own limit of 16.
     private const int AutoThreadCountLimit = 8;
+
+    // Interleaved stereo float, the layout the IPC carries.
+    private const int BytesPerSample = 2 * sizeof(float);
 
 #pragma warning disable IDE1006 // 命名スタイル
     private static readonly AVChannelLayout AV_CHANNEL_LAYOUT_STEREO = new()
@@ -156,28 +159,34 @@ public sealed class FFmpegReader : MediaReader
 
     public bool IsHdr => _isHdr;
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? result)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? result)
     {
         // Decoder側でResampleされるかのチェックのため
         if (length == 0)
         {
-            result = Ref<IPcm>.Create(new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, 0));
+            result = new AudioBuffer(AudioInfo.SampleRate, 2, 0);
             return true;
         }
 
         result = null;
         if (_audioDecoder == null || _currentAudioFrame == null) return false;
 
-        var sound = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
-        if (ReadAudio(start, length, MemoryMarshal.AsBytes(sound.DataSpan), out _))
+        float[] interleaved = ArrayPool<float>.Shared.Rent(length * 2);
+        try
         {
-            result = Ref<IPcm>.Create(sound);
+            // Cleared, so the tail of a short read stays silent.
+            Span<float> samples = interleaved.AsSpan(0, length * 2);
+            samples.Clear();
+            if (!ReadAudio(start, length, MemoryMarshal.AsBytes(samples), out _))
+                return false;
+
+            result = new AudioBuffer(AudioInfo.SampleRate, 2, length);
+            AudioConversion.Deinterleave(samples, result);
             return true;
         }
-        else
+        finally
         {
-            sound.Dispose();
-            return false;
+            ArrayPool<float>.Shared.Return(interleaved);
         }
     }
 
@@ -206,7 +215,7 @@ public sealed class FFmpegReader : MediaReader
 
         int decoded = 0;
         bool needGrab = false;
-        int sampleSize = sizeof(Stereo32BitFloat);
+        int sampleSize = BytesPerSample;
 
         // SampleConverterを遅延初期化
         _sampleConverter ??= new SampleConverter();
@@ -274,7 +283,7 @@ public sealed class FFmpegReader : MediaReader
         {
             SampleRate = AudioInfo.SampleRate,
             NumSamples = samples,
-            DataLength = samples * sizeof(Stereo32BitFloat),
+            DataLength = samples * BytesPerSample,
         };
     }
 
@@ -289,7 +298,7 @@ public sealed class FFmpegReader : MediaReader
         if (filterFrame == null) return false;
 
         // フレームの色空間を取得
-        var colorSpace = ResolveFrameColorSpace(filterFrame);
+        var colorSpace = ResolveFrameColorSpace();
         int width = filterFrame.Width;
         int height = filterFrame.Height;
         var colorType = _isHdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888;
@@ -325,7 +334,7 @@ public sealed class FFmpegReader : MediaReader
         try
         {
             // フレームの色空間を取得
-            var colorSpace = ResolveFrameColorSpace(filterFrame);
+            var colorSpace = ResolveFrameColorSpace();
             int width = filterFrame.Width;
             int height = filterFrame.Height;
             int bytesPerPixel = BytesPerPixel;
@@ -336,7 +345,6 @@ public sealed class FFmpegReader : MediaReader
                 Width = width,
                 Height = height,
                 BytesPerPixel = bytesPerPixel,
-                IsHdr = _isHdr,
                 ColorSpace = colorSpace,
                 DataLength = byteCount,
             };
@@ -361,8 +369,8 @@ public sealed class FFmpegReader : MediaReader
     // RGBA64LE (HDR) or BGRA (SDR), matching the format filter InitFilterGraph builds.
     private int BytesPerPixel => FFmpegVideoSlotSizing.GetBytesPerPixel(_isHdr);
 
-    private BitmapColorSpace ResolveFrameColorSpace(MediaFrame frame)
-        => (!Settings.ForceSrgbGamma || _isHdr) ? GetFrameColorSpace(frame) : BitmapColorSpace.Srgb;
+    private BitmapColorSpace ResolveFrameColorSpace()
+        => (!Settings.ForceSrgbGamma || _isHdr) ? _colorspace! : BitmapColorSpace.Srgb;
 
     private MediaFrame? ReadVideoCore(int frame)
     {
@@ -395,9 +403,7 @@ public sealed class FFmpegReader : MediaReader
         if (videoFrame == null)
             return null;
 
-        // A seek/grab that could not reach a decodable frame (e.g. the target is at or past
-        // EOF) leaves the frame unreferenced by avcodec_receive_frame. Drop it instead of
-        // feeding AV_PIX_FMT_NONE to the buffer source, which would throw AVERROR(EINVAL).
+        // Drop an unreferenced frame (see above) instead of feeding AV_PIX_FMT_NONE to the buffer source, which throws.
         if (!FFmpegFrameValidation.IsUsableVideoFrame(videoFrame.Format, videoFrame.Width, videoFrame.Height))
             return null;
 
@@ -610,11 +616,8 @@ public sealed class FFmpegReader : MediaReader
         return false;
     }
 
-    // Unlike MediaDecoder.DecodePacket, keeps a packet that avcodec_send_packet rejects with EAGAIN (the
-    // decoder still holds output) so it can be resent instead of being lost when the demuxer reuses its
-    // buffer, and copies the props of hardware frames after the transfer: DecodePacket copies them before,
-    // so the reused _swVideoFrame accumulated side data on every frame (av_frame_copy_props appends) and
-    // the first transfer, which allocates, dropped them.
+    // Unlike MediaDecoder.DecodePacket, keeps a packet that avcodec_send_packet rejects with EAGAIN so it can be
+    // resent instead of lost when the demuxer reuses its buffer, and copies hardware frame props after the transfer.
     private unsafe bool DecodeVideoPacket(MediaPacket? packet)
     {
         int ret = _videoDecoder!.SendPacket(packet);
@@ -744,7 +747,7 @@ public sealed class FFmpegReader : MediaReader
     {
         if (!_hasVideo || _videoStream == null) return;
 
-        AVHWDeviceType? hwDeviceType = GetAVHWDeviceType();
+        AVHWDeviceType? hwDeviceType = HardwareAcceleration.ToHWDeviceType((int)Settings.Acceleration);
 
         try
         {
@@ -811,26 +814,6 @@ public sealed class FFmpegReader : MediaReader
         }
     }
 
-    private AVHWDeviceType? GetAVHWDeviceType()
-    {
-        return Settings.Acceleration switch
-        {
-            FFmpegDecodingSettings.AccelerationOptions.Software => AVHWDeviceType.AV_HWDEVICE_TYPE_NONE,
-            FFmpegDecodingSettings.AccelerationOptions.VDPAU => AVHWDeviceType.AV_HWDEVICE_TYPE_VDPAU,
-            FFmpegDecodingSettings.AccelerationOptions.CUDA => AVHWDeviceType.AV_HWDEVICE_TYPE_CUDA,
-            FFmpegDecodingSettings.AccelerationOptions.VAAPI => AVHWDeviceType.AV_HWDEVICE_TYPE_VAAPI,
-            FFmpegDecodingSettings.AccelerationOptions.DXVA2 => AVHWDeviceType.AV_HWDEVICE_TYPE_DXVA2,
-            FFmpegDecodingSettings.AccelerationOptions.QSV => AVHWDeviceType.AV_HWDEVICE_TYPE_QSV,
-            FFmpegDecodingSettings.AccelerationOptions.VideoToolbox => AVHWDeviceType.AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
-            FFmpegDecodingSettings.AccelerationOptions.D3D11VA => AVHWDeviceType.AV_HWDEVICE_TYPE_D3D11VA,
-            FFmpegDecodingSettings.AccelerationOptions.DRM => AVHWDeviceType.AV_HWDEVICE_TYPE_DRM,
-            FFmpegDecodingSettings.AccelerationOptions.OpenCL => AVHWDeviceType.AV_HWDEVICE_TYPE_OPENCL,
-            FFmpegDecodingSettings.AccelerationOptions.MediaCodec => AVHWDeviceType.AV_HWDEVICE_TYPE_MEDIACODEC,
-            FFmpegDecodingSettings.AccelerationOptions.Vulkan => AVHWDeviceType.AV_HWDEVICE_TYPE_VULKAN,
-            _ => null
-        };
-    }
-
     private void ConfigureAudioStream()
     {
         if (!_hasAudio || _audioStream == null) return;
@@ -891,23 +874,7 @@ public sealed class FFmpegReader : MediaReader
             }
         }
 
-        if (_colorspace == null)
-        {
-            var videoFrame = ActiveVideoFrame;
-            if (videoFrame != null)
-            {
-                _colorspace = GetFrameColorSpace(videoFrame);
-            }
-        }
-
-        if (_colorspace != null)
-        {
-            _logger.LogInformation("Video color space: {ColorSpace} ({Hdr})", _colorspace, _isHdr ? "HDR" : "SDR");
-        }
-        else
-        {
-            _logger.LogWarning("Failed to determine video color space.");
-        }
+        _logger.LogInformation("Video color space: {ColorSpace} ({Hdr})", _colorspace, _isHdr ? "HDR" : "SDR");
 
         if (Settings.ForceSrgbGamma && _colorspace != BitmapColorSpace.Srgb)
         {
@@ -923,14 +890,6 @@ public sealed class FFmpegReader : MediaReader
             }
         }
     }
-
-    private BitmapColorSpace GetFrameColorSpace(MediaFrame frame)
-    {
-        if (_colorspace != null) return _colorspace;
-
-        if (_isHdr) return ColorSpaceHelper.BuildHdrColorSpace(frame.ColorTrc, frame.ColorPrimaries);
-        return ColorSpaceHelper.BuildTargetColorSpace(frame.ColorTrc, frame.ColorPrimaries);
-    }
 }
 
 public struct VideoFrameInfo
@@ -938,7 +897,6 @@ public struct VideoFrameInfo
     public int Width;
     public int Height;
     public int BytesPerPixel;
-    public bool IsHdr;
     public BitmapColorSpace ColorSpace;
     public int DataLength;
 }

@@ -3,14 +3,17 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-// US4 / T058: hit-testing is in LOGICAL coordinates and independent of the output scale, so the same
-// logical point hits the same content at every render scale.
+// Hit-testing is in LOGICAL coordinates and independent of the output scale, so the same logical point hits
+// the same content at every render scale.
 [TestFixture]
 public class HitTestParityTests
 {
+    private static readonly Rect s_filteredEllipse = new(0, 0, 100, 100);
+
     private static bool HitEllipse(float outputScale, Point point)
     {
         var rect = new Rect(0, 0, 100, 80);
@@ -34,27 +37,16 @@ public class HitTestParityTests
         // One logical point inside the ellipse, one outside; both must agree across scales.
         var inside = new Point(50, 40);
         var outside = new Point(2, 2);
-        bool insideAtOne = HitEllipse(1, inside);
-        bool outsideAtOne = HitEllipse(1, outside);
-        bool insideAtScale = HitEllipse(outputScale, inside);
-        bool outsideAtScale = HitEllipse(outputScale, outside);
 
         Assert.Multiple(() =>
         {
-            Assert.That(insideAtScale, Is.EqualTo(insideAtOne), "inside-point parity");
-            Assert.That(outsideAtScale, Is.EqualTo(outsideAtOne), "outside-point parity");
-            Assert.That(insideAtScale, Is.True, "inside point should hit");
-            Assert.That(outsideAtScale, Is.False, "outside point should miss");
+            Assert.That(HitEllipse(outputScale, inside), Is.True, "inside point should hit");
+            Assert.That(HitEllipse(outputScale, outside), Is.False, "outside point should miss");
         });
     }
 
-    // A current-pixel stage answers a hit test by forwarding it to its input, which is exactly right for the
-    // stages that only recolour the pixels they were handed and far more accurate than testing the output
-    // rectangle. Threshold is the one built-in whose entry point can return alpha for a fully transparent
-    // pixel: it returns half4(t) without consulting the input alpha, so below Value = Smoothness / 2 it fills
-    // the whole output with visible mid-grey that the forwarded test would refuse to hit. The other two cases
-    // are the half that has to keep failing - a stage that claims its output rectangle unconditionally would
-    // satisfy the first assertion while hitting thin air everywhere else.
+    // Threshold is the one built-in CurrentPixel stage that paints a fully transparent input pixel, so its forwarded
+    // hit test must still hit there; the other two cases keep the forwarded test from claiming the whole output.
     [Test]
     public void ACurrentPixelStage_HitsWhatItPaintsAndNotWhatItLeavesTransparent()
     {
@@ -69,15 +61,15 @@ public class HitTestParityTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                HitFilteredEllipse(painting, corner),
+                FilteredShapeHarness.HitTest(s_filteredEllipse, painting, corner),
                 Is.True,
                 "the corner carries a visible half-opaque grey here, so it has to be selectable");
             Assert.That(
-                HitFilteredEllipse(new Threshold(), corner),
+                FilteredShapeHarness.HitTest(s_filteredEllipse, new Threshold(), corner),
                 Is.False,
                 "at the defaults the same corner stays fully transparent");
             Assert.That(
-                HitFilteredEllipse(new Invert(), corner),
+                FilteredShapeHarness.HitTest(s_filteredEllipse, new Invert(), corner),
                 Is.False,
                 "an alpha-preserving stage adds no coverage, so it answers with its input's");
         });
@@ -96,19 +88,6 @@ public class HitTestParityTests
             Script = { CurrentValue = script },
         };
 
-        Assert.That(HitFilteredEllipse(effect, new Point(2, 2)), Is.True);
-    }
-
-    private static bool HitFilteredEllipse(FilterEffect effect, Point point)
-    {
-        using var node = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
-        node.AddChild(new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null));
-        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            OutputScale = 1f,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        });
-        return renderer.HitTest(point);
+        Assert.That(FilteredShapeHarness.HitTest(s_filteredEllipse, effect, new Point(2, 2)), Is.True);
     }
 }

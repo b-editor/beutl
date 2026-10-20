@@ -90,13 +90,8 @@ public partial class RenderTarget : IDisposable
     /// the CPU.
     /// </summary>
     /// <remarks>
-    /// <see cref="Create"/> attaches only on the render thread: Skia's GPU context is thread-affine, and
-    /// <c>GetOrCreateShared</c> refuses to build the shared one anywhere else. Everywhere else - another of
-    /// Beutl's dispatchers as much as no dispatcher at all - <see cref="Create"/> rasters on the CPU, and no
-    /// device's attachment limit bounds what it allocates there. <see cref="ResolveCreationContext"/>,
-    /// <see cref="ResolveCreationContextForAllocation"/> and <see cref="Create"/> all read this one property
-    /// rather than each deciding for itself, so a budget and the allocation it covers cannot disagree about
-    /// which path runs.
+    /// Only the render thread attaches, because Skia's GPU context is thread-affine; elsewhere the target is rastered
+    /// on the CPU. The resolvers and <see cref="Create"/> all read this, so a budget and its allocation agree.
     /// </remarks>
     internal static bool CreateAttachesToGraphicsContext => RenderThread.Dispatcher.CheckAccess();
 
@@ -139,22 +134,14 @@ public partial class RenderTarget : IDisposable
     /// Allocates a render target, or answers <see langword="null"/> when it cannot be made.
     /// </summary>
     /// <remarks>
-    /// Which allocation runs is decided by the calling thread. On the render thread the target attaches to
-    /// the shared graphics context and is bounded by what that device can attach; on any other thread it is
-    /// rastered on the CPU, which no device's limit bounds. A caller that wants the limit named rather than
-    /// a bare refusal measures against <see cref="BufferDimensionBudget.Fits"/> itself first, as the renderer
-    /// and the target pool do.
+    /// The calling thread decides the path: on the render thread the target attaches to the shared context and is
+    /// bounded by the device, and on any other thread it is rastered on the CPU.
     /// </remarks>
     /// <returns>
-    /// The allocated target, or <see langword="null"/> where the extent, the device or the backend refused
-    /// it. Every refusal is reported that one way, because a lost device surfaces as whatever the driver
-    /// and the Skia binding happen to raise and so cannot be separated by type.
+    /// The allocated target, or <see langword="null"/> where the extent, the device or the backend refused it.
     /// </returns>
     /// <exception cref="OperationCanceledException">
-    /// The render this allocation belongs to was cancelled. This is the one failure not answered with
-    /// <see langword="null"/>, and it propagates deliberately: a cancellation is not a refusal, so
-    /// reporting it as one would hand a caller that has already abandoned its request an unallocated
-    /// target to carry on with instead of unwinding.
+    /// The render was cancelled. A cancellation is not a refusal, so it propagates and the abandoned request unwinds.
     /// </exception>
     public static RenderTarget? Create(int width, int height)
     {
@@ -226,9 +213,7 @@ public partial class RenderTarget : IDisposable
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // A device that is lost, or one that declines the allocation, surfaces as whatever the driver
-            // and the Skia binding raise, so the refusal cannot be caught by type. A cancelled render is
-            // not a refusal: reporting it as one would hand the caller an unallocated target to carry on
-            // with instead of unwinding the request the caller already abandoned.
+            // and the Skia binding raise, so the refusal cannot be caught by type.
             return null;
         }
     }
@@ -334,10 +319,8 @@ public partial class RenderTarget : IDisposable
     /// Fills a bitmap this method owns, releasing it if the readback fails.
     /// </summary>
     /// <remarks>
-    /// A failed readback is a device-loss symptom, and a caller that snapshots per frame retries it per
-    /// frame. Propagating without releasing leaves one full-frame native bitmap behind per attempt for a
-    /// finalizer to find, which is the worst moment to be holding them. <see cref="SnapshotInto(Bitmap)"/>
-    /// does not go through here: its destination belongs to the caller, who keeps it either way.
+    /// A failed readback is a device-loss symptom retried per frame, so the bitmap is released rather than left to a
+    /// finalizer. <see cref="SnapshotInto(Bitmap)"/> does not go through here: its destination is the caller's.
     /// </remarks>
     private Bitmap ReadInto(Bitmap result)
     {

@@ -49,13 +49,11 @@ public sealed partial class SceneSound : Sound
         var speedNode = context.CreateSpeedNode(Speed);
         context.Connect(shiftNode, speedNode);
 
-        // Create gain node with animation support
         var gainNode = context.CreateGainNode(Gain);
         context.Connect(speedNode, gainNode);
 
         AudioNode currentNode = gainNode;
 
-        // Add effect if present
         if (Effect.CurrentValue != null && Effect.CurrentValue.IsEnabled)
         {
             currentNode = Effect.CurrentValue.CreateNode(context, currentNode);

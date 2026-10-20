@@ -310,8 +310,6 @@ public partial class GroupNode : GraphNode
     public partial class Resource
     {
         private GraphSnapshot? _innerSnapshot;
-        private int _groupInputSlotIndex = -1;
-        private int _groupOutputSlotIndex = -1;
 
         /// <summary>The group's own graph as last evaluated, for reading the nodes inside it.</summary>
         internal GraphSnapshot? InnerSnapshot => _innerSnapshot;
@@ -322,8 +320,6 @@ public partial class GroupNode : GraphNode
             node.Group.TopologyChanged += OnGroupTopologyChanged;
             _innerSnapshot = new GraphSnapshot();
             _innerSnapshot.Build(node.Group, context);
-            _groupInputSlotIndex = _innerSnapshot.FindSlotIndex(node.Group.Input);
-            _groupOutputSlotIndex = _innerSnapshot.FindSlotIndex(node.Group.Output);
         }
 
         private void OnGroupTopologyChanged(object? sender, EventArgs e)
@@ -337,8 +333,6 @@ public partial class GroupNode : GraphNode
             node.Group.TopologyChanged -= OnGroupTopologyChanged;
             _innerSnapshot?.Dispose();
             _innerSnapshot = null;
-            _groupInputSlotIndex = -1;
-            _groupOutputSlotIndex = -1;
         }
 
         public override void Update(GraphCompositionContext context)
@@ -349,13 +343,12 @@ public partial class GroupNode : GraphNode
             // Internal edits can change both the port maps and the topological slot order while
             // the outer snapshot remains alive. Build is a no-op when the snapshot is current.
             _innerSnapshot.Build(node.Group, context);
-            _groupInputSlotIndex = _innerSnapshot.FindSlotIndex(node.Group.Input);
-            _groupOutputSlotIndex = _innerSnapshot.FindSlotIndex(node.Group.Output);
+            int groupInputSlotIndex = _innerSnapshot.FindSlotIndex(node.Group.Input);
+            int groupOutputSlotIndex = _innerSnapshot.FindSlotIndex(node.Group.Output);
 
-            // GroupNodeの入力値からGroupInputの出力値に転送
-            if (node.Group.Input != null && _groupInputSlotIndex >= 0)
+            if (groupInputSlotIndex >= 0)
             {
-                if (_innerSnapshot.GetResource(_groupInputSlotIndex) is GroupInput.Resource groupInputResource)
+                if (_innerSnapshot.GetResource(groupInputSlotIndex) is GroupInput.Resource groupInputResource)
                 {
                     var outputNodePortCount = node.Group.Output?.Items.Count ?? 0;
                     var inputCount = node.Items.Count - outputNodePortCount;
@@ -372,16 +365,14 @@ public partial class GroupNode : GraphNode
                 }
             }
 
-            // 内部スナップショットを評価
-            _innerSnapshot.Evaluate(context.Target, context);
+            _innerSnapshot.Evaluate(context);
 
-            // GroupOutputの入力値からGroupNodeの出力値に転送
             var outCount = node.Group.Output?.Items.Count ?? 0;
-            if (_groupOutputSlotIndex >= 0)
+            if (groupOutputSlotIndex >= 0)
             {
                 for (int i = 0; i < outCount; i++)
                 {
-                    IItemValue? innerValue = _innerSnapshot.GetItemValue(_groupOutputSlotIndex, i);
+                    IItemValue? innerValue = _innerSnapshot.GetItemValue(groupOutputSlotIndex, i);
                     if (innerValue != null)
                     {
                         ItemValues[i].PropagateFrom(innerValue);

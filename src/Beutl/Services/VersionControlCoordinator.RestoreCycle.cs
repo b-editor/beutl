@@ -16,12 +16,6 @@ internal partial class VersionControlCoordinator
                 Project project = GetOpenProject();
                 string projectFile = GetProjectFile(project);
                 IProjectVersionControlBackend ownedService = GetTrackedBackend();
-                if (ownedService.Repository is null)
-                {
-                    throw new InvalidOperationException(
-                        "The open project is not tracked with Git.");
-                }
-
                 return await ExecuteExclusiveOnUiThreadAsync(
                     ownedService,
                     service => RestoreWithinTransactionAsync(

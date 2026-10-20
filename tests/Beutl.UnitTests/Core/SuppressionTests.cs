@@ -4,83 +4,65 @@ namespace Beutl.UnitTests.Core;
 
 public class SuppressionTests
 {
-    [Test]
-    public void PublishingSuppression_NotSuppressedByDefault()
+    // Both wrappers only delegate to an AsyncSuppressionCounter of their own.
+    private static IEnumerable<TestCaseData> Suppressions()
     {
-        Assert.That(PublishingSuppression.IsSuppressed, Is.False);
+        yield return new TestCaseData(
+                (Func<IDisposable>)PublishingSuppression.Enter,
+                (Func<bool>)(() => PublishingSuppression.IsSuppressed))
+            .SetArgDisplayNames(nameof(PublishingSuppression));
+        yield return new TestCaseData(
+                (Func<IDisposable>)RecordingSuppression.Enter,
+                (Func<bool>)(() => RecordingSuppression.IsSuppressed))
+            .SetArgDisplayNames(nameof(RecordingSuppression));
     }
 
-    [Test]
-    public void PublishingSuppression_EnterSetsFlagAndDisposeRestores()
+    [TestCaseSource(nameof(Suppressions))]
+    public void EnterSetsFlagAndDisposeRestores(Func<IDisposable> enter, Func<bool> isSuppressed)
     {
-        Assert.That(PublishingSuppression.IsSuppressed, Is.False);
+        Assert.That(isSuppressed(), Is.False);
 
-        IDisposable scope = PublishingSuppression.Enter();
+        IDisposable scope = enter();
         try
         {
-            Assert.That(PublishingSuppression.IsSuppressed, Is.True);
+            Assert.That(isSuppressed(), Is.True);
         }
         finally
         {
             scope.Dispose();
         }
 
-        Assert.That(PublishingSuppression.IsSuppressed, Is.False);
+        Assert.That(isSuppressed(), Is.False);
     }
 
-    [Test]
-    public void PublishingSuppression_NestedScopesRequireMatchingDisposes()
+    [TestCaseSource(nameof(Suppressions))]
+    public void NestedScopesRequireMatchingDisposes(Func<IDisposable> enter, Func<bool> isSuppressed)
     {
-        IDisposable outer = PublishingSuppression.Enter();
-        IDisposable inner = PublishingSuppression.Enter();
+        IDisposable outer = enter();
+        IDisposable inner = enter();
 
-        Assert.That(PublishingSuppression.IsSuppressed, Is.True);
+        Assert.That(isSuppressed(), Is.True);
 
         inner.Dispose();
-        Assert.That(PublishingSuppression.IsSuppressed, Is.True);
+        Assert.That(isSuppressed(), Is.True);
 
         outer.Dispose();
-        Assert.That(PublishingSuppression.IsSuppressed, Is.False);
+        Assert.That(isSuppressed(), Is.False);
     }
 
-    [Test]
-    public void PublishingSuppression_DoubleDisposeIsIdempotent()
+    [TestCaseSource(nameof(Suppressions))]
+    public void DoubleDisposeIsIdempotent(Func<IDisposable> enter, Func<bool> isSuppressed)
     {
-        IDisposable scope = PublishingSuppression.Enter();
-        Assert.That(PublishingSuppression.IsSuppressed, Is.True);
+        IDisposable outer = enter();
+        IDisposable inner = enter();
 
-        scope.Dispose();
-        scope.Dispose(); // double-dispose must not decrement again
+        inner.Dispose();
+        inner.Dispose(); // double-dispose must not decrement again
 
-        Assert.That(PublishingSuppression.IsSuppressed, Is.False);
-    }
+        Assert.That(isSuppressed(), Is.True);
 
-    [Test]
-    public void RecordingSuppression_NotSuppressedByDefault()
-    {
-        Assert.That(RecordingSuppression.IsSuppressed, Is.False);
-    }
-
-    [Test]
-    public void RecordingSuppression_EnterSetsFlagAndDisposeRestores()
-    {
-        IDisposable scope = RecordingSuppression.Enter();
-
-        Assert.That(RecordingSuppression.IsSuppressed, Is.True);
-
-        scope.Dispose();
-        Assert.That(RecordingSuppression.IsSuppressed, Is.False);
-    }
-
-    [Test]
-    public void RecordingSuppression_DoubleDisposeIsIdempotent()
-    {
-        IDisposable scope = RecordingSuppression.Enter();
-
-        scope.Dispose();
-        scope.Dispose();
-
-        Assert.That(RecordingSuppression.IsSuppressed, Is.False);
+        outer.Dispose();
+        Assert.That(isSuppressed(), Is.False);
     }
 
     [Test]
@@ -91,8 +73,6 @@ public class SuppressionTests
 
         bool seenInOtherTask = await Task.Run(() => PublishingSuppression.IsSuppressed);
 
-        // AsyncLocal flows the suppression flag into Task.Run, and parent state is preserved
-        // after the child task completes.
         Assert.That(seenInOtherTask, Is.True);
         Assert.That(PublishingSuppression.IsSuppressed, Is.True);
     }

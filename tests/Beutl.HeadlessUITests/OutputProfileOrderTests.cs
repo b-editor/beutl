@@ -2,13 +2,11 @@
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
-using Avalonia.Platform.Storage;
 using Beutl.Editor;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
-using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Reactive.Bindings;
 
@@ -20,13 +18,7 @@ public sealed class OutputProfileOrderTests
     [AvaloniaTest]
     public async Task InterleavedUnavailableProfiles_RetainOrderAndRecoveredDefault()
     {
-        await TestReset.ResetShellAsync();
-        string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, "output-order");
-        Directory.CreateDirectory(directory);
-        Project project = (await TestShell.Project.CreateProject(320, 180, 30, 44100, "output-order", directory))!;
-        Scene scene = project.Items.OfType<Scene>().First();
-        TestShell.Editor.ActivateTabItem(scene);
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("output-order", 320, 180);
         const int packageId = 1938201;
         var extension = new OrderOutputExtension();
         editor.ExtensionProvider.AddExtensions(packageId, [extension]);
@@ -64,7 +56,6 @@ public sealed class OutputProfileOrderTests
 
     private sealed class OrderOutputExtension : OutputExtension
     {
-        public override FilePickerFileType GetFilePickerFileType() => new("Test output");
         public override bool IsSupported(Type type) => true;
         public override bool TryCreateControl(IEditorContext editor, IOutputContext context, IOutputExecutionController execution,
             [NotNullWhen(true)] out Control? control)
@@ -81,8 +72,6 @@ public sealed class OutputProfileOrderTests
         public OutputExtension Extension => extension;
         public CoreObject Object => value;
         public IReactiveProperty<string> Name { get; } = new ReactivePropertySlim<string>("");
-        public IReadOnlyReactiveProperty<bool> IsIndeterminate { get; } = new ReactivePropertySlim<bool>();
-        public IReadOnlyReactiveProperty<double> Progress { get; } = new ReactivePropertySlim<double>();
         public Task RunAsync(CancellationToken cancellationToken) => Task.CompletedTask;
         public void ReadFromJson(JsonObject json) => Name.Value = json["Name"]!.GetValue<string>();
         public void WriteToJson(JsonObject json) => json["Name"] = Name.Value;

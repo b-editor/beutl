@@ -94,7 +94,7 @@ public class VersionControlSaveTests
             }
             AddMedia("old");
             CoreSerializer.StoreToUri(scene, scene.Uri!);
-            Assert.That(await TestShell.VersionControl.InitializeCurrentProjectAsync(project,
+            Assert.That(await GitTestSupport.InitializeCurrentProjectAsync(project,
                 _ => Task.FromResult<GitIdentity?>(new GitIdentity("Beutl Headless Test", "headless@example.invalid"))), Is.True);
             int initialCommits = await CountCommitsAsync(git.GitPath, projectRoot);
             File.WriteAllText(Path.Combine(projectRoot, "pending.txt"), "Work the user has not committed.");
@@ -456,7 +456,7 @@ public class VersionControlSaveTests
             Assert.That(enableCommand.CanExecute(null), Is.True);
         });
 
-        bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+        bool initialized = await GitTestSupport.InitializeCurrentProjectAsync(
             TestShell.Project.CurrentProject.Value!,
             _ => Task.FromResult<GitIdentity?>(new GitIdentity(
                 "Beutl Headless Test",
@@ -509,16 +509,16 @@ public class VersionControlSaveTests
                 "version-control-new-project-dialog");
             Directory.CreateDirectory(location);
             int identityRequests = 0;
+            TestShell.VersionControl.RequestIdentityAsync = _ =>
+            {
+                identityRequests++;
+                return Task.FromResult<GitIdentity?>(new GitIdentity(
+                    "Beutl Headless Test",
+                    "headless@example.invalid"));
+            };
             var viewModel = new CreateNewProjectViewModel(
                 TestShell.Project,
-                TestShell.VersionControl,
-                _ =>
-                {
-                    identityRequests++;
-                    return Task.FromResult<GitIdentity?>(new GitIdentity(
-                        "Beutl Headless Test",
-                        "headless@example.invalid"));
-                });
+                TestShell.VersionControl);
             await WaitUntilAsync(() => viewModel.IsGitAvailable.Value);
             viewModel.Location.Value = location;
             viewModel.Name.Value = "dialog-tracked";
@@ -596,7 +596,7 @@ public class VersionControlSaveTests
                 .Subscribe(enabled => editorStates.Add((enabled, TestShell.Editor.LifecycleActivity.Value)));
             var identityRequests = new List<(bool EditorEnabled, ProjectLifecycleActivity Activity)>();
 
-            bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+            bool initialized = await GitTestSupport.InitializeCurrentProjectAsync(
                 project,
                 _ =>
                 {
@@ -823,7 +823,7 @@ public class VersionControlSaveTests
         await AddRectangleAsync(adder);
         HeadlessTestHelpers.Settle();
 
-        bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+        bool initialized = await GitTestSupport.InitializeCurrentProjectAsync(
             TestShell.Project.CurrentProject.Value!,
             _ => Task.FromResult<GitIdentity?>(new GitIdentity(
                 "Beutl Headless Test",
@@ -1204,7 +1204,7 @@ public class VersionControlSaveTests
                 Is.False);
             int commitsAfterFailedPackageSave = await CountCommitsAsync(git.GitPath, projectRoot);
             config.AutoCommitOnClose = true;
-            Assert.DoesNotThrow(TestShell.Project.CloseProject);
+            Assert.Throws<ProjectCloseAbortedException>(TestShell.Project.CloseProjectOrThrow);
             Assert.Multiple(() =>
             {
                 Assert.That(failedCommands.SaveCalls, Is.EqualTo(3));
@@ -1231,7 +1231,7 @@ public class VersionControlSaveTests
             initialize: false);
         var promptEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releasePrompt = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        Task<bool> initialization = TestShell.VersionControl.InitializeCurrentProjectAsync(
+        Task<bool> initialization = GitTestSupport.InitializeCurrentProjectAsync(
             project,
             async _ =>
             {

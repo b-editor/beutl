@@ -1,15 +1,11 @@
 ﻿using System.Text;
+using System.Text.Json;
 using System.Xml.Linq;
 using Nuke.Common.Tools.InnoSetup;
 using static Nuke.Common.Tools.InnoSetup.InnoSetupTasks;
 
 class Build : NukeBuild
 {
-    /// Support plugins are available for:
-    ///   - JetBrains ReSharper        https://nuke.build/resharper
-    ///   - JetBrains Rider            https://nuke.build/rider
-    ///   - Microsoft VisualStudio     https://nuke.build/visualstudio
-    ///   - Microsoft VSCode           https://nuke.build/vscode
     public static int Main() => Execute<Build>(x => x.Compile);
 
     [Parameter] Configuration Configuration = Configuration.Release;
@@ -23,9 +19,6 @@ class Build : NukeBuild
     [Parameter] string AssemblyVersion = "1.0.0.0";
 
     [Parameter] string InformationalVersion = "1.0.0.0";
-
-    [GitRepository] readonly GitRepository GitRepository;
-
 
     AbsolutePath SourceDirectory => RootDirectory / "src";
     AbsolutePath TestsDirectory => RootDirectory / "tests";
@@ -81,13 +74,26 @@ class Build : NukeBuild
         return proc.Output.First().Text.Split(';')[0];
     }
 
+    // The projects marked BeutlPublicLibrary, each with the framework it builds for (build/BeutlLibraries.proj).
+    private (AbsolutePath Project, string Framework)[] GetPublicLibraries()
+    {
+        using IProcess proc = StartProcess(
+            DotNetPath,
+            $"msbuild {RootDirectory / "build" / "BeutlLibraries.proj"} -t:CollectBeutlLibraries -getItem:BeutlLibrary",
+            logOutput: false);
+        proc.AssertZeroExitCode();
+        using JsonDocument document = JsonDocument.Parse(string.Join('\n', proc.Output.Where(line => line.Type == OutputType.Std).Select(line => line.Text)));
+        return [.. document.RootElement.GetProperty("Items").GetProperty("BeutlLibrary").EnumerateArray()
+            .Where(item => item.GetProperty("Kind").GetString() == "Public")
+            .Select(item => ((AbsolutePath)item.GetProperty("ProjectPath").GetString(), item.GetProperty("TargetFramework").GetString()!))];
+    }
+
     private void CopyDistributionLicenses(AbsolutePath destination)
     {
         ReleaseLegalFiles.CopyTo(RootDirectory.ToString(), destination.ToString());
     }
 
     Target Publish => _ => _
-        //.DependsOn(Compile)
         .DependsOn(Restore)
         .Executes(() =>
         {
@@ -109,6 +115,20 @@ class Build : NukeBuild
                 .SetOutput(mainOutput)
                 .SetProperty("NukePublish", true));
 
+            void PublishProject(string name, AbsolutePath output, bool useWindowsTfm)
+            {
+                DotNetPublish(s => s
+                    .When(_ => Runtime != null, s => s
+                        .SetRuntime(Runtime)
+                        .SetSelfContained(SelfContained))
+                    .SetFramework(useWindowsTfm && Runtime?.IsWindows == true ? $"{tfm}-windows" : tfm)
+                    .EnableNoRestore()
+                    .SetConfiguration(Configuration)
+                    .SetVersions(Version, AssemblyVersion, InformationalVersion)
+                    .SetProject(SourceDirectory / name / $"{name}.csproj")
+                    .SetOutput(output));
+            }
+
             string[] subProjects =
             [
                 "Beutl.ExceptionHandler",
@@ -117,27 +137,14 @@ class Build : NukeBuild
             foreach (string item in subProjects)
             {
                 AbsolutePath output = OutputDirectory / item;
-                DotNetPublish(s => s
-                    .When(_ => Runtime != null, s => s
-                        .SetRuntime(Runtime)
-                        .SetSelfContained(SelfContained))
-                    .When(_ => Runtime?.IsWindows == true, s => s.SetFramework($"{tfm}-windows"))
-                    .When(_ => Runtime?.IsWindows != true, s => s.SetFramework(tfm))
-                    .EnableNoRestore()
-                    .SetConfiguration(Configuration)
-                    .SetVersions(Version, AssemblyVersion, InformationalVersion)
-                    .SetProject(SourceDirectory / item / $"{item}.csproj")
-                    .SetOutput(output));
+                PublishProject(item, output, useWindowsTfm: true);
 
                 output.GlobFiles($"**/{item}*")
                     .Select(p => (Source: p, Target: mainOutput / output.GetRelativePathTo(p)))
                     .ForEach(t => t.Source.Copy(t.Target));
             }
 
-            // The MCP stdio server is an MIT helper exe, but unlike the UI helper exes above it
-            // carries private MCP/hosting dependencies that are not guaranteed to be in the app's
-            // closure. Merge its whole publish output with FileSkip, like the worker layout below,
-            // while keeping it in the MIT side of the tree.
+            // The MCP server has private dependencies, so merge its whole output with FileSkip.
             string[] fullClosureSubProjects =
             [
                 "Beutl.AgentToolkit.Mcp",
@@ -146,67 +153,20 @@ class Build : NukeBuild
             {
                 AbsolutePath output = OutputDirectory / item;
                 output.CreateOrCleanDirectory();
-                DotNetPublish(s => s
-                    .When(_ => Runtime != null, s => s
-                        .SetRuntime(Runtime)
-                        .SetSelfContained(SelfContained))
-                    .SetFramework(tfm)
-                    .EnableNoRestore()
-                    .SetConfiguration(Configuration)
-                    .SetVersions(Version, AssemblyVersion, InformationalVersion)
-                    .SetProject(SourceDirectory / item / $"{item}.csproj")
-                    .SetOutput(output));
+                PublishProject(item, output, useWindowsTfm: false);
 
                 output.GlobFiles("**/*")
                     .Select(p => (Source: p, Target: mainOutput / output.GetRelativePathTo(p)))
                     .ForEach(t => t.Source.Copy(t.Target, ExistsPolicy.FileSkip));
             }
 
-            // The UI helper exes above flat-copy only their own Beutl.<Name>* files because the rest
-            // of their closure is a subset of the app's shared assemblies. The GPL worker is the
-            // exception: it carries private deps (FFmpeg.AutoGen, FFmpegSharp) absent from the app's
-            // MIT set, so copying only Beutl.FFmpegWorker* strands them and the worker dies with a
-            // FileNotFoundException at startup. Copy its whole closure with FileSkip instead — the
-            // app's shared assemblies/runtime stay the single canonical set (skipped), and only the
-            // worker's identity + private deps are added.
-            // `dotnet publish --output` does not clear the dir first, so clean it to keep stale
-            // artifacts from an earlier RID/config out of the FileSkip copy.
+            // The worker has private dependencies the app lacks, so merge its whole output with FileSkip.
+            // Clean the output first so stale artifacts from an earlier RID or configuration stay out.
             AbsolutePath workerOutput = OutputDirectory / "Beutl.FFmpegWorker";
             workerOutput.CreateOrCleanDirectory();
-            DotNetPublish(s => s
-                .When(_ => Runtime != null, s => s
-                    .SetRuntime(Runtime)
-                    .SetSelfContained(SelfContained))
-                .When(_ => Runtime?.IsWindows == true, s => s.SetFramework($"{tfm}-windows"))
-                .When(_ => Runtime?.IsWindows != true, s => s.SetFramework(tfm))
-                .EnableNoRestore()
-                .SetConfiguration(Configuration)
-                .SetVersions(Version, AssemblyVersion, InformationalVersion)
-                .SetProject(SourceDirectory / "Beutl.FFmpegWorker" / "Beutl.FFmpegWorker.csproj")
-                .SetOutput(workerOutput));
+            PublishProject("Beutl.FFmpegWorker", workerOutput, useWindowsTfm: true);
             workerOutput.GlobFiles("**/*")
                 .Select(p => (Source: p, Target: mainOutput / workerOutput.GetRelativePathTo(p)))
-                .ForEach(t => t.Source.Copy(t.Target, ExistsPolicy.FileSkip));
-
-            // The stdio MCP server ships with the app so the AI-agents settings page resolves a
-            // real binary (AgentToolkitMcpServerLocator) instead of falling back to a source-tree
-            // `dotnet run`, which cannot work on end-user machines. Same flat FileSkip merge as
-            // the worker: the app's shared assemblies stay canonical, only the server's identity
-            // and its private MCP-SDK deps are added. BundleApp does the same for the macOS bundle.
-            AbsolutePath mcpServerOutput = OutputDirectory / "Beutl.AgentToolkit.Mcp";
-            mcpServerOutput.CreateOrCleanDirectory();
-            DotNetPublish(s => s
-                .When(_ => Runtime != null, s => s
-                    .SetRuntime(Runtime)
-                    .SetSelfContained(SelfContained))
-                .SetFramework(tfm)
-                .EnableNoRestore()
-                .SetConfiguration(Configuration)
-                .SetVersions(Version, AssemblyVersion, InformationalVersion)
-                .SetProject(SourceDirectory / "Beutl.AgentToolkit.Mcp" / "Beutl.AgentToolkit.Mcp.csproj")
-                .SetOutput(mcpServerOutput));
-            mcpServerOutput.GlobFiles("**/*")
-                .Select(p => (Source: p, Target: mainOutput / mcpServerOutput.GetRelativePathTo(p)))
                 .ForEach(t => t.Source.Copy(t.Target, ExistsPolicy.FileSkip));
 
             CopyDistributionLicenses(mainOutput);
@@ -265,7 +225,6 @@ class Build : NukeBuild
     Target BundleApp => _ => _
         .Executes(() =>
         {
-            // dotnet msbuild -t:BundleApp -p:RuntimeIdentifier=osx-arm64 -p:TargetFramework=net9.0 -p:UseAppHost=true -p:SelfContained=true
             AbsolutePath directory = SourceDirectory / "Beutl";
             AbsolutePath output = OutputDirectory / "AppBundle";
             string tfm = GetTFM();
@@ -299,15 +258,9 @@ class Build : NukeBuild
             plist.DocumentType?.Remove();
             plist.Save(plistPath);
 
-            // The worker carries private deps (FFmpeg.AutoGen, FFmpegSharp) absent from the app's MIT
-            // set, so the BundleApp MSBuild target — which drops only a partial flat worker set
-            // (apphost + deps.json, no managed dll) via the dev ProjectReference — leaves it unable to
-            // start. Delete that partial set and merge the worker's self-contained closure with
-            // FileSkip: the app's shared assemblies/runtime stay canonical (skipped), and the worker's
-            // identity + private deps are added flat. Runs before the workflow's codesign step.
+            // BundleApp leaves a partial worker that cannot start, and the worker has private dependencies, so replace
+            // it with its whole output, merged with FileSkip. Clean the output first so stale artifacts stay out.
             AbsolutePath workerProj = SourceDirectory / "Beutl.FFmpegWorker" / "Beutl.FFmpegWorker.csproj";
-            // `dotnet publish --output` does not clear the dir first, so clean it to keep stale
-            // artifacts from an earlier RID/config out of the FileSkip copy.
             AbsolutePath workerOutput = OutputDirectory / "Beutl.FFmpegWorker";
             workerOutput.CreateOrCleanDirectory();
             DotNetPublish(s => s
@@ -348,38 +301,22 @@ class Build : NukeBuild
         .DependsOn(Restore)
         .Executes(() =>
         {
-            string tfm = GetTFM();
-            (string Name, string TFM)[] projects =
-            [
-                ("Beutl.Configuration", tfm),
-                ("Beutl.Core", tfm),
-                ("Beutl.Api", tfm),
-                ("Beutl.Extensibility", tfm),
-                ("Beutl.Engine", tfm),
-                ("Beutl.Engine.SourceGenerators", "netstandard2.0"),
-                ("Beutl.Language", tfm),
-                ("Beutl.ProjectSystem", tfm),
-                ("Beutl.Threading", tfm),
-                ("Beutl.Utilities", tfm),
-                ("Beutl.NodeGraph", tfm),
-                ("Beutl.Editor", tfm),
-            ];
-
-            foreach (var (name, projectTfm) in projects)
+            foreach ((AbsolutePath project, string framework) in GetPublicLibraries())
             {
+                // A library with several target frameworks reports none, and builds them all.
                 DotNetBuild(s => s
                     .EnableNoRestore()
-                    .SetFramework(projectTfm)
+                    .When(_ => framework != "", s => s.SetFramework(framework))
                     .SetConfiguration(Configuration)
                     .SetVersions(Version, AssemblyVersion, InformationalVersion)
-                    .SetProjectFile(SourceDirectory / name / $"{name}.csproj"));
+                    .SetProjectFile(project));
 
                 DotNetPack(s => s
                     .EnableNoRestore()
                     .SetConfiguration(Configuration)
                     .SetVersions(Version, AssemblyVersion, InformationalVersion)
                     .SetOutputDirectory(ArtifactsDirectory)
-                    .SetProject(SourceDirectory / name / $"{name}.csproj"));
+                    .SetProject(project));
             }
 
             DotNetPack(s => s

@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Beutl.Controls;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Services;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
@@ -21,21 +22,11 @@ public static class TemplateMenuHelper
             dataContext.Select(d => d?.CanSaveAsTemplate ?? Observable.ReturnThenNever(false)).Switch());
         saveMenu.Click += (_, _) =>
         {
-            if (control.DataContext is not BaseEditorViewModel { IsDisposed: false } vm) return;
+            if (control.DataContext is not BaseEditorViewModel { IsDisposed: false, TemplateTarget: { } target } vm) return;
 
-            string defaultName = vm.GetTemplateDefaultName();
-            string uniqueName = ObjectTemplateService.Instance.GetUniqueName(defaultName);
-
-            var flyout = new SaveAsTemplateFlyout { Text = uniqueName };
-            flyout.Confirmed += async (_, name) =>
-            {
-                if (!string.IsNullOrWhiteSpace(name))
-                {
-                    await vm.SaveAsTemplateAsync(name);
-                    NotificationService.ShowInformation(Strings.Templates, Strings.TemplateSaved);
-                }
-            };
-            flyout.ShowAt(control, true);
+            TemplateSaving.ShowSaveFlyout(
+                control, target, ObjectTemplateService.Instance.GetUniqueName(vm.GetTemplateDefaultName()), showAtPointer: true,
+                () => NotificationService.ShowInformation(Strings.Templates, Strings.TemplateSaved));
         };
 
         var applySubMenu = new FAMenuFlyoutSubItem { Text = Strings.ApplyTemplate };
@@ -82,7 +73,7 @@ public static class TemplateMenuHelper
             foreach (ObjectTemplateItem t in templates)
             {
                 applySubMenu.Items.Add(CreateApplyMenuItem(t, vm));
-                addSubMenu.Items.Add(CreateAddMenuItem(t, vm, useApplyTemplate: false));
+                addSubMenu.Items.Add(CreateAddMenuItem(t, vm));
             }
         }
         else if (isGroup)
@@ -93,12 +84,11 @@ public static class TemplateMenuHelper
 
             foreach (ObjectTemplateItem t in templates)
             {
-                addSubMenu.Items.Add(CreateAddMenuItem(t, vm, useApplyTemplate: true));
+                addSubMenu.Items.Add(CreateApplyMenuItem(t, vm));
             }
         }
         else
         {
-            // 通常: 「テンプレートを適用」のみ
             applySubMenu.IsVisible = true;
             addSubMenu.IsVisible = false;
 
@@ -115,25 +105,14 @@ public static class TemplateMenuHelper
     private static FAMenuFlyoutItem CreateApplyMenuItem(ObjectTemplateItem template, BaseEditorViewModel vm)
     {
         var mi = new FAMenuFlyoutItem { Text = template.Name.Value, Tag = template };
-        mi.Click += (s, _) =>
-        {
-            if (s is FAMenuFlyoutItem { Tag: ObjectTemplateItem item })
-                vm.ApplyTemplate(item);
-        };
+        mi.Click += (_, _) => vm.ApplyTemplate(template);
         return mi;
     }
 
-    private static FAMenuFlyoutItem CreateAddMenuItem(ObjectTemplateItem template, BaseEditorViewModel vm, bool useApplyTemplate)
+    private static FAMenuFlyoutItem CreateAddMenuItem(ObjectTemplateItem template, BaseEditorViewModel vm)
     {
         var mi = new FAMenuFlyoutItem { Text = template.Name.Value, Tag = template };
-        mi.Click += (s, _) =>
-        {
-            if (s is not FAMenuFlyoutItem { Tag: ObjectTemplateItem item }) return;
-            if (useApplyTemplate)
-                vm.ApplyTemplate(item);
-            else
-                vm.AddTemplateAsListItem(item);
-        };
+        mi.Click += (_, _) => vm.AddTemplateAsListItem(template);
         return mi;
     }
 }

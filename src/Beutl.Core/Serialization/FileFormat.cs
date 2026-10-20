@@ -46,9 +46,7 @@ public static class FileFormat
     /// </summary>
     internal static bool IsAtLeast(string recorded, string required)
     {
-        return NuGetVersion.TryParse(recorded, out NuGetVersion? recordedVersion)
-               && NuGetVersion.TryParse(required, out NuGetVersion? requiredVersion)
-               && VersionComparer.VersionRelease.Compare(recordedVersion, requiredVersion) >= 0;
+        return Compare(recorded, required) >= 0;
     }
 
     /// <summary>
@@ -63,10 +61,18 @@ public static class FileFormat
             return required;
         }
 
-        return NuGetVersion.TryParse(recorded, out NuGetVersion? recordedVersion)
-               && NuGetVersion.TryParse(required, out NuGetVersion? requiredVersion)
-               && VersionComparer.VersionRelease.Compare(recordedVersion, requiredVersion) < 0
-            ? required
-            : recorded;
+        return Compare(recorded, required) < 0 ? required : recorded;
+    }
+
+    /// <summary>
+    /// Compares two version strings by release, or returns <see langword="null"/> when either is not a version
+    /// this build can compare.
+    /// </summary>
+    internal static int? Compare(string left, string right)
+    {
+        return NuGetVersion.TryParse(left, out NuGetVersion? leftVersion)
+               && NuGetVersion.TryParse(right, out NuGetVersion? rightVersion)
+            ? VersionComparer.VersionRelease.Compare(leftVersion, rightVersion)
+            : null;
     }
 }

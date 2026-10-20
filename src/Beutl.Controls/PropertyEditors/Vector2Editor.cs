@@ -1,13 +1,8 @@
-﻿using System.Globalization;
-using System.Numerics;
-using System.Reactive.Disposables;
+﻿using System.Numerics;
 
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
-using Avalonia.Controls.Primitives;
-using Avalonia.Input;
-using Avalonia.Interactivity;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -30,45 +25,29 @@ public class Vector2Editor<TElement> : Vector2Editor
     public static readonly StyledProperty<TElement> SmallChangeProperty =
         Vector4Editor<TElement>.SmallChangeProperty.AddOwner<Vector2Editor<TElement>>();
 
-    private readonly CompositeDisposable _disposables = [];
-    private Control? _editSource;
-    private TElement _firstValue = TElement.Zero;
-    private TElement _oldFirstValue = TElement.Zero;
-    private TElement _secondValue = TElement.Zero;
-    private TElement _oldSecondValue = TElement.Zero;
-    private TextBlock? _headerText;
-    private HeaderScrubGesture _scrub;
+    private readonly NumberVectorValues<TElement> _values;
 
     public Vector2Editor()
     {
+        Values = _values = new NumberVectorValues<TElement>(
+            this,
+            [FirstValueProperty, SecondValueProperty],
+            static (n, o, routedEvent) => new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
+                (n[0], n[1]), (o[0], o[1]), routedEvent));
         FirstHeader = "0";
         SecondHeader = "0";
     }
 
     public TElement FirstValue
     {
-        get => _firstValue;
-        set
-        {
-            if (SetAndRaise(FirstValueProperty, ref _firstValue, value)
-                && (_editSource == null || _editSource != InnerFirstTextBox))
-            {
-                FirstText = NumberEditorHelper.Format(value, NumberFormat);
-            }
-        }
+        get => _values[0];
+        set => _values.Set(0, value);
     }
 
     public TElement SecondValue
     {
-        get => _secondValue;
-        set
-        {
-            if (SetAndRaise(SecondValueProperty, ref _secondValue, value)
-                && (_editSource == null || _editSource != InnerSecondTextBox))
-            {
-                SecondText = NumberEditorHelper.Format(value, NumberFormat);
-            }
-        }
+        get => _values[1];
+        set => _values.Set(1, value);
     }
 
     public TElement LargeChange
@@ -82,220 +61,17 @@ public class Vector2Editor<TElement> : Vector2Editor
         get => GetValue(SmallChangeProperty);
         set => SetValue(SmallChangeProperty, value);
     }
-
-    private void UpdateText()
-    {
-        FirstText = NumberEditorHelper.Format(FirstValue, NumberFormat);
-        SecondText = NumberEditorHelper.Format(SecondValue, NumberFormat);
-    }
-
-    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
-    {
-        _disposables.Clear();
-        base.OnApplyTemplate(e);
-        UpdateText();
-
-        var valueHandlers = new ComponentValueHandlers(
-            OnInnerTextBoxGotFocus, OnInnerTextBoxLostFocus, OnInnerTextBoxTextChanged, OnInnerTextBoxPointerWheelChanged);
-        valueHandlers.Subscribe(InnerFirstTextBox, _disposables);
-        valueHandlers.Subscribe(InnerSecondTextBox, _disposables);
-
-        var headerHandlers = new ScrubHeaderHandlers(
-            OnTextBlockPointerPressed, OnTextBlockPointerReleased, OnTextBlockPointerMoved,
-            OnTextBlockPointerCaptureLost, RoutingStrategies.Tunnel);
-        headerHandlers.Subscribe(FirstHeaderTextBlock, _disposables);
-        headerHandlers.Subscribe(SecondHeaderTextBlock, _disposables);
-        _headerText = e.NameScope.Find<TextBlock>("PART_HeaderTextBlock");
-        headerHandlers.Subscribe(_headerText, _disposables);
-
-        UpdateErrors();
-    }
-
-    private void OnTextBlockPointerMoved(object? sender, PointerEventArgs e)
-    {
-        // A move with the button up means the release never reached the header.
-        if (_scrub.IsActive && !e.Properties.IsLeftButtonPressed)
-        {
-            CompleteScrub();
-            return;
-        }
-
-        if (!(InnerFirstTextBox.IsKeyboardFocusWithin || InnerSecondTextBox?.IsKeyboardFocusWithin == true)
-            && _scrub.IsActive
-            && sender is TextBlock headerText)
-        {
-            TElement delta = _scrub.NextDelta<TElement>(headerText, e) * SmallChange;
-
-            var newValues = (FirstValue, SecondValue);
-            var oldValues = (FirstValue, SecondValue);
-            switch (headerText.Name)
-            {
-                case "PART_HeaderFirstTextBlock":
-                    newValues.FirstValue = NumberEditorHelper.AddPreservingScale(newValues.FirstValue, delta);
-                    break;
-                case "PART_HeaderSecondTextBlock":
-                    newValues.SecondValue = NumberEditorHelper.AddPreservingScale(newValues.SecondValue, delta);
-                    break;
-                case "PART_HeaderTextBlock":
-                    newValues.FirstValue = NumberEditorHelper.AddPreservingScale(newValues.FirstValue, delta);
-                    newValues.SecondValue = NumberEditorHelper.AddPreservingScale(newValues.SecondValue, delta);
-                    break;
-                default:
-                    break;
-            }
-
-            (FirstValue, SecondValue) = newValues;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
-                newValues, oldValues, ValueChangedEvent));
-
-            e.Handled = true;
-
-            UpdateErrors();
-        }
-    }
-
-    private void OnTextBlockPointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        if (_scrub.IsActive)
-        {
-            CompleteScrub();
-            e.Handled = true;
-        }
-    }
-
-    // Another window, a dialog or a rebuilt header took the pointer; end as a release would.
-    private void OnTextBlockPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
-    {
-        CompleteScrub();
-    }
-
-    private void CompleteScrub()
-    {
-        if (!_scrub.IsActive) return;
-
-        // Ended before confirming, so a confirmation that rebuilds the header cannot end it twice.
-        _scrub.End();
-        RaiseConfirmedIfChanged();
-    }
-
-    private void OnTextBlockPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is TextBlock headerText)
-        {
-            PointerPoint pointerPoint = e.GetCurrentPoint(headerText);
-            if (pointerPoint.Properties.IsLeftButtonPressed
-                && !DataValidationErrors.GetHasErrors(this))
-            {
-                SnapshotOldValues();
-                _scrub.Begin(headerText, pointerPoint.Position);
-                e.Handled = true;
-            }
-        }
-    }
-
-    private void OnInnerTextBoxGotFocus(object? sender, FocusChangedEventArgs e)
-    {
-        if (!DataValidationErrors.GetHasErrors(this))
-        {
-            SnapshotOldValues();
-        }
-    }
-
-    private void OnInnerTextBoxLostFocus(object? sender, RoutedEventArgs e)
-    {
-        if (!DataValidationErrors.GetHasErrors(this))
-        {
-            UpdateText();
-            RaiseConfirmedIfChanged();
-        }
-    }
-
-    private void SnapshotOldValues()
-    {
-        _oldFirstValue = FirstValue;
-        _oldSecondValue = SecondValue;
-    }
-
-    private void RaiseConfirmedIfChanged()
-    {
-        if (FirstValue != _oldFirstValue
-            || SecondValue != _oldSecondValue)
-        {
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
-                (FirstValue, SecondValue),
-                (_oldFirstValue, _oldSecondValue),
-                ValueConfirmedEvent));
-        }
-    }
-
-    private void OnInnerTextBoxTextChanged(TextBox sender, string? newValue, string? oldValue)
-    {
-        if (_editSource == null
-            && sender.IsKeyboardFocusWithin
-            && NumberEditorHelper.TryParseEdit(newValue, oldValue, out TElement? newValue2, out TElement? oldValue2))
-        {
-            using var edit = new PropertyEditorEditScope(ref _editSource, sender);
-            ApplyValueChange(sender, newValue2, oldValue2);
-        }
-
-        UpdateErrors();
-    }
-
-    private void ApplyValueChange(TextBox sender, TElement value, TElement oldValue)
-    {
-        bool first = IsUniform || sender == InnerFirstTextBox;
-        bool second = IsUniform || sender == InnerSecondTextBox;
-        var newValues = (first ? value : FirstValue, second ? value : SecondValue);
-        var oldValues = _editSource == sender
-            ? (first ? oldValue : FirstValue, second ? oldValue : SecondValue)
-            : (FirstValue, SecondValue);
-        (FirstValue, SecondValue) = newValues;
-        RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
-            newValues, oldValues, ValueChangedEvent));
-    }
-
-    private void UpdateErrors()
-    {
-        DataValidationMessages.UpdateInvalidString(
-            this,
-            TElement.TryParse(InnerFirstTextBox.Text, CultureInfo.CurrentCulture, out _)
-                && (IsUniform
-                || TElement.TryParse(InnerSecondTextBox?.Text, CultureInfo.CurrentCulture, out _)));
-    }
-
-    private void OnInnerTextBoxPointerWheelChanged(object? sender, PointerWheelEventArgs e)
-    {
-        if (!DataValidationErrors.GetHasErrors(this)
-            && sender is TextBox textBox
-            && textBox.IsKeyboardFocusWithin
-            && TElement.TryParse(textBox.Text, CultureInfo.CurrentCulture, out TElement? value)
-            && value is not null)
-        {
-            using var edit = new PropertyEditorEditScope(ref _editSource, this);
-            TElement oldValue = textBox.Name switch
-            {
-                "PART_InnerFirstTextBox" => FirstValue,
-                "PART_InnerSecondTextBox" => SecondValue,
-                _ => value,
-            };
-            value = NumberEditorHelper.StepByWheel(oldValue, e, LargeChange, SmallChange);
-            if (value != oldValue)
-                ApplyValueChange(textBox, value, oldValue);
-            UpdateText();
-            e.Handled = true;
-        }
-    }
 }
 
 [PseudoClasses(
-    FocusAnyTextBox, FocusFirstTextBox, FocusSecondTextBox,
-    BorderPointerOver, Uniform)]
+    ":focus-any-textbox", ":focus-1st-textbox", ":focus-2nd-textbox",
+    ":border-pointerover", ":uniform")]
 [TemplatePart("PART_InnerFirstTextBox", typeof(TextBox))]
 [TemplatePart("PART_InnerSecondTextBox", typeof(TextBox))]
 [TemplatePart("PART_HeaderFirstTextBlock", typeof(TextBlock))]
 [TemplatePart("PART_HeaderSecondTextBlock", typeof(TextBlock))]
 [TemplatePart("PART_BackgroundBorder", typeof(Border))]
-public class Vector2Editor : PropertyEditor
+public class Vector2Editor : VectorEditorBase
 {
     public static readonly DirectProperty<Vector2Editor, string> FirstTextProperty =
         Vector4Editor.FirstTextProperty.AddOwner<Vector2Editor>(
@@ -319,26 +95,21 @@ public class Vector2Editor : PropertyEditor
     public static readonly StyledProperty<string?> NumberFormatProperty =
         Vector4Editor.NumberFormatProperty.AddOwner<Vector2Editor>();
 
-    private const string FocusAnyTextBox = ":focus-any-textbox";
-    private const string FocusFirstTextBox = ":focus-1st-textbox";
-    private const string FocusSecondTextBox = ":focus-2nd-textbox";
-    private const string BorderPointerOver = ":border-pointerover";
-    private const string Uniform = ":uniform";
-    private readonly CompositeDisposable _disposables = [];
-    private Border? _backgroundBorder;
-    private string _firstText = string.Empty;
-    private string _secondText = string.Empty;
+    public Vector2Editor()
+        : base([FirstTextProperty, SecondTextProperty], IsUniformProperty, componentHeaders: true)
+    {
+    }
 
     public string FirstText
     {
-        get => _firstText;
-        set => SetAndRaise(FirstTextProperty, ref _firstText, value);
+        get => GetText(0);
+        set => SetText(0, value);
     }
 
     public string SecondText
     {
-        get => _secondText;
-        set => SetAndRaise(SecondTextProperty, ref _secondText, value);
+        get => GetText(1);
+        set => SetText(1, value);
     }
 
     public string? FirstHeader
@@ -365,87 +136,5 @@ public class Vector2Editor : PropertyEditor
         set => SetValue(NumberFormatProperty, value);
     }
 
-    protected TextBox InnerFirstTextBox { get; private set; } = null!;
-
-    protected TextBox? InnerSecondTextBox { get; private set; }
-
-    protected TextBlock? FirstHeaderTextBlock { get; private set; }
-
-    protected TextBlock? SecondHeaderTextBlock { get; private set; }
-
     protected override Type StyleKeyOverride => typeof(Vector2Editor);
-
-    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
-    {
-        _disposables.Clear();
-        base.OnApplyTemplate(e);
-        InnerFirstTextBox = e.NameScope.Get<TextBox>("PART_InnerFirstTextBox");
-        InnerSecondTextBox = e.NameScope.Find<TextBox>("PART_InnerSecondTextBox");
-        FirstHeaderTextBlock = e.NameScope.Find<TextBlock>("PART_HeaderFirstTextBlock");
-        SecondHeaderTextBlock = e.NameScope.Find<TextBlock>("PART_HeaderSecondTextBlock");
-        _backgroundBorder = e.NameScope.Find<Border>("PART_BackgroundBorder");
-
-        var hoverHandlers = new ComponentHoverHandlers(OnInnerTextBoxGotFocus, OnInnerTextBoxLostFocus, IsPointerOverChanged);
-        hoverHandlers.SubscribeTextBox(InnerFirstTextBox, _disposables);
-        hoverHandlers.SubscribeTextBox(InnerSecondTextBox, _disposables);
-        hoverHandlers.SubscribePointerOver(FirstHeaderTextBlock, _disposables);
-        hoverHandlers.SubscribePointerOver(SecondHeaderTextBlock, _disposables);
-
-        hoverHandlers.SubscribePointerOver(_backgroundBorder, _disposables);
-    }
-
-    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
-    {
-        base.OnPropertyChanged(change);
-        if (change.Property == IsUniformProperty)
-        {
-            PseudoClasses.Set(Uniform, change.GetNewValue<bool>());
-        }
-    }
-
-    private void IsPointerOverChanged(bool obj)
-    {
-        if (_backgroundBorder?.IsPointerOver == true
-            || InnerFirstTextBox.IsPointerOver
-            || InnerSecondTextBox?.IsPointerOver == true
-            || FirstHeaderTextBlock?.IsPointerOver == true
-            || SecondHeaderTextBlock?.IsPointerOver == true)
-        {
-            PseudoClasses.Add(BorderPointerOver);
-        }
-        else
-        {
-            PseudoClasses.Remove(BorderPointerOver);
-        }
-    }
-
-    private void OnInnerTextBoxGotFocus(object? sender, FocusChangedEventArgs e)
-    {
-        UpdateFocusState();
-    }
-
-    private void OnInnerTextBoxLostFocus(object? sender, RoutedEventArgs e)
-    {
-        UpdateFocusState();
-    }
-
-    private void UpdateFocusState()
-    {
-        PseudoClasses.Remove(FocusFirstTextBox);
-        PseudoClasses.Remove(FocusSecondTextBox);
-        if (InnerFirstTextBox.IsFocused)
-            PseudoClasses.Add(FocusFirstTextBox);
-        else if (InnerSecondTextBox?.IsFocused == true)
-            PseudoClasses.Add(FocusSecondTextBox);
-
-        if (InnerFirstTextBox.IsFocused
-            || InnerSecondTextBox?.IsFocused == true)
-        {
-            PseudoClasses.Add(FocusAnyTextBox);
-        }
-        else
-        {
-            PseudoClasses.Remove(FocusAnyTextBox);
-        }
-    }
 }

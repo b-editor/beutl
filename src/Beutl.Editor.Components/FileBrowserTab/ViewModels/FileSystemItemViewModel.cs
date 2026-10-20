@@ -15,7 +15,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.FileBrowserTab.ViewModels;
 
-// ファイルまたはフォルダを表すViewModel
 public class FileSystemItemViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
@@ -26,6 +25,11 @@ public class FileSystemItemViewModel : IDisposable
     private int _mediaInfoLoad;
 
     public FileSystemItemViewModel(string fullPath, bool isDirectory)
+        : this(fullPath, isDirectory, loadDetails: true)
+    {
+    }
+
+    private FileSystemItemViewModel(string fullPath, bool isDirectory, bool loadDetails)
     {
         FullPath = fullPath;
         IsDirectory = isDirectory;
@@ -56,7 +60,7 @@ public class FileSystemItemViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        if (!IsDirectory)
+        if (!IsDirectory && loadDetails)
         {
             _ = LoadThumbnailAsync();
             _ = LoadMediaInfoAsync();
@@ -84,10 +88,8 @@ public class FileSystemItemViewModel : IDisposable
     // メディア情報のツールチップテキスト（遅延ロード）
     public ReactiveProperty<string?> MediaInfoText { get; } = new((string?)null);
 
-    // An object template is a .json file, so the extension alone cannot say what it holds; the
-    // category has to be read out of the file itself.
-    // IsObjectTemplateFile only tests the extension and the directory, so a stray, half-written or
-    // no-longer-resolvable .json lands here too; those fall back to the ordinary file description.
+    // A template's category is read from the file; a .json that is not a loadable template
+    // falls back to the file description.
     private async Task<bool> LoadTemplateInfoAsync()
     {
         try
@@ -153,7 +155,6 @@ public class FileSystemItemViewModel : IDisposable
         }
         catch
         {
-            // ignore
         }
     }
 
@@ -185,9 +186,6 @@ public class FileSystemItemViewModel : IDisposable
                 Thumbnail.Value = bitmap;
             }
         }
-        catch (OperationCanceledException)
-        {
-        }
         catch
         {
         }
@@ -204,20 +202,16 @@ public class FileSystemItemViewModel : IDisposable
         // extension this list already names cannot change the icon out from under it.
         Icon? named = Extension switch
         {
-            // Document files
             ".pdf" => Icon.DocumentPdf,
             ".doc" or ".docx" => Icon.Document,
             ".txt" or ".md" or ".json" or ".xml" or ".yaml" or ".yml" => Icon.DocumentText,
 
-            // Code files
             ".cs" or ".fs" or ".vb" or ".py" or ".js" or ".ts" or ".html" or ".css" or ".xaml"
                 or ".axaml" => Icon.Code,
 
-            // Archive files
             ".zip" or ".rar" or ".7z" or ".tar" or ".gz" =>
                 Icon.FolderZip,
 
-            // Beutl project files
             ".bep" => Icon.Folder,
             ".scene" => Icon.Filmstrip,
             ".belm" => Icon.Shapes,
@@ -247,6 +241,7 @@ public class FileSystemItemViewModel : IDisposable
         _childrenLoaded = true;
         Children.Clear();
 
+        // A folder that cannot be read is shown without children.
         try
         {
             foreach (var item in FileSystemEnumerator.EnumerateDirectory(FullPath))
@@ -256,11 +251,9 @@ public class FileSystemItemViewModel : IDisposable
         }
         catch (UnauthorizedAccessException)
         {
-            // Ignore directories we can't access
         }
         catch (IOException)
         {
-            // Ignore IO errors
         }
     }
 
@@ -327,7 +320,7 @@ public class FileSystemItemViewModel : IDisposable
             if (dirInfo.EnumerateFileSystemInfos().Any(FileSystemEnumerator.IsVisible))
             {
                 // プレースホルダーを追加して展開矢印を表示させる
-                Children!.Add(new FileSystemItemViewModel(FullPath, false));
+                Children!.Add(new FileSystemItemViewModel(FullPath, false, loadDetails: false));
             }
         }
         catch

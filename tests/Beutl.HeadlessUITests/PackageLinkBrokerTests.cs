@@ -8,10 +8,12 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class PackageLinkBrokerTests
 {
+    private static string UniqueName() => "btl-test-" + Guid.NewGuid().ToString("N")[..24];
+
     [Test]
     public async Task ClientDisconnectingBeforeAcknowledgementDoesNotBlockLaterLinks()
     {
-        string name = "btl-test-" + Guid.NewGuid().ToString("N")[..24];
+        string name = UniqueName();
         using var broker = PackageLinkBroker.TryCreate(name);
         Assert.That(broker, Is.Not.Null);
         using var releaseAcknowledgement = new ManualResetEventSlim();
@@ -112,7 +114,7 @@ public class PackageLinkBrokerTests
     [Test]
     public async Task HoldsAStartupLinkUntilTheApplicationRegistersItsHandler()
     {
-        string name = "btl-test-" + Guid.NewGuid().ToString("N")[..24];
+        string name = UniqueName();
         using var broker = PackageLinkBroker.TryCreate(name);
         Assert.That(broker, Is.Not.Null);
         using var duplicate = PackageLinkBroker.TryCreate(name);
@@ -139,7 +141,7 @@ public class PackageLinkBrokerTests
     [Test]
     public async Task IgnoresInvalidLinksAndStillAcceptsTheNextValidLink()
     {
-        string name = "btl-test-" + Guid.NewGuid().ToString("N")[..24];
+        string name = UniqueName();
         using var broker = PackageLinkBroker.TryCreate(name);
         Assert.That(broker, Is.Not.Null);
         Assert.That(await PackageLinkBroker.TryForwardAsync("beutl://uninstall?package=Sample", name), Is.False);

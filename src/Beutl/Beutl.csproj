@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <BeutlHostLibrary>true</BeutlHostLibrary>
     <TargetFramework></TargetFramework><!-- empty so the TFMs below cross-target -->
     <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
     <OutputType>WinExe</OutputType>
@@ -196,5 +197,12 @@
     <EmbeddedResource Include="Resources\osx-update.sh" />
     <EmbeddedResource Include="Resources\linux-update.sh" />
   </ItemGroup>
-  <Import Project="$(RootDirectory)\build\props\CoreLibraries.props" />
+  <ItemGroup>
+    <ProjectReference Include="..\Beutl.Configuration\Beutl.Configuration.csproj" />
+    <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
+    <ProjectReference Include="..\Beutl.Extensibility\Beutl.Extensibility.csproj" />
+    <ProjectReference Include="..\Beutl.Engine\Beutl.Engine.csproj" />
+    <ProjectReference Include="..\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
+    <ProjectReference Include="..\Beutl.Utilities\Beutl.Utilities.csproj" />
+  </ItemGroup>
 </Project>

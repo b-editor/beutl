@@ -147,7 +147,8 @@ public class ReferenceExpressionTests
     {
         // Arrange
         var root = new TestEngineObject();
-        var target = new TestEngineObjectWithValue(42.0);
+        var target = new TestEngineObject();
+        target.Value.CurrentValue = 42.0;
         root.AddChild(target);
         var objectId = target.Id;
         var expression = new ReferenceExpression<double>(objectId, "Value");
@@ -199,15 +200,4 @@ public class ReferenceExpressionTests
         // Assert
         Assert.That(result, Is.Null);
     }
-}
-
-public partial class TestEngineObjectWithValue : EngineObject
-{
-    public TestEngineObjectWithValue(double initialValue)
-    {
-        ScanProperties<TestEngineObjectWithValue>();
-        Value.CurrentValue = initialValue;
-    }
-
-    public IProperty<double> Value { get; } = Property.Create(0.0);
 }

@@ -1,5 +1,4 @@
-﻿using System.IO.Compression;
-using System.Net;
+﻿using System.Net;
 using System.Text;
 using Avalonia.Headless.NUnit;
 using Beutl.Api;
@@ -8,7 +7,6 @@ using Beutl.PackageTools.UI.Models;
 using Beutl.PackageTools.UI.ViewModels;
 using Beutl.Testing.Headless;
 using NuGet.Packaging.Core;
-using NuGet.Versioning;
 
 namespace Beutl.HeadlessUITests;
 
@@ -16,23 +14,19 @@ namespace Beutl.HeadlessUITests;
 [NonParallelizable]
 public sealed class LocalPackageInstallTests
 {
-    private readonly List<string> _sourceFiles = [];
-    private readonly List<string> _installedDirectories = [];
-    private string? _previousNuGetConfig;
-    private string? _previousInstalledPackages;
-
-    private static string NuGetConfigPath => Path.Combine(Helper.AppRoot, "nuget.config");
-    private static string InstalledPackagesPath => Path.Combine(Helper.AppRoot, "installedPackages.json");
+    private readonly List<string> _cleanup = [];
+    private AppRootFileBackup _nugetConfig = null!;
+    private AppRootFileBackup _installedPackages = null!;
 
     [SetUp]
     public void SetUp()
     {
         Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-        _previousNuGetConfig = File.Exists(NuGetConfigPath) ? File.ReadAllText(NuGetConfigPath) : null;
-        _previousInstalledPackages = File.Exists(InstalledPackagesPath) ? File.ReadAllText(InstalledPackagesPath) : null;
+        _nugetConfig = new AppRootFileBackup("nuget.config");
+        _installedPackages = new AppRootFileBackup("installedPackages.json");
         Directory.CreateDirectory(Helper.LocalSourcePath);
         // Keep dependency resolution entirely within the isolated local source.
-        File.WriteAllText(NuGetConfigPath, $$"""
+        File.WriteAllText(_nugetConfig.Path, $$"""
             <?xml version="1.0" encoding="utf-8"?>
             <configuration>
               <packageSources>
@@ -46,22 +40,9 @@ public sealed class LocalPackageInstallTests
     [TearDown]
     public void TearDown()
     {
-        foreach (string file in _sourceFiles)
-            File.Delete(file);
-        foreach (string directory in _installedDirectories.Where(Directory.Exists))
-            Directory.Delete(directory, recursive: true);
-        _sourceFiles.Clear();
-        _installedDirectories.Clear();
-
-        if (_previousNuGetConfig is null)
-            File.Delete(NuGetConfigPath);
-        else
-            File.WriteAllText(NuGetConfigPath, _previousNuGetConfig);
-
-        if (_previousInstalledPackages is null)
-            File.Delete(InstalledPackagesPath);
-        else
-            File.WriteAllText(InstalledPackagesPath, _previousInstalledPackages);
+        TestPackages.Delete(_cleanup);
+        _nugetConfig.Dispose();
+        _installedPackages.Dispose();
     }
 
     [AvaloniaTest]
@@ -69,7 +50,7 @@ public sealed class LocalPackageInstallTests
     [TestCase("1.0.0-preview.1")]
     public async Task LocalPackage_NotPublishedToTheStore_IsInstalledFromTheLocalSource(string version)
     {
-        PackageIdentity identity = CreateLocalPackage(version);
+        PackageIdentity identity = TestPackages.CreateNupkg("Beutl.LocalInstallTest", version, _cleanup);
         using var handler = new MissingStorePackageHandler();
         using var http = new HttpClient(handler);
         await using var app = new BeutlApiApplication(http, new ExtensionProvider());
@@ -110,7 +91,7 @@ public sealed class LocalPackageInstallTests
     [TestCase(true)]
     public async Task RemotePackage_WithALocalConflict_HonorsSourcePreference(bool preferLocal)
     {
-        PackageIdentity identity = CreateLocalPackage("1.0.0");
+        PackageIdentity identity = TestPackages.CreateNupkg("Beutl.LocalInstallTest", "1.0.0", _cleanup);
         using var handler = new MissingStorePackageHandler();
         using var http = new HttpClient(handler);
         await using var app = new BeutlApiApplication(http, new ExtensionProvider());
@@ -129,35 +110,6 @@ public sealed class LocalPackageInstallTests
             if (!preferLocal)
                 Assert.That(download.ErrorMessage.Value, Is.EqualTo("パッケージが見つかりません"));
         });
-    }
-
-    private PackageIdentity CreateLocalPackage(string version)
-    {
-        var identity = new PackageIdentity($"Beutl.LocalInstallTest.{Guid.NewGuid():N}", NuGetVersion.Parse(version));
-        string sourcePath = Helper.GetNupkgFilePath(identity.Id, version);
-        _sourceFiles.Add(sourcePath);
-        _installedDirectories.Add(Helper.PackagePathResolver.GetInstallPath(identity));
-        using var archive = ZipFile.Open(sourcePath, ZipArchiveMode.Create);
-        using (StreamWriter writer = new(archive.CreateEntry($"{identity.Id}.nuspec").Open(), new UTF8Encoding(false)))
-        {
-            writer.Write($$"""
-                <?xml version="1.0" encoding="utf-8"?>
-                <package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
-                  <metadata>
-                    <id>{{identity.Id}}</id>
-                    <version>{{version}}</version>
-                    <title>Local install test</title>
-                    <authors>tester</authors>
-                    <description>A package placed directly in packageSource</description>
-                  </metadata>
-                </package>
-                """);
-        }
-        using (StreamWriter writer = new(archive.CreateEntry("content/payload.txt").Open(), new UTF8Encoding(false)))
-        {
-            writer.Write("local payload");
-        }
-        return identity;
     }
 
     private sealed class MissingStorePackageHandler : HttpMessageHandler

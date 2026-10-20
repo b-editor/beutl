@@ -127,18 +127,13 @@ public static class PropertyEditorService
         private static readonly Dictionary<Type, ListItemEditor> s_listItemEditorsOverride = new()
         {
             { typeof(FilterEffect), new(_ => new FilterEffectListItemEditor(), s => new FilterEffectEditorViewModel(s.ToTyped<FilterEffect?>())) },
-            { typeof(PathSegment), new(_ => new PathOperationListItemEditor(), s => new PathOperationEditorViewModel(s.ToTyped<PathSegment?>())) },
+            { typeof(PathSegment), new(_ => new PathOperationListItemEditor(), s => new PathSegmentEditorViewModel(s.ToTyped<PathSegment?>())) },
             { typeof(PathFigure), new(_ => new PathFigureListItemEditor(), s => new PathFigureEditorViewModel(s.ToTyped<PathFigure>())) },
             { typeof(AudioEffect), new(_ => new AudioEffectListItemEditor(), s => new AudioEffectEditorViewModel(s.ToTyped<AudioEffect?>())) },
             { typeof(Transform), new(_ => new TransformListItemEditor(), s => new TransformEditorViewModel(s.ToTyped<Transform?>())) },
             { typeof(IFileSource), new(s => CanCreateFileSource(s.PropertyType) ? new StorageFileEditor() : null, CreateFileSourceEditorViewModel) },
             { typeof(CoreObject), new(_ => new CoreObjectListItemEditor(), CreateCoreObjectEditorViewModel) }
         };
-
-        private static readonly Dictionary<int, Editor> s_editorsOverride =
-        [
-            // プロパティのIdから、プロパティエディタを作成
-        ];
 
         private static readonly FrozenDictionary<Type, Editor> s_editors = new KeyValuePair<Type, Editor>[]
         {
@@ -161,6 +156,7 @@ public static class PropertyEditorService
 
             new(typeof(AlignmentX), new(_ => new AlignmentXEditor(), s => new AlignmentXEditorViewModel(s.ToTyped<AlignmentX>()))),
             new(typeof(AlignmentY), new(_ => new AlignmentYEditor(), s => new AlignmentYEditorViewModel(s.ToTyped<AlignmentY>()))),
+            new(typeof(TextAlignment), new(_ => new TextAlignmentEditor(), s => new TextAlignmentEditorViewModel(s.ToTyped<TextAlignment>()))),
             new(typeof(Enum), new(_ => new EnumEditor(), CreateEnumViewModel)),
             new(typeof(FontFamily), new(_ => new FontFamilyEditor(), s => new FontFamilyEditorViewModel(s.ToTyped<FontFamily?>()))),
             new(typeof(FileInfo), new(_ => new StorageFileEditor(), s => new StorageFileEditorViewModel(s.ToTyped<FileInfo>()))),
@@ -221,14 +217,6 @@ public static class PropertyEditorService
                 {
                     yield return item;
                     yield break;
-                }
-                if (item.GetCoreProperty() is { Id: var id })
-                {
-                    if (s_editorsOverride.ContainsKey(id))
-                    {
-                        yield return item;
-                        yield break;
-                    }
                 }
 
                 if (HasEditorFor(item.PropertyType))
@@ -341,13 +329,6 @@ public static class PropertyEditorService
                     viewModel = CreateChoiceViewModel(property, choiceAtt.ProviderType);
                 }
 
-                if (viewModel == null
-                    && property.GetCoreProperty() is { Id: var propId }
-                    && s_editorsOverride.TryGetValue(propId, out Editor editorOverrided))
-                {
-                    viewModel = editorOverrided.CreateViewModel(property);
-                }
-
                 viewModel ??= CreateFromTypeMap(s_editors, property, static (editor, p) => editor.CreateViewModel(p));
             }
 
@@ -406,6 +387,14 @@ public static class PropertyEditorService
                         static (editor, p) => editor.CreateEditor(p));
                     if (control != null)
                     {
+                        // TryCreateControlCore prepares the editors it creates, so only these need it here.
+                        ApplyFileFilters(context, control as Control);
+
+                        if (control is IPropertyEditorContextVisitor visitor)
+                        {
+                            context.Accept(visitor);
+                        }
+
                         return true;
                     }
                 }
@@ -432,13 +421,6 @@ public static class PropertyEditorService
             }
             finally
             {
-                ApplyFileFilters(context, control as Control);
-
-                if (control is IPropertyEditorContextVisitor visitor)
-                {
-                    context.Accept(visitor);
-                }
-
                 if (control is PropertyEditor pe)
                 {
                     pe.EditorStyle = PropertyEditorStyle.ListItem;
@@ -488,17 +470,6 @@ public static class PropertyEditorService
                     {
                         control = new EnumEditor();
                         return true;
-                    }
-                    if (property.GetCoreProperty() is { Id: var propId })
-                    {
-                        if (s_editorsOverride.TryGetValue(propId, out Editor editorOverrided))
-                        {
-                            control = editorOverrided.CreateEditor(property);
-                            if (control != null)
-                            {
-                                return true;
-                            }
-                        }
                     }
 
                     control = CreateFromTypeMap(s_editors, property, static (editor, p) => editor.CreateEditor(p));

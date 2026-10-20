@@ -1,5 +1,4 @@
 ﻿using Beutl.Composition;
-using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -71,7 +70,10 @@ public sealed class DirectSkiaFilterReplayTests
         using RenderNodeRenderer renderer = CreateRenderer(node);
         using RenderNodeRasterization actual = renderer.Rasterize();
         Rect expectedBounds = GetBlurChainBounds();
-        using Bitmap expected = RenderNestedSkiaReference(expectedBounds);
+        using Bitmap expected = RenderNestedSkiaReference(
+            expectedBounds,
+            s_sourceBounds,
+            static canvas => canvas.DrawEllipse(s_sourceBounds, Brushes.Resource.White, null));
 
         Assert.Multiple(() =>
         {
@@ -95,7 +97,10 @@ public sealed class DirectSkiaFilterReplayTests
 
         using RenderNodeRasterization actual = renderer.Rasterize();
         Rect expectedBounds = GetBlurChainBounds();
-        using Bitmap expected = RenderNestedSkiaReference(expectedBounds);
+        using Bitmap expected = RenderNestedSkiaReference(
+            expectedBounds,
+            s_sourceBounds,
+            static canvas => canvas.DrawEllipse(s_sourceBounds, Brushes.Resource.White, null));
 
         Assert.Multiple(() =>
         {
@@ -127,9 +132,10 @@ public sealed class DirectSkiaFilterReplayTests
 
         using RenderNodeRasterization actual = renderer.Rasterize();
         Rect expectedBounds = GetBlurChainBounds(sourceBounds);
-        using Bitmap expected = RenderNestedSkiaImageReference(
-            source,
-            expectedBounds);
+        using Bitmap expected = RenderNestedSkiaReference(
+            expectedBounds,
+            layerBounds: null,
+            canvas => canvas.DrawImageSource(source, Brushes.Resource.White, null));
 
         Assert.Multiple(() =>
         {
@@ -192,7 +198,10 @@ public sealed class DirectSkiaFilterReplayTests
             requestedRegion: requestedRegion);
 
         using RenderNodeRasterization actual = renderer.Rasterize();
-        using Bitmap completeReference = RenderNestedSkiaReference(completeBounds);
+        using Bitmap completeReference = RenderNestedSkiaReference(
+            completeBounds,
+            s_sourceBounds,
+            static canvas => canvas.DrawEllipse(s_sourceBounds, Brushes.Resource.White, null));
         using Bitmap expected = ExtractGlobalRegion(
             completeReference,
             completeBounds,
@@ -327,7 +336,7 @@ public sealed class DirectSkiaFilterReplayTests
         int callbackCount = 0;
         var group = new FilterEffectGroup();
         group.Children.Add(CreateBlur(1));
-        group.Children.Add(new CallbackCustomEffect(() => callbackCount++));
+        group.Children.Add(CreateCallbackCustomEffect(() => callbackCount++));
         group.Children.Add(CreateBlur(2));
         using FilterEffectRenderNode node = CreateFilterNode(group);
         using RenderNodeRenderer renderer = CreateRenderer(node);
@@ -382,7 +391,7 @@ public sealed class DirectSkiaFilterReplayTests
             () => callbackCount++);
         using FilterEffectRenderNode referenceNode = CreateDynamicCustomBlurChain(
             outputCount: 1,
-            new PublicSkiaBlurEffect(2),
+            CreatePublicSkiaBlurEffect(2),
             () => referenceCallbackCount++);
         using RenderNodeRenderer actualRenderer = CreateRenderer(actualNode);
         using RenderNodeRenderer referenceRenderer = CreateRenderer(referenceNode);
@@ -397,15 +406,9 @@ public sealed class DirectSkiaFilterReplayTests
                 "The outer Blur must probe the dynamically declared CustomEffect at execution time.");
             Assert.That(callbackCount, Is.EqualTo(1));
             Assert.That(referenceCallbackCount, Is.EqualTo(1));
-            Assert.That(actual.Bounds, Is.EqualTo(expected.Bounds));
-            Assert.That(actual.Bitmap, Is.Not.Null);
-            Assert.That(expected.Bitmap, Is.Not.Null);
-            Assert.That(actual.Bitmap!.ColorType, Is.EqualTo(BitmapColorType.RgbaF16));
-            Assert.That(actual.Bitmap.Width, Is.EqualTo(expected.Bitmap!.Width));
-            Assert.That(actual.Bitmap.Height, Is.EqualTo(expected.Bitmap.Height));
-            Assert.That(
-                actual.Bitmap.GetPixelSpan().SequenceEqual(expected.Bitmap.GetPixelSpan()),
-                Is.True,
+            AssertMatchingRgbaF16Rasterization(
+                actual,
+                expected,
                 "A runtime-single CustomEffect result must match the materialized public-Skia semantics byte for byte.");
             Assert.That(actualRenderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
         });
@@ -422,7 +425,7 @@ public sealed class DirectSkiaFilterReplayTests
             () => callbackCount++);
         using FilterEffectRenderNode referenceNode = CreateDynamicCustomBlurChain(
             outputCount: 2,
-            new PublicSkiaBlurEffect(2),
+            CreatePublicSkiaBlurEffect(2),
             () => referenceCallbackCount++);
         using RenderNodeRenderer actualRenderer = CreateRenderer(actualNode);
         using RenderNodeRenderer referenceRenderer = CreateRenderer(referenceNode);
@@ -437,15 +440,9 @@ public sealed class DirectSkiaFilterReplayTests
                 "The outer Blur must probe the dynamically declared CustomEffect at execution time.");
             Assert.That(callbackCount, Is.EqualTo(1));
             Assert.That(referenceCallbackCount, Is.EqualTo(1));
-            Assert.That(actual.Bounds, Is.EqualTo(expected.Bounds));
-            Assert.That(actual.Bitmap, Is.Not.Null);
-            Assert.That(expected.Bitmap, Is.Not.Null);
-            Assert.That(actual.Bitmap!.ColorType, Is.EqualTo(BitmapColorType.RgbaF16));
-            Assert.That(actual.Bitmap.Width, Is.EqualTo(expected.Bitmap!.Width));
-            Assert.That(actual.Bitmap.Height, Is.EqualTo(expected.Bitmap.Height));
-            Assert.That(
-                actual.Bitmap.GetPixelSpan().SequenceEqual(expected.Bitmap.GetPixelSpan()),
-                Is.True,
+            AssertMatchingRgbaF16Rasterization(
+                actual,
+                expected,
                 "A runtime-multiple CustomEffect result must retain per-value materialized Blur semantics.");
             Assert.That(
                 actualRenderer.LastExecutionStatistics.IntermediateTargetAcquisitions,
@@ -462,7 +459,7 @@ public sealed class DirectSkiaFilterReplayTests
     [Test]
     public void PublicSkiaFactory_RemainsOnTheMaterializedCompatibilityPath()
     {
-        using FilterEffectRenderNode node = CreateFilterNode(new PublicSkiaBlurEffect());
+        using FilterEffectRenderNode node = CreateFilterNode(CreatePublicSkiaBlurEffect());
         using RenderNodeRenderer renderer = CreateRenderer(node);
 
         using RenderNodeRasterization result = renderer.Rasterize();
@@ -515,7 +512,7 @@ public sealed class DirectSkiaFilterReplayTests
         using RenderNodeRenderer actualRenderer = CreateRenderer(actualNode);
 
         using var referenceNode = new FilterEffectRenderNode(
-            new PublicSkiaBlurEffect().ToResource(CompositionContext.Default));
+            CreatePublicSkiaBlurEffect().ToResource(CompositionContext.Default));
         referenceNode.AddChild(new TwoValueExpansionNode());
         using RenderNodeRenderer referenceRenderer = CreateRenderer(referenceNode);
 
@@ -524,15 +521,9 @@ public sealed class DirectSkiaFilterReplayTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(actual.Bounds, Is.EqualTo(expected.Bounds));
-            Assert.That(actual.Bitmap, Is.Not.Null);
-            Assert.That(expected.Bitmap, Is.Not.Null);
-            Assert.That(actual.Bitmap!.ColorType, Is.EqualTo(BitmapColorType.RgbaF16));
-            Assert.That(actual.Bitmap.Width, Is.EqualTo(expected.Bitmap!.Width));
-            Assert.That(actual.Bitmap.Height, Is.EqualTo(expected.Bitmap.Height));
-            Assert.That(
-                actual.Bitmap.GetPixelSpan().SequenceEqual(expected.Bitmap.GetPixelSpan()),
-                Is.True,
+            AssertMatchingRgbaF16Rasterization(
+                actual,
+                expected,
                 "Blur over a multi-value leaf must preserve the materialized per-value filter semantics.");
             Assert.That(
                 actualRenderer.LastExecutionStatistics.IntermediateTargetAcquisitions,
@@ -685,7 +676,7 @@ public sealed class DirectSkiaFilterReplayTests
         Action callback)
     {
         var custom = new FilterEffectRenderNode(
-            new RuntimeCardinalityCustomEffect(outputCount, callback)
+            CreateRuntimeCardinalityCustomEffect(outputCount, callback)
                 .ToResource(CompositionContext.Default));
         custom.AddChild(CreateSource());
 
@@ -707,7 +698,7 @@ public sealed class DirectSkiaFilterReplayTests
             outer = WrapFilter(current, CreateBlur(DeepAlternatingBlurSigma));
             current = outer;
 
-            outer = WrapFilter(current, new CombiningCopyCustomEffect(
+            outer = WrapFilter(current, CreateCombiningCopyCustomEffect(
                 synchronizeSource,
                 copyCallback));
             current = outer;
@@ -763,7 +754,7 @@ public sealed class DirectSkiaFilterReplayTests
             RequestedRegion = requestedRegion,
             CacheOptions = cacheOptions ?? RenderCacheOptions.Disabled,
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
     private static void AssertMatchingRgbaF16Rasterization(
         RenderNodeRasterization actual,
@@ -827,7 +818,7 @@ public sealed class DirectSkiaFilterReplayTests
         float tailSigma)
     {
         using var prefix = new FilterEffectRenderNode(
-            new PublicSkiaBlurEffect(prefixSigma).ToResource(CompositionContext.Default));
+            CreatePublicSkiaBlurEffect(prefixSigma).ToResource(CompositionContext.Default));
         prefix.AddChild(CreateSource());
         using var tail = new FilterEffectRenderNode(
             CreateBlur(tailSigma).ToResource(CompositionContext.Default));
@@ -850,7 +841,12 @@ public sealed class DirectSkiaFilterReplayTests
             requestedPixels.Height));
     }
 
-    private static Bitmap RenderNestedSkiaReference(Rect outputBounds)
+    // layerBounds bounds the filter layer to the source, the input a filter effect receives; Skia sizes an
+    // unbounded layer differently between versions.
+    private static Bitmap RenderNestedSkiaReference(
+        Rect outputBounds,
+        Rect? layerBounds,
+        Action<ImmediateCanvas> draw)
     {
         PixelRect deviceBounds = PixelRect.FromRect(outputBounds, 1);
         using RenderTarget target = new CpuRenderTarget(deviceBounds.Size);
@@ -878,50 +874,9 @@ public sealed class DirectSkiaFilterReplayTests
         using (canvas.PushTransform(Matrix.CreateTranslation(-rasterBounds.X, -rasterBounds.Y)))
         using (canvas.PushBlendMode(BlendMode.SrcOver))
         using (canvas.PushTransform(Matrix.Identity))
-        // Bound the filter layer to the source, which is the input a filter effect is given. An unbounded layer
-        // leaves that input's size to Skia: m119 shrank it to the drawn content, m152 sizes it to the clip, and
-        // Skia blurs the larger input one 8-bit step differently at a few pixels.
-        using (canvas.PushPaint(paint, s_sourceBounds))
+        using (canvas.PushPaint(paint, layerBounds))
         {
-            canvas.DrawEllipse(s_sourceBounds, Brushes.Resource.White, null);
-        }
-
-        return target.Snapshot();
-    }
-
-    private static Bitmap RenderNestedSkiaImageReference(
-        ImageSource.Resource source,
-        Rect outputBounds)
-    {
-        PixelRect deviceBounds = PixelRect.FromRect(outputBounds, 1);
-        using RenderTarget target = new CpuRenderTarget(deviceBounds.Size);
-        using var canvas = new ImmediateCanvas(
-            target,
-            RenderIntent.Preview,
-            density: 1,
-            maxWorkingScale: 4,
-            logicalSize: deviceBounds.ToRect(1).Size);
-        canvas.Clear();
-
-        using SKImageFilter inner = SKImageFilter.CreateBlur(
-            s_blurSigmas[0],
-            s_blurSigmas[0]);
-        using SKImageFilter middle = SKImageFilter.CreateBlur(
-            s_blurSigmas[1],
-            s_blurSigmas[1],
-            inner);
-        using SKImageFilter outer = SKImageFilter.CreateBlur(
-            s_blurSigmas[2],
-            s_blurSigmas[2],
-            middle);
-        using var paint = new SKPaint { ImageFilter = outer };
-        Rect rasterBounds = deviceBounds.ToRect(1);
-        using (canvas.PushTransform(Matrix.CreateTranslation(-rasterBounds.X, -rasterBounds.Y)))
-        using (canvas.PushBlendMode(BlendMode.SrcOver))
-        using (canvas.PushTransform(Matrix.Identity))
-        using (canvas.PushPaint(paint))
-        {
-            canvas.DrawImageSource(source, Brushes.Resource.White, null);
+            draw(canvas);
         }
 
         return target.Snapshot();
@@ -1055,189 +1010,83 @@ public sealed class DirectSkiaFilterReplayTests
         }
     }
 
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize);
-    }
+    private static FilterEffect CreateCallbackCustomEffect(Action callback)
+        => new EffectItemSuffixCallbackFilterEffect((context, _) => context.CustomEffect(
+            0,
+            (_, _) => callback(),
+            static (_, bounds) => bounds));
 
-    private sealed class CpuRenderTarget(PixelSize size)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                    size.Width,
-                    size.Height,
-                    SKColorType.RgbaF16,
-                    SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear()))
-                ?? throw new InvalidOperationException("Could not create the CPU direct-replay test surface."),
-            size.Width,
-            size.Height);
-
-    [SuppressResourceClassGeneration]
-    private sealed partial class CallbackCustomEffect(Action callback) : FilterEffect
-    {
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-        {
-            context.CustomEffect(
-                0,
-                (_, _) => callback(),
-                static (_, bounds) => bounds);
-        }
-
-        public override Resource ToResource(CompositionContext context)
-        {
-            var resource = new Resource();
-            bool versionBumped = false;
-            resource.Reconcile(this, context, ref versionBumped);
-            return resource;
-        }
-
-        public new sealed class Resource : FilterEffect.Resource
-        {
-            public Resource()
+    private static FilterEffect CreateRuntimeCardinalityCustomEffect(int outputCount, Action callback)
+        => new EffectItemSuffixCallbackFilterEffect((context, _) => context.CustomEffect(
+            (OutputCount: outputCount, Callback: callback),
+            static (state, execution) =>
             {
-            }
-        }
-    }
-
-    [SuppressResourceClassGeneration]
-    private sealed partial class RuntimeCardinalityCustomEffect(
-        int outputCount,
-        Action callback) : FilterEffect
-    {
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-        {
-            context.CustomEffect(
-                (OutputCount: outputCount, Callback: callback),
-                static (state, execution) =>
+                state.Callback();
+                switch (state.OutputCount)
                 {
-                    state.Callback();
-                    switch (state.OutputCount)
-                    {
-                        case 0:
-                            while (execution.Targets.Count > 0)
-                            {
-                                int index = execution.Targets.Count - 1;
-                                execution.Targets[index].Dispose();
-                                execution.Targets.RemoveAt(index);
-                            }
-
-                            break;
-                        case 1:
-                            break;
-                        case 2:
-                            execution.Targets.Add(execution.Targets.Single().Clone());
-                            break;
-                        default:
-                            throw new ArgumentOutOfRangeException(
-                                nameof(state.OutputCount),
-                                state.OutputCount,
-                                "The test effect supports zero, one, or two outputs.");
-                    }
-                },
-                static (_, bounds) => bounds);
-        }
-
-        public override Resource ToResource(CompositionContext context)
-        {
-            var resource = new Resource();
-            bool versionBumped = false;
-            resource.Reconcile(this, context, ref versionBumped);
-            return resource;
-        }
-
-        public new sealed class Resource : FilterEffect.Resource
-        {
-            public Resource()
-            {
-            }
-        }
-    }
-
-    [SuppressResourceClassGeneration]
-    private sealed partial class CombiningCopyCustomEffect(
-        bool synchronizeSource,
-        Action callback) : FilterEffect
-    {
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-        {
-            context.CustomEffect(
-                0,
-                (_, execution) =>
-                {
-                    callback();
-                    Rect combinedBounds = execution.Targets.CalculateBounds();
-                    EffectTarget combined = execution.CreateTarget(combinedBounds);
-                    using (ImmediateCanvas canvas = execution.Open(combined))
-                    {
-                        canvas.Clear();
-                        foreach (EffectTarget source in execution.Targets)
+                    case 0:
+                        while (execution.Targets.Count > 0)
                         {
-                            if (synchronizeSource)
-                            {
-                                using Bitmap snapshot = source.RenderTarget!.Snapshot();
-                            }
+                            int index = execution.Targets.Count - 1;
+                            execution.Targets[index].Dispose();
+                            execution.Targets.RemoveAt(index);
+                        }
 
-                            using (canvas.PushTransform(Matrix.CreateTranslation(
-                                       source.Bounds.Position - combinedBounds.Position)))
-                            {
-                                source.Draw(canvas);
-                            }
+                        break;
+                    case 1:
+                        break;
+                    case 2:
+                        execution.Targets.Add(execution.Targets.Single().Clone());
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(
+                            nameof(state.OutputCount),
+                            state.OutputCount,
+                            "The test effect supports zero, one, or two outputs.");
+                }
+            },
+            static (_, bounds) => bounds));
+
+    private static FilterEffect CreateCombiningCopyCustomEffect(bool synchronizeSource, Action callback)
+        => new EffectItemSuffixCallbackFilterEffect((context, _) => context.CustomEffect(
+            0,
+            (_, execution) =>
+            {
+                callback();
+                Rect combinedBounds = execution.Targets.CalculateBounds();
+                EffectTarget combined = execution.CreateTarget(combinedBounds);
+                using (ImmediateCanvas canvas = execution.Open(combined))
+                {
+                    canvas.Clear();
+                    foreach (EffectTarget source in execution.Targets)
+                    {
+                        if (synchronizeSource)
+                        {
+                            using Bitmap snapshot = source.RenderTarget!.Snapshot();
+                        }
+
+                        using (canvas.PushTransform(Matrix.CreateTranslation(
+                                   source.Bounds.Position - combinedBounds.Position)))
+                        {
+                            source.Draw(canvas);
                         }
                     }
+                }
 
-                    for (int i = execution.Targets.Count - 1; i >= 0; i--)
-                    {
-                        execution.Targets[i].Dispose();
-                        execution.Targets.RemoveAt(i);
-                    }
+                for (int i = execution.Targets.Count - 1; i >= 0; i--)
+                {
+                    execution.Targets[i].Dispose();
+                    execution.Targets.RemoveAt(i);
+                }
 
-                    execution.Targets.Add(combined);
-                },
-                static (_, bounds) => bounds);
-        }
+                execution.Targets.Add(combined);
+            },
+            static (_, bounds) => bounds));
 
-        public override Resource ToResource(CompositionContext context)
-        {
-            var resource = new Resource();
-            bool versionBumped = false;
-            resource.Reconcile(this, context, ref versionBumped);
-            return resource;
-        }
-
-        public new sealed class Resource : FilterEffect.Resource
-        {
-            public Resource()
-            {
-            }
-        }
-    }
-
-    [SuppressResourceClassGeneration]
-    private sealed partial class PublicSkiaBlurEffect(float sigma = 2) : FilterEffect
-    {
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-        {
-            context.AppendSkiaFilter(
-                new Size(sigma, sigma),
-                static (sigma, input, _) => SKImageFilter.CreateBlur(sigma.Width, sigma.Height, input),
-                static (sigma, bounds) => bounds.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3)),
-                static (sigma, region) => region.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3)));
-        }
-
-        public override Resource ToResource(CompositionContext context)
-        {
-            var resource = new Resource();
-            bool versionBumped = false;
-            resource.Reconcile(this, context, ref versionBumped);
-            return resource;
-        }
-
-        public new sealed class Resource : FilterEffect.Resource
-        {
-            public Resource()
-            {
-            }
-        }
-    }
+    private static FilterEffect CreatePublicSkiaBlurEffect(float sigma = 2)
+        => new EffectItemSuffixCallbackFilterEffect((context, _) => context.AppendSkiaFilter(
+            new Size(sigma, sigma),
+            static (sigma, input, _) => SKImageFilter.CreateBlur(sigma.Width, sigma.Height, input),
+            static (sigma, bounds) => bounds.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3)),
+            static (sigma, region) => region.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3))));
 }

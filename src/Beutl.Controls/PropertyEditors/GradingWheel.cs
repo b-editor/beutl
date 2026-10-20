@@ -1,6 +1,4 @@
-﻿#nullable enable
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media;
@@ -54,17 +52,14 @@ public class GradingWheel : Thumb
         var bounds = new Rect(Bounds.Size);
         double cornerRadius = 4;
 
-        // Background
         IBrush? backgroundBrush = Background ?? Brushes.Transparent;
         using (context.PushClip(new RoundedRect(bounds, cornerRadius)))
         {
             context.DrawRectangle(backgroundBrush, null, bounds);
 
-            // Draw tick marks
             DrawTickMarks(context, bounds);
         }
 
-        // Border
         IBrush? borderBrush = BorderBrush;
         if (borderBrush != null)
         {
@@ -91,13 +86,11 @@ public class GradingWheel : Thumb
         {
             double normalizedPos = (i - TickCount / 2) * TickSpacing + TickOffset;
 
-            // Wrap around
             while (normalizedPos > 0.5) normalizedPos -= 1.0;
             while (normalizedPos < -0.5) normalizedPos += 1.0;
 
             double x = centerX + normalizedPos * bounds.Width;
 
-            // Skip if outside bounds
             if (x < 0 || x > bounds.Width)
                 continue;
 
@@ -106,7 +99,6 @@ public class GradingWheel : Thumb
             double opacity = 1.0 - (distanceFromCenter / halfWidth);
             opacity = Math.Clamp(opacity, 0.0, 1.0);
 
-            // Apply easing for smoother fade
             opacity = opacity * opacity;
 
             if (opacity > 0.01)

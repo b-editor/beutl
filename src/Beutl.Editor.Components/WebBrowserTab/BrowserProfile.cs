@@ -51,8 +51,6 @@ internal sealed class BrowserProfile
             BrowserBookmark[] bookmarks = SanitizeBookmarks(data);
             BrowserDownloadRecord[] downloads = SanitizeDownloads(data);
             BrowserSearchEngine engine = Enum.IsDefined(data.Engine) ? data.Engine : BrowserSearchEngine.Google;
-            if (engine != data.Engine || !bookmarks.SequenceEqual(data.Bookmarks ?? []) || !downloads.SequenceEqual(data.Downloads ?? []))
-                Save(data with { Engine = engine, Bookmarks = bookmarks, Downloads = downloads });
             Engine = engine;
             SuggestionsEnabled = data.SuggestionsEnabled;
             RecordDownloads = data.RecordDownloads;

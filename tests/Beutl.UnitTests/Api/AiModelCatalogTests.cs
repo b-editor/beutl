@@ -333,202 +333,10 @@ public class AiModelCatalogTests
     }
 
     [Test]
-    public void Catalog_CustomVideoSchemaPreservesPublishedVideoCapabilities()
+    public void Catalog_ImageAndGenericSchemasDoNotInferFromSharedFields()
     {
-        var extensions = new ExtensionProvider();
-        using var schemas = new AiOperationCapabilitySchemaRegistry(extensions);
-        var operation = new AiOperationId("vendor.video");
-        extensions.AddExtensions(1,
-        [
-            new TestCapabilitySchemaExtension(
-                new AiOperationCapabilitySchemaRegistration(
-                    operation,
-                    AiModelCapabilitySchema.Video)),
-        ]);
-        var response = new AiCapabilitiesResponse
-        {
-            Operations = new Dictionary<string, AiOperationCapabilityResponse>
-            {
-                [operation.Value] = new()
-                {
-                    Models = [new AiModelDescriptionResponse
-                    {
-                        Id = "vendor/video-model",
-                        IsDefault = true,
-                        DurationsSeconds = [4, 8],
-                        Resolutions = ["720p"],
-                        AspectRatios = ["16:9"],
-                        Audio = true,
-                        Seed = true,
-                        FirstFrame = true,
-                        LastFrame = false,
-                    }],
-                    MinDurationSeconds = 4,
-                    MaxDurationSeconds = 8,
-                    Resolutions = ["720p"],
-                    AspectRatios = ["16:9"],
-                },
-            }.ToImmutableDictionary(),
-        };
-
-        AiModelCatalog catalog = AiModelMapper.ToModel(response, schemas.GetSnapshot());
-        AiModelOption model = catalog.ModelsFor(operation).Single();
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(catalog.GetCapabilitySchema(operation),
-                Is.EqualTo(AiModelCapabilitySchema.Video));
-            Assert.That(model.Video, Is.Not.Null);
-            Assert.That(model.Video!.DurationsSeconds.Values, Is.EqualTo(new[] { 4, 8 }));
-            Assert.That(model.Video.Resolutions.Values, Is.EqualTo(new[] { "720p" }));
-            Assert.That(model.Image, Is.Null);
-        }
-    }
-
-    [Test]
-    public void CapabilitySchemas_ComposeReplacementBeforeBaseAndRestoreFallbacks()
-    {
-        var extensions = new ExtensionProvider();
-        using var schemas = new AiOperationCapabilitySchemaRegistry(extensions);
-        var operation = new AiOperationId("vendor.replaced-shape");
-        var replacement = new TestCapabilitySchemaExtension(
-            new AiOperationCapabilitySchemaRegistration(
-                operation,
-                AiModelCapabilitySchema.Video,
-                AiOperationCapabilitySchemaRegistrationMode.Replace));
-        var @base = new TestCapabilitySchemaExtension(
-            new AiOperationCapabilitySchemaRegistration(
-                operation,
-                AiModelCapabilitySchema.Image));
-
-        extensions.AddExtensions(10, [replacement]);
-        Assert.That(schemas.GetSnapshot().GetSchema(operation), Is.EqualTo(AiModelCapabilitySchema.Generic));
-
-        extensions.AddExtensions(11, [@base]);
-        Assert.That(schemas.GetSnapshot().GetSchema(operation), Is.EqualTo(AiModelCapabilitySchema.Video));
-
-        extensions.RemoveExtensions(10);
-        Assert.That(schemas.GetSnapshot().GetSchema(operation), Is.EqualTo(AiModelCapabilitySchema.Image));
-
-        extensions.RemoveExtensions(11);
-        Assert.That(schemas.GetSnapshot().GetSchema(operation), Is.EqualTo(AiModelCapabilitySchema.Generic));
-
-        var builtInReplacement = new TestCapabilitySchemaExtension(
-            new AiOperationCapabilitySchemaRegistration(
-                AiOperations.VideoGeneration,
-                AiModelCapabilitySchema.Image,
-                AiOperationCapabilitySchemaRegistrationMode.Replace));
-        extensions.AddExtensions(12, [builtInReplacement]);
-        Assert.That(
-            schemas.GetSnapshot().GetSchema(AiOperations.VideoGeneration),
-            Is.EqualTo(AiModelCapabilitySchema.Image));
-
-        extensions.RemoveExtensions(12);
-        Assert.That(
-            schemas.GetSnapshot().GetSchema(AiOperations.VideoGeneration),
-            Is.EqualTo(AiModelCapabilitySchema.Video));
-    }
-
-    [Test]
-    public void CapabilitySchemas_ReevaluateHealthyContributorAfterAtomicRejection()
-    {
-        var extensions = new ExtensionProvider();
-        var reportedFailures = new List<Exception>();
-        using var schemas = new AiOperationCapabilitySchemaRegistry(
-            extensions,
-            (_, exception) => reportedFailures.Add(exception));
-        var operation = new AiOperationId("vendor.healthy-shape");
-        var invalid = new TestCapabilitySchemaExtension(
-            new AiOperationCapabilitySchemaRegistration(
-                operation,
-                AiModelCapabilitySchema.Image),
-            new AiOperationCapabilitySchemaRegistration(
-                new AiOperationId("vendor.missing-shape"),
-                AiModelCapabilitySchema.Video,
-                AiOperationCapabilitySchemaRegistrationMode.Replace));
-        var healthy = new TestCapabilitySchemaExtension(
-            new AiOperationCapabilitySchemaRegistration(
-                operation,
-                AiModelCapabilitySchema.Video));
-
-        extensions.AddExtensions(13, [invalid]);
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(schemas.GetSnapshot().GetSchema(operation),
-                Is.EqualTo(AiModelCapabilitySchema.Generic));
-            Assert.That(reportedFailures, Has.Count.EqualTo(1));
-        }
-
-        reportedFailures.Clear();
-        extensions.AddExtensions(14, [healthy]);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(schemas.GetSnapshot().GetSchema(operation), Is.EqualTo(AiModelCapabilitySchema.Video));
-            Assert.That(reportedFailures, Has.Count.EqualTo(1));
-        }
-    }
-
-    [Test]
-    public async Task CapabilitySchemas_SerializeInitialSnapshotWithConcurrentRemoval()
-    {
-        var extensions = new ExtensionProvider();
-        var operation = new AiOperationId("vendor.blocking-schema");
-        var extension = new BlockingCapabilitySchemaExtension(
-            new AiOperationCapabilitySchemaRegistration(
-                operation,
-                AiModelCapabilitySchema.Video));
-        extensions.AddExtensions(15, [extension]);
-        Task<AiOperationCapabilitySchemaRegistry> construction = Task.Run(
-            () => new AiOperationCapabilitySchemaRegistry(extensions));
-        await extension.ReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Task removal = Task.Run(async () =>
-        {
-            ExtensionRemoval ticket = extensions.RemoveExtensions(15);
-            await ticket.DrainAsync();
-            foreach (Extension removed in ticket.Extensions)
-                removed.Unload();
-        });
-
-        try
-        {
-            await Task.Delay(50);
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(removal.IsCompleted, Is.False);
-                Assert.That(extension.UnloadCount, Is.Zero);
-            }
-        }
-        finally
-        {
-            extension.ReleaseRead.TrySetResult();
-        }
-
-        using AiOperationCapabilitySchemaRegistry schemas =
-            await construction.WaitAsync(TimeSpan.FromSeconds(5));
-        await removal.WaitAsync(TimeSpan.FromSeconds(5));
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(schemas.GetSnapshot().GetSchema(operation),
-                Is.EqualTo(AiModelCapabilitySchema.Generic));
-            Assert.That(extension.UnloadCount, Is.EqualTo(1));
-        }
-    }
-
-    [Test]
-    public void Catalog_CustomImageAndGenericSchemasDoNotInferFromSharedFields()
-    {
-        var extensions = new ExtensionProvider();
-        using var schemas = new AiOperationCapabilitySchemaRegistry(extensions);
-        var imageOperation = new AiOperationId("vendor.picture");
+        AiOperationId imageOperation = AiOperations.ImageGeneration;
         var genericOperation = new AiOperationId("vendor.shared-fields");
-        extensions.AddExtensions(1,
-        [
-            new TestCapabilitySchemaExtension(
-                new AiOperationCapabilitySchemaRegistration(
-                    imageOperation,
-                    AiModelCapabilitySchema.Image)),
-        ]);
         var response = new AiCapabilitiesResponse
         {
             Operations = new Dictionary<string, AiOperationCapabilityResponse>
@@ -558,7 +366,7 @@ public class AiModelCatalogTests
             }.ToImmutableDictionary(),
         };
 
-        AiModelCatalog catalog = AiModelMapper.ToModel(response, schemas.GetSnapshot());
+        AiModelCatalog catalog = ToModel(response);
 
         using (Assert.EnterMultipleScope())
         {
@@ -580,20 +388,8 @@ public class AiModelCatalogTests
     [Test]
     public void Catalog_KeepsReferenceBudgetsScopedToEachImageOperation()
     {
-        var extensions = new ExtensionProvider();
-        using var schemas = new AiOperationCapabilitySchemaRegistry(extensions);
-        var firstOperation = new AiOperationId("vendor.picture.small");
-        var secondOperation = new AiOperationId("vendor.picture.large");
-        extensions.AddExtensions(17,
-        [
-            new TestCapabilitySchemaExtension(
-                new AiOperationCapabilitySchemaRegistration(
-                    firstOperation,
-                    AiModelCapabilitySchema.Image),
-                new AiOperationCapabilitySchemaRegistration(
-                    secondOperation,
-                    AiModelCapabilitySchema.Image)),
-        ]);
+        AiOperationId firstOperation = AiOperations.ImageGeneration;
+        var secondOperation = new AiOperationId("image.edit.inpaint");
         var response = new AiCapabilitiesResponse
         {
             Operations = new Dictionary<string, AiOperationCapabilityResponse>
@@ -611,7 +407,7 @@ public class AiModelCatalogTests
             }.ToImmutableDictionary(),
         };
 
-        AiModelCatalog catalog = AiModelMapper.ToModel(response, schemas.GetSnapshot());
+        AiModelCatalog catalog = ToModel(response);
 
         using (Assert.EnterMultipleScope())
         {
@@ -625,19 +421,14 @@ public class AiModelCatalogTests
     }
 
     [Test]
-    public void CapabilitySchemas_RejectUnsupportedEnumValuesAtPublicBoundaries()
+    public void Catalog_RejectsUnsupportedCapabilitySchemaValues()
     {
         var operation = new AiOperationId("vendor.invalid-shape");
         var invalid = (AiModelCapabilitySchema)int.MaxValue;
 
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.Throws<ArgumentOutOfRangeException>(() =>
-                new AiOperationCapabilitySchemaRegistration(operation, invalid));
-            Assert.Throws<ArgumentException>(() => new AiModelCatalog(
-                [],
-                capabilitySchemas: [KeyValuePair.Create(operation, invalid)]));
-        }
+        Assert.Throws<ArgumentException>(() => new AiModelCatalog(
+            [],
+            capabilitySchemas: [KeyValuePair.Create(operation, invalid)]));
     }
 
     [Test]
@@ -1288,31 +1079,6 @@ public class AiModelCatalogTests
             IsDefault = isDefault,
         };
 
-    private sealed class BlockingCapabilitySchemaExtension(
-        params AiOperationCapabilitySchemaRegistration[] registrations)
-        : AiOperationCapabilitySchemaExtension
-    {
-        public TaskCompletionSource ReadStarted { get; } =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public TaskCompletionSource ReleaseRead { get; } =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public int UnloadCount { get; private set; }
-
-        public override IReadOnlyCollection<AiOperationCapabilitySchemaRegistration> Registrations
-        {
-            get
-            {
-                ReadStarted.TrySetResult();
-                ReleaseRead.Task.GetAwaiter().GetResult();
-                return registrations;
-            }
-        }
-
-        public override void Unload() => UnloadCount++;
-    }
-
     private static AiModelDescriptionResponse VideoModel(
         string id,
         ImmutableArray<int> durations,
@@ -1384,7 +1150,7 @@ public class AiModelCatalogTests
         };
 
     private static AiModelCatalog ToModel(AiCapabilitiesResponse response)
-        => AiModelMapper.ToModel(response, AiOperationCapabilitySchemaSnapshot.Empty);
+        => AiModelMapper.ToModel(response);
 
     private static AiCapabilitiesResponse Capabilities(
         params (string Operation, ImmutableArray<AiModelDescriptionResponse> Models)[] operations)

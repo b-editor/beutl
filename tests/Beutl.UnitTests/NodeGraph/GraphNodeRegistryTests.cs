@@ -58,4 +58,33 @@ public class GraphNodeRegistryTests
                 Is.EqualTo(NodeGraphStrings.TranslationMatrix));
         });
     }
+
+    [Test]
+    public void GetRegistered_returns_a_copy_that_later_registrations_leave_unchanged()
+    {
+        IList<GraphNodeRegistry.BaseRegistryItem> before = GraphNodeRegistry.GetRegistered();
+        int count = before.Count;
+        GraphNodeRegistry.GroupableRegistryItem group = before.OfType<GraphNodeRegistry.GroupableRegistryItem>().First();
+        int groupCount = group.Items.Count;
+        try
+        {
+            GraphNodeRegistry.RegisterNode<RegistrySnapshotNode>("Snapshot node");
+            GraphNodeRegistry.RegisterNodes(group.DisplayName).Add<RegistrySnapshotNode>("Snapshot node").Register();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(before, Has.Count.EqualTo(count));
+                Assert.That(group.Items, Has.Count.EqualTo(groupCount));
+                Assert.That(GraphNodeRegistry.GetRegistered(), Has.Count.EqualTo(count + 1));
+            }
+        }
+        finally
+        {
+            TypeUnloadNotifier.NotifyUnloading([typeof(RegistrySnapshotNode)]);
+        }
+
+        Assert.That(GraphNodeRegistry.FindItem(typeof(RegistrySnapshotNode)), Is.Null);
+    }
 }
+
+internal sealed partial class RegistrySnapshotNode : GraphNode;

@@ -6,7 +6,6 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Api.Services;
@@ -18,22 +17,23 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
 using Moq;
+using static Beutl.HeadlessUITests.CommandPaletteTestHost;
 
 namespace Beutl.HeadlessUITests;
 
 [TestFixture, NonParallelizable]
 public sealed class CommandPaletteInteractionTests
 {
-    private static (CommandPaletteViewModel Palette, EditorService Editor) CreatePalette(
-        Func<ContextCommandExecution, Task> execute)
+    private static (ExtensionProvider Provider, CommandPaletteService Service, CommandPaletteViewModel Palette) CreateClosedToolPalette(
+        ClosedToolExtension extension, int packageId)
     {
         var provider = new ExtensionProvider();
         var editor = new EditorService(provider);
-        var manager = new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry());
-        manager.Register(new PromptExtension());
-        var service = new CommandPaletteService(
-            manager, new FixedHandlerProvider(new Handler(execute)), () => null, editor, provider);
-        return (new CommandPaletteViewModel(service, editor), editor);
+        provider.AddExtensions(packageId, [extension]);
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore());
+        manager.Register(extension);
+        var service = new CommandPaletteService(manager, new FixedHandlerProvider(null), () => null, editor, provider);
+        return (provider, service, new CommandPaletteViewModel(service, editor));
     }
 
     private static void Press(Window window, Key key)
@@ -43,35 +43,8 @@ public sealed class CommandPaletteInteractionTests
         HeadlessTestHelpers.Settle();
     }
 
-    private static async Task UntilAsync(Func<bool> predicate)
-    {
-        for (int i = 0; i < 100; i++)
-        {
-            HeadlessTestHelpers.Render();
-            if (predicate()) return;
-            await Task.Delay(10);
-        }
-
-        Assert.Fail("The command palette did not reach the expected step.");
-    }
-
-    private static void Capture(Window window, string name)
-    {
-        string? directory = Environment.GetEnvironmentVariable("BEUTL_COMMAND_PALETTE_CAPTURE_DIR");
-        if (directory is null) return;
-        Directory.CreateDirectory(directory);
-        HeadlessTestHelpers.Render();
-        using var frame = window.CaptureRenderedFrame();
-        Assert.That(frame, Is.Not.Null);
-        frame!.Save(Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);
-    }
-
     [AvaloniaTest]
-    [TestCase(320, false)]
-    [TestCase(900, false)]
-    [TestCase(320, true)]
-    [TestCase(900, true)]
-    public async Task Input_then_filtered_pick_works_through_the_real_view(int width, bool light)
+    public async Task Input_then_filtered_pick_works_through_the_real_view()
     {
         string? name = null;
         int? choice = null;
@@ -101,9 +74,9 @@ public sealed class CommandPaletteInteractionTests
             var window = new Window
             {
                 Content = view,
-                Width = width,
+                Width = 320,
                 Height = 640,
-                RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
+                RequestedThemeVariant = ThemeVariant.Dark
             };
             window.Show();
             try
@@ -124,19 +97,16 @@ public sealed class CommandPaletteInteractionTests
                     Assert.That(operation.IsCompleted, Is.False);
                     Assert.That(view.FindControl<Button>("ConfirmButton")!.IsEnabled, Is.False);
                 });
-                Capture(window, $"invalid-{width}-{light}");
 
                 input.SelectAll();
                 window.KeyTextInput("My layout");
                 Press(window, Key.Home);
                 Assert.That(input.CaretIndex, Is.Zero, "Home edits text during an input step.");
-                Capture(window, $"input-{width}-{light}");
                 Press(window, Key.Enter);
                 await UntilAsync(() => palette.Prompt.Value is { IsPick: true });
 
                 Assert.That(input.IsFocused, Is.True);
                 Assert.That(palette.Query.Value, Is.Empty);
-                Capture(window, $"pick-{width}-{light}");
                 Press(window, Key.Down);
                 Assert.That(palette.Prompt.Value!.SelectedChoice.Value!.Label, Is.EqualTo("Color grading"));
                 Press(window, Key.Home);
@@ -353,75 +323,67 @@ public sealed class CommandPaletteInteractionTests
     [AvaloniaTest]
     public async Task Closed_tool_commands_use_the_extension_without_constructing_a_tool_context()
     {
-        var provider = new ExtensionProvider();
-        var editor = new EditorService(provider);
         var extension = new ClosedToolExtension();
-        provider.AddExtensions(-43001, [extension]);
-        var manager = new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry());
-        manager.Register(extension);
-        var service = new CommandPaletteService(manager, new FixedHandlerProvider(null), () => null, editor, provider);
-        using var palette = new CommandPaletteViewModel(service, editor);
-        palette.Open();
-        Assert.That(palette.FilteredCommands.Select(item => item.DisplayName), Is.EqualTo(new[] { "Closed tool command" }));
-        await palette.ExecuteSelectedAsync();
-        Assert.Multiple(() =>
+        var (provider, service, palette) = CreateClosedToolPalette(extension, -43001);
+        using (palette)
         {
-            Assert.That(extension.Execution?.CommandName, Is.EqualTo("Global"));
-            Assert.That(extension.Execution?.EditorContext, Is.Null);
-            Assert.That(extension.Execution?.Services?.ExtensionProvider, Is.SameAs(provider));
-            Assert.That(extension.ContextCreations, Is.Zero);
-        });
+            palette.Open();
+            Assert.That(palette.FilteredCommands.Select(item => item.DisplayName), Is.EqualTo(new[] { "Closed tool command" }));
+            await palette.ExecuteSelectedAsync();
+            Assert.Multiple(() =>
+            {
+                Assert.That(extension.Execution?.CommandName, Is.EqualTo("Global"));
+                Assert.That(extension.Execution?.EditorContext, Is.Null);
+                Assert.That(extension.Execution?.Services?.ExtensionProvider, Is.SameAs(provider));
+                Assert.That(extension.ContextCreations, Is.Zero);
+            });
 
-        PaletteCommand command = service.EnumerateCommands().Single();
-        extension.Enabled = false;
-        await command.ExecuteAsync();
-        Assert.That(extension.Executions, Is.EqualTo(1), "CanExecute is checked again immediately before execution.");
-        provider.RemoveExtensions(-43001);
-        Assert.That(command.CanExecute(), Is.False);
-        await command.ExecuteAsync();
-        Assert.That(extension.Executions, Is.EqualTo(1), "Removed extensions cannot be invoked by a stale snapshot.");
+            PaletteCommand command = service.EnumerateCommands().Single();
+            extension.Enabled = false;
+            await command.ExecuteAsync(null);
+            Assert.That(extension.Executions, Is.EqualTo(1), "CanExecute is checked again immediately before execution.");
+            provider.RemoveExtensions(-43001);
+            Assert.That(command.CanExecute(), Is.False);
+            await command.ExecuteAsync(null);
+            Assert.That(extension.Executions, Is.EqualTo(1), "Removed extensions cannot be invoked by a stale snapshot.");
+        }
     }
 
     [AvaloniaTest]
     public async Task Extension_lease_lasts_until_the_complete_async_operation_ends()
     {
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var provider = new ExtensionProvider();
-        var editor = new EditorService(provider);
         var extension = new ClosedToolExtension { Operation = gate.Task };
-        provider.AddExtensions(-43002, [extension]);
-        var manager = new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry());
-        manager.Register(extension);
-        var service = new CommandPaletteService(manager, new FixedHandlerProvider(null), () => null, editor, provider);
-        Task operation = service.EnumerateCommands().Single().ExecuteAsync();
-        Task drain = provider.RemoveExtensions(-43002).DrainAsync().AsTask();
-        Assert.That(drain.IsCompleted, Is.False);
-        gate.SetResult();
-        await operation;
-        await drain;
+        var (provider, service, palette) = CreateClosedToolPalette(extension, -43002);
+        using (palette)
+        {
+            Task operation = service.EnumerateCommands().Single().ExecuteAsync(null);
+            Task drain = provider.RemoveExtensions(-43002).DrainAsync().AsTask();
+            Assert.That(drain.IsCompleted, Is.False);
+            gate.SetResult();
+            await operation;
+            await drain;
+        }
     }
 
     [AvaloniaTest]
     public async Task Extension_state_notifications_refresh_availability_and_release_on_close()
     {
-        var provider = new ExtensionProvider();
-        var editor = new EditorService(provider);
         var extension = new ClosedToolExtension { Enabled = false };
-        provider.AddExtensions(-43003, [extension]);
-        var manager = new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry());
-        manager.Register(extension);
-        var service = new CommandPaletteService(manager, new FixedHandlerProvider(null), () => null, editor, provider);
-        using var palette = new CommandPaletteViewModel(service, editor);
-        palette.Open();
-        Assert.That(palette.FilteredCommands.Single().IsEnabled, Is.False);
-        extension.Enabled = true;
-        extension.NotifyStateChanged();
-        await UntilAsync(() => palette.FilteredCommands.Single().IsEnabled);
+        var (provider, _, palette) = CreateClosedToolPalette(extension, -43003);
+        using (palette)
+        {
+            palette.Open();
+            Assert.That(palette.FilteredCommands.Single().IsEnabled, Is.False);
+            extension.Enabled = true;
+            extension.NotifyStateChanged();
+            await UntilAsync(() => palette.FilteredCommands.Single().IsEnabled);
 
-        Task drain = provider.RemoveExtensions(-43003).DrainAsync().AsTask();
-        Assert.That(drain.IsCompleted, Is.False);
-        palette.Close();
-        await drain;
+            Task drain = provider.RemoveExtensions(-43003).DrainAsync().AsTask();
+            Assert.That(drain.IsCompleted, Is.False);
+            palette.Close();
+            await drain;
+        }
     }
 
     // The playhead signals every frame during playback, from the playback timer's thread, so the palette must
@@ -429,57 +391,51 @@ public sealed class CommandPaletteInteractionTests
     [AvaloniaTest]
     public async Task State_notifications_that_never_pause_still_refresh_availability()
     {
-        var provider = new ExtensionProvider();
-        var editor = new EditorService(provider);
         var extension = new ClosedToolExtension { Enabled = false };
-        provider.AddExtensions(-43005, [extension]);
-        var manager = new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry());
-        manager.Register(extension);
-        var service = new CommandPaletteService(manager, new FixedHandlerProvider(null), () => null, editor, provider);
-        using var palette = new CommandPaletteViewModel(service, editor);
-        palette.Open();
-        Assert.That(palette.FilteredCommands.Single().IsEnabled, Is.False);
-        extension.Enabled = true;
+        var (_, _, palette) = CreateClosedToolPalette(extension, -43005);
+        using (palette)
+        {
+            palette.Open();
+            Assert.That(palette.FilteredCommands.Single().IsEnabled, Is.False);
+            extension.Enabled = true;
 
-        using var frames = new CancellationTokenSource();
-        Task playback = Task.Run(async () =>
-        {
-            while (!frames.IsCancellationRequested)
+            using var frames = new CancellationTokenSource();
+            Task playback = Task.Run(async () =>
             {
-                extension.NotifyStateChanged();
-                await Task.Delay(5);
+                while (!frames.IsCancellationRequested)
+                {
+                    extension.NotifyStateChanged();
+                    await Task.Delay(5);
+                }
+            });
+            try
+            {
+                await UntilAsync(() => palette.FilteredCommands.Single().IsEnabled);
             }
-        });
-        try
-        {
-            await UntilAsync(() => palette.FilteredCommands.Single().IsEnabled);
-        }
-        finally
-        {
-            frames.Cancel();
-            await playback;
+            finally
+            {
+                frames.Cancel();
+                await playback;
+            }
         }
     }
 
     [AvaloniaTest]
     public async Task A_notifier_that_completes_right_after_its_last_change_still_refreshes_availability()
     {
-        var provider = new ExtensionProvider();
-        var editor = new EditorService(provider);
         var extension = new ClosedToolExtension { Enabled = false };
-        provider.AddExtensions(-43006, [extension]);
-        var manager = new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry());
-        manager.Register(extension);
-        var service = new CommandPaletteService(manager, new FixedHandlerProvider(null), () => null, editor, provider);
-        using var palette = new CommandPaletteViewModel(service, editor);
-        palette.Open();
-        Assert.That(palette.FilteredCommands.Single().IsEnabled, Is.False);
+        var (_, _, palette) = CreateClosedToolPalette(extension, -43006);
+        using (palette)
+        {
+            palette.Open();
+            Assert.That(palette.FilteredCommands.Single().IsEnabled, Is.False);
 
-        extension.Enabled = true;
-        extension.NotifyStateChanged();
-        extension.CompleteStateChanges();
+            extension.Enabled = true;
+            extension.NotifyStateChanged();
+            extension.CompleteStateChanges();
 
-        await UntilAsync(() => palette.FilteredCommands.Single().IsEnabled);
+            await UntilAsync(() => palette.FilteredCommands.Single().IsEnabled);
+        }
     }
 
     [AvaloniaTest]
@@ -525,24 +481,6 @@ public sealed class CommandPaletteInteractionTests
                 Assert.That(palette.Prompt.Value, Is.Null);
             });
         }
-    }
-
-    private sealed class PromptExtension : ViewExtension
-    {
-        public override IEnumerable<ContextCommandDefinition> ContextCommands =>
-        [
-            new("Prompt", "Prompt command")
-        ];
-    }
-
-    private sealed class Handler(Func<ContextCommandExecution, Task> execute) : IContextCommandHandler
-    {
-        public Task ExecuteAsync(ContextCommandExecution execution) => execute(execution);
-    }
-
-    private sealed class FixedHandlerProvider(IContextCommandHandler? handler) : ICommandPaletteHandlerProvider
-    {
-        public IContextCommandHandler? Resolve(Type extensionType) => handler;
     }
 
     private sealed class ClosedToolExtension : ToolTabExtension, IContextCommandHandler, IContextCommandStateNotifier

@@ -22,7 +22,6 @@
         <Style Selector="^ > TextBlock">
             <Setter Property="IsVisible" Value="{Binding $parent[TabStripItem].IsSelected}" />
             <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="FontWeight" Value="Normal" />
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         </Style>
         <Style Selector="^ > icons|FluentIcon">

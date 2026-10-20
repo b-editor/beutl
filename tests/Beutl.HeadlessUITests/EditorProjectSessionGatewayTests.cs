@@ -12,33 +12,12 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class EditorProjectSessionGatewayTests
 {
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
     private static EditorProjectSessionGateway CreateGateway()
         => new(TestShell.Project, TestShell.Editor);
 
-    private static async Task<ReconcileException?> ExpectRejectionAsync(Func<ValueTask<ProjectSessionResult>> action)
-    {
-        try
-        {
-            await action();
-            Assert.Fail("Expected a ReconcileException rejection.");
-            return null;
-        }
-        catch (ReconcileException ex)
-        {
-            return ex;
-        }
-    }
-
     private static string CreateProjectFilesOnDisk(string name, TimeSpan duration)
     {
-        string path = Path.Combine(NewWorkspace(name), $"{name}.bep");
+        string path = Path.Combine(TestShell.NewWorkspace(name), $"{name}.bep");
         Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
             path, 640, 360, 30, duration));
         ProjectOperations.Save(project);
@@ -77,7 +56,7 @@ public class EditorProjectSessionGatewayTests
         HeadlessTestHelpers.Settle();
 
         // Await the rejection without blocking the headless dispatcher.
-        ReconcileException? rejection = await ExpectRejectionAsync(() => gateway.OpenProjectAsync(second));
+        ReconcileException? rejection = await Assert.CatchAsync<ReconcileException>(async () => await gateway.OpenProjectAsync(second));
 
         Assert.Multiple(() =>
         {
@@ -111,7 +90,7 @@ public class EditorProjectSessionGatewayTests
     public async Task OpenProject_rejects_a_distinct_case_variant_project()
     {
         await TestReset.ResetShellAsync();
-        string root = NewWorkspace("gateway-case-" + Guid.NewGuid().ToString("N"));
+        string root = TestShell.NewWorkspace("gateway-case-" + Guid.NewGuid().ToString("N"));
         string first = Path.Combine(root, "Project.bep");
         string second = Path.Combine(root, "project.bep");
         ProjectOperations.Save(ProjectOperations.CreateProject(new ProjectCreateOptions(
@@ -123,7 +102,7 @@ public class EditorProjectSessionGatewayTests
         EditorProjectSessionGateway gateway = CreateGateway();
         ProjectSessionResult opened = await gateway.OpenProjectAsync(first);
 
-        ReconcileException? rejection = await ExpectRejectionAsync(() => gateway.OpenProjectAsync(second));
+        ReconcileException? rejection = await Assert.CatchAsync<ReconcileException>(async () => await gateway.OpenProjectAsync(second));
 
         Assert.Multiple(() =>
         {
@@ -137,7 +116,7 @@ public class EditorProjectSessionGatewayTests
     {
         await TestReset.ResetShellAsync();
         string first = CreateProjectFilesOnDisk("gateway-alias-target", TimeSpan.FromSeconds(1));
-        string alias = Path.Combine(NewWorkspace("gateway-alias"), "link");
+        string alias = Path.Combine(TestShell.NewWorkspace("gateway-alias"), "link");
         try
         {
             Directory.CreateSymbolicLink(alias, Path.GetDirectoryName(first)!);
@@ -159,7 +138,7 @@ public class EditorProjectSessionGatewayTests
     public async Task CreateProject_creates_at_the_requested_path_and_opens_in_editor()
     {
         await TestReset.ResetShellAsync();
-        string path = Path.Combine(NewWorkspace("gateway-create"), "fresh.bep");
+        string path = Path.Combine(TestShell.NewWorkspace("gateway-create"), "fresh.bep");
         EditorProjectSessionGateway gateway = CreateGateway();
 
         ProjectSessionResult result = await gateway.CreateProjectAsync(new ProjectCreateOptions(
@@ -185,9 +164,9 @@ public class EditorProjectSessionGatewayTests
         EditorProjectSessionGateway gateway = CreateGateway();
         await gateway.OpenProjectAsync(first);
         HeadlessTestHelpers.Settle();
-        string second = Path.Combine(NewWorkspace("gateway-create-second"), "other.bep");
+        string second = Path.Combine(TestShell.NewWorkspace("gateway-create-second"), "other.bep");
 
-        ReconcileException? rejection = await ExpectRejectionAsync(async () =>
+        ReconcileException? rejection = await Assert.CatchAsync<ReconcileException>(async () =>
             await gateway.CreateProjectAsync(new ProjectCreateOptions(
                 second, 640, 360, 30, TimeSpan.FromSeconds(4))));
 
@@ -208,7 +187,7 @@ public class EditorProjectSessionGatewayTests
         HeadlessTestHelpers.Settle();
         Project openedProject = BeutlApplication.Current.Project!;
 
-        ReconcileException? rejection = await ExpectRejectionAsync(async () =>
+        ReconcileException? rejection = await Assert.CatchAsync<ReconcileException>(async () =>
             await gateway.CreateProjectAsync(new ProjectCreateOptions(
                 openPath, 640, 360, 30, TimeSpan.FromSeconds(4))));
 
@@ -256,21 +235,13 @@ public class EditorProjectSessionGatewayTests
         // Swap the open project out from under the captured session: its Root scene is no longer in
         // the live project, so add_scene must refuse rather than mutate a document the client is not
         // editing.
-        TestShell.Project.CloseProject();
+        TestShell.Project.CloseProjectOrThrow();
         await TestShell.Project.OpenProject(secondProject);
         HeadlessTestHelpers.Settle();
 
-        SessionUnavailableException? rejection = null;
-        try
-        {
+        SessionUnavailableException? rejection = await Assert.CatchAsync<SessionUnavailableException>(async () =>
             await gateway.AddSceneAsync(opened.Session, new SceneCreateOptions(
-                320, 180, TimeSpan.Zero, TimeSpan.FromSeconds(2), "orphan-scene"));
-            Assert.Fail("Expected a SessionUnavailableException.");
-        }
-        catch (SessionUnavailableException ex)
-        {
-            rejection = ex;
-        }
+                320, 180, TimeSpan.Zero, TimeSpan.FromSeconds(2), "orphan-scene")));
 
         Assert.Multiple(() =>
         {
@@ -298,17 +269,9 @@ public class EditorProjectSessionGatewayTests
         File.Delete(projectPath);
         Directory.CreateDirectory(projectPath);
 
-        Exception? failure = null;
-        try
-        {
+        Exception? failure = await Assert.CatchAsync<Exception>(async () =>
             await gateway.AddSceneAsync(opened.Session, new SceneCreateOptions(
-                320, 180, TimeSpan.Zero, TimeSpan.FromSeconds(2), "second-scene"));
-            Assert.Fail("Expected the save to fail.");
-        }
-        catch (Exception ex) when (ex is not AssertionException)
-        {
-            failure = ex;
-        }
+                320, 180, TimeSpan.Zero, TimeSpan.FromSeconds(2), "second-scene")));
 
         Assert.Multiple(() =>
         {

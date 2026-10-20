@@ -241,45 +241,7 @@ public readonly struct RelativeRect
 
     public static RelativeRect Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider)
     {
-        provider ??= CultureInfo.InvariantCulture;
-        using (var tokenizer = new RefUtf8StringTokenizer(utf8Text, provider, "Invalid RelativeRect."))
-        {
-            ReadOnlySpan<byte> x = tokenizer.ReadString();
-            ReadOnlySpan<byte> y = tokenizer.ReadString();
-            ReadOnlySpan<byte> width = tokenizer.ReadString();
-            ReadOnlySpan<byte> height = tokenizer.ReadString();
-
-            RelativeUnit unit = RelativeUnit.Absolute;
-            float scale = 1.0f;
-
-            ReadOnlySpan<byte> percentChar = "%"u8;
-            bool xRelative = x.EndsWith(percentChar);
-            bool yRelative = y.EndsWith(percentChar);
-            bool widthRelative = width.EndsWith(percentChar);
-            bool heightRelative = height.EndsWith(percentChar);
-
-            if (xRelative && yRelative && widthRelative && heightRelative)
-            {
-                x = x.TrimEnd(percentChar);
-                y = y.TrimEnd(percentChar);
-                width = width.TrimEnd(percentChar);
-                height = height.TrimEnd(percentChar);
-
-                unit = RelativeUnit.Relative;
-                scale = 0.01f;
-            }
-            else if (xRelative || yRelative || widthRelative || heightRelative)
-            {
-                throw new FormatException("If one coordinate is relative, all must be.");
-            }
-
-            return new RelativeRect(
-                float.Parse(x, provider: provider) * scale,
-                float.Parse(y, provider: provider) * scale,
-                float.Parse(width, provider: provider) * scale,
-                float.Parse(height, provider: provider) * scale,
-                unit);
-        }
+        return Utf8TextParser.Parse<RelativeRect>(utf8Text, provider);
     }
 
     public static bool TryParse(ReadOnlySpan<byte> utf8Text, out RelativeRect result)

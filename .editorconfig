@@ -13,10 +13,6 @@ indent_style = space
 indent_size = 4
 trim_trailing_whitespace = true
 
-# Generated code
-[*{_AssemblyInfo.cs,.notsupported.cs,AsmOffsets.cs}]
-generated_code = true
-
 # C# files
 [*.cs]
 charset = utf-8-bom
@@ -153,9 +149,6 @@ csharp_space_between_method_declaration_name_and_open_parenthesis = false
 csharp_space_between_method_declaration_parameter_list_parentheses = false
 csharp_space_between_parentheses = false
 csharp_space_between_square_brackets = false
-
-# License header
-# file_header_template = {fileName}\r\n\r\nCopyright (C) b-editor\r\n\r\nThis software may be modified and distributed under the terms\r\nof the MIT license. See the LICENSE file for details.
 
 # C++ Files
 [*.{cpp,h,in}]

@@ -5,7 +5,6 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using Beutl.Testing.Headless;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media;
@@ -20,21 +19,10 @@ public class ColorSpectrumTests
     public void Triangle_creates_its_bitmap_on_first_render()
     {
         var spectrum = new ColorSpectrum { Shape = FluentAvalonia.UI.Controls.ColorSpectrumShape.Triangle };
-        var window = new Window { Width = 260, Height = 260, Content = spectrum };
-        try
-        {
-            window.Show();
-            HeadlessTestHelpers.Render();
+        using var host = new ControlHost(spectrum, 260, 260);
+        HeadlessTestHelpers.Render();
 
-            object? bitmap = typeof(ColorSpectrum)
-                .GetField("_tempBitmap", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .GetValue(spectrum);
-            Assert.That(bitmap, Is.Not.Null);
-        }
-        finally
-        {
-            window.Close();
-        }
+        Assert.That(TempBitmap(spectrum), Is.Not.Null);
     }
 
     [AvaloniaTest]
@@ -49,55 +37,35 @@ public class ColorSpectrumTests
             Width = 4.5,
             Height = 4.5,
         };
-        var window = new Window { Width = 100, Height = 100, UseLayoutRounding = false, Content = spectrum };
-        try
-        {
-            window.Show();
-            HeadlessTestHelpers.Render();
-            Assert.That(spectrum.Bounds.Width, Is.GreaterThan(4));
-            Assert.That(spectrum.Bounds.Width, Is.LessThan(5));
+        using var host = new ControlHost(
+            new Window { Width = 100, Height = 100, UseLayoutRounding = false, Content = spectrum });
+        HeadlessTestHelpers.Render();
+        Assert.That(spectrum.Bounds.Width, Is.GreaterThan(4));
+        Assert.That(spectrum.Bounds.Width, Is.LessThan(5));
 
-            object? bitmap = typeof(ColorSpectrum)
-                .GetField("_tempBitmap", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .GetValue(spectrum);
-            Assert.That(bitmap, Is.Null);
-        }
-        finally
-        {
-            window.Close();
-        }
+        Assert.That(TempBitmap(spectrum), Is.Null);
     }
 
     [AvaloniaTest]
     public void Spectrum_rebuilds_its_bitmap_for_each_component()
     {
         var spectrum = new ColorSpectrum();
-        var window = new Window { Width = 260, Height = 260, Content = spectrum };
-        try
-        {
-            window.Show();
-            HeadlessTestHelpers.Render();
-            var bitmapField = typeof(ColorSpectrum)
-                .GetField("_tempBitmap", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        using var host = new ControlHost(spectrum, 260, 260);
+        HeadlessTestHelpers.Render();
 
-            foreach (PickerColorComponent component in new[]
-            {
-                PickerColorComponent.Hue,
-                PickerColorComponent.Saturation,
-                PickerColorComponent.Value,
-                PickerColorComponent.Red,
-                PickerColorComponent.Green,
-                PickerColorComponent.Blue,
-            })
-            {
-                spectrum.Component = component;
-                HeadlessTestHelpers.Render();
-                Assert.That(bitmapField.GetValue(spectrum), Is.Not.Null, $"Missing {component} bitmap.");
-            }
-        }
-        finally
+        foreach (PickerColorComponent component in new[]
         {
-            window.Close();
+            PickerColorComponent.Hue,
+            PickerColorComponent.Saturation,
+            PickerColorComponent.Value,
+            PickerColorComponent.Red,
+            PickerColorComponent.Green,
+            PickerColorComponent.Blue,
+        })
+        {
+            spectrum.Component = component;
+            HeadlessTestHelpers.Render();
+            Assert.That(TempBitmap(spectrum), Is.Not.Null, $"Missing {component} bitmap.");
         }
     }
 
@@ -110,28 +78,21 @@ public class ColorSpectrumTests
             Shape = FluentAvalonia.UI.Controls.ColorSpectrumShape.Wheel,
             Color = Color2.FromHSVf(0, 0, 1),
         };
-        var window = new Window { Width = 260, Height = 260, Content = spectrum };
-        try
-        {
-            window.Show();
-            HeadlessTestHelpers.Render();
-            AssertDrawsPickedColors(window, spectrum, WheelPoints(spectrum));
+        using var host = new ControlHost(spectrum, 260, 260);
+        Window window = host.Window;
+        HeadlessTestHelpers.Render();
+        AssertDrawsPickedColors(window, spectrum, WheelPoints(spectrum));
 
-            spectrum.Color = Color2.FromHSVf(0, 0, 0.5f);
-            HeadlessTestHelpers.Render();
-            AssertDrawsPickedColors(window, spectrum, WheelPoints(spectrum));
+        spectrum.Color = Color2.FromHSVf(0, 0, 0.5f);
+        HeadlessTestHelpers.Render();
+        AssertDrawsPickedColors(window, spectrum, WheelPoints(spectrum));
 
-            window.Width = 360;
-            window.Height = 360;
-            HeadlessTestHelpers.Settle();
-            HeadlessTestHelpers.Render();
-            Assert.That(spectrum.Bounds.Width, Is.EqualTo(360));
-            AssertDrawsPickedColors(window, spectrum, WheelPoints(spectrum));
-        }
-        finally
-        {
-            window.Close();
-        }
+        window.Width = 360;
+        window.Height = 360;
+        HeadlessTestHelpers.Settle();
+        HeadlessTestHelpers.Render();
+        Assert.That(spectrum.Bounds.Width, Is.EqualTo(360));
+        AssertDrawsPickedColors(window, spectrum, WheelPoints(spectrum));
     }
 
     [AvaloniaTest]
@@ -143,59 +104,44 @@ public class ColorSpectrumTests
             Shape = FluentAvalonia.UI.Controls.ColorSpectrumShape.Triangle,
             Color = Color2.FromHSVf(40, 1, 1),
         };
-        var window = new Window { Width = 260, Height = 260, Content = spectrum };
-        try
-        {
-            window.Show();
-            HeadlessTestHelpers.Render();
-            AssertDrawsPickedColors(window, spectrum, TrianglePoints(spectrum, 40));
+        using var host = new ControlHost(spectrum, 260, 260);
+        Window window = host.Window;
+        HeadlessTestHelpers.Render();
+        AssertDrawsPickedColors(window, spectrum, TrianglePoints(spectrum, 40));
 
-            spectrum.Color = Color2.FromHSVf(250, 1, 1);
-            HeadlessTestHelpers.Render();
-            AssertDrawsPickedColors(window, spectrum, TrianglePoints(spectrum, 250));
+        spectrum.Color = Color2.FromHSVf(250, 1, 1);
+        HeadlessTestHelpers.Render();
+        AssertDrawsPickedColors(window, spectrum, TrianglePoints(spectrum, 250));
 
-            // A dispatcher job lays out the resize; the next tick renders it
-            window.Width = 360;
-            window.Height = 360;
-            HeadlessTestHelpers.Settle();
-            HeadlessTestHelpers.Render();
-            Assert.That(spectrum.Bounds.Width, Is.EqualTo(360));
-            Assert.That(TriangleBitmap(spectrum).PixelSize, Is.EqualTo(new PixelSize(356, 356)));
-            AssertDrawsPickedColors(window, spectrum, TrianglePoints(spectrum, 250));
-        }
-        finally
-        {
-            window.Close();
-        }
+        // A dispatcher job lays out the resize; the next tick renders it
+        window.Width = 360;
+        window.Height = 360;
+        HeadlessTestHelpers.Settle();
+        HeadlessTestHelpers.Render();
+        Assert.That(spectrum.Bounds.Width, Is.EqualTo(360));
+        Assert.That(TempBitmap(spectrum)!.PixelSize, Is.EqualTo(new PixelSize(356, 356)));
+        AssertDrawsPickedColors(window, spectrum, TrianglePoints(spectrum, 250));
     }
 
     [AvaloniaTest]
     public void Triangle_redraws_its_bitmap_when_the_render_scaling_changes()
     {
         var spectrum = new ColorSpectrum { Shape = FluentAvalonia.UI.Controls.ColorSpectrumShape.Triangle };
-        var window = new Window { Width = 260, Height = 260, Content = spectrum };
-        try
-        {
-            window.Show();
-            HeadlessTestHelpers.Render();
-            Assert.That(TriangleBitmap(spectrum).PixelSize, Is.EqualTo(new PixelSize(256, 256)));
+        using var host = new ControlHost(spectrum, 260, 260);
+        HeadlessTestHelpers.Render();
+        Assert.That(TempBitmap(spectrum)!.PixelSize, Is.EqualTo(new PixelSize(256, 256)));
 
-            window.SetRenderScaling(2);
-            HeadlessTestHelpers.Settle();
-            HeadlessTestHelpers.Render();
-            Assert.That(spectrum.Bounds.Width, Is.EqualTo(260));
-            Assert.That(TriangleBitmap(spectrum).PixelSize, Is.EqualTo(new PixelSize(512, 512)));
-        }
-        finally
-        {
-            window.Close();
-        }
+        host.Window.SetRenderScaling(2);
+        HeadlessTestHelpers.Settle();
+        HeadlessTestHelpers.Render();
+        Assert.That(spectrum.Bounds.Width, Is.EqualTo(260));
+        Assert.That(TempBitmap(spectrum)!.PixelSize, Is.EqualTo(new PixelSize(512, 512)));
     }
 
-    private static WriteableBitmap TriangleBitmap(ColorSpectrum spectrum)
-        => (WriteableBitmap)typeof(ColorSpectrum)
+    private static WriteableBitmap? TempBitmap(ColorSpectrum spectrum)
+        => (WriteableBitmap?)typeof(ColorSpectrum)
             .GetField("_tempBitmap", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(spectrum)!;
+            .GetValue(spectrum);
 
     private static Rect WheelRect(ColorSpectrum spectrum)
     {
@@ -258,7 +204,7 @@ public class ColorSpectrumTests
             {
                 Point inWindow = spectrum.TranslatePoint(point, window)!.Value;
                 var pixel = new PixelPoint((int)Math.Floor(inWindow.X), (int)Math.Floor(inWindow.Y));
-                (int R, int G, int B) drawn = ReadPixel(frame, pixel);
+                (int R, int G, int B) drawn = HeadlessTestHelpers.ReadPixel(frame, pixel);
 
                 var pixelCenter = new Point(pixel.X + 0.5, pixel.Y + 0.5);
                 spectrum.Color = color;
@@ -278,16 +224,5 @@ public class ColorSpectrumTests
         spectrum.Color = color;
         HeadlessTestHelpers.Render();
         Assert.That(mismatches, Is.Empty);
-    }
-
-    private static unsafe (int R, int G, int B) ReadPixel(WriteableBitmap frame, PixelPoint point)
-    {
-        using ILockedFramebuffer framebuffer = frame.Lock();
-        byte* pixel = (byte*)framebuffer.Address + point.Y * framebuffer.RowBytes + point.X * 4;
-        if (framebuffer.Format == PixelFormat.Rgba8888)
-            return (pixel[0], pixel[1], pixel[2]);
-
-        Assert.That(framebuffer.Format, Is.EqualTo(PixelFormat.Bgra8888));
-        return (pixel[2], pixel[1], pixel[0]);
     }
 }

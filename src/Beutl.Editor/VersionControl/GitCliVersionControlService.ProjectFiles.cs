@@ -57,7 +57,7 @@ internal sealed partial class GitCliVersionControlService
         }
     }
 
-    // An unignored nested repository would become a gitlink; refuse it before anything is written.
+    // An unignored nested repository would become a gitlink; refuse it before anything is staged.
     private static async Task EnsureNoNestedRepositoryWouldBeStagedAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
@@ -68,54 +68,8 @@ internal sealed partial class GitCliVersionControlService
                 runner,
                 GetProjectPathPrefix(repository),
                 FindNestedRepositories(repository.ProjectRoot),
-                environmentOverrides: null,
                 cancellationToken)
             .ConfigureAwait(false);
-    }
-
-    // Before git init there is no repository to ask, so a throwaway one with the project as its
-    // work tree answers with the same ignore rules the new repository will see.
-    private async Task EnsureNoNestedRepositoryWouldBeStagedBeforeInitAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        CancellationToken cancellationToken)
-    {
-        IReadOnlyList<string> nestedRepositories = FindNestedRepositories(repository.ProjectRoot);
-        if (nestedRepositories.Count == 0)
-        {
-            return;
-        }
-
-        string probeRoot = CreateUniqueTempPath("beutl-git-ignore");
-        Directory.CreateDirectory(probeRoot);
-        try
-        {
-            var probeRepository = new RepositoryInfo(probeRoot, probeRoot);
-            // The probe's branch name is never used, and an invalid init.defaultBranch makes a plain
-            // git init fail before the project's own repository is created.
-            await runner.RunAsync(
-                probeRepository,
-                ["-c", "init.defaultBranch=main", "init"],
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
-            var environmentOverrides = new Dictionary<string, string?>
-            {
-                ["GIT_DIR"] = Path.Combine(probeRoot, ".git"),
-                ["GIT_WORK_TREE"] = repository.ProjectRoot,
-            };
-            await ThrowIfNestedRepositoryWouldBeStagedAsync(
-                    probeRepository,
-                    runner,
-                    prefix: string.Empty,
-                    nestedRepositories,
-                    environmentOverrides,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-        finally
-        {
-            TryDeleteIgnoreProbeDirectory(probeRoot);
-        }
     }
 
     private static async Task ThrowIfNestedRepositoryWouldBeStagedAsync(
@@ -123,7 +77,6 @@ internal sealed partial class GitCliVersionControlService
         IGitCliRunner runner,
         string prefix,
         IReadOnlyList<string> nestedRepositories,
-        IReadOnlyDictionary<string, string?>? environmentOverrides,
         CancellationToken cancellationToken)
     {
         if (nestedRepositories.Count == 0)
@@ -139,7 +92,6 @@ internal sealed partial class GitCliVersionControlService
                 ["check-ignore", "--stdin", "-z"],
                 new GitCommandOptions(
                     GitCommandExecutionKind.Local,
-                    EnvironmentOverrides: environmentOverrides,
                     StandardInput: string.Concat(nestedRepositories.Select(path => $"{prefix}{path}/\0")),
                     UseLiteralPathspecs: false),
                 cancellationToken).ConfigureAwait(false);
@@ -152,8 +104,8 @@ internal sealed partial class GitCliVersionControlService
             ignored = [];
         }
 
-        // An unignored repository would become a gitlink in the first snapshot, so refuse it before
-        // anything is written rather than after.
+        // An unignored repository would become a gitlink in the snapshot, so refuse it before anything is
+        // staged rather than after.
         string? staged = nestedRepositories.FirstOrDefault(path => !ignored.Contains(prefix + path));
         if (staged is not null)
         {
@@ -192,7 +144,7 @@ internal sealed partial class GitCliVersionControlService
             foreach (string child in children)
             {
                 string name = Path.GetFileName(Path.TrimEndingDirectorySeparator(child));
-                if (string.Equals(name, EditorConstants.BeutlFolder, StringComparison.OrdinalIgnoreCase)
+                if (ProjectPathRules.IsStateFolderName(name)
                     || string.Equals(name, ".git", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
@@ -235,24 +187,8 @@ internal sealed partial class GitCliVersionControlService
         return builder.ToString();
     }
 
-    private static bool IsTemporaryProjectFile(string path)
-    {
-        return path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase);
-    }
-
     private static string GetProjectPathPrefix(RepositoryInfo repository)
     {
         return repository.Pathspec == "." ? string.Empty : repository.Pathspec + "/";
-    }
-
-    private static void TryDeleteIgnoreProbeDirectory(string path)
-    {
-        try
-        {
-            Directory.Delete(path, recursive: true);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-        }
     }
 }

@@ -1,5 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Api.Services;
 using Beutl.PropertyAdapters;
+using Beutl.Services;
 using Beutl.ViewModels.Editors;
 using DynamicData;
 
@@ -18,10 +20,40 @@ internal static class CoreObjectPropertyEditorBuilder
         cprops.RemoveAll(x => !(predicate?.Invoke(x, x.GetMetadata<CorePropertyMetadata>(objType)) ?? true));
         return cprops.ConvertAll(x =>
         {
-            CorePropertyMetadata metadata = x.GetMetadata<CorePropertyMetadata>(objType);
             Type adapterGType = adapterType.MakeGenericType(x.PropertyType);
             return (IPropertyAdapter)Activator.CreateInstance(adapterGType, x, obj)!;
         });
+    }
+
+    // Hands add the editor an extension makes for each group of adapters it takes, in the order the
+    // extensions match them, and removes the adapters taken from adapters.
+    public static void CreateContexts<TList>(
+        TList adapters,
+        ExtensionProvider extensionProvider,
+        Action<IPropertyEditorContext> add,
+        bool forSettings = false)
+        where TList : IList<IPropertyAdapter>, IReadOnlyList<IPropertyAdapter>
+    {
+        IPropertyAdapter[]? foundItems;
+        PropertyEditorExtension? extension;
+
+        do
+        {
+            (foundItems, extension) = PropertyEditorService.MatchProperty(adapters, extensionProvider);
+            if (foundItems != null && extension != null)
+            {
+                IPropertyEditorContext? context;
+                bool created = forSettings
+                    ? extension.TryCreateContextForSettings(foundItems, out context)
+                    : extension.TryCreateContext(foundItems, out context);
+                if (created)
+                {
+                    add(context!);
+                }
+
+                adapters.RemoveMany(foundItems);
+            }
+        } while (foundItems != null && extension != null);
     }
 
     // Replaces the members of each named display group with one group context at the first member's place.
@@ -35,12 +67,9 @@ internal static class CoreObjectPropertyEditorBuilder
             if (group.Key != null)
             {
                 IPropertyEditorContext?[] array = group.Value;
-                if (array.Length >= 1)
-                {
-                    int index = items.IndexOf(array[0]);
-                    items.RemoveMany(array);
-                    items.Insert(index, new PropertyEditorGroupContext(array, group.Key, index == 0));
-                }
+                int index = items.IndexOf(array[0]);
+                items.RemoveMany(array);
+                items.Insert(index, new PropertyEditorGroupContext(array, group.Key, index == 0));
             }
         }
     }

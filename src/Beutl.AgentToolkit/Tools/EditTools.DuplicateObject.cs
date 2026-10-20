@@ -83,7 +83,9 @@ public sealed partial class EditTools
 
         Drawable source = RequireWrappableDrawable(location, objectId);
 
-        JsonObject sourceJson = FindObjectJsonInElements(session.Documents.Read(session.Root), objectId, elementId);
+        // Only the source is serialized, against the scene Uri that CloneDrawable reads the copy back with,
+        // so its relative media paths resolve to the same files wherever the element's file sits.
+        JsonObject sourceJson = CoreSerializer.SerializeToJsonObject(source, DocumentAdapter.CreateOptions(session.Root));
         var newId = Guid.NewGuid();
         Drawable clone = CloneDrawable(sourceJson, newId, session.Root);
         DrawableGroup group;
@@ -119,7 +121,9 @@ public sealed partial class EditTools
         }
 
         group = null!;
-        ExecuteInSessionTransaction(session, Mutate, "Agent duplicate object");
+        // Already on the session dispatcher (see DuplicateObject), so the transaction runs here.
+        session.History.ExecuteInTransaction(Mutate, "Agent duplicate object");
+        session.MarkDirtyIfFileSession();
 
         List<AppliedEntityId> createdIds = CreateWrapCreatedIds(location, portal, group, clone);
         return new DuplicateObjectResponse(
@@ -206,15 +210,6 @@ public sealed partial class EditTools
         return createdIds;
     }
 
-    private static void ExecuteInSessionTransaction(IEditingSession session, Action mutate, string name)
-    {
-        void Execute() => session.History.ExecuteInTransaction(mutate, name);
-
-        session.InvokeOnSession(Execute);
-
-        session.MarkDirtyIfFileSession();
-    }
-
     private static Drawable CloneDrawable(JsonObject sourceJson, Guid newId, CoreObject root)
     {
         var cloneJson = (JsonObject)sourceJson.DeepClone();
@@ -290,58 +285,6 @@ public sealed partial class EditTools
 
         location = null;
         return false;
-    }
-
-    private static JsonObject FindObjectJsonInElements(
-        JsonObject document,
-        string objectId,
-        string? elementId)
-    {
-        foreach (JsonNode? elementNode in RequireElementsArray(document))
-        {
-            if (!TryGetScopedObjects(elementNode, elementId, out _, out JsonArray? objects))
-            {
-                continue;
-            }
-
-            if (FindObjectJson(objects, objectId) is { } source)
-            {
-                return source;
-            }
-        }
-
-        throw StaleObject(objectId);
-    }
-
-    private static JsonObject? FindObjectJson(JsonNode? node, string objectId)
-    {
-        if (node is JsonObject obj)
-        {
-            if (ReadId(obj) == objectId)
-            {
-                return obj;
-            }
-
-            foreach (JsonNode? child in obj.Select(pair => pair.Value).ToArray())
-            {
-                if (FindObjectJson(child, objectId) is { } found)
-                {
-                    return found;
-                }
-            }
-        }
-        else if (node is JsonArray array)
-        {
-            foreach (JsonNode? child in array.ToArray())
-            {
-                if (FindObjectJson(child, objectId) is { } found)
-                {
-                    return found;
-                }
-            }
-        }
-
-        return null;
     }
 
     private static (JsonObject Element, JsonArray Objects, JsonObject Source) FindObjectInElements(

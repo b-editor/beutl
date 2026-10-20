@@ -86,7 +86,7 @@ public interface IAiJobRefreshHandler
 /// </summary>
 /// <remarks>
 /// A preflight is only an estimate for presentation. It must not reserve
-/// balance, create a durable idempotency key, or retain a lease. Call
+/// balance or create a durable idempotency key. Call
 /// <see cref="IAiJobRetryHandler.PrepareAsync"/> immediately before asking the
 /// user to pay or dispatching a retry.
 /// </remarks>
@@ -97,31 +97,21 @@ public sealed record AiJobRetryPreflight(
 
 /// <summary>
 /// Owns a retry prepared by a concrete handler. A preparation captures the
-/// handler and durable request identity that produced it, so replacing an
-/// extension after preparation cannot redirect the request to a different
-/// implementation.
+/// handler and durable request identity that produced it.
 /// </summary>
 /// <remarks>
 /// <see cref="ExecuteAsync"/> is single-use. Dispose is idempotent; disposing
 /// before execution abandons the unconsumed preparation, while disposing after
 /// execution is a no-op because the handler owns the terminal/ambiguous outcome.
-/// The host retains the originating retry-handler lease until
-/// <see cref="ExecuteAsync"/> completes, then always calls
-/// <see cref="IAsyncDisposable.DisposeAsync"/>. An implementation that keeps
-/// using extension-owned resources after cancellation must keep its returned
-/// task incomplete until that work has drained; returning earlier permits the
-/// extension to unload while its background work is still running.
+/// The host always calls <see cref="IAsyncDisposable.DisposeAsync"/> after
+/// <see cref="ExecuteAsync"/> completes.
 /// </remarks>
 public interface IAiJobRetryPreparation : IAsyncDisposable
 {
-    /// <summary>
-    /// Executes the prepared retry exactly once. Task completion is the
-    /// lifetime boundary after which the originating retry handler may unload.
-    /// </summary>
+    /// <summary>Executes the prepared retry exactly once.</summary>
     /// <param name="cancellationToken">
     /// Stops the host's request to wait. Implementations may finish already
-    /// dispatched paid work, but must not complete this task until all use of
-    /// extension-owned resources has ended.
+    /// dispatched paid work.
     /// </param>
     Task ExecuteAsync(CancellationToken cancellationToken);
 }
@@ -254,84 +244,4 @@ public interface IAiJobRetryHandler
     ValueTask<AiJobRetryPreparationResult> PrepareAsync(
         AiJob job,
         CancellationToken cancellationToken);
-}
-
-public enum AiJobBehaviorRegistrationMode
-{
-    Add,
-    Replace,
-}
-
-/// <summary>Registers status semantics for one AI job kind.</summary>
-public sealed class AiJobStatusResolverRegistration
-{
-    public AiJobStatusResolverRegistration(
-        AiJobKindId kind,
-        IAiJobStatusResolver resolver,
-        AiJobBehaviorRegistrationMode mode = AiJobBehaviorRegistrationMode.Add)
-    {
-        AiJobBehaviorRegistrationValidation.Validate(kind, mode);
-        Kind = kind;
-        Resolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
-        Mode = mode;
-    }
-
-    public AiJobKindId Kind { get; }
-
-    public IAiJobStatusResolver Resolver { get; }
-
-    public AiJobBehaviorRegistrationMode Mode { get; }
-}
-
-/// <summary>Registers polling refresh behavior for one AI job kind.</summary>
-public sealed class AiJobRefreshHandlerRegistration
-{
-    public AiJobRefreshHandlerRegistration(
-        AiJobKindId kind,
-        IAiJobRefreshHandler handler,
-        AiJobBehaviorRegistrationMode mode = AiJobBehaviorRegistrationMode.Add)
-    {
-        AiJobBehaviorRegistrationValidation.Validate(kind, mode);
-        Kind = kind;
-        Handler = handler ?? throw new ArgumentNullException(nameof(handler));
-        Mode = mode;
-    }
-
-    public AiJobKindId Kind { get; }
-
-    public IAiJobRefreshHandler Handler { get; }
-
-    public AiJobBehaviorRegistrationMode Mode { get; }
-}
-
-/// <summary>Registers retry behavior for one AI job kind.</summary>
-public sealed class AiJobRetryHandlerRegistration
-{
-    public AiJobRetryHandlerRegistration(
-        AiJobKindId kind,
-        IAiJobRetryHandler handler,
-        AiJobBehaviorRegistrationMode mode = AiJobBehaviorRegistrationMode.Add)
-    {
-        AiJobBehaviorRegistrationValidation.Validate(kind, mode);
-        Kind = kind;
-        Handler = handler ?? throw new ArgumentNullException(nameof(handler));
-        Mode = mode;
-    }
-
-    public AiJobKindId Kind { get; }
-
-    public IAiJobRetryHandler Handler { get; }
-
-    public AiJobBehaviorRegistrationMode Mode { get; }
-}
-
-internal static class AiJobBehaviorRegistrationValidation
-{
-    public static void Validate(AiJobKindId kind, AiJobBehaviorRegistrationMode mode)
-    {
-        if (string.IsNullOrWhiteSpace(kind.Value))
-            throw new ArgumentException("An AI job kind identifier is required.", nameof(kind));
-        if (!Enum.IsDefined(mode))
-            throw new ArgumentOutOfRangeException(nameof(mode));
-    }
 }

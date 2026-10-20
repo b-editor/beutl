@@ -44,7 +44,7 @@ public sealed class GraphSnapshotFailureTests
         failing.ConstructionFault = null;
 
         Assert.DoesNotThrow(() => snapshot.Build(model, CompositionContext.Default));
-        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        snapshot.Evaluate(CompositionContext.Default);
         snapshot.Dispose();
 
         Assert.Multiple(() =>
@@ -178,7 +178,7 @@ public sealed class GraphSnapshotFailureTests
             Assert.DoesNotThrow(snapshot.Dispose);
         });
         Assert.DoesNotThrow(() => snapshot.Build(replacementModel, CompositionContext.Default));
-        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        snapshot.Evaluate(CompositionContext.Default);
         snapshot.Dispose();
         Assert.That(replacement.EvaluationCount, Is.EqualTo(1));
         Assert.That(replacement.CreatedResources.All(r => r.IsDisposed), Is.True);
@@ -241,7 +241,7 @@ public sealed class GraphSnapshotFailureTests
         Assert.That(original.CreatedResources.Single().DisposeCount, Is.EqualTo(1));
         snapshot.Dispose();
         Assert.DoesNotThrow(() => snapshot.Build(competingModel, CompositionContext.Default));
-        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        snapshot.Evaluate(CompositionContext.Default);
         snapshot.Dispose();
         Assert.Multiple(() =>
         {

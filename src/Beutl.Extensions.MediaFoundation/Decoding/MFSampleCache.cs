@@ -11,12 +11,10 @@ namespace Beutl.Extensions.MediaFoundation.Decoding;
 #endif
 
 public record MFSampleCacheOptions(
-    int MaxVideoBufferSize = 4); // Setting too large a value may cause ReadSample to stall.
+    int MaxVideoBufferSize); // Setting too large a value may cause ReadSample to stall.
 
 public class MFSampleCache(MFSampleCacheOptions options)
 {
-    public const int FrameWaringGapCount = 1;
-
     private CircularBuffer<VideoCache> _videoCircularBuffer = new(options.MaxVideoBufferSize);
 
     private readonly record struct VideoCache(int Frame, IMFSample Sample);
@@ -36,11 +34,6 @@ public class MFSampleCache(MFSampleCacheOptions options)
         int lastFrameNum = LastFrameNumber();
         if (lastFrameNum != -1)
         {
-            if (Math.Abs(lastFrameNum + 1 - frame) > FrameWaringGapCount)
-            {
-                //_logger.LogWarning("frame error - frame: {frame} actual frame: {actual}", frame, lastFrameNum + 1);
-            }
-
             frame = lastFrameNum + 1;
         }
 

@@ -9,59 +9,60 @@ namespace Beutl.ViewModels.Editors;
 
 internal static class VectorEditorBindingHelper
 {
-    public static void ApplyNumberAttributes<TElement>(Vector2Editor<TElement> editor, IPropertyAdapter adapter)
+    // Passes the steps of the property's NumberStepAttribute and the format of its DisplayFormatAttribute to the
+    // setters, skipping an attribute the property does not have.
+    public static void ApplyNumberAttributes<TElement>(
+        IPropertyAdapter adapter,
+        Action<TElement, TElement> setSteps,
+        Action<string?> setFormat)
         where TElement : INumber<TElement>
     {
         var attrs = adapter.GetAttributes();
         var stepAttr = attrs.OfType<NumberStepAttribute>().FirstOrDefault();
         if (stepAttr != null)
         {
-            editor.LargeChange = TElement.CreateTruncating(stepAttr.LargeChange);
-            editor.SmallChange = TElement.CreateTruncating(stepAttr.SmallChange);
+            setSteps(TElement.CreateTruncating(stepAttr.LargeChange), TElement.CreateTruncating(stepAttr.SmallChange));
         }
 
         var formatAttr = attrs.OfType<DisplayFormatAttribute>().FirstOrDefault();
         if (formatAttr != null)
         {
-            editor.NumberFormat = formatAttr.DataFormatString;
+            setFormat(formatAttr.DataFormatString);
         }
     }
+
+    public static void ApplyNumberAttributes<TElement>(Vector2Editor<TElement> editor, IPropertyAdapter adapter)
+        where TElement : INumber<TElement>
+        => ApplyNumberAttributes<TElement>(
+            adapter,
+            (large, small) =>
+            {
+                editor.LargeChange = large;
+                editor.SmallChange = small;
+            },
+            format => editor.NumberFormat = format);
 
     public static void ApplyNumberAttributes<TElement>(Vector3Editor<TElement> editor, IPropertyAdapter adapter)
         where TElement : INumber<TElement>
-    {
-        var attrs = adapter.GetAttributes();
-        var stepAttr = attrs.OfType<NumberStepAttribute>().FirstOrDefault();
-        if (stepAttr != null)
-        {
-            editor.LargeChange = TElement.CreateTruncating(stepAttr.LargeChange);
-            editor.SmallChange = TElement.CreateTruncating(stepAttr.SmallChange);
-        }
-
-        var formatAttr = attrs.OfType<DisplayFormatAttribute>().FirstOrDefault();
-        if (formatAttr != null)
-        {
-            editor.NumberFormat = formatAttr.DataFormatString;
-        }
-    }
+        => ApplyNumberAttributes<TElement>(
+            adapter,
+            (large, small) =>
+            {
+                editor.LargeChange = large;
+                editor.SmallChange = small;
+            },
+            format => editor.NumberFormat = format);
 
     public static void ApplyNumberAttributes<TElement>(Vector4Editor<TElement> editor, IPropertyAdapter adapter)
         where TElement : INumber<TElement>
-    {
-        var attrs = adapter.GetAttributes();
-        var stepAttr = attrs.OfType<NumberStepAttribute>().FirstOrDefault();
-        if (stepAttr != null)
-        {
-            editor.LargeChange = TElement.CreateTruncating(stepAttr.LargeChange);
-            editor.SmallChange = TElement.CreateTruncating(stepAttr.SmallChange);
-        }
-
-        var formatAttr = attrs.OfType<DisplayFormatAttribute>().FirstOrDefault();
-        if (formatAttr != null)
-        {
-            editor.NumberFormat = formatAttr.DataFormatString;
-        }
-    }
+        => ApplyNumberAttributes<TElement>(
+            adapter,
+            (large, small) =>
+            {
+                editor.LargeChange = large;
+                editor.SmallChange = small;
+            },
+            format => editor.NumberFormat = format);
 
     public static void BindComponents(
         Vector4Editor<float> editor,

@@ -8,6 +8,7 @@ using Beutl.NodeGraph.Nodes.Utilities;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.UnitTests.TestInfrastructure;
+using static Beutl.UnitTests.NodeGraph.NodeGraphTestHelpers;
 
 namespace Beutl.UnitTests.NodeGraph;
 
@@ -76,13 +77,8 @@ public class NodePortLocalizationTests
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja-JP");
         try
         {
-            using var scene = new SceneHistoryHarness("group-port-display");
-            var application = new BeutlApplication();
-            application.Items.Add(scene.Scene);
             var root = new GraphModel();
-            var drawable = new NodeGraphDrawable();
-            drawable.Model.CurrentValue = root;
-            scene.AddElement().AddObject(drawable);
+            using SceneHistoryHarness scene = AttachToScene(root, "group-port-display");
             var group = new GroupNode();
             root.Nodes.Add(group);
             var source = new RandomSingleNode();

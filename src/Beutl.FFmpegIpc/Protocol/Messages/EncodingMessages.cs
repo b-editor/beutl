@@ -27,7 +27,6 @@ public sealed class EncodeStartRequest
     public FFColorSpace ColorSpace { get; set; }
     public FFColorRange ColorRange { get; set; }
     public Dictionary<string, string> VideoOptions { get; set; } = [];
-    public bool IsHdr { get; set; }
 
     // Audio settings
     public int AudioSampleRate { get; set; }
@@ -64,13 +63,11 @@ public sealed class ProvideFrameMessage
 {
     public int Width { get; set; }
     public int Height { get; set; }
-    public int BytesPerPixel { get; set; }
     public int DataLength { get; set; }
     public bool Premul { get; set; }
 
-    // The frame's BitmapColorType as an int; -1 means unset. BytesPerPixel alone cannot distinguish
-    // two 8-byte formats (half-float RgbaF16 vs integer Rgba16161616), so an explicit color type is
-    // required to reconstruct the bitmap without reinterpreting integer channels as floats.
+    // The frame's BitmapColorType as an int, which tells two 8-byte formats (half-float RgbaF16 and integer
+    // Rgba16161616) apart; -1 means unset, which the worker refuses.
     public int ColorType { get; set; } = -1;
 }
 

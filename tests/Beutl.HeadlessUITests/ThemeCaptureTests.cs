@@ -30,12 +30,7 @@ using FluentAvalonia.Styling;
 
 namespace Beutl.HeadlessUITests;
 
-// Pixel readback of the fully-inflated shell works locally on MoltenVK; the crash noted in
-// ShellViewTests applies to SwiftShader CI only.
-//
-// A frame is evidence about color only. Control metrics -- font size, row heights, slider geometry,
-// border thickness, glyph insets -- come from DesignTokens.axaml and DropDownGlyphBehavior, not the
-// theme dictionaries; ControlMetricsTests is the authority on those.
+// Pixel readback of the fully-inflated shell works headless, on MoltenVK and on SwiftShader.
 [TestFixture]
 [Explicit("Produces PNG captures for manual design review; not a regression test.")]
 public class ThemeCaptureTests
@@ -46,15 +41,14 @@ public class ThemeCaptureTests
 
     // Production seeds FluentAvalonia's accent from the applied theme's descriptor (ThemeService);
     // these captures only flip the variant, so unseeded they would show the headless host's accent.
-    // Built-ins declare no design accent, hence null for the light capture. Beutl.Media.Color is also
-    // in scope here, so the accent is qualified.
-    private static void UseCaptureTheme(ThemeVariant variant, Avalonia.Media.Color? designAccent)
+    // Built-ins declare no design accent, hence null for the light capture.
+    internal static void UseCaptureTheme(ThemeVariant variant, Avalonia.Media.Color? designAccent)
     {
         Application.Current!.RequestedThemeVariant = variant;
         Application.Current.Styles.OfType<FluentAvaloniaTheme>().Single().CustomAccentColor = designAccent;
     }
 
-    private static string Capture(Window window, string name)
+    internal static string Capture(Window window, string name)
     {
         using WriteableBitmap? frame = window.CaptureRenderedFrame();
         Assert.That(frame, Is.Not.Null, "Headless frame capture returned null.");
@@ -64,37 +58,6 @@ public class ThemeCaptureTests
         frame!.Save(path, PngBitmapEncoderOptions.Default);
         TestContext.Out.WriteLine($"Saved capture: {path}");
         return path;
-    }
-
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
-    private static async Task<EditViewModel> OpenEditorForNewScene(string name)
-    {
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
-    private static async Task AddRectangle(EditViewModel editor, TimeSpan start, int layer)
-    {
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        await adder.AddAsync([new ElementDescription(
-            Start: start,
-            Length: TimeSpan.FromSeconds(2),
-            Layer: layer,
-            Source: new ElementSource.EngineObject(() => new RectShape()))],
-            CancellationToken.None);
-        HeadlessTestHelpers.Settle();
     }
 
     private static Control BuildGallery()
@@ -215,12 +178,6 @@ public class ThemeCaptureTests
                     tabs,
                     listBox,
                     new Expander { Header = "Expander", IsExpanded = true, Content = new Avalonia.Controls.TextBlock { Text = "Nested content", Margin = new Thickness(8) } },
-                    new Border
-                    {
-                        Classes = { "CardStyle" },
-                        Padding = new Thickness(12),
-                        Child = new Avalonia.Controls.TextBlock { Text = "Border.CardStyle" },
-                    },
                 },
             },
         };
@@ -231,10 +188,11 @@ public class ThemeCaptureTests
     {
         await TestReset.ResetShellAsync();
         UseCaptureTheme(ThemeVariant.Dark, BeutlDarkBorderTheme.AccentColor);
-        EditViewModel editor = await OpenEditorForNewScene("themecapture");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("themecapture");
         for (int layer = 0; layer < 3; layer++)
         {
-            await AddRectangle(editor, TimeSpan.FromSeconds(layer * 0.5), layer);
+            await TestShell.AddElementAsync(
+                editor, () => new RectShape(), TimeSpan.FromSeconds(layer * 0.5), TimeSpan.FromSeconds(2), layer);
         }
 
         var window = new Window
@@ -304,7 +262,7 @@ public class ThemeCaptureTests
     {
         await TestReset.ResetShellAsync();
         UseCaptureTheme(ThemeVariant.Dark, BeutlDarkBorderTheme.AccentColor);
-        EditViewModel editor = await OpenEditorForNewScene("inspectorcapture");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("inspectorcapture");
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         await adder.AddAsync([new ElementDescription(
@@ -381,7 +339,7 @@ public class ThemeCaptureTests
     {
         await TestReset.ResetShellAsync();
         UseCaptureTheme(ThemeVariant.Dark, BeutlDarkBorderTheme.AccentColor);
-        EditViewModel editor = await OpenEditorForNewScene("librarycapture");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("librarycapture");
 
         LibraryTabViewModel? library = editor.FindToolTab<LibraryTabViewModel>();
         Assert.That(library, Is.Not.Null, "Library tab missing from the default layout.");
@@ -435,7 +393,7 @@ public class ThemeCaptureTests
     {
         await TestReset.ResetShellAsync();
         UseCaptureTheme(ThemeVariant.Dark, BeutlDarkBorderTheme.AccentColor);
-        EditViewModel editor = await OpenEditorForNewScene("filebrowsercapture");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("filebrowsercapture");
 
         FileBrowserTabViewModel? browser = editor.FindToolTab<FileBrowserTabViewModel>();
         Assert.That(browser, Is.Not.Null, "File Browser tab missing from the default layout.");

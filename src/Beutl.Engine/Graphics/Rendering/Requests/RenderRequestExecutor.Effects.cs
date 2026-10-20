@@ -29,13 +29,17 @@ internal sealed partial class RenderRequestExecutor
                 });
         }
 
-        private IReadOnlyList<MaterializedRenderValue> MaterializeOpacity(
+        private IReadOnlyList<MaterializedRenderValue> MaterializeOpacityComposite(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
         {
             if (fragment.Inputs.Length != 1)
-                throw new InvalidOperationException("An opacity fragment requires exactly one input.");
+            {
+                throw new InvalidOperationException(fragment.Kind == RenderFragmentKind.OpacityMask
+                    ? "An opacity mask requires exactly one input."
+                    : "An opacity fragment requires exactly one input.");
+            }
             if (fragment.Bounds.Width == 0 || fragment.Bounds.Height == 0)
             {
                 CompleteFragmentUse(fragment.Inputs[0]);
@@ -61,8 +65,18 @@ internal sealed partial class RenderRequestExecutor
                 {
                     using var canvas = CreateValueCanvas(value);
                     using (canvas.PushTransform(value.RasterAlignmentTransform))
-                    using (canvas.PushOpacity(((OpacityRenderFragmentPayload)fragment.Payload!).Opacity))
-                        DrawValues(values, canvas);
+                    {
+                        if (fragment.Payload is OpacityMaskRenderFragmentPayload mask)
+                        {
+                            DrawMasked(mask, values, canvas);
+                        }
+                        else
+                        {
+                            using (canvas.PushOpacity(((OpacityRenderFragmentPayload)fragment.Payload!).Opacity))
+                                DrawValues(values, canvas);
+                        }
+                    }
+
                     succeeded = true;
                     return [value];
                 }
@@ -78,69 +92,19 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        private IReadOnlyList<MaterializedRenderValue> MaterializeOpacityMask(
-            RenderFragmentReference fragment,
-            ImmediateCanvas currentTarget,
-            EffectiveScale? requestedScale)
-        {
-            if (fragment.Inputs.Length != 1)
-                throw new InvalidOperationException("An opacity mask requires exactly one input.");
-            if (fragment.Bounds.Width == 0 || fragment.Bounds.Height == 0)
-            {
-                CompleteFragmentUse(fragment.Inputs[0]);
-                return [];
-            }
-
-            EffectiveScale scale = ClampToActiveDeviceGrid(
-                fragment.Bounds,
-                requestedScale ?? ResolveConcreteScale(fragment));
-            RenderFragmentReference primary = fragment.Inputs[0];
-            IReadOnlyList<MaterializedRenderValue> primaryValues = Materialize(
-                primary,
-                currentTarget,
-                primary.EffectiveScale.IsUnbounded ? scale : null);
-            try
-            {
-                MaterializedRenderValue value = CreateOwnedValue(
-                    fragment.Bounds,
-                    scale,
-                    allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
-                bool succeeded = false;
-                try
+        // Kept out of MaterializeOpacityComposite so that only the mask path allocates the callback's closure.
+        private static void DrawMasked(
+            OpacityMaskRenderFragmentPayload payload,
+            IReadOnlyList<MaterializedRenderValue> values,
+            ImmediateCanvas canvas)
+            => _ = payload.Mask.Registry.Use(
+                payload.Mask,
+                mask =>
                 {
-                    using var canvas = CreateValueCanvas(value);
-                    using (canvas.PushTransform(value.RasterAlignmentTransform))
-                    {
-                        var payload = (OpacityMaskRenderFragmentPayload)fragment.Payload!;
-                        _ = payload.Mask.Registry.Use(
-                            payload.Mask,
-                            mask =>
-                            {
-                                using (canvas.PushOpacityMask(
-                                           mask,
-                                           payload.BrushBounds,
-                                           payload.Invert))
-                                {
-                                    DrawValues(primaryValues, canvas);
-                                }
-                                return true;
-                            });
-                    }
-
-                    succeeded = true;
-                    return [value];
-                }
-                finally
-                {
-                    if (!succeeded)
-                        ReleaseUnpublished(value);
-                }
-            }
-            finally
-            {
-                CompleteFragmentUse(primary);
-            }
-        }
+                    using (canvas.PushOpacityMask(mask, payload.BrushBounds, payload.Invert))
+                        DrawValues(values, canvas);
+                    return true;
+                });
 
         private IReadOnlyList<MaterializedRenderValue> ExecuteOpaque(
             RenderFragmentReference fragment,
@@ -428,9 +392,7 @@ internal sealed partial class RenderRequestExecutor
                     if (paint is not null)
                     {
                         Rect replayedInputBounds = ResolveFragmentRequirement(input, input.Bounds);
-                        Rect layerContentBounds = GetDirectFilterLayerBounds(
-                            input.Bounds,
-                            replayedInputBounds);
+                        Rect layerContentBounds = GetDirectFilterLayerBounds(replayedInputBounds);
                         using (canvas.PushBlendMode(BlendMode.SrcOver))
                         using (canvas.PushTransform(Matrix.Identity))
                         // The filter layer must match the region Replay writes, not the input's full
@@ -500,36 +462,14 @@ internal sealed partial class RenderRequestExecutor
                     completeBounds: completeBounds);
             }
 
-            Rect physicalBounds = target.RasterBounds.Union(target.Bounds);
-            float density = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(
-                physicalBounds.Translate(target.DeviceGridOffset),
-                target.Scale.Value);
-            EffectiveScale normalizedScale = EffectiveScale.At(density);
-            PixelRect normalizedDeviceBounds = PixelRect.FromRect(physicalBounds, density);
-            MaterializedRenderValue normalized = CreateOwnedValue(
+            return CreateNormalizedValue(
+                renderTarget,
+                target.RasterBounds,
                 target.Bounds,
-                normalizedScale,
+                target.Scale,
+                target.DeviceGridOffset,
                 completeBounds,
-                physicalDeviceBounds: normalizedDeviceBounds,
-                deviceGridOffset: target.DeviceGridOffset,
-                allowPreviewDrop: true);
-            bool succeeded = false;
-            try
-            {
-                using var canvas = CreateValueCanvas(normalized);
-                using (canvas.PushTransform(normalized.RasterAlignmentTransform))
-                {
-                    canvas.DrawRenderTargetScaledWithoutFlush(renderTarget, target.RasterBounds);
-                }
-
-                succeeded = true;
-                return normalized;
-            }
-            finally
-            {
-                if (!succeeded)
-                    ReleaseUnpublished(normalized);
-            }
+                addRasterApron: false);
         }
 
         private static MaterializedRenderValue CreateOwnedEffectItemValue(

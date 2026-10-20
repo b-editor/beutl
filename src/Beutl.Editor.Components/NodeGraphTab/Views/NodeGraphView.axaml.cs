@@ -29,6 +29,7 @@ public partial class NodeGraphView : UserControl
     private bool _matrixUpdating;
     private FAMenuFlyout? _portDropMenu;
 
+    // Test seam: tests reach the menu a port drop opens through this.
     internal FAMenuFlyout? PortDropMenu => _portDropMenu;
 
     public NodeGraphView()
@@ -267,7 +268,6 @@ public partial class NodeGraphView : UserControl
     {
         if (DataContext is not NodeGraphViewModel viewModel
             || source.GraphNodeViewModel.NodeGraphViewModel != viewModel
-            || !viewModel.SupportsConnectedNodeCreation
             || source.Model is not { } sourcePort
             || canvas.TranslatePoint(canvasPoint, zoomBorder) is not { } viewportPoint
             || !new Rect(zoomBorder.Bounds.Size).Contains(viewportPoint))

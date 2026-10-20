@@ -12,11 +12,9 @@ namespace Beutl.Editor;
 
 public sealed partial class HistoryManager : IDisposable
 {
-    private const int MaximumPreActionPublicationTransactions = 64;
     private readonly ILogger _logger = Log.CreateLogger<HistoryManager>();
     private readonly Stack<HistoryTransaction> _undoStack = new();
     private readonly Stack<HistoryTransaction> _redoStack = new();
-    private readonly OperationExecutionContext _context;
     private readonly OperationSequenceGenerator _sequenceGenerator;
     private readonly FaultIsolatedSubject<HistoryState> _stateChanged;
     private readonly FaultIsolatedSubject<System.Reactive.Unit> _beforeMutation;
@@ -30,25 +28,22 @@ public sealed partial class HistoryManager : IDisposable
     private int _minimumReplayIndex;
     private int _maximumReplayIndex = int.MaxValue;
     private int _entryPublicationDepth;
+    private long _lastDescribedPendingSequence;
     private readonly AsyncLocal<BeforeMutationDispatch?> _beforeMutationDispatch = new();
     private bool _isolatedTransactionActive;
     private bool _isDisposed;
 
-    public HistoryManager(CoreObject root, OperationSequenceGenerator sequenceGenerator)
+    public HistoryManager(OperationSequenceGenerator sequenceGenerator)
     {
         _stateChanged = new FaultIsolatedSubject<HistoryState>(ex =>
             _logger.LogError(ex, "A history state observer failed; continuing publication."));
         _beforeMutation = new FaultIsolatedSubject<System.Reactive.Unit>(ex =>
             _logger.LogError(ex, "A BeforeMutation observer failed; continuing publication."));
-        Root = root ?? throw new ArgumentNullException(nameof(root));
         _sequenceGenerator = sequenceGenerator ?? throw new ArgumentNullException(nameof(sequenceGenerator));
-        _context = new OperationExecutionContext(root);
         _currentTransaction = CreateTransaction();
         _entries.Add(HistoryEntry.CreateInitial());
         _readOnlyEntries = new IsolatedEntryCollection(_entries, _logger);
     }
-
-    public CoreObject Root { get; }
 
     public bool CanUndo => _undoStack.Count > _minimumReplayIndex;
     public bool CanRedo => _redoStack.Count > 0 && _undoStack.Count < _maximumReplayIndex;
@@ -102,6 +97,24 @@ public sealed partial class HistoryManager : IDisposable
             {
                 return _currentTransaction.HasOperations;
             }
+        }
+    }
+
+    internal string? DescribeNewPendingOperations()
+    {
+        lock (_lock)
+        {
+            ChangeOperation[] added =
+                [.. _currentTransaction.Operations.Where(o => o.SequenceNumber > _lastDescribedPendingSequence)];
+            if (added.Length == 0)
+                return null;
+
+            _lastDescribedPendingSequence = added.Max(o => o.SequenceNumber);
+            return string.Join(", ", added.Select(static o =>
+            {
+                string type = o.GetType().Name.Split('`')[0];
+                return o is IPropertyPathProvider provider ? $"{type} {provider.PropertyPath}" : type;
+            }));
         }
     }
 
@@ -213,6 +226,8 @@ public sealed partial class HistoryManager : IDisposable
     /// <remarks>
     /// The action is synchronous and must not call <see cref="Commit"/>, <see cref="Rollback"/>,
     /// <see cref="Undo"/>, <see cref="Redo"/>, <see cref="Clear"/>, <see cref="JumpTo"/>, or this method.
+    /// Operations recorded while the pending entry is published, such as by an entry subscriber, are
+    /// committed with the action.
     /// </remarks>
     public void ExecuteInTransaction(
         Action action,
@@ -236,7 +251,6 @@ public sealed partial class HistoryManager : IDisposable
                 try
                 {
                     stateChanged |= CommitCurrentTransaction_NoLock(name: null, expression: null);
-                    DrainPreActionPublicationTransactions_NoLock(ref stateChanged);
                     try
                     {
                         action();
@@ -315,20 +329,6 @@ public sealed partial class HistoryManager : IDisposable
         return true;
     }
 
-    private void DrainPreActionPublicationTransactions_NoLock(ref bool stateChanged)
-    {
-        for (int count = 0; _currentTransaction.HasOperations; count++)
-        {
-            if (count >= MaximumPreActionPublicationTransactions)
-            {
-                throw new InvalidOperationException(
-                    "History entry publication did not reach a stable transaction boundary.");
-            }
-
-            stateChanged |= CommitCurrentTransaction_NoLock(name: null, expression: null);
-        }
-    }
-
     private void RollbackCurrentTransaction_NoLock()
     {
         if (_currentTransaction.HasOperations)
@@ -361,7 +361,7 @@ public sealed partial class HistoryManager : IDisposable
                 {
                     try
                     {
-                        transaction.Operations[i].Revert(_context);
+                        transaction.Operations[i].Revert();
                     }
                     catch (Exception ex)
                     {
@@ -596,9 +596,9 @@ public sealed partial class HistoryManager : IDisposable
             using (SuppressRecording())
             {
                 if (redo)
-                    transaction.Apply(_context);
+                    transaction.Apply();
                 else
-                    transaction.Revert(_context);
+                    transaction.Revert();
             }
         }
         catch (Exception ex) when (transaction.HasUncertainFailure)
@@ -651,26 +651,14 @@ public sealed partial class HistoryManager : IDisposable
         }
     }
 
-    public void Record(Action doAction, Action undoAction, string? description = null)
+    public void Record(Action doAction, Action undoAction)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(doAction);
         ArgumentNullException.ThrowIfNull(undoAction);
 
-        var operation = CustomOperation.Create(doAction, undoAction, _sequenceGenerator, description);
+        var operation = CustomOperation.Create(doAction, undoAction, _sequenceGenerator);
         Record(operation);
-    }
-
-    public RecordingScope<TState> BeginRecordingScope<TState>(
-        Func<TState> captureState,
-        Action<TState> applyState,
-        string? description = null)
-    {
-        ThrowIfDisposed();
-        ArgumentNullException.ThrowIfNull(captureState);
-        ArgumentNullException.ThrowIfNull(applyState);
-
-        return new RecordingScope<TState>(this, captureState, applyState, _sequenceGenerator, description);
     }
 
     private void NotifyStateChanged()

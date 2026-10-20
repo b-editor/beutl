@@ -6,6 +6,7 @@ using Beutl.Api.Services;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.Dialogs;
+using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
 
@@ -18,10 +19,9 @@ public sealed partial class AiDialogWorkflowTests
     [TestCase(AiSourceVideoMode.Extend, 12.2, true)]
     public async Task Review_SourceVideoImportRetainsTheFullResultDuration(AiSourceVideoMode mode, double expectedSeconds, bool deleteSource)
     {
-        await TestReset.ResetShellAsync();
-        var editor = await OpenEditor("fractional-video-edit");
+        (_, _, var editor) = await TestShell.OpenNewSceneAsync("fractional-video-edit");
         string? uploaded = null;
-        using var handler = new StubHandler(async (request, token) =>
+        await using var api = new ApiScope(new StubHandler(async (request, token) =>
         {
             if (request.RequestUri?.AbsolutePath is "/api/v3/ai/videos/edit" or "/api/v3/ai/videos/extend")
                 uploaded = await request.Content!.ReadAsStringAsync(token);
@@ -34,10 +34,8 @@ public sealed partial class AiDialogWorkflowTests
                 "/api/contents/edited-file" => ByteResponse([1, 2, 3, 4], "video/mp4"),
                 _ => ProviderVideoResponse(request),
             };
-        });
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        }));
+        BeutlApiApplication clients = api.Clients;
         await using var vm = CreateVideoGenerationDialog(clients, editor, sourceMode: mode);
         string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, "fractional-source.mp4");
         await File.WriteAllTextAsync(path, "2.2");

@@ -22,55 +22,15 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
         Keyword = keyword;
 
         Refresh = new AsyncReactiveCommand(IsBusy.Inverse())
-            .WithSubscribe(async () =>
-            {
-                using Activity? activity = Telemetry.StartActivity("SearchPage.Refresh");
-
-                try
-                {
-                    IsBusy.Value = true;
-                    await RefreshPackages(_lifetimeCts.Token);
-                }
-                catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
-                {
-                }
-                catch (Exception e)
-                {
-                    activity?.SetStatus(ActivityStatusCode.Error);
-                    await e.Handle();
-                    _logger.LogError(e, "An unexpected error has occurred.");
-                }
-                finally
-                {
-                    IsBusy.Value = false;
-                }
-            })
+            .WithSubscribe(() => StorePageCommand.RunAsync(
+                IsBusy, "SearchPage.Refresh", _lifetimeCts.Token, _logger,
+                _ => RefreshPackages(_lifetimeCts.Token)))
             .DisposeWith(_disposables);
 
         More = new AsyncReactiveCommand(IsBusy.Inverse())
-            .WithSubscribe(async () =>
-            {
-                using Activity? activity = Services.Telemetry.StartActivity("SearchPage.More");
-
-                try
-                {
-                    IsBusy.Value = true;
-                    await MoreLoadPackages(_lifetimeCts.Token);
-                }
-                catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
-                {
-                }
-                catch (Exception e)
-                {
-                    activity?.SetStatus(ActivityStatusCode.Error);
-                    await e.Handle();
-                    _logger.LogError(e, "An unexpected error has occurred.");
-                }
-                finally
-                {
-                    IsBusy.Value = false;
-                }
-            })
+            .WithSubscribe(() => StorePageCommand.RunAsync(
+                IsBusy, "SearchPage.More", _lifetimeCts.Token, _logger,
+                _ => MoreLoadPackages(_lifetimeCts.Token)))
             .DisposeWith(_disposables);
 
         Kind = new PackageKindFilterViewModel(() => Refresh.Execute())

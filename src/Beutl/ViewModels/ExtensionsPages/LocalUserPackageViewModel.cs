@@ -11,7 +11,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.ExtensionsPages;
 
-public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewModel
+public sealed class LocalUserPackageViewModel : IUserPackageViewModel
 {
     private readonly ILogger _logger = Log.CreateLogger<LocalUserPackageViewModel>();
     private readonly CompositeDisposable _disposables = [];
@@ -23,7 +23,7 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
         Package = package;
         _packageIdentity = new PackageIdentity(package.Name, new NuGetVersion(package.Version));
         DisplayName = new ReactivePropertySlim<string>(package.DisplayName);
-        LogoUrl = new ReactivePropertySlim<string>(package.Logo);
+        LogoUrl = new ReactivePropertySlim<string>(string.Empty);
 
         _handler = new PackageOperationHandler(app, editorService, projectService);
 
@@ -203,7 +203,7 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
 
     bool IUserPackageViewModel.IsRemote => false;
 
-    public override void Dispose()
+    public void Dispose()
     {
         _disposables.Dispose();
     }

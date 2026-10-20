@@ -7,50 +7,14 @@ namespace Beutl.ViewModels.Dialogs;
 
 internal sealed partial class AiVideoGenerationDialogViewModel
 {
-    private IReadOnlyList<AiPendingAttempt> GetPendingRecoveryAttempts()
-    {
-        try
-        {
-            return _requestKey.PendingAttempts(Operation);
-        }
-        catch (InvalidDataException ex)
-        {
-            _logger.LogError(ex, "Failed to read video-generation recovery attempts.");
-            return Array.Empty<AiPendingAttempt>();
-        }
-    }
-
-    private void TryAutoRecoverSingleAttempt()
-    {
-        IReadOnlyList<AiPendingAttempt> attempts = GetPendingRecoveryAttempts();
-        if (attempts.Count == 1 && attempts[0].HasCanonicalForm)
-        {
-            if (!TryRecoverPendingAttempt(attempts[0]))
-                ClearActiveRecovery();
-        }
-
-        _recoveryRevision.Value++;
-    }
-
     private void OnIdentityChanged()
-        => AiFormRecovery.SwitchIdentity(
-            _identityOperations,
-            ClearIdentityState,
-            TryAutoRecoverForCurrentIdentity,
-            ex => _logger.LogError(ex, "Failed to clear video-generation state after an account change."));
-
-    private void TryAutoRecoverForCurrentIdentity()
-    {
-        if (_requestKey.CurrentAccountId is not null)
-            TryAutoRecoverSingleAttempt();
-    }
+        => _recovery.SwitchIdentity(_identityOperations, ClearIdentityState);
 
     private void ClearIdentityState()
     {
         _runningRequest = null;
         IsGenerating.Value = false;
-        IsWaitingForJob.Value = false;
-        ClearActiveRecovery();
+        _recovery.Clear();
         ClearVideoInputs();
         _chosenDuration = null;
         _chosenResolution = null;
@@ -67,12 +31,12 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         if (ResultVideoPath.Value is { } resultPath)
             RequestTemporaryFileDeletion(resultPath);
         ResultVideoPath.Value = null;
-        _resultSnapshot = null;
+        _resultDurationSeconds = 0;
         StatusText.Value = InitialStatusText;
         Error.Value = null;
         ModelPicker.ReconcileRecoveryModels();
         ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
-        _recoveryRevision.Value++;
+        _recovery.Revision.Value++;
     }
 
     internal bool TryRecoverPendingAttempt(AiPendingAttempt attempt)
@@ -81,13 +45,6 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             || !StringComparer.Ordinal.Equals(account, attempt.AccountId))
         {
             Error.Value = Strings.AiAuthenticationRequired;
-            return false;
-        }
-        // Old job-based attempts remain listed for explicit abandonment; they
-        // cannot be converted into a new uploaded-source request.
-        if (attempt.Form?.SourceJobId is not null)
-        {
-            Error.Value = Strings.AiResultUnavailable;
             return false;
         }
         if (!attempt.HasCanonicalForm
@@ -101,8 +58,6 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         try
         {
             paths = _requestKey.ResolveSources(attempt);
-            foreach (AiRequestRecoverySource source in attempt.EffectiveSources)
-                _ = _requestKey.ReadSourceBytes(source);
         }
         catch (InvalidDataException ex)
         {
@@ -113,12 +68,6 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         }
 
         AiRequestFormSnapshot form = attempt.Form!;
-        if (paths.Count != attempt.EffectiveSources.Count)
-        {
-            Error.Value = Strings.AiResultUnavailable;
-            return false;
-        }
-
         if (attempt.EffectiveSources.Any(source =>
             source.Role.StartsWith(ReferenceRolePrefix, StringComparison.Ordinal)
             && !ReferenceGroups.Any(group => source.Role.StartsWith($"{ReferenceRolePrefix}{group.Kind}-", StringComparison.Ordinal))))
@@ -175,11 +124,11 @@ internal sealed partial class AiVideoGenerationDialogViewModel
 
         SetFrameCore(isFirstFrame: true, firstPath, firstElement);
         SetFrameCore(isFirstFrame: false, lastPath, lastElement);
-        ActivateRecovery(attempt);
+        _recovery.Activate(attempt);
         RestoreVideoInputs(attempt, paths);
         ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
-        _recoveryRevision.Value++;
-        SelectRecoveredModel();
+        _recovery.Revision.Value++;
+        _recovery.SelectRecoveredModel();
         return true;
     }
 
@@ -198,54 +147,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         Seed.Value = form.Seed;
     }
 
-    internal void AbandonPendingAttempt(AiPendingAttempt attempt)
-    {
-        try
-        {
-            _requestKey.Abandon(attempt);
-            if (_selectedRecovery is { } selected
-                && AiFormRecovery.IsSameAttempt(selected, attempt))
-            {
-                ClearActiveRecovery();
-                ModelPicker.ReconcileRecoveryModels();
-                ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
-            }
-
-            _recoveryRevision.Value++;
-            // A request that was sent before may still finish, or may already have been paid for.
-            // Either way its job stays in the account's AI job list.
-            NotificationService.ShowInformation(Strings.AiPendingRequest, Strings.AiAbandonedRequestInJobs);
-        }
-        catch (Exception ex) when (ex is InvalidDataException or AuthenticationRequiredException)
-        {
-            _logger.LogWarning(ex, "Failed to abandon video-generation recovery attempt.");
-            Error.Value = Strings.AiResultUnavailable;
-        }
-    }
-
-    // The model a request should carry: the one the outstanding name was built
-    // from while there is one, and the picker's otherwise.
-    private AiModelId? ModelForRequest(AiModelId? selected)
-        => _selectedRecovery is { } attempt
-            ? attempt.Model is { } model ? new AiModelId(model) : null
-            : selected;
-
-    private void ActivateRecovery(AiPendingAttempt attempt)
-    {
-        _selectedRecovery = attempt;
-        SelectedRecoveryAttempt.Value = attempt;
-        ModelPicker.IsSelectionEnabled.Value = false;
-    }
-
-    private void ClearActiveRecovery()
-    {
-        _selectedRecovery = null;
-        SelectedRecoveryAttempt.Value = null;
-        ModelPicker.IsSelectionEnabled.Value = true;
-    }
-
-    private void SelectRecoveredModel()
-        => AiFormRecovery.SelectRecoveredModel(ModelPicker, _selectedRecovery);
+    internal void AbandonPendingAttempt(AiPendingAttempt attempt) => _recovery.Abandon(attempt);
 
     // Only this one request is settled. Retiring the whole run instead would
     // throw away the name of anything else still waiting to be collected.
@@ -253,16 +155,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
     {
         if (!_requestKey.Retire(name))
             return;
-        ReleaseFramesOf(name);
-        if (_selectedRecovery is { } selected
-            && AiFormRecovery.IsSettledBy(_requestKey, selected, name))
-        {
-            ReleaseFramesOf(new AiRequestName(selected.Key, IsRepeat: true));
-            ClearActiveRecovery();
-            ModelPicker.ReconcileRecoveryModels();
-            ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
-            _recoveryRevision.Value++;
-        }
+        ReleaseFramesOfSettled(name);
         // Reloads were held back while that name was outstanding, so this is
         // where an operator's change to the model list finally lands.
         _ = RefreshModelsAsync();
@@ -272,17 +165,15 @@ internal sealed partial class AiVideoGenerationDialogViewModel
     // move again and puts the balance check back in front of the next attempt.
     private void WithdrawRequestName(AiRequestName name)
     {
-        if (!_requestKey.WithdrawAfterNoReservation(name))
-            return;
+        if (_requestKey.WithdrawAfterNoReservation(name))
+            ReleaseFramesOfSettled(name);
+    }
+
+    // Releases the frames of a settled name, and of the recovered one when that settles the
+    // recovery as well.
+    private void ReleaseFramesOfSettled(AiRequestName name)
+    {
         ReleaseFramesOf(name);
-        if (_selectedRecovery is { } selected
-            && AiFormRecovery.IsSettledBy(_requestKey, selected, name))
-        {
-            ReleaseFramesOf(new AiRequestName(selected.Key, IsRepeat: true));
-            ClearActiveRecovery();
-            ModelPicker.ReconcileRecoveryModels();
-            ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
-            _recoveryRevision.Value++;
-        }
+        _recovery.Settle(name, recovered => ReleaseFramesOf(new AiRequestName(recovered.Key, IsRepeat: true)));
     }
 }

@@ -46,8 +46,8 @@ public sealed class DetachedMeshResourceTests
 
         // The state a resource is left in when its topology drops to nothing after an upload.
         using var emptied = new ModelMesh.Resource { Vertices = [], Indices = [] };
-        emptied.VertexBuffer = new FakeBuffer(1);
-        emptied.IndexBuffer = new FakeBuffer(1);
+        emptied.VertexBuffer = new StubBuffer(1);
+        emptied.IndexBuffer = new StubBuffer(1);
         emptied.UploadedIndexCount = cube.IndexCount;
         emptied.BuffersDirty = true;
 
@@ -68,27 +68,8 @@ public sealed class DetachedMeshResourceTests
         var context = new Mock<IGraphicsContext>();
         context
             .Setup(x => x.CreateBuffer(It.IsAny<ulong>(), It.IsAny<BufferUsage>(), It.IsAny<MemoryProperty>()))
-            .Returns((ulong size, BufferUsage _, MemoryProperty _) => new FakeBuffer(size));
+            .Returns((ulong size, BufferUsage _, MemoryProperty _) => new StubBuffer(size));
         return context.Object;
-    }
-
-    private sealed class FakeBuffer(ulong size) : IBuffer
-    {
-        public ulong Size { get; } = size;
-
-        public void Upload<T>(ReadOnlySpan<T> data) where T : unmanaged
-        {
-        }
-
-        public IntPtr Map() => IntPtr.Zero;
-
-        public void Unmap()
-        {
-        }
-
-        public void Dispose()
-        {
-        }
     }
 
     [Test]

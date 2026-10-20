@@ -6,8 +6,6 @@ using Beutl.Embedding.MediaFoundation.Decoding;
 using Beutl.Engine;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using NAudio.Wave;
 
@@ -69,13 +67,12 @@ public class MFReaderIntegrationTests
         {
             // ReadAudio signals end of stream with a short buffer, not false. The 440Hz fixture is longer than
             // 4410 frames, so this read is full length and carries the signal rather than silence.
-            var samples = ((Pcm<Stereo32BitFloat>)pcm!.Value).DataSpan;
-            Assert.That(samples.Length, Is.EqualTo(4410));
+            Assert.That(pcm!.SampleCount, Is.EqualTo(4410));
 
             bool nonSilent = false;
-            foreach (Stereo32BitFloat s in samples)
+            for (int i = 0; i < pcm.SampleCount; i++)
             {
-                if (Math.Abs(s.Left) > 1e-4f || Math.Abs(s.Right) > 1e-4f)
+                if (Math.Abs(pcm.GetChannelData(0)[i]) > 1e-4f || Math.Abs(pcm.GetChannelData(1)[i]) > 1e-4f)
                 {
                     nonSilent = true;
                     break;
@@ -107,7 +104,7 @@ public class MFReaderIntegrationTests
             wav,
             new MediaOptions(MediaMode.Audio),
             new MFDecodingExtension(),
-            static (_, _, _) => throw new AssertionException("Audio-only opens must not create a video decoder."),
+            static (_, _) => throw new AssertionException("Audio-only opens must not create a video decoder."),
             static (file, settings) => new MediaFoundationReader(file, settings),
             getFirstVideoTimestamp: _ => nativeFailure
                 ? MFStreamProbe.GetFirstVideoTimestamp(Path.Combine(_workDir, "missing-video.mp4"))
@@ -119,9 +116,9 @@ public class MFReaderIntegrationTests
         Assert.That(reader.ReadAudio(0, 1024, out var pcm), Is.True);
         using (pcm)
         {
-            Assert.That(pcm!.Value.NumSamples, Is.EqualTo(1024));
-            Assert.That(((Pcm<Stereo32BitFloat>)pcm.Value).DataSpan.ToArray()
-                .Any(sample => Math.Abs(sample.Left) > 1e-4f), Is.True);
+            Assert.That(pcm!.SampleCount, Is.EqualTo(1024));
+            Assert.That(pcm.GetChannelData(0).ToArray()
+                .Any(sample => Math.Abs(sample) > 1e-4f), Is.True);
         }
     }
 
@@ -133,7 +130,7 @@ public class MFReaderIntegrationTests
             wav,
             new MediaOptions(MediaMode.Audio),
             new MFDecodingExtension(),
-            static (_, _, _) => throw new AssertionException("Audio-only opens must not create a video decoder."),
+            static (_, _) => throw new AssertionException("Audio-only opens must not create a video decoder."),
             static (file, settings) => new MediaFoundationReader(file, settings),
             getFirstVideoTimestamp: static _ => throw new InvalidOperationException("Unexpected probe failure"))));
     }
@@ -155,16 +152,16 @@ public class MFReaderIntegrationTests
         using (pcm)
         {
             Assert.That(pcm, Is.Not.Null);
-            Assert.That(pcm!.Value.NumSamples, Is.Zero);
-            Assert.That(pcm.Value.SampleRate, Is.EqualTo(44100));
-            Assert.That(pcm.Value.NumChannels, Is.EqualTo(2));
+            Assert.That(pcm!.SampleCount, Is.Zero);
+            Assert.That(pcm.SampleRate, Is.EqualTo(44100));
+            Assert.That(pcm.ChannelCount, Is.EqualTo(2));
         }
 
         // An EOF request must leave the reader usable for a later in-range seek.
         Assert.That(reader.ReadAudio(0, 1024, out var firstSamples), Is.True);
         using (firstSamples)
         {
-            Assert.That(firstSamples!.Value.NumSamples, Is.EqualTo(1024));
+            Assert.That(firstSamples!.SampleCount, Is.EqualTo(1024));
         }
     }
 
@@ -180,9 +177,8 @@ public class MFReaderIntegrationTests
         Assert.That(read, Is.True);
         using (pcm)
         {
-            Assert.That(pcm!.Value.NumSamples, Is.EqualTo(4410));
-            var samples = ((Pcm<Stereo32BitFloat>)pcm.Value).DataSpan;
-            Assert.That(samples.ToArray().Any(sample => Math.Abs(sample.Left) > 1e-4f), Is.True);
+            Assert.That(pcm!.SampleCount, Is.EqualTo(4410));
+            Assert.That(pcm.GetChannelData(0).ToArray().Any(sample => Math.Abs(sample) > 1e-4f), Is.True);
         }
     }
 
@@ -277,7 +273,7 @@ public class MFReaderIntegrationTests
         // `readAudio` is structurally always true; assert the decoded buffer matches the requested
         // length so a regression in the NAudio length math would actually fail here. The fixture's
         // audio content is unknown, so non-silence is not asserted (unlike the sine-WAV test above).
-        Assert.That(pcm!.Value.NumSamples, Is.EqualTo(1000));
+        Assert.That(pcm!.SampleCount, Is.EqualTo(1000));
         pcm.Dispose();
     }
 }

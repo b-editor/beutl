@@ -5,6 +5,8 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using Beutl.Testing.Headless;
 using FluentAvalonia.UI.Controls;
@@ -154,6 +156,62 @@ public class Avalonia12ColorPickerTests
         {
             window.Close();
             HeadlessTestHelpers.Settle();
+        }
+    }
+
+    // Applying a new template must unhook the old hex box. UnhookEvents subscribed it again instead.
+    [AvaloniaTest]
+    public void A_replaced_hex_box_no_longer_handles_enter()
+    {
+        var picker = new FAColorPicker { Color = AvaColors.Red, IsCompact = false };
+        var window = new Window { Content = picker, Width = 800, Height = 800 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            TextBox oldHex = picker.GetVisualDescendants().OfType<TextBox>().Single(box => box.Name == "HexBox");
+            var template = picker.Template;
+            picker.Template = null;
+            HeadlessTestHelpers.Render();
+            picker.Template = template;
+            HeadlessTestHelpers.Render();
+            Assert.That(picker.GetVisualDescendants().OfType<TextBox>().Single(box => box.Name == "HexBox"),
+                Is.Not.SameAs(oldHex));
+
+            var enter = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter };
+            oldHex.RaiseEvent(enter);
+            Assert.That(enter.Handled, Is.False);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // The spectrum draws its border with its BorderBrush and BorderThickness, as the ramps beside it do.
+    [AvaloniaTest]
+    public void Spectrum_draws_its_border_with_the_border_brush()
+    {
+        var spectrum = new ColorSpectrum
+        {
+            Shape = FluentAvalonia.UI.Controls.ColorSpectrumShape.Spectrum,
+            Color = AvaColors.Red,
+            BorderBrush = Brushes.Lime,
+            BorderThickness = 4
+        };
+        var window = new Window { Content = spectrum, Width = 200, Height = 200 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Point topLeft = spectrum.TranslatePoint(default, window)!.Value;
+            using WriteableBitmap frame = window.CaptureRenderedFrame()!;
+            var inside = new PixelPoint((int)topLeft.X + 50, (int)topLeft.Y + 1);
+            Assert.That(HeadlessTestHelpers.ReadPixel(frame, inside), Is.EqualTo((0, 255, 0)));
+        }
+        finally
+        {
+            window.Close();
         }
     }
 }

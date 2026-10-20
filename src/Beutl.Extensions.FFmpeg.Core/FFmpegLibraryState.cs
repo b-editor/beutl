@@ -15,11 +15,8 @@ public static class FFmpegLibraryState
         LibrariesMissing,
     }
 
-    // After libraries are reported missing, skip fresh worker-start probes for this long, then allow
-    // a probe so a transient failure (momentary file lock, crashed worker) can self-recover without
-    // the user re-running the install wizard. A genuinely-missing install just re-arms the cooldown.
-    // 30s bounds a missing-FFmpeg session to ~2 worker-start attempts per minute, so the worker's own
-    // "libraries not found" stdout error does not repeat on every frame/thumbnail request.
+    // After libraries are reported missing, skip worker-start probes for this long: a transient failure can still
+    // self-recover, while a missing install retries (and logs the worker's error) only ~2 times a minute.
     private const long ReprobeCooldownMs = 30_000;
     private static readonly object s_stateGate = new();
     // This gate protects only the pending notification queue. It is never held while invoking
@@ -43,7 +40,8 @@ public static class FFmpegLibraryState
 
     public static bool IsVerificationInProgress => s_verificationInProgress;
 
-    public static long MissingSinceTicks => Interlocked.Read(ref s_missingSinceTicks);
+    // Test-only: the tick count when the re-probe cooldown was armed, or 0.
+    internal static long MissingSinceTicks => Interlocked.Read(ref s_missingSinceTicks);
 
     public static void NotifyMissing()
     {
@@ -94,10 +92,8 @@ public static class FFmpegLibraryState
         DrainNotifications(notification);
     }
 
-    // Record the missing latch observed by a decode attempt WITHOUT re-arming the cooldown (a real
-    // worker-start failure arms it; re-arming on a short-circuited decode would keep the re-probe
-    // window from ever elapsing). Returns whether the condition was already known, so callers can
-    // log a first discovery as an error and an already-known short-circuit quietly.
+    // Records the missing latch a decode observed without re-arming the cooldown, which would keep the re-probe
+    // window from elapsing. Returns whether it was already known, so callers can log only a first discovery.
     public static bool RecordMissingObserved()
     {
         bool wasKnownMissing = RecordMissingObservedCore(out PendingNotification? notification);

@@ -3,9 +3,10 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using Avalonia.Threading;
 using Beutl.Editor.Components.ColorScopesTab.ViewModels;
+using Beutl.Logging;
 using Beutl.Media.Source;
+using Microsoft.Extensions.Logging;
 using BtlBitmap = Beutl.Media.Bitmap;
 
 namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
@@ -35,6 +36,7 @@ public abstract class ScopeControlBase : Control
 
     protected static readonly Typeface DefaultTypeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Normal);
 
+    private readonly ILogger _logger = Log.CreateLogger<ScopeControlBase>();
     private readonly Pen _axisPen = new(Brushes.Gray, 1.5);
     private readonly SemaphoreSlim _renderLock = new(1, 1);
     private CancellationTokenSource? _renderCts;
@@ -143,33 +145,27 @@ public abstract class ScopeControlBase : Control
             int targetWidth = (int)Math.Max(1, bounds.Width - axisMargin);
             int targetHeight = (int)Math.Max(1, bounds.Height - axisMargin);
 
-            if (targetWidth <= 0 || targetHeight <= 0) return;
-
             result = await Task.Run(() =>
             {
                 ct.ThrowIfCancellationRequested();
                 return RenderScope(bitmapRef.Value, targetWidth, targetHeight, backBuffer);
             }, ct);
-            if (result == null) return;
+            // The await resumed on the UI thread, which owns the buffers.
+            if (result == null || ct.IsCancellationRequested || !ReferenceEquals(_renderCts, renderCts)) return;
 
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (ct.IsCancellationRequested || !ReferenceEquals(_renderCts, renderCts)) return;
-
-                _backBuffer = _frontBuffer;
-                _frontBuffer = result;
-                if (ReferenceEquals(result, backBuffer))
-                    backBuffer = null;
-                result = null;
-                InvalidateVisual();
-            });
+            _backBuffer = _frontBuffer;
+            _frontBuffer = result;
+            if (ReferenceEquals(result, backBuffer))
+                backBuffer = null;
+            result = null;
+            InvalidateVisual();
         }
         catch (OperationCanceledException)
         {
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Scope render error: {ex.Message}");
+            _logger.LogWarning(ex, "Rendering the scope failed.");
         }
         finally
         {
@@ -213,7 +209,6 @@ public abstract class ScopeControlBase : Control
         double contentWidth = bounds.Width - axisMargin;
         double contentHeight = bounds.Height - axisMargin;
 
-        // Draw background
         var bgBrush = BackgroundBrush;
         if (bgBrush != null)
         {
@@ -236,7 +231,6 @@ public abstract class ScopeControlBase : Control
             }
         }
 
-        // Draw axes
         DrawAxes(context, bounds, axisMargin, contentWidth, contentHeight);
     }
 
@@ -245,17 +239,14 @@ public abstract class ScopeControlBase : Control
     {
         var labelBrush = LabelBrush ?? Brushes.Gray;
 
-        // Draw vertical axis line
         context.DrawLine(_axisPen, new Point(axisMargin, 0), new Point(axisMargin, contentHeight));
 
-        // Draw horizontal axis line
         context.DrawLine(_axisPen, new Point(axisMargin, contentHeight), new Point(bounds.Width, contentHeight));
 
         DrawVerticalLabels(context, VerticalAxisLabels, labelBrush, axisMargin, contentHeight);
         DrawHorizontalLabels(context, HorizontalAxisLabels, labelBrush, bounds, axisMargin, contentWidth, contentHeight);
     }
 
-    // Draw vertical labels (from top to bottom)
     private void DrawVerticalLabels(
         DrawingContext context, string[]? verticalLabels, IBrush labelBrush, double axisMargin, double contentHeight)
     {
@@ -285,7 +276,6 @@ public abstract class ScopeControlBase : Control
         }
     }
 
-    // Draw horizontal labels (from left to right)
     private void DrawHorizontalLabels(
         DrawingContext context, string[]? horizontalLabels, IBrush labelBrush, Rect bounds, double axisMargin,
         double contentWidth, double contentHeight)
@@ -347,19 +337,6 @@ public abstract class ScopeControlBase : Control
     protected static uint PackColor(byte r, byte g, byte b, byte a = 255)
     {
         return (uint)(b | (g << 8) | (r << 16) | (a << 24));
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected static void PlotPoint(Span<uint> dest, int stride, int x, int y, uint color)
-    {
-        int height = dest.Length / stride;
-        if ((uint)x >= (uint)stride || (uint)y >= (uint)height) return;
-
-        int idx = y * stride + x;
-        uint existing = dest[idx];
-        byte existingA = (byte)(existing >> 24);
-        byte newA = (byte)(color >> 24);
-        dest[idx] = newA > existingA ? color : BlendAdd(existing, color);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

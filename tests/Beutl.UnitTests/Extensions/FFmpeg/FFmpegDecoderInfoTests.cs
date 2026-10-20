@@ -53,11 +53,11 @@ public sealed class FFmpegDecoderInfoTests
         FFmpegInstallNotifier.MarkInstalled();
         bool cooldownArmedWhenNotified = false;
         EventHandler handler = (_, _) =>
-            cooldownArmedWhenNotified = FFmpegInstallNotifier.ShouldSkipStartProbe(Environment.TickCount64);
-        FFmpegInstallNotifier.AvailabilityChanged += handler;
+            cooldownArmedWhenNotified = FFmpegLibraryState.ShouldSkipStartProbe(Environment.TickCount64);
+        FFmpegLibraryState.AvailabilityChanged += handler;
         try
         {
-            FFmpegInstallNotifier.MarkMissing();
+            FFmpegLibraryState.MarkMissing();
 
             // A synchronous listener must already observe ShouldSkipStartProbe == true, otherwise it
             // could re-probe the worker before the cooldown is in effect.
@@ -65,7 +65,7 @@ public sealed class FFmpegDecoderInfoTests
         }
         finally
         {
-            FFmpegInstallNotifier.AvailabilityChanged -= handler;
+            FFmpegLibraryState.AvailabilityChanged -= handler;
             FFmpegInstallNotifier.MarkInstalled();
         }
     }
@@ -76,7 +76,7 @@ public sealed class FFmpegDecoderInfoTests
         // Force the "libraries missing" short-circuit so the worker start fails without launching a
         // real process. Open must NOT rethrow the typed exception (that would abort DecoderRegistry
         // before it can try a fallback decoder like MediaFoundation for a regular open).
-        FFmpegInstallNotifier.MarkMissing();
+        FFmpegLibraryState.MarkMissing();
         try
         {
             var decoder = new FFmpegDecoderInfo(new FFmpegDecodingSettings());
@@ -96,7 +96,7 @@ public sealed class FFmpegDecoderInfoTests
     [Test]
     public async Task ProxyGenerator_WhenFFmpegMissing_ThrowsUnavailableSoQueuePauses()
     {
-        FFmpegInstallNotifier.MarkMissing();
+        FFmpegLibraryState.MarkMissing();
         try
         {
             string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
@@ -109,23 +109,69 @@ public sealed class FFmpegDecoderInfoTests
             // a synthetic mtime would trip the source-changed skip before the missing-FFmpeg path.
             var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
 
-            try
-            {
-                await generator.GenerateAsync(job);
-
-                // No throw means an FFmpeg worker is available in this environment, so the
-                // missing-libraries path is unreachable; CI (no FFmpeg) exercises the throw.
-                Assert.Ignore("An FFmpeg worker is available; missing-libraries path is unreachable.");
-            }
-            catch (ProxyGeneratorUnavailableException)
-            {
-                // The proxy generator translates a missing FFmpeg install into the unavailable signal
-                // that ProxyJobQueue uses to pause the batch (instead of draining it as failures).
-            }
+            // The proxy generator translates a missing FFmpeg install into the unavailable signal
+            // that ProxyJobQueue uses to pause the batch (instead of draining it as failures).
+            await Assert.ThrowsAsync<ProxyGeneratorUnavailableException>(() => generator.GenerateAsync(job).AsTask());
         }
         finally
         {
             FFmpegInstallNotifier.MarkInstalled();
         }
+    }
+
+    [Test]
+    public void SelectWorker_SendsBackgroundReadsToTheBackgroundWorker()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(FFmpegDecoderInfo.SelectWorker(new MediaOptions(MediaMode.Video) { IsBackground = true }),
+                Is.SameAs(FFmpegWorkerProcess.BackgroundDecodingInstance));
+            Assert.That(FFmpegDecoderInfo.SelectWorker(new MediaOptions(MediaMode.Video)),
+                Is.SameAs(FFmpegWorkerProcess.DecodingInstance));
+            Assert.That(FFmpegWorkerProcess.BackgroundDecodingInstance, Is.Not.SameAs(FFmpegWorkerProcess.DecodingInstance));
+        });
+    }
+
+    [Test]
+    public void ProxyGenerator_ReadsTheSourceAsBackgroundWork()
+    {
+        var decoder = new RecordingDecoderInfo();
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            var generator = new FFmpegProxyGenerator(new ProxyStore(Path.Combine(root, "proxies")));
+            string source = Path.Combine(root, "clip" + RecordingDecoderInfo.Extension);
+            File.WriteAllBytes(source, new byte[64]);
+            var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
+
+            // The decoder opens nothing, so generation fails after the open.
+            Assert.CatchAsync(() => generator.GenerateAsync(job).AsTask());
+            Assert.That(decoder.Requests.Select(options => options.IsBackground), Is.EqualTo(new[] { true }));
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
+    private sealed class RecordingDecoderInfo : IDecoderInfo
+    {
+        public const string Extension = ".proxysource";
+
+        public List<MediaOptions> Requests { get; } = [];
+
+        public string Name => "Recording Decoder";
+
+        public MediaReader? Open(string file, MediaOptions options)
+        {
+            Requests.Add(options);
+            return null;
+        }
+
+        public IEnumerable<string> VideoExtensions() => [Extension];
+
+        public IEnumerable<string> AudioExtensions() => [];
     }
 }

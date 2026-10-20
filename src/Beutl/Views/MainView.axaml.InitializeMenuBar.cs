@@ -1,28 +1,20 @@
-﻿using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
-using System.Windows.Input;
-using Avalonia;
-using Avalonia.Collections;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using Beutl.Api.Services;
-using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Components.VersionControl.Views;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
 using Beutl.Models;
-using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
-using DynamicData;
-using DynamicData.Binding;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -32,10 +24,6 @@ namespace Beutl.Views;
 
 public partial class MainView
 {
-    private readonly AvaloniaList<MenuItem> _rawRecentFileItems = [];
-    private readonly AvaloniaList<MenuItem> _rawRecentProjItems = [];
-    private readonly Cache<MenuItem> _menuItemCache = new(4);
-
     private void InitializeCommands(MainViewModel viewModel)
     {
         viewModel.VersionControlCoordinator.RequestIdentityAsync = RequestGitIdentityAsync;
@@ -44,8 +32,7 @@ public partial class MainView
             var dialog = new CreateNewProject();
             dialog.DataContext = new CreateNewProjectViewModel(
                 viewModel.ProjectService,
-                viewModel.VersionControlCoordinator,
-                RequestGitIdentityAsync);
+                viewModel.VersionControlCoordinator);
             await dialog.ShowAsync();
         }).AddTo(_disposables);
 
@@ -65,8 +52,6 @@ public partial class MainView
             await dialog.ShowAsync();
         }).AddTo(_disposables);
 
-        viewModel.MenuBar.DeleteLayer.Subscribe(OnDeleteElement).AddTo(_disposables);
-
         viewModel.MenuBar.Exit.Subscribe(() =>
         {
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime applicationLifetime)
@@ -79,70 +64,22 @@ public partial class MainView
 
         viewModel.MenuBar.ExportProject.Subscribe(OnExportProject).AddTo(_disposables);
         viewModel.MenuBar.ImportProject.Subscribe(OnImportProject).AddTo(_disposables);
+        viewModel.MenuBar.ShowSettings.Subscribe(OpenSettingsDialog).AddTo(_disposables);
+        viewModel.MenuBar.OpenToolWindow.Subscribe(OpenToolWindow).AddTo(_disposables);
+        viewModel.MenuBar.ShowTutorials.Subscribe(OpenTutorialsDialog).AddTo(_disposables);
+        viewModel.MenuBar.ShowInformation.Subscribe(GoToInformationPage).AddTo(_disposables);
+        viewModel.MenuBar.CollectGarbage.Subscribe(RunGcCollect).AddTo(_disposables);
+        viewModel.MenuBar.MonitorKeyModifiers.Subscribe(OpenKeyModifierMonitor).AddTo(_disposables);
+        viewModel.MenuBar.ThrowUnhandledException.Subscribe(ThrowDebugException).AddTo(_disposables);
+        viewModel.MenuBar.StartWindowCapture.Subscribe(StartWindowCapture).AddTo(_disposables);
+        viewModel.MenuBar.StopWindowCapture.Subscribe(StopWindowCapture).AddTo(_disposables);
 
-        InitializeDockLayoutPresetMenu(viewModel);
         viewModel.MenuBar.ShowAiJobs.Subscribe(viewModel.OpenAiJobCenter).AddTo(_disposables);
         viewModel.MenuBar.GenerateImage.Subscribe(viewModel.OpenAiImageGeneration).AddTo(_disposables);
         viewModel.MenuBar.GenerateSubtitles.Subscribe(() => viewModel.OpenAiSubtitle()).AddTo(_disposables);
         viewModel.MenuBar.EditImage.Subscribe(viewModel.OpenAiImageEdit).AddTo(_disposables);
         viewModel.MenuBar.GenerateVideo.Subscribe(viewModel.OpenAiVideoGeneration).AddTo(_disposables);
         viewModel.MenuBar.EditVideo.Subscribe(viewModel.OpenAiVideoEditing).AddTo(_disposables);
-    }
-
-    private void InitializeDockLayoutPresetMenu(MainViewModel viewModel)
-    {
-        // Keyed by menu item so a removed preset's header subscription goes away with it; leaving
-        // it in _disposables would pin the MenuItem — and through it the preset's layout JSON —
-        // for the rest of the session.
-        var headerSubscriptions = new Dictionary<MenuItem, IDisposable>();
-
-        MenuItem CreateDockLayoutMenuItem(DockLayoutPresetItem item)
-        {
-            var menuItem = new MenuItem
-            {
-                DataContext = item,
-                Command = viewModel.MenuBar.ApplyDockLayout,
-                CommandParameter = item
-            };
-
-            // A typed subscription rather than a string-path Binding: the surrounding XAML uses
-            // compiled bindings, and a reflection path would silently blank the header if the
-            // property were ever renamed.
-            headerSubscriptions[menuItem] = item.Name.Subscribe(name => menuItem.Header = name);
-            return menuItem;
-        }
-
-        void DisposeMenuItem(MenuItem menuItem)
-        {
-            if (headerSubscriptions.Remove(menuItem, out IDisposable? subscription))
-            {
-                subscription.Dispose();
-            }
-        }
-
-        viewModel.MenuBar.DockLayoutPresets
-            .ToObservableChangeSet<ICoreReadOnlyList<DockLayoutPresetItem>, DockLayoutPresetItem>()
-            .ObserveOnUIDispatcher()
-            .Transform(CreateDockLayoutMenuItem)
-            .OnItemRemoved(DisposeMenuItem)
-            .Bind(out ReadOnlyObservableCollection<MenuItem>? presetMenuItems)
-            .Subscribe()
-            .DisposeWith(_disposables);
-
-        // The change set only fires OnItemRemoved while the view lives; drop the rest on teardown.
-        Disposable.Create(headerSubscriptions, subs =>
-        {
-            foreach (IDisposable subscription in subs.Values) subscription.Dispose();
-            subs.Clear();
-        }).DisposeWith(_disposables);
-
-        dockLayoutPresetMenuItem.ItemsSource = presetMenuItems;
-
-        // An empty submenu would render as a dead-end, so hide the entry until presets exist.
-        viewModel.MenuBar.DockLayoutPresets.ObserveProperty(x => x.Count)
-            .ObserveOnUIDispatcher()
-            .Subscribe(count => dockLayoutPresetMenuItem.IsVisible = count > 0)
-            .DisposeWith(_disposables);
     }
 
     private async Task EnableVersionControlAsync(MainViewModel viewModel)
@@ -157,9 +94,7 @@ public partial class MainView
 
             Project project = viewModel.ProjectService.CurrentProject.Value
                               ?? throw new InvalidOperationException("No project is open.");
-            await viewModel.VersionControlCoordinator.InitializeCurrentProjectAsync(
-                project,
-                RequestGitIdentityAsync);
+            await viewModel.VersionControlCoordinator.InitializeCurrentProjectAsync(project);
         }
         catch (Exception ex)
         {
@@ -224,82 +159,6 @@ public partial class MainView
             : this;
     }
 
-    private void InitializeRecentItems(MainViewModel viewModel)
-    {
-        void AddItem(AvaloniaList<MenuItem> list, string item, ICommand command)
-        {
-            MenuItem menuItem = _menuItemCache.Get() ?? new MenuItem();
-            menuItem.Command = command;
-            menuItem.CommandParameter = item;
-            menuItem.Header = item;
-            list.Add(menuItem);
-        }
-
-        void RemoveItem(AvaloniaList<MenuItem> list, string item)
-        {
-            for (int i = list.Count - 1; i >= 0; i--)
-            {
-                MenuItem menuItem = list[i];
-                if (menuItem.Header is string header && header == item)
-                {
-                    list.Remove(menuItem);
-                    _menuItemCache.Set(menuItem);
-                }
-            }
-        }
-
-        viewModel.MenuBar.RecentFileItems.ForEachItem(
-                item => AddItem(_rawRecentFileItems, item, viewModel.MenuBar.OpenRecentFile),
-                item => RemoveItem(_rawRecentFileItems, item),
-                _rawRecentFileItems.Clear)
-            .AddTo(_disposables);
-
-        viewModel.MenuBar.RecentProjectItems.ForEachItem(
-                item => AddItem(_rawRecentProjItems, item, viewModel.MenuBar.OpenRecentProject),
-                item => RemoveItem(_rawRecentProjItems, item),
-                _rawRecentProjItems.Clear)
-            .AddTo(_disposables);
-    }
-
-    private bool TryGetSelectedEditViewModel([NotNullWhen(true)] out EditViewModel? viewModel)
-    {
-        if (DataContext is not MainViewModel mv) { viewModel = null; return false; }
-        if (mv.EditorService.SelectedTabItem.Value?.Context.Value is EditViewModel editViewModel)
-        {
-            viewModel = editViewModel;
-            return true;
-        }
-        else
-        {
-            viewModel = null;
-            return false;
-        }
-    }
-
-    private async Task OnDeleteElement()
-    {
-        if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
-            && viewModel.Scene is Scene scene
-            && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element)
-        {
-            string path = element.Uri!.LocalPath;
-            string name = Path.GetFileName(path);
-            var dialog = new FAContentDialog
-            {
-                CloseButtonText = Strings.Cancel,
-                PrimaryButtonText = Strings.OK,
-                DefaultButton = FAContentDialogButton.Primary,
-                Content = MessageStrings.ConfirmDeleteFile + "\n" + name
-            };
-
-            if (await dialog.ShowAsync() == FAContentDialogResult.Primary)
-            {
-                viewModel.GetRequiredService<IElementStructureService>()
-                    .Delete(scene, [element], GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled);
-            }
-        }
-    }
-
     private async void OnRemoveFromProject(EditorTabItem? item)
     {
         if (DataContext is not MainViewModel mv) return;
@@ -344,22 +203,19 @@ public partial class MainView
             return;
         }
 
-        var filters = new List<FilePickerFileType>();
-
-        filters.AddRange(viewModel.ExtensionProvider.GetExtensions<EditorExtension>()
-            .Select(e => e.GetFilePickerFileType())
-            .ToArray());
-        var options = new FilePickerOpenOptions { AllowMultiple = true, FileTypeFilter = filters };
+        var options = new FilePickerOpenOptions
+        {
+            AllowMultiple = true,
+            FileTypeFilter = [.. viewModel.ExtensionProvider.GetExtensions<EditorExtension>()
+                .Select(e => e.GetFilePickerFileType())]
+        };
 
         IReadOnlyList<IStorageFile> files = await window.StorageProvider.OpenFilePickerAsync(options);
-        if (files.Count > 0)
+        foreach (IStorageFile file in files)
         {
-            foreach (IStorageFile file in files)
+            if (file.TryGetLocalPath() is { } path)
             {
-                if (file.TryGetLocalPath() is { } path)
-                {
-                    viewModel.MenuBar.OpenFileCore(path);
-                }
+                viewModel.MenuBar.OpenFileCore(path);
             }
         }
     }
@@ -418,13 +274,7 @@ public partial class MainView
         {
             try
             {
-                ExportResult result = await exportVm.ExportProjectAsync(
-                    project,
-                    outputPath,
-                    new Progress<(string Message, double Progress)>(p =>
-                    {
-                        // 進捗表示（将来的にはプログレスダイアログを表示）
-                    }));
+                ExportResult result = await exportVm.ExportProjectAsync(project, outputPath);
 
                 ReportExportResult(result);
             }
@@ -480,7 +330,6 @@ public partial class MainView
             return;
         }
 
-        // パッケージファイルを選択
         var openOptions = new FilePickerOpenOptions
         {
             FileTypeFilter =
@@ -495,7 +344,6 @@ public partial class MainView
             return;
         }
 
-        // 展開先フォルダを選択
         var folderOptions = new FolderPickerOpenOptions
         {
             Title = Strings.SelectDestinationFolder
@@ -509,13 +357,7 @@ public partial class MainView
 
         try
         {
-            Project? project = await ProjectPackageService.Current.ImportAsync(
-                packagePath,
-                destinationDir,
-                new Progress<(string Message, double Progress)>(p =>
-                {
-                    // 進捗表示（将来的にはプログレスダイアログを表示）
-                }));
+            Project? project = await ProjectPackageService.Current.ImportAsync(packagePath, destinationDir);
 
             if (project?.Uri != null)
             {

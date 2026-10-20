@@ -15,9 +15,6 @@ namespace Beutl.Editor.Components.PathEditorTab.Views;
 
 public class PathGeometryControl : Control
 {
-    public static readonly StyledProperty<Media.PathGeometry?> GeometryProperty =
-        AvaloniaProperty.Register<PathGeometryControl, Media.PathGeometry?>(nameof(Geometry));
-
     public static readonly StyledProperty<Media.PathFigure?> FigureProperty =
         AvaloniaProperty.Register<PathGeometryControl, Media.PathFigure?>(nameof(Figure));
 
@@ -33,9 +30,6 @@ public class PathGeometryControl : Control
 
     public static readonly StyledProperty<double> ScaleProperty =
         AvaloniaProperty.Register<PathGeometryControl, double>(nameof(Scale), 1.0);
-
-    public static readonly StyledProperty<bool> IsPlayingProperty =
-        AvaloniaProperty.Register<PathGeometryControl, bool>(nameof(IsPlaying));
 
     private Avalonia.Media.IPen _handlePen = new Avalonia.Media.Immutable.ImmutablePen(
         new Avalonia.Media.Immutable.ImmutableSolidColorBrush(0xFF168BFF), 1);
@@ -54,7 +48,7 @@ public class PathGeometryControl : Control
 
     static PathGeometryControl()
     {
-        AffectsRender<PathGeometryControl>(GeometryProperty, FigureProperty, MatrixProperty, ScaleProperty,
+        AffectsRender<PathGeometryControl>(FigureProperty, MatrixProperty, ScaleProperty,
             SelectedOperationProperty, GeometryResourceProperty);
     }
 
@@ -78,12 +72,6 @@ public class PathGeometryControl : Control
         set => SetValue(MatrixProperty, value);
     }
 
-    public Media.PathGeometry? Geometry
-    {
-        get => GetValue(GeometryProperty);
-        set => SetValue(GeometryProperty, value);
-    }
-
     public Media.PathFigure? Figure
     {
         get => GetValue(FigureProperty);
@@ -96,26 +84,10 @@ public class PathGeometryControl : Control
         set => SetValue(ScaleProperty, value);
     }
 
-    public bool IsPlaying
-    {
-        get => GetValue(IsPlayingProperty);
-        set => SetValue(IsPlayingProperty, value);
-    }
-
-    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
-    {
-        base.OnPropertyChanged(change);
-        if (change.Property == IsPlayingProperty)
-        {
-            IsHitTestVisible = !IsPlaying;
-        }
-    }
-
     public override void Render(DrawingContext context)
     {
         base.Render(context);
-        if (Geometry == null
-            || Figure == null
+        if (Figure == null
             || (SelectedOperation == null && SelectedOperations.Count == 0)
             || GeometryResource is not { } handle)
         {
@@ -133,16 +105,11 @@ public class PathGeometryControl : Control
             foreach (var operation in selected)
             {
                 int index = figureResource.Segments.FindIndex(s => s.GetOriginal() == operation);
-                if (figureResource.Segments.Count > 0 && index >= 0)
+                if (index >= 0)
                 {
                     AvaMatrix mat = Matrix * AvaMatrix.CreateScale(Scale, Scale);
 
                     bool isClosed = figureResource.IsClosed;
-
-                    void DrawHandleLine(AvaPoint p1, AvaPoint p2)
-                    {
-                        context.DrawLine(_handlePen, p1, p2);
-                    }
 
                     void DrawLine(Media.PathSegment.Resource op, int index, bool c1, bool c2)
                     {
@@ -155,72 +122,35 @@ public class PathGeometryControl : Control
                         AvaPoint lastPoint = default;
                         if (index == 0 && !figureResource.StartPoint.IsInvalid)
                             lastPoint = figureResource.StartPoint.ToAvaPoint();
-                        else if (0 <= prevIndex && prevIndex < figureResource.Segments.Count)
+                        else
                         {
                             var tmp = figureResource.Segments[prevIndex].GetEndPoint();
                             lastPoint = tmp?.ToAvaPoint() ?? default;
                         }
 
-                        switch (op)
+                        (AvaPoint Incoming, AvaPoint Outgoing, AvaPoint End)? handles = op switch
                         {
-                            case ConicSegment.Resource conic:
-                                if (c1)
-                                {
-                                    DrawHandleLine(
-                                        mat.Transform(lastPoint),
-                                        mat.Transform(conic.ControlPoint.ToAvaPoint()));
-                                }
+                            ConicSegment.Resource conic =>
+                                (conic.ControlPoint.ToAvaPoint(), conic.ControlPoint.ToAvaPoint(), conic.EndPoint.ToAvaPoint()),
+                            CubicBezierSegment.Resource cubic =>
+                                (cubic.ControlPoint1.ToAvaPoint(), cubic.ControlPoint2.ToAvaPoint(), cubic.EndPoint.ToAvaPoint()),
+                            Media.QuadraticBezierSegment.Resource quad =>
+                                (quad.ControlPoint.ToAvaPoint(), quad.ControlPoint.ToAvaPoint(), quad.EndPoint.ToAvaPoint()),
+                            _ => null
+                        };
+                        if (handles is not { } h) return;
 
-                                if (c2)
-                                {
-                                    DrawHandleLine(
-                                        mat.Transform(conic.EndPoint.ToAvaPoint()),
-                                        mat.Transform(conic.ControlPoint.ToAvaPoint()));
-                                }
+                        if (c1)
+                            context.DrawLine(_handlePen, mat.Transform(lastPoint), mat.Transform(h.Incoming));
 
-                                break;
-
-                            case CubicBezierSegment.Resource cubic:
-                                if (c1)
-                                {
-                                    DrawHandleLine(
-                                        mat.Transform(lastPoint),
-                                        mat.Transform(cubic.ControlPoint1.ToAvaPoint()));
-                                }
-
-                                if (c2)
-                                {
-                                    DrawHandleLine(
-                                        mat.Transform(cubic.EndPoint.ToAvaPoint()),
-                                        mat.Transform(cubic.ControlPoint2.ToAvaPoint()));
-                                }
-
-                                break;
-
-                            case Media.QuadraticBezierSegment.Resource quad:
-                                if (c1)
-                                {
-                                    DrawHandleLine(
-                                        mat.Transform(lastPoint),
-                                        mat.Transform(quad.ControlPoint.ToAvaPoint()));
-                                }
-
-                                if (c2)
-                                {
-                                    DrawHandleLine(
-                                        mat.Transform(quad.EndPoint.ToAvaPoint()),
-                                        mat.Transform(quad.ControlPoint.ToAvaPoint()));
-                                }
-
-                                break;
-                        }
+                        if (c2)
+                            context.DrawLine(_handlePen, mat.Transform(h.End), mat.Transform(h.Outgoing));
                     }
 
                     DrawLine(figureResource.Segments[index], index, false, true);
                     int nextIndex = (index + 1) % figureResource.Segments.Count;
 
-                    if (0 <= nextIndex && nextIndex < figureResource.Segments.Count
-                        && (nextIndex != 0 || isClosed && figureResource.StartPoint.IsInvalid))
+                    if (nextIndex != 0 || isClosed && figureResource.StartPoint.IsInvalid)
                     {
                         DrawLine(figureResource.Segments[nextIndex], nextIndex, true, false);
                     }

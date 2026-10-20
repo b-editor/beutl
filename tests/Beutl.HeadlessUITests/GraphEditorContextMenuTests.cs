@@ -3,17 +3,16 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.GraphEditorTab.Views;
-using Beutl.Editor.Models;
-using Beutl.Editor.Services;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Language;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using FluentAvalonia.UI.Controls;
@@ -30,40 +29,30 @@ public class GraphEditorContextMenuTests
     [TestCase(KeyModifiers.Meta)]
     public async Task ContextMenu_ShowsEveryShortcutWithThePlatformCommandModifier(KeyModifiers command)
     {
-        var hotkeys = Application.Current!.PlatformSettings!.HotkeyConfiguration;
-        KeyModifiers previous = hotkeys.CommandModifiers;
-        hotkeys.CommandModifiers = command;
-        try
+        using var commandModifier = CommandModifierScope.Use(command);
+        using var graph = await GraphScope.CreateAsync();
+        graph.RightClick(new Point(500, 200));
+        Assert.That(graph.BackgroundMenu.IsOpen, Is.True);
+        var expected = new Dictionary<string, (Key Key, KeyModifiers Modifiers)>
         {
-            using var graph = await GraphScope.CreateAsync();
-            graph.RightClick(new Point(500, 200));
-            Assert.That(graph.BackgroundMenu.IsOpen, Is.True);
-            var expected = new Dictionary<string, (Key Key, KeyModifiers Modifiers)>
-            {
-                ["Ease"] = (Key.F9, KeyModifiers.None),
-                ["EaseIn"] = (Key.F9, KeyModifiers.Shift),
-                ["EaseOut"] = (Key.F9, command),
-                ["Velocity"] = (Key.K, command | KeyModifiers.Shift),
-                ["DistributeEvenly"] = (Key.D, KeyModifiers.Alt),
-                ["Reverse"] = (Key.R, KeyModifiers.Alt)
-            };
-            Assert.Multiple(() =>
-            {
-                foreach (var (tag, gesture) in expected)
-                {
-                    FAMenuFlyoutItem item = graph.BackgroundMenu.Items.OfType<FAMenuFlyoutItem>().Single(item => Equals(item.Tag, tag));
-                    Assert.That(item.InputGesture, Is.Not.Null, tag);
-                    Assert.That(item.InputGesture?.Key, Is.EqualTo(gesture.Key), tag);
-                    Assert.That(item.InputGesture?.KeyModifiers, Is.EqualTo(gesture.Modifiers), tag);
-                    Assert.That(item.Text?.ToString(), Does.Not.Contain("(").And.Not.Contain(")"), tag);
-                }
-            });
-            graph.Capture($"shortcuts-{command}");
-        }
-        finally
+            ["Ease"] = (Key.F9, KeyModifiers.None),
+            ["EaseIn"] = (Key.F9, KeyModifiers.Shift),
+            ["EaseOut"] = (Key.F9, command),
+            ["Velocity"] = (Key.K, command | KeyModifiers.Shift),
+            ["DistributeEvenly"] = (Key.D, KeyModifiers.Alt),
+            ["Reverse"] = (Key.R, KeyModifiers.Alt)
+        };
+        Assert.Multiple(() =>
         {
-            hotkeys.CommandModifiers = previous;
-        }
+            foreach (var (tag, gesture) in expected)
+            {
+                FAMenuFlyoutItem item = graph.BackgroundMenu.Items.OfType<FAMenuFlyoutItem>().Single(item => Equals(item.Tag, tag));
+                Assert.That(item.InputGesture, Is.Not.Null, tag);
+                Assert.That(item.InputGesture?.Key, Is.EqualTo(gesture.Key), tag);
+                Assert.That(item.InputGesture?.KeyModifiers, Is.EqualTo(gesture.Modifiers), tag);
+                Assert.That(item.Text?.ToString(), Does.Not.Contain("(").And.Not.Contain(")"), tag);
+            }
+        });
     }
 
     [AvaloniaTest]
@@ -91,12 +80,6 @@ public class GraphEditorContextMenuTests
                 Assert.That(block.IsEffectivelyVisible, Is.True);
                 Assert.That(block.Bounds.Width, Is.GreaterThan(0));
             }
-            if (Environment.GetEnvironmentVariable("BEUTL_GRAPH_CONTEXT_CAPTURE") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                using var frame = TopLevel.GetTopLevel(content)?.CaptureRenderedFrame();
-                frame?.Save(Path.Combine(directory, $"fit-tooltip-{tag}-{light}.png"), PngBitmapEncoderOptions.Default);
-            }
         }
         finally
         {
@@ -122,7 +105,6 @@ public class GraphEditorContextMenuTests
             "The control point must cover the keyframe to reproduce the regression.");
 
         graph.RightClick(position);
-        graph.Capture($"overlap-{tag}-{light}");
 
         Assert.Multiple(() =>
         {
@@ -216,16 +198,10 @@ public class GraphEditorContextMenuTests
         public required Window Window { get; init; }
         public FAMenuFlyout BackgroundMenu => (FAMenuFlyout)View.FindControl<Panel>("graphPanel")!.ContextFlyout!;
 
-        public static async Task<GraphScope> CreateAsync(bool light = false, bool separateHandles = false, bool selectAll = true)
+        public static async Task<GraphScope> CreateAsync(
+            bool light = false, bool separateHandles = false, bool selectAll = true, TimeSpan elementStart = default)
         {
-            await TestReset.ResetShellAsync();
-            string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"graph-context-{Guid.NewGuid():N}");
-            Directory.CreateDirectory(root);
-            Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "graph-context", root))!;
-            Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
-            HeadlessTestHelpers.Settle();
-            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("graph-context");
             var animation = new KeyFrameAnimation<float>();
             var first = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(0.5), Value = 100 };
             var second = new KeyFrame<float>
@@ -238,10 +214,8 @@ public class GraphEditorContextMenuTests
             animation.KeyFrames.Add(second);
             var shape = new RectShape();
             shape.Width.Animation = animation;
-            await ((IElementAdder)editor.GetService(typeof(IElementAdder))!).AddAsync(
-                [new ElementDescription(TimeSpan.Zero, TimeSpan.FromSeconds(2), 0,
-                    new ElementSource.EngineObject(() => shape))], CancellationToken.None);
-            var model = new GraphEditorViewModel<float>(editor, animation, scene.Children.Single());
+            await TestShell.AddElementAsync(editor, () => shape, elementStart, TimeSpan.FromSeconds(2));
+            var model = new GraphEditorViewModel(editor, animation, scene.Children.Single());
             model.Options.Value = model.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };
             if (selectAll) model.SelectedView.Value!.SetSelection(animation.KeyFrames);
             var view = new GraphEditorView { DataContext = model };
@@ -289,6 +263,20 @@ public class GraphEditorContextMenuTests
             return Window.InputHitTest(position);
         }
 
+        public static RawInputModifiers CommandModifier => KeyGestureHelper.GetCommandModifier() == KeyModifiers.Meta
+            ? RawInputModifiers.Meta : RawInputModifiers.Control;
+
+        // The value as JSON, to compare it before and after an edit.
+        public static string Snapshot(ICoreSerializable value) => CoreSerializer.SerializeToJsonObject(value).ToJsonString();
+
+        // Where the key is drawn on the selected channel, in window coordinates.
+        public Point Position(IKeyFrame key)
+        {
+            HeadlessTestHelpers.Render();
+            var item = Model.SelectedView.Value!.KeyFrames.Single(x => x.Model == key);
+            return View.FindControl<Panel>("graphPanel")!.TranslatePoint(View.GetKeyPoint(item), Window)!.Value;
+        }
+
         public void RightClick(Point position)
         {
             HitTest(position);
@@ -298,17 +286,37 @@ public class GraphEditorContextMenuTests
             HeadlessTestHelpers.Render();
         }
 
-        public void Capture(string name)
+        public void Click(Point point, RawInputModifiers modifiers = RawInputModifiers.None)
         {
-            if (Environment.GetEnvironmentVariable("BEUTL_GRAPH_CONTEXT_CAPTURE") is not { Length: > 0 } directory) return;
-            Directory.CreateDirectory(directory);
-            using var frame = Window.CaptureRenderedFrame();
-            frame?.Save(Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);
-            FAMenuFlyout? menu = View.GetVisualDescendants().OfType<Control>()
-                .Select(control => control.ContextFlyout).OfType<FAMenuFlyout>().FirstOrDefault(menu => menu.IsOpen);
-            if (menu is null) return;
-            using var popup = TopLevel.GetTopLevel(menu.Popup.Child!)?.CaptureRenderedFrame();
-            popup?.Save(Path.Combine(directory, name + "-menu.png"), PngBitmapEncoderOptions.Default);
+            HitTest(point);
+            Window.MouseMove(point, modifiers);
+            Window.MouseDown(point, MouseButton.Left, modifiers);
+            Window.MouseUp(point, MouseButton.Left, modifiers);
+            HeadlessTestHelpers.Render();
+        }
+
+        public void Drag(Point from, Point to, RawInputModifiers modifiers = RawInputModifiers.None)
+        {
+            HitTest(from);
+            Window.MouseMove(from, modifiers);
+            Window.MouseDown(from, MouseButton.Left, modifiers);
+            Window.MouseMove(to, modifiers | RawInputModifiers.LeftMouseButton);
+            Window.MouseUp(to, MouseButton.Left, modifiers);
+            HeadlessTestHelpers.Render(3);
+        }
+
+        public void PressKey(Key key, RawInputModifiers modifiers = RawInputModifiers.None)
+        {
+            Window.KeyPress(key, modifiers, PhysicalKey.None, null);
+            Window.KeyRelease(key, modifiers, PhysicalKey.None, null);
+            HeadlessTestHelpers.Render();
+        }
+
+        // Presses F, which fits the graph to every key.
+        public void FitAll()
+        {
+            Window.KeyPress(Key.F, RawInputModifiers.None, PhysicalKey.None, "f");
+            Window.KeyRelease(Key.F, RawInputModifiers.None, PhysicalKey.None, "f");
         }
 
         public void Dispose()

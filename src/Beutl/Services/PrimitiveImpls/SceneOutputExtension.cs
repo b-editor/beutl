@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
 using Avalonia.Controls;
-using Avalonia.Platform.Storage;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
@@ -9,7 +8,6 @@ using Beutl.Views.Tools;
 
 namespace Beutl.Services.PrimitiveImpls;
 
-[PrimitiveImpl]
 public sealed class SceneOutputExtension : OutputExtension
 {
     public static readonly SceneOutputExtension Instance = new();
@@ -17,17 +15,6 @@ public sealed class SceneOutputExtension : OutputExtension
     public override string Name => "Scene Output";
 
     public override string DisplayName => "Scene Output";
-
-    public override FilePickerFileType GetFilePickerFileType()
-    {
-        return new FilePickerFileType(Strings.SceneFile)
-        {
-            Patterns =
-            [
-                "*.scene"
-            ]
-        };
-    }
 
     public override bool TryCreateContext(
         IEditorContext editorContext,

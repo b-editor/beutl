@@ -861,9 +861,4 @@ public sealed class ShaderDescriptionTests
                 Throws.ArgumentException.With.Message.Contains("'lut' was declared but not supplied"));
         });
     }
-
-    private sealed record CollisionKey(string Value)
-    {
-        public override int GetHashCode() => 7;
-    }
 }

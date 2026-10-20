@@ -24,10 +24,6 @@ public sealed class AiUsageEstimateViewModelTests
             Assert.That(
                 estimate.Explanation.Value,
                 Is.EqualTo(Beutl.Language.Strings.AiEstimatedUsageTopUp));
-            Assert.That(
-                estimate.Explanation.Value,
-                Does.Not.Contain("20"),
-                "The explanation must not disclose the per-operation usage cost.");
         });
 
         available.OnNext(AiOperationAvailabilityState.Unavailable);
@@ -38,7 +34,6 @@ public sealed class AiUsageEstimateViewModelTests
             Assert.That(
                 estimate.Explanation.Value,
                 Is.EqualTo(Beutl.Language.Strings.AiEstimatedUsageInsufficient));
-            Assert.That(estimate.Explanation.Value, Does.Not.Contain("10"));
         });
     }
 

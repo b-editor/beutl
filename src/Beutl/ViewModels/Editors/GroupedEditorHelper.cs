@@ -26,18 +26,13 @@ internal static class GroupedEditorHelper
         {
             groupChildren.Add(pasted);
         }
-        else if (vm.EditingKeyFrame.Value is { } kf)
-        {
-            vm.SetValue(kf.Value, pasted, CommandNames.PasteObject);
-            return true;
-        }
-        else if (vm.PropertyAdapter is ListItemAccessorImpl<TItem> listItemAccessor)
+        else if (vm.EditingKeyFrame.Value is null && vm.PropertyAdapter is ListItemAccessorImpl<TItem> listItemAccessor)
         {
             listItemAccessor.List.Insert(listItemAccessor.Index, pasted);
         }
         else
         {
-            vm.SetValue(vm.PropertyAdapter.GetValue(), pasted, CommandNames.PasteObject);
+            vm.SetValue(vm.GetEditingValue(), pasted, CommandNames.PasteObject);
             return true;
         }
 
@@ -50,19 +45,19 @@ internal static class GroupedEditorHelper
         BaseEditorViewModel<TItem?> vm,
         ReactivePropertySlim<bool> isExpanded,
         bool isGroup,
-        Action<TItem> addItem,
-        Action<TItem> changeItem)
+        Action<TItem, string?> addItem,
+        Action<TItem, string?> changeItem)
         where TItem : class
     {
-        // A group adds the template, an ordinary edit; otherwise changeItem replaces the value.
+        // A group adds the template, an ordinary edit; otherwise changeItem replaces the value. Both commit the
+        // edit under the name they are given.
         if (!(isGroup ? vm.IsElementEditable : vm.CanReplaceContent)) return false;
         if (template.CreateInstance() is not TItem instance) return false;
         isExpanded.Value = true;
         if (isGroup)
-            addItem(instance);
+            addItem(instance, CommandNames.ApplyTemplate);
         else
-            changeItem(instance);
-        vm.Commit(CommandNames.ApplyTemplate);
+            changeItem(instance, CommandNames.ApplyTemplate);
         return true;
     }
 }

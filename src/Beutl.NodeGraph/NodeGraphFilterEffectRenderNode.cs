@@ -18,8 +18,7 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
     {
         NodeGraphFilterEffect.Resource? graphResource = GraphResource;
         var model = graphResource?.Model;
-        var lastTime = graphResource?.LastTime;
-        if (graphResource == null || !graphResource.IsEnabled || model == null || lastTime == null)
+        if (graphResource == null || !graphResource.IsEnabled || model == null)
         {
             context.PassThrough();
             return;
@@ -36,14 +35,15 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
         {
             if (inputHasMultipleConsumers)
                 binding.PrepareInputForFanOut();
-            _compositionContext.Time = lastTime.Value;
+            _compositionContext.Time = graphResource.LastTime;
             _compositionContext.PreferProxy = graphResource.PreferProxy;
             _compositionContext.PreferredProxyPreset = graphResource.PreferredProxyPreset;
             _compositionContext.DisableResourceShare = graphResource.DisableResourceShare;
             _compositionContext.TargetDomain = context.TargetDomain;
-            graphResource.Snapshot.Evaluate(CompositionTarget.Graphics, _compositionContext);
+            graphResource.Snapshot.Evaluate(_compositionContext);
 
-            var outputRenderNodes = PullOutputValue(model, graphResource);
+            var outputRenderNodes = new List<RenderNode>();
+            graphResource.Snapshot.CollectOutputRenderNodes(model, outputRenderNodes);
             if (outputRenderNodes.Count == 0)
             {
                 context.PublishRange(binding.RecordSubtreeForPublication(inputFacade));
@@ -89,14 +89,5 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
         }
 
         return null;
-    }
-
-    private static List<RenderNode> PullOutputValue(
-        GraphModel model,
-        NodeGraphFilterEffect.Resource graphResource)
-    {
-        var result = new List<RenderNode>();
-        graphResource.Snapshot.CollectOutputRenderNodes(model, result);
-        return result;
     }
 }

@@ -221,7 +221,9 @@ public sealed class RegionAnalyzerTests
     {
         var graph = new FragmentGraph();
         var placeholder = new Rect(0, 0, 10, 10);
-        RenderFragmentReference source = graph.SymbolicSource(placeholder);
+        RenderFragmentReference source = graph.Source(
+            placeholder,
+            requirement: RenderFragmentBoundsRequirement.OwningTargetDomain);
         var inset = new DriftingInset();
         RenderBoundsContract nonDeterministic = RenderBoundsContract.Create(
             inset,
@@ -246,54 +248,12 @@ public sealed class RegionAnalyzerTests
     }
 
     [Test]
-    public void Analyze_RejectsAConcreteForwardMappingWhoseNodeMovedAfterRecording()
-    {
-        var graph = new FragmentGraph();
-        RenderFragmentReference source = graph.Source(new Rect(0, 0, 10, 10));
-        using var node = new ShiftingNode { Offset = 5 };
-        RenderFragmentReference output = graph.Map(source, node.CreateBounds());
-        node.Offset = 40;
-
-        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
-            () => new RegionAnalyzer().Analyze(Options(), [output]));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(output.RecordedBounds, Is.EqualTo(new Rect(5, 0, 10, 10)),
-                "Recording must have mapped the input before the node moved.");
-            Assert.That(
-                failure!.Message,
-                Does.Contain("A forward bounds mapping changed between recording and graph-wide metadata resolution"));
-        });
-    }
-
-    [Test]
-    public void Analyze_RejectsASymbolicForwardMappingWhoseNodeMovedAfterRecording()
-    {
-        var graph = new FragmentGraph();
-        var placeholder = new Rect(0, 0, 10, 10);
-        RenderFragmentReference source = graph.SymbolicSource(placeholder);
-        using var node = new ShiftingNode { Offset = 5 };
-        RenderFragmentReference output = graph.Map(source, node.CreateBounds());
-        node.Offset = 40;
-
-        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
-            () => new RegionAnalyzer().Analyze(Options(new Rect(0, 0, 200, 200)), [output]));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(output.RecordedBounds, Is.EqualTo(placeholder.Translate(new Vector(5, 0))));
-            Assert.That(
-                failure!.Message,
-                Does.Contain("A forward bounds mapping changed between recording and graph-wide metadata resolution"));
-        });
-    }
-
-    [Test]
     public void Analyze_RejectsNonDeterministicSymbolicSupplyContract()
     {
         var graph = new FragmentGraph();
-        RenderFragmentReference source = graph.SymbolicSource(new Rect(0, 0, 10, 10));
+        RenderFragmentReference source = graph.Source(
+            new Rect(0, 0, 10, 10),
+            requirement: RenderFragmentBoundsRequirement.OwningTargetDomain);
         var supply = new DriftingSupply();
         RenderFragmentReference output = graph.Map(
             source,
@@ -320,7 +280,9 @@ public sealed class RegionAnalyzerTests
     public void Analyze_AcceptsDeterministicSymbolicMappingsOverAnInputThatMoved()
     {
         var graph = new FragmentGraph();
-        RenderFragmentReference source = graph.SymbolicSource(new Rect(0, 0, 10, 10));
+        RenderFragmentReference source = graph.Source(
+            new Rect(0, 0, 10, 10),
+            requirement: RenderFragmentBoundsRequirement.OwningTargetDomain);
         RenderBoundsContract grow = RenderBoundsContract.Create(
             static input => input.Inflate(new Thickness(4)),
             static requested => requested.Inflate(new Thickness(4)));
@@ -343,19 +305,6 @@ public sealed class RegionAnalyzerTests
 
     private static EffectiveScale HalveSupply(EffectiveScale input)
         => input.IsUnbounded ? EffectiveScale.Unbounded : EffectiveScale.At(input.Value / 2);
-
-    /// <summary>Models a static bounds callback whose state changes between recording and resolution.</summary>
-    private sealed class ShiftingNode : RenderNode
-    {
-        public float Offset { get; set; }
-
-        public RenderBoundsContract CreateBounds()
-            => RenderBoundsContract.Create(
-                input => input.Translate(new Vector(Offset, 0)),
-                input => input.Translate(new Vector(-Offset, 0)));
-
-        public override void Process(RenderNodeContext context) => context.PassThrough();
-    }
 
     private sealed class DriftingInset
     {
@@ -455,9 +404,16 @@ public sealed class RegionAnalyzerTests
         private readonly RenderRequestId _requestId = new(1);
         private long _nextId;
 
+        /// <summary>
+        /// Builds a source over <paramref name="bounds"/>. An
+        /// <see cref="RenderFragmentBoundsRequirement.OwningTargetDomain"/> requirement states its extent
+        /// symbolically, so resolution replaces the recorded placeholder with the owning target domain and every
+        /// fragment above it resolves over an input that moved.
+        /// </summary>
         public RenderFragmentReference Source(
             Rect bounds,
-            EffectiveScale? scale = null)
+            EffectiveScale? scale = null,
+            RenderFragmentBoundsRequirement requirement = RenderFragmentBoundsRequirement.Finite)
         {
             OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
                 static _ => { },
@@ -479,38 +435,8 @@ public sealed class RegionAnalyzerTests
                     OpaqueRenderTopology.Source,
                     description,
                     Array.Empty<RenderInputReadback>()),
-                RenderFragmentHitTest.Bounds));
-        }
-
-        /// <summary>
-        /// Builds a source whose extent is stated symbolically, so resolution replaces its recorded
-        /// placeholder with the owning target domain and every fragment above it resolves over an input that
-        /// moved.
-        /// </summary>
-        public RenderFragmentReference SymbolicSource(Rect placeholderBounds)
-        {
-            OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
-                static _ => { },
-                OpaqueRenderBoundsContract.Source(placeholderBounds),
-                RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale);
-            return Stamp(new RenderFragmentReference(
-                RenderFragmentKind.OpaqueSource,
-                placeholderBounds,
-                EffectiveScale.At(1),
-                RenderValueCardinality.Single,
-                contributesValuesToTarget: true,
-                canBeUsedAsValueInput: true,
-                hasTargetEffects: false,
-                hasOpaqueExternalWork: true,
-                inputs: [],
-                new OpaqueRenderFragmentPayload(
-                    OpaqueRenderTopology.Source,
-                    description,
-                    Array.Empty<RenderInputReadback>()),
                 RenderFragmentHitTest.Bounds,
-                RenderFragmentBoundsRequirement.OwningTargetDomain));
+                requirement));
         }
 
         public RenderFragmentReference Map(

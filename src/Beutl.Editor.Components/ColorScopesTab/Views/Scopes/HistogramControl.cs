@@ -9,9 +9,6 @@ using BtlBitmap = Beutl.Media.Bitmap;
 
 namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
-/// <summary>
-/// Control that displays a histogram visualization of RGB color distribution.
-/// </summary>
 public class HistogramControl : HdrScopeControlBase
 {
     public static readonly DirectProperty<HistogramControl, HistogramMode> ModeProperty =
@@ -28,9 +25,6 @@ public class HistogramControl : HdrScopeControlBase
     private readonly object _histLock = new();
 
     private static readonly string[] s_horizontalLabelsSdr = ["0", "0.3", "0.5", "0.8", "1.0"];
-    private static readonly (float R, float G, float B) s_colorRed = (1.00f, 0.25f, 0.25f);
-    private static readonly (float R, float G, float B) s_colorGreen = (0.25f, 1.00f, 0.35f);
-    private static readonly (float R, float G, float B) s_colorBlue = (0.35f, 0.60f, 1.00f);
 
     static HistogramControl()
     {
@@ -108,7 +102,6 @@ public class HistogramControl : HdrScopeControlBase
             int yCount = (sourceHeight + yStep - 1) / yStep;
 
             // Parallelize binning with per-task local histograms, merged at the end
-            var rgbaF16Local = rgbaF16; // capture for closure
             Parallel.For(0, yCount,
                 () => (new int[binCount], new int[binCount], new int[binCount]),
                 (yi, _, local) =>
@@ -116,7 +109,7 @@ public class HistogramControl : HdrScopeControlBase
                     int y = yi * yStep;
                     var (lR, lG, lB) = local;
                     // ReSharper disable once AccessToDisposedClosure
-                    var row = rgbaF16Local.GetRow<RgbaF16>(y);
+                    var row = rgbaF16.GetRow<RgbaF16>(y);
                     for (int x = 0; x < sourceWidth; x += xStep)
                     {
                         ScopeBitmaps.ReadUnpremultiplied(in row[x], premul, out float r, out float g, out float b);
@@ -166,9 +159,9 @@ public class HistogramControl : HdrScopeControlBase
         int max = Math.Max(1, Math.Max(rMax, Math.Max(gMax, bMax)));
 
         // Pre-compute colors (DaVinci Resolve style)
-        uint redColor = ScaledColor(s_colorRed, 200, 180);
-        uint greenColor = ScaledColor(s_colorGreen, 200, 180);
-        uint blueColor = ScaledColor(s_colorBlue, 200, 180);
+        uint redColor = ScaledColor(ScopeBitmaps.ChannelRed, 200, 180);
+        uint greenColor = ScaledColor(ScopeBitmaps.ChannelGreen, 200, 180);
+        uint blueColor = ScaledColor(ScopeBitmaps.ChannelBlue, 200, 180);
 
         // Render histogram bars with per-bin pre-computed zone colors (no per-pixel branching/blending)
         for (int i = 0; i < 256; i++)
@@ -225,17 +218,15 @@ public class HistogramControl : HdrScopeControlBase
         int gMax = Math.Max(1, gMaxR);
         int bMax = Math.Max(1, bMaxR);
 
-        // Pre-compute colors (DaVinci Resolve style)
-        uint redColor = ScaledColor(s_colorRed, 220, 200);
-        uint greenColor = ScaledColor(s_colorGreen, 220, 200);
-        uint blueColor = ScaledColor(s_colorBlue, 220, 200);
+        uint redColor = ScaledColor(ScopeBitmaps.ChannelRed, 220, 200);
+        uint greenColor = ScaledColor(ScopeBitmaps.ChannelGreen, 220, 200);
+        uint blueColor = ScaledColor(ScopeBitmaps.ChannelBlue, 220, 200);
 
         // Pre-blend once (each bar writes to a unique pixel within its section)
         uint redBlended = BlendAdd(0u, redColor);
         uint greenBlended = BlendAdd(0u, greenColor);
         uint blueBlended = BlendAdd(0u, blueColor);
 
-        // Render each channel in its section
         for (int i = 0; i < 256; i++)
         {
             int x = i * targetWidth / 256;
@@ -249,17 +240,14 @@ public class HistogramControl : HdrScopeControlBase
 
             for (int bx = x; bx < barEnd; bx++)
             {
-                // Red section (top)
                 FillSection(dest, stridePixels, bx, rSectionStart, sectionHeight, rHeight, targetHeight, redBlended);
-                // Green section (middle)
                 FillSection(dest, stridePixels, bx, gSectionStart, sectionHeight, gHeight, targetHeight, greenBlended);
-                // Blue section (bottom)
                 FillSection(dest, stridePixels, bx, bSectionStart, sectionHeight, bHeight, targetHeight, blueBlended);
             }
         }
     }
 
-    // c * scale stays a float multiply before the byte truncation, as in the original per-channel expressions.
+    // Multiply in float before truncating to a byte.
     private static uint ScaledColor((float R, float G, float B) c, int scale, byte alpha)
     {
         return PackColor((byte)(c.R * scale), (byte)(c.G * scale), (byte)(c.B * scale), alpha);

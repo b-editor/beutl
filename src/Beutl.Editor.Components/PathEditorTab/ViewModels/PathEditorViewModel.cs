@@ -85,12 +85,10 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
         Size frameSize = _scene.FrameSize.ToSize(1);
         Matrix matrix = Graphics.Matrix.Identity;
 
-        // Shape.cs
+        // Same transform as Shape's rendering.
         if (drawable is GeometryShape.Resource { Data: PathGeometry.Resource geometry } shape)
         {
-            Rect shapeBounds = geometry.Bounds;
-            //matrix = Graphics.Matrix.CreateTranslation(-shapeBounds.Position);
-            Size size = shapeBounds.Size;
+            Size size = geometry.Bounds.Size;
 
             if (shape.Pen != null)
             {
@@ -136,7 +134,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
 
     public ReadOnlyReactiveProperty<bool> IsVisible { get; }
 
-    public ReadOnlyReactiveProperty<bool> IsClosed { get; }
+    public IReadOnlyReactiveProperty<bool> IsClosed { get; }
 
     public IReactiveProperty<bool> Symmetry { get; } = new ReactiveProperty<bool>(true);
 
@@ -146,7 +144,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
 
     public void StartEdit(Shape shape, IGeometryEditorContext context, Avalonia.Point point)
     {
-        // Groupプロパティを初期化
+        // 図形の編集用エディターを展開する。
         context.ExpandForEditing();
 
         var shapeResource = shape.ToResource(new CompositionContext(_clock.CurrentTime.Value));

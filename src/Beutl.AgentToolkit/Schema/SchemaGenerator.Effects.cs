@@ -170,10 +170,12 @@ public sealed partial class SchemaGenerator
         return new Dictionary<Type, EffectMetadata>
         {
             [typeof(Blur)] = Metadata(["soften", "glow", "depth"], ["Use inside FilterEffectGroup before shadow/color effects for soft halos."]),
+            [typeof(RadialBlur)] = Metadata(["blur", "radial", "zoom", "spin", "motion"], ["Amount is zoom expansion in percent or the total spin angle in degrees; Center sets the origin and Samples controls smoothness."]),
             [typeof(DropShadow)] = Metadata(["shadow", "glow", "depth"], ["Use zero offset for neon glow, non-zero offset for cast shadows."]),
             [typeof(InnerShadow)] = Metadata(["shadow", "depth", "inset"], []),
             [typeof(FlatShadow)] = Metadata(["shadow", "poster", "depth"], ["Good for flat editorial graphics and bold labels."]),
             [typeof(StrokeEffect)] = Metadata(["outline", "poster", "graphic"], ["Pair with FlatShadow for sticker-like typography or icon treatments."]),
+            [typeof(DiagonalClipping)] = Metadata(["clip", "mask", "diagonal"], ["Width: zero keeps one side, positive keeps a band, negative removes it."]),
             [typeof(HighContrast)] = Metadata(["color", "grade", "contrast"], []),
             [typeof(HueRotate)] = Metadata(["color", "grade", "palette"], []),
             [typeof(LumaColor)] = Metadata(["color", "luma", "grade"], []),

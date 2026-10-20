@@ -38,23 +38,19 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
     {
         obj.PropertyChanged += OnElementPropertyChanged;
 
-        UpdateMaximumTimeFor(obj);
+        if (MaximumTime.Value < obj.Range.End)
+        {
+            MaximumTime.Value = obj.Range.End;
+        }
     }
 
     private void OnElementDetached(Element obj)
     {
         obj.PropertyChanged -= OnElementPropertyChanged;
 
-        UpdateMaximumTimeFor(obj);
-    }
-
-    private void UpdateMaximumTimeFor(Element obj)
-    {
-        if (MaximumTime.Value < obj.Range.End)
-        {
-            MaximumTime.Value = obj.Range.End;
-        }
-        else
+        // A bulk removal raises Detached after removing every element, so a removed element never raises the
+        // maximum; it is recalculated over the elements left when the removed one ended at it.
+        if (MaximumTime.Value == obj.Range.End)
         {
             CalculateMaximumTime();
         }
@@ -69,7 +65,6 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
 
             if (sender is Element element && (startChanged || lengthChanged))
             {
-                // 変更前の値を取得
                 TimeRange oldRange = element.Range;
                 if (startChanged) oldRange = oldRange.WithStart(typedArgs.OldValue);
                 if (lengthChanged) oldRange = oldRange.WithDuration(typedArgs.OldValue);

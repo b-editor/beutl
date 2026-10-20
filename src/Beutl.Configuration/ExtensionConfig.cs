@@ -23,7 +23,6 @@ public sealed class ExtensionConfig : ConfigurationBase
     // Keyには拡張子を含める
     public CoreDictionary<string, ICoreList<TypeLazy>> EditorExtensions { get; } = [];
 
-    // Keyには拡張子を含める
     public CoreList<TypeLazy> DecoderPriority { get; } = [];
 
     public override void Serialize(ICoreSerializationContext context)
@@ -49,8 +48,7 @@ public sealed class ExtensionConfig : ConfigurationBase
                     // A hand-edited entry can be null, or hold nulls; those list no types.
                     EditorExtensions.Add(item.Key, new CoreList<TypeLazy>((item.Value ?? [])
                         .OfType<string>()
-                        .Select(str => new TypeLazy(str))
-                        .Where(type => type.FormattedTypeName != null)));
+                        .Select(str => new TypeLazy(str))));
                 }
             }
         }

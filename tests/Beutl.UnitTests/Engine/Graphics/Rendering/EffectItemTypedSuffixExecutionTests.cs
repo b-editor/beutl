@@ -1,5 +1,4 @@
 ﻿using Beutl.Composition;
-using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -95,7 +94,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             Intent = RenderIntent.Preview,
             TargetDomain = bounds,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization cold = renderer.Rasterize();
         ProgramCacheStatistics coldStatistics = renderer.ProgramCacheStatistics;
@@ -222,7 +221,8 @@ public sealed class EffectItemTypedSuffixExecutionTests
                     target.RenderTarget!,
                     source);
             },
-            leaseSession: null);
+            leaseSession: null,
+            budget: BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation));
 
         Assert.Multiple(() =>
         {
@@ -256,7 +256,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
                     throw primary;
                 }));
         using ProgramCache<CachedSkRuntimeEffect> cache = SkRuntimeEffectProgramCache.Create();
-        using var pool = new RenderTargetPool(new CpuTargetFactory());
+        using var pool = new RenderTargetPool(new CpuRenderTargetFactory());
         using RenderTargetLeaseSession session = pool.BeginSession(RenderIntent.Preview);
 
         InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(() =>
@@ -272,7 +272,8 @@ public sealed class EffectItemTypedSuffixExecutionTests
                     cache,
                     target.RenderTarget!,
                     source),
-                session));
+                session,
+                budget: BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation)));
 
         Assert.Multiple(() =>
         {
@@ -312,7 +313,8 @@ public sealed class EffectItemTypedSuffixExecutionTests
             maxWorkingScale: 1,
             intent,
             RenderRequestPurpose.Auxiliary,
-            leaseSession: null);
+            leaseSession: null,
+            budget: BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation));
 
         Assert.That(observedIntent, Is.EqualTo(intent));
     }
@@ -473,7 +475,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             Intent = RenderIntent.Preview,
             TargetDomain = domain,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Bitmap bitmap = rasterization.Bitmap!;
@@ -529,7 +531,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             OutputScale = 1,
             MaxWorkingScale = 1,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using var actualTarget = new CpuRenderTarget((int)domain.Width, (int)domain.Height);
         using (var actualCanvas = new ImmediateCanvas(actualTarget, RenderIntent.Preview, logicalSize: domain.Size))
@@ -552,7 +554,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
         Assert.That(
             actual.GetPixelSpan<ushort>().SequenceEqual(expected.GetPixelSpan<ushort>()),
             Is.True,
-            "narrowing a effectItem raster-placement value to the owning domain must relabel its bounds "
+            "narrowing an effectItem raster-placement value to the owning domain must relabel its bounds "
             + "instead of re-allocating and re-anchoring its pixels");
     }
 
@@ -600,7 +602,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             OutputScale = 1,
             MaxWorkingScale = 1,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Rect movedInputRaster = inputBounds.Translate(movedBounds.Position - inputBounds.Position);
@@ -657,7 +659,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             OutputScale = 1,
             MaxWorkingScale = 1,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
         using var actualTarget = new CpuRenderTarget((int)domain.Width, (int)domain.Height);
         using (var actualCanvas = new ImmediateCanvas(actualTarget, RenderIntent.Preview, logicalSize: domain.Size))
         {
@@ -716,7 +718,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             OutputScale = 1,
             MaxWorkingScale = 1,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
         using var actualTarget = new CpuRenderTarget((int)domain.Width, (int)domain.Height);
         using (var actualCanvas = new ImmediateCanvas(actualTarget, RenderIntent.Preview, logicalSize: domain.Size))
         {
@@ -783,7 +785,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             OutputScale = 1,
             MaxWorkingScale = 1,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
@@ -795,11 +797,8 @@ public sealed class EffectItemTypedSuffixExecutionTests
         });
     }
 
-    // A Skia chain executes in a frame anchored at the displacement its items give the chain-start
-    // Bounds.Position. A target the fallback executor allocated - or one handed in through the public
-    // EffectTarget(RenderTarget, Rect, EffectiveScale) constructor - starts that chain with
-    // OriginalBounds == Bounds, so anything reading the anchor off those two rects reads zero and the
-    // flush composites the content at -Bounds.Position, dropping all but a corner of the buffer.
+    // A fallback-allocated or publicly constructed target starts a Skia chain with OriginalBounds == Bounds, so an
+    // anchor read off those rects is zero and the flush would drop all but a corner of the buffer.
     [Test]
     public void SkiaFilterOnAnOffsetOriginalBoundsTarget_FlushesTheWholeBuffer()
     {
@@ -812,9 +811,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
         AssertFlushedBufferIsFullyCovered(targets);
     }
 
-    // The production stream: an unknown CustomEffect (no bounds function - Clipping with AutoClip, or
-    // any out-of-tree effect) sends the tail render-time, the shader takes the fallback executor, and
-    // the Skia item behind it begins its chain on the stage output that executor allocated.
+    // Production order: an unknown CustomEffect defers the tail, so the Skia item starts on a fallback stage output.
     [Test]
     public void SkiaFilterAfterAFallbackShaderStage_FlushesTheWholeBuffer()
     {
@@ -953,7 +950,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             OutputScale = 1,
             MaxWorkingScale = 1,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
         using var destination = new CpuRenderTarget(32, 24);
         using var canvas = new ImmediateCanvas(
             destination,
@@ -977,23 +974,6 @@ public sealed class EffectItemTypedSuffixExecutionTests
         }
     }
 
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
-
     private sealed class MaterializedInputNode(
         RenderTarget source,
         Rect bounds,
@@ -1010,29 +990,6 @@ public sealed class EffectItemTypedSuffixExecutionTests
                     PixelRect.FromRect(bounds, density),
                     default,
                     RenderHitTestContract.OutputBounds)));
-        }
-    }
-}
-
-[SuppressResourceClassGeneration]
-internal sealed partial class EffectItemSuffixCallbackFilterEffect(
-    Action<FilterEffectContext, FilterEffect.Resource> apply) : FilterEffect
-{
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-        => apply(context, resource);
-
-    public override Resource ToResource(CompositionContext context)
-    {
-        var resource = new Resource();
-        bool versionBumped = true;
-        resource.Reconcile(this, context, ref versionBumped);
-        return resource;
-    }
-
-    public new sealed class Resource : FilterEffect.Resource
-    {
-        public Resource()
-        {
         }
     }
 }

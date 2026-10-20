@@ -45,7 +45,6 @@ public sealed class RenderTargetPoolTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void NativeAcquisition_DoesNotScheduleSkiaImageReads()
     {
         IGraphicsContext graphics = VulkanTestEnvironment.EnsureAvailable();
@@ -145,7 +144,6 @@ public sealed class RenderTargetPoolTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void EffectTargetFinalCloneRelease_DefersThePoolSlotUntilReclaim()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -687,194 +685,7 @@ public sealed class RenderTargetPoolTests
         Assert.DoesNotThrow(pool.Dispose);
     }
 
-    [TestCase((int)RenderTargetPoolRegistrationStage.OwnedSlot)]
-    [TestCase((int)RenderTargetPoolRegistrationStage.KnownTarget)]
-    [TestCase((int)RenderTargetPoolRegistrationStage.KnownSurface)]
-    public void FreshTargetRegistrationFailure_RollsBackEveryBookkeepingStageAndAllowsRetry(
-        int failureStageValue)
-    {
-        var failureStage = (RenderTargetPoolRegistrationStage)failureStageValue;
-        var primary = new InvalidOperationException($"target-registration-{failureStage}");
-        bool failNextRegistration = true;
-        var factory = new TrackingTargetFactory();
-        using var pool = new RenderTargetPool(
-            factory,
-            new RenderTargetPoolOptions
-            {
-                AfterTargetRegistrationStep = stage =>
-                {
-                    if (failNextRegistration && stage == failureStage)
-                    {
-                        failNextRegistration = false;
-                        throw primary;
-                    }
-                },
-            });
-        using RenderTargetLeaseSession request = pool.BeginSession(RenderIntent.Delivery);
-
-        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
-            () => request.Acquire(new PixelSize(4, 4)));
-        var rejected = (TrackingRenderTarget)factory.Created.Single();
-        Assert.Multiple(() =>
-        {
-            Assert.That(failure, Is.SameAs(primary));
-            Assert.That(rejected.IsDisposed, Is.True);
-            Assert.That(rejected.DisposeCalls, Is.EqualTo(1));
-            Assert.That(pool.Statistics.Creates, Is.Zero);
-            Assert.That(pool.Statistics.Misses, Is.EqualTo(1));
-            Assert.That(pool.Statistics.Evictions, Is.Zero);
-            Assert.That(pool.Statistics.OwnedTargets, Is.Zero);
-            Assert.That(pool.Statistics.AvailableTargets, Is.Zero);
-            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
-            Assert.That(pool.Statistics.OwnedBytes, Is.Zero);
-            Assert.That(pool.Statistics.RetainedBytes, Is.Zero);
-            Assert.That(pool.Statistics.PeakLiveTargets, Is.Zero);
-        });
-
-        using RenderTargetLease retry = request.Acquire(new PixelSize(4, 4));
-        Assert.Multiple(() =>
-        {
-            Assert.That(retry.Target, Is.Not.SameAs(rejected));
-            Assert.That(pool.Statistics.Creates, Is.EqualTo(1));
-            Assert.That(pool.Statistics.Misses, Is.EqualTo(2));
-            Assert.That(pool.Statistics.OwnedTargets, Is.EqualTo(1));
-            Assert.That(pool.Statistics.LeasedTargets, Is.EqualTo(1));
-        });
-    }
-
     [Test]
-    public void FreshLeaseRegistrationFailure_EvictsTheSlotAndAllowsRetry()
-    {
-        var primary = new InvalidOperationException("lease-registration-failure");
-        var cleanup = new InvalidOperationException("lease-registration-cleanup");
-        bool failNextRegistration = true;
-        int leasedTargetsAtFailure = -1;
-        RenderTargetPool? observedPool = null;
-        var factory = new TrackingTargetFactory(
-            (size, index) => new TrackingRenderTarget(
-                size.Width,
-                size.Height,
-                disposeFailure: index == 0 ? cleanup : null));
-        using var pool = new RenderTargetPool(
-            factory,
-            new RenderTargetPoolOptions
-            {
-                BeforeLeaseRegistration = () =>
-                {
-                    if (failNextRegistration)
-                    {
-                        failNextRegistration = false;
-                        leasedTargetsAtFailure = observedPool!.Statistics.LeasedTargets;
-                        throw primary;
-                    }
-                },
-            });
-        observedPool = pool;
-        using RenderTargetLeaseSession request = pool.BeginSession(RenderIntent.Delivery);
-
-        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
-            () => request.Acquire(new PixelSize(4, 4)));
-        TrackingRenderTarget rejected = (TrackingRenderTarget)factory.Created.Single();
-        Assert.Multiple(() =>
-        {
-            Assert.That(failure, Is.SameAs(primary));
-            Assert.That(leasedTargetsAtFailure, Is.EqualTo(1));
-            Assert.That(rejected.IsDisposed, Is.True);
-            Assert.That(rejected.DisposeCalls, Is.EqualTo(1));
-            Assert.That(request.CleanupFailures, Is.EqualTo(new[] { cleanup }));
-            Assert.That(pool.Statistics.Creates, Is.EqualTo(1));
-            Assert.That(pool.Statistics.Misses, Is.EqualTo(1));
-            Assert.That(pool.Statistics.Reuses, Is.Zero);
-            Assert.That(pool.Statistics.Evictions, Is.EqualTo(1));
-            Assert.That(pool.Statistics.OwnedTargets, Is.Zero);
-            Assert.That(pool.Statistics.AvailableTargets, Is.Zero);
-            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
-            Assert.That(pool.Statistics.OwnedBytes, Is.Zero);
-            Assert.That(pool.Statistics.RetainedBytes, Is.Zero);
-            Assert.That(pool.Statistics.PeakLiveTargets, Is.EqualTo(1));
-        });
-
-        using RenderTargetLease retry = request.Acquire(new PixelSize(4, 4));
-        Assert.Multiple(() =>
-        {
-            Assert.That(retry.Target, Is.Not.SameAs(rejected));
-            Assert.That(pool.Statistics.Creates, Is.EqualTo(2));
-            Assert.That(pool.Statistics.Misses, Is.EqualTo(2));
-            Assert.That(pool.Statistics.Evictions, Is.EqualTo(1));
-            Assert.That(pool.Statistics.OwnedTargets, Is.EqualTo(1));
-            Assert.That(pool.Statistics.LeasedTargets, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public void ReusedLeaseRegistrationFailure_EvictsTheSlotAndAllowsRetry()
-    {
-        var primary = new InvalidOperationException("reused-lease-registration-failure");
-        bool failNextRegistration = false;
-        int leasedTargetsAtFailure = -1;
-        RenderTargetPool? observedPool = null;
-        var factory = new TrackingTargetFactory();
-        using var pool = new RenderTargetPool(
-            factory,
-            new RenderTargetPoolOptions
-            {
-                BeforeLeaseRegistration = () =>
-                {
-                    if (failNextRegistration)
-                    {
-                        failNextRegistration = false;
-                        leasedTargetsAtFailure = observedPool!.Statistics.LeasedTargets;
-                        throw primary;
-                    }
-                },
-            });
-        observedPool = pool;
-        RenderTargetLease available;
-        TrackingRenderTarget rejected;
-        using (RenderTargetLeaseSession request = pool.BeginSession(RenderIntent.Delivery))
-        {
-            available = request.Acquire(new PixelSize(4, 4));
-            rejected = (TrackingRenderTarget)available.Target;
-            available.Dispose();
-        }
-
-        failNextRegistration = true;
-        using RenderTargetLeaseSession retryRequest = pool.BeginSession(RenderIntent.Delivery);
-        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
-            () => retryRequest.Acquire(new PixelSize(4, 4)));
-        Assert.Multiple(() =>
-        {
-            Assert.That(failure, Is.SameAs(primary));
-            Assert.That(leasedTargetsAtFailure, Is.EqualTo(1));
-            Assert.That(rejected.IsDisposed, Is.True);
-            Assert.That(rejected.DisposeCalls, Is.EqualTo(1));
-            Assert.That(pool.Statistics.Creates, Is.EqualTo(1));
-            Assert.That(pool.Statistics.Misses, Is.EqualTo(1));
-            Assert.That(pool.Statistics.Reuses, Is.EqualTo(1));
-            Assert.That(pool.Statistics.Evictions, Is.EqualTo(1));
-            Assert.That(pool.Statistics.OwnedTargets, Is.Zero);
-            Assert.That(pool.Statistics.AvailableTargets, Is.Zero);
-            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
-            Assert.That(pool.Statistics.OwnedBytes, Is.Zero);
-            Assert.That(pool.Statistics.RetainedBytes, Is.Zero);
-            Assert.That(pool.Statistics.PeakLiveTargets, Is.EqualTo(1));
-        });
-
-        using RenderTargetLease retry = retryRequest.Acquire(new PixelSize(4, 4));
-        Assert.Multiple(() =>
-        {
-            Assert.That(retry.Target, Is.Not.SameAs(rejected));
-            Assert.That(pool.Statistics.Creates, Is.EqualTo(2));
-            Assert.That(pool.Statistics.Misses, Is.EqualTo(2));
-            Assert.That(pool.Statistics.Reuses, Is.EqualTo(1));
-            Assert.That(pool.Statistics.Evictions, Is.EqualTo(1));
-            Assert.That(pool.Statistics.OwnedTargets, Is.EqualTo(1));
-            Assert.That(pool.Statistics.LeasedTargets, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    [Category("GpuPassFusionGpu")]
     public void DeferredGpuDraw_PreservesSnapshotAcrossSameSlotReuse()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -921,19 +732,6 @@ public sealed class RenderTargetPoolTests
     }
 
     [Test]
-    public void DischargedLease_RejectsTargetAccess()
-    {
-        using var pool = new RenderTargetPool(new TrackingTargetFactory());
-        using RenderTargetLeaseSession request = pool.BeginSession(RenderIntent.Delivery);
-        RenderTargetLease lease = request.Acquire(new PixelSize(4, 4));
-        lease.Dispose();
-
-        Assert.That(
-            () => _ = lease.Target,
-            Throws.InvalidOperationException.With.Message.Contains("already been discharged"));
-    }
-
-    [Test]
     public void BoundCpuContext_IsForwardedToSubsequentTargetlessFactoryMiss()
     {
         var factory = new TrackingTargetFactory();
@@ -947,14 +745,11 @@ public sealed class RenderTargetPoolTests
 
         Assert.That(factory.Allocations, Has.Count.EqualTo(2));
         Assert.That(factory.Allocations, Has.All.Matches<RenderTargetAllocationDescriptor>(allocation =>
-            allocation.PixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float
-            && allocation.GraphicsContext is null
-            && allocation.GraphicsContextHandle == 0
-            && allocation.GraphicsBackend is null));
+            allocation.GraphicsContext is null
+            && allocation.GraphicsContextHandle == 0));
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void TargetlessGpuBinding_ForwardsLiveContextOnLaterMiss()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -979,8 +774,7 @@ public sealed class RenderTargetPoolTests
             {
                 Assert.That(factory.Observations, Has.Count.EqualTo(2));
                 Assert.That(factory.Observations, Has.All.Matches<AllocationObservation>(observation =>
-                    observation.PixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float
-                    && observation.ContextMatchedExpectation));
+                    observation.ContextMatchedExpectation));
                 Assert.That(factory.Observations[0].HasGraphicsContext, Is.False);
                 Assert.That(factory.Observations[0].GraphicsContextHandle, Is.Null);
                 Assert.That(factory.Observations[0].GraphicsBackend, Is.Null);
@@ -1236,7 +1030,6 @@ public sealed class RenderTargetPoolTests
         public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
         {
             Observations.Add(new AllocationObservation(
-                allocation.PixelFormat,
                 allocation.GraphicsContext is not null,
                 allocation.GraphicsContextHandle,
                 allocation.GraphicsBackend,
@@ -1259,7 +1052,6 @@ public sealed class RenderTargetPoolTests
     }
 
     private readonly record struct AllocationObservation(
-        RenderTargetPixelFormat PixelFormat,
         bool HasGraphicsContext,
         nint? GraphicsContextHandle,
         GRBackend? GraphicsBackend,

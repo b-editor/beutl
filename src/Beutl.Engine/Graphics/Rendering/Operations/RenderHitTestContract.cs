@@ -182,12 +182,7 @@ public readonly struct RenderHitTestContract
     }
 
     /// <summary>Whether any of <paramref name="inputs"/> claims <paramref name="point"/>.</summary>
-    /// <remarks>
-    /// A predicate closing over the point would put its display class at the top of the method holding
-    /// it, so every path through that method would pay for it whether or not it reaches the inputs, and
-    /// a foreach over the interface would box an enumerator. A custom contract body wanting this answer
-    /// calls here rather than writing the LINQ that costs both.
-    /// </remarks>
+    /// <remarks>A loop rather than LINQ, so that no closure or enumerator is allocated.</remarks>
     internal static bool AnyInputAccepts(IReadOnlyList<RenderHitTestInput> inputs, Point point)
     {
         for (int index = 0; index < inputs.Count; index++)

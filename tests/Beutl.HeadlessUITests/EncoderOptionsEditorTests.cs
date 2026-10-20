@@ -3,7 +3,6 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Collections;
@@ -21,6 +20,9 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public sealed class EncoderOptionsEditorTests
 {
+    // The option cache is process-wide, so each test gets its own output file and cache key.
+    private static string UniqueOutputFile(string extension) => $"{Guid.NewGuid():N}{extension}";
+
     [AvaloniaTest]
     [TestCase(false, "28", true)]
     [TestCase(true, "custom-crf", true)]
@@ -30,16 +32,13 @@ public sealed class EncoderOptionsEditorTests
         var settings = new FFmpegVideoEncoderSettings
         {
             Codec = new CodecRecord("libx264", "H.264"),
-            OutputFile = "out.mp4",
+            OutputFile = UniqueOutputFile(".mp4"),
             Options = [new("crf", "22")],
         };
         EncoderOptionInfo[] schema = [new() { Name = "crf", Kind = EncoderOptionKind.Integer, Minimum = 0, Maximum = 51 }];
         var reply = new TaskCompletionSource<OptionsQueryResult<EncoderOptionInfo>>(TaskCreationOptions.RunContinuationsAsynchronously);
-        string key = EncoderOptionsEditorViewModel.BuildCacheKey(CodecOptionQuery.Create(settings.Codec, settings.OutputFile), settings.Format);
-        var query = FFmpegOptionsCaches.EncoderOptions.GetOrQueryAsync(key, () => reply.Task);
-        using var model = new EncoderOptionsEditorViewModel(
-            new CorePropertyAdapter<CoreList<AdditionalOption>>(FFmpegVideoEncoderSettings.OptionsProperty, settings),
-            new FFmpegEncoderSpecializedPropertyExtension());
+        var query = FFmpegOptionsCaches.EncoderOptions.GetOrQueryAsync(CacheKey(settings), () => reply.Task);
+        using var model = CreateModel(settings);
         var view = new EncoderOptionsEditor(model);
         var applied = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         model.SchemaChanged += () => { if (model.Status == null) applied.TrySetResult(); };
@@ -48,7 +47,7 @@ public sealed class EncoderOptionsEditorTests
         {
             window.Show();
             HeadlessTestHelpers.Render(2);
-            view.GetVisualDescendants().OfType<ToggleButton>().Single(c => c.Name == "AdvancedEncoderOptions").IsChecked = true;
+            ShowAdvanced(view);
             HeadlessTestHelpers.Render(2);
             var editor = view.GetVisualDescendants().OfType<StringEditor>()
                 .Single(c => c.Header == (editName ? Strings.EncoderOptionsOptionName : Strings.EncoderOptionsValue)
@@ -76,7 +75,6 @@ public sealed class EncoderOptionsEditorTests
         {
             reply.TrySetResult(new OptionsQueryResult<EncoderOptionInfo>(schema, false));
             window.Close();
-            FFmpegOptionsCaches.ClearAll();
         }
     }
 
@@ -89,15 +87,12 @@ public sealed class EncoderOptionsEditorTests
         var settings = new FFmpegVideoEncoderSettings
         {
             Codec = new CodecRecord("libvpx-vp9", "VP9"),
-            OutputFile = "out.webm",
+            OutputFile = UniqueOutputFile(".webm"),
             Options = [new("crf", "22")],
         };
         EncoderOptionInfo[] schema = [new() { Name = "crf", Kind = EncoderOptionKind.Integer, Minimum = minimum, Maximum = maximum }];
-        string key = EncoderOptionsEditorViewModel.BuildCacheKey(CodecOptionQuery.Create(settings.Codec, settings.OutputFile), settings.Format);
-        await FFmpegOptionsCaches.EncoderOptions.GetOrQueryAsync(key, () => Task.FromResult(new OptionsQueryResult<EncoderOptionInfo>(schema, false)));
-        using var model = new EncoderOptionsEditorViewModel(
-            new CorePropertyAdapter<CoreList<AdditionalOption>>(FFmpegVideoEncoderSettings.OptionsProperty, settings),
-            new FFmpegEncoderSpecializedPropertyExtension());
+        await PrimeSchema(settings, schema);
+        using var model = CreateModel(settings);
         var view = new EncoderOptionsEditor(model);
         var confirm = new Button { Content = "Confirm" };
         var window = new Window { Content = new StackPanel { Children = { view, confirm } }, Width = 440, Height = 480 };
@@ -125,7 +120,7 @@ public sealed class EncoderOptionsEditorTests
             HeadlessTestHelpers.Render(2);
             Assert.That(model.GetValue("crf"), Is.EqualTo(expected));
         }
-        finally { window.Close(); FFmpegOptionsCaches.ClearAll(); }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]
@@ -138,25 +133,20 @@ public sealed class EncoderOptionsEditorTests
         var settings = new FFmpegVideoEncoderSettings
         {
             Codec = new CodecRecord("libx264", "H.264"),
-            OutputFile = "out.mp4",
+            OutputFile = UniqueOutputFile(".mp4"),
             Format = FFPixelFormat.YUV420P,
             Options = [new("crf", "22")],
         };
         EncoderOptionInfo[] schema = [new() { Name = "crf", Kind = EncoderOptionKind.Integer, Minimum = 0, Maximum = 51 }];
         foreach (int format in new[] { FFPixelFormat.YUV420P, FFPixelFormat.YUV420P10LE })
-        {
-            string key = EncoderOptionsEditorViewModel.BuildCacheKey(CodecOptionQuery.Create(settings.Codec, settings.OutputFile), format);
-            await FFmpegOptionsCaches.EncoderOptions.GetOrQueryAsync(key, () => Task.FromResult(new OptionsQueryResult<EncoderOptionInfo>(schema, false)));
-        }
-        using var model = new EncoderOptionsEditorViewModel(
-            new CorePropertyAdapter<CoreList<AdditionalOption>>(FFmpegVideoEncoderSettings.OptionsProperty, settings),
-            new FFmpegEncoderSpecializedPropertyExtension());
+            await PrimeSchema(settings, schema, format);
+        using var model = CreateModel(settings);
         var view = new EncoderOptionsEditor(model);
         var window = new Window { Content = view, Width = 440, Height = 480 };
         try
         {
             window.Show();
-            if (advanced) view.GetVisualDescendants().OfType<ToggleButton>().Single(c => c.Name == "AdvancedEncoderOptions").IsChecked = true;
+            if (advanced) ShowAdvanced(view);
             HeadlessTestHelpers.Render(2);
             var editor = view.GetVisualDescendants().OfType<NumberEditor<decimal>>()
                 .Single(c => advanced ? c.Header == Strings.EncoderOptionsValue : c.Name == "EncoderOption_crf");
@@ -170,7 +160,7 @@ public sealed class EncoderOptionsEditorTests
             HeadlessTestHelpers.Render(2);
             Assert.That(model.GetValue("crf"), Is.EqualTo(text));
         }
-        finally { window.Close(); FFmpegOptionsCaches.ClearAll(); }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]
@@ -179,22 +169,19 @@ public sealed class EncoderOptionsEditorTests
         var settings = new FFmpegVideoEncoderSettings
         {
             Codec = new CodecRecord("libx264", "H.264"),
-            OutputFile = "out.mp4",
+            OutputFile = UniqueOutputFile(".mp4"),
             Options = [new("first", "one"), new("second", "two"), new("crf", "100")],
         };
         EncoderOptionInfo[] schema = [new() { Name = "crf", Kind = EncoderOptionKind.Integer, Minimum = 0, Maximum = 63 }];
-        string key = EncoderOptionsEditorViewModel.BuildCacheKey(CodecOptionQuery.Create(settings.Codec, settings.OutputFile), settings.Format);
-        await FFmpegOptionsCaches.EncoderOptions.GetOrQueryAsync(key, () => Task.FromResult(new OptionsQueryResult<EncoderOptionInfo>(schema, false)));
-        using var model = new EncoderOptionsEditorViewModel(
-            new CorePropertyAdapter<CoreList<AdditionalOption>>(FFmpegVideoEncoderSettings.OptionsProperty, settings),
-            new FFmpegEncoderSpecializedPropertyExtension());
+        await PrimeSchema(settings, schema);
+        using var model = CreateModel(settings);
         var view = new EncoderOptionsEditor(model);
         var window = new Window { Content = view, Width = 440, Height = 640 };
         try
         {
             window.Show();
             HeadlessTestHelpers.Render(2);
-            view.GetVisualDescendants().OfType<ToggleButton>().Single(c => c.Name == "AdvancedEncoderOptions").IsChecked = true;
+            ShowAdvanced(view);
             HeadlessTestHelpers.Render(2);
             string expectedWarning = model.GetWarning(schema[0], "100")!;
             var valueWarning = view.GetVisualDescendants().OfType<TextBlock>().Single(c => c.Text == expectedWarning);
@@ -221,7 +208,7 @@ public sealed class EncoderOptionsEditorTests
             Assert.That(view.GetVisualDescendants().OfType<TextBlock>()
                 .Any(c => c.IsEffectivelyVisible && c.Text == Strings.EncoderOptionsDuplicate), Is.False);
         }
-        finally { window.Close(); FFmpegOptionsCaches.ClearAll(); }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]
@@ -234,14 +221,11 @@ public sealed class EncoderOptionsEditorTests
         var settings = new FFmpegVideoEncoderSettings
         {
             Codec = new CodecRecord("libx264", "H.264"),
-            OutputFile = "out.mp4",
+            OutputFile = UniqueOutputFile(".mp4"),
             Options = [new(" ", "value")],
         };
-        string key = EncoderOptionsEditorViewModel.BuildCacheKey(CodecOptionQuery.Create(settings.Codec, settings.OutputFile), settings.Format);
-        await FFmpegOptionsCaches.EncoderOptions.GetOrQueryAsync(key, () => Task.FromResult(new OptionsQueryResult<EncoderOptionInfo>([], false)));
-        using var model = new EncoderOptionsEditorViewModel(
-            new CorePropertyAdapter<CoreList<AdditionalOption>>(FFmpegVideoEncoderSettings.OptionsProperty, settings),
-            new FFmpegEncoderSpecializedPropertyExtension());
+        await PrimeSchema(settings, []);
+        using var model = CreateModel(settings);
         var view = new EncoderOptionsEditor(model);
         var window = new Window { Content = view, Width = 440, Height = 480 };
         try
@@ -253,7 +237,6 @@ public sealed class EncoderOptionsEditorTests
         finally
         {
             window.Close();
-            FFmpegOptionsCaches.ClearAll();
             System.Globalization.CultureInfo.CurrentUICulture = previousCulture;
         }
     }
@@ -264,7 +247,7 @@ public sealed class EncoderOptionsEditorTests
         var settings = new FFmpegVideoEncoderSettings
         {
             Codec = new CodecRecord("libvpx-vp9", "VP9"),
-            OutputFile = "out.webm",
+            OutputFile = UniqueOutputFile(".webm"),
             Options = [new("deadline", "1000000"), new("cpu-used", "1")],
         };
         EncoderOptionInfo[] schema =
@@ -273,11 +256,8 @@ public sealed class EncoderOptionsEditorTests
                 Minimum = 0, Maximum = 2000000, DefaultValue = "1000000", Choices = [new() { Value = "realtime", NumericValue = 1 }] },
             new() { Name = "cpu-used", Kind = EncoderOptionKind.Integer, Minimum = -8, Maximum = 8, DefaultValue = "1" },
         ];
-        string key = EncoderOptionsEditorViewModel.BuildCacheKey(CodecOptionQuery.Create(settings.Codec, settings.OutputFile), settings.Format);
-        await FFmpegOptionsCaches.EncoderOptions.GetOrQueryAsync(key, () => Task.FromResult(new OptionsQueryResult<EncoderOptionInfo>(schema, false)));
-        using var model = new EncoderOptionsEditorViewModel(
-            new CorePropertyAdapter<CoreList<AdditionalOption>>(FFmpegVideoEncoderSettings.OptionsProperty, settings),
-            new FFmpegEncoderSpecializedPropertyExtension());
+        await PrimeSchema(settings, schema);
+        using var model = CreateModel(settings);
         var view = new EncoderOptionsEditor(model);
         var window = new Window { Content = view, Width = 320, Height = 480 };
         try
@@ -294,7 +274,7 @@ public sealed class EncoderOptionsEditorTests
             Assert.That(model.GetWarning(schema[0], "120000"), Is.Null);
             Assert.That(model.GetValue("cpu-used"), Is.EqualTo("4"));
         }
-        finally { window.Close(); FFmpegOptionsCaches.ClearAll(); }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]
@@ -306,7 +286,7 @@ public sealed class EncoderOptionsEditorTests
         var settings = new FFmpegVideoEncoderSettings
         {
             Codec = new CodecRecord("libx264", "H.264"),
-            OutputFile = "out.mp4",
+            OutputFile = UniqueOutputFile(".mp4"),
             Format = FFPixelFormat.YUV420P,
         };
         settings.Options.Single(o => o.Name == "profile").Value = "main10";
@@ -317,8 +297,7 @@ public sealed class EncoderOptionsEditorTests
             new() { Name = "profile", Kind = EncoderOptionKind.Choice, Choices = [new() { Value = "high" }, new() { Value = "high10" }] },
             new() { Name = "crf", Kind = EncoderOptionKind.Number, Minimum = 0, Maximum = 51 },
         ];
-        string key = EncoderOptionsEditorViewModel.BuildCacheKey(CodecOptionQuery.Create(settings.Codec, settings.OutputFile), settings.Format);
-        await FFmpegOptionsCaches.EncoderOptions.GetOrQueryAsync(key, () => Task.FromResult(new OptionsQueryResult<EncoderOptionInfo>(schema, false)));
+        await PrimeSchema(settings, schema);
         var extension = new FFmpegEncoderSpecializedPropertyExtension();
         var adapter = new CorePropertyAdapter<CoreList<AdditionalOption>>(FFmpegVideoEncoderSettings.OptionsProperty, settings);
         Assert.That(extension.TryCreateContext([adapter], out var context), Is.True);
@@ -360,8 +339,7 @@ public sealed class EncoderOptionsEditorTests
             Assert.That(view.GetVisualDescendants().OfType<PropertyEditor>().Where(e => e.IsEffectivelyVisible)
                 .All(e => e.Header is not null), Is.True);
 
-            var advanced = view.GetVisualDescendants().OfType<ToggleButton>().Single(c => c.Name == "AdvancedEncoderOptions");
-            advanced.IsChecked = true;
+            ToggleButton advanced = ShowAdvanced(view);
             HeadlessTestHelpers.Render(2);
             var addName = view.GetVisualDescendants().OfType<AutoCompleteStringEditor>().Single(c => c.Name == "AddEncoderOptionName");
             Assert.That(addName.IsEffectivelyVisible, Is.True);
@@ -374,14 +352,26 @@ public sealed class EncoderOptionsEditorTests
             disclosure.IsChecked = true;
             advanced.IsChecked = false;
             HeadlessTestHelpers.Render(2);
-
-            string? capture = Environment.GetEnvironmentVariable("BEUTL_ENCODER_OPTIONS_CAPTURE");
-            if (!string.IsNullOrWhiteSpace(capture) && width == 440)
-            {
-                using var image = window.CaptureRenderedFrame();
-                image?.Save(dark ? Path.ChangeExtension(capture, ".dark.png") : capture, PngBitmapEncoderOptions.Default);
-            }
         }
-        finally { window.Close(); FFmpegOptionsCaches.ClearAll(); }
+        finally { window.Close(); }
+    }
+
+    private static string CacheKey(FFmpegVideoEncoderSettings settings, int? format = null)
+        => EncoderOptionsEditorViewModel.BuildCacheKey(CodecOptionQuery.Create(settings.Codec, settings.OutputFile), format ?? settings.Format);
+
+    // Caches the schema as the options the worker reports for the settings' codec and format.
+    private static async Task PrimeSchema(FFmpegVideoEncoderSettings settings, EncoderOptionInfo[] schema, int? format = null)
+        => await FFmpegOptionsCaches.EncoderOptions.GetOrQueryAsync(
+            CacheKey(settings, format), () => Task.FromResult(new OptionsQueryResult<EncoderOptionInfo>(schema, false)));
+
+    private static EncoderOptionsEditorViewModel CreateModel(FFmpegVideoEncoderSettings settings)
+        => new(new CorePropertyAdapter<CoreList<AdditionalOption>>(FFmpegVideoEncoderSettings.OptionsProperty, settings),
+            new FFmpegEncoderSpecializedPropertyExtension());
+
+    private static ToggleButton ShowAdvanced(Control view)
+    {
+        ToggleButton advanced = view.GetVisualDescendants().OfType<ToggleButton>().Single(c => c.Name == "AdvancedEncoderOptions");
+        advanced.IsChecked = true;
+        return advanced;
     }
 }

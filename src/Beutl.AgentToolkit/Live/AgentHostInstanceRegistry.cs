@@ -18,8 +18,6 @@ public sealed class AgentHostInstanceRegistry(string directory)
     public static string GetDefaultDirectory(string profileDirectory)
         => Path.Combine(profileDirectory, DirectoryName);
 
-    public string Location => directory;
-
     public AgentHostInstanceLease Register(string instanceId, Uri endpointUri, long toolsVersion = 0)
     {
         using Process process = Process.GetCurrentProcess();
@@ -101,45 +99,20 @@ public sealed class AgentHostInstanceRegistry(string directory)
         return long.Parse(fields[19], CultureInfo.InvariantCulture); // Field 22, after pid and (comm).
     }
 
+    // Deletes the entry only while it still holds expected. A registration rewritten between the read and the
+    // delete is lost too; its editor is listed again at its next UpdateTools or restart.
     public void RemoveIfUnchanged(AgentHostInstanceRegistration expected)
     {
         string path = Path.Combine(directory, expected.InstanceId + ".json");
-        string claimedPath = path + ".prune-" + Guid.NewGuid().ToString("N");
-        bool restore = false;
         try
         {
-            // Claim the actual file atomically, then compare ownership. Comparing and deleting
-            // the original path would race a registration replaced between those two operations.
-            File.Move(path, claimedPath);
-            restore = true;
             var current = JsonSerializer.Deserialize<AgentHostInstanceRegistration>(
-                File.ReadAllText(claimedPath), JsonSerializerOptions.Web);
+                File.ReadAllText(path), JsonSerializerOptions.Web);
             if (current == expected)
-            {
-                File.Delete(claimedPath);
-                restore = false;
-            }
+                File.Delete(path);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
-        }
-        finally
-        {
-            if (restore)
-            {
-                try { File.Move(claimedPath, path); }
-                catch (IOException)
-                {
-                    // A newer registration already published at the original path wins.
-                    if (File.Exists(path))
-                    {
-                        try { File.Delete(claimedPath); }
-                        catch (IOException) { }
-                        catch (UnauthorizedAccessException) { }
-                    }
-                }
-                catch (UnauthorizedAccessException) { }
-            }
         }
     }
 

@@ -2,13 +2,13 @@
 using System.Text.Json;
 using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
+using Beutl.Audio;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.AI;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services.AI;
@@ -111,6 +111,7 @@ public sealed class AiJobVideoDurationReviewTests
         public MediaReader Open(string file, MediaOptions options)
         {
             Assert.That(options.PreferProxy, Is.False);
+            Assert.That(options.IsBackground, Is.True);
             OpenedPaths.Add(file);
             return new ResultReader(durationTenths, decodable);
         }
@@ -135,7 +136,7 @@ public sealed class AiJobVideoDurationReviewTests
             image = Ref<Bitmap>.Create(new Bitmap(2, 2));
             return true;
         }
-        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
         {
             sound = null;
             return false;

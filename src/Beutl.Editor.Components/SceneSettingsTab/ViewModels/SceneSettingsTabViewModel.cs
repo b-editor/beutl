@@ -50,19 +50,8 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         StartInput.SetValidateNotifyError(StartValidator);
         DurationInput.SetValidateNotifyError(DurationValidator);
 
-        CanApply = Width.CombineLatest(Height, StartInput, DurationInput, LayerCount).Select(t =>
-            {
-                int width = t.First;
-                int height = t.Second;
-
-                string startTime = t.Third;
-                string durationTime = t.Fourth;
-                return width > 0 &&
-                    height > 0 &&
-                    TimeSpan.TryParse(startTime, out TimeSpan ts1) && ts1 >= TimeSpan.Zero &&
-                    TimeSpan.TryParse(durationTime, out TimeSpan ts2) && ts2 > TimeSpan.Zero &&
-                    t.Fifth > 0;
-            })
+        CanApply = Width.CombineLatest(Height, StartInput, DurationInput, LayerCount)
+            .Select(_ => TryReadSceneSettings(out var _, out var _, out var _) && LayerCount.Value > 0)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 
@@ -79,11 +68,12 @@ public sealed class SceneSettingsTabViewModel : IToolContext
     {
         if (TryReadSceneSettings(out Media.PixelSize frameSize, out TimeSpan start, out TimeSpan duration))
         {
-            // Pause playback before rebuilding the renderer to avoid UI freeze.
+            // Pause playback before rebuilding the renderer to avoid UI freeze. Pause also returns a pause
+            // still draining the last frame, which IsPlaying no longer shows.
             if ((frameSize != _scene.FrameSize
                     || start != _scene.Start
                     || duration != _scene.Duration)
-                && _editorContext.GetService<IPreviewPlayer>() is { IsPlaying.Value: true } player)
+                && _editorContext.GetService<IPreviewPlayer>() is { } player)
             {
                 await player.Pause();
 

@@ -107,7 +107,6 @@ public sealed partial class FilterEffectContext
                             }
                         }
 
-                        target.Dispose();
                         context.Targets[i] = newTarget;
                     }
                 }
@@ -175,7 +174,6 @@ public sealed partial class FilterEffectContext
                 input),
             (data, rect) =>
             {
-                Rect dst = rect;
                 int w = data.kernelSize.Width - 1;
                 int h = data.kernelSize.Height - 1;
 
@@ -306,7 +304,7 @@ public sealed partial class FilterEffectContext
     public void Brightness(float amount)
     {
         // Recorded as a CurrentPixel shader stage rather than a Skia color filter so that an adjacent shader
-        // stage can fuse with it instead of splitting the chain at a effect-item segment.
+        // stage can fuse with it instead of splitting the chain at an effect-item segment.
         using var lease = PooledColorMatrix.Rent(out float[] array);
         Graphics.ColorMatrix.CreateBrightness(amount, array);
 
@@ -315,8 +313,7 @@ public sealed partial class FilterEffectContext
 
     public void HighContrast(bool grayscale, HighContrastInvertStyle invertStyle, float contrast)
     {
-        // SKColorFilter.CreateHighContrast returns null for an invalid configuration, which made the old path a
-        // no-op. Preserve that behavior instead of recording a shader with undefined parameters.
+        // A configuration Skia's HighContrast returns null for stays a no-op.
         if (!Enum.IsDefined(invertStyle) || float.IsNaN(contrast) || contrast is < -1f or > 1f)
             return;
 
@@ -398,7 +395,6 @@ public sealed partial class FilterEffectContext
                         newCanvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), brushPaint);
                     }
 
-                    target.Dispose();
                     context.Targets[i] = newTarget;
                 }
             }

@@ -1,10 +1,7 @@
 ﻿using System.Net.Http;
 using System.Reactive.Subjects;
 
-using Beutl.Api;
-using Beutl.Api.Clients;
 using Beutl.Api.Objects;
-using Beutl.Api.Services;
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 namespace Beutl.HeadlessUITests;
@@ -12,27 +9,10 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class PackageReleaseRefreshCoordinatorTests
 {
-    private readonly HttpClient _httpClient;
-    private readonly BeutlApiApplication _clients;
-
-    public PackageReleaseRefreshCoordinatorTests()
-    {
-        _httpClient = new HttpClient();
-        _clients = new BeutlApiApplication(_httpClient, new ExtensionProvider());
-    }
+    private readonly StoreClients _store = new();
 
     [OneTimeTearDown]
-    public async Task OneTimeTearDown()
-    {
-        try
-        {
-            await _clients.DisposeAsync();
-        }
-        finally
-        {
-            _httpClient.Dispose();
-        }
-    }
+    public async Task OneTimeTearDown() => await _store.DisposeAsync();
 
     [TestCase(true)]
     [TestCase(false)]
@@ -117,46 +97,5 @@ public class PackageReleaseRefreshCoordinatorTests
         });
     }
 
-    private Release CreateRelease(string version)
-    {
-        var ownerResponse = new ProfileResponse
-        {
-            Id = "owner",
-            Name = "owner",
-            DisplayName = "Owner",
-            Bio = null,
-            IconId = null,
-            IconUrl = null,
-        };
-        var owner = new Profile(ownerResponse, _clients);
-        var package = new Package(owner, new PackageResponse
-        {
-            Id = "package",
-            Owner = ownerResponse,
-            Name = "Package",
-            DisplayName = "Package",
-            Description = "",
-            ShortDescription = "",
-            WebSite = "",
-            Tags = [],
-            LogoId = null,
-            LogoUrl = null,
-            Screenshots = [],
-            Currency = null,
-            Price = null,
-            Paid = false,
-            Owned = true,
-        }, _clients);
-
-        return new Release(package, new ReleaseResponse
-        {
-            Id = version,
-            Version = version,
-            Title = version,
-            Description = "",
-            TargetVersion = null,
-            FileId = null,
-            FileUrl = null,
-        }, _clients);
-    }
+    private Release CreateRelease(string version) => _store.CreateRelease(version);
 }

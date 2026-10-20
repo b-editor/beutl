@@ -97,10 +97,8 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         ArgumentNullException.ThrowIfNull(use);
         EnsureReadable(resource);
 
-        // A lease is a read, and one composable operation can reach the same declared resource twice: a
-        // scope that binds a token and replays an input that binds the same one runs the inner read inside
-        // the outer lease. Refusing that made two operations uncomposable for sharing a resource, so the
-        // outermost lease owns the state and an inner one just reads through it.
+        // Nested leases of one resource are allowed, since a scope can replay an input that binds the same one.
+        // The outermost lease owns the state and an inner one just reads through it.
         RenderResourceOwnershipState returnState = resource.OwnershipState;
         bool ownsLease = returnState != RenderResourceOwnershipState.LeasedToCallback;
         if (ownsLease)
@@ -155,7 +153,6 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
             }
         }
 
-        _resources.Clear();
         _tombstones.Clear();
         if (failures is not null)
         {
@@ -163,6 +160,7 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         }
     }
 
+    /// <summary>The number of resources the request still owns, for diagnostics and tests.</summary>
     internal int ActiveResourceCount => _resources.Count;
 
     internal void ValidateBinding(RenderResource resource)
@@ -222,21 +220,12 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
                 "A leased render resource cannot be released from its callback.");
         }
 
-        if (resource.RegistrationState == RenderResourceRegistrationState.Released)
-            return;
-
         RemoveResource(resource);
         DischargeResource(resource);
     }
 
     private static void DischargeResource(RenderResource resource)
     {
-        if (resource.OwnershipState is RenderResourceOwnershipState.Discharged
-            or RenderResourceOwnershipState.ReleasedToken)
-        {
-            return;
-        }
-
         if (resource.OwnershipState == RenderResourceOwnershipState.LeasedToCallback)
         {
             throw new InvalidOperationException("A leased render resource cannot be discharged.");

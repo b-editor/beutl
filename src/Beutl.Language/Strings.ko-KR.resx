@@ -788,30 +788,6 @@
   <data name="EnableElement" xml:space="preserve">
     <value>요소 사용</value>
   </data>
-  <data name="DockArea_LeftTop" xml:space="preserve">
-    <value>왼쪽 위</value>
-  </data>
-  <data name="DockArea_LeftBottom" xml:space="preserve">
-    <value>왼쪽 아래</value>
-  </data>
-  <data name="DockArea_RightTop" xml:space="preserve">
-    <value>오른쪽 위</value>
-  </data>
-  <data name="DockArea_RightBottom" xml:space="preserve">
-    <value>오른쪽 아래</value>
-  </data>
-  <data name="DockArea_BottomLeft" xml:space="preserve">
-    <value>아래 왼쪽</value>
-  </data>
-  <data name="DockArea_BottomRight" xml:space="preserve">
-    <value>아래 오른쪽</value>
-  </data>
-  <data name="DockArea_TopLeft" xml:space="preserve">
-    <value>위 왼쪽</value>
-  </data>
-  <data name="DockArea_TopRight" xml:space="preserve">
-    <value>위 오른쪽</value>
-  </data>
   <data name="MoveTo" xml:space="preserve">
     <value>이동</value>
   </data>
@@ -1477,23 +1453,11 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="ProxyUnavailable" xml:space="preserve">
     <value>사용할 수 없음</value>
   </data>
-  <data name="ProxyStoreUnavailable" xml:space="preserve">
-    <value>프록시 저장소를 사용할 수 없습니다.</value>
-  </data>
   <data name="ProxyQueueUnavailable" xml:space="preserve">
     <value>프록시 큐를 사용할 수 없습니다.</value>
   </data>
   <data name="ProxyBulkNoEligibleClips" xml:space="preserve">
     <value>일괄 생성 임계값을 충족하는 클립이 없습니다. 클립별 생성을 사용하세요.</value>
-  </data>
-  <data name="ProxyQueueIdle" xml:space="preserve">
-    <value>큐 유휴</value>
-  </data>
-  <data name="ProxyQueuedJobSingular" xml:space="preserve">
-    <value>대기 중인 작업 1개</value>
-  </data>
-  <data name="ProxyQueuedJobPlural" xml:space="preserve">
-    <value>대기 중인 작업 {0}개</value>
   </data>
   <data name="ProxyDeleteFailedSingular" xml:space="preserve">
     <value>파일이 사용 중이어서 프록시 1개를 삭제할 수 없습니다.</value>
@@ -1509,9 +1473,6 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="ProxySelectedPlural" xml:space="preserve">
     <value>선택 {0}개</value>
-  </data>
-  <data name="ProxyStoreSummaryFormat" xml:space="preserve">
-    <value>프로젝트 {0} / 저장소 {1} / 상한 {2}</value>
   </data>
   <data name="ProxySourceInfoFormat" xml:space="preserve">
     <value>소스 {0} / {1}</value>
@@ -2669,6 +2630,9 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="VersionControl_ActivationFailedFormat" xml:space="preserve">
     <value>이 프로젝트의 버전 관리를 활성화하지 못했습니다. {0}</value>
   </data>
+  <data name="VersionControl_RepositoryNotWatchedFormat" xml:space="preserve">
+    <value>이 프로젝트 폴더를 감시할 수 없어 Beutl 밖에서 한 변경은 다음 작업 후에 버전 관리에 표시됩니다. {0}</value>
+  </data>
   <data name="VersionControl_BranchFormat" xml:space="preserve">
     <value>브랜치: {0}</value>
   </data>
@@ -2849,26 +2813,17 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="VersionControl_Offline" xml:space="preserve">
     <value>원격에 연결하지 못했습니다. 네트워크 연결을 확인한 후 다시 시도하세요.</value>
   </data>
-  <data name="VersionControl_StaleLockGuidance" xml:space="preserve">
-    <value>오래된 Git 저장소 잠금이 버전 관리 작업을 막고 있습니다.</value>
-  </data>
-  <data name="VersionControl_RemoveStaleLock" xml:space="preserve">
-    <value>오래된 잠금 제거</value>
-  </data>
-  <data name="VersionControl_StaleLockConfirmation" xml:space="preserve">
-    <value>Git 저장소 잠금이 생성된 지 10분 이상 지났으며 Beutl에서 실행 중인 Git 프로세스가 없습니다. 오래된 잠금을 제거하시겠습니까?</value>
-  </data>
-  <data name="VersionControl_StaleLockRemoved" xml:space="preserve">
-    <value>오래된 Git 저장소 잠금을 제거했습니다. 버전 관리 작업을 다시 시도하세요.</value>
-  </data>
   <data name="VersionControl_StaleLockManualRemovalRequiredFormat" xml:space="preserve">
-    <value>현재 파일 시스템에서는 이 Git 잠금을 안전하게 제거할 수 없습니다. 외부 Git 도구를 닫고 실행 중인 Git 프로세스가 없는지 확인한 후 {0}을(를) 직접 삭제하고 다시 시도하세요.</value>
+    <value>오래된 Git 저장소 잠금이 버전 관리 작업을 막고 있습니다. 외부 Git 도구를 닫고 실행 중인 Git 프로세스가 없는지 확인한 후 {0}을(를) 직접 삭제하고 다시 시도하세요.</value>
   </data>
   <data name="VersionControl_WorktreeOperationInProgress" xml:space="preserve">
     <value>버전 관리가 프로젝트 파일을 업데이트하고 있습니다. 작업이 완료된 후 다시 시도하세요.</value>
   </data>
   <data name="AiPendingRequest" xml:space="preserve">
     <value>보류 중인 AI 요청</value>
+  </data>
+  <data name="AiPendingRequestDefaultModel" xml:space="preserve">
+    <value>{0} (기본 모델)</value>
   </data>
   <data name="AiRecoverRequest" xml:space="preserve">
     <value>복구</value>

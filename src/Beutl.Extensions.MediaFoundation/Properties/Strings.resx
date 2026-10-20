@@ -112,4 +112,31 @@
   <data name="Cache" xml:space="preserve">
     <value>Cache</value>
   </data>
+  <data name="EncodingName" xml:space="preserve">
+    <value>Media Foundation Encoding</value>
+  </data>
+  <data name="UseHardwareAcceleration" xml:space="preserve">
+    <value>Use hardware acceleration</value>
+  </data>
+  <data name="Codec" xml:space="preserve">
+    <value>Codec</value>
+  </data>
+  <data name="AutoByExtension" xml:space="preserve">
+    <value>Auto</value>
+  </data>
+  <data name="DisableStream" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="VideoCodecDescription" xml:space="preserve">
+    <value>Auto selects a codec for the file extension. HEVC requires a compatible Windows encoder. Audio-only files omit video. AVI uses uncompressed RGB32.</value>
+  </data>
+  <data name="AudioCodecDescription" xml:space="preserve">
+    <value>Auto selects a codec for the file extension. Compressed audio uses the closest supported bitrate; lossless audio and PCM ignore bitrate.</value>
+  </data>
+  <data name="BitDepth" xml:space="preserve">
+    <value>Bit depth</value>
+  </data>
+  <data name="BitDepthDescription" xml:space="preserve">
+    <value>Used for PCM, FLAC and ALAC. Available depths depend on the encoder. Floating-point PCM always uses 32 bits.</value>
+  </data>
 </root>

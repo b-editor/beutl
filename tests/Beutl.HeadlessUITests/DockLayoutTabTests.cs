@@ -7,7 +7,6 @@ using Avalonia.VisualTree;
 using Beutl.Editor.Components.LibraryTab;
 using Beutl.Extensibility;
 using Beutl.Language;
-using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
@@ -21,66 +20,29 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class DockLayoutTabTests
 {
-    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
-
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
-    private static async Task<EditViewModel> OpenEditorForNewScene(string name)
-    {
-        Project project = (await TestShell.Project.CreateProject(
-            1920, 1080, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
-    private static DockLayoutPresetService NewService()
-    {
-        string path = Path.Combine(
-            BeutlHomeIsolation.CurrentHome!, $"dock-layout-presets-{Guid.NewGuid():N}.json");
-        return new DockLayoutPresetService(path);
-    }
-
-    private static string[] ToolExtensionNames(EditViewModel editor)
-    {
-        return editor.DockHost.Factory.EnumerateTools()
-            .Select(t => t.ToolContext.Extension.GetType().FullName!)
-            .OrderBy(n => n)
-            .ToArray();
-    }
-
     [AvaloniaTest]
     public async Task Tab_saves_the_current_arrangement_and_applies_it_back()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("tab-save-apply");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("tab-save-apply", 1920, 1080);
 
-        var viewModel = new DockLayoutViewModel(editor, NewService());
+        var viewModel = new DockLayoutViewModel(editor, DockLayoutPresetTests.NewService());
 
         Assert.That(viewModel.Save("Default"), Is.Not.Null);
-        string[] saved = ToolExtensionNames(editor);
+        string[] saved = DockLayoutPresetTests.ToolExtensionNames(editor);
 
         // Saving selects the new entry so the row actions act on it.
         Assert.That(viewModel.SelectedItem.Value?.Name.Value, Is.EqualTo("Default"));
-        Assert.That(viewModel.HasSelection.Value, Is.True);
 
         BeutlToolDockable library = editor.DockHost.Factory.EnumerateTools()
             .First(t => t.ToolContext.Extension is LibraryTabExtension);
         editor.DockHost.CloseToolTab(library.ToolContext);
         HeadlessTestHelpers.Settle();
-        Assert.That(ToolExtensionNames(editor), Is.Not.EqualTo(saved));
+        Assert.That(DockLayoutPresetTests.ToolExtensionNames(editor), Is.Not.EqualTo(saved));
 
-        Assert.That(viewModel.Apply(), Is.True);
+        Assert.That(viewModel.Apply(viewModel.SelectedItem.Value!), Is.True);
         HeadlessTestHelpers.Settle();
-        Assert.That(ToolExtensionNames(editor), Is.EqualTo(saved));
+        Assert.That(DockLayoutPresetTests.ToolExtensionNames(editor), Is.EqualTo(saved));
 
         viewModel.Dispose();
     }
@@ -88,10 +50,10 @@ public class DockLayoutTabTests
     [AvaloniaTest]
     public async Task Saving_over_an_existing_name_replaces_it_and_blank_names_are_rejected()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("tab-overwrite");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("tab-overwrite", 1920, 1080);
 
-        DockLayoutPresetService service = NewService();
+        DockLayoutPresetService service = DockLayoutPresetTests.NewService();
         var viewModel = new DockLayoutViewModel(editor, service);
 
         viewModel.Save("Editing");
@@ -110,10 +72,10 @@ public class DockLayoutTabTests
     [AvaloniaTest]
     public async Task Suggested_name_avoids_colliding_with_a_saved_layout()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("tab-suggest");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("tab-suggest", 1920, 1080);
 
-        DockLayoutPresetService service = NewService();
+        DockLayoutPresetService service = DockLayoutPresetTests.NewService();
         var viewModel = new DockLayoutViewModel(editor, service);
 
         string first = viewModel.SuggestName();
@@ -128,10 +90,10 @@ public class DockLayoutTabTests
     [AvaloniaTest]
     public async Task Tab_renames_and_removes_a_saved_layout()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("tab-manage");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("tab-manage", 1920, 1080);
 
-        DockLayoutPresetService service = NewService();
+        DockLayoutPresetService service = DockLayoutPresetTests.NewService();
         var viewModel = new DockLayoutViewModel(editor, service);
 
         viewModel.Save("Editing");
@@ -158,16 +120,16 @@ public class DockLayoutTabTests
         Assert.That(service.Items, Has.Count.EqualTo(2));
         Assert.That(viewModel.SelectedItem.Value?.Name.Value, Is.EqualTo("Rough cut"));
 
-        string[] afterClose = ToolExtensionNames(editor);
+        string[] afterClose = DockLayoutPresetTests.ToolExtensionNames(editor);
         editor.DockHost.ResetLayout();
         HeadlessTestHelpers.Settle();
-        Assert.That(viewModel.Apply(), Is.True);
+        Assert.That(viewModel.Apply(viewModel.SelectedItem.Value!), Is.True);
         HeadlessTestHelpers.Settle();
-        Assert.That(ToolExtensionNames(editor), Is.EqualTo(afterClose));
+        Assert.That(DockLayoutPresetTests.ToolExtensionNames(editor), Is.EqualTo(afterClose));
 
         viewModel.Remove(service.Items[0]);
         Assert.That(service.Items.Select(i => i.Name.Value), Is.EqualTo(new[] { "Grading" }));
-        Assert.That(viewModel.HasSelection.Value, Is.False, "removing the selected layout clears the selection");
+        Assert.That(viewModel.SelectedItem.Value, Is.Null, "removing the selected layout clears the selection");
 
         viewModel.Dispose();
     }
@@ -175,8 +137,8 @@ public class DockLayoutTabTests
     [AvaloniaTest]
     public async Task Tab_extension_creates_its_view_and_context()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("tab-extension");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("tab-extension", 1920, 1080);
 
         Assert.That(
             DockLayoutTabExtension.Instance.TryCreateContext(editor, out IToolContext? context), Is.True);
@@ -187,7 +149,7 @@ public class DockLayoutTabTests
         Assert.That(DockLayoutTabExtension.Instance.TryCreateContent(editor, out Control? control), Is.True);
         Assert.That(control, Is.InstanceOf<DockLayoutView>());
 
-        DockLayoutPresetService service = NewService();
+        DockLayoutPresetService service = DockLayoutPresetTests.NewService();
         var viewModel = new DockLayoutViewModel(editor, service);
         control!.DataContext = viewModel;
 
@@ -201,10 +163,10 @@ public class DockLayoutTabTests
     [AvaloniaTest]
     public async Task Row_actions_target_the_row_they_belong_to()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("tab-row-actions");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("tab-row-actions", 1920, 1080);
 
-        DockLayoutPresetService service = NewService();
+        DockLayoutPresetService service = DockLayoutPresetTests.NewService();
         var viewModel = new DockLayoutViewModel(editor, service);
         viewModel.Save("Editing");
         viewModel.Save("Grading");
@@ -219,7 +181,7 @@ public class DockLayoutTabTests
         viewModel.Remove(service.Items[0]);
         Assert.That(service.Items.Select(i => i.Name.Value), Is.EqualTo(new[] { "Grading" }));
         Assert.That(
-            viewModel.HasSelection.Value, Is.True,
+            viewModel.SelectedItem.Value, Is.Not.Null,
             "removing another row must not clear the selection");
 
         viewModel.Dispose();
@@ -228,14 +190,14 @@ public class DockLayoutTabTests
     [AvaloniaTest]
     public async Task Apply_button_applies_the_row_it_belongs_to()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("tab-apply-row");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("tab-apply-row", 1920, 1080);
 
-        DockLayoutPresetService service = NewService();
+        DockLayoutPresetService service = DockLayoutPresetTests.NewService();
         var viewModel = new DockLayoutViewModel(editor, service);
 
         viewModel.Save("Full");
-        string[] full = ToolExtensionNames(editor);
+        string[] full = DockLayoutPresetTests.ToolExtensionNames(editor);
 
         BeutlToolDockable library = editor.DockHost.Factory.EnumerateTools()
             .First(t => t.ToolContext.Extension is LibraryTabExtension);
@@ -243,7 +205,7 @@ public class DockLayoutTabTests
         HeadlessTestHelpers.Settle();
 
         viewModel.Save("No library");
-        string[] reduced = ToolExtensionNames(editor);
+        string[] reduced = DockLayoutPresetTests.ToolExtensionNames(editor);
         Assert.That(reduced, Is.Not.EqualTo(full));
 
         // Saving selected "No library", so applying the other row proves the button follows it.
@@ -253,7 +215,7 @@ public class DockLayoutTabTests
         Assert.That(viewModel.Apply(fullItem), Is.True);
         HeadlessTestHelpers.Settle();
 
-        Assert.That(ToolExtensionNames(editor), Is.EqualTo(full));
+        Assert.That(DockLayoutPresetTests.ToolExtensionNames(editor), Is.EqualTo(full));
 
         viewModel.Dispose();
     }
@@ -261,8 +223,8 @@ public class DockLayoutTabTests
     [AvaloniaTest]
     public async Task A_failed_remove_keeps_the_layout_and_the_selection()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("tab-remove-failure");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("tab-remove-failure", 1920, 1080);
 
         string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"presets-{Guid.NewGuid():N}.json");
         var service = new DockLayoutPresetService(path);
@@ -284,7 +246,6 @@ public class DockLayoutTabTests
             // claiming nothing is selected while the row is still listed.
             Assert.That(service.Items, Has.Count.EqualTo(1));
             Assert.That(viewModel.SelectedItem.Value, Is.SameAs(target));
-            Assert.That(viewModel.HasSelection.Value, Is.True);
         }
         finally
         {
@@ -296,10 +257,10 @@ public class DockLayoutTabTests
     [AvaloniaTest]
     public async Task Revealing_the_row_actions_does_not_change_the_row_height()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("tab-row-height");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("tab-row-height", 1920, 1080);
 
-        DockLayoutPresetService service = NewService();
+        DockLayoutPresetService service = DockLayoutPresetTests.NewService();
         var viewModel = new DockLayoutViewModel(editor, service);
         viewModel.Save("Editing");
         viewModel.Save("Color grading");
@@ -333,7 +294,7 @@ public class DockLayoutTabTests
                 foreach (Button button in row.GetVisualDescendants().OfType<Button>())
                 {
                     Assert.That(
-                        VerticalCenterIn(button, row),
+                        button.TranslatePoint(new Point(0, button.Bounds.Height / 2), row)!.Value.Y,
                         Is.EqualTo(row.Bounds.Height / 2).Within(1.0),
                         "a row action must be vertically centered in its row");
                 }
@@ -346,25 +307,11 @@ public class DockLayoutTabTests
         }
     }
 
-    // Vertical center of `child` in `ancestor` coordinates.
-    private static double VerticalCenterIn(Visual child, Visual ancestor)
-    {
-        double y = child.Bounds.Height / 2;
-        Visual? visual = child;
-        while (visual is not null && !ReferenceEquals(visual, ancestor))
-        {
-            y += visual.Bounds.Y;
-            visual = visual.GetVisualParent();
-        }
-
-        return y;
-    }
-
     [AvaloniaTest]
     public async Task Tab_is_registered_and_opens_from_the_extension_provider()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("tab-registered");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("tab-registered", 1920, 1080);
 
         Assert.That(
             editor.ExtensionProvider.AllExtensions.OfType<ToolTabExtension>(),

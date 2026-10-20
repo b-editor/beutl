@@ -75,7 +75,7 @@ internal class PointerLockHelper
             }
         }
 
-        // ポインタロック無効 or 未対応OS: 従来の動作
+        // Without a pointer lock (disabled, or an unsupported OS), returns the delta from the last position.
         Point delta = point - dragStart;
         dragStart = point;
         return delta;

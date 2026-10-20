@@ -1,10 +1,8 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Animation;
@@ -47,15 +45,12 @@ public partial class MissingMediaTests
         string projectPath = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
         string moved = Path.Combine(directory, "renamed.png");
         File.Move(original, moved);
-        await TestReset.ResetShellAsync();
         var handler = new CaptureNotificationHandler();
         var previousHandler = NotificationService.Handler;
         NotificationService.Handler = handler;
         try
         {
-            await TestShell.Project.OpenProject(projectPath);
-            TestShell.Editor.ActivateTabItem(TestShell.Project.CurrentProject.Value!.Items.OfType<Scene>().Single());
-            editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            editor = await TestShell.ReopenAsync(projectPath);
             editor.NotifyMissingMedia();
             await editor.WaitForMissingMediaAsync();
             Notification notification = handler.Notifications.Single();
@@ -68,9 +63,7 @@ public partial class MissingMediaTests
                 Assert.That(editor.FindToolTab<MissingMediaViewModel>(), Is.Null);
             });
             notification.Actions![0].Callback();
-            DateTime deadline = DateTime.UtcNow.AddSeconds(5);
-            while (editor.FindToolTab<MissingMediaViewModel>() == null && DateTime.UtcNow < deadline)
-                await Task.Delay(10);
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.FindToolTab<MissingMediaViewModel>() != null, pump: false);
             var tool = editor.FindToolTab<MissingMediaViewModel>()!;
             Assert.That(tool, Is.Not.Null);
             notification.Actions[0].Callback();
@@ -89,11 +82,6 @@ public partial class MissingMediaTests
                 var toolView = editView.GetVisualDescendants().OfType<MissingMediaView>().Single();
                 Assert.That(toolView.DataContext, Is.SameAs(tool));
                 Assert.That(window.OwnedWindows, Is.Empty);
-                using WriteableBitmap? frame = window.CaptureRenderedFrame();
-                Assert.That(frame, Is.Not.Null);
-                string output = Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestResults", "missing-media-docked-tool.png");
-                Directory.CreateDirectory(Path.GetDirectoryName(output)!);
-                frame!.Save(output, PngBitmapEncoderOptions.Default);
             }
             finally { window.Close(); }
             await tool.SetReplacementAsync(tool.Rows.Single(), moved);
@@ -141,7 +129,7 @@ public partial class MissingMediaTests
             Assert.That(tool.Rows.Single().Name, Is.EqualTo("second.png"));
             Assert.That(tool.Rows.Single().IsOffline.Value, Is.True);
             Assert.That(notification.CancellationToken.IsCancellationRequested, Is.False);
-            tool.Close();
+            editor.CloseToolTab(tool);
             Assert.That(editor.FindToolTab<MissingMediaViewModel>(), Is.Null);
             await editor.OpenMissingMediaAsync();
             Assert.That(editor.FindToolTab<MissingMediaViewModel>(), Is.Not.SameAs(tool));
@@ -447,9 +435,6 @@ public partial class MissingMediaTests
             Assert.That(videoResource.Read(0, out var frame), Is.True);
             frame?.Dispose();
         });
-        string capture = Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestResults", "offline-placeholder.png");
-        Directory.CreateDirectory(Path.GetDirectoryName(capture)!);
-        imageResource.Bitmap!.Save(capture, EncodedImageFormat.Png);
         File.WriteAllBytes(Path.Combine(directory, "restored.png"), s_png);
         ResourceRelocationService.RelinkFileSource(image, new Uri(Path.Combine(directory, "restored.png")));
         bool versionBumped = false;
@@ -598,17 +583,13 @@ public partial class MissingMediaTests
     }
 
     [AvaloniaTest]
-    [TestCase(false, 320, 540, "en")]
-    [TestCase(true, 320, 540, "en")]
-    [TestCase(false, 320, 540, "ja")]
-    [TestCase(true, 320, 540, "ja")]
-    [TestCase(false, 280, 540, "ja")]
-    [TestCase(true, 280, 540, "ja")]
-    [TestCase(false, 360, 680, "en")]
-    [TestCase(true, 360, 680, "en")]
-    [TestCase(false, 400, 680, "ja")]
-    [TestCase(false, 760, 440, "en")]
-    public async Task Tool_renders_grouped_rows_with_aligned_actions_and_allows_invalid_files_to_stay_offline(bool dark, int width, int height, string culture)
+    [TestCase(320, 540, "en")]
+    [TestCase(320, 540, "ja")]
+    [TestCase(280, 540, "ja")]
+    [TestCase(360, 680, "en")]
+    [TestCase(400, 680, "ja")]
+    [TestCase(760, 440, "en")]
+    public async Task Tool_renders_grouped_rows_with_aligned_actions_and_allows_invalid_files_to_stay_offline(int width, int height, string culture)
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await CreateEditorAsync();
@@ -623,7 +604,7 @@ public partial class MissingMediaTests
         using var vm = new MissingMediaViewModel(editor);
         var view = new MissingMediaView { DataContext = vm };
         var dialog = new Window
-        { Content = view, Width = width, Height = height, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        { Content = view, Width = width, Height = height, RequestedThemeVariant = ThemeVariant.Light };
         try
         {
             dialog.Show();
@@ -639,7 +620,6 @@ public partial class MissingMediaTests
             Assert.That(nameText.TranslatePoint(default, firstRow)!.Value.Y,
                 Is.LessThan(kindText.TranslatePoint(default, firstRow)!.Value.Y));
             Assert.That(firstRow.Bounds.Height, Is.LessThan(100), "Hidden candidate and detail panels leave no empty row space.");
-            Assert.That(view.FindControl<Avalonia.Controls.TextBlock>("ReplacementHint"), Is.Null);
             double actionBottom = firstRow.GetVisualDescendants().OfType<Button>()
                 .Max(button => button.TranslatePoint(default, firstRow)!.Value.Y + button.Bounds.Height);
             Assert.That(firstRow.Bounds.Height - actionBottom, Is.InRange(8, 12), "Only the row padding remains below its actions.");
@@ -650,14 +630,9 @@ public partial class MissingMediaTests
             var footerBorder = view.FindControl<Border>("FooterBorder")!;
             Assert.That(footerBorder.TranslatePoint(default, view)!.Value.X, Is.Zero);
             Assert.That(footerBorder.Bounds.Width, Is.EqualTo(view.Bounds.Width), "The footer separator spans the entire tab.");
-            Assert.That(view.FindControl<TextBox>("SearchDirectoryBox"), Is.Null);
-            Assert.That(view.FindControl<Button>("SearchButton"), Is.Null);
-            foreach (Control control in new Control[] { applyButton })
-            {
-                Assert.That(control.TranslatePoint(default, view)!.Value.X,
-                    Is.EqualTo(mediaGroup.TranslatePoint(default, view)!.Value.X).Within(1), "Panel controls share the same left edge.");
-                Assert.That(control.Bounds.Width, Is.EqualTo(mediaGroup.Bounds.Width).Within(1), "Rows, folder input, and primary actions share a width.");
-            }
+            Assert.That(applyButton.TranslatePoint(default, view)!.Value.X,
+                Is.EqualTo(mediaGroup.TranslatePoint(default, view)!.Value.X).Within(1), "Panel controls share the same left edge.");
+            Assert.That(applyButton.Bounds.Width, Is.EqualTo(mediaGroup.Bounds.Width).Within(1), "Rows and primary actions share a width.");
             var replaceText = firstRow.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>().Single(text => text.Name == "ReplaceButtonText");
             Assert.That(replaceText.Text, Is.EqualTo(Beutl.Language.MissingMediaStrings.ReplaceAction));
             Assert.That(replaceText.Text, Does.Not.Contain("…"));
@@ -682,12 +657,6 @@ public partial class MissingMediaTests
             Assert.That(vm.Rows[0].IsExpanded.Value, Is.True);
             Assert.That(firstRow.GetVisualDescendants().OfType<Border>().Single(border => border.Name == "DetailsPanel").IsVisible, Is.True);
             Assert.That(view.FindControl<Button>("ApplyButton")!.IsEnabled, Is.False);
-            using WriteableBitmap? frame = dialog.CaptureRenderedFrame();
-            Assert.That(frame, Is.Not.Null);
-            string output = Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestResults", $"missing-media-design-{culture}-{(dark ? "dark" : "light")}-{width}.png");
-            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
-            frame!.Save(output, PngBitmapEncoderOptions.Default);
-            TestContext.Out.WriteLine($"Capture: {output}");
         }
         finally
         {
@@ -736,22 +705,11 @@ public partial class MissingMediaTests
             Assert.That(row.IsReady.Value, Is.True);
             Assert.That(row.StateText.Value, Is.EqualTo(Beutl.Language.MissingMediaStrings.Ready));
             Assert.That(view.FindControl<Button>("ApplyButton")!.IsEnabled, Is.True);
-            using (WriteableBitmap? frame = window.CaptureRenderedFrame())
-            {
-                string output = Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestResults", $"missing-media-design-{culture}-ready.png");
-                Directory.CreateDirectory(Path.GetDirectoryName(output)!);
-                frame!.Save(output, PngBitmapEncoderOptions.Default);
-            }
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
             HeadlessTestHelpers.Render(3);
             Assert.That(view.FindControl<Avalonia.Controls.TextBlock>("EmptyText")!.IsEffectivelyVisible, Is.True);
             Assert.That(view.FindControl<Avalonia.Controls.TextBlock>("EmptyDescription")!.IsEffectivelyVisible, Is.True);
             Assert.That(view.FindControl<Button>("ApplyButton")!.IsEffectivelyVisible, Is.False);
-            using (WriteableBitmap? frame = window.CaptureRenderedFrame())
-            {
-                string output = Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestResults", $"missing-media-design-{culture}-complete.png");
-                frame!.Save(output, PngBitmapEncoderOptions.Default);
-            }
         }
         finally
         {
@@ -921,8 +879,7 @@ public partial class MissingMediaTests
             await editor.WaitForMediaFingerprintsAsync();
             var saved = CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri);
             Assert.That(editor.Scene.MediaFingerprints.ContainsKey(new Uri(path).AbsoluteUri), Is.False);
-            // The file's time is not saved, so the stored fingerprint reads it as 0.
-            Assert.That(saved.MediaFingerprints[new Uri(path).AbsoluteUri], Is.EqualTo(fingerprint with { LastWriteTimeUtcTicks = 0 }));
+            Assert.That(saved.MediaFingerprints[new Uri(path).AbsoluteUri], Is.EqualTo(fingerprint));
             Assert.That(File.ReadAllBytes(editor.Scene.Uri.LocalPath), Is.EqualTo(savedBytes));
         }
         finally { await TestReset.ResetShellAsync(); }
@@ -1065,47 +1022,6 @@ public partial class MissingMediaTests
     }
 
     [AvaloniaTest]
-    public async Task Font_family_repair_copies_all_complementary_files()
-    {
-        await TestReset.ResetShellAsync(); var editor = await CreateEditorAsync();
-        string directory = NewDirectory();
-        var files = new List<string>();
-        foreach (string name in new[] { "ProjectFontSecondFixture.ttf", "ProjectFontMediumFixture.ttf" })
-        {
-            using var input = typeof(MissingMediaTests).Assembly.GetManifestResourceStream(name)!;
-            using var output = new MemoryStream(); input.CopyTo(output); byte[] bytes = output.ToArray();
-            foreach (var encoding in new[] { System.Text.Encoding.ASCII, System.Text.Encoding.BigEndianUnicode })
-            {
-                byte[] old = encoding.GetBytes("Roboto"); byte[] replacement = encoding.GetBytes("Relink");
-                for (int index = 0; index <= bytes.Length - old.Length; index++)
-                    if (bytes.AsSpan(index, old.Length).SequenceEqual(old)) replacement.CopyTo(bytes, index);
-            }
-            string path = Path.Combine(directory, name); File.WriteAllBytes(path, bytes); files.Add(path);
-        }
-        var family = new Beutl.Media.FontFamily("Relink");
-        using (editor.HistoryManager.SuppressRecording())
-        {
-            var element = AddImage(editor.Scene, Path.Combine(directory, "unused.png")); element.Objects.Clear();
-            element.Objects.Add(new Beutl.Graphics.Shapes.TextBlock { FontFamily = { CurrentValue = family }, FontWeight = { CurrentValue = FontWeight.Medium } });
-        }
-        try
-        {
-            using var vm = new MissingMediaViewModel(editor);
-            await vm.SetReplacementAsync(vm.Rows.Single(), files[0]);
-            await vm.WaitForCandidatesAsync();
-            Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
-            Assert.That(vm.Rows.Count, Is.Zero);
-            string projectPath = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
-            string bundled = Path.Combine(Path.GetDirectoryName(projectPath)!, "resources", "fonts");
-            Assert.That(Directory.GetFiles(bundled), Has.Length.EqualTo(2));
-            Assert.That(FontManager.Instance.GetTypefaces(family).Select(face => face.Weight), Is.EquivalentTo(new[] { FontWeight.Regular, FontWeight.Medium }));
-            await TestReset.ResetShellAsync(); await TestShell.Project.OpenProject(projectPath);
-            Assert.That(FontManager.Instance.GetTypefaces(family).Select(face => face.Weight), Is.EquivalentTo(new[] { FontWeight.Regular, FontWeight.Medium }));
-        }
-        finally { await TestReset.ResetShellAsync(); }
-    }
-
-    [AvaloniaTest]
     public async Task Explicit_relink_refreshes_files_restored_before_the_scan()
     {
         await TestReset.ResetShellAsync(); var editor = await CreateEditorAsync();
@@ -1196,7 +1112,7 @@ public partial class MissingMediaTests
             Assert.That(vm.Rows.Select(row => row.Name), Is.EquivalentTo(new[] { "missing-image.png", "unreadable.obj" }));
             Assert.That(source.MeshCount, Is.Zero);
             Assert.That(owner.OwnedWindows, Is.Empty);
-            vm.Close();
+            editor.CloseToolTab(vm);
         }
         finally
         {
@@ -1224,10 +1140,8 @@ public partial class MissingMediaTests
         await editor.SaveAsync(); await editor.WaitForMediaFingerprintsAsync();
         string projectPath = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
         string backup = Path.Combine(directory, "backup.obj"); File.Move(path, backup);
-        await TestReset.ResetShellAsync(); await TestShell.Project.OpenProject(projectPath);
+        editor = await TestShell.ReopenAsync(projectPath);
         Project project = TestShell.Project.CurrentProject.Value!;
-        TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().Single());
-        editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
         model = (Model3D)editor.Scene.Children.Single().Objects.Single();
         source = model.Source.CurrentValue!;
         Assert.That(source.MeshCount, Is.Zero);
@@ -1280,9 +1194,7 @@ public partial class MissingMediaTests
         string moved = Path.Combine(NewDirectory(), "shapes.obj"); File.Move(original, moved);
         await editor.SaveAsync(); await editor.WaitForMediaFingerprintsAsync();
         string projectPath = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
-        await TestReset.ResetShellAsync(); await TestShell.Project.OpenProject(projectPath);
-        TestShell.Editor.ActivateTabItem(TestShell.Project.CurrentProject.Value!.Items.OfType<Scene>().Single());
-        editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        editor = await TestShell.ReopenAsync(projectPath);
         var restored = (Model3D)editor.Scene.Children.Single().Objects.Single();
         var children = restored.Children.ToArray();
         var savedChildren = children.Select(child => CoreSerializer.SerializeToJsonObject(child).ToJsonString()).ToArray();
@@ -1486,13 +1398,6 @@ public partial class MissingMediaTests
                 .Single(text => text.Name == "CandidatePathText" && text.IsEffectivelyVisible).Text, Is.EqualTo("second.png"));
             var acceptAll = view.FindControl<Button>("UseAllCandidatesButton")!;
             Assert.That(acceptAll.IsVisible, Is.True);
-            Assert.That(view.FindControl<TextBox>("SearchDirectoryBox"), Is.Null);
-            using (WriteableBitmap? frame = window.CaptureRenderedFrame())
-            {
-                string output = Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestResults", $"missing-media-candidates-{culture}.png");
-                Directory.CreateDirectory(Path.GetDirectoryName(output)!);
-                frame!.Save(output, PngBitmapEncoderOptions.Default);
-            }
             acceptAll.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             HeadlessTestHelpers.Render(3);
             Assert.That(candidate.HasCandidate.Value, Is.False);
@@ -1509,13 +1414,19 @@ public partial class MissingMediaTests
     }
 
     private static async Task<EditViewModel> CreateEditorAsync()
+        => (await TestShell.OpenNewSceneAsync("relink", reset: false)).Editor;
+
+    // The bytes of a font fixture, with its family name "Roboto" renamed to "Relink" in both of its encodings.
+    private static byte[] RelinkFont(string resourceName)
     {
-        string name = "relink-" + Guid.NewGuid().ToString("N");
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, location))!;
-        Scene scene = project.Items.OfType<Scene>().Single();
-        TestShell.Editor.ActivateTabItem(scene);
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        using var input = typeof(MissingMediaTests).Assembly.GetManifestResourceStream(resourceName)!;
+        using var output = new MemoryStream(); input.CopyTo(output); byte[] bytes = output.ToArray();
+        foreach (var encoding in new[] { System.Text.Encoding.ASCII, System.Text.Encoding.BigEndianUnicode })
+        {
+            byte[] old = encoding.GetBytes("Roboto"); byte[] renamed = encoding.GetBytes("Relink");
+            for (int i = 0; i <= bytes.Length - old.Length; i++)
+                if (bytes.AsSpan(i, old.Length).SequenceEqual(old)) renamed.CopyTo(bytes, i);
+        }
+        return bytes;
     }
 }

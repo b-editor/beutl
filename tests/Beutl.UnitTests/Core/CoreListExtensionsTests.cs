@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using Beutl.Collections;
+﻿using Beutl.Collections;
 
 namespace Beutl.UnitTests.Core;
 
@@ -99,53 +98,5 @@ public class CoreListExtensionsTests
 
         list.Add(99);
         Assert.That(added, Is.EqualTo(new[] { 99 }));
-    }
-
-    [Test]
-    public void TrackItemPropertyChanged_NotifiesWhenItemPropertyChanges()
-    {
-        var item = new TestNotify();
-        var list = new CoreList<TestNotify> { item };
-        Tuple<object?, PropertyChangedEventArgs>? captured = null;
-
-        using var sub = list.TrackItemPropertyChanged(t => captured = t);
-
-        item.Value = 42;
-
-        Assert.That(captured, Is.Not.Null);
-        Assert.That(captured!.Item1, Is.SameAs(item));
-        Assert.That(captured.Item2.PropertyName, Is.EqualTo(nameof(TestNotify.Value)));
-    }
-
-    [Test]
-    public void TrackItemPropertyChanged_StopsAfterDispose()
-    {
-        var item = new TestNotify();
-        var list = new CoreList<TestNotify> { item };
-        int count = 0;
-
-        var sub = list.TrackItemPropertyChanged(_ => count++);
-        item.Value = 1;
-        sub.Dispose();
-        item.Value = 2;
-
-        Assert.That(count, Is.EqualTo(1));
-    }
-
-    private sealed class TestNotify : INotifyPropertyChanged
-    {
-        private int _value;
-
-        public int Value
-        {
-            get => _value;
-            set
-            {
-                _value = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
-            }
-        }
-
-        public event PropertyChangedEventHandler? PropertyChanged;
     }
 }

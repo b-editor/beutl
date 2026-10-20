@@ -1,6 +1,5 @@
 ﻿using System.Collections.Immutable;
 using System.ComponentModel.DataAnnotations;
-using System.Runtime.ExceptionServices;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -213,7 +212,7 @@ public sealed partial class SceneDrawable : Drawable
                         bool resourceChanged = !drawableResource.Compare(node!.Drawable);
                         if (resourceChanged || rebuildAll)
                         {
-                            RebuildChildTransactionally(
+                            RebuildChild(
                                 node,
                                 drawable,
                                 drawableResource,
@@ -234,12 +233,15 @@ public sealed partial class SceneDrawable : Drawable
             {
                 RenderNode[] removed = [.. Children.Skip(childIndex)];
                 RemoveRange(childIndex, Children.Count - childIndex);
-                DisposeAll(removed);
+                foreach (RenderNode child in removed)
+                {
+                    child.Dispose();
+                }
             }
         }
 
-        // Renders the drawable into a new node at childIndex. The node is disposed when rendering or
-        // installing it fails before the tree owns it.
+        // Renders the drawable into a new node at childIndex. The node is disposed when rendering fails,
+        // since the tree does not own it yet.
         private void InstallNewChild(
             int childIndex,
             Drawable drawable,
@@ -248,80 +250,49 @@ public sealed partial class SceneDrawable : Drawable
             float outputScale)
         {
             var node = new DrawableRenderNode(drawableResource);
-            bool installed = false;
             try
             {
-                using var graphics = new GraphicsContext2D(
-                    node,
-                    canvasSize,
-                    outputScale);
-                drawable.Render(graphics, drawableResource);
-
-                if (childIndex < Children.Count)
-                {
-                    installed = true;
-                    SetChild(childIndex, node);
-                }
-                else
-                {
-                    AddChild(node);
-                    installed = true;
-                }
+                Render(node, drawable, drawableResource, canvasSize, outputScale);
             }
             catch
             {
-                if (!installed)
-                    node.Dispose();
+                node.Dispose();
                 throw;
+            }
+
+            if (childIndex < Children.Count)
+            {
+                SetChild(childIndex, node);
+            }
+            else
+            {
+                AddChild(node);
             }
         }
 
-        private static void RebuildChildTransactionally(
-            DrawableRenderNode destination,
+        // Renders the drawable again into the node that shows it. The node takes the new version only after
+        // rendering succeeds, so a failed render is retried on the next update.
+        private static void RebuildChild(
+            DrawableRenderNode node,
             Drawable drawable,
             Drawable.Resource resource,
             Size canvasSize,
             float outputScale)
         {
-            using var candidate = new DrawableRenderNode(resource);
-            using (var graphics = new GraphicsContext2D(
-                       candidate,
-                       canvasSize,
-                       outputScale))
-            {
-                drawable.Render(graphics, resource);
-            }
-
-            RenderNode[] previous = [.. destination.Children];
-            destination.BringFrom(candidate);
-            DisposeAll(previous);
-            destination.Update(resource);
-            destination.MarkChanged();
+            Render(node, drawable, resource, canvasSize, outputScale);
+            node.Update(resource);
+            node.MarkChanged();
         }
 
-        private static void DisposeAll(IEnumerable<RenderNode> nodes)
+        private static void Render(
+            DrawableRenderNode node,
+            Drawable drawable,
+            Drawable.Resource resource,
+            Size canvasSize,
+            float outputScale)
         {
-            List<Exception>? failures = null;
-            foreach (RenderNode node in nodes)
-            {
-                try
-                {
-                    node.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    (failures ??= []).Add(ex);
-                }
-            }
-
-            if (failures is [var failure])
-                ExceptionDispatchInfo.Capture(failure).Throw();
-            if (failures is { Count: > 1 })
-            {
-                throw new AggregateException(
-                    "One or more nested-scene nodes failed to dispose.",
-                    failures);
-            }
+            using var graphics = new GraphicsContext2D(node, canvasSize, outputScale);
+            drawable.Render(graphics, resource);
         }
 
         public override void Process(RenderNodeContext context)

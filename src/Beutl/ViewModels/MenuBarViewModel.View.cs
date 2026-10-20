@@ -22,10 +22,6 @@ public partial class MenuBarViewModel
             .WithSubscribe(OnOpenDockLayoutTab);
     }
 
-    // View
-    //    Reset dock layout
-    //    Apply a saved dock layout
-    //    Open the dock layout tool tab
     public ReactiveCommandSlim ResetDockLayout { get; private set; }
 
     public ReactiveCommandSlim<DockLayoutPresetItem> ApplyDockLayout { get; private set; }

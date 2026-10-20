@@ -39,7 +39,8 @@ public sealed class AutoSaveService : IDisposable
         SaveObjects(objectsToSave, detachedCollectionItems);
     }
 
-    public void SaveObjects(IEnumerable<CoreObject> objectsToSave) => SaveObjects(objectsToSave, null);
+    // Internal as a test seam: tests save chosen objects without going through AutoSave.
+    internal void SaveObjects(IEnumerable<CoreObject> objectsToSave) => SaveObjects(objectsToSave, null);
 
     private void SaveObjects(IEnumerable<CoreObject> objectsToSave, IReadOnlySet<CoreObject>? detachedCollectionItems)
     {
@@ -85,7 +86,7 @@ public sealed class AutoSaveService : IDisposable
         }
     }
 
-    public static void CollectObjectsToSave(ChangeOperation operation, HashSet<CoreObject> objectsToSave)
+    internal static void CollectObjectsToSave(ChangeOperation operation, HashSet<CoreObject> objectsToSave)
     {
         CoreObject? obj = null;
 
@@ -117,7 +118,7 @@ public sealed class AutoSaveService : IDisposable
         }
     }
 
-    public static void AddObjectWithAncestors(CoreObject obj, HashSet<CoreObject> objectsToSave)
+    internal static void AddObjectWithAncestors(CoreObject obj, HashSet<CoreObject> objectsToSave)
     {
         if (obj.Uri != null)
         {

@@ -19,5 +19,5 @@ public interface IGeometryEditorContext : IServiceProvider
     /// The new editor, which the caller disposes through <see cref="IDisposable"/>, or
     /// <see langword="null"/> when none can be created.
     /// </returns>
-    IGeometryEditorContext? CreateDetached(IPropertyEditorContextVisitor services) => null;
+    IGeometryEditorContext? CreateDetached(IPropertyEditorContextVisitor services);
 }

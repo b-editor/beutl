@@ -1,5 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
@@ -8,6 +7,7 @@ using Avalonia.Platform;
 using Avalonia.Threading;
 using Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 using Beutl.Media.Source;
+using Beutl.Testing.Headless;
 using BtlBitmap = Beutl.Media.Bitmap;
 
 namespace Beutl.HeadlessUITests;
@@ -420,16 +420,11 @@ public sealed class ScopeControlLifetimeTests
         }
     }
 
+    // Waits for the background scope render, then runs the UI jobs it queued.
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
-        var stopwatch = Stopwatch.StartNew();
-        while (!condition())
-        {
-            Dispatcher.UIThread.RunJobs();
-            if (stopwatch.Elapsed > TimeSpan.FromSeconds(5))
-                Assert.Fail("Timed out waiting for the background scope render to finish.");
-            await Task.Delay(1);
-        }
+        await HeadlessTestHelpers.WaitUntilAsync(
+            condition, TimeSpan.FromSeconds(5), "Timed out waiting for the background scope render to finish.");
         Dispatcher.UIThread.RunJobs();
     }
 

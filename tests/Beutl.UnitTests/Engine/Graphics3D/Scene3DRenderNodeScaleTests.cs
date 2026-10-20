@@ -134,7 +134,7 @@ public class Scene3DRenderNodeScaleTests
             Assert.That(nested.Request.Options.TargetBinding, Is.Not.Null);
             Assert.That(nested.Request.Options.TargetBinding!.IsReady, Is.False,
                 "CPU recording must not allocate, execute, or prepare the nested target.");
-            Assert.That(nested.Request.Options.TargetBinding.DeviceBounds, Is.EqualTo(default(PixelRect)));
+            Assert.That(nested.Request.Options.TargetBinding!.DeviceBounds, Is.EqualTo(default(PixelRect)));
         });
     }
 

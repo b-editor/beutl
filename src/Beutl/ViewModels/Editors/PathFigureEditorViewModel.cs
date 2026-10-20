@@ -12,6 +12,7 @@ namespace Beutl.ViewModels.Editors;
 public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>, IPathFigureEditorContext
 {
     private readonly ReactivePropertySlim<EditViewModel?> _editViewModel = new();
+    private GeometryEditorViewModel? _parentContext;
 
     public PathFigureEditorViewModel(IPropertyAdapter<PathFigure> property)
         : base(property)
@@ -73,8 +74,6 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
 
     public ReactivePropertySlim<ListEditorViewModel<PathSegment>?> Group { get; } = new();
 
-    public ReactivePropertySlim<GeometryEditorViewModel?> ParentContext { get; } = new();
-
     public ReadOnlyReactivePropertySlim<bool> EditingPath { get; }
 
     public ReactivePropertySlim<Avalonia.Media.Geometry?> PreviewPath { get; } = new();
@@ -85,7 +84,7 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
         AcceptChild();
         if (visitor is IServiceProvider serviceProvider)
         {
-            ParentContext.Value = serviceProvider.GetService<GeometryEditorViewModel>();
+            _parentContext = serviceProvider.GetService<GeometryEditorViewModel>();
             _editViewModel.Value = serviceProvider.GetService<EditViewModel>();
         }
     }
@@ -106,11 +105,6 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
         }
     }
 
-    public void SetNull()
-    {
-        SetValue(Value.Value, null);
-    }
-
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
@@ -123,7 +117,7 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
         NestedEditorContextHelper.WriteNestedJson(json, IsExpanded.Value, Properties.Value, Group.Value);
     }
 
-    public IGeometryEditorContext? GetParentContext() => ParentContext.Value as IGeometryEditorContext;
+    public IGeometryEditorContext? GetParentContext() => _parentContext as IGeometryEditorContext;
 
     public void ExpandForEditing()
     {
@@ -131,48 +125,6 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
         {
             IsExpanded.Value = true;
         }
-    }
-
-    public void CollapseEditedOperations()
-    {
-        if (Group.Value is { } group)
-        {
-            foreach (ListItemEditorViewModel<PathSegment> item in group.Items)
-            {
-                if (item.Context is PathOperationEditorViewModel opEditor
-                    && opEditor.ProgrammaticallyExpanded)
-                {
-                    opEditor.IsExpanded.Value = false;
-                }
-            }
-        }
-    }
-
-    public void ExpandOperationForSegment(PathSegment segment)
-    {
-        if (Group.Value is { } group)
-        {
-            foreach (ListItemEditorViewModel<PathSegment> item in group.Items)
-            {
-                if (item.Context is PathOperationEditorViewModel itemvm)
-                {
-                    if (ReferenceEquals(itemvm.Value.Value, segment))
-                    {
-                        itemvm.IsExpanded.Value = true;
-                        itemvm.ProgrammaticallyExpanded = true;
-                    }
-                    else if (itemvm.ProgrammaticallyExpanded)
-                    {
-                        itemvm.IsExpanded.Value = false;
-                    }
-                }
-            }
-        }
-    }
-
-    public new void InvalidateFrameCache()
-    {
-        base.InvalidateFrameCache();
     }
 
     public int GetSegmentIndex(PathSegment segment)

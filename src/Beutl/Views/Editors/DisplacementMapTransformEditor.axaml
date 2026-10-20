@@ -9,7 +9,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.ViewModels.Editors"
-             x:Name="root"
              d:DesignHeight="300"
              d:DesignWidth="300"
              x:DataType="viewModel:DisplacementMapTransformEditorViewModel"
@@ -74,9 +73,7 @@
 
             <controls:TreeLineDecorator LineBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
                 <local:PropertiesEditor Padding="0"
-                                        DataContext="{Binding Properties.Value}"
-                                        IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
-                                                                      Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                        DataContext="{Binding Properties.Value}" />
             </controls:TreeLineDecorator>
         </Panel>
     </Grid>

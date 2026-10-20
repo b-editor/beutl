@@ -40,7 +40,7 @@ public class SourceVideoThumbnailProxyTests
     [Test]
     public async Task GetThumbnailStrip_WhenPreferProxy_ConsultsProxyResolver()
     {
-        using var scope = ProxyScope.Create(new PixelSize(100, 100), new PixelSize(50, 50));
+        using var scope = ProxyTestScope.Create(new PixelSize(100, 100), new PixelSize(50, 50), ProxyPreset.Quarter);
         var resolver = new SpyProxyResolver(new ProxyResolver(scope.Store));
         DecoderRegistry.ProxyResolver = resolver;
 
@@ -52,7 +52,7 @@ public class SourceVideoThumbnailProxyTests
     [Test]
     public async Task GetThumbnailStrip_WhenNotPreferProxy_DoesNotConsultProxyResolver()
     {
-        using var scope = ProxyScope.Create(new PixelSize(100, 100), new PixelSize(50, 50));
+        using var scope = ProxyTestScope.Create(new PixelSize(100, 100), new PixelSize(50, 50), ProxyPreset.Quarter);
         var resolver = new SpyProxyResolver(new ProxyResolver(scope.Store));
         DecoderRegistry.ProxyResolver = resolver;
 
@@ -64,7 +64,7 @@ public class SourceVideoThumbnailProxyTests
     [Test]
     public void PreferProxy_SecondFreshResource_ReusesSharedReaderWithoutReopening()
     {
-        using var scope = ProxyScope.Create(new PixelSize(100, 100), new PixelSize(50, 50));
+        using var scope = ProxyTestScope.Create(new PixelSize(100, 100), new PixelSize(50, 50), ProxyPreset.Quarter);
         var resolver = new SpyProxyResolver(new ProxyResolver(scope.Store));
         DecoderRegistry.ProxyResolver = resolver;
 
@@ -166,57 +166,6 @@ public class SourceVideoThumbnailProxyTests
         public IDisposable Pin(ProxyResolution resolution) => inner.Pin(resolution);
 
         public bool IsPinned(string absoluteProxyFilePath) => inner.IsPinned(absoluteProxyFilePath);
-    }
-
-    private sealed class ProxyScope : IDisposable
-    {
-        private readonly string _root;
-
-        private ProxyScope(string root, string originalPath, ProxyStore store)
-        {
-            _root = root;
-            OriginalPath = originalPath;
-            Store = store;
-        }
-
-        public string OriginalPath { get; }
-
-        public ProxyStore Store { get; }
-
-        public static ProxyScope Create(PixelSize originalSize, PixelSize proxySize)
-        {
-            string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-            var store = new ProxyStore(root);
-            string original = TestMediaHelper.CreateTestVideoFile(originalSize.Width, originalSize.Height, new Rational(30, 1), 30);
-            File.WriteAllBytes(original, [1, 2, 3, 4]);
-            string proxyTemplate = TestMediaHelper.CreateTestVideoFile(proxySize.Width, proxySize.Height, new Rational(30, 1), 30);
-            File.WriteAllBytes(proxyTemplate, [1, 2, 3, 4]);
-            string relative = $"proxy/{Path.GetFileName(proxyTemplate)}";
-            string proxy = Path.Combine(root, relative);
-            Directory.CreateDirectory(Path.GetDirectoryName(proxy)!);
-            File.Copy(proxyTemplate, proxy, overwrite: true);
-
-            var now = DateTime.UtcNow;
-            store.Register(new ProxyEntry(
-                ProxyFingerprint.FromFile(original),
-                ProxyPreset.Quarter,
-                ProxyState.Ready,
-                relative.Replace(Path.DirectorySeparatorChar, '/'),
-                new FileInfo(proxy).Length,
-                originalSize,
-                proxySize,
-                now,
-                now,
-                null));
-
-            return new ProxyScope(root, original, store);
-        }
-
-        public void Dispose()
-        {
-            if (Directory.Exists(_root))
-                Directory.Delete(_root, recursive: true);
-        }
     }
 
     private sealed class RecordingThumbnailCacheService : IThumbnailCacheService

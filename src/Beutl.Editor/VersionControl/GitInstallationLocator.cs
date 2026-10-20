@@ -16,7 +16,7 @@ internal sealed partial class GitInstallationLocator
     private readonly GitHostPlatform _platform;
     private readonly TimeProvider _timeProvider;
     private readonly object _cacheGate = new();
-    private readonly Dictionary<DiscoveryKey, DiscoveryFlight> _discoveries = [];
+    private readonly Dictionary<DiscoveryKey, Task<GitAvailability>> _discoveries = [];
     private DiscoveryKey? _cachedKey;
     private GitAvailability? _cachedAvailability;
     private long _cachedAt;
@@ -24,14 +24,6 @@ internal sealed partial class GitInstallationLocator
     private sealed record DiscoveryKey(
         string? Executable, string? Path, string? PathExtensions, string? ProgramFiles,
         string? DeveloperDirectory, string? Toolchains, string WorkingDirectory);
-
-    private sealed class DiscoveryFlight
-    {
-        public CancellationTokenSource Cancellation { get; } = new();
-        public TaskCompletionSource<GitAvailability> Completion { get; } =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public int Waiters { get; set; }
-    }
 
     public GitInstallationLocator(VersionControlConfig config)
         : this(config, ProcessGitInstallationProbe.Instance, GetCurrentPlatform())
@@ -71,8 +63,8 @@ internal sealed partial class GitInstallationLocator
     {
         cancellationToken.ThrowIfCancellationRequested();
         DiscoveryKey key = GetDiscoveryKey();
-        DiscoveryFlight flight;
-        bool startDiscovery = false;
+        Task<GitAvailability>? discovery;
+        TaskCompletionSource<GitAvailability>? started = null;
         lock (_cacheGate)
         {
             if (_cachedKey == key && _cachedAvailability is { } cached
@@ -81,110 +73,65 @@ internal sealed partial class GitInstallationLocator
                 return cached;
             }
 
-            if (!_discoveries.TryGetValue(key, out flight!))
+            if (!_discoveries.TryGetValue(key, out discovery))
             {
-                flight = new DiscoveryFlight();
-                _discoveries.Add(key, flight);
-                startDiscovery = true;
+                started = new TaskCompletionSource<GitAvailability>(TaskCreationOptions.RunContinuationsAsynchronously);
+                discovery = started.Task;
+                _discoveries.Add(key, discovery);
             }
-            flight.Waiters++;
         }
 
-        if (startDiscovery)
+        if (started is not null)
         {
-            _ = CompleteDiscoveryAsync(key, flight);
+            _ = CompleteDiscoveryAsync(key, started);
         }
+
+        // Callers share one discovery per key. A caller's cancellation ends only its own wait, and the
+        // probes stop at the discovery timeout.
         try
         {
-            return await flight.Completion.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            return await discovery.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             cancellationToken.ThrowIfCancellationRequested();
             throw;
         }
-        finally
-        {
-            bool cancel = false;
-            lock (_cacheGate)
-            {
-                flight.Waiters--;
-                if (flight.Waiters == 0 && !flight.Completion.Task.IsCompleted)
-                {
-                    RemoveFlightLocked(key, flight);
-                    cancel = true;
-                }
-            }
-            if (cancel)
-            {
-                // A caller owns only its wait. Cancel the probe once nobody needs its result.
-                try { flight.Cancellation.Cancel(); }
-                catch (ObjectDisposedException) { }
-                // The last owner also joins probe cleanup so coordinator disposal cannot
-                // finish while its discovery is still shutting down.
-                try { await flight.Completion.Task.ConfigureAwait(false); }
-                catch (Exception) { }
-            }
-        }
     }
 
-    private async Task CompleteDiscoveryAsync(DiscoveryKey key, DiscoveryFlight flight)
+    private async Task CompleteDiscoveryAsync(DiscoveryKey key, TaskCompletionSource<GitAvailability> completion)
     {
         try
         {
-            (GitAvailability availability, bool cacheable) =
-                await DiscoverAsync(key, flight.Cancellation.Token).ConfigureAwait(false);
+            (GitAvailability availability, bool cacheable) = await DiscoverAsync(key).ConfigureAwait(false);
             lock (_cacheGate)
             {
-                if (cacheable && flight.Waiters > 0 && !flight.Cancellation.IsCancellationRequested
-                    && _discoveries.GetValueOrDefault(key) == flight && key == GetDiscoveryKey())
+                if (cacheable && key == GetDiscoveryKey())
                 {
                     _cachedKey = key;
                     _cachedAvailability = availability;
                     _cachedAt = _timeProvider.GetTimestamp();
                 }
-                RemoveFlightLocked(key, flight);
-                flight.Completion.TrySetResult(availability);
-            }
-        }
-        catch (OperationCanceledException ex)
-        {
-            lock (_cacheGate)
-            {
-                RemoveFlightLocked(key, flight);
-                flight.Completion.TrySetCanceled(ex.CancellationToken);
+                _discoveries.Remove(key);
+                completion.SetResult(availability);
             }
         }
         catch (Exception ex)
         {
             lock (_cacheGate)
             {
-                RemoveFlightLocked(key, flight);
-                flight.Completion.TrySetException(ex);
+                _discoveries.Remove(key);
+                completion.SetException(ex);
                 // All waiters may already have canceled.
-                _ = flight.Completion.Task.Exception;
+                _ = completion.Task.Exception;
             }
         }
-        finally
-        {
-            flight.Cancellation.Dispose();
-        }
     }
 
-    // Forgets the flight only while it is still the one registered for its key. Callers hold _cacheGate.
-    private void RemoveFlightLocked(DiscoveryKey key, DiscoveryFlight flight)
-    {
-        if (_discoveries.GetValueOrDefault(key) == flight) _discoveries.Remove(key);
-    }
-
-    private async Task<(GitAvailability Availability, bool Cacheable)> DiscoverAsync(
-        DiscoveryKey key, CancellationToken cancellationToken)
+    private async Task<(GitAvailability Availability, bool Cacheable)> DiscoverAsync(DiscoveryKey key)
     {
         using var timeoutCts = new CancellationTokenSource(_discoveryTimeout);
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
-            cancellationToken,
-            timeoutCts.Token);
-        CancellationToken discoveryToken = linkedCts.Token;
+        CancellationToken discoveryToken = timeoutCts.Token;
         GitAvailability timeoutFallback = GitAvailability.NotInstalled;
         try
         {
@@ -243,9 +190,8 @@ internal sealed partial class GitInstallationLocator
             discoveryToken.ThrowIfCancellationRequested();
             return (oldestSupportedFailure ?? GitAvailability.NotInstalled, false);
         }
-        catch (OperationCanceledException) when (linkedCts.IsCancellationRequested)
+        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             return (timeoutFallback, false);
         }
     }

@@ -11,7 +11,6 @@
 public readonly record struct EffectiveScale
 {
     // Inverted flag: struct default (false) must mean Unbounded, not At(0).
-    // false (the struct default) => Unbounded. true => a concrete _value.
     private readonly bool _bounded;
     private readonly float _value;
 

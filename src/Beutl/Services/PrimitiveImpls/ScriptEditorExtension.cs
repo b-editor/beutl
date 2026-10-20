@@ -8,7 +8,6 @@ using Beutl.Views.Editors;
 
 namespace Beutl.Services.PrimitiveImpls;
 
-[PrimitiveImpl]
 public sealed class ScriptEditorExtension : PropertyEditorExtension
 {
     public static new readonly ScriptEditorExtension Instance = new();

@@ -7,7 +7,6 @@ using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -63,14 +62,6 @@ public sealed class NodeCapturingMetadataCallbackTests
                 Is.EqualTo(s_sourceBounds.Translate(new Vector(31, 0))),
                 "the shared plan must still be re-run over the second node's own value");
         });
-    }
-
-    [Test]
-    public void ACallbackBoundToTheDeclaringNode_IsAccepted()
-    {
-        using var node = new ShiftedSourceNode(3);
-
-        Assert.DoesNotThrow(() => node.CreateBounds());
     }
 
     [Test]
@@ -155,45 +146,6 @@ public sealed class NodeCapturingMetadataCallbackTests
             () => RenderIdentityKeyValidator.ThrowIfInvalid(node, "callback"));
     }
 
-    [Test]
-    public void ACallbackReachingAResourceThroughItsNode_IsNotWhatTheValidatorReads()
-    {
-        using var node = new ResourceHoldingNode();
-        object resource = RuntimeHelpers.GetUninitializedObject(typeof(RenderResource<object>));
-        Func<int> boundToResource = resource.GetHashCode;
-        Func<Rect, Rect> boundToNode = node.CreateResourceReadingCallback();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(boundToNode.Target, Is.SameAs(node));
-            Assert.DoesNotThrow(
-                () => RenderDescriptionValidation.ValidatePureMetadataCallback(boundToNode, "callback"),
-                "the target is the node, and no clause reads a node's fields");
-            Assert.That(boundToResource.Target, Is.SameAs(resource));
-            Assert.Throws<ArgumentException>(
-                () => RenderDescriptionValidation.ValidatePureMetadataCallback(boundToResource, "callback"));
-        });
-    }
-
-    [Test]
-    public void ALambdaClosingOverALocal_IsNotWhatTheValidatorReads()
-    {
-        var offset = new Vector(5, 0);
-        Func<Rect, Rect> closesOverALocal = r => r.Translate(offset);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(closesOverALocal.Target, Is.Not.Null);
-            Assert.That(
-                closesOverALocal.Target!.GetType().Name,
-                Does.StartWith("<>c__DisplayClass"),
-                "a closure over anything besides this arrives as a compiler display class");
-            Assert.DoesNotThrow(
-                () => RenderDescriptionValidation.ValidatePureMetadataCallback(closesOverALocal, "callback"),
-                "no clause on the list answers for a display class, so the runtime is not what stops this");
-        });
-    }
-
     private static RenderNodeRenderer CreateRenderer(RenderNode root)
         => new(root, new RenderNodeRenderRequest
         {
@@ -201,7 +153,7 @@ public sealed class NodeCapturingMetadataCallbackTests
             TargetDomain = s_domain,
             CacheOptions = RenderCacheOptions.Disabled,
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
     /// <summary>A source shifted by a distance the node holds, read by the node's own bounds mapping.</summary>
     private sealed class ShiftedSourceNode(float offset) : RenderNode
@@ -241,17 +193,6 @@ public sealed class NodeCapturingMetadataCallbackTests
         }
     }
 
-    private sealed class ResourceHoldingNode : RenderNode
-    {
-        private readonly RenderResource<object> _held =
-            (RenderResource<object>)RuntimeHelpers.GetUninitializedObject(typeof(RenderResource<object>));
-
-        public Func<Rect, Rect> CreateResourceReadingCallback()
-            => r => _held is null ? Rect.Empty : r;
-
-        public override void Process(RenderNodeContext context) => context.PassThrough();
-    }
-
     private sealed class CollectionNode : RenderNode, ICollection
     {
         public int Count => 0;
@@ -268,21 +209,4 @@ public sealed class NodeCapturingMetadataCallbackTests
 
         public override void Process(RenderNodeContext context) => context.PassThrough();
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

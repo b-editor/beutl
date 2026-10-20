@@ -8,27 +8,13 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// Guards TransformEffect(ApplyToTarget=false) over effect inputs that are not origin-anchored, with no custom
-// effect in the chain. The matrix filter is the one in-tree Skia item that is not translation-invariant, so it
-// is the only one that can move a target's Bounds and OriginalBounds apart relative to each other, and it does
-// so only where their positions already differ. Three properties of this scene put it there, and each one is
-// load-bearing:
-//
-//  - DrawableGroup pushes the filter-effect node outside OnDraw, so each child's own placement lands inside
-//    the effect's coordinate space. A bare Drawable pushes its placement outside the node instead, which
-//    leaves every effect input anchored at the origin and the case vacuous.
-//  - Two children give the segment several values. A single-value input whose items are all direct-replayable
-//    composes one SKImageFilter without the executor's pending-target frame, so one child never gets there.
-//  - Ordinary shapes keep the recorded bounds concrete, which routes FilterEffectContext.Transform down its
-//    non-deferred branch.
-//
-// The oracle is the same geometry driven through the group's own Transform, which builds its matrix about
-// TransformOrigin over the same recorded content bounds the effect resolves its shared matrix from and
-// carries no target re-anchoring at all. The children do not overlap, so compositing them separately cannot
-// diverge from drawing them in one pass.
+// Guards TransformEffect(ApplyToTarget=false), the one Skia item that is not translation-invariant, over offset inputs.
+//  - DrawableGroup pushes the effect node outside OnDraw, so each child's placement lands inside the effect space.
+//  - Two children give the segment several values, so it runs through the executor's pending-target frame.
+//  - Ordinary shapes keep the recorded bounds concrete, so FilterEffectContext.Transform takes its non-deferred branch.
+// Oracle: the group's own Transform, which builds the same matrix over the same bounds; the children do not overlap.
 [NonParallelizable]
 [TestFixture]
-[Category("GpuPassFusionGpu")]
 public class NoTargetTransformOffsetInputTests
 {
     private static readonly PixelSize s_frame = new(240, 240);
@@ -79,7 +65,7 @@ public class NoTargetTransformOffsetInputTests
 
                 // Without this both sides could agree on a blank frame.
                 Assert.That(
-                    CoveredPixelRatio(viaEffect),
+                    ImageMetrics.CoveredPixelRatio(viaEffect),
                     Is.GreaterThan(MinimumCoverageRatio),
                     "the transformed children must produce substantial coverage.");
                 Assert.That(
@@ -162,21 +148,5 @@ public class NoTargetTransformOffsetInputTests
 
         Assert.That(minX, Is.LessThan(bitmap.Width), "the group rendered nothing");
         return new Point(minX, minY);
-    }
-
-    private static double CoveredPixelRatio(Bitmap bitmap)
-    {
-        long covered = 0;
-        for (int y = 0; y < bitmap.Height; y++)
-        {
-            ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y);
-            for (int x = 0; x < bitmap.Width; x++)
-            {
-                if ((float)BitConverter.UInt16BitsToHalf(row[(x * 4) + 3]) > 0.5f)
-                    covered++;
-            }
-        }
-
-        return covered / ((double)bitmap.Width * bitmap.Height);
     }
 }

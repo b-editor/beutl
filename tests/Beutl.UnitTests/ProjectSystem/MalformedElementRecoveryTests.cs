@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using System.Collections.Immutable;
-using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -17,6 +16,7 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.Testing.Headless;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.ProjectSystem;
@@ -68,10 +68,10 @@ public sealed class MalformedElementRecoveryTests
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
         json["Objects"]![0]!["Transform"]!["$type"] = TypeFormat.ToString(failingType);
         File.WriteAllText(elementPath, json.ToJsonString());
-        int before = DeserializationIncidents.FallbackCount;
+        using DeserializationIncidents.Capture incidents = DeserializationIncidents.BeginCapture();
         Exception? failure = Assert.Catch(() => CoreSerializer.RestoreFromUri<Scene>(sceneUri));
         Assert.That(Beutl.Utilities.ExceptionHelpers.ContainsFatalFailure(failure!), Is.True);
-        Assert.That(DeserializationIncidents.FallbackCount, Is.EqualTo(before));
+        Assert.That(incidents.Count, Is.Zero);
     }
 
     // A fallback hidden in a record, in a file the element references, saves the JSON it was read from like any
@@ -198,10 +198,10 @@ public sealed class MalformedElementRecoveryTests
         var recoveredHolder = recovered.Objects.OfType<WrappedStorageHolder>().Single();
         var keyFrame = (KeyFrame<float>)recoveredHolder.Wrapped.CurrentValue!.Single().Value;
         recovered.Name = "Unrelated edit";
-        Assert.That(Scene.TryResumeElementPersistence(recovered), Is.Null);
+        Assert.That(SceneRecovery.TryResumeElementPersistence(recovered), Is.Null);
         EngineObject unrelated = recovered.Objects[0];
         recovered.Objects.Remove(unrelated);
-        Assert.That(Scene.TryResumeElementPersistence(recovered), Is.Null);
+        Assert.That(SceneRecovery.TryResumeElementPersistence(recovered), Is.Null);
         CoreSerializer.StoreToUri(recovered, recovered.Uri!);
         Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
 
@@ -209,7 +209,7 @@ public sealed class MalformedElementRecoveryTests
             recoveredHolder.Wrapped.CurrentValue = [];
         else
             keyFrame.Easing = new LinearEasing();
-        SuppressedStorageSource? suppression = Scene.TryResumeElementPersistence(recovered);
+        SuppressedStorageSource? suppression = SceneRecovery.TryResumeElementPersistence(recovered);
         Assert.That(suppression, Is.Not.Null);
         CoreSerializer.StoreToUri(recovered, recovered.Uri!);
         Assert.That(File.ReadAllBytes(elementPath), Is.Not.EqualTo(originalBytes));
@@ -280,10 +280,8 @@ public sealed class MalformedElementRecoveryTests
         scene.Children.Add(healthy);
         scene.Children.Add(recovered);
 
-        typeof(SceneRecovery).GetMethod("ReassignDuplicateRecoveredIds", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(scene.Recovery, null);
-        typeof(SceneRecovery).GetMethod("MigrateRecoveredElementReferences", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(scene.Recovery, null);
+        SceneRecoveryTestAccess.ReassignDuplicateIds(scene);
+        SceneRecoveryTestAccess.MigrateReferences(scene);
 
         Assert.Multiple(() =>
         {
@@ -366,151 +364,8 @@ public sealed class MalformedElementRecoveryTests
         public IProperty<Dictionary<string, Reference<Element>>> DictionaryTargets { get; }
             = Property.Create<Dictionary<string, Reference<Element>>>();
 
-        public IProperty<ReadOnlyCollection<Reference<Element>>> ReadOnlyTargets { get; }
-            = Property.Create<ReadOnlyCollection<Reference<Element>>>();
-
-        public IProperty<ReadOnlyDictionary<string, Reference<Element>>> ReadOnlyDictionaryTargets { get; }
-            = Property.Create<ReadOnlyDictionary<string, Reference<Element>>>();
-
-        public IProperty<HashSet<Reference<Element>>> SetTargets { get; }
-            = Property.CreateAnimatable<HashSet<Reference<Element>>>();
-
         public IProperty<Reference<Element>> AnimatedTarget { get; }
             = Property.CreateAnimatable<Reference<Element>>();
-    }
-
-    [SuppressResourceClassGeneration]
-    public sealed class WrappedReferenceHolder : EngineObject
-    {
-        public WrappedReferenceHolder()
-        {
-            ScanProperties<WrappedReferenceHolder>();
-        }
-
-        public IProperty<ReferenceEnvelope?> Target { get; }
-            = Property.Create<ReferenceEnvelope?>();
-
-        public IProperty<ReferenceEnvelope?> AliasTarget { get; }
-            = Property.Create<ReferenceEnvelope?>();
-
-        public IProperty<EqualityIgnoringReferenceEnvelope?> EqualityTarget { get; }
-            = Property.Create<EqualityIgnoringReferenceEnvelope?>();
-
-        public IProperty<EqualityIgnoringReferenceEnvelope?> AnimatedTarget { get; }
-            = Property.CreateAnimatable<EqualityIgnoringReferenceEnvelope?>();
-
-        public IProperty<PassiveReferenceEnvelope?> PassiveTarget { get; }
-            = Property.Create<PassiveReferenceEnvelope?>();
-
-        public IProperty<InvalidReferenceEnvelope?> InvalidTarget { get; }
-            = Property.Create<InvalidReferenceEnvelope?>();
-
-        public IProperty<CyclicReferenceEnvelope?> CyclicTarget { get; }
-            = Property.Create<CyclicReferenceEnvelope?>();
-
-        public IProperty<OrderedCyclicReferenceEnvelope?> OrderedCycleTarget { get; }
-            = Property.Create<OrderedCyclicReferenceEnvelope?>();
-    }
-
-    public sealed class ReferenceEnvelope(
-        Reference<Element> target,
-        Optional<Reference<Element>> optionalTarget,
-        string state) : IReferenceRewritable
-    {
-        public Reference<Element> Target { get; private set; } = target;
-
-        public Optional<Reference<Element>> OptionalTarget { get; private set; } = optionalTarget;
-
-        public string State { get; } = state;
-
-        public IReferenceRewritable CreateReferenceRewriteTarget()
-            => new ReferenceEnvelope(Target, OptionalTarget, State);
-
-        public void RewriteReferences(IReferenceRewriteContext context)
-        {
-            Target = context.Rewrite(Target);
-            OptionalTarget = context.Rewrite(OptionalTarget);
-        }
-    }
-
-    public sealed record PassiveReferenceEnvelope(Reference<Element> Target, string State);
-
-    public sealed class EqualityIgnoringReferenceEnvelope(
-        Reference<Element> target,
-        string state) : IReferenceRewritable
-    {
-        public Reference<Element> Target { get; private set; } = target;
-
-        public string State { get; } = state;
-
-        public IReferenceRewritable CreateReferenceRewriteTarget()
-            => new EqualityIgnoringReferenceEnvelope(Target, State);
-
-        public void RewriteReferences(IReferenceRewriteContext context)
-        {
-            Target = context.Rewrite(Target);
-        }
-
-        public override bool Equals(object? obj)
-        {
-            return obj is EqualityIgnoringReferenceEnvelope other && State == other.State;
-        }
-
-        public override int GetHashCode()
-        {
-            return State.GetHashCode(StringComparison.Ordinal);
-        }
-    }
-
-    public sealed record InvalidReferenceEnvelope(Reference<Element> Target) : IReferenceRewritable
-    {
-        public IReferenceRewritable CreateReferenceRewriteTarget()
-            => new CyclicReferenceEnvelope(Target);
-
-        public void RewriteReferences(IReferenceRewriteContext context)
-            => throw new InvalidOperationException("An invalid target must not be populated.");
-    }
-
-    public sealed class CyclicReferenceEnvelope(Reference<Element> target) : IReferenceRewritable
-    {
-        public Reference<Element> Target { get; private set; } = target;
-
-        public CyclicReferenceEnvelope? Self { get; set; }
-
-        public IReferenceRewritable CreateReferenceRewriteTarget()
-        {
-            return new CyclicReferenceEnvelope(Target)
-            {
-                Self = Self,
-            };
-        }
-
-        public void RewriteReferences(IReferenceRewriteContext context)
-        {
-            Target = context.Rewrite(Target);
-            Self = context.Rewrite(Self);
-        }
-    }
-
-    public sealed class OrderedCyclicReferenceEnvelope(Reference<Element> target) : IReferenceRewritable
-    {
-        public Reference<Element> Target { get; private set; } = target;
-
-        public OrderedCyclicReferenceEnvelope? Next { get; set; }
-
-        public IReferenceRewritable CreateReferenceRewriteTarget()
-        {
-            return new OrderedCyclicReferenceEnvelope(Target)
-            {
-                Next = Next,
-            };
-        }
-
-        public void RewriteReferences(IReferenceRewriteContext context)
-        {
-            Next = context.Rewrite(Next);
-            Target = context.Rewrite(Target);
-        }
     }
 
     [SuppressResourceClassGeneration]
@@ -569,7 +424,6 @@ public sealed class MalformedElementRecoveryTests
     {
         public static readonly CoreProperty<Transform?> PluginTransformProperty;
         public static readonly CoreProperty<Reference<Element>> PluginTargetProperty;
-        public static readonly CoreProperty<EqualityIgnoringReferenceEnvelope?> PluginWrapperProperty;
 
         static RegisteredRecoveryElement()
         {
@@ -578,10 +432,6 @@ public sealed class MalformedElementRecoveryTests
                 .Register();
             PluginTargetProperty = ConfigureProperty<Reference<Element>, RegisteredRecoveryElement>(
                     nameof(PluginTarget))
-                .Register();
-            PluginWrapperProperty = ConfigureProperty<
-                    EqualityIgnoringReferenceEnvelope?,
-                    RegisteredRecoveryElement>(nameof(PluginWrapper))
                 .Register();
         }
 
@@ -595,12 +445,6 @@ public sealed class MalformedElementRecoveryTests
         {
             get => GetValue(PluginTargetProperty);
             set => SetValue(PluginTargetProperty, value);
-        }
-
-        public EqualityIgnoringReferenceEnvelope? PluginWrapper
-        {
-            get => GetValue(PluginWrapperProperty);
-            set => SetValue(PluginWrapperProperty, value);
         }
     }
 
@@ -638,55 +482,6 @@ public sealed class MalformedElementRecoveryTests
             get => GetValue(PluginTargetProperty);
             set => SetValue(PluginTargetProperty, value);
         }
-    }
-
-    private sealed class CustomReferenceExpression : IReferenceExpression
-    {
-        public CustomReferenceExpression(Guid objectId)
-        {
-            ObjectId = objectId;
-        }
-
-        public Guid ObjectId { get; }
-
-        public string PropertyPath => string.Empty;
-
-        public bool HasPropertyPath => false;
-
-        public string ExpressionString => ObjectId.ToString();
-
-        public Type ResultType => typeof(Element);
-
-        public bool Validate(out string? error)
-        {
-            error = null;
-            return true;
-        }
-
-        public IReferenceExpression? Rebind(Guid objectId) => null;
-    }
-
-    private sealed class StatefulReferenceExpression(Guid objectId, string propertyPath) : IReferenceExpression
-    {
-        public Guid ObjectId { get; } = objectId;
-
-        public string PropertyPath { get; } = propertyPath;
-
-        public bool HasPropertyPath => !string.IsNullOrEmpty(PropertyPath);
-
-        public string ExpressionString => $"{ObjectId}.{PropertyPath}";
-
-        public Type ResultType => typeof(Element);
-
-        public string State { get; init; } = string.Empty;
-
-        public bool Validate(out string? error)
-        {
-            error = null;
-            return true;
-        }
-
-        public IReferenceExpression? Rebind(Guid objectId) => null;
     }
 
     private sealed class ConstructorlessReference(Guid id, Type objectType, string marker) : IReference
@@ -739,16 +534,51 @@ public sealed class MalformedElementRecoveryTests
         Assert.That(json!["Elements"], Is.Not.Null);
     }
 
-    [Test]
-    public void Save_PreservesMalformedElementSidecarBytes()
+    public enum MalformedElementSaveRoute
+    {
+        Scene,
+        Element,
+        AutoSave,
+        AutoSaveAfterRemoval,
+    }
+
+    [TestCase(MalformedElementSaveRoute.Scene)]
+    [TestCase(MalformedElementSaveRoute.Element)]
+    [TestCase(MalformedElementSaveRoute.AutoSave)]
+    [TestCase(MalformedElementSaveRoute.AutoSaveAfterRemoval)]
+    public void Save_PreservesMalformedElementSidecarBytes(MalformedElementSaveRoute route)
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        byte[] corruptBytes = "{\"Id\":\"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0\",\"Objects\":["u8.ToArray();
-        File.WriteAllBytes(elementPath, corruptBytes);
+        byte[] corruptBytes = WriteMalformedElement(elementPath);
 
-        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
-        recovered.Children.Single().Name = "Recovered placeholder";
-        CoreSerializer.StoreToUri(recovered, sceneUri);
+        Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element recovered = scene.Children.Single();
+        switch (route)
+        {
+            case MalformedElementSaveRoute.Scene:
+                recovered.Name = "Recovered placeholder";
+                CoreSerializer.StoreToUri(scene, sceneUri);
+                break;
+            case MalformedElementSaveRoute.Element:
+                recovered.Name = "Recovered placeholder";
+                CoreSerializer.StoreToUri(recovered, recovered.Uri!);
+                break;
+            case MalformedElementSaveRoute.AutoSave:
+            case MalformedElementSaveRoute.AutoSaveAfterRemoval:
+                var app = new BeutlApplication { Project = new Project() };
+                app.Project!.Items.Add(scene);
+                if (route == MalformedElementSaveRoute.AutoSave)
+                    recovered.Name = "Recovered placeholder";
+                else
+                    scene.Children.Remove(recovered);
+
+                using (var service = new AutoSaveService())
+                {
+                    service.SaveObjects([recovered]);
+                }
+
+                break;
+        }
 
         Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(corruptBytes));
     }
@@ -817,9 +647,9 @@ public sealed class MalformedElementRecoveryTests
         Assert.That(recoveredElement.Objects[1], Is.InstanceOf<IFallback>());
 
         recoveredElement.Objects[1] = new RectShape();
-        SuppressedStorageSource? blocked = Scene.TryResumeElementPersistence(recoveredElement);
+        SuppressedStorageSource? blocked = SceneRecovery.TryResumeElementPersistence(recoveredElement);
         recoveredAnimation.KeyFrames.Single().Easing = new SplineEasing();
-        SuppressedStorageSource? resumed = Scene.TryResumeElementPersistence(recoveredElement);
+        SuppressedStorageSource? resumed = SceneRecovery.TryResumeElementPersistence(recoveredElement);
         CoreSerializer.StoreToUri(recovered, sceneUri);
 
         Assert.Multiple(() =>
@@ -854,48 +684,37 @@ public sealed class MalformedElementRecoveryTests
         });
     }
 
-    [Test]
-    public void Restore_MalformedElementWithoutReadableId_UsesStableId()
+    [TestCase("{ this is not valid JSON")]
+    [TestCase("""{"Id":"00000000-0000-0000-0000-000000000000","Objects":[""")]
+    [TestCase("""[{"Id":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}]""")]
+    public void Restore_ElementWithoutAdoptableId_UsesStableNonEmptyId(string content)
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        File.WriteAllText(elementPath, "{ this is not valid JSON");
+        var innerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        File.WriteAllText(elementPath, content);
 
         Guid first = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single().Id;
         Guid second = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single().Id;
 
         Assert.Multiple(() =>
         {
+            Assert.That(first, Is.Not.EqualTo(innerId));
             Assert.That(first, Is.Not.EqualTo(Guid.Empty));
             Assert.That(second, Is.EqualTo(first));
         });
     }
 
-    [Test]
-    public void Restore_SyntacticallyValidElementAdoptsEscapedTopLevelId()
+    [TestCase("""{"\u0049d":"\u0061aaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","$type":"[Missing.Assembly]Missing.Namespace:Element"}""", "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")]
+    [TestCase("""{"\u0049d":"\u0061aaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","Objects":[""", "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")]
+    [TestCase("""{"Objects":[{"Id":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}],"Id":"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb","Broken":[""", "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")]
+    public void Restore_UnreadableElementAdoptsItsTopLevelId(string content, string expectedId)
     {
-        var expectedId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        File.WriteAllText(
-            elementPath,
-            """{"\u0049d":"\u0061aaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","$type":"[Missing.Assembly]Missing.Namespace:Element"}""");
+        File.WriteAllText(elementPath, content);
 
         Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
 
-        Assert.That(recovered.Id, Is.EqualTo(expectedId));
-    }
-
-    [Test]
-    public void Restore_MalformedElementAdoptsEscapedTopLevelId()
-    {
-        var expectedId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-        (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        File.WriteAllText(
-            elementPath,
-            """{"\u0049d":"\u0061aaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","Objects":[""");
-
-        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
-
-        Assert.That(recovered.Id, Is.EqualTo(expectedId));
+        Assert.That(recovered.Id, Is.EqualTo(new Guid(expectedId)));
     }
 
     [TestCase(false, false)]
@@ -922,24 +741,6 @@ public sealed class MalformedElementRecoveryTests
         {
             Assert.That(recovered.Id, Is.EqualTo(expectedId));
             Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(rawBytes));
-        });
-    }
-
-    [Test]
-    public void Restore_MalformedElementWithEmptyTopLevelId_UsesStableNonEmptyId()
-    {
-        (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        File.WriteAllText(
-            elementPath,
-            """{"Id":"00000000-0000-0000-0000-000000000000","Objects":[""");
-
-        Guid first = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single().Id;
-        Guid second = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single().Id;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(first, Is.Not.EqualTo(Guid.Empty));
-            Assert.That(second, Is.EqualTo(first));
         });
     }
 
@@ -981,13 +782,14 @@ public sealed class MalformedElementRecoveryTests
         });
     }
 
-    [Test]
-    public void Restore_ResolvableNonElementDiscriminator_RecoversInsteadOfFailing()
+    [TestCase("""{"$type":"[Beutl.Engine]Beutl.Graphics.Shapes:RectShape","Id":"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0"}""")]
+    [TestCase("""{"$type":"x","Id":"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0"}""")]
+    [TestCase("""{"$type":"[NoSuchAssembly]Ns:Foo<[System.Private.CoreLib]System:Int32>","Id":"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0"}""")]
+    [TestCase("""{"$type":"[Beutl.ProjectSystem]:Scene","Id":"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0","Elements":{"Include":["element.belm"]}}""")]
+    public void Restore_UnreadableElementDiscriminator_RecoversInsteadOfFailing(string content)
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        File.WriteAllText(
-            elementPath,
-            """{"$type":"[Beutl.Engine]Beutl.Graphics.Shapes:RectShape","Id":"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0"}""");
+        File.WriteAllText(elementPath, content);
         byte[] originalBytes = File.ReadAllBytes(elementPath);
 
         Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
@@ -1000,51 +802,15 @@ public sealed class MalformedElementRecoveryTests
         });
     }
 
-    [Test]
-    public void Restore_UnparsableDiscriminator_RecoversInsteadOfFailing()
-    {
-        (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        File.WriteAllText(
-            elementPath,
-            """{"$type":"x","Id":"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0"}""");
-        byte[] originalBytes = File.ReadAllBytes(elementPath);
-
-        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
-        CoreSerializer.StoreToUri(recovered, sceneUri);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(recovered.Children.Single().IsEnabled, Is.False);
-            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
-        });
-    }
-
-    [Test]
-    public void Restore_UnresolvableGenericDiscriminator_RecoversInsteadOfFailing()
-    {
-        (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        File.WriteAllText(
-            elementPath,
-            """{"$type":"[NoSuchAssembly]Ns:Foo<[System.Private.CoreLib]System:Int32>","Id":"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0"}""");
-        byte[] originalBytes = File.ReadAllBytes(elementPath);
-
-        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
-        CoreSerializer.StoreToUri(recovered, sceneUri);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(recovered.Children.Single().IsEnabled, Is.False);
-            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
-        });
-    }
-
-    [Test]
-    public void Restore_ElementConstructorIOException_PropagatesWrappedFailure()
+    [TestCase(typeof(IOExceptionElement), TypeArgs = new[] { typeof(IOException) })]
+    [TestCase(typeof(FatalElement), TypeArgs = new[] { typeof(AccessViolationException) })]
+    public void Restore_ElementConstructorFailure_PropagatesWrappedFailure<TException>(Type elementType)
+        where TException : Exception
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
         var json = new JsonObject
         {
-            ["$type"] = TypeFormat.ToString(typeof(IOExceptionElement)),
+            ["$type"] = TypeFormat.ToString(elementType),
             [nameof(CoreObject.Id)] = Guid.NewGuid().ToString(),
         };
         File.WriteAllText(elementPath, json.ToJsonString());
@@ -1052,7 +818,7 @@ public sealed class MalformedElementRecoveryTests
         Exception? exception = Assert.Catch(() => CoreSerializer.RestoreFromUri<Scene>(sceneUri));
 
         Assert.That(exception, Is.Not.Null);
-        Assert.That(ContainsException<IOException>(exception!), Is.True);
+        Assert.That(Beutl.Utilities.ExceptionHelpers.Find<TException>(exception!), Is.Not.Null);
     }
 
     [Test]
@@ -1073,42 +839,6 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(recovered.IsEnabled, Is.False);
             Assert.That(recovered.Objects, Has.One.InstanceOf<IFallback>());
             Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
-        });
-    }
-
-    [Test]
-    public void Restore_ElementConstructorFatalFailure_PropagatesWrappedFailure()
-    {
-        (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        var json = new JsonObject
-        {
-            ["$type"] = TypeFormat.ToString(typeof(FatalElement)),
-            [nameof(CoreObject.Id)] = Guid.NewGuid().ToString(),
-        };
-        File.WriteAllText(elementPath, json.ToJsonString());
-
-        Exception? exception = Assert.Catch(() => CoreSerializer.RestoreFromUri<Scene>(sceneUri));
-
-        Assert.That(exception, Is.Not.Null);
-        Assert.That(ContainsException<AccessViolationException>(exception!), Is.True);
-    }
-
-    [Test]
-    public void Restore_SceneDiscriminatorWithSelfInclude_RecoversWithoutRecursing()
-    {
-        (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        File.WriteAllText(
-            elementPath,
-            """{"$type":"[Beutl.ProjectSystem]:Scene","Id":"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0","Elements":{"Include":["element.belm"]}}""");
-        byte[] originalBytes = File.ReadAllBytes(elementPath);
-
-        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
-        CoreSerializer.StoreToUri(recovered, sceneUri);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(recovered.Children.Single().IsEnabled, Is.False);
-            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
         });
     }
 
@@ -1182,6 +912,11 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(recovered.Id, Is.EqualTo(new Guid("85f4d478-e16d-4cb1-ab71-ee1a90a03fe0")));
             Assert.That(File.ReadAllBytes(rehomedPath), Is.EqualTo(corruptBytes));
             Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(corruptBytes));
+            Assert.That(
+                Directory.GetFiles(
+                    Path.GetDirectoryName(rehomedPath)!,
+                    $"{Path.GetFileName(rehomedPath)}.*.tmp"),
+                Is.Empty);
         });
     }
 
@@ -1189,8 +924,7 @@ public sealed class MalformedElementRecoveryTests
     public void StoreToUri_AfterRehome_RecreatesMissingProtectedSource()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        byte[] corruptBytes = "{\"Id\":\"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0\",\"Objects\":["u8.ToArray();
-        File.WriteAllBytes(elementPath, corruptBytes);
+        byte[] corruptBytes = WriteMalformedElement(elementPath);
 
         Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
         string rehomedPath = Path.Combine(_root, "rehomed", Path.GetFileName(elementPath));
@@ -1223,25 +957,6 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(recovered, recovered.Uri!);
 
         Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(repairedBytes));
-    }
-
-    [Test]
-    public void ReferenceExpression_Rebind_ReturnsNullForUnsupportedCustomImplementation()
-    {
-        var expression = new CustomReferenceExpression(Guid.NewGuid());
-
-        Assert.That(((IReferenceExpression)expression).Rebind(Guid.NewGuid()), Is.Null);
-    }
-
-    [Test]
-    public void ReferenceExpression_Rebind_DoesNotGuessHowToPreserveCustomState()
-    {
-        var expression = new StatefulReferenceExpression(Guid.NewGuid(), "Value")
-        {
-            State = "plugin-state",
-        };
-
-        Assert.That(((IReferenceExpression)expression).Rebind(Guid.NewGuid()), Is.Null);
     }
 
     [Test]
@@ -1312,8 +1027,7 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(loadedElement, loadedElement.Uri!);
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
-        JsonObject transformJson = FindObjectByDiscriminator(json, "Transformation")!;
-        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        JsonObject transformJson = BreakTransformType(json, "Transformation");
         transformJson.Remove(nameof(CoreObject.Id));
         AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPath, json.ToJsonString());
@@ -1388,8 +1102,7 @@ public sealed class MalformedElementRecoveryTests
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[0]))!.AsObject();
         json[nameof(CoreObject.Id)] = contestedId.ToString();
-        JsonObject transformJson = FindObjectByDiscriminator(json, nameof(RotationTransform))!;
-        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        JsonObject transformJson = BreakTransformType(json, nameof(RotationTransform));
         transformJson[nameof(CoreObject.Id)] = contestedId.ToString();
         AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPaths[0], json.ToJsonString());
@@ -1704,10 +1417,6 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(repaired, repaired.Uri!);
 
         Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
-        var application = new BeutlApplication();
-        var project = new Project();
-        application.Project = project;
-        project.Items.Add(reloaded);
         Element reloadedClaimant = reloaded.Children.Single(
             child => child.Uri!.LocalPath == elementPaths[0]);
         Element reloadedRepaired = reloaded.Children.Single(
@@ -1746,8 +1455,7 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(repairedSource, repairedSource.Uri!);
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[1]))!.AsObject();
-        JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
-        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        BreakTransformType(json, "RotationTransform");
         AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPaths[1], json.ToJsonString());
 
@@ -1773,10 +1481,6 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(repaired, repaired.Uri!);
 
         Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
-        var application = new BeutlApplication();
-        var project = new Project();
-        application.Project = project;
-        project.Items.Add(reloaded);
         Element reloadedClaimant = reloaded.Children.Single(
             child => child.Uri!.LocalPath == elementPaths[0]);
         Element reloadedRepaired = reloaded.Children.Single(
@@ -1815,8 +1519,7 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(repairedSource, repairedSource.Uri!);
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[0]))!.AsObject();
-        JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
-        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        BreakTransformType(json, "RotationTransform");
         AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPaths[0], json.ToJsonString());
 
@@ -1842,10 +1545,6 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(repaired, repaired.Uri!);
 
         Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
-        var application = new BeutlApplication();
-        var project = new Project();
-        application.Project = project;
-        project.Items.Add(reloaded);
         Element reloadedRepaired = reloaded.Children.Single(
             child => child.Uri!.LocalPath == elementPaths[0]);
         Element reloadedHolder = reloaded.Children.Single(
@@ -1883,8 +1582,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[0]))!.AsObject();
         foreach (JsonNode? shapeNode in json[nameof(Element.Objects)]!.AsArray())
         {
-            JsonObject transformJson = FindObjectByDiscriminator(shapeNode!, "RotationTransform")!;
-            transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+            BreakTransformType(shapeNode!, "RotationTransform");
         }
 
         AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
@@ -1917,10 +1615,6 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(repaired, repaired.Uri!);
 
         Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
-        var application = new BeutlApplication();
-        var project = new Project();
-        application.Project = project;
-        project.Items.Add(reloaded);
         Transform reloadedTransform = ((RectShape)reloaded.Children.Single(
                 child => child.Uri!.LocalPath == elementPaths[0]).Objects.Single())
             .Transform.CurrentValue!;
@@ -1977,10 +1671,6 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(repaired, repaired.Uri!);
 
         Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
-        var application = new BeutlApplication();
-        var project = new Project();
-        application.Project = project;
-        project.Items.Add(reloaded);
         var reloadedShape = (RectShape)reloaded.Children.Single(
                 child => child.Uri!.LocalPath == elementPaths[0]).Objects.Single();
         Reference<Drawable> migratedReference = reloaded.Children.Single(
@@ -2014,8 +1704,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[0]))!.AsObject();
         foreach (JsonNode? shapeNode in json[nameof(Element.Objects)]!.AsArray())
         {
-            JsonObject transformJson = FindObjectByDiscriminator(shapeNode!, "RotationTransform")!;
-            transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+            BreakTransformType(shapeNode!, "RotationTransform");
         }
 
         AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
@@ -2052,10 +1741,6 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(repaired, repaired.Uri!);
 
         Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
-        var application = new BeutlApplication();
-        var project = new Project();
-        application.Project = project;
-        project.Items.Add(reloaded);
         Reference<Transform>[] references = reloaded.Children.Single(
                 child => child.Uri!.LocalPath == elementPaths[1]).Objects
             .OfType<TransformReferenceHolder>()
@@ -2089,9 +1774,8 @@ public sealed class MalformedElementRecoveryTests
             json,
             new CoreSerializerOptions { BaseUri = scene.Uri, Mode = CoreSerializationMode.Read });
 
-        var identities = (Dictionary<string, Guid>)typeof(SceneRecovery)
-            .GetField("_recoveredDescendantIdentities", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(restored.Recovery)!;
+        Dictionary<string, Guid> identities =
+            SceneRecoveryTestAccess.GetRecoveryMap<string>(restored, "_recoveredDescendantIdentities");
         Assert.That(identities, Contains.Key(IdentityKey).WithValue(identityId));
     }
 
@@ -2113,15 +1797,8 @@ public sealed class MalformedElementRecoveryTests
         var owner = new Element { Uri = new Uri(Path.Combine(_root, "owner.belm")) };
         owner.AddObject(holder);
         scene.Children.Add(owner);
-        var migrations = (Dictionary<Guid, Guid>)typeof(SceneRecovery)
-            .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(scene.Recovery)!;
-        migrations[originalId] = migratedId;
-        MethodInfo method = typeof(SceneRecovery).GetMethod(
-            "MigrateRecoveredElementReferences",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        Assert.DoesNotThrow(() => method.Invoke(scene.Recovery, null));
+        Assert.DoesNotThrow(() => SceneRecoveryTestAccess.MigrateReferences(scene, originalId, migratedId));
 
         Assert.That(holder.Target.CurrentValue, Is.SameAs(reference));
     }
@@ -2141,23 +1818,6 @@ public sealed class MalformedElementRecoveryTests
         {
             ["migrated"] = new Reference<Element>(originalId),
         };
-        holder.ReadOnlyTargets.CurrentValue = new ReadOnlyCollection<Reference<Element>>(
-            [new Reference<Element>(originalId)]);
-        holder.ReadOnlyDictionaryTargets.CurrentValue = new ReadOnlyDictionary<string, Reference<Element>>(
-            new Dictionary<string, Reference<Element>>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["MiGrAtEd"] = new Reference<Element>(originalId),
-            });
-        IEqualityComparer<Reference<Element>> comparer = EqualityComparer<Reference<Element>>.Create(
-            (a, b) => a.Id == b.Id, a => a.Id.GetHashCode());
-        holder.SetTargets.CurrentValue = new HashSet<Reference<Element>>(comparer) { new(originalId) };
-        var setAnimation = new KeyFrameAnimation<HashSet<Reference<Element>>>();
-        var setFrame = new KeyFrame<HashSet<Reference<Element>>>
-        {
-            Value = new HashSet<Reference<Element>>(comparer) { new(originalId) },
-        };
-        setAnimation.KeyFrames.Add(setFrame);
-        holder.SetTargets.Animation = setAnimation;
         var animation = new KeyFrameAnimation<Reference<Element>>();
         animation.KeyFrames.Add(new KeyFrame<Reference<Element>>
         {
@@ -2170,222 +1830,22 @@ public sealed class MalformedElementRecoveryTests
         var scene = new Scene { Uri = new Uri(Path.Combine(_root, "migration.scene")) };
         scene.Children.Add(migrated);
         scene.Children.Add(owner);
-        var migrations = (Dictionary<Guid, Guid>)typeof(SceneRecovery)
-            .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(scene.Recovery)!;
-        migrations[originalId] = migrated.Id;
-        MethodInfo method = typeof(SceneRecovery).GetMethod(
-            "MigrateRecoveredElementReferences",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        method.Invoke(scene.Recovery, null);
+        SceneRecoveryTestAccess.MigrateReferences(scene, originalId, migrated.Id);
 
         Reference<Element> migratedReference
             = ((KeyFrame<Reference<Element>>)animation.KeyFrames.Single()).Value;
         Reference<Element> migratedListReference = holder.ListTargets.CurrentValue!.Single();
         Reference<Element> migratedDictionaryReference
             = holder.DictionaryTargets.CurrentValue!["migrated"];
-        Reference<Element> migratedReadOnlyReference = holder.ReadOnlyTargets.CurrentValue!.Single();
         Assert.Multiple(() =>
         {
             Assert.That(migratedListReference.Id, Is.EqualTo(migrated.Id));
             Assert.That(migratedListReference.Value, Is.SameAs(migrated));
             Assert.That(migratedDictionaryReference.Id, Is.EqualTo(migrated.Id));
             Assert.That(migratedDictionaryReference.Value, Is.SameAs(migrated));
-            Assert.That(migratedReadOnlyReference.Id, Is.EqualTo(migrated.Id));
-            Assert.That(migratedReadOnlyReference.Value, Is.SameAs(migrated));
-            Assert.That(holder.ReadOnlyDictionaryTargets.CurrentValue!["MIGRATED"].Id, Is.EqualTo(migrated.Id));
-            Assert.That(holder.ReadOnlyDictionaryTargets.CurrentValue["migrated"].Value, Is.SameAs(migrated));
-            Assert.That(holder.SetTargets.CurrentValue!.Single().Id, Is.EqualTo(migrated.Id));
-            Assert.That(holder.SetTargets.CurrentValue.Comparer, Is.SameAs(comparer));
-            Assert.That(setFrame.Value.Single().Id, Is.EqualTo(migrated.Id));
-            Assert.That(setFrame.Value.Comparer, Is.SameAs(comparer));
             Assert.That(migratedReference.Id, Is.EqualTo(migrated.Id));
             Assert.That(migratedReference.Value, Is.SameAs(migrated));
-        });
-    }
-
-    [Test]
-    public void MigrateRecoveredElementReferences_RewritesOptInWrappersWithoutTouchingOtherPocos()
-    {
-        Guid originalId = Guid.NewGuid();
-        var migrated = new Element
-        {
-            Id = Guid.NewGuid(),
-            Uri = new Uri(Path.Combine(_root, "migrated.belm")),
-        };
-        var serializedWrapper = new ReferenceEnvelope(
-            new Reference<Element>(originalId),
-            new Optional<Reference<Element>>(new Reference<Element>(originalId)),
-            "plugin-state");
-        string json = JsonSerializer.Serialize(serializedWrapper, JsonHelper.SerializerOptions);
-        ReferenceEnvelope wrapper = JsonSerializer.Deserialize<ReferenceEnvelope>(
-            json,
-            JsonHelper.SerializerOptions)!;
-        var passiveWrapper = new PassiveReferenceEnvelope(
-            new Reference<Element>(originalId),
-            "passive-state");
-        var equalityWrapper = new EqualityIgnoringReferenceEnvelope(
-            new Reference<Element>(originalId),
-            "equality-state");
-        var coreWrapper = new EqualityIgnoringReferenceEnvelope(
-            new Reference<Element>(originalId),
-            "core-state");
-        var keyFrameWrapper = new EqualityIgnoringReferenceEnvelope(
-            new Reference<Element>(originalId),
-            "keyframe-state");
-        var invalidWrapper = new InvalidReferenceEnvelope(new Reference<Element>(originalId));
-        var cyclicWrapper = new CyclicReferenceEnvelope(new Reference<Element>(originalId));
-        cyclicWrapper.Self = cyclicWrapper;
-        var holder = new WrappedReferenceHolder();
-        holder.Target.CurrentValue = wrapper;
-        holder.AliasTarget.CurrentValue = wrapper;
-        holder.EqualityTarget.CurrentValue = equalityWrapper;
-        var animation = new KeyFrameAnimation<EqualityIgnoringReferenceEnvelope?>();
-        var keyFrame = new KeyFrame<EqualityIgnoringReferenceEnvelope?>
-        {
-            KeyTime = TimeSpan.Zero,
-            Value = keyFrameWrapper,
-        };
-        animation.KeyFrames.Add(keyFrame);
-        holder.AnimatedTarget.Animation = animation;
-        holder.PassiveTarget.CurrentValue = passiveWrapper;
-        holder.InvalidTarget.CurrentValue = invalidWrapper;
-        holder.CyclicTarget.CurrentValue = cyclicWrapper;
-        var owner = new Element { Uri = new Uri(Path.Combine(_root, "owner.belm")) };
-        owner.AddObject(holder);
-        var registeredOwner = new RegisteredRecoveryElement
-        {
-            Uri = new Uri(Path.Combine(_root, "registered-owner.belm")),
-            PluginWrapper = coreWrapper,
-        };
-        int corePropertyChanges = 0;
-        int keyFrameChanges = 0;
-        registeredOwner.PropertyChanged += (_, e) =>
-            corePropertyChanges += e.PropertyName == nameof(RegisteredRecoveryElement.PluginWrapper) ? 1 : 0;
-        keyFrame.PropertyChanged += (_, e) =>
-            keyFrameChanges += e.PropertyName == nameof(IKeyFrame.Value) ? 1 : 0;
-        var scene = new Scene { Uri = new Uri(Path.Combine(_root, "migration.scene")) };
-        scene.Children.Add(migrated);
-        scene.Children.Add(owner);
-        scene.Children.Add(registeredOwner);
-        var migrations = (Dictionary<Guid, Guid>)typeof(SceneRecovery)
-            .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(scene.Recovery)!;
-        migrations[originalId] = migrated.Id;
-        MethodInfo method = typeof(SceneRecovery).GetMethod(
-            "MigrateRecoveredElementReferences",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
-
-        method.Invoke(scene.Recovery, null);
-
-        ReferenceEnvelope rewritten = holder.Target.CurrentValue!;
-        Assert.Multiple(() =>
-        {
-            Assert.That(rewritten, Is.Not.SameAs(wrapper));
-            Assert.That(rewritten.State, Is.EqualTo("plugin-state"));
-            Assert.That(rewritten.Target.Id, Is.EqualTo(migrated.Id));
-            Assert.That(rewritten.Target.Value, Is.SameAs(migrated));
-            Assert.That(rewritten.OptionalTarget.Value.Id, Is.EqualTo(migrated.Id));
-            Assert.That(rewritten.OptionalTarget.Value.Value, Is.SameAs(migrated));
-            Assert.That(holder.AliasTarget.CurrentValue, Is.SameAs(rewritten));
-            Assert.That(holder.AliasTarget.CurrentValue!.Target.Id, Is.EqualTo(migrated.Id));
-            Assert.That(holder.EqualityTarget.CurrentValue, Is.Not.SameAs(equalityWrapper));
-            Assert.That(holder.EqualityTarget.CurrentValue!.State, Is.EqualTo("equality-state"));
-            Assert.That(holder.EqualityTarget.CurrentValue.Target.Id, Is.EqualTo(migrated.Id));
-            Assert.That(registeredOwner.PluginWrapper, Is.Not.SameAs(coreWrapper));
-            Assert.That(registeredOwner.PluginWrapper!.State, Is.EqualTo("core-state"));
-            Assert.That(registeredOwner.PluginWrapper.Target.Id, Is.EqualTo(migrated.Id));
-            Assert.That(corePropertyChanges, Is.EqualTo(1));
-            Assert.That(keyFrame.Value, Is.Not.SameAs(keyFrameWrapper));
-            Assert.That(keyFrame.Value!.State, Is.EqualTo("keyframe-state"));
-            Assert.That(keyFrame.Value.Target.Id, Is.EqualTo(migrated.Id));
-            Assert.That(keyFrameChanges, Is.EqualTo(1));
-            Assert.That(holder.PassiveTarget.CurrentValue, Is.SameAs(passiveWrapper));
-            Assert.That(holder.PassiveTarget.CurrentValue!.Target.Id, Is.EqualTo(originalId));
-            Assert.That(holder.InvalidTarget.CurrentValue, Is.SameAs(invalidWrapper));
-            Assert.That(holder.InvalidTarget.CurrentValue!.Target.Id, Is.EqualTo(originalId));
-            Assert.That(holder.CyclicTarget.CurrentValue, Is.Not.SameAs(cyclicWrapper));
-            Assert.That(holder.CyclicTarget.CurrentValue!.Target.Id, Is.EqualTo(migrated.Id));
-            Assert.That(holder.CyclicTarget.CurrentValue.Self, Is.SameAs(holder.CyclicTarget.CurrentValue));
-        });
-    }
-
-    [Test]
-    public void MigrateRecoveredElementReferences_UnrelatedMigrationDoesNotRebuildCycle()
-    {
-        var migrated = new Element
-        {
-            Id = Guid.NewGuid(),
-            Uri = new Uri(Path.Combine(_root, "migrated.belm")),
-        };
-        var wrapper = new CyclicReferenceEnvelope(new Reference<Element>(Guid.NewGuid()));
-        wrapper.Self = wrapper;
-        var holder = new WrappedReferenceHolder();
-        holder.CyclicTarget.CurrentValue = wrapper;
-        int changes = 0;
-        holder.CyclicTarget.ValueChanged += (_, _) => changes++;
-        var owner = new Element { Uri = new Uri(Path.Combine(_root, "owner.belm")) };
-        owner.AddObject(holder);
-        var scene = new Scene { Uri = new Uri(Path.Combine(_root, "migration.scene")) };
-        scene.Children.Add(migrated);
-        scene.Children.Add(owner);
-        var migrations = (Dictionary<Guid, Guid>)typeof(SceneRecovery)
-            .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(scene.Recovery)!;
-        migrations[Guid.NewGuid()] = migrated.Id;
-        MethodInfo method = typeof(SceneRecovery).GetMethod(
-            "MigrateRecoveredElementReferences",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
-
-        method.Invoke(scene.Recovery, null);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(holder.CyclicTarget.CurrentValue, Is.SameAs(wrapper));
-            Assert.That(holder.CyclicTarget.CurrentValue!.Self, Is.SameAs(wrapper));
-            Assert.That(changes, Is.Zero);
-        });
-    }
-
-    [Test]
-    public void MigrateRecoveredElementReferences_RebuildsMutualCycleWhenLeafFollowsBackEdge()
-    {
-        Guid originalId = Guid.NewGuid();
-        var migrated = new Element
-        {
-            Id = Guid.NewGuid(),
-            Uri = new Uri(Path.Combine(_root, "migrated.belm")),
-        };
-        var first = new OrderedCyclicReferenceEnvelope(new Reference<Element>(originalId));
-        var second = new OrderedCyclicReferenceEnvelope(new Reference<Element>(Guid.NewGuid()));
-        first.Next = second;
-        second.Next = first;
-        var holder = new WrappedReferenceHolder();
-        holder.OrderedCycleTarget.CurrentValue = first;
-        var owner = new Element { Uri = new Uri(Path.Combine(_root, "owner.belm")) };
-        owner.AddObject(holder);
-        var scene = new Scene { Uri = new Uri(Path.Combine(_root, "migration.scene")) };
-        scene.Children.Add(migrated);
-        scene.Children.Add(owner);
-        var migrations = (Dictionary<Guid, Guid>)typeof(SceneRecovery)
-            .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(scene.Recovery)!;
-        migrations[originalId] = migrated.Id;
-        MethodInfo method = typeof(SceneRecovery).GetMethod(
-            "MigrateRecoveredElementReferences",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
-
-        method.Invoke(scene.Recovery, null);
-
-        OrderedCyclicReferenceEnvelope rewritten = holder.OrderedCycleTarget.CurrentValue!;
-        Assert.Multiple(() =>
-        {
-            Assert.That(rewritten, Is.Not.SameAs(first));
-            Assert.That(rewritten.Next, Is.Not.SameAs(second));
-            Assert.That(rewritten.Next!.Next, Is.SameAs(rewritten));
-            Assert.That(rewritten.Target.Id, Is.EqualTo(migrated.Id));
-            Assert.That(rewritten.Target.Value, Is.SameAs(migrated));
         });
     }
 
@@ -2410,15 +1870,8 @@ public sealed class MalformedElementRecoveryTests
         scene.Children.Add(migrated);
         scene.Layers.Add(layer);
         scene.Markers.Add(marker);
-        var migrations = (Dictionary<Guid, Guid>)typeof(SceneRecovery)
-            .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(scene.Recovery)!;
-        migrations[originalId] = migrated.Id;
-        MethodInfo method = typeof(SceneRecovery).GetMethod(
-            "MigrateRecoveredElementReferences",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        method.Invoke(scene.Recovery, null);
+        SceneRecoveryTestAccess.MigrateReferences(scene, originalId, migrated.Id);
 
         Assert.Multiple(() =>
         {
@@ -2446,15 +1899,8 @@ public sealed class MalformedElementRecoveryTests
         var scene = new Scene { Uri = new Uri(Path.Combine(_root, "migration.scene")) };
         scene.Children.Add(migrated);
         scene.Children.Add(holder);
-        var migrations = (Dictionary<Guid, Guid>)typeof(SceneRecovery)
-            .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(scene.Recovery)!;
-        migrations[originalId] = migrated.Id;
-        MethodInfo method = typeof(SceneRecovery).GetMethod(
-            "MigrateRecoveredElementReferences",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        method.Invoke(scene.Recovery, null);
+        SceneRecoveryTestAccess.MigrateReferences(scene, originalId, migrated.Id);
 
         Assert.Multiple(() =>
         {
@@ -2478,15 +1924,8 @@ public sealed class MalformedElementRecoveryTests
             PluginTarget = new Reference<Element>(originalId),
         };
         scene.Children.Add(migrated);
-        var migrations = (Dictionary<Guid, Guid>)typeof(SceneRecovery)
-            .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(scene.Recovery)!;
-        migrations[originalId] = migrated.Id;
-        MethodInfo method = typeof(SceneRecovery).GetMethod(
-            "MigrateRecoveredElementReferences",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        method.Invoke(scene.Recovery, null);
+        SceneRecoveryTestAccess.MigrateReferences(scene, originalId, migrated.Id);
 
         Assert.Multiple(() =>
         {
@@ -2560,7 +1999,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
         JsonObject transformJson = FindObjectByDiscriminator(json, nameof(RotationTransform))!;
         Guid serializedId = Guid.Parse(transformJson[nameof(CoreObject.Id)]!.GetValue<string>());
-        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        transformJson["$type"] = MissingTransformType;
         File.WriteAllText(elementPath, json.ToJsonString());
 
         Scene first = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
@@ -2604,8 +2043,7 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(scene, scene.Uri);
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(recoveredPath))!.AsObject();
-        JsonObject transformJson = FindObjectByDiscriminator(json, nameof(RotationTransform))!;
-        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        BreakTransformType(json, nameof(RotationTransform));
         json[nameof(Element.Objects)]!.AsArray().Add(CreateShapeWithUnreadableEasing());
         File.WriteAllText(recoveredPath, json.ToJsonString());
 
@@ -2656,7 +2094,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject json = JsonNode.Parse(File.ReadAllText(recoveredPath))!.AsObject();
         JsonObject transformJson = FindObjectByDiscriminator(json, nameof(RotationTransform))!;
         string transformType = transformJson["$type"]!.GetValue<string>();
-        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        transformJson["$type"] = MissingTransformType;
         json[nameof(Element.Objects)]!.AsArray().Add(CreateShapeWithUnreadableEasing());
         File.WriteAllText(recoveredPath, json.ToJsonString());
 
@@ -2767,8 +2205,7 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(recoveredSource, recoveredSource.Uri!);
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[1]))!.AsObject();
-        JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
-        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        JsonObject transformJson = BreakTransformType(json, "RotationTransform");
         transformJson[nameof(CoreObject.Id)] = claimantId.ToString();
         AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPaths[1], json.ToJsonString());
@@ -2917,8 +2354,7 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(recoveredSource, recoveredSource.Uri!);
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[1]))!.AsObject();
-        JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
-        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        JsonObject transformJson = BreakTransformType(json, "RotationTransform");
         transformJson[nameof(CoreObject.Id)] = healthyId.ToString();
         AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPaths[1], json.ToJsonString());
@@ -2959,29 +2395,10 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
-    public void Restore_RootArrayId_DoesNotAdoptInnerIdAndRemainsStable()
-    {
-        (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        var innerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-        File.WriteAllText(elementPath, $$"""[{"Id":"{{innerId}}"}]""");
-
-        Guid first = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single().Id;
-        Guid second = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single().Id;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(first, Is.Not.EqualTo(innerId));
-            Assert.That(first, Is.Not.EqualTo(Guid.Empty));
-            Assert.That(second, Is.EqualTo(first));
-        });
-    }
-
-    [Test]
     public void StoreToUri_RehomeTargetCollision_FailsWithoutRepointingOrOverwriting()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        byte[] corruptBytes = "{\"Id\":\"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0\",\"Objects\":["u8.ToArray();
-        File.WriteAllBytes(elementPath, corruptBytes);
+        byte[] corruptBytes = WriteMalformedElement(elementPath);
 
         Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
         string rehomedPath = Path.Combine(_root, "rehomed", Path.GetFileName(elementPath));
@@ -3002,8 +2419,7 @@ public sealed class MalformedElementRecoveryTests
     public void StoreToUri_ReinstatedRehomeToDifferentCollisionFailsWithoutOverwriting()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        byte[] corruptBytes = "{\"Id\":\"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0\",\"Objects\":["u8.ToArray();
-        File.WriteAllBytes(elementPath, corruptBytes);
+        byte[] corruptBytes = WriteMalformedElement(elementPath);
 
         Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
         string rehomedPath = Path.Combine(_root, "rehomed", Path.GetFileName(elementPath));
@@ -3028,8 +2444,7 @@ public sealed class MalformedElementRecoveryTests
     public void StoreToUri_RolledBackReinstatedRestoreKeepsTheRecordReinstated()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        byte[] corruptBytes = "{\"Id\":\"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0\",\"Objects\":["u8.ToArray();
-        File.WriteAllBytes(elementPath, corruptBytes);
+        byte[] corruptBytes = WriteMalformedElement(elementPath);
 
         Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
         SuppressedStorageSource suppression = recovered.SuppressedStorageSource!;
@@ -3064,15 +2479,12 @@ public sealed class MalformedElementRecoveryTests
         File.WriteAllText(elementPath, "{ malformed element");
         Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         var sentinelId = Guid.NewGuid();
-        var elementIds = (Dictionary<string, Guid>)typeof(SceneRecovery)
-            .GetField("_recoveredElementIds", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(recovered.Recovery)!;
-        var descendantIds = (Dictionary<string, Guid>)typeof(SceneRecovery)
-            .GetField("_recoveredDescendantIds", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(recovered.Recovery)!;
-        var descendantIdentities = (Dictionary<string, Guid>)typeof(SceneRecovery)
-            .GetField("_recoveredDescendantIdentities", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(recovered.Recovery)!;
+        Dictionary<string, Guid> elementIds =
+            SceneRecoveryTestAccess.GetRecoveryMap<string>(recovered, "_recoveredElementIds");
+        Dictionary<string, Guid> descendantIds =
+            SceneRecoveryTestAccess.GetRecoveryMap<string>(recovered, "_recoveredDescendantIds");
+        Dictionary<string, Guid> descendantIdentities =
+            SceneRecoveryTestAccess.GetRecoveryMap<string>(recovered, "_recoveredDescendantIdentities");
         elementIds["sentinel-element"] = sentinelId;
         descendantIds["sentinel-descendant"] = sentinelId;
         descendantIdentities["sentinel-identity"] = sentinelId;
@@ -3116,8 +2528,7 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(source, source.Uri!);
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[0]))!.AsObject();
-        JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
-        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        JsonObject transformJson = BreakTransformType(json, "RotationTransform");
         transformJson.Remove(nameof(CoreObject.Id));
         AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPaths[0], json.ToJsonString());
@@ -3146,8 +2557,7 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(source, source.Uri!);
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
-        JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
-        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        JsonObject transformJson = BreakTransformType(json, "RotationTransform");
         transformJson.Remove(nameof(CoreObject.Id));
         AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPath, json.ToJsonString());
@@ -3175,7 +2585,7 @@ public sealed class MalformedElementRecoveryTests
         File.WriteAllBytes(elementPath, originalBytes);
         element.SuppressedStorageSource = new SuppressedStorageSource(originalBytes, element.Uri!);
 
-        SuppressedStorageSource? suppression = Scene.TryResumeElementPersistence(element);
+        SuppressedStorageSource? suppression = SceneRecovery.TryResumeElementPersistence(element);
 
         Assert.That(suppression, Is.Not.Null);
     }
@@ -3195,8 +2605,7 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(source, source.Uri!);
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
-        JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
-        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        JsonObject transformJson = BreakTransformType(json, "RotationTransform");
         File.WriteAllText(elementPath, json.ToJsonString());
 
         Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
@@ -3234,8 +2643,7 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(healthySource, healthySource.Uri!);
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[1]))!.AsObject();
-        JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
-        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        JsonObject transformJson = BreakTransformType(json, "RotationTransform");
         transformJson[nameof(CoreObject.Id)] = claimantId.ToString();
         AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPaths[1], json.ToJsonString());
@@ -3292,15 +2700,9 @@ public sealed class MalformedElementRecoveryTests
         scene.Markers.Add(marker);
         scene.Children.Add(healthy);
         scene.Children.Add(recovered);
-        MethodInfo reassign = typeof(SceneRecovery).GetMethod(
-            "ReassignDuplicateRecoveredIds",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
-        MethodInfo migrate = typeof(SceneRecovery).GetMethod(
-            "MigrateRecoveredElementReferences",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        reassign.Invoke(scene.Recovery, null);
-        migrate.Invoke(scene.Recovery, null);
+        SceneRecoveryTestAccess.ReassignDuplicateIds(scene);
+        SceneRecoveryTestAccess.MigrateReferences(scene);
 
         Assert.Multiple(() =>
         {
@@ -3310,29 +2712,6 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(markerReference.Target.CurrentValue.Id, Is.EqualTo(markerClaimantId));
             Assert.That(layerClaimant.Id, Is.EqualTo(layerClaimantId));
             Assert.That(markerClaimant.Id, Is.EqualTo(markerClaimantId));
-        });
-    }
-
-    [Test]
-    public void SaveAs_CopiesRecoveredSidecarBytesToTheNewLocation()
-    {
-        (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        byte[] corruptBytes = "{\"Id\":\"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0\",\"Objects\":["u8.ToArray();
-        File.WriteAllBytes(elementPath, corruptBytes);
-
-        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
-        string rehomedPath = Path.Combine(_root, "rehomed", Path.GetFileName(elementPath));
-        CoreSerializer.StoreToUri(recovered, new Uri(rehomedPath));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(File.ReadAllBytes(rehomedPath), Is.EqualTo(corruptBytes));
-            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(corruptBytes));
-            Assert.That(
-                Directory.GetFiles(
-                    Path.GetDirectoryName(rehomedPath)!,
-                    $"{Path.GetFileName(rehomedPath)}.*.tmp"),
-                Is.Empty);
         });
     }
 
@@ -3605,61 +2984,10 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
-    public void DirectElementSave_PreservesMalformedElementSidecarBytes()
-    {
-        (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        byte[] corruptBytes = "{\"Id\":\"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0\",\"Objects\":["u8.ToArray();
-        File.WriteAllBytes(elementPath, corruptBytes);
-
-        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
-        recovered.Name = "Recovered placeholder";
-        CoreSerializer.StoreToUri(recovered, recovered.Uri!);
-
-        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(corruptBytes));
-    }
-
-    [Test]
-    public void AutoSave_PreservesMalformedElementSidecarBytes()
-    {
-        (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        byte[] corruptBytes = "{\"Id\":\"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0\",\"Objects\":["u8.ToArray();
-        File.WriteAllBytes(elementPath, corruptBytes);
-
-        Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
-        var app = new BeutlApplication { Project = new Project() };
-        app.Project!.Items.Add(scene);
-        Element recovered = scene.Children.Single();
-        recovered.Name = "Recovered placeholder";
-        using var service = new AutoSaveService();
-        service.SaveObjects([recovered]);
-
-        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(corruptBytes));
-    }
-
-    [Test]
-    public void AutoSave_RemovedMalformedElementPreservesSidecarBytes()
-    {
-        (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        byte[] corruptBytes = "{\"Id\":\"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0\",\"Objects\":["u8.ToArray();
-        File.WriteAllBytes(elementPath, corruptBytes);
-
-        Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
-        var app = new BeutlApplication { Project = new Project() };
-        app.Project!.Items.Add(scene);
-        Element recovered = scene.Children.Single();
-        scene.Children.Remove(recovered);
-        using var service = new AutoSaveService();
-        service.SaveObjects([recovered]);
-
-        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(corruptBytes));
-    }
-
-    [Test]
     public void DeleteChild_PreservesRecoveredSidecarAndDeletesNormalSidecar()
     {
         (Uri sceneUri, string recoveredPath) = CreatePersistedScene();
-        byte[] corruptBytes = "{\"Id\":\"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0\",\"Objects\":["u8.ToArray();
-        File.WriteAllBytes(recoveredPath, corruptBytes);
+        byte[] corruptBytes = WriteMalformedElement(recoveredPath);
 
         Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         Element recovered = scene.Children.Single();
@@ -3696,85 +3024,31 @@ public sealed class MalformedElementRecoveryTests
         Assert.That(File.ReadAllBytes(recoveredPath), Is.EqualTo(corruptBytes));
     }
 
-    [Test]
-    public void Restore_MalformedElementPrefersTopLevelId()
+    private const string MissingTransformType = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+
+    // Points the transform found by discriminator in node at a type that does not exist, so it reads as a fallback.
+    private static JsonObject BreakTransformType(JsonNode node, string discriminator)
     {
-        (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        var nestedId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-        var topLevelId = new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
-        File.WriteAllText(
-            elementPath,
-            $$"""{"Objects":[{"Id":"{{nestedId}}"}],"Id":"{{topLevelId}}","Broken":[""");
+        JsonObject transform = FindObjectByDiscriminator(node, discriminator)!;
+        transform["$type"] = MissingTransformType;
+        return transform;
+    }
 
-        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
-
-        Assert.That(recovered.Id, Is.EqualTo(topLevelId));
+    // Writes an element file whose JSON stops after its Id, and returns its bytes.
+    private static byte[] WriteMalformedElement(string path)
+    {
+        byte[] bytes = "{\"Id\":\"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0\",\"Objects\":["u8.ToArray();
+        File.WriteAllBytes(path, bytes);
+        return bytes;
     }
 
     private static JsonObject? FindObjectByDiscriminator(JsonNode node, string containsToken)
-    {
-        if (node is JsonObject obj)
-        {
-            if (obj.TryGetPropertyValue("$type", out JsonNode? typeNode)
-                && typeNode is JsonValue typeValue
-                && typeValue.TryGetValue(out string? typeName)
-                && typeName.Contains(containsToken))
-            {
-                return obj;
-            }
-
-            foreach ((string _, JsonNode? child) in obj)
-            {
-                if (child != null && FindObjectByDiscriminator(child, containsToken) is { } result)
-                {
-                    return result;
-                }
-            }
-        }
-        else if (node is JsonArray array)
-        {
-            foreach (JsonNode? child in array)
-            {
-                if (child != null && FindObjectByDiscriminator(child, containsToken) is { } result)
-                {
-                    return result;
-                }
-            }
-        }
-
-        return null;
-    }
+        => JsonTestHelpers.FindObject(node, obj => obj["$type"] is JsonValue type
+            && type.TryGetValue(out string? typeName)
+            && typeName.Contains(containsToken));
 
     private static JsonObject? FindObjectWithProperty(JsonNode node, string propertyName)
-    {
-        if (node is JsonObject obj)
-        {
-            if (obj.ContainsKey(propertyName))
-            {
-                return obj;
-            }
-
-            foreach ((string _, JsonNode? child) in obj)
-            {
-                if (child != null && FindObjectWithProperty(child, propertyName) is { } result)
-                {
-                    return result;
-                }
-            }
-        }
-        else if (node is JsonArray array)
-        {
-            foreach (JsonNode? child in array)
-            {
-                if (child != null && FindObjectWithProperty(child, propertyName) is { } result)
-                {
-                    return result;
-                }
-            }
-        }
-
-        return null;
-    }
+        => JsonTestHelpers.FindObject(node, obj => obj.ContainsKey(propertyName));
 
     // An object whose type is missing no longer protects its element by itself, since its fallback saves the JSON
     // it was read from, so the tests of protected elements that hold one give the element a keyframe whose easing
@@ -3789,23 +3063,6 @@ public sealed class MalformedElementRecoveryTests
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
         AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPath, json.ToJsonString());
-    }
-
-    private static bool ContainsException<TException>(Exception exception)
-        where TException : Exception
-    {
-        if (exception is TException)
-        {
-            return true;
-        }
-
-        if (exception is AggregateException aggregate
-            && aggregate.InnerExceptions.Any(ContainsException<TException>))
-        {
-            return true;
-        }
-
-        return exception.InnerException is { } inner && ContainsException<TException>(inner);
     }
 
     private static IFallback GetTransformFallback(Scene scene, string elementPath)

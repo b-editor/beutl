@@ -6,13 +6,12 @@ using Avalonia.Headless.NUnit;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Services;
+using Beutl.Audio;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services.Captions;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -264,10 +263,8 @@ public sealed class AiSubtitleAdvancedTests
 
         Assert.Multiple(() =>
         {
-            // The resample cursor is written samples times the source rate, which
-            // leaves int after about three seconds of 48 kHz audio. Wrapped
-            // negative, the cursor never reaches the end of the block and the
-            // loop writes until the disk is full.
+            // The resample cursor (written samples times the source rate) overflowed int after about
+            // three seconds of 48 kHz audio, so the loop never ended.
             Assert.That(result.OutputSampleCount, Is.EqualTo(4 * 16_000));
             Assert.That(stream.Length, Is.EqualTo(44 + (4 * 16_000 * sizeof(short))));
         });
@@ -318,14 +315,14 @@ public sealed class AiSubtitleAdvancedTests
                 new FileInfo(path).Length,
                 File.GetLastWriteTimeUtc(path).Ticks);
             Assert.That(
-                AiSubtitleDialogViewModel.HasMatchingSourceAudioFingerprint(path, original),
-                Is.True);
+                AiSubtitleDialogViewModel.GetSourceAudioFingerprint(path),
+                Is.EqualTo(original));
 
             File.WriteAllBytes(path, [1, 2, 3, 4, 5]);
 
             Assert.That(
-                AiSubtitleDialogViewModel.HasMatchingSourceAudioFingerprint(path, original),
-                Is.False);
+                AiSubtitleDialogViewModel.GetSourceAudioFingerprint(path),
+                Is.Not.EqualTo(original));
         }
         finally
         {
@@ -445,7 +442,20 @@ public sealed class AiSubtitleAdvancedTests
             """);
 
         bool imported = viewModel.ImportCaptionBytes(srt, CaptionFormats.Srt);
-        byte[] exported = viewModel.ExportCaptionBytes(CaptionFormats.WebVtt);
+        Assert.That(viewModel.TryBuildCaptionDocument(out CaptionDocument? document, out _), Is.True);
+        CaptionCatalog catalog = AiTestSupport.CreateCaptionCatalog();
+        byte[]? exported = null;
+        await AiSubtitleDialogViewModel.TryWriteCaptionExportAsync(
+            document!,
+            CaptionFormats.WebVtt,
+            catalog.Serializer,
+            _ => Task.FromResult(true),
+            (bytes, _) =>
+            {
+                exported = bytes;
+                return Task.CompletedTask;
+            },
+            CancellationToken.None);
         bool mixedImported = viewModel.ImportCaptionBytes(Encoding.UTF8.GetBytes("""
             1
             00:00:01,000 --> 00:00:02,500
@@ -461,7 +471,7 @@ public sealed class AiSubtitleAdvancedTests
         Assert.Multiple(() =>
         {
             Assert.That(imported, Is.True);
-            Assert.That(Encoding.UTF8.GetString(exported), Does.StartWith("WEBVTT"));
+            Assert.That(Encoding.UTF8.GetString(exported!), Does.StartWith("WEBVTT"));
             Assert.That(mixedImported, Is.True);
             Assert.That(viewModel.Cues.Select(cue => cue.Text), Is.EqualTo(new[] { "Preserved caption" }));
             Assert.That(malformed, Is.False);
@@ -533,7 +543,7 @@ public sealed class AiSubtitleAdvancedTests
     [Test]
     public async Task LossySrtExport_DeclinedConfirmationDoesNotWrite()
     {
-        await using CaptionCatalog catalog = CaptionCatalog.CreateDefault("Default");
+        CaptionCatalog catalog = AiTestSupport.CreateCaptionCatalog();
         var document = new CaptionDocument(
         [
             new CaptionCue(
@@ -573,7 +583,7 @@ public sealed class AiSubtitleAdvancedTests
     [Test]
     public async Task LossySrtExport_ConfirmedProjectionPreservesTheSourceDocument()
     {
-        await using CaptionCatalog catalog = CaptionCatalog.CreateDefault("Default");
+        CaptionCatalog catalog = AiTestSupport.CreateCaptionCatalog();
         var cue = new CaptionCue(
             TimeSpan.FromSeconds(1),
             TimeSpan.FromSeconds(2),
@@ -616,7 +626,7 @@ public sealed class AiSubtitleAdvancedTests
     public async Task LossySrtExport_CancellationAfterConfirmationDoesNotWrite()
     {
         using var cancellation = new CancellationTokenSource();
-        await using CaptionCatalog catalog = CaptionCatalog.CreateDefault("Default");
+        CaptionCatalog catalog = AiTestSupport.CreateCaptionCatalog();
         var document = new CaptionDocument(
         [
             new CaptionCue(
@@ -717,7 +727,7 @@ public sealed class AiSubtitleAdvancedTests
             new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>()),
             clients.GetResource<IAiTranscriptionService>(),
             clients.GetResource<IAiCaptionTranslationService>(),
-            CaptionCatalog.CreateDefault("Default"),
+            AiTestSupport.CreateCaptionCatalog(),
             draftStore ?? CaptionDraftStoreProvider.Current,
             scopes ?? Observable.Return<CaptionDraftScope?>(null));
 
@@ -731,7 +741,7 @@ public sealed class AiSubtitleAdvancedTests
             new SubtitleStubPlanCoordinator(),
             new SubtitleStubTranscription(),
             translation ?? new SubtitleStubTranslation(),
-            CaptionCatalog.CreateDefault("Default"),
+            AiTestSupport.CreateCaptionCatalog(),
             new FileCaptionDraftStore(directory),
             Observable.Return<CaptionDraftScope?>(null));
 
@@ -900,13 +910,13 @@ public sealed class AiSubtitleAdvancedTests
         public override bool ReadAudio(
             int start,
             int length,
-            [NotNullWhen(true)] out Ref<IPcm>? sound)
+            [NotNullWhen(true)] out AudioBuffer? sound)
         {
             MaximumRequestedSamples = Math.Max(MaximumRequestedSamples, length);
             int decoded = Math.Clamp(totalSamples - start, 0, length);
-            var pcm = new Pcm<Stereo32BitFloat>(sampleRate, decoded);
-            pcm.DataSpan.Fill(new Stereo32BitFloat(0.25f, -0.25f));
-            sound = Ref<IPcm>.Create(pcm);
+            sound = new AudioBuffer(sampleRate, 2, decoded);
+            sound.GetChannelData(0).Fill(0.25f);
+            sound.GetChannelData(1).Fill(-0.25f);
             ReadCount++;
             return true;
         }

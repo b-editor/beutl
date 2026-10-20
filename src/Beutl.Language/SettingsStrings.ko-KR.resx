@@ -80,10 +80,6 @@
   <data name="DeviceInformation" xml:space="preserve">
     <value>장치 정보</value>
   </data>
-  <data name="EditorSettings" xml:space="preserve">
-    <value>편집기 설정</value>
-    <comment />
-  </data>
   <data name="DecoderPriority" xml:space="preserve">
     <value>디코더 우선 순위</value>
     <comment />
@@ -154,10 +150,6 @@
   </data>
   <data name="AutoAdjustSceneDuration_Description" xml:space="preserve">
     <value>요소가 추가될 때 장면의 길이를 조정해야 하면 자동으로 조정합니다.</value>
-    <comment />
-  </data>
-  <data name="SomeSettingsHaveBeenMoved" xml:space="preserve">
-    <value>일부 설정이 이동되었습니다.</value>
     <comment />
   </data>
   <data name="EnablePointerLockInProperty" xml:space="preserve">

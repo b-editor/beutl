@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using System.Reactive.Linq;
 
+using Beutl.Collections;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
@@ -140,6 +141,18 @@ public class TimelineTabViewModelTests
         });
     }
 
+    // The options belong to the whole editor, so a layer count applied after the tab closed must not reach it.
+    [Test]
+    public void LayerCountChange_AfterDispose_LeavesTheClosedTabAlone()
+    {
+        TimelineTabViewModel viewModel = CreateViewModel();
+        IReactiveProperty<TimelineOptions> options = viewModel.Options;
+        viewModel.Dispose();
+
+        Assert.DoesNotThrow(() => options.Value = options.Value with { MaxLayerCount = 5 });
+        Assert.That(viewModel.LayerHeaders, Is.Empty);
+    }
+
     // Dragging a layer header moves the clips and the TimelineLayer models in one history entry. Undo and redo
     // rewrite only the models, so the headers must keep Number == row and show the model on their row at every
     // step, and every clip must belong to the header of its row.
@@ -178,7 +191,7 @@ public class TimelineTabViewModelTests
             for (int row = 0; row < viewModel.LayerHeaders.Count; row++)
             {
                 LayerHeaderViewModel header = viewModel.LayerHeaders[row];
-                Assert.That(header.Number.Value, Is.EqualTo(row), $"the number of the header on row {row}");
+                Assert.That(header.Number, Is.EqualTo(row), $"the number of the header on row {row}");
                 Assert.That(header.Name.Value, Is.EqualTo(row == namedRow ? "Named" : $"{row}"),
                     $"the name on row {row}");
                 Assert.That(header.IsAudioMuted.Value, Is.EqualTo(row == namedRow), $"the audio mute on row {row}");
@@ -204,6 +217,7 @@ public class TimelineTabViewModelTests
         editorContext.AddService<ITimelineOptionsProvider>(new TestTimelineOptionsProvider(scene));
         editorContext.AddService<IEditorClock>(new TestEditorClock());
         editorContext.AddService<IBufferStatus>(new TestBufferStatus());
+        editorContext.AddService<IEditorSelection>(new TestEditorSelection());
         if (layerMoveService is not null)
             editorContext.AddService(layerMoveService);
         if (nudgeService is not null)
@@ -218,7 +232,7 @@ public class TimelineTabViewModelTests
         public Scene Scene { get; } = scene;
 
         public IReactiveProperty<TimelineOptions> Options { get; } =
-            new ReactiveProperty<TimelineOptions>(new TimelineOptions(1, Vector2.Zero, 0));
+            new ReactiveProperty<TimelineOptions>(new TimelineOptions { MaxLayerCount = 0 });
 
         public IObservable<float> Scale => Options.Select(x => x.Scale);
 
@@ -233,14 +247,17 @@ public class TimelineTabViewModelTests
             new ReactivePropertySlim<TimeSpan>(TimeSpan.FromSeconds(30));
     }
 
+    private sealed class TestEditorSelection : IEditorSelection
+    {
+        public IReactiveProperty<CoreObject?> SelectedObject { get; } = new ReactivePropertySlim<CoreObject?>();
+
+        public IReadOnlyReactiveProperty<int?> SelectedLayerNumber { get; } = new ReactivePropertySlim<int?>();
+
+        public ICoreList<Element> SelectedElements { get; } = new CoreList<Element>();
+    }
+
     private sealed class TestBufferStatus : IBufferStatus
     {
-        public IReadOnlyReactiveProperty<TimeSpan> StartTime { get; } =
-            new ReactivePropertySlim<TimeSpan>(TimeSpan.Zero);
-
-        public IReadOnlyReactiveProperty<TimeSpan> EndTime { get; } =
-            new ReactivePropertySlim<TimeSpan>(TimeSpan.Zero);
-
         public IReadOnlyReactiveProperty<double> Start { get; } = new ReactivePropertySlim<double>(0);
 
         public IReadOnlyReactiveProperty<double> End { get; } = new ReactivePropertySlim<double>(0);

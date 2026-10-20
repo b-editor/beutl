@@ -77,7 +77,6 @@ internal sealed class DockLayoutJsonReader
         rootDock.TopPinnedDockables = RestoreDockableList(obj, "topPinned");
         rootDock.BottomPinnedDockables = RestoreDockableList(obj, "bottomPinned");
 
-        // Restore floating windows
         if (obj.TryGetPropertyValue("windows", out var wNode) && wNode is JsonArray wArray)
         {
             foreach (var wItem in wArray)

@@ -16,8 +16,6 @@ public sealed record CaptionCue
         string? language = null,
         CaptionMetadata? metadata = null)
     {
-        ArgumentNullException.ThrowIfNull(text);
-
         Start = start;
         End = end;
         Text = text;

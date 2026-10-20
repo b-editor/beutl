@@ -2,6 +2,7 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:Beutl.Controls"
+             xmlns:converters="using:Beutl.Editor.Components.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
@@ -22,7 +23,7 @@
                           Margin="8,0,0,0"
                           HorizontalAlignment="Left"
                           VerticalAlignment="Center"
-                          SelectedIndex="{Binding SelectedMode.Value, Converter={x:Static views:AudioVisualizerModeConverter.Instance}, Mode=TwoWay}"
+                          SelectedIndex="{Binding SelectedMode.Value, Converter={x:Static converters:EnumIndexConverters.AudioVisualizerModes}, Mode=TwoWay}"
                           Theme="{StaticResource LiteComboBoxStyle}">
                     <ComboBoxItem Content="{x:Static lang:Strings.Waveform}"
                                   ToolTip.Tip="{x:Static lang:Strings.AudioVisualizer_Waveform_Description}" />
@@ -76,7 +77,6 @@
                                     </Style>
                                 </StackPanel.Styles>
 
-                                <!-- Header -->
                                 <Border Padding="16,12,16,12">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <icons:FluentIcon Icon="Settings" FontSize="16" VerticalAlignment="Center" />
@@ -87,7 +87,6 @@
                                 </Border>
                                 <Separator Height="1" Margin="0" />
 
-                                <!-- Spectrum section -->
                                 <StackPanel Margin="16,12,16,8" Spacing="10">
                                     <TextBlock Classes="section" Text="{x:Static lang:Strings.Spectrum}" />
 
@@ -133,7 +132,6 @@
 
                                 <Separator Height="1" Margin="0,0,0,4" />
 
-                                <!-- Display section -->
                                 <StackPanel Margin="16,8,16,12" Spacing="10">
                                     <TextBlock Classes="section" Text="{x:Static lang:Strings.AudioVisualizer_Display}" />
 
@@ -164,14 +162,14 @@
 
             <views:WaveformControl ToolTip.Tip="{x:Static lang:Strings.AudioVisualizer_Waveform_Description}"
                                    Margin="4"
-                                   IsVisible="{Binding SelectedMode.Value, Converter={x:Static views:AudioVisualizerModeConverter.Instance}, ConverterParameter=Waveform}"
+                                   IsVisible="{Binding SelectedMode.Value, Converter={x:Static converters:EnumIndexConverters.AudioVisualizerModes}, ConverterParameter=Waveform}"
                                    PlayheadTime="{Binding PlayheadTime.Value}"
                                    RingBuffer="{Binding RingBuffer}" />
 
             <views:SpectrumControl ToolTip.Tip="{x:Static lang:Strings.AudioVisualizer_Spectrum_Description}"
                                    Margin="4"
                                    FftSize="{Binding FftSize.Value}"
-                                   IsVisible="{Binding SelectedMode.Value, Converter={x:Static views:AudioVisualizerModeConverter.Instance}, ConverterParameter=Spectrum}"
+                                   IsVisible="{Binding SelectedMode.Value, Converter={x:Static converters:EnumIndexConverters.AudioVisualizerModes}, ConverterParameter=Spectrum}"
                                    MinDecibels="{Binding MinDecibels.Value}"
                                    PlayheadTime="{Binding PlayheadTime.Value}"
                                    RingBuffer="{Binding RingBuffer}"
@@ -180,21 +178,21 @@
 
             <views:LevelMeterControl ToolTip.Tip="{x:Static lang:Strings.AudioVisualizer_Meter_Description}"
                                      Margin="4"
-                                     IsVisible="{Binding SelectedMode.Value, Converter={x:Static views:AudioVisualizerModeConverter.Instance}, ConverterParameter=Meter}"
+                                     IsVisible="{Binding SelectedMode.Value, Converter={x:Static converters:EnumIndexConverters.AudioVisualizerModes}, ConverterParameter=Meter}"
                                      PlayheadTime="{Binding PlayheadTime.Value}"
                                      RingBuffer="{Binding RingBuffer}" />
 
             <views:SpectrogramControl ToolTip.Tip="{x:Static lang:Strings.AudioVisualizer_Spectrogram_Description}"
                                       Margin="4"
                                       FftSize="{Binding FftSize.Value}"
-                                      IsVisible="{Binding SelectedMode.Value, Converter={x:Static views:AudioVisualizerModeConverter.Instance}, ConverterParameter=Spectrogram}"
+                                      IsVisible="{Binding SelectedMode.Value, Converter={x:Static converters:EnumIndexConverters.AudioVisualizerModes}, ConverterParameter=Spectrogram}"
                                       MinDecibels="{Binding MinDecibels.Value}"
                                       PlayheadTime="{Binding PlayheadTime.Value}"
                                       RingBuffer="{Binding RingBuffer}" />
 
             <views:PhaseScopeControl ToolTip.Tip="{x:Static lang:Strings.AudioVisualizer_PhaseScope_Description}"
                                      Margin="4"
-                                     IsVisible="{Binding SelectedMode.Value, Converter={x:Static views:AudioVisualizerModeConverter.Instance}, ConverterParameter=PhaseScope}"
+                                     IsVisible="{Binding SelectedMode.Value, Converter={x:Static converters:EnumIndexConverters.AudioVisualizerModes}, ConverterParameter=PhaseScope}"
                                      PlayheadTime="{Binding PlayheadTime.Value}"
                                      RingBuffer="{Binding RingBuffer}" />
         </Panel>

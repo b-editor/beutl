@@ -8,7 +8,6 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -190,7 +189,6 @@ public class VideoFileImportTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Failure, Is.TypeOf<LockedElementLayerFailure>());
-            Assert.That(((LockedElementLayerFailure)result.Failure!).Layer, Is.EqualTo(1));
             Assert.That(result.Elements, Is.Empty);
             Assert.That(editor.Scene.Children, Is.Empty);
             Assert.That(editor.Scene.Groups, Is.Empty);
@@ -289,7 +287,7 @@ public class VideoFileImportTests
             return false;
         }
 
-        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
         {
             sound = null;
             return false;

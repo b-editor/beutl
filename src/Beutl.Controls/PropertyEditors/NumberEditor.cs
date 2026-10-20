@@ -1,18 +1,14 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Numerics;
-using System.Reactive.Disposables;
 
 using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
-using Avalonia.Interactivity;
-using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class NumberEditor<TValue> : StringEditor
+public class NumberEditor<TValue> : ValueStringEditor<TValue>
     where TValue : INumber<TValue>
 {
     public static readonly DirectProperty<NumberEditor<TValue>, TValue> ValueProperty =
@@ -37,28 +33,10 @@ public class NumberEditor<TValue> : StringEditor
             nameof(NumberFormat),
             defaultValue: null);
 
-    private TValue _value = TValue.Zero;
-    private TValue _oldValue = TValue.Zero;
-    private Control? _editSource;
-    private readonly CompositeDisposable _disposables = [];
-    private HeaderScrubGesture _scrub;
-    private TextBlock? _headerText;
-
     public NumberEditor()
+        : base(TValue.Zero, canScrub: true)
     {
         Text = "0";
-    }
-
-    public TValue Value
-    {
-        get => _value;
-        set
-        {
-            if (SetAndRaise(ValueProperty, ref _value, value) && (_editSource == null || _editSource != InnerTextBox))
-            {
-                Text = NumberEditorHelper.Format(value, NumberFormat);
-            }
-        }
     }
 
     public TValue LargeChange
@@ -79,147 +57,27 @@ public class NumberEditor<TValue> : StringEditor
         set => SetValue(NumberFormatProperty, value);
     }
 
-    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
-    {
-        _disposables.Clear();
-        base.OnApplyTemplate(e);
-        if (InnerTextBox == null) return;
-        InnerTextBox.AddDisposableHandler(PointerWheelChangedEvent, OnTextBoxPointerWheelChanged, RoutingStrategies.Tunnel)
-            .DisposeWith(_disposables);
+    private protected override DirectPropertyBase<TValue> ValuePropertyCore => ValueProperty;
 
-        _headerText = e.NameScope.Find<TextBlock>("PART_HeaderTextBlock");
-        new ScrubHeaderHandlers(
-                OnTextBlockPointerPressed, OnTextBlockPointerReleased, OnTextBlockPointerMoved,
-                OnTextBlockPointerCaptureLost, RoutingStrategies.Direct | RoutingStrategies.Bubble)
-            .Subscribe(_headerText, _disposables);
+    private protected override string Format(TValue value)
+    {
+        return NumberEditorHelper.Format(value, NumberFormat);
     }
 
-    private void OnTextBlockPointerMoved(object? sender, PointerEventArgs e)
+    private protected override bool Differs(TValue x, TValue y) => x != y;
+
+    private protected override bool TryParse(string? text, [MaybeNullWhen(false)] out TValue value)
     {
-        // A move with the button up means the release never reached the header.
-        if (_scrub.IsActive && !e.Properties.IsLeftButtonPressed)
-        {
-            CompleteScrub();
-            return;
-        }
-
-        if (InnerTextBox == null) return;
-        if (_headerText is not { } headerText) return;
-        if (!InnerTextBox.IsKeyboardFocusWithin && _scrub.IsActive)
-        {
-            TValue delta = _scrub.NextDelta<TValue>(headerText, e) * SmallChange;
-            TValue oldValue = Value;
-            TValue newValue = NumberEditorHelper.AddPreservingScale(oldValue, delta);
-            if (newValue != oldValue)
-            {
-                Value = newValue;
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue, oldValue, ValueChangedEvent));
-            }
-
-            e.Handled = true;
-
-            UpdateErrors();
-        }
+        return TValue.TryParse(text, CultureInfo.CurrentCulture, out value) && value is not null;
     }
 
-    private void OnTextBlockPointerReleased(object? sender, PointerReleasedEventArgs e)
+    private protected override TValue StepByWheel(TValue value, PointerWheelEventArgs e)
     {
-        if (_scrub.IsActive)
-        {
-            CompleteScrub();
-            e.Handled = true;
-        }
+        return NumberEditorHelper.StepByWheel(value, e, LargeChange, SmallChange);
     }
 
-    // Another window, a dialog or a rebuilt header took the pointer; end as a release would.
-    private void OnTextBlockPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    private protected override TValue Scrub(TValue value, ref HeaderScrubGesture scrub, Visual header, PointerEventArgs e)
     {
-        CompleteScrub();
-    }
-
-    private void CompleteScrub()
-    {
-        if (!_scrub.IsActive) return;
-
-        // Ended before confirming, so a confirmation that rebuilds the header cannot end it twice.
-        _scrub.End();
-        if (Value != _oldValue)
-        {
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueConfirmedEvent));
-        }
-    }
-
-    private void OnTextBlockPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (InnerTextBox == null) return;
-        if (_headerText is not { } headerText) return;
-        PointerPoint pointerPoint = e.GetCurrentPoint(headerText);
-        if (pointerPoint.Properties.IsLeftButtonPressed
-            && !DataValidationErrors.GetHasErrors(InnerTextBox))
-        {
-            _oldValue = Value;
-            _scrub.Begin(headerText, pointerPoint.Position);
-            e.Handled = true;
-        }
-    }
-
-    protected override void OnTextBoxGotFocus(FocusChangedEventArgs e)
-    {
-        if (InnerTextBox == null) return;
-        if (!DataValidationErrors.GetHasErrors(InnerTextBox))
-        {
-            _oldValue = Value;
-        }
-    }
-
-    protected override void OnTextBoxLostFocus(RoutedEventArgs e)
-    {
-        if (InnerTextBox == null) return;
-        if (!DataValidationErrors.GetHasErrors(InnerTextBox))
-        {
-            Text = NumberEditorHelper.Format(Value, NumberFormat);
-            if (Value != _oldValue)
-            {
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueConfirmedEvent));
-            }
-        }
-    }
-
-    protected override void OnTextBoxTextChanged(string newValue, string oldValue)
-    {
-        if (_editSource == null
-            && InnerTextBox?.IsKeyboardFocusWithin == true
-            && NumberEditorHelper.TryParseEdit(newValue, oldValue, out TValue? newValue2, out TValue? oldValue2))
-        {
-            using var edit = new PropertyEditorEditScope(ref _editSource, InnerTextBox);
-            Value = newValue2;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue2, oldValue2, ValueChangedEvent));
-        }
-
-        UpdateErrors();
-    }
-
-    private void UpdateErrors()
-    {
-        if (InnerTextBox == null) return;
-        DataValidationMessages.UpdateInvalidString(InnerTextBox, TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out _));
-    }
-
-    private void OnTextBoxPointerWheelChanged(object? sender, PointerWheelEventArgs e)
-    {
-        if (InnerTextBox == null) return;
-        if (!DataValidationErrors.GetHasErrors(InnerTextBox)
-            && InnerTextBox.IsKeyboardFocusWithin
-            && TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out _))
-        {
-            using var edit = new PropertyEditorEditScope(ref _editSource, this);
-            TValue oldValue = Value;
-            TValue newValue = NumberEditorHelper.StepByWheel(oldValue, e, LargeChange, SmallChange);
-            Value = newValue;
-            if (newValue != oldValue)
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue, oldValue, ValueChangedEvent));
-            Text = NumberEditorHelper.Format(Value, NumberFormat);
-            e.Handled = true;
-        }
+        return NumberEditorHelper.AddPreservingScale(value, scrub.NextDelta<TValue>(header, e) * SmallChange);
     }
 }

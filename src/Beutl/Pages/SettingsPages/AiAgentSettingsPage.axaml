@@ -7,7 +7,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.SettingsPages"
-             x:Name="root"
              d:DesignHeight="700"
              d:DesignWidth="800"
              x:CompileBindings="True"
@@ -224,8 +223,7 @@
                 <Border Classes="options-group" IsVisible="{Binding HasInstalledFiles.Value}">
                     <ctrls:OptionsGroupPanel>
                         <ctrls:OptionsDisplayItem Expands="True"
-                                                  Header="{x:Static lang:SettingsStrings.AiAgents_InstalledFiles}"
-                                                  IsVisible="{Binding HasInstalledFiles.Value}">
+                                                  Header="{x:Static lang:SettingsStrings.AiAgents_InstalledFiles}">
                             <ctrls:OptionsDisplayItem.Content>
                                 <ItemsControl Margin="40,0,40,8" ItemsSource="{Binding InstalledFiles}">
                                     <ItemsControl.ItemTemplate>

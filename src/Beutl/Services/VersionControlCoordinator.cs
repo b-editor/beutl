@@ -55,13 +55,14 @@ internal sealed partial class VersionControlCoordinator :
     // waits here until the activation of that same creation adopts it.
     private PreparedNewProject? _preparedNewProject;
     private RepositoryAdoptionRequest? _pendingRepositoryAdoption;
-    private ConfigurationActivationRequest? _pendingConfigurationActivation;
     private object? _latestAvailabilityProbe;
     private TaskCompletionSource? _workDrained;
     private int _runningWork;
     private string? _observedGitExecutablePath;
     private bool _observedUseLfsWhenAvailable;
     private bool _configurationActivationRunning;
+    // A changed Git executable waits to rediscover the repository of the untracked project.
+    private bool _rediscoveryRequested;
     // A save snapshot is waiting for the operation that held the gate when the project was saved.
     private bool _saveSnapshotDeferred;
     private bool _repositoryHygieneConfigurationDirty;
@@ -102,7 +103,6 @@ internal sealed partial class VersionControlCoordinator :
         ConfirmPullAsync = _prompts.ShowPullConfirmationAsync;
         ConfirmUseEnclosingRepositoryAsync = _prompts.ShowEnclosingRepositoryConfirmationAsync;
         ConfirmAdoptExistingRepositoryAsync = ShowAdoptExistingRepositoryConfirmationAsync;
-        ConfirmRemoveStaleLockAsync = _prompts.ShowStaleLockConfirmationAsync;
         ConfirmUntrackReservedPathsAsync = _prompts.ShowUntrackReservedPathsConfirmationAsync;
         WarnConflictMarkersAsync = _prompts.ShowConflictMarkerWarningAsync;
         RequestIdentityAsync = static _ => Task.FromResult<GitIdentity?>(null);
@@ -146,10 +146,6 @@ internal sealed partial class VersionControlCoordinator :
         ConfirmAdoptExistingRepositoryAsync
     { get; set; }
 
-    internal Func<RepositoryLockInfo, CancellationToken, Task<bool>>
-        ConfirmRemoveStaleLockAsync
-    { get; set; }
-
     internal Func<IReadOnlyList<string>, CancellationToken, Task<bool>>
         ConfirmUntrackReservedPathsAsync
     { get; set; }
@@ -176,14 +172,11 @@ internal sealed partial class VersionControlCoordinator :
         });
     }
 
-    public INewProjectVersionControlSetup BeginNewProject(
-        Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync)
+    public INewProjectVersionControlSetup BeginNewProject()
     {
-        ArgumentNullException.ThrowIfNull(requestIdentityAsync);
         ObjectDisposedException.ThrowIf(_disposed, this);
         return new NewProjectSetup(
             this,
-            requestIdentityAsync,
             _editorService.BeginLifecycleActivity(ProjectLifecycleActivity.CreatingProject));
     }
 
@@ -208,12 +201,7 @@ internal sealed partial class VersionControlCoordinator :
                 return;
             }
 
-            await CommitSnapshotAsync(
-                _config.AutoCommitOnSave,
-                SaveSnapshotMessage,
-                SnapshotKind.Save,
-                completedWrite,
-                operation.CancellationToken);
+            await CommitSaveSnapshotAsync(completedWrite, operation.CancellationToken);
         });
     }
 

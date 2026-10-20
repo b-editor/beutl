@@ -11,16 +11,12 @@ namespace Beutl.ViewModels.SettingsPages;
 public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
 {
     private readonly ViewConfig _config;
-
-    // 一部の設定を移動したので、ナビゲーションするために
-    private readonly Lazy<EditorSettingsPageViewModel> _editorSettings;
     private readonly CompositeDisposable _disposables = [];
     private bool _disposed;
 
-    public ViewSettingsPageViewModel(Lazy<EditorSettingsPageViewModel> editorSettings)
+    public ViewSettingsPageViewModel()
     {
         _config = GlobalConfiguration.Instance.ViewConfig;
-        _editorSettings = editorSettings;
 
         // Created before the first refresh: RefreshAvailableThemes restores the selection through it.
         SelectedThemeDescriptor = new ReactiveProperty<ThemeDescriptor?>(ThemeRegistry.Resolve(_config.Theme))
@@ -110,16 +106,6 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
                 UpdateAppAccentColor(value);
             })
             .DisposeWith(_disposables);
-
-        NavigateToEditorSettings = new AsyncReactiveCommand()
-            .WithSubscribe(async () =>
-            {
-                INavigationProvider nav = await GetNavigation();
-                await nav.NavigateAsync(
-                    x => x is not null,
-                    () => _editorSettings.Value);
-            })
-            .DisposeWith(_disposables);
     }
 
     public ObservableCollection<ThemeDescriptor> AvailableThemes { get; } = new();
@@ -137,8 +123,6 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
     public ReactiveProperty<Color> CustomAccentColor { get; }
 
     public IReadOnlyList<Color> PredefinedColors { get; } = GetPredefColors();
-
-    public AsyncReactiveCommand NavigateToEditorSettings { get; }
 
     // https://github.com/amwx/FluentAvalonia/blob/master/samples/FAControlsGallery/ViewModels/SettingsPageViewModel.cs
     private static Color[] GetPredefColors()

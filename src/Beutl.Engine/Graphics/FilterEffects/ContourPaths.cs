@@ -8,7 +8,6 @@ namespace Beutl.Graphics.Effects;
 /// </summary>
 internal static class ContourPaths
 {
-    /// <summary>Appends <paramref name="points"/> to <paramref name="builder"/> as one closed polyline.</summary>
     public static void AddClosedPolyline(SKPathBuilder builder, ReadOnlySpan<PixelPoint> points)
     {
         for (int j = 0; j < points.Length; j++)
@@ -22,7 +21,6 @@ internal static class ContourPaths
         builder.Close();
     }
 
-    /// <summary>Traces every contour of <paramref name="src"/>'s alpha into one path, each contour closed.</summary>
     public static SKPath CreateOutline(Bitmap src)
     {
         using var contours = ContourTracer.FindContours(src);

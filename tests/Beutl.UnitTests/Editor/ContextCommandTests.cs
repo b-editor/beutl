@@ -6,13 +6,6 @@ namespace Beutl.UnitTests.Editor;
 public class ContextCommandTests
 {
     [Test]
-    public void ContextCommandAttribute_NameIsSettable()
-    {
-        var attr = new ContextCommandAttribute { Name = "MyCmd" };
-        Assert.That(attr.Name, Is.EqualTo("MyCmd"));
-    }
-
-    [Test]
     public void ContextCommandDefinition_StoresAllFields()
     {
         var win = new ContextCommandKeyGesture("Ctrl+S", OSPlatform.Windows);

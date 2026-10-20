@@ -12,16 +12,9 @@ public sealed class GraphCompositionContext : CompositionContext
 
     internal GraphSnapshot Snapshot { get; set; } = null!;
 
-    public CompositionTarget Target { get; internal set; }
-
     public bool HasConnection(IInputPort port)
     {
         return Snapshot.HasInputConnection(Resource.SlotIndex, Resource.ItemIndexMap[port]);
-    }
-
-    public void CollectListInputValues<T>(ListInputPort<T> port, IList<T?> list)
-    {
-        Snapshot.CollectListInputValues(Resource.SlotIndex, Resource.ItemIndexMap[port], list);
     }
 
     public List<T?> CollectListInputValues<T>(ListInputPort<T> port)

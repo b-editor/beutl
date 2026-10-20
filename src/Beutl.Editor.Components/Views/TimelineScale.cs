@@ -1,7 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Media.TextFormatting;
@@ -13,7 +12,7 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Components.Views;
 
-public sealed class TimelineScale : Control
+public sealed class TimelineScale : TimelineBarsControl
 {
     public static readonly DirectProperty<TimelineScale, float> ScaleProperty
         = AvaloniaProperty.RegisterDirect<TimelineScale, float>(
@@ -24,18 +23,6 @@ public sealed class TimelineScale : Control
     public static readonly DirectProperty<TimelineScale, Vector> OffsetProperty
         = AvaloniaProperty.RegisterDirect<TimelineScale, Vector>(
             nameof(Offset), o => o.Offset, (o, v) => o.Offset = v);
-
-    public static readonly DirectProperty<TimelineScale, Thickness> StartingBarMarginProperty
-        = AvaloniaProperty.RegisterDirect<TimelineScale, Thickness>(
-            nameof(StartingBarMargin), o => o.StartingBarMargin, (o, v) => o.StartingBarMargin = v);
-
-    public static readonly DirectProperty<TimelineScale, Thickness> EndingBarMarginProperty
-        = AvaloniaProperty.RegisterDirect<TimelineScale, Thickness>(
-            nameof(EndingBarMargin), o => o.EndingBarMargin, (o, v) => o.EndingBarMargin = v);
-
-    public static readonly DirectProperty<TimelineScale, Thickness> SeekBarMarginProperty
-        = AvaloniaProperty.RegisterDirect<TimelineScale, Thickness>(
-            nameof(SeekBarMargin), o => o.SeekBarMargin, (o, v) => o.SeekBarMargin = v);
 
     public static readonly StyledProperty<double> BufferStartProperty
         = AvaloniaProperty.Register<TimelineScale, double>(nameof(BufferStart));
@@ -51,15 +38,6 @@ public sealed class TimelineScale : Control
 
     public static readonly StyledProperty<IBrush?> ScaleBrushProperty
         = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(ScaleBrush));
-
-    public static readonly StyledProperty<IBrush?> SeekBarBrushProperty
-        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(SeekBarBrush));
-
-    public static readonly StyledProperty<IBrush?> StartingBarBrushProperty
-        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(StartingBarBrush));
-
-    public static readonly StyledProperty<IBrush?> EndingBarBrushProperty
-        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(EndingBarBrush));
 
     public static readonly StyledProperty<IBrush?> CacheBlockBrushProperty
         = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(CacheBlockBrush));
@@ -79,16 +57,11 @@ public sealed class TimelineScale : Control
     public static readonly StyledProperty<IBrush?> MarkerLabelForegroundProperty
         = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(MarkerLabelForeground));
 
+    private const int FramesPerTick = 30;
     private static readonly Typeface s_typeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Medium);
     private float _scale = 1;
     private Vector _offset;
-    private Thickness _startingBarMargin;
-    private Thickness _endingBarMargin;
-    private Thickness _seekBarMargin;
     private ImmutablePen? _pen;
-    private ImmutablePen? _seekBarPen;
-    private ImmutablePen? _startingBarPen;
-    private ImmutablePen? _endingBarPen;
     private static readonly Geometry _rangeMarker;
     private static readonly Geometry _pointMarker;
     private INotifyCollectionChanged? _trackedMarkers;
@@ -101,17 +74,11 @@ public sealed class TimelineScale : Control
         AffectsRender<TimelineScale>(
             ScaleProperty,
             OffsetProperty,
-            StartingBarMarginProperty,
-            EndingBarMarginProperty,
-            SeekBarMarginProperty,
             BufferStartProperty,
             BufferEndProperty,
             CacheBlocksProperty,
             HoveredCacheBlockProperty,
             ScaleBrushProperty,
-            SeekBarBrushProperty,
-            StartingBarBrushProperty,
-            EndingBarBrushProperty,
             CacheBlockBrushProperty,
             LockedCacheBlockBrushProperty,
             BufferBrushProperty,
@@ -135,24 +102,6 @@ public sealed class TimelineScale : Control
     {
         get => _offset;
         set => SetAndRaise(OffsetProperty, ref _offset, value);
-    }
-
-    public Thickness StartingBarMargin
-    {
-        get => _startingBarMargin;
-        set => SetAndRaise(StartingBarMarginProperty, ref _startingBarMargin, value);
-    }
-
-    public Thickness EndingBarMargin
-    {
-        get => _endingBarMargin;
-        set => SetAndRaise(EndingBarMarginProperty, ref _endingBarMargin, value);
-    }
-
-    public Thickness SeekBarMargin
-    {
-        get => _seekBarMargin;
-        set => SetAndRaise(SeekBarMarginProperty, ref _seekBarMargin, value);
     }
 
     public double BufferStart
@@ -183,24 +132,6 @@ public sealed class TimelineScale : Control
     {
         get => GetValue(ScaleBrushProperty);
         set => SetValue(ScaleBrushProperty, value);
-    }
-
-    public IBrush? SeekBarBrush
-    {
-        get => GetValue(SeekBarBrushProperty);
-        set => SetValue(SeekBarBrushProperty, value);
-    }
-
-    public IBrush? StartingBarBrush
-    {
-        get => GetValue(StartingBarBrushProperty);
-        set => SetValue(StartingBarBrushProperty, value);
-    }
-
-    public IBrush? EndingBarBrush
-    {
-        get => GetValue(EndingBarBrushProperty);
-        set => SetValue(EndingBarBrushProperty, value);
     }
 
     public IBrush? CacheBlockBrush
@@ -245,18 +176,6 @@ public sealed class TimelineScale : Control
         if (change.Property == ScaleBrushProperty)
         {
             _pen = new ImmutablePen(ScaleBrush?.ToImmutable(), 1);
-        }
-        else if (change.Property == SeekBarBrushProperty)
-        {
-            _seekBarPen = new ImmutablePen(SeekBarBrush?.ToImmutable(), 1.25);
-        }
-        else if (change.Property == StartingBarBrushProperty)
-        {
-            _startingBarPen = new ImmutablePen(StartingBarBrush?.ToImmutable(), 1.25);
-        }
-        else if (change.Property == EndingBarBrushProperty)
-        {
-            _endingBarPen = new ImmutablePen(EndingBarBrush?.ToImmutable(), 1.25);
         }
         else if (change.Property == MarkersProperty)
         {
@@ -345,21 +264,13 @@ public sealed class TimelineScale : Control
 
         System.ComponentModel.PropertyChangedEventHandler handler = (_, _) => InvalidateVisual();
         marker.PropertyChanged += handler;
-        _markerSubscriptions[marker] = new MarkerSubscription(marker, handler);
-    }
-
-    private sealed class MarkerSubscription(SceneMarker marker, System.ComponentModel.PropertyChangedEventHandler handler) : IDisposable
-    {
-        public void Dispose() => marker.PropertyChanged -= handler;
+        _markerSubscriptions[marker] = Disposable.Create(() => marker.PropertyChanged -= handler);
     }
 
     public override void Render(DrawingContext context)
     {
         base.Render(context);
         _pen ??= new ImmutablePen(ScaleBrush?.ToImmutable(), 1);
-        _seekBarPen ??= new ImmutablePen(SeekBarBrush?.ToImmutable(), 1.25);
-        _startingBarPen ??= new ImmutablePen(StartingBarBrush?.ToImmutable(), 1.25);
-        _endingBarPen ??= new ImmutablePen(EndingBarBrush?.ToImmutable(), 1.25);
 
         double width = Bounds.Width;
         double height = Bounds.Height;
@@ -374,18 +285,7 @@ public sealed class TimelineScale : Control
             context.FillRectangle(Brushes.Transparent, viewport);
             DrawTimeTicks(context, _pen, viewport, height, originX, l);
             DrawBufferAndCacheBlocks(context, originX, l);
-
-            var seekbar = new Point(_seekBarMargin.Left, 0);
-            var startingbar = new Point(_startingBarMargin.Left, 0);
-            var endingbar = new Point(_endingBarMargin.Left, 0);
-            var bottom = new Point(0, height);
-
-            context.DrawLine(_seekBarPen, seekbar, seekbar + bottom);
-
-            context.DrawLine(_startingBarPen, startingbar, startingbar + bottom);
-
-            context.DrawLine(_endingBarPen, endingbar, endingbar + bottom);
-
+            DrawBars(context, height);
             DrawRangeMarkers(context);
             DrawMarkers(context, viewport);
         }
@@ -397,8 +297,7 @@ public sealed class TimelineScale : Control
 
         double recentPix = 0d;
         double inc = FrameNumberHelper.SecondWidth;
-        // 分割数: 30
-        double wf = FrameNumberHelper.SecondWidth / 30;
+        double wf = FrameNumberHelper.SecondWidth / FramesPerTick;
         for (double x = originX; x < viewportRight; x += inc)
         {
             var time = x.PixelToTimeSpan(Scale);
@@ -466,10 +365,10 @@ public sealed class TimelineScale : Control
 
     private void DrawRangeMarkers(DrawingContext context)
     {
-        // EndingBarのドラッグ可能マーカーを描画
+        // 開始・終了バーのドラッグ用マーカーを描画
         if (EndingBarBrush?.ToImmutable() is { } brush)
         {
-            using (context.PushTransform(Matrix.CreateTranslation(_endingBarMargin.Left, 0)))
+            using (context.PushTransform(Matrix.CreateTranslation(EndingBarMargin.Left, 0)))
             using (context.PushTransform(Matrix.CreateScale(-1, 1)))
             {
                 context.DrawGeometry(brush, null, _rangeMarker);
@@ -478,7 +377,7 @@ public sealed class TimelineScale : Control
 
         if (StartingBarBrush?.ToImmutable() is { } brush2)
         {
-            using (context.PushTransform(Matrix.CreateTranslation(_startingBarMargin.Left, 0)))
+            using (context.PushTransform(Matrix.CreateTranslation(StartingBarMargin.Left, 0)))
             {
                 context.DrawGeometry(brush2, null, _rangeMarker);
             }

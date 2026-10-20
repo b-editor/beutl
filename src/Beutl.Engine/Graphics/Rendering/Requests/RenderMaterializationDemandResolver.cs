@@ -22,7 +22,7 @@ internal static class RenderMaterializationDemandResolver
         IReadOnlyList<RenderFragmentReference> roots,
         float outputScale,
         float maxWorkingScale,
-        IReadOnlySet<RenderFragmentReference>? cacheBoundaries = null)
+        IReadOnlySet<RenderFragmentReference> cacheBoundaries)
     {
         ArgumentNullException.ThrowIfNull(roots);
         if (!float.IsFinite(outputScale) || outputScale <= 0)
@@ -63,7 +63,7 @@ internal static class RenderMaterializationDemandResolver
         {
             RenderFragmentReference fragment = item.Fragment;
             if (item.Use == DemandUse.ReplayTarget
-                && cacheBoundaries?.Contains(fragment) == true)
+                && cacheBoundaries.Contains(fragment))
             {
                 pending.Push(new PendingDemand(
                     fragment,
@@ -189,11 +189,8 @@ internal static class RenderMaterializationDemandResolver
                 EnqueueInputs(fragment, targetDemand, DemandUse.ReplayTarget, pending);
                 return;
             case RenderFragmentKind.RawTargetScope:
-                // A raw scope hands an unguarded canvas to an opaque callback, so its declared scale
-                // contract is the only thing that says how the replayed input is consumed. The backward
-                // half is identity unless the author asked for MapInputSupply, so a scope that carries its
-                // enlargement in the destination matrix stays unchanged, and one that resamples its input
-                // gets the density it declared instead of rasterizing at the target's and stretching.
+                // A raw scope's declared scale contract is the only statement of how its replayed input is
+                // consumed, so its backward map always applies.
                 float rawScopeInputDemand =
                     fragment.Payload is RawTargetScopeRenderFragmentPayload rawScopePayload
                         ? ResolveMappedInputDemand(
@@ -257,7 +254,17 @@ internal static class RenderMaterializationDemandResolver
                     pending,
                     IsEffectClassConsumer(fragment));
                 return;
-            default:
+            case RenderFragmentKind.Shader:
+            case RenderFragmentKind.Geometry:
+            case RenderFragmentKind.OpaqueSource:
+            case RenderFragmentKind.OpaqueMap:
+            case RenderFragmentKind.OpaqueCombine:
+            case RenderFragmentKind.OpaqueExpand:
+            case RenderFragmentKind.FilterEffectSegment:
+            case RenderFragmentKind.MaterializedInput:
+            case RenderFragmentKind.TargetCapture:
+            case RenderFragmentKind.BuiltInBackdropCapture:
+            case RenderFragmentKind.Layer:
                 pending.Push(new PendingDemand(
                     fragment,
                     targetDemand,
@@ -265,6 +272,9 @@ internal static class RenderMaterializationDemandResolver
                     UseSupplyFallback: false,
                     IsEffectClassConsumer: false));
                 return;
+            default:
+                throw new InvalidOperationException(
+                    $"Fragment kind '{fragment.Kind}' has no replay demand rule.");
         }
     }
 
@@ -345,7 +355,16 @@ internal static class RenderMaterializationDemandResolver
             case RenderFragmentKind.TargetCapture:
             case RenderFragmentKind.BuiltInBackdropCapture:
                 return;
-            default:
+            case RenderFragmentKind.ContributeValues:
+            case RenderFragmentKind.Opacity:
+            case RenderFragmentKind.Blend:
+            case RenderFragmentKind.OpacityMask:
+            case RenderFragmentKind.OpaqueSource:
+            case RenderFragmentKind.FilterEffectSegment:
+            case RenderFragmentKind.TargetLayerScope:
+            case RenderFragmentKind.RawTargetScope:
+            case RenderFragmentKind.TargetCommand:
+            case RenderFragmentKind.RawTargetCommand:
                 EnqueueInputs(
                     fragment,
                     valueDemand,
@@ -353,6 +372,9 @@ internal static class RenderMaterializationDemandResolver
                     pending,
                     IsEffectClassConsumer(fragment));
                 return;
+            default:
+                throw new InvalidOperationException(
+                    $"Fragment kind '{fragment.Kind}' has no materialization demand rule.");
         }
     }
 

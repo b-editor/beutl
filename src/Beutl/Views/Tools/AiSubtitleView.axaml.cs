@@ -9,29 +9,20 @@ namespace Beutl.Views.Tools;
 
 public partial class AiSubtitleView : UserControl
 {
-    private IDisposable? _planReturnRefresh;
     private AiSubtitleDialogViewModel? _templatePreviewOwner;
 
     public AiSubtitleView()
     {
         InitializeComponent();
-        DataContextChanged += OnDataContextChanged;
-    }
-
-    private void OnDataContextChanged(object? sender, EventArgs e)
-    {
-        _planReturnRefresh?.Dispose();
-        _planReturnRefresh = DataContext is AiSubtitleDialogViewModel viewModel
-            ? AiPlanReturnRefresh.Attach(
-                this,
-                viewModel.AiPlanCoordinator,
-                () =>
-                {
-                    viewModel.RefreshAvailability();
-                    viewModel.RefreshModels();
-                })
-            : null;
-        UpdateTemplatePreviewOwner();
+        AiPlanReturnRefresh.AttachToDataContext<AiSubtitleDialogViewModel>(
+            this,
+            viewModel => viewModel.AiPlanCoordinator,
+            viewModel =>
+            {
+                viewModel.RefreshAvailability();
+                viewModel.RefreshModels();
+            });
+        DataContextChanged += (_, _) => UpdateTemplatePreviewOwner();
     }
 
     protected override void OnLoaded(RoutedEventArgs e)

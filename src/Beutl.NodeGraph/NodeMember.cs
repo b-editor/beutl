@@ -42,6 +42,20 @@ public class NodeMember<T> : NodeMember, INodeMember
 
     IPropertyAdapter? INodeMember.Property => Property;
 
+    // Shared by DefaultInputPort<T>, DefaultNodeMember<T> and LayerInputPort<T>, which keep their value in an adapter.
+    private protected NodePropertyAdapter<T>? PropertyAdapter => Property as NodePropertyAdapter<T>;
+
+    private protected void SetPropertyAdapterCore(NodePropertyAdapter<T> property)
+    {
+        Property = property;
+        property.Edited += OnPropertyAdapterEdited;
+    }
+
+    private void OnPropertyAdapterEdited(object? sender, EventArgs e)
+    {
+        RaiseEdited();
+    }
+
     public IItemValue CreateItemValue()
     {
         var value = new ItemValue<T>();

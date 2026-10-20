@@ -77,7 +77,11 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
 
     public static bool IsPositive(Rational value)
     {
-        return long.IsPositive(value.Numerator) ^ long.IsPositive(value.Denominator);
+        // Zero is positive whatever the sign of its denominator; NaN (0/0) is not.
+        if (value.Numerator == 0)
+            return value.Denominator != 0;
+
+        return long.IsPositive(value.Numerator) == long.IsPositive(value.Denominator);
     }
 
     public static bool IsRealNumber(Rational value)
@@ -178,11 +182,6 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
     public static Rational Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
     {
         return Parse(s, NumberStyles.Integer, provider);
-    }
-
-    public static Rational Parse(ReadOnlySpan<char> s)
-    {
-        return Parse(s);
     }
 
     public static Rational Parse(string s)
@@ -423,15 +422,6 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
     private static bool TryConvertTo<TOther>(Rational value, [MaybeNullWhen(false)] out TOther result)
         where TOther : INumberBase<TOther>
     {
-        // In order to reduce overall code duplication and improve the inlinabilty of these
-        // methods for the corelib types we have `ConvertFrom` handle the same sign and
-        // `ConvertTo` handle the opposite sign. However, since there is an uneven split
-        // between signed and unsigned types, the one that handles unsigned will also
-        // handle `Decimal`.
-        //
-        // That is, `ConvertFrom` for `float` will handle the other signed types and
-        // `ConvertTo` will handle the unsigned types.
-
         if (typeof(TOther) == typeof(byte))
         {
             float valueF = value.ToSingle();

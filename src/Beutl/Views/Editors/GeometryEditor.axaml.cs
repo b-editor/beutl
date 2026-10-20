@@ -51,7 +51,6 @@ public partial class GeometryEditor : UserControl
         {
             try
             {
-                _logger.LogInformation("Adding item to group.");
                 viewModel.AddItem();
             }
             catch (Exception ex)
@@ -62,7 +61,6 @@ public partial class GeometryEditor : UserControl
         }
         else
         {
-            _logger.LogInformation("Group is not selected, showing context flyout.");
             expandToggle.ContextFlyout?.ShowAt(expandToggle);
         }
     }
@@ -71,7 +69,6 @@ public partial class GeometryEditor : UserControl
     {
         if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel) return;
 
-        _logger.LogInformation("Importing from SVG path.");
         var dialog = new FAContentDialog()
         {
             Title = Strings.ImportSvgPath,
@@ -92,17 +89,11 @@ public partial class GeometryEditor : UserControl
 
         if (await dialog.ShowAsync() == FAContentDialogResult.Primary)
         {
-            string? path = textBox.Text;
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                _logger.LogWarning("SVG path is empty.");
-                NotificationService.ShowWarning(Strings.ImportSvgPath, MessageStrings.InputRequired);
-                return;
-            }
+            // Import is enabled only while the text is not blank.
+            string path = textBox.Text!;
 
             try
             {
-                _logger.LogInformation("Parsing SVG path.");
                 var obj = PathGeometry.Parse(path);
                 viewModel.SetValue(viewModel.Value.Value, obj);
             }
@@ -120,7 +111,6 @@ public partial class GeometryEditor : UserControl
     {
         if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel) return;
 
-        _logger.LogInformation("Setting value to null.");
         viewModel.SetNull();
     }
 
@@ -128,7 +118,6 @@ public partial class GeometryEditor : UserControl
     {
         if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel) return;
 
-        _logger.LogInformation("Initializing geometry type.");
         viewModel.ChangeGeometryType(typeof(PathGeometry));
     }
 }

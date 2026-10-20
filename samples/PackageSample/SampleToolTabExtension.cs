@@ -10,7 +10,6 @@ using Reactive.Bindings;
 
 namespace PackageSample;
 
-// SampleSceneEditorTabExtenison
 [Export]
 public sealed class SampleToolTabExtension : ToolTabExtension
 {

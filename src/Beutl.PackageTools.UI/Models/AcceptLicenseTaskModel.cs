@@ -4,7 +4,6 @@ using NuGet.Packaging;
 using NuGet.Packaging.Core;
 
 using Reactive.Bindings;
-using Reactive.Bindings.TinyLinq;
 
 namespace Beutl.PackageTools.UI.Models;
 
@@ -27,21 +26,18 @@ public record LicenseItem(PackageIdentity Package, LicenseMetadata License)
     }
 }
 
-public class AcceptLicenseTaskModel
+public class AcceptLicenseTaskModel : ITaskStepModel
 {
     private readonly ILogger _logger = Log.CreateLogger<AcceptLicenseTaskModel>();
     private readonly BeutlApiApplication _app;
     private readonly PackageInstallContext _context;
     private readonly AcceptedLicenseManager _acceptedLicenseManager;
-    private TaskCompletionSource<bool>? _userInput;
 
     public AcceptLicenseTaskModel(BeutlApiApplication app, PackageInstallContext context)
     {
         _app = app;
         _context = context;
         _acceptedLicenseManager = _app.GetResource<AcceptedLicenseManager>();
-        IsAcceptedNull = IsAccepted.Select(v => v.HasValue)
-            .ToReadOnlyReactivePropertySlim();
 
         var licensesRequiringApproval = _context.LicensesRequiringApproval
             .Where(x => !_acceptedLicenseManager.Accepted.ContainsKey(x.Item1))
@@ -62,9 +58,7 @@ public class AcceptLicenseTaskModel
 
     public ReactiveProperty<bool> IsRunning { get; } = new();
 
-    public ReactiveProperty<bool?> IsAccepted { get; } = new();
-
-    public ReadOnlyReactivePropertySlim<bool> IsAcceptedNull { get; }
+    public UserAnswer AcceptAnswer { get; } = new();
 
     public ReactiveProperty<bool> Succeeded { get; } = new();
 
@@ -72,8 +66,7 @@ public class AcceptLicenseTaskModel
 
     public void AcceptAll(bool value)
     {
-        IsAccepted.Value = value;
-        _userInput?.SetResult(value);
+        AcceptAnswer.Answer(value);
         _logger.LogInformation("User accepted all licenses: {Accepted}", value);
     }
 
@@ -84,30 +77,20 @@ public class AcceptLicenseTaskModel
 
         try
         {
-            // 同意が必要なライセンスの内、未同意のものがある場合、同意させる
             if (RequireAccept.Value)
             {
-                Task<bool>? task;
-                if (!IsAccepted.Value.HasValue)
+                if (!AcceptAnswer.Value.Value.HasValue)
                 {
-                    _userInput = new TaskCompletionSource<bool>();
-                    task = _userInput.Task;
                     _logger.LogInformation("Waiting for user input on license acceptance.");
                 }
-                else
-                {
-                    task = Task.FromResult(IsAccepted.Value.Value);
-                }
 
-                if (!await task.WaitAsync(token))
+                if (!await AcceptAnswer.WaitAsync(token))
                 {
                     _logger.LogWarning("User did not accept the licenses.");
-                    Failed.Value = false;
                     return false;
                 }
                 else
                 {
-                    // 同意したことを記録
                     _acceptedLicenseManager.Accepts(Licenses.Value!.Select(v => (v.Package, v.License)).ToArray());
                     _logger.LogInformation("User accepted the licenses.");
                 }

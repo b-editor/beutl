@@ -63,7 +63,6 @@ public sealed partial class FilterEffectExecutor : IDisposable
             maxWorkingScale,
             acquireProgram: null,
             deviceGridOffset: null,
-            ownsProgramCache: true,
             drawableBrushMaterializer,
             useExecutorManagedCanvas: false,
             renderTargetLeaseSession: null,
@@ -96,7 +95,6 @@ public sealed partial class FilterEffectExecutor : IDisposable
             maxWorkingScale,
             acquireProgram: null,
             deviceGridOffset,
-            ownsProgramCache: true,
             drawableBrushMaterializer,
             useExecutorManagedCanvas,
             renderTargetLeaseSession,
@@ -130,7 +128,6 @@ public sealed partial class FilterEffectExecutor : IDisposable
             maxWorkingScale,
             acquireProgram ?? throw new ArgumentNullException(nameof(acquireProgram)),
             deviceGridOffset,
-            ownsProgramCache: false,
             drawableBrushMaterializer,
             useExecutorManagedCanvas,
             renderTargetLeaseSession,
@@ -149,7 +146,6 @@ public sealed partial class FilterEffectExecutor : IDisposable
         float maxWorkingScale,
         SkRuntimeEffectProgramAcquirer? acquireProgram,
         Vector? deviceGridOffset,
-        bool ownsProgramCache,
         DrawableBrushMaterializer? drawableBrushMaterializer,
         bool useExecutorManagedCanvas,
         RenderTargetLeaseSession? renderTargetLeaseSession,
@@ -177,11 +173,7 @@ public sealed partial class FilterEffectExecutor : IDisposable
         _useExecutorManagedCanvas = useExecutorManagedCanvas;
         _renderTargetLeaseSession = renderTargetLeaseSession;
         _targetDomain = targetDomain;
-        if (!ownsProgramCache)
-        {
-            _injectedProgramAcquirer = acquireProgram
-                ?? throw new ArgumentNullException(nameof(acquireProgram));
-        }
+        _injectedProgramAcquirer = acquireProgram;
     }
 
     public SKImageFilterBuilder Builder { get; }
@@ -246,7 +238,7 @@ public sealed partial class FilterEffectExecutor : IDisposable
             _ownedProgramCache ??= SkRuntimeEffectProgramCache.Create();
         RenderTarget destination = target.RenderTarget
             ?? throw new InvalidOperationException(
-                "A effectItem shader program requires a materialized execution destination.");
+                "An effect-item shader program requires a materialized execution destination.");
         return SkRuntimeEffectProgramCache.AcquireForDestination(
             cache,
             destination,
@@ -291,7 +283,6 @@ public sealed partial class FilterEffectExecutor : IDisposable
         }
     }
 
-    // 最小単位である'IFEItem'の数がわからないので 'count'は'nullable'
     public void Apply(FilterEffectContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -489,11 +480,8 @@ public sealed partial class FilterEffectExecutor : IDisposable
         public Rect PhysicalBounds { get; set; } = physicalBounds;
 
         /// <summary>
-        /// The chain-start frame: the origin at the chain-start <see cref="EffectTarget.Bounds"/> size,
-        /// mapped by every item alongside them. Subtracting its position from the mapped Bounds position
-        /// leaves the chain-start Bounds position under the accumulated linear part, which is the anchor
-        /// the flush frame needs. The matching size is what makes that subtraction cancel: a bounds map
-        /// displaces two rects by the same amount only while their sizes agree.
+        /// The chain-start frame, mapped alongside Bounds, whose position anchors the flush frame. It keeps the
+        /// chain-start Bounds size because a bounds map displaces two rects equally only while their sizes agree.
         /// </summary>
         public Rect AnchorFrame { get; set; } = anchorFrame;
     }

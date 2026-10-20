@@ -14,7 +14,7 @@ using LibraryService = Beutl.Api.Services.LibraryService;
 
 namespace Beutl.ViewModels.ExtensionsPages;
 
-public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageViewModel
+public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
 {
     private readonly ILogger _logger = Log.CreateLogger<RemoteUserPackageViewModel>();
     private readonly CompositeDisposable _disposables = [];
@@ -289,7 +289,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
 
     bool IUserPackageViewModel.IsRemote => true;
 
-    public override void Dispose()
+    public void Dispose()
     {
         _disposables.Dispose();
     }

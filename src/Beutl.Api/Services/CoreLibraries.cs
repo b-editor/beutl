@@ -20,6 +20,11 @@ internal static class CoreLibraries
             .ToFrozenDictionary(x => x.Key, x => x.ToArray()));
     private static List<PackageIdentity>? s_preferredVersions;
 
+    // Beutl's packed and host-resolved libraries, listed from the projects' marks; they always come from the host.
+    private static readonly FrozenSet<string> s_beutlLibraries = ReadBeutlLibraries();
+
+    public static bool IsBeutlLibrary(string name) => s_beutlLibraries.Contains(name);
+
     public static IEnumerable<PackageIdentity> GetPreferredVersions()
     {
         s_preferredVersions ??= CollectPackageDependencies()
@@ -58,7 +63,8 @@ internal static class CoreLibraries
                     string fileName = Path.GetFileNameWithoutExtension(item.Path);
                     string? version = item.AssemblyVersion;
 
-                    if (version == null && IsBeutlAssembly(fileName))
+                    // Beutl's own libraries have no version in the deps file, so they take the application's.
+                    if (version == null && IsBeutlLibrary(fileName))
                     {
                         version = BeutlApplication.Version;
                     }
@@ -79,45 +85,18 @@ internal static class CoreLibraries
             ?? throw new InvalidOperationException();
     }
 
-    // Beutl's own project assemblies have no version in the deps file, so they take the application's.
-    private static bool IsBeutlAssembly(string fileName)
+    private static FrozenSet<string> ReadBeutlLibraries()
     {
-        switch (fileName)
-        {
-            case "Beutl":
-            case "Beutl.Api":
-            case "Beutl.Configuration":
-            case "Beutl.Controls":
-            case "Beutl.Core":
-            case "Beutl.Extensions.FFmpeg":
-            case "Beutl.Embedding.MediaFoundation" when OperatingSystem.IsWindows():
-            case "Beutl.Extensions.AVFoundation" when OperatingSystem.IsMacOS():
-            case "Beutl.Engine":
-            case "Beutl.Extensibility":
-            case "Beutl.Language":
-            case "Beutl.NodeGraph":
-            case "Beutl.ProjectSystem":
-            case "Beutl.Threading":
-            case "Beutl.Utilities":
-            case "Beutl.PackageTools.UI":
-            case "Beutl.ExceptionHandler":
-            case "Beutl.Editor":
-            case "Beutl.Editor.Components":
-            case "Beutl.Engine.SourceGenerators":
-                return true;
-            default:
-                return false;
-        }
+        using Stream stream = typeof(CoreLibraries).Assembly.GetManifestResourceStream("BeutlLibraries.txt")!;
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd()
+            .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .ToFrozenSet(StringComparer.OrdinalIgnoreCase);
     }
 
     private static FrozenDictionary<string, string[]> RuntimeDepsMap => s_runtimeMap.Value;
 
     private static FrozenDictionary<string, string[]> PackageDepsMap => s_pkgMap.Value;
-
-    // Extensions packed by SDKs up to 2.0.0-preview.8 list the source generator as a dependency, but it
-    // only runs at build time and is not published on any source the installer searches.
-    private static bool IsBuildOnlyPackage(string name)
-        => string.Equals(name, "Beutl.Engine.SourceGenerators", StringComparison.OrdinalIgnoreCase);
 
     public static bool IncludedInRuntimeDependencies(string name, Version? version)
     {
@@ -138,9 +117,10 @@ internal static class CoreLibraries
         return false;
     }
 
+    // A Beutl library counts as included at any version, so the installer never downloads one.
     public static bool IncludedInPackageDependencies(string name, NuGetVersion version)
     {
-        if (IsBuildOnlyPackage(name))
+        if (IsBeutlLibrary(name))
             return true;
 
         if (PackageDepsMap.TryGetValue(name, out string[]? installedVersions))
@@ -157,7 +137,7 @@ internal static class CoreLibraries
 
     public static bool IncludedInPackageDependencies(string name, VersionRange versionRange)
     {
-        if (IsBuildOnlyPackage(name))
+        if (IsBeutlLibrary(name))
             return true;
 
         if (PackageDepsMap.TryGetValue(name, out string[]? installedVersions))

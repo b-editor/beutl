@@ -61,15 +61,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{TemplateBinding CornerRadius}">
-                        <!--<Border.Transitions>
-                            <Transitions>
-                                <ThicknessTransition Easing="0,0 0,1"
-                                                     Property="Margin"
-                                                     Duration="00:00:00.167" />
-                            </Transitions>
-                        </Border.Transitions>-->
-                    </Border>
+                            CornerRadius="{TemplateBinding CornerRadius}" />
                     <ContentPresenter Name="PART_ContentPresenter"
                                       Margin="0,3"
                                       Padding="{TemplateBinding Padding}"

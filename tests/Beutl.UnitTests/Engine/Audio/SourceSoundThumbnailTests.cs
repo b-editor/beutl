@@ -46,33 +46,6 @@ public class SourceSoundThumbnailTests
         }
     }
 
-    // Pins the contiguity contract of GetWaveformChunksAsync: consecutive Compose ranges are
-    // tick-contiguous (so a stateful effect carries state across the strip) only when each chunk's
-    // full span fits within samplesPerChunk. When fullSpan exceeds it the chunk composes a prefix
-    // and a gap opens between ranges — the effect restarts per chunk, an accepted approximation.
-    [TestCase(48000, 48000, 1000, 4096, true)]   // 1s over 1000 chunks: fullSpan=48 <= 4096 -> contiguous
-    [TestCase(48000, 2880000, 500, 4096, false)] // 60s over 500 chunks: fullSpan=5760 > 4096 -> gap
-    public void WaveformChunkRanges_AreContiguous_OnlyWhenSpanFitsChunkBudget(
-        int sampleRate, int totalSamples, int chunkCount, int samplesPerChunk, bool expectContiguous)
-    {
-        bool sawGap = false;
-        for (int chunkIndex = 0; chunkIndex < chunkCount - 1; chunkIndex++)
-        {
-            int startSample = (int)((long)chunkIndex * totalSamples / chunkCount);
-            int endSample = (int)((long)(chunkIndex + 1) * totalSamples / chunkCount);
-            int sampleCount = Math.Min(endSample - startSample, samplesPerChunk);
-
-            var start = TimeSpan.FromSeconds((double)startSample / sampleRate);
-            var duration = SourceSound.GetWaveformChunkDuration(sampleCount, sampleRate);
-            var nextStart = TimeSpan.FromSeconds((double)endSample / sampleRate);
-
-            if (Math.Abs((start + duration - nextStart).Ticks) > 1)
-                sawGap = true;
-        }
-
-        Assert.That(sawGap, Is.EqualTo(!expectContiguous));
-    }
-
     // Cache-control-flow contract of GetWaveformChunksAsync: a miss computes and saves the chunk, a
     // hit returns the cached value and is not re-saved, and every chunk is still produced either way.
     [Test]

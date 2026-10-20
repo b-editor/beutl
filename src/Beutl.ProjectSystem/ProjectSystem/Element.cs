@@ -75,7 +75,7 @@ public class Element : Hierarchical, INotifyEdited
             .Accessor(o => o.ExitTransition, (o, v) => o.ExitTransition = v)
             .Register();
 
-        Hierarchy<Element>(EnterTransitionProperty, ExitTransitionProperty);
+        Hierarchy(EnterTransitionProperty, ExitTransitionProperty);
     }
 
     public Element()
@@ -88,7 +88,6 @@ public class Element : Hierarchical, INotifyEdited
 
     public event EventHandler? Edited;
 
-    // 0以上
     [Display(Name = nameof(Strings.StartTime), ResourceType = typeof(Strings))]
     public TimeSpan Start
     {
@@ -298,19 +297,12 @@ public class Element : Hierarchical, INotifyEdited
                 {
                     return new TimeRange(((CorePropertyChangedEventArgs<TimeSpan>)args).OldValue, Length);
                 }
-                else if (e.Property == LengthProperty)
-                {
-                    return new TimeRange(Start, ((CorePropertyChangedEventArgs<TimeSpan>)args).OldValue);
-                }
-                else
-                {
-                    return default;
-                }
+
+                return new TimeRange(Start, ((CorePropertyChangedEventArgs<TimeSpan>)args).OldValue);
             }
 
             if (e.Property == StartProperty || e.Property == LengthProperty)
             {
-                // 全EngineObjectのTimeRangeを更新
                 TimeRange newRange = Range;
                 foreach (EngineObject obj in _objects)
                 {
@@ -410,7 +402,7 @@ public class Element : Hierarchical, INotifyEdited
         if (HierarchicalParent is Scene scene)
         {
             Element? tmp = null;
-            foreach (Element? item in scene.Children.GetMarshal().Value)
+            foreach (Element? item in scene.Children.AsSpan())
             {
                 if (item != this && item.ZIndex == zindex && item.Start < start)
                 {
@@ -431,7 +423,7 @@ public class Element : Hierarchical, INotifyEdited
         if (HierarchicalParent is Scene scene)
         {
             Element? tmp = null;
-            foreach (Element? item in scene.Children.GetMarshal().Value)
+            foreach (Element? item in scene.Children.AsSpan())
             {
                 if (item != this && item.ZIndex == zindex && item.Range.End > end)
                 {
@@ -456,7 +448,7 @@ public class Element : Hierarchical, INotifyEdited
             Element? coverTmp = null;
             var range = TimeRange.FromRange(start, end);
 
-            foreach (Element? item in scene.Children.GetMarshal().Value)
+            foreach (Element? item in scene.Children.AsSpan())
             {
                 if (item != this && item.ZIndex == zindex)
                 {

@@ -8,6 +8,7 @@ using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.Fusion.FusionBoundaryExecutionTestSupport;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Fusion;
 
@@ -18,7 +19,6 @@ public sealed class ExecutionIslandAuthorityTests
     private static readonly Rect s_bounds = new(0, 0, 24, 16);
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void TerminalOpacity_DispatchesTheCompiledRunBeforeSemanticReplay()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -26,7 +26,7 @@ public sealed class ExecutionIslandAuthorityTests
         {
             using RenderTarget source = FusionBoundaryExecutionTestSupport.CreatePatternSource(s_bounds);
             using var node = new TerminalOpacityNode(source);
-            using var renderer = CreateRenderer(node);
+            using var renderer = CreateRenderer(node, s_bounds, FusionMode.Enabled);
 
             using RenderNodeRasterization result = renderer.Rasterize();
 
@@ -44,7 +44,6 @@ public sealed class ExecutionIslandAuthorityTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void SameBackendCompiledRun_HasNoExecutorManagedFlush()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -55,7 +54,7 @@ public sealed class ExecutionIslandAuthorityTests
                 ?? throw new InvalidOperationException("Could not allocate the flush-test destination.");
             using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview, logicalSize: s_bounds.Size);
             using var node = new TerminalOpacityNode(source);
-            using var renderer = CreateRenderer(node);
+            using var renderer = CreateRenderer(node, s_bounds, FusionMode.Enabled);
             var observed = new ConcurrentQueue<ImmediateCanvasFlushKind>();
 
             using (ImmediateCanvas.ObserveFlushes(observed.Enqueue))
@@ -85,14 +84,10 @@ public sealed class ExecutionIslandAuthorityTests
                     out ExecutionIslandMembership membership),
                 Is.True);
             Assert.That(membership.Island.ShaderRun, Is.Null);
-            Assert.That(compiled.ExecutionPlan.Boundaries,
-                Has.Some.Matches<ExecutionIslandBoundary>(static boundary =>
-                    boundary.Reason == ExecutionIslandBoundaryReason.SemanticComposite));
         });
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void OpacityOnly_RuntimeUsesSemanticReplayWithOneGpuPass()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -101,7 +96,7 @@ public sealed class ExecutionIslandAuthorityTests
             using RenderTarget source = FusionBoundaryExecutionTestSupport.CreatePatternSource(s_bounds);
             using Bitmap sourceBitmap = source.Snapshot();
             using var node = new OpacityOnlyNode(source);
-            using var renderer = CreateRenderer(node);
+            using var renderer = CreateRenderer(node, s_bounds, FusionMode.Enabled);
 
             using RenderNodeRasterization result = renderer.Rasterize();
             double maximumDifference = MaximumOpacityDifference(sourceBitmap, result.Bitmap!, 0.625f);
@@ -136,7 +131,6 @@ public sealed class ExecutionIslandAuthorityTests
 
     [TestCase(false)]
     [TestCase(true)]
-    [Category("GpuPassFusionGpu")]
     public void DeclaredInputReadback_IsPlannedAndCountedOnlyAtActualUse(bool opaque)
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -149,9 +143,6 @@ public sealed class ExecutionIslandAuthorityTests
                 s_bounds,
                 FusionMode.Enabled);
 
-            ExecutionIslandBoundaryReason semanticReason = opaque
-                ? ExecutionIslandBoundaryReason.Opaque
-                : ExecutionIslandBoundaryReason.Geometry;
             Assert.Multiple(() =>
             {
                 Assert.That(FusionBoundaryExecutionTestSupport.SumAbsoluteChannels(result.Bitmap),
@@ -195,10 +186,7 @@ public sealed class ExecutionIslandAuthorityTests
     {
         using CompiledRenderRequest compiled = CompileTerminalOpacity();
         CompiledShaderRun run = compiled.ExecutionPlan.ShaderRuns.Single();
-        var invalid = new ExecutionIslandPlan(
-            compiled.Graph.Fragments.Length,
-            [],
-            compiled.ExecutionPlan.Boundaries);
+        var invalid = new ExecutionIslandPlan(compiled.Graph.Fragments.Length, []);
         ExecutionIslandExecutionLedger ledger = invalid.CreateExecutionLedger(compiled.Graph);
 
         Assert.That(
@@ -219,8 +207,7 @@ public sealed class ExecutionIslandAuthorityTests
                 new ExecutionIsland(
                     1,
                     [0]),
-            ],
-            []),
+            ]),
             Throws.ArgumentException.With.Message.Contains("more than one execution island"));
     }
 
@@ -245,10 +232,10 @@ public sealed class ExecutionIslandAuthorityTests
         RecordedRenderGraph otherGraph = BuildGraph(
             fixture.Graph.RequestId,
             [
-                Fragment(RenderFragmentKind.MaterializedInput, EffectiveScale.At(1), payload: null),
-                Fragment(RenderFragmentKind.Geometry, EffectiveScale.At(1), payload: null),
-                Fragment(RenderFragmentKind.MaterializedInput, EffectiveScale.At(1), payload: null),
-                Fragment(RenderFragmentKind.Geometry, EffectiveScale.At(1), payload: null),
+                Fragment(RenderFragmentKind.MaterializedInput, s_bounds, EffectiveScale.At(1), payload: null),
+                Fragment(RenderFragmentKind.Geometry, s_bounds, EffectiveScale.At(1), payload: null),
+                Fragment(RenderFragmentKind.MaterializedInput, s_bounds, EffectiveScale.At(1), payload: null),
+                Fragment(RenderFragmentKind.Geometry, s_bounds, EffectiveScale.At(1), payload: null),
             ],
             []);
 
@@ -276,81 +263,68 @@ public sealed class ExecutionIslandAuthorityTests
         });
     }
 
-    private static RenderNodeRenderer CreateRenderer(
-        RenderNode node)
-        => new(node, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            TargetDomain = s_bounds,
-            OutputScale = 1,
-            MaxWorkingScale = 1,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            FusionMode = FusionMode.Enabled,
-            Purpose = RenderRequestPurpose.Frame,
-        });
-
     private static CompiledRenderRequest CompileTerminalOpacity()
-    {
-        var options = new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame,
-            targetDomain: s_bounds,
-            cachePolicy: RenderCacheOptions.Disabled,
-            fusionMode: FusionMode.Enabled);
-        var request = new RenderRequest(options);
-        RenderFragmentReference source = Fragment(
-            RenderFragmentKind.MaterializedInput,
-            EffectiveScale.At(1),
-            payload: null);
-        ShaderDescription shader = ShaderDescription.CurrentPixel(
-            "half4 apply(half4 color) { return half4(color.bgr, color.a); }");
-        RenderFragmentReference stage = Fragment(
-            RenderFragmentKind.Shader,
-            EffectiveScale.Unbounded,
-            new ShaderRenderFragmentPayload(shader),
-            source);
-        RenderFragmentReference opacity = Fragment(
-            RenderFragmentKind.Opacity,
-            EffectiveScale.Unbounded,
-            new OpacityRenderFragmentPayload(
-                0.625f,
-                OpacityRenderNode.CreateFusionDescription(0.625f)),
-            stage);
-        RecordedRenderGraph graph = BuildGraph(request.Id, [source, stage, opacity], [opacity]);
-        request.TransitionTo(RenderRequestState.Recording);
-        request.TransitionTo(RenderRequestState.Recorded);
-        return new RenderRequestCompiler().Compile(request, graph);
-    }
+        => CompileGraph(
+            new RenderRequestOptions(
+                RenderIntent.Preview,
+                RenderRequestPurpose.Frame,
+                targetDomain: s_bounds,
+                cachePolicy: RenderCacheOptions.Disabled,
+                fusionMode: FusionMode.Enabled),
+            requestId =>
+            {
+                RenderFragmentReference source = Fragment(
+                    RenderFragmentKind.MaterializedInput,
+                    s_bounds,
+                    EffectiveScale.At(1),
+                    payload: null);
+                ShaderDescription shader = ShaderDescription.CurrentPixel(
+                    "half4 apply(half4 color) { return half4(color.bgr, color.a); }");
+                RenderFragmentReference stage = Fragment(
+                    RenderFragmentKind.Shader,
+                    s_bounds,
+                    EffectiveScale.Unbounded,
+                    new ShaderRenderFragmentPayload(shader),
+                    source);
+                RenderFragmentReference opacity = Fragment(
+                    RenderFragmentKind.Opacity,
+                    s_bounds,
+                    EffectiveScale.Unbounded,
+                    new OpacityRenderFragmentPayload(
+                        0.625f,
+                        OpacityRenderNode.CreateFusionDescription(0.625f)),
+                    stage);
+                return BuildGraph(requestId, [source, stage, opacity], [opacity]);
+            });
 
     private static CompiledRenderRequest CompileOpacityOnly()
-    {
-        var options = new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame,
-            targetDomain: s_bounds,
-            cachePolicy: RenderCacheOptions.Disabled,
-            fusionMode: FusionMode.Enabled);
-        var request = new RenderRequest(options);
-        RenderFragmentReference source = Fragment(
-            RenderFragmentKind.MaterializedInput,
-            EffectiveScale.At(1),
-            payload: null);
-        RenderFragmentReference opacity = Fragment(
-            RenderFragmentKind.Opacity,
-            EffectiveScale.At(1),
-            new OpacityRenderFragmentPayload(
-                0.625f,
-                OpacityRenderNode.CreateFusionDescription(0.625f)),
-            source);
-        RecordedRenderGraph graph = BuildGraph(request.Id, [source, opacity], [opacity]);
-        request.TransitionTo(RenderRequestState.Recording);
-        request.TransitionTo(RenderRequestState.Recorded);
-        return new RenderRequestCompiler().Compile(request, graph);
-    }
+        => CompileGraph(
+            new RenderRequestOptions(
+                RenderIntent.Preview,
+                RenderRequestPurpose.Frame,
+                targetDomain: s_bounds,
+                cachePolicy: RenderCacheOptions.Disabled,
+                fusionMode: FusionMode.Enabled),
+            requestId =>
+            {
+                RenderFragmentReference source = Fragment(
+                    RenderFragmentKind.MaterializedInput,
+                    s_bounds,
+                    EffectiveScale.At(1),
+                    payload: null);
+                RenderFragmentReference opacity = Fragment(
+                    RenderFragmentKind.Opacity,
+                    s_bounds,
+                    EffectiveScale.At(1),
+                    new OpacityRenderFragmentPayload(
+                        0.625f,
+                        OpacityRenderNode.CreateFusionDescription(0.625f)),
+                    source);
+                return BuildGraph(requestId, [source, opacity], [opacity]);
+            });
 
     private static (
         RecordedRenderGraph Graph,
-        ImmutableArray<RenderFragmentReference> Roots,
         ExecutionIslandPlan Plan,
         RenderFragmentReference First,
         RenderFragmentReference Second) CreateReversePublicationFixture()
@@ -358,19 +332,23 @@ public sealed class ExecutionIslandAuthorityTests
         var requestId = new RenderRequestId(1);
         RenderFragmentReference firstSource = Fragment(
             RenderFragmentKind.MaterializedInput,
+            s_bounds,
             EffectiveScale.At(1),
             payload: null);
         RenderFragmentReference first = Fragment(
             RenderFragmentKind.Geometry,
+            s_bounds,
             EffectiveScale.At(1),
             payload: null,
             firstSource);
         RenderFragmentReference secondSource = Fragment(
             RenderFragmentKind.MaterializedInput,
+            s_bounds,
             EffectiveScale.At(1),
             payload: null);
         RenderFragmentReference second = Fragment(
             RenderFragmentKind.Geometry,
+            s_bounds,
             EffectiveScale.At(1),
             payload: null,
             secondSource);
@@ -388,41 +366,8 @@ public sealed class ExecutionIslandAuthorityTests
                 new ExecutionIsland(
                     1,
                     [3]),
-            ],
-            []);
-        return (graph, roots, plan, first, second);
-    }
-
-    private static RenderFragmentReference Fragment(
-        RenderFragmentKind kind,
-        EffectiveScale scale,
-        object? payload,
-        params RenderFragmentReference[] inputs)
-        => new(
-            kind,
-            s_bounds,
-            scale,
-            RenderValueCardinality.Single,
-            contributesValuesToTarget: true,
-            canBeUsedAsValueInput: true,
-            hasTargetEffects: false,
-            hasOpaqueExternalWork: false,
-            [.. inputs],
-            payload,
-            RenderFragmentHitTest.Bounds);
-
-    private static RecordedRenderGraph BuildGraph(
-        RenderRequestId requestId,
-        IReadOnlyList<RenderFragmentReference> references,
-        IReadOnlyList<RenderFragmentReference> roots)
-    {
-        var builder = new RecordedRenderGraphBuilder(requestId);
-        foreach (RenderFragmentReference reference in references)
-            builder.AddFragment(reference);
-
-        foreach (RenderFragmentReference root in roots)
-            builder.PublishRoot(root.Id!.Value);
-        return builder.Build();
+            ]);
+        return (graph, plan, first, second);
     }
 
     private sealed class TerminalOpacityNode(RenderTarget source) : RenderNode
@@ -432,16 +377,7 @@ public sealed class ExecutionIslandAuthorityTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderResource<RenderTarget> resource = context.Borrow(
-                source);
-            RenderFragmentHandle current = context.MaterializedInput(
-                MaterializedInputDescription.FromRenderTarget(
-                    resource,
-                    s_bounds,
-                    EffectiveScale.At(1),
-                    PixelRect.FromRect(s_bounds, 1),
-                    default,
-                    RenderHitTestContract.OutputBounds));
+            RenderFragmentHandle current = BorrowMaterializedInput(context, source, s_bounds);
             current = context.Shader(current, s_shader);
             current = context.Opacity(current, 0.625f);
             context.Publish(current);
@@ -452,16 +388,7 @@ public sealed class ExecutionIslandAuthorityTests
     {
         public override void Process(RenderNodeContext context)
         {
-            RenderResource<RenderTarget> resource = context.Borrow(
-                source);
-            RenderFragmentHandle current = context.MaterializedInput(
-                MaterializedInputDescription.FromRenderTarget(
-                    resource,
-                    s_bounds,
-                    EffectiveScale.At(1),
-                    PixelRect.FromRect(s_bounds, 1),
-                    default,
-                    RenderHitTestContract.OutputBounds));
+            RenderFragmentHandle current = BorrowMaterializedInput(context, source, s_bounds);
             current = context.Opacity(current, 0.625f);
             context.Publish(current);
         }
@@ -471,16 +398,7 @@ public sealed class ExecutionIslandAuthorityTests
     {
         public override void Process(RenderNodeContext context)
         {
-            RenderResource<RenderTarget> resource = context.Borrow(
-                source);
-            RenderFragmentHandle current = context.MaterializedInput(
-                MaterializedInputDescription.FromRenderTarget(
-                    resource,
-                    s_bounds,
-                    EffectiveScale.At(1),
-                    PixelRect.FromRect(s_bounds, 1),
-                    default,
-                    RenderHitTestContract.OutputBounds));
+            RenderFragmentHandle current = BorrowMaterializedInput(context, source, s_bounds);
             current = opaque
                 ? context.OpaqueMap(
                     current,

@@ -121,9 +121,6 @@ public sealed class BpmGridOverlay : Control
         if (!_bpmOptions.IsEnabled || _bpmOptions.Bpm <= 0 || _scale <= 0)
             return;
 
-        _beatPen ??= CreatePen(BeatBrush, 1.0, 0.45);
-        _subdivisionPen ??= CreatePen(SubdivisionBrush, 0.5, 0.25);
-
         if (_beatPen == null)
             return;
 

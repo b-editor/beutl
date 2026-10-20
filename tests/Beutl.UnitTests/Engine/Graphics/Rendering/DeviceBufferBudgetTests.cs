@@ -2,7 +2,6 @@
 using System.Runtime.InteropServices;
 
 using Beutl.Composition;
-using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
@@ -37,6 +36,9 @@ public sealed class DeviceBufferBudgetTests
 
     // Small enough that clipping a particle union to it is unmistakable against the union's own extent.
     private static readonly Size s_particleFrame = new(256, 144);
+
+    // The density the last device-clamped effect item published at.
+    private static float s_lastPublishedDensity;
 
     // Between the named budget and the engine ceiling, so only a budget that knows the device clips it.
     private const float ParticleUnionWidth = 9000f;
@@ -213,11 +215,8 @@ public sealed class DeviceBufferBudgetTests
     [Test]
     public void OneTypeAnswersEveryBufferDimensionQuestion()
     {
-        // This replaced six public spellings of one concept, two of which shared the identifier
-        // MaxBufferDimension and answered different numbers - the engine ceiling and the device's own limit.
-        // Reading one from muscle memory where the other was meant is how an over-limit attachment reaches a
-        // driver that reports it as undefined behaviour rather than as a failed allocation, and it is how the
-        // CI failure that motivated this got in. A second public member naming the concept re-opens that.
+        // BufferDimensionBudget is the only public name for a buffer-dimension limit; a second one would
+        // reintroduce the ceiling/device mix-up.
         string[] offenders = typeof(BufferDimensionBudget).Assembly
             .GetExportedTypes()
             .Where(type => type != typeof(BufferDimensionBudget) && type != typeof(BufferBudgetScope))
@@ -277,7 +276,7 @@ public sealed class DeviceBufferBudgetTests
     {
         // The two scopes are inverses, so falling through to either one for a value that names neither
         // would hand the caller the opposite answer in exactly the situations the scope exists to tell
-        // apart. Enum.IsDefined is not free here - the switch has no default budget to fall back on.
+        // apart.
         Assert.That(
             () => BufferDimensionBudget.Resolve((BufferBudgetScope)(-1)),
             Throws.InstanceOf<ArgumentOutOfRangeException>());
@@ -292,13 +291,6 @@ public sealed class DeviceBufferBudgetTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(
-                () => new CustomFilterEffectContext(
-                    targets,
-                    RenderIntent.Delivery,
-                    RenderRequestPurpose.Auxiliary,
-                    budget: default(BufferDimensionBudget)),
-                Throws.InstanceOf<ArgumentOutOfRangeException>());
             Assert.That(
                 () => new FilterEffectExecutor(
                     targets,
@@ -508,10 +500,8 @@ public sealed class DeviceBufferBudgetTests
             RenderIntent.Preview,
             ContextAttaching(DeviceBudget));
 
-        // On the render dispatcher the pool's own allocator does attach through a shared context, so the
-        // named device's limit is the one that binds - and it has to bind before the allocator is reached,
-        // because an attachment the device cannot make is undefined behaviour rather than a failed
-        // allocation. Nothing here allocates, so no real context is ever created to observe that.
+        // On the render dispatcher the named device's limit must bind before the pool's allocator attaches,
+        // since an attachment the device cannot make is undefined behaviour; nothing here allocates.
         (int budget, bool refuses, bool acquired, RenderTargetLease? declined, Exception? refusal) =
             RenderThread.Dispatcher.Invoke(() =>
             {
@@ -887,13 +877,13 @@ public sealed class DeviceBufferBudgetTests
     {
         float plannedDensity = BufferDimensionBudget.EngineCeiling
             .ClampWorkingScaleToExactFootprint(s_overBudgetDomain, 1f);
-        var effect = new DeviceClampedCustomEffect();
+        FilterEffect effect = CreateDeviceClampedCustomEffect();
         var effectNode = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(
             ScaleRecordingTestHelper.Source(EffectiveScale.At(1), s_overBudgetDomain),
             effectNode);
         for (int i = 0; i < RenderNodeCache.StableRequestCount; i++)
-            RenderNodeCacheHelper.BeginLifecycle(effectNode).CompleteSuccessfully(advanceWarmup: true);
+            RenderNodeCacheLifecycle.Create(effectNode).CompleteSuccessfully(advanceWarmup: true);
 
         RenderCacheDecision[] segmentDecisions = ResolveEffectSegmentDecisions(pipeline);
         using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
@@ -913,14 +903,14 @@ public sealed class DeviceBufferBudgetTests
         {
             Assert.That(plannedDensity, Is.EqualTo(1f),
                 "the fixture must plan at a density the engine ceiling leaves alone");
-            Assert.That(DeviceClampedCustomEffect.LastPublishedDensity, Is.LessThan(plannedDensity),
+            Assert.That(s_lastPublishedDensity, Is.LessThan(plannedDensity),
                 "the fixture must publish a target the device clamped below the planned density");
             Assert.That(segmentDecisions, Is.Not.Empty,
                 "the fixture must reach the cache candidate whose key the clamped density would break");
             Assert.That(
                 segmentDecisions,
-                Has.All.Property(nameof(RenderCacheDecision.BypassReason))
-                    .EqualTo(RenderCacheBypassReason.RawTargetWork));
+                Has.All.Property(nameof(RenderCacheDecision.Kind))
+                    .EqualTo(RenderCacheResolutionKind.Bypass));
             Assert.That(first.IsEmpty, Is.False);
             Assert.That(second.IsEmpty, Is.False);
             Assert.That(effectNode.Cache.IsCached, Is.False,
@@ -975,12 +965,8 @@ public sealed class DeviceBufferBudgetTests
     /// The widest buffer a particle emitter asks for when one particle sits <paramref name="unionWidth"/>
     /// logical pixels away, with <paramref name="device"/> installed as the shared context.
     /// </summary>
-    /// <remarks>
-    /// The allocation is what the pool refuses on a real device, so the request the emitter makes is what the
-    /// clip decision has to be read from. The strict device answers only its limit and whether it renders 3D -
-    /// the one question the renderer puts to it, once per request before anything records - so a recording
-    /// that reached it any other way fails here rather than silently.
-    /// </remarks>
+    /// <remarks>The pool refuses this allocation on a real device, so the clip decision is read from the request;
+    /// the strict device fails any query beyond its limit and whether it renders 3D.</remarks>
     private static int WidestParticleAllocation(IGraphicsContext? device, float unionWidth)
     {
         var emitter = new ParticleEmitter
@@ -1053,10 +1039,8 @@ public sealed class DeviceBufferBudgetTests
     }
 
     /// <summary>Runs <paramref name="body"/> with <paramref name="device"/> installed as the shared context.</summary>
-    /// <remarks>
-    /// A caller that cannot build a device can only read one that is already installed, so this is the state
-    /// such a caller sees - and standing in for it is what forces a sub-ceiling device on any GPU.
-    /// </remarks>
+    /// <remarks>A caller that cannot build a device reads the installed one; standing in for it forces a
+    /// sub-ceiling device on any GPU.</remarks>
     private static T WithInstalledDevice<T>(IGraphicsContext? device, Func<T> body)
     {
         InstalledGraphics previous = GraphicsContextFactory.ExchangeInstalledGraphics(
@@ -1139,59 +1123,29 @@ public sealed class DeviceBufferBudgetTests
     /// An effect item that publishes at the density a device attaching <see cref="DeviceBudget"/> would have
     /// allocated, which is what <c>CustomFilterEffectContext.CreateTarget</c> hands back on such a device.
     /// </summary>
-    [SuppressResourceClassGeneration]
-    private sealed partial class DeviceClampedCustomEffect : FilterEffect
-    {
-        public static float LastPublishedDensity { get; private set; }
-
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-        {
-            context.CustomEffect(
-                0,
-                static (_, execution) => execution.ForEach((_, source) =>
+    private static FilterEffect CreateDeviceClampedCustomEffect()
+        => new EffectItemSuffixCallbackFilterEffect(static (context, _) => context.CustomEffect(
+            0,
+            static (_, execution) => execution.ForEach((_, source) =>
+            {
+                float density = BufferDimensionBudget.Named(DeviceBudget).ClampWorkingScale(
+                    new Rect(default, source.Bounds.Size), execution.WorkingScale);
+                (int width, int height) = CustomFilterEffectContext.DeviceBufferSize(
+                    source.Bounds,
+                    density);
+                using RenderTarget backing = new CpuRenderTarget(new PixelSize(width, height));
+                var replacement = new EffectTarget(
+                    backing,
+                    source.Bounds,
+                    EffectiveScale.At(density));
+                using (ImmediateCanvas canvas = execution.Open(replacement))
                 {
-                    float density = BufferDimensionBudget.Named(DeviceBudget).ClampWorkingScale(
-                        new Rect(default, source.Bounds.Size), execution.WorkingScale);
-                    (int width, int height) = CustomFilterEffectContext.DeviceBufferSize(
-                        source.Bounds,
-                        density);
-                    using RenderTarget backing = new CpuRenderTarget(new PixelSize(width, height));
-                    var replacement = new EffectTarget(
-                        backing,
-                        source.Bounds,
-                        EffectiveScale.At(density));
-                    using (ImmediateCanvas canvas = execution.Open(replacement))
-                    {
-                        canvas.Clear();
-                        source.Draw(canvas);
-                    }
+                    canvas.Clear();
+                    source.Draw(canvas);
+                }
 
-                    LastPublishedDensity = density;
-                    return replacement;
-                }),
-                static (_, bounds) => bounds);
-        }
-
-        public override Resource ToResource(CompositionContext context)
-        {
-            var resource = new Resource();
-            bool versionBumped = false;
-            resource.Reconcile(this, context, ref versionBumped);
-            return resource;
-        }
-
-        public new sealed class Resource : FilterEffect.Resource;
-    }
-
-    private sealed class CpuRenderTarget(PixelSize size)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                    size.Width,
-                    size.Height,
-                    SKColorType.RgbaF16,
-                    SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear()))
-                ?? throw new InvalidOperationException("Could not create a CPU device-budget test surface."),
-            size.Width,
-            size.Height);
+                s_lastPublishedDensity = density;
+                return replacement;
+            }),
+            static (_, bounds) => bounds));
 }

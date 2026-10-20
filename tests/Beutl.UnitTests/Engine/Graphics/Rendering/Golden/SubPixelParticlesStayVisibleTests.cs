@@ -1,9 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Particles;
-using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
-using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
@@ -53,33 +50,12 @@ public class SubPixelParticlesStayVisibleTests
         emitter.ParticleSize.CurrentValue = particleSize;
         emitter.ParticleColor.CurrentValue = Colors.OrangeRed;
 
-        var scene = new Scene(256, 144, "particles") { Uri = new Uri("file:///particles/scene") };
-        var element = new Element
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(60),
-            ZIndex = 0,
-            IsEnabled = true,
-            Uri = new Uri("file:///particles/element"),
-        };
-        element.AddObject(emitter);
-        scene.Children.Add(element);
-
-        using var renderer = new SceneRenderer(scene, RenderIntent.Preview, 1f, false, 2f)
-        {
-            CacheOptions = RenderCacheOptions.Disabled,
-        };
-        renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.FromSeconds(1)));
-        using Bitmap bitmap = renderer.Snapshot();
-
-        double coverage = 0;
-        for (int y = 0; y < bitmap.Height; y++)
-        {
-            ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y)[..(bitmap.Width * 4)];
-            for (int x = 3; x < row.Length; x += 4)
-                coverage += (float)BitConverter.UInt16BitsToHalf(row[x]);
-        }
-
-        return coverage;
+        using Bitmap bitmap = SceneRenderHarness.RenderSingle(
+            emitter,
+            new PixelSize(256, 144),
+            1f,
+            2f,
+            TimeSpan.FromSeconds(1));
+        return SceneRenderHarness.SumAlpha(bitmap);
     }
 }

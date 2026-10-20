@@ -44,7 +44,6 @@ public static class JsonHelper
             new CoreSerializableJsonConverter(),
             new Vector3JsonConverter(),
             new QuaternionJsonConverter()
-            //new CoreObjectJsonConverter()
         }
     };
 
@@ -62,62 +61,50 @@ public static class JsonHelper
         }
     }
 
-    public static void JsonSave(this IJsonSerializable serializable, string filename)
-    {
-        var json = new JsonObject();
-
-        serializable.WriteToJson(json);
-
-        json.JsonSave(filename);
-    }
-
-    public static void JsonRestore(this IJsonSerializable serializable, string filename)
-    {
-        if (JsonRestore(filename) is JsonObject obj)
-        {
-            serializable.ReadFromJson(obj);
-        }
-    }
-
     public static void JsonSave(this JsonNode node, string filename)
         => JsonSave(node, filename, unixFileMode: null);
 
     internal static void JsonSave(this JsonNode node, string filename, UnixFileMode? unixFileMode)
     {
-        // tmp に書いてから rename することで、書き込み中のクラッシュ・電源断・
-        // ディスクフルでターゲットファイルがゼロバイトで残るのを防ぐ。
-        // 既存ファイルは rename 成功時のみ置き換わるため、ユーザーのプロジェクトや
-        // 設定ファイルが破損しない。
-        // 固定の `.tmp` サフィックスだとユーザーや他ツールが既に持つ同名ファイルを
-        // 上書きしてしまうため、ランダムサフィックスを付与して衝突を避ける。
-        string tmp = $"{filename}.{Guid.NewGuid():N}.tmp";
+        WriteAtomically(filename, writer => node.WriteTo(writer, SerializerOptions), journal: false, unixFileMode);
+    }
+
+    // Writes to a temporary file and renames it over path, so a failure while writing leaves the existing file whole.
+    // The name is random to avoid clobbering an existing file. journal records the write in the active
+    // StorageWriteTransaction; unixFileMode applies only to a write that is not journaled.
+    internal static void WriteAtomically(
+        string path,
+        Action<Utf8JsonWriter> write,
+        bool journal,
+        UnixFileMode? unixFileMode = null,
+        bool isCompatibilityGate = false)
+    {
+        string tmp = $"{path}.{Guid.NewGuid():N}.tmp";
         try
         {
-            var options = new FileStreamOptions
-            {
-                Mode = FileMode.CreateNew,
-                Access = FileAccess.Write,
-                Share = FileShare.None,
-            };
-            if (!OperatingSystem.IsWindows() && (unixFileMode.HasValue || File.Exists(filename)))
-                options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-
-            using (var stream = new FileStream(tmp, options))
+            using (var stream = StorageWriteTransaction.CreateTemporaryFile(
+                       tmp, path, privateContents: unixFileMode.HasValue))
             using (var writer = new Utf8JsonWriter(stream, WriterOptions))
             {
-                node.WriteTo(writer, SerializerOptions);
+                write(writer);
                 writer.Flush();
                 stream.Flush(flushToDisk: true);
+            }
+
+            if (journal)
+            {
+                StorageWriteTransaction.MoveIntoPlace(tmp, path, overwrite: true, isCompatibilityGate);
+                return;
             }
 
             if (!OperatingSystem.IsWindows())
             {
                 // Read the current permissions at publication, after writing privately.
-                UnixFileMode? mode = unixFileMode ?? (File.Exists(filename) ? File.GetUnixFileMode(filename) : null);
+                UnixFileMode? mode = unixFileMode ?? (File.Exists(path) ? File.GetUnixFileMode(path) : null);
                 if (mode is { } permissions)
                     File.SetUnixFileMode(tmp, permissions);
             }
-            File.Move(tmp, filename, overwrite: true);
+            File.Move(tmp, path, overwrite: true);
         }
         catch
         {
@@ -201,35 +188,6 @@ public static class JsonHelper
     public static void WriteDiscriminator(this JsonNode obj, Type type)
     {
         obj["$type"] = TypeFormat.ToString(type);
-    }
-
-    private static Dictionary<string, object> ParseJson(string json)
-    {
-        Dictionary<string, JsonElement> dic = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json)!;
-
-        return dic.ToDictionary(x => x.Key, x => ParseJsonElement(x.Value)!);
-    }
-
-    private static object? ParseJsonElement(JsonElement elem)
-    {
-        return elem.ValueKind switch
-        {
-            JsonValueKind.String => elem.GetString(),
-            JsonValueKind.Number => elem.GetDouble(),
-            JsonValueKind.False => false,
-            JsonValueKind.True => true,
-            JsonValueKind.Array => elem.EnumerateArray().Select(e => ParseJsonElement(e)).ToArray(),
-            JsonValueKind.Null => null,
-            JsonValueKind.Object => ParseJson(elem.GetRawText()),
-            _ => throw new NotSupportedException(),
-        };
-    }
-
-    public static Dictionary<string, object> ToDictionary(this JsonNode json)
-    {
-        Dictionary<string, JsonElement> dic = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json)!;
-
-        return dic.ToDictionary(x => x.Key, x => ParseJsonElement(x.Value)!);
     }
 
     public static bool TryGetPropertyValueAsJsonValue<T>(this JsonObject obj, string propertyName, [NotNullWhen(true)] out T? value)

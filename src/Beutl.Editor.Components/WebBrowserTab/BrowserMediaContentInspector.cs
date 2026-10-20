@@ -32,8 +32,7 @@ internal sealed class BrowserMediaContentInspector
         Encoding? bomEncoding = GetBomEncoding(prefix);
         _encoding = bomEncoding ?? GetDeclaredEncoding(charset) ?? Encoding.UTF8;
         _decoder = _encoding.GetDecoder();
-        // An incorrect charset must not disable the existing UTF-8/ASCII HTML check.
-        // BOMs are authoritative; otherwise both interpretations remain bounded streaming probes.
+        // A declared charset can be wrong; unless a BOM decides the encoding, also probe as UTF-8.
         if (bomEncoding == null && _encoding.CodePage != Encoding.UTF8.CodePage)
             _utf8Fallback = new BrowserMediaContentInspector(Encoding.UTF8);
         Inspect(prefix, isFinal);

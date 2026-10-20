@@ -9,52 +9,22 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 [TestFixture]
 public class EllipseRenderNodeTest
 {
-    [Test]
-    public void Update_ShouldReturnFalse_WhenAllPropertiesMatch()
-    {
-        var rect = new Rect(0, 0, 100, 100);
-        Brush fill = new SolidColorBrush(Colors.Red);
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
-        var fillResource = fill.ToResource(CompositionContext.Default);
-        var penResource = pen.ToResource(CompositionContext.Default);
-
-        var node = new EllipseRenderNode(rect, fillResource, penResource);
-
-        Assert.That(node.Update(rect, fillResource, penResource), Is.False);
-    }
-
-    [Test]
-    public void Update_ShouldReturnTrue_WhenPropertiesDoNotMatch()
-    {
-        var rect1 = new Rect(0, 0, 100, 100);
-        var rect2 = new Rect(0, 0, 200, 200);
-        Brush fill1 = new SolidColorBrush(Colors.Red);
-        Brush fill2 = new SolidColorBrush(Colors.Blue);
-        Pen pen1 = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
-        Pen pen2 = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 2 } };
-        var fillResource1 = fill1.ToResource(CompositionContext.Default);
-        var fillResource2 = fill2.ToResource(CompositionContext.Default);
-        var penResource1 = pen1.ToResource(CompositionContext.Default);
-        var penResource2 = pen2.ToResource(CompositionContext.Default);
-
-        var node = new EllipseRenderNode(rect1, fillResource1, penResource1);
-
-        Assert.That(node.Update(rect2, fillResource1, penResource1), Is.True);
-        Assert.That(node.Update(rect1, fillResource2, penResource1), Is.True);
-        Assert.That(node.Update(rect1, fillResource1, penResource2), Is.True);
-    }
-
-    [Test]
-    public void Update_ShouldNotMarkChanges_WhenAllPropertiesMatch()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Update_ShouldNotMarkChanges_WhenAllPropertiesMatch(bool withPen)
     {
         var rect = new Rect(0, 0, 100, 100);
         var fillResource = new SolidColorBrush(Colors.Red).ToResource(CompositionContext.Default);
-        using var node = new EllipseRenderNode(rect, fillResource, null);
+        Pen.Resource? penResource = withPen
+            ? new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } }
+                .ToResource(CompositionContext.Default)
+            : null;
+        using var node = new EllipseRenderNode(rect, fillResource, penResource);
         node.ClearChanges(node.ChangeVersion);
 
         Assert.Multiple(() =>
         {
-            Assert.That(node.Update(rect, fillResource, null), Is.False);
+            Assert.That(node.Update(rect, fillResource, penResource), Is.False);
             Assert.That(node.HasChanges, Is.False);
         });
     }
@@ -67,7 +37,9 @@ public class EllipseRenderNodeTest
         var fillResource1 = new SolidColorBrush(Colors.Red).ToResource(CompositionContext.Default);
         var fillResource2 = new SolidColorBrush(Colors.Blue).ToResource(CompositionContext.Default);
         Pen pen = new() { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
+        Pen thickerPen = new() { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 2 } };
         var penResource = pen.ToResource(CompositionContext.Default);
+        var thickerPenResource = thickerPen.ToResource(CompositionContext.Default);
         using var node = new EllipseRenderNode(rect1, fillResource1, null);
 
         node.ClearChanges(node.ChangeVersion);
@@ -82,6 +54,10 @@ public class EllipseRenderNodeTest
         bool penChanged = node.Update(rect2, fillResource2, penResource);
         bool penMarked = node.HasChanges;
 
+        node.ClearChanges(node.ChangeVersion);
+        bool penThicknessChanged = node.Update(rect2, fillResource2, thickerPenResource);
+        bool penThicknessMarked = node.HasChanges;
+
         Assert.Multiple(() =>
         {
             Assert.That(rectChanged, Is.True);
@@ -90,6 +66,8 @@ public class EllipseRenderNodeTest
             Assert.That(fillMarked, Is.True);
             Assert.That(penChanged, Is.True);
             Assert.That(penMarked, Is.True);
+            Assert.That(penThicknessChanged, Is.True);
+            Assert.That(penThicknessMarked, Is.True);
         });
     }
 
@@ -103,13 +81,13 @@ public class EllipseRenderNodeTest
         for (int frame = 0; frame < RenderNodeCache.StableRequestCount; frame++)
         {
             node.Update(rect, fillResource, null);
-            RenderNodeCacheHelper.BeginLifecycle(node).CompleteSuccessfully(advanceWarmup: true);
+            RenderNodeCacheLifecycle.Create(node).CompleteSuccessfully(advanceWarmup: true);
         }
 
         Assert.That(node.Cache.CanCapture, Is.True, "a stable ellipse must become a cache candidate");
 
         node.Update(new Rect(0, 0, 200, 200), fillResource, null);
-        RenderNodeCacheHelper.BeginLifecycle(node);
+        RenderNodeCacheLifecycle.Create(node);
 
         Assert.That(node.Cache.CanCapture, Is.False);
     }
@@ -134,8 +112,9 @@ public class EllipseRenderNodeTest
         });
     }
 
-    [Test]
-    public void HitTest_ShouldReturnTrue_WhenPointIsInsideEllipse()
+    [TestCase(50f, 50f, true)]
+    [TestCase(150f, 150f, false)]
+    public void HitTest_ShouldReturnWhetherPointIsInsideEllipse(float x, float y, bool expected)
     {
         var rect = new Rect(0, 0, 100, 100);
         Brush fill = new SolidColorBrush(Colors.Red);
@@ -144,24 +123,8 @@ public class EllipseRenderNodeTest
         var penResource = pen.ToResource(CompositionContext.Default);
         using var node = new EllipseRenderNode(rect, fillResource, penResource);
         using var renderer = CreateRenderer(node);
-        var point = new Point(50, 50);
 
-        Assert.That(renderer.HitTest(point), Is.True);
-    }
-
-    [Test]
-    public void HitTest_ShouldReturnFalse_WhenPointIsOutsideEllipse()
-    {
-        var rect = new Rect(0, 0, 100, 100);
-        Brush fill = new SolidColorBrush(Colors.Red);
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
-        var fillResource = fill.ToResource(CompositionContext.Default);
-        var penResource = pen.ToResource(CompositionContext.Default);
-        using var node = new EllipseRenderNode(rect, fillResource, penResource);
-        using var renderer = CreateRenderer(node);
-        var point = new Point(150, 150);
-
-        Assert.That(renderer.HitTest(point), Is.False);
+        Assert.That(renderer.HitTest(new Point(x, y)), Is.EqualTo(expected));
     }
 
     [Test]

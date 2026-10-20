@@ -40,16 +40,14 @@ public partial class EditViewModel
     private async Task AddMarkerAsync(IContextCommandInteraction interaction)
     {
         // The marker goes where the playhead was when the command ran, not where playback has moved it to since.
-        int rate = Player.GetFrameRate();
-        TimeSpan time = _editorClock.CurrentTime.Value.RoundToRate(rate);
-        if (time < TimeSpan.Zero) time = TimeSpan.Zero;
+        (int rate, TimeSpan time, string defaultName) = GetMarkerPlacement();
 
         // A frame keeps one marker: Toggle marker removes only one of two markers sharing a frame,
         // so an existing one is renamed instead of duplicated.
         SceneMarker? FindMarkerOnFrame() => Scene.Markers.FirstOrDefault(m => m.Time.RoundToRate(rate) == time);
         string? name = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
-            Value = FindMarkerOnFrame()?.Name ?? $"Marker {Scene.Markers.Count + 1}",
+            Value = FindMarkerOnFrame()?.Name ?? defaultName,
             Validate = CommandPaletteInput.Required
         });
         if (name is null) return;

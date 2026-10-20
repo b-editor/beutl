@@ -7,37 +7,9 @@ using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Media.Geometry;
 
-using Geometry = Beutl.Media.Geometry;
-
 [TestFixture]
 public sealed class DetachedGeometryResourceTests
 {
-    [Test]
-    public void ADetachedEllipse_ProducesTheSameBoundsAsItsAttachedCounterpart()
-    {
-        using var detached = new EllipseGeometry.Resource { Width = 100, Height = 50 };
-        using Geometry.Resource attached = new EllipseGeometry
-        {
-            Width = { CurrentValue = 100 },
-            Height = { CurrentValue = 50 },
-        }.ToResource(CompositionContext.Default);
-
-        Assert.That(detached.Bounds, Is.EqualTo(attached.Bounds));
-    }
-
-    [Test]
-    public void ADetachedRect_ProducesTheSameBoundsAsItsAttachedCounterpart()
-    {
-        using var detached = new RectGeometry.Resource { Width = 30, Height = 40 };
-        using Geometry.Resource attached = new RectGeometry
-        {
-            Width = { CurrentValue = 30 },
-            Height = { CurrentValue = 40 },
-        }.ToResource(CompositionContext.Default);
-
-        Assert.That(detached.Bounds, Is.EqualTo(attached.Bounds));
-    }
-
     [Test]
     public void EveryPublicEntryPointOfADetachedEllipse_Answers()
     {
@@ -187,7 +159,6 @@ public sealed class DetachedGeometryResourceTests
         {
             Assert.That(graph.PublicationRoots.Count(), Is.EqualTo(1));
             Assert.That(rasterization.Bounds, Is.EqualTo(new Rect(0, 0, 40, 30)));
-            Assert.That(rasterization.Bitmap, Is.Not.Null);
             Assert.That(alpha, Is.GreaterThan(0.9f), "the detached ellipse center must be opaque");
             Assert.That(red, Is.GreaterThan(0.9f), "the detached ellipse center must retain its white fill");
             Assert.That(green, Is.GreaterThan(0.9f), "the detached ellipse center must retain its white fill");

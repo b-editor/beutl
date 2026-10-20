@@ -16,9 +16,7 @@ public sealed class SpectrogramControl : AudioVisualizerControlBase
     public static readonly StyledProperty<float> MinDecibelsProperty =
         AvaloniaProperty.Register<SpectrogramControl, float>(nameof(MinDecibels), -90f);
 
-    public static readonly StyledProperty<float> WindowSecondsProperty =
-        AvaloniaProperty.Register<SpectrogramControl, float>(nameof(WindowSeconds), 4f);
-
+    private const float WindowSeconds = 4f;
     private const int TimeColumns = 192;
     private const int VerticalBands = 96;
 
@@ -43,12 +41,6 @@ public sealed class SpectrogramControl : AudioVisualizerControlBase
         set => SetValue(MinDecibelsProperty, value);
     }
 
-    public float WindowSeconds
-    {
-        get => GetValue(WindowSecondsProperty);
-        set => SetValue(WindowSecondsProperty, value);
-    }
-
     public override void Render(DrawingContext context)
     {
         Rect bounds = new(Bounds.Size);
@@ -61,8 +53,7 @@ public sealed class SpectrogramControl : AudioVisualizerControlBase
         if (sampleRate <= 0) return;
 
         int fftSize = Fft.ClampToPowerOfTwo(FftSize, min: 256, max: 4096);
-        float windowSec = Math.Clamp(WindowSeconds, 0.5f, 30f);
-        int totalSamples = Math.Max(fftSize * 2, (int)(windowSec * sampleRate));
+        int totalSamples = Math.Max(fftSize * 2, (int)(WindowSeconds * sampleRate));
 
         EnsureBuffers(fftSize, totalSamples);
 

@@ -11,9 +11,6 @@ public static class ScanPropertiesCoreEmitter
     // ジェネリッククラスは型パラメーターの競合するので、ScanPropertiesCore<T>()のTを生成する
     private static string GenerateGenericTypeParameter(ClassInfo info)
     {
-        if (info.Symbol.TypeParameters.Length == 0)
-            return "T";
-
         int num = 1;
         string baseName = "T";
         string name = baseName;
@@ -30,12 +27,9 @@ public static class ScanPropertiesCoreEmitter
         var genericTypeParam = GenerateGenericTypeParameter(info);
 
         string currentTypeDisplay = info.Symbol.ToDisplayString(EmitHelpers.TypeDisplayFormat);
-        bool hasProperties = info.OrderedProperties.Length > 0;
 
-        // 静的フィールドの emit
         EmitFields(sb, indent, info);
 
-        // ScanPropertiesCore<T>() メソッドの emit
         sb.Append(indent).AppendLine($"protected override global::System.Collections.Generic.IEnumerable<global::Beutl.Engine.IProperty> ScanPropertiesCore<{genericTypeParam}>()");
         sb.Append(indent).AppendLine("{");
 
@@ -46,22 +40,19 @@ public static class ScanPropertiesCoreEmitter
 
         string bodyIndent = innerIndent + "    ";
 
-        if (hasProperties)
+        foreach (object prop in info.OrderedProperties)
         {
-            foreach (object prop in info.OrderedProperties)
+            switch (prop)
             {
-                switch (prop)
-                {
-                    case ValuePropertyInfo vp:
-                        EmitPropertyScan(sb, bodyIndent, vp.Name);
-                        break;
-                    case ObjectPropertyInfo op:
-                        EmitPropertyScan(sb, bodyIndent, op.Name);
-                        break;
-                    case ListPropertyInfo lp:
-                        EmitPropertyScan(sb, bodyIndent, lp.Name);
-                        break;
-                }
+                case ValuePropertyInfo vp:
+                    EmitPropertyScan(sb, bodyIndent, vp.Name);
+                    break;
+                case ObjectPropertyInfo op:
+                    EmitPropertyScan(sb, bodyIndent, op.Name);
+                    break;
+                case ListPropertyInfo lp:
+                    EmitPropertyScan(sb, bodyIndent, lp.Name);
+                    break;
             }
         }
 
@@ -191,7 +182,7 @@ public static class ScanPropertiesCoreEmitter
 
         return constant.Kind switch
         {
-            TypedConstantKind.Primitive => TryEmitPrimitive(constant.Value),
+            TypedConstantKind.Primitive => TryEmitPrimitive(constant.Value!),
             TypedConstantKind.Enum => constant.Type != null
                 ? $"({constant.Type.ToDisplayString(EmitHelpers.TypeDisplayFormat)}){constant.Value}"
                 : null,
@@ -203,11 +194,10 @@ public static class ScanPropertiesCoreEmitter
         };
     }
 
-    private static string? TryEmitPrimitive(object? value)
+    private static string? TryEmitPrimitive(object value)
     {
         return value switch
         {
-            null => "null",
             string s => $"\"{EscapeString(s)}\"",
             bool b => b ? "true" : "false",
             char c => $"'{EscapeChar(c)}'",

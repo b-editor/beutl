@@ -7,14 +7,13 @@ namespace Beutl;
 
 public abstract class CorePropertyMetadata : ICorePropertyMetadata
 {
-    protected CorePropertyMetadata(bool shouldSerialize = true, params Attribute[] attributes)
+    protected CorePropertyMetadata(params Attribute[] attributes)
     {
-        ShouldSerialize = shouldSerialize;
         Attributes = attributes;
         UpdatedAttributes();
     }
 
-    public bool ShouldSerialize { get; private set; } = true;
+    public bool ShouldSerialize { get; private set; }
 
     public bool Notifiable { get; private set; } = true;
 

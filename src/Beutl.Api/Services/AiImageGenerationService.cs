@@ -13,7 +13,6 @@ internal sealed class AiImageGenerationService(
         IAiImageGenerationService
 {
     private const int MaximumImagePreviewCount = 4;
-    private const long MaximumImagePreviewBytes = AiRequestLimits.MaxImageUploadBytes;
 
     public Task<AiImageResult> GenerateAsync(
         AiImageGenerationRequest request,
@@ -156,31 +155,15 @@ internal sealed class AiImageGenerationService(
         }
     }
 
+    // Counts the previews of one generation; the ones past the limit are passed over.
     internal sealed class ImagePreviewBudget
     {
         private int _count;
-        private long _bytes;
 
         public bool TryDecode(string image, out byte[] bytes)
         {
             bytes = [];
-            int length = 0;
-            int padding = 0;
-            foreach (char character in image)
-            {
-                // Match the whitespace accepted by Convert.FromBase64String.
-                if (character is ' ' or '\t' or '\r' or '\n')
-                    continue;
-
-                length++;
-                padding = character == '=' ? padding + 1 : 0;
-            }
-
-            if (length == 0 || length % 4 != 0 || padding > 2)
-                return false;
-
-            long decodedLength = (long)(length / 4) * 3 - padding;
-            if (!CanReserve(decodedLength))
+            if (_count >= MaximumImagePreviewCount)
                 return false;
 
             try
@@ -192,23 +175,10 @@ internal sealed class AiImageGenerationService(
                 return false;
             }
 
-            return TryReserve(bytes.LongLength);
-        }
-
-        private bool CanReserve(long bytes)
-            => bytes > 0
-               && _count < MaximumImagePreviewCount
-               && bytes <= MaximumImagePreviewBytes - _bytes;
-
-        public bool TryReserve(long bytes)
-        {
-            if (!CanReserve(bytes))
-            {
+            if (bytes.Length == 0)
                 return false;
-            }
 
             _count++;
-            _bytes += bytes;
             return true;
         }
     }

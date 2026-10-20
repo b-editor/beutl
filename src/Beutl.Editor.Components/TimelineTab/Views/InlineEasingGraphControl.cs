@@ -44,7 +44,7 @@ public sealed class InlineEasingGraphControl : Control
         if (DataContext is InlineAnimationLayerViewModel viewModel)
         {
             _subscriptions = [];
-            SubscribeToItems(viewModel);
+            SubscribeToItems(viewModel, _subscriptions);
         }
     }
 
@@ -55,17 +55,15 @@ public sealed class InlineEasingGraphControl : Control
         _subscriptions = null;
     }
 
-    private void SubscribeToItems(InlineAnimationLayerViewModel viewModel)
+    private void SubscribeToItems(InlineAnimationLayerViewModel viewModel, CompositeDisposable subscriptions)
     {
-        if (_subscriptions == null) return;
-
         var perItemDisposables = new Dictionary<InlineKeyFrameViewModel, IDisposable>();
 
         Disposable.Create(() =>
         {
             foreach (var d in perItemDisposables.Values) d.Dispose();
             perItemDisposables.Clear();
-        }).DisposeWith(_subscriptions);
+        }).DisposeWith(subscriptions);
 
         viewModel.Items.ForEachItem(
             (idx, item) =>
@@ -92,7 +90,7 @@ public sealed class InlineEasingGraphControl : Control
                 perItemDisposables.Clear();
                 InvalidateVisual();
             })
-            .DisposeWith(_subscriptions);
+            .DisposeWith(subscriptions);
     }
 
     private void OnKeyFrameEdited(object? sender, EventArgs e)
@@ -109,7 +107,6 @@ public sealed class InlineEasingGraphControl : Control
         CoreList<InlineKeyFrameViewModel> items = viewModel.Items;
         if (items.Count < 2) return;
 
-        // Leftでソートしたスナップショットを作成
         var sorted = new (double left, IKeyFrame model)[items.Count];
         for (int i = 0; i < items.Count; i++)
         {
@@ -173,14 +170,7 @@ public sealed class InlineEasingGraphControl : Control
     {
         if (prevValue is IComparable comparable && nextValue != null)
         {
-            try
-            {
-                return comparable.CompareTo(nextValue);
-            }
-            catch
-            {
-                // 型が異なる場合など
-            }
+            return comparable.CompareTo(nextValue);
         }
 
         return 1;

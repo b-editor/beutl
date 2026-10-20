@@ -7,8 +7,6 @@ using Beutl.Editor.Services;
 using Beutl.Editor.Services.Captions;
 using Beutl.Graphics.Shapes;
 using Beutl.Language;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services.AI;
@@ -45,6 +43,7 @@ public sealed partial class AiSubtitleDialogViewModel
     private AiOperationAvailabilityTracker _transcriptionAvailability = null!;
     private AiOperationAvailabilityTracker _translationAvailability = null!;
 
+    // Test seam: only tests read the revision.
     internal long SceneAudioRevision => Interlocked.Read(ref _sceneAudioRevision);
 
     public ReadOnlyObservableCollection<EditableCaptionCueViewModel> Cues { get; private set; } = null!;
@@ -69,8 +68,6 @@ public sealed partial class AiSubtitleDialogViewModel
     public ReactivePropertySlim<string?> CaptionValidationMessage { get; private set; } = null!;
 
     public ReactivePropertySlim<string> TemplatePreviewText { get; private set; } = null!;
-
-    public ReactivePropertySlim<double> TemplatePreviewFontSize { get; private set; } = null!;
 
     internal ReactivePropertySlim<int> SelectedSubtitlePageIndex { get; private set; } = null!;
     internal ReadOnlyReactivePropertySlim<bool> IsTranscribePage { get; private set; } = null!;
@@ -100,23 +97,14 @@ public sealed partial class AiSubtitleDialogViewModel
     /// <summary>The line most recently translated, while a run is going on.</summary>
     public ReactivePropertySlim<string?> TranslationPreview { get; private set; } = null!;
 
-    /// <summary>How many lines have come back so far in the run going on.</summary>
-    public ReactivePropertySlim<int> TranslatedLineCount { get; private set; } = null!;
-
     public ReactivePropertySlim<string?> PartialResultMessage { get; } = new();
 
     public ReactivePropertySlim<bool> HasPartialResult { get; } = new();
 
     /// <summary>
-    /// Whether a transcription run holds a name the server may answer from a
-    /// job it has already been paid for.
+    /// Whether a transcription run holds a name the server may answer from a paid job; reported
+    /// apart from translation, which is charged separately.
     /// </summary>
-    /// <remarks>
-    /// Transcribing and translating are separate operations, charged
-    /// separately. A name held by one says nothing about the other, so they are
-    /// reported apart: shared, a transcription waiting to be collected would
-    /// open the translation button past a balance that cannot pay for it.
-    /// </remarks>
     public ReactivePropertySlim<bool> HasOutstandingTranscriptionRequest { get; } = new();
 
     /// <summary>
@@ -169,7 +157,6 @@ public sealed partial class AiSubtitleDialogViewModel
         CaptionValidationMessage = new ReactivePropertySlim<string?>().DisposeWith(_captionDisposables);
         TemplatePreviewText = new ReactivePropertySlim<string>(Strings.AiSubtitle_PreviewSample)
             .DisposeWith(_captionDisposables);
-        TemplatePreviewFontSize = new ReactivePropertySlim<double>(24).DisposeWith(_captionDisposables);
         SelectedSubtitlePageIndex = new ReactivePropertySlim<int>(TranscribePageIndex)
             .DisposeWith(_captionDisposables);
         IsTranscribePage = SelectedSubtitlePageIndex.Select(value => value == TranscribePageIndex)
@@ -191,7 +178,6 @@ public sealed partial class AiSubtitleDialogViewModel
                 (transcribing, translating) => transcribing || translating)
             .ToReadOnlyReactivePropertySlim().DisposeWith(_captionDisposables);
         TranslationPreview = new ReactivePropertySlim<string?>().DisposeWith(_captionDisposables);
-        TranslatedLineCount = new ReactivePropertySlim<int>().DisposeWith(_captionDisposables);
 
         SourceLanguages = CreateLanguageOptions(includeAuto: true);
         TargetLanguages = CreateLanguageOptions(includeAuto: false);
@@ -275,15 +261,8 @@ public sealed partial class AiSubtitleDialogViewModel
             .CombineLatest(
                 IsTranslating,
                 IsTranscribing,
-                TranslationEstimate.CanAfford,
-                HasOutstandingTranslationRequest,
-                // Or a run that has already named pieces: the server answers a
-                // repeat with the job that name made before it looks at the
-                // balance, so a run whose last piece spent the balance has to
-                // stay collectable.
-                (hasCues, translating, transcribing, canAfford, outstanding) =>
-                    hasCues && !translating && !transcribing
-                    && (canAfford || outstanding))
+                (hasCues, translating, transcribing) => hasCues && !translating && !transcribing)
+            .WhenAffordable(TranslationEstimate.CanAfford, HasOutstandingTranslationRequest)
             .WhenSomeModelUsable(
                 TranslationModelPicker.OffersNothingUsable,
                 HasOutstandingTranslationRequest)
@@ -351,7 +330,6 @@ public sealed partial class AiSubtitleDialogViewModel
         _editableCues.Clear();
         _captionDraftSession?.Dispose();
         _captionDraftSession = null;
-        StopTemplatePreviewAdmission();
         ReplaceTemplatePreviewImage(null);
         _captionDisposables.Dispose();
         _transcriptionEstimateRevision.Dispose();
@@ -421,7 +399,11 @@ public sealed partial class AiSubtitleDialogViewModel
     // The model a run is named for. The picker's until the run has named
     // anything, and from then on the run's own — including when the run named
     // its pieces with no model at all, which is not the same as having named
-    // nothing yet.
+    // nothing yet. A run reads it once: every piece is named partly by the model,
+    // so a picker that moved between naming a piece and sending it would put one
+    // model in the name and another in the body — which the server refuses — and
+    // one that moved between pieces, or fell back because the run's model was
+    // withdrawn, would rename the rest of the run and buy it again.
     private static AiModelId? ModelOfRun(
         bool hasNamedAnything,
         string recorded,
@@ -433,9 +415,6 @@ public sealed partial class AiSubtitleDialogViewModel
     // A model or a key seed is written down as an empty string when there is none.
     private static AiModelId? ModelIdOrNull(string? model)
         => string.IsNullOrEmpty(model) ? null : new AiModelId(model);
-
-    private static string? SeedOrNull(string? seed)
-        => string.IsNullOrEmpty(seed) ? null : seed;
 
     private async Task EnsureAvailableAsync(AiOperationAvailabilityRequest request)
     {
@@ -451,11 +430,7 @@ public sealed partial class AiSubtitleDialogViewModel
             AiPlanRequiredException => Strings.AiProRequired,
             AiUsageLimitExceededException => Strings.AiUsageLimitExceeded,
             AiProviderErrorException => Strings.AiProviderError,
-            // Reachable because a piece keeps its name across attempts: asking again for one the
-            // server is still working on is how its result is recovered rather than bought twice.
-            // Neither of these is a settlement, so the run keeps its names and can be resumed;
-            // saying "an unexpected error" instead sent the user back to a button that looked
-            // like it would start over.
+            // The run keeps its names, so asking again collects the result instead of buying it twice.
             AiResultUnavailableException => Strings.AiResultUnavailable,
             AiRequestInProgressException => Strings.AiRequestInProgress,
             AiModelUnavailableException => Strings.AiModelUnavailable,

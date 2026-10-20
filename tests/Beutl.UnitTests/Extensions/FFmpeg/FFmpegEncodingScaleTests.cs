@@ -1,12 +1,11 @@
-﻿using Beutl.Extensibility;
+﻿using Beutl.Audio;
+using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Decoding;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 
@@ -39,14 +38,6 @@ public sealed class FFmpegEncodingScaleTests
             await controller.Encode(new QuadrantFrameProvider(), new SilentSampleProvider(), CancellationToken.None);
         }
         catch (FFmpegLibrariesNotFoundException ex)
-        {
-            Assert.Ignore(ex.Message);
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("before establishing connection", StringComparison.Ordinal))
-        {
-            Assert.Ignore(ex.Message);
-        }
-        catch (TimeoutException ex)
         {
             Assert.Ignore(ex.Message);
         }
@@ -110,12 +101,18 @@ public sealed class FFmpegEncodingScaleTests
 
     private sealed class QuadrantFrameProvider : IFrameProvider
     {
+        private bool _read;
+
         public long FrameCount => 1;
 
         public Rational FrameRate => new(1, 1);
 
-        public ValueTask<Bitmap> RenderFrame(long frame)
+        public ValueTask<Bitmap?> ReadNextFrame()
         {
+            if (_read)
+                return ValueTask.FromResult<Bitmap?>(null);
+
+            _read = true;
             var bitmap = new Bitmap(64, 48);
             for (int y = 0; y < bitmap.Height; y++)
             {
@@ -133,7 +130,7 @@ public sealed class FFmpegEncodingScaleTests
                 }
             }
 
-            return ValueTask.FromResult(bitmap);
+            return ValueTask.FromResult<Bitmap?>(bitmap);
         }
 
         public void Dispose()
@@ -147,9 +144,9 @@ public sealed class FFmpegEncodingScaleTests
 
         public long SampleRate => 44100;
 
-        public ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
+        public ValueTask<AudioBuffer?> ReadNextSamples(int length)
         {
-            return ValueTask.FromResult(new Pcm<Stereo32BitFloat>((int)SampleRate, (int)Math.Max(0, length)));
+            return ValueTask.FromResult<AudioBuffer?>(null);
         }
 
         public void Dispose()

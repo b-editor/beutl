@@ -29,6 +29,14 @@ public sealed partial class ObjectTemplateService
 
     public string DirectoryPath => _directoryPath;
 
+    // A template is stored under its name, so the name has to be a file name on every platform.
+    internal static bool IsValidTemplateName(string name)
+    {
+        return name is not ("." or "..")
+            && name.IndexOfAny(Path.GetInvalidFileNameChars()) < 0
+            && !name.Contains('\\');
+    }
+
     /// <summary>
     /// Saves <paramref name="instance"/> as a template, embedding a rendered preview when one can be produced.
     /// </summary>
@@ -42,9 +50,7 @@ public sealed partial class ObjectTemplateService
     public async ValueTask<ObjectTemplateItem?> AddFromInstanceAsync(
         ICoreSerializable instance, string name, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(name) || name is "." or ".."
-            || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
-            || name.Contains('/') || name.Contains('\\'))
+        if (string.IsNullOrWhiteSpace(name) || !IsValidTemplateName(name))
             return null;
         ObjectTemplateItem item;
         try
@@ -162,7 +168,6 @@ public sealed partial class ObjectTemplateService
                     return cached;
                 }
 
-                // 外部変更されているので再読み込み
                 ObjectTemplateItem? reloaded = LoadFromFile(filePath);
                 if (reloaded != null)
                 {
@@ -249,7 +254,8 @@ public sealed partial class ObjectTemplateService
         }
     }
 
-    public void RestoreItems()
+    // Internal as a test seam: tests reload the items after changing the template files.
+    internal void RestoreItems()
     {
         try
         {
@@ -429,9 +435,7 @@ public sealed partial class ObjectTemplateService
             {
                 _items.RemoveAt(i);
                 _logger.LogInformation("Removed template (file gone): {FilePath}", item.FilePath);
-                continue;
             }
-
         }
     }
 

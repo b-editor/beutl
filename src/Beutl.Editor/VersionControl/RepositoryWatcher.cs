@@ -80,7 +80,7 @@ internal sealed class RepositoryWatcher : IDisposable
             return true;
         }
 
-        if (relativePath.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
+        if (ProjectPathRules.IsTemporaryFile(relativePath))
         {
             return true;
         }

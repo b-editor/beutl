@@ -8,7 +8,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.NodeGraphTab;
 
-[PrimitiveImpl]
 public sealed class NodeGraphTabExtension : ToolTabExtension
 {
     public static readonly NodeGraphTabExtension Instance = new();

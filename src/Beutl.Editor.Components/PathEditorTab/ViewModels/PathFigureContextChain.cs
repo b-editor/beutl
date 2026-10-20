@@ -17,7 +17,7 @@ internal sealed record PathFigureContextChain(
     public static PathFigureContextChain Create(
         IReactiveProperty<IPathFigureEditorContext?> figureContext, CompositeDisposable disposables)
     {
-        var context = figureContext.Select(v => v?.GetParentContext() ?? null)
+        var context = figureContext.Select(v => v?.GetParentContext())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(disposables);
 
@@ -41,14 +41,12 @@ internal sealed record PathFigureContextChain(
         return new PathFigureContextChain(context, geometry, pathGeometry, pathFigure, element);
     }
 
-    // Choosing the figure that is already being edited ends its edit. It collapses before it is let go,
-    // since letting go can dispose an editor the path tab owns.
+    // Choosing the figure that is already being edited ends its edit.
     public static void ToggleEditing(
         IReactiveProperty<IPathFigureEditorContext?> figureContext, IPathFigureEditorContext context)
     {
         if (figureContext.Value == context)
         {
-            context.CollapseEditedOperations();
             figureContext.Value = null;
         }
         else

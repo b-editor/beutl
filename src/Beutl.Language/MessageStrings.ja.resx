@@ -33,9 +33,6 @@
   <data name="ExportProjectPartialFailure" xml:space="preserve">
     <value>エクスポートは完了しましたが、{0}件のリソースのコピーに失敗しました。書き出されたパッケージが不完全な可能性があります。</value>
   </data>
-  <data name="ConfirmDeleteDirectory" xml:space="preserve">
-    <value>このディレクトリを削除しますか？</value>
-  </data>
   <data name="ConfirmDeleteFile" xml:space="preserve">
     <value>このファイルを削除しますか？</value>
   </data>
@@ -55,17 +52,8 @@
   <data name="EditorContextAlreadyCreated" xml:space="preserve">
     <value>エディターコンテキストは既に作成されています。</value>
   </data>
-  <data name="EditorContextNull" xml:space="preserve">
-    <value>エディターコンテキストにNullが指定されました。</value>
-  </data>
-  <data name="InputRequired" xml:space="preserve">
-    <value>文字列を入力してください。</value>
-  </data>
   <data name="InvalidString" xml:space="preserve">
     <value>無効な文字列です。</value>
-  </data>
-  <data name="MultipleTypesAvailable" xml:space="preserve">
-    <value>複数の型が利用可能です。</value>
   </data>
   <data name="AnimationIsEnabled" xml:space="preserve">
     <value>アニメーションが有効です</value>

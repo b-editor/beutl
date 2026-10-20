@@ -80,10 +80,6 @@
   <data name="DeviceInformation" xml:space="preserve">
     <value>Device Information</value>
   </data>
-  <data name="EditorSettings" xml:space="preserve">
-    <value>Editor settings</value>
-    <comment/>
-  </data>
   <data name="DecoderPriority" xml:space="preserve">
     <value>Decoder Priority</value>
     <comment/>
@@ -121,7 +117,7 @@
     <comment/>
   </data>
   <data name="Telemetry_Beutl_Api_Client" xml:space="preserve">
-    <value>APIクライアント</value>
+    <value>API client</value>
     <comment/>
   </data>
   <data name="Telemetry_Description_Beutl_Api_Client" xml:space="preserve">
@@ -154,10 +150,6 @@
   </data>
   <data name="AutoAdjustSceneDuration_Description" xml:space="preserve">
     <value>When elements are added, if the duration of the scene needs to be adjusted, it will automatically do so.</value>
-    <comment/>
-  </data>
-  <data name="SomeSettingsHaveBeenMoved" xml:space="preserve">
-    <value>Some settings have been moved.</value>
     <comment/>
   </data>
   <data name="EnablePointerLockInProperty" xml:space="preserve">

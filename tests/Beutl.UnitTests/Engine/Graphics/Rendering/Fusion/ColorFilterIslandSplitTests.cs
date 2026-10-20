@@ -6,7 +6,6 @@ using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Fusion;
 
@@ -15,14 +14,11 @@ public sealed class ColorFilterIslandSplitTests
 {
     private static readonly Rect s_bounds = new(0, 0, 24, 16);
 
-    [Test]
-    public void BlurThenSaturate_CompilesAfterTheSingleTargetSegment()
+    [TestCaseSource(nameof(ColorStagesAfterBlur))]
+    public void BlurThenColorStage_CompilesAfterTheSingleTargetSegment(Func<FilterEffect> colorStage)
     {
         using CompiledRenderRequest compiled = Compile(
-            new Blur { Sigma = { CurrentValue = new(2, 2) } },
-            new Saturate { Amount = { CurrentValue = 50f } });
-
-        Report("Blur -> Saturate (shader stage)", compiled);
+            [new Blur { Sigma = { CurrentValue = new(2, 2) } }, colorStage()]);
 
         using (Assert.EnterMultipleScope())
         {
@@ -30,43 +26,31 @@ public sealed class ColorFilterIslandSplitTests
             Assert.That(
                 compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is not null),
                 Is.EqualTo(new[] { false, false, true }));
-            Assert.That(Reasons(compiled), Is.EqualTo(new[]
+            Assert.That(SemanticKinds(compiled), Is.EqualTo(new[]
             {
-                ExecutionIslandBoundaryReason.Opaque,
-                ExecutionIslandBoundaryReason.FilterEffectSegment,
-                ExecutionIslandBoundaryReason.CoverageResolution,
+                RenderFragmentKind.OpaqueSource,
+                RenderFragmentKind.FilterEffectSegment,
             }));
+
+            // The blur segment is what forces the split; it runs no custom effect item.
+            Assert.That(
+                compiled.Graph.Fragments
+                    .Select(static fragment => fragment.Payload)
+                    .OfType<FilterEffectSegmentRenderFragmentPayload>()
+                    .Single()
+                    .HasImperativeItem,
+                Is.False);
+
             Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().StageFragmentIndices, Has.Length.EqualTo(1));
         }
     }
 
-    [Test]
-    public void BlurThenBrightness_CompilesAfterTheSingleTargetSegment()
+    private static IEnumerable<TestCaseData> ColorStagesAfterBlur()
     {
-        using CompiledRenderRequest compiled = Compile(
-            new Blur { Sigma = { CurrentValue = new(2, 2) } },
-            new Brightness { Amount = { CurrentValue = 50f } });
-
-        Report("Blur -> Brightness (shader stage)", compiled);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(compiled.ExecutionPlan.Islands, Has.Length.EqualTo(3));
-            Assert.That(
-                compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is not null),
-                Is.EqualTo(new[] { false, false, true }));
-            Assert.That(Reasons(compiled), Is.EqualTo(new[]
-            {
-                ExecutionIslandBoundaryReason.Opaque,
-                ExecutionIslandBoundaryReason.FilterEffectSegment,
-                ExecutionIslandBoundaryReason.CoverageResolution,
-            }));
-
-            // The blur segment is what forces the split, so no custom effect is blamed for it.
-            Assert.That(Reasons(compiled), Does.Not.Contain(ExecutionIslandBoundaryReason.CustomEffectItem));
-
-            Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().StageFragmentIndices, Has.Length.EqualTo(1));
-        }
+        yield return new TestCaseData((Func<FilterEffect>)(() => new Saturate { Amount = { CurrentValue = 50f } }))
+            .SetName("BlurThenSaturate_CompilesAfterTheSingleTargetSegment");
+        yield return new TestCaseData((Func<FilterEffect>)(() => new Brightness { Amount = { CurrentValue = 50f } }))
+            .SetName("BlurThenBrightness_CompilesAfterTheSingleTargetSegment");
     }
 
     [Test]
@@ -90,10 +74,7 @@ public sealed class ColorFilterIslandSplitTests
     public void BrightnessThenGamma_FusesIntoASingleTwoStageShaderRun()
     {
         using CompiledRenderRequest compiled = Compile(
-            new Brightness { Amount = { CurrentValue = 50f } },
-            new Gamma { Amount = { CurrentValue = 220f } });
-
-        Report("Brightness -> Gamma", compiled);
+            [new Brightness { Amount = { CurrentValue = 50f } }, new Gamma { Amount = { CurrentValue = 220f } }]);
 
         using (Assert.EnterMultipleScope())
         {
@@ -102,12 +83,8 @@ public sealed class ColorFilterIslandSplitTests
                 compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is not null),
                 Is.EqualTo(new[] { false, true }));
 
-            // Only the source-materialization boundaries; nothing separates the two color stages.
-            Assert.That(Reasons(compiled), Is.EqualTo(new[]
-            {
-                ExecutionIslandBoundaryReason.Opaque,
-                ExecutionIslandBoundaryReason.CoverageResolution,
-            }));
+            // Only the source is materialized; nothing separates the two color stages.
+            Assert.That(SemanticKinds(compiled), Is.EqualTo(new[] { RenderFragmentKind.OpaqueSource }));
             Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().StageFragmentIndices, Has.Length.EqualTo(2));
         }
     }
@@ -116,12 +93,12 @@ public sealed class ColorFilterIslandSplitTests
     public void CurvesThenBrightnessThenGamma_FusesWithinThePortableBudget()
     {
         using CompiledRenderRequest compiled = Compile(
-            SkslBackendBudgetResolver.Portable,
-            new Curves(),
-            new Brightness { Amount = { CurrentValue = 50f } },
-            new Gamma { Amount = { CurrentValue = 220f } });
-
-        Report("Curves -> Brightness -> Gamma", compiled);
+            [
+                new Curves(),
+                new Brightness { Amount = { CurrentValue = 50f } },
+                new Gamma { Amount = { CurrentValue = 220f } },
+            ],
+            SkslBackendBudgetResolver.Portable);
 
         using (Assert.EnterMultipleScope())
         {
@@ -130,15 +107,8 @@ public sealed class ColorFilterIslandSplitTests
                 compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is not null),
                 Is.EqualTo(new[] { false, true }));
 
-            // Only source materialization remains; no backend limit separates the three shader stages.
-            Assert.That(Reasons(compiled), Is.EqualTo(new[]
-            {
-                ExecutionIslandBoundaryReason.Opaque,
-                ExecutionIslandBoundaryReason.CoverageResolution,
-            }));
-            Assert.That(Reasons(compiled), Does.Not.Contain(ExecutionIslandBoundaryReason.FilterEffectSegment));
-            Assert.That(Reasons(compiled), Does.Not.Contain(ExecutionIslandBoundaryReason.BackendLimit));
-
+            // Only the source is materialized; no backend limit splits the three shader stages.
+            Assert.That(SemanticKinds(compiled), Is.EqualTo(new[] { RenderFragmentKind.OpaqueSource }));
             Assert.That(compiled.ExecutionPlan.ShaderRuns, Has.Exactly(1).Items);
             Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().StageFragmentIndices, Has.Length.EqualTo(3));
         }
@@ -147,21 +117,14 @@ public sealed class ColorFilterIslandSplitTests
     [Test]
     public void MosaicGammaOpacityInvert_CompileAsOneWholeSourceHeadedRun()
     {
-        using CompiledRenderRequest compiled = CompileMosaicGammaOpacityInvert(FusionMode.Enabled);
+        using CompiledRenderRequest compiled = CompileMosaicGammaOpacityInvert();
 
-        Report("Mosaic -> Gamma -> Opacity -> Invert", compiled);
         CompiledShaderRun run = compiled.ExecutionPlan.ShaderRuns.Single();
-        TestContext.WriteLine("Generated SkSL:\n" + run.Program.Source);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is not null),
                 Is.EqualTo(new[] { false, true }));
-            Assert.That(Reasons(compiled), Is.EqualTo(new[]
-            {
-                ExecutionIslandBoundaryReason.Opaque,
-                ExecutionIslandBoundaryReason.CoverageResolution,
-            }));
-            Assert.That(Reasons(compiled), Does.Not.Contain(ExecutionIslandBoundaryReason.WholeSourceShader));
+            Assert.That(SemanticKinds(compiled), Is.EqualTo(new[] { RenderFragmentKind.OpaqueSource }));
             Assert.That(run.StageFragmentIndices.Select(index => compiled.Graph.Fragments[index].Kind),
                 Is.EqualTo(new[]
                 {
@@ -197,10 +160,8 @@ public sealed class ColorFilterIslandSplitTests
         colorShift.AlphaOffset.CurrentValue = new PixelPoint(0, -1);
 
         using CompiledRenderRequest compiled = Compile(
-            FusionMode.Enabled,
-            requestedRegion,
-            colorShift,
-            new Gamma { Amount = { CurrentValue = 180f } });
+            [colorShift, new Gamma { Amount = { CurrentValue = 180f } }],
+            requestedRegion: requestedRegion);
 
         CompiledShaderRun run = compiled.ExecutionPlan.ShaderRuns.Single();
         RenderFragmentReference head = run.GetStage(compiled.Graph, 0);
@@ -221,18 +182,10 @@ public sealed class ColorFilterIslandSplitTests
         });
     }
 
-    private static void Report(string label, CompiledRenderRequest compiled)
-    {
-        TestContext.WriteLine(
-            $"{label}: {compiled.ExecutionPlan.Islands.Length} islands "
-            + $"[{string.Join(", ", compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is null ? "semantic" : "shader"))}], "
-            + $"boundary reasons [{string.Join(", ", Reasons(compiled))}], "
-            + $"shader runs {compiled.ExecutionPlan.ShaderRuns.Count()} "
-            + $"[{string.Join(", ", compiled.ExecutionPlan.ShaderRuns.Select(static run => run.StageFragmentIndices.Length))}]");
-    }
-
-    private static ExecutionIslandBoundaryReason[] Reasons(CompiledRenderRequest compiled)
-        => [.. compiled.ExecutionPlan.Boundaries.Select(static boundary => boundary.Reason)];
+    private static RenderFragmentKind[] SemanticKinds(CompiledRenderRequest compiled)
+        => [.. compiled.ExecutionPlan.Islands
+            .Where(static island => island.ShaderRun is null)
+            .Select(island => compiled.Graph.Fragments[island.FragmentIndices[0]].Kind)];
 
     private static Bitmap RenderBlurThenBrightness(
         FusionMode fusionMode,
@@ -255,7 +208,7 @@ public sealed class ColorFilterIslandSplitTests
             TargetDomain = s_bounds,
             CacheOptions = RenderCacheOptions.Disabled,
             FusionMode = fusionMode,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         statistics = renderer.LastExecutionStatistics;
@@ -263,54 +216,17 @@ public sealed class ColorFilterIslandSplitTests
                ?? throw new InvalidOperationException("The filter-effect render produced no bitmap.");
     }
 
-    private static CompiledRenderRequest Compile(params FilterEffect[] effects)
-        => Compile(SkslBackendBudgetResolver.Portable, effects);
-
     private static CompiledRenderRequest Compile(
-        FusionMode fusionMode,
-        Rect? requestedRegion,
-        params FilterEffect[] effects)
-        => Compile(SkslBackendBudgetResolver.Portable, fusionMode, requestedRegion, effects);
+        FilterEffect[] effects,
+        SkslBackendBudget? budget = null,
+        Rect? requestedRegion = null)
+        => FusionBoundaryExecutionTestSupport.CompileEffects(
+            s_bounds,
+            effects,
+            budget ?? SkslBackendBudgetResolver.Portable,
+            requestedRegion);
 
-    private static CompiledRenderRequest Compile(
-        SkslBackendBudget budget,
-        params FilterEffect[] effects)
-        => Compile(budget, FusionMode.Enabled, requestedRegion: null, effects);
-
-    private static CompiledRenderRequest Compile(
-        SkslBackendBudget budget,
-        FusionMode fusionMode,
-        Rect? requestedRegion,
-        params FilterEffect[] effects)
-    {
-        var group = new FilterEffectGroup();
-        foreach (FilterEffect effect in effects)
-            group.Children.Add(effect);
-
-        using FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
-        using var node = new FilterEffectRenderNode(resource);
-        node.AddChild(new EllipseRenderNode(s_bounds, Brushes.Resource.White, null));
-
-        var request = new RenderRequest(new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            targetDomain: s_bounds,
-            requestedRegion: requestedRegion,
-            cachePolicy: RenderCacheOptions.Disabled,
-            fusionMode: fusionMode));
-        try
-        {
-            RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
-            return new RenderRequestCompiler().Compile(request, graph, budget);
-        }
-        catch
-        {
-            request.Dispose();
-            throw;
-        }
-    }
-
-    private static CompiledRenderRequest CompileMosaicGammaOpacityInvert(FusionMode fusionMode)
+    private static CompiledRenderRequest CompileMosaicGammaOpacityInvert()
     {
         var mosaic = new MosaicEffect();
         mosaic.TileSize.CurrentValue = new Size(10, 10);
@@ -348,8 +264,7 @@ public sealed class ColorFilterIslandSplitTests
             RenderIntent.Preview,
             RenderRequestPurpose.Auxiliary,
             targetDomain: s_bounds,
-            cachePolicy: RenderCacheOptions.Disabled,
-            fusionMode: fusionMode));
+            cachePolicy: RenderCacheOptions.Disabled));
         try
         {
             RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(root);
@@ -361,23 +276,4 @@ public sealed class ColorFilterIslandSplitTests
             throw;
         }
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-        {
-            PixelSize size = allocation.DeviceSize;
-            SKSurface surface = SKSurface.Create(new SKImageInfo(
-                    size.Width,
-                    size.Height,
-                    SKColorType.RgbaF16,
-                    SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear()))
-                ?? throw new InvalidOperationException("Could not create the CPU filter-effect test surface.");
-            return new CpuRenderTarget(surface, size);
-        }
-    }
-
-    private sealed class CpuRenderTarget(SKSurface surface, PixelSize size)
-        : RenderTarget(surface, size.Width, size.Height);
 }

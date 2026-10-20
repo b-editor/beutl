@@ -64,53 +64,12 @@ public sealed class PromptLibraryProviderTests
     }
 
     [Test]
-    public void AccountSwitchClearsVisiblePromptsAndSurfacesCorruptMigrationMarker()
-    {
-        string? account = "account-a";
-        using var context = Context(() => account);
-        IPromptLibrary library = PromptLibraryProvider.For(context);
-        library.Record(PromptTaskKind.Image, "A private prompt");
-        using var viewModel = new AiPromptLibraryViewModel(
-            PromptTaskKind.Image,
-            static () => string.Empty,
-            static _ => { },
-            library,
-            context,
-            static action => action());
-        Assert.That(viewModel.History.Select(item => item.Prompt),
-            Is.EqualTo(["A private prompt"]));
-
-        File.WriteAllText(Path.Combine(_home, "ai-prompts.migrated"), "invalid");
-        viewModel.TemplateName.Value = "A private template name";
-        viewModel.IsHistoryOpen.Value = true;
-        account = "account-b";
-
-        Assert.DoesNotThrow(context.RefreshIdentity);
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.History, Is.Empty);
-            Assert.That(viewModel.Templates, Is.Empty);
-            Assert.That(viewModel.HasHistory.Value, Is.False);
-            Assert.That(viewModel.HasTemplates.Value, Is.False);
-            Assert.That(viewModel.IsHistoryOpen.Value, Is.False);
-            Assert.That(viewModel.TemplateName.Value, Is.Empty);
-            Assert.That(viewModel.Error.Value, Is.EqualTo(Strings.AiResultUnavailable));
-        });
-    }
-
-    [Test]
     public void AccountSwitchWithCorruptDestinationDoesNotAbortIdentityHandlers()
     {
         string? account = "account-a";
         using var context = Context(() => account);
         var library = new ThrowingPromptLibrary(() => account == "account-b");
-        using var viewModel = new AiPromptLibraryViewModel(
-            PromptTaskKind.Image,
-            static () => string.Empty,
-            static _ => { },
-            library,
-            context,
-            static action => action());
+        using var viewModel = CreateViewModel(library, context);
         viewModel.TemplateName.Value = "old account";
         viewModel.IsHistoryOpen.Value = true;
         bool followingHandlerRan = false;
@@ -137,13 +96,7 @@ public sealed class PromptLibraryProviderTests
         var library = new ThrowingPromptLibrary(
             () => account == "account-b",
             new NotSupportedException("newer prompt library"));
-        using var viewModel = new AiPromptLibraryViewModel(
-            PromptTaskKind.Image,
-            static () => string.Empty,
-            static _ => { },
-            library,
-            context,
-            static action => action());
+        using var viewModel = CreateViewModel(library, context);
         bool followingHandlerRan = false;
         context.IdentityChanged += () => followingHandlerRan = true;
 
@@ -171,14 +124,7 @@ public sealed class PromptLibraryProviderTests
             () => account,
             initialSnapshotStarted,
             releaseInitialSnapshot);
-        Task<AiPromptLibraryViewModel> creation = Task.Run(() =>
-            new AiPromptLibraryViewModel(
-                PromptTaskKind.Image,
-                static () => string.Empty,
-                static _ => { },
-                library,
-                context,
-                static action => action()));
+        Task<AiPromptLibraryViewModel> creation = Task.Run(() => CreateViewModel(library, context));
 
         try
         {
@@ -209,20 +155,8 @@ public sealed class PromptLibraryProviderTests
     {
         using var context = Context(() => "account-a");
         IPromptLibrary writer = PromptLibraryProvider.For(context);
-        using var first = new AiPromptLibraryViewModel(
-            PromptTaskKind.Image,
-            static () => string.Empty,
-            static _ => { },
-            PromptLibraryProvider.For(context),
-            context,
-            static action => action());
-        using var second = new AiPromptLibraryViewModel(
-            PromptTaskKind.Image,
-            static () => string.Empty,
-            static _ => { },
-            PromptLibraryProvider.For(context),
-            context,
-            static action => action());
+        using var first = CreateViewModel(PromptLibraryProvider.For(context), context);
+        using var second = CreateViewModel(PromptLibraryProvider.For(context), context);
 
         PromptTemplate template = writer.SaveTemplate(
             "Shared",
@@ -266,20 +200,8 @@ public sealed class PromptLibraryProviderTests
         using var context = Context(() => "account-a");
         IPromptLibrary writer = PromptLibraryProvider.For(context);
         var dispatcher = new QueuedUiDispatcher();
-        using var first = new AiPromptLibraryViewModel(
-            PromptTaskKind.Image,
-            static () => string.Empty,
-            static _ => { },
-            PromptLibraryProvider.For(context),
-            context,
-            dispatcher.Dispatch);
-        using var second = new AiPromptLibraryViewModel(
-            PromptTaskKind.Image,
-            static () => string.Empty,
-            static _ => { },
-            PromptLibraryProvider.For(context),
-            context,
-            dispatcher.Dispatch);
+        using var first = CreateViewModel(PromptLibraryProvider.For(context), context, dispatcher.Dispatch);
+        using var second = CreateViewModel(PromptLibraryProvider.For(context), context, dispatcher.Dispatch);
         bool notificationRanDuringUiDrain = false;
         ((INotifyCollectionChanged)second.Templates).CollectionChanged += (_, _) =>
             notificationRanDuringUiDrain = dispatcher.IsDraining;
@@ -305,20 +227,8 @@ public sealed class PromptLibraryProviderTests
         string? account = "account-a";
         using var context = Context(() => account);
         IPromptLibrary writer = PromptLibraryProvider.For(context);
-        using var active = new AiPromptLibraryViewModel(
-            PromptTaskKind.Image,
-            static () => string.Empty,
-            static _ => { },
-            PromptLibraryProvider.For(context),
-            context,
-            static action => action());
-        var disposed = new AiPromptLibraryViewModel(
-            PromptTaskKind.Image,
-            static () => string.Empty,
-            static _ => { },
-            PromptLibraryProvider.For(context),
-            context,
-            static action => action());
+        using var active = CreateViewModel(PromptLibraryProvider.For(context), context);
+        var disposed = CreateViewModel(PromptLibraryProvider.For(context), context);
 
         writer.SaveTemplate("Account A", PromptTaskKind.Image, "private A");
         account = "account-b";
@@ -364,20 +274,8 @@ public sealed class PromptLibraryProviderTests
         using var context = Context(() => account);
         IPromptLibrary writer = PromptLibraryProvider.For(context);
         var dispatcher = new QueuedUiDispatcher();
-        using var active = new AiPromptLibraryViewModel(
-            PromptTaskKind.Image,
-            static () => string.Empty,
-            static _ => { },
-            PromptLibraryProvider.For(context),
-            context,
-            dispatcher.Dispatch);
-        var disposed = new AiPromptLibraryViewModel(
-            PromptTaskKind.Image,
-            static () => string.Empty,
-            static _ => { },
-            PromptLibraryProvider.For(context),
-            context,
-            dispatcher.Dispatch);
+        using var active = CreateViewModel(PromptLibraryProvider.For(context), context, dispatcher.Dispatch);
+        var disposed = CreateViewModel(PromptLibraryProvider.For(context), context, dispatcher.Dispatch);
         writer.SaveTemplate("Account A", PromptTaskKind.Image, "private A");
 
         dispatcher.Defer = true;
@@ -405,39 +303,29 @@ public sealed class PromptLibraryProviderTests
         string? account = "account-a";
         using var context = Context(() => account);
         IPromptLibrary writer = PromptLibraryProvider.For(context);
-        using var first = new AiPromptLibraryViewModel(
-            PromptTaskKind.Image,
-            static () => string.Empty,
-            static _ => { },
-            PromptLibraryProvider.For(context),
-            context,
-            static action => action());
-        using var second = new AiPromptLibraryViewModel(
-            PromptTaskKind.Image,
-            static () => string.Empty,
-            static _ => { },
-            PromptLibraryProvider.For(context),
-            context,
-            static action => action());
+        using var first = CreateViewModel(PromptLibraryProvider.For(context), context);
+        using var second = CreateViewModel(PromptLibraryProvider.For(context), context);
         writer.SaveTemplate("Account A", PromptTaskKind.Image, "private A");
 
         account = "account-b";
-        string migrationLockPath = Path.Combine(_home, "ai-prompts.migrated.lock");
-        using (var heldMigrationLock = new FileStream(
-                   migrationLockPath,
-                   FileMode.OpenOrCreate,
-                   FileAccess.ReadWrite,
-                   FileShare.None))
+        // A library a newer Beutl wrote cannot be read until it is gone.
+        string accountFile = Path.Combine(
+            _home,
+            "ai-prompts",
+            Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes("account-b"))) + ".json");
+        File.WriteAllText(
+            accountFile,
+            $$"""{ "version": {{PersistentPromptLibrary.CurrentStorageVersion + 1}}, "history": [], "templates": [] }""");
+        context.RefreshIdentity();
+        Assert.Multiple(() =>
         {
-            context.RefreshIdentity();
-            Assert.Multiple(() =>
-            {
-                Assert.That(first.Templates, Is.Empty);
-                Assert.That(second.Templates, Is.Empty);
-                Assert.That(first.Error.Value, Is.EqualTo(Strings.AiResultUnavailable));
-                Assert.That(second.Error.Value, Is.EqualTo(Strings.AiResultUnavailable));
-            });
-        }
+            Assert.That(first.Templates, Is.Empty);
+            Assert.That(second.Templates, Is.Empty);
+            Assert.That(first.Error.Value, Is.EqualTo(Strings.AiResultUnavailable));
+            Assert.That(second.Error.Value, Is.EqualTo(Strings.AiResultUnavailable));
+        });
+        File.Delete(accountFile);
 
         // No second identity event occurs. The first successful mutation must publish
         // through the account-scoped hub and refresh every still-live workspace.
@@ -455,99 +343,30 @@ public sealed class PromptLibraryProviderTests
     }
 
     [Test]
-    public void LegacyFileIsClaimedOnceByFirstAuthenticatedAccount()
+    public void FilesOfTheSingleFileLibraryAreIgnored()
     {
-        string legacy = Path.Combine(_home, "ai-prompts.json");
-        var seed = new PersistentPromptLibrary(legacy);
-        seed.SaveTemplate("legacy", PromptTaskKind.Image, "legacy prompt");
-
-        string? account = "account-a";
-        using var context = Context(() => account);
-        IPromptLibrary first = PromptLibraryProvider.For(context);
-        Assert.That(first.Templates.Select(item => item.Prompt), Is.EqualTo(["legacy prompt"]));
-        string marker = Path.Combine(_home, "ai-prompts.migrated");
-        Assert.That(File.Exists(marker), Is.True);
-        Assert.That(File.ReadAllText(marker), Is.EqualTo(Convert.ToHexString(
-            System.Security.Cryptography.SHA256.HashData(
-                System.Text.Encoding.UTF8.GetBytes("account-a")))));
-
-        account = "account-b";
-        IPromptLibrary second = PromptLibraryProvider.For(context);
-        Assert.That(second.History, Is.Empty);
-        Assert.That(second.Templates, Is.Empty);
-    }
-
-    [Test]
-    public void LegacyMigrationFailureIsFailClosedAndOwnerCanRetry()
-    {
-        string legacy = Path.Combine(_home, "ai-prompts.json");
-        var seed = new PersistentPromptLibrary(legacy);
-        seed.SaveTemplate("legacy", PromptTaskKind.Image, "legacy prompt");
-
-        // Block the owner's destination. Marker ownership is still durable,
-        // while the legacy move fails closed without exposing its data.
-        string marker = Path.Combine(_home, "ai-prompts.migrated");
-        string? account = "account-a";
-        using var context = Context(() => account);
-        string accountFile = Convert.ToHexString(
-            System.Security.Cryptography.SHA256.HashData(
-                System.Text.Encoding.UTF8.GetBytes("account-a"))) + ".json";
-        Directory.CreateDirectory(Path.Combine(_home, "ai-prompts"));
-        Directory.CreateDirectory(Path.Combine(_home, "ai-prompts", accountFile));
-        IPromptLibrary first = PromptLibraryProvider.For(context);
-        Assert.That(() => first.Templates, Throws.TypeOf<IOException>());
-        Assert.That(File.ReadAllText(marker), Is.EqualTo(accountFile[..^5]));
-        Assert.That(File.Exists(Path.Combine(_home, "ai-prompts", accountFile)), Is.False);
-
-        Directory.Delete(Path.Combine(_home, "ai-prompts", accountFile));
-        account = "account-b";
-        IPromptLibrary other = PromptLibraryProvider.For(context);
-        other.Record(PromptTaskKind.Image, "B only");
-        Assert.That(File.Exists(legacy), Is.True);
-        account = "account-a";
-        PromptLibraryProvider.ConfigureRootForTests(Path.Combine(_home, "ai-prompts"));
-        IPromptLibrary retried = PromptLibraryProvider.For(context);
-        Assert.That(retried.Templates.Select(item => item.Prompt), Is.EqualTo(["legacy prompt"]));
-        Assert.That(File.Exists(marker), Is.True);
-    }
-
-    [Test]
-    public void InvalidMigrationMarkerFailsClosedWhileLegacyRemains()
-    {
-        string legacy = Path.Combine(_home, "ai-prompts.json");
-        _ = new PersistentPromptLibrary(legacy).SaveTemplate("legacy", PromptTaskKind.Image, "private");
+        // Only development builds of #2305 wrote ai-prompts.json; releases also wrote the migration marker.
+        _ = new PersistentPromptLibrary(Path.Combine(_home, "ai-prompts.json"))
+            .SaveTemplate("legacy", PromptTaskKind.Image, "legacy prompt");
         File.WriteAllText(Path.Combine(_home, "ai-prompts.migrated"), "invalid");
         using var context = Context(() => "account-a");
-        Assert.That(() => PromptLibraryProvider.For(context).Templates, Throws.TypeOf<InvalidDataException>());
-        Assert.That(File.Exists(legacy), Is.True);
-    }
-
-    [Test]
-    public void PendingOwnerMarkerWithLegacyRetriesMove()
-    {
-        string legacy = Path.Combine(_home, "ai-prompts.json");
-        _ = new PersistentPromptLibrary(legacy).SaveTemplate("legacy", PromptTaskKind.Image, "pending");
-        string owner = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
-            System.Text.Encoding.UTF8.GetBytes("account-a")));
-        File.WriteAllText(Path.Combine(_home, "ai-prompts.migrated"), owner);
-        using var context = Context(() => "account-a");
         IPromptLibrary library = PromptLibraryProvider.For(context);
-        Assert.That(library.Templates.Select(item => item.Prompt), Is.EqualTo(["pending"]));
-        Assert.That(File.Exists(legacy), Is.False);
+
+        Assert.That(library.Templates, Is.Empty);
+        library.Record(PromptTaskKind.Image, "A prompt");
+        Assert.That(library.History.Select(item => item.Prompt), Is.EqualTo(["A prompt"]));
     }
 
-    [Test]
-    public void PendingOwnerMarkerWithAccountPathCompletesWithoutLegacy()
-    {
-        string owner = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
-            System.Text.Encoding.UTF8.GetBytes("account-a")));
-        File.WriteAllText(Path.Combine(_home, "ai-prompts.migrated"), owner);
-        string path = Path.Combine(_home, "ai-prompts", owner + ".json");
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        _ = new PersistentPromptLibrary(path).SaveTemplate("existing", PromptTaskKind.Image, "path");
-        using var context = Context(() => "account-a");
-        Assert.That(PromptLibraryProvider.For(context).Templates.Select(item => item.Prompt), Is.EqualTo(["path"]));
-    }
+    // An image prompt workspace that applies its UI updates inline unless dispatch is given.
+    private static AiPromptLibraryViewModel CreateViewModel(
+        IPromptLibrary library, AiRequestRecoveryContext context, Action<Action>? dispatch = null)
+        => new(
+            PromptTaskKind.Image,
+            static () => string.Empty,
+            static _ => { },
+            library,
+            context,
+            dispatch ?? (static action => action()));
 
     private AiRequestRecoveryContext Context(Func<string?> account)
         => new(
@@ -556,15 +375,11 @@ public sealed class PromptLibraryProviderTests
                 ? new AiAuthenticatedRequestIdentity(id, User: null)
                 : null);
 
-    private sealed class ThrowingPromptLibrary(
-        Func<bool> shouldThrow,
-        Exception? failure = null) : IPromptLibrary
+    // An empty library that refuses writes; each fake overrides what it reads.
+    private abstract class StubPromptLibrary : IPromptLibrary
     {
-        public IReadOnlyList<PromptHistoryEntry> History
-            => shouldThrow()
-                ? throw failure ?? new InvalidDataException("corrupt")
-                : Array.Empty<PromptHistoryEntry>();
-        public IReadOnlyList<PromptTemplate> Templates => Array.Empty<PromptTemplate>();
+        public virtual IReadOnlyList<PromptHistoryEntry> History => [];
+        public virtual IReadOnlyList<PromptTemplate> Templates => [];
         public PromptHistoryEntry Record(PromptTaskKind taskKind, string prompt) => throw new NotSupportedException();
         public PromptTemplate SaveTemplate(string name, PromptTaskKind taskKind, string prompt) => throw new NotSupportedException();
         public bool SetHistoryPinned(Guid id, bool isPinned) => false;
@@ -574,16 +389,25 @@ public sealed class PromptLibraryProviderTests
         public void ClearHistory() { }
     }
 
+    private sealed class ThrowingPromptLibrary(
+        Func<bool> shouldThrow,
+        Exception? failure = null) : StubPromptLibrary
+    {
+        public override IReadOnlyList<PromptHistoryEntry> History
+            => shouldThrow()
+                ? throw failure ?? new InvalidDataException("corrupt")
+                : Array.Empty<PromptHistoryEntry>();
+    }
+
     private sealed class BlockingAccountPromptLibrary(
         Func<string?> account,
         ManualResetEventSlim initialSnapshotStarted,
         ManualResetEventSlim releaseInitialSnapshot)
-        : IPromptLibrary, IPromptLibraryChangeSource
+        : StubPromptLibrary, IPromptLibraryChangeSource
     {
         private int _templateReads;
 
-        public IReadOnlyList<PromptHistoryEntry> History => [];
-        public IReadOnlyList<PromptTemplate> Templates
+        public override IReadOnlyList<PromptTemplate> Templates
         {
             get
             {
@@ -610,13 +434,6 @@ public sealed class PromptLibraryProviderTests
         }
 
         public IDisposable SubscribeChanged(Action callback) => new MemoryStream();
-        public PromptHistoryEntry Record(PromptTaskKind taskKind, string prompt) => throw new NotSupportedException();
-        public PromptTemplate SaveTemplate(string name, PromptTaskKind taskKind, string prompt) => throw new NotSupportedException();
-        public bool SetHistoryPinned(Guid id, bool isPinned) => false;
-        public bool SetTemplatePinned(Guid id, bool isPinned) => false;
-        public bool DeleteHistory(Guid id) => false;
-        public bool DeleteTemplate(Guid id) => false;
-        public void ClearHistory() { }
     }
 
     private sealed class QueuedUiDispatcher

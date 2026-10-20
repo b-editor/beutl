@@ -12,10 +12,30 @@ public sealed class GenerativeShapeSuggestionTests
     public string TheAspectRatioNearestTheFrameIsSuggested(int width, int height)
         => GenerativeShapeSuggestion.NearestAspectRatio(["16:9", "1:1", "9:16"], new PixelSize(width, height), "16:9");
 
+    [TestCase(3840, 2160, ExpectedResult = "16:9")]
+    [TestCase(1440, 1080, ExpectedResult = "4:3")]
+    [TestCase(1080, 1440, ExpectedResult = "3:4")]
+    public string TheNearestOfTheImageRatiosIsSuggested(int width, int height)
+        => GenerativeShapeSuggestion.NearestAspectRatio(["16:9", "1:1", "9:16", "4:3", "3:4"], new PixelSize(width, height), "16:9");
+
+    [Test]
+    public void RatiosAreComparedInLogSpace()
+    {
+        // 1360x1000 is nearer 16:9 as a log ratio but nearer 1:1 as a linear difference.
+        Assert.That(GenerativeShapeSuggestion.NearestAspectRatio(["16:9", "1:1"], new PixelSize(1360, 1000), "16:9"), Is.EqualTo("16:9"));
+    }
+
+    [Test]
+    public void OnlyTheOfferedRatiosAreChosen()
+    {
+        Assert.That(GenerativeShapeSuggestion.NearestAspectRatio(["16:9", "9:16"], new PixelSize(1440, 1080), "16:9"), Is.EqualTo("16:9"));
+    }
+
     [Test]
     public void AFrameWithoutASizeFallsBack()
     {
         Assert.That(GenerativeShapeSuggestion.NearestAspectRatio(["1:1", "16:9"], null, "16:9"), Is.EqualTo("16:9"));
+        Assert.That(GenerativeShapeSuggestion.NearestAspectRatio(["1:1", "16:9"], new PixelSize(0, 0), "16:9"), Is.EqualTo("16:9"));
         Assert.That(GenerativeShapeSuggestion.NearestAspectRatio(["1:1", "4:3"], null, "16:9"), Is.EqualTo("1:1"));
     }
 

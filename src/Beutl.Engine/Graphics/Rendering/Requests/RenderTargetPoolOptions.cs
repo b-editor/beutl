@@ -17,8 +17,4 @@ internal sealed class RenderTargetPoolOptions
     /// depending on the machine's GPU, and it binds a caller-supplied allocator too.
     /// </remarks>
     public BufferDimensionBudget? Budget { get; init; }
-
-    internal Action<RenderTargetPoolRegistrationStage>? AfterTargetRegistrationStep { get; init; }
-
-    internal Action? BeforeLeaseRegistration { get; init; }
 }

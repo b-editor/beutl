@@ -18,7 +18,7 @@ public static class DataContextEvents
             {
                 // Callbacks may synchronously dispose the subscription or change the context.
                 prevContext = newContext;
-                attached?.Invoke(newContext);
+                attached(newContext);
             }
         }
 
@@ -27,7 +27,7 @@ public static class DataContextEvents
             if (prevContext is { } context)
             {
                 prevContext = null;
-                detached?.Invoke(context);
+                detached(context);
             }
         }
 

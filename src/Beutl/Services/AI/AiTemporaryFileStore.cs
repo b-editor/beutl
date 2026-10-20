@@ -137,8 +137,6 @@ internal static class AiTemporaryFileStore
 
         try
         {
-            // Files written directly here belong to a version that had no sessions.
-            CleanStaleFiles(categoryRoot, now);
             foreach ((string session, FileStream claim) in claimedSessions)
             {
                 BeforeSessionCleanup?.Invoke(session);

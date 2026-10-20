@@ -20,7 +20,6 @@ public sealed class PixelSortEffectSynchronizationTests
     private static readonly Rect s_bounds = new(0, 0, 16, 12);
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void PixelSort_OrdersTheSourceBeforeSamplingItFromVulkan()
     {
         IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
@@ -51,7 +50,6 @@ public sealed class PixelSortEffectSynchronizationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void PixelSort_SortsAnUnsubmittedSourceInsteadOfReturningIt()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -73,7 +71,6 @@ public sealed class PixelSortEffectSynchronizationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void PixelSort_ReadsHeavySkiaWorkOnlyAfterItFinishes()
     {
         // The bar fixture cannot tell a broken hand-off from an ordered one. Reading heavy Skia work too early sorts a
@@ -124,7 +121,6 @@ public sealed class PixelSortEffectSynchronizationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void PixelSort_DoesNotAllocateDepthTextures()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -153,7 +149,6 @@ public sealed class PixelSortEffectSynchronizationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void PixelSort_ReusesItsDestinationAndScratchTargetsAfterWarmup()
     {
         VulkanTestEnvironment.EnsureAvailable();

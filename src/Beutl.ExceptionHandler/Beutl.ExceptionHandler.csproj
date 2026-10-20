@@ -1,17 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <BeutlHostLibrary>true</BeutlHostLibrary>
     <TargetFramework></TargetFramework><!-- empty so the TFMs below cross-target -->
     <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
     <OutputType>WinExe</OutputType>
     <NeutralLanguage>en</NeutralLanguage>
-    <SelfContained>false</SelfContained>
     <DefineConstants>$(DefineConstants);Beutl_ExceptionHandler;BEUTL_LINKED_UI_FONTS</DefineConstants>
     <DesktopExeRids>true</DesktopExeRids>
     <UseResXGenerator>true</UseResXGenerator>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
-    <!-- This standalone host does not reference Beutl.Extensibility's official controls. -->
+    <!-- FluentAvaloniaUI 3.1.0 pulls these at 12.1.0; reference them to lift them to the central Avalonia versions. -->
     <PackageReference Include="Avalonia.Controls.ColorPicker" />
     <PackageReference Include="Avalonia.Controls.DataGrid" />
     <PackageReference Include="Avalonia.Desktop" />
@@ -29,8 +29,5 @@
     <Compile Include="..\Beutl.Controls\Styling\UiFontFamilyExtension.cs" Link="Styling\UiFontFamilyExtension.cs" />
     <AvaloniaResource Include="..\Beutl.Controls\Styling\Fonts.axaml" Link="Styling\Fonts.axaml" />
     <AvaloniaResource Include="..\Beutl.Controls\Assets\Fonts\**" Link="Assets\Fonts\%(RecursiveDir)%(Filename)%(Extension)" />
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Update="Properties\Resources.resx" />
   </ItemGroup>
 </Project>

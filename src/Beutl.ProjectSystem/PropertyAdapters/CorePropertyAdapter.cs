@@ -33,7 +33,7 @@ public class CorePropertyAdapter<T>(CoreProperty<T> property, ICoreObject obj) :
         }
     }
 
-    public bool IsReadOnly => Property is IStaticProperty { CanRead: false };
+    public bool IsReadOnly => Property is IStaticProperty { CanWrite: false };
 
     CoreProperty? IPropertyAdapter.GetCoreProperty() => Property;
 

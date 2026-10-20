@@ -2,17 +2,19 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reactive.Linq;
+using System.Reflection;
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Platform.Storage;
-using Beutl.Editor.Models;
-using Beutl.Editor.Services;
+using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.FFmpegIpc;
 using Beutl.Graphics.Shapes;
 using Beutl.Language;
+using Beutl.Media;
 using Beutl.Media.Encoding;
+using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
@@ -67,12 +69,6 @@ public class ExportTests
         };
 
         public IReactiveProperty<string> Name { get; } = new ReactivePropertySlim<string>(fileName);
-
-        public IReadOnlyReactiveProperty<bool> IsIndeterminate { get; }
-            = new ReactivePropertySlim<bool>();
-
-        public IReadOnlyReactiveProperty<double> Progress { get; }
-            = new ReactivePropertySlim<double>();
 
         public int DisposeCount => Volatile.Read(ref _disposeCount);
 
@@ -142,45 +138,22 @@ public class ExportTests
         }
     }
 
-    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
-
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
     private static async Task<EditViewModel> OpenEditorWithRectangle(string name)
     {
-        Project project = (await TestShell.Project.CreateProject(
-            320, 240, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-        scene.Duration = TimeSpan.FromMilliseconds(200);
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromMilliseconds(200),
-            Layer: 0,
-            Source: new ElementSource.EngineObject(
-                () => new RectShape { Width = { CurrentValue = 200 }, Height = { CurrentValue = 150 } }))],
-            CancellationToken.None);
-        HeadlessTestHelpers.Settle();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync(name, 320, 240);
+        editor.Scene.Duration = TimeSpan.FromMilliseconds(200);
+        await TestShell.AddElementAsync(
+            editor,
+            () => new RectShape { Width = { CurrentValue = 200 }, Height = { CurrentValue = 150 } },
+            TimeSpan.Zero,
+            TimeSpan.FromMilliseconds(200));
         return editor;
     }
-
-    // ---- B2 (a): non-gated — construct/validate the export ViewModel without spawning a worker ----
 
     [AvaloniaTest]
     public async Task OutputViewModel_constructs_with_sane_defaults()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("exportvm");
 
         using var output = new OutputViewModel(editor);
@@ -191,7 +164,6 @@ public class ExportTests
         Assert.That(output.SelectedEncoder.Value, Is.Null);
         Assert.That(output.SupersampleFactor.Value, Is.EqualTo(1));
         Assert.That(output.SupersampleFactors, Is.EqualTo(new[] { 1, 2, 4 }));
-        // No destination/encoder yet, so encoding is not permitted.
         Assert.That(output.CanEncode.Value, Is.False);
         Assert.That(output.IsEncoding.Value, Is.False);
     }
@@ -202,7 +174,7 @@ public class ExportTests
     public async Task OutputViewModel_picker_combines_normalizes_and_deduplicates_all_encoders(
         string cultureName, string expectedName)
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("exportpicker");
         const int packageId = 274601;
         CultureInfo previousCulture = CultureInfo.CurrentUICulture;
@@ -247,7 +219,7 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputViewModel_flags_a_supersample_factor_that_exceeds_the_buffer_limit()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("exportwarn");
         // 5000 * 4 = 20000 > MaxBufferDimension (16384), so a 4x factor overflows the buffer.
         editor.Scene.FrameSize = new Media.PixelSize(5000, 240);
@@ -280,63 +252,194 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputViewModel_without_a_registered_encoder_cannot_encode()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("exportnoenc");
 
         using var output = new OutputViewModel(editor);
-        output.DestinationFile.Value = Path.Combine(NewWorkspace("exportnoenc"), "out.mp4");
+        output.DestinationFile.Value = Path.Combine(TestShell.NewWorkspace("exportnoenc"), "out.mp4");
         HeadlessTestHelpers.Settle();
 
-        // A destination alone is not enough; with no encoder extension loaded the list is empty
-        // and CanEncode stays false (SelectedEncoder is still null).
         Assert.That(output.Encoders, Is.Empty);
         Assert.That(output.CanEncode.Value, Is.False);
         Assert.That(output.GetFilePickerFileTypes(), Is.Empty);
     }
 
-    // Exercise the export failure path with a fake FFmpeg error.
     [AvaloniaTest]
     public async Task OutputViewModel_translates_a_known_ffmpeg_error_when_encoding_fails()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         TestGpu.RequireAnyDevice();
         EditViewModel editor = await OpenEditorWithRectangle("exportfailure");
 
         using var output = new OutputViewModel(editor);
-        output.DestinationFile.Value = Path.Combine(NewWorkspace("exportfailure"), "out.mp4");
+        output.DestinationFile.Value = Path.Combine(TestShell.NewWorkspace("exportfailure"), "out.mp4");
         output.SelectedEncoder.Value = ThrowingMp4EncoderExtension.Instance;
         HeadlessTestHelpers.Settle();
 
-        var recorder = new RecordingNotificationHandler();
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
-        NotificationService.Handler = recorder;
+        using var notifications = new NotificationCapture();
+        // A synchronous async assertion would block the UI continuations in RunAsync.
+        Exception? failure = null;
         try
         {
-            // A synchronous async assertion would block the UI continuations in RunAsync.
-            Exception? failure = null;
-            try
-            {
-                await output.RunAsync(CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                failure = ex;
-            }
-            Assert.That(failure, Is.TypeOf<FFmpegWorkerException>());
+            await output.RunAsync(CancellationToken.None);
         }
-        finally
+        catch (Exception ex)
         {
-            NotificationService.Handler = previousHandler;
+            failure = ex;
         }
+        Assert.That(failure, Is.TypeOf<FFmpegWorkerException>());
 
-        // Progress and notifications must use the translated message.
         string expected = MessageStrings.FFmpegErrorInvalidData;
         Assert.That(output.ProgressText.Value, Is.EqualTo(expected));
         Assert.That(
-            recorder.ErrorMessages,
+            Messages(notifications, NotificationType.Error),
             Does.Contain(expected),
             "The error notification must carry the translated message.");
-        Assert.That(recorder.ErrorMessages.Count(message => message == expected), Is.EqualTo(1));
+        Assert.That(Messages(notifications, NotificationType.Error).Count(message => message == expected), Is.EqualTo(1));
+    }
+
+    [AvaloniaTest]
+    public async Task OutputViewModel_renders_the_scene_as_it_was_when_the_export_started()
+    {
+        await TestReset.ResetShellAsync();
+        TestGpu.RequireAnyDevice();
+        EditViewModel editor = await OpenEditorWithRectangle("export-snapshot");
+
+        using var output = new OutputViewModel(editor);
+        output.DestinationFile.Value = Path.Combine(TestShell.NewWorkspace("export-snapshot"), "out.mp4");
+        var encoder = new FirstFrameEncoderExtension();
+        output.SelectedEncoder.Value = encoder;
+        HeadlessTestHelpers.Settle();
+        encoder.EditBeforeEncoding = () => editor.Scene.Children.Clear();
+
+        await output.RunAsync(CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(editor.Scene.Children, Is.Empty);
+            Assert.That(encoder.CenterPixel, Is.Not.Zero, "The frame still shows the rectangle removed during the export.");
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task OutputViewModel_renders_a_property_that_another_scene_holds(bool stringExpression)
+    {
+        await TestReset.ResetShellAsync();
+        TestGpu.RequireAnyDevice();
+        EditViewModel editor = await OpenEditorWithRectangle("export-cross-scene");
+        string folder = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
+        var source = new RectShape { Width = { CurrentValue = 200 } };
+        var sourceElement = new Element
+        {
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(folder, "source.belm"))
+        };
+        sourceElement.AddObject(source);
+        var other = new Scene(320, 240, "Other") { Uri = new Uri(Path.Combine(folder, "other.scene")) };
+        other.Children.Add(sourceElement);
+        editor.Scene.FindHierarchicalParent<Project>()!.Items.Add(other);
+        RectShape rect = editor.Scene.Children.Single().Objects.OfType<RectShape>().Single();
+        rect.Width.CurrentValue = 0;
+        rect.Width.Expression = stringExpression
+            ? new StringExpression<float>($"GetProperty<float>(\"{{{source.Id}}}.Width\")")
+            : new ReferenceExpression<float>(source.Id, nameof(RectShape.Width));
+
+        using var output = new OutputViewModel(editor);
+        output.DestinationFile.Value = Path.Combine(TestShell.NewWorkspace("export-cross-scene"), "out.mp4");
+        var encoder = new FirstFrameEncoderExtension();
+        output.SelectedEncoder.Value = encoder;
+        HeadlessTestHelpers.Settle();
+
+        await output.RunAsync(CancellationToken.None);
+
+        Assert.That(encoder.CenterPixel, Is.Not.Zero, "The rectangle takes its width from the other scene.");
+    }
+
+    [AvaloniaTest]
+    public async Task OutputViewModel_renders_at_the_supersampling_factor_it_validated()
+    {
+        await TestReset.ResetShellAsync();
+        TestGpu.RequireAnyDevice();
+        EditViewModel editor = await OpenEditorWithRectangle("export-validated-factor");
+
+        using var output = new OutputViewModel(editor);
+        output.DestinationFile.Value = Path.Combine(TestShell.NewWorkspace("export-validated-factor"), "out.mp4");
+        var encoder = new FirstFrameEncoderExtension();
+        output.SelectedEncoder.Value = encoder;
+        HeadlessTestHelpers.Settle();
+        encoder.EditBeforeEncoding = () => output.SupersampleFactor.Value = 2;
+
+        await output.RunAsync(CancellationToken.None);
+
+        Assert.That(encoder.RenderScale, Is.EqualTo(1f));
+    }
+
+    [AvaloniaTest]
+    public async Task OutputViewModel_encodes_with_the_settings_it_validated()
+    {
+        await TestReset.ResetShellAsync();
+        TestGpu.RequireAnyDevice();
+        EditViewModel editor = await OpenEditorWithRectangle("export-validated-settings");
+
+        using var output = new OutputViewModel(editor);
+        output.DestinationFile.Value = Path.Combine(TestShell.NewWorkspace("export-validated-settings"), "out.mp4");
+        var encoder = new FirstFrameEncoderExtension();
+        output.SelectedEncoder.Value = encoder;
+        HeadlessTestHelpers.Settle();
+        Rational validated = output.Controller.Value!.VideoSettings.FrameRate;
+        encoder.EditBeforeEncoding = () => output.Controller.Value!.VideoSettings.FrameRate = new Rational(60, 1);
+
+        await output.RunAsync(CancellationToken.None);
+
+        Assert.That(encoder.FrameRate, Is.EqualTo(validated));
+    }
+
+    // The export creates its controller after it takes the snapshot and before any frame renders.
+    private sealed class FirstFrameEncoderExtension : ControllableEncodingExtension
+    {
+        public Action? EditBeforeEncoding { get; set; }
+
+        public uint CenterPixel { get; private set; }
+
+        public float RenderScale { get; private set; }
+
+        public Rational FrameRate { get; private set; }
+
+        public override IEnumerable<string> SupportExtensions()
+        {
+            yield return ".mp4";
+        }
+
+        public override EncodingController CreateController(string file)
+        {
+            Action? edit = EditBeforeEncoding;
+            EditBeforeEncoding = null;
+            edit?.Invoke();
+            return new Controller(file, this);
+        }
+
+        private sealed class Controller(string outputFile, FirstFrameEncoderExtension owner) : EncodingController(outputFile)
+        {
+            public override VideoEncoderSettings VideoSettings { get; } = new();
+
+            public override AudioEncoderSettings AudioSettings { get; } = new();
+
+            public override async ValueTask Encode(
+                IFrameProvider frameProvider,
+                ISampleProvider sampleProvider,
+                CancellationToken cancellationToken)
+            {
+                var renderer = (SceneRenderer)typeof(FrameProviderImpl)
+                    .GetField("_renderer", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(frameProvider)!;
+                owner.RenderScale = renderer.OutputScale;
+                owner.FrameRate = frameProvider.FrameRate;
+                using Bitmap frame = (await frameProvider.ReadNextFrame())!;
+                owner.CenterPixel = frame.GetRow<uint>(frame.Height / 2)[frame.Width / 2];
+                await File.WriteAllBytesAsync(OutputFile, [], cancellationToken);
+            }
+        }
     }
 
     private sealed class ThrowingMp4EncoderExtension : ControllableEncodingExtension
@@ -371,7 +474,6 @@ public class ExportTests
 
     private sealed class CancellableMp4EncoderExtension : ControllableEncodingExtension
     {
-        public CancellableController? Controller { get; private set; }
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public override IEnumerable<string> SupportExtensions()
@@ -379,10 +481,7 @@ public class ExportTests
             yield return ".mp4";
         }
 
-        public override EncodingController CreateController(string file)
-        {
-            return Controller = new CancellableController(file, Started);
-        }
+        public override EncodingController CreateController(string file) => new CancellableController(file, Started);
     }
 
     private sealed class CancellableController(string outputFile, TaskCompletionSource started) : EncodingController(outputFile)
@@ -402,37 +501,18 @@ public class ExportTests
         }
     }
 
-    private sealed class RecordingNotificationHandler : INotificationServiceHandler
-    {
-        private readonly List<string> _errorMessages = [];
-        private readonly List<string> _warningMessages = [];
-
-        public IReadOnlyList<string> ErrorMessages => _errorMessages;
-
-        public IReadOnlyList<string> WarningMessages => _warningMessages;
-
-        public void Show(Notification notification)
-        {
-            if (notification.Type == NotificationType.Error)
-            {
-                _errorMessages.Add(notification.Message);
-            }
-            else if (notification.Type == NotificationType.Warning)
-            {
-                _warningMessages.Add(notification.Message);
-            }
-        }
-    }
+    private static IEnumerable<string> Messages(NotificationCapture notifications, NotificationType type)
+        => notifications.All.Where(notification => notification.Type == type).Select(notification => notification.Message);
 
     [AvaloniaTest]
     public async Task Built_in_output_cancellation_cancels_the_shared_execution_task()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         TestGpu.RequireAnyDevice();
         EditViewModel editor = await OpenEditorWithRectangle("export-built-in-cancel");
         var extension = new CancellableMp4EncoderExtension();
         var output = new OutputViewModel(editor);
-        output.DestinationFile.Value = Path.Combine(NewWorkspace("export-built-in-cancel"), "out.mp4");
+        output.DestinationFile.Value = Path.Combine(TestShell.NewWorkspace("export-built-in-cancel"), "out.mp4");
         output.SelectedEncoder.Value = extension;
         HeadlessTestHelpers.Settle();
         var item = new OutputProfileItem(output, editor, TestShell.Editor);
@@ -456,7 +536,6 @@ public class ExportTests
                 Assert.That(execution.IsCanceled, Is.True);
                 Assert.That(output.WasCancelled.Value, Is.True);
                 Assert.That(output.IsEncoding.Value, Is.False);
-                Assert.That(output.IsCompleted.Value, Is.False);
             });
             AssertWorkspaceMutationAvailable();
         }
@@ -478,11 +557,10 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputViewModel_preflight_cancellation_resets_completion_state()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-preflight-cancel");
         using var output = new OutputViewModel(editor);
         using var cancellation = new CancellationTokenSource();
-        output.IsCompleted.Value = true;
         cancellation.Cancel();
 
         try
@@ -497,7 +575,6 @@ public class ExportTests
         Assert.Multiple(() =>
         {
             Assert.That(output.WasCancelled.Value, Is.True);
-            Assert.That(output.IsCompleted.Value, Is.False);
             Assert.That(output.IsEncoding.Value, Is.False);
             Assert.That(output.ProgressText.Value, Is.EqualTo(Strings.Cancel));
         });
@@ -506,7 +583,7 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputProfileItem_acquires_the_lease_before_context_work_starts()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-lease-before-run");
         bool leaseHeldAtEntry = false;
         var context = new TestOutputContext("export-lease-before-run.scene")
@@ -524,7 +601,7 @@ public class ExportTests
                 Assert.That(leaseHeldAtEntry, Is.True);
                 Assert.That(context.RunCount, Is.EqualTo(1));
                 Assert.That(item.IsRunning.Value, Is.True);
-                Assert.That(editor.IsEnabled.Value, Is.False);
+                Assert.That(editor.IsEnabled.Value, Is.True, "Editing stays possible while an output runs.");
             });
             AssertWorkspaceMutationBlocked();
 
@@ -552,7 +629,7 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputProfileItem_does_not_enter_context_when_a_mutation_is_active()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-refused");
         var context = new TestOutputContext("export-refused.scene");
         var item = new OutputProfileItem(context, editor, TestShell.Editor);
@@ -578,52 +655,9 @@ public class ExportTests
     }
 
     [AvaloniaTest]
-    public async Task OutputProfileItem_releases_admission_when_editor_suspension_fails()
-    {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorWithRectangle("export-suspension-failure");
-        var context = new TestOutputContext("export-suspension-failure.scene");
-        var item = new OutputProfileItem(context, editor, TestShell.Editor);
-        var expected = new InvalidOperationException("suspension observer failed");
-        using IDisposable subscription = editor.IsEnabled.Subscribe(value =>
-        {
-            if (!value)
-            {
-                throw expected;
-            }
-        });
-
-        Exception? actual = null;
-        try
-        {
-            Assert.That(item.TryStart(out Task? execution), Is.True);
-            await execution!;
-        }
-        catch (Exception ex)
-        {
-            actual = ex;
-        }
-
-        try
-        {
-            Assert.Multiple(() =>
-            {
-                Assert.That(actual, Is.SameAs(expected));
-                Assert.That(context.RunCount, Is.Zero);
-                Assert.That(editor.IsEnabled.Value, Is.True);
-            });
-            AssertWorkspaceMutationAvailable();
-        }
-        finally
-        {
-            item.Dispose();
-        }
-    }
-
-    [AvaloniaTest]
     public async Task OutputProfileItem_releases_the_lease_after_a_synchronous_context_failure()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-sync-failure");
         var expected = new InvalidOperationException("synchronous failure");
         var context = new TestOutputContext("export-sync-failure.scene")
@@ -637,7 +671,7 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputProfileItem_releases_the_lease_after_a_faulted_context_task()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-async-failure");
         var expected = new InvalidOperationException("asynchronous failure");
         var context = new TestOutputContext("export-async-failure.scene")
@@ -651,7 +685,7 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputProfileItem_cancel_keeps_the_lease_until_context_returns()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-cancel-active");
         var context = new TestOutputContext("export-cancel-active.scene")
         {
@@ -683,7 +717,7 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputProfileItem_cooperative_cancellation_cancels_the_execution_task()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-cooperative-cancel");
         var context = new TestOutputContext("export-cooperative-cancel.scene");
         var item = new OutputProfileItem(context, editor, TestShell.Editor);
@@ -715,7 +749,7 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputProfileItem_concurrent_starts_share_one_execution()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-double-start");
         var context = new TestOutputContext("export-double-start.scene");
         var item = new OutputProfileItem(context, editor, TestShell.Editor);
@@ -746,9 +780,9 @@ public class ExportTests
     }
 
     [AvaloniaTest]
-    public async Task OutputProfileItems_keep_the_editor_suspended_until_all_executions_finish()
+    public async Task OutputProfileItems_hold_the_workspace_until_all_executions_finish()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-overlapping-profiles");
         var firstContext = new TestOutputContext("export-overlapping-profiles-first.scene");
         var secondContext = new TestOutputContext("export-overlapping-profiles-second.scene");
@@ -761,13 +795,11 @@ public class ExportTests
         {
             await Task.WhenAll(firstContext.Started, secondContext.Started)
                 .WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.That(editor.IsEnabled.Value, Is.False);
             AssertWorkspaceMutationBlocked();
 
             firstContext.Finish();
             await firstExecution.WaitAsync(TimeSpan.FromSeconds(5));
 
-            Assert.That(editor.IsEnabled.Value, Is.False);
             AssertWorkspaceMutationBlocked();
 
             secondContext.Finish();
@@ -789,7 +821,7 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputProfileItem_dispose_during_execution_waits_for_context_completion()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-dispose-active");
         var context = new TestOutputContext("export-dispose-active.scene")
         {
@@ -827,7 +859,7 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputProfileItem_holds_admission_through_deferred_context_disposal()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-deferred-dispose-lease");
         var disposeStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -880,7 +912,7 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputProfileItem_honors_disposal_requested_by_running_state_observer()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-running-observer-dispose");
         var disposeStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -950,7 +982,7 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputProfileItem_completes_and_releases_the_lease_when_context_disposal_fails()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-dispose-failure");
         var expected = new InvalidOperationException("dispose failure");
         var context = new TestOutputContext("export-dispose-failure.scene")
@@ -985,7 +1017,7 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputTabViewModel_remove_item_refuses_active_execution()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-remove-active");
         var viewModel = new OutputTabViewModel(editor);
         var context = new TestOutputContext("export-remove-active.scene");
@@ -993,9 +1025,7 @@ public class ExportTests
         viewModel.Items.Add(item);
         viewModel.SelectedItem.Value = item;
         Task execution = StartOutput(item);
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
-        var notifications = new RecordingNotificationHandler();
-        NotificationService.Handler = notifications;
+        using var notifications = new NotificationCapture();
 
         try
         {
@@ -1007,7 +1037,7 @@ public class ExportTests
                 Assert.That(viewModel.Items, Does.Contain(item));
                 Assert.That(viewModel.SelectedItem.Value, Is.SameAs(item));
                 Assert.That(context.DisposeCount, Is.Zero);
-                Assert.That(notifications.WarningMessages, Does.Contain(Strings.Output_ProfileRunning));
+                Assert.That(Messages(notifications, NotificationType.Warning), Does.Contain(Strings.Output_ProfileRunning));
             });
             AssertWorkspaceMutationBlocked();
 
@@ -1024,7 +1054,6 @@ public class ExportTests
         }
         finally
         {
-            NotificationService.Handler = previousHandler;
             context.Finish();
             await execution.WaitAsync(TimeSpan.FromSeconds(5));
             viewModel.Dispose();
@@ -1034,7 +1063,7 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputTabViewModel_removes_and_reselects_before_plugin_disposal_failure()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-remove-dispose-failure");
         var viewModel = new OutputTabViewModel(editor);
         var expected = new InvalidOperationException("profile dispose failed");
@@ -1048,9 +1077,7 @@ public class ExportTests
         viewModel.Items.Add(failingItem);
         viewModel.Items.Add(nextItem);
         viewModel.SelectedItem.Value = failingItem;
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
-        var notifications = new RecordingNotificationHandler();
-        NotificationService.Handler = notifications;
+        using var notifications = new NotificationCapture();
 
         try
         {
@@ -1061,13 +1088,12 @@ public class ExportTests
                 Assert.That(viewModel.Items, Does.Not.Contain(failingItem));
                 Assert.That(viewModel.SelectedItem.Value, Is.SameAs(nextItem));
                 Assert.That(failingContext.DisposeCount, Is.EqualTo(1));
-                Assert.That(notifications.ErrorMessages, Does.Contain(expected.Message));
+                Assert.That(Messages(notifications, NotificationType.Error), Does.Contain(expected.Message));
                 Assert.Throws<ObjectDisposedException>(() => failingItem.TryStart(out _));
             });
         }
         finally
         {
-            NotificationService.Handler = previousHandler;
             nextItem.Dispose();
             viewModel.Dispose();
         }
@@ -1076,7 +1102,7 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputTabViewModel_finishes_removal_when_a_collection_observer_throws()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-remove-observer-failure");
         var viewModel = new OutputTabViewModel(editor);
         var removedContext = new TestOutputContext("export-remove-observer-failure.scene");
@@ -1121,7 +1147,7 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputProfileItem_dispose_and_completion_race_disposes_once()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-dispose-race");
         var context = new TestOutputContext("export-dispose-race.scene");
         var item = new OutputProfileItem(context, editor, TestShell.Editor);
@@ -1152,7 +1178,7 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputProfileItem_dispose_when_idle_is_immediate_and_idempotent()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-dispose-idle");
         var context = new TestOutputContext("export-dispose-idle.scene");
         var item = new OutputProfileItem(context, editor, TestShell.Editor);
@@ -1167,7 +1193,7 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputTab_creates_a_profile_scoped_control_and_controller()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-profile-controls");
         var extension = new RecordingOutputExtension();
         var firstContext = new TestOutputContext("export-profile-controls-first.scene")
@@ -1266,8 +1292,6 @@ public class ExportTests
 
         public List<IOutputExecutionController> Controllers { get; } = [];
 
-        public override FilePickerFileType GetFilePickerFileType() => new("Test output");
-
         public override bool TryCreateControl(
             IEditorContext editorContext,
             IOutputContext context,
@@ -1291,14 +1315,6 @@ public class ExportTests
         public override bool IsSupported(Type type) => true;
     }
 
-    // B2 (b) — selecting a real FFmpeg encoder and running the full export is BLOCKED headless, so
-    // no such test ships. Three independent blockers:
-    //   1. Selecting the encoder builds its settings editor, whose Codec ChoicesProvider enumerates
-    //      native FFmpeg codecs; that native load hangs under the headless host.
-    //   2. The worker's managed assembly (Beutl.FFmpegWorker.dll) is not in this test's output — only
-    //      the apphost is — so the process aborts at launch ("application to execute does not exist").
-    //      Deploying it would need a worker ProjectReference, which the GPL/MIT boundary forbids here.
-    //   3. The worker IPC drives async NamedPipe/shared-memory I/O that deadlocks against the
-    //      single-threaded Avalonia headless dispatcher (the encode hangs indefinitely).
-    // The (a) tests above cover the export ViewModel surface reachable without touching native FFmpeg.
+    // A full FFmpeg export is not tested here: the GPL worker is not deployed to this output, and its IPC does
+    // not run under the headless dispatcher.
 }

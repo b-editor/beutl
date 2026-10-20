@@ -1,5 +1,4 @@
-﻿using System.Runtime.ExceptionServices;
-using Beutl.Graphics.Backend;
+﻿using Beutl.Graphics.Backend;
 using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
@@ -146,14 +145,14 @@ internal sealed class RenderTargetLeaseSession : IDisposable
                         lease.ReleaseFailure = releaseFailure;
                         RecordCleanupFailure(releaseFailure);
                     }
-                    AppendFailure(ref releaseFailures, releaseFailure);
+                    Requests.CleanupFailures.Append(releaseFailures ??= [], releaseFailure);
                     try
                     {
                         _pool.EvictAfterReleaseFailure(lease);
                     }
                     catch (Exception cleanup)
                     {
-                        AppendFailure(ref releaseFailures, cleanup);
+                        Requests.CleanupFailures.Append(releaseFailures ??= [], cleanup);
                     }
                 }
             }
@@ -166,27 +165,15 @@ internal sealed class RenderTargetLeaseSession : IDisposable
             _pool.EndSession(this);
         }
 
-        if (releaseFailures is { Count: 1 })
-            ExceptionDispatchInfo.Capture(releaseFailures[0]).Throw();
-        if (releaseFailures is { Count: > 1 })
-        {
-            throw new AggregateException(
-                "One or more render-target leases failed to discharge.",
-                releaseFailures);
-        }
+        Requests.CleanupFailures.ThrowIfAny(
+            releaseFailures,
+            "One or more render-target leases failed to discharge.");
     }
 
     public void ThrowIfCleanupFailed()
-    {
-        if (_cleanupFailures is not { Count: > 0 } failures)
-            return;
-        if (failures.Count == 1)
-            ExceptionDispatchInfo.Capture(failures[0]).Throw();
-
-        throw new AggregateException(
-            "One or more render targets failed to discharge.",
-            failures);
-    }
+        => Requests.CleanupFailures.ThrowIfAny(
+            _cleanupFailures,
+            "One or more render targets failed to discharge.");
 
     internal void Register(RenderTargetLease lease)
     {
@@ -272,23 +259,6 @@ internal sealed class RenderTargetLeaseSession : IDisposable
         ArgumentNullException.ThrowIfNull(lease);
         if (!ReferenceEquals(lease.Session, this))
             throw new InvalidOperationException("The render-target lease belongs to a different allocation session.");
-    }
-
-    private static void AppendFailure(ref List<Exception>? failures, Exception failure)
-    {
-        failures ??= [];
-        if (failure is AggregateException aggregate)
-        {
-            foreach (Exception inner in aggregate.Flatten().InnerExceptions)
-            {
-                if (!failures.Contains(inner))
-                    failures.Add(inner);
-            }
-        }
-        else if (!failures.Contains(failure))
-        {
-            failures.Add(failure);
-        }
     }
 
     private sealed class DeferredRenderTargetLeaseRelease(RenderTargetLease lease) : IDisposable

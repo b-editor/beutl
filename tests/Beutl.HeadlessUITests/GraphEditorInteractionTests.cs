@@ -26,29 +26,23 @@ public class GraphEditorInteractionTests
     public async Task Command_shift_a_clears_selection_without_editing_keys(KeyModifiers command, bool speedGraph)
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true, selectAll: false);
-        var hotkeys = Application.Current!.PlatformSettings!.HotkeyConfiguration;
-        KeyModifiers previous = hotkeys.CommandModifiers;
-        hotkeys.CommandModifiers = command;
-        try
-        {
-            graph.Model.IsSpeedGraph.Value = speedGraph;
-            HeadlessTestHelpers.Render(3);
-            int undo = graph.Model.HistoryManager.UndoCount;
-            TimeSpan playhead = graph.Model.CurrentTime.Value;
-            graph.View.Focus();
-            PressKey(graph, Key.A, CommandModifier);
-            Assert.That(Selected(graph), Is.EquivalentTo(new[] { graph.First, graph.Second }));
-            PressKey(graph, Key.A, CommandModifier | RawInputModifiers.Shift);
-            Assert.That(Selected(graph), Is.Empty);
-            Assert.That(graph.Model.SelectedView.Value!.SelectionCount.Value, Is.Zero);
-            PressKey(graph, Key.A, CommandModifier);
-            Assert.That(Selected(graph), Has.Length.EqualTo(2));
-            Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
-            Assert.That(graph.Model.CurrentTime.Value, Is.EqualTo(playhead));
-            Assert.That(graph.First.KeyTime.TotalSeconds, Is.EqualTo(0.5));
-            Assert.That(graph.Second.KeyTime.TotalSeconds, Is.EqualTo(1.5));
-        }
-        finally { hotkeys.CommandModifiers = previous; }
+        using var commandModifier = CommandModifierScope.Use(command);
+        graph.Model.IsSpeedGraph.Value = speedGraph;
+        HeadlessTestHelpers.Render(3);
+        int undo = graph.Model.HistoryManager.UndoCount;
+        TimeSpan playhead = graph.Model.CurrentTime.Value;
+        graph.View.Focus();
+        graph.PressKey(Key.A, GraphScope.CommandModifier);
+        Assert.That(Selected(graph), Is.EquivalentTo(new[] { graph.First, graph.Second }));
+        graph.PressKey(Key.A, GraphScope.CommandModifier | RawInputModifiers.Shift);
+        Assert.That(Selected(graph), Is.Empty);
+        Assert.That(graph.Model.SelectedView.Value!.SelectionCount.Value, Is.Zero);
+        graph.PressKey(Key.A, GraphScope.CommandModifier);
+        Assert.That(Selected(graph), Has.Length.EqualTo(2));
+        Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
+        Assert.That(graph.Model.CurrentTime.Value, Is.EqualTo(playhead));
+        Assert.That(graph.First.KeyTime.TotalSeconds, Is.EqualTo(0.5));
+        Assert.That(graph.Second.KeyTime.TotalSeconds, Is.EqualTo(1.5));
     }
 
     [AvaloniaTest]
@@ -59,52 +53,42 @@ public class GraphEditorInteractionTests
     public async Task Command_drag_selects_without_panning_or_seeking(KeyModifiers command, bool speedGraph)
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true, selectAll: false);
-        var hotkeys = Application.Current!.PlatformSettings!.HotkeyConfiguration;
-        KeyModifiers previousCommand = hotkeys.CommandModifiers;
-        hotkeys.CommandModifiers = command;
-        try
-        {
-            graph.Model.IsSpeedGraph.Value = speedGraph;
-            graph.Model.CurrentTime.Value = TimeSpan.FromSeconds(0.2);
-            HeadlessTestHelpers.Render(3);
-            Click(graph, Position(graph, graph.First));
-            Assert.That(Selected(graph), Is.EqualTo(new[] { graph.First }));
-            Click(graph, Position(graph, graph.Second), RawInputModifiers.Shift);
-            Assert.That(Selected(graph), Is.EquivalentTo(new[] { graph.First, graph.Second }));
-            Click(graph, Position(graph, graph.First), RawInputModifiers.Shift);
-            Assert.That(Selected(graph), Is.EqualTo(new[] { graph.Second }));
-            Click(graph, new Point(500, 220));
-            Assert.That(Selected(graph), Is.Empty);
+        using var commandModifier = CommandModifierScope.Use(command);
+        graph.Model.IsSpeedGraph.Value = speedGraph;
+        graph.Model.CurrentTime.Value = TimeSpan.FromSeconds(0.2);
+        HeadlessTestHelpers.Render(3);
+        graph.Click(graph.Position(graph.First));
+        Assert.That(Selected(graph), Is.EqualTo(new[] { graph.First }));
+        graph.Click(graph.Position(graph.Second), RawInputModifiers.Shift);
+        Assert.That(Selected(graph), Is.EquivalentTo(new[] { graph.First, graph.Second }));
+        graph.Click(graph.Position(graph.First), RawInputModifiers.Shift);
+        Assert.That(Selected(graph), Is.EqualTo(new[] { graph.Second }));
+        graph.Click(new Point(500, 220));
+        Assert.That(Selected(graph), Is.Empty);
 
-            var scroll = graph.View.FindControl<ScrollViewer>("scroll")!;
-            Vector offset = scroll.Offset;
-            TimeSpan currentTime = graph.Model.CurrentTime.Value;
-            int undo = graph.Model.HistoryManager.UndoCount;
-            Point first = Position(graph, graph.First), second = Position(graph, graph.Second);
-            Drag(graph, new Point(first.X - 15, Math.Min(first.Y, second.Y) - 15),
-                new Point(second.X + 15, Math.Max(first.Y, second.Y) + 15), CommandModifier);
-            Assert.That(Selected(graph), Is.EquivalentTo(new[] { graph.First, graph.Second }));
+        var scroll = graph.View.FindControl<ScrollViewer>("scroll")!;
+        Vector offset = scroll.Offset;
+        TimeSpan currentTime = graph.Model.CurrentTime.Value;
+        int undo = graph.Model.HistoryManager.UndoCount;
+        Point first = graph.Position(graph.First), second = graph.Position(graph.Second);
+        graph.Drag(new Point(first.X - 15, Math.Min(first.Y, second.Y) - 15),
+            new Point(second.X + 15, Math.Max(first.Y, second.Y) + 15), GraphScope.CommandModifier);
+        Assert.That(Selected(graph), Is.EquivalentTo(new[] { graph.First, graph.Second }));
 
-            // Start inside the existing transform box, away from its handles.
-            Drag(graph, second + new Vector(-12, 12), second + new Vector(12, -12), CommandModifier);
-            Assert.That(Selected(graph), Is.EqualTo(new[] { graph.Second }));
-            // Press above the lower key, inside the plot rather than its horizontal scrollbar.
-            Drag(graph, first + new Vector(12, -12), first + new Vector(-12, 12), CommandModifier | RawInputModifiers.Shift);
-            Assert.Multiple(() =>
-            {
-                Assert.That(Selected(graph), Is.EquivalentTo(new[] { graph.First, graph.Second }));
-                Assert.That(scroll.Offset, Is.EqualTo(offset));
-                Assert.That(graph.Model.CurrentTime.Value, Is.EqualTo(currentTime));
-                Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
-                Assert.That(graph.First.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
-                Assert.That(graph.Second.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
-            });
-            graph.Capture($"command-marquee-{command}-{speedGraph}");
-        }
-        finally
+        // Start inside the existing transform box, away from its handles.
+        graph.Drag(second + new Vector(-12, 12), second + new Vector(12, -12), GraphScope.CommandModifier);
+        Assert.That(Selected(graph), Is.EqualTo(new[] { graph.Second }));
+        // Press above the lower key, inside the plot rather than its horizontal scrollbar.
+        graph.Drag(first + new Vector(12, -12), first + new Vector(-12, 12), GraphScope.CommandModifier | RawInputModifiers.Shift);
+        Assert.Multiple(() =>
         {
-            hotkeys.CommandModifiers = previousCommand;
-        }
+            Assert.That(Selected(graph), Is.EquivalentTo(new[] { graph.First, graph.Second }));
+            Assert.That(scroll.Offset, Is.EqualTo(offset));
+            Assert.That(graph.Model.CurrentTime.Value, Is.EqualTo(currentTime));
+            Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
+            Assert.That(graph.First.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
+            Assert.That(graph.Second.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
+        });
     }
 
     [AvaloniaTest]
@@ -157,13 +141,12 @@ public class GraphEditorInteractionTests
             Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
             Assert.That(graph.View.FindControl<GraphEditorSelectionAdorner>("SelectionAdorner")!.Marquee, Is.Null);
         });
-        graph.Capture($"plain-seek-{speedGraph}-{offsetX}");
 
         graph.Window.MouseDown(start, MouseButton.Left);
         Point beforeZero = panel.TranslatePoint(new Point(-10, first.Y), graph.Window)!.Value;
         graph.Window.MouseMove(beforeZero, RawInputModifiers.LeftMouseButton);
         Assert.That(graph.Model.CurrentTime.Value, Is.EqualTo(TimeSpan.Zero));
-        PressKey(graph, Key.Escape);
+        graph.PressKey(Key.Escape);
         graph.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
         graph.Window.MouseUp(end, MouseButton.Left);
         Assert.That(graph.Model.CurrentTime.Value, Is.EqualTo(TimeSpan.Zero), "Escape must end the seek gesture.");
@@ -173,11 +156,11 @@ public class GraphEditorInteractionTests
     public async Task Selected_keys_move_together_clamp_as_a_group_and_undo_once()
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true, selectAll: false);
-        Click(graph, Position(graph, graph.First));
-        Click(graph, Position(graph, graph.Second), RawInputModifiers.Shift);
+        graph.Click(graph.Position(graph.First));
+        graph.Click(graph.Position(graph.Second), RawInputModifiers.Shift);
         int undo = graph.Model.HistoryManager.UndoCount;
-        Point start = Position(graph, graph.First);
-        Drag(graph, start, start + new Vector(30, -20));
+        Point start = graph.Position(graph.First);
+        graph.Drag(start, start + new Vector(30, -20));
         Assert.Multiple(() =>
         {
             Assert.That(graph.First.KeyTime.TotalSeconds, Is.EqualTo(0.7).Within(0.00001));
@@ -190,8 +173,8 @@ public class GraphEditorInteractionTests
         HeadlessTestHelpers.Render();
         Assert.That(graph.First.Value, Is.EqualTo(100));
         Assert.That(graph.Second.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
-        start = Position(graph, graph.First);
-        Drag(graph, start, start + new Vector(-120, 0));
+        start = graph.Position(graph.First);
+        graph.Drag(start, start + new Vector(-120, 0));
         Assert.That(graph.First.KeyTime, Is.EqualTo(TimeSpan.Zero));
         Assert.That(graph.Second.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1)));
     }
@@ -207,7 +190,7 @@ public class GraphEditorInteractionTests
         graph.Model.IsSpeedGraph.Value = speed;
         graph.Model.SelectedView.Value!.SetSelection([graph.First]);
         HeadlessTestHelpers.Render(3);
-        Point start = Position(graph, graph.First);
+        Point start = graph.Position(graph.First);
         int undo = graph.Model.HistoryManager.UndoCount;
         graph.HitTest(start);
         graph.Window.MouseDown(start, MouseButton.Left);
@@ -218,7 +201,7 @@ public class GraphEditorInteractionTests
         Assert.That(graph.Second.KeyTime.TotalSeconds, Is.EqualTo(1.5));
         Assert.That(graph.Animation.KeyFrames.Select(key => key.KeyTime).Distinct().Count(), Is.EqualTo(2));
         Assert.That(Selected(graph), Is.EqualTo(new[] { graph.First }));
-        if (cancel) PressKey(graph, Key.Escape);
+        if (cancel) graph.PressKey(Key.Escape);
         graph.Window.MouseUp(start + new Vector(150, 0), MouseButton.Left);
         HeadlessTestHelpers.Render();
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + (cancel ? 0 : 1)));
@@ -261,17 +244,17 @@ public class GraphEditorInteractionTests
     public async Task Crossing_keyframes_preserves_selection_and_escape_rolls_back_drag()
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true, selectAll: false);
-        Point start = Position(graph, graph.First);
-        Drag(graph, start, start + new Vector(180, -20));
+        Point start = graph.Position(graph.First);
+        graph.Drag(start, start + new Vector(180, -20));
         Assert.That(graph.Animation.KeyFrames[1], Is.SameAs(graph.First));
         Assert.That(graph.First.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1.7)));
         Assert.That(graph.First.Value, Is.EqualTo(140));
         Assert.That(Selected(graph), Is.EqualTo(new[] { graph.First }));
         int undo = graph.Model.HistoryManager.UndoCount;
-        start = Position(graph, graph.First);
+        start = graph.Position(graph.First);
         graph.Window.MouseDown(start, MouseButton.Left);
         graph.Window.MouseMove(start + new Vector(30, -10), RawInputModifiers.LeftMouseButton);
-        PressKey(graph, Key.Escape);
+        graph.PressKey(Key.Escape);
         graph.Window.MouseUp(start + new Vector(30, -10), MouseButton.Left);
         Assert.That(graph.First.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1.7)));
         Assert.That(graph.First.Value, Is.EqualTo(140));
@@ -285,8 +268,8 @@ public class GraphEditorInteractionTests
     public async Task Shift_drag_constrains_the_selected_key_instead_of_moving_all(int dx, int dy, double seconds, double value)
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true, selectAll: false);
-        Point start = Position(graph, graph.First);
-        Drag(graph, start, start + new Vector(dx, dy), RawInputModifiers.Shift);
+        Point start = graph.Position(graph.First);
+        graph.Drag(start, start + new Vector(dx, dy), RawInputModifiers.Shift);
         Assert.That(graph.First.KeyTime.TotalSeconds, Is.EqualTo(seconds).Within(0.00001));
         Assert.That(graph.First.Value, Is.EqualTo(value).Within(0.001));
         Assert.That(graph.Second.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
@@ -306,21 +289,21 @@ public class GraphEditorInteractionTests
         graph.Animation.KeyFrames.Add(third);
         graph.Model.HistoryManager.Commit();
         HeadlessTestHelpers.Render();
-        Click(graph, Position(graph, graph.Second));
-        PressKey(graph, Key.F9, RawInputModifiers.Shift);
+        graph.Click(graph.Position(graph.Second));
+        graph.PressKey(Key.F9, RawInputModifiers.Shift);
         var incoming = (SplineEasing)graph.Second.Easing;
         var outgoing = (SplineEasing)third.Easing;
         Assert.That(incoming.X2, Is.EqualTo(2f / 3));
         Assert.That(incoming.Y2, Is.EqualTo(1));
         Assert.That(outgoing.Y1, Is.EqualTo(1f / 3));
-        PressKey(graph, Key.F9, CommandModifier);
+        graph.PressKey(Key.F9, GraphScope.CommandModifier);
         Assert.That(outgoing.X1, Is.EqualTo(1f / 3));
         Assert.That(outgoing.Y1, Is.Zero);
         Assert.That(incoming.Y2, Is.EqualTo(2f / 3));
-        PressKey(graph, Key.A, CommandModifier);
+        graph.PressKey(Key.A, GraphScope.CommandModifier);
         Assert.That(Selected(graph), Has.Length.EqualTo(3));
         int undo = graph.Model.HistoryManager.UndoCount;
-        PressKey(graph, Key.Delete);
+        graph.PressKey(Key.Delete);
         Assert.That(graph.Animation.KeyFrames, Is.Empty);
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
         graph.Model.HistoryManager.Undo();
@@ -359,7 +342,6 @@ public class GraphEditorInteractionTests
         }
         Assert.That(graph.Model.CurrentTime.Value, Is.EqualTo(playhead));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
-        graph.Capture($"ruler-scroll-{horizontal}-{shift}");
     }
 
     [AvaloniaTest]
@@ -371,60 +353,49 @@ public class GraphEditorInteractionTests
     public async Task Ruler_zoom_uses_the_hovered_axis_and_keeps_the_pointer_anchor(bool horizontal, KeyModifiers command, bool autoHeight)
     {
         using var graph = await GraphScope.CreateAsync(light: command == KeyModifiers.Control, selectAll: false);
-        var hotkeys = Application.Current!.PlatformSettings!.HotkeyConfiguration;
-        KeyModifiers previousCommand = hotkeys.CommandModifiers;
-        hotkeys.CommandModifiers = command;
-        try
-        {
-            graph.Model.Options.Value = graph.Model.Options.Value with { Scale = 1 };
-            graph.Model.ScaleY.Value = 2;
-            graph.Model.AutoZoomHeight.Value = autoHeight;
-            HeadlessTestHelpers.Render(3);
-            graph.Model.ScrollOffset.Value = new Vector(75, autoHeight ? graph.Model.ScrollOffset.Value.Y : 80);
-            HeadlessTestHelpers.Render();
-            var scroll = graph.View.FindControl<ScrollViewer>("scroll")!;
-            Control ruler = horizontal ? graph.View.FindControl<Border>("RulerBar")!
-                : graph.View.FindControl<GraphEditorScale>("verticalScale")!;
-            Point local = horizontal ? new Point(180, 16) : new Point(20, 160);
-            Point pointer = ruler.TranslatePoint(local, graph.Window)!.Value;
-            Point plotPointer = ruler.TranslatePoint(local, scroll)!.Value;
-            graph.HitTest(pointer);
-            int undo = graph.Model.HistoryManager.UndoCount;
-            TimeSpan playhead = graph.Model.CurrentTime.Value;
-            foreach (RawInputModifiers modifier in new[] { RawInputModifiers.Alt, CommandModifier, CommandModifier | RawInputModifiers.Alt })
-                foreach (Vector delta in new[] { new Vector(0, 1), new Vector(-1, 0) })
+        using var commandModifier = CommandModifierScope.Use(command);
+        graph.Model.Options.Value = graph.Model.Options.Value with { Scale = 1 };
+        graph.Model.ScaleY.Value = 2;
+        graph.Model.AutoZoomHeight.Value = autoHeight;
+        HeadlessTestHelpers.Render(3);
+        graph.Model.ScrollOffset.Value = new Vector(75, autoHeight ? graph.Model.ScrollOffset.Value.Y : 80);
+        HeadlessTestHelpers.Render();
+        var scroll = graph.View.FindControl<ScrollViewer>("scroll")!;
+        Control ruler = horizontal ? graph.View.FindControl<Border>("RulerBar")!
+            : graph.View.FindControl<GraphEditorScale>("verticalScale")!;
+        Point local = horizontal ? new Point(180, 16) : new Point(20, 160);
+        Point pointer = ruler.TranslatePoint(local, graph.Window)!.Value;
+        Point plotPointer = ruler.TranslatePoint(local, scroll)!.Value;
+        graph.HitTest(pointer);
+        int undo = graph.Model.HistoryManager.UndoCount;
+        TimeSpan playhead = graph.Model.CurrentTime.Value;
+        foreach (RawInputModifiers modifier in new[] { RawInputModifiers.Alt, GraphScope.CommandModifier, GraphScope.CommandModifier | RawInputModifiers.Alt })
+            foreach (Vector delta in new[] { new Vector(0, 1), new Vector(-1, 0) })
+            {
+                float scaleX = graph.Model.Options.Value.Scale;
+                double scaleY = graph.Model.ScaleY.Value;
+                Vector offset = scroll.Offset;
+                double time = (offset.X + plotPointer.X) / scaleX;
+                double value = (graph.Model.Baseline.Value - offset.Y - plotPointer.Y) / scaleY;
+                graph.Window.MouseWheel(pointer, delta, modifier);
+                HeadlessTestHelpers.Render();
+                double factor = Math.Pow(1.2, delta.Y != 0 ? delta.Y : delta.X);
+                Assert.That(graph.Model.Options.Value.Scale, Is.EqualTo(horizontal ? scaleX * factor : scaleX).Within(0.001));
+                Assert.That(graph.Model.ScaleY.Value, Is.EqualTo(horizontal ? scaleY : scaleY * factor).Within(0.001));
+                if (horizontal)
                 {
-                    float scaleX = graph.Model.Options.Value.Scale;
-                    double scaleY = graph.Model.ScaleY.Value;
-                    Vector offset = scroll.Offset;
-                    double time = (offset.X + plotPointer.X) / scaleX;
-                    double value = (graph.Model.Baseline.Value - offset.Y - plotPointer.Y) / scaleY;
-                    graph.Window.MouseWheel(pointer, delta, modifier);
-                    HeadlessTestHelpers.Render();
-                    double factor = Math.Pow(1.2, delta.Y != 0 ? delta.Y : delta.X);
-                    Assert.That(graph.Model.Options.Value.Scale, Is.EqualTo(horizontal ? scaleX * factor : scaleX).Within(0.001));
-                    Assert.That(graph.Model.ScaleY.Value, Is.EqualTo(horizontal ? scaleY : scaleY * factor).Within(0.001));
-                    if (horizontal)
-                    {
-                        Assert.That((scroll.Offset.X + plotPointer.X) / graph.Model.Options.Value.Scale, Is.EqualTo(time).Within(0.01));
-                        Assert.That(scroll.Offset.Y, Is.EqualTo(offset.Y).Within(0.01));
-                    }
-                    else
-                    {
-                        Assert.That((graph.Model.Baseline.Value - scroll.Offset.Y - plotPointer.Y) / graph.Model.ScaleY.Value,
-                            Is.EqualTo(value).Within(0.01));
-                        Assert.That(scroll.Offset.X, Is.EqualTo(offset.X).Within(0.01));
-                    }
-                    if (modifier == CommandModifier && delta.Y > 0)
-                        graph.Capture($"ruler-zoom-{horizontal}-{command}-{autoHeight}");
+                    Assert.That((scroll.Offset.X + plotPointer.X) / graph.Model.Options.Value.Scale, Is.EqualTo(time).Within(0.01));
+                    Assert.That(scroll.Offset.Y, Is.EqualTo(offset.Y).Within(0.01));
                 }
-            Assert.That(graph.Model.CurrentTime.Value, Is.EqualTo(playhead));
-            Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
-        }
-        finally
-        {
-            hotkeys.CommandModifiers = previousCommand;
-        }
+                else
+                {
+                    Assert.That((graph.Model.Baseline.Value - scroll.Offset.Y - plotPointer.Y) / graph.Model.ScaleY.Value,
+                        Is.EqualTo(value).Within(0.01));
+                    Assert.That(scroll.Offset.X, Is.EqualTo(offset.X).Within(0.01));
+                }
+            }
+        Assert.That(graph.Model.CurrentTime.Value, Is.EqualTo(playhead));
+        Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
     }
 
     [AvaloniaTest]
@@ -441,7 +412,7 @@ public class GraphEditorInteractionTests
         Point pointer = ruler.TranslatePoint(new Point(180, 16), graph.Window)!.Value;
         graph.HitTest(pointer);
         Vector before = scroll.Offset;
-        graph.Window.MouseWheel(pointer, new Vector(0, 1), CommandModifier);
+        graph.Window.MouseWheel(pointer, new Vector(0, 1), GraphScope.CommandModifier);
         HeadlessTestHelpers.Render();
         Assert.That(graph.Model.Options.Value.Scale, Is.EqualTo(2));
         Assert.That(scroll.Offset, Is.EqualTo(before));
@@ -485,28 +456,22 @@ public class GraphEditorInteractionTests
     public async Task Plot_command_wheel_zooms_time_and_shift_zooms_value(KeyModifiers command, bool shift)
     {
         using var graph = await GraphScope.CreateAsync(selectAll: false);
-        var hotkeys = Application.Current!.PlatformSettings!.HotkeyConfiguration;
-        KeyModifiers previous = hotkeys.CommandModifiers;
-        hotkeys.CommandModifiers = command;
-        try
-        {
-            var scroll = graph.View.FindControl<ScrollViewer>("scroll")!;
-            graph.Model.ScaleY.Value = 2;
-            HeadlessTestHelpers.Render(3);
-            graph.Model.ScrollOffset.Value = new Vector(75, 80);
-            HeadlessTestHelpers.Render();
-            Point pointer = scroll.TranslatePoint(new Point(180, 160), graph.Window)!.Value;
-            graph.HitTest(pointer);
-            double time = (scroll.Offset.X + 180) / graph.Model.Options.Value.Scale;
-            double value = (graph.Model.Baseline.Value - scroll.Offset.Y - 160) / graph.Model.ScaleY.Value;
-            graph.Window.MouseWheel(pointer, new Vector(0, 1), CommandModifier | (shift ? RawInputModifiers.Shift : RawInputModifiers.None));
-            HeadlessTestHelpers.Render();
-            Assert.That(graph.Model.Options.Value.Scale, Is.EqualTo(shift ? 1 : 1.2).Within(0.001));
-            Assert.That(graph.Model.ScaleY.Value, Is.EqualTo(shift ? 2.4 : 2).Within(0.001));
-            Assert.That((scroll.Offset.X + 180) / graph.Model.Options.Value.Scale, Is.EqualTo(time).Within(0.01));
-            Assert.That((graph.Model.Baseline.Value - scroll.Offset.Y - 160) / graph.Model.ScaleY.Value, Is.EqualTo(value).Within(0.01));
-        }
-        finally { hotkeys.CommandModifiers = previous; }
+        using var commandModifier = CommandModifierScope.Use(command);
+        var scroll = graph.View.FindControl<ScrollViewer>("scroll")!;
+        graph.Model.ScaleY.Value = 2;
+        HeadlessTestHelpers.Render(3);
+        graph.Model.ScrollOffset.Value = new Vector(75, 80);
+        HeadlessTestHelpers.Render();
+        Point pointer = scroll.TranslatePoint(new Point(180, 160), graph.Window)!.Value;
+        graph.HitTest(pointer);
+        double time = (scroll.Offset.X + 180) / graph.Model.Options.Value.Scale;
+        double value = (graph.Model.Baseline.Value - scroll.Offset.Y - 160) / graph.Model.ScaleY.Value;
+        graph.Window.MouseWheel(pointer, new Vector(0, 1), GraphScope.CommandModifier | (shift ? RawInputModifiers.Shift : RawInputModifiers.None));
+        HeadlessTestHelpers.Render();
+        Assert.That(graph.Model.Options.Value.Scale, Is.EqualTo(shift ? 1 : 1.2).Within(0.001));
+        Assert.That(graph.Model.ScaleY.Value, Is.EqualTo(shift ? 2.4 : 2).Within(0.001));
+        Assert.That((scroll.Offset.X + 180) / graph.Model.Options.Value.Scale, Is.EqualTo(time).Within(0.01));
+        Assert.That((graph.Model.Baseline.Value - scroll.Offset.Y - 160) / graph.Model.ScaleY.Value, Is.EqualTo(value).Within(0.01));
     }
 
     [AvaloniaTest]
@@ -528,7 +493,7 @@ public class GraphEditorInteractionTests
         HeadlessTestHelpers.Render();
         Assert.That((scroll.Offset.X + 180) / graph.Model.Options.Value.Scale, Is.EqualTo(time).Within(0.01));
         double value = (graph.Model.Baseline.Value - scroll.Offset.Y - 160) / graph.Model.ScaleY.Value;
-        graph.Window.MouseWheel(pointer, new Vector(0, 1), CommandModifier | RawInputModifiers.Shift);
+        graph.Window.MouseWheel(pointer, new Vector(0, 1), GraphScope.CommandModifier | RawInputModifiers.Shift);
         HeadlessTestHelpers.Render();
         Assert.That((graph.Model.Baseline.Value - scroll.Offset.Y - 160) / graph.Model.ScaleY.Value, Is.EqualTo(value).Within(0.01));
         var before = scroll.Offset;
@@ -560,9 +525,9 @@ public class GraphEditorInteractionTests
     public async Task Speed_graph_edits_influence_without_changing_key_values(bool light)
     {
         using var graph = await GraphScope.CreateAsync(light, separateHandles: true, selectAll: false);
-        Click(graph, Position(graph, graph.First));
-        Click(graph, Position(graph, graph.Second), RawInputModifiers.Shift);
-        PressKey(graph, Key.F9);
+        graph.Click(graph.Position(graph.First));
+        graph.Click(graph.Position(graph.Second), RawInputModifiers.Shift);
+        graph.PressKey(Key.F9);
         var graphType = graph.View.FindControl<ComboBox>("GraphTypePicker")!;
         graphType.SelectedIndex = 1;
         HeadlessTestHelpers.Render(3);
@@ -575,28 +540,26 @@ public class GraphEditorInteractionTests
         var easing = (SplineEasing)graph.Second.Easing;
         var handle = panel.TranslatePoint(new Point(left + easing.X1 * (right - left), graph.Model.Baseline.Value), graph.Window)!.Value;
         graph.HitTest(handle);
-        Drag(graph, handle, handle + new Vector(25, 0), RawInputModifiers.Alt);
+        graph.Drag(handle, handle + new Vector(25, 0), RawInputModifiers.Alt);
         Assert.That(easing.X1, Is.GreaterThan(1f / 3));
         Assert.That(easing.Y1, Is.Zero.Within(0.001));
         Assert.That(graph.First.Value, Is.EqualTo(100));
         Assert.That(graph.Second.Value, Is.EqualTo(500));
-        graph.Capture($"speed-{light}");
         graph.Model.IsSpeedGraph.Value = false;
         HeadlessTestHelpers.Render(3);
         Assert.That(graphType.SelectedIndex, Is.Zero);
-        graph.Capture($"value-{light}");
     }
 
     [AvaloniaTest]
     public async Task Transform_box_scales_time_and_value_and_is_one_undo()
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true, selectAll: false);
-        Click(graph, Position(graph, graph.First));
-        Click(graph, Position(graph, graph.Second), RawInputModifiers.Shift);
+        graph.Click(graph.Position(graph.First));
+        graph.Click(graph.Position(graph.Second), RawInputModifiers.Shift);
         int undo = graph.Model.HistoryManager.UndoCount;
         // Bottom-right corner is away from both keyframes and their direction handles.
-        Point first = Position(graph, graph.First), second = Position(graph, graph.Second);
-        Drag(graph, new Point(second.X, first.Y), new Point(second.X + 75, first.Y + 50));
+        Point first = graph.Position(graph.First), second = graph.Position(graph.Second);
+        graph.Drag(new Point(second.X, first.Y), new Point(second.X + 75, first.Y + 50));
         Assert.That(graph.Second.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(2)));
         Assert.That(graph.First.Value, Is.EqualTo(0).Within(0.001));
         Assert.That(graph.Second.Value, Is.EqualTo(500));
@@ -659,13 +622,12 @@ public class GraphEditorInteractionTests
             graph.Model.HistoryManager.Redo();
             Assert.That(AssertSelectionBounds(), Is.EqualTo(changed));
         }
-        graph.Capture($"external-selection-{change}-{light}");
 
         TimeSpan time = graph.Second.KeyTime;
         int undo = graph.Model.HistoryManager.UndoCount;
         Point handle = adorner.TranslatePoint(GraphEditorSelectionAdorner.HandlePoint(changed, 3), graph.Window)!.Value;
         double distance = TimeSpan.FromSeconds(0.2).TimeToPixel(graph.Model.Options.Value.Scale);
-        Drag(graph, handle, handle + new Vector(distance, 0), RawInputModifiers.Alt);
+        graph.Drag(handle, handle + new Vector(distance, 0), RawInputModifiers.Alt);
         Assert.That(graph.Second.KeyTime, Is.EqualTo(time + TimeSpan.FromSeconds(0.2)));
         Assert.That(graph.First.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
         Assert.That(graph.First.Value, Is.EqualTo(100));
@@ -698,14 +660,9 @@ public class GraphEditorInteractionTests
         editor.Player.IsPlaying.Value = true;
 
         graph.View.Focus();
-        PressKey(graph, Key.Z, redo ? CommandModifier | RawInputModifiers.Shift : CommandModifier);
+        graph.PressKey(Key.Z, redo ? GraphScope.CommandModifier | RawInputModifiers.Shift : GraphScope.CommandModifier);
         // The key handler awaits the editor, which pauses the player first.
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        while (playingWhenMoved is null)
-        {
-            HeadlessTestHelpers.Settle();
-            await Task.Delay(10, timeout.Token);
-        }
+        await HeadlessTestHelpers.WaitUntilAsync(() => playingWhenMoved is not null);
 
         Assert.Multiple(() =>
         {
@@ -714,44 +671,6 @@ public class GraphEditorInteractionTests
         });
     }
 
-    private static RawInputModifiers CommandModifier => KeyGestureHelper.GetCommandModifier() == KeyModifiers.Meta
-        ? RawInputModifiers.Meta : RawInputModifiers.Control;
-
     private static IKeyFrame[] Selected(GraphScope graph) => graph.Model.SelectedView.Value!.KeyFrames
         .Where(x => x.IsSelected.Value).Select(x => x.Model).ToArray();
-
-    private static Point Position(GraphScope graph, IKeyFrame key)
-    {
-        HeadlessTestHelpers.Render();
-        if (!graph.Model.IsSpeedGraph.Value)
-            return graph.KeyFrame(key).TranslatePoint(default, graph.Window)!.Value;
-        var item = graph.Model.SelectedView.Value!.KeyFrames.Single(x => x.Model == key);
-        return graph.View.FindControl<Panel>("graphPanel")!.TranslatePoint(graph.View.GetKeyPoint(item), graph.Window)!.Value;
-    }
-
-    private static void Click(GraphScope graph, Point point, RawInputModifiers modifiers = RawInputModifiers.None)
-    {
-        graph.HitTest(point);
-        graph.Window.MouseMove(point, modifiers);
-        graph.Window.MouseDown(point, MouseButton.Left, modifiers);
-        graph.Window.MouseUp(point, MouseButton.Left, modifiers);
-        HeadlessTestHelpers.Render();
-    }
-
-    private static void Drag(GraphScope graph, Point start, Point end, RawInputModifiers modifiers = RawInputModifiers.None)
-    {
-        graph.HitTest(start);
-        graph.Window.MouseMove(start, modifiers);
-        graph.Window.MouseDown(start, MouseButton.Left, modifiers);
-        graph.Window.MouseMove(end, modifiers | RawInputModifiers.LeftMouseButton);
-        graph.Window.MouseUp(end, MouseButton.Left, modifiers);
-        HeadlessTestHelpers.Render();
-    }
-
-    private static void PressKey(GraphScope graph, Key key, RawInputModifiers modifiers = RawInputModifiers.None)
-    {
-        graph.Window.KeyPress(key, modifiers, PhysicalKey.None, null);
-        graph.Window.KeyRelease(key, modifiers, PhysicalKey.None, null);
-        HeadlessTestHelpers.Render();
-    }
 }

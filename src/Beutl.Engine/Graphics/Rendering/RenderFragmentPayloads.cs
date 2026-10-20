@@ -36,12 +36,8 @@ internal sealed record FilterEffectSegmentRenderFragmentPayload(
     int StreamInputCount)
 {
     /// <summary>
-    /// Whether the segment runs an imperative effect callback. Such a callback crops and re-lays-out its
-    /// targets in whole device pixels, so the executor strips the sub-pixel phase from the ambient device
-    /// grid for this segment and for every nested frame that materializes its inputs. Only the ambient
-    /// phase is stripped: a callback whose own target bounds carry a fractional device phase still
-    /// allocates off the grid, and an input produced by a separate render request keeps that request's
-    /// own grid.
+    /// Whether the segment runs an imperative effect callback, which lays out its targets in whole device pixels,
+    /// so the executor strips the sub-pixel phase of the ambient device grid for it and its nested input frames.
     /// </summary>
     public bool HasImperativeItem
     {
@@ -65,12 +61,7 @@ internal sealed record FilterEffectSegmentRenderFragmentPayload(
     public bool SupportsDirectReplay
         => StreamInputCount == 1
            && !BoundsItems.IsDefaultOrEmpty
-           && BoundsItems.All(static item =>
-               item is IFEItem_Skia
-               {
-                   SupportsDirectReplay: true,
-                   ResolveBoundsAtExecutionTime: false,
-               });
+           && BoundsItems.All(static item => item is IFEItem_Skia { SupportsDirectReplay: true });
 }
 
 internal sealed record MaterializedInputRenderFragmentPayload(
@@ -98,4 +89,4 @@ internal sealed record TargetCommandRenderFragmentPayload(
 
 internal sealed record BuiltInBackdropCaptureRenderFragmentPayload(
     TargetCaptureDescription Description,
-    object Identity);
+    IBuiltInBackdropCaptureSink Identity);

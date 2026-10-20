@@ -11,7 +11,7 @@ public class DispatcherTimerOwnershipTests
     public async Task Color_dropper_created_on_a_worker_processes_cancellation_on_the_UI_dispatcher()
     {
         var completion = new TaskCompletionSource<(Color2 Color, int X, int Y)>();
-        using ColorDropper dropper = await Task.Run(() =>
+        ColorDropper dropper = await Task.Run(() =>
             new ColorDropper(completion, new CancellationToken(canceled: true)));
 
         // Cancellation is handled on the first timer tick, before any platform-specific sampling.

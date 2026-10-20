@@ -1,7 +1,6 @@
 ﻿using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
 using Beutl.Api.Services;
-using Beutl.Collections;
 using Beutl.Extensibility;
 
 namespace Beutl.Editor.Services;
@@ -12,8 +11,14 @@ namespace Beutl.Editor.Services;
 /// </summary>
 public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry, IAsyncDisposable
 {
+    // The two composition phases: every Add registration, then every Replace one.
+    private static readonly ElementSourceHandlerRegistrationMode[] s_phases =
+    [
+        ElementSourceHandlerRegistrationMode.Add,
+        ElementSourceHandlerRegistrationMode.Replace,
+    ];
+
     private readonly Dictionary<Type, List<Registration>> _handlers = [];
-    private readonly CoreList<ElementSourceHandlerDescriptor> _handlerMetadata = [];
     private readonly HashSet<Task> _activeRegistrationRetirements = [];
     private readonly Dictionary<ElementSourceHandlerExtension, List<Registration>> _extensionRegistrations =
         new(ReferenceEqualityComparer.Instance);
@@ -22,20 +27,7 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
     private readonly Action<ElementSourceHandlerExtensionFailure>? _reportFailure;
     private IExtensionRegistry? _extensionProvider;
     private Task? _disposeTask;
-    private long _registrationSequence;
-    private int _metadataBatchDepth;
     private bool _disposed;
-
-    public ElementSourceHandlerRegistry()
-        : this([])
-    {
-    }
-
-    public ElementSourceHandlerRegistry(
-        IEnumerable<ElementSourceHandlerRegistration> hostRegistrations)
-        : this(hostRegistrations, null, null)
-    {
-    }
 
     internal ElementSourceHandlerRegistry(
         IEnumerable<ElementSourceHandlerRegistration> hostRegistrations,
@@ -55,23 +47,16 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
         }
     }
 
-    public ICoreReadOnlyList<ElementSourceHandlerDescriptor> Handlers => _handlerMetadata;
-
-    public IElementSourceHandlerRegistration Register(ElementSourceHandlerRegistration registration)
+    private void Register(ElementSourceHandlerRegistration registration)
     {
         PreparedRegistration prepared = PrepareRegistration(registration);
 
         lock (_extensionCompositionGate)
         {
-            Registration result;
-            ElementSourceHandlerDescriptor[] metadata;
             lock (_gate)
             {
-                result = RegisterPrepared_NoLock(prepared);
-                metadata = CreateMetadata_NoLock();
+                RegisterPrepared_NoLock(prepared);
             }
-            PublishMetadata(metadata);
-            return result;
         }
     }
 
@@ -159,24 +144,17 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
     {
         Registration[] registrations;
         Task[] activeRetirements;
-        ElementSourceHandlerDescriptor[] metadata;
         KeyValuePair<ElementSourceHandlerExtension, List<Registration>>[] extensionRegistrations;
         lock (_extensionCompositionGate)
         {
             lock (_gate)
             {
-                if (_disposed)
-                    return Task.CompletedTask;
-
                 _disposed = true;
                 registrations = _handlers.Values.SelectMany(value => value).ToArray();
                 _handlers.Clear();
-                metadata = CreateMetadata_NoLock();
                 activeRetirements = _activeRegistrationRetirements.ToArray();
                 _activeRegistrationRetirements.Clear();
             }
-
-            PublishMetadata(metadata);
 
             if (_extensionProvider is not null)
             {
@@ -203,21 +181,16 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
 
     private void AttachExtensionProvider(IExtensionRegistry extensionProvider)
     {
-        ArgumentNullException.ThrowIfNull(extensionProvider);
         extensionProvider.SynchronizeMutation(() =>
         {
             lock (_extensionCompositionGate)
             {
-                ObjectDisposedException.ThrowIf(_disposed, this);
-                if (_extensionProvider is not null)
-                    throw new InvalidOperationException("An extension provider is already attached.");
-
                 _extensionProvider = extensionProvider;
                 extensionProvider.AllExtensions.CollectionChanged += OnExtensionsChanged;
                 extensionProvider.ExtensionsChanged += OnExtensionsCommitted;
                 try
                 {
-                    SynchronizeExtensionRegistrationsCore();
+                    SynchronizeExtensionRegistrationsCore(extensionProvider);
                 }
                 catch
                 {
@@ -239,7 +212,7 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
         {
             if (!_disposed)
             {
-                SynchronizeExtensionRegistrationsCore();
+                SynchronizeExtensionRegistrationsCore(_extensionProvider!);
             }
         }
     }
@@ -249,14 +222,12 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
         lock (_extensionCompositionGate)
         {
             if (!_disposed)
-                SynchronizeExtensionRegistrationsCore();
+                SynchronizeExtensionRegistrationsCore(_extensionProvider!);
         }
     }
 
-    private void SynchronizeExtensionRegistrationsCore()
+    private void SynchronizeExtensionRegistrationsCore(IExtensionRegistry extensionProvider)
     {
-        IExtensionRegistry extensionProvider = _extensionProvider
-            ?? throw new InvalidOperationException("No extension provider is attached.");
         ElementSourceHandlerExtension[] currentExtensions =
             extensionProvider.GetExtensions<ElementSourceHandlerExtension>();
         var currentSet = new HashSet<ElementSourceHandlerExtension>(
@@ -273,25 +244,12 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
 
         var failures = new Dictionary<ElementSourceHandlerExtension, Exception>(
             ReferenceEqualityComparer.Instance);
-        ElementSourceHandlerDescriptor[] metadata;
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            _metadataBatchDepth++;
-            try
-            {
-                RetireRemovedRegistrations_NoLock(removedRegistrations);
-                RegisterCandidates_NoLock(candidates, failures);
-            }
-            finally
-            {
-                _metadataBatchDepth--;
-            }
-
-            metadata = CreateMetadata_NoLock();
+            RetireRemovedRegistrations_NoLock(removedRegistrations);
+            RegisterCandidates_NoLock(candidates, failures);
         }
-
-        PublishMetadata(metadata);
 
         foreach ((ElementSourceHandlerExtension extension, Exception failure) in failures)
             ReportFailure(extension, failure);
@@ -336,88 +294,66 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
         }
     }
 
+    // Composes the candidates against the registered source types first, so that only the accepted
+    // registrations are added to the live state.
     private void RegisterCandidates_NoLock(
         List<(ElementSourceHandlerExtension Extension, PreparedRegistration[] Registrations)> candidates,
         Dictionary<ElementSourceHandlerExtension, Exception> failures)
     {
-        while (true)
-        {
-            var attemptOwned = new Dictionary<
-                ElementSourceHandlerExtension,
-                List<Registration>>(ReferenceEqualityComparer.Instance);
-            foreach ((ElementSourceHandlerExtension extension, _) in candidates)
+        Type[] registeredTypes = _handlers
+            .Where(pair => pair.Value.Count > 0)
+            .Select(pair => pair.Key)
+            .ToArray();
+        _ = TwoPhaseComposition.Compose(
+            candidates,
+            static candidate => candidate.Extension,
+            failures,
+            () => new HashSet<Type>(registeredTypes),
+            (registered, candidate, phaseIndex) =>
             {
-                if (!failures.ContainsKey(extension))
-                    attemptOwned.Add(extension, []);
-            }
-            Dictionary<ElementSourceHandlerExtension, (Exception Exception, int Phase)> newFailures =
-                RegisterAttempt_NoLock(candidates, failures, attemptOwned);
-
-            if (newFailures.Count > 0)
-            {
-                foreach (List<Registration> owned in attemptOwned.Values)
+                foreach (PreparedRegistration registration in candidate.Registrations
+                             .Where(registration => registration.Mode == s_phases[phaseIndex]))
                 {
-                    DisposeRegistrationsAsync(owned).AsTask().GetAwaiter().GetResult();
+                    ValidateRegistrationMode(registration, registered.Contains(registration.SourceType));
+                    registered.Add(registration.SourceType);
                 }
-                int latestFailedPhase = newFailures.Values.Max(failure => failure.Phase);
-                KeyValuePair<ElementSourceHandlerExtension, (Exception Exception, int Phase)> rejected =
-                    newFailures.First(failure => failure.Value.Phase == latestFailedPhase);
-                failures.TryAdd(rejected.Key, rejected.Value.Exception);
-                continue;
-            }
 
-            foreach ((ElementSourceHandlerExtension extension, List<Registration> owned)
-                     in attemptOwned)
-            {
-                _extensionRegistrations.Add(extension, owned);
-            }
-            break;
-        }
-    }
+                return registered;
+            });
 
-    private Dictionary<ElementSourceHandlerExtension, (Exception Exception, int Phase)> RegisterAttempt_NoLock(
-        List<(ElementSourceHandlerExtension Extension, PreparedRegistration[] Registrations)> candidates,
-        Dictionary<ElementSourceHandlerExtension, Exception> failures,
-        Dictionary<ElementSourceHandlerExtension, List<Registration>> attemptOwned)
-    {
-        var newFailures = new Dictionary<
-            ElementSourceHandlerExtension,
-            (Exception Exception, int Phase)>(ReferenceEqualityComparer.Instance);
-        ElementSourceHandlerRegistrationMode[] phases =
-        [
-            ElementSourceHandlerRegistrationMode.Add,
-            ElementSourceHandlerRegistrationMode.Replace,
-        ];
-        for (int phaseIndex = 0; phaseIndex < phases.Length; phaseIndex++)
+        var owned = new Dictionary<ElementSourceHandlerExtension, List<Registration>>(
+            ReferenceEqualityComparer.Instance);
+        foreach ((ElementSourceHandlerExtension extension, _) in candidates)
         {
-            ElementSourceHandlerRegistrationMode mode = phases[phaseIndex];
+            if (!failures.ContainsKey(extension))
+                owned.Add(extension, []);
+        }
+
+        foreach (ElementSourceHandlerRegistrationMode mode in s_phases)
+        {
             foreach ((ElementSourceHandlerExtension extension,
                      PreparedRegistration[] registrations) in candidates)
             {
-                if (failures.ContainsKey(extension) || newFailures.ContainsKey(extension))
+                if (!owned.TryGetValue(extension, out List<Registration>? registered))
                     continue;
-                try
+
+                foreach (PreparedRegistration registration in registrations
+                             .Where(registration => registration.Mode == mode))
                 {
-                    foreach (PreparedRegistration registration in registrations
-                                 .Where(registration => registration.Mode == mode))
-                    {
-                        attemptOwned[extension].Add(RegisterPrepared_NoLock(registration));
-                    }
-                }
-                catch (Exception ex)
-                {
-                    newFailures.Add(extension, (ex, phaseIndex));
+                    registered.Add(RegisterPrepared_NoLock(registration));
                 }
             }
         }
 
-        return newFailures;
+        foreach ((ElementSourceHandlerExtension extension, List<Registration> registered) in owned)
+        {
+            _extensionRegistrations.Add(extension, registered);
+        }
     }
 
     private Task UnregisterAsync(Registration registration, RegistrationState state)
     {
         Task drain;
-        ElementSourceHandlerDescriptor[]? metadata = null;
         lock (_extensionCompositionGate)
         {
             lock (_gate)
@@ -437,13 +373,7 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
                         _handlers.Remove(state.SourceType);
                     }
                 }
-
-                if (_metadataBatchDepth == 0)
-                    metadata = CreateMetadata_NoLock();
             }
-
-            if (metadata is not null)
-                PublishMetadata(metadata);
         }
 
         return drain;
@@ -469,36 +399,6 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
         }
     }
 
-    private ElementSourceHandlerDescriptor[] CreateMetadata_NoLock()
-        => _handlers
-            .Select(pair => pair.Value[^1].State)
-            .OrderBy(state => state.Order)
-            .ThenBy(state => state.SourceType.FullName, StringComparer.Ordinal)
-            .ThenBy(state => state.Sequence)
-            .Select(state => state.Descriptor)
-            .ToArray();
-
-    private void PublishMetadata(ElementSourceHandlerDescriptor[] metadata)
-    {
-        if (_handlerMetadata.Count == metadata.Length
-            && _handlerMetadata.Select((current, index) =>
-                    current.SourceTypeName == metadata[index].SourceTypeName
-                    && current.Order == metadata[index].Order)
-                .All(matches => matches))
-        {
-            return;
-        }
-
-        try
-        {
-            _handlerMetadata.Replace(metadata);
-        }
-        catch
-        {
-            // Metadata observers cannot veto or roll back handler registration changes.
-        }
-    }
-
     private static PreparedRegistration PrepareRegistration(
         ElementSourceHandlerRegistration registration)
     {
@@ -517,8 +417,7 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
         return new PreparedRegistration(
             sourceType,
             handler,
-            registration.Mode,
-            registration.Order);
+            registration.Mode);
     }
 
     private Registration RegisterPrepared_NoLock(PreparedRegistration registration)
@@ -526,6 +425,20 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
         ObjectDisposedException.ThrowIf(_disposed, this);
         bool exists = _handlers.TryGetValue(registration.SourceType, out List<Registration>? entries)
             && entries.Count > 0;
+        ValidateRegistrationMode(registration, exists);
+
+        entries ??= [];
+        _handlers[registration.SourceType] = entries;
+        var state = new RegistrationState(
+            registration.SourceType,
+            registration.Handler);
+        var owner = new Registration(this, state);
+        entries.Add(owner);
+        return owner;
+    }
+
+    private static void ValidateRegistrationMode(PreparedRegistration registration, bool exists)
+    {
         if (registration.Mode == ElementSourceHandlerRegistrationMode.Add && exists)
         {
             throw new ArgumentException(
@@ -540,17 +453,6 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
                 + "because it is not registered.",
                 nameof(registration));
         }
-
-        entries ??= [];
-        _handlers[registration.SourceType] = entries;
-        var state = new RegistrationState(
-            registration.SourceType,
-            registration.Handler,
-            registration.Order,
-            ++_registrationSequence);
-        var owner = new Registration(this, state);
-        entries.Add(owner);
-        return owner;
     }
 
     private static ValueTask DisposeRegistrationsAsync(IEnumerable<Registration> registrations)
@@ -586,8 +488,7 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
     private readonly record struct PreparedRegistration(
         Type SourceType,
         IElementSourceHandler Handler,
-        ElementSourceHandlerRegistrationMode Mode,
-        int Order);
+        ElementSourceHandlerRegistrationMode Mode);
 
     private void ReportFailure(ElementSourceHandlerExtension extension, Exception exception)
     {

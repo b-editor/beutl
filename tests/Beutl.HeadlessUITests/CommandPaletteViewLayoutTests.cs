@@ -1,10 +1,8 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Api.Services;
@@ -13,17 +11,12 @@ using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
+using static Beutl.HeadlessUITests.CommandPaletteTestHost;
 
 namespace Beutl.HeadlessUITests;
 
-// Layout regression for the command-palette result item template. The command title is the primary
-// identifier and must never be starved: it now sits on its own full-width row, with the compact,
-// width-bounded category label and the description each on their own line below it. Earlier layouts
-// either shared a single horizontal row between the category and the description (crowding the
-// category) or put the bounded category beside the title (starving the title at narrow widths).
-// These tests build the real ListBox.ItemTemplate against a CommandPaletteItemViewModel and assert the
-// arranged layout (bounds only, never pixels): the title keeps a substantial width on a narrow window,
-// the category and description each sit on their own line, and the category label is width-bounded.
+// Pins the result item layout: the title has its own full-width row, and the bounded category and the
+// description each sit on their own line below it.
 [TestFixture]
 public class CommandPaletteViewLayoutTests
 {
@@ -59,7 +52,7 @@ public class CommandPaletteViewLayoutTests
                 CategoryName: CategoryText,
                 KeyGesture: new KeyGesture(Key.P, KeyModifiers.Control),
                 CanExecute: () => true,
-                ExecuteAsync: () => Task.CompletedTask);
+                ExecuteAsync: _ => Task.CompletedTask);
             var item = new CommandPaletteItemViewModel(command, isEnabled: true, relevance: 0);
 
             Control? built = template!.Build(item);
@@ -101,9 +94,11 @@ public class CommandPaletteViewLayoutTests
         var provider = new ExtensionProvider();
         provider.AddExtensions(-45009, [extension]);
         var editor = new EditorService(provider);
-        var manager = new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry());
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore());
         manager.Register(extension);
-        var service = new CommandPaletteService(manager, new SearchHandlerProvider(), () => null, editor, provider);
+        var handler = new Handler(async execution =>
+            await execution.Interaction!.ShowInputAsync(new ContextCommandInputOptions { Prompt = "Prompt message" }));
+        var service = new CommandPaletteService(manager, new FixedHandlerProvider(handler), () => null, editor, provider);
         using var palette = new CommandPaletteViewModel(service, editor);
         var view = new CommandPaletteView { DataContext = palette };
         var window = new Window
@@ -123,7 +118,6 @@ public class CommandPaletteViewLayoutTests
             ListBoxItem first = results.GetVisualDescendants().OfType<ListBoxItem>().First();
             double queryBottom = query.TranslatePoint(new Point(0, query.Bounds.Height), view)!.Value.Y;
             double firstTop = first.TranslatePoint(default, view)!.Value.Y;
-            Capture(window, $"search-{width}-{light}");
 
             Assert.That(firstTop - queryBottom, Is.InRange(0d, 16d),
                 "The command list must follow the input without reserving blank prompt messages.");
@@ -187,22 +181,16 @@ public class CommandPaletteViewLayoutTests
     public void Shortcut_labels_show_keys_instead_of_enum_names(Key key, KeyModifiers modifiers, string expected)
     {
         Assert.That(CreateItem(new KeyGesture(key, modifiers)).KeyGestureText, Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void Missing_shortcut_has_no_label()
+    {
         Assert.That(CreateItem(null).KeyGestureText, Is.Null);
     }
 
     private static CommandPaletteItemViewModel CreateItem(KeyGesture? gesture)
-        => new(new PaletteCommand("test", "Test", null, "Test", gesture, () => true, () => Task.CompletedTask), true, 0);
-
-    private static void Capture(Window window, string name)
-    {
-        string? directory = Environment.GetEnvironmentVariable("BEUTL_COMMAND_PALETTE_LAYOUT_CAPTURE_DIR");
-        if (directory is null) return;
-        Directory.CreateDirectory(directory);
-        HeadlessTestHelpers.Render();
-        using var image = window.CaptureRenderedFrame();
-        Assert.That(image, Is.Not.Null);
-        image!.Save(Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);
-    }
+        => new(new PaletteCommand("test", "Test", null, "Test", gesture, () => true, _ => Task.CompletedTask), true, 0);
 
     private sealed class SearchExtension : ViewExtension
     {
@@ -214,16 +202,6 @@ public class CommandPaletteViewLayoutTests
             new("MoveSecond", "1 秒右へ移動", keyGestures: [new("Alt+OemPeriod")]),
             new("MoveTen", "10 フレーム左へ移動", keyGestures: [new("Shift+OemComma")])
         ];
-    }
-
-    private sealed class SearchHandlerProvider : ICommandPaletteHandlerProvider, IContextCommandHandler
-    {
-        public IContextCommandHandler? Resolve(Type extensionType) => this;
-
-        public async Task ExecuteAsync(ContextCommandExecution execution)
-        {
-            await execution.Interaction!.ShowInputAsync(new ContextCommandInputOptions { Prompt = "Prompt message" });
-        }
     }
 
     [AvaloniaTest]

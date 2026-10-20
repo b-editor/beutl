@@ -1,5 +1,4 @@
 ﻿#if !WINDOWS
-#nullable enable
 
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;

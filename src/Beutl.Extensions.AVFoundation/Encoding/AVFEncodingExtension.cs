@@ -10,7 +10,7 @@ namespace Beutl.Extensions.AVFoundation.Encoding;
 [Display(Name = nameof(Strings.AVFoundationEncoder), ResourceType = typeof(Strings))]
 public class AVFEncodingExtension : ControllableEncodingExtension
 {
-    public override IEnumerable<string> SupportExtensions() => AVFFileExtensions.Video();
+    public override IEnumerable<string> SupportExtensions() => AVFFileExtensions.Encodable();
 
     public override EncodingController CreateController(string file)
     {

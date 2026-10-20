@@ -1,6 +1,4 @@
-﻿#nullable enable
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
@@ -37,13 +35,9 @@ public partial class HdrBitmapView : NativeControlHost
     public static readonly StyledProperty<float> ToneMappingExposureProperty =
         AvaloniaProperty.Register<HdrBitmapView, float>(nameof(ToneMappingExposure), 0f);
 
-    public static readonly DirectProperty<HdrBitmapView, bool> IsHdrActiveProperty =
-        AvaloniaProperty.RegisterDirect<HdrBitmapView, bool>(nameof(IsHdrActive), o => o.IsHdrActive);
-
     private VulkanSwapchainRenderer? _renderer;
     private Ref<BtlBitmap>? _clonedSource;
     private Size? _lastSourceSize;
-    private bool _isHdrActive;
 
     static HdrBitmapView()
     {
@@ -78,12 +72,6 @@ public partial class HdrBitmapView : NativeControlHost
     {
         get => GetValue(ToneMappingExposureProperty);
         set => SetValue(ToneMappingExposureProperty, value);
-    }
-
-    public bool IsHdrActive
-    {
-        get => _isHdrActive;
-        private set => SetAndRaise(IsHdrActiveProperty, ref _isHdrActive, value);
     }
 
     protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
@@ -211,8 +199,6 @@ public partial class HdrBitmapView : NativeControlHost
                 handle.Handle,
                 (uint)Math.Max(1, Bounds.Width * scaling),
                 (uint)Math.Max(1, Bounds.Height * scaling));
-
-            IsHdrActive = _renderer.IsHdrActive;
         }
         catch (Exception)
         {

@@ -32,19 +32,13 @@ public class CustomFilterEffectContext
         BufferDimensionBudget? budget = null,
         Rect? targetDomain = null)
     {
-        if (!Enum.IsDefined(intent))
-            throw new ArgumentOutOfRangeException(nameof(intent), intent, "The render intent is invalid.");
-        if (!Enum.IsDefined(purpose))
-            throw new ArgumentOutOfRangeException(nameof(purpose), purpose, "The render request purpose is invalid.");
-        BufferDimensionBudget.ThrowIfUninitialized(budget, nameof(budget));
-
         _budget = budget;
         Targets = targets;
         _deviceGridOffset = deviceGridOffset
             ?? (targets.Count > 0 ? targets[0].DeviceGridOffset : default);
         OutputScale = outputScale;
         WorkingScale = workingScale;
-        MaxWorkingScale = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
+        MaxWorkingScale = maxWorkingScale;
         TargetDomain = targetDomain;
         Intent = intent;
         Purpose = purpose;
@@ -205,15 +199,15 @@ public class CustomFilterEffectContext
     /// The allocation failed during a <see cref="RenderIntent.Delivery"/> render.
     /// </exception>
     public EffectTarget CreateTarget(Rect bounds)
-        => CreateTargetCore(bounds, WorkingScale);
+        => CreateTargetCore(bounds);
 
     // Native shader passes initialize their own attachment and can reuse render-owned pooled targets.
     internal EffectTarget CreateNativeTarget(Rect bounds)
-        => CreateTargetCore(bounds, WorkingScale, native: true);
+        => CreateTargetCore(bounds, native: true);
 
-    private EffectTarget CreateTargetCore(Rect bounds, float requestedDensity, bool native = false)
+    private EffectTarget CreateTargetCore(Rect bounds, bool native = false)
     {
-        float w = requestedDensity;
+        float w = WorkingScale;
         // Re-clamp at allocation site: bounds may exceed what node-level clamps saw, and planning's budget
         // is the engine ceiling rather than what this device can attach.
         BufferDimensionBudget budget = Budget;
@@ -262,21 +256,18 @@ public class CustomFilterEffectContext
             return replacement;
         }
 
-        if (Intent == RenderIntent.Delivery)
-        {
-            throw new InvalidOperationException(
-                $"Custom-effect replacement target allocation failed ({source.DeviceBounds.Width}x{source.DeviceBounds.Height} px, "
-                + $"target density {source.Scale.Value}, bounds {source.Bounds}); "
-                + "the delivery render fails instead of shipping an unprocessed frame.");
-        }
-
+        EffectTargetAllocation.FailDeliveryOrDrop(
+            Intent,
+            _renderTargetLeaseSession,
+            $"Custom-effect replacement target allocation failed ({source.DeviceBounds.Width}x{source.DeviceBounds.Height} px, "
+            + $"target density {source.Scale.Value}, bounds {source.Bounds}); "
+            + "the delivery render fails instead of shipping an unprocessed frame.");
         s_logger.LogWarning(
             "Custom-effect replacement target allocation failed ({Width}x{Height} px, target density {TargetDensity}, bounds {Bounds}); returning an empty target so the preview can keep the source pixels.",
             source.DeviceBounds.Width,
             source.DeviceBounds.Height,
             source.Scale.Value,
             source.Bounds);
-        _renderTargetLeaseSession?.MarkContentDropped();
         return new EffectTarget();
     }
 
@@ -319,11 +310,6 @@ public class CustomFilterEffectContext
     /// Allocates a same-footprint replacement for <paramref name="source"/>, through the caller's lease session
     /// when there is one, and reports a declined allocation as <see langword="null"/>.
     /// </summary>
-    /// <remarks>
-    /// A configured <see cref="IRenderTargetFactory"/> is reachable only through the session, and its targets may
-    /// come from a context the global allocator knows nothing about. Going around it here would both ignore the
-    /// caller's allocation policy and let a custom effect sample a factory-backed input into a foreign surface.
-    /// </remarks>
     private EffectTarget? AllocateReplacement(
         EffectTarget source,
         RenderTargetLeaseSession? leaseSession,
@@ -567,14 +553,11 @@ public class CustomFilterEffectContext
                 "Custom-effect target allocation failed ({Width}x{Height} px, w {WorkingScale}, bounds {Bounds}); preview returns an empty target, delivery render fails fast.",
                 deviceBounds.Width, deviceBounds.Height, density, bounds);
 
-            if (Intent == RenderIntent.Delivery)
-            {
-                throw new InvalidOperationException(
-                    $"Custom-effect target allocation failed ({deviceBounds.Width}x{deviceBounds.Height} px, "
-                    + $"w {density}, bounds {bounds}); the delivery render fails instead of shipping an incomplete frame.");
-            }
-
-            _renderTargetLeaseSession?.MarkContentDropped();
+            EffectTargetAllocation.FailDeliveryOrDrop(
+                Intent,
+                _renderTargetLeaseSession,
+                $"Custom-effect target allocation failed ({deviceBounds.Width}x{deviceBounds.Height} px, "
+                + $"w {density}, bounds {bounds}); the delivery render fails instead of shipping an incomplete frame.");
             return new EffectTarget();
         }
     }
@@ -615,24 +598,8 @@ public class CustomFilterEffectContext
     /// <see cref="Targets"/> came from.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <see cref="FilterEffectExecutor"/>'s public constructor builds a <i>standalone</i> executor, which
-    /// allocates from the process-wide shared graphics context because it has no render to belong to. That is
-    /// the wrong answer inside a custom effect: when the caller configured a
-    /// <see cref="RenderNodeRenderer"/> target factory, <see cref="Targets"/> holds surfaces the shared
-    /// allocator knows nothing about, and a standalone executor's flush buffer would meet them inside a
-    /// single draw — two graphics contexts in one flush. Mint the executor here instead of constructing one.
-    /// </para>
-    /// <para>
-    /// The returned executor carries this context's intent, purpose, output and working scales,
-    /// working-scale ceiling, device grid offset, buffer budget, target domain and drawable-brush
-    /// materializer, none of which the public constructor can be handed from out-of-tree code.
-    /// </para>
-    /// <para>
-    /// The caller owns the result and disposes it; <paramref name="builder"/> and <paramref name="targets"/>
-    /// stay the caller's too. Pass <see cref="EffectTargets.Clone"/> when the callback still needs
-    /// <see cref="Targets"/> after the nested pipeline runs.
-    /// </para>
+    /// The executor takes over the running render's lease session and this context's settings. The caller
+    /// disposes it, and <paramref name="targets"/> and <paramref name="builder"/> stay the caller's.
     /// </remarks>
     /// <param name="targets">The targets the nested pipeline reads and replaces.</param>
     /// <param name="builder">The Skia filter builder the nested pipeline accumulates into.</param>

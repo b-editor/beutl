@@ -1,7 +1,6 @@
 ﻿using Avalonia.Headless.NUnit;
 using Beutl.Extensibility;
 using Beutl.Media;
-using Beutl.Media.Encoding;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Testing.Headless;
@@ -20,7 +19,7 @@ public class OutputFileSafetyTests
         EditViewModel editor = await OpenEditorAsync();
         string destination = CreateExistingOutput(editor);
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var encoder = new ProbeEncoder(async (controller, token) =>
+        var encoder = new TestEncoder(encode: async (controller, token) =>
         {
             if (writePartialFile) File.WriteAllText(controller.OutputFile, "partial");
             started.TrySetResult();
@@ -35,7 +34,7 @@ public class OutputFileSafetyTests
             Assert.That(File.ReadAllText(destination), Is.EqualTo("previous complete output"));
             cancellation.Cancel();
             Assert.That(await execution, Is.InstanceOf<OperationCanceledException>());
-            Assert.That(output.IsCompleted.Value, Is.False);
+            Assert.That(output.WasCancelled.Value, Is.True);
             Assert.That(File.ReadAllText(destination), Is.EqualTo("previous complete output"));
             AssertNoStaging(destination);
         }
@@ -51,7 +50,7 @@ public class OutputFileSafetyTests
     {
         EditViewModel editor = await OpenEditorAsync();
         string destination = CreateExistingOutput(editor);
-        var encoder = new ProbeEncoder((controller, _) =>
+        var encoder = new TestEncoder(encode: (controller, _) =>
         {
             File.WriteAllText(controller.OutputFile, "partial");
             throw new IOException("encoder failed after writing");
@@ -60,7 +59,7 @@ public class OutputFileSafetyTests
 
         Assert.That(await CaptureFailure(output.RunAsync(CancellationToken.None)), Is.TypeOf<IOException>());
         Assert.That(File.ReadAllText(destination), Is.EqualTo("previous complete output"));
-        Assert.That(output.IsCompleted.Value, Is.False);
+        Assert.That(output.WasCancelled.Value, Is.False);
         AssertNoStaging(destination);
     }
 
@@ -72,8 +71,8 @@ public class OutputFileSafetyTests
         const UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
         if (!OperatingSystem.IsWindows())
             File.SetUnixFileMode(destination, mode);
-        ProbeController? executionController = null;
-        var encoder = new ProbeEncoder((controller, _) =>
+        TestController? executionController = null;
+        var encoder = new TestEncoder(encode: (controller, _) =>
         {
             executionController = controller;
             Assert.That(File.ReadAllText(destination), Is.EqualTo("previous complete output"));
@@ -93,7 +92,7 @@ public class OutputFileSafetyTests
         Assert.Multiple(() =>
         {
             Assert.That(File.ReadAllText(destination), Is.EqualTo("new"));
-            Assert.That(output.IsCompleted.Value, Is.True);
+            Assert.That(output.WasCancelled.Value, Is.False);
             Assert.That(output.Controller.Value, Is.SameAs(settings));
             Assert.That(executionController!.OutputFile, Is.Not.EqualTo(destination));
             Assert.That(Path.GetFileName(executionController.OutputFile), Is.EqualTo(Path.GetFileName(destination)));
@@ -110,7 +109,7 @@ public class OutputFileSafetyTests
         EditViewModel editor = await OpenEditorAsync();
         string destination = CreateExistingOutput(editor);
         using var cancellation = new CancellationTokenSource();
-        var encoder = new ProbeEncoder((controller, _) =>
+        var encoder = new TestEncoder(encode: (controller, _) =>
         {
             File.WriteAllText(controller.OutputFile, "completed but cancelled");
             cancellation.Cancel();
@@ -130,7 +129,7 @@ public class OutputFileSafetyTests
         string destination = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "directory.mp4");
         Directory.CreateDirectory(destination);
         File.WriteAllText(Path.Combine(destination, "keep.txt"), "keep");
-        var encoder = new ProbeEncoder((controller, _) =>
+        var encoder = new TestEncoder(encode: (controller, _) =>
         {
             File.WriteAllText(controller.OutputFile, "new");
             return Task.CompletedTask;
@@ -138,7 +137,7 @@ public class OutputFileSafetyTests
         using var output = CreateOutput(editor, destination, encoder);
 
         Assert.That(await CaptureFailure(output.RunAsync(CancellationToken.None)), Is.Not.Null);
-        Assert.That(output.IsCompleted.Value, Is.False);
+        Assert.That(output.WasCancelled.Value, Is.False);
         Assert.That(File.ReadAllText(Path.Combine(destination, "keep.txt")), Is.EqualTo("keep"));
         AssertNoStaging(destination);
     }
@@ -168,7 +167,7 @@ public class OutputFileSafetyTests
         return path;
     }
 
-    private static OutputViewModel CreateOutput(EditViewModel editor, string destination, ProbeEncoder encoder)
+    private static OutputViewModel CreateOutput(EditViewModel editor, string destination, TestEncoder encoder)
     {
         var output = new OutputViewModel(editor);
         output.DestinationFile.Value = destination;
@@ -184,20 +183,5 @@ public class OutputFileSafetyTests
     {
         try { await task; return null; }
         catch (Exception ex) { return ex; }
-    }
-
-    private sealed class ProbeEncoder(Func<ProbeController, CancellationToken, Task> encode) : ControllableEncodingExtension
-    {
-        public override IEnumerable<string> SupportExtensions() => [".mp4"];
-        public override EncodingController CreateController(string file) => new ProbeController(file, encode);
-    }
-
-    private sealed class ProbeController(string file, Func<ProbeController, CancellationToken, Task> encode)
-        : EncodingController(file)
-    {
-        public override VideoEncoderSettings VideoSettings { get; } = new();
-        public override AudioEncoderSettings AudioSettings { get; } = new();
-        public override ValueTask Encode(IFrameProvider frames, ISampleProvider samples, CancellationToken token)
-            => new(encode(this, token));
     }
 }

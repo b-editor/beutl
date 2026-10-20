@@ -1,5 +1,4 @@
 ﻿using Beutl.Composition;
-using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -18,7 +17,6 @@ public sealed class CustomEffectSynchronizationTests
     private static readonly Rect s_targetDomain = new(0, 0, 28, 24);
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void Snapshot_RetainsCompletionWaitForCpuReadback()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -42,7 +40,6 @@ public sealed class CustomEffectSynchronizationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void BackendInterop_RetainsCompletionWaitBeforeTextureExposure()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -64,7 +61,6 @@ public sealed class CustomEffectSynchronizationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void SameContextTextureSampling_SubmitsWithoutCompletionWait()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -93,7 +89,6 @@ public sealed class CustomEffectSynchronizationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void CrossContextTextureSampling_RetainsCompletionWait()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -120,11 +115,10 @@ public sealed class CustomEffectSynchronizationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ExecutorManagedCustomEffect_CpuTargetsDoNotFlushInitializedSharedContext()
     {
         VulkanTestEnvironment.EnsureAvailable();
-        using FilterEffectRenderNode effectNode = CreateFilterNode(new CopyingCustomEffect());
+        using FilterEffectRenderNode effectNode = CreateFilterNode(CreateCopyingCustomEffect());
         using RenderNodeRenderer effectRenderer = CreateRenderer(effectNode);
         using var referenceNode = new EllipseRenderNode(s_sourceBounds, Brushes.Resource.White, null);
         using RenderNodeRenderer referenceRenderer = CreateRenderer(referenceNode);
@@ -151,25 +145,18 @@ public sealed class CustomEffectSynchronizationTests
             Assert.That(flushes, Is.EqualTo(new[] { ImmediateCanvasFlushKind.SourceSurface }),
                 "CPU executor canvases must not flush the initialized shared GPU context or submit a raster surface.");
         });
-        AssertFlushCounts(
-            flushes,
-            canvasSubmit: 0,
-            canvasClose: 0,
-            sourceSurface: 1,
-            prepareForSampling: 0);
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ExecutorManagedCustomEffect_GpuDeferredDrawSurvivesSourceDisposeWithoutInternalFlush()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using FilterEffectRenderNode effectNode = CreateFilterNode(new CopyingCustomEffect());
+            using FilterEffectRenderNode effectNode = CreateFilterNode(CreateCopyingCustomEffect());
             using RenderNodeRenderer effectRenderer = CreateGpuRenderer(effectNode);
             using FilterEffectRenderNode referenceNode = CreateFilterNode(
-                new CopyingCustomEffect(synchronizeSource: true));
+                CreateCopyingCustomEffect(synchronizeSource: true));
             using RenderNodeRenderer referenceRenderer = CreateGpuRenderer(referenceNode);
             var size = new PixelSize((int)s_targetDomain.Width, (int)s_targetDomain.Height);
             using RenderTarget actualTarget = RenderTarget.Create(size.Width, size.Height)
@@ -225,30 +212,11 @@ public sealed class CustomEffectSynchronizationTests
                         Is.EqualTo(new[] { ImmediateCanvasFlushKind.PrepareForSampling }),
                         "The final CPU readback retains its explicit sampling synchronization.");
                 });
-                AssertFlushCounts(
-                    executionFlushes,
-                    canvasSubmit: 2,
-                    canvasClose: 0,
-                    sourceSurface: 1,
-                    prepareForSampling: 0);
-                AssertFlushCounts(
-                    callerCloseFlushes,
-                    canvasSubmit: 0,
-                    canvasClose: 1,
-                    sourceSurface: 0,
-                    prepareForSampling: 0);
-                AssertFlushCounts(
-                    readbackFlushes,
-                    canvasSubmit: 0,
-                    canvasClose: 0,
-                    sourceSurface: 0,
-                    prepareForSampling: 1);
             }
         });
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ExecutorManagedCustomEffect_CrossContextCopyFlushesSourceThenSubmitsDestination()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -265,7 +233,7 @@ public sealed class CustomEffectSynchronizationTests
             {
                 new EffectTarget(source, bounds, EffectiveScale.At(1)),
             };
-            var effect = new CopyingCustomEffect();
+            var effect = CreateCopyingCustomEffect();
             using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
             using var context = new FilterEffectContext(bounds);
             context.ApplyTransactional(effect, resource);
@@ -298,19 +266,13 @@ public sealed class CustomEffectSynchronizationTests
                     ImmediateCanvasFlushKind.CanvasSubmit,
                 }), "A CPU source crossing to the GPU must flush before the GPU destination submits.");
             });
-            AssertFlushCounts(
-                flushes,
-                canvasSubmit: 1,
-                canvasClose: 0,
-                sourceSurface: 1,
-                prepareForSampling: 0);
         });
     }
 
     [Test]
     public void ExecutorManagedCustomEffect_ExplicitMappedInputSamplingStillPreparesSource()
     {
-        using FilterEffectRenderNode node = CreateFilterNode(new SamplingCustomEffect());
+        using FilterEffectRenderNode node = CreateFilterNode(CreateSamplingCustomEffect());
         using RenderNodeRenderer renderer = CreateRenderer(node);
         using var destination = new CpuRenderTarget(new PixelSize(
             (int)s_targetDomain.Width,
@@ -329,17 +291,9 @@ public sealed class CustomEffectSynchronizationTests
                 ImmediateCanvasFlushKind.SourceSurface,
             }), "Same-context shader sampling submits without waiting before the final source draw.");
         });
-        AssertFlushCounts(
-            flushes,
-            canvasSubmit: 0,
-            canvasClose: 0,
-            sourceSurface: 1,
-            prepareForSampling: 0,
-            prepareForSamplingSubmit: 1);
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void PublicFilterEffectExecutor_RetainsEffectItemCanvasAndSourceFlushes()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -354,7 +308,7 @@ public sealed class CustomEffectSynchronizationTests
         {
             new EffectTarget(source, bounds, EffectiveScale.At(1)),
         };
-        var effect = new CopyingCustomEffect();
+        var effect = CreateCopyingCustomEffect();
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(bounds);
         context.ApplyTransactional(effect, resource);
@@ -383,40 +337,6 @@ public sealed class CustomEffectSynchronizationTests
                 ImmediateCanvasFlushKind.CanvasClose,
             }), "The public standalone executor must retain its effectItem source and context flushes.");
         });
-        AssertFlushCounts(
-            flushes,
-            canvasSubmit: 0,
-            canvasClose: 1,
-            sourceSurface: 1,
-            prepareForSampling: 0);
-    }
-
-    private static void AssertFlushCounts(
-        IReadOnlyCollection<ImmediateCanvasFlushKind> flushes,
-        int canvasSubmit,
-        int canvasClose,
-        int sourceSurface,
-        int prepareForSampling,
-        int prepareForSamplingSubmit = 0)
-    {
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                flushes.Count(static item => item == ImmediateCanvasFlushKind.CanvasSubmit),
-                Is.EqualTo(canvasSubmit));
-            Assert.That(
-                flushes.Count(static item => item == ImmediateCanvasFlushKind.CanvasClose),
-                Is.EqualTo(canvasClose));
-            Assert.That(
-                flushes.Count(static item => item == ImmediateCanvasFlushKind.SourceSurface),
-                Is.EqualTo(sourceSurface));
-            Assert.That(
-                flushes.Count(static item => item == ImmediateCanvasFlushKind.PrepareForSampling),
-                Is.EqualTo(prepareForSampling));
-            Assert.That(
-                flushes.Count(static item => item == ImmediateCanvasFlushKind.PrepareForSamplingSubmit),
-                Is.EqualTo(prepareForSamplingSubmit));
-        });
     }
 
     private static FilterEffectRenderNode CreateFilterNode(FilterEffect effect)
@@ -435,7 +355,7 @@ public sealed class CustomEffectSynchronizationTests
             MaxWorkingScale = 1,
             CacheOptions = RenderCacheOptions.Disabled,
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
     private static RenderNodeRenderer CreateGpuRenderer(RenderNode node)
         => new(node, new RenderNodeRenderRequest
@@ -448,94 +368,44 @@ public sealed class CustomEffectSynchronizationTests
             Purpose = RenderRequestPurpose.Frame,
         });
 
-    [SuppressResourceClassGeneration]
-    private sealed partial class CopyingCustomEffect(bool synchronizeSource = false) : FilterEffect
-    {
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-        {
-            context.CustomEffect(
-                synchronizeSource,
-                static (synchronize, execution) => execution.ForEach((_, source) =>
+    private static FilterEffect CreateCopyingCustomEffect(bool synchronizeSource = false)
+        => new EffectItemSuffixCallbackFilterEffect((context, _) => context.CustomEffect(
+            synchronizeSource,
+            static (synchronize, execution) => execution.ForEach((_, source) =>
+            {
+                if (synchronize)
                 {
-                    if (synchronize)
-                    {
-                        using Bitmap snapshot = source.RenderTarget!.Snapshot();
-                    }
+                    using Bitmap snapshot = source.RenderTarget!.Snapshot();
+                }
 
-                    EffectTarget replacement = execution.CreateTargetLike(source);
-                    using (ImmediateCanvas canvas = execution.Open(replacement))
-                    {
-                        canvas.Clear();
-                        source.Draw(canvas);
-                    }
-
-                    return replacement;
-                }),
-                static (_, bounds) => bounds);
-        }
-
-        public override Resource ToResource(CompositionContext context)
-        {
-            var resource = new Resource();
-            bool versionBumped = false;
-            resource.Reconcile(this, context, ref versionBumped);
-            return resource;
-        }
-
-        public new sealed class Resource : FilterEffect.Resource;
-    }
-
-    [SuppressResourceClassGeneration]
-    private sealed partial class SamplingCustomEffect : FilterEffect
-    {
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-        {
-            context.CustomEffect(
-                0,
-                static (_, execution) => execution.ForEach((_, source) =>
+                EffectTarget replacement = execution.CreateTargetLike(source);
+                using (ImmediateCanvas canvas = execution.Open(replacement))
                 {
-                    using EffectTarget destination = execution.CreateTargetLike(source);
-                    bool sampled = execution.UseMappedInputShader(
-                        source,
-                        destination,
-                        0,
-                        static (_, _) => { });
-                    if (!sampled)
-                    {
-                        throw new InvalidOperationException("The CPU source could not be sampled.");
-                    }
+                    canvas.Clear();
+                    source.Draw(canvas);
+                }
 
-                    return source;
-                }),
-                static (_, bounds) => bounds);
-        }
+                return replacement;
+            }),
+            static (_, bounds) => bounds));
 
-        public override Resource ToResource(CompositionContext context)
-        {
-            var resource = new Resource();
-            bool versionBumped = false;
-            resource.Reconcile(this, context, ref versionBumped);
-            return resource;
-        }
+    private static FilterEffect CreateSamplingCustomEffect()
+        => new EffectItemSuffixCallbackFilterEffect(static (context, _) => context.CustomEffect(
+            0,
+            static (_, execution) => execution.ForEach((_, source) =>
+            {
+                using EffectTarget destination = execution.CreateTargetLike(source);
+                bool sampled = execution.UseMappedInputShader(
+                    source,
+                    destination,
+                    0,
+                    static (_, _) => { });
+                if (!sampled)
+                {
+                    throw new InvalidOperationException("The CPU source could not be sampled.");
+                }
 
-        public new sealed class Resource : FilterEffect.Resource;
-    }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize);
-    }
-
-    private sealed class CpuRenderTarget(PixelSize size)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                    size.Width,
-                    size.Height,
-                    SKColorType.RgbaF16,
-                    SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear()))
-                ?? throw new InvalidOperationException("Could not create a CPU custom-effect test surface."),
-            size.Width,
-            size.Height);
+                return source;
+            }),
+            static (_, bounds) => bounds));
 }

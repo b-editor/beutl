@@ -5,9 +5,8 @@ This subtree is the **non-UI editor logic** — undo / redo, project packaging, 
 ## What lives here
 
 - `HistoryManager.cs` / `HistoryTransaction.cs` / `HistoryEntry.cs` — undo / redo stack
-- `OperationExecutionContext.cs` / `Operations/` — `IOperation` commands that history records
+- `Operations/` — `ChangeOperation` commands that history records
 - `OperationSequenceGenerator.cs` — monotonically increasing sequence numbers for recorded operations
-- `RecordingScope.cs` — opens / closes a transactional scope
 - `AutoSaveService.cs` — saves after each history commit; called on the UI thread
 - `ProjectPackageService.cs` / `ResourceRelocationService.cs` — `.beutl` package import / export, asset relocation
 - `Observers/` — turn model changes into `ChangeOperation`s for history

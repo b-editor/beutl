@@ -10,16 +10,20 @@ namespace Beutl.Services.StartupTasks;
 public sealed class LoadSideloadExtensionTask : StartupTask
 {
     private readonly ILogger _logger;
-    private readonly Action<LocalPackage> _load;
+    private readonly Func<LocalPackage, PreparedPackage?> _prepare;
+    private readonly Func<Task> _loadAfter;
+    private readonly Action<PreparedPackage> _load;
     private readonly Func<IReadOnlyList<string>, Task<bool>> _confirm;
     private readonly Action<IReadOnlyList<(LocalPackage, Exception)>> _showFailures;
     private Task<bool>? _confirmationTask;
     private Task _deferredLoadingTask = System.Threading.Tasks.Task.CompletedTask;
 
-    public LoadSideloadExtensionTask(PackageManager manager)
+    public LoadSideloadExtensionTask(PackageManager manager, Startup startup)
         : this(
             manager.GetSideLoadPackages,
-            package => manager.Load(package),
+            manager.Prepare,
+            () => startup.GetTask<LoadInstalledExtensionTask>().Task,
+            prepared => manager.Load(prepared),
             StartupNotificationService.ConfirmSideloadExtensions,
             AfterLoadingExtensionsTask.ShowFailures,
             Log.CreateLogger<LoadSideloadExtensionTask>())
@@ -28,11 +32,15 @@ public sealed class LoadSideloadExtensionTask : StartupTask
 
     internal LoadSideloadExtensionTask(
         Func<IReadOnlyList<LocalPackage>> getSideloads,
-        Action<LocalPackage> load,
+        Func<LocalPackage, PreparedPackage?> prepare,
+        Func<Task> loadAfter,
+        Action<PreparedPackage> load,
         Func<IReadOnlyList<string>, Task<bool>> confirm,
         Action<IReadOnlyList<(LocalPackage, Exception)>> showFailures,
         ILogger logger)
     {
+        _prepare = prepare;
+        _loadAfter = loadAfter;
         _load = load;
         _confirm = confirm;
         _showFailures = showFailures;
@@ -56,6 +64,7 @@ public sealed class LoadSideloadExtensionTask : StartupTask
 
     public override Task Task { get; }
 
+    // Test seam: tests await the deferred loading.
     internal Task DeferredLoadingTask => _deferredLoadingTask;
 
     public ConcurrentBag<(LocalPackage, Exception)> Failures { get; } = [];
@@ -92,8 +101,8 @@ public sealed class LoadSideloadExtensionTask : StartupTask
         using Activity? activity = Telemetry.StartActivity("LoadSideloadExtensionsAfterConfirmation");
         activity?.AddEvent(new ActivityEvent("Started loading side-load-packages."));
 
-        Parallel.ForEach(sideloads, item =>
-            LoadInstalledExtensionTask.TryLoadPackage(item, _load, _logger, activity, Failures));
+        await LoadInstalledExtensionTask.LoadPackagesAsync(
+            sideloads, _prepare, _loadAfter(), _load, _logger, activity, Failures).ConfigureAwait(false);
 
         activity?.AddEvent(new ActivityEvent("Finished loading side-load-packages."));
 

@@ -24,7 +24,7 @@ public sealed class RenderTargetFactoryReachTests
     {
         using EffectTargets targets = CreateSolidTargets(s_bounds);
         using ProgramCache<CachedSkRuntimeEffect> cache = SkRuntimeEffectProgramCache.Create();
-        var factory = new CountingTargetFactory();
+        var factory = new FailureTestTargetFactory();
         using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
 
@@ -40,9 +40,10 @@ public sealed class RenderTargetFactoryReachTests
                 cache,
                 target.RenderTarget!,
                 source),
-            session);
+            session,
+            budget: BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation));
 
-        Assert.That(factory.Requests, Is.Not.Empty,
+        Assert.That(factory.Targets, Is.Not.Empty,
             "A typed shader stage must ask the caller's factory for its output surface.");
     }
 
@@ -50,7 +51,7 @@ public sealed class RenderTargetFactoryReachTests
     public void EffectItemGeometryStage_AllocatesThroughTheFactory()
     {
         using EffectTargets targets = CreateSolidTargets(s_bounds);
-        var factory = new CountingTargetFactory();
+        var factory = new FailureTestTargetFactory();
         using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
 
@@ -65,9 +66,10 @@ public sealed class RenderTargetFactoryReachTests
             maxWorkingScale: 1,
             RenderIntent.Preview,
             RenderRequestPurpose.Auxiliary,
-            session);
+            session,
+            budget: BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation));
 
-        Assert.That(factory.Requests, Is.Not.Empty,
+        Assert.That(factory.Targets, Is.Not.Empty,
             "A typed geometry stage must ask the caller's factory for its output surface.");
     }
 
@@ -75,7 +77,7 @@ public sealed class RenderTargetFactoryReachTests
     public void CustomEffectTargets_AllocateThroughTheFactory()
     {
         using EffectTargets targets = CreateSolidTargets(s_bounds);
-        var factory = new CountingTargetFactory();
+        var factory = new FailureTestTargetFactory();
         using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
         var context = new CustomFilterEffectContext(
@@ -88,7 +90,7 @@ public sealed class RenderTargetFactoryReachTests
             renderTargetLeaseSession: session);
 
         using EffectTarget fresh = context.CreateTarget(s_bounds);
-        int afterCreateTarget = factory.Requests.Count;
+        int afterCreateTarget = factory.Targets.Count;
         using EffectTarget replacement = context.CreateTargetLike(targets[0]);
 
         Assert.Multiple(() =>
@@ -161,7 +163,7 @@ public sealed class RenderTargetFactoryReachTests
     [Test]
     public void TileBrushIntermediate_AllocatesThroughTheFactory()
     {
-        var factory = new CountingTargetFactory();
+        var factory = new FailureTestTargetFactory();
         using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
         var content = new RectShape();
@@ -187,7 +189,7 @@ public sealed class RenderTargetFactoryReachTests
         Assert.Multiple(() =>
         {
             Assert.That(shader, Is.Not.Null, "The fixture must reach the tile-intermediate path.");
-            Assert.That(factory.Requests, Is.Not.Empty,
+            Assert.That(factory.Targets, Is.Not.Empty,
                 "A tile-brush intermediate must ask the caller's factory.");
         });
     }
@@ -233,17 +235,6 @@ public sealed class RenderTargetFactoryReachTests
         {
             Declined++;
             return null;
-        }
-    }
-
-    private sealed class CountingTargetFactory : IRenderTargetFactory
-    {
-        public List<PixelSize> Requests { get; } = [];
-
-        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
-        {
-            Requests.Add(allocation.DeviceSize);
-            return RenderTarget.Create(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
         }
     }
 }

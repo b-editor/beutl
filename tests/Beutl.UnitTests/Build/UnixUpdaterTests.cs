@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Build;
 
@@ -72,40 +73,24 @@ public class UnixUpdaterTests
                 mkdir -p "$2"
                 exec /bin/cp -R "$1/." "$2"
                 """ + "\n");
+            string script = Path.Combine(RepositoryPaths.Root, "src", "Beutl", "Resources", $"{platform}-update.sh");
             var start = new ProcessStartInfo("/bin/bash")
             {
-                RedirectStandardInput = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                ArgumentList = { FindScript(platform), update, original, processName, Path.Combine(original, "Beutl") },
+                ArgumentList = { script, update, original, processName, Path.Combine(original, "Beutl") },
             };
             start.Environment["PATH"] = bin + Path.PathSeparator + Environment.GetEnvironmentVariable("PATH");
             start.Environment["TEST_FAILURE"] = failure;
             start.Environment["TEST_ORIGINAL"] = original;
             start.Environment["TEST_UPDATE"] = update;
-            using Process process = Process.Start(start)!;
-            Task<string> stdout = process.StandardOutput.ReadToEndAsync();
-            Task<string> stderr = process.StandardError.ReadToEndAsync();
-            try
-            {
-                try { await process.StandardInput.WriteLineAsync("n"); }
-                finally { process.StandardInput.Close(); }
-            }
-            catch (IOException)
-            {
-                // Only the Linux success path reads the launch prompt. Every other path may exit
-                // first, and then both the write and Close's flush fail with EPIPE. The exit code
-                // and file assertions below still report an early exit.
-            }
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-            try { await process.WaitForExitAsync(timeout.Token); }
-            catch { process.Kill(entireProcessTree: true); throw; }
-            string output = await stdout + await stderr;
+            // Only the Linux success path reads the launch prompt. Every other path may exit first.
+            (int exitCode, string stdout, string stderr) =
+                await TestProcesses.RunAsync(start, TimeSpan.FromSeconds(15), input: "n\n");
+            string output = stdout + stderr;
             string[] backups = Directory.GetDirectories(root, "old app_backup_*");
 
             Assert.Multiple(() =>
             {
-                Assert.That(process.ExitCode, failure == "none" ? Is.Zero : Is.Not.Zero, output);
+                Assert.That(exitCode, failure == "none" ? Is.Zero : Is.Not.Zero, output);
                 Assert.That(Directory.Exists(lockDirectory), Is.False, output);
                 if (failure is not ("restore" or "remove"))
                 {
@@ -141,16 +126,5 @@ public class UnixUpdaterTests
         File.WriteAllText(path, script.ReplaceLineEndings("\n"));
         if (!OperatingSystem.IsWindows())
             File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-    }
-
-    private static string FindScript(string platform)
-    {
-        for (DirectoryInfo? directory = new(TestContext.CurrentContext.TestDirectory);
-             directory is not null; directory = directory.Parent)
-        {
-            string path = Path.Combine(directory.FullName, "src", "Beutl", "Resources", $"{platform}-update.sh");
-            if (File.Exists(path)) return path;
-        }
-        throw new FileNotFoundException($"Could not find the {platform} update script.");
     }
 }

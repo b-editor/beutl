@@ -14,7 +14,7 @@ internal sealed class CompiledRenderRequest : IDisposable
         TargetDependencyPlan targetDependencies,
         RenderCacheResolution cacheResolution,
         ExecutionIslandPlan executionPlan,
-        ImmutableArray<CompiledRenderRequest> nestedRequests = default)
+        ImmutableArray<CompiledRenderRequest> nestedRequests)
     {
         Request = request ?? throw new ArgumentNullException(nameof(request));
         Graph = graph ?? throw new ArgumentNullException(nameof(graph));
@@ -30,7 +30,7 @@ internal sealed class CompiledRenderRequest : IDisposable
             ?? throw new ArgumentNullException(nameof(previewDropEligibleMaterializations));
         CacheResolution = cacheResolution ?? throw new ArgumentNullException(nameof(cacheResolution));
         ExecutionPlan = executionPlan ?? throw new ArgumentNullException(nameof(executionPlan));
-        NestedRequests = nestedRequests.IsDefault ? [] : nestedRequests;
+        NestedRequests = nestedRequests;
     }
 
     public RenderRequest Request { get; }
@@ -236,8 +236,6 @@ internal sealed class CompiledRenderRequest : IDisposable
             return;
 
         IsDisposed = true;
-        // ImmutableArray has no instance Reverse, so the LINQ form boxes it and buffers a copy; this runs
-        // on every frame's teardown.
         for (int index = NestedRequests.Length - 1; index >= 0; index--)
             NestedRequests[index].Dispose();
         Request.Dispose();

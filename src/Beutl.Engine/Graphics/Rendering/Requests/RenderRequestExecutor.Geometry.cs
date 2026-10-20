@@ -265,8 +265,7 @@ internal sealed partial class RenderRequestExecutor
                             rasterOutset,
                             preserveRasterApron);
 
-                        OpaqueRenderSession? session = null;
-                        session = new OpaqueRenderSession(
+                        var session = new OpaqueRenderSession(
                             token,
                             executionInputs,
                             inputRanges,
@@ -374,8 +373,6 @@ internal sealed partial class RenderRequestExecutor
 
                 foreach (MaterializedRenderValue value in outputLeases.Values)
                 {
-                    // MaterializedRenderValue does not override Equals, so the list's own Contains already
-                    // compares by reference - the LINQ form only adds a boxed enumerator.
                     if (!succeeded || !published.Contains(value))
                         ReleaseUnpublished(value);
                 }

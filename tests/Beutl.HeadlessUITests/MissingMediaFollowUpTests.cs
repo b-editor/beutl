@@ -79,23 +79,16 @@ public partial class MissingMediaTests
     }
 
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task Applying_a_font_immediately_or_after_another_selection_copies_complementary_faces(bool selectImage)
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    public async Task Applying_a_font_copies_complementary_faces(bool selectImage, bool waitForCandidates)
     {
         await TestReset.ResetShellAsync(); var editor = await CreateEditorAsync();
         string directory = NewDirectory(); var files = new List<string>();
         foreach (string name in new[] { "ProjectFontSecondFixture.ttf", "ProjectFontMediumFixture.ttf" })
         {
-            using var input = typeof(MissingMediaTests).Assembly.GetManifestResourceStream(name)!;
-            using var output = new MemoryStream(); input.CopyTo(output); byte[] bytes = output.ToArray();
-            foreach (var encoding in new[] { System.Text.Encoding.ASCII, System.Text.Encoding.BigEndianUnicode })
-            {
-                byte[] old = encoding.GetBytes("Roboto"); byte[] renamed = encoding.GetBytes("Relink");
-                for (int i = 0; i <= bytes.Length - old.Length; i++)
-                    if (bytes.AsSpan(i, old.Length).SequenceEqual(old)) renamed.CopyTo(bytes, i);
-            }
-            string path = Path.Combine(directory, name); File.WriteAllBytes(path, bytes); files.Add(path);
+            string path = Path.Combine(directory, name); File.WriteAllBytes(path, RelinkFont(name)); files.Add(path);
         }
         using (editor.HistoryManager.SuppressRecording())
         {
@@ -116,11 +109,16 @@ public partial class MissingMediaTests
                 string image = Path.Combine(NewDirectory(), "image.png"); File.WriteAllBytes(image, s_png);
                 await vm.SetReplacementAsync(vm.Rows.Single(row => row.Media.Kind == MissingMediaKind.Image), image);
             }
-            // Follow the UI's immediate Apply path; do not wait for candidate discovery.
+            // The UI's immediate Apply path does not wait for candidate discovery.
+            if (waitForCandidates)
+                await vm.WaitForCandidatesAsync();
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
+            Assert.That(vm.Rows, Is.Empty);
             Assert.That(FontManager.Instance.GetTypefaces(new FontFamily("Relink")).Select(face => face.Weight),
                 Is.EquivalentTo(new[] { FontWeight.Regular, FontWeight.Medium }));
             string projectPath = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
+            string bundled = Path.Combine(Path.GetDirectoryName(projectPath)!, "resources", "fonts");
+            Assert.That(Directory.GetFiles(bundled), Has.Length.EqualTo(2));
             await TestReset.ResetShellAsync(); await TestShell.Project.OpenProject(projectPath);
             Assert.That(FontManager.Instance.GetTypefaces(new FontFamily("Relink")).Select(face => face.Weight),
                 Is.EquivalentTo(new[] { FontWeight.Regular, FontWeight.Medium }));
@@ -135,17 +133,9 @@ public partial class MissingMediaTests
         string directory = NewDirectory(); var files = new List<string>();
         foreach (string name in new[] { "ProjectFontSecondFixture.ttf", "ProjectFontMediumFixture.ttf" })
         {
-            using var input = typeof(MissingMediaTests).Assembly.GetManifestResourceStream(name)!;
-            using var output = new MemoryStream(); input.CopyTo(output); byte[] bytes = output.ToArray();
-            foreach (var encoding in new[] { System.Text.Encoding.ASCII, System.Text.Encoding.BigEndianUnicode })
-            {
-                byte[] old = encoding.GetBytes("Roboto"); byte[] renamed = encoding.GetBytes("Relink");
-                for (int i = 0; i <= bytes.Length - old.Length; i++)
-                    if (bytes.AsSpan(i, old.Length).SequenceEqual(old)) renamed.CopyTo(bytes, i);
-            }
             string folder = Directory.CreateDirectory(Path.Combine(directory,
                 name == "ProjectFontSecondFixture.ttf" ? "a-regular" : "b-medium")).FullName;
-            string path = Path.Combine(folder, name); File.WriteAllBytes(path, bytes); files.Add(path);
+            string path = Path.Combine(folder, name); File.WriteAllBytes(path, RelinkFont(name)); files.Add(path);
         }
         using (editor.HistoryManager.SuppressRecording())
         {

@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
@@ -35,7 +36,7 @@ public sealed class ShaderFallbackTests
             TargetDomain = s_bounds,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             FusionMode = FusionMode.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
@@ -43,7 +44,7 @@ public sealed class ShaderFallbackTests
         {
             Assert.That(rasterization.Bitmap, Is.Not.Null);
             Assert.That(rasterization.Bounds, Is.EqualTo(s_bounds));
-            Assert.That(SumAbsoluteChannels(rasterization.Bitmap!), Is.GreaterThan(1));
+            Assert.That(FusionBoundaryExecutionTestSupport.SumAbsoluteChannels(rasterization.Bitmap!), Is.GreaterThan(1));
             AssertBlueRedSwap(sourceBitmap, rasterization.Bitmap!);
         });
     }
@@ -88,7 +89,7 @@ public sealed class ShaderFallbackTests
             TargetDomain = s_bounds,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             FusionMode = FusionMode.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         Assert.That(
             () => renderer.Rasterize(),
@@ -135,7 +136,7 @@ public sealed class ShaderFallbackTests
             TargetDomain = s_bounds,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             FusionMode = FusionMode.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization cold = renderer.Rasterize();
         ProgramCacheStatistics coldStatistics = renderer.ProgramCacheStatistics;
@@ -158,12 +159,43 @@ public sealed class ShaderFallbackTests
         });
     }
 
-    private static double SumAbsoluteChannels(Bitmap bitmap)
+    // The program text is the program-cache key, so a current-pixel stage the fallback executor runs after a
+    // custom effect has to reuse the program the request executor built for the same description.
+    [Test]
+    public void BothExecutors_BuildOneProgramForTheSameCurrentPixelStage()
     {
-        double result = 0;
-        foreach (ushort bits in bitmap.GetPixelSpan<ushort>())
-            result += Math.Abs((float)BitConverter.UInt16BitsToHalf(bits));
-        return result;
+        using var source = new CpuRenderTarget(6, 4);
+        source.Value.Canvas.Clear(new SKColor(64, 128, 192, 160));
+        // Over the portable source budget, so the request executor runs the stage on its own instead of in a run.
+        ShaderDescription description = ShaderDescription.CurrentPixel(
+            $"/*{new string('界', 22_000)}*/\nhalf4 apply(half4 color) {{ return color.bgra; }}");
+        var afterCustomEffect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
+        {
+            context.CustomEffect(0, static (_, _) => { });
+            context.Shader(description);
+        });
+        var fallback = new FilterEffectRenderNode(afterCustomEffect.ToResource(CompositionContext.Default));
+        fallback.AddChild(new RectangleRenderNode(s_bounds, Brushes.Resource.Red, null));
+        using var root = new ContainerRenderNode();
+        root.AddChild(new ShaderNode(source, description));
+        root.AddChild(fallback);
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            FusionMode = FusionMode.Disabled,
+        }, new CpuRenderTargetFactory());
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+        ProgramCacheStatistics statistics = renderer.ProgramCacheStatistics;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.Bitmap, Is.Not.Null);
+            Assert.That(statistics.Creations, Is.EqualTo(1));
+            Assert.That(statistics.Hits, Is.EqualTo(1));
+        });
     }
 
     private static void AssertBlueRedSwap(Bitmap source, Bitmap actual)
@@ -206,21 +238,16 @@ public sealed class ShaderFallbackTests
             RequestedRegion = requestedRegion,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             FusionMode = fusionMode,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
     private sealed class ShaderNode(RenderTarget source, ShaderDescription description) : RenderNode
     {
         public override void Process(RenderNodeContext context)
         {
-            RenderResource<RenderTarget> resource = context.Borrow(source);
-            RenderFragmentHandle input = context.MaterializedInput(
-                MaterializedInputDescription.FromRenderTarget(
-                    resource,
-                    s_bounds,
-                    EffectiveScale.At(1),
-                    PixelRect.FromRect(s_bounds, 1),
-                    default,
-                    RenderHitTestContract.OutputBounds));
+            RenderFragmentHandle input = FusionBoundaryExecutionTestSupport.BorrowMaterializedInput(
+                context,
+                source,
+                s_bounds);
             context.Publish(context.Shader(input, description));
         }
     }
@@ -242,15 +269,10 @@ public sealed class ShaderFallbackTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderResource<RenderTarget> resource = context.Borrow(_source);
-            RenderFragmentHandle current = context.MaterializedInput(
-                MaterializedInputDescription.FromRenderTarget(
-                    resource,
-                    s_bounds,
-                    EffectiveScale.At(1),
-                    PixelRect.FromRect(s_bounds, 1),
-                    default,
-                    RenderHitTestContract.OutputBounds));
+            RenderFragmentHandle current = FusionBoundaryExecutionTestSupport.BorrowMaterializedInput(
+                context,
+                _source,
+                s_bounds);
             foreach (ShaderDescription stage in _stages)
                 current = context.Shader(current, stage);
             context.Publish(current);
@@ -270,21 +292,4 @@ public sealed class ShaderFallbackTests
                         writer.Set(value);
                     }));
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

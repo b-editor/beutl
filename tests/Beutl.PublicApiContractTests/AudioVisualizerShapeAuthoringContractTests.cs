@@ -7,10 +7,8 @@ using Beutl.Graphics.AudioVisualizers;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
-using SkiaSharp;
+using static Beutl.PublicApiContractTests.ContractTestSupport;
 
 namespace Beutl.PublicApiContractTests;
 
@@ -179,52 +177,9 @@ public sealed class AudioVisualizerShapeAuthoringContractTests
         };
     }
 
-    private static float AlphaAt(Bitmap bitmap, int x, int y)
-    {
-        Assert.That(bitmap.ColorType, Is.EqualTo(BitmapColorType.RgbaF16));
-        return (float)bitmap.GetRow<Half>(y)[x * 4 + 3];
-    }
-
-    private sealed class CpuRenderTarget : RenderTarget
-    {
-        private static readonly SKColorSpace s_colorSpace = SKColorSpace.CreateSrgbLinear();
-
-        public CpuRenderTarget(PixelSize size)
-            : base(CreateSurface(size), size.Width, size.Height)
-        {
-        }
-
-        private static SKSurface CreateSurface(PixelSize size)
-        {
-            return SKSurface.Create(new SKImageInfo(
-                       size.Width,
-                       size.Height,
-                       SKColorType.RgbaF16,
-                       SKAlphaType.Premul,
-                       s_colorSpace))
-                   ?? throw new InvalidOperationException("Could not create a CPU contract-test surface.");
-        }
-    }
 }
 
-/// <summary>
-/// Only forwards to the engine's draw hook; it never overrides it, so the call in
-/// <see cref="Resource.Draw"/> is bound to <c>SpectrumShape.Resource.Render</c> itself.
-/// </summary>
-public abstract partial class PluginSpectrumShapeBase : SpectrumShape
-{
-    public abstract partial class Resource
-    {
-        public void Draw(
-            ImmediateCanvas canvas,
-            Rect bounds,
-            ReadOnlySpan<float> normalizedBars,
-            Brush.Resource fill)
-            => Render(new SpectrumRenderContext(canvas, bounds, normalizedBars, fill));
-    }
-}
-
-public sealed partial class PluginSpectrumShape : PluginSpectrumShapeBase
+public sealed partial class PluginSpectrumShape : SpectrumShape
 {
     public PluginSpectrumShape()
     {
@@ -244,6 +199,13 @@ public sealed partial class PluginSpectrumShape : PluginSpectrumShapeBase
         public float ObservedThickness { get; private set; }
 
         public Brush.Resource? ObservedFill { get; private set; }
+
+        public void Draw(
+            ImmediateCanvas canvas,
+            Rect bounds,
+            ReadOnlySpan<float> normalizedBars,
+            Brush.Resource fill)
+            => Render(new SpectrumRenderContext(canvas, bounds, normalizedBars, fill));
 
         protected override void Render(in SpectrumRenderContext context)
         {
@@ -276,26 +238,7 @@ public sealed partial class PluginSpectrumShape : PluginSpectrumShapeBase
     }
 }
 
-/// <summary>
-/// Only forwards to the engine's draw hook; it never overrides it, so the call in
-/// <see cref="Resource.Draw"/> is bound to <c>WaveformShape.Resource.Render</c> itself.
-/// </summary>
-public abstract partial class PluginWaveformShapeBase : WaveformShape
-{
-    public abstract partial class Resource
-    {
-        public void Draw(
-            ImmediateCanvas canvas,
-            Rect bounds,
-            ReadOnlySpan<float> mins,
-            ReadOnlySpan<float> maxs,
-            float gain,
-            Brush.Resource fill)
-            => Render(new WaveformRenderContext(canvas, bounds, mins, maxs, gain, fill));
-    }
-}
-
-public sealed partial class PluginWaveformShape : PluginWaveformShapeBase
+public sealed partial class PluginWaveformShape : WaveformShape
 {
     public PluginWaveformShape()
     {
@@ -315,6 +258,15 @@ public sealed partial class PluginWaveformShape : PluginWaveformShapeBase
         public float ObservedGain { get; private set; }
 
         public Brush.Resource? ObservedFill { get; private set; }
+
+        public void Draw(
+            ImmediateCanvas canvas,
+            Rect bounds,
+            ReadOnlySpan<float> mins,
+            ReadOnlySpan<float> maxs,
+            float gain,
+            Brush.Resource fill)
+            => Render(new WaveformRenderContext(canvas, bounds, mins, maxs, gain, fill));
 
         protected override void Render(in WaveformRenderContext context)
         {
@@ -349,26 +301,10 @@ public sealed partial class PluginWaveformShape : PluginWaveformShapeBase
 }
 
 /// <summary>
-/// Only forwards to the engine's visualizer hooks; it never overrides them, so the calls in
-/// <see cref="Resource.Draw"/> and <see cref="Resource.SampleWindow"/> are bound to
-/// <c>AudioVisualizerDrawable.Resource</c> itself.
-/// </summary>
-public abstract partial class PluginVisualizerDrawableBase : AudioVisualizerDrawable
-{
-    public abstract partial class Resource
-    {
-        public void Draw(ImmediateCanvas canvas, Rect bounds) => RenderForeground(canvas, bounds);
-
-        public (TimeSpan Start, TimeSpan Duration) SampleWindow(TimeSpan currentTime)
-            => ComputeSampleWindow(currentTime);
-    }
-}
-
-/// <summary>
 /// A level meter of the kind a plugin author would write: it picks its own sample window and paints from the
 /// engine's sample cache, so it compiles only while those accessors are reachable from a derived type.
 /// </summary>
-public sealed partial class PluginVisualizerDrawable : PluginVisualizerDrawableBase
+public sealed partial class PluginVisualizerDrawable : AudioVisualizerDrawable
 {
     public const int WindowSampleCount = 1024;
 
@@ -394,6 +330,11 @@ public sealed partial class PluginVisualizerDrawable : PluginVisualizerDrawableB
         public TimeSpan ObservedDuration { get; private set; }
 
         public float ObservedPeak { get; private set; }
+
+        public void Draw(ImmediateCanvas canvas, Rect bounds) => RenderForeground(canvas, bounds);
+
+        public (TimeSpan Start, TimeSpan Duration) SampleWindow(TimeSpan currentTime)
+            => ComputeSampleWindow(currentTime);
 
         protected override (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(TimeSpan currentTime)
             => (currentTime, TimeSpan.FromSeconds((double)WindowSampleCount / ComposerSampleRate));
@@ -500,7 +441,7 @@ internal sealed class ToneDecoderInfo : IDecoderInfo
             return false;
         }
 
-        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
         {
             if (length <= 0)
             {
@@ -508,9 +449,9 @@ internal sealed class ToneDecoderInfo : IDecoderInfo
                 return false;
             }
 
-            var pcm = new Pcm<Stereo32BitFloat>(SampleRate, length);
-            pcm.DataSpan.Fill(new Stereo32BitFloat(Amplitude, Amplitude));
-            sound = Ref<IPcm>.Create(pcm);
+            sound = new AudioBuffer(SampleRate, 2, length);
+            sound.GetChannelData(0).Fill(Amplitude);
+            sound.GetChannelData(1).Fill(Amplitude);
             return true;
         }
     }

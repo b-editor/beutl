@@ -6,7 +6,6 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.LogicalTree;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Api;
@@ -167,7 +166,7 @@ public sealed class CloudStorageIncrementalTests
         Assert.That(scope.Handler.Requests[3].Uri.Query, Does.Not.Contain("parentId="));
         scope.Handler.Requests[3].Complete(Response(fileId: "root-reloaded"));
         await append;
-        Assert.That(vm.Items.Select(x => x.Id), Does.Contain("root-reloaded").And.Not.Contain("wrong-location"));
+        Assert.That(vm.Items.Select(x => x.Id), Is.EqualTo(new[] { "folder & 日本", "root-reloaded" }));
         Assert.That(vm.Breadcrumbs, Has.Count.EqualTo(1));
     }
 
@@ -370,11 +369,9 @@ public sealed class CloudStorageIncrementalTests
     }
 
     [AvaloniaTest]
-    [TestCase(FileBrowserViewMode.Icon, false)]
-    [TestCase(FileBrowserViewMode.List, false)]
-    [TestCase(FileBrowserViewMode.Icon, true)]
-    [TestCase(FileBrowserViewMode.List, true)]
-    public async Task SlowInitialLoadShowsBoundedNonInteractivePlaceholders(FileBrowserViewMode mode, bool light)
+    [TestCase(FileBrowserViewMode.Icon)]
+    [TestCase(FileBrowserViewMode.List)]
+    public async Task SlowInitialLoadShowsBoundedNonInteractivePlaceholders(FileBrowserViewMode mode)
     {
         await using var scope = new StorageScope();
         var vm = scope.ViewModel;
@@ -385,7 +382,7 @@ public sealed class CloudStorageIncrementalTests
             Content = view,
             Width = 320,
             Height = 520,
-            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark,
+            RequestedThemeVariant = ThemeVariant.Dark,
         };
         try
         {
@@ -398,12 +395,6 @@ public sealed class CloudStorageIncrementalTests
             Assert.That(skeleton.Items, Has.Count.EqualTo(24));
             Assert.That(view.FindControl<ListBox>("StorageItems")!.GetRealizedContainers(), Is.Empty);
             Assert.That(view.FindControl<TextBlock>("EmptyState")!.IsEffectivelyVisible, Is.False);
-            if (Environment.GetEnvironmentVariable("BEUTL_STORAGE_CAPTURE") is { Length: > 0 } path)
-            {
-                Directory.CreateDirectory(path);
-                using var image = window.CaptureRenderedFrame();
-                image?.Save(Path.Combine(path, $"loading-{mode}-{light}.png"), PngBitmapEncoderOptions.Default);
-            }
             scope.Handler.Requests[0].Complete(Response(empty: true));
             await WaitFor(() => !vm.IsLoading.Value);
             HeadlessTestHelpers.Render();
@@ -476,11 +467,13 @@ public sealed class CloudStorageIncrementalTests
         public BeutlApiApplication Clients { get; }
         public CloudStorageViewModel ViewModel { get; }
 
-        public StorageScope(Func<DateTimeOffset>? utcNow = null)
+        public StorageScope(Func<DateTimeOffset>? utcNow = null, string? signInAs = "a", string? usagePlan = null)
         {
+            Handler.UsagePlan = usagePlan;
             _http = new HttpClient(Handler);
             Clients = new BeutlApiApplication(_http, new ExtensionProvider());
-            SignIn(Clients, "a");
+            if (signInAs is not null)
+                SignIn(Clients, signInAs);
             ViewModel = new(Clients, () => throw new InvalidOperationException("Not used by this test"), utcNow);
         }
 

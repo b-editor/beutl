@@ -17,14 +17,23 @@ namespace Beutl.UnitTests.ProjectSystem;
 [TestFixture]
 public class SceneCompositorTests
 {
-    private static string GetTempPath()
+    private string _basePath = null!;
+
+    [SetUp]
+    public void SetUp()
     {
-        return Path.Combine(Path.GetTempPath(), $"beutl_scene_compositor_{Guid.NewGuid():N}");
+        _basePath = Path.Combine(Path.GetTempPath(), $"beutl_scene_compositor_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(_basePath);
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        if (Directory.Exists(_basePath)) Directory.Delete(_basePath, recursive: true);
     }
 
     private static Scene CreateScene(string basePath)
     {
-        Directory.CreateDirectory(basePath);
         var scene = new Scene(100, 100, string.Empty)
         {
             Uri = new Uri(Path.Combine(basePath, "test.scene"))
@@ -60,55 +69,47 @@ public class SceneCompositorTests
     [TestCase(true)]
     public void DetachedGraphicsResource_KeepsItsPathAliveUntilTheNextEvaluation(bool reattach)
     {
-        string basePath = GetTempPath();
-        try
+        Scene scene = CreateScene(_basePath);
+        var application = new BeutlApplication { Project = new Project() };
+        application.Project!.Items.Add(scene);
+        var shape = new RectShape();
+        Element element = CreateElement(_basePath, isEnabled: true, shape);
+        scene.Children.Add(element);
+        using var compositor = new SceneCompositor(scene);
+        CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.Zero);
+        var resource = (RectShape.Resource)frame.Objects.Single();
+        var geometry = resource.GetGeometry()!;
+        SKPath path = geometry.GetCachedPath();
+
+        // The UI can remove this object after the render thread obtains its native path.
+        element.Objects.Clear();
+        Assert.That(path.Handle, Is.Not.EqualTo(IntPtr.Zero),
+            "Detaching must not release a path that the current frame is about to draw.");
+        Assert.That(resource.IsDisposed, Is.False);
+        using (var bitmap = new SKBitmap(100, 100))
+        using (var canvas = new SKCanvas(bitmap))
+        using (var paint = new SKPaint { Color = SKColors.Red })
         {
-            Scene scene = CreateScene(basePath);
-            var application = new BeutlApplication();
-            application.Items.Add(scene);
-            var shape = new RectShape();
-            Element element = CreateElement(basePath, isEnabled: true, shape);
-            scene.Children.Add(element);
-            using var compositor = new SceneCompositor(scene);
-            CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.Zero);
-            var resource = (RectShape.Resource)frame.Objects.Single();
-            var geometry = resource.GetGeometry()!;
-            SKPath path = geometry.GetCachedPath();
-
-            // The UI can remove this object after the render thread obtains its native path.
-            element.Objects.Clear();
-            Assert.That(path.Handle, Is.Not.EqualTo(IntPtr.Zero),
-                "Detaching must not release a path that the current frame is about to draw.");
-            Assert.That(resource.IsDisposed, Is.False);
-            using (var bitmap = new SKBitmap(100, 100))
-            using (var canvas = new SKCanvas(bitmap))
-            using (var paint = new SKPaint { Color = SKColors.Red })
-            {
-                canvas.Clear(SKColors.Transparent);
-                canvas.DrawPath(path, paint);
-                Assert.That(bitmap.GetPixel(50, 50), Is.EqualTo(SKColors.Red));
-            }
-
-            if (reattach)
-                element.Objects.Add(shape);
-
-            CompositionFrame next = compositor.EvaluateGraphics(TimeSpan.Zero);
-            Assert.That(resource.IsDisposed, Is.True);
-            Assert.That(geometry.IsDisposed, Is.True);
-            Assert.That(path.Handle, Is.EqualTo(IntPtr.Zero));
-            if (reattach)
-            {
-                Assert.That(next.Objects.Single(), Is.Not.SameAs(resource));
-                Assert.That(next.Objects.Single().IsDisposed, Is.False);
-            }
-            else
-            {
-                Assert.That(next.Objects, Is.Empty);
-            }
+            canvas.Clear(SKColors.Transparent);
+            canvas.DrawPath(path, paint);
+            Assert.That(bitmap.GetPixel(50, 50), Is.EqualTo(SKColors.Red));
         }
-        finally
+
+        if (reattach)
+            element.Objects.Add(shape);
+
+        CompositionFrame next = compositor.EvaluateGraphics(TimeSpan.Zero);
+        Assert.That(resource.IsDisposed, Is.True);
+        Assert.That(geometry.IsDisposed, Is.True);
+        Assert.That(path.Handle, Is.EqualTo(IntPtr.Zero));
+        if (reattach)
         {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+            Assert.That(next.Objects.Single(), Is.Not.SameAs(resource));
+            Assert.That(next.Objects.Single().IsDisposed, Is.False);
+        }
+        else
+        {
+            Assert.That(next.Objects, Is.Empty);
         }
     }
 
@@ -116,333 +117,253 @@ public class SceneCompositorTests
     [TestCase(true)]
     public void DetachedAudioResource_IsReleasedByTheNextEvaluationOrDisposal(bool disposeCompositor)
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            var application = new BeutlApplication();
-            application.Items.Add(scene);
-            Element element = CreateElement(basePath, isEnabled: true, new TestAudioObject());
-            scene.Children.Add(element);
-            using var compositor = new SceneCompositor(scene);
-            var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
-            EngineObject.Resource resource = compositor.EvaluateAudio(range).Objects.Single();
+        Scene scene = CreateScene(_basePath);
+        var application = new BeutlApplication { Project = new Project() };
+        application.Project!.Items.Add(scene);
+        Element element = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
+        scene.Children.Add(element);
+        using var compositor = new SceneCompositor(scene);
+        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        EngineObject.Resource resource = compositor.EvaluateAudio(range).Objects.Single();
 
-            scene.Children.Remove(element);
-            Assert.That(resource.IsDisposed, Is.False);
+        scene.Children.Remove(element);
+        Assert.That(resource.IsDisposed, Is.False);
 
-            if (disposeCompositor)
-                compositor.Dispose();
-            else
-                Assert.That(compositor.EvaluateAudio(range).Objects, Is.Empty);
+        if (disposeCompositor)
+            compositor.Dispose();
+        else
+            Assert.That(compositor.EvaluateAudio(range).Objects, Is.Empty);
 
-            Assert.That(resource.IsDisposed, Is.True);
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(resource.IsDisposed, Is.True);
     }
 
     [Test]
     public async Task DetachingDuringDisposal_ReleasesEveryCapturedResource()
     {
-        string basePath = GetTempPath();
-        try
+        for (int iteration = 0; iteration < 128; iteration++)
         {
-            for (int iteration = 0; iteration < 128; iteration++)
+            Scene scene = CreateScene(_basePath);
+            var application = new BeutlApplication { Project = new Project() };
+            application.Project!.Items.Add(scene);
+            Element element = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
+            for (int index = 0; index < 127; index++)
+                element.Objects.Add(new TestGraphicsObject());
+            scene.Children.Add(element);
+            using var compositor = new SceneCompositor(scene);
+            CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.Zero);
+            using var start = new Barrier(2);
+            Task detach = Task.Run(() =>
             {
-                Scene scene = CreateScene(basePath);
-                var application = new BeutlApplication();
-                application.Items.Add(scene);
-                Element element = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
-                for (int index = 0; index < 127; index++)
-                    element.Objects.Add(new TestGraphicsObject());
-                scene.Children.Add(element);
-                using var compositor = new SceneCompositor(scene);
-                CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.Zero);
-                using var start = new Barrier(2);
-                Task detach = Task.Run(() =>
-                {
-                    if (!start.SignalAndWait(TimeSpan.FromSeconds(10)))
-                        throw new TimeoutException("Disposal did not start.");
-                    element.Objects.Clear();
-                });
+                if (!start.SignalAndWait(TimeSpan.FromSeconds(10)))
+                    throw new TimeoutException("Disposal did not start.");
+                element.Objects.Clear();
+            });
 
-                Assert.That(start.SignalAndWait(TimeSpan.FromSeconds(10)), Is.True);
-                compositor.Dispose();
-                await detach.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.That(start.SignalAndWait(TimeSpan.FromSeconds(10)), Is.True);
+            compositor.Dispose();
+            await detach.WaitAsync(TimeSpan.FromSeconds(10));
 
-                Assert.That(frame.Objects.All(resource => resource.IsDisposed), Is.True,
-                    $"Detachment left an undisposed resource at iteration {iteration}.");
-            }
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+            Assert.That(frame.Objects.All(resource => resource.IsDisposed), Is.True,
+                $"Detachment left an undisposed resource at iteration {iteration}.");
         }
     }
 
     [Test]
     public void DisposalCallbacks_CanDetachObjectsOnAnotherThread()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            var application = new BeutlApplication();
-            application.Items.Add(scene);
-            Element element = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
-            element.Objects.Add(new DisposalCallbackObject(() =>
-                Task.Run(() => element.Objects.Clear()).WaitAsync(TimeSpan.FromSeconds(10)).GetAwaiter().GetResult()));
-            scene.Children.Add(element);
-            using var compositor = new SceneCompositor(scene);
-            CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.Zero);
+        Scene scene = CreateScene(_basePath);
+        var application = new BeutlApplication { Project = new Project() };
+        application.Project!.Items.Add(scene);
+        Element element = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
+        element.Objects.Add(new DisposalCallbackObject(() =>
+            Task.Run(() => element.Objects.Clear()).WaitAsync(TimeSpan.FromSeconds(10)).GetAwaiter().GetResult()));
+        scene.Children.Add(element);
+        using var compositor = new SceneCompositor(scene);
+        CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.Zero);
 
-            compositor.Dispose();
+        compositor.Dispose();
 
-            Assert.That(frame.Objects.All(resource => resource.IsDisposed), Is.True);
-            Assert.That(element.Objects, Is.Empty);
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(frame.Objects.All(resource => resource.IsDisposed), Is.True);
+        Assert.That(element.Objects, Is.Empty);
     }
 
     [Test]
     public void EvaluateGraphics_DisabledElement_IsExcluded()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            Element enabled = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
-            Element disabled = CreateElement(basePath, isEnabled: false, new TestGraphicsObject());
-            scene.Children.Add(enabled);
-            scene.Children.Add(disabled);
-            using var compositor = new SceneCompositor(scene);
+        Scene scene = CreateScene(_basePath);
+        Element enabled = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
+        Element disabled = CreateElement(_basePath, isEnabled: false, new TestGraphicsObject());
+        scene.Children.Add(enabled);
+        scene.Children.Add(disabled);
+        using var compositor = new SceneCompositor(scene);
 
-            CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
+        CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
 
-            Assert.That(frame.Objects.Length, Is.EqualTo(1));
-            Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(enabled.Objects[0]));
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(frame.Objects.Length, Is.EqualTo(1));
+        Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(enabled.Objects[0]));
     }
 
     [Test]
     public void EvaluateAudio_DisabledElement_IsExcluded()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            Element enabled = CreateElement(basePath, isEnabled: true, new TestAudioObject());
-            Element disabled = CreateElement(basePath, isEnabled: false, new TestAudioObject());
-            scene.Children.Add(enabled);
-            scene.Children.Add(disabled);
-            using var compositor = new SceneCompositor(scene);
+        Scene scene = CreateScene(_basePath);
+        Element enabled = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
+        Element disabled = CreateElement(_basePath, isEnabled: false, new TestAudioObject());
+        scene.Children.Add(enabled);
+        scene.Children.Add(disabled);
+        using var compositor = new SceneCompositor(scene);
 
-            CompositionFrame frame = compositor.EvaluateAudio(
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
-            CompositionEligibility eligibility = frame.Eligibility
-                ?? throw new AssertionException("Audio evaluation must capture eligibility.");
+        CompositionFrame frame = compositor.EvaluateAudio(
+            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
+        CompositionEligibility eligibility = frame.Eligibility
+            ?? throw new AssertionException("Audio evaluation must capture eligibility.");
 
-            Assert.That(frame.Objects.Length, Is.EqualTo(1));
-            Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(enabled.Objects[0]));
-            Assert.That(eligibility.Contains(enabled.Objects[0]), Is.True);
-            Assert.That(eligibility.Contains(disabled.Objects[0]), Is.False);
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(frame.Objects.Length, Is.EqualTo(1));
+        Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(enabled.Objects[0]));
+        Assert.That(eligibility.Contains(enabled.Objects[0]), Is.True);
+        Assert.That(eligibility.Contains(disabled.Objects[0]), Is.False);
     }
 
     [Test]
     public void EvaluateAudio_OutOfRangeElement_RemainsEligible()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            Element element = CreateElement(basePath, isEnabled: true, new TestAudioObject());
-            scene.Children.Add(element);
-            using var compositor = new SceneCompositor(scene);
+        Scene scene = CreateScene(_basePath);
+        Element element = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
+        scene.Children.Add(element);
+        using var compositor = new SceneCompositor(scene);
 
-            CompositionFrame frame = compositor.EvaluateAudio(
-                new TimeRange(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1)));
-            CompositionEligibility eligibility = frame.Eligibility
-                ?? throw new AssertionException("Audio evaluation must capture eligibility.");
+        CompositionFrame frame = compositor.EvaluateAudio(
+            new TimeRange(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1)));
+        CompositionEligibility eligibility = frame.Eligibility
+            ?? throw new AssertionException("Audio evaluation must capture eligibility.");
 
-            Assert.That(frame.Objects, Is.Empty);
-            Assert.That(eligibility.Contains(element.Objects[0]), Is.True,
-                "Eligibility ignores time intersection so Composer can identify a natural clip end.");
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(frame.Objects, Is.Empty);
+        Assert.That(eligibility.Contains(element.Objects[0]), Is.True,
+            "Eligibility ignores time intersection so Composer can identify a natural clip end.");
     }
 
     [Test]
     public void EvaluateAudio_FlowConsumedSound_IsNotEligible()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            var group = new SoundGroup();
-            Element groupElement = CreateElement(basePath, isEnabled: true, group);
-            groupElement.ZIndex = 0;
-            groupElement.Length = TimeSpan.FromSeconds(1);
-            ((PortalObject)groupElement.Objects[0]).Count.CurrentValue = 1;
+        Scene scene = CreateScene(_basePath);
+        var group = new SoundGroup();
+        Element groupElement = CreateElement(_basePath, isEnabled: true, group);
+        groupElement.ZIndex = 0;
+        groupElement.Length = TimeSpan.FromSeconds(1);
+        ((PortalObject)groupElement.Objects[0]).Count.CurrentValue = 1;
 
-            var child = new LimiterTailSound();
-            Element childElement = CreateElement(basePath, isEnabled: true, child);
-            childElement.ZIndex = 1;
-            childElement.Length = TimeSpan.FromSeconds(1);
+        var child = new LimiterTailSound();
+        Element childElement = CreateElement(_basePath, isEnabled: true, child);
+        childElement.ZIndex = 1;
+        childElement.Length = TimeSpan.FromSeconds(1);
 
-            scene.Children.Add(groupElement);
-            scene.Children.Add(childElement);
-            using var compositor = new SceneCompositor(scene);
+        scene.Children.Add(groupElement);
+        scene.Children.Add(childElement);
+        using var compositor = new SceneCompositor(scene);
 
-            CompositionFrame frame = compositor.EvaluateAudio(
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
-            CompositionEligibility eligibility = frame.Eligibility
-                ?? throw new AssertionException("Audio evaluation must capture eligibility.");
+        CompositionFrame frame = compositor.EvaluateAudio(
+            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
+        CompositionEligibility eligibility = frame.Eligibility
+            ?? throw new AssertionException("Audio evaluation must capture eligibility.");
 
-            Assert.That(eligibility.Contains(group), Is.True);
-            Assert.That(eligibility.Contains(child), Is.False,
-                "A Sound consumed by SoundGroup flow must not remain eligible as a standalone tail entry.");
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(eligibility.Contains(group), Is.True);
+        Assert.That(eligibility.Contains(child), Is.False,
+            "A Sound consumed by SoundGroup flow must not remain eligible as a standalone tail entry.");
     }
 
     [Test]
     public void EvaluateAudio_FlowConsumedValueEqualSound_IsNotEligible()
     {
-        string basePath = GetTempPath();
-        try
+        Scene scene = CreateScene(_basePath);
+        var group = new SoundGroup();
+        var groupElement = new ValueEqualElement
         {
-            Scene scene = CreateScene(basePath);
-            var group = new SoundGroup();
-            var groupElement = new ValueEqualElement
-            {
-                Start = TimeSpan.Zero,
-                Length = TimeSpan.FromSeconds(1),
-                ZIndex = 0,
-                Uri = new Uri(Path.Combine(basePath, $"{Guid.NewGuid():N}.group.layer")),
-            };
-            groupElement.AddObject(group);
-            ((PortalObject)groupElement.Objects[0]).Count.CurrentValue = 1;
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(1),
+            ZIndex = 0,
+            Uri = new Uri(Path.Combine(_basePath, $"{Guid.NewGuid():N}.group.layer")),
+        };
+        groupElement.AddObject(group);
+        ((PortalObject)groupElement.Objects[0]).Count.CurrentValue = 1;
 
-            var child = new LimiterTailSound();
-            var childElement = new ValueEqualElement
-            {
-                Start = TimeSpan.Zero,
-                Length = TimeSpan.FromSeconds(1),
-                ZIndex = 1,
-                Uri = new Uri(Path.Combine(basePath, $"{Guid.NewGuid():N}.child.layer")),
-            };
-            childElement.AddObject(child);
-
-            scene.Children.Add(groupElement);
-            scene.Children.Add(childElement);
-            using var compositor = new SceneCompositor(scene);
-
-            CompositionFrame frame = compositor.EvaluateAudio(
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
-            CompositionEligibility eligibility = frame.Eligibility
-                ?? throw new AssertionException("Audio evaluation must capture eligibility.");
-
-            Assert.That(eligibility.Contains(child), Is.False,
-                "Reference-equal flow removal must still consume a value-equal standalone sound.");
-        }
-        finally
+        var child = new LimiterTailSound();
+        var childElement = new ValueEqualElement
         {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(1),
+            ZIndex = 1,
+            Uri = new Uri(Path.Combine(_basePath, $"{Guid.NewGuid():N}.child.layer")),
+        };
+        childElement.AddObject(child);
+
+        scene.Children.Add(groupElement);
+        scene.Children.Add(childElement);
+        using var compositor = new SceneCompositor(scene);
+
+        CompositionFrame frame = compositor.EvaluateAudio(
+            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
+        CompositionEligibility eligibility = frame.Eligibility
+            ?? throw new AssertionException("Audio evaluation must capture eligibility.");
+
+        Assert.That(eligibility.Contains(child), Is.False,
+            "Reference-equal flow removal must still consume a value-equal standalone sound.");
     }
 
     [Test]
     public void EvaluateAudio_StandaloneClearPortal_ExcludesClearedSoundFromEligibility()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            var sound = new LimiterTailSound();
-            Element element = CreateElement(basePath, isEnabled: true, sound);
-            var portal = new PortalObject();
-            portal.Clear.CurrentValue = true;
-            portal.Count.CurrentValue = 0;
-            element.Objects.Add(portal);
-            scene.Children.Add(element);
-            using var compositor = new SceneCompositor(scene);
+        Scene scene = CreateScene(_basePath);
+        var sound = new LimiterTailSound();
+        Element element = CreateElement(_basePath, isEnabled: true, sound);
+        var portal = new PortalObject();
+        portal.Clear.CurrentValue = true;
+        portal.Count.CurrentValue = 0;
+        element.Objects.Add(portal);
+        scene.Children.Add(element);
+        using var compositor = new SceneCompositor(scene);
 
-            CompositionFrame frame = compositor.EvaluateAudio(
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
-            CompositionEligibility eligibility = frame.Eligibility
-                ?? throw new AssertionException("Audio evaluation must capture eligibility.");
+        CompositionFrame frame = compositor.EvaluateAudio(
+            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
+        CompositionEligibility eligibility = frame.Eligibility
+            ?? throw new AssertionException("Audio evaluation must capture eligibility.");
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(frame.Objects.Select(resource => resource.GetOriginal()),
-                    Does.Not.Contain(sound),
-                    "A standalone clear portal removes the preceding sound from the evaluated flow.");
-                Assert.That(eligibility.Contains(sound), Is.False,
-                    "Eligibility must mirror the portal's flow mutation so a cleared sound cannot flush a stale tail.");
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+            Assert.That(frame.Objects.Select(resource => resource.GetOriginal()),
+                Does.Not.Contain(sound),
+                "A standalone clear portal removes the preceding sound from the evaluated flow.");
+            Assert.That(eligibility.Contains(sound), Is.False,
+                "Eligibility must mirror the portal's flow mutation so a cleared sound cannot flush a stale tail.");
+        });
     }
 
     [Test]
     public void EvaluateAudio_InactiveFlowOperator_DoesNotConsumeEndedSound()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            var group = new SoundGroup();
-            Element groupElement = CreateElement(basePath, isEnabled: true, group);
-            groupElement.Start = TimeSpan.FromSeconds(2);
-            groupElement.ZIndex = 0;
-            groupElement.Length = TimeSpan.FromSeconds(1);
-            ((PortalObject)groupElement.Objects[0]).Count.CurrentValue = 1;
+        Scene scene = CreateScene(_basePath);
+        var group = new SoundGroup();
+        Element groupElement = CreateElement(_basePath, isEnabled: true, group);
+        groupElement.Start = TimeSpan.FromSeconds(2);
+        groupElement.ZIndex = 0;
+        groupElement.Length = TimeSpan.FromSeconds(1);
+        ((PortalObject)groupElement.Objects[0]).Count.CurrentValue = 1;
 
-            var child = new LimiterTailSound();
-            Element childElement = CreateElement(basePath, isEnabled: true, child);
-            childElement.ZIndex = 1;
-            childElement.Length = TimeSpan.FromSeconds(1);
+        var child = new LimiterTailSound();
+        Element childElement = CreateElement(_basePath, isEnabled: true, child);
+        childElement.ZIndex = 1;
+        childElement.Length = TimeSpan.FromSeconds(1);
 
-            scene.Children.Add(groupElement);
-            scene.Children.Add(childElement);
-            using var compositor = new SceneCompositor(scene);
+        scene.Children.Add(groupElement);
+        scene.Children.Add(childElement);
+        using var compositor = new SceneCompositor(scene);
 
-            CompositionFrame frame = compositor.EvaluateAudio(
-                new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)));
-            CompositionEligibility eligibility = frame.Eligibility
-                ?? throw new AssertionException("Audio evaluation must capture eligibility.");
+        CompositionFrame frame = compositor.EvaluateAudio(
+            new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)));
+        CompositionEligibility eligibility = frame.Eligibility
+            ?? throw new AssertionException("Audio evaluation must capture eligibility.");
 
-            Assert.That(eligibility.Contains(child), Is.True,
-                "An inactive flow operator must not consume an ended standalone Sound during eligibility evaluation.");
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(eligibility.Contains(child), Is.True,
+            "An inactive flow operator must not consume an ended standalone Sound during eligibility evaluation.");
     }
 
     [Test]
@@ -453,125 +374,92 @@ public class SceneCompositorTests
         const int lookaheadSamples = 240;
         var duration = AudioProcessContext.GetDurationForSampleCount(clipSamples, sampleRate);
         var lookahead = AudioProcessContext.GetDurationForSampleCount(lookaheadSamples, sampleRate);
-        string basePath = GetTempPath();
+        Scene scene = CreateScene(_basePath);
+        var group = new SoundGroup();
+        Element groupElement = CreateElement(_basePath, isEnabled: true, group);
+        groupElement.Start = duration;
+        groupElement.Length = TimeSpan.FromSeconds(1);
+        groupElement.ZIndex = 0;
+        ((PortalObject)groupElement.Objects[0]).Count.CurrentValue = 1;
 
-        try
+        var child = new LimiterTailSound { LookaheadMs = 5f };
+        Element childElement = CreateElement(_basePath, isEnabled: true, child);
+        childElement.Length = duration;
+        childElement.ZIndex = 1;
+
+        scene.Children.Add(groupElement);
+        scene.Children.Add(childElement);
+        using var compositor = new SceneCompositor(scene);
+        using var composer = new Composer { SampleRate = sampleRate };
+
+        var firstRange = new TimeRange(TimeSpan.Zero, duration);
+        using AudioBuffer? first = composer.Compose(firstRange, compositor.EvaluateAudio(firstRange));
+
+        var tailRange = new TimeRange(duration, lookahead);
+        CompositionFrame tailFrame = compositor.EvaluateAudio(tailRange);
+        CompositionEligibility eligibility = tailFrame.Eligibility
+            ?? throw new AssertionException("Audio evaluation must capture eligibility.");
+        using AudioBuffer? tail = composer.Compose(tailRange, tailFrame);
+
+        Assert.Multiple(() =>
         {
-            Scene scene = CreateScene(basePath);
-            var group = new SoundGroup();
-            Element groupElement = CreateElement(basePath, isEnabled: true, group);
-            groupElement.Start = duration;
-            groupElement.Length = TimeSpan.FromSeconds(1);
-            groupElement.ZIndex = 0;
-            ((PortalObject)groupElement.Objects[0]).Count.CurrentValue = 1;
-
-            var child = new LimiterTailSound { LookaheadMs = 5f };
-            Element childElement = CreateElement(basePath, isEnabled: true, child);
-            childElement.Length = duration;
-            childElement.ZIndex = 1;
-
-            scene.Children.Add(groupElement);
-            scene.Children.Add(childElement);
-            using var compositor = new SceneCompositor(scene);
-            using var composer = new Composer { SampleRate = sampleRate };
-
-            var firstRange = new TimeRange(TimeSpan.Zero, duration);
-            using AudioBuffer? first = composer.Compose(firstRange, compositor.EvaluateAudio(firstRange));
-
-            var tailRange = new TimeRange(duration, lookahead);
-            CompositionFrame tailFrame = compositor.EvaluateAudio(tailRange);
-            CompositionEligibility eligibility = tailFrame.Eligibility
-                ?? throw new AssertionException("Audio evaluation must capture eligibility.");
-            using AudioBuffer? tail = composer.Compose(tailRange, tailFrame);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(eligibility.Contains(child), Is.True,
-                    "An active portal must not consume an ended sound that is outside the evaluated range.");
-                Assert.That(tail, Is.Not.Null);
-                Assert.That(tail!.GetChannelData(0)[..lookaheadSamples].ToArray(), Has.Some.Not.EqualTo(0f),
-                    "Keeping the ended sound eligible must preserve its retained tail for the following range.");
-            });
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+            Assert.That(eligibility.Contains(child), Is.True,
+                "An active portal must not consume an ended sound that is outside the evaluated range.");
+            Assert.That(tail, Is.Not.Null);
+            Assert.That(tail!.GetChannelData(0)[..lookaheadSamples].ToArray(), Has.Some.Not.EqualTo(0f),
+                "Keeping the ended sound eligible must preserve its retained tail for the following range.");
+        });
     }
 
     [Test]
     public void EvaluateAudio_DoesNotMaterializeOutOfRangeAudioObjectsForEligibility()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            var inactive = new CountingAudioObject();
-            Element element = CreateElement(basePath, isEnabled: true, inactive);
-            element.Start = TimeSpan.FromSeconds(2);
-            element.Length = TimeSpan.FromSeconds(1);
-            scene.Children.Add(element);
-            using var compositor = new SceneCompositor(scene);
+        Scene scene = CreateScene(_basePath);
+        var inactive = new CountingAudioObject();
+        Element element = CreateElement(_basePath, isEnabled: true, inactive);
+        element.Start = TimeSpan.FromSeconds(2);
+        element.Length = TimeSpan.FromSeconds(1);
+        scene.Children.Add(element);
+        using var compositor = new SceneCompositor(scene);
 
-            _ = compositor.EvaluateAudio(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
+        _ = compositor.EvaluateAudio(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
 
-            Assert.That(inactive.UpdateCount, Is.EqualTo(0),
-                "Eligibility collection must not materialize an out-of-range audio resource.");
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(inactive.UpdateCount, Is.EqualTo(0),
+            "Eligibility collection must not materialize an out-of-range audio resource.");
     }
 
     [Test]
     public void EvaluateAudio_ActiveFlowResourceIsUpdatedOnce()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            var counting = new CountingAudioObject();
-            scene.Children.Add(CreateElement(basePath, isEnabled: true, counting));
-            using var compositor = new SceneCompositor(scene);
+        Scene scene = CreateScene(_basePath);
+        var counting = new CountingAudioObject();
+        scene.Children.Add(CreateElement(_basePath, isEnabled: true, counting));
+        using var compositor = new SceneCompositor(scene);
 
-            CompositionFrame frame = compositor.EvaluateAudio(
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
+        CompositionFrame frame = compositor.EvaluateAudio(
+            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
 
-            Assert.That(frame.Objects.Select(resource => resource.GetOriginal()), Has.Member(counting));
-            Assert.That(counting.UpdateCount, Is.EqualTo(1),
-                "An active flow object must be updated once while producing both the frame and its eligibility.");
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(frame.Objects.Select(resource => resource.GetOriginal()), Has.Member(counting));
+        Assert.That(counting.UpdateCount, Is.EqualTo(1),
+            "An active flow object must be updated once while producing both the frame and its eligibility.");
     }
 
     [Test]
     public void EvaluateGraphics_TogglingIsEnabled_UpdatesFrameContents()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            Element element = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
-            scene.Children.Add(element);
-            using var compositor = new SceneCompositor(scene);
-            var time = TimeSpan.FromMilliseconds(500);
+        Scene scene = CreateScene(_basePath);
+        Element element = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
+        scene.Children.Add(element);
+        using var compositor = new SceneCompositor(scene);
+        var time = TimeSpan.FromMilliseconds(500);
 
-            Assert.That(compositor.EvaluateGraphics(time).Objects.Length, Is.EqualTo(1));
+        Assert.That(compositor.EvaluateGraphics(time).Objects.Length, Is.EqualTo(1));
 
-            element.IsEnabled = false;
-            Assert.That(compositor.EvaluateGraphics(time).Objects.Length, Is.EqualTo(0));
+        element.IsEnabled = false;
+        Assert.That(compositor.EvaluateGraphics(time).Objects.Length, Is.EqualTo(0));
 
-            element.IsEnabled = true;
-            Assert.That(compositor.EvaluateGraphics(time).Objects.Length, Is.EqualTo(1));
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        element.IsEnabled = true;
+        Assert.That(compositor.EvaluateGraphics(time).Objects.Length, Is.EqualTo(1));
     }
 
     [Test]
@@ -579,199 +467,143 @@ public class SceneCompositorTests
     {
         // Graphics と Audio の両方が同じ SortLayers を経由するため、
         // 有効/無効切り替え時に音声側も一貫してフィルタされることを確認する。
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            Element element = CreateElement(basePath, isEnabled: true, new TestAudioObject());
-            scene.Children.Add(element);
-            using var compositor = new SceneCompositor(scene);
-            var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        Scene scene = CreateScene(_basePath);
+        Element element = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
+        scene.Children.Add(element);
+        using var compositor = new SceneCompositor(scene);
+        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
 
-            Assert.That(compositor.EvaluateAudio(range).Objects.Length, Is.EqualTo(1));
+        Assert.That(compositor.EvaluateAudio(range).Objects.Length, Is.EqualTo(1));
 
-            element.IsEnabled = false;
-            Assert.That(compositor.EvaluateAudio(range).Objects.Length, Is.EqualTo(0));
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        element.IsEnabled = false;
+        Assert.That(compositor.EvaluateAudio(range).Objects.Length, Is.EqualTo(0));
     }
 
     [Test]
     public void EvaluateGraphics_SoloedLayer_OnlySoloedContributes()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            Element layer0 = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
-            layer0.ZIndex = 0;
-            Element layer1 = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
-            layer1.ZIndex = 1;
-            scene.Children.Add(layer0);
-            scene.Children.Add(layer1);
-            scene.Layers.Add(CreateLayer(0));
-            scene.Layers.Add(CreateLayer(1, solo: true));
-            using var compositor = new SceneCompositor(scene);
+        Scene scene = CreateScene(_basePath);
+        Element layer0 = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
+        layer0.ZIndex = 0;
+        Element layer1 = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
+        layer1.ZIndex = 1;
+        scene.Children.Add(layer0);
+        scene.Children.Add(layer1);
+        scene.Layers.Add(CreateLayer(0));
+        scene.Layers.Add(CreateLayer(1, solo: true));
+        using var compositor = new SceneCompositor(scene);
 
-            CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
+        CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
 
-            Assert.That(frame.Objects.Length, Is.EqualTo(1));
-            Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(layer1.Objects[0]));
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(frame.Objects.Length, Is.EqualTo(1));
+        Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(layer1.Objects[0]));
     }
 
     [Test]
     public void EvaluateAudio_MultipleSolos_AreNonExclusive()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            Element z0 = CreateElement(basePath, isEnabled: true, new TestAudioObject());
-            z0.ZIndex = 0;
-            Element z1 = CreateElement(basePath, isEnabled: true, new TestAudioObject());
-            z1.ZIndex = 1;
-            Element z2 = CreateElement(basePath, isEnabled: true, new TestAudioObject());
-            z2.ZIndex = 2;
-            scene.Children.Add(z0);
-            scene.Children.Add(z1);
-            scene.Children.Add(z2);
-            scene.Layers.Add(CreateLayer(0, solo: true));
-            scene.Layers.Add(CreateLayer(1));
-            scene.Layers.Add(CreateLayer(2, solo: true));
-            using var compositor = new SceneCompositor(scene);
+        Scene scene = CreateScene(_basePath);
+        Element z0 = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
+        z0.ZIndex = 0;
+        Element z1 = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
+        z1.ZIndex = 1;
+        Element z2 = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
+        z2.ZIndex = 2;
+        scene.Children.Add(z0);
+        scene.Children.Add(z1);
+        scene.Children.Add(z2);
+        scene.Layers.Add(CreateLayer(0, solo: true));
+        scene.Layers.Add(CreateLayer(1));
+        scene.Layers.Add(CreateLayer(2, solo: true));
+        using var compositor = new SceneCompositor(scene);
 
-            CompositionFrame frame = compositor.EvaluateAudio(
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
+        CompositionFrame frame = compositor.EvaluateAudio(
+            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
 
-            Assert.That(frame.Objects.Length, Is.EqualTo(2));
-            Assert.That(frame.Objects.Select(o => o.GetOriginal()),
-                Is.EquivalentTo(new[] { z0.Objects[0], z2.Objects[0] }));
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(frame.Objects.Length, Is.EqualTo(2));
+        Assert.That(frame.Objects.Select(o => o.GetOriginal()),
+            Is.EquivalentTo(new[] { z0.Objects[0], z2.Objects[0] }));
     }
 
     [Test]
     public void EvaluateGraphics_Solo_LayerWithoutModelIsExcluded()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            Element soloed = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
-            soloed.ZIndex = 0;
-            Element modelless = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
-            modelless.ZIndex = 5;
-            scene.Children.Add(soloed);
-            scene.Children.Add(modelless);
-            scene.Layers.Add(CreateLayer(0, solo: true));
-            using var compositor = new SceneCompositor(scene);
+        Scene scene = CreateScene(_basePath);
+        Element soloed = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
+        soloed.ZIndex = 0;
+        Element modelless = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
+        modelless.ZIndex = 5;
+        scene.Children.Add(soloed);
+        scene.Children.Add(modelless);
+        scene.Layers.Add(CreateLayer(0, solo: true));
+        using var compositor = new SceneCompositor(scene);
 
-            CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
+        CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
 
-            Assert.That(frame.Objects.Length, Is.EqualTo(1));
-            Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(soloed.Objects[0]));
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(frame.Objects.Length, Is.EqualTo(1));
+        Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(soloed.Objects[0]));
     }
 
     [Test]
     public void EvaluateGraphics_VideoMutedLayer_ExcludedFromGraphics()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            Element z0 = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
-            z0.ZIndex = 0;
-            Element z1 = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
-            z1.ZIndex = 1;
-            scene.Children.Add(z0);
-            scene.Children.Add(z1);
-            scene.Layers.Add(CreateLayer(0, videoMuted: true));
-            scene.Layers.Add(CreateLayer(1));
-            using var compositor = new SceneCompositor(scene);
+        Scene scene = CreateScene(_basePath);
+        Element z0 = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
+        z0.ZIndex = 0;
+        Element z1 = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
+        z1.ZIndex = 1;
+        scene.Children.Add(z0);
+        scene.Children.Add(z1);
+        scene.Layers.Add(CreateLayer(0, videoMuted: true));
+        scene.Layers.Add(CreateLayer(1));
+        using var compositor = new SceneCompositor(scene);
 
-            CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
+        CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
 
-            Assert.That(frame.Objects.Length, Is.EqualTo(1));
-            Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(z1.Objects[0]));
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(frame.Objects.Length, Is.EqualTo(1));
+        Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(z1.Objects[0]));
     }
 
     [Test]
     public void EvaluateAudio_VideoMutedLayer_StillComposesAudio()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            Element z0 = CreateElement(basePath, isEnabled: true, new TestAudioObject());
-            z0.ZIndex = 0;
-            scene.Children.Add(z0);
-            scene.Layers.Add(CreateLayer(0, videoMuted: true));
-            using var compositor = new SceneCompositor(scene);
+        Scene scene = CreateScene(_basePath);
+        Element z0 = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
+        z0.ZIndex = 0;
+        scene.Children.Add(z0);
+        scene.Layers.Add(CreateLayer(0, videoMuted: true));
+        using var compositor = new SceneCompositor(scene);
 
-            CompositionFrame frame = compositor.EvaluateAudio(
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
+        CompositionFrame frame = compositor.EvaluateAudio(
+            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
 
-            Assert.That(frame.Objects.Length, Is.EqualTo(1));
-            Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(z0.Objects[0]));
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(frame.Objects.Length, Is.EqualTo(1));
+        Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(z0.Objects[0]));
     }
 
     [Test]
     public void EvaluateAudio_AudioMutedLayer_ExcludedFromAudio()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            Element z0 = CreateElement(basePath, isEnabled: true, new TestAudioObject());
-            z0.ZIndex = 0;
-            Element z1 = CreateElement(basePath, isEnabled: true, new TestAudioObject());
-            z1.ZIndex = 1;
-            scene.Children.Add(z0);
-            scene.Children.Add(z1);
-            scene.Layers.Add(CreateLayer(0, audioMuted: true));
-            scene.Layers.Add(CreateLayer(1));
-            using var compositor = new SceneCompositor(scene);
+        Scene scene = CreateScene(_basePath);
+        Element z0 = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
+        z0.ZIndex = 0;
+        Element z1 = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
+        z1.ZIndex = 1;
+        scene.Children.Add(z0);
+        scene.Children.Add(z1);
+        scene.Layers.Add(CreateLayer(0, audioMuted: true));
+        scene.Layers.Add(CreateLayer(1));
+        using var compositor = new SceneCompositor(scene);
 
-            CompositionFrame frame = compositor.EvaluateAudio(
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
-            CompositionEligibility eligibility = frame.Eligibility
-                ?? throw new AssertionException("Audio evaluation must capture eligibility.");
+        CompositionFrame frame = compositor.EvaluateAudio(
+            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
+        CompositionEligibility eligibility = frame.Eligibility
+            ?? throw new AssertionException("Audio evaluation must capture eligibility.");
 
-            Assert.That(frame.Objects.Length, Is.EqualTo(1));
-            Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(z1.Objects[0]));
-            Assert.That(eligibility.Contains(z0.Objects[0]), Is.False);
-            Assert.That(eligibility.Contains(z1.Objects[0]), Is.True);
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(frame.Objects.Length, Is.EqualTo(1));
+        Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(z1.Objects[0]));
+        Assert.That(eligibility.Contains(z0.Objects[0]), Is.False);
+        Assert.That(eligibility.Contains(z1.Objects[0]), Is.True);
     }
 
     [Test]
@@ -788,181 +620,125 @@ public class SceneCompositorTests
     [Test]
     public void EvaluateGraphics_AudioMutedLayer_StillComposesGraphics()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            Element z0 = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
-            z0.ZIndex = 0;
-            scene.Children.Add(z0);
-            scene.Layers.Add(CreateLayer(0, audioMuted: true));
-            using var compositor = new SceneCompositor(scene);
+        Scene scene = CreateScene(_basePath);
+        Element z0 = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
+        z0.ZIndex = 0;
+        scene.Children.Add(z0);
+        scene.Layers.Add(CreateLayer(0, audioMuted: true));
+        using var compositor = new SceneCompositor(scene);
 
-            CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
+        CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
 
-            Assert.That(frame.Objects.Length, Is.EqualTo(1));
-            Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(z0.Objects[0]));
-            Assert.That(frame.Eligibility, Is.Null,
-                "Graphics frames do not consume eligibility and must not allocate a scene-wide snapshot.");
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(frame.Objects.Length, Is.EqualTo(1));
+        Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(z0.Objects[0]));
+        Assert.That(frame.Eligibility, Is.Null,
+            "Graphics frames do not consume eligibility and must not allocate a scene-wide snapshot.");
     }
 
     [Test]
     public void EvaluateGraphics_LockedElement_StillEvaluated()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            Element element = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
-            element.IsLocked = true;
-            scene.Children.Add(element);
-            using var compositor = new SceneCompositor(scene);
+        Scene scene = CreateScene(_basePath);
+        Element element = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
+        element.IsLocked = true;
+        scene.Children.Add(element);
+        using var compositor = new SceneCompositor(scene);
 
-            CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
+        CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
 
-            Assert.That(frame.Objects.Length, Is.EqualTo(1));
-            Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(element.Objects[0]));
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(frame.Objects.Length, Is.EqualTo(1));
+        Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(element.Objects[0]));
     }
 
     [Test]
     public void EvaluateGraphics_SoloToggledBetweenEvaluations_IsReflected()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            Element z0 = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
-            z0.ZIndex = 0;
-            Element z1 = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
-            z1.ZIndex = 1;
-            scene.Children.Add(z0);
-            scene.Children.Add(z1);
-            TimelineLayer layer1 = CreateLayer(1);
-            scene.Layers.Add(CreateLayer(0));
-            scene.Layers.Add(layer1);
-            using var compositor = new SceneCompositor(scene);
+        Scene scene = CreateScene(_basePath);
+        Element z0 = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
+        z0.ZIndex = 0;
+        Element z1 = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
+        z1.ZIndex = 1;
+        scene.Children.Add(z0);
+        scene.Children.Add(z1);
+        TimelineLayer layer1 = CreateLayer(1);
+        scene.Layers.Add(CreateLayer(0));
+        scene.Layers.Add(layer1);
+        using var compositor = new SceneCompositor(scene);
 
-            Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects.Length, Is.EqualTo(2));
+        Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects.Length, Is.EqualTo(2));
 
-            layer1.IsSolo = true;
-            CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
+        layer1.IsSolo = true;
+        CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
 
-            Assert.That(frame.Objects.Length, Is.EqualTo(1));
-            Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(z1.Objects[0]));
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(frame.Objects.Length, Is.EqualTo(1));
+        Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(z1.Objects[0]));
     }
 
     [Test]
     public void EvaluateGraphics_MuteToggledBetweenEvaluations_IsReflected()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            Element element = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
-            scene.Children.Add(element);
-            TimelineLayer layer = CreateLayer(0);
-            scene.Layers.Add(layer);
-            using var compositor = new SceneCompositor(scene);
+        Scene scene = CreateScene(_basePath);
+        Element element = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
+        scene.Children.Add(element);
+        TimelineLayer layer = CreateLayer(0);
+        scene.Layers.Add(layer);
+        using var compositor = new SceneCompositor(scene);
 
-            Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects.Length, Is.EqualTo(1));
+        Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects.Length, Is.EqualTo(1));
 
-            layer.IsVideoMuted = true;
+        layer.IsVideoMuted = true;
 
-            Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects, Is.Empty);
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects, Is.Empty);
     }
 
     [Test]
     public void EvaluateGraphics_LayerAddedBetweenEvaluations_IsReflected()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            Element element = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
-            scene.Children.Add(element);
-            using var compositor = new SceneCompositor(scene);
+        Scene scene = CreateScene(_basePath);
+        Element element = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
+        scene.Children.Add(element);
+        using var compositor = new SceneCompositor(scene);
 
-            Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects.Length, Is.EqualTo(1));
+        Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects.Length, Is.EqualTo(1));
 
-            scene.Layers.Add(CreateLayer(0, videoMuted: true));
+        scene.Layers.Add(CreateLayer(0, videoMuted: true));
 
-            Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects, Is.Empty);
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects, Is.Empty);
     }
 
     [Test]
     public void EvaluateGraphics_LayerZIndexChangedBetweenEvaluations_IsReflected()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            Element element = CreateElement(basePath, isEnabled: true, new TestGraphicsObject());
-            element.ZIndex = 1;
-            scene.Children.Add(element);
-            TimelineLayer layer = CreateLayer(0, videoMuted: true);
-            scene.Layers.Add(layer);
-            using var compositor = new SceneCompositor(scene);
+        Scene scene = CreateScene(_basePath);
+        Element element = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
+        element.ZIndex = 1;
+        scene.Children.Add(element);
+        TimelineLayer layer = CreateLayer(0, videoMuted: true);
+        scene.Layers.Add(layer);
+        using var compositor = new SceneCompositor(scene);
 
-            Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects.Length, Is.EqualTo(1));
+        Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects.Length, Is.EqualTo(1));
 
-            layer.ZIndex = 1;
+        layer.ZIndex = 1;
 
-            Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects, Is.Empty);
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500)).Objects, Is.Empty);
     }
 
     [Test]
     public void EvaluateGraphics_CompositorForceOriginalTrue_SeedsPreferProxyFalse()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            var capture = new SceneCompositorContextCaptureDrawable();
-            scene.Children.Add(CreateElement(basePath, isEnabled: true, capture));
-            using var compositor = new SceneCompositor(scene) { ForceOriginalSource = true };
+        Scene scene = CreateScene(_basePath);
+        var capture = new SceneCompositorContextCaptureDrawable();
+        scene.Children.Add(CreateElement(_basePath, isEnabled: true, capture));
+        using var compositor = new SceneCompositor(scene) { ForceOriginalSource = true };
 
-            compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
+        compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(capture.CapturedContexts, Has.Count.EqualTo(1));
-                Assert.That(capture.CapturedContexts[0].PreferProxy, Is.False);
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+            Assert.That(capture.CapturedPreferProxy, Has.Count.EqualTo(1));
+            Assert.That(capture.CapturedPreferProxy[0], Is.False);
+        });
     }
 
     [TestCase(PreviewSourceMode.PreferProxy, true)]
@@ -970,62 +746,29 @@ public class SceneCompositorTests
     public void EvaluateGraphics_CompositorForceOriginalFalse_SeedsPreferProxyFromGlobalConfig(
         PreviewSourceMode mode, bool expectedPreferProxy)
     {
-        string basePath = GetTempPath();
         PreviewSourceMode original = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode;
         try
         {
             GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = mode;
-            Scene scene = CreateScene(basePath);
+            Scene scene = CreateScene(_basePath);
             var capture = new SceneCompositorContextCaptureDrawable();
-            scene.Children.Add(CreateElement(basePath, isEnabled: true, capture));
+            scene.Children.Add(CreateElement(_basePath, isEnabled: true, capture));
             using var compositor = new SceneCompositor(scene);
 
             compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
 
             Assert.Multiple(() =>
             {
-                Assert.That(capture.CapturedContexts, Has.Count.EqualTo(1));
-                Assert.That(capture.CapturedContexts[0].PreferProxy, Is.EqualTo(expectedPreferProxy));
+                Assert.That(capture.CapturedPreferProxy, Has.Count.EqualTo(1));
+                Assert.That(capture.CapturedPreferProxy[0], Is.EqualTo(expectedPreferProxy));
             });
         }
         finally
         {
             GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = original;
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
         }
     }
 
-    [Test]
-    public void EvaluateGraphics_PropagatesForceOriginalPreviewIntoReferencedScene()
-    {
-        string basePath = GetTempPath();
-        PreviewSourceMode original = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode;
-        try
-        {
-            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = PreviewSourceMode.ForceOriginal;
-            Scene childScene = CreateScene(basePath);
-            var capture = new SceneCompositorContextCaptureDrawable();
-            childScene.Children.Add(CreateElement(basePath, isEnabled: true, capture));
-            Scene parentScene = CreateScene(basePath);
-            var sceneDrawable = new SceneDrawable();
-            sceneDrawable.ReferencedScene.CurrentValue = childScene;
-            parentScene.Children.Add(CreateElement(basePath, isEnabled: true, sceneDrawable));
-            using var compositor = new SceneCompositor(parentScene);
-
-            compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(capture.CapturedContexts, Has.Count.EqualTo(1));
-                Assert.That(capture.CapturedContexts[0].PreferProxy, Is.False);
-            });
-        }
-        finally
-        {
-            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = original;
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
-    }
 
     // The dangerous export configuration: the compositor forces original decode while the global
     // preview mode prefers proxies. Without SceneDrawable's propagation the nested compositor
@@ -1033,48 +776,45 @@ public class SceneCompositorTests
     [Test]
     public void EvaluateGraphics_ExportForceOriginal_OverridesPreferProxyConfigInReferencedScene()
     {
-        string basePath = GetTempPath();
         PreviewSourceMode original = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode;
         try
         {
             GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = PreviewSourceMode.PreferProxy;
-            Scene childScene = CreateScene(basePath);
+            Scene childScene = CreateScene(_basePath);
             var capture = new SceneCompositorContextCaptureDrawable();
-            childScene.Children.Add(CreateElement(basePath, isEnabled: true, capture));
-            Scene parentScene = CreateScene(basePath);
+            childScene.Children.Add(CreateElement(_basePath, isEnabled: true, capture));
+            Scene parentScene = CreateScene(_basePath);
             var sceneDrawable = new SceneDrawable();
             sceneDrawable.ReferencedScene.CurrentValue = childScene;
-            parentScene.Children.Add(CreateElement(basePath, isEnabled: true, sceneDrawable));
+            parentScene.Children.Add(CreateElement(_basePath, isEnabled: true, sceneDrawable));
             using var compositor = new SceneCompositor(parentScene) { ForceOriginalSource = true };
 
             compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
 
             Assert.Multiple(() =>
             {
-                Assert.That(capture.CapturedContexts, Has.Count.EqualTo(1));
-                Assert.That(capture.CapturedContexts[0].PreferProxy, Is.False);
+                Assert.That(capture.CapturedPreferProxy, Has.Count.EqualTo(1));
+                Assert.That(capture.CapturedPreferProxy[0], Is.False);
             });
         }
         finally
         {
             GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = original;
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
         }
     }
 
     [Test]
     public void EvaluateAudio_ExportForceOriginal_PropagatesIntoReferencedSceneSound()
     {
-        string basePath = GetTempPath();
         PreviewSourceMode original = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode;
         try
         {
             GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = PreviewSourceMode.PreferProxy;
-            Scene childScene = CreateScene(basePath);
-            Scene parentScene = CreateScene(basePath);
+            Scene childScene = CreateScene(_basePath);
+            Scene parentScene = CreateScene(_basePath);
             var sceneSound = new SceneSound();
             sceneSound.ReferencedScene.CurrentValue = childScene;
-            parentScene.Children.Add(CreateElement(basePath, isEnabled: true, sceneSound));
+            parentScene.Children.Add(CreateElement(_basePath, isEnabled: true, sceneSound));
             using var compositor = new SceneCompositor(parentScene) { ForceOriginalSource = true };
 
             CompositionFrame frame = compositor.EvaluateAudio(
@@ -1090,38 +830,29 @@ public class SceneCompositorTests
         finally
         {
             GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = original;
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
         }
     }
 
     [Test]
     public void SceneSound_LatencyQueriesValidateSampleRateBeforeNestedComposerExists()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene childScene = CreateScene(basePath);
-            var sceneSound = new SceneSound();
-            sceneSound.ReferencedScene.CurrentValue = childScene;
-            sceneSound.TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
-            using var resource = (SceneSound.Resource)sceneSound.ToResource(CompositionContext.Default);
-            using var context = new AudioContext(48000, 2);
+        Scene childScene = CreateScene(_basePath);
+        var sceneSound = new SceneSound();
+        sceneSound.ReferencedScene.CurrentValue = childScene;
+        sceneSound.TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        using var resource = (SceneSound.Resource)sceneSound.ToResource(CompositionContext.Default);
+        using var context = new AudioContext(48000, 2);
 
-            sceneSound.Compose(context, resource);
-            AudioNode nestedNode = context.GetOutputNodes().Single();
-            while (nestedNode.Inputs.Count == 1)
-                nestedNode = nestedNode.Inputs[0];
+        sceneSound.Compose(context, resource);
+        AudioNode nestedNode = context.GetOutputNodes().Single();
+        while (nestedNode.Inputs.Count == 1)
+            nestedNode = nestedNode.Inputs[0];
 
-            Assert.Multiple(() =>
-            {
-                Assert.Throws<ArgumentOutOfRangeException>(() => nestedNode.GetTotalLatencySamples(0));
-                Assert.Throws<ArgumentOutOfRangeException>(() => nestedNode.GetDrainLatencySamples(-1));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+            Assert.Throws<ArgumentOutOfRangeException>(() => nestedNode.GetTotalLatencySamples(0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => nestedNode.GetDrainLatencySamples(-1));
+        });
     }
 
     [Test]
@@ -1131,45 +862,36 @@ public class SceneCompositorTests
         const int clipSamples = 4096;
         const int lookaheadSamples = 240;
         var duration = TimeSpan.FromSeconds((double)clipSamples / sampleRate);
-        string basePath = GetTempPath();
+        Scene childScene = CreateScene(_basePath);
+        var childSound = new LimiterTailSound { LookaheadMs = 5f };
+        Element childElement = CreateElement(_basePath, isEnabled: true, childSound);
+        childElement.Length = duration;
+        childScene.Children.Add(childElement);
 
-        try
-        {
-            Scene childScene = CreateScene(basePath);
-            var childSound = new LimiterTailSound { LookaheadMs = 5f };
-            Element childElement = CreateElement(basePath, isEnabled: true, childSound);
-            childElement.Length = duration;
-            childScene.Children.Add(childElement);
+        Scene parentScene = CreateScene(_basePath);
+        var sceneSound = new SceneSound();
+        sceneSound.ReferencedScene.CurrentValue = childScene;
+        Element parentElement = CreateElement(_basePath, isEnabled: true, sceneSound);
+        parentElement.Length = duration;
+        parentScene.Children.Add(parentElement);
 
-            Scene parentScene = CreateScene(basePath);
-            var sceneSound = new SceneSound();
-            sceneSound.ReferencedScene.CurrentValue = childScene;
-            Element parentElement = CreateElement(basePath, isEnabled: true, sceneSound);
-            parentElement.Length = duration;
-            parentScene.Children.Add(parentElement);
+        using var compositor = new SceneCompositor(parentScene);
+        using var composer = new Composer { SampleRate = sampleRate };
 
-            using var compositor = new SceneCompositor(parentScene);
-            using var composer = new Composer { SampleRate = sampleRate };
+        var firstRange = new TimeRange(TimeSpan.Zero, duration);
+        using AudioBuffer? first = composer.Compose(firstRange, compositor.EvaluateAudio(firstRange));
 
-            var firstRange = new TimeRange(TimeSpan.Zero, duration);
-            using AudioBuffer? first = composer.Compose(firstRange, compositor.EvaluateAudio(firstRange));
+        var tailRange = new TimeRange(
+            duration,
+            TimeSpan.FromSeconds((double)lookaheadSamples / sampleRate));
+        using AudioBuffer? tail = composer.Compose(tailRange, compositor.EvaluateAudio(tailRange));
 
-            var tailRange = new TimeRange(
-                duration,
-                TimeSpan.FromSeconds((double)lookaheadSamples / sampleRate));
-            using AudioBuffer? tail = composer.Compose(tailRange, compositor.EvaluateAudio(tailRange));
-
-            Assert.That(first, Is.Not.Null);
-            Assert.That(tail, Is.Not.Null);
-            Assert.That(
-                tail!.GetChannelData(0)[..lookaheadSamples].ToArray(),
-                Has.Some.Not.EqualTo(0f),
-                "A referenced scene must propagate its nested limiter tail through SceneNode.Flush.");
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(first, Is.Not.Null);
+        Assert.That(tail, Is.Not.Null);
+        Assert.That(
+            tail!.GetChannelData(0)[..lookaheadSamples].ToArray(),
+            Has.Some.Not.EqualTo(0f),
+            "A referenced scene must propagate its nested limiter tail through SceneNode.Flush.");
     }
 
     [Test]
@@ -1179,48 +901,39 @@ public class SceneCompositorTests
         const int clipSamples = 4096;
         const int lookaheadSamples = 240;
         var duration = TimeSpan.FromSeconds((double)clipSamples / sampleRate);
-        string basePath = GetTempPath();
+        Scene childScene = CreateScene(_basePath);
+        var childSound = new LimiterTailSound { LookaheadMs = 5f };
+        Element childElement = CreateElement(_basePath, isEnabled: true, childSound);
+        childElement.Length = duration;
+        childScene.Children.Add(childElement);
+        TimelineLayer childLayer = CreateLayer(0);
+        childScene.Layers.Add(childLayer);
 
-        try
-        {
-            Scene childScene = CreateScene(basePath);
-            var childSound = new LimiterTailSound { LookaheadMs = 5f };
-            Element childElement = CreateElement(basePath, isEnabled: true, childSound);
-            childElement.Length = duration;
-            childScene.Children.Add(childElement);
-            TimelineLayer childLayer = CreateLayer(0);
-            childScene.Layers.Add(childLayer);
+        Scene parentScene = CreateScene(_basePath);
+        var sceneSound = new SceneSound();
+        sceneSound.ReferencedScene.CurrentValue = childScene;
+        Element parentElement = CreateElement(_basePath, isEnabled: true, sceneSound);
+        parentElement.Length = duration;
+        parentScene.Children.Add(parentElement);
 
-            Scene parentScene = CreateScene(basePath);
-            var sceneSound = new SceneSound();
-            sceneSound.ReferencedScene.CurrentValue = childScene;
-            Element parentElement = CreateElement(basePath, isEnabled: true, sceneSound);
-            parentElement.Length = duration;
-            parentScene.Children.Add(parentElement);
+        using var compositor = new SceneCompositor(parentScene);
+        using var composer = new Composer { SampleRate = sampleRate };
 
-            using var compositor = new SceneCompositor(parentScene);
-            using var composer = new Composer { SampleRate = sampleRate };
+        var firstRange = new TimeRange(TimeSpan.Zero, duration);
+        using AudioBuffer? first = composer.Compose(firstRange, compositor.EvaluateAudio(firstRange));
 
-            var firstRange = new TimeRange(TimeSpan.Zero, duration);
-            using AudioBuffer? first = composer.Compose(firstRange, compositor.EvaluateAudio(firstRange));
+        childLayer.IsAudioMuted = true;
+        var tailRange = new TimeRange(
+            duration,
+            TimeSpan.FromSeconds((double)lookaheadSamples / sampleRate));
+        using AudioBuffer? tail = composer.Compose(tailRange, compositor.EvaluateAudio(tailRange));
 
-            childLayer.IsAudioMuted = true;
-            var tailRange = new TimeRange(
-                duration,
-                TimeSpan.FromSeconds((double)lookaheadSamples / sampleRate));
-            using AudioBuffer? tail = composer.Compose(tailRange, compositor.EvaluateAudio(tailRange));
-
-            Assert.That(first, Is.Not.Null);
-            Assert.That(tail, Is.Not.Null);
-            Assert.That(
-                tail!.GetChannelData(0)[..lookaheadSamples].ToArray(),
-                Has.All.EqualTo(0f),
-                "A referenced scene muted before the terminal drain must not emit its retained limiter tail.");
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(first, Is.Not.Null);
+        Assert.That(tail, Is.Not.Null);
+        Assert.That(
+            tail!.GetChannelData(0)[..lookaheadSamples].ToArray(),
+            Has.All.EqualTo(0f),
+            "A referenced scene muted before the terminal drain must not emit its retained limiter tail.");
     }
 
     [Test]
@@ -1231,45 +944,36 @@ public class SceneCompositorTests
         const int parentSamples = sampleRate / 2;
         var childDuration = AudioProcessContext.GetDurationForSampleCount(childSamples, sampleRate);
         var parentDuration = AudioProcessContext.GetDurationForSampleCount(parentSamples, sampleRate);
-        string basePath = GetTempPath();
-
-        try
+        Scene childScene = CreateScene(_basePath);
+        var childSound = new LimiterDelayTailSound
         {
-            Scene childScene = CreateScene(basePath);
-            var childSound = new LimiterDelayTailSound
-            {
-                LookaheadMs = 20f,
-                LookaheadRampEnd = TimeSpan.FromMilliseconds(500),
-            };
-            Element childElement = CreateElement(basePath, isEnabled: true, childSound);
-            childElement.Length = childDuration;
-            childScene.Children.Add(childElement);
+            LookaheadMs = 20f,
+            LookaheadRampEnd = TimeSpan.FromMilliseconds(500),
+        };
+        Element childElement = CreateElement(_basePath, isEnabled: true, childSound);
+        childElement.Length = childDuration;
+        childScene.Children.Add(childElement);
 
-            Scene parentScene = CreateScene(basePath);
-            var sceneSound = new SceneSound();
-            sceneSound.ReferencedScene.CurrentValue = childScene;
-            Element parentElement = CreateElement(basePath, isEnabled: true, sceneSound);
-            parentElement.Length = parentDuration;
-            parentScene.Children.Add(parentElement);
+        Scene parentScene = CreateScene(_basePath);
+        var sceneSound = new SceneSound();
+        sceneSound.ReferencedScene.CurrentValue = childScene;
+        Element parentElement = CreateElement(_basePath, isEnabled: true, sceneSound);
+        parentElement.Length = parentDuration;
+        parentScene.Children.Add(parentElement);
 
-            using var compositor = new SceneCompositor(parentScene);
-            using var composer = new Composer { SampleRate = sampleRate };
+        using var compositor = new SceneCompositor(parentScene);
+        using var composer = new Composer { SampleRate = sampleRate };
 
-            var firstRange = new TimeRange(TimeSpan.Zero, parentDuration);
-            using AudioBuffer? first = composer.Compose(firstRange, compositor.EvaluateAudio(firstRange));
+        var firstRange = new TimeRange(TimeSpan.Zero, parentDuration);
+        using AudioBuffer? first = composer.Compose(firstRange, compositor.EvaluateAudio(firstRange));
 
-            var tailRange = new TimeRange(parentDuration, AudioProcessContext.GetDurationForSampleCount(960, sampleRate));
-            using AudioBuffer? tail = composer.Compose(tailRange, compositor.EvaluateAudio(tailRange));
+        var tailRange = new TimeRange(parentDuration, AudioProcessContext.GetDurationForSampleCount(960, sampleRate));
+        using AudioBuffer? tail = composer.Compose(tailRange, compositor.EvaluateAudio(tailRange));
 
-            Assert.That(first, Is.Not.Null);
-            Assert.That(tail, Is.Not.Null);
-            Assert.That(tail!.GetChannelData(0).ToArray(), Has.All.EqualTo(0f),
-                "A trimmed referenced scene whose limiter is at terminal zero latency must not flush excess zero-fed stateful delay blocks.");
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(first, Is.Not.Null);
+        Assert.That(tail, Is.Not.Null);
+        Assert.That(tail!.GetChannelData(0).ToArray(), Has.All.EqualTo(0f),
+            "A trimmed referenced scene whose limiter is at terminal zero latency must not flush excess zero-fed stateful delay blocks.");
     }
 
     [Beutl.Engine.SuppressResourceClassGeneration]
@@ -1338,7 +1042,7 @@ internal sealed partial class CountingAudioObject : EngineObject, IFlowOperator
 
 internal sealed partial class SceneCompositorContextCaptureDrawable : Drawable
 {
-    public List<CapturedCompositionContext> CapturedContexts { get; } = [];
+    public List<bool> CapturedPreferProxy { get; } = [];
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => Size.Empty;
 
@@ -1350,11 +1054,7 @@ internal sealed partial class SceneCompositorContextCaptureDrawable : Drawable
     {
         partial void PostReconcile(SceneCompositorContextCaptureDrawable obj, CompositionContext context)
         {
-            obj.CapturedContexts.Add(new CapturedCompositionContext(
-                context.PreferProxy));
+            obj.CapturedPreferProxy.Add(context.PreferProxy);
         }
     }
 }
-
-internal readonly record struct CapturedCompositionContext(
-    bool PreferProxy);

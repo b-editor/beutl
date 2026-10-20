@@ -90,17 +90,17 @@ public class ContainerTopologyCacheInvalidationTests
         Assert.That(node.Cache.IsCached, Is.True, "precondition: the container starts with a warm cache");
 
         node.SetChild(0, new ContainerRenderNode());
-        RenderNodeCacheHelper.BeginLifecycle(node);
+        RenderNodeCacheLifecycle.Create(node);
 
         Assert.That(node.Cache.IsCached, Is.False);
     }
 
     private static void Settle(ContainerRenderNode node)
-        => RenderNodeCacheHelper.BeginLifecycle(node).CompleteSuccessfully(advanceWarmup: false);
+        => RenderNodeCacheLifecycle.Create(node).CompleteSuccessfully(advanceWarmup: false);
 
     private static void PublishAndSettle(RenderNode node)
     {
-        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(node);
+        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheLifecycle.Create(node);
         using (var target = RenderTarget.CreateNull(1, 1))
         {
             RenderNodeCache.PublishAtomically(

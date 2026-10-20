@@ -33,7 +33,6 @@ internal struct HeaderScrubGesture
     {
         Point point = e.GetPosition(header);
 
-        // ポインタロック + デルタ取得
         Point move = PointerLockHelper.Moved(header, point, ref _dragStart);
         double scaledX = NumberEditorHelper.ApplyScrubModifier(move.X, e.KeyModifiers);
         return NumberEditorHelper.ConsumeScrubAccumulator<TValue>(ref _accumulator, scaledX);

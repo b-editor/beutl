@@ -563,7 +563,6 @@ public class GLSLShaderTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ConsecutiveEffects_SubmitEachEffectAndWaitOnlyAtTheReadbackBoundary()
     {
         IGraphicsContext graphicsContext = VulkanTestEnvironment.EnsureAvailable();
@@ -622,7 +621,6 @@ public class GLSLShaderTests
 
     [TestCase(0)]
     [TestCase(1)]
-    [Category("GpuPassFusionGpu")]
     public void ApplyMultiPass_DeclinedPreviewScratchKeepsTheSourceAndReleasesEarlierLeases(
         int declineAt)
     {
@@ -669,7 +667,6 @@ public class GLSLShaderTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void RepeatedNativeEffectChain_AllocatesOnlyWhileWarmingTheTargetPool()
     {
         IGraphicsContext graphicsContext = VulkanTestEnvironment.EnsureAvailable();
@@ -705,7 +702,6 @@ public class GLSLShaderTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void DiscardingShader_ClearsAReusedTargetBeforeRendering()
     {
         VulkanTestEnvironment.EnsureAvailable();

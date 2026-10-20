@@ -16,9 +16,9 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     private readonly ILogger _logger = Log.CreateLogger<DockHostViewModel>();
     private bool _layoutInitialized;
 
-    public DockHostViewModel(string sceneId, EditViewModel editViewModel)
+    public DockHostViewModel(EditViewModel editViewModel)
     {
-        _sceneId = sceneId;
+        _sceneId = editViewModel.SceneId;
         _editViewModel = editViewModel;
         Factory = new BeutlDockFactory(editViewModel);
 

@@ -35,7 +35,7 @@ public partial class PathFigureListItemEditor : UserControl, IListItemEditor
         if (DataContext is PathFigureEditorViewModel { IsDisposed: false } viewModel
             && viewModel.GetService<EditViewModel>() is { } editViewModel)
         {
-            editViewModel?.Player.PathEditor.StartEdit(viewModel);
+            editViewModel.Player.PathEditor.StartEdit(viewModel);
         }
     }
 
@@ -48,7 +48,6 @@ public partial class PathFigureListItemEditor : UserControl, IListItemEditor
             var context = PathEditorTabViewModel.FindReusable(editViewModel, figure)
                 ?? new PathEditorTabViewModel(editViewModel);
 
-            // 既に編集中でタブが選択されている場合、編集を終了
             // A pinned tab edits through editors of its own, so the figure tells whether it is already open.
             if (context.IsEditing(figure))
             {
@@ -76,7 +75,7 @@ public partial class PathFigureListItemEditor : UserControl, IListItemEditor
 
             if (viewModel.EditingPath.Value)
             {
-                editViewModel?.Player.PathEditor.StartEdit(viewModel);
+                editViewModel.Player.PathEditor.StartEdit(viewModel);
             }
             else
             {

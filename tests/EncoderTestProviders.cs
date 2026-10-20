@@ -1,7 +1,6 @@
-﻿using Beutl.Extensibility;
+﻿using Beutl.Audio;
+using Beutl.Extensibility;
 using Beutl.Media;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 
 namespace Beutl;
 
@@ -13,12 +12,18 @@ namespace Beutl;
 internal sealed class GradientFrameProvider(long frameCount, Rational frameRate, int width, int height)
     : IFrameProvider
 {
+    private long _nextFrame;
+
     public long FrameCount { get; } = frameCount;
 
     public Rational FrameRate { get; } = frameRate;
 
-    public ValueTask<Bitmap> RenderFrame(long frame)
+    public ValueTask<Bitmap?> ReadNextFrame()
     {
+        if (_nextFrame >= FrameCount)
+            return ValueTask.FromResult<Bitmap?>(null);
+
+        long frame = _nextFrame++;
         var bitmap = new Bitmap(width, height);
         unsafe
         {
@@ -35,12 +40,12 @@ internal sealed class GradientFrameProvider(long frameCount, Rational frameRate,
                 }
             }
         }
-        return ValueTask.FromResult(bitmap);
+        return ValueTask.FromResult<Bitmap?>(bitmap);
     }
 
     public void Dispose()
     {
-        // Stateless test double — no prefetch or owned resources to drain.
+        // No prefetch or owned resources to drain.
     }
 }
 
@@ -55,9 +60,9 @@ internal sealed class CancelAfterFirstFrameProvider(
 
     public Rational FrameRate => _inner.FrameRate;
 
-    public async ValueTask<Bitmap> RenderFrame(long frame)
+    public async ValueTask<Bitmap?> ReadNextFrame()
     {
-        Bitmap bitmap = await _inner.RenderFrame(frame);
+        Bitmap? bitmap = await _inner.ReadNextFrame();
         cts.Cancel();
         return bitmap;
     }
@@ -68,6 +73,8 @@ internal sealed class CancelAfterFirstFrameProvider(
 // Every frame is one opaque color at the given size.
 internal sealed class SolidFrameProvider(PixelSize size, long frameCount = 1) : IFrameProvider
 {
+    private long _nextFrame;
+
     public long FrameCount => frameCount;
 
     public Rational FrameRate => new(30, 1);
@@ -90,36 +97,46 @@ internal sealed class SolidFrameProvider(PixelSize size, long frameCount = 1) : 
         return bitmap;
     }
 
-    public ValueTask<Bitmap> RenderFrame(long frame) => ValueTask.FromResult(CreateFrame(size));
+    public ValueTask<Bitmap?> ReadNextFrame()
+        => ValueTask.FromResult<Bitmap?>(_nextFrame++ < frameCount ? CreateFrame(size) : null);
 
     public void Dispose()
     {
     }
 }
 
-// 440 Hz sine wave, Stereo 32-bit float interleaved; the right channel is scaled by rightGain.
+// 440 Hz sine wave in stereo; the right channel is scaled by rightGain.
 internal sealed class SineSampleProvider(long sampleCount, long sampleRate, float rightGain = 1) : ISampleProvider
 {
     public long SampleCount { get; } = sampleCount;
 
     public long SampleRate { get; } = sampleRate;
 
-    public ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
+    private long _nextSample;
+
+    public ValueTask<AudioBuffer?> ReadNextSamples(int length)
     {
-        var pcm = new Pcm<Stereo32BitFloat>((int)SampleRate, (int)length);
-        var span = pcm.DataSpan;
+        long offset = _nextSample;
+        if (offset >= SampleCount)
+            return ValueTask.FromResult<AudioBuffer?>(null);
+
+        _nextSample += length;
+        var audio = new AudioBuffer((int)SampleRate, 2, length);
+        Span<float> left = audio.GetChannelData(0);
+        Span<float> right = audio.GetChannelData(1);
         const float frequency = 440f;
         float twoPiFOverSr = 2f * MathF.PI * frequency / SampleRate;
-        for (int i = 0; i < length; i++)
+        for (int i = 0; i < Math.Min(length, SampleCount - offset); i++)
         {
             float t = MathF.Sin((offset + i) * twoPiFOverSr) * 0.25f;
-            span[i] = new Stereo32BitFloat(t, t * rightGain);
+            left[i] = t;
+            right[i] = t * rightGain;
         }
-        return ValueTask.FromResult(pcm);
+        return ValueTask.FromResult<AudioBuffer?>(audio);
     }
 
     public void Dispose()
     {
-        // Stateless test double — no prefetch or owned resources to drain.
+        // No prefetch or owned resources to drain.
     }
 }

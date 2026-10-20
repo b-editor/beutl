@@ -1,10 +1,7 @@
-﻿using System.Reflection;
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
-using Beutl.Graphics.Rendering.Requests;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -25,7 +22,7 @@ public class NodeCacheScaleTests
     {
         for (int i = 0; i < RenderNodeCache.StableRequestCount; i++)
         {
-            RenderNodeCacheHelper.BeginLifecycle(node).CompleteSuccessfully(advanceWarmup: true);
+            RenderNodeCacheLifecycle.Create(node).CompleteSuccessfully(advanceWarmup: true);
         }
     }
 
@@ -47,7 +44,7 @@ public class NodeCacheScaleTests
         Assert.Multiple(() =>
         {
             Assert.That(node.Cache.IsCached, Is.True);
-            Assert.That(node.Cache.IdentityDensity, Is.EqualTo(outputScale));
+            Assert.That(node.Cache.CurrentCacheIdentity().Density, Is.EqualTo(outputScale));
             Assert.That(measurement.HasFragments, Is.True);
             Assert.That(measurement.EffectiveScale.IsUnbounded, Is.True,
                 "metadata must retain the original graph instead of substituting a pixel cache");
@@ -69,7 +66,7 @@ public class NodeCacheScaleTests
         Assert.Multiple(() =>
         {
             Assert.That(node.Cache.IsCached, Is.True);
-            Assert.That(node.Cache.IdentityDensity, Is.EqualTo(4f));
+            Assert.That(node.Cache.CurrentCacheIdentity().Density, Is.EqualTo(4f));
             Assert.That(node.ExecuteCount, Is.EqualTo(1), "the warm frame must use the cached producer output");
             Assert.That(renderer.Measure().EffectiveScale.Value, Is.EqualTo(4f));
         });
@@ -85,7 +82,7 @@ public class NodeCacheScaleTests
         {
         }
 
-        Assert.That(node.Cache.TryGetCachedOutput(CurrentCacheIdentity(node.Cache), out RenderNodeCachedOutput? cached));
+        Assert.That(node.Cache.TryGetCachedOutput(node.Cache.CurrentCacheIdentity(), out RenderNodeCachedOutput? cached));
         Assert.That(cached!.Values, Is.Not.Empty);
         Assert.Multiple(() =>
         {
@@ -149,7 +146,7 @@ public class NodeCacheScaleTests
             Assert.That(cold.IsEmpty, Is.False);
             Assert.That(warm.IsEmpty, Is.False);
             Assert.That(node.Cache.IsCached, Is.True);
-            Assert.That(node.Cache.IdentityDensity, Is.EqualTo(expectedDensity));
+            Assert.That(node.Cache.CurrentCacheIdentity().Density, Is.EqualTo(expectedDensity));
             Assert.That(node.ExecuteCount, Is.EqualTo(1));
         });
     }
@@ -183,19 +180,9 @@ public class NodeCacheScaleTests
             Assert.That(cold.Bounds, Is.EqualTo(requestedRegion));
             Assert.That(warm.Bounds, Is.EqualTo(requestedRegion));
             Assert.That(node.Cache.IsCached, Is.True);
-            Assert.That(node.Cache.IdentityDensity, Is.EqualTo(expectedDensity));
+            Assert.That(node.Cache.CurrentCacheIdentity().Density, Is.EqualTo(expectedDensity));
             Assert.That(node.ExecuteCount, Is.EqualTo(1));
         });
-    }
-
-    // The cache publishes its identity only to the renderer that resolved it; read it back so the test can
-    // inspect the published targets through the production lookup.
-    private static RenderOutputCacheIdentity CurrentCacheIdentity(RenderNodeCache cache)
-    {
-        object storage = typeof(RenderNodeCache)
-            .GetField("_storage", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(cache)!;
-        return (RenderOutputCacheIdentity)storage.GetType().GetProperty("Identity")!.GetValue(storage)!;
     }
 
     private static RenderNodeRenderer CreateFrameRenderer(
@@ -216,7 +203,7 @@ public class NodeCacheScaleTests
                 true,
                 cacheRules ?? RenderCacheRules.Default),
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
     private sealed class ConcreteSourceNode : RenderNode
     {
@@ -311,31 +298,6 @@ public class NodeCacheScaleTests
                 RenderDeviceGridSensitivity.Insensitive,
                 RenderDeviceGridMapping.Preserved);
             context.Publish(context.TargetScope(source, replayDescription));
-        }
-    }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        private static readonly SKColorSpace s_colorSpace = SKColorSpace.CreateSrgbLinear();
-
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize);
-
-        private sealed class CpuRenderTarget : RenderTarget
-        {
-            public CpuRenderTarget(PixelSize size)
-                : base(
-                    SKSurface.Create(new SKImageInfo(
-                        size.Width,
-                        size.Height,
-                        SKColorType.RgbaF16,
-                        SKAlphaType.Premul,
-                        s_colorSpace))
-                    ?? throw new InvalidOperationException("Could not create a CPU cache-scale test target."),
-                    size.Width,
-                    size.Height)
-            {
-            }
         }
     }
 }

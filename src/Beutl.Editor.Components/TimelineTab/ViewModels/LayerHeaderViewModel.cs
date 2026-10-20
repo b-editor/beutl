@@ -1,5 +1,4 @@
 ﻿using System.Collections.Specialized;
-using System.Text.Json.Nodes;
 using Avalonia.Media;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
@@ -24,10 +23,10 @@ public sealed class LayerHeaderViewModel : IDisposable
         // A header is a fixed row: Number is its index in the timeline's LayerHeaders, and it shows the
         // TimelineLayer whose ZIndex is that row. The timeline has every header look its model up again when a
         // model changes rows or is added or removed, as a layer move and its undo and redo do.
-        Number = new ReactiveProperty<int>(num);
-        Name = _model.Select(i => i?.GetObservable(CoreObject.NameProperty) ?? Number.Select(n => n.ToString()))
+        Number = num;
+        Name = _model.Select(i => i?.GetObservable(CoreObject.NameProperty) ?? Observable.Return(num.ToString()))
             .Switch()
-            .Select(s => string.IsNullOrEmpty(s) ? $"{Number.Value}" : s)
+            .Select(s => string.IsNullOrEmpty(s) ? $"{num}" : s)
             .ToReactiveProperty($"{num}");
         Color = _model.Select(i =>
                 i?.GetObservable(TimelineLayer.ColorProperty) ?? Observable.ReturnThenNever(Media.Colors.Transparent))
@@ -94,7 +93,7 @@ public sealed class LayerHeaderViewModel : IDisposable
 
             case NotifyCollectionChangedAction.Replace:
             case NotifyCollectionChangedAction.Reset:
-                throw new Exception("Not supported action (Move, Replace, Reset).");
+                throw new Exception("Not supported action (Replace, Reset).");
 
             case NotifyCollectionChangedAction.Remove:
                 ReindexInlines(e.OldStartingIndex);
@@ -111,7 +110,7 @@ public sealed class LayerHeaderViewModel : IDisposable
         }
     }
 
-    public ReactiveProperty<int> Number { get; }
+    public int Number { get; }
 
     public TimelineTabViewModel Timeline { get; private set; }
 
@@ -143,12 +142,6 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public ReactiveCommand ToggleSoloCommand { get; }
 
-    [Obsolete("Layer headers stay on their rows and follow the TimelineLayer models; MoveTo moves a layer.")]
-    public void UpdateZIndex(int layerNum)
-    {
-        PosY.Value = 0;
-    }
-
     // Moves the layer on this header's row to newLayerNum, together with directElements, the clips on the row that
     // can move. The service moves the clips and the TimelineLayer models in one history entry. The headers stay on
     // their rows and follow the models, so neither the move nor its undo or redo has to change them.
@@ -156,12 +149,12 @@ public sealed class LayerHeaderViewModel : IDisposable
     {
         PosY.Value = 0;
         return Timeline.EditorContext.GetRequiredService<ILayerMoveService>()
-            .ApplyMove(Timeline.Scene, Number.Value, newLayerNum, directElements);
+            .ApplyMove(Timeline.Scene, Number, newLayerNum, directElements);
     }
 
-    public void ElementAdded(ElementViewModel element) => ItemsCount.Value++;
+    public void ElementAdded() => ItemsCount.Value++;
 
-    public void ElementRemoved(ElementViewModel element) => ItemsCount.Value--;
+    public void ElementRemoved() => ItemsCount.Value--;
 
     public void Dispose()
     {
@@ -175,24 +168,10 @@ public sealed class LayerHeaderViewModel : IDisposable
         return FrameNumberHelper.LayerHeight * index;
     }
 
-    public void ReadFromJson(JsonObject obj)
-    {
-        if (obj.TryGetPropertyValueAsJsonValue(nameof(Name), out string? name))
-        {
-            GetOrCreateModel().Name = name;
-        }
-
-        if (obj.TryGetPropertyValueAsJsonValue(nameof(Color), out string? colorStr)
-            && Avalonia.Media.Color.TryParse(colorStr, out Color color))
-        {
-            GetOrCreateModel().Color = color.ToBtlColor();
-        }
-    }
-
     public void SetColor(Color color)
     {
         Timeline.EditorContext.GetRequiredService<ILayerAttributeService>()
-            .SetColor(Timeline.Scene, Number.Value, color.ToBtlColor(), Name.Value);
+            .SetColor(Timeline.Scene, Number, color.ToBtlColor(), Name.Value);
 
         // Re-sync the local TimelineLayer from the scene so Name/Color bindings track
         // the model the service just created or updated.
@@ -203,7 +182,7 @@ public sealed class LayerHeaderViewModel : IDisposable
     {
         bool target = !flag.Value;
         ILayerAttributeService service = Timeline.EditorContext.GetRequiredService<ILayerAttributeService>();
-        apply(service, Timeline.Scene, Number.Value, target);
+        apply(service, Timeline.Scene, Number, target);
 
         // The service may have materialized or pruned the TimelineLayer; re-sync so
         // the flag's source observable tracks the current model.
@@ -212,21 +191,12 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     private void ResyncModel()
     {
-        _model.Value = Timeline.Scene.Layers.FirstOrDefault(l => l.ZIndex == Number.Value);
+        _model.Value = Timeline.Scene.Layers.FirstOrDefault(l => l.ZIndex == Number);
     }
 
     // The timeline passes the model on this header's row whenever the models change rows.
     internal void SetModel(TimelineLayer? model)
     {
         _model.Value = model;
-    }
-
-    private TimelineLayer GetOrCreateModel()
-    {
-        if (_model.Value != null) return _model.Value;
-
-        _model.Value = new TimelineLayer { Name = Name.Value, Color = Color.Value.ToBtlColor(), ZIndex = Number.Value };
-        Timeline.Scene.Layers.Add(_model.Value);
-        return _model.Value;
     }
 }

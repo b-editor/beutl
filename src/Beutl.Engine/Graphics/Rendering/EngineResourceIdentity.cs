@@ -8,16 +8,9 @@ namespace Beutl.Graphics.Rendering;
 /// Derives an equality-stable identity of an <see cref="EngineObject.Resource"/> for engine-only metadata use.
 /// </summary>
 /// <remarks>
-/// <para>
 /// This is the only safe way to key on an engine resource. <see cref="EngineObject.Resource.GetOriginal"/> is
 /// null for a resource that never went through <see cref="EngineObject.ToResource"/>; comparing those missing
 /// backing ids directly would make any two detached resources compare equal.
-/// </para>
-/// <para>
-/// The derivation is renderer-wide rather than a recorder or effect responsibility: nodes, brushes, filter
-/// effects, and 3D all consult the same resources when evaluating engine-only metadata. Public render-node
-/// authoring uses declared <see cref="RenderResourceSlot{T}"/> values instead.
-/// </para>
 /// </remarks>
 internal static class EngineResourceIdentity
 {

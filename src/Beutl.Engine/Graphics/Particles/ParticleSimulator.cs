@@ -22,7 +22,7 @@ internal sealed class ParticleSimulator
     private int _aliveCount;
 
     // Checkpoint cache
-    private readonly List<(int Step, float Time, Particle[] Snapshot, int AliveCount, int RngCallCount)> _checkpoints = [];
+    private readonly List<(int Step, Particle[] Snapshot, int AliveCount, int RngCallCount)> _checkpoints = [];
     private long _parameterVersion;
     private long _lastCachedVersion;
 
@@ -31,36 +31,7 @@ internal sealed class ParticleSimulator
         _parameterVersion++;
     }
 
-    public void Simulate(
-        double time,
-        int seed,
-        EmitterShape emitterShape,
-        float emitterWidth,
-        float emitterHeight,
-        int maxParticles,
-        float emissionRate,
-        float lifetime,
-        float lifetimeRandom,
-        float speed,
-        float speedRandom,
-        float direction,
-        float spread,
-        float gravity,
-        float airResistance,
-        float turbulenceStrength,
-        float turbulenceScale,
-        float turbulenceSpeed,
-        float particleSize,
-        float sizeRandom,
-        Color color,
-        float particleOpacity,
-        float initialRotation,
-        float initialRotationRandom,
-        float angularVelocity,
-        float endSizeMultiplier,
-        float endOpacityMultiplier,
-        Color endColor,
-        bool useEndColor)
+    public void Simulate(double time, in ParticleSettings settings)
     {
         if (time <= 0)
         {
@@ -78,50 +49,19 @@ internal sealed class ParticleSimulator
         int targetStep = ResolveTargetStep(time);
         RestoreNearestCheckpoint(targetStep, out int currentStep, out float currentTime, out int rngSkipCount);
 
-        var rng = new CountingRandom(seed, rngSkipCount);
-
-        var emission = new EmissionSettings(
-            emitterShape,
-            emitterWidth,
-            emitterHeight,
-            maxParticles,
-            emissionRate,
-            lifetime,
-            lifetimeRandom,
-            speed,
-            speedRandom,
-            DirectionRadians: direction * MathF.PI / 180f,
-            SpreadRadians: spread * MathF.PI / 180f,
-            particleSize,
-            sizeRandom,
-            color,
-            particleOpacity,
-            initialRotation,
-            initialRotationRandom,
-            angularVelocity);
-        var motion = new MotionSettings(
-            seed,
-            gravity,
-            airResistance,
-            turbulenceStrength,
-            turbulenceScale,
-            turbulenceSpeed,
-            endSizeMultiplier,
-            endOpacityMultiplier,
-            endColor,
-            useEndColor);
+        var rng = new CountingRandom(settings.Seed, rngSkipCount);
 
         while (currentStep < targetStep)
         {
-            EmitParticles(in emission, rng, currentTime, FixedDeltaTime);
-            IntegrateParticles(in motion, currentTime, FixedDeltaTime);
+            EmitParticles(in settings, rng, currentTime, FixedDeltaTime);
+            IntegrateParticles(in settings, currentTime, FixedDeltaTime);
             currentStep++;
             // Deriving the time from the step keeps birth times and turbulence phases on the
             // canonical timeline; accumulating float deltas drifts ~102 ms over ten minutes.
             currentTime = (float)(currentStep * (double)FixedDeltaTime);
             if (currentStep % CheckpointIntervalSteps == 0)
             {
-                SaveCheckpoint(currentStep, currentTime, rng.CallCount);
+                SaveCheckpoint(currentStep, rng.CallCount);
             }
         }
 
@@ -148,7 +88,7 @@ internal sealed class ParticleSimulator
             {
                 checkpointIndex = i;
                 currentStep = _checkpoints[i].Step;
-                currentTime = _checkpoints[i].Time;
+                currentTime = (float)(currentStep * (double)FixedDeltaTime);
                 Particle[] snapshot = _checkpoints[i].Snapshot;
                 _aliveCount = _checkpoints[i].AliveCount;
                 rngSkipCount = _checkpoints[i].RngCallCount;
@@ -171,66 +111,59 @@ internal sealed class ParticleSimulator
     }
 
     /// <summary>Emits the particles born during the step that starts at <paramref name="currentTime"/>.</summary>
-    private void EmitParticles(in EmissionSettings emission, CountingRandom rng, float currentTime, float dt)
+    private void EmitParticles(in ParticleSettings settings, CountingRandom rng, float currentTime, float dt)
     {
-        // Emit particles
-        float emitCount = emission.EmissionRate * dt;
+        float emitCount = settings.EmissionRate * dt;
         int toEmit = (int)emitCount;
         float frac = emitCount - toEmit;
         if (rng.NextSingle() < frac)
             toEmit++;
 
+        float directionRadians = settings.Direction * MathF.PI / 180f;
+        float spreadRadians = settings.Spread * MathF.PI / 180f;
         for (int i = 0; i < toEmit; i++)
         {
-            if (_aliveCount >= emission.MaxParticles)
+            if (_aliveCount >= settings.MaxParticles)
                 break;
 
             EnsureCapacity(_aliveCount + 1);
 
             ref Particle p = ref _particles[_aliveCount];
             p.BirthTime = currentTime;
-            p.Lifetime = emission.Lifetime + (rng.NextSingle() * 2f - 1f) * emission.LifetimeRandom;
+            p.Lifetime = settings.Lifetime + (rng.NextSingle() * 2f - 1f) * settings.LifetimeRandom;
             if (p.Lifetime < 0.01f) p.Lifetime = 0.01f;
 
-            // Emitter shape position
-            SpawnPosition(rng, emission.Shape, emission.Width, emission.Height, out p.X, out p.Y);
+            SpawnPosition(rng, settings.EmitterShape, settings.EmitterWidth, settings.EmitterHeight, out p.X, out p.Y);
 
-            // Velocity
-            float spd = emission.Speed + (rng.NextSingle() * 2f - 1f) * emission.SpeedRandom;
-            float angle = emission.DirectionRadians + (rng.NextSingle() * 2f - 1f) * emission.SpreadRadians;
+            float spd = settings.Speed + (rng.NextSingle() * 2f - 1f) * settings.SpeedRandom;
+            float angle = directionRadians + (rng.NextSingle() * 2f - 1f) * spreadRadians;
             p.VelocityX = MathF.Cos(angle) * spd;
             p.VelocityY = MathF.Sin(angle) * spd;
 
-            // Size
-            p.BaseSize = emission.ParticleSize + (rng.NextSingle() * 2f - 1f) * emission.SizeRandom;
+            p.BaseSize = settings.ParticleSize + (rng.NextSingle() * 2f - 1f) * settings.SizeRandom;
             if (p.BaseSize < 0) p.BaseSize = 0;
 
-            p.BaseOpacity = emission.ParticleOpacity;
-            p.BaseColor = emission.Color;
+            p.BaseOpacity = settings.ParticleOpacity;
+            p.BaseColor = settings.ParticleColor;
 
-            // Rotation
-            p.Rotation = emission.InitialRotation + (rng.NextSingle() * 2f - 1f) * emission.InitialRotationRandom;
-            p.AngularVelocity = emission.AngularVelocity;
+            p.Rotation = settings.InitialRotation + (rng.NextSingle() * 2f - 1f) * settings.InitialRotationRandom;
+            p.AngularVelocity = settings.AngularVelocity;
 
-            p.IsAlive = true;
             _aliveCount++;
         }
     }
 
     /// <summary>Ages, moves and restyles every live particle across the step that starts at <paramref name="currentTime"/>.</summary>
-    private void IntegrateParticles(in MotionSettings motion, float currentTime, float dt)
+    private void IntegrateParticles(in ParticleSettings settings, float currentTime, float dt)
     {
-        // Update particles
         Span<Particle> span = _particles.AsSpan(0, _aliveCount);
         for (int i = span.Length - 1; i >= 0; i--)
         {
             ref Particle p = ref span[i];
-            if (!p.IsAlive) continue;
 
             float age = currentTime + dt - p.BirthTime;
             if (age >= p.Lifetime)
             {
-                p.IsAlive = false;
                 // Swap with last alive
                 if (i < _aliveCount - 1)
                 {
@@ -240,47 +173,41 @@ internal sealed class ParticleSimulator
                 continue;
             }
 
-            // Gravity
-            p.VelocityY += motion.Gravity * dt;
+            p.VelocityY += settings.Gravity * dt;
 
-            // Air resistance
-            if (motion.AirResistance > 0)
+            if (settings.AirResistance > 0)
             {
-                float factor = 1f - motion.AirResistance * dt;
+                float factor = 1f - settings.AirResistance * dt;
                 if (factor < 0) factor = 0;
                 p.VelocityX *= factor;
                 p.VelocityY *= factor;
             }
 
-            // Turbulence
-            if (motion.TurbulenceStrength > 0)
+            if (settings.TurbulenceStrength > 0)
             {
                 float nx = _noise.Perlin(
-                    p.X * motion.TurbulenceScale + currentTime * motion.TurbulenceSpeed,
-                    p.Y * motion.TurbulenceScale + motion.Seed);
+                    p.X * settings.TurbulenceScale + currentTime * settings.TurbulenceSpeed,
+                    p.Y * settings.TurbulenceScale + settings.Seed);
                 float ny = _noise.Perlin(
-                    p.Y * motion.TurbulenceScale + motion.Seed,
-                    p.X * motion.TurbulenceScale + currentTime * motion.TurbulenceSpeed);
-                p.VelocityX += (nx - 0.5f) * 2f * motion.TurbulenceStrength * dt;
-                p.VelocityY += (ny - 0.5f) * 2f * motion.TurbulenceStrength * dt;
+                    p.Y * settings.TurbulenceScale + settings.Seed,
+                    p.X * settings.TurbulenceScale + currentTime * settings.TurbulenceSpeed);
+                p.VelocityX += (nx - 0.5f) * 2f * settings.TurbulenceStrength * dt;
+                p.VelocityY += (ny - 0.5f) * 2f * settings.TurbulenceStrength * dt;
             }
 
-            // Position integration
             p.X += p.VelocityX * dt;
             p.Y += p.VelocityY * dt;
 
-            // Rotation
             p.Rotation += p.AngularVelocity * dt;
 
-            // Over-life interpolation
             float t = age / p.Lifetime;
-            p.CurrentSize = p.BaseSize * (1f + (motion.EndSizeMultiplier - 1f) * t);
-            p.CurrentOpacity = p.BaseOpacity * (1f + (motion.EndOpacityMultiplier - 1f) * t);
+            p.CurrentSize = p.BaseSize * (1f + (settings.EndSizeMultiplier - 1f) * t);
+            p.CurrentOpacity = p.BaseOpacity * (1f + (settings.EndOpacityMultiplier - 1f) * t);
             if (p.CurrentOpacity < 0) p.CurrentOpacity = 0;
 
-            if (motion.UseEndColor)
+            if (settings.UseEndColor)
             {
-                p.CurrentColor = LerpColor(p.BaseColor, motion.EndColor, t);
+                p.CurrentColor = LerpColor(p.BaseColor, settings.EndColor, t);
             }
             else
             {
@@ -326,11 +253,11 @@ internal sealed class ParticleSimulator
         return checked((int)Math.Floor(stepPosition));
     }
 
-    private void SaveCheckpoint(int step, float time, int rngCallCount)
+    private void SaveCheckpoint(int step, int rngCallCount)
     {
         var snapshot = new Particle[_aliveCount];
         Array.Copy(_particles, snapshot, _aliveCount);
-        _checkpoints.Add((step, time, snapshot, _aliveCount, rngCallCount));
+        _checkpoints.Add((step, snapshot, _aliveCount, rngCallCount));
 
         if (_checkpoints.Count > MaxCheckpoints)
         {
@@ -381,40 +308,6 @@ internal sealed class ParticleSimulator
             (byte)(a.G + (b.G - a.G) * t),
             (byte)(a.B + (b.B - a.B) * t));
     }
-
-    /// <summary>The emitter inputs one simulation call reads while spawning particles.</summary>
-    private readonly record struct EmissionSettings(
-        EmitterShape Shape,
-        float Width,
-        float Height,
-        int MaxParticles,
-        float EmissionRate,
-        float Lifetime,
-        float LifetimeRandom,
-        float Speed,
-        float SpeedRandom,
-        float DirectionRadians,
-        float SpreadRadians,
-        float ParticleSize,
-        float SizeRandom,
-        Color Color,
-        float ParticleOpacity,
-        float InitialRotation,
-        float InitialRotationRandom,
-        float AngularVelocity);
-
-    /// <summary>The forces and over-life targets one simulation call applies to live particles.</summary>
-    private readonly record struct MotionSettings(
-        int Seed,
-        float Gravity,
-        float AirResistance,
-        float TurbulenceStrength,
-        float TurbulenceScale,
-        float TurbulenceSpeed,
-        float EndSizeMultiplier,
-        float EndOpacityMultiplier,
-        Color EndColor,
-        bool UseEndColor);
 
     private sealed class CountingRandom
     {

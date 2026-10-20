@@ -115,8 +115,8 @@ public sealed partial class ElementView
 
                 if (_duplicateMode && _ghosts.Count == 0)
                 {
-                    int rate = FrameRateOf(viewModel);
-                    TimeSpan minFrame = TimeSpan.FromSeconds(1d / rate);
+                    int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
+                    TimeSpan minFrame = SceneTimeRangeService.GetFrameDuration(viewModel.Scene);
                     TimeSpan modelStart = viewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
                     TimeSpan deltaStart = modelStart - viewModel.Model.Start;
                     int modelIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
@@ -166,9 +166,7 @@ public sealed partial class ElementView
                     _isSlipDrag = true;
                     _slipTargets = CollectTrimMembers(viewModel);
                     _start = e.GetPosition(view);
-                    // Re-target the implicit capture to the border: PointerCaptureLost routes
-                    // Direct (no bubbling), so the reset handler only fires reliably when the
-                    // border itself holds the capture.
+                    // PointerCaptureLost routes Direct, so move the capture to the border.
                     e.Pointer.Capture(view.border);
                     e.Handled = true;
                     return;
@@ -201,7 +199,7 @@ public sealed partial class ElementView
             _slipTargets = [];
 
             float scale = viewModel.Timeline.Options.Value.Scale;
-            int rate = FrameRateOf(viewModel);
+            int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
             Point released = e.GetPosition(view);
             bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
             TimeSpan delta = TrimDeltaCalculator.SnappedDelta(
@@ -247,7 +245,7 @@ public sealed partial class ElementView
             var elems = relatedElements.Select(x => x.Model).ToArray();
 
             float scale = viewModel.Timeline.Options.Value.Scale;
-            int rate = FrameRateOf(viewModel);
+            int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
             TimeSpan newStart = viewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
             TimeSpan deltaStart = newStart - viewModel.Model.Start;
             int newIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
@@ -265,9 +263,7 @@ public sealed partial class ElementView
 
             if (!duplicate && elems.Length == 1)
             {
-                // SubmitViewModelChanges writes Scene.MoveChild directly, so it
-                // bypasses ElementMoveService's locked-destination refusal —
-                // mirror that guard here for the single-clip drag path.
+                // IElementResizeService.Resize does not check the lock of the destination layer, so check it here.
                 if (viewModel.Scene.IsLayerLocked(newIndex))
                 {
                     ForceRestoreVisualToModel(relatedElements);

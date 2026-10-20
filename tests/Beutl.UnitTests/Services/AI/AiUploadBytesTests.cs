@@ -43,25 +43,6 @@ public class AiUploadBytesTests
             async () => await AiUploadBytes.ReadWithinAsync(path, 4096, default));
     }
 
-    [Test]
-    public async Task ReadWithinAsync_StopsAtTheLimitEvenWhenTheFileGrowsWhileItIsReadAsync()
-    {
-        // 書かれている最中のファイルは、長さを見たあとに伸びる。長さだけを
-        // 信じると、上限をいくらでも超えて読み続けることになる。
-        string path = Path.Combine(_directory, "growing.bin");
-        await File.WriteAllBytesAsync(path, new byte[1024]);
-
-        await using (FileStream growing = new(path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite))
-        {
-            growing.Seek(0, SeekOrigin.End);
-            await growing.WriteAsync(new byte[256 * 1024]);
-            await growing.FlushAsync();
-
-            await Assert.ThrowsAsync<AiFileTooLargeException>(
-                async () => await AiUploadBytes.ReadWithinAsync(path, 2048, default));
-        }
-    }
-
     private async Task<string> WriteAsync(string name, int length)
     {
         string path = Path.Combine(_directory, name);

@@ -347,16 +347,6 @@ public class FormattedTextFallbackTests
             Assert.That(text.ActualBounds.Contains(joinedEmoji.ActualBounds), Is.True);
             Assert.That(joinedEmoji.ActualBounds.Left, Is.GreaterThan(emoji.ActualBounds.Right));
         });
-
-        if (scale == 1f)
-        {
-            string directory = ArtifactProvider.GetArtifactDirectory();
-            using SKImage image = SKImage.FromBitmap(grouped);
-            using SKData data = image.Encode(SKEncodedImageFormat.Png, 100);
-            using Stream output = File.Create(Path.Combine(directory, "fallback.png"));
-            data.SaveTo(output);
-            TestContext.WriteLine(Path.GetFullPath(Path.Combine(directory, "fallback.png")));
-        }
     }
 
     [Test]
@@ -382,7 +372,6 @@ public class FormattedTextFallbackTests
     [TestCase(2f)]
     public void TextObject_RendersFallbackEmojiIdenticallyWhenSplit(float scale)
     {
-        string? artifactDirectory = scale == 1f ? ArtifactProvider.GetArtifactDirectory() : null;
         Dictionary<int, SKColor> Render(bool split)
         {
             var block = new TextBlock
@@ -410,11 +399,6 @@ public class FormattedTextFallbackTests
             });
             using RenderNodeRasterization raster = renderer.Rasterize();
             Assert.That(raster.IsEmpty, Is.False);
-            if (!split && scale == 1f)
-            {
-                string file = Path.Combine(artifactDirectory!, "text-object.png");
-                Assert.That(raster.Bitmap!.Save(file, EncodedImageFormat.Png), Is.True);
-            }
             return ColorPixels(raster.Bitmap!.SKBitmap);
         }
 

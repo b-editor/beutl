@@ -14,26 +14,6 @@ public sealed partial class TimelineTabViewModel
     {
         _logger.LogInformation("Reading TimelineViewModel state from JSON.");
 
-        if (json.TryGetPropertyValue(nameof(LayerHeaders), out JsonNode? layersNode)
-            && layersNode is JsonArray layersArray)
-        {
-            foreach ((LayerHeaderViewModel layer, JsonObject item) in layersArray.OfType<JsonObject>()
-                         .Select(v =>
-                             v.TryGetPropertyValueAsJsonValue(nameof(LayerHeaderViewModel.Number), out int number)
-                                 ? (number, v)
-                                 : (-1, null))
-                         .Where(v => v.Item2 != null)
-                         .Join(
-                             LayerHeaders,
-                             x => x.Item1,
-                             y => y.Number.Value,
-                             (x, y) => (y, x.Item2!)))
-            {
-                layer.ReadFromJson(item);
-                _logger.LogDebug("LayerHeader {Number} state restored from JSON.", layer.Number.Value);
-            }
-        }
-
         if (json.TryGetPropertyValue(nameof(Inlines), out JsonNode? inlinesNode)
             && inlinesNode is JsonArray inlinesArray)
         {
@@ -103,7 +83,7 @@ public sealed partial class TimelineTabViewModel
                 if (obj is IProperty { Animation: KeyFrameAnimation kfAnm } && kfAnm.Id == anmId)
                 {
                     using var pooledArray = new PooledArray<object>(stack.Count);
-                    // 同じものが見つかった時に、上の階層から、IAbstractPropertyやAnimatableを探す。
+                    // Walk up the stack to the adapter that holds the animation or to the EngineObject.
                     stack.CopyTo(pooledArray._array, 0);
                     FindAndSetAncestor(pooledArray.Span, kfAnm);
                     return true;

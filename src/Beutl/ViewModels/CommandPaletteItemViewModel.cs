@@ -1,5 +1,4 @@
-﻿using Avalonia.Input;
-using Beutl.Services;
+﻿using Beutl.Services;
 
 namespace Beutl.ViewModels;
 
@@ -20,19 +19,17 @@ public sealed class CommandPaletteItemViewModel
 
     public string CategoryName => Command.CategoryName;
 
-    public KeyGesture? KeyGesture => Command.KeyGesture;
-
     public string? KeyGestureText => Command.KeyGesture?.ToString("p", null);
 
     public bool IsEnabled { get; }
 
     internal int Relevance { get; }
 
-    public Task ExecuteAsync()
+    public Task ExecuteAsync(IContextCommandInteraction? interaction)
     {
         if (IsEnabled)
         {
-            return Command.ExecuteAsync();
+            return Command.ExecuteAsync(interaction);
         }
 
         return Task.CompletedTask;

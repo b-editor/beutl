@@ -59,26 +59,17 @@ public partial class KeyModifierMonitor : FAAppWindow
             or Key.DbeSbcsChar;
     }
 
-    private static string GetKeyName(Key key)
+    private static string GetKeyName(KeyEventArgs e)
     {
-        return key switch
+        return e.Key switch
         {
             Key.LeftCtrl or Key.RightCtrl => "Ctrl",
             Key.LeftShift or Key.RightShift => "Shift",
             Key.LeftAlt or Key.RightAlt => "Alt",
-            Key.OemComma => ",",
-            Key.Oem1 => "1",
-            Key.Oem102 => "3",
-            Key.Oem2 => "2",
-            Key.Oem3 => "3",
-            Key.Oem4 => "4",
-            Key.Oem5 => "5",
-            Key.Oem6 => "6",
-            Key.Oem7 => "7",
-            Key.Oem8 => "8",
-            Key.OemMinus => "-",
-            Key.OemPeriod => ".",
-            _ => key.ToString(),
+            // What the key types in the current layout, such as ";" for Oem1 on a US keyboard.
+            _ when e.KeySymbol is { } symbol && !string.IsNullOrWhiteSpace(symbol) && !char.IsControl(symbol, 0)
+                => symbol.ToUpperInvariant(),
+            _ => e.Key.ToString(),
         };
     }
 
@@ -89,47 +80,37 @@ public partial class KeyModifierMonitor : FAAppWindow
         if (_buttons.TryGetValue(e.Key, out Button? btn))
         {
             btn.Classes.Set("accent", false);
-            CancellationTokenSource? cts;
-            lock (_cts)
+            if (_cts.TryGetValue(e.Key, out CancellationTokenSource? cts))
             {
-                if (_cts.TryGetValue(e.Key, out cts))
-                {
-                    cts.Cancel();
-                    _cts.Remove(e.Key);
-                }
-
-                cts = new CancellationTokenSource();
-                _cts.TryAdd(e.Key, cts);
+                cts.Cancel();
+                _cts.Remove(e.Key);
             }
 
-            try
+            cts = new CancellationTokenSource();
+            _cts.TryAdd(e.Key, cts);
+
+            var anim = new Avalonia.Animation.Animation
             {
-                var anim = new Avalonia.Animation.Animation
+                Duration = TimeSpan.FromSeconds(3),
+                Children =
                 {
-                    Duration = TimeSpan.FromSeconds(3),
-                    Children =
+                    new KeyFrame
                     {
-                        new KeyFrame
-                        {
-                            Cue = new Cue(0),
-                            Setters = { new Setter(OpacityProperty, 1d) }
-                        },
-                        new KeyFrame
-                        {
-                            Cue = new Cue(1),
-                            Setters = { new Setter(OpacityProperty, 0d) }
-                        },
-                    }
-                };
-
-                await anim.RunAsync(btn, cts.Token);
-                if (!cts.IsCancellationRequested)
-                {
-                    Host.Children.Remove(btn);
+                        Cue = new Cue(0),
+                        Setters = { new Setter(OpacityProperty, 1d) }
+                    },
+                    new KeyFrame
+                    {
+                        Cue = new Cue(1),
+                        Setters = { new Setter(OpacityProperty, 0d) }
+                    },
                 }
-            }
-            catch
+            };
+
+            await anim.RunAsync(btn, cts.Token);
+            if (!cts.IsCancellationRequested)
             {
+                Host.Children.Remove(btn);
             }
         }
     }
@@ -138,24 +119,20 @@ public partial class KeyModifierMonitor : FAAppWindow
     {
         if (Skip(e.Key)) return;
 
-        lock (_cts)
+        if (_cts.TryGetValue(e.Key, out CancellationTokenSource? cts))
         {
-            if (_cts.TryGetValue(e.Key, out CancellationTokenSource? cts))
-            {
-                cts.Cancel();
-                _cts.Remove(e.Key);
-            }
+            cts.Cancel();
+            _cts.Remove(e.Key);
         }
 
         if (!_buttons.TryGetValue(e.Key, out Button? btn))
         {
-            btn = new Button()
-            {
-                Content = GetKeyName(e.Key)
-            };
+            btn = new Button();
             _buttons.Add(e.Key, btn);
         }
 
+        // The symbol depends on the modifiers of this press, such as "!" for Shift+1.
+        btn.Content = GetKeyName(e);
         btn.Classes.Set("accent", true);
         if (btn.Parent == null)
         {

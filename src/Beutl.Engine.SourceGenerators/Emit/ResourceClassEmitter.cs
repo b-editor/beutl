@@ -317,13 +317,9 @@ public static class ResourceClassEmitter
             if (property.ExcludeFromResource) continue;
 
             string fieldName = EmitHelpers.ToFieldName(property.Name);
-            sb.Append(innerIndent).AppendLine($"        if ({fieldName} != null)");
+            sb.Append(innerIndent).AppendLine($"        foreach (var item in {fieldName})");
             sb.Append(innerIndent).AppendLine("        {");
-            sb.Append(innerIndent).AppendLine($"            foreach (var item in {fieldName})");
-            sb.Append(innerIndent).AppendLine("            {");
-            sb.Append(innerIndent).AppendLine("                item?.Dispose();");
-            sb.Append(innerIndent).AppendLine("            }");
-            sb.Append(innerIndent).AppendLine("            ");
+            sb.Append(innerIndent).AppendLine("            item.Dispose();");
             sb.Append(innerIndent).AppendLine("        }");
         }
         sb.Append(innerIndent).AppendLine("    }");

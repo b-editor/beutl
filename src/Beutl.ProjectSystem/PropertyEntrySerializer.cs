@@ -42,7 +42,7 @@ internal static class PropertyEntrySerializer
         return (value, animation);
     }
 
-    public static JsonNode? ToJson(object? value, IAnimation? animation, Type valueType)
+    public static JsonNode? ToJson(object? value, IAnimation? animation)
     {
         JsonNode? animationNode = null;
 

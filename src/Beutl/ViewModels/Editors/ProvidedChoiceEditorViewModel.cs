@@ -63,7 +63,7 @@ public sealed class ProvidedChoiceEditorViewModel<T, TProvider> : ValueEditorVie
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<int> args)
+        if (e.Expect<int>(sender) is { } args)
         {
             int newIndex = args.NewValue;
             object? newValue = 0 <= newIndex && newIndex < _originalChoices.Count

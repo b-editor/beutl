@@ -11,18 +11,6 @@ internal static class FFmpegInstallNotifier
     private static long s_lastNotifiedTicks;
     private static int s_hooked;
 
-    public static bool IsLibrariesMissing => FFmpegLibraryState.IsLibrariesMissing;
-
-    internal static bool IsVerificationInProgress => FFmpegLibraryState.IsVerificationInProgress;
-
-    internal static long MissingSinceTicks => FFmpegLibraryState.MissingSinceTicks;
-
-    internal static event EventHandler? AvailabilityChanged
-    {
-        add => FFmpegLibraryState.AvailabilityChanged += value;
-        remove => FFmpegLibraryState.AvailabilityChanged -= value;
-    }
-
     public static void HookLibraryState()
     {
         if (Interlocked.Exchange(ref s_hooked, 1) != 0)
@@ -66,14 +54,6 @@ internal static class FFmpegInstallNotifier
         FFmpegLibraryState.MarkInstalled();
         Interlocked.Exchange(ref s_lastNotifiedTicks, 0);
     }
-
-    public static void MarkMissing() => FFmpegLibraryState.MarkMissing();
-
-    internal static bool RecordMissingObserved() => FFmpegLibraryState.RecordMissingObserved();
-
-    internal static void NotifyWorkerStarted() => FFmpegLibraryState.NotifyWorkerStarted();
-
-    internal static bool ShouldSkipStartProbe(long now) => FFmpegLibraryState.ShouldSkipStartProbe(now);
 
     internal static void MarkVerificationStarted()
     {

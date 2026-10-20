@@ -4,7 +4,6 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.NodeGraph;
-using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.NodeGraph.Nodes.Utilities;
@@ -178,13 +177,6 @@ public sealed partial class CountingNode : GraphNode
     }
 
     public InputPort<float> Input { get; }
-
-    public partial class Resource
-    {
-        public override void Update(GraphCompositionContext context)
-        {
-        }
-    }
 }
 
 public sealed partial class BrokenNode : GraphNode
@@ -193,13 +185,6 @@ public sealed partial class BrokenNode : GraphNode
 
     public BrokenNode()
     {
-    }
-
-    public partial class Resource
-    {
-        public override void Update(GraphCompositionContext context)
-        {
-        }
     }
 }
 
@@ -214,11 +199,4 @@ public sealed partial class FlakyNode : GraphNode
     }
 
     public InputPort<float> Input { get; }
-
-    public partial class Resource
-    {
-        public override void Update(GraphCompositionContext context)
-        {
-        }
-    }
 }

@@ -15,7 +15,7 @@ public class MainWindowViewModel
     {
         _sessionId = sessionId;
         Header = Resources.ErrorOccurred;
-        Content.Value = Resources.Content;
+        Content = Resources.Content;
 
         Footer = ReadLastException();
         _logFile = FindLatestLogFile();
@@ -85,13 +85,11 @@ public class MainWindowViewModel
 
     public string Header { get; }
 
-    public ReactiveProperty<string> Content { get; } = new();
+    public string Content { get; }
 
     public string Footer { get; }
 
     public ReactiveCommand ShowLog { get; } = new();
 
     public ReactiveCommand SendFeedback { get; } = new();
-
-    public ReactiveCommand Cancel { get; } = new();
 }

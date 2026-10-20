@@ -59,10 +59,10 @@ public partial class SearchView : UserControl
 
     private async void ListBoxItemPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        KeyValuePair<int, LibraryItemViewModel>? item;
+        LibraryItemViewModel? item;
         if (e.GetCurrentPoint(searchResult).Properties.IsLeftButtonPressed)
         {
-            item = (e.Source as StyledElement)?.DataContext as KeyValuePair<int, LibraryItemViewModel>?;
+            item = (e.Source as StyledElement)?.DataContext as LibraryItemViewModel;
             searchResult.SelectedItem = item;
         }
         else
@@ -70,9 +70,9 @@ public partial class SearchView : UserControl
             return;
         }
 
-        if (item.HasValue)
+        if (item != null)
         {
-            await LibraryTreeDragHelper.StartDragAsync(e, item.Value.Value);
+            await LibraryTreeDragHelper.StartDragAsync(e, item);
         }
     }
 }

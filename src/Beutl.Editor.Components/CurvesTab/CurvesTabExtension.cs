@@ -10,7 +10,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.CurvesTab;
 
-[PrimitiveImpl]
 public sealed class CurvesTabExtension : ToolTabExtension
 {
     public static readonly CurvesTabExtension Instance = new();

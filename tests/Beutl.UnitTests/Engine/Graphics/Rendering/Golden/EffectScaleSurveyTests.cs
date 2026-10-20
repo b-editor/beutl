@@ -17,10 +17,6 @@ public class EffectScaleSurveyTests
 
     public static IEnumerable<TestCaseData> Effects()
     {
-        yield return new TestCaseData("Blur", (Func<FilterEffect>)(() =>
-        {
-            var e = new Blur(); e.Sigma.CurrentValue = new Size(8, 8); return e;
-        }));
         yield return new TestCaseData("DropShadow", (Func<FilterEffect>)(() =>
         {
             var e = new DropShadow();

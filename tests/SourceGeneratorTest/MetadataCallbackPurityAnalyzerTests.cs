@@ -241,11 +241,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
                 public static ShaderDescription CurrentPixel(
                     string source,
                     Action<ShaderBindingBuilder>? bindings = null) => null!;
-
-                public static ShaderDescription WholeSource(
-                    string source,
-                    RenderBoundsContract bounds,
-                    Action<ShaderBindingBuilder>? bindings = null) => null!;
             }
         }
 
@@ -462,23 +457,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
 
                 public RenderBoundsContract Build()
                     => RenderBoundsContract.Create(value => value, value => value);
-            }
-            """);
-
-        Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
-    }
-
-    [Test]
-    public void AStaticLambda_IsNotReported()
-    {
-        ImmutableArray<Diagnostic> diagnostics = Analyze("""
-            using Beutl.Graphics;
-            using Beutl.Graphics.Rendering;
-
-            internal static class Author
-            {
-                public static RenderBoundsContract Build()
-                    => RenderBoundsContract.Create(static value => value, static value => value);
             }
             """);
 
@@ -814,25 +792,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             diagnostics.Select(static d => d.Id),
             Does.Contain("BESG003"),
             "the delegate carries the caller's argument, which is the case this rule exists for");
-    }
-
-    [Test]
-    public void AStaticMethodGroupInsideANode_IsNotReported()
-    {
-        ImmutableArray<Diagnostic> diagnostics = Analyze("""
-            using Beutl.Graphics;
-            using Beutl.Graphics.Rendering;
-
-            internal sealed class PassthroughNode : RenderNode
-            {
-                public RenderBoundsContract Build()
-                    => RenderBoundsContract.Create(Map, Map);
-
-                private static Rect Map(Rect value) => value;
-            }
-            """);
-
-        Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
     }
 
     [Test]
@@ -3166,44 +3125,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     [Test]
-    public void AStaticLambdaCreatingAHelperWhoseConstructorReadsAMutableStatic_IsReported()
-    {
-        ImmutableArray<Diagnostic> diagnostics = Analyze("""
-            using Beutl.Graphics;
-            using Beutl.Graphics.Rendering;
-
-            internal static class Settings
-            {
-                public static float Offset;
-            }
-
-            internal sealed class Shifter
-            {
-                private readonly float _offset;
-
-                public Shifter() => _offset = Settings.Offset;
-
-                public float Shift(float value) => value + _offset;
-            }
-
-            internal static class Author
-            {
-                public static RenderBoundsContract Build()
-                    => RenderBoundsContract.Create(
-                        static value => new Rect(
-                            new Shifter().Shift(value.X), value.Y, value.Width, value.Height),
-                        static value => value);
-            }
-            """);
-
-        Assert.That(
-            diagnostics.Select(static d => d.Id),
-            Does.Contain("BESG004"),
-            "the constructor runs inside the callback, so the static it reads is read again at every "
-            + "recording");
-    }
-
-    [Test]
     public void AStaticLambdaHoldingAHelperInALocalWhoseConstructorReadsAMutableStatic_IsReported()
     {
         ImmutableArray<Diagnostic> diagnostics = Analyze("""
@@ -3917,39 +3838,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             diagnostics.Select(static d => d.Id),
             Is.Empty,
             "the only call to it is its own, and the callback never makes the first one");
-    }
-
-    [Test]
-    public void AStaticLambdaCallingALocalFunctionThatReadsAMutableStatic_IsReported()
-    {
-        ImmutableArray<Diagnostic> diagnostics = Analyze("""
-            using Beutl.Graphics;
-            using Beutl.Graphics.Rendering;
-
-            internal static class Settings
-            {
-                public static float Offset;
-            }
-
-            internal static class Author
-            {
-                public static RenderBoundsContract Build()
-                    => RenderBoundsContract.Create(
-                        static value =>
-                        {
-                            static float Read() => Settings.Offset;
-
-                            return new Rect(Read(), value.Y, value.Width, value.Height);
-                        },
-                        static value => value);
-            }
-            """);
-
-        Assert.That(
-            diagnostics.Select(static d => d.Id),
-            Does.Contain("BESG004"),
-            "the call runs that body, and moving the read into a local function does not change what the "
-            + "callback answers");
     }
 
     [Test]

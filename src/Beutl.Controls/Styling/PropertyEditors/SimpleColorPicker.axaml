@@ -154,7 +154,6 @@
             <Style Selector="^[InputType=Rgb], ^[InputType=Hex]">
                 <Style Selector="^ /template/ ColorSlider#Component1Slider, ^ /template/ ColorSlider#Component2Slider, ^ /template/ ColorSlider#Component3Slider">
                     <Setter Property="IsVisible" Value="True" />
-                    <Setter Property="ColorModel" Value="Rgba" />
                 </Style>
             </Style>
 

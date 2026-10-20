@@ -15,11 +15,6 @@ namespace FluentAvalonia.UI.Controls;
 /// </summary>
 public partial class FAColorPicker : TemplatedControl
 {
-    public FAColorPicker()
-    {
-
-    }
-
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         //Disconnect event handlers...
@@ -976,7 +971,7 @@ public partial class FAColorPicker : TemplatedControl
             _alphaRamp.ColorChanged -= OnComponentRampColorChanged;
 
         if (_hexBox != null)
-            _hexBox.KeyDown += OnHexBoxKeyDown;
+            _hexBox.KeyDown -= OnHexBoxKeyDown;
 
         if (_rgbButton != null)
             _rgbButton.IsCheckedChanged -= OnColorTypeRBChecked;

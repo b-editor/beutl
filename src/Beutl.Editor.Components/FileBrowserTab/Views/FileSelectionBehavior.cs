@@ -6,7 +6,7 @@ using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 
 namespace Beutl.Editor.Components.FileBrowserTab.Views;
 
-// PointerReleased, KeyUpが発火した後，SelectedItemsから存在しないアイテムを削除するBehavior
+// PointerPressed、KeyDownのときに、SelectedItemsから一覧にないアイテムを削除するBehavior
 public class FileSelectionBehavior : Behavior<Control>
 {
     protected override void OnAttached()
@@ -48,7 +48,6 @@ public class FileSelectionBehavior : Behavior<Control>
         if (AssociatedObject?.DataContext is not FileBrowserTabViewModel viewModel)
             return;
 
-        // SelectedItemsにsender.Itemsに含まれないものがあれば削除する
         var items = AssociatedObject switch
         {
             ListBox lb => lb.ItemsSource as ObservableCollection<FileSystemItemViewModel>,

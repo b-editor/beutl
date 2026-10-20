@@ -16,8 +16,6 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class SceneEditorContextServicesTests
 {
-    // An IEditorContextServices that is deliberately NOT the host's concrete EditorContextServices,
-    // so the test exercises the by-type TryGetService path instead of a concrete downcast.
     private sealed class FakeEditorContextServices(EditorService editorService, ExtensionProvider extensionProvider)
         : IEditorContextServices
     {

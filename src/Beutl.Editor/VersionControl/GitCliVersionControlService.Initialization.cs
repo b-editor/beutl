@@ -82,11 +82,9 @@ internal sealed partial class GitCliVersionControlService
         }
         else
         {
-            await EnsureNoNestedRepositoryWouldBeStagedBeforeInitAsync(
-                    repository,
-                    runner,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            // Before git init there is no repository to ask what it ignores, so an unignored nested
+            // repository is refused only at the first snapshot, which leaves the new repository without
+            // a commit for the next initialization to continue.
             repository = await CreateRepositoryAsync(
                     repository,
                     projectRoot,
@@ -146,7 +144,7 @@ internal sealed partial class GitCliVersionControlService
         await TryRaiseLfsQuotaNoticeIfNeededAsync(
             repository,
             runner).ConfigureAwait(false);
-        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+        await TryQueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<(RepositoryInfo Repository, RepositoryInfo? Discovered)>
@@ -301,7 +299,7 @@ internal sealed partial class GitCliVersionControlService
 
         await EnsureLinesAsync(
                 ignorePath,
-                s_gitIgnoreLines,
+                ProjectPathRules.GitIgnoreLines,
                 cancellationToken)
             .ConfigureAwait(false);
         await EnsureAttributesAsync(
@@ -401,7 +399,7 @@ internal sealed partial class GitCliVersionControlService
 
         await EnsureLinesAsync(
             ignorePath,
-            s_gitIgnoreLines,
+            ProjectPathRules.GitIgnoreLines,
             cancellationToken).ConfigureAwait(false);
         await EnsureAttributesAsync(
             attributesPath,

@@ -2,37 +2,24 @@
 
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
 using Avalonia.Threading;
 
 using Beutl.PackageTools.UI.Models;
 using Beutl.PackageTools.UI.ViewModels;
 using Beutl.Reactive;
-using FluentAvalonia.UI.Controls;
-using FluentAvalonia.UI.Navigation;
 
 namespace Beutl.PackageTools.UI.Views;
 
 
 public partial class InstallPage : PackageToolPage
 {
-    private readonly Lazy<Control> _buttons;
-
-    private readonly Lazy<Control> _cancelButton;
-
-    private CancellationTokenSource? _cts;
-
     public InstallPage()
     {
-        _buttons = new(() => TaskDialogButtons.CreateBackPanel(this));
-
-        _cancelButton = new(() => TaskDialogButtons.CreatePanel(Strings.Cancel, (_, _) =>
-        {
-            _cts?.Cancel();
-        }));
-
-        AddHandler(FAFrame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
         InitializeComponent();
+        PackageActionNavigation.HandleNavigatedTo<InstallViewModel>(
+            this,
+            Scroll,
+            (viewModel, token) => Task.Run(() => viewModel.Run(token)));
         FollowCurrentTask();
     }
 
@@ -75,34 +62,5 @@ public partial class InstallPage : PackageToolPage
                     }
                 }, DispatcherPriority.Background);
             });
-    }
-
-    private async void OnNavigatedTo(object? sender, FANavigationEventArgs e)
-    {
-        Scroll.SetCurrentValue(ScrollViewer.OffsetProperty, new Vector(0, 0));
-        if (e.Parameter is InstallViewModel)
-        {
-            DataContext = e.Parameter;
-        }
-
-        if (DataContext is InstallViewModel viewModel)
-        {
-            if (viewModel.Finished.Value)
-            {
-                ButtonsContainer = _buttons.Value;
-            }
-            else
-            {
-                ButtonsContainer = _cancelButton.Value;
-                _cts?.Cancel();
-                _cts = new CancellationTokenSource();
-                CancellationToken token = _cts.Token;
-                await PackageActionNavigation.RunThenNavigateAsync(
-                    this,
-                    viewModel,
-                    operationToken => Task.Run(() => viewModel.Run(operationToken)),
-                    token);
-            }
-        }
     }
 }

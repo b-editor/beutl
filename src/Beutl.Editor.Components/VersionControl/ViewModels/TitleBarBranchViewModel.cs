@@ -47,10 +47,8 @@ internal sealed class TitleBarBranchViewModel : IDisposable
         IProjectVersionControlCoordinator coordinator,
         Action<Action> postToUi)
     {
-        ArgumentNullException.ThrowIfNull(serviceSource);
-        ArgumentNullException.ThrowIfNull(gitAvailabilitySource);
-        _coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
-        _postToUi = postToUi ?? throw new ArgumentNullException(nameof(postToUi));
+        _coordinator = coordinator;
+        _postToUi = postToUi;
         _coordinatorGitAvailable = gitAvailabilitySource.Value;
 
         Branches =
@@ -118,6 +116,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
 
     internal Func<Task<string?>> RequestNewBranchNameAsync { get; set; }
 
+    // Test seam: the latest asynchronous refresh, which tests await.
     internal Task Initialization { get; private set; }
 
     internal async Task PrepareFlyoutAsync(
@@ -152,53 +151,20 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             return;
         }
 
-        CancellationToken bindingToken;
-        try
-        {
-            bindingToken = bindingCancellation.Token;
-        }
-        catch (ObjectDisposedException)
-        {
-            return;
-        }
-
+        CancellationToken bindingToken = bindingCancellation.Token;
         if (bindingToken.IsCancellationRequested)
         {
             return;
         }
 
-        CancellationTokenSource? linkedCancellation = TryCreateLinkedCancellation(
+        using CancellationTokenSource linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
             bindingToken,
             cancellationToken);
-        if (linkedCancellation is null)
-        {
-            return;
-        }
-
-        using (linkedCancellation)
-        {
-            await RefreshCoreAsync(
-                service,
-                _serviceRevision,
-                linkedCancellation.Token,
-                refreshBranches);
-        }
-    }
-
-    internal static CancellationTokenSource? TryCreateLinkedCancellation(
-        CancellationToken bindingToken,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            return CancellationTokenSource.CreateLinkedTokenSource(
-                bindingToken,
-                cancellationToken);
-        }
-        catch (ObjectDisposedException)
-        {
-            return null;
-        }
+        await RefreshCoreAsync(
+            service,
+            _serviceRevision,
+            linkedCancellation.Token,
+            refreshBranches);
     }
 
     internal async Task SwitchBranchAsync(
@@ -314,21 +280,19 @@ internal sealed class TitleBarBranchViewModel : IDisposable
     internal static string FormatDisplayText(
         string branchName,
         int ahead,
-        int behind,
-        CultureInfo? culture = null)
+        int behind)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(branchName);
-        culture ??= CultureInfo.CurrentCulture;
 
         string result = branchName;
         if (ahead > 0)
         {
-            result += $" ↑{ahead.ToString(culture)}";
+            result += $" ↑{ahead.ToString(CultureInfo.CurrentCulture)}";
         }
 
         if (behind > 0)
         {
-            result += $" ↓{behind.ToString(culture)}";
+            result += $" ↓{behind.ToString(CultureInfo.CurrentCulture)}";
         }
 
         return result;
@@ -550,10 +514,8 @@ internal sealed class TitleBarBranchViewModel : IDisposable
                 }
                 return;
             }
-            // The event carries no ordering, so one raised before a branch change can arrive after
-            // the refresh that already read the new branch. Applying it above keeps the widget
-            // responsive; re-reading afterwards is what makes the state it settles on the current
-            // one. The read discards itself if a later event supersedes it.
+            // The event carries no ordering, so one from before a branch change can arrive late;
+            // re-reading after applying it settles on the current state.
             QueueStatusRefresh(refreshBranches: _isFlyoutOpen
                 && status.ChangeKind.HasFlag(RepositoryChangeKind.Metadata));
         });
@@ -672,16 +634,14 @@ internal sealed class TitleBarBranchViewModel : IDisposable
 
     private bool TryGetLifetimeToken(out CancellationToken cancellationToken)
     {
-        try
-        {
-            cancellationToken = _lifetimeCancellation.Token;
-            return !_disposed && !cancellationToken.IsCancellationRequested;
-        }
-        catch (ObjectDisposedException)
+        if (_disposed)
         {
             cancellationToken = default;
             return false;
         }
+
+        cancellationToken = _lifetimeCancellation.Token;
+        return true;
     }
 }
 
@@ -691,9 +651,6 @@ internal sealed class TitleBarBranchItemViewModel : IDisposable
         BranchInfo branch,
         IObservable<bool> isBusy)
     {
-        ArgumentNullException.ThrowIfNull(branch);
-        ArgumentNullException.ThrowIfNull(isBusy);
-
         Name = branch.Name;
         IsCurrent = branch.IsCurrent;
         IsRemote = branch.IsRemote;

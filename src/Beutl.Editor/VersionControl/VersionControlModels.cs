@@ -190,11 +190,11 @@ internal abstract record RemoteOpResult
 
     public sealed record Success : RemoteOpResult;
 
-    public sealed record AuthFailed(string Guidance) : RemoteOpResult;
+    public sealed record AuthFailed(string Guidance, string Stderr) : RemoteOpResult;
 
-    public sealed record Diverged : RemoteOpResult;
+    public sealed record Diverged(string Stderr) : RemoteOpResult;
 
-    public sealed record Offline : RemoteOpResult;
+    public sealed record Offline(string Stderr) : RemoteOpResult;
 
     public sealed record RepositoryDirty : RemoteOpResult;
 
@@ -202,7 +202,7 @@ internal abstract record RemoteOpResult
 }
 
 // IsRemote marks a branch that so far exists only on origin; switching to it creates the local branch.
-public sealed record BranchInfo(string Name, bool IsCurrent, string? UpstreamName, bool IsRemote = false);
+public sealed record BranchInfo(string Name, bool IsCurrent, bool IsRemote = false);
 
 public sealed record RemoteInfo(string Name, string Url);
 
@@ -230,26 +230,16 @@ internal abstract record VersionControlPolicyNotice
 /// <summary>A specific stale-lock recovery offer whose identity is its object reference.</summary>
 internal sealed class RepositoryLockInfo
 {
-    public RepositoryLockInfo(
-        string lockPath,
-        DateTimeOffset lastWriteTimeUtc,
-        bool requiresManualRemoval = false)
+    public RepositoryLockInfo(string lockPath, DateTimeOffset lastWriteTimeUtc)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(lockPath);
         LockPath = lockPath;
         LastWriteTimeUtc = lastWriteTimeUtc;
-        RequiresManualRemoval = requiresManualRemoval;
     }
 
     public string LockPath { get; }
 
     public DateTimeOffset LastWriteTimeUtc { get; }
-
-    /// <summary>
-    /// Whether Beutl cannot remove this lock on the current platform or filesystem, so asking the
-    /// user to confirm a removal would be pointless and only manual-removal guidance applies.
-    /// </summary>
-    public bool RequiresManualRemoval { get; }
 }
 
 internal sealed record InitOptions(

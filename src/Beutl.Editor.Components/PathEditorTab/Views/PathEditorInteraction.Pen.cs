@@ -60,8 +60,7 @@ internal sealed partial class PathEditorInteraction
         {
             // An explicit start owns the existing first edge. A curved
             // closing edge must be appended, never written over segment 0.
-            if (_outgoing is { } outgoing && PathEditingOperations.IsStatic(figure.StartPoint)
-                && PathEditingOperations.IsStatic(figure.Segments[^1].GetEndPoint()))
+            if (_outgoing is { } outgoing)
             {
                 BtlPoint last = figure.Segments[^1].GetEndPoint().GetValue(Composition);
                 figure.Segments.Add(PathEditingOperations.Cubic(outgoing,
@@ -109,7 +108,7 @@ internal sealed partial class PathEditorInteraction
             _penPoint = PathEditingOperations.SnapAngle(figure.Segments[^1].GetEndPoint().GetValue(Composition), local);
         _penSegment = null;
         _start = point;
-        Context!.EditorContext.GetRequiredService<HistoryManager>().Commit();
+        BeginGestureEntry();
         // Only an implicit start needs a move-only anchor. With an explicit
         // start, the first point already terminates an edge that can be bent.
         if (figure.Segments.Count == 0 && explicitStart.IsInvalid)

@@ -21,17 +21,12 @@ public partial class UserProfilePage : UserControl
     {
         if (e.Parameter is Profile user)
         {
-            DestroyDataContext();
+            DiscoverPageHelper.DestroyDataContext<UserProfilePageViewModel>(this);
             DataContext = new UserProfilePageViewModel(user);
         }
     }
 
     private void OnNavigatedFrom(object? sender, FANavigationEventArgs e)
-    {
-        DestroyDataContext();
-    }
-
-    private void DestroyDataContext()
     {
         DiscoverPageHelper.DestroyDataContext<UserProfilePageViewModel>(this);
     }

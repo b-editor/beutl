@@ -2,6 +2,7 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:asyncImageLoader="using:AsyncImageLoader"
+             xmlns:res="using:Beutl.PackageTools.UI.Resources"
              xmlns:sty="using:FluentAvalonia.Styling"
              xmlns:ui="using:FluentAvalonia.UI.Controls">
     <Application.Styles>
@@ -29,7 +30,7 @@
         </Style>
 
         <Style Selector="TextBlock.tip">
-            <Setter Property="ToolTip.Tip" Value="ダブルクリックで詳細表示を切り替え" />
+            <Setter Property="ToolTip.Tip" Value="{x:Static res:Strings.Double_click_to_show_or_hide_the_details}" />
         </Style>
     </Application.Styles>
     <Application.Resources>

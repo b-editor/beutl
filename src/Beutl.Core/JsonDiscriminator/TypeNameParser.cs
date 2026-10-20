@@ -6,7 +6,6 @@ namespace Beutl.JsonDiscriminator;
 internal class TypeNameParser
 {
     private readonly List<Token> _tokens;
-    private readonly Func<string, Assembly?> _assemblyResolver;
     private readonly Func<string, string, Type?> _aliasResolver;
     private string? _assemblyName;
     private Assembly? _assembly;
@@ -14,13 +13,9 @@ internal class TypeNameParser
 
     // aliasResolver takes the assembly name and the full name (in Type.FullName form) of a type definition that
     // does not resolve, and returns the type that gives it as a former name.
-    public TypeNameParser(
-        List<Token> tokens,
-        Func<string, Assembly?>? assemblyResolver = null,
-        Func<string, string, Type?>? aliasResolver = null)
+    public TypeNameParser(List<Token> tokens, Func<string, string, Type?>? aliasResolver = null)
     {
         _tokens = tokens;
-        _assemblyResolver = assemblyResolver ?? DefaultAssemblyResolver;
         _aliasResolver = aliasResolver ?? TypeFormat.FindAlias;
     }
 
@@ -30,7 +25,6 @@ internal class TypeNameParser
 
     private static Assembly? DefaultAssemblyResolver(string s)
     {
-        //AssemblyLoadContext.Default.Assemblies
         return AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(x => x.GetName().Name == s);
     }
 
@@ -40,7 +34,7 @@ internal class TypeNameParser
         _assemblyName = string.Concat(asmTokens
             .Where(x => x.Type is not (TokenType.BeginAssembly or TokenType.EndAssembly))
             .Select(x => x.Text));
-        _assembly = _assemblyResolver(_assemblyName);
+        _assembly = DefaultAssemblyResolver(_assemblyName);
 
         Token[] nsTokens = TakeNamespaceTokens(_tokens.Skip(asmTokens.Length)).ToArray();
         _namespace = ParseNamespace(nsTokens);
@@ -282,7 +276,7 @@ internal class TypeNameParser
         try
         {
             List<Token> tokens = new TypeNameTokenizer(name).Tokenize();
-            var parser = new TypeNameParser(tokens, static _ => null, static (_, _) => null);
+            var parser = new TypeNameParser(tokens, static (_, _) => null);
             return parser.ParseFormerName(aritySuffix);
         }
         catch (Exception ex) when (ex is IndexOutOfRangeException

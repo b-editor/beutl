@@ -236,7 +236,7 @@ internal sealed class GenerativeChoiceEditorViewModel : IPropertyEditorContext
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (!_rebuilding
-            && e is PropertyEditorValueChangedEventArgs<int> args
+            && e.Expect<int>(sender) is { } args
             && args.NewValue >= 0
             && args.NewValue < _values.Length)
         {

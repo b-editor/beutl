@@ -139,7 +139,7 @@ public sealed class RenderNodeRenderer : IDisposable
         ExceptionDispatchInfo? primary = null;
         try
         {
-            cacheLifecycle = effectiveRequest.ManageCacheLifecycle ? RenderNodeCacheHelper.BeginLifecycle(Root) : null;
+            cacheLifecycle = effectiveRequest.ManageCacheLifecycle ? RenderNodeCacheLifecycle.Create(Root) : null;
             request = RecordAndCompile(
                 effectiveRequest.Purpose,
                 destination.Density,
@@ -226,7 +226,7 @@ public sealed class RenderNodeRenderer : IDisposable
             if (executionLease is null)
                 return;
 
-            SKRectI destinationDeviceClip = CaptureExpandedDestinationClip(destination);
+            SKRectI destinationDeviceClip = destination.Canvas.DeviceClipBounds;
             var executionLogicalSize = new Size(
                 destination.DeviceSize.Width / destination.Density,
                 destination.DeviceSize.Height / destination.Density);
@@ -274,9 +274,6 @@ public sealed class RenderNodeRenderer : IDisposable
 
         primary?.Throw();
     }
-
-    private static SKRectI CaptureExpandedDestinationClip(ImmediateCanvas destination)
-        => destination.Canvas.DeviceClipBounds;
 
     private static IDisposable PushExpandedDestinationClip(
         ImmediateCanvas executionCanvas,
@@ -352,7 +349,7 @@ public sealed class RenderNodeRenderer : IDisposable
         try
         {
             targets = _targetPool.BeginSession(effectiveRequest.Intent);
-            cacheLifecycle = effectiveRequest.ManageCacheLifecycle ? RenderNodeCacheHelper.BeginLifecycle(Root) : null;
+            cacheLifecycle = effectiveRequest.ManageCacheLifecycle ? RenderNodeCacheLifecycle.Create(Root) : null;
             request = RecordAndCompile(
                 effectiveRequest.Purpose,
                 effectiveRequest.OutputScale,
@@ -767,7 +764,7 @@ public sealed class RenderNodeRenderer : IDisposable
         ValidateRequestedRegion(request.RequestedRegion);
         return request with
         {
-            OutputScale = SanitizeOutputScale(request.OutputScale),
+            OutputScale = RenderScaleUtilities.SanitizeOutputScale(request.OutputScale),
             MaxWorkingScale = RenderScaleUtilities.SanitizeMaxWorkingScale(request.MaxWorkingScale),
         };
     }
@@ -883,9 +880,6 @@ public sealed class RenderNodeRenderer : IDisposable
         owner?.ThrowIfFailed();
         targets?.ThrowIfCleanupFailed();
     }
-
-    private static float SanitizeOutputScale(float outputScale)
-        => RenderScaleUtilities.SanitizeOutputScale(outputScale);
 
     private static void ValidateTargetDomain(Rect? domain)
     {

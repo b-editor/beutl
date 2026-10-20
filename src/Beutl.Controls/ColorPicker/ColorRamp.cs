@@ -20,11 +20,6 @@ public partial class ColorRamp : ColorPickerComponent
         ClipToBounds = false;
     }
 
-    static ColorRamp()
-    {
-        FocusableProperty.OverrideDefaultValue<ColorRamp>(true);
-    }
-
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -57,9 +52,6 @@ public partial class ColorRamp : ColorPickerComponent
         }
 
         var radius = (float)CornerRadius.TopLeft;
-
-        if (Component == ColorComponent.Alpha && CheckeredBrush != null)
-            context.FillRectangle(CheckeredBrush, rect, radius);
 
         context.FillRectangle(_lgb, rect, radius);
 
@@ -295,7 +287,7 @@ public partial class ColorRamp : ColorPickerComponent
         switch (Component)
         {
             case ColorComponent.Hue:
-                Color = Color.WithHue(Hue + (increment ? 1 : -1));// Color2.FromHSV(Hue + (increment ? 1 : -1), Color.Saturation, Color.Value);
+                Color = Color.WithHue(Hue + (increment ? 1 : -1));
                 break;
 
             case ColorComponent.Saturation:
@@ -378,51 +370,6 @@ public partial class ColorRamp : ColorPickerComponent
         }
 
         _borderPen = new ImmutablePen(BorderBrush.ToImmutable(), BorderThickness);
-    }
-
-    /// <summary>
-    /// Shared brush that renders the checkered pattern for seeing the alpha
-    /// component of the color. This brush is shared among all components
-    /// </summary>
-    public static IBrush? CheckeredBrush { get; } = CreateCheckeredBrush();
-
-    private static IBrush? CreateCheckeredBrush()
-    {
-        return null;
-        //this is only created once
-
-        //RenderTargetBitmap rtb = new RenderTargetBitmap(new PixelSize(50, 50));
-        //using (var context = rtb.CreateDrawingContext(null))
-        //{
-        //    bool white = true;
-        //    for (int i = 0; i < 50; i += 5)
-        //    {
-
-        //        for (int j = 0; j < 50; j += 5)
-        //        {
-        //            if (white)
-        //            {
-        //                context.DrawRectangle(Brushes.White, null, new Rect(i, j, 5, 5));
-        //            }
-        //            else
-        //            {
-        //                context.DrawRectangle(Brushes.LightGray, null, new Rect(i, j, 5, 5));
-        //            }
-        //            white = !white;
-        //        }
-        //        white = !white;
-        //    }
-        //}
-
-        //var b = new ImageBrush(rtb);
-        //b.TileMode = TileMode.Tile;
-        //// b.SourceRect = new RelativeRect(0, 0, 50, 50, RelativeUnit.Absolute);
-        //b.DestinationRect = new RelativeRect(0, 0, 50, 50, RelativeUnit.Absolute);
-        //b.BitmapInterpolationMode = BitmapInterpolationMode.HighQuality;
-        //return b.ToImmutable();
-
-        ////_checkBrush = b;//.ToImmutable();
-
     }
 
     private static readonly IPen BlackPen = new ImmutablePen(Brushes.Black, 3);

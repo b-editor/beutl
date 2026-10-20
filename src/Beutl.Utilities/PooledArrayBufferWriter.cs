@@ -14,13 +14,6 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
     private readonly ArrayPool<T> _pool;
     private T[] _buffer;
 
-    public PooledArrayBufferWriter(ArrayPool<T>? pool = null)
-    {
-        _pool = pool ?? ArrayPool<T>.Shared;
-        _buffer = _pool.Rent(0);
-        WrittenCount = 0;
-    }
-
     public PooledArrayBufferWriter(int initialCapacity, ArrayPool<T>? pool = null)
     {
         IsDisposed = true;
@@ -38,28 +31,7 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
         Dispose();
     }
 
-    public ReadOnlyMemory<T> WrittenMemory
-    {
-        get
-        {
-            Verify();
-            return _buffer.AsMemory(0, WrittenCount);
-        }
-    }
-
-    public ReadOnlySpan<T> WrittenSpan
-    {
-        get
-        {
-            Verify();
-            return _buffer.AsSpan(0, WrittenCount);
-        }
-    }
-
     public int WrittenCount { get; private set; }
-
-    [ExcludeFromCodeCoverage]
-    public int Capacity => _buffer.Length;
 
     public int FreeCapacity => _buffer.Length - WrittenCount;
 
@@ -68,14 +40,6 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
     private void Verify()
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
-    }
-
-    public void Clear()
-    {
-        Verify();
-        Debug.Assert(_buffer.Length >= WrittenCount);
-        _buffer.AsSpan(0, WrittenCount).Clear();
-        WrittenCount = 0;
     }
 
     public void Advance(int count)
@@ -120,7 +84,6 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
         {
             int currentLength = _buffer.Length;
 
-            // Attempt to grow by the larger of the sizeHint and double the current size.
             int growBy = Math.Max(sizeHint, currentLength);
 
             if (currentLength == 0)
@@ -132,7 +95,6 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
 
             if ((uint)newSize > int.MaxValue)
             {
-                // Attempt to grow to ArrayMaxLength.
                 uint needed = (uint)(currentLength - FreeCapacity + sizeHint);
                 Debug.Assert(needed > currentLength);
 

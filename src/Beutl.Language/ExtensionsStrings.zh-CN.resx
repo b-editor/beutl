@@ -163,4 +163,19 @@
   <data name="RequestedVersionUnavailable" xml:space="preserve">
     <value>版本 {0} 已不可用。请选择可用的版本以继续。</value>
   </data>
+  <data name="PackageNotLoaded" xml:space="preserve">
+    <value>未加载 {0}</value>
+  </data>
+  <data name="PackageNotInstalled" xml:space="preserve">
+    <value>未安装 {0}</value>
+  </data>
+  <data name="PackageNotUpdated" xml:space="preserve">
+    <value>未更新 {0}</value>
+  </data>
+  <data name="PackageUsesMissingApisForVersion" xml:space="preserve">
+    <value>它是为 Beutl {0} 构建的，使用了 Beutl {2} 中没有的 {1} 个 API，例如 {3}。</value>
+  </data>
+  <data name="PackageUsesMissingApis" xml:space="preserve">
+    <value>它使用了 Beutl {1} 中没有的 {0} 个 API，例如 {2}。</value>
+  </data>
 </root>

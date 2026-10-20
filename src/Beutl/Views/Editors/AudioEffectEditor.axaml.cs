@@ -13,8 +13,6 @@ namespace Beutl.Views.Editors;
 
 public partial class AudioEffectEditor : UserControl
 {
-    private bool _flyoutOpen;
-
     public AudioEffectEditor()
     {
         InitializeComponent();
@@ -86,20 +84,13 @@ public partial class AudioEffectEditor : UserControl
         }
     }
 
-    private async Task<Type?> SelectType()
+    private Task<Type?> SelectType()
     {
-        if (_flyoutOpen) return null;
-
-        try
+        return PickerGuard.RunAsync(this, async () =>
         {
-            _flyoutOpen = true;
-            var viewModel = new SelectAudioEffectTypeViewModel();
-            return await LibraryItemPickerHelper.ShowTypeOnlyAsync(this, viewModel, KnownLibraryItemFormats.AudioEffect);
-        }
-        finally
-        {
-            _flyoutOpen = false;
-        }
+            var viewModel = new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.AudioEffect, typeof(AudioEffect));
+            return await LibraryItemPickerHelper.ShowAsync(this, viewModel, KnownLibraryItemFormats.AudioEffect) as Type;
+        });
     }
 
     private async void ChangeEffectTypeClick(object? sender, RoutedEventArgs e)

@@ -38,8 +38,6 @@
             <Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuterBrush}" />
         </Style>
     </UserControl.Styles>
-    <!--  BoxShadow="0 32 64 #47000000, 0 2 21 #38000000">  -->
-    <!--  BoxShadow="0 32 64 #8E000000, 0 2 21 #8C000000">  -->
     <Grid RowDefinitions="Auto,Auto">
         <Border x:Name="handle"
                 AutomationProperties.Name="{Binding NodeName.Value}"
@@ -148,7 +146,7 @@
                 <Button Grid.Column="3"
                         usage:UsageTracking.Feature="NodeGraph.OpenNode"
                         Click="OpenNodeClick"
-                        IsVisible="{Binding IsGroupNode}"
+                        IsVisible="{Binding IsGroup}"
                         Theme="{StaticResource TransparentButton}">
                     <icons:FluentIcon Icon="Open" />
                 </Button>

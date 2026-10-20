@@ -47,7 +47,7 @@ public enum UIToneMappingOperator
     Hable
 }
 
-public sealed partial class EditorConfig : ConfigurationBase
+public sealed class EditorConfig : ConfigurationBase
 {
     public static readonly CoreProperty<bool> AutoAdjustSceneDurationProperty;
     public static readonly CoreProperty<bool> EnablePointerLockInPropertyProperty;
@@ -89,10 +89,10 @@ public sealed partial class EditorConfig : ConfigurationBase
             .DefaultValue(false)
             .Register();
 
-        ulong memSize = SystemMemoryCapacity.GetTotalBytes();
+        // The memory the GC may use: the physical memory, or a container's or job's limit when one is set.
+        ulong memSize = (ulong)GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
         double memSizeInMG = memSize / (1024d * 1024d);
 
-        // デフォルトはメモリ容量の半分にする
         FrameCacheMaxSizeProperty = ConfigureProperty<double, EditorConfig>(nameof(FrameCacheMaxSize))
             .DefaultValue(memSizeInMG / 2)
             .Register();
@@ -337,12 +337,8 @@ public sealed partial class EditorConfig : ConfigurationBase
         set => SetValue(PreviewSourceModeProperty, value);
     }
 
-    /// <summary>
-    /// Sets <see cref="PreviewSourceMode"/> from a <c>ComboBox.SelectedIndex</c>. A ComboBox reports
-    /// <c>-1</c> during a transient no-selection / control reset; an unchecked cast would persist an
-    /// undefined enum that never equals <see cref="PreviewSourceMode.PreferProxy"/>, silently disabling
-    /// proxy preview. Out-of-range indices are ignored so both settings surfaces stay consistent.
-    /// </summary>
+    /// <summary>Sets <see cref="PreviewSourceMode"/> from a <c>ComboBox.SelectedIndex</c>.</summary>
+    /// <remarks>Out-of-range indices, such as the <c>-1</c> of a transient no-selection, are ignored.</remarks>
     public void SetPreviewSourceModeFromIndex(int index)
     {
         if (Enum.IsDefined(typeof(PreviewSourceMode), index))

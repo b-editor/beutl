@@ -6,7 +6,7 @@ namespace Beutl.Extensions.AVFoundation.Interop;
 internal static partial class BeutlAVFNative
 {
     internal const string DllName = "BeutlAVF";
-    internal const int ExpectedAbiVersion = 2;
+    internal const int ExpectedAbiVersion = 3;
 
     internal static void EnsureCompatibleVersion()
     {
@@ -88,15 +88,6 @@ internal static partial class BeutlAVFNative
         string path,
         ref BeutlVideoEncoderConfig videoConfig,
         ref BeutlAudioEncoderConfig audioConfig,
-        out AVFWriterSafeHandle outHandle);
-
-    // Overloads for the optional-config case: we can't pass `null` through a managed `ref`,
-    // so Swift's nullable C pointers are expressed via separate IntPtr-based P/Invokes.
-    [LibraryImport(DllName, EntryPoint = "beutl_avf_writer_create", StringMarshalling = StringMarshalling.Utf8)]
-    internal static partial int beutl_avf_writer_create_raw(
-        string path,
-        IntPtr videoConfig,
-        IntPtr audioConfig,
         out AVFWriterSafeHandle outHandle);
 
     [LibraryImport(DllName)]

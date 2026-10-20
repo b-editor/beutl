@@ -1,4 +1,5 @@
-﻿using Beutl.Media.Proxy;
+﻿using Beutl.Editor.Components.FileBrowserTab.Services;
+using Beutl.Media.Proxy;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.ProxiesTab.ViewModels;
@@ -45,7 +46,7 @@ public sealed class ProxyClipViewModel : IDisposable
         SourceInfoText = string.Format(
             CultureInfo.CurrentCulture,
             Strings.ProxySourceInfoFormat,
-            ProxiesTabViewModel.FormatBytes(source.FileSizeBytes),
+            MediaFileInfo.FormatFileSize(source.FileSizeBytes),
             source.MtimeUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture));
         HasJob = new ReactiveProperty<bool>()
             .DisposeWith(_disposables);
@@ -63,7 +64,7 @@ public sealed class ProxyClipViewModel : IDisposable
             .WithSubscribe(() => _owner.GenerateAsync(this))
             .DisposeWith(_disposables);
         RegenerateCommand = new AsyncReactiveCommand()
-            .WithSubscribe(() => _owner.RegenerateAsync(this))
+            .WithSubscribe(() => _owner.GenerateAsync(this))
             .DisposeWith(_disposables);
         DeleteCommand = new ReactiveCommand()
             .WithSubscribe(() => _owner.Delete(this))
@@ -78,10 +79,8 @@ public sealed class ProxyClipViewModel : IDisposable
             {
                 if (initialized)
                 {
-                    // A change the user drove from the dropdown is an explicit choice, so the row stops
-                    // tracking the global default and records the choice so a later Refresh preserves it.
-                    // A programmatic ApplyDefaultPreset write (guarded by _applyingDefault) keeps the row
-                    // following.
+                    // A pick from the dropdown is an explicit choice that a later Refresh keeps; an
+                    // ApplyDefaultPreset write (guarded by _applyingDefault) keeps the row following.
                     if (!_applyingDefault)
                     {
                         IsFollowingDefault = false;
@@ -103,10 +102,8 @@ public sealed class ProxyClipViewModel : IDisposable
     // preset from the dropdown, even one that equals the current default.
     public bool IsFollowingDefault { get; private set; }
 
-    // Set once the user picks a preset from the dropdown. Unlike IsFollowingDefault (which a pinned proxy
-    // also clears), this records only a deliberate user choice, so Refresh preserves it across a rebuild
-    // while a merely-pinned row re-derives its follow state — a proxy that later disappears reverts the
-    // row to following the default instead of leaving it stuck on the stale preset.
+    // Set only by a pick from the dropdown, so Refresh keeps it; a row merely pinned to an existing proxy
+    // re-derives its preset.
     public bool IsExplicitlyChosen { get; private set; }
 
     // Push a global-default change onto a following row without clearing IsFollowingDefault. Distinct
@@ -196,7 +193,7 @@ public sealed class ProxyClipViewModel : IDisposable
                 Strings.ProxyInfoFormat,
                 ProxiesTabViewModel.FormatSize(entry.OriginalLogicalFrameSize),
                 ProxiesTabViewModel.FormatSize(entry.ProxyDecodedFrameSize),
-                ProxiesTabViewModel.FormatBytes(entry.ProxyFileSizeBytes));
+                MediaFileInfo.FormatFileSize(entry.ProxyFileSizeBytes));
         LastUsedText.Value = entry == null
             ? string.Empty
             : string.Format(

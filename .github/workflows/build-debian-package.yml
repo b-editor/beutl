@@ -14,16 +14,10 @@ on:
       revision:
         required: true
         type: string
-    outputs:
-      artifact-run-id:
-        description: Run ID that published the artifacts
-        value: ${{ jobs.build-debian-package.outputs.artifact-run-id }}
 
 jobs:
   build-debian-package:
     runs-on: ubuntu-latest
-    outputs:
-      artifact-run-id: ${{ steps.run-id.outputs.run-id }}
     strategy:
       matrix:
         include:
@@ -33,17 +27,8 @@ jobs:
             deb-arch: arm64
 
     steps:
-      - name: Set artifact run id
-        id: run-id
-        run: echo "run-id=${{ github.run_id }}" >> $GITHUB_OUTPUT
-
       - name: Checkout
         uses: actions/checkout@v7.0.1
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v6.0.0
-        with:
-          global-json-file: global.json
 
       - uses: actions/download-artifact@v8.0.2
         with:

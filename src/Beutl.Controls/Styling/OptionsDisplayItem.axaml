@@ -24,13 +24,6 @@
                                           Expands="True"
                                           Header="Header"
                                           Icon="Save" />
-
-                <local:OptionsDisplayItem Classes="Vertical"
-                                          Content="Hello World"
-                                          Description="This is a description of whatver this does"
-                                          Expands="True"
-                                          Header="Header"
-                                          Icon="Save" />
             </StackPanel>
         </Border>
     </Design.PreviewWith>
@@ -112,8 +105,6 @@
                             IsHitTestVisible="False" />
 
                     <ContentPresenter Name="ExpandedContentPresenter"
-                                      Grid.Row="2"
-                                      Grid.ColumnSpan="4"
                                       HorizontalAlignment="Stretch"
                                       VerticalAlignment="Stretch"
                                       HorizontalContentAlignment="Stretch"
@@ -182,7 +173,6 @@
 
         <Style Selector="^:expanded">
             <Style Selector="^ /template/ icons|FluentIcon#Chevron">
-                <!--<Setter Property="Icon" Value="ChevronUp" />-->
                 <Setter Property="RenderTransform" Value="rotate(180deg)" />
             </Style>
             <Style Selector="^ /template/ ContentPresenter#ExpandedContentPresenter">
@@ -212,53 +202,6 @@
             <Setter Property="IsVisible" Value="True" />
         </Style>
 
-        <!--  Vertical Style  -->
-        <Style Selector="^.Vertical">
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border Name="LayoutRoot"
-                            Padding="{TemplateBinding Padding}"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{TemplateBinding CornerRadius}">
-                        <Grid RowDefinitions="*,*">
-                            <Border Width="72"
-                                    Height="72"
-                                    Margin="18"
-                                    Background="Transparent"
-                                    ClipToBounds="True"
-                                    CornerRadius="{StaticResource OverlayCornerRadius}">
-                                <Viewbox Name="IconHost">
-                                    <ContentPresenter Content="{TemplateBinding Icon}" />
-                                </Viewbox>
-                            </Border>
-
-                            <StackPanel Grid.Row="1" HorizontalAlignment="Stretch">
-                                <ContentPresenter Margin="0,5"
-                                                  HorizontalAlignment="Stretch"
-                                                  Content="{TemplateBinding Header}"
-                                                  FontSize="14"
-                                                  FontWeight="Normal"
-                                                  TextTrimming="CharacterEllipsis"
-                                                  TextWrapping="Wrap" />
-
-                                <ContentPresenter HorizontalAlignment="Stretch"
-                                                  Content="{TemplateBinding Description}"
-                                                  FontSize="12"
-                                                  FontWeight="Normal"
-                                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                  IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                                  TextTrimming="CharacterEllipsis"
-                                                  TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-                </ControlTemplate>
-            </Setter>
-        </Style>
-
-        <!--  LayoutRoot  -->
         <Style Selector="^:disabled /template/ Border#LayoutRoot">
             <Setter Property="Background" Value="{DynamicResource ControlFillColorDisabledBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDisabledBrush}" />

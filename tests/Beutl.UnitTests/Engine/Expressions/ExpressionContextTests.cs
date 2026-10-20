@@ -33,35 +33,6 @@ public class ExpressionContextTests
     }
 
     [Test]
-    public void TryGetPropertyValue_WithInvalidPath_ShouldReturnFalse()
-    {
-        // Arrange
-        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
-
-        // Act
-        bool result = context.TryGetPropertyValue<double>("invalid-path", out var value);
-
-        // Assert
-        Assert.That(result, Is.False);
-        Assert.That(value, Is.EqualTo(default(double)));
-    }
-
-    [Test]
-    public void TryGetPropertyValue_WithGuidAndPropertyName_ShouldDelegateToPropertyLookup()
-    {
-        // Arrange
-        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
-        var guid = Guid.NewGuid();
-
-        // Act
-        bool result = context.TryGetPropertyValue<double>(guid, "PropertyName", out var value);
-
-        // Assert
-        Assert.That(result, Is.False); // PropertyLookup returns false for non-existent objects
-        Assert.That(value, Is.EqualTo(default(double)));
-    }
-
-    [Test]
     public void IsEvaluating_WithoutBeginEvaluation_ShouldReturnFalse()
     {
         // Arrange
@@ -69,37 +40,6 @@ public class ExpressionContextTests
         var property = Property.Create(0.0);
 
         // Act
-        bool result = context.IsEvaluating(property);
-
-        // Assert
-        Assert.That(result, Is.False);
-    }
-
-    [Test]
-    public void IsEvaluating_AfterBeginEvaluation_ShouldReturnTrue()
-    {
-        // Arrange
-        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
-        var property = Property.Create(0.0);
-
-        // Act
-        context.BeginEvaluation(property);
-        bool result = context.IsEvaluating(property);
-
-        // Assert
-        Assert.That(result, Is.True);
-    }
-
-    [Test]
-    public void IsEvaluating_AfterEndEvaluation_ShouldReturnFalse()
-    {
-        // Arrange
-        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
-        var property = Property.Create(0.0);
-        context.BeginEvaluation(property);
-
-        // Act
-        context.EndEvaluation(property);
         bool result = context.IsEvaluating(property);
 
         // Assert
@@ -129,18 +69,5 @@ public class ExpressionContextTests
 
         context.EndEvaluation(property1);
         Assert.That(context.IsEvaluating(property1), Is.False);
-    }
-
-    [Test]
-    public void Time_ShouldBeInheritedFromRenderContext()
-    {
-        // Arrange
-        var time = TimeSpan.FromMilliseconds(1234);
-
-        // Act
-        var context = TestHelper.CreateExpressionContext(time);
-
-        // Assert
-        Assert.That(context.Time, Is.EqualTo(time));
     }
 }

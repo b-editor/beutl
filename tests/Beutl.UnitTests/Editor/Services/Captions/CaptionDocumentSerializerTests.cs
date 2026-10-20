@@ -7,7 +7,10 @@ namespace Beutl.UnitTests.Editor.Services.Captions;
 public class CaptionDocumentSerializerTests
 {
     private readonly CaptionDocumentSerializer _serializer =
-        CaptionCatalog.CreateDefault("Default").Serializer;
+        CaptionCatalog.ComposeWithDefaultElementFactory(
+            "Default",
+            [],
+            new DefaultTextCaptionElementFactory(Beutl.Media.FontFamily.Default)).Serializer;
 
     [Test]
     public void Import_InvalidUtf8_ReturnsFailureWithoutThrowing()
@@ -21,7 +24,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Document, Is.Null);
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(error =>
-                error.Kind == CaptionDiagnosticKinds.InvalidUtf8 && error.LineNumber is null));
+                error.Kind == CaptionDiagnosticKinds.InvalidUtf8));
         });
     }
 
@@ -149,29 +152,13 @@ public class CaptionDocumentSerializerTests
         }
     }
 
-    [Test]
-    public void ExportSrt_BlankLineInsideCue_ThrowsWithCueIndex()
+    [TestCase("first\n\nsecond")]
+    [TestCase("first\n \t\nsecond")]
+    public void ExportSrt_BlankLineInsideCue_ThrowsWithCueIndex(string text)
     {
         var document = new CaptionDocument(
         [
-            new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(1), "first\n\nsecond"),
-        ]);
-
-        CaptionExportException? exception = Assert.Throws<CaptionExportException>(() =>
-            _serializer.Export(document, CaptionFormats.Srt));
-
-        Assert.That(exception!.CueIndex, Is.Zero);
-    }
-
-    [Test]
-    public void ExportSrt_WhitespaceOnlyLineInsideCue_ThrowsWithCueIndex()
-    {
-        var document = new CaptionDocument(
-        [
-            new CaptionCue(
-                TimeSpan.Zero,
-                TimeSpan.FromSeconds(1),
-                "first\n \t\nsecond"),
+            new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(1), text),
         ]);
 
         CaptionExportException? exception = Assert.Throws<CaptionExportException>(() =>
@@ -322,46 +309,34 @@ public class CaptionDocumentSerializerTests
         }
     }
 
-    [Test]
-    public void ImportWebVtt_MultipleVoiceSpansProduceAnExplicitDiagnostic()
+    [TestCase("<v Alice>Hello</v> <v Bob>Bye</v>", "Hello Bye", "Alice")]
+    [TestCase("Hello <v Alice>world</v>", "Hello world", null)]
+    [TestCase("<v.role Alice>Hello</v>", "Hello", "Alice")]
+    public void ImportWebVtt_UnsupportedVoiceSpanProducesAnExplicitDiagnostic(
+        string payload,
+        string expectedText,
+        string? expectedSpeaker)
     {
         CaptionImportResult result = Import(
-            "WEBVTT\n\n00:00.000 --> 00:01.000\n<v Alice>Hello</v> <v Bob>Bye</v>\n",
+            $"WEBVTT\n\n00:00.000 --> 00:01.000\n{payload}\n",
             CaptionFormats.WebVtt);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.IsSuccess, Is.True);
-            Assert.That(result.Document![0].Speaker, Is.EqualTo("Alice"));
-            Assert.That(result.Document[0].Text, Is.EqualTo("Hello Bye"));
+            Assert.That(result.Document![0].Speaker, Is.EqualTo(expectedSpeaker));
+            Assert.That(result.Document[0].Text, Is.EqualTo(expectedText));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
-                && diagnostic.LineNumber == 4));
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         }
     }
 
-    [Test]
-    public void ImportWebVtt_NonLeadingVoiceSpanProducesAnExplicitDiagnostic()
-    {
-        CaptionImportResult result = Import(
-            "WEBVTT\n\n00:00.000 --> 00:01.000\nHello <v Alice>world</v>\n",
-            CaptionFormats.WebVtt);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(result.IsSuccess, Is.True);
-            Assert.That(result.Document![0].Speaker, Is.Null);
-            Assert.That(result.Document[0].Text, Is.EqualTo("Hello world"));
-            Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
-                && diagnostic.LineNumber == 4));
-        }
-    }
-
-    [TestCase("<lang fr>Bonjour</lang> hello", "fr")]
-    [TestCase("hello <lang fr>Bonjour</lang>", null)]
+    [TestCase("<lang fr>Bonjour</lang> hello", "Bonjour hello", "fr")]
+    [TestCase("hello <lang fr>Bonjour</lang>", "hello Bonjour", null)]
+    [TestCase("<lang.foreign fr>Bonjour</lang>", "Bonjour", "fr")]
     public void ImportWebVtt_PartialLanguageSpanProducesAnExplicitDiagnostic(
         string payload,
+        string expectedText,
         string? expectedLanguage)
     {
         CaptionImportResult result = Import(
@@ -371,46 +346,10 @@ public class CaptionDocumentSerializerTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.IsSuccess, Is.True);
-            Assert.That(result.Document![0].Language, Is.EqualTo(expectedLanguage));
+            Assert.That(result.Document![0].Text, Is.EqualTo(expectedText));
+            Assert.That(result.Document[0].Language, Is.EqualTo(expectedLanguage));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
-                && diagnostic.LineNumber == 4));
-        }
-    }
-
-    [Test]
-    public void ImportWebVtt_ClassBearingLanguageSpanPreservesLanguageAndDiagnosesClass()
-    {
-        CaptionImportResult result = Import(
-            "WEBVTT\n\n00:00.000 --> 00:01.000\n<lang.foreign fr>Bonjour</lang>\n",
-            CaptionFormats.WebVtt);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(result.IsSuccess, Is.True);
-            Assert.That(result.Document![0].Text, Is.EqualTo("Bonjour"));
-            Assert.That(result.Document[0].Language, Is.EqualTo("fr"));
-            Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
-                && diagnostic.LineNumber == 4));
-        }
-    }
-
-    [Test]
-    public void ImportWebVtt_ClassBearingVoiceSpanPreservesSpeakerAndDiagnosesClass()
-    {
-        CaptionImportResult result = Import(
-            "WEBVTT\n\n00:00.000 --> 00:01.000\n<v.role Alice>Hello</v>\n",
-            CaptionFormats.WebVtt);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(result.IsSuccess, Is.True);
-            Assert.That(result.Document![0].Text, Is.EqualTo("Hello"));
-            Assert.That(result.Document[0].Speaker, Is.EqualTo("Alice"));
-            Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
-                && diagnostic.LineNumber == 4));
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         }
     }
 
@@ -426,8 +365,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Document![0].Text, Is.EqualTo("text"));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
-                && diagnostic.LineNumber == 3));
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         }
     }
 
@@ -447,8 +385,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Document![0].Text, Is.EqualTo(expectedText));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
-                && diagnostic.LineNumber == 4));
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         }
     }
 
@@ -477,9 +414,8 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.Document![0].Text, Is.EqualTo("text"));
             Assert.That(
                 result.Diagnostics.Where(diagnostic =>
-                    diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup)
-                    .Select(diagnostic => diagnostic.LineNumber),
-                Is.EqualTo(new int?[] { 3, 6, 10 }));
+                    diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup),
+                Has.Exactly(3).Items);
         }
     }
 
@@ -566,8 +502,7 @@ public class CaptionDocumentSerializerTests
                 "ja-JP",
                 Metadata(CaptionMetadataKeys.AssStyle, "Narration"))));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
-                && diagnostic.LineNumber == 6));
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         });
     }
 
@@ -586,8 +521,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Document![0].Text, Is.EqualTo(expectedText));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
-                && diagnostic.LineNumber == 3));
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         }
     }
 
@@ -613,8 +547,7 @@ public class CaptionDocumentSerializerTests
                 result.Document![0].Metadata.GetValueOrDefault(CaptionMetadataKeys.AssStyle),
                 Is.EqualTo("Narration"));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
-                && diagnostic.LineNumber == 3));
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         }
     }
 

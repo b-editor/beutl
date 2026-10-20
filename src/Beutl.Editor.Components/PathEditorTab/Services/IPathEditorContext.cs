@@ -14,9 +14,9 @@ public interface IPathEditorContext
 
     IReactiveProperty<PathSegment?> SelectedOperation { get; }
 
-    IReadOnlyReactiveProperty<PathGeometry?> PathGeometry { get; }
-
     IReadOnlyReactiveProperty<PathFigure?> PathFigure { get; }
+
+    IReadOnlyReactiveProperty<bool> IsClosed { get; }
 
     IReactiveProperty<IPathFigureEditorContext?> FigureContext { get; }
 

@@ -129,24 +129,4 @@ public sealed class RenderNodeContextMetadataContractTests
                 Rect.Empty,
                 RenderHitTestContract.None)));
     }
-
-    private sealed class SolidSourceNode(Rect bounds, Color color) : RenderNode
-    {
-        public override void Process(RenderNodeContext context)
-        {
-            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                (bounds, color),
-                static (session, state) =>
-                {
-                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                    output.Canvas.Use(canvas => canvas.Clear(state.color));
-                    session.Publish(output);
-                },
-                OpaqueRenderBoundsContract.Source(bounds),
-                RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale);
-            context.Publish(context.OpaqueSource(description));
-        }
-    }
 }

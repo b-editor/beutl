@@ -4,10 +4,8 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
-using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
-using Microsoft.Extensions.Logging;
 using Moq;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -18,53 +16,6 @@ public class GraphicsContext2DTests
     public void OneTimeSetUp()
     {
         TestMediaHelper.RegisterTestDecoder();
-    }
-
-    [SetUp]
-    public void Setup()
-    {
-        Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
-    }
-
-    [Test]
-    public void ShouldTriggerOnUntrackedEvent()
-    {
-        var drawable = new RectShape();
-        drawable.AlignmentX.CurrentValue = AlignmentX.Center;
-        drawable.AlignmentY.CurrentValue = AlignmentY.Center;
-        drawable.TransformOrigin.CurrentValue = RelativePoint.Center;
-        drawable.Width.CurrentValue = 100;
-        drawable.Height.CurrentValue = 100;
-        drawable.Fill.CurrentValue = Brushes.White;
-        drawable.FilterEffect.CurrentValue = new FilterEffectGroup { Children = { new SplitEffect(), new InnerShadow() } };
-        drawable.Transform.CurrentValue = new TransformGroup { Children = { new RotationTransform(), new ScaleTransform() } };
-        var resource = drawable.ToResource(CompositionContext.Default);
-
-        var node = new DrawableRenderNode(resource);
-        using (var context = new GraphicsContext2D(node, new Size(1920, 1080)))
-        {
-            drawable.Render(context, resource);
-        }
-
-        ((FilterEffectGroup)drawable.FilterEffect.CurrentValue).Children.RemoveAt(0);
-        var versionBumped = false;
-        resource.Reconcile(drawable, CompositionContext.Default, ref versionBumped);
-
-        bool triggered = false;
-        RenderNode? untrackedNode = null;
-        using (var context2 = new GraphicsContext2D(node, new Size(1920, 1080)))
-        {
-            context2.OnUntracked = n =>
-            {
-                triggered = true;
-                untrackedNode = n;
-            };
-            drawable.Render(context2, resource);
-        }
-
-        Assert.That(triggered, Is.True);
-        Assert.That(untrackedNode, Is.Not.Null);
-        Assert.That(untrackedNode, Is.TypeOf<FilterEffectRenderNode>());
     }
 
     [Test]
@@ -102,11 +53,9 @@ public class GraphicsContext2DTests
         var removed = new TrackingRenderNode();
         root.AddChild(retained);
         root.AddChild(removed);
-        RenderNode? untracked = null;
 
         using (var context = new GraphicsContext2D(root))
         {
-            context.OnUntracked = node => untracked = node;
             context.DrawNode(retained);
         }
 
@@ -115,7 +64,6 @@ public class GraphicsContext2DTests
             Assert.That(root.Children, Is.EqualTo(new[] { retained }));
             Assert.That(root.HasChanges, Is.True);
             Assert.That(removed.IsDisposed, Is.True);
-            Assert.That(untracked, Is.SameAs(removed));
         });
     }
 
@@ -245,7 +193,7 @@ public class GraphicsContext2DTests
             }
         }
 
-        ClearHasChanges(root);
+        root.SettleConstruction();
 
         using (var context = new GraphicsContext2D(root, size))
         {
@@ -266,7 +214,7 @@ public class GraphicsContext2DTests
         using var root = new ContainerRenderNode();
 
         RecordTwoScopes(root, size, new Rect(0, 0, 10, 10));
-        ClearHasChanges(root);
+        root.SettleConstruction();
         RecordTwoScopes(root, size, new Rect(0, 0, 30, 30));
 
         var changedScope = (ContainerRenderNode)root.Children[0];
@@ -285,7 +233,7 @@ public class GraphicsContext2DTests
         using var root = new ContainerRenderNode();
 
         RecordNestedRectangle(root, size, new Rect(0, 0, 10, 10));
-        ClearHasChanges(root);
+        root.SettleConstruction();
         RecordNestedRectangle(root, size, new Rect(0, 0, 30, 30));
 
         var outer = (ContainerRenderNode)root.Children[0];
@@ -311,7 +259,7 @@ public class GraphicsContext2DTests
             context.DrawRectangle(new Rect(0, 0, 10, 10), fill, null);
         }
 
-        ClearHasChanges(root);
+        root.SettleConstruction();
 
         using (var context = new GraphicsContext2D(root, size))
         using (context.Push())
@@ -331,7 +279,7 @@ public class GraphicsContext2DTests
         using var root = new ContainerRenderNode();
 
         RecordBareRectangle(root, size, new Rect(0, 0, 10, 10));
-        ClearHasChanges(root);
+        root.SettleConstruction();
         RecordBareRectangle(root, size, new Rect(0, 0, 30, 30));
 
         Assert.That(root.HasChanges, Is.True);
@@ -345,7 +293,7 @@ public class GraphicsContext2DTests
         using var root = new ContainerRenderNode();
 
         RecordBareEllipse(root, size, new Rect(0, 0, 10, 10));
-        ClearHasChanges(root);
+        root.SettleConstruction();
         RecordBareEllipse(root, size, settled);
         RecordBareEllipse(root, size, settled);
 
@@ -361,7 +309,7 @@ public class GraphicsContext2DTests
         using var root = new ContainerRenderNode();
 
         RecordTransformScope(root, size, matrix, withEllipse: true);
-        ClearHasChanges(root);
+        root.SettleConstruction();
         RecordTransformScope(root, size, matrix, withEllipse: false);
         RecordTransformScope(root, size, matrix, withEllipse: false);
 
@@ -435,16 +383,6 @@ public class GraphicsContext2DTests
         using (context.Push())
         {
             context.DrawRectangle(rect, Brushes.Resource.White, null);
-        }
-    }
-
-    private static void ClearHasChanges(RenderNode node)
-    {
-        node.ClearChanges(node.ChangeVersion);
-        if (node is ContainerRenderNode container)
-        {
-            foreach (RenderNode child in container.Children)
-                ClearHasChanges(child);
         }
     }
 
@@ -752,20 +690,6 @@ public class GraphicsContext2DTests
         var node = new ContainerRenderNode();
         var context = new GraphicsContext2D(node, new Size(1920, 1080));
         var transform = new RotationTransform();
-        var resource = transform.ToResource(CompositionContext.Default);
-
-        context.PushTransform(resource).Dispose();
-
-        Assert.That(node.Children, Is.Not.Empty);
-        Assert.That(node.Children[0], Is.InstanceOf<TransformRenderNode>());
-    }
-
-    [Test]
-    public void PushTransformGroup_ShouldCreateTransformRenderNode()
-    {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
-        var transform = new TransformGroup { Children = { new RotationTransform(), new ScaleTransform() } };
         var resource = transform.ToResource(CompositionContext.Default);
 
         context.PushTransform(resource).Dispose();

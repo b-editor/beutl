@@ -14,44 +14,11 @@ namespace Beutl.UnitTests.Editor.Services.Captions;
 [TestFixture]
 public class CaptionTemplateTests
 {
-    private static readonly CaptionTemplateProviderId s_testProvider = new("beutl.tests");
-
-    [Test]
-    public async Task DefaultCatalogDisposesItsOwnedRegistries()
-    {
-        CaptionCatalog catalog = CaptionCatalog.CreateDefault("Default");
-        Assert.That(catalog.Codecs.Codecs, Is.Not.Empty);
-        Assert.That(catalog.Templates.Templates, Is.Not.Empty);
-
-        await catalog.DisposeAsync();
-        await catalog.DisposeAsync();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(catalog.Codecs.Codecs, Is.Empty);
-            Assert.That(catalog.Templates.Templates, Is.Empty);
-            Assert.That(catalog.Codecs.TryGet(CaptionFormats.Srt, out _), Is.False);
-            Assert.That(catalog.Templates.TryGet(CaptionTemplateIds.DefaultText, out _), Is.False);
-        });
-    }
-
-    [Test]
-    public void DefaultFactory_UsesTheRenderingEngineDefaultFont()
-    {
-        CaptionTemplateRegistrationSet template = CaptionTemplateDefaults.CreateDefaultText("Default");
-        var cue = new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(1), "Hello");
-        var context = new CaptionElementContext(0, "Caption");
-
-        TextBlock text = CreateTextBlock(CreateElements(template, cue, context).Single());
-
-        Assert.That(text.FontFamily.CurrentValue, Is.EqualTo(FontFamily.Default));
-    }
-
     [Test]
     public void DefaultTemplate_CreatesTextDescriptionAndAppliesContextPlacement()
     {
         var fontFamily = new FontFamily("Noto Sans JP");
-        CaptionTemplateRegistrationSet template = CaptionTemplateDefaults.CreateDefaultText(
+        CaptionTemplate template = CaptionTemplateDefaults.CreateDefaultText(
             "Default",
             new DefaultTextCaptionElementFactory(fontFamily));
         var cue = new CaptionCue(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1.2), "Hello");
@@ -65,7 +32,7 @@ public class CaptionTemplateTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(template.DescriptorRegistration.Descriptor.Name, Is.EqualTo("Default"));
+            Assert.That(template.Descriptor.Name, Is.EqualTo("Default"));
             Assert.That(description.Start, Is.EqualTo(cue.Start));
             Assert.That(description.Length, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
             Assert.That(description.Layer, Is.EqualTo(3));
@@ -101,7 +68,7 @@ public class CaptionTemplateTests
         source.Opacity.Animation = new KeyFrameAnimation<float>();
         source.Text.Expression = Expression.Create<string?>("\"Expression text\"");
         ObjectTemplateItem item = ObjectTemplateItem.CreateFromInstance(source, "Outlined caption");
-        CaptionTemplateRegistrationSet template = TextBlockCaptionTemplateAdapter.TryCreate(item)!;
+        CaptionTemplate template = TextBlockCaptionTemplateAdapter.TryCreate(item)!;
         var context = new CaptionElementContext(4, "Caption", new Point(0, 200));
 
         ElementDescription firstDescription = CreateElements(template,
@@ -115,7 +82,7 @@ public class CaptionTemplateTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(template.DescriptorRegistration.Descriptor.Name, Is.EqualTo("Outlined caption"));
+            Assert.That(template.Descriptor.Name, Is.EqualTo("Outlined caption"));
             Assert.That(firstDescription.Position, Is.Null);
             Assert.That(first.Text.CurrentValue, Is.EqualTo("First"));
             Assert.That(second.Text.CurrentValue, Is.EqualTo("Second"));
@@ -139,7 +106,7 @@ public class CaptionTemplateTests
     {
         ObjectTemplateItem item = ObjectTemplateItem.CreateFromInstance(new EllipseShape(), "Ellipse");
 
-        CaptionTemplateRegistrationSet? result = TextBlockCaptionTemplateAdapter.TryCreate(item);
+        CaptionTemplate? result = TextBlockCaptionTemplateAdapter.TryCreate(item);
 
         Assert.That(result, Is.Null);
     }
@@ -148,9 +115,8 @@ public class CaptionTemplateTests
     public void CustomFactory_ReceivesCueAndCanReturnMultipleElementRequests()
     {
         var factory = new MultiElementFactory();
-        CaptionTemplateRegistrationSet template = CreateTemplate(
+        CaptionTemplate template = CaptionTemplateRegistryTests.CreateTemplate(
             new CaptionTemplateId("beutl.tests.bilingual"),
-            s_testProvider,
             "Bilingual",
             factory,
             DefaultCaptionPlacementPolicy.Instance);
@@ -175,9 +141,8 @@ public class CaptionTemplateTests
     [Test]
     public void DefaultPlacement_PreservesAnExplicitOrigin()
     {
-        CaptionTemplateRegistrationSet template = CreateTemplate(
+        CaptionTemplate template = CaptionTemplateRegistryTests.CreateTemplate(
             new CaptionTemplateId("beutl.tests.origin"),
-            s_testProvider,
             "Origin",
             new ExplicitOriginFactory(),
             DefaultCaptionPlacementPolicy.Instance);
@@ -195,17 +160,15 @@ public class CaptionTemplateTests
     {
         var cue = new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(1), "Text");
         var context = new CaptionElementContext(0, "Caption");
-        CaptionTemplateRegistrationSet nullFactoryTemplate = CreateTemplate(
+        CaptionTemplate nullFactoryTemplate = CaptionTemplateRegistryTests.CreateTemplate(
             new CaptionTemplateId("beutl.tests.null-factory"),
-            s_testProvider,
             "Null factory item",
             new NullItemFactory(),
             PreserveCaptionPlacementPolicy.Instance);
-        CaptionTemplateRegistrationSet nullPlacementTemplate = CreateTemplate(
+        CaptionTemplate nullPlacementTemplate = CaptionTemplateRegistryTests.CreateTemplate(
             new CaptionTemplateId("beutl.tests.null-placement"),
-            s_testProvider,
             "Null placement item",
-            DefaultTextCaptionElementFactory.Instance,
+            new DefaultTextCaptionElementFactory(FontFamily.Default),
             new NullPlacementPolicy());
 
         Assert.Multiple(() =>
@@ -219,30 +182,11 @@ public class CaptionTemplateTests
         });
     }
 
-    private static CaptionTemplateRegistrationSet CreateTemplate(
-        CaptionTemplateId id,
-        CaptionTemplateProviderId providerId,
-        string name,
-        ICaptionElementFactory factory,
-        ICaptionPlacementPolicy placement,
-        int order = 0)
-    {
-        var descriptor = new CaptionTemplateDescriptor(id, providerId, name, order);
-        return new CaptionTemplateRegistrationSet(
-            new CaptionTemplateDescriptorRegistration(descriptor),
-            new CaptionElementFactoryRegistration(id, factory),
-            new CaptionPlacementPolicyRegistration(id, placement));
-    }
-
     private static IReadOnlyList<ElementDescription> CreateElements(
-        CaptionTemplateRegistrationSet template,
+        CaptionTemplate template,
         CaptionCue cue,
         CaptionElementContext context)
-        => new CaptionTemplateComposition(
-                template.DescriptorRegistration.Descriptor,
-                template.ElementFactoryRegistration.Factory,
-                template.PlacementPolicyRegistration.Policy)
-            .CreateElements(cue, context);
+        => template.CreateElements(cue, context);
 
     private static TextBlock CreateTextBlock(ElementDescription description) =>
         (TextBlock)((ElementSource.EngineObject)description.Source).Factory();

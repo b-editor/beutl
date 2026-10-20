@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
+using Beutl.Editor;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.Views;
@@ -12,7 +13,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Services.PrimitiveImpls;
 
-[PrimitiveImpl]
 public sealed class SceneEditorExtension : EditorExtension
 {
     public static readonly SceneEditorExtension Instance = new();
@@ -144,11 +144,17 @@ public sealed class SceneEditorExtension : EditorExtension
 
     public override FilePickerFileType GetFilePickerFileType()
     {
-        return new FilePickerFileType(Strings.SceneFile) { Patterns = ["*.scene"] };
+        return CreateSceneFileType();
+    }
+
+    // Also used by SceneOutputExtension.
+    internal static FilePickerFileType CreateSceneFileType()
+    {
+        return new FilePickerFileType(Strings.SceneFile) { Patterns = [$"*.{EditorConstants.SceneFileExtension}"] };
     }
 
     public override bool MatchFileExtension(string ext)
     {
-        return ext.Equals(".scene", StringComparison.OrdinalIgnoreCase);
+        return ext.Equals($".{EditorConstants.SceneFileExtension}", StringComparison.OrdinalIgnoreCase);
     }
 }

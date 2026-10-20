@@ -25,8 +25,49 @@
       Overwrite="true" />
   </Target>
 
+  <!-- Writes the auto-references of Sdk.targets from the libraries marked BeutlSdkAutoReference (#2877). -->
+  <UsingTask TaskName="WriteBeutlAutoReferences" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Libraries ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <OutputFile Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs"><![CDATA[
+ITaskItem[] libraries = Libraries.Where(library => library.GetMetadata("SdkAutoReference") != "").OrderBy(library => library.ItemSpec, StringComparer.Ordinal).ToArray();
+// Built from "$" and "(" because MSBuild would expand a property reference written in this code.
+string Property(string name) => "$" + "(" + name + ")";
+string OptOut(ITaskItem library) => "BeutlAutoReference" + library.GetMetadata("SdkAutoReference");
+string Enabled(ITaskItem library) => $"'{Property(OptOut(library))}' == 'true'";
+// An analyzer only runs at build time, so it stays out of the extension's package dependencies.
+string Reference(ITaskItem library, string assets) => library.GetMetadata("IsAnalyzer") == "true"
+    ? $"    <PackageReference Include=\"{library.ItemSpec}\" OutputItemType=\"Analyzer\" ReferenceOutputAssembly=\"false\" Version=\"{Property("BeutlPackagesVersion")}\" PrivateAssets=\"all\" Condition=\"{Enabled(library)}\" />"
+    : $"    <PackageReference Include=\"{library.ItemSpec}\" Version=\"{Property("BeutlPackagesVersion")}\"{assets} Condition=\"{Enabled(library)}\" />";
+var lines = new List<string> { "<Project>", "  <PropertyGroup>" };
+lines.AddRange(libraries.Select(library => $"    <{OptOut(library)} Condition=\"'{Property(OptOut(library))}' == ''\">{Property("BeutlAutoReferenceAll")}</{OptOut(library)}>"));
+lines.Add("  </PropertyGroup>");
+lines.Add($"  <ItemGroup Condition=\"'{Property("_PreventCopyInternalPackages")}' == 'true'\">");
+lines.AddRange(libraries.Select(library => Reference(library, " ExcludeAssets=\"runtime;native\"")));
+lines.Add("  </ItemGroup>");
+lines.Add($"  <ItemGroup Condition=\"'{Property("_PreventCopyInternalPackages")}' != 'true'\">");
+lines.AddRange(libraries.Select(library => Reference(library, "")));
+lines.Add("  </ItemGroup>");
+lines.Add("</Project>");
+Directory.CreateDirectory(Path.GetDirectoryName(OutputFile));
+File.WriteAllLines(OutputFile, lines);
+]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="_GenerateAutoReferences" BeforeTargets="GenerateNuspec;Pack">
+    <MSBuild Projects="$(RootDirectory)build/BeutlLibraries.proj" Targets="CollectBeutlLibraries">
+      <Output TaskParameter="TargetOutputs" ItemName="_BeutlLibrary" />
+    </MSBuild>
+    <WriteBeutlAutoReferences Libraries="@(_BeutlLibrary)" OutputFile="$(IntermediateOutputPath)Sdk/AutoReferences.targets" />
+  </Target>
+
   <ItemGroup>
     <None Include="$(IntermediateOutputPath)Sdk/Version.props" Pack="true" PackagePath="Sdk/" />
+    <None Include="$(IntermediateOutputPath)Sdk/AutoReferences.targets" Pack="true" PackagePath="Sdk/" />
   </ItemGroup>
   
   <ItemGroup>

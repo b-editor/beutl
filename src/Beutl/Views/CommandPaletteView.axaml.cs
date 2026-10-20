@@ -65,10 +65,8 @@ public partial class CommandPaletteView : UserControl
         }
         else
         {
-            // パレットが閉じた直後に IsVisible=false へ遷移するため、TextBox がフォーカスを保持したまま
-            // 不可視化されると Avalonia がフォーカスをクリアし、以後 MainView の KeyDown ハンドラに
-            // ショートカット (Ctrl+Shift+P) が到達しなくなって再表示できなくなる。
-            // 開いたときに保存しておいた呼び出し元へフォーカスを戻す。失効していた場合は MainView へ。
+            // Focus left null after closing keeps Ctrl+Shift+P from reaching MainView, so return it to the
+            // element focused before opening, or to MainView.
             WeakReference<IInputElement>? captured = _previouslyFocused;
             _previouslyFocused = null;
 
@@ -77,11 +75,7 @@ public partial class CommandPaletteView : UserControl
                 if (DataContext is CommandPaletteViewModel { IsOpen.Value: true })
                     return;
 
-                // 閉じた時点で既にパレット外の要素へフォーカスが移っている場合は奪い返さない
-                // (典型例: コマンドが同期的にダイアログを開いてフォーカスを取った後)。
-                // それ以外の経路 (Esc / Backdrop / フォーカスを動かさない単純コマンド) は
-                // 必ず restore しないと focused element が null のまま残り、ContextCommandManager
-                // が登録した KeyDown ハンドラに Ctrl+Shift+P が届かなくなって再表示できなくなる。
+                // Focus that moved outside the palette is not taken back (e.g. a dialog a command opened).
                 IInputElement? current = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
                 if (current is Visual currentVisual
                     && currentVisual.FindAncestorOfType<CommandPaletteView>(includeSelf: true) is null)
@@ -101,9 +95,6 @@ public partial class CommandPaletteView : UserControl
                 MainView? mainView = this.FindAncestorOfType<MainView>();
                 if (mainView is null || !mainView.Focus())
                 {
-                    // ここまで来てフォーカス復帰に失敗した場合、focused element が null のまま残り
-                    // MainView の KeyDown ハンドラに Ctrl+Shift+P が届かなくなって再表示できなくなる。
-                    // このバグの再発時に検知できるよう警告として残す (通常は発火しない想定)。
                     _logger.LogWarning(
                         "Failed to restore focus after command palette closed (mainViewFound={Found}). Ctrl+Shift+P may stop responding.",
                         mainView is not null);
@@ -129,11 +120,8 @@ public partial class CommandPaletteView : UserControl
         base.OnAttachedToVisualTree(e);
         _visualTreeDisposables.Clear();
 
-        // narrow window で PaletteContainer 自体が右マージンを侵食して clipping するのを防ぐため、
-        // TopLevel サイズに応じて Width を動的に縮める (常に MaxPaletteWidth、ではなく上限)。
-        // MaxWidth + HorizontalAlignment="Center" にしてしまうとリストの中身に応じて幅が変動
-        // (スクロールバー表示時等) するので、明示的な Width 設定で中身依存を切る方針。
-        // Width が明示されていれば中身に依らないため、XAML 側の HorizontalAlignment="Center" は維持して問題ない。
+        // The width follows the TopLevel up to MaxPaletteWidth. Width rather than MaxWidth keeps the content
+        // (a scroll bar, for example) from changing it.
         if (TopLevel.GetTopLevel(this) is { } topLevel)
         {
             // GetObservable は購読時に現在値を即座に発火するため、初期 Width 設定もこの購読に任せる。

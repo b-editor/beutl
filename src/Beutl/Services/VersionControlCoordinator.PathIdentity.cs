@@ -25,10 +25,7 @@ internal partial class VersionControlCoordinator
 
     // Walks up from the path to the ancestor that is the root, and reports whether the path stays
     // inside it.
-    private static bool TryGetPathRelativeToRoot(
-        string root,
-        string path,
-        out string? relativePath)
+    private static bool TryGetPathRelativeToRoot(string root, string path)
     {
         string fullPath = Path.GetFullPath(path);
         string? ancestor = Path.GetDirectoryName(fullPath);
@@ -38,7 +35,7 @@ internal partial class VersionControlCoordinator
             {
                 if (FilePathComparison.AreSameCanonicalPath(ancestor, root))
                 {
-                    relativePath = Path.GetRelativePath(ancestor, fullPath);
+                    string relativePath = Path.GetRelativePath(ancestor, fullPath);
                     return relativePath != ".."
                            && !relativePath.StartsWith(
                                $"..{Path.DirectorySeparatorChar}",
@@ -55,7 +52,6 @@ internal partial class VersionControlCoordinator
             ancestor = Path.GetDirectoryName(ancestor);
         }
 
-        relativePath = null;
         return false;
     }
 
@@ -63,14 +59,7 @@ internal partial class VersionControlCoordinator
         RepositoryInfo repository,
         string projectFile)
     {
-        EnsureProjectFileIsPhysicallyContained(repository.ProjectRoot, projectFile);
-    }
-
-    private static void EnsureProjectFileIsPhysicallyContained(
-        string projectRoot,
-        string projectFile)
-    {
-        if (!IsProjectFileContained(projectRoot, projectFile))
+        if (!IsProjectFileContained(repository.ProjectRoot, projectFile))
         {
             throw new InvalidOperationException(
                 $"The project file '{projectFile}' resolves outside the version-controlled project root.");
@@ -90,7 +79,7 @@ internal partial class VersionControlCoordinator
             // returned false above, so this fallback cannot turn an escape into containment.
         }
 
-        return TryGetPathRelativeToRoot(projectRoot, projectFile, out _);
+        return TryGetPathRelativeToRoot(projectRoot, projectFile);
     }
 
     // A path that does not exist, cannot be read or is malformed, as opposed to a failure that has to

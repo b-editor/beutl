@@ -749,6 +749,15 @@
   <data name="StrokeEffect_Style" xml:space="preserve">
     <value>边框样式</value>
   </data>
+  <data name="TextAlignment_Center" xml:space="preserve">
+    <value>居中对齐</value>
+  </data>
+  <data name="TextAlignment_Left" xml:space="preserve">
+    <value>左对齐</value>
+  </data>
+  <data name="TextAlignment_Right" xml:space="preserve">
+    <value>右对齐</value>
+  </data>
   <data name="TextBlock" xml:space="preserve">
     <value>文本</value>
   </data>
@@ -772,6 +781,9 @@
   </data>
   <data name="TextBlock_Text" xml:space="preserve">
     <value>文本</value>
+  </data>
+  <data name="TextBlock_TextAlignment" xml:space="preserve">
+    <value>文本对齐</value>
   </data>
   <data name="Threshold" xml:space="preserve">
     <value>阈值</value>
@@ -1286,17 +1298,11 @@
   <data name="EndPoint" xml:space="preserve">
     <value>终点</value>
   </data>
-  <data name="FixImageSize" xml:space="preserve">
-    <value>固定图像大小</value>
-  </data>
   <data name="Group" xml:space="preserve">
     <value>组</value>
   </data>
   <data name="Height" xml:space="preserve">
     <value>高度</value>
-  </data>
-  <data name="KernelSize" xml:space="preserve">
-    <value>内核大小</value>
   </data>
   <data name="Offset" xml:space="preserve">
     <value>偏移</value>

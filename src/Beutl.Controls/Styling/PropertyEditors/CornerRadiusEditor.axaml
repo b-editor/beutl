@@ -249,7 +249,7 @@
                                         Expands="True"
                                         Header="{TemplateBinding Header}">
                         <OptionsDisplayItem.Content>
-                            <DataValidationErrors Grid.Row="2" IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:Vector4Editor}}}">
+                            <DataValidationErrors IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:Vector4Editor}}}">
                                 <StackPanel Margin="40,0" Spacing="16">
                                     <Grid Margin="4" ColumnDefinitions="*,Auto">
                                         <TextBlock VerticalAlignment="Center" Text="{Binding FirstHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector4Editor}}}" />
@@ -321,7 +321,7 @@
                                   MinWidth="120"
                                   Margin="4"
                                   ColumnDefinitions="*,Auto">
-                                <DataValidationErrors Grid.Row="2">
+                                <DataValidationErrors>
                                     <Grid ColumnDefinitions="Auto,*">
                                         <Border Name="PART_BackgroundBorder"
                                                 Grid.ColumnSpan="2"
@@ -440,10 +440,6 @@
             </Setter>
         </Style>
 
-        <Style Selector="^:focus-1st-textbox /template/ Border#PART_SelectedCorner">
-            <Setter Property="CornerRadius" Value="8,0,0,0" />
-            <Setter Property="BorderThickness" Value="2,2,0,0" />
-        </Style>
         <Style Selector="^:focus-2nd-textbox /template/ Border#PART_SelectedCorner">
             <Setter Property="CornerRadius" Value="0,8,0,0" />
             <Setter Property="BorderThickness" Value="0,2,2,0" />

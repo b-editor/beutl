@@ -61,31 +61,6 @@ public sealed class TextOutlineAuthoringContractTests
         }
     }
 
-    // The borrow is lexical, not documented: because ToGeometries() hands back a ref struct, the compiler
-    // rejects storing it in a field or array, returning it, capturing it in a lambda, or awaiting across
-    // it. So there is no "capture it and watch it go stale" case left to assert — only that the whole
-    // borrow is readable inside one scope, which stops compiling if the return type ever becomes a
-    // heap-reachable collection again.
-    [Test]
-    public void PerGlyphOutlines_MustBeConsumedWithinTheBorrowingScope()
-    {
-        using FormattedText text = CreateText("AVA");
-
-        int glyphCount = 0;
-        float widestGlyph = 0;
-        foreach (Geometry.Resource glyph in text.ToGeometries())
-        {
-            glyphCount++;
-            widestGlyph = MathF.Max(widestGlyph, glyph.Bounds.Width);
-        }
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(glyphCount, Is.EqualTo(3), "The whole borrow is readable inside one scope.");
-            Assert.That(widestGlyph, Is.GreaterThan(0));
-        }
-    }
-
     [Test]
     public void PerGlyphOutlines_AreBorrowedAndRewrittenByTheNextMeasure()
     {

@@ -18,10 +18,10 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
 using ModelContextProtocol.Client;
-using ModelContextProtocol.Protocol;
 using Moq;
 using Reactive.Bindings;
 using SkiaSharp;
+using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 
@@ -66,14 +66,14 @@ public sealed class AgentHostSceneRoutingTests
             ["schemaVersion"] = "1",
             ["patch"] = new JsonObject { ["Name"] = "wrong" }
         };
-        Error(await client.CallToolAsync("apply_edit", missingTarget), ErrorCode.ValidationRejected);
-        Error(await client.CallToolAsync("read_document", Target(Guid.NewGuid())), ErrorCode.StaleHandle);
+        AssertError(await client.CallToolAsync("apply_edit", missingTarget), ErrorCode.ValidationRejected);
+        AssertError(await client.CallToolAsync("read_document", Target(Guid.NewGuid())), ErrorCode.StaleHandle);
         var unknown = Target(second.Id);
         unknown["unexpected"] = true;
-        Error(await client.CallToolAsync("read_document", unknown), ErrorCode.ValidationRejected);
+        AssertError(await client.CallToolAsync("read_document", unknown), ErrorCode.ValidationRejected);
         var legacy = Target(second.Id);
         legacy["session"] = first.Id.ToString();
-        Error(await client.CallToolAsync("save_project", legacy), ErrorCode.ValidationRejected);
+        AssertError(await client.CallToolAsync("save_project", legacy), ErrorCode.ValidationRejected);
         Assert.That(SelectedScene(), Is.SameAs(first), "Rejected calls must not activate another tab.");
 
         Success(await client.CallToolAsync("read_document", Target(second.Id)));
@@ -128,12 +128,12 @@ public sealed class AgentHostSceneRoutingTests
         await host.StartAsync();
         await using McpClient client = await ConnectAsync(host);
 
-        Error(await client.CallToolAsync("list_scenes"), ErrorCode.ValidationRejected);
-        Error(await client.CallToolAsync("read_document", Target(sharedId)), ErrorCode.ValidationRejected);
+        AssertError(await client.CallToolAsync("list_scenes"), ErrorCode.ValidationRejected);
+        AssertError(await client.CallToolAsync("read_document", Target(sharedId)), ErrorCode.ValidationRejected);
         var arguments = Target(sharedId);
         arguments["schemaVersion"] = "1";
         arguments["patch"] = new JsonObject { ["Name"] = "Wrong scene edited" };
-        Error(await client.CallToolAsync("apply_edit", arguments), ErrorCode.ValidationRejected);
+        AssertError(await client.CallToolAsync("apply_edit", arguments), ErrorCode.ValidationRejected);
         Assert.Multiple(() =>
         {
             Assert.That(original.Name, Is.EqualTo(originalName));
@@ -193,11 +193,11 @@ public sealed class AgentHostSceneRoutingTests
                 Assert.That(TestShell.Editor.TabItems, Is.Empty);
             });
 
-            Error(await client.CallToolAsync("read_document", Target(second.Id)), ErrorCode.NoActiveEditorSession);
+            AssertError(await client.CallToolAsync("read_document", Target(second.Id)), ErrorCode.NoActiveEditorSession);
             var arguments = Target(first.Id);
             arguments["schemaVersion"] = "1";
             arguments["patch"] = new JsonObject { ["Name"] = "Edit during close" };
-            Error(await client.CallToolAsync("apply_edit", arguments), ErrorCode.NoActiveEditorSession);
+            AssertError(await client.CallToolAsync("apply_edit", arguments), ErrorCode.NoActiveEditorSession);
             Assert.That(TestShell.Editor.TabItems, Is.Empty, "Rejected calls must not escape the close snapshot.");
         }
         finally
@@ -231,11 +231,11 @@ public sealed class AgentHostSceneRoutingTests
             Assert.That(mutation, Is.Not.Null);
             Assert.That(TestShell.Project.CurrentTransition, Is.Null,
                 "Exercise editor-open admission independently of the project-transition check.");
-            Error(await client.CallToolAsync("read_document", Target(second.Id)), ErrorCode.NoActiveEditorSession);
+            AssertError(await client.CallToolAsync("read_document", Target(second.Id)), ErrorCode.NoActiveEditorSession);
             var arguments = Target(second.Id);
             arguments["schemaVersion"] = "1";
             arguments["patch"] = new JsonObject { ["Name"] = "Lost edit" };
-            Error(await client.CallToolAsync("apply_edit", arguments), ErrorCode.NoActiveEditorSession);
+            AssertError(await client.CallToolAsync("apply_edit", arguments), ErrorCode.NoActiveEditorSession);
             Assert.Multiple(() =>
             {
                 Assert.That(TestShell.Editor.TryGetTabItem(second, out _), Is.False);
@@ -268,7 +268,7 @@ public sealed class AgentHostSceneRoutingTests
             ["schemaVersion"] = "1",
             ["patch"] = new JsonObject { ["Name"] = "Wrong target" }
         };
-        Error(await client.CallToolAsync("apply_edit", arguments), ErrorCode.ValidationRejected);
+        AssertError(await client.CallToolAsync("apply_edit", arguments), ErrorCode.ValidationRejected);
         Assert.Multiple(() =>
         {
             Assert.That(first.Name, Is.EqualTo("First"));
@@ -316,7 +316,7 @@ public sealed class AgentHostSceneRoutingTests
             var arguments = Target(first.Id);
             arguments["schemaVersion"] = "1";
             arguments["patch"] = new JsonObject { ["Name"] = "Disabled edit" };
-            Error(await client.CallToolAsync("apply_edit", arguments), ErrorCode.NoActiveEditorSession);
+            AssertError(await client.CallToolAsync("apply_edit", arguments), ErrorCode.NoActiveEditorSession);
             Assert.That(first.Name, Is.EqualTo("First edited"));
         }
         finally { editor.IsEnabled.Value = true; }
@@ -350,7 +350,7 @@ public sealed class AgentHostSceneRoutingTests
         JsonObject added = Success(await client.CallToolAsync("add_scene", arguments));
         Guid secondId = Guid.Parse(added["sceneId"]!.GetValue<string>());
         Assert.That(SelectedScene(), Is.SameAs(firstScene));
-        Error(await client.CallToolAsync("read_document"), ErrorCode.ValidationRejected);
+        AssertError(await client.CallToolAsync("read_document"), ErrorCode.ValidationRejected);
 
         Success(await client.CallToolAsync("open_project", new Dictionary<string, object?> { ["path"] = path }));
         Assert.That(SelectedScene().Id.ToString(), Is.EqualTo(firstId));
@@ -360,7 +360,7 @@ public sealed class AgentHostSceneRoutingTests
         string planId = plan["planId"]!.GetValue<string>();
         var wrongScene = Target(Guid.Parse(firstId));
         wrongScene["planId"] = planId;
-        Error(await client.CallToolAsync("apply_composition", wrongScene), ErrorCode.StaleHandle);
+        AssertError(await client.CallToolAsync("apply_composition", wrongScene), ErrorCode.StaleHandle);
         var applyArguments = Target(secondId);
         applyArguments["planId"] = planId;
         Success(await client.CallToolAsync("apply_composition", applyArguments));
@@ -445,18 +445,7 @@ public sealed class AgentHostSceneRoutingTests
         => ((EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value).Scene;
 
     private static AgentHostEndpoint CreateHost()
-        => new(TestShell.Project, TestShell.Editor, UnavailableAgentAiBackend.Instance, new AiAgentConfig
-        {
-            LiveMcpToken = "scene-routing-test-token"
-        });
-
-    private static async Task<McpClient> ConnectAsync(AgentHostEndpoint host)
-        => await McpClient.CreateAsync(new HttpClientTransport(new HttpClientTransportOptions
-        {
-            Endpoint = host.EndpointUri!,
-            TransportMode = HttpTransportMode.StreamableHttp,
-            AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = "Bearer " + host.Token }
-        }));
+        => new(TestShell.Project, TestShell.Editor, UnavailableAgentAiBackend.Instance, new AiAgentConfig());
 
     private static Dictionary<string, object?> Target(Guid sceneId)
         => new() { ["sceneId"] = sceneId.ToString() };
@@ -467,21 +456,5 @@ public sealed class AgentHostSceneRoutingTests
         arguments["schemaVersion"] = "1";
         arguments["patch"] = new JsonObject { ["Name"] = name };
         Success(await client.CallToolAsync("apply_edit", arguments));
-    }
-
-    private static JsonObject Payload(CallToolResult result)
-        => JsonNode.Parse(result.Content.OfType<TextContentBlock>().First().Text)!.AsObject();
-
-    private static JsonObject Success(CallToolResult result)
-    {
-        JsonObject payload = Payload(result);
-        Assert.That(payload["isSuccess"]!.GetValue<bool>(), Is.True, payload.ToJsonString());
-        return payload["value"]!.AsObject();
-    }
-
-    private static void Error(CallToolResult result, string code)
-    {
-        JsonObject payload = Payload(result);
-        Assert.That(payload["error"]?["code"]?.GetValue<string>(), Is.EqualTo(code), payload.ToJsonString());
     }
 }

@@ -1,5 +1,4 @@
 ﻿namespace Beutl.Controls.Navigation;
-#nullable enable
 
 public interface INavigationProvider
 {

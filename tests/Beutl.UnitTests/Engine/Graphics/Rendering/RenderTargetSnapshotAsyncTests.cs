@@ -1,12 +1,10 @@
-﻿using System.Collections.Immutable;
-using Beutl.Composition;
-using Beutl.Engine;
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Threading;
 using Beutl.UnitTests.Engine.Graphics.Backend;
+using Beutl.UnitTests.Engine.Graphics.Rendering.Failure;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -113,7 +111,7 @@ public class RenderTargetSnapshotAsyncTests
     {
         VulkanTestEnvironment.EnsureAvailable();
         var flushes = new List<ImmediateCanvasFlushKind>();
-        var deferred = new DisposalProbe();
+        var deferred = new FailureTestDisposable();
         (RenderTarget target, Task<Bitmap> pending, bool accepted, bool disposedByRequest) =
             VulkanTestEnvironment.InvokeOnRenderThread(() =>
             {
@@ -127,7 +125,7 @@ public class RenderTargetSnapshotAsyncTests
                     pending = target.SnapshotAsync();
                 }
 
-                return (target, pending, accepted, deferred.IsDisposed);
+                return (target, pending, accepted, deferred.DisposeCalls > 0);
             });
 
         try
@@ -239,12 +237,7 @@ public class RenderTargetSnapshotAsyncTests
                 Height = { CurrentValue = 24 },
                 Fill = { CurrentValue = Brushes.White },
             };
-            var resource = (Drawable.Resource)shape.ToResource(CompositionContext.Default);
-            renderer.Render(new CompositionFrame(
-                ImmutableArray.Create<EngineObject.Resource>(resource),
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                new PixelSize(64, 48),
-                null));
+            renderer.Render(RendererTestSupport.CreateFrame(new(64, 48), shape));
 
             return (renderer, renderer.Snapshot(), renderer.SnapshotAsync());
         });
@@ -397,12 +390,5 @@ public class RenderTargetSnapshotAsyncTests
     {
         ReadOnlySpan<ushort> channels = bitmap.GetPixelSpan<ushort>();
         return (float)BitConverter.UInt16BitsToHalf(channels[((y * bitmap.Width) + x) * 4]);
-    }
-
-    private sealed class DisposalProbe : IDisposable
-    {
-        public bool IsDisposed { get; private set; }
-
-        public void Dispose() => IsDisposed = true;
     }
 }

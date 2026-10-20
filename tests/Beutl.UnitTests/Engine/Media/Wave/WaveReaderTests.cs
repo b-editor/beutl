@@ -1,6 +1,4 @@
-﻿using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
-using Beutl.Media.Source;
+﻿using Beutl.Audio;
 using Beutl.Media.Wave;
 
 using NAudio.Wave;
@@ -64,17 +62,16 @@ public class WaveReaderTests
         using var reader = new WaveReader(_file);
 
         const int length = 500;
-        Assert.That(reader.ReadAudio(0, length, out Ref<IPcm>? sound), Is.True);
+        Assert.That(reader.ReadAudio(0, length, out AudioBuffer? sound), Is.True);
         using (sound)
         {
-            var pcm = (Pcm<Stereo32BitFloat>)sound!.Value;
-            Assert.That(pcm.NumSamples, Is.EqualTo(length));
+            Assert.That(sound!.SampleCount, Is.EqualTo(length));
 
-            Span<Stereo32BitFloat> data = pcm.DataSpan;
-            Assert.That(data[0].Left, Is.EqualTo(SampleForFrame(0)).Within(1e-3f));
-            Assert.That(data[^1].Left, Is.EqualTo(SampleForFrame(length - 1)).Within(1e-3f));
+            Span<float> left = sound.GetChannelData(0);
+            Assert.That(left[0], Is.EqualTo(SampleForFrame(0)).Within(1e-3f));
+            Assert.That(left[^1], Is.EqualTo(SampleForFrame(length - 1)).Within(1e-3f));
             // Mono source is duplicated to both channels.
-            Assert.That(data[^1].Right, Is.EqualTo(data[^1].Left).Within(1e-6f));
+            Assert.That(sound.GetChannelData(1)[^1], Is.EqualTo(left[^1]).Within(1e-6f));
         }
     }
 
@@ -85,17 +82,16 @@ public class WaveReaderTests
 
         const int start = 250;
         const int length = 300;
-        Assert.That(reader.ReadAudio(start, length, out Ref<IPcm>? sound), Is.True);
+        Assert.That(reader.ReadAudio(start, length, out AudioBuffer? sound), Is.True);
         using (sound)
         {
-            var pcm = (Pcm<Stereo32BitFloat>)sound!.Value;
-            Assert.That(pcm.NumSamples, Is.EqualTo(length));
+            Assert.That(sound!.SampleCount, Is.EqualTo(length));
 
-            Span<Stereo32BitFloat> data = pcm.DataSpan;
+            Span<float> left = sound.GetChannelData(0);
             // The first decoded frame must map to the requested start index, proving the seek-then-read
             // path positions the reader before decoding.
-            Assert.That(data[0].Left, Is.EqualTo(SampleForFrame(start)).Within(1e-3f));
-            Assert.That(data[^1].Left, Is.EqualTo(SampleForFrame(start + length - 1)).Within(1e-3f));
+            Assert.That(left[0], Is.EqualTo(SampleForFrame(start)).Within(1e-3f));
+            Assert.That(left[^1], Is.EqualTo(SampleForFrame(start + length - 1)).Within(1e-3f));
         }
     }
 
@@ -107,11 +103,10 @@ public class WaveReaderTests
         // Neighbouring frames differ by 5e-4, so the tolerance tells them apart.
         for (int start = 0; start < FrameCount; start++)
         {
-            Assert.That(reader.ReadAudio(start, 1, out Ref<IPcm>? sound), Is.True);
+            Assert.That(reader.ReadAudio(start, 1, out AudioBuffer? sound), Is.True);
             using (sound)
             {
-                var pcm = (Pcm<Stereo32BitFloat>)sound!.Value;
-                Assert.That(pcm.DataSpan[0].Left, Is.EqualTo(SampleForFrame(start)).Within(1e-4f), $"start={start}");
+                Assert.That(sound!.GetChannelData(0)[0], Is.EqualTo(SampleForFrame(start)).Within(1e-4f), $"start={start}");
             }
         }
     }
@@ -122,41 +117,39 @@ public class WaveReaderTests
         using var reader = new WaveReader(_file);
 
         const int length = 1500; // exceeds the 1000-frame file
-        Assert.That(reader.ReadAudio(0, length, out Ref<IPcm>? sound), Is.True);
+        Assert.That(reader.ReadAudio(0, length, out AudioBuffer? sound), Is.True);
         using (sound)
         {
-            var pcm = (Pcm<Stereo32BitFloat>)sound!.Value;
-            Assert.That(pcm.NumSamples, Is.EqualTo(FrameCount),
+            Assert.That(sound!.SampleCount, Is.EqualTo(FrameCount),
                 "a read crossing EOF must report the actual decoded sample count, not the requested length");
 
-            Span<Stereo32BitFloat> data = pcm.DataSpan;
-            Assert.That(data[FrameCount - 1].Left, Is.EqualTo(SampleForFrame(FrameCount - 1)).Within(1e-3f));
+            Assert.That(sound.GetChannelData(0)[FrameCount - 1], Is.EqualTo(SampleForFrame(FrameCount - 1)).Within(1e-3f));
         }
     }
 
     [Test]
-    public void ReadAudio_StartPastEof_ReturnsTrueWithEmptyPcm()
+    public void ReadAudio_StartPastEof_ReturnsTrueWithEmptyBuffer()
     {
         using var reader = new WaveReader(_file);
 
-        // Per the ReadAudio contract, end-of-stream is signalled by NumSamples == 0, not by false:
+        // Per the ReadAudio contract, end-of-stream is signalled by SampleCount == 0, not by false:
         // false is reserved for disposed/no-stream/error.
-        Assert.That(reader.ReadAudio(FrameCount * 2, 100, out Ref<IPcm>? sound), Is.True);
+        Assert.That(reader.ReadAudio(FrameCount * 2, 100, out AudioBuffer? sound), Is.True);
         using (sound)
         {
-            Assert.That(sound!.Value.NumSamples, Is.Zero);
+            Assert.That(sound!.SampleCount, Is.Zero);
         }
     }
 
     [Test]
-    public void ReadAudio_ZeroLength_ReturnsTrueWithEmptyPcm()
+    public void ReadAudio_ZeroLength_ReturnsTrueWithEmptyBuffer()
     {
         using var reader = new WaveReader(_file);
 
-        Assert.That(reader.ReadAudio(0, 0, out Ref<IPcm>? sound), Is.True);
+        Assert.That(reader.ReadAudio(0, 0, out AudioBuffer? sound), Is.True);
         using (sound)
         {
-            Assert.That(sound!.Value.NumSamples, Is.Zero);
+            Assert.That(sound!.SampleCount, Is.Zero);
         }
     }
 }

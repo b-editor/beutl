@@ -27,7 +27,6 @@ public sealed class KeyingDegenerateBoundaryTests
     [TestCase(0f)]
     [TestCase(0.5f)]
     [TestCase(2f)]
-    [Category("GpuPassFusionGpu")]
     public void ColorKey_OnItsOwnFlatFill_RemovesEverything(float boundary)
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -43,7 +42,6 @@ public sealed class KeyingDegenerateBoundaryTests
     }
 
     [TestCaseSource(nameof(ChromaKeySelfKeyCases))]
-    [Category("GpuPassFusionGpu")]
     public void ChromaKey_OnItsOwnFlatFill_RemovesEverything(Color key, float boundary, bool ellipse)
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -64,7 +62,6 @@ public sealed class KeyingDegenerateBoundaryTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ColorKey_LeavesAColourTheKeyDoesNotMatch()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -80,7 +77,6 @@ public sealed class KeyingDegenerateBoundaryTests
     }
 
     [TestCaseSource(nameof(ChromaKeyNonMatchCases))]
-    [Category("GpuPassFusionGpu")]
     public void ChromaKey_LeavesAColourTheKeyDoesNotMatch(Color fill, Color key, bool ellipse)
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -105,7 +101,6 @@ public sealed class KeyingDegenerateBoundaryTests
     [TestCase(12)]
     [TestCase(16)]
     [TestCase(20)]
-    [Category("GpuPassFusionGpu")]
     public void ChromaKey_LeavesADarkFullySaturatedColourOpaque(int level)
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -178,7 +173,7 @@ public sealed class KeyingDegenerateBoundaryTests
         return MaximumAlpha(rendered);
     }
 
-    private static Drawable.Resource CreateFlatShape(Color fill, bool ellipse, FilterEffect? effect = null)
+    private static Drawable.Resource CreateFlatShape(Color fill, bool ellipse, FilterEffect effect)
     {
         Shape shape;
         if (ellipse)
@@ -197,8 +192,7 @@ public sealed class KeyingDegenerateBoundaryTests
         }
 
         shape.Fill.CurrentValue = new SolidColorBrush(fill);
-        if (effect is not null)
-            shape.FilterEffect.CurrentValue = effect;
+        shape.FilterEffect.CurrentValue = effect;
         return (Drawable.Resource)shape.ToResource(CompositionContext.Default);
     }
 

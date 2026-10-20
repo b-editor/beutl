@@ -270,10 +270,8 @@ public class GotoTimecodeParserTests
     [Test]
     public void TryParse_RelativeOverflowOnAddition_ReturnsOutOfRange()
     {
-        // The delta on its own (5e11 s ≈ 1.585e4 years) fits in a TimeSpan,
-        // but adding it to a currentTime near TimeSpan.MaxValue overflows the
-        // sum. That distinguishes addition-overflow from the FromSeconds /
-        // FromMinutes overflow that the other OutOfRange cases exercise.
+        // The delta alone fits in a TimeSpan, but adding it to half of MaxValue overflows.
+        // This is a different path from the FromSeconds overflow.
         TimeSpan current = TimeSpan.FromTicks(TimeSpan.MaxValue.Ticks / 2);
         bool ok = GotoTimecodeParser.TryParse(
             "+5e11s", FrameRate, current, EmptyMarkers, out _, out GotoTimecodeError error);

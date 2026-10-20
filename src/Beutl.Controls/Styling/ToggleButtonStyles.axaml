@@ -5,8 +5,6 @@
                     x:CompileBindings="True">
     <Design.PreviewWith>
         <Border>
-            <!--<ToggleButton Theme="{StaticResource ExpandCollapseToggleButtonStyle}" />-->
-
             <StackPanel Orientation="Horizontal">
                 <RadioButton Theme="{DynamicResource ColorPickerTypeTransparentToggleButtonStyle}">
                     <icons:FluentIcon Icon="Checkmark" />

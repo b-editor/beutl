@@ -1,6 +1,7 @@
 ﻿using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Media;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Engine;
 
@@ -24,22 +25,7 @@ public class SpeedIntegratorTests
     }
 
     private static KeyFrameAnimation<float> ConstantSpeed(float value)
-    {
-        var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float>
-        {
-            KeyTime = TimeSpan.Zero,
-            Value = value,
-            Easing = new LinearEasing()
-        });
-        animation.KeyFrames.Add(new KeyFrame<float>
-        {
-            KeyTime = TimeSpan.FromSeconds(10),
-            Value = value,
-            Easing = new LinearEasing()
-        });
-        return animation;
-    }
+        => TestAnimations.Linear(value, value, TimeSpan.FromSeconds(10));
 
     private static KeyFrameAnimation<float> RampedSpeedForLongTimeline()
     {

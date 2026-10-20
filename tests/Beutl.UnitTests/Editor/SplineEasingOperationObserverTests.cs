@@ -3,8 +3,6 @@ using Beutl.Animation.Easings;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
-using Beutl.Logging;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -16,7 +14,6 @@ public class SplineEasingOperationObserverTests
     [SetUp]
     public void Setup()
     {
-        Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
         _sequenceGenerator = new OperationSequenceGenerator();
         _parent = new TestCoreObject();
     }
@@ -314,7 +311,7 @@ public class SplineEasingOperationObserverTests
 
         using (PublishingSuppression.Enter())
         {
-            operation.Apply(new OperationExecutionContext(_parent));
+            operation.Apply();
         }
 
         Assert.That(easing.X1, Is.EqualTo(0.5f));
@@ -336,7 +333,7 @@ public class SplineEasingOperationObserverTests
 
         using (PublishingSuppression.Enter())
         {
-            operation.Revert(new OperationExecutionContext(_parent));
+            operation.Revert();
         }
 
         Assert.That(easing.X1, Is.EqualTo(0.25f));

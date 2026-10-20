@@ -42,6 +42,7 @@ public sealed partial class EditViewModel
         if (_missingMediaScanTask.IsCompleted) _missingMediaScanTask = RecheckMissingMediaAsync();
     }
 
+    // Test seam: tests await the missing-media scan.
     internal Task WaitForMissingMediaAsync() => _missingMediaScanTask;
 
     private async Task RecheckMissingMediaAsync()

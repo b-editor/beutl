@@ -25,15 +25,10 @@ internal sealed class RenderNodeCache(RenderNode node) : IDisposable
         Dispose(disposing: false);
     }
 
+    // Test seam: only tests read this.
     internal bool IsCached => _storage.Identity is not null || _storage.Values.Length != 0;
 
-    internal int CacheCount => _storage.Values.Length;
-
-    internal float IdentityDensity => _storage.IdentityDensity;
-
     internal bool IsDisposed { get; private set; }
-
-    internal int SuccessfulStableRequestCount => _successfulStableRequests;
 
     internal bool CanCapture => _successfulStableRequests >= StableRequestCount;
 
@@ -140,18 +135,9 @@ internal sealed class RenderNodeCache(RenderNode node) : IDisposable
             {
                 ArgumentNullException.ThrowIfNull(value);
                 ObjectDisposedException.ThrowIf(value.Target.IsDisposed, value.Target);
-                if (!RenderRectValidation.IsFiniteNonNegative(value.Bounds)
-                    || value.EffectiveScale.IsUnbounded
-                    || value.DeviceBounds.Size != new PixelSize(value.Target.Width, value.Target.Height))
-                {
-                    throw new InvalidOperationException(
-                        "A cache publication requires finite bounds, a concrete density, and matching device bounds.");
-                }
             }
 
-            prepared[index] = (
-                cache,
-                new CacheStorage(publication.Identity, values, publication.Identity.Density));
+            prepared[index] = (cache, new CacheStorage(publication.Identity, values));
         }
 
         var previous = new CacheStorage[prepared.Length];
@@ -210,9 +196,8 @@ internal sealed class RenderNodeCache(RenderNode node) : IDisposable
 
     private sealed record CacheStorage(
         RenderOutputCacheIdentity? Identity,
-        RenderNodeCachedValue[] Values,
-        float IdentityDensity)
+        RenderNodeCachedValue[] Values)
     {
-        public static CacheStorage Empty { get; } = new(null, [], 1);
+        public static CacheStorage Empty { get; } = new(null, []);
     }
 }

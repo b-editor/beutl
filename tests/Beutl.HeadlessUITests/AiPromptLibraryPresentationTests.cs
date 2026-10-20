@@ -7,14 +7,13 @@ using Avalonia.Headless.NUnit;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 using Beutl.Api;
-using Beutl.Api.Services;
 using Beutl.Language;
-using Beutl.Services;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Tools;
+using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
 
@@ -297,15 +296,4 @@ public sealed class AiPromptLibraryPresentationTests
         Assert.That(command.CanExecute(button.CommandParameter), Is.True);
         command.Execute(button.CommandParameter);
     }
-
-    private static AiImageGenerationDialogViewModel CreateImageGenerationDialog(BeutlApiApplication clients)
-        => new(
-            clients.GetResource<IAiEntitlementService>(),
-            clients.GetResource<IAiOperationAvailabilityService>(),
-            clients.GetResource<IAiModelCatalogService>(),
-            new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>()),
-            clients.GetResource<IAiImageGenerationService>(),
-            clients.GetResource<IAuthenticatedContentService>(),
-            editViewModel: null,
-            requestRecoveryContext: AiRetryTestContext.CreateForm());
 }

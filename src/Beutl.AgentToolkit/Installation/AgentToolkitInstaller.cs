@@ -168,7 +168,7 @@ public static class AgentToolkitInstaller
             throw new ArgumentException($"Path cannot contain parent directory traversal: {relativePath}", nameof(relativePath));
         }
 
-        string fullRoot = PathBoundary.ResolveExistingPath(Path.GetFullPath(root));
+        string fullRoot = FilePathComparison.ResolveCanonicalPath(Path.GetFullPath(root));
         string fullPath = Path.GetFullPath(Path.Combine(fullRoot, relativePath));
 
         // Resolve through symlinks: a purely textual check would let an existing symlink/junction

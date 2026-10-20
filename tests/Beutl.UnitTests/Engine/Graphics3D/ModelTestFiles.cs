@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Numerics;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Graphics;
@@ -8,10 +9,23 @@ namespace Beutl.UnitTests.Engine.Graphics3D;
 
 internal static class ModelTestFiles
 {
-    public static string WriteGltf(string directory, bool externalBuffer = false, bool embeddedTexture = false, bool binary = false)
+    public static string WriteGltf(
+        string directory,
+        bool externalBuffer = false,
+        bool embeddedTexture = false,
+        bool binary = false,
+        object[]? nodes = null,
+        int[]? roots = null,
+        bool normals = false)
     {
         Directory.CreateDirectory(directory);
-        float[] vertices = [0, 0, 0, 1, 0, 0, 0, 1, 0];
+        // The triangle faces Normalize(0, -1, 1), the normal written when normals is set.
+        float[] vertices = [0, 0, 0, 1, 0, 0, 0, 1, 1];
+        if (normals)
+        {
+            Vector3 normal = Vector3.Normalize(new Vector3(0, -1, 1));
+            vertices = [.. vertices, normal.X, normal.Y, normal.Z, normal.X, normal.Y, normal.Z, normal.X, normal.Y, normal.Z];
+        }
         byte[] buffer = vertices.SelectMany(BitConverter.GetBytes).ToArray();
         if (externalBuffer)
         {
@@ -22,13 +36,19 @@ internal static class ModelTestFiles
         {
             asset = new { version = "2.0" },
             scene = 0,
-            scenes = new[] { new { nodes = new[] { 0 } } },
-            nodes = new[] { new { mesh = 0 } },
+            scenes = new[] { new { nodes = roots ?? [0] } },
+            nodes = nodes ?? [new { mesh = 0 }],
             meshes = new[] { new { primitives = new[] { new { attributes = new { POSITION = 0 }, mode = 4 } } } },
             buffers = new[] { new { uri = externalBuffer ? "buffers/geometry.bin" : "data:application/octet-stream;base64," + Convert.ToBase64String(buffer), byteLength = buffer.Length } },
             bufferViews = new[] { new { buffer = 0, byteOffset = 0, byteLength = 36, target = 34962 } },
-            accessors = new[] { new { bufferView = 0, componentType = 5126, count = 3, type = "VEC3", min = new[] { 0, 0, 0 }, max = new[] { 1, 1, 0 } } },
+            accessors = new[] { new { bufferView = 0, componentType = 5126, count = 3, type = "VEC3", min = new[] { 0, 0, 0 }, max = new[] { 1, 1, 1 } } },
         })!;
+        if (normals)
+        {
+            json["meshes"]![0]!["primitives"]![0]!["attributes"]!["NORMAL"] = 1;
+            json["bufferViews"]!.AsArray().Add(JsonSerializer.SerializeToNode(new { buffer = 0, byteOffset = 36, byteLength = 36, target = 34962 }));
+            json["accessors"]!.AsArray().Add(JsonSerializer.SerializeToNode(new { bufferView = 1, componentType = 5126, count = 3, type = "VEC3" }));
+        }
         if (embeddedTexture)
         {
             using var bitmap = new Bitmap(2, 2);

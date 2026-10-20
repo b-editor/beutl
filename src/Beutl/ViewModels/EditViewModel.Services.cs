@@ -81,17 +81,15 @@ public partial class EditViewModel
             return _clipboardGateway;
 
         if (serviceType.IsAssignableTo(typeof(IElementClipboardService)))
-            return _elementClipboardService ??= _clipboardGateway is null
-                ? null!
-                : new ProjectFileWriteClipboardService(
-                    EditorService,
-                    new ElementClipboardService(
-                        HistoryManager,
-                        _clipboardGateway,
-                        (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!,
-                        static () => Beutl.Editor.Components.Helpers.ColorGenerator.GenerateColor(
-                            typeof(Beutl.Graphics.SourceImage).FullName!),
-                        _elementAdder));
+            return _elementClipboardService ??= new ProjectFileWriteClipboardService(
+                EditorService,
+                new ElementClipboardService(
+                    HistoryManager,
+                    _clipboardGateway,
+                    (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!,
+                    static () => ElementAccentColorGenerator.GenerateColor(
+                        typeof(Beutl.Graphics.SourceImage).FullName!),
+                    _elementAdder));
 
         if (serviceType.IsAssignableTo(typeof(IElementStructureService)))
             return _elementStructureService ??= new ElementStructureService(HistoryManager);
@@ -157,7 +155,7 @@ public partial class EditViewModel
         if (serviceType.IsAssignableTo(typeof(IElementObjectService)))
             return _elementObjectService ??= new ElementObjectService(HistoryManager);
 
-        if (serviceType == typeof(PlayerViewModel) || serviceType.IsAssignableTo(typeof(IPreviewPlayer)))
+        if (serviceType.IsAssignableTo(typeof(IPreviewPlayer)))
             return Player;
 
         if (serviceType == typeof(IPreviewRenderQuality))

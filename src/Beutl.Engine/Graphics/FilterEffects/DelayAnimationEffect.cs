@@ -47,7 +47,6 @@ public partial class DelayAnimationEffect : FilterEffect
     {
         int targetCount = effectContext.Targets.Count;
 
-        // キャッシュを必要数まで成長
         for (int i = data.cache.Count; i < targetCount; i++)
         {
             TimeSpan delayedTime = data.globalTime - TimeSpan.FromMilliseconds(data.delay * i);
@@ -58,7 +57,6 @@ public partial class DelayAnimationEffect : FilterEffect
                 data.preferredProxyPreset)));
         }
 
-        // 余分なキャッシュを縮小
         while (data.cache.Count > targetCount)
         {
             data.cache[^1].Dispose();
@@ -70,7 +68,6 @@ public partial class DelayAnimationEffect : FilterEffect
             EffectTarget target = effectContext.Targets[i];
             if (target.IsEmpty) continue;
 
-            // 既存Resourceを遅延時刻で更新
             TimeSpan delayedTime = data.globalTime - TimeSpan.FromMilliseconds(data.delay * j);
             var delayedContext = CreateDelayedContext(
                 delayedTime,
@@ -99,7 +96,6 @@ public partial class DelayAnimationEffect : FilterEffect
             if (singleTargets.Count > 0)
             {
                 effectContext.Targets[i] = singleTargets[0].Clone();
-                target.Dispose();
 
                 for (int k = 1; k < singleTargets.Count; k++)
                 {

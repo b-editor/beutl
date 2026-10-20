@@ -433,6 +433,14 @@ internal sealed partial class PathEditorInteraction
         Tool = PathEditorTool.Move;
     }
 
+    // Commits a pending nudge on its own and stops its timer, so Escape reverts only the gesture.
+    private void BeginGestureEntry()
+    {
+        HistoryManager history = Context!.EditorContext.GetRequiredService<HistoryManager>();
+        history.FlushPendingMutations();
+        history.Commit();
+    }
+
     private void Mutate(Action action)
     {
         Context!.EditorContext.GetRequiredService<HistoryManager>().ExecuteInTransaction(action, CommandNames.EditPathPoint);

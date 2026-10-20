@@ -7,8 +7,3 @@
 
 # Default owner for everything in the repository.
 *       @yuto-trd
-
-# Area-specific owners can be added below as the maintainer team grows, e.g.:
-# /src/Beutl.Engine/         @yuto-trd
-# /src/Beutl.NodeGraph/      @yuto-trd
-# /.github/workflows/        @yuto-trd

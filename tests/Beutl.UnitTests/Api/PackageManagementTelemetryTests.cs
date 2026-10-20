@@ -89,7 +89,7 @@ public sealed class PackageManagementTelemetryTests
         return new PackageManager(
             new InstalledPackageRepository(),
             new ExtensionProvider(),
-            new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry()),
+            new ContextCommandManager(new ContextCommandSettingsStore()),
             apiApplication: null!);
     }
 }

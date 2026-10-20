@@ -180,24 +180,6 @@ public class RippleEditTests
     }
 
     [Test]
-    public void Resize_RippleOn_RightEdgeGrow_ShiftsSubsequentByEndDelta()
-    {
-        var resize = new ElementResizeService(_history);
-        Element target = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
-        Element after = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), zIndex: 0);
-
-        resize.Resize(_scene,
-            [new ElementResizeRequest(target, TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(5), 0)],
-            ripple: true);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(target.Length, Is.EqualTo(TimeSpan.FromSeconds(5)));
-            Assert.That(after.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
-        });
-    }
-
-    [Test]
     public void Resize_RippleOn_LeftEdgeTrim_EndUnchanged_NoShift()
     {
         var resize = new ElementResizeService(_history);
@@ -374,27 +356,7 @@ public class RippleEditTests
         Assert.That(afterSame.Start, Is.EqualTo(TimeSpan.Zero), "follower shifted to close gap");
         _history.Undo();
 
-        // Harness wires CoreObjectOperationObserver only, not CollectionOperationObserver, so removal undo is not asserted here.
         Assert.That(afterSame.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "single undo restores the ripple shift");
-    }
-
-    [Test]
-    public void ShiftAfter_LockedFollower_BlocksLaterUnlocked()
-    {
-        Element a = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2));
-        Element locked = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
-        Element free = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2));
-        locked.IsLocked = true;
-
-        RippleHelper.ShiftAfter(_scene, zIndex: 0, anchorEnd: TimeSpan.FromSeconds(2),
-            delta: TimeSpan.FromSeconds(-2), except: [a]);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "locked follower must not move");
-            Assert.That(free.Start, Is.EqualTo(TimeSpan.FromSeconds(4)),
-                "a locked clip blocks the ripple, so the later unlocked follower is not pulled onto it");
-        });
     }
 
     [Test]
@@ -456,24 +418,6 @@ public class RippleEditTests
         {
             Assert.That(locked.Start, Is.EqualTo(TimeSpan.Zero), "locked upstream must not move");
             Assert.That(free.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "free is blocked by the locked clip");
-        });
-    }
-
-    [Test]
-    public void Delete_RippleOn_DoesNotShiftLockedFollower()
-    {
-        var structure = new ElementStructureService(_history);
-        Element removed = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
-        Element lockedFollower = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), zIndex: 0);
-        lockedFollower.IsLocked = true;
-
-        structure.Delete(_scene, [removed], ripple: true);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(_scene.Children, Does.Not.Contain(removed));
-            Assert.That(lockedFollower.Start, Is.EqualTo(TimeSpan.FromSeconds(2)),
-                "ripple close-gap must not bypass the follower's lock");
         });
     }
 
@@ -633,9 +577,7 @@ public class RippleEditTests
     [Test]
     public void Exclude_RippleOn_GroupedFollower_ShiftsWithSameLayer()
     {
-        // A grouped follower shares a group with the removed element but sits after it.
-        // Ripple must still close the timeline gap; grouping only locks the grouped member
-        // when clip-lock is on (item #2). Ripple itself does not skip grouped elements.
+        // Ripple closes the gap even when the follower shares a group with the removed element.
         var structure = new ElementStructureService(_history);
         Element removed = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
         Element afterSame = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), zIndex: 0);

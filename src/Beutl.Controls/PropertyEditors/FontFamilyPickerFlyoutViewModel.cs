@@ -7,8 +7,6 @@ using Beutl.Media;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-#nullable enable
-
 namespace Beutl.Controls.PropertyEditors;
 
 public class FontFamilyPickerFlyoutViewModel

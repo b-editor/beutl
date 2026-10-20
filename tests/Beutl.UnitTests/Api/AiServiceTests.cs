@@ -866,55 +866,33 @@ public sealed partial class AiCapabilityServiceTests
     }
 
     [Test]
-    public void ImagePreviewBudget_AcceptsTheExactByteLimitAndRejectsTheNextPayload()
+    public void ImagePreviewBudget_DoesNotLimitTheBytesOfThePreviews()
     {
+        // Together they are larger than an image upload may be; only their number is limited.
         var budget = new AiImageGenerationService.ImagePreviewBudget();
-        long half = AiRequestLimits.MaxImageUploadBytes / 2;
+        string image = new('A', checked((int)((AiRequestLimits.MaxImageUploadBytes / 2 / 3 + 1) * 4)));
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(budget.TryReserve(half), Is.True);
-            Assert.That(
-                budget.TryReserve(AiRequestLimits.MaxImageUploadBytes - half),
-                Is.True);
-            Assert.That(budget.TryReserve(1), Is.False);
+            Assert.That(budget.TryDecode(image, out byte[] first), Is.True);
+            Assert.That(budget.TryDecode(image, out byte[] second), Is.True);
+            Assert.That(first.LongLength + second.LongLength,
+                Is.GreaterThan(AiRequestLimits.MaxImageUploadBytes));
         }
     }
 
-    [TestCase("AA==", 1)]
-    [TestCase("AAA=", 2)]
-    [TestCase("AAAA", 3)]
-    [TestCase(" A\tA\r=\n= ", 1)]
-    public void ImagePreviewBudget_DecodesPaddingAndWhitespace(string image, int length)
+    // The removed length check rejected these before decoding; Convert.FromBase64String
+    // and the empty-result check still do.
+    [TestCase(" \t\r\n")]
+    [TestCase("AAA")]
+    [TestCase("A===")]
+    public void ImagePreviewBudget_PassesOverMalformedImagesWithoutCountingThem(string image)
     {
         var budget = new AiImageGenerationService.ImagePreviewBudget();
-        Assert.That(budget.TryDecode(image, out byte[] bytes), Is.True);
-        Assert.That(bytes, Has.Length.EqualTo(length));
-    }
-
-    [Test]
-    public void ImagePreviewBudget_RejectsOversizedImageWithoutDecodedAllocation()
-    {
-        var budget = new AiImageGenerationService.ImagePreviewBudget();
-        string image = new('A', checked((int)((AiRequestLimits.MaxImageUploadBytes / 3 + 1) * 4)));
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        bool accepted = budget.TryDecode(image, out byte[] bytes);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-
-        Assert.That(accepted, Is.False);
+        Assert.That(budget.TryDecode(image, out byte[] bytes), Is.False);
         Assert.That(bytes, Is.Empty);
-        Assert.That(allocated, Is.LessThan(1024 * 1024));
-        Assert.That(budget.TryDecode("AA==", out _), Is.True);
-    }
-
-    [Test]
-    public void ImagePreviewBudget_ChecksRemainingBudgetBeforeDecoding()
-    {
-        var budget = new AiImageGenerationService.ImagePreviewBudget();
-        Assert.That(budget.TryReserve(AiRequestLimits.MaxImageUploadBytes - 1), Is.True);
-        Assert.That(budget.TryDecode("AAA=", out _), Is.False);
-        Assert.That(budget.TryDecode("AA==", out _), Is.True);
-        Assert.That(budget.TryDecode("AA==", out _), Is.False);
+        for (int index = 0; index < 4; index++)
+            Assert.That(budget.TryDecode("AA==", out _), Is.True);
     }
 
     [Test]
@@ -925,22 +903,6 @@ public sealed partial class AiCapabilityServiceTests
         for (int index = 0; index < 4; index++)
             Assert.That(budget.TryDecode("AA==", out _), Is.True);
         Assert.That(budget.TryDecode("AA==", out _), Is.False);
-    }
-
-    [Test]
-    public void ImagePreviewBudget_ExhaustedCountDoesNotAllocateDecodedImage()
-    {
-        var budget = new AiImageGenerationService.ImagePreviewBudget();
-        for (int index = 0; index < 4; index++)
-            Assert.That(budget.TryReserve(1), Is.True);
-        string image = new('A', 4 * 1024 * 1024);
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        bool accepted = budget.TryDecode(image, out byte[] bytes);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-
-        Assert.That(accepted, Is.False);
-        Assert.That(bytes, Is.Empty);
-        Assert.That(allocated, Is.LessThan(1024 * 1024));
     }
 
     [Test]
@@ -1430,180 +1392,6 @@ public sealed partial class AiCapabilityServiceTests
     }
 
     [Test]
-    public async Task ModelCatalog_CustomSchemaChangeInvalidatesTheCachedShape()
-    {
-        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """
-            {
-              "operations": {
-                "vendor.video": {
-                  "models": [{ "id": "vendor/model", "isDefault": true }],
-                  "minDurationSeconds": 4,
-                  "maxDurationSeconds": 8,
-                  "resolutions": ["720p"]
-                }
-              }
-            }
-            """));
-        using var httpClient = new HttpClient(handler);
-        var extensions = new ExtensionProvider();
-        await using var app = new BeutlApiApplication(httpClient, extensions);
-        ApiTestAuthentication.SignIn(app);
-        IAiModelCatalogService service = app.GetResource<IAiModelCatalogService>();
-        var operation = new AiOperationId("vendor.video");
-
-        AiModelCatalog before = await service.GetAsync(CancellationToken.None);
-        extensions.AddExtensions(901,
-        [
-            new TestCapabilitySchemaExtension(
-                new AiOperationCapabilitySchemaRegistration(
-                    operation,
-                    AiModelCapabilitySchema.Video)),
-        ]);
-        AiModelCatalog after = await service.GetAsync(CancellationToken.None);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(before.GetCapabilitySchema(operation),
-                Is.EqualTo(AiModelCapabilitySchema.Generic));
-            Assert.That(before.ModelsFor(operation).Single().Video, Is.Null);
-            Assert.That(after.GetCapabilitySchema(operation),
-                Is.EqualTo(AiModelCapabilitySchema.Video));
-            Assert.That(after.ModelsFor(operation).Single().Video, Is.Not.Null);
-            Assert.That(handler.Requests, Has.Count.EqualTo(2));
-        }
-    }
-
-    [Test]
-    public async Task ModelCatalog_SchemaChangeBeforePublicationRemapsTheSameResponse()
-    {
-        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """
-            {
-              "operations": {
-                "vendor.image": {
-                  "models": [{ "id": "vendor/model", "isDefault": true }],
-                  "aspectRatios": ["1:1"],
-                  "maxReferenceImagesTotalBytes": 11534336
-                }
-              }
-            }
-            """));
-        using var httpClient = new HttpClient(handler);
-        var extensions = new ExtensionProvider();
-        await using var app = new BeutlApiApplication(httpClient, extensions);
-        ApiTestAuthentication.SignIn(app);
-        var service = (AiModelCatalogService)app.GetResource<IAiModelCatalogService>();
-        var operation = new AiOperationId("vendor.image");
-        service.BeforeCachePublication = () =>
-        {
-            service.BeforeCachePublication = null;
-            extensions.AddExtensions(902,
-            [
-                new TestCapabilitySchemaExtension(
-                    new AiOperationCapabilitySchemaRegistration(
-                        operation,
-                        AiModelCapabilitySchema.Image)),
-            ]);
-        };
-
-        AiModelCatalog first = await service.GetAsync(CancellationToken.None);
-        AiModelCatalog cached = await service.GetAsync(CancellationToken.None);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(first.GetCapabilitySchema(operation),
-                Is.EqualTo(AiModelCapabilitySchema.Image));
-            Assert.That(first.ModelsFor(operation).Single().Image, Is.Not.Null);
-            Assert.That(first.GetImageReferenceLimits(operation).MaxTotalBytes,
-                Is.EqualTo(11 * 1024 * 1024));
-            Assert.That(cached, Is.SameAs(first));
-            Assert.That(cached.GetImageReferenceLimits(operation).MaxTotalBytes,
-                Is.EqualTo(11 * 1024 * 1024));
-            Assert.That(handler.Requests, Has.Count.EqualTo(1));
-        }
-    }
-
-    [Test]
-    public async Task ModelCatalog_DoesNotPublishASchemaFromARolledBackExtensionBatch()
-    {
-        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """
-            {
-              "operations": {
-                "video.generate": {
-                  "models": [{ "id": "video/model", "isDefault": true }],
-                  "durationsSeconds": [4],
-                  "resolutions": ["720p"]
-                }
-              }
-            }
-            """));
-        using var httpClient = new HttpClient(handler);
-        var extensions = new ExtensionProvider();
-        await using var app = new BeutlApiApplication(httpClient, extensions);
-        ApiTestAuthentication.SignIn(app);
-        IAiModelCatalogService service = app.GetResource<IAiModelCatalogService>();
-        var observerEntered = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseObserver = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        NotifyCollectionChangedEventHandler failingObserver = (_, args) =>
-        {
-            if (args.Action != NotifyCollectionChangedAction.Add)
-                return;
-            observerEntered.TrySetResult();
-            releaseObserver.Task.GetAwaiter().GetResult();
-            throw new InvalidOperationException("Injected extension observer failure.");
-        };
-        extensions.AllExtensions.CollectionChanged += failingObserver;
-        Task<Exception?> addition = Task.Run(() =>
-        {
-            try
-            {
-                extensions.AddExtensions(903,
-                [
-                    new TestCapabilitySchemaExtension(
-                        new AiOperationCapabilitySchemaRegistration(
-                            AiOperations.VideoGeneration,
-                            AiModelCapabilitySchema.Generic,
-                            AiOperationCapabilitySchemaRegistrationMode.Replace)),
-                ]);
-                return null;
-            }
-            catch (Exception ex)
-            {
-                return ex;
-            }
-        });
-
-        try
-        {
-            await observerEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            AiModelCatalog duringProvisionalAdd = await service.GetAsync(CancellationToken.None);
-            releaseObserver.TrySetResult();
-            Exception? failure = await addition.WaitAsync(TimeSpan.FromSeconds(5));
-            AiModelCatalog afterRollback = await service.GetAsync(CancellationToken.None);
-
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(failure, Is.TypeOf<ExtensionRegistrationNotificationException>());
-                Assert.That(
-                    duringProvisionalAdd.GetCapabilitySchema(AiOperations.VideoGeneration),
-                    Is.EqualTo(AiModelCapabilitySchema.Video));
-                Assert.That(
-                    duringProvisionalAdd.ModelsFor(AiOperations.VideoGeneration).Single().Video,
-                    Is.Not.Null);
-                Assert.That(afterRollback, Is.SameAs(duringProvisionalAdd));
-                Assert.That(handler.Requests, Has.Count.EqualTo(1));
-            }
-        }
-        finally
-        {
-            releaseObserver.TrySetResult();
-            extensions.AllExtensions.CollectionChanged -= failingObserver;
-            await addition.WaitAsync(TimeSpan.FromSeconds(5));
-        }
-    }
-
-    [Test]
     public async Task ModelCatalog_DisposeDoesNotFaultAnActiveRequestOnGateRelease()
     {
         var response = new TaskCompletionSource<HttpResponseMessage>(
@@ -1650,27 +1438,45 @@ public sealed partial class AiCapabilityServiceTests
     public async Task ModelCatalog_DoesNotPublishAResponseAfterTheAccountChanges()
     {
         int fetches = 0;
-        using var handler = new RecordingHandler(_ =>
+        using var handler = new HeldResponseHandler(() =>
         {
-            fetches++;
-            return TestHttp.Json(HttpStatusCode.OK, "{ \"operations\": {} }");
+            Interlocked.Increment(ref fetches);
+            return TestHttp.Json(HttpStatusCode.OK, """
+                {
+                  "operations": {
+                    "image.generate": { "models": [{ "id": "image/model", "isDefault": true }] }
+                  }
+                }
+                """);
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         ApiTestAuthentication.SignIn(app);
         using var catalog = CatalogService(app, new StepTimeProvider());
-        catalog.BeforeCachePublication = () =>
-        {
-            catalog.BeforeCachePublication = null;
-            ApiTestAuthentication.SignIn(app);
-        };
 
-        AiModelCatalog stale = await catalog.GetAsync(CancellationToken.None);
-        await catalog.GetAsync(CancellationToken.None);
+        // GetAsync resumes on this context once the response is back, so the account changes just before publication.
+        Task<AiModelCatalog> request;
+        SynchronizationContext? previous = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(
+            new BeforeContinuationContext(() => ApiTestAuthentication.SignIn(app)));
+        try
+        {
+            request = catalog.GetAsync(CancellationToken.None);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previous);
+        }
+
+        Assert.That(request.IsCompleted, Is.False);
+        handler.Release();
+        AiModelCatalog stale = await request.WaitAsync(TimeSpan.FromMinutes(1));
+        AiModelCatalog current = await catalog.GetAsync(CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(stale, Is.SameAs(AiModelCatalog.Empty));
+            Assert.That(current.ModelsFor(AiOperations.ImageGeneration), Is.Not.Empty);
             Assert.That(fetches, Is.EqualTo(2));
         }
     }
@@ -1900,20 +1706,25 @@ public sealed partial class AiCapabilityServiceTests
             Assert.That(completed.FileId, Is.EqualTo(new AiContentId("video-file-1")));
             Assert.That(completed.ContentMetadata?.FileName, Is.EqualTo("generated-video.webm"));
             Assert.That(completed.ContentMetadata?.ContentType, Is.EqualTo("video/webm"));
-            Assert.That(completed.ContentMetadata?.GetFileExtension(".mp4", "video"), Is.EqualTo(".webm"));
+            Assert.That(completed.ContentMetadata?.GetFileExtension(), Is.EqualTo(".webm"));
             Assert.That(
-                new AiContentMetadata("generated-video", "video/mp4")
-                    .GetFileExtension(".webm", "video"),
-                Is.EqualTo(".mp4"));
+                new AiContentMetadata("generated-video", "video/webm").GetFileExtension(),
+                Is.EqualTo(".webm"));
             Assert.Throws<AiException>(() =>
-                new AiContentMetadata("payload.png", "image/png")
-                    .GetFileExtension(".mp4", "video"));
+                new AiContentMetadata("payload.png", "image/png").GetFileExtension());
             Assert.Throws<AiException>(() =>
-                new AiContentMetadata("payload.webm", "application/octet-stream")
-                    .GetFileExtension(".mp4", "video"));
+                new AiContentMetadata("payload.webm", "application/octet-stream").GetFileExtension());
             Assert.That(handler.Requests.Select(request => request.Path),
                 Does.Contain("/api/v3/ai/videos/video-job-1"));
         }
+    }
+
+    [TestCase("payload.mp-4")]
+    [TestCase("payload.mp4mp4mp4mp4")]
+    [TestCase("payload.m\u212Av")]
+    public void ContentMetadata_RejectsAnInvalidFileNameExtensionAsAiException(string fileName)
+    {
+        Assert.Throws<AiException>(() => new AiContentMetadata(fileName, null).GetFileExtension());
     }
 
     [Test]
@@ -2013,7 +1824,7 @@ public sealed partial class AiCapabilityServiceTests
                 destination,
                 CancellationToken.None));
         // Derive the accepted origin from the client so the assertion holds for
-        // both the local and production API base addresses.
+        // whichever server BEUTL_API_BASE_URL selects.
         AiContentDownload download = await service.CopyToAsync(
             new Uri(app.HttpClient.BaseAddress!, "/api/contents/file-1"),
             destination,
@@ -2085,7 +1896,7 @@ public sealed partial class AiCapabilityServiceTests
         """;
 
     private static AiModelCatalogService CatalogService(BeutlApiApplication app, TimeProvider timeProvider)
-        => new(app, EmptyCapabilitySchemas.Instance, timeProvider);
+        => new(app, timeProvider);
 
     private sealed record RecordedRequest(
         HttpMethod Method,
@@ -2197,17 +2008,36 @@ public sealed partial class AiCapabilityServiceTests
         }
     }
 
-    private sealed class EmptyCapabilitySchemas : IAiOperationCapabilitySchemaProvider
+    // Holds every response until Release, then answers on a thread-pool thread, not on the caller's context.
+    private sealed class HeldResponseHandler(Func<HttpResponseMessage> respond) : HttpMessageHandler
     {
-        public static EmptyCapabilitySchemas Instance { get; } = new();
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public event EventHandler? Changed
+        public void Release() => _release.TrySetResult();
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
         {
-            add { }
-            remove { }
+            await _release.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            HttpResponseMessage response = respond();
+            response.RequestMessage = request;
+            return response;
         }
+    }
 
-        public AiOperationCapabilitySchemaSnapshot GetSnapshot() => AiOperationCapabilitySchemaSnapshot.Empty;
+    // Runs an action before the first callback posted to it.
+    private sealed class BeforeContinuationContext(Action before) : SynchronizationContext
+    {
+        private int _ran;
+
+        public override void Post(SendOrPostCallback d, object? state)
+            => ThreadPool.QueueUserWorkItem(_ =>
+            {
+                if (Interlocked.Exchange(ref _ran, 1) == 0)
+                    before();
+                d(state);
+            });
     }
 
     // Freshness is measured, not waited for.

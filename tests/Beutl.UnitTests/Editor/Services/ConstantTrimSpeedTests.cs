@@ -7,22 +7,21 @@ using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;
-using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.Services;
 
-[TestFixture("video")]
-[TestFixture("sound")]
-[TestFixture("scene")]
+[TestFixture(nameof(SourceVideo))]
+[TestFixture(nameof(SourceSound))]
+[TestFixture(nameof(SceneSound))]
 public class ConstantTrimSpeedTests(string mediaKind)
 {
     private SceneHistoryHarness _harness = null!;
     private ElementSlipService _slip = null!;
     private ElementResizeService _resize = null!;
-    private bool _originalClamp;
+    private ClampResizeToOriginalLengthScope _clamp = null!;
 
     private Scene Scene => _harness.Scene;
     private HistoryManager History => _harness.History;
@@ -36,14 +35,13 @@ public class ConstantTrimSpeedTests(string mediaKind)
         _harness = new SceneHistoryHarness("beutl_trim_speed", duration: TimeSpan.FromSeconds(30));
         _slip = new ElementSlipService(History);
         _resize = new ElementResizeService(History);
-        _originalClamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
-        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = true;
+        _clamp = new ClampResizeToOriginalLengthScope(true);
     }
 
     [TearDown]
     public void TearDown()
     {
-        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = _originalClamp;
+        _clamp.Dispose();
         _harness.Dispose();
     }
 
@@ -86,6 +84,8 @@ public class ConstantTrimSpeedTests(string mediaKind)
         var offset = AddMedia(element, speed, 1);
         var linked = new SourceSound(); // Unknown duration, normal speed.
         element.Objects.Add(linked);
+        var slowLinked = new SourceSound { Speed = { CurrentValue = 50 } };
+        element.Objects.Add(slowLinked);
         History.Commit();
 
         bool applied = _slip.Slip(Scene, [element], TimeSpan.FromSeconds(20));
@@ -95,6 +95,7 @@ public class ConstantTrimSpeedTests(string mediaKind)
             Assert.That(applied, Is.True);
             Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
             Assert.That(linked.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedDelta)));
+            Assert.That(slowLinked.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedDelta / 2)));
         });
         int before = History.UndoCount;
         Assert.That(_slip.Slip(Scene, [element], TimeSpan.FromSeconds(1)), Is.False);
@@ -188,8 +189,10 @@ public class ConstantTrimSpeedTests(string mediaKind)
         Element? middle = slide ? AddElement(2, 2) : null;
         double backStart = slide ? 4 : 2;
         Element back = AddElement(backStart, 20);
+        var fastBack = new SourceSound { Speed = { CurrentValue = 200 } };
+        back.Objects.Add(fastBack);
 
-        var bounds = _resize.GetTrimDeltaBounds(Scene, [new ElementTrimPair(front, back)]);
+        var bounds = ElementResizeService.CreateTrimConstraints(Scene, [new ElementTrimPair(front, back)]);
         Assert.That(bounds.Max, Is.EqualTo(TimeSpan.FromSeconds(expectedLength - 2)));
 
         bool applied = Trim(front, middle, back, 15);
@@ -199,6 +202,7 @@ public class ConstantTrimSpeedTests(string mediaKind)
             Assert.That(applied, Is.True);
             Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(expectedLength)));
             Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(fastBack.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds((expectedLength - 2) * 2)));
             Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(backStart + expectedLength - 2)));
             Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(22 - expectedLength)));
         });
@@ -218,7 +222,7 @@ public class ConstantTrimSpeedTests(string mediaKind)
         Element back = AddElement(backStart, 2);
         var offset = AddMedia(back, speed, 1);
 
-        var bounds = _resize.GetTrimDeltaBounds(Scene, [new ElementTrimPair(front, back)]);
+        var bounds = ElementResizeService.CreateTrimConstraints(Scene, [new ElementTrimPair(front, back)]);
         Assert.That(bounds.Min, Is.EqualTo(TimeSpan.FromSeconds(expectedDelta)));
 
         bool applied = Trim(front, middle, back, -10);
@@ -283,7 +287,7 @@ public class ConstantTrimSpeedTests(string mediaKind)
         Element second = AddElement(1, 1, 1);
         var animation = AnimateSpeed(100, 200);
         var secondOffset = AddMedia(second, baseSpeed, 1, animation);
-        using var playback = new SpeedIntegrator(mediaKind == "video" ? 60 : 44100);
+        using var playback = new SpeedIntegrator(mediaKind == nameof(SourceVideo) ? 60 : 44100);
         playback.EnsureCache(animation);
         double expected = 1 + playback.Integrate(TimeSpan.FromSeconds(1), animation).TotalSeconds;
         History.Commit();
@@ -318,13 +322,13 @@ public class ConstantTrimSpeedTests(string mediaKind)
         Element back = AddElement(backStart, 2);
         var animation = AnimateSpeed(100, 200);
         var offset = AddMedia(animateFront ? front : back, 100, 1, animation);
-        using var playback = new SpeedIntegrator(mediaKind == "video" ? 60 : 44100);
+        using var playback = new SpeedIntegrator(mediaKind == nameof(SourceVideo) ? 60 : 44100);
         playback.EnsureCache(animation);
         double expected = animateFront ? 1 : 1 + playback.Integrate(TimeSpan.FromSeconds(1), animation).TotalSeconds;
         History.Commit();
         int before = History.UndoCount;
 
-        var bounds = _resize.GetTrimDeltaBounds(Scene, [new ElementTrimPair(front, back)]);
+        var bounds = ElementResizeService.CreateTrimConstraints(Scene, [new ElementTrimPair(front, back)]);
         bool applied = Trim(front, middle, back, 1);
 
         Assert.Multiple(() =>
@@ -432,12 +436,11 @@ public class ConstantTrimSpeedTests(string mediaKind)
             : Trim(front, middle, back, 1);
 
         // The video is consumed by drawable Flow; audio never enters that flow.
-        bool expectedApplied = true;
-        double geometryDelta = expectedApplied && operation != "Slip" ? 1 : 0;
+        double geometryDelta = operation != "Slip" ? 1 : 0;
         Assert.Multiple(() =>
         {
-            Assert.That(applied, Is.EqualTo(expectedApplied));
-            Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(mediaKind == "video" ? 1.5 : 2)));
+            Assert.That(applied, Is.True);
+            Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(mediaKind == nameof(SourceVideo) ? 1.5 : 2)));
             Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2 + geometryDelta)));
             Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(backStart + geometryDelta)));
             Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2 - geometryDelta)));
@@ -501,43 +504,5 @@ public class ConstantTrimSpeedTests(string mediaKind)
 
     private IProperty<TimeSpan> AddMedia(
         Element element, float speed, double offsetSeconds, KeyFrameAnimation<float>? animation = null)
-    {
-        EngineObject media;
-        IProperty<TimeSpan> offset;
-        if (mediaKind == "video")
-        {
-            var source = new VideoSource();
-            source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 180)));
-            var video = new SourceVideo { Source = { CurrentValue = source }, Speed = { CurrentValue = speed } };
-            video.Speed.Animation = animation;
-            media = video;
-            offset = video.OffsetPosition;
-        }
-        else
-        {
-            Sound sound;
-            if (mediaKind == "sound")
-            {
-                var source = new SoundSource();
-                source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 6)));
-                sound = new SourceSound { Source = { CurrentValue = source } };
-            }
-            else
-            {
-                sound = new SceneSound
-                {
-                    ReferencedScene = { CurrentValue = new Scene { Duration = TimeSpan.FromSeconds(6) } }
-                };
-            }
-
-            sound.Speed.CurrentValue = speed;
-            sound.Speed.Animation = animation;
-            media = sound;
-            offset = sound.OffsetPosition;
-        }
-
-        offset.CurrentValue = TimeSpan.FromSeconds(offsetSeconds);
-        element.Objects.Add(media);
-        return offset;
-    }
+        => TrimTestMedia.AddMedia(element, mediaKind, speed, offsetSeconds, durationSeconds: 6, animation).Offset;
 }

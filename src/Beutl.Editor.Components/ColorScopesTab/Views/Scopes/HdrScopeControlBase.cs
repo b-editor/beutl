@@ -2,7 +2,7 @@
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Avalonia.Threading;
+using Beutl.Editor.Components.Helpers;
 
 namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
@@ -14,13 +14,11 @@ public abstract class HdrScopeControlBase : ScopeControlBase
 
     private float _hdrRange = 1.0f;
 
-    // Drag state
     private bool _isDragging;
     private Point _dragStartPosition;
     private float _dragStartHdrRange;
     private Cursor? _previousCursor;
 
-    // Overlay state
     private string? _overlayText;
     private CancellationTokenSource? _overlayHideCts;
 
@@ -65,7 +63,7 @@ public abstract class HdrScopeControlBase : ScopeControlBase
 
         _previousCursor = Cursor;
         Cursor = DragAxis == Orientation.Vertical
-            ? new Cursor(StandardCursorType.SizeNorthSouth)
+            ? Cursors.SizeNorthSouth
             : new Cursor(StandardCursorType.SizeWestEast);
 
         ShowOverlay();
@@ -162,13 +160,11 @@ public abstract class HdrScopeControlBase : ScopeControlBase
         double x = bounds.Width - bgWidth - 4;
         double y = 4;
 
-        // Background
         context.FillRectangle(
             new SolidColorBrush(Color.FromArgb(160, 0, 0, 0)),
             new Rect(x, y, bgWidth, bgHeight),
             4);
 
-        // Text
         context.DrawText(formattedText, new Point(x + padding, y + padding));
     }
 
@@ -202,11 +198,8 @@ public abstract class HdrScopeControlBase : ScopeControlBase
         try
         {
             await Task.Delay(1500, ct);
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                _overlayText = null;
-                InvalidateVisual();
-            });
+            _overlayText = null;
+            InvalidateVisual();
         }
         catch (OperationCanceledException)
         {

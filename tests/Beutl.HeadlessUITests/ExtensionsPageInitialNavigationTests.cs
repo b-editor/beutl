@@ -13,10 +13,8 @@ using NUnit.Framework;
 
 namespace Beutl.HeadlessUITests;
 
-// Guards that the extensions dialog shows the first tab's content immediately on open, without the
-// user having to click a tab. Regression: the initial frame.Navigate ran in OnAttachedToVisualTree,
-// before the child Frame's template was applied, so the first page never rendered until a tab switch
-// retried navigation from a ready Frame.
+// Guards that the dialog renders the first tab on open; navigating before the Frame's template was
+// applied left it blank until a tab switch.
 [TestFixture]
 public class ExtensionsPageInitialNavigationTests
 {

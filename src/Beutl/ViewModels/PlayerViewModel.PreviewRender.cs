@@ -38,11 +38,6 @@ public partial class PlayerViewModel
         UpdatePreviewRenderError(null, () => _sessionGuard.Owns(generation));
     }
 
-    internal void SetPreviewRenderError(string? message)
-    {
-        UpdatePreviewRenderError(message, static () => true);
-    }
-
     internal bool ApplyPlaybackRenderFailure(
         BufferedPlayer.RenderFailure failure,
         int rate,
@@ -94,7 +89,7 @@ public partial class PlayerViewModel
         }
     }
 
-    private void DrawBoundaries(Renderer renderer, SKCanvas canvas, Size canvasSize, bool recalculate = false)
+    private void DrawBoundaries(Renderer renderer, SKCanvas canvas, Size canvasSize)
     {
         int? selected = _editorSelection.SelectedLayerNumber.Value;
         if (selected.HasValue)
@@ -105,10 +100,7 @@ public partial class PlayerViewModel
             if (strokeScale < 1)
                 strokeScale = 1;
 
-            // フレームキャッシュを使う場合はBoundsを再計算する必要がある
-            Rect[] boundary = recalculate
-                ? renderer.RecalculateBoundaries(selected.Value)
-                : renderer.GetBoundaries(selected.Value);
+            Rect[] boundary = renderer.RecalculateBoundaries(selected.Value);
             if (boundary.Length > 0)
             {
                 using var paint = new SKPaint
@@ -188,10 +180,8 @@ public partial class PlayerViewModel
         if (token.IsCancellationRequested)
             return;
 
-        // Snapshot the onion-skin config here on the UI thread (RenderOnRenderThread is
-        // invoked via Dispatcher.UIThread). Reading these CoreProperty getters inside the
-        // render-thread dispatch below would race the UI-thread write-back subscriptions
-        // against CoreObject's non-synchronized value dictionary.
+        // Read the onion-skin settings here on the UI thread; reading them on the render thread
+        // would race their UI-thread writes.
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
         bool onionEnabled = editorConfig.IsOnionSkinEnabled;
         int onionPrevCount = editorConfig.OnionSkinPrevCount;
@@ -329,19 +319,10 @@ public partial class PlayerViewModel
             {
                 foreach (var sample in onionSamples)
                 {
-                    // A newer QueueRender has superseded this pass (e.g. the user
-                    // kept scrubbing); stop re-rendering samples instead of grinding
-                    // through all of them. Break (not return) so the playhead restore
-                    // and boundary draw below still run, leaving the renderer on the
-                    // current frame; the partial composite is replaced by the queued render.
+                    // Superseded by a newer render: stop sampling, but break so the playhead
+                    // restore and boundary draw below still run.
                     if (token.IsCancellationRequested)
                         break;
-
-                    // Belt-and-suspenders for the mixed case (one side opaque, the
-                    // other at zero opacity): skip the render/snapshot/blend for any
-                    // sample that would composite nothing.
-                    if (sample.Alpha <= 0f)
-                        continue;
 
                     var compFrame = renderer.Compositor.EvaluateGraphics(sample.Time);
                     renderer.Render(compFrame);
@@ -368,12 +349,10 @@ public partial class PlayerViewModel
                 // geometry, not the last onion sample's.
                 renderer.UpdateFrame(renderer.Compositor.EvaluateGraphics(time));
 
-                DrawBoundaries(renderer, canvas, new(currentBitmap.Width, currentBitmap.Height), true);
+                DrawBoundaries(renderer, canvas, new(currentBitmap.Width, currentBitmap.Height));
             }
 
-            // Ownership moves to the returned Ref here; this is the last statement in the
-            // try, so the catch below only ever disposes currentBitmap on a path
-            // before this point (no double-dispose).
+            // Last in the try, so the catch never disposes the bitmap the returned Ref owns.
             return Ref<Bitmap>.Create(currentBitmap);
         }
         catch
@@ -413,7 +392,7 @@ public partial class PlayerViewModel
 
             using (var canvas = new SKCanvas(bitmap.SKBitmap))
             {
-                DrawBoundaries(renderer, canvas, new(bitmap.Width, bitmap.Height), true);
+                DrawBoundaries(renderer, canvas, new(bitmap.Width, bitmap.Height));
             }
 
             return bitmapRef;
@@ -436,7 +415,7 @@ public partial class PlayerViewModel
 
         using (var canvas = new SKCanvas(bitmap.SKBitmap))
         {
-            DrawBoundaries(renderer, canvas, new(bitmap.Width, bitmap.Height), true);
+            DrawBoundaries(renderer, canvas, new(bitmap.Width, bitmap.Height));
         }
 
         return bitmapRef;

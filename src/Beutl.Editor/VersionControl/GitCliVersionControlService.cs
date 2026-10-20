@@ -43,24 +43,15 @@ internal sealed partial class GitCliVersionControlService :
     private static readonly string[] s_lfsHookNames = ["pre-push", "post-checkout", "post-commit", "post-merge"];
     private const string ManagedLfsBeginMarker = "# BEGIN BEUTL MANAGED LFS";
     private const string ManagedLfsEndMarker = "# END BEUTL MANAGED LFS";
-    private const int MaxHygieneWriteAttempts = 3;
     private const int MaxIgnoredProjectFileOutputBytes = 64 * 1024;
     private const int MaxLfsAttributeOutputBytes = 256 * 1024;
     private const int MaxLfsFetchOutputBytes = 64 * 1024;
     private const int MaxLfsObjectListOutputBytes = 4 * 1024 * 1024;
     private const int MaxLfsPointerCandidates = 256;
 
-    private static readonly string[] s_gitIgnoreLines =
-    [
-        "**/.beutl/",
-        "*.[tT][mM][pP]",
-    ];
-
     private static readonly string[] s_textAttributeLines =
     [
-        "*.[bB][eE][pP] text eol=lf",
-        "*.[sS][cC][eE][nN][eE] text eol=lf",
-        "*.[bB][eE][lL][mM] text eol=lf",
+        .. ProjectPathRules.DocumentAttributeLines,
         // The media fingerprints a scene keeps in its folder; without a slash, the pattern matches in every folder.
         $"{Beutl.ProjectSystem.MediaFingerprintFile.FileName} text eol=lf",
         ".gitignore text eol=lf",
@@ -127,21 +118,13 @@ internal sealed partial class GitCliVersionControlService :
     private static readonly string[] s_lfsAttributeLines =
         s_supportedMediaExtensions
             .Select(static extension =>
-                $"**/*{CreateCaseInsensitiveGlob(extension)} "
+                $"**/*{ProjectPathRules.CreateCaseInsensitiveGlob(extension)} "
                 + "filter=lfs diff=lfs merge=lfs -text")
             .ToArray();
 
     private static readonly HashSet<string> s_mediaExtensions = new(
         s_supportedMediaExtensions,
         StringComparer.OrdinalIgnoreCase);
-
-    private const string TemporaryFilePathspecSuffix = "**/*.[tT][mM][pP]";
-
-    private static readonly string[] s_ignoredOptionalProjectPathspecSuffixes =
-    [
-        "**/.[bB][eE][uU][tT][lL]/**",
-        TemporaryFilePathspecSuffix,
-    ];
 
     private static readonly string[] s_repositoryOperationRefs =
     [
@@ -153,27 +136,6 @@ internal sealed partial class GitCliVersionControlService :
         "sequencer",
     ];
 
-    private static string CreateCaseInsensitiveGlob(string value)
-    {
-        var builder = new StringBuilder(value.Length * 4);
-        foreach (char character in value)
-        {
-            if (character is >= 'a' and <= 'z')
-            {
-                builder.Append('[')
-                    .Append(character)
-                    .Append(char.ToUpperInvariant(character))
-                    .Append(']');
-            }
-            else
-            {
-                builder.Append(character);
-            }
-        }
-
-        return builder.ToString();
-    }
-
     private readonly GitInstallationLocator _installationLocator;
     private readonly Func<string, IGitCliRunner> _runnerFactory;
     private readonly Func<bool> _isWorktreeMutationAllowed;
@@ -181,18 +143,17 @@ internal sealed partial class GitCliVersionControlService :
     // open apart from a machine where LFS was never on.
     private bool? _lastLfsRequested;
     private bool _hygieneDeferred;
+    // An empty ignored-files listing is not repeated until the project opens again.
+    private bool _ignoredProjectFilesListedEmpty;
     private readonly Func<VersionControlPolicyNotice, CancellationToken, Task>? _policyNoticeSink;
     private readonly Func<CancellationToken, Task<GitIdentity?>>? _identityRequest;
-    private readonly Func<string, CancellationToken, Task>? _beforeHygieneFileReplace;
-    private readonly Func<string, CancellationToken, Task>? _beforeFileCommit;
-    private readonly Func<string, CancellationToken, Task>? _afterFileExchange;
-    private readonly Func<string, bool> _deleteVerifiedHygieneFile;
-    private readonly Func<string, bool> _deleteOwnedLocalConfigFile;
     private readonly Action<Action> _statusNotificationScheduler;
     private readonly Action<Action> _lockNotificationScheduler;
     private readonly ILogger _logger;
     private readonly bool _createWatcherWhenRepositoryAvailable;
     private readonly SemaphoreSlim _operationGate = new(1, 1);
+    // Stops the watcher's status read, which no caller can cancel, once retirement starts.
+    private readonly CancellationTokenSource _retirementCancellation = new();
     private readonly object _lifetimeSync = new();
     private readonly object _runtimeSync = new();
     private readonly ConcurrentQueue<WorkspaceStatus> _statusNotifications = new();
@@ -218,17 +179,12 @@ internal sealed partial class GitCliVersionControlService :
         : this(
             installationLocator,
             repository,
-            repository is null ? null : new RepositoryWatcher(repository),
+            watcher: null,
             static gitPath => new GitCliRunner(gitPath),
             createWatcherWhenRepositoryAvailable: true,
             isWorktreeMutationAllowed: isWorktreeMutationAllowed,
             policyNoticeSink: policyNoticeSink,
             identityRequest: identityRequest,
-            beforeHygieneFileReplace: null,
-            beforeFileCommit: null,
-            afterFileExchange: null,
-            deleteVerifiedHygieneFile: null,
-            deleteOwnedLocalConfigFile: null,
             statusNotificationScheduler: null,
             lockNotificationScheduler: null,
             logger: null)
@@ -241,11 +197,6 @@ internal sealed partial class GitCliVersionControlService :
         RepositoryWatcher? watcher,
         Func<string, IGitCliRunner> runnerFactory,
         ILogger? logger = null,
-        Func<string, CancellationToken, Task>? beforeHygieneFileReplace = null,
-        Func<string, CancellationToken, Task>? beforeFileCommit = null,
-        Func<string, CancellationToken, Task>? afterFileExchange = null,
-        Func<string, bool>? deleteVerifiedHygieneFile = null,
-        Func<string, bool>? deleteOwnedLocalConfigFile = null,
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink = null,
         Action<Action>? statusNotificationScheduler = null,
         Action<Action>? lockNotificationScheduler = null,
@@ -260,11 +211,6 @@ internal sealed partial class GitCliVersionControlService :
             isWorktreeMutationAllowed: isWorktreeMutationAllowed ?? (static () => true),
             policyNoticeSink,
             identityRequest: identityRequest,
-            beforeHygieneFileReplace: beforeHygieneFileReplace,
-            beforeFileCommit: beforeFileCommit,
-            afterFileExchange: afterFileExchange,
-            deleteVerifiedHygieneFile: deleteVerifiedHygieneFile,
-            deleteOwnedLocalConfigFile: deleteOwnedLocalConfigFile,
             statusNotificationScheduler: statusNotificationScheduler,
             lockNotificationScheduler: lockNotificationScheduler,
             logger: logger)
@@ -280,11 +226,6 @@ internal sealed partial class GitCliVersionControlService :
         Func<bool> isWorktreeMutationAllowed,
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink,
         Func<CancellationToken, Task<GitIdentity?>>? identityRequest,
-        Func<string, CancellationToken, Task>? beforeHygieneFileReplace,
-        Func<string, CancellationToken, Task>? beforeFileCommit,
-        Func<string, CancellationToken, Task>? afterFileExchange,
-        Func<string, bool>? deleteVerifiedHygieneFile,
-        Func<string, bool>? deleteOwnedLocalConfigFile,
         Action<Action>? statusNotificationScheduler,
         Action<Action>? lockNotificationScheduler,
         ILogger? logger)
@@ -306,13 +247,6 @@ internal sealed partial class GitCliVersionControlService :
                                          nameof(isWorktreeMutationAllowed));
         _policyNoticeSink = policyNoticeSink;
         _identityRequest = identityRequest;
-        _beforeHygieneFileReplace = beforeHygieneFileReplace;
-        _beforeFileCommit = beforeFileCommit;
-        _afterFileExchange = afterFileExchange;
-        _deleteVerifiedHygieneFile = deleteVerifiedHygieneFile
-                                     ?? TryDeleteVerifiedHygieneFile;
-        _deleteOwnedLocalConfigFile = deleteOwnedLocalConfigFile
-                                      ?? DeleteOwnedLocalConfigFile;
         _statusNotificationScheduler = statusNotificationScheduler ?? QueueOnThreadPool;
         _lockNotificationScheduler = lockNotificationScheduler ?? QueueOnThreadPool;
         _logger = logger ?? Log.CreateLogger<GitCliVersionControlService>();
@@ -321,6 +255,10 @@ internal sealed partial class GitCliVersionControlService :
         {
             _watcher.Changed += OnRepositoryChanged;
         }
+        else
+        {
+            TryEnsureWatcher();
+        }
 
         _installationLocator.Config.ConfigurationChanged += OnVersionControlConfigChanged;
     }
@@ -328,6 +266,8 @@ internal sealed partial class GitCliVersionControlService :
     public RepositoryInfo? Repository { get; private set; }
 
     public RepositoryLockInfo? RecoverableLock { get; private set; }
+
+    public Exception? RepositoryWatcherFailure { get; private set; }
 
     public event EventHandler<WorkspaceStatus>? StatusChanged;
 
@@ -496,19 +436,6 @@ internal sealed partial class GitCliVersionControlService :
             cancellationToken);
     }
 
-    public Task<GitIdentity?> GetIdentityAsync(CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        return RunSerializedAsync(
-            async () =>
-            {
-                RepositoryInfo repository = GetRepository();
-                IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
-                return await GetIdentityCoreAsync(repository, runner, cancellationToken).ConfigureAwait(false);
-            },
-            cancellationToken);
-    }
-
     public Task SetLocalIdentityAsync(
         GitIdentity identity,
         CancellationToken cancellationToken)
@@ -529,35 +456,6 @@ internal sealed partial class GitCliVersionControlService :
                         identity,
                         cancellationToken)
                     .ConfigureAwait(false);
-            },
-            cancellationToken);
-    }
-
-    public Task<bool> RemoveRecoverableLockAsync(
-        RepositoryLockInfo expectedLock,
-        CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        ArgumentNullException.ThrowIfNull(expectedLock);
-        return RunSerializedAsync(
-            async () =>
-            {
-                RepositoryInfo repository = GetRepository();
-                IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken)
-                    .ConfigureAwait(false);
-                RepositoryLockInfo? lockInfo = RecoverableLock;
-                if (!ReferenceEquals(lockInfo, expectedLock))
-                {
-                    return false;
-                }
-
-                bool removed = runner.RemoveRecoverableRepositoryLock(repository, expectedLock);
-                if (removed)
-                {
-                    RecoverableLock = null;
-                }
-
-                return removed;
             },
             cancellationToken);
     }
@@ -607,6 +505,7 @@ internal sealed partial class GitCliVersionControlService :
         ProjectVersionControlFinalSnapshot? finalSnapshot)
     {
         await Task.Yield();
+        _retirementCancellation.Cancel();
         await _operationGate.WaitAsync().ConfigureAwait(false);
         try
         {
@@ -708,7 +607,7 @@ internal sealed partial class GitCliVersionControlService :
                         reservedPaths,
                         cancellationToken)
                     .ConfigureAwait(false);
-                await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+                await TryQueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
                 return true;
             },
             cancellationToken);

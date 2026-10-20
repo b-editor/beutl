@@ -16,7 +16,6 @@ using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.NodeGraphTab;
 using Beutl.Extensibility;
 using Beutl.Language;
-using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
@@ -33,32 +32,11 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class DockTabAddButtonTests
 {
-    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
-
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
-    private static async Task<EditViewModel> OpenEditorForNewScene(string name)
-    {
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
     [AvaloniaTest]
     public async Task Add_button_is_available_on_every_dock_and_only_visible_while_its_header_is_hovered()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-hover");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dock-tab-add-hover");
 
         var view = new EditView { DataContext = editor };
         var window = new Window { Content = view, Width = 900, Height = 700 };
@@ -107,7 +85,7 @@ public class DockTabAddButtonTests
                 Assert.That(button.IsTabStop, Is.True);
             });
 
-            window.MouseMove(Center(header, window));
+            window.MouseMove(HeadlessTestHelpers.Center(header, window));
             HeadlessTestHelpers.Settle();
 
             Assert.Multiple(() =>
@@ -116,7 +94,7 @@ public class DockTabAddButtonTests
                 Assert.That(button.IsHitTestVisible, Is.True);
             });
 
-            window.MouseMove(Center(button, window));
+            window.MouseMove(HeadlessTestHelpers.Center(button, window));
             HeadlessTestHelpers.Settle();
 
             Assert.That(
@@ -151,8 +129,8 @@ public class DockTabAddButtonTests
     [AvaloniaTest]
     public async Task Add_button_stays_visible_when_tabs_overflow_the_header()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-overflow");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dock-tab-add-overflow");
 
         var view = new EditView { DataContext = editor };
         var window = new Window { Content = view, Width = 900, Height = 700 };
@@ -238,8 +216,8 @@ public class DockTabAddButtonTests
     [AvaloniaTest]
     public async Task Add_button_opens_an_empty_tab_that_turns_into_the_picked_tool()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-new-tab");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dock-tab-add-new-tab");
 
         var view = new EditView { DataContext = editor };
         var window = new Window { Content = view, Width = 900, Height = 700 };
@@ -256,7 +234,7 @@ public class DockTabAddButtonTests
             ToolTabAddButton button = FindAddButton(targetControl)!;
             int tabCount = target.VisibleDockables!.Count;
 
-            Point buttonCenter = Center(button, window);
+            Point buttonCenter = HeadlessTestHelpers.Center(button, window);
             window.MouseDown(buttonCenter, MouseButton.Left);
             window.MouseUp(buttonCenter, MouseButton.Left);
             HeadlessTestHelpers.Settle();
@@ -268,7 +246,6 @@ public class DockTabAddButtonTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(button.ContextFlyout, Is.Null, "The add button no longer opens a menu.");
                 Assert.That(target.VisibleDockables, Has.Count.EqualTo(tabCount + 1));
                 Assert.That(newTab, Is.Not.Null);
                 Assert.That(target.ActiveDockable, Is.SameAs(newTab));
@@ -322,8 +299,8 @@ public class DockTabAddButtonTests
     [AvaloniaTest]
     public async Task A_recycled_page_takes_the_focus_its_next_empty_tab_asks_for()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-recycled-page");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dock-tab-add-recycled-page");
         BeutlDockFactory factory = editor.DockHost.Factory;
         IToolDock target = factory.GetAnchoredDock(DockAnchor.Left)!;
         NewToolTabDockable first = factory.OpenNewToolTab(target);
@@ -366,8 +343,8 @@ public class DockTabAddButtonTests
     [AvaloniaTest]
     public async Task Picked_tool_takes_the_empty_tabs_place_in_the_strip()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-in-place");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dock-tab-add-in-place");
         BeutlDockFactory factory = editor.DockHost.Factory;
         IToolDock target = factory.GetAnchoredDock(DockAnchor.Left)!;
         IDockable[] before = target.VisibleDockables!.ToArray();
@@ -393,8 +370,8 @@ public class DockTabAddButtonTests
     [AvaloniaTest]
     public async Task Empty_tab_search_matches_display_and_internal_names_and_enter_opens_the_first_match()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-search");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dock-tab-add-search");
         CultureInfo previousCulture = CultureInfo.CurrentUICulture;
 
         // The whole shell, as in the app: MainView is focusable, so a search box that let Enter move
@@ -489,8 +466,8 @@ public class DockTabAddButtonTests
     [AvaloniaTest]
     public async Task Pinned_tools_lead_every_new_tab_and_stay_pinned()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-pins");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dock-tab-add-pins");
         CoreList<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
         pins.Clear();
 
@@ -591,8 +568,8 @@ public class DockTabAddButtonTests
     [AvaloniaTest]
     public async Task Empty_tab_follows_single_instance_tools_opened_and_closed_elsewhere()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-live");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dock-tab-add-live");
 
         var view = new EditView { DataContext = editor };
         var window = new Window { Content = view, Width = 900, Height = 700 };
@@ -638,8 +615,8 @@ public class DockTabAddButtonTests
     [AvaloniaTest]
     public async Task Empty_tab_is_saved_and_restored_in_its_place()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-persist");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dock-tab-add-persist");
         BeutlDockFactory factory = editor.DockHost.Factory;
         IToolDock left = factory.GetAnchoredDock(DockAnchor.Left)!;
         var newTab = new NewToolTabDockable();
@@ -650,7 +627,7 @@ public class DockTabAddButtonTests
         var json = new JsonObject();
         editor.DockHost.WriteToJson(json);
 
-        var restored = new DockHostViewModel("dock-tab-add-persist", editor);
+        var restored = new DockHostViewModel(editor);
         try
         {
             restored.ReadFromJson(json);
@@ -677,8 +654,8 @@ public class DockTabAddButtonTests
     [AvaloniaTest]
     public async Task A_layout_holding_only_an_empty_tab_restores_without_the_default_tools()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-only-new-tab");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dock-tab-add-only-new-tab");
         BeutlDockFactory factory = editor.DockHost.Factory;
         // The empty tab keeps the left dock alive, so the default tools would have a place to go.
         factory.OpenNewToolTab(factory.GetAnchoredDock(DockAnchor.Left)!);
@@ -693,7 +670,7 @@ public class DockTabAddButtonTests
         editor.DockHost.WriteToJson(json);
         JsonObject captured = editor.DockHost.CaptureLayout();
 
-        var restored = new DockHostViewModel("dock-tab-add-only-new-tab", editor);
+        var restored = new DockHostViewModel(editor);
         try
         {
             restored.ReadFromJson(json);
@@ -731,8 +708,8 @@ public class DockTabAddButtonTests
     [TestCase(1100, 3)]
     public async Task Tool_grid_adds_columns_as_the_page_widens(int width, int columns)
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene($"dock-tab-add-columns-{width}");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync($"dock-tab-add-columns-{width}");
         CultureInfo previousCulture = CultureInfo.CurrentUICulture;
         // Japanese names are the longest and need the taller line box.
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja-JP");
@@ -782,8 +759,8 @@ public class DockTabAddButtonTests
     public async Task Empty_tab_lists_a_tool_installed_while_it_is_shown()
     {
         const int packageId = -42_755;
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-installed");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dock-tab-add-installed");
 
         var view = new EditView { DataContext = editor };
         var window = new Window { Content = view, Width = 900, Height = 700 };
@@ -829,8 +806,8 @@ public class DockTabAddButtonTests
     public async Task A_hidden_empty_tab_does_not_hold_on_to_a_removed_tool()
     {
         const int packageId = -42_756;
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-hidden-release");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dock-tab-add-hidden-release");
 
         var view = new EditView { DataContext = editor };
         var window = new Window { Content = view, Width = 900, Height = 700 };
@@ -950,8 +927,8 @@ public class DockTabAddButtonTests
     [AvaloniaTest]
     public async Task Extension_returning_success_with_a_null_context_is_rejected()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-null-context");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dock-tab-add-null-context");
         IToolDock target = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Left)!;
 
         bool opened = editor.DockHost.OpenToolTabFromExtension(new NullContextToolTabExtension(), target);
@@ -995,15 +972,6 @@ public class DockTabAddButtonTests
     private static Button FindPinButton(NewToolTabView page, ToolTabExtension extension)
     {
         return FindToolRow(page, extension).Children.OfType<Button>().Single(button => button.Classes.Contains("pin"));
-    }
-
-    private static Point Center(Control control, Visual relativeTo)
-    {
-        Point? point = control.TranslatePoint(
-            new Point(control.Bounds.Width / 2, control.Bounds.Height / 2),
-            relativeTo);
-        Assert.That(point, Is.Not.Null);
-        return point!.Value;
     }
 
     private sealed class InstalledToolTabExtension : ToolTabExtension

@@ -1,12 +1,8 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Linq;
-using System.Reflection;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
-using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Beutl.Extensibility;
@@ -29,14 +25,10 @@ public class EditorSwitchMenuTests
     {
         await TestReset.ResetShellAsync();
         string name = "switch-fingerprints-" + Guid.NewGuid().ToString("N");
-        string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(directory);
-        var project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, directory))!;
-        TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().Single());
+        var editor = await TestShell.OpenNewSceneEditorAsync(name);
         var tab = TestShell.Editor.SelectedTabItem.Value!;
-        var editor = (Beutl.ViewModels.EditViewModel)tab.Context.Value;
         await editor.WaitForMediaFingerprintsAsync();
-        string path = Path.Combine(directory, "large-image.png");
+        string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, name, "large-image.png");
         var imageSource = new Beutl.Media.Source.ImageSource(); imageSource.ReadFrom(new Uri(path));
         var started = new TaskCompletionSource(); var release = new TaskCompletionSource();
         using (editor.HistoryManager.SuppressRecording())
@@ -50,13 +42,13 @@ public class EditorSwitchMenuTests
             started.TrySetResult(); await release.Task.WaitAsync(token);
             scene.SetMediaFingerprints(new Dictionary<string, MediaFileFingerprint>(scene.MediaFingerprints)
             {
-                [new Uri(path).AbsoluteUri] = new MediaFileFingerprint(42, 123, "captured-before-dispose"),
+                [new Uri(path).AbsoluteUri] = new MediaFileFingerprint(42, "captured-before-dispose"),
             });
         };
         try
         {
             editor.ScheduleMediaFingerprints(); await started.Task;
-            Task switching = ExtensionMenuActions.SwitchEditorAsync(TestShell.MainViewModel, tab, new ReplacementEditorExtension());
+            Task switching = TestShell.MainViewModel.SwitchEditorAsync(tab, new ReplacementEditorExtension());
             Assert.That(switching.IsCompleted, Is.False);
             Assert.That(editor.IsDisposingOrDisposed, Is.False);
             release.SetResult(); await switching;
@@ -88,13 +80,14 @@ public class EditorSwitchMenuTests
         var tab = new EditorTabItem(original);
         var replacement = new ReplacementEditorExtension();
         var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var notifications = new CaptureNotificationHandler(completed);
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
         Action? closeMenu = null;
         TestShell.Editor.TabItems.Add(tab);
         TestShell.Editor.SelectedTabItem.Value = tab;
         TestShell.Extensions.AddExtensions(packageId, [replacement]);
-        NotificationService.Handler = notifications;
+        using var notifications = new NotificationCapture(notification =>
+        {
+            if (notification.Title == MessageStrings.UnableToSaveFile) completed.TrySetResult();
+        });
         using IDisposable subscription = tab.Context.Subscribe(context =>
         {
             if (!ReferenceEquals(context, original)) completed.TrySetResult();
@@ -114,8 +107,7 @@ public class EditorSwitchMenuTests
             });
 
             original.SaveCompletion.SetResult(saveSucceeds);
-            // Both a replacement and a failure notification complete this signal, so the old
-            // behavior fails on the preserved-context assertions rather than a timeout.
+            // Either a replacement or a failure notification completes this signal.
             await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.Multiple(() =>
@@ -124,17 +116,15 @@ public class EditorSwitchMenuTests
                     Is.SameAs(saveSucceeds ? replacement.CreatedContext : original));
                 Assert.That(original.DisposeCalls, Is.EqualTo(saveSucceeds ? 1 : 0));
                 Assert.That(replacement.CreateCalls, Is.EqualTo(saveSucceeds ? 1 : 0));
-                Assert.That(notifications.Items, Has.Count.EqualTo(saveSucceeds ? 0 : 1));
-                if (!saveSucceeds && notifications.Items.Count == 1)
+                Assert.That(notifications.All, Has.Count.EqualTo(saveSucceeds ? 0 : 1));
+                if (!saveSucceeds && notifications.All.Count == 1)
                 {
-                    Assert.That(notifications.Items[0].Type, Is.EqualTo(NotificationType.Error));
-                    Assert.That(notifications.Items[0].Title, Is.EqualTo(MessageStrings.UnableToSaveFile));
-                    Assert.That(notifications.Items[0].Message, Is.EqualTo("switch.scene"));
+                    Notification notification = notifications.All.Single();
+                    Assert.That(notification.Type, Is.EqualTo(NotificationType.Error));
+                    Assert.That(notification.Title, Is.EqualTo(MessageStrings.UnableToSaveFile));
+                    Assert.That(notification.Message, Is.EqualTo("switch.scene"));
                 }
             });
-
-            if (!saveSucceeds)
-                CaptureFailureNotification(notifications.Items.Single(), nativeMenu);
         }
         finally
         {
@@ -142,7 +132,6 @@ public class EditorSwitchMenuTests
             if (original.SaveCalls > 0)
                 await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
             closeMenu?.Invoke();
-            NotificationService.Handler = previousHandler;
             await TestReset.ResetShellAsync();
             TestShell.Extensions.RemoveExtensions(packageId);
         }
@@ -157,7 +146,7 @@ public class EditorSwitchMenuTests
         var tab = new EditorTabItem(original);
         var replacement = new ReplacementEditorExtension();
         TestShell.Editor.TabItems.Add(tab);
-        Task switching = ExtensionMenuActions.SwitchEditorAsync(TestShell.MainViewModel, tab, replacement);
+        Task switching = TestShell.MainViewModel.SwitchEditorAsync(tab, replacement);
         Assert.That(original.SaveCalls, Is.EqualTo(1));
         var waiting = TestShell.Editor.BeginProjectFileWriteAsync(CancellationToken.None).AsTask();
         Assert.That(waiting.IsCompleted, Is.False);
@@ -172,42 +161,13 @@ public class EditorSwitchMenuTests
         finally { original.SaveCompletion.TrySetResult(false); await TestReset.ResetShellAsync(); }
     }
 
-    private static void CaptureFailureNotification(Notification notification, bool nativeMenu)
-    {
-        if (Environment.GetEnvironmentVariable("BEUTL_EDITOR_SWITCH_CAPTURE") is not { Length: > 0 } directory)
-            return;
-
-        FAInfoBar infoBar = new NotificationServiceHandler().BuildInfoBar(
-            notification, new TaskCompletionSource(), () => { });
-        var window = new Window
-        {
-            Content = new Border { Padding = new Thickness(16), Child = infoBar },
-            Width = 400,
-            Height = 160,
-            RequestedThemeVariant = nativeMenu ? ThemeVariant.Dark : ThemeVariant.Light,
-        };
-        try
-        {
-            window.Show();
-            HeadlessTestHelpers.Render();
-            Directory.CreateDirectory(directory);
-            using var image = window.CaptureRenderedFrame();
-            Assert.That(image, Is.Not.Null);
-            image!.Save(Path.Combine(directory, $"save-failed-{nativeMenu}.png"), PngBitmapEncoderOptions.Default);
-        }
-        finally
-        {
-            window.Close();
-        }
-    }
-
     private static Action CreateMenuClick(
         bool nativeMenu,
         EditorExtension replacement,
         out Action closeMenu)
     {
-        // Initialize only the extension menus: showing the shell starts the real app's
-        // startup work, which is unrelated to the editor-switch click handlers.
+        // Only the menus are built: showing the shell starts the real app's startup work, which is
+        // unrelated to the editor-switch click handlers.
         if (nativeMenu)
         {
             var window = new MacWindow { DataContext = TestShell.MainViewModel };
@@ -216,29 +176,26 @@ public class EditorSwitchMenuTests
                 window.DataContext = null;
                 window.Close();
             };
-            window.InitExtMenuItems(TestShell.MainViewModel);
             HeadlessTestHelpers.Settle();
-            NativeMenu root = NativeMenu.GetMenu(window)!;
-            NativeMenu? viewMenu = MacWindow.FindMenuItem(root, Strings.View)!.Menu;
-            NativeMenu editors = MacWindow.FindMenuItem(viewMenu, Strings.Editors)!.Menu!;
-            NativeMenuItem item = editors.Items.OfType<NativeMenuItem>()
+            NativeMenuItem item = NativeItems(NativeMenu.GetMenu(window)!)
                 .Single(item => ReferenceEquals(item.CommandParameter, replacement));
-            item.IsEnabled = true;
             return ((INativeMenuItemExporterEventsImplBridge)item).RaiseClicked;
         }
         else
         {
             var view = new MainView { DataContext = TestShell.MainViewModel };
             closeMenu = () => view.DataContext = null;
-            typeof(MainView).GetMethod("InitExtMenuItems", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .Invoke(view, [TestShell.MainViewModel]);
             HeadlessTestHelpers.Settle();
-            MenuItem editors = view.FindControl<MenuItem>("editorTabMenuItem")!;
-            MenuItem item = editors.Items.OfType<MenuItem>()
-                .Single(item => ReferenceEquals(item.DataContext, replacement));
-            item.IsVisible = true;
+            MenuItem item = MenuItems(view.FindControl<Menu>("MenuBar")!.Items)
+                .Single(item => ReferenceEquals(item.CommandParameter, replacement));
             return () => item.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
         }
+
+        static IEnumerable<NativeMenuItem> NativeItems(NativeMenu menu) => menu.Items.OfType<NativeMenuItem>()
+            .SelectMany(item => (item.Menu is { } submenu ? NativeItems(submenu) : []).Prepend(item));
+
+        static IEnumerable<MenuItem> MenuItems(ItemCollection items) => items.OfType<MenuItem>()
+            .SelectMany(item => MenuItems(item.Items).Prepend(item));
     }
 
     private class TestEditorContext(CoreObject document, EditorExtension extension) : IEditorContext
@@ -298,17 +255,6 @@ public class EditorSwitchMenuTests
             CreateCalls++;
             context = CreatedContext = new TestEditorContext(obj, this);
             return true;
-        }
-    }
-
-    private sealed class CaptureNotificationHandler(TaskCompletionSource completed) : INotificationServiceHandler
-    {
-        public List<Notification> Items { get; } = [];
-
-        public void Show(Notification notification)
-        {
-            Items.Add(notification);
-            if (notification.Title == MessageStrings.UnableToSaveFile) completed.TrySetResult();
         }
     }
 }

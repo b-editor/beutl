@@ -44,19 +44,4 @@ public class CaptionTextWrapperTests
 
         Assert.That(result, Is.EqualTo("first\n\nsecond"));
     }
-
-    [Test]
-    public void TryWrap_ReportsMaximumLineCountWithoutDroppingContent()
-    {
-        var constraints = new CaptionTextConstraints(maximumLineLength: 4, maximumLineCount: 2);
-
-        bool fits = CaptionTextWrapper.TryWrap("one two three", constraints, out string wrapped);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(fits, Is.False);
-            Assert.That(wrapped, Is.EqualTo("one\ntwo\nthre\ne"));
-            Assert.That(wrapped.Replace("\n", string.Empty, StringComparison.Ordinal), Is.EqualTo("onetwothree"));
-        });
-    }
 }

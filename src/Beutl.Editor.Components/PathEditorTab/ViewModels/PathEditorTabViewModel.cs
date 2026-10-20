@@ -29,14 +29,8 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IP
     {
         EditorContext = editorContext;
         _clock = editorContext.GetRequiredService<IEditorClock>();
-        var player = editorContext.GetRequiredService<IPreviewPlayer>();
-
-        IsPlaying = player.IsPlaying
-            .ToReadOnlyReactiveProperty()
-            .DisposeWith(_disposables);
 
         var chain = PathFigureContextChain.Create(FigureContext, _disposables);
-        Context = chain.Context;
         PathGeometry = chain.PathGeometry;
         PathFigure = chain.PathFigure;
         Element = chain.Element;
@@ -83,7 +77,6 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IP
             .Subscribe(_ => UpdatePointProperties())
             .DisposeWith(_disposables);
 
-        // PathFigure の DetachedFromHierarchy を購読し、detach 時に FigureContext をクリア
         PathFigure.CombineWithPrevious()
             .Subscribe(v =>
             {
@@ -99,8 +92,6 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IP
 
     public IReactiveProperty<IPathFigureEditorContext?> FigureContext { get; } =
         new ReactiveProperty<IPathFigureEditorContext?>();
-
-    public ReadOnlyReactivePropertySlim<IGeometryEditorContext?> Context { get; }
 
     public ReadOnlyReactivePropertySlim<EngineResourceHandle<PathGeometry.Resource>?> GeometryResource { get; }
 
@@ -172,9 +163,7 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IP
         public void Visit(IPropertyEditorContext context) { }
     }
 
-    public ReadOnlyReactiveProperty<bool> IsClosed { get; }
-
-    public ReadOnlyReactiveProperty<bool> IsPlaying { get; }
+    public IReadOnlyReactiveProperty<bool> IsClosed { get; }
 
     public IReactiveProperty<bool> Symmetry { get; } = new ReactiveProperty<bool>(true);
 
@@ -209,7 +198,6 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IP
         return figure != null && FigureContext.Value != null && PathFigure.Value == figure;
     }
 
-    // FigureContextがcontext引数と同じ場合、編集を終了
     public void StartOrFinishEdit(IPathFigureEditorContext context)
     {
         PathFigureContextChain.ToggleEditing(FigureContext, context);

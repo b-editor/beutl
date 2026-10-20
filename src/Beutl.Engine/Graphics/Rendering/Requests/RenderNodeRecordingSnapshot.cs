@@ -69,8 +69,7 @@ internal sealed class RenderNodeRecordingSnapshot
                 return false;
         }
 
-        // The digests agree, which is a reject that did not fire rather than a verdict: FR-033 requires the
-        // comparison to hold under a collision, and one fingerprint stands for a whole input cone.
+        // Equal digests only mean no reject fired; compare the exact identities so a collision cannot pass.
         for (int index = 0; index < InputIdentities.Length; index++)
         {
             if (!InputIdentities[index].Matches(inputs[index]))

@@ -98,19 +98,10 @@ public sealed class GenerativeNodeModelTests
         var executor = CreateExecutor(images);
         var node = new AiImageGenerationNode();
 
-        // Await the rejection without blocking the UI thread, so an unexpected save can complete.
-        GenerativeExecutionException? refused = null;
-        try
-        {
-            await executor.ExecuteAsync(
-                Request(node, model: "square", aspectRatio: "16:9"),
-                new Progress<GenerativeProgress>(),
-                CancellationToken.None);
-        }
-        catch (GenerativeExecutionException ex)
-        {
-            refused = ex;
-        }
+        GenerativeExecutionException? refused = await RefusalOf(executor.ExecuteAsync(
+            Request(node, model: "square", aspectRatio: "16:9"),
+            new Progress<GenerativeProgress>(),
+            CancellationToken.None));
 
         Assert.That(refused?.Message, Is.EqualTo(Strings.AiModelDoesNotSupportRequest));
         Assert.That(images.Requests, Is.Empty);
@@ -161,20 +152,12 @@ public sealed class GenerativeNodeModelTests
         var executor = CreateExecutor(images, catalog: AiModelCatalog.Empty);
         var node = new AiImageGenerationNode();
 
-        string? message = null;
-        try
-        {
-            await executor.ExecuteAsync(
-                Request(node, model: "square", aspectRatio: "1:1"),
-                new Progress<GenerativeProgress>(),
-                CancellationToken.None);
-        }
-        catch (GenerativeExecutionException ex)
-        {
-            message = ex.Message;
-        }
+        GenerativeExecutionException? refused = await RefusalOf(executor.ExecuteAsync(
+            Request(node, model: "square", aspectRatio: "1:1"),
+            new Progress<GenerativeProgress>(),
+            CancellationToken.None));
 
-        Assert.That(message, Is.EqualTo(Strings.AiModelUnconfirmed));
+        Assert.That(refused?.Message, Is.EqualTo(Strings.AiModelUnconfirmed));
         Assert.That(images.Requests, Is.Empty, "Sent without its model, it would run on the service default.");
     }
 
@@ -339,14 +322,42 @@ public sealed class GenerativeNodeModelTests
         node.Model.Property!.SetValue("clear");
 
         node.Task.Property!.SetValue(AiImageEditTask.Restyle);
-        for (int i = 0; i < 50 && !Equals(editor.Items.FirstOrDefault()?.Value, "paint"); i++)
-        {
-            await Task.Delay(10);
-            HeadlessTestHelpers.Render(1);
-        }
+        await HeadlessTestHelpers.WaitUntilAsync(() => Equals(editor.Items.FirstOrDefault()?.Value, "paint"));
 
         Assert.That(editor.Items.Select(i => i.Value), Is.EqualTo(new[] { "paint" }));
         Assert.That(node.Model.Property!.GetValue(), Is.Empty, "Another task's model would be refused.");
+    }
+
+    [Test]
+    public void VideoModelsAreOfferedForWhatEachOperationSends()
+    {
+        // As the video dialog offers them: an edit inherits the source's length and shape, extension and
+        // motion choose only a length, and generation needs a shape the model can make.
+        var noShape = new AiModelOption(new AiModelId("no-shape"), "No shape", null, false,
+            Video: new AiVideoModelCapabilities(
+                AiCapabilityDimension<int>.Unspecified,
+                AiCapabilityDimension<string>.Supported([]),
+                AiCapabilityDimension<string>.Unspecified,
+                SupportsAudio: false,
+                SupportsSeed: false));
+        var noLength = new AiModelOption(new AiModelId("no-length"), "No length", null, false,
+            Video: new AiVideoModelCapabilities(
+                AiCapabilityDimension<int>.Supported([]),
+                AiCapabilityDimension<string>.Unspecified,
+                AiCapabilityDimension<string>.Unspecified,
+                SupportsAudio: false,
+                SupportsSeed: false));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(AiGenerativeModelCatalog.IsOffered("video.generate", noShape), Is.False);
+            Assert.That(AiGenerativeModelCatalog.IsOffered("video.edit", noShape), Is.True);
+            Assert.That(AiGenerativeModelCatalog.IsOffered("video.extend", noShape), Is.True);
+            Assert.That(AiGenerativeModelCatalog.IsOffered("video.motion", noShape), Is.True);
+            Assert.That(AiGenerativeModelCatalog.IsOffered("video.edit", noLength), Is.True);
+            Assert.That(AiGenerativeModelCatalog.IsOffered("video.extend", noLength), Is.False);
+            Assert.That(AiGenerativeModelCatalog.IsOffered("video.motion", noLength), Is.False);
+        });
     }
 
     [AvaloniaTest]
@@ -380,18 +391,10 @@ public sealed class GenerativeNodeModelTests
         var videos = new FakeVideos(AiJobStatuses.Succeeded);
         AiGenerativeNodeExecutor executor = CreateVideoExecutor(videos);
 
-        string? message = null;
-        try
-        {
-            await executor.ExecuteAsync(VideoRequest(duration: 6, audio: false, seed: null),
-                new Progress<GenerativeProgress>(), CancellationToken.None);
-        }
-        catch (GenerativeExecutionException ex)
-        {
-            message = ex.Message;
-        }
+        GenerativeExecutionException? refused = await RefusalOf(executor.ExecuteAsync(
+            VideoRequest(duration: 6, audio: false, seed: null), new Progress<GenerativeProgress>(), CancellationToken.None));
 
-        Assert.That(message, Is.EqualTo(Strings.AiModelDoesNotSupportRequest));
+        Assert.That(refused?.Message, Is.EqualTo(Strings.AiModelDoesNotSupportRequest));
         Assert.That(videos.Requests, Is.Empty);
     }
 
@@ -401,20 +404,12 @@ public sealed class GenerativeNodeModelTests
         var videos = new FakeVideos(AiJobStatuses.Succeeded);
         AiGenerativeNodeExecutor executor = CreateVideoExecutor(videos, catalog: AiModelCatalog.Empty);
 
-        string? message = null;
-        try
-        {
-            await executor.ExecuteAsync(
-                VideoRequest(duration: 4, audio: false, seed: null) with { ModelId = "quiet" },
-                new Progress<GenerativeProgress>(),
-                CancellationToken.None);
-        }
-        catch (GenerativeExecutionException ex)
-        {
-            message = ex.Message;
-        }
+        GenerativeExecutionException? refused = await RefusalOf(executor.ExecuteAsync(
+            VideoRequest(duration: 4, audio: false, seed: null) with { ModelId = "quiet" },
+            new Progress<GenerativeProgress>(),
+            CancellationToken.None));
 
-        Assert.That(message, Is.EqualTo(Strings.AiModelUnconfirmed));
+        Assert.That(refused?.Message, Is.EqualTo(Strings.AiModelUnconfirmed));
         Assert.That(videos.Requests, Is.Empty);
     }
 
@@ -424,21 +419,11 @@ public sealed class GenerativeNodeModelTests
         var videos = new FakeVideos(AiJobStatuses.Failed);
         AiGenerativeNodeExecutor executor = CreateVideoExecutor(videos);
 
-        string? message = null;
-        bool settled = false;
-        try
-        {
-            await executor.ExecuteAsync(VideoRequest(duration: 4, audio: false, seed: null),
-                new Progress<GenerativeProgress>(), CancellationToken.None);
-        }
-        catch (GenerativeExecutionException ex)
-        {
-            message = ex.Message;
-            settled = ex.SettledRequest;
-        }
+        GenerativeExecutionException? refused = await RefusalOf(executor.ExecuteAsync(
+            VideoRequest(duration: 4, audio: false, seed: null), new Progress<GenerativeProgress>(), CancellationToken.None));
 
-        Assert.That(message, Is.EqualTo(Strings.AiProviderError));
-        Assert.That(settled, Is.True, "A failed, refunded job needs a new key to be tried again.");
+        Assert.That(refused?.Message, Is.EqualTo(Strings.AiProviderError));
+        Assert.That(refused?.SettledRequest, Is.True, "A failed, refunded job needs a new key to be tried again.");
     }
 
     [AvaloniaTest]
@@ -497,17 +482,10 @@ public sealed class GenerativeNodeModelTests
         var videos = new FakeVideos(AiJobStatuses.Succeeded);
         AiGenerativeNodeExecutor executor = CreateVideoExecutor(videos, sourceSeconds: 61);
 
-        string? message = null;
-        try
-        {
-            await executor.ExecuteAsync(EditRequest(AiVideoEditMode.Edit, duration: 8), new Progress<GenerativeProgress>(), CancellationToken.None);
-        }
-        catch (GenerativeExecutionException ex)
-        {
-            message = ex.Message;
-        }
+        GenerativeExecutionException? refused = await RefusalOf(executor.ExecuteAsync(
+            EditRequest(AiVideoEditMode.Edit, duration: 8), new Progress<GenerativeProgress>(), CancellationToken.None));
 
-        Assert.That(message, Is.EqualTo(Strings.AiModelDoesNotSupportRequest));
+        Assert.That(refused?.Message, Is.EqualTo(Strings.AiModelDoesNotSupportRequest));
         Assert.That(videos.SourceRequests, Is.Empty);
     }
 
@@ -672,26 +650,28 @@ public sealed class GenerativeNodeModelTests
         Func<EnumEditor, bool>? ready = null)
     {
         ready ??= editor => editor.Items.Count > 1;
-        vm.Accept(new CatalogVisitor(catalog));
+        vm.Accept(new PropertyEditorTestHost.ServiceVisitor((typeof(IGenerativeModelCatalog), catalog)));
         Assert.That(GenerativeChoicePropertyExtension.Instance.TryCreateControlForNode(vm, out var control), Is.True);
         var editor = (EnumEditor)control!;
-        for (int i = 0; i < 50 && !ready(editor); i++)
-        {
-            await Task.Delay(10);
-            HeadlessTestHelpers.Render(1);
-        }
+        await HeadlessTestHelpers.WaitUntilAsync(() => ready(editor));
 
         return editor;
     }
 
-    private sealed class CatalogVisitor(IGenerativeModelCatalog catalog) : IPropertyEditorContextVisitor, IServiceProvider
+    // Awaits the operation and returns its refusal. Awaiting does not block the UI thread, so an unexpected
+    // save can complete.
+    private static async Task<GenerativeExecutionException?> RefusalOf(Task operation)
     {
-        public object? GetService(Type serviceType)
-            => serviceType == typeof(IGenerativeModelCatalog) ? catalog : null;
-
-        public void Visit(IPropertyEditorContext context)
+        try
         {
+            await operation;
         }
+        catch (GenerativeExecutionException ex)
+        {
+            return ex;
+        }
+
+        return null;
     }
 
     private sealed class RecordingLibrary : IGenerativePromptLibrary
@@ -718,15 +698,6 @@ public sealed class GenerativeNodeModelTests
         public bool DeleteHistory(Guid id) => false;
         public bool DeleteTemplate(Guid id) => false;
         public void ClearHistory() { }
-    }
-
-    private sealed class FixedCatalog(AiModelCatalog catalog) : IAiModelCatalogService
-    {
-        public Task<AiModelCatalog> GetAsync(CancellationToken cancellationToken) => Task.FromResult(catalog);
-
-        public void Invalidate()
-        {
-        }
     }
 
     private sealed class StubEntitlements : IAiEntitlementService

@@ -7,23 +7,9 @@ namespace Beutl.Graphics.Rendering;
 /// can be settled by comparison instead of trusted.
 /// </summary>
 /// <remarks>
-/// <para>
-/// FR-033 requires identity comparison to stay correct under hash collisions, and the fingerprint is 64 bits
-/// standing for a whole input cone - two of whose members, a target region's rectangle and a bounds
-/// contract's identity, it can only hash. The digest stays what the per-node path compares first and rejects
-/// on; this settles the pairs that survive it.
-/// </para>
-/// <para>
-/// It is detached by construction: it names its inputs' identities rather than the fragments, and it keeps a
-/// payload's identity object rather than the payload, so a retained recording does not pin the graph or the
-/// resources of the request that made it. It reads what recording stated, so - like cloning and digesting -
-/// it has to be taken before <see cref="RenderFragmentReference.ApplyResolvedMetadata"/> runs.
-/// </para>
-/// <para>
-/// A fragment compared equal to an identity adopts it. Recording settles the deepest fragments first, so an
-/// ancestor comparing over them reaches a reference comparison one level down instead of walking the cone
-/// again, which is what keeps the settled comparison linear in the graph rather than in every node's cone.
-/// </para>
+/// Identity comparison must stay correct when the 64-bit fingerprint collides. The identity keeps no fragment
+/// or payload, so a retained recording pins nothing, and it reads what recording stated, so it is taken before
+/// <see cref="RenderFragmentReference.ApplyResolvedMetadata"/> runs.
 /// </remarks>
 internal sealed class RenderFragmentRecordingIdentity
 {

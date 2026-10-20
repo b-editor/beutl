@@ -200,15 +200,6 @@ public class RefStringTokenizerTests
     }
 
     [Test]
-    public void CurrentToken_ReturnsLastReadSpan()
-    {
-        var t = new RefStringTokenizer("hello,world".AsSpan(), CultureInfo.InvariantCulture);
-        ReadOnlySpan<char> first = t.ReadString();
-        Assert.That(first.ToString(), Is.EqualTo("hello"));
-        Assert.That(t.CurrentToken.ToString(), Is.EqualTo("hello"));
-    }
-
-    [Test]
     public void TryReadDouble_OnEmpty_ReturnsFalse()
     {
         var t = new RefStringTokenizer("".AsSpan(), CultureInfo.InvariantCulture);

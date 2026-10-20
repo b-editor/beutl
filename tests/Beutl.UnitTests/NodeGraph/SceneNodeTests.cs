@@ -58,22 +58,14 @@ public sealed class SceneNodeTests
     [Test]
     public void OutputActuallyDrawsTheReferencedScene()
     {
-        var rect = new RectShape
-        {
-            Width = { CurrentValue = 20 },
-            Height = { CurrentValue = 20 },
-            AlignmentX = { CurrentValue = Beutl.Media.AlignmentX.Left },
-            AlignmentY = { CurrentValue = Beutl.Media.AlignmentY.Top },
-            Fill = { CurrentValue = new Beutl.Media.SolidColorBrush(Beutl.Media.Colors.Red) },
-        };
-        Scene referenced = CreateScene(rect);
+        Scene referenced = CreateScene(CreateRedSquare());
         var (model, node) = CreateGraph(referenced);
         node.Time.Property!.SetValue(TimeSpan.FromSeconds(0.5));
 
         using var snapshot = new GraphSnapshot();
         var context = new CompositionContext(TimeSpan.FromSeconds(3));
         snapshot.Build(model, context);
-        snapshot.Evaluate(CompositionTarget.Graphics, context);
+        snapshot.Evaluate(context);
         var resource = (SceneNode.Resource)snapshot.GetResource(snapshot.FindSlotIndex(node))!;
         Assert.That(resource.Output, Is.Not.Null);
 
@@ -92,23 +84,7 @@ public sealed class SceneNodeTests
     {
         Scene referenced = CreateScene(new RectShape());
         var (model, node) = CreateGraph(referenced);
-        var drawable = new NodeGraphDrawable();
-        drawable.Model.CurrentValue = model;
-        var host = new Element
-        {
-            Start = TimeSpan.FromSeconds(5),
-            Length = TimeSpan.FromSeconds(10),
-            Uri = new Uri(Path.Combine(_directory, "host.layer")),
-        };
-        host.AddObject(drawable);
-        // As in the editor: the graph's element sits in a scene of its own.
-        var outer = new Scene(64, 48, "outer") { Uri = new Uri(Path.Combine(_directory, "outer.scene")) };
-        outer.Children.Add(host);
-        var application = new BeutlApplication();
-        var project = new Project();
-        application.Project = project;
-        project.Items.Add(outer);
-        project.Items.Add(referenced);
+        HostGraph(model, referenced);
         Assert.That(node.Object.Start, Is.EqualTo(TimeSpan.Zero), "The scene's time does not follow the hosting element.");
 
         node.Time.Property!.SetValue(TimeSpan.FromSeconds(0.5));
@@ -126,36 +102,13 @@ public sealed class SceneNodeTests
         Beutl.UnitTests.Engine.Graphics.Backend.VulkanTestEnvironment.EnsureAvailable();
         Beutl.UnitTests.Engine.Graphics.Backend.VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var rect = new RectShape
-            {
-                Width = { CurrentValue = 20 },
-                Height = { CurrentValue = 20 },
-                AlignmentX = { CurrentValue = Beutl.Media.AlignmentX.Left },
-                AlignmentY = { CurrentValue = Beutl.Media.AlignmentY.Top },
-                Fill = { CurrentValue = new Beutl.Media.SolidColorBrush(Beutl.Media.Colors.Red) },
-            };
-            Scene referenced = CreateScene(rect);
+            Scene referenced = CreateScene(CreateRedSquare());
             var (model, node) = CreateGraph(referenced);
             node.Time.Property!.SetValue(TimeSpan.FromSeconds(seconds));
             var output = new OutputNode();
             model.Nodes.Add(output);
             model.Connect(output.InputPort, node.Output);
-            var drawable = new NodeGraphDrawable();
-            drawable.Model.CurrentValue = model;
-            var host = new Element
-            {
-                Start = TimeSpan.FromSeconds(5),
-                Length = TimeSpan.FromSeconds(10),
-                Uri = new Uri(Path.Combine(_directory, "host.layer")),
-            };
-            host.AddObject(drawable);
-            var outer = new Scene(64, 48, "outer") { Uri = new Uri(Path.Combine(_directory, "outer.scene")) };
-            outer.Children.Add(host);
-            var application = new BeutlApplication();
-            var project = new Project();
-            application.Project = project;
-            project.Items.Add(outer);
-            project.Items.Add(referenced);
+            Scene outer = HostGraph(model, referenced);
 
             using var renderer = new SceneRenderer(outer, Beutl.Graphics.Rendering.RenderIntent.Preview);
             renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.FromSeconds(6)));
@@ -182,11 +135,6 @@ public sealed class SceneNodeTests
         var model = new GraphModel();
         model.Nodes.Add(new SceneNode());
         var json = Beutl.Serialization.CoreSerializer.SerializeToJsonObject(model);
-        // A graph saved before the node anchored its time carries no time range of its own.
-        var saved = (System.Text.Json.Nodes.JsonObject)json["Nodes"]![0]!["Object"]!;
-        saved.Remove("Start");
-        saved.Remove("Duration");
-        saved.Remove("ZIndex");
         var restored = (GraphModel)Beutl.Serialization.CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
         SceneNode node = restored.Nodes.OfType<SceneNode>().Single();
 
@@ -224,6 +172,38 @@ public sealed class SceneNodeTests
         return scene;
     }
 
+    // A 20 px red square at the top left.
+    private static RectShape CreateRedSquare() => new()
+    {
+        Width = { CurrentValue = 20 },
+        Height = { CurrentValue = 20 },
+        AlignmentX = { CurrentValue = Beutl.Media.AlignmentX.Left },
+        AlignmentY = { CurrentValue = Beutl.Media.AlignmentY.Top },
+        Fill = { CurrentValue = new Beutl.Media.SolidColorBrush(Beutl.Media.Colors.Red) },
+    };
+
+    // As in the editor: the graph's element starts at 5 s in a scene of its own, in the referenced scene's project.
+    private Scene HostGraph(GraphModel model, Scene referenced)
+    {
+        var drawable = new NodeGraphDrawable();
+        drawable.Model.CurrentValue = model;
+        var host = new Element
+        {
+            Start = TimeSpan.FromSeconds(5),
+            Length = TimeSpan.FromSeconds(10),
+            Uri = new Uri(Path.Combine(_directory, "host.layer")),
+        };
+        host.AddObject(drawable);
+        var outer = new Scene(64, 48, "outer") { Uri = new Uri(Path.Combine(_directory, "outer.scene")) };
+        outer.Children.Add(host);
+        var application = new BeutlApplication();
+        var project = new Project();
+        application.Project = project;
+        project.Items.Add(outer);
+        project.Items.Add(referenced);
+        return outer;
+    }
+
     private static (GraphModel Model, SceneNode Node) CreateGraph(Scene referenced)
     {
         var model = new GraphModel();
@@ -239,7 +219,7 @@ public sealed class SceneNodeTests
         using var snapshot = new GraphSnapshot();
         var context = new CompositionContext(time);
         snapshot.Build(model, context);
-        snapshot.Evaluate(CompositionTarget.Graphics, context);
+        snapshot.Evaluate(context);
         var resource = (SceneNode.Resource)snapshot.GetResource(snapshot.FindSlotIndex(node))!;
         return resource.SceneResource?.Frame?.Objects.Length ?? -1;
     }

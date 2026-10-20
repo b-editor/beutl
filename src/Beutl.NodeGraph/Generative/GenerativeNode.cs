@@ -6,6 +6,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.NodeGraph.Composition;
+using Beutl.NodeGraph.Nodes;
 using Beutl.Serialization;
 
 namespace Beutl.NodeGraph.Generative;
@@ -117,8 +118,6 @@ public abstract partial class GenerativeNode : GraphNode
             return active is null || (current is not null && current != active.ParameterFingerprint);
         }
     }
-
-    public event EventHandler? StatusChanged;
 
     protected NodeMonitor<Ref<Bitmap>?> PreviewMonitor
         => _previewMonitor ?? throw new InvalidOperationException("Call AddGenerativeMonitors first.");
@@ -258,10 +257,7 @@ public abstract partial class GenerativeNode : GraphNode
         bool wasStale = IsStale;
         _currentParameterFingerprint = fingerprint;
         if (wasStale != IsStale)
-        {
             _statusMonitor?.Value = FormatStatus();
-            StatusChanged?.Invoke(this, EventArgs.Empty);
-        }
     }
 
     /// <summary>The picture the node outputs, safe to read from the render thread.</summary>
@@ -281,7 +277,6 @@ public abstract partial class GenerativeNode : GraphNode
         LoadActivePreview();
         UpdateBusy();
         _statusMonitor?.Value = FormatStatus();
-        StatusChanged?.Invoke(this, EventArgs.Empty);
         // The output changed: without this the scene is not rendered again, and neither the
         // canvas nor anything downstream would show the new result.
         RaiseEdited();
@@ -340,90 +335,25 @@ public abstract partial class GenerativeNode : GraphNode
 
     public partial class Resource
     {
-        private ImageSourceRenderNode? _cachedOutput;
-        private ImageSource.Resource? _sourceResource;
-        private ImageSource? _lastSource;
+        private readonly ImageSourceOutput _imageOutput = new();
 
         /// <summary>The active generation as a render node, or null when there is none.</summary>
         protected ImageSourceRenderNode? UpdateActiveImageOutput(GraphCompositionContext context)
         {
-            ImageSource? source = RequireOriginal().ActiveImage;
-            if (source is null)
-            {
-                ReleaseOutput();
-                return null;
-            }
-
-            if (!ReferenceEquals(_lastSource, source))
-            {
-                _sourceResource?.Dispose();
-                _sourceResource = source.ToResource(context);
-                _lastSource = source;
-            }
-            else
-            {
-                bool versionBumped = false;
-                _sourceResource!.Reconcile(source, context, ref versionBumped);
-            }
-
-            if (_cachedOutput is null)
-                _cachedOutput = new ImageSourceRenderNode(_sourceResource, Brushes.Resource.White, null);
-            else
-                _cachedOutput.Update(_sourceResource, Brushes.Resource.White, null);
-            return _cachedOutput;
+            return _imageOutput.Update(RequireOriginal().ActiveImage, context);
         }
-
-        private VideoSource.Resource? _videoResource;
-        private VideoSource? _lastVideo;
 
         /// <summary>The active clip.</summary>
         protected VideoSource? UpdateActiveVideoOutput(GraphCompositionContext context)
         {
-            GenerativeNode node = RequireOriginal();
-            VideoSource? source = node.ActiveVideo;
-            if (source is null)
-            {
-                ReleaseVideo();
-                return null;
-            }
-
-            if (!ReferenceEquals(_lastVideo, source))
-            {
-                ReleaseVideo();
-                _videoResource = source.ToResource(context);
-                _lastVideo = source;
-            }
-            else
-            {
-                bool versionBumped = false;
-                _videoResource!.Reconcile(source, context, ref versionBumped);
-            }
-
-            return source;
-        }
-
-        private void ReleaseVideo()
-        {
-            _videoResource?.Dispose();
-            _videoResource = null;
-            _lastVideo = null;
-        }
-
-        private void ReleaseOutput()
-        {
-            _cachedOutput?.Dispose();
-            _cachedOutput = null;
-            _sourceResource?.Dispose();
-            _sourceResource = null;
-            _lastSource = null;
+            return RequireOriginal().ActiveVideo;
         }
 
         partial void PostDispose(bool disposing)
         {
             if (disposing)
             {
-                ReleaseOutput();
-                ReleaseVideo();
+                _imageOutput.Dispose();
             }
         }
     }

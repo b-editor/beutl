@@ -12,11 +12,32 @@ public class TypeJsonConvertersTests
         return JsonSerializer.Deserialize<T>(json)!;
     }
 
-    [Test]
-    public void PointJsonConverter_RoundTrips()
+    public static IEnumerable<TestCaseData> RoundTripValues()
     {
-        var p = new Point(1.5f, -2.25f);
-        Assert.That(RoundTrip(p), Is.EqualTo(p));
+        yield return Case(new Point(1.5f, -2.25f), "Point");
+        yield return Case(new Rect(1, 2, 3, 4), "Rect");
+        yield return Case(new Size(3, 4), "Size");
+        yield return Case(new Vector(2.5f, 3.5f), "Vector");
+        yield return Case(new Thickness(1, 2, 3, 4), "Thickness");
+        yield return Case(RelativePoint.Parse("0.5,0.5"), "RelativePoint");
+        yield return Case(RelativeRect.Parse("0%,0%,100%,100%"), "RelativeRect");
+        yield return Case(new PixelPoint(3, 4), "PixelPoint");
+        yield return Case(new PixelRect(1, 2, 3, 4), "PixelRect");
+        yield return Case(new PixelSize(3, 4), "PixelSize");
+        yield return Case(Color.FromArgb(255, 100, 50, 25), "Color");
+        yield return Case(new GradingColor(0.1f, 0.5f, 0.9f), "GradingColor");
+        yield return Case(new CornerRadius(1, 2, 3, 4), "CornerRadius");
+        yield return Case(Matrix.Identity, "Matrix identity");
+        yield return Case(Matrix.CreateScale(2, 3), "Matrix scale");
+
+        static TestCaseData Case(object value, string name) => new TestCaseData(value).SetArgDisplayNames(name);
+    }
+
+    [TestCaseSource(nameof(RoundTripValues))]
+    public void JsonConverter_RoundTrips(object value)
+    {
+        string json = JsonSerializer.Serialize(value, value.GetType());
+        Assert.That(JsonSerializer.Deserialize(json, value.GetType()), Is.EqualTo(value));
     }
 
     [Test]
@@ -25,106 +46,6 @@ public class TypeJsonConvertersTests
         string json = JsonSerializer.Serialize(new Point(1.5f, 2f));
         Assert.That(json, Does.StartWith("\""));
         Assert.That(json, Does.EndWith("\""));
-    }
-
-    [Test]
-    public void RectJsonConverter_RoundTrips()
-    {
-        var r = new Rect(1, 2, 3, 4);
-        Assert.That(RoundTrip(r), Is.EqualTo(r));
-    }
-
-    [Test]
-    public void SizeJsonConverter_RoundTrips()
-    {
-        var s = new Size(3, 4);
-        Assert.That(RoundTrip(s), Is.EqualTo(s));
-    }
-
-    [Test]
-    public void VectorJsonConverter_RoundTrips()
-    {
-        var v = new Vector(2.5f, 3.5f);
-        var result = RoundTrip(v);
-        Assert.That(result.X, Is.EqualTo(v.X));
-        Assert.That(result.Y, Is.EqualTo(v.Y));
-    }
-
-    [Test]
-    public void ThicknessJsonConverter_RoundTrips()
-    {
-        var t = new Thickness(1, 2, 3, 4);
-        Assert.That(RoundTrip(t), Is.EqualTo(t));
-    }
-
-    [Test]
-    public void RelativePointJsonConverter_RoundTrips()
-    {
-        var p = RelativePoint.Parse("0.5,0.5");
-        Assert.That(RoundTrip(p), Is.EqualTo(p));
-    }
-
-    [Test]
-    public void RelativeRectJsonConverter_RoundTrips()
-    {
-        var r = RelativeRect.Parse("0%,0%,100%,100%");
-        Assert.That(RoundTrip(r), Is.EqualTo(r));
-    }
-
-    [Test]
-    public void PixelPointJsonConverter_RoundTrips()
-    {
-        var p = new PixelPoint(3, 4);
-        Assert.That(RoundTrip(p), Is.EqualTo(p));
-    }
-
-    [Test]
-    public void PixelRectJsonConverter_RoundTrips()
-    {
-        var r = new PixelRect(1, 2, 3, 4);
-        Assert.That(RoundTrip(r), Is.EqualTo(r));
-    }
-
-    [Test]
-    public void PixelSizeJsonConverter_RoundTrips()
-    {
-        var s = new PixelSize(3, 4);
-        Assert.That(RoundTrip(s), Is.EqualTo(s));
-    }
-
-    [Test]
-    public void ColorJsonConverter_RoundTrips()
-    {
-        var c = Color.FromArgb(255, 100, 50, 25);
-        Assert.That(RoundTrip(c), Is.EqualTo(c));
-    }
-
-    [Test]
-    public void GradingColorJsonConverter_RoundTrips()
-    {
-        var c = new GradingColor(0.1f, 0.5f, 0.9f);
-        Assert.That(RoundTrip(c), Is.EqualTo(c));
-    }
-
-    [Test]
-    public void CornerRadiusJsonConverter_RoundTrips()
-    {
-        var cr = new CornerRadius(1, 2, 3, 4);
-        Assert.That(RoundTrip(cr), Is.EqualTo(cr));
-    }
-
-    [Test]
-    public void MatrixJsonConverter_RoundTrips_Identity()
-    {
-        var m = Matrix.Identity;
-        Assert.That(RoundTrip(m), Is.EqualTo(m));
-    }
-
-    [Test]
-    public void MatrixJsonConverter_RoundTrips_Scale()
-    {
-        var m = Matrix.CreateScale(2, 3);
-        Assert.That(RoundTrip(m), Is.EqualTo(m));
     }
 
     [Test]

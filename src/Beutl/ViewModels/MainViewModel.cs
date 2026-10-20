@@ -44,20 +44,18 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
     private readonly Func<TimeSpan, Task>? _waitForPackageInstallerIdle;
     private PackageInstaller? _packageInstallerForShutdown;
     private readonly object _disposeGate = new();
-    private readonly object _apiClientDisposeGate = new();
-    private int _shutdownCompleted;
     private int _exitObserved;
     private Task? _disposeTask;
     private Task<bool>? _closeForShutdownTask;
     private Task? _shutdownRequestTask;
     private IClassicDesktopStyleApplicationLifetime? _desktopLifetime;
-    private Task? _apiClientDisposeTask;
 
     public MainViewModel()
         : this(null)
     {
     }
 
+    // Test seam: the app uses the parameterless constructor; only tests pass these arguments.
     internal MainViewModel(
         Action<BeutlApiApplication>? shutdownHandoff,
         Func<TimeSpan, Task>? waitForPackageInstallerIdle = null)
@@ -74,20 +72,8 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
             Beutl.Language.Strings.AiSubtitle_DefaultTemplate,
             Beutl.Editor.Services.ObjectTemplateService.Instance.FindByBaseType(
                 typeof(Beutl.Graphics.Drawable)),
-            _extensionProvider,
-            CaptionPresentationDefaults.ElementFactory,
-            failure => _logger.LogWarning(
-                failure.Exception,
-                "Ignoring invalid caption {ContributionKind} contribution from {ExtensionName}.",
-                failure.Kind,
-                failure.ExtensionName));
-        _aiJobResultHandlers = BuiltInAiJobResultCapabilities.CreateRegistry(
-            _extensionProvider,
-            failure => _logger.LogWarning(
-                failure.Exception,
-                "Ignoring invalid AI job result {Capability} contribution from {ExtensionType}.",
-                failure.Capability,
-                failure.ExtensionType));
+            CaptionPresentationDefaults.ElementFactory);
+        _aiJobResultHandlers = BuiltInAiJobResultCapabilities.CreateRegistry();
         _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider);
         // Agents generate with the signed-in account and the AI nodes' executor.
         _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService, new AgentHostAiBackend(
@@ -181,6 +167,10 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
         ToolTabExtensions = list1;
         EditorExtensions = list2;
         ToolWindowExtensions = list4;
+
+        MenuBar.OpenToolTab.Subscribe(OpenToolTab);
+        MenuBar.SwitchEditor.Subscribe(SwitchEditor);
+        MenuItems = CreateMenuItems();
     }
 
     public bool IsDebuggerAttached { get; } = Debugger.IsAttached;
@@ -259,7 +249,7 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
 
     public ReadOnlyObservableCollection<ToolWindowExtension> ToolWindowExtensions { get; }
 
-    public ContextCommandManager? ContextCommandManager { get; }
+    public ContextCommandManager ContextCommandManager { get; }
 
     public CommandPaletteViewModel CommandPalette { get; }
     public TabSwitcherViewModel TabSwitcher { get; }

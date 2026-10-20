@@ -6,6 +6,7 @@ using Beutl.Api.Services;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.Dialogs;
+using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
 
@@ -16,10 +17,8 @@ public sealed partial class AiDialogWorkflowTests
     {
         await TestReset.ResetShellAsync();
         var availability = new MutableTaskAvailability();
-        using var handler = new StubHandler(ProviderVideoResponse);
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        await using var api = new ApiScope(new StubHandler(ProviderVideoResponse));
+        BeutlApiApplication clients = api.Clients;
         await using var group = new AiVideoEditingViewModel(mode => CreateVideoGenerationDialog(clients, sourceMode: mode, availability: availability));
         var edit = group.ActiveContent.Value!;
         string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, "cached-edit-source.mp4");
@@ -60,11 +59,9 @@ public sealed partial class AiDialogWorkflowTests
     {
         await TestReset.ResetShellAsync();
         string capabilities = ProviderVideoCapabilities;
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath == "/api/v3/ai/capabilities"
-            ? JsonResponse(HttpStatusCode.OK, capabilities) : ProviderVideoResponse(request));
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath == "/api/v3/ai/capabilities"
+            ? JsonResponse(HttpStatusCode.OK, capabilities) : ProviderVideoResponse(request)));
+        BeutlApiApplication clients = api.Clients;
         await using var group = new AiVideoEditingViewModel(mode => CreateVideoGenerationDialog(clients, sourceMode: mode));
         var edit = group.ActiveContent.Value!;
         await WaitUntilAsync(() => edit.ModelPicker.IsLoaded.Value);

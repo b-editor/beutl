@@ -10,7 +10,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.FileBrowserTab;
 
-[PrimitiveImpl]
 public sealed class FileBrowserTabExtension : ToolTabExtension
 {
     public static readonly FileBrowserTabExtension Instance = new();

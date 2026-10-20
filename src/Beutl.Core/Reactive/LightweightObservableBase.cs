@@ -4,7 +4,6 @@ namespace Beutl.Reactive;
 
 public abstract class LightweightObservableBase<T> : IObservable<T>
 {
-    private Exception? _error;
     private List<IObserver<T>>? _observers = [];
 
     public IDisposable Subscribe(IObserver<T> observer)
@@ -17,15 +16,7 @@ public abstract class LightweightObservableBase<T> : IObservable<T>
         {
             if (Volatile.Read(ref _observers) == null)
             {
-                if (_error != null)
-                {
-                    observer.OnError(_error);
-                }
-                else
-                {
-                    observer.OnCompleted();
-                }
-
+                observer.OnCompleted();
                 return Disposable.Empty;
             }
 
@@ -151,34 +142,6 @@ public abstract class LightweightObservableBase<T> : IObservable<T>
             foreach (IObserver<T>? observer in observers)
             {
                 observer.OnCompleted();
-            }
-
-            Deinitialize();
-        }
-    }
-
-    protected void PublishError(Exception error)
-    {
-        if (Volatile.Read(ref _observers) != null)
-        {
-
-            IObserver<T>[] observers;
-
-            lock (this)
-            {
-                if (_observers == null)
-                {
-                    return;
-                }
-
-                _error = error;
-                observers = [.. _observers];
-                Volatile.Write(ref _observers, null);
-            }
-
-            foreach (IObserver<T>? observer in observers)
-            {
-                observer.OnError(error);
             }
 
             Deinitialize();

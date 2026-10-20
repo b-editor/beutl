@@ -1,7 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Reactive.Disposables;
-using Avalonia.Platform.Storage;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Editor.Services;
@@ -13,13 +12,13 @@ using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.AI;
 using Beutl.ViewModels;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
 
-internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisposable, IAiModelListConsumer
+internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisposable, IAiModelListConsumer,
+    IAiRecoverableForm, IAiPlanOffer, IAiResultActions
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly AsyncOperationLifetime _operations = new();
@@ -34,7 +33,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
     private readonly IAiImageGenerationService _images;
     private readonly IAuthenticatedContentService _content;
     private readonly AiRequestKey _requestKey;
-    private readonly AiRequestRecoveryContext? _requestRecoveryContext;
+    private readonly AiRequestRecoveryContext _requestRecoveryContext;
     // Preserve the user's choices separately from the displayed values, which are narrowed when
     // the model changes. Restoring the old model must also restore these values or the same intent
     // becomes a different request and no longer reaches the result named by the outstanding key.
@@ -42,8 +41,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
     private AiImageBackgroundOption? _chosenBackground;
     private int? _chosenSeed;
     private readonly List<string> _chosenReferencePaths = [];
-    private AiPendingAttempt? _selectedRecovery;
-    private readonly ReactivePropertySlim<int> _recoveryRevision = new();
+    private readonly AiRecoveryState _recovery;
     // True while model constraints update the UI. Those changes are not user choices and must
     // not replace the preserved values.
     private bool _applyingCapabilities;
@@ -74,6 +72,17 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
         Usage = new AiUsageViewModel(_entitlements.Entitlements).DisposeWith(_disposables);
         ModelPicker = new AiModelPickerViewModel(_modelCatalog, _entitlements)
             .DisposeWith(_disposables);
+        _recovery = new AiRecoveryState(
+            _requestKey,
+            ModelPicker,
+            AiOperations.ImageGeneration,
+            Error,
+            new AiRecoveryLogs(
+                ex => _logger.LogError(ex, "Failed to read image-generation recovery attempts."),
+                ex => _logger.LogError(ex, "Failed to clear image-generation state after an account change."),
+                ex => _logger.LogWarning(ex, "Failed to abandon image-generation recovery attempt.")),
+            TryRecoverPendingAttempt,
+            () => ApplyModelCapabilities(ModelPicker.Selected.Value?.Model));
         EstimatedUsage = new AiUsageEstimateViewModel(
                 Usage,
                 _entitlements.Entitlements.Select(value =>
@@ -87,14 +96,12 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
                 recoveryContext: requestRecoveryContext)
             .DisposeWith(_disposables);
 
-        Replace(
-            AspectRatioOptions,
+        AspectRatioOptions.Replace(
             DefaultAspectRatios.Select(value => new AiImageAspectRatioOption(value)));
         SelectedAspectRatio = new ReactivePropertySlim<AiImageAspectRatioOption>(
-                GetSuggestedAspectRatio(AspectRatioOptions, editViewModel?.Scene.FrameSize))
+                AiAspectRatioSuggestion.Choose(AspectRatioOptions, option => option.Value, editViewModel?.Scene.FrameSize))
             .DisposeWith(_disposables);
-        Replace(
-            BackgroundOptions,
+        BackgroundOptions.Replace(
             DefaultBackgrounds.Select(value => new AiImageBackgroundOption(value)));
         SelectedBackground = new ReactivePropertySlim<AiImageBackgroundOption>(
                 BackgroundOptions[0])
@@ -115,13 +122,14 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
             .DisposeWith(_disposables);
         Seed = new ReactivePropertySlim<int?>()
             .DisposeWith(_disposables);
-        // A model that takes no picture cannot generate from one; offering it
-        // would only ever produce a request the server refuses.
         ModelPicker.Filter = model =>
-            model.Image is not { } image || image.CanServeAnything(false);
-        RememberChoice(SelectedAspectRatio, option => _chosenAspectRatio = option);
-        RememberChoice(SelectedBackground, option => _chosenBackground = option);
-        RememberChoice(Seed, seed => _chosenSeed = seed);
+            AiGenerativeModelCatalog.IsOffered(AiOperations.ImageGeneration.Value, model);
+        SelectedAspectRatio.RememberChoice(() => _applyingCapabilities, option => _chosenAspectRatio = option)
+            .DisposeWith(_disposables);
+        SelectedBackground.RememberChoice(() => _applyingCapabilities, option => _chosenBackground = option)
+            .DisposeWith(_disposables);
+        Seed.RememberChoice(() => _applyingCapabilities, seed => _chosenSeed = seed)
+            .DisposeWith(_disposables);
         ModelPicker.Selected.Subscribe(option => ApplyModelCapabilities(option?.Model))
             .DisposeWith(_disposables);
         // The shape and the background follow the chosen model, so replacing the
@@ -169,7 +177,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
             .WhenSomeModelUsable(ModelPicker.OffersNothingUsable, _requestKey.HasOutstandingName)
             .CombineLatest(
                 ModelPicker.Selected,
-                _recoveryRevision,
+                _recovery.Revision,
                 // An unavailable choice cannot start new work. An outstanding request remains
                 // collectable on its retained model because the server resolves its name before
                 // checking current affordability.
@@ -195,19 +203,6 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
         StopGenerating = new ReactiveCommand(IsGenerating);
         StopGenerating.Subscribe(() => _runningRequest?.Cancel()).DisposeWith(_disposables);
 
-        RecoverSelectedAttempt = new ReactiveCommand();
-        RecoverSelectedAttempt.Subscribe(() =>
-        {
-            if (SelectedRecoveryAttempt!.Value is { } attempt)
-                TryRecoverPendingAttempt(attempt);
-        }).DisposeWith(_disposables);
-        AbandonSelectedAttempt = new ReactiveCommand();
-        AbandonSelectedAttempt.Subscribe(() =>
-        {
-            if (SelectedRecoveryAttempt!.Value is { } attempt)
-                AbandonPendingAttempt(attempt);
-        }).DisposeWith(_disposables);
-
         OpenAiPlan = new ReactiveCommand();
         OpenAiPlan.Subscribe(aiPlanCoordinator.OpenAiPlan).DisposeWith(_disposables);
 
@@ -216,48 +211,24 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        SelectedRecoveryAttempt = new ReactivePropertySlim<AiPendingAttempt?>()
-            .DisposeWith(_disposables);
-        RecoveryAttempts = _recoveryRevision
-            .Select(_ => (IReadOnlyList<AiPendingAttempt>)GetPendingRecoveryAttempts())
-            .ToReadOnlyReactivePropertySlim(Array.Empty<AiPendingAttempt>())
-            .DisposeWith(_disposables);
-        RecoveryAvailable = RecoveryAttempts
-            .Select(attempts => attempts.Count != 0)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-        if (_requestRecoveryContext is not null)
-            _requestRecoveryContext.IdentityChanged += OnIdentityChanged;
+        _requestRecoveryContext.IdentityChanged += OnIdentityChanged;
 
         _ = LoadEntitlementsAsync();
-        TryAutoRecoverSingleAttempt();
+        _recovery.TryAutoRecoverSingleAttempt();
     }
 
-    /// <summary>
-    /// The shapes on offer, which follow the chosen model: GPT Image-1 renders
-    /// 1:1, 3:2 and 2:3 and refuses the rest. A model the server says nothing
-    /// about keeps the list this client has always offered.
-    /// </summary>
+    /// <summary>The shapes the chosen model publishes; the client's defaults when it publishes none.</summary>
     public ObservableCollection<AiImageAspectRatioOption> AspectRatioOptions { get; } = [];
 
     public ReactivePropertySlim<AiImageAspectRatioOption> SelectedAspectRatio { get; }
 
-    /// <summary>
-    /// The backgrounds on offer, which follow the chosen model the same way the
-    /// shapes do: GPT Image-1 publishes auto, opaque and transparent while GPT
-    /// Image-2 publishes auto and opaque. "auto" is always among them — it
-    /// sends no background at all, which every model takes.
-    /// </summary>
+    /// <summary>The backgrounds the chosen model publishes; the client's defaults when it publishes none.</summary>
     public ObservableCollection<AiImageBackgroundOption> BackgroundOptions { get; } = [];
 
     public ReactivePropertySlim<AiImageBackgroundOption> SelectedBackground { get; }
 
-    /// <summary>
-    /// False for a model that publishes no background of its own, and for a
-    /// model that takes no seed or no picture to work from. The controls are
-    /// hidden rather than left to fail: the request would be refused after the
-    /// usage was reserved.
-    /// </summary>
+    // These three are false for a model that publishes no background of its own, takes no seed or
+    // takes no picture to work from. The controls are hidden rather than refused after the usage is reserved.
     public ReactivePropertySlim<bool> HasBackgroundChoice { get; }
 
     public ReactivePropertySlim<bool> SupportsSeed { get; }
@@ -325,15 +296,15 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
     /// </summary>
     public ReactiveCommand StopGenerating { get; }
 
-    internal ReactivePropertySlim<AiPendingAttempt?> SelectedRecoveryAttempt { get; }
+    public ReactivePropertySlim<AiPendingAttempt?> SelectedRecoveryAttempt => _recovery.SelectedAttempt;
 
-    internal ReadOnlyReactivePropertySlim<IReadOnlyList<AiPendingAttempt>> RecoveryAttempts { get; }
+    public ReadOnlyReactivePropertySlim<IReadOnlyList<AiPendingAttempt>> RecoveryAttempts => _recovery.Attempts;
 
-    internal ReadOnlyReactivePropertySlim<bool> RecoveryAvailable { get; }
+    public ReadOnlyReactivePropertySlim<bool> RecoveryAvailable => _recovery.Available;
 
-    internal ReactiveCommand RecoverSelectedAttempt { get; }
+    public ReactiveCommand RecoverSelectedAttempt => _recovery.RecoverSelected;
 
-    internal ReactiveCommand AbandonSelectedAttempt { get; }
+    public ReactiveCommand AbandonSelectedAttempt => _recovery.AbandonSelected;
 
     public ReadOnlyReactivePropertySlim<bool> CanAddToScene { get; }
 
@@ -379,9 +350,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
 
     public ReactivePropertySlim<string?> Error { get; } = new();
 
-    // Where the model sits in the request's parts. It is filled in last: which
-    // model a request carries depends on whether a name is already outstanding
-    // for the rest of it.
+    // Where the model sits in the request's parts.
     private const int ModelPartIndex = 4;
 
     /// <summary>
@@ -406,11 +375,6 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
         AiImageModelCapabilities image =
             model?.Image ?? AiImageModelCapabilities.Unrestricted;
 
-        // What the user asked for is remembered apart from what the model on
-        // screen will take. Reading the choice back off the screen loses it the
-        // moment a model that takes something narrower is picked, and going
-        // back to the first model then rebuilds a different request — one the
-        // name already handed out does not belong to.
         _applyingCapabilities = true;
         try
         {
@@ -418,25 +382,23 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
                 ? DefaultAspectRatios
                 : image.AspectRatios.Values;
             var availableAspectRatios = aspectRatios.ToList();
-            if (_selectedRecovery?.Form?.AspectRatio is { } recoveredAspect
+            if (_recovery.Active?.Form?.AspectRatio is { } recoveredAspect
                 && !availableAspectRatios.Contains(recoveredAspect, StringComparer.Ordinal))
                 availableAspectRatios.Add(recoveredAspect);
-            Replace(
-                AspectRatioOptions,
+            AspectRatioOptions.Replace(
                 availableAspectRatios.Select(value => new AiImageAspectRatioOption(value)));
             SelectedAspectRatio.Value =
                 AspectRatioOptions.FirstOrDefault(option => option.Value == _chosenAspectRatio?.Value)
-                ?? GetSuggestedAspectRatio(AspectRatioOptions, _editViewModel?.Scene.FrameSize);
+                ?? AiAspectRatioSuggestion.Choose(AspectRatioOptions, option => option.Value, _editViewModel?.Scene.FrameSize);
 
             IEnumerable<string> backgrounds = !image.Backgrounds.IsSpecified
                 ? DefaultBackgrounds
                 : image.Backgrounds.Values;
             var availableBackgrounds = backgrounds.ToList();
-            if (_selectedRecovery?.Form?.Background is { } recoveredBackground
+            if (_recovery.Active?.Form?.Background is { } recoveredBackground
                 && !availableBackgrounds.Contains(recoveredBackground, StringComparer.Ordinal))
                 availableBackgrounds.Add(recoveredBackground);
-            Replace(
-                BackgroundOptions,
+            BackgroundOptions.Replace(
                 availableBackgrounds.Select(value => new AiImageBackgroundOption(value)));
             // Falling back to the first, which is always "leave it to the
             // model": keeping a background the new model does not take would be
@@ -444,9 +406,9 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
             SelectedBackground.Value =
                 BackgroundOptions.FirstOrDefault(option => option.Value == _chosenBackground?.Value)
                 ?? BackgroundOptions[0];
-            HasBackgroundChoice.Value = _selectedRecovery?.Form?.HasBackgroundChoice
+            HasBackgroundChoice.Value = _recovery.Active?.Form?.HasBackgroundChoice
                 ?? BackgroundOptions.Count > 1;
-            SupportsSeed.Value = _selectedRecovery?.Form?.SupportsSeed
+            SupportsSeed.Value = _recovery.Active?.Form?.SupportsSeed
                 ?? image.SupportsSeed;
             Seed.Value = SupportsSeed.Value ? _chosenSeed : null;
             // The model publishes its own count and the price covers a fixed
@@ -454,11 +416,11 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
             // anything the new model will not take is set aside rather than
             // refused after the usage has been reserved.
             int maxReferences = Math.Clamp(
-                _selectedRecovery?.Form?.MaxReferenceImages
+                _recovery.Active?.Form?.MaxReferenceImages
                     ?? image.MaxReferenceImages,
                 0,
                 AiRequestLimits.MaxImageReferences);
-            SupportsReferenceImage.Value = _selectedRecovery?.Form?.SupportsReferenceImage
+            SupportsReferenceImage.Value = _recovery.Active?.Form?.SupportsReferenceImage
                 ?? maxReferences > 0;
             if (!SupportsReferenceImage.Value)
                 maxReferences = 0;
@@ -472,28 +434,6 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
 
         UpdateReferenceImageState();
     }
-
-    private static void Replace<T>(ObservableCollection<T> target, IEnumerable<T> values)
-    {
-        target.Clear();
-        foreach (T value in values)
-            target.Add(value);
-    }
-
-    internal static AiImageAspectRatioOption GetSuggestedAspectRatio(
-        IReadOnlyList<AiImageAspectRatioOption> options,
-        Beutl.Media.PixelSize? frameSize)
-        => AiAspectRatioSuggestion.Choose(options, option => option.Value, frameSize);
-
-    // What the person chose, kept apart from what a model change shows: values the dialog sets
-    // while applying a model's capabilities are not choices.
-    private void RememberChoice<T>(IObservable<T> source, Action<T> remember)
-        => source.Subscribe(value =>
-            {
-                if (!_applyingCapabilities)
-                    remember(value);
-            })
-            .DisposeWith(_disposables);
 
     public void Dispose() => _ = BeginDisposeAsync();
 
@@ -513,28 +453,20 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
             ResultImage.Dispose();
             PreviewImage.Value?.Dispose();
             PreviewImage.Dispose();
-            foreach (AiReferenceImageViewModel reference in ReferenceImages)
-                reference.Dispose();
-            ReferenceImages.Clear();
+            DisposeReferenceImages();
             Prompt.Dispose();
             Style.Dispose();
             Composition.Dispose();
             Exclusions.Dispose();
             Error.Dispose();
-            if (_requestRecoveryContext is not null)
-                _requestRecoveryContext.IdentityChanged -= OnIdentityChanged;
+            _requestRecoveryContext.IdentityChanged -= OnIdentityChanged;
             _requestKey.Dispose();
-            _recoveryRevision.Dispose();
+            _recovery.Dispose();
             _disposables.Dispose();
         });
     }
 
-    /// <summary>
-    /// Re-reads the model list. The catalog is cached with a freshness window,
-    /// so this costs nothing while it is fresh and picks up a model an operator
-    /// added, removed or reordered once it is not — which a workspace tab left
-    /// open would otherwise never see.
-    /// </summary>
+    /// <inheritdoc />
     public void RefreshModels() => _ = RefreshModelsAsync();
 
     private async Task RefreshModelsAsync()
@@ -556,7 +488,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
             await ModelPicker.LoadAsync(
                 AiOperations.ImageGeneration,
                 operation.CancellationToken);
-            SelectRecoveredModel();
+            _recovery.SelectRecoveredModel();
             TrimReferenceImagesToLimit();
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
@@ -587,7 +519,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
                     _requestKey.PreferredPersistedModel(op),
                     _requestKey.HasExplicitNullPersistedModel(op),
                     operation.CancellationToken);
-                SelectRecoveredModel();
+                _recovery.SelectRecoveredModel();
                 TrimReferenceImagesToLimit();
             }
         }
@@ -628,11 +560,8 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
             int? seed = Seed.Value;
             // Every picture is part of what makes this request the request it
             // is, so each one is named in the key: the same prompt guided by
-            // different pictures is a different run and costs its own. The
-            // model's place is left empty until it is known, because which
-            // model this request carries depends on whether it is the request a
-            // name is already outstanding for.
-            AiImageReferenceLimits referenceLimits = _selectedRecovery?.Form?.MaxReferenceTotalBytes
+            // different pictures is a different run and costs its own.
+            AiImageReferenceLimits referenceLimits = _recovery.Active?.Form?.MaxReferenceTotalBytes
                 is { } persistedReferenceLimit
                 ? new AiImageReferenceLimits(persistedReferenceLimit)
                 : ModelPicker.ImageReferenceLimits;
@@ -645,7 +574,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
                     referencePaths,
                     referenceLimits.MaxTotalBytes,
                     operation.CancellationToken,
-                    _selectedRecovery?.EffectiveSources);
+                    _recovery.Active?.EffectiveSources);
             string?[] requestParts =
             [
                 prompt,
@@ -655,7 +584,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
                 null,
                 .. referenceStamps,
             ];
-            AiModelId? model = ModelForRequest(ModelPicker.SelectedModel);
+            AiModelId? model = _recovery.ModelForRequest(ModelPicker.SelectedModel);
             requestParts[ModelPartIndex] = model?.Value;
             AiRequestFormSnapshot form = new(
                 Prompt: promptField,
@@ -670,7 +599,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
                 SupportsReferenceImage: SupportsReferenceImage.Value,
                 SupportsSeed: SupportsSeed.Value,
                 HasBackgroundChoice: HasBackgroundChoice.Value);
-            if (_selectedRecovery is { } selected
+            if (_recovery.Active is { } selected
                 && !_requestKey.MatchesPending(selected, requestParts))
             {
                 // The user changed a recovered form. Keep the old paid key
@@ -684,7 +613,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
             issued = name;
             using IDisposable authenticatedScope = _requestKey.EnterAuthenticatedScope(name);
             using AiRequestRecoveryLease? claim = _requestKey.TryClaim(name);
-            if (_requestKey.HasDurableRecovery && claim is null)
+            if (claim is null)
             {
                 operation.TryPublish(() => Error.Value = Strings.AiResultUnavailable);
                 return;
@@ -802,43 +731,15 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
         if (!operation.IsCurrent)
             return;
 
-        try
-        {
-            AiResultImportOptions options = AiDialogResults.PlaceAtPlayhead(
-                _editViewModel,
-                TimeSpan.FromSeconds(5),
-                Strings.AiImageGeneration);
-            ElementAddResult result;
-            if (ResultImporter is { } importer)
-            {
-                result = await importer(bitmap, options, operation.CancellationToken);
-            }
-            else
-            {
-                var defaultImporter = new AiResultImporter(
-                    _editViewModel.Scene,
-                    _editViewModel.GetRequiredService<IElementAdder>());
-                result = await defaultImporter.ImportImageAsync(
-                    bitmap,
-                    options,
-                    operation.CancellationToken);
-            }
-
-            AiDialogResults.PublishImport(
-                operation,
-                result,
-                Strings.AiImageGeneration,
-                Strings.AiImageAddedToScene,
-                "generated image");
-        }
-        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
-        {
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to add the AI image to the scene.");
-            operation.TryPublish(() => Error.Value = Strings.AiUnexpectedError);
-        }
+        await AiDialogResults.AddImageToSceneAsync(
+            operation,
+            _editViewModel,
+            bitmap,
+            ResultImporter,
+            Strings.AiImageGeneration,
+            "generated image",
+            Error,
+            ex => _logger.LogError(ex, "Failed to add the AI image to the scene."));
     }
 
     private async Task SaveToFileCore()
@@ -850,48 +751,15 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
         if (resultImage?.Value is not { } bitmap)
             return;
 
-        (AiSaveFileDestination? destination, IStorageFile? selectedStorageFile) =
-            await AiDialogStorage.PickSaveDestinationAsync(
-                SaveFilePicker,
-                () =>
-                {
-                    FilePickerSaveOptions options = SharedFilePickerOptions.SavePngImage();
-                    options.SuggestedFileName = $"AI Image {DateTime.Now:yyyy-MM-dd HHmmss}";
-                    options.DefaultExtension = "png";
-                    return options;
-                },
-                WellKnownFolder.Pictures,
-                operation.CancellationToken);
-        using IStorageFile? storageFileOwnership = selectedStorageFile;
-
-        if (destination is null || !operation.IsCurrent)
-            return;
-
-        try
-        {
-            AiImageFileFormat.ValidatePngDestination(destination.Path);
-
-            if (!operation.TryPublish(() =>
-                {
-                    operation.CancellationToken.ThrowIfCancellationRequested();
-                    AiAtomicFileWriter.WritePng(
-                        destination.Path,
-                        bitmap,
-                        "Failed to encode the AI image as PNG.",
-                        operation.CancellationToken);
-                }))
-                return;
-            operation.TryPublish(() =>
-                NotificationService.ShowSuccess(Strings.AiImageGeneration, Strings.AiImageSaved));
-        }
-        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
-        {
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to save the AI image.");
-            operation.TryPublish(() => Error.Value = Strings.AiUnexpectedError);
-        }
+        await AiDialogResults.SavePngAsync(
+            operation,
+            bitmap,
+            SaveFilePicker,
+            "AI Image",
+            "Failed to encode the AI image as PNG.",
+            Strings.AiImageGeneration,
+            Error,
+            ex => _logger.LogError(ex, "Failed to save the AI image."));
     }
 
     private string ComposePrompt() => AiPromptComposer.Compose(new AiPromptParts(

@@ -66,10 +66,6 @@ internal sealed class AiUsageViewModel : IDisposable
             .Select(credits => string.Format(Strings.AiAdditionalCredits, credits))
             .ToReadOnlyReactivePropertySlim(string.Format(Strings.AiAdditionalCredits, 0))
             .DisposeWith(_disposables);
-
-        AdditionalCreditDebtText = Observable.Return(Strings.AiAdditionalCreditDebt)
-            .ToReadOnlyReactivePropertySlim(Strings.AiAdditionalCreditDebt)
-            .DisposeWith(_disposables);
     }
 
     public ReadOnlyReactivePropertySlim<bool> CanUseAi { get; }
@@ -93,8 +89,6 @@ internal sealed class AiUsageViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<string> MonthlyRemainingText { get; }
 
     public ReadOnlyReactivePropertySlim<string> AdditionalCreditsText { get; }
-
-    public ReadOnlyReactivePropertySlim<string> AdditionalCreditDebtText { get; }
 
     public void Dispose()
     {

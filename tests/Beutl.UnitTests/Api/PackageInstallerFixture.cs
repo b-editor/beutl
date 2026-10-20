@@ -1,4 +1,5 @@
-﻿using Beutl.Api.Services;
+﻿using System.Text.Json;
+using Beutl.Api.Services;
 using Beutl.Testing.Headless;
 using NuGet.Packaging.Core;
 
@@ -23,7 +24,7 @@ public abstract class PackageInstallerFixture
         File.Delete(InstalledPackagesFile);
         _httpClient = new HttpClient();
         _repository = new InstalledPackageRepository();
-        _installer = new PackageInstaller(_httpClient, _repository, apiApplication: null!);
+        _installer = new PackageInstaller(_httpClient, ownsHttpClient: false, _repository, apiApplication: null!);
     }
 
     [TearDown]
@@ -37,6 +38,23 @@ public abstract class PackageInstallerFixture
 
         _createdDirectories.Clear();
         File.Delete(InstalledPackagesFile);
+    }
+
+    // Registers the packages the way an installedPackages.json from an earlier Beutl does, which can hold
+    // several versions of one package. Only restoring the file does that, so the repository and the
+    // installer are created again over it.
+    protected void RestoreRegistrations(params PackageIdentity[] packages)
+    {
+        File.WriteAllText(
+            InstalledPackagesFile,
+            JsonSerializer.Serialize(packages.Select(package => new
+            {
+                Name = package.Id,
+                Version = package.Version.ToString(),
+                BeutlVersion = BeutlApplication.Version,
+            })));
+        _repository = new InstalledPackageRepository();
+        _installer = new PackageInstaller(_httpClient, ownsHttpClient: false, _repository, apiApplication: null!);
     }
 
     // Removes the package through Clean or Uninstall and returns the directories that could not be removed.

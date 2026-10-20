@@ -30,9 +30,6 @@ public class SceneMarker : Hierarchical
 
     public SceneMarker()
     {
-        Name = string.Empty;
-        Note = string.Empty;
-        Color = Colors.Yellow;
     }
 
     public SceneMarker(TimeSpan time, string? name = null, Color? color = null, string? note = null)

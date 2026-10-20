@@ -16,7 +16,6 @@ public partial class ParticleEmitter : Drawable
         ScanProperties<ParticleEmitter>();
     }
 
-    // Emitter
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_Seed), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_EmitterGroup))]
     public IProperty<int> Seed { get; } = Property.CreateAnimatable(0);
@@ -40,7 +39,6 @@ public partial class ParticleEmitter : Drawable
     [Range(1, 50000)]
     public IProperty<int> MaxParticles { get; } = Property.Create(5000);
 
-    // Emission
     /// <summary>
     /// Time to simulate before the emitter starts, from zero to one minute (3,600 fixed steps).
     /// Values outside this range fall back to zero, disabling prewarming. Only particle simulation
@@ -66,7 +64,6 @@ public partial class ParticleEmitter : Drawable
     [Range(0, float.MaxValue)]
     public IProperty<float> LifetimeRandom { get; } = Property.CreateAnimatable(0f);
 
-    // Velocity
     [Display(Name = nameof(GraphicsStrings.Speed), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_VelocityGroup))]
     [Range(0, float.MaxValue)]
@@ -86,7 +83,6 @@ public partial class ParticleEmitter : Drawable
     [Range(0, 360)]
     public IProperty<float> Spread { get; } = Property.CreateAnimatable(30f);
 
-    // Physics
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_Gravity), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_PhysicsGroup))]
     public IProperty<float> Gravity { get; } = Property.CreateAnimatable(200f);
@@ -111,7 +107,6 @@ public partial class ParticleEmitter : Drawable
     [Range(0, float.MaxValue)]
     public IProperty<float> TurbulenceSpeed { get; } = Property.CreateAnimatable(1f);
 
-    // Visual
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_ParticleDrawable), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_VisualGroup))]
     public IProperty<Drawable?> ParticleDrawable { get; } = Property.Create<Drawable?>();
@@ -135,7 +130,6 @@ public partial class ParticleEmitter : Drawable
     [Range(0, 100)]
     public IProperty<float> ParticleOpacity { get; } = Property.CreateAnimatable(100f);
 
-    // Rotation
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_InitialRotation), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.Rotation))]
     public IProperty<float> InitialRotation { get; } = Property.CreateAnimatable(0f);
@@ -149,7 +143,6 @@ public partial class ParticleEmitter : Drawable
         GroupName = nameof(GraphicsStrings.Rotation))]
     public IProperty<float> AngularVelocity { get; } = Property.CreateAnimatable(0f);
 
-    // Over Life
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_EndSizeMultiplier), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_OverLifeGroup))]
     [Range(0, float.MaxValue)]
@@ -194,36 +187,8 @@ public partial class ParticleEmitter : Drawable
     {
         private readonly ParticleSimulator _simulator = new();
 
-        private int _seed;
-        private EmitterShape _emitterShape;
-        private float _emitterWidth;
-        private float _emitterHeight;
-        private int _maxParticles;
-        private TimeSpan _prewarmDuration;
-        private float _emissionRate;
-        private float _lifetime;
-        private float _lifetimeRandom;
-        private float _speed;
-        private float _speedRandom;
-        private float _direction;
-        private float _spread;
-        private float _gravity;
-        private float _airResistance;
-        private float _turbulenceStrength;
-        private float _turbulenceScale;
-        private float _turbulenceSpeed;
+        private ParticleSettings _settings;
         private Drawable.Resource? _particleDrawable;
-        private float _particleSize;
-        private float _sizeRandom;
-        private Color _color;
-        private float _particleOpacity;
-        private float _initialRotation;
-        private float _initialRotationRandom;
-        private float _angularVelocity;
-        private float _endSizeMultiplier;
-        private float _endOpacityMultiplier;
-        private Color _endColor;
-        private bool _useEndColor;
         private double _time;
 
         public Drawable.Resource? ParticleDrawable => _particleDrawable;
@@ -233,43 +198,50 @@ public partial class ParticleEmitter : Drawable
             return _simulator.GetAliveParticles();
         }
 
+        internal static ParticleSettings CreateSettings(ParticleEmitter emitter, CompositionContext context)
+        {
+            return new ParticleSettings(
+                context.Get(emitter.Seed),
+                context.Get(emitter.EmitterShape),
+                context.Get(emitter.EmitterWidth),
+                context.Get(emitter.EmitterHeight),
+                context.Get(emitter.MaxParticles),
+                context.Get(emitter.PrewarmDuration),
+                context.Get(emitter.EmissionRate),
+                context.Get(emitter.Lifetime),
+                context.Get(emitter.LifetimeRandom),
+                context.Get(emitter.Speed),
+                context.Get(emitter.SpeedRandom),
+                context.Get(emitter.Direction),
+                context.Get(emitter.Spread),
+                context.Get(emitter.Gravity),
+                context.Get(emitter.AirResistance),
+                context.Get(emitter.TurbulenceStrength),
+                context.Get(emitter.TurbulenceScale),
+                context.Get(emitter.TurbulenceSpeed),
+                context.Get(emitter.ParticleSize),
+                context.Get(emitter.SizeRandom),
+                context.Get(emitter.ParticleColor),
+                context.Get(emitter.ParticleOpacity),
+                context.Get(emitter.InitialRotation),
+                context.Get(emitter.InitialRotationRandom),
+                context.Get(emitter.AngularVelocity),
+                context.Get(emitter.EndSizeMultiplier),
+                context.Get(emitter.EndOpacityMultiplier),
+                context.Get(emitter.EndColor),
+                context.Get(emitter.UseEndColor));
+        }
+
         public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
             base.Reconcile(obj, context, ref versionBumped);
 
             var emitter = (ParticleEmitter)obj;
 
+            var settings = CreateSettings(emitter, context);
             // Base properties may have already bumped the render version. Track simulation changes separately.
-            bool parametersChanged = false;
-            ReconcileParameter(context, emitter.Seed, ref _seed, ref parametersChanged);
-            ReconcileParameter(context, emitter.EmitterShape, ref _emitterShape, ref parametersChanged);
-            ReconcileParameter(context, emitter.EmitterWidth, ref _emitterWidth, ref parametersChanged);
-            ReconcileParameter(context, emitter.EmitterHeight, ref _emitterHeight, ref parametersChanged);
-            ReconcileParameter(context, emitter.MaxParticles, ref _maxParticles, ref parametersChanged);
-            ReconcileParameter(context, emitter.PrewarmDuration, ref _prewarmDuration, ref parametersChanged);
-            ReconcileParameter(context, emitter.EmissionRate, ref _emissionRate, ref parametersChanged);
-            ReconcileParameter(context, emitter.Lifetime, ref _lifetime, ref parametersChanged);
-            ReconcileParameter(context, emitter.LifetimeRandom, ref _lifetimeRandom, ref parametersChanged);
-            ReconcileParameter(context, emitter.Speed, ref _speed, ref parametersChanged);
-            ReconcileParameter(context, emitter.SpeedRandom, ref _speedRandom, ref parametersChanged);
-            ReconcileParameter(context, emitter.Direction, ref _direction, ref parametersChanged);
-            ReconcileParameter(context, emitter.Spread, ref _spread, ref parametersChanged);
-            ReconcileParameter(context, emitter.Gravity, ref _gravity, ref parametersChanged);
-            ReconcileParameter(context, emitter.AirResistance, ref _airResistance, ref parametersChanged);
-            ReconcileParameter(context, emitter.TurbulenceStrength, ref _turbulenceStrength, ref parametersChanged);
-            ReconcileParameter(context, emitter.TurbulenceScale, ref _turbulenceScale, ref parametersChanged);
-            ReconcileParameter(context, emitter.TurbulenceSpeed, ref _turbulenceSpeed, ref parametersChanged);
-            ReconcileParameter(context, emitter.ParticleSize, ref _particleSize, ref parametersChanged);
-            ReconcileParameter(context, emitter.SizeRandom, ref _sizeRandom, ref parametersChanged);
-            ReconcileParameter(context, emitter.ParticleColor, ref _color, ref parametersChanged);
-            ReconcileParameter(context, emitter.ParticleOpacity, ref _particleOpacity, ref parametersChanged);
-            ReconcileParameter(context, emitter.InitialRotation, ref _initialRotation, ref parametersChanged);
-            ReconcileParameter(context, emitter.InitialRotationRandom, ref _initialRotationRandom, ref parametersChanged);
-            ReconcileParameter(context, emitter.AngularVelocity, ref _angularVelocity, ref parametersChanged);
-            ReconcileParameter(context, emitter.EndSizeMultiplier, ref _endSizeMultiplier, ref parametersChanged);
-            ReconcileParameter(context, emitter.EndOpacityMultiplier, ref _endOpacityMultiplier, ref parametersChanged);
-            ReconcileParameter(context, emitter.EndColor, ref _endColor, ref parametersChanged);
-            ReconcileParameter(context, emitter.UseEndColor, ref _useEndColor, ref parametersChanged);
+            bool parametersChanged = !settings.Equals(_settings);
+            _settings = settings;
 
             if (parametersChanged)
             {
@@ -277,64 +249,24 @@ public partial class ParticleEmitter : Drawable
                 _simulator.InvalidateCache();
             }
 
-            // Update particle drawable resource
             ResourceReconciler.ReconcileChild(this, context, emitter.ParticleDrawable, ref _particleDrawable, ref versionBumped);
 
-            // Time tracking
             double oldTime = _time;
             _time = (context.Time - obj.TimeRange.Start).TotalSeconds;
             if (_time >= 0)
             {
                 // Keep the original composition clock for animated properties and the particle drawable.
-                _time += Math.Max(0, _prewarmDuration.TotalSeconds);
+                _time += Math.Max(0, _settings.PrewarmDuration.TotalSeconds);
             }
 
-            // Run simulation
-            _simulator.Simulate(
-                _time,
-                _seed,
-                _emitterShape,
-                _emitterWidth,
-                _emitterHeight,
-                _maxParticles,
-                _emissionRate,
-                _lifetime,
-                _lifetimeRandom,
-                _speed,
-                _speedRandom,
-                _direction,
-                _spread,
-                _gravity,
-                _airResistance,
-                _turbulenceStrength,
-                _turbulenceScale,
-                _turbulenceSpeed,
-                _particleSize,
-                _sizeRandom,
-                _color,
-                _particleOpacity,
-                _initialRotation,
-                _initialRotationRandom,
-                _angularVelocity,
-                _endSizeMultiplier,
-                _endOpacityMultiplier,
-                _endColor,
-                _useEndColor);
+            _simulator.Simulate(_time, in _settings);
 
-            // Always increment version since particles move every frame
+            // The particles move whenever the simulated time does, unless this reconcile already bumped the version.
             // ReSharper disable once CompareOfFloatsByEqualityOperator
             if (!versionBumped && oldTime != _time)
             {
                 Version++;
             }
-        }
-
-        private static void ReconcileParameter<TValue>(
-            CompositionContext context, IProperty<TValue> property, ref TValue field, ref bool parametersChanged)
-        {
-            TValue newValue = context.Get(property);
-            parametersChanged = parametersChanged || !EqualityComparer<TValue>.Default.Equals(newValue, field);
-            field = newValue;
         }
 
         protected override void Dispose(bool disposing)

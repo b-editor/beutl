@@ -1,17 +1,15 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Sockets;
 using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.Api.Services;
+using Beutl.Audio;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
 using Beutl.Media.Source;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
@@ -22,6 +20,7 @@ using Beutl.ViewModels;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using SkiaSharp;
+using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 
@@ -58,19 +57,13 @@ public sealed class AgentHostAiToolsTests
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
             UnavailableAgentAiBackend.Instance,
-            GetAvailableLoopbackPort(),
+            AvailablePort(),
             "test-token",
             registryDirectory: _directory);
         try
         {
             await endpoint.StartAsync();
-            var transport = new HttpClientTransport(new HttpClientTransportOptions
-            {
-                Endpoint = endpoint.EndpointUri!,
-                TransportMode = HttpTransportMode.StreamableHttp,
-                AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = "Bearer " + endpoint.Token },
-            });
-            await using McpClient client = await McpClient.CreateAsync(transport);
+            await using McpClient client = await ConnectAsync(endpoint);
 
             string[] names = [.. (await client.ListToolsAsync()).Select(tool => tool.Name)];
             CallToolResult result = await client.CallToolAsync(
@@ -97,8 +90,7 @@ public sealed class AgentHostAiToolsTests
     [AvaloniaTest]
     public async Task AGeneratedPictureIsSavedAndItsPathReturned()
     {
-        await TestReset.ResetShellAsync();
-        Scene scene = await OpenSceneAsync("agent-ai-image");
+        (_, Scene scene, _) = await TestShell.OpenNewSceneAsync("agent-ai-image");
         var backend = new FakeBackend { Result = WritePng("result.png") };
         using var jobs = new AgentAiJobManager();
         var tools = CreateTools(TestShell.Editor, jobs, backend);
@@ -123,8 +115,7 @@ public sealed class AgentHostAiToolsTests
     [AvaloniaTest]
     public async Task ALongJobIsReadBackByIdAndCanBeCancelled()
     {
-        await TestReset.ResetShellAsync();
-        await OpenSceneAsync("agent-ai-video");
+        await TestShell.OpenNewSceneAsync("agent-ai-video");
         var backend = new FakeBackend { Result = WriteFile("clip.mp4"), Gate = new TaskCompletionSource() };
         using var jobs = new AgentAiJobManager();
         var tools = CreateTools(TestShell.Editor, jobs, backend);
@@ -155,8 +146,7 @@ public sealed class AgentHostAiToolsTests
     [AvaloniaTest]
     public async Task ATranscriptIsReturnedWithTheJob()
     {
-        await TestReset.ResetShellAsync();
-        await OpenSceneAsync("agent-ai-transcribe");
+        await TestShell.OpenNewSceneAsync("agent-ai-transcribe");
         var backend = new FakeBackend();
         // The default model is not open to this account, so the one it can use is sent.
         backend.Models["audio.transcribe"] =
@@ -181,8 +171,7 @@ public sealed class AgentHostAiToolsTests
     [AvaloniaTest]
     public async Task BadArgumentsAreTheCallsErrorsAndCostNothing()
     {
-        await TestReset.ResetShellAsync();
-        await OpenSceneAsync("agent-ai-errors");
+        await TestShell.OpenNewSceneAsync("agent-ai-errors");
         var backend = new FakeBackend();
         using var jobs = new AgentAiJobManager();
         var tools = CreateTools(TestShell.Editor, jobs, backend);
@@ -278,8 +267,7 @@ public sealed class AgentHostAiToolsTests
     [AvaloniaTest]
     public async Task OmittedSettingsAreChosenFromTheModelsOwnChoices()
     {
-        await TestReset.ResetShellAsync();
-        await OpenSceneAsync("agent-ai-model-choices");
+        await TestShell.OpenNewSceneAsync("agent-ai-model-choices");
         var backend = new FakeBackend { Result = WritePng("result.png") };
         backend.Models["image.generate"] = [SquareModel];
         backend.Models["video.generate"] = [PortraitModel];
@@ -309,8 +297,7 @@ public sealed class AgentHostAiToolsTests
     [AvaloniaTest]
     public async Task ExplicitSettingsTheModelDoesNotTakeAreRefusedBeforeAJobStarts()
     {
-        await TestReset.ResetShellAsync();
-        await OpenSceneAsync("agent-ai-explicit");
+        await TestShell.OpenNewSceneAsync("agent-ai-explicit");
         var backend = new FakeBackend();
         backend.Models["image.generate"] = [SquareModel];
         backend.Models["video.generate"] = [PortraitModel];
@@ -374,8 +361,7 @@ public sealed class AgentHostAiToolsTests
     [AvaloniaTest]
     public async Task AClipIsOpenedBeforeItsEditIsPaidFor()
     {
-        await TestReset.ResetShellAsync();
-        await OpenSceneAsync("agent-ai-edit-video");
+        await TestShell.OpenNewSceneAsync("agent-ai-edit-video");
         var backend = new FakeBackend { Result = WriteFile("result.mp4") };
         using var jobs = new AgentAiJobManager();
         var tools = CreateTools(TestShell.Editor, jobs, backend);
@@ -407,8 +393,7 @@ public sealed class AgentHostAiToolsTests
     [AvaloniaTest]
     public async Task AnAccountWhosePlanCannotBeReadLeavesTheModelToTheService()
     {
-        await TestReset.ResetShellAsync();
-        await OpenSceneAsync("agent-ai-plan-unknown");
+        await TestShell.OpenNewSceneAsync("agent-ai-plan-unknown");
         // Without the plan the catalog marks every model unavailable; that is not a refusal.
         var backend = new FakeBackend { Result = WritePng("result.png"), KnowsModelAvailability = false };
         backend.Models["image.generate"] = [SquareModel with { IsAvailable = false }];
@@ -436,8 +421,7 @@ public sealed class AgentHostAiToolsTests
     [AvaloniaTest]
     public async Task AnAccountOutOfCreditsIsUnavailableNotAFailedGeneration()
     {
-        await TestReset.ResetShellAsync();
-        await OpenSceneAsync("agent-ai-credits");
+        await TestShell.OpenNewSceneAsync("agent-ai-credits");
         var backend = new FakeBackend
         {
             Failure = new GenerativeExecutionException("Out of credits.", new AiUsageLimitExceededException()),
@@ -472,8 +456,7 @@ public sealed class AgentHostAiToolsTests
     [AvaloniaTest]
     public async Task AnInputIsReadFromAnyAbsolutePathButARelativePathIsRefused()
     {
-        await TestReset.ResetShellAsync();
-        await OpenSceneAsync("agent-ai-paths");
+        await TestShell.OpenNewSceneAsync("agent-ai-paths");
         string outside = Path.Combine(Path.GetTempPath(), "beutl-agent-ai-outside-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(outside);
         try
@@ -538,21 +521,15 @@ public sealed class AgentHostAiToolsTests
             TestShell.Project,
             TestShell.Editor,
             backend,
-            GetAvailableLoopbackPort(),
+            AvailablePort(),
             "test-token",
             registryDirectory: _directory);
         try
         {
             await endpoint.StartAsync();
-            var transport = new HttpClientTransport(new HttpClientTransportOptions
-            {
-                Endpoint = endpoint.EndpointUri!,
-                TransportMode = HttpTransportMode.StreamableHttp,
-                AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = "Bearer " + endpoint.Token },
-            });
-            await using McpClient client = await McpClient.CreateAsync(transport);
+            await using McpClient client = await ConnectAsync(endpoint);
 
-            JsonObject targeted = Succeeded(await client.CallToolAsync(
+            JsonObject targeted = Success(await client.CallToolAsync(
                 "generate_image",
                 new Dictionary<string, object?>
                 {
@@ -560,7 +537,7 @@ public sealed class AgentHostAiToolsTests
                     ["waitSeconds"] = 10,
                     ["sceneId"] = portrait.Id.ToString(),
                 }));
-            JsonObject selected = Succeeded(await client.CallToolAsync(
+            JsonObject selected = Success(await client.CallToolAsync(
                 "generate_image",
                 new Dictionary<string, object?> { ["prompt"] = "a harbour", ["waitSeconds"] = 10 }));
 
@@ -597,17 +574,6 @@ public sealed class AgentHostAiToolsTests
         Assert.That(result.Error?.Code, Is.EqualTo(ErrorCode.NoActiveEditorSession));
     }
 
-    private static async Task<Scene> OpenSceneAsync(string name)
-    {
-        string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(workspace);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, workspace))!;
-        Scene scene = project.Items.OfType<Scene>().First();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return scene;
-    }
-
     private static GenerativeModelInfo PortraitModel { get; } =
         new("portrait", "Portrait", IsDefault: true, IsAvailable: true, Image: null, Video: new GenerativeVideoCapabilities(
             DurationsSeconds: [5, 10],
@@ -631,13 +597,6 @@ public sealed class AgentHostAiToolsTests
     private AgentHostAiTools CreateTools(EditorService editor, AgentAiJobManager jobs, FakeBackend backend)
         => new(editor, jobs, backend, new AgentSessionManager());
 
-    private static JsonObject Succeeded(CallToolResult result)
-    {
-        JsonObject payload = JsonNode.Parse(result.Content.OfType<TextContentBlock>().First().Text)!.AsObject();
-        Assert.That(payload["isSuccess"]?.GetValue<bool>(), Is.True, payload.ToJsonString());
-        return payload["value"]!.AsObject();
-    }
-
     private static string WritePngIn(string directory)
     {
         Directory.CreateDirectory(directory);
@@ -660,13 +619,6 @@ public sealed class AgentHostAiToolsTests
         string path = Path.Combine(_directory, name);
         File.WriteAllBytes(path, [0, 1, 2, 3]);
         return path;
-    }
-
-    private static int GetAvailableLoopbackPort()
-    {
-        using TcpListener listener = new(IPAddress.Loopback, 0);
-        listener.Start();
-        return ((IPEndPoint)listener.LocalEndpoint).Port;
     }
 
     private sealed class StubVideoDecoder : IDecoderInfo
@@ -703,7 +655,7 @@ public sealed class AgentHostAiToolsTests
             return false;
         }
 
-        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
         {
             sound = null;
             return false;

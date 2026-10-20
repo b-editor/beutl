@@ -16,5 +16,4 @@ internal struct Particle
     public float CurrentSize;
     public float CurrentOpacity;
     public Color CurrentColor;
-    public bool IsAlive;
 }
