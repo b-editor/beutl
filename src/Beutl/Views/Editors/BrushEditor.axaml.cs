@@ -302,13 +302,14 @@ public sealed partial class BrushEditor : UserControl
         if (viewModel.Value.Value is not SolidColorBrush solid) return;
         if (viewModel.IsDisposed) return;
 
-        // Only a drag on the picker opens a session; typed values are confirmed as before.
-        Control? owner = FlyoutPresenter is BrushEditorFlyoutPresenter { IsColorDragging: true } presenter ? presenter : null;
-        _drag.Write(viewModel, owner, StopFlyoutDrag, () => solid.Color.CurrentValue = e.NewValue.ToBtlColor());
+        _drag.Write(viewModel, DragOwner, StopFlyoutDrag, () => solid.Color.CurrentValue = e.NewValue.ToBtlColor());
         viewModel.InvalidateFrameCache();
     }
 
     private Control? FlyoutPresenter => _flyout?.Popup.Child;
+
+    // Only a drag in the flyout opens a session; typed values are confirmed as before.
+    private Control? DragOwner => FlyoutPresenter is BrushEditorFlyoutPresenter { IsDragging: true } presenter ? presenter : null;
 
     private void StopFlyoutDrag() => (FlyoutPresenter as BrushEditorFlyoutPresenter)?.StopDrag();
 
@@ -340,7 +341,7 @@ public sealed partial class BrushEditor : UserControl
         (int OldIndex, int NewIndex, Avalonia.Media.GradientStop Object) e)
     {
         if (DataContext is BrushEditorViewModel { IsElementEditable: true, Value.Value: GradientBrush { GradientStops: { } list } } viewModel)
-            _drag.Write(viewModel, FlyoutPresenter, StopFlyoutDrag, () => GradientStopEdits.Drag(viewModel, list, e.OldIndex, e.NewIndex, e.Object));
+            _drag.Write(viewModel, DragOwner, StopFlyoutDrag, () => GradientStopEdits.Drag(viewModel, list, e.OldIndex, e.NewIndex, e.Object));
     }
 
     private void Menu_Click(object? sender, RoutedEventArgs e)

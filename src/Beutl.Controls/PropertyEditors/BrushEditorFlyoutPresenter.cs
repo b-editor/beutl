@@ -88,8 +88,8 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         set => SetValue(CanEditDrawableProperty, value);
     }
 
-    // Whether the color picker's spectrum, sliders or previewer are being dragged.
-    public bool IsColorDragging => Content is SimpleColorPicker { IsDragging: true };
+    // Whether a stop, or the color picker's spectrum, sliders or previewer, is being dragged.
+    public bool IsDragging => _gradientStopsSlider?.IsDragging == true || Content is SimpleColorPicker { IsDragging: true };
 
     // Ends the stop or color drag in progress without confirming it, for a host that ended the gesture itself.
     public void StopDrag()

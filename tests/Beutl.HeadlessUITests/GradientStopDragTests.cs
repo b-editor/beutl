@@ -173,4 +173,53 @@ public sealed class GradientStopDragTests
             window.Close();
         }
     }
+
+    [AvaloniaTest]
+    public void Typing_a_stop_color_in_the_brush_flyout_opens_no_session()
+    {
+        var brush = new LinearGradientBrush();
+        var red = new GradientStop(Colors.Red, 0f);
+        brush.GradientStops.Add(red);
+        brush.GradientStops.Add(new GradientStop(Colors.Blue, 1f));
+        var shape = new RectShape { Fill = { CurrentValue = brush } };
+        using var history = new HistoryScope(shape);
+        using var viewModel = new BrushEditorViewModel(
+            new SimplePropertyAdapter<Brush?>((SimpleProperty<Brush?>)shape.Fill, shape));
+        viewModel.Accept(ServiceVisitor.For(history.History));
+        var editor = new BrushEditor { DataContext = viewModel };
+        var window = new Window { Content = editor, Width = 480, Height = 600 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            editor.BrushPreviewButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Render(3);
+            SimpleColorPicker picker = window.GetVisualDescendants().OfType<SimpleColorPicker>().Single();
+            TextBox hex = picker.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "HexBox");
+            TextBox opacity = picker.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "OpacityBox");
+
+            Assert.That(hex.Focus(), Is.True);
+            hex.Text = "#00FF00";
+            HeadlessTestHelpers.Render(3);
+            Assert.Multiple(() =>
+            {
+                Assert.That(red.Color.CurrentValue, Is.EqualTo(Color.FromArgb(255, 0, 255, 0)));
+                Assert.That(history.History.IsEditing, Is.False, "Typed values must not hold an edit session.");
+            });
+
+            // Leaving the box confirms the typed color as one entry.
+            Assert.That(opacity.Focus(), Is.True);
+            HeadlessTestHelpers.Render(3);
+            Assert.Multiple(() =>
+            {
+                Assert.That(red.Color.CurrentValue, Is.EqualTo(Color.FromArgb(255, 0, 255, 0)));
+                Assert.That(history.History.UndoCount, Is.EqualTo(1));
+                Assert.That(history.History.IsEditing, Is.False);
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
 }
