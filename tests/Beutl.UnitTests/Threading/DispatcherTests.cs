@@ -18,6 +18,32 @@ public class DispatcherTests
     }
 
     [Test]
+    public void Invoke_WithTimeout_ReturnsTheResult()
+    {
+        var dispatcher = Dispatcher.Spawn();
+
+        Assert.That(dispatcher.Invoke(() => 42, TimeSpan.FromMinutes(1)), Is.EqualTo(42));
+
+        dispatcher.Shutdown();
+    }
+
+    [Test]
+    public void Invoke_WithTimeout_DropsAnOperationStillQueuedAtTheDeadline()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        using var release = new ManualResetEventSlim();
+        dispatcher.Dispatch(() => release.Wait(TimeSpan.FromMinutes(1)));
+        bool ran = false;
+
+        Assert.Throws<TimeoutException>(() => dispatcher.Invoke(() => { ran = true; }, TimeSpan.FromMilliseconds(50)));
+        release.Set();
+        dispatcher.Invoke(() => { });
+
+        Assert.That(ran, Is.False);
+        dispatcher.Shutdown();
+    }
+
+    [Test]
     public async Task InvokeAsync()
     {
         int id = Environment.CurrentManagedThreadId;

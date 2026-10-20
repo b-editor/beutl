@@ -136,6 +136,35 @@ public class Dispatcher
         }
     }
 
+    // For a UI caller: a job that has not started by the deadline is dropped, one that has keeps running.
+    public void Invoke(Action operation, TimeSpan timeout, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
+    {
+        Invoke(() =>
+        {
+            operation();
+            return true;
+        }, timeout, priority, ct);
+    }
+
+    public T Invoke<T>(Func<T> operation, TimeSpan timeout, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
+    {
+        if (CheckAccess())
+        {
+            ct.ThrowIfCancellationRequested();
+            return operation();
+        }
+
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        Task<T> task = _synchronizationContext.Send(priority, operation, cancellation.Token);
+        if (!task.Wait(timeout, ct))
+        {
+            cancellation.Cancel();
+            throw new TimeoutException($"The dispatcher did not finish the operation within {timeout}.");
+        }
+
+        return task.Result;
+    }
+
     public Task InvokeAsync(Action operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
         return _synchronizationContext.Send(priority, operation, ct);

@@ -894,7 +894,7 @@ public class VersionControlRestoreTests
                     disposeStarted,
                     releaseDispose.Task)));
 
-            Task closing = Task.Run(() => TestShell.Project.CloseProjectAsync());
+            Task closing = TestShell.Project.CloseProjectAsync();
             await disposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.Multiple(() =>

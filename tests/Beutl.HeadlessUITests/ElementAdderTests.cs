@@ -557,13 +557,19 @@ public class ElementAdderTests
         using var historyGateEntered = new ManualResetEventSlim();
         using var beforeHistoryTransaction = new ManualResetEventSlim();
         var lockedLayer = new TimelineLayer { ZIndex = 0, IsLocked = true };
-        Task blocker = Task.Run(() => editor.HistoryManager.ExecuteInTransaction(() =>
+        Task blocker;
+        // The blocker holds the history gate from a second thread, so its write is off the UI thread on purpose.
+        using (OffUiThreadWriteCheckAttribute.Allow())
         {
-            historyGateEntered.Set();
-            if (!beforeHistoryTransaction.Wait(TimeSpan.FromSeconds(5)))
-                throw new TimeoutException("ElementAdder did not reach the history boundary.");
-            editor.Scene.Layers.Add(lockedLayer);
-        }, "Lock target layer"));
+            blocker = Task.Run(() => editor.HistoryManager.ExecuteInTransaction(() =>
+            {
+                historyGateEntered.Set();
+                if (!beforeHistoryTransaction.Wait(TimeSpan.FromSeconds(5)))
+                    throw new TimeoutException("ElementAdder did not reach the history boundary.");
+                editor.Scene.Layers.Add(lockedLayer);
+            }, "Lock target layer"));
+        }
+
         Assert.That(historyGateEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
         adder.BeforeHistoryTransaction = beforeHistoryTransaction.Set;
 

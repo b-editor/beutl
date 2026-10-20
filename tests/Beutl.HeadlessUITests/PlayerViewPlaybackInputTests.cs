@@ -10,9 +10,11 @@ using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Gizmo;
 using Beutl.Graphics3D.Primitives;
+using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -389,6 +391,50 @@ public partial class PlayerViewPlaybackInputTests
     }
 
     [AvaloniaTest]
+    public async Task A_3D_move_is_skipped_while_the_render_thread_does_not_answer()
+    {
+        EditViewModel editor = await OpenEditor();
+        Scene3D scene = await Add3DScene(editor);
+        Object3D cube = scene.Objects.Single();
+        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = editor.Scene.Children.Single();
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+        using var release = new CancellationTokenSource();
+        Task? render = null;
+        TimeSpan wait = PlayerView.RenderThreadWait;
+        Point point = default;
+        try
+        {
+            await PreparePreview(view, window);
+            editor.Player.IsMoveMode.Value = false;
+            editor.Player.IsCameraMode.Value = true;
+            point = PreviewCenter(view, window);
+            window.MouseDown(point, MouseButton.Left);
+            Assert.That(scene.GizmoTarget.CurrentValue, Is.EqualTo(cube.Id), "The press must select the cube.");
+            Vector3 position = cube.Position.CurrentValue;
+            PlayerView.RenderThreadWait = TimeSpan.FromMilliseconds(50);
+            render = await BlockRenderThreadAsync(release);
+
+            window.MouseMove(point + new Vector(30, 10), RawInputModifiers.LeftMouseButton);
+            Assert.That(cube.Position.CurrentValue, Is.EqualTo(position));
+
+            release.Cancel();
+            await render.WaitAsync(TimeSpan.FromMinutes(1));
+            PlayerView.RenderThreadWait = wait;
+            window.MouseMove(point + new Vector(60, 20), RawInputModifiers.LeftMouseButton);
+            Assert.That(cube.Position.CurrentValue, Is.Not.EqualTo(position), "A move the render thread answers goes through.");
+        }
+        finally
+        {
+            PlayerView.RenderThreadWait = wait;
+            release.Cancel();
+            if (render is not null) await render.WaitAsync(TimeSpan.FromSeconds(5));
+            window.MouseUp(point, MouseButton.Left);
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Cancelling_a_move_keeps_a_nudge_made_just_before_it()
     {
         EditViewModel editor = await OpenEditor();
@@ -431,6 +477,144 @@ public partial class PlayerViewPlaybackInputTests
         {
             window.MouseUp(point, MouseButton.Left);
             window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_3D_press_keeps_the_selection_while_the_render_thread_does_not_answer()
+    {
+        EditViewModel editor = await OpenEditor();
+        Scene3D scene = await Add3DScene(editor);
+        Object3D cube = scene.Objects.Single();
+        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = editor.Scene.Children.Single();
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+        using var release = new CancellationTokenSource();
+        Task? render = null;
+        TimeSpan wait = PlayerView.RenderThreadWait;
+        Point point = default;
+        try
+        {
+            await PreparePreview(view, window);
+            editor.Player.IsMoveMode.Value = false;
+            editor.Player.IsCameraMode.Value = true;
+            point = PreviewCenter(view, window);
+            window.MouseDown(point, MouseButton.Left);
+            window.MouseUp(point, MouseButton.Left);
+            Assert.That(scene.GizmoTarget.CurrentValue, Is.EqualTo(cube.Id), "The first press must select the cube.");
+            PlayerView.RenderThreadWait = TimeSpan.FromMilliseconds(50);
+            render = await BlockRenderThreadAsync(release);
+
+            window.MouseDown(point, MouseButton.Left);
+            window.MouseUp(point, MouseButton.Left);
+
+            Assert.That(scene.GizmoTarget.CurrentValue, Is.EqualTo(cube.Id));
+        }
+        finally
+        {
+            PlayerView.RenderThreadWait = wait;
+            release.Cancel();
+            if (render is not null) await render.WaitAsync(TimeSpan.FromSeconds(5));
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_press_keeps_the_handles_on_their_drawable_while_the_render_thread_does_not_answer()
+    {
+        EditViewModel editor = await OpenEditor();
+        var aside = new RectShape();
+        aside.Width.CurrentValue = 200;
+        aside.Height.CurrentValue = 200;
+        aside.Transform.CurrentValue = new TranslateTransform(-600, 0);
+        var clicked = new RectShape();
+        clicked.Width.CurrentValue = 400;
+        clicked.Height.CurrentValue = 300;
+        await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
+            TimeSpan.Zero, TimeSpan.FromSeconds(4), 0, new ElementSource.EngineObject(() => aside))], CancellationToken.None);
+        Element element = editor.Scene.Children.Single();
+        element.Objects.Add(clicked);
+        var selection = editor.GetRequiredService<IEditorSelection>();
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+        using var release = new CancellationTokenSource();
+        Task? render = null;
+        TimeSpan wait = PlayerView.RenderThreadWait;
+        Point point = default;
+        try
+        {
+            await PreparePreview(view, window);
+            editor.Player.IsMoveMode.Value = true;
+            point = PreviewCenter(view, window) + new Vector(30, 20);
+            window.MouseDown(point, MouseButton.Left);
+            window.MouseUp(point, MouseButton.Left);
+            UpdateHandles();
+            Assert.That(view.transformHandlesOverlay.Drawable, Is.SameAs(clicked), "The first press must put the handles on the drawable it hit.");
+            PlayerView.RenderThreadWait = TimeSpan.FromMilliseconds(50);
+            render = await BlockRenderThreadAsync(release);
+
+            window.MouseDown(point, MouseButton.Left);
+            window.MouseUp(point, MouseButton.Left);
+            release.Cancel();
+            await render.WaitAsync(TimeSpan.FromMinutes(1));
+            PlayerView.RenderThreadWait = wait;
+            Assert.That(selection.SelectedObject.Value, Is.SameAs(element));
+            UpdateHandles();
+
+            Assert.That(view.transformHandlesOverlay.Drawable, Is.SameAs(clicked));
+        }
+        finally
+        {
+            PlayerView.RenderThreadWait = wait;
+            release.Cancel();
+            if (render is not null) await render.WaitAsync(TimeSpan.FromSeconds(5));
+            window.Close();
+        }
+
+        // Selecting the element again places the handles on the drawable the last press hit.
+        void UpdateHandles()
+        {
+            selection.SelectedObject.Value = null;
+            HeadlessTestHelpers.Render();
+            selection.SelectedObject.Value = element;
+            HeadlessTestHelpers.Render();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_renderer_replaced_while_a_query_runs_is_disposed_after_the_query()
+    {
+        EditViewModel editor = await OpenEditor();
+        SceneRenderer replaced = editor.Renderer.Value;
+        using var release = new CancellationTokenSource();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool disposedUnderTheQuery = true;
+        Task query = RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            entered.TrySetResult();
+            release.Token.WaitHandle.WaitOne();
+            disposedUnderTheQuery = replaced.IsDisposed;
+        });
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            // The new renderer's constructor holds the UI thread until the query ends, so another thread ends it.
+            release.CancelAfter(TimeSpan.FromMilliseconds(200));
+            editor.PreviewScale.Value = RenderScale.Half;
+            await query.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(editor.Renderer.Value, Is.Not.SameAs(replaced));
+                Assert.That(disposedUnderTheQuery, Is.False);
+                Assert.That(replaced.IsDisposed, Is.True);
+            });
+        }
+        finally
+        {
+            release.Cancel();
+            await query.WaitAsync(TimeSpan.FromSeconds(5));
+            editor.PreviewScale.Value = RenderScale.Full;
         }
     }
 

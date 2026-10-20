@@ -41,6 +41,9 @@ namespace Beutl.Views;
 
 public partial class PlayerView : UserControl
 {
+    // The UI waits for the render thread at most this long, so a stuck render cannot freeze input (#2873).
+    internal static TimeSpan RenderThreadWait { get; set; } = TimeSpan.FromSeconds(5);
+    private static readonly ILogger s_logger = Log.CreateLogger<PlayerView>();
     private readonly CompositeDisposable _disposables = [];
     private readonly ILogger _logger = Log.CreateLogger<PlayerView>();
     private IDisposable? _imageConfigSubscription;
@@ -48,8 +51,7 @@ public partial class PlayerView : UserControl
     private TopLevel? _scalingTopLevel;
     internal Control image = null!;
 
-    // The Resource is RenderThread-owned: create/update/dispose only via RenderThread.Dispatcher.
-    // The UI thread may null these references to detach, but never touches the resource itself.
+    // Only the render thread touches these, so a clear stays ordered after an overlay query that outlived its wait.
     private BtlDrawable.Resource? _transformHandleResource;
     private BtlDrawable? _transformHandleResourceTarget;
 
@@ -408,7 +410,7 @@ public partial class PlayerView : UserControl
             BtlDrawable target = drawable;
             BtlSize availableSize = scene.FrameSize.ToSize(1.0f);
             TimeSpan ctxTime = time;
-            snap = RenderThread.Dispatcher.Invoke(() => ComputeOverlayGeometry(renderer, target, availableSize, ctxTime));
+            snap = QueryRenderThread(() => ComputeOverlayGeometry(renderer, target, availableSize, ctxTime), null);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         {
@@ -428,6 +430,20 @@ public partial class PlayerView : UserControl
         }
 
         transformHandlesOverlay.Update(drawable, element, s.localBounds, s.userMatrix, s.pivotLocal, image.Bounds.Size, frameScale);
+    }
+
+    // The render thread's answer, or fallback when it does not come within RenderThreadWait.
+    private static T QueryRenderThread<T>(Func<T> query, T fallback)
+    {
+        try
+        {
+            return RenderThread.Dispatcher.Invoke(query, RenderThreadWait);
+        }
+        catch (TimeoutException ex)
+        {
+            s_logger.LogWarning(ex, "The render thread did not answer a preview query in time.");
+            return fallback;
+        }
     }
 
     // Prefer the last hit-tested drawable so the overlay tracks the visual object the user actually
@@ -502,18 +518,15 @@ public partial class PlayerView : UserControl
 
     private void InvalidateTransformHandleResource()
     {
-        BtlDrawable.Resource? resource = _transformHandleResource;
-        if (resource == null) return;
-
-        // Detach on the UI thread, then dispose on the RenderThread fire-and-forget. A blocking Invoke
-        // here would stall the UI thread during playback (the render thread is busy generating frames).
-        _transformHandleResource = null;
-        _transformHandleResourceTarget = null;
+        // Fire-and-forget: a blocking Invoke would stall the UI thread during playback.
         RenderThread.Dispatcher.Dispatch(() =>
         {
+            BtlDrawable.Resource? resource = _transformHandleResource;
+            _transformHandleResource = null;
+            _transformHandleResourceTarget = null;
             try
             {
-                resource.Dispose();
+                resource?.Dispose();
             }
             catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
             {

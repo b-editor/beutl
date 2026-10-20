@@ -144,6 +144,7 @@ public class ListProperty<T> : IListProperty<T>
         }
 
         _owner = owner;
+        _items.WriteOwner = owner;
     }
 
     public void DeserializeValue(ICoreSerializationContext context)

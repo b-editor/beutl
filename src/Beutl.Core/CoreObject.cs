@@ -275,6 +275,7 @@ public abstract class CoreObject : ICoreObject
             return;
         }
 
+        DocumentWriteCheck.Verify(this, property.Name);
         CorePropertyMetadata<TValue>? metadata = property.GetMetadata<CorePropertyMetadata<TValue>>(ownerType);
         ValidateProperty(metadata, property, ref value);
 
@@ -352,6 +353,7 @@ public abstract class CoreObject : ICoreObject
         T value,
         bool forceReferenceReplacement)
     {
+        DocumentWriteCheck.Verify(this, property.Name);
         if (ReferenceEquals(_forcedReplacementProperty, property))
         {
             forceReferenceReplacement = true;

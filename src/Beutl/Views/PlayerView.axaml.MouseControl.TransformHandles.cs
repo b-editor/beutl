@@ -88,6 +88,8 @@ public partial class PlayerView
 
         public Drawable? Drawable => _press?.Drawable;
 
+        public bool TimedOut { get; private set; }
+
         public required PlayerView View { get; init; }
 
         public required PlayerViewModel ViewModel { get; init; }
@@ -216,7 +218,16 @@ public partial class PlayerView
                         new((float)scaledStartPosition.X, (float)scaledStartPosition.Y));
                     // The hit-test has just put the renderer on this frame, so it draws the drawable as shown.
                     return (hit, hit is null ? null : renderer.GetLocalBoundary(hit)?.Transform);
-                });
+                }, RenderThreadWait);
+            }
+            catch (TimeoutException ex)
+            {
+                // Unlike an empty hit, a press the render thread did not answer must not select or deselect anything.
+                _logger.LogWarning(ex, "Skipped a press: the render thread did not answer in time.");
+                _press = null;
+                TimedOut = true;
+                e.Handled = true;
+                return;
             }
             catch (Exception ex) when (
                 ex is not OutOfMemoryException
