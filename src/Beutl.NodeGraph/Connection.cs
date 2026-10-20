@@ -41,6 +41,8 @@ public sealed class Connection : Hierarchical
     {
     }
 
+    // Evaluation sets it again on every pass, so history leaves it out.
+    [NotTracked]
     public ConnectionStatus Status
     {
         get => _status;
