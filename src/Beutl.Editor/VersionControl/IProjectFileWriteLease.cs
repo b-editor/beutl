@@ -9,4 +9,6 @@ internal interface IProjectFileWriteLease : IDisposable;
 internal interface IProjectFileWriteAdmission
 {
     IProjectFileWriteLease? TryBeginProjectFileWrite();
+
+    ValueTask<IProjectFileWriteLease> BeginProjectFileWriteAsync(CancellationToken cancellationToken);
 }

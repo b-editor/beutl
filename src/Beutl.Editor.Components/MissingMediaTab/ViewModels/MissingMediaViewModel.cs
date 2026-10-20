@@ -1,16 +1,19 @@
 ﻿using System.Collections.ObjectModel;
 using System.Text.Json.Nodes;
 using Beutl.Configuration;
-using Beutl.Editor;
+using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
+using Beutl.Editor.VersionControl;
 using Beutl.IO;
 using Beutl.Language;
 using Beutl.Media;
-using Beutl.Services.PrimitiveImpls;
+using Beutl.ProjectSystem;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Icon = FluentIcons.Common.Icon;
 
-namespace Beutl.ViewModels.Tools;
+namespace Beutl.Editor.Components.MissingMediaTab.ViewModels;
 
 public sealed class MissingMediaRowViewModel : IDisposable
 {
@@ -83,7 +86,9 @@ public sealed class MissingMediaRowViewModel : IDisposable
 public sealed class MissingMediaViewModel : IToolContext
 {
     private static readonly ILogger s_logger = Beutl.Logging.Log.CreateLogger<MissingMediaViewModel>();
-    private readonly EditViewModel _editor;
+    private readonly IEditorContext _editor;
+    private readonly IMediaRepairHost _host;
+    private readonly Scene _scene;
     private readonly MissingMediaService _service = new();
     private readonly CancellationTokenSource _cancellation;
     private readonly CancellationToken _token;
@@ -92,10 +97,12 @@ public sealed class MissingMediaViewModel : IToolContext
     private Task _candidateScanTask = Task.CompletedTask;
     private bool _disposed;
 
-    public MissingMediaViewModel(EditViewModel editor, IReadOnlyList<MissingMedia>? missing = null)
+    public MissingMediaViewModel(IEditorContext editor, IReadOnlyList<MissingMedia>? missing = null)
     {
         _editor = editor;
-        _cancellation = CancellationTokenSource.CreateLinkedTokenSource(editor.MediaRepairCancellationToken);
+        _host = editor.GetRequiredService<IMediaRepairHost>();
+        _scene = editor.GetRequiredService<Scene>();
+        _cancellation = CancellationTokenSource.CreateLinkedTokenSource(_host.RepairCancellationToken);
         _token = _cancellation.Token;
         RefreshRows(missing);
     }
@@ -116,13 +123,13 @@ public sealed class MissingMediaViewModel : IToolContext
     internal Func<IEnumerable<MissingMedia>, string, CancellationToken,
         Task<IReadOnlyDictionary<MissingMedia, IReadOnlyList<string>>>>? FindCandidateMatches
     { get; set; }
-    public Task RefreshAsync() => _editor.OpenMissingMediaAsync(refresh: true);
+    public Task RefreshAsync() => _host.RefreshMissingMediaAsync();
 
     // Test seam: tests await the candidate scan.
     internal Task WaitForCandidatesAsync() => _candidateScanTask;
 
     internal async Task RefreshRowsAsync()
-        => RefreshRows(await _service.FindMissingAsync(_editor.Scene, _token));
+        => RefreshRows(await _service.FindMissingAsync(_scene, _token));
 
     internal async Task InitializeRowsAsync()
     {
@@ -141,7 +148,7 @@ public sealed class MissingMediaViewModel : IToolContext
         foreach (var subscription in _subscriptions) subscription.Dispose();
         _subscriptions.Clear();
         var retained = new List<MissingMediaRowViewModel>();
-        foreach (var media in missing ?? _service.FindMissing(_editor.Scene))
+        foreach (var media in missing ?? _service.FindMissing(_scene))
         {
             var key = (media.Kind, media.ExpectedUri, media.FontFamily?.Name);
             var row = previous.TryGetValue(key, out var existing) ? existing : new MissingMediaRowViewModel(media);
@@ -161,7 +168,7 @@ public sealed class MissingMediaViewModel : IToolContext
             else if (index != i) Rows.Move(index, i);
         }
         IsEmpty.Value = Rows.Count == 0;
-        if (IsEmpty.Value) _editor.DismissMissingMediaNotification();
+        if (IsEmpty.Value) _host.DismissMissingMediaNotification();
         RefreshState();
     }
 
@@ -282,14 +289,14 @@ public sealed class MissingMediaViewModel : IToolContext
         if (_disposed || !CanApply.Value) return false;
         _candidateCancellation?.Cancel();
         SetBusy(true);
-        var dockable = _editor.DockHost.Factory.EnumerateTools().FirstOrDefault(tool => tool.ToolContext == this);
-        if (dockable != null) dockable.CanClose = false;
+        IDisposable keepOpen = _editor.GetRequiredService<IToolDockHost>().KeepOpen(this);
         Error.Value = null;
         try
         {
-            using var write = await _editor.EditorService.BeginProjectFileWriteAsync(_token);
-            using var suspension = _editor.EditorService.SuspendEditor(_editor);
-            await _editor.Player.Pause();
+            HistoryManager history = _editor.GetRequiredService<HistoryManager>();
+            using var write = await _editor.GetRequiredService<IProjectFileWriteAdmission>().BeginProjectFileWriteAsync(_token);
+            using var suspension = _host.SuspendEditor();
+            await _editor.GetRequiredService<IPreviewPlayer>().Pause();
             _token.ThrowIfCancellationRequested();
             var rows = Rows.Where(row => !row.IsOffline.Value && row.ReplacementPath.Value != null).ToArray();
             var replacementModels = new HashSet<MissingMediaRowViewModel>();
@@ -315,18 +322,18 @@ public sealed class MissingMediaViewModel : IToolContext
             _token.ThrowIfCancellationRequested();
             // The scene remains editable while this tab is open; resolve its current
             // source instances rather than the detection-time references.
-            var currentSources = new ObjectSearcher(_editor.Scene,
+            var currentSources = new ObjectSearcher(_scene,
                     value => value is Beutl.Media.Source.MediaSource { HasUri: true }
                         or Beutl.Graphics3D.Models.ModelSource { HasUri: true })
                 .SearchAll().OfType<IFileSource>().Distinct<IFileSource>(ReferenceEqualityComparer.Instance)
                 .ToLookup(source => (MissingMediaService.GetKind(source), source.Uri));
-            string projectDirectory = Path.GetDirectoryName((_editor.Scene.FindHierarchicalParent<Project>()?.Uri
-                                      ?? _editor.Scene.Uri)!.LocalPath)!;
+            string projectDirectory = Path.GetDirectoryName((_scene.FindHierarchicalParent<Project>()?.Uri
+                                      ?? _scene.Uri)!.LocalPath)!;
             string fontsDirectory = Path.Combine(projectDirectory, "resources", "fonts");
             var originalFonts = Directory.Exists(fontsDirectory)
                 ? Directory.GetFiles(fontsDirectory).ToHashSet(StringComparer.Ordinal) : [];
-            var fingerprints = new Dictionary<string, Beutl.ProjectSystem.MediaFileFingerprint>(_editor.Scene.MediaFingerprints);
-            bool hadRepairs = _editor.HasMediaRepairs.Value;
+            var fingerprints = new Dictionary<string, MediaFileFingerprint>(_scene.MediaFingerprints);
+            bool hadRepairs = _host.HasMediaRepairs;
             var rollback = new List<Action>();
             foreach (var source in rows.Where(row => row.Media.Kind != MissingMediaKind.Font)
                          .SelectMany(row => currentSources[(row.Media.Kind, row.Media.ExpectedUri!)])
@@ -353,10 +360,10 @@ public sealed class MissingMediaViewModel : IToolContext
                     RelocationResult result = await relocation.RelocateFontsAsync(fontRows.Select(row => row.Media.FontFamily!),
                         projectDirectory, _token);
                     if (result.FailedResources.Count > 0) throw new IOException(MissingMediaStrings.FontCopyFailed);
-                    var project = _editor.Scene.FindHierarchicalParent<Project>() ?? new Project { Uri = _editor.Scene.Uri };
+                    var project = _scene.FindHierarchicalParent<Project>() ?? new Project { Uri = _scene.Uri };
                     FontManager.Instance.LoadProjectFonts(project);
                 }
-                using (_editor.HistoryManager.SuppressRecording())
+                using (history.SuppressRecording())
                 {
                     foreach (var row in rows.Where(row => row.Media.Kind != MissingMediaKind.Font))
                     {
@@ -366,16 +373,17 @@ public sealed class MissingMediaViewModel : IToolContext
                                 synchronizeModelGeometry: replacementModels.Contains(row));
                     }
                 }
-                _editor.HasMediaRepairs.Value = true;
+                _host.HasMediaRepairs = true;
 
-                if (!await _editor.SaveAsync()) throw new IOException(MessageStrings.UnableToSaveFile);
+                if (!await _editor.GetRequiredService<ISavableEditorContext>().SaveAsync())
+                    throw new IOException(MessageStrings.UnableToSaveFile);
             }
             catch
             {
-                using (_editor.HistoryManager.SuppressRecording())
+                using (history.SuppressRecording())
                     foreach (var restore in rollback) restore();
-                _editor.Scene.SetMediaFingerprints(fingerprints);
-                _editor.HasMediaRepairs.Value = hadRepairs;
+                _scene.SetMediaFingerprints(fingerprints);
+                _host.HasMediaRepairs = hadRepairs;
                 if (fontRows.Length > 0)
                 {
                     try
@@ -383,21 +391,19 @@ public sealed class MissingMediaViewModel : IToolContext
                         if (Directory.Exists(fontsDirectory))
                             foreach (string file in Directory.GetFiles(fontsDirectory).Where(file => !originalFonts.Contains(file)))
                                 File.Delete(file);
-                        FontManager.Instance.LoadProjectFonts(_editor.Scene.FindHierarchicalParent<Project>() ?? new Project { Uri = _editor.Scene.Uri });
+                        FontManager.Instance.LoadProjectFonts(_scene.FindHierarchicalParent<Project>() ?? new Project { Uri = _scene.Uri });
                     }
                     catch (Exception ex) { s_logger.LogWarning(ex, "Could not roll back copied repair fonts."); }
                 }
-                _editor.Renderer.Value.ClearAllCaches();
-                _editor.FrameCacheManager.Value.Clear();
-                _editor.Player.QueuePreviewRender();
+                _host.ClearRenderCaches();
                 throw;
             }
-            if (_editor.EditorService.ProjectVersionControlSession is { } session)
+            if (_editor.GetService(typeof(IProjectVersionControlCoordinator)) is IProjectVersionControlSession session)
             {
                 try
                 {
                     await session.NotifySavedAsync(write, _token);
-                    _editor.ScheduleMediaFingerprints(finishSaveSnapshot: true);
+                    _host.ScheduleMediaFingerprints(finishSaveSnapshot: true);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -406,9 +412,7 @@ public sealed class MissingMediaViewModel : IToolContext
                     Error.Value = ex.Message;
                 }
             }
-            _editor.Renderer.Value.ClearAllCaches();
-            _editor.FrameCacheManager.Value.Clear();
-            _editor.Player.QueuePreviewRender();
+            _host.ClearRenderCaches();
             await RefreshRowsAsync();
             return true;
         }
@@ -420,7 +424,7 @@ public sealed class MissingMediaViewModel : IToolContext
         }
         finally
         {
-            if (dockable != null) dockable.CanClose = true;
+            keepOpen.Dispose();
             if (!_disposed)
             {
                 SetBusy(false);

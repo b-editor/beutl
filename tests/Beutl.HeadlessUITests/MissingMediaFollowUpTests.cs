@@ -1,5 +1,7 @@
 ﻿using Avalonia.Headless.NUnit;
 using Beutl.Editor;
+using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.MissingMediaTab.ViewModels;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics3D.Models;
@@ -9,7 +11,7 @@ using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
-using Beutl.ViewModels.Tools;
+using Beutl.ViewModels.Dock;
 
 namespace Beutl.HeadlessUITests;
 
@@ -242,5 +244,26 @@ public partial class MissingMediaTests
         await service.UpdateFingerprintsAsync(scene);
         Assert.That(scene.MediaFingerprints[new Uri(path).AbsoluteUri].Dependencies!.Keys, Does.Contain(missingFile));
         Assert.That((await service.FindMissingAsync(scene)).Any(item => item.Kind == MissingMediaKind.Model), Is.True);
+    }
+
+    // Applying a repair holds its tab open through the dock, so the tab cannot be closed mid-repair.
+    [AvaloniaTest]
+    public async Task The_dock_keeps_the_repair_tab_open_until_released()
+    {
+        await TestReset.ResetShellAsync();
+        var editor = await CreateEditorAsync();
+        try
+        {
+            var tab = new MissingMediaViewModel(editor, []);
+            Assert.That(editor.OpenToolTab(tab), Is.True);
+            var dock = (IToolDockHost)editor.GetService(typeof(IToolDockHost))!;
+            BeutlToolDockable dockable = editor.DockHost.Factory.EnumerateTools().Single(tool => tool.ToolContext == tab);
+            using (dock.KeepOpen(tab))
+                Assert.That(dockable.CanClose, Is.False);
+            Assert.That(dockable.CanClose, Is.True);
+            using var closed = new MissingMediaViewModel(editor, []);
+            Assert.DoesNotThrow(() => dock.KeepOpen(closed).Dispose());
+        }
+        finally { await TestReset.ResetShellAsync(); }
     }
 }

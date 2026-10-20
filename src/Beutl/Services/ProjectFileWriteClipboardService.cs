@@ -11,6 +11,12 @@ internal sealed class ProjectFileWriteAdmission(EditorService editorService)
     {
         return editorService.TryBeginProjectFileWrite();
     }
+
+    ValueTask<IProjectFileWriteLease> IProjectFileWriteAdmission.BeginProjectFileWriteAsync(
+        CancellationToken cancellationToken)
+    {
+        return editorService.BeginProjectFileWriteAsync(cancellationToken);
+    }
 }
 
 internal sealed class ProjectFileWriteClipboardService(

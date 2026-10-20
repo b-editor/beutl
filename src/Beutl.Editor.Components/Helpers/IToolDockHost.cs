@@ -10,4 +10,7 @@ internal interface IToolDockHost
     bool ApplyLayout(JsonObject layout);
 
     void ResetLayout();
+
+    // Disables closing the tool's tab until the result is disposed, for work that must not lose its tab.
+    IDisposable KeepOpen(IToolContext tool);
 }

@@ -1,15 +1,16 @@
 ﻿using Beutl.Editor;
+using Beutl.Editor.Components.MissingMediaTab;
+using Beutl.Editor.Components.MissingMediaTab.ViewModels;
 using Beutl.Graphics3D.Models;
 using Beutl.IO;
 using Beutl.Media.Source;
 using Beutl.Services;
-using Beutl.ViewModels.Tools;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
-public sealed partial class EditViewModel
+public sealed partial class EditViewModel : IMediaRepairHost
 {
     private CancellationTokenSource? _missingMediaNotification;
     private bool _openingMissingMedia;
@@ -97,6 +98,30 @@ public sealed partial class EditViewModel
         _missingMediaNotification?.Cancel();
         _missingMediaNotification?.Dispose();
         _missingMediaNotification = null;
+    }
+
+    CancellationToken IMediaRepairHost.RepairCancellationToken => MediaRepairCancellationToken;
+
+    bool IMediaRepairHost.HasMediaRepairs
+    {
+        get => HasMediaRepairs.Value;
+        set => HasMediaRepairs.Value = value;
+    }
+
+    Task IMediaRepairHost.RefreshMissingMediaAsync() => OpenMissingMediaAsync(refresh: true);
+
+    void IMediaRepairHost.DismissMissingMediaNotification() => DismissMissingMediaNotification();
+
+    IDisposable IMediaRepairHost.SuspendEditor() => EditorService.SuspendEditor(this);
+
+    void IMediaRepairHost.ScheduleMediaFingerprints(bool finishSaveSnapshot)
+        => ScheduleMediaFingerprints(finishSaveSnapshot: finishSaveSnapshot);
+
+    void IMediaRepairHost.ClearRenderCaches()
+    {
+        Renderer.Value.ClearAllCaches();
+        FrameCacheManager.Value.Clear();
+        Player.QueuePreviewRender();
     }
 
     internal async Task OpenMissingMediaAsync(bool refresh = false)

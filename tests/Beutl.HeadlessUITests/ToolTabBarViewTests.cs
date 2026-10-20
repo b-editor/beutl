@@ -11,14 +11,14 @@ using Beutl.Editor.Components.DockLayoutTab.ViewModels;
 using Beutl.Editor.Components.DockLayoutTab.Views;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Editor.Components.FileBrowserTab.Views;
+using Beutl.Editor.Components.MissingMediaTab.ViewModels;
+using Beutl.Editor.Components.MissingMediaTab.Views;
 using Beutl.Editor.Components.ProxiesTab.ViewModels;
 using Beutl.Editor.Components.ProxiesTab.Views;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
 using FluentIcons.Avalonia.Fluent;
 
 namespace Beutl.HeadlessUITests;
