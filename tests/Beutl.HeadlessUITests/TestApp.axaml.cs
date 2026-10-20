@@ -1,16 +1,9 @@
 ﻿using Avalonia;
 using Avalonia.Markup.Xaml;
-using Beutl.Api.Services;
-using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Helpers;
-using Beutl.NodeGraph.Nodes;
-using Beutl.Services;
 using Beutl.Services.StartupTasks;
-using Beutl.Services.Tutorials;
 using Beutl.ViewModels;
-using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
@@ -34,13 +27,7 @@ public sealed class TestApp : Application
     {
         base.RegisterServices();
 
-        PropertyEditorExtension.DefaultHandler = new PropertyEditorService.PropertyEditorExtensionImpl();
-        NotificationService.Handler = new NotificationServiceHandler();
-        TutorialService.Current = new TutorialServiceHandler();
-        AppHelper.GetContextCommandManager = () => GetMainViewModel().ContextCommandManager;
-        ReactivePropertyScheduler.SetDefault(UiThreadScheduler.Instance);
-        LibraryRegistrar.RegisterAll();
-        NodesRegistrar.RegisterAll();
+        App.RegisterProcessServices(() => GetMainViewModel().ContextCommandManager);
         foreach (Extension item in LoadPrimitiveExtensionTask.PrimitiveExtensions)
         {
             item.Load();

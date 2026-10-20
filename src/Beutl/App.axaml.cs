@@ -134,26 +134,36 @@ public sealed class App : Application
 
         base.RegisterServices();
 
+        UiExceptionBoundary.Install(Dispatcher.UIThread);
+        // After the shared hooks, whose notification handler the proxy store's warnings need.
+        RegisterProcessServices(GetContextCommandManager, () =>
+        {
+            try
+            {
+                ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogWarning(ex, "Proxy media services failed to initialize.");
+            }
+
+            GetMainViewModel().RegisterServices();
+        });
+    }
+
+    // The process-wide hooks and registrations that the app and the UI tests share.
+    internal static void RegisterProcessServices(Func<ContextCommandManager?> commands, Action? alongside = null)
+    {
         PropertyEditorExtension.DefaultHandler = new PropertyEditorService.PropertyEditorExtensionImpl();
         NotificationService.Handler = new NotificationServiceHandler();
-        UiExceptionBoundary.Install(Dispatcher.UIThread);
         TutorialService.Current = new TutorialServiceHandler();
-        try
-        {
-            ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
-        }
-        catch (Exception ex)
-        {
-            s_logger.LogWarning(ex, "Proxy media services failed to initialize.");
-        }
+        AppHelper.GetContextCommandManager = commands;
 
-        AppHelper.GetContextCommandManager = GetContextCommandManager;
-
-        // 以下三つの処理は意外と重い
-        Parallel.Invoke(
-            () => GetMainViewModel().RegisterServices(),
-            LibraryRegistrar.RegisterAll,
-            NodesRegistrar.RegisterAll);
+        // They are slow, so alongside runs with them, first: Parallel.Invoke runs that one on the calling thread.
+        Action[] actions = alongside is null
+            ? [LibraryRegistrar.RegisterAll, NodesRegistrar.RegisterAll]
+            : [alongside, LibraryRegistrar.RegisterAll, NodesRegistrar.RegisterAll];
+        Parallel.Invoke(actions);
 
         ReactivePropertyScheduler.SetDefault(UiThreadScheduler.Instance);
     }
