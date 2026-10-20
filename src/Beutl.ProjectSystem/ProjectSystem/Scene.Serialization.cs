@@ -272,6 +272,10 @@ public partial class Scene
         // Attached children must not retain exclusions left by an earlier removal.
         _excludeElements.RemoveAll(pattern => elementPaths.Contains(pattern)
             || elementPaths.Any(path => AreSameElementPaths(dirPath, pattern, path)));
+        // The save that deletes an element's file drops its exclusion; a directory's exclusion stays.
+        _excludeElements.RemoveAll(pattern => IsLiteralPattern(pattern)
+            && pattern.EndsWith(".belm", StringComparison.OrdinalIgnoreCase)
+            && !File.Exists(Path.GetFullPath(pattern.TrimStart('/'), dirPath)));
 
         string[] files = MatchElementFiles(dirPath, _includeElements, _excludeElements);
         foreach (string rel in elementPaths)
@@ -291,8 +295,7 @@ public partial class Scene
         var literalExclusions = new List<string>();
         foreach (string pattern in excludes)
         {
-            if (pattern.Contains('*') || pattern.EndsWith('/')
-                || Path.GetFileName(pattern) is "" or "." or "..")
+            if (!IsLiteralPattern(pattern))
             {
                 matcher.AddExclude(pattern);
             }
@@ -310,6 +313,9 @@ public partial class Scene
             .Where(path => !literalExclusions.Any(pattern => AreSameElementPaths(directoryName, pattern, path)))
             .ToArray();
     }
+
+    private static bool IsLiteralPattern(string pattern)
+        => !pattern.Contains('*') && !pattern.EndsWith('/') && Path.GetFileName(pattern) is not ("" or "." or "..");
 
     private static bool AreSameElementPaths(string directoryName, string left, string right)
     {

@@ -244,7 +244,7 @@ public sealed class ContextCommandSettingsStore : IBeutlApiResource
             SaveAll();
     }
 
-    // Moves the gestures saved under keys from before command ids to the ids. Gestures already saved under an id win.
+    // Moves gestures saved before command ids to the ids, where saved ones win, and drops removed commands' gestures.
     private bool MigrateLegacyKeys()
     {
         bool migrated = false;
@@ -262,6 +262,9 @@ public sealed class ContextCommandSettingsStore : IBeutlApiResource
                 commands.TryAdd(id, gestures);
                 migrated = true;
             }
+
+            foreach (string removed in ContextCommandLegacyKeys.Removed)
+                migrated |= commands.Remove(removed);
         }
 
         return migrated;

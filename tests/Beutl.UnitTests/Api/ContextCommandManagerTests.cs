@@ -241,4 +241,27 @@ public class ContextCommandManagerTests
                 "A gesture saved under the id wins.");
         });
     }
+
+    [Test]
+    public void Gestures_saved_for_the_removed_Exclude_command_are_dropped()
+    {
+        var json = new JsonObject
+        {
+            ["Windows"] = new JsonObject
+            {
+                ["Beutl.Services.PrimitiveImpls.TimelineTabExtension.Exclude"] = "Shift+X",
+                ["timeline.delete"] = new JsonArray("Shift+Delete"),
+            },
+            ["OSX"] = new JsonObject { ["timeline.exclude"] = new JsonArray("Cmd+X") },
+        };
+
+        var store = new ContextCommandSettingsStore(json, persist: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(json["Windows"]!.AsObject().Select(pair => pair.Key), Is.EqualTo(new[] { "timeline.delete" }));
+            Assert.That(json["OSX"]!.AsObject(), Is.Empty);
+            Assert.That(store.Restore("timeline.delete").Single().Gestures, Is.EqualTo(new[] { KeyGesture.Parse("Shift+Delete") }));
+        });
+    }
 }

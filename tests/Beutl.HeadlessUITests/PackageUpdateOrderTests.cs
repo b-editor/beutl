@@ -17,6 +17,7 @@ public class PackageUpdateOrderTests
     private PackageIdentity _oldId = null!;
     private PackageIdentity _newId = null!;
     private AppRootFileBackup _registration = null!;
+    private AppRootFileBackup _queue = null!;
     private readonly List<string> _directories = [];
 
     private string Materials => Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), _name);
@@ -30,6 +31,8 @@ public class PackageUpdateOrderTests
         _oldId = new PackageIdentity(_name, NuGetVersion.Parse("1.0.0"));
         _newId = new PackageIdentity(_name, NuGetVersion.Parse("2.0.0"));
         _registration = new AppRootFileBackup("installedPackages.json");
+        // A queued update would reach every later queue and the shell's hand-off.
+        _queue = new AppRootFileBackup("packageChanges.json");
         _directories.AddRange([Materials, Templates]);
     }
 
@@ -40,6 +43,7 @@ public class PackageUpdateOrderTests
             Directory.Delete(directory, true);
         _directories.Clear();
         _registration.Dispose();
+        _queue.Dispose();
     }
 
     [AvaloniaTest]

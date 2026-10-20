@@ -32,21 +32,6 @@ public class ElementStructureServiceTests
     private Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0)
         => _harness.AddElement(start, length, zIndex);
 
-    private void ExcludeOrDelete(string operation, IReadOnlyList<Element> elements)
-    {
-        switch (operation)
-        {
-            case "Exclude":
-                _service.Exclude(_scene, elements);
-                break;
-            case "Delete":
-                _service.Delete(_scene, elements);
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(operation), operation, null);
-        }
-    }
-
     [Test]
     public void Split_LaterFailureRollsBackEarlierClipsAndWritesNoFile()
     {
@@ -91,15 +76,14 @@ public class ElementStructureServiceTests
         Assert.Throws<ArgumentNullException>(() => new ElementStructureService(null!));
     }
 
-    [TestCase("Exclude")]
-    [TestCase("Delete")]
-    public void ExcludeOrDelete_RemovesAllAndCommitsOnce(string operation)
+    [Test]
+    public void Delete_RemovesAllAndCommitsOnce()
     {
         Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        ExcludeOrDelete(operation, [e1, e2]);
+        _service.Delete(_scene, [e1, e2]);
 
         Assert.Multiple(() =>
         {
@@ -109,15 +93,14 @@ public class ElementStructureServiceTests
         });
     }
 
-    [TestCase("Exclude")]
-    [TestCase("Delete")]
-    public void ExcludeOrDelete_PrunesRemovedIdsFromGroups_AndDisbandsShrunkGroup(string operation)
+    [Test]
+    public void Delete_PrunesRemovedIdsFromGroups_AndDisbandsShrunkGroup()
     {
         Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
         _service.Group(_scene, [e1.Id, e2.Id]);
 
-        ExcludeOrDelete(operation, [e1]);
+        _service.Delete(_scene, [e1]);
 
         Assert.That(_scene.Groups.Any(g => g.Contains(e1.Id)), Is.False);
         Assert.That(_scene.Groups, Is.Empty);
@@ -138,12 +121,12 @@ public class ElementStructureServiceTests
     }
 
     [Test]
-    public void Exclude_Undo_PutsTheElementBackOnItsLayer()
+    public void Delete_Undo_PutsTheElementBackOnItsLayer()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 2);
         _history.Commit("Setup");
 
-        _service.Exclude(_scene, [element]);
+        _service.Delete(_scene, [element]);
         _history.Undo();
 
         Assert.Multiple(() =>
@@ -154,11 +137,11 @@ public class ElementStructureServiceTests
     }
 
     [Test]
-    public void Exclude_EmptyList_NoCommit()
+    public void Delete_EmptyList_NoCommit()
     {
         int before = _history.UndoCount;
 
-        _service.Exclude(_scene, []);
+        _service.Delete(_scene, []);
 
         Assert.That(_history.UndoCount, Is.EqualTo(before));
     }
@@ -462,13 +445,13 @@ public class ElementStructureServiceTests
     }
 
     [Test]
-    public void Exclude_LayerLockedElement_IsSkipped()
+    public void Delete_LayerLockedElement_IsSkipped()
     {
         Element onLockedLayer = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 3);
         _scene.Layers.Add(new TimelineLayer { ZIndex = 3, IsLocked = true });
         int before = _history.UndoCount;
 
-        _service.Exclude(_scene, [onLockedLayer]);
+        _service.Delete(_scene, [onLockedLayer]);
 
         Assert.Multiple(() =>
         {

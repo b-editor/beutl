@@ -17,7 +17,7 @@ namespace Beutl.ViewModels;
 
 public partial class MenuBarViewModel
 {
-    [MemberNotNull(nameof(DeleteLayer), nameof(ExcludeLayer), nameof(CutLayer), nameof(PasteLayer), nameof(CopyLayer), nameof(ShowSceneSettings), nameof(RemoveFromProject))]
+    [MemberNotNull(nameof(DeleteLayer), nameof(CutLayer), nameof(PasteLayer), nameof(CopyLayer), nameof(ShowSceneSettings), nameof(RemoveFromProject))]
     private void InitializeSceneCommands(IObservable<bool> isSceneOpened)
     {
         IObservable<bool> isProjectOpenedAndTabOpened = _projectService.IsOpened
@@ -28,8 +28,6 @@ public partial class MenuBarViewModel
 
         DeleteLayer = new AsyncReactiveCommand(isSceneOpened)
             .WithSubscribe(OnDeleteElement);
-        ExcludeLayer = new ReactiveCommandSlim(isSceneOpened)
-            .WithSubscribe(OnExcludeElement);
 
         CutLayer = new AsyncReactiveCommand(isSceneOpened)
             .WithSubscribe(OnCutElement);
@@ -52,8 +50,6 @@ public partial class MenuBarViewModel
     public ReactiveCommandSlim<EditorTabItem?> RemoveFromProject { get; private set; }
 
     public AsyncReactiveCommand DeleteLayer { get; private set; }
-
-    public ReactiveCommandSlim ExcludeLayer { get; private set; }
 
     public AsyncReactiveCommand CutLayer { get; private set; }
 
@@ -119,15 +115,6 @@ public partial class MenuBarViewModel
         }
 
         return Task.CompletedTask;
-    }
-
-    private void OnExcludeElement()
-    {
-        if (TryGetSelectedElement(out EditViewModel? viewModel, out Scene? scene, out Element? element))
-        {
-            viewModel.GetRequiredService<IElementStructureService>()
-                .Exclude(scene, [element], GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled);
-        }
     }
 
     private async Task OnCutElement()

@@ -18,6 +18,7 @@ public sealed class ContextCommandIdTests
             Assert.That(ids, Is.All.Not.Empty);
             Assert.That(ids, Is.Unique);
             Assert.That(ContextCommandLegacyKeys.Ids.Values, Is.SubsetOf(ids));
+            Assert.That(ContextCommandLegacyKeys.Removed.Intersect(ids), Is.Empty, "Dropping a live id loses its gestures.");
         });
     }
 }

@@ -4,6 +4,7 @@ using Avalonia.Platform.Storage;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Editor.Services;
+using Beutl.Editor.Services.AI;
 using Beutl.Graphics;
 using Beutl.Language;
 using Beutl.Logging;
@@ -765,7 +766,7 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
             filePath,
             AiRequestLimits.MaxImageUploadBytes);
         (int expandedWidth, int expandedHeight, int horizontal, int vertical) =
-            GetOutpaintDimensions(source.Width, source.Height, expansionPercent);
+            AiRequestRules.GetOutpaintDimensions(source.Width, source.Height, expansionPercent);
         using Bitmap expanded = source.MakeBorder(vertical, vertical, horizontal, horizontal);
         (string result, FileStream stream) = AiTemporaryFileStore.Create("inputs", "outpaint", ".png");
         using (stream)
@@ -773,20 +774,6 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
             expanded.Save(stream, EncodedImageFormat.Png);
         }
         return result;
-    }
-
-    internal static (int Width, int Height, int Horizontal, int Vertical) GetOutpaintDimensions(
-        int sourceWidth,
-        int sourceHeight,
-        int expansionPercent)
-    {
-        (int expandedWidth, int expandedHeight, int horizontal, int vertical) =
-            Beutl.NodeGraph.Generative.AiImageEditTasks.GetOutpaintDimensions(
-                sourceWidth,
-                sourceHeight,
-                expansionPercent);
-        AiImageDecodeValidator.ValidateDimensions(expandedWidth, expandedHeight);
-        return (expandedWidth, expandedHeight, horizontal, vertical);
     }
 
     // The ids the server knows the edits by. Requests and recovery records carry them.

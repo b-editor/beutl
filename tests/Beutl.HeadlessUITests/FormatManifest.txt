@@ -1385,7 +1385,6 @@ timeline.copy
 timeline.cut
 timeline.delete
 timeline.duplicate
-timeline.exclude
 timeline.exitRazorMode
 timeline.exitRollMode
 timeline.exitSlideMode

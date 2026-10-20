@@ -2,6 +2,7 @@
 using Avalonia.Headless.NUnit;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
+using Beutl.Editor.Services.AI;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -113,10 +114,10 @@ public sealed class AiResultImporterTests
     public void OutpaintDimensions_RejectExpandedPixelBoundsBeforeMakeBorder()
     {
         Assert.That(
-            AiImageEditDialogViewModel.GetOutpaintDimensions(1_365, 1_365, 100),
+            AiRequestRules.GetOutpaintDimensions(1_365, 1_365, 100),
             Is.EqualTo((4_095, 4_095, 1_365, 1_365)));
         Assert.Throws<InvalidDataException>(() =>
-            AiImageEditDialogViewModel.GetOutpaintDimensions(1_366, 1_366, 100));
+            AiRequestRules.GetOutpaintDimensions(1_366, 1_366, 100));
     }
 
     [AvaloniaTest]

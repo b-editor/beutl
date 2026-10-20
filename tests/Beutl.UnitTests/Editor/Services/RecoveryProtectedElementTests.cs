@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Reactive.Linq;
+using System.Text.Json.Nodes;
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -171,25 +172,26 @@ public class RecoveryProtectedElementTests
         });
     }
 
+    // The save that deletes removed elements' files keeps a retained one, and the scene still excludes it.
     [Test]
-    public void DeletingOrExcludingAProtectedElement_IsAllowedAndKeepsItsFile()
+    public void DeletingAProtectedElement_IsAllowedAndKeepsItsFile()
     {
         (Uri sceneUri, string[] elementPaths) = CreateProtectedScenes(2);
         byte[][] originals = elementPaths.Select(File.ReadAllBytes).ToArray();
         Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
-        Element deleted = scene.Children.Single(e => e.Uri!.LocalPath == elementPaths[0]);
-        Element excluded = scene.Children.Single(e => e.Uri!.LocalPath == elementPaths[1]);
         using var harness = new HistoryHarness(scene);
-        var structure = new ElementStructureService(harness.History);
+        using var autoSave = new AutoSaveService();
+        using var subscription = harness.Observer.Operations.Buffer(harness.History.StateChanged)
+            .Subscribe(operations => autoSave.AutoSave(operations));
 
-        structure.Delete(scene, [deleted]);
-        structure.Exclude(scene, [excluded]);
+        new ElementStructureService(harness.History).Delete(scene, [.. scene.Children]);
 
         Assert.Multiple(() =>
         {
             Assert.That(scene.Children, Is.Empty);
             Assert.That(File.ReadAllBytes(elementPaths[0]), Is.EqualTo(originals[0]));
             Assert.That(File.ReadAllBytes(elementPaths[1]), Is.EqualTo(originals[1]));
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children, Is.Empty);
         });
     }
 

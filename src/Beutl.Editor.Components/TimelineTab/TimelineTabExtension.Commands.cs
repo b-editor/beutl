@@ -37,11 +37,9 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
                 return Task.CompletedTask;
             }
         },
-        Command("timeline.exclude", Strings.Exclude, Strings.Exclude_Description,
-            [new("Delete"), new("Back", OSPlatform.OSX)],
-            timeline => timeline.SelectedElements.FirstOrDefault()?.Exclude.Execute(), HasSelection),
+        // Delete took over Exclude's key. Ctrl+Delete stays first, where keymap.json keeps a changed Delete gesture.
         Command("timeline.delete", Strings.Delete, Strings.Delete_Description,
-            [new("Ctrl+Delete"), new("Cmd+Back", OSPlatform.OSX)],
+            [new("Ctrl+Delete"), new("Delete"), new("Cmd+Back", OSPlatform.OSX), new("Back", OSPlatform.OSX)],
             timeline => timeline.SelectedElements.FirstOrDefault()?.Delete.Execute(), HasSelection),
         Command("timeline.copy", Strings.Copy, Strings.Copy_Description,
             [new("Ctrl+C"), new("Cmd+C", OSPlatform.OSX)],
