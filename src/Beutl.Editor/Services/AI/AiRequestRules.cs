@@ -12,6 +12,11 @@ internal static class AiRequestRules
 
     public static string ToOutpaintPrompt(string? prompt) => $"{OutpaintInstruction} {prompt}";
 
+    // The catalog's answer where the server gives one; the built-in task list otherwise.
+    public static bool RequiresPrompt(AiModelCatalog? catalog, string task)
+        => catalog?.RequiresPrompt(AiOperations.ImageEdit(new AiImageEditTaskId(task)))
+            ?? Enum.GetValues<AiImageEditTask>().Any(known => known.ToId() == task && known.RequiresPrompt());
+
     public static (int Width, int Height, int Horizontal, int Vertical) GetOutpaintDimensions(
         int sourceWidth,
         int sourceHeight,

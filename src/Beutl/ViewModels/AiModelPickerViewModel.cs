@@ -165,6 +165,9 @@ internal sealed class AiModelPickerViewModel : IDisposable
     /// <summary>What the request should carry. Null asks the server for its default.</summary>
     public AiModelId? SelectedModel => Selected.Value?.Id;
 
+    // The catalog of the last load, for what an operation publishes beyond its models.
+    internal AiModelCatalog? Catalog => _loadedCatalog;
+
     /// <summary>
     /// Drops models retained only for recovery once their durable request is
     /// gone, and moves the selection back to a model in the current catalog.

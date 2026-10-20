@@ -1874,9 +1874,10 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
             ValidateOptionalText(form.FirstFrameElementId, MaximumScalarLength, nameof(form.FirstFrameElementId));
             ValidateOptionalText(form.LastFrameElementId, MaximumScalarLength, nameof(form.LastFrameElementId));
             ValidateOptionalText(form.SourceJobId, MaximumScalarLength, nameof(form.SourceJobId));
+            // The catalog publishes the qualities, so any identifier is kept.
+            ValidateOptionalText(form.VideoQuality, MaximumScalarLength, nameof(form.VideoQuality));
             if ((form.SourceVideoSeconds is { } sourceSeconds && (!double.IsFinite(sourceSeconds) || sourceSeconds <= 0 || sourceSeconds > 60))
                 || form.VideoOrientation is not (null or "image" or "video")
-                || form.VideoQuality is not (null or "standard" or "pro")
                 || form.VideoPromptLimit is < 1 or > AiRequestLimits.MaxPromptLength)
                 throw new InvalidDataException("Invalid video input recovery fields.");
             if (form.Seed is < AiRequestLimits.MinSeed or > AiRequestLimits.MaxSeed

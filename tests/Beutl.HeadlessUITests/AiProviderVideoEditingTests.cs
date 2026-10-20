@@ -84,6 +84,46 @@ public sealed partial class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task ProviderEditing_MotionOffersAndSendsTheQualitiesTheCatalogLists()
+    {
+        await TestReset.ResetShellAsync();
+        string? sent = null;
+        string capabilities = ProviderVideoCapabilities.Replace(
+            "\"video.motion\":{\"models\":",
+            "\"video.motion\":{\"qualities\":[\"standard\",\"ultra\"],\"models\":");
+        await using var api = new ApiScope(new StubHandler(async (request, token) =>
+        {
+            switch (request.RequestUri?.AbsolutePath)
+            {
+                case "/api/v3/ai/capabilities":
+                    return JsonResponse(HttpStatusCode.OK, capabilities);
+                case "/api/v3/ai/videos/motion":
+                    sent = await request.Content!.ReadAsStringAsync(token);
+                    break;
+            }
+            return ProviderVideoResponse(request);
+        }));
+        using var context = CreateIdentityContext(() => "test-user");
+        string source = Path.Combine(BeutlHomeIsolation.CurrentHome!, "motion-source.webm");
+        string character = Path.Combine(BeutlHomeIsolation.CurrentHome!, "motion-character.png");
+        await File.WriteAllBytesAsync(source, [1, 2, 3]);
+        await File.WriteAllBytesAsync(character, [1, 2, 3]);
+        await using var vm = CreateVideoGenerationDialog(api.Clients, context: context, sourceMode: AiSourceVideoMode.Motion);
+        vm.InputPicker = (role, _) => Task.FromResult<IReadOnlyList<string>>([role == "source" ? source : character]);
+        vm.VideoDurationReader = _ => TimeSpan.FromSeconds(7);
+        await WaitUntilAsync(() => vm.Qualities.Count == 2 && vm.Qualities[1].Value == "ultra");
+
+        await vm.SelectSourceVideo.ExecuteAsync();
+        await vm.SelectCharacterImage.ExecuteAsync();
+        vm.Quality.Value = vm.Qualities[1];
+        vm.Prompt.Value = "dance";
+        await WaitUntilAsync(() => vm.CanGenerate.Value);
+        await vm.Generate.ExecuteAsync();
+
+        Assert.That(sent, Does.Contain("ultra"), vm.Error.Value);
+    }
+
+    [AvaloniaTest]
     public async Task ProviderEditing_LocalSourceKeepsPendingModesIndependent()
     {
         await TestReset.ResetShellAsync();

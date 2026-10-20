@@ -68,6 +68,21 @@ internal sealed class AgentHostAiBackend(
         }
     }
 
+    public async Task<bool> RequiresPromptAsync(string imageEditTask, CancellationToken cancellationToken)
+    {
+        AiModelCatalog? loaded = null;
+        try
+        {
+            loaded = await modelCatalog.GetAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Unreachable: the built-in task list answers, and the executor checks again.
+        }
+
+        return AiRequestRules.RequiresPrompt(loaded, imageEditTask);
+    }
+
     public async Task<AgentTranscript> TranscribeAsync(
         string path,
         string? language,

@@ -90,8 +90,20 @@ internal static class AiModelMapper
                     ToImageReferenceLimits(item.Capability))))
         {
             CaptionTranslationLimits = ToCaptionTranslationLimits(response),
+            PromptRequirements = operations
+                .Where(item => item.Capability.PromptRequired is not null)
+                .ToImmutableDictionary(item => item.Operation, item => item.Capability.PromptRequired!.Value),
+            Qualities = operations
+                .Where(item => item.Capability.Qualities is not null)
+                .ToImmutableDictionary(item => item.Operation, item => ToIdentifierDimension(item.Capability.Qualities!.Value)),
         };
     }
+
+    private static AiCapabilityDimension<string> ToIdentifierDimension(ImmutableArray<string> values)
+        => AiCapabilityDimension<string>.Supported(values
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim())
+            .Distinct(StringComparer.Ordinal));
 
     private static AiImageReferenceLimits ToImageReferenceLimits(
         AiOperationCapabilityResponse operation)

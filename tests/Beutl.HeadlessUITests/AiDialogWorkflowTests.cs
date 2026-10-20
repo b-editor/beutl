@@ -829,6 +829,43 @@ public sealed partial class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task ImageEdit_AsksForAPromptWhereTheCatalogSays()
+    {
+        await TestReset.ResetShellAsync();
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            // Against the built-in list: here an upscale takes a prompt and a restyle does not.
+            "/api/v3/ai/capabilities" => JsonResponse(HttpStatusCode.OK, """
+                {"operations":{
+                  "image.edit.upscale":{"promptRequired":true},
+                  "image.edit.restyle":{"promptRequired":false}}}
+                """),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        }));
+        using var viewModel = CreateImageEditDialog(api.Clients);
+
+        viewModel.SelectedTask.Value = viewModel.Tasks.Single(task => task.Value == "upscale");
+        await WaitUntilAsync(() => viewModel.ModelPicker.IsLoaded.Value
+            && viewModel.ModelPicker.Operation.Value == "image.edit.upscale");
+        bool upscale = viewModel.RequiresPrompt.Value;
+        string? upscaleError = viewModel.PromptValidationError.Value;
+        viewModel.SelectedTask.Value = viewModel.Tasks.Single(task => task.Value == "restyle");
+        bool restyle = viewModel.RequiresPrompt.Value;
+        string? restyleError = viewModel.PromptValidationError.Value;
+        viewModel.SelectedTask.Value = viewModel.Tasks.Single(task => task.Value == "remove_object");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(upscale, Is.True);
+            Assert.That(upscaleError, Is.EqualTo(Strings.AiPromptRequired));
+            Assert.That(restyle, Is.False);
+            Assert.That(restyleError, Is.Null);
+            Assert.That(viewModel.RequiresPrompt.Value, Is.True, "a task the server does not describe keeps the built-in answer");
+        }
+    }
+
+    [AvaloniaTest]
     public async Task ImageEdit_ComingBackToAnUncollectedTaskCanStillSendIt()
     {
         // Return to a task while another request remains uncollected. Failing to reload that
