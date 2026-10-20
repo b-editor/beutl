@@ -6,6 +6,8 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Styling;
 using Beutl.Controls;
+using Beutl.Editor.Components.HistoryTab.ViewModels;
+using Beutl.Editor.Components.HistoryTab.Views;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Beutl.Editor.Components.ObjectPropertyTab.Views;
 using Beutl.Editor.Services;
@@ -14,8 +16,6 @@ using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
 
 namespace Beutl.HeadlessUITests;
 

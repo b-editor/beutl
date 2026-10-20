@@ -1,7 +1,6 @@
-﻿using Beutl.Editor;
-using Beutl.ViewModels;
+﻿using Beutl.Editor.Services;
 
-namespace Beutl.Services.PrimitiveImpls;
+namespace Beutl.Editor.Components.HistoryTab;
 
 // Jumps to a history state from the palette, without opening the history tab.
 public sealed partial class HistoryTabExtension
@@ -20,7 +19,8 @@ public sealed partial class HistoryTabExtension
     {
         // The initial entry alone leaves nowhere to go, unless an uncommitted edit (a nudge still in its
         // debounce) can be reverted to it.
-        return execution.EditorContext is EditViewModel { HistoryManager: var history }
+        return execution.EditorContext?.GetService(typeof(HistoryManager)) is HistoryManager history
+            && execution.EditorContext.GetService(typeof(IHistoryNavigator)) is IHistoryNavigator
             && (history.GetEntriesSnapshot().Length > 1 || history.HasPendingOperations);
     }
 
@@ -28,12 +28,12 @@ public sealed partial class HistoryTabExtension
     {
         if (!CanJumpToHistory(execution)
             || execution.Interaction is not { } interaction
-            || execution.EditorContext is not EditViewModel editViewModel)
+            || execution.EditorContext?.GetService(typeof(HistoryManager)) is not HistoryManager history
+            || execution.EditorContext.GetService(typeof(IHistoryNavigator)) is not IHistoryNavigator navigator)
         {
             return;
         }
 
-        HistoryManager history = editViewModel.HistoryManager;
         HistoryEntry[] entries = history.GetEntriesSnapshot();
         int current = history.CurrentIndex;
         // Newest first, the order in which the states are usually wanted back.
@@ -48,7 +48,7 @@ public sealed partial class HistoryTabExtension
             .ToArray();
         if (await interaction.ShowQuickPickAsync(items) is { } picked)
         {
-            await editViewModel.JumpToHistoryAsync(picked.Value, interaction.CancellationToken);
+            await navigator.JumpToAsync(picked.Value, interaction.CancellationToken);
         }
     }
 }

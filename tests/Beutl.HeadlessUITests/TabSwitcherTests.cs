@@ -10,6 +10,7 @@ using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.HistoryTab;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;

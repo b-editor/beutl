@@ -3,10 +3,9 @@ using System.Reactive.Disposables;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Beutl.Editor;
-using Beutl.ViewModels.Tools;
+using Beutl.Editor.Components.HistoryTab.ViewModels;
 
-namespace Beutl.Views.Tools;
+namespace Beutl.Editor.Components.HistoryTab.Views;
 
 public partial class HistoryView : UserControl
 {
