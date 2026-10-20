@@ -38,26 +38,8 @@ public sealed partial class EditViewModel
     private readonly EditorClockImpl _editorClock;
     private readonly EditorSelectionImpl _editorSelection;
     private readonly ElementAdderImpl _elementAdder;
-    private SceneTimeRangeService? _sceneTimeRangeService;
-    private ElementResizeService? _elementResizeService;
-    private ElementSlipService? _elementSlipService;
-    private ElementDuplicateService? _elementDuplicateService;
-    private ElementMoveService? _elementMoveService;
-    private ElementGapService? _elementGapService;
-    private IElementClipboardService? _elementClipboardService;
-    private ElementStructureService? _elementStructureService;
-    private ElementAttributeService? _elementAttributeService;
-    private TransitionEditorService? _transitionEditorService;
     private ElementNudgeService? _elementNudgeService;
-    private LayerMoveService? _layerMoveService;
-    private LayerAttributeService? _layerAttributeService;
-    private SceneSettingsService? _sceneSettingsService;
-    private KeyFrameClipboardService? _keyFrameClipboardService;
-    private NodeGraphMutationService? _nodeGraphMutationService;
-    private ElementObjectService? _elementObjectService;
     private readonly IClipboardGateway _clipboardGateway = new Beutl.Editor.Components.Services.AvaloniaClipboardGateway();
-    private Services.Adapters.PropertyEditorFactoryAdapter? _propertyEditorFactory;
-    private Services.Adapters.PropertiesEditorFactoryImpl? _propertiesEditorFactory;
     private volatile bool _viewStateSaveSuppressed;
     private readonly HashSet<string> _pendingProxyInvalidations = new(StringComparer.Ordinal);
     private bool _proxyInvalidationScheduled;
@@ -73,6 +55,7 @@ public sealed partial class EditViewModel
 
         _logger.LogInformation("Initializing EditViewModel for Scene ({SceneId}).", scene.Id);
 
+        _services = CreateServices();
         Scene = scene;
         ExtensionProvider = extensionProvider;
         EditorService = editorService;
@@ -359,7 +342,7 @@ public sealed partial class EditViewModel
             // Awaiting yields the UI thread so cancellation continuations can release those leases.
             await CleanupAsync(_elementAdder.DisposeAsync);
             await CleanupAsync(() => Player.DisposeAsync());
-            Cleanup(() => _elementNudgeService?.Dispose());
+            Cleanup(_services.Dispose);
             Cleanup(_historyMutationPlaybackGuard.Dispose);
             Cleanup(_disposables.Dispose);
             Cleanup(IsEnabled.Dispose);
