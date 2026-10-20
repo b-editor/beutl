@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
+using Beutl.Editor.Components.HistoryTab;
 using Beutl.Editor.Components.VersionControlTab;
 using Beutl.Extensibility;
 using Beutl.Testing.Headless;
@@ -15,6 +16,7 @@ public sealed class MovedToolTabNameTests
     private static readonly (ToolTabExtension Extension, string FormerName)[] s_moved =
     [
         (VersionControlTabExtension.Instance, "[Beutl].Services.PrimitiveImpls:VersionControlTabExtension"),
+        (HistoryTabExtension.Instance, "[Beutl].Services.PrimitiveImpls:HistoryTabExtension"),
     ];
 
     [AvaloniaTest]

@@ -6,11 +6,11 @@ using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.Styling;
 using Beutl.Controls;
+using Beutl.Editor.Components.HistoryTab.ViewModels;
+using Beutl.Editor.Components.HistoryTab.Views;
 using Beutl.Editor.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
 using RectShape = Beutl.Graphics.Shapes.RectShape;
 
 namespace Beutl.HeadlessUITests;

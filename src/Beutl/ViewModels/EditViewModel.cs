@@ -23,7 +23,7 @@ namespace Beutl.ViewModels;
 
 public sealed partial class EditViewModel
     : ISavableEditorContext, IUndoRedoEditorContext, IAiJobResultEditorContext, ISupportAutoSaveEditorContext,
-        IPreviewRenderQuality, IFrameCacheInvalidator
+        IPreviewRenderQuality, IFrameCacheInvalidator, IHistoryNavigator
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly AutoSaveService _autoSaveService = new();
@@ -443,6 +443,11 @@ public sealed partial class EditViewModel
             () => !cancellationToken.IsCancellationRequested
                   && IndexOf() is var index and >= 0 && HistoryManager.JumpTo(index));
     }
+
+    ValueTask<bool> IHistoryNavigator.JumpToAsync(int index) => JumpToHistoryAsync(index);
+
+    ValueTask<bool> IHistoryNavigator.JumpToAsync(HistoryEntry entry, CancellationToken cancellationToken)
+        => JumpToHistoryAsync(entry, cancellationToken);
 
     internal ValueTask<TResult> ExecuteGuardedHistoryMutationAsync<TResult>(
         Func<bool> shouldPause,
