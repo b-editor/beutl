@@ -338,7 +338,9 @@ public partial class PlayerView
                     var handler = CreateTransformHandlesHandler(viewModel, kind);
                     _mouseState = handler;
                     handler.OnPressed(e);
-                    _lastSelected.SetTarget(handler.Drawable);
+                    // A press with no hit-test answer keeps the drawable the handles follow.
+                    if (!handler.TimedOut)
+                        _lastSelected.SetTarget(handler.Drawable);
                     framePanel.Focus();
                     return;
                 }
