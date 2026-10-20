@@ -1,6 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.Reflection;
+﻿using System.Diagnostics;
 
 using Avalonia.Headless.NUnit;
 
@@ -39,18 +37,18 @@ public class BufferedPlayerReadAheadTests
         {
             player.Start(PlaybackRange.From(
                 TimeSpan.Zero, editor.Scene.Start, editor.Scene.Duration, editor.Player.GetFrameRate()));
-            await WaitUntilAsync(() => QueuedFrames(player) >= BudgetFrames, TimeSpan.FromSeconds(20));
+            await WaitUntilAsync(() => player.QueuedFrames >= BudgetFrames, TimeSpan.FromSeconds(20));
 
             // Nothing consumes the queue, so a producer that ignored the budget would keep rendering.
             await Task.Delay(TimeSpan.FromMilliseconds(500));
-            Assert.That(QueuedFrames(player), Is.EqualTo(BudgetFrames));
+            Assert.That(player.QueuedFrames, Is.EqualTo(BudgetFrames));
 
             // A consumed frame makes room for one more, and no further.
             Assert.That(player.TryDequeue(out BufferedPlayer.Frame frame), Is.True);
             frame.Bitmap.Dispose();
-            await WaitUntilAsync(() => QueuedFrames(player) == BudgetFrames, TimeSpan.FromSeconds(10));
+            await WaitUntilAsync(() => player.QueuedFrames == BudgetFrames, TimeSpan.FromSeconds(10));
             await Task.Delay(TimeSpan.FromMilliseconds(300));
-            Assert.That(QueuedFrames(player), Is.EqualTo(BudgetFrames));
+            Assert.That(player.QueuedFrames, Is.EqualTo(BudgetFrames));
         }
         finally
         {
@@ -58,11 +56,6 @@ public class BufferedPlayerReadAheadTests
             await WaitUntilAsync(() => player.ProducerStopped, TimeSpan.FromSeconds(10));
         }
     }
-
-    private static int QueuedFrames(BufferedPlayer player)
-        => ((ConcurrentQueue<BufferedPlayer.Frame>)typeof(BufferedPlayer)
-            .GetField("_queue", BindingFlags.NonPublic | BindingFlags.Instance)!
-            .GetValue(player)!).Count;
 
     private static async Task<EditViewModel> OpenEditor()
     {

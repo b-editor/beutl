@@ -623,11 +623,6 @@ public partial class PlayerView : UserControl
         Dispatcher.UIThread.InvokeAsync(() =>
         {
             image.InvalidateVisual();
-
-            // Skip overlay updates while playing — RenderThread Invoke would block next-frame generation.
-            // When playback stops, the IsPlaying subscriber triggers it once.
-            if (DataContext is PlayerViewModel { IsPlaybackActive: true }) return;
-
             UpdateTransformHandles();
         });
     }

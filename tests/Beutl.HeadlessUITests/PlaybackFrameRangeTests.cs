@@ -72,6 +72,10 @@ public class PlaybackFrameRangeTests
         using var player = new BufferedPlayer(editor, isPlaying, Rate, CancellationToken.None);
 
         player.Start(PlaybackRange.From(scene.Start, scene.Start, scene.Duration, Rate));
+        await HeadlessTestHelpers.WaitUntilAsync(() => player.QueuedFrames >= 3, TimeSpan.FromMinutes(2), pump: false);
+        // The producer then waits at the end of the range for an edit that drops frames, rendering nothing past it.
+        await Task.Delay(TimeSpan.FromMilliseconds(300));
+        isPlaying.Value = false;
         await HeadlessTestHelpers.WaitUntilAsync(() => player.ProducerStopped, TimeSpan.FromMinutes(2), pump: false);
 
         var frames = new List<int>();

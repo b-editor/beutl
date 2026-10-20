@@ -478,11 +478,9 @@ public class PlayerViewModelQuiescenceTests
     }
 
     [AvaloniaTest]
-    [TestCase("_waitTimerGate", false)]
-    [TestCase("_waitTimerGate", true)]
-    [TestCase("_waitRenderGate", false)]
-    [TestCase("_waitRenderGate", true)]
-    public async Task A_stopped_render_producer_cannot_publish_a_new_wait(string gateName, bool cancelToken)
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task A_stopped_render_producer_cannot_publish_a_new_wait(bool cancelToken)
     {
         EditViewModel editor = await OpenEditor();
         using var cts = new CancellationTokenSource();
@@ -493,7 +491,7 @@ public class PlayerViewModelQuiescenceTests
         else
             playing.Value = false;
         var gate = (BufferedPlayerWaitGate)typeof(BufferedPlayer)
-            .GetField(gateName, BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(producer)!;
+            .GetField("_waitRenderGate", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(producer)!;
         using var wait = new CancellationTokenSource();
         Assert.That(gate.Publish(wait), Is.False, "a pause before wait publication must not leave the render barrier blocked");
     }

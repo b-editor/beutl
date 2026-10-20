@@ -16,8 +16,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.HeadlessUITests;
 
-// Playback renders the whole run in one render-thread job, so anything the UI thread waits for on the render thread
-// waits until playback stops or reaches the end of the scene. Changing the node cache settings used to do that.
+// A render-thread job can run long, as a heavy playback frame does, so changing the node cache settings must not wait
+// for the render thread. It used to wait for the whole playback, which rendered in one job.
 [NonParallelizable]
 [TestFixture]
 public class NodeCacheSettingsPlaybackTests
@@ -26,12 +26,13 @@ public class NodeCacheSettingsPlaybackTests
     public async Task ChangingTheNodeCache_DuringPlayback_DoesNotWaitForTheRenderThread()
     {
         TestGpu.RequireAnyDevice();
-        // Much longer than the producer's read-ahead and the bound below, so the producer holds the render thread
-        // for the whole test.
+        // Long enough that playback still runs when the setting changes.
         EditViewModel editor = await OpenEditor(TimeSpan.FromMinutes(2));
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
         bool enabled = config.IsNodeCacheEnabled;
+        using var release = new CancellationTokenSource();
+        Task? blocked = null;
 
         try
         {
@@ -39,30 +40,47 @@ public class NodeCacheSettingsPlaybackTests
             await HeadlessTestHelpers.WaitUntilAsync(
                 () => clock.CurrentTime.Value >= TimeSpan.FromSeconds(0.2), TimeSpan.FromMinutes(2), pump: false);
 
-            // Queued behind the producer, so it only runs once playback lets go of the render thread.
-            Task renderThreadReached = RenderThread.Dispatcher.InvokeAsync(static () => { });
+            // A job that holds the render thread between two playback frames, until the change has returned.
+            blocked = await BlockRenderThreadAsync(release);
             var stopwatch = Stopwatch.StartNew();
             config.IsNodeCacheEnabled = !enabled;
             stopwatch.Stop();
 
             Assert.Multiple(() =>
             {
-                Assert.That(renderThreadReached.IsCompleted, Is.False,
-                    "the change must return while playback still holds the render thread");
+                Assert.That(blocked.IsCompleted, Is.False,
+                    "the change must return while the render thread is busy");
                 Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromMinutes(1)));
                 Assert.That(editor.Player.IsPlaying.Value, Is.True);
             });
 
-            // The renderer takes the new options once playback releases the render thread.
+            // The renderer takes the new options once the render thread is free.
+            release.Cancel();
+            await blocked.WaitAsync(TimeSpan.FromSeconds(10));
             await editor.Player.Pause();
             await HeadlessTestHelpers.WaitUntilAsync(
                 () => editor.Renderer.Value.CacheOptions.IsEnabled == !enabled, TimeSpan.FromMinutes(2), pump: false);
         }
         finally
         {
+            release.Cancel();
+            if (blocked is not null)
+                await blocked.WaitAsync(TimeSpan.FromSeconds(10));
             await editor.Player.Pause();
             config.IsNodeCacheEnabled = enabled;
         }
+    }
+
+    private static async Task<Task> BlockRenderThreadAsync(CancellationTokenSource release)
+    {
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task job = RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            entered.TrySetResult();
+            release.Token.WaitHandle.WaitOne(TimeSpan.FromMinutes(1));
+        });
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        return job;
     }
 
     [AvaloniaTest]
