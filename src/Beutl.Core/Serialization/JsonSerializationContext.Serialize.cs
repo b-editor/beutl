@@ -59,6 +59,10 @@ public partial class JsonSerializationContext
         {
             coreSerializable.Serialize(innerContext);
             innerContext.WriteUnknownMembers(coreSerializable);
+            if (coreSerializable is IFallback fallback)
+            {
+                innerContext.WriteFallback(fallback);
+            }
         }
 
         JsonObject obj = innerContext.GetJsonObject();

@@ -190,8 +190,8 @@ public class EngineObject : Hierarchical, INotifyEdited
             }
         }
 
-        // A fallback keeps its whole JSON already.
-        if (this is not IFallback && context is JsonSerializationContext { KeepsUnknownMembers: true } jsonContext)
+        // A fallback keeps them whatever the options say, as it keeps its unknown members.
+        if (context is JsonSerializationContext jsonContext && (this is IFallback || jsonContext.KeepsUnknownMembers))
         {
             KeepUnknownEntries(
                 jsonContext, "Animations", static property => property.IsAnimatable, ref _unknownAnimations);

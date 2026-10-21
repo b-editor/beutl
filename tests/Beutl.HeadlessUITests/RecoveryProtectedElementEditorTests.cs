@@ -223,11 +223,10 @@ public sealed class RecoveryProtectedElementEditorTests
         await TestReset.ResetShellAsync();
     }
 
-    // A clip whose effect and one of whose objects have types that could not be loaded stays editable: the
-    // fallbacks save the JSON they were read from, so editing the rest of the clip is saved. The fallbacks
-    // themselves are read-only, since turning one off would not be saved.
+    // A clip whose effect and one of whose objects have types that could not be loaded stays editable, and so do
+    // the fallbacks' known members: turning them off is saved, and the rest of them is saved as it was read.
     [AvaloniaTest]
-    public async Task Property_editors_keep_a_clip_with_missing_types_editable_and_its_fallbacks_read_only()
+    public async Task Property_editors_keep_a_clip_with_missing_types_editable_and_save_turning_its_fallbacks_off()
     {
         (string projectPath, string elementPath) = await CreateProjectWithMissingTypes("missing-types-properties");
         JsonObject written = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
@@ -252,7 +251,7 @@ public sealed class RecoveryProtectedElementEditorTests
             .OfType<FilterEffectEditorViewModel>().Single();
         float oldWidth = shape.Width.CurrentValue;
         width.SetValue(oldWidth, oldWidth + 10);
-        filter.IsEnabled.Value = !filter.IsEnabled.Value;
+        filter.IsEnabled.Value = false;
         unavailableItem.IsEnabled.Value = false;
         var objectView = new EngineObjectPropertyView { DataContext = tab.Items[1] };
         objectView.Remove_Click(null, new RoutedEventArgs());
@@ -263,9 +262,9 @@ public sealed class RecoveryProtectedElementEditorTests
             Assert.That(element.SuppressedStorageSource, Is.Null);
             Assert.That(tab.CanEdit.Value, Is.True);
             Assert.That(shape.Width.CurrentValue, Is.EqualTo(oldWidth + 10));
-            Assert.That(shape.FilterEffect.CurrentValue!.IsEnabled, Is.True, "Turning off the unavailable effect would not be saved.");
-            Assert.That(unavailable.IsEnabled, Is.True, "Turning off the unavailable object would not be saved.");
-            Assert.That(unavailableItem.CanToggleEnabled.Value, Is.False);
+            Assert.That(shape.FilterEffect.CurrentValue!.IsEnabled, Is.False);
+            Assert.That(unavailable.IsEnabled, Is.False);
+            Assert.That(unavailableItem.CanToggleEnabled.Value, Is.True);
             Assert.That(element.Objects, Does.Not.Contain(healthy));
         });
 
@@ -281,7 +280,7 @@ public sealed class RecoveryProtectedElementEditorTests
             HeadlessTestHelpers.Render(5);
             ToggleButton visibility = window.GetVisualDescendants().OfType<ToggleButton>()
                 .Single(button => button.Name == "VisibilityButton");
-            Assert.That(visibility.IsEnabled, Is.False);
+            Assert.That(visibility.IsEnabled, Is.True);
         }
         finally
         {
@@ -292,14 +291,18 @@ public sealed class RecoveryProtectedElementEditorTests
         JsonObject saved = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
         JsonArray writtenObjects = written[nameof(Element.Objects)]!.AsArray();
         JsonArray savedObjects = saved[nameof(Element.Objects)]!.AsArray();
+        JsonNode effect = writtenObjects[0]![nameof(RectShape.FilterEffect)]!.DeepClone();
+        effect[nameof(EngineObject.IsEnabled)] = false;
+        JsonNode turnedOff = writtenObjects[2]!.DeepClone();
+        turnedOff[nameof(EngineObject.IsEnabled)] = false;
         Assert.Multiple(() =>
         {
             Assert.That(savedObjects, Has.Count.EqualTo(2));
             Assert.That(savedObjects[0]![nameof(RectShape.Width)]!.GetValue<float>(), Is.EqualTo(oldWidth + 10));
-            Assert.That(JsonNode.DeepEquals(
-                savedObjects[0]![nameof(RectShape.FilterEffect)],
-                writtenObjects[0]![nameof(RectShape.FilterEffect)]), Is.True, "The effect is saved as it was read.");
-            Assert.That(JsonNode.DeepEquals(savedObjects[1], writtenObjects[2]), Is.True, "The object is saved as it was read.");
+            Assert.That(JsonNode.DeepEquals(savedObjects[0]![nameof(RectShape.FilterEffect)], effect), Is.True,
+                "The effect is saved turned off and otherwise as it was read.");
+            Assert.That(JsonNode.DeepEquals(savedObjects[1], turnedOff), Is.True,
+                "The object is saved turned off and otherwise as it was read.");
         });
         await TestReset.ResetShellAsync();
     }

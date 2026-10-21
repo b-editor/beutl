@@ -70,6 +70,44 @@ public class FallbackGraphNodeTests
         restored.Nodes.Add(fallback);
         Assert.That(fallback.Id, Is.EqualTo(recoveredId));
     }
+
+    // A missing plugin's node saves the metadata every node has, and writes back its ports, its payload and the type it
+    // stands in for. Its connection to a port it does not know is kept as it is (#2529).
+    [Test]
+    public void MovedRenamedAndCollapsedUnavailableNode_SavesThemAndKeepsTheRest()
+    {
+        var source = new RandomSingleNode { Name = "Unavailable", Position = (120, 80) };
+        var output = new OutputNode();
+        var graph = new GraphModel();
+        graph.Nodes.AddRange([source, output]);
+        graph.Connect(output.InputPort, source.Value);
+        JsonObject json = CoreSerializer.SerializeToJsonObject(graph);
+        JsonObject payload = json["Nodes"]![0]!.AsObject();
+        payload["$type"] = "[Missing.Plugin]Missing:Node";
+        payload["PluginPayload"] = new JsonObject { ["Unknown"] = 42 };
+        JsonObject expected = (JsonObject)payload.DeepClone();
+        expected["Position"] = "300,40";
+        expected[nameof(GraphNode.Name)] = "Renamed";
+        expected[nameof(GraphNode.IsExpanded)] = false;
+
+        var restored = (GraphModel)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
+        var fallback = (FallbackGraphNode)restored.Nodes[0];
+        fallback.Position = (300, 40);
+        fallback.Name = "Renamed";
+        fallback.IsExpanded = false;
+        JsonObject saved = CoreSerializer.SerializeToJsonObject(restored);
+        var reopened = (GraphModel)CoreSerializer.DeserializeFromJsonObject(saved, typeof(GraphModel));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(JsonNode.DeepEquals(saved["Nodes"]![0], expected), Is.True);
+            Assert.That(reopened.Nodes[0], Is.InstanceOf<FallbackGraphNode>());
+            Assert.That(reopened.Nodes[0].Position, Is.EqualTo((300d, 40d)));
+            Assert.That(reopened.Nodes[0].Name, Is.EqualTo("Renamed"));
+            Assert.That(reopened.Nodes[0].IsExpanded, Is.False);
+            Assert.That(reopened.AllConnections.Single().Output.Id, Is.EqualTo(source.Value.Id));
+        });
+    }
 }
 
 public partial class UnreadableDisplayNode : GraphNode

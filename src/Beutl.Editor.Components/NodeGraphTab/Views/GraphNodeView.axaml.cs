@@ -261,7 +261,7 @@ public partial class GraphNodeView : UserControl
     {
         PointerPoint point = e.GetCurrentPoint(this);
         if (_captured
-            && DataContext is GraphNodeViewModel { IsFallback: false } viewModel
+            && DataContext is GraphNodeViewModel { IsReadOnly: false } viewModel
             && point.Properties.IsLeftButtonPressed
             && Parent is Canvas canvas)
         {
@@ -283,7 +283,7 @@ public partial class GraphNodeView : UserControl
 
             foreach (GraphNodeView? item in GetSelection())
             {
-                if (item != this && item.DataContext is GraphNodeViewModel { IsFallback: false } itemViewModel)
+                if (item != this && item.DataContext is GraphNodeViewModel { IsReadOnly: false } itemViewModel)
                 {
                     itemViewModel.Position.Value += delta;
                 }
@@ -333,7 +333,7 @@ public partial class GraphNodeView : UserControl
 
         // A press that did not move the node is a click on it.
         if (moved || DataContext is not GraphNodeViewModel viewModel) return;
-        if (viewModel.IsFallback && !_start.NearlyEquals(e.GetPosition(Parent as Visual))) return;
+        if (viewModel.IsReadOnly && !_start.NearlyEquals(e.GetPosition(Parent as Visual))) return;
         if (e.KeyModifiers == KeyModifiers.Control)
         {
             viewModel.IsSelected.Value = !viewModel.IsSelected.Value;
@@ -374,7 +374,7 @@ public partial class GraphNodeView : UserControl
         OnReleased();
         foreach (GraphNodeView item in GetSelection().Append(this).Distinct())
         {
-            if (item.DataContext is GraphNodeViewModel { IsFallback: false } itemViewModel)
+            if (item.DataContext is GraphNodeViewModel { IsReadOnly: false } itemViewModel)
             {
                 (double x, double y) = itemViewModel.GraphNode.Position;
                 itemViewModel.Position.Value = new Point(x, y);

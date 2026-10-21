@@ -84,6 +84,12 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
             .Select(conn => graph.AllConnections.FirstOrDefault(a => a.Id == conn.Id))
             .Where(a => a is not null)
             .ToArray()!;
+        // A missing plugin's node has no ports; its connections name the ports it was saved with.
+        if (node is FallbackGraphNode fallback)
+        {
+            HashSet<Guid> ports = [.. fallback.SavedPortIds()];
+            touching = [.. graph.AllConnections.Where(c => ports.Contains(c.Input.Id) || ports.Contains(c.Output.Id))];
+        }
 
         foreach (Connection connection in touching)
         {

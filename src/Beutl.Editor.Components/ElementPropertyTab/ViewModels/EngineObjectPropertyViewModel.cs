@@ -26,8 +26,10 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
         CanReplace = ElementEditability.ObserveRepair(
                 parent.Element.Value, model, parent.GetService(typeof(Scene)) as Scene)
             .ToReadOnlyReactivePropertySlim();
-        // A fallback saves the JSON it was read from, so turning it on or off would not be saved.
-        CanToggleEnabled = model is IFallback ? new ReactivePropertySlim<bool>(false) : CanEdit;
+        // A fallback that saves the JSON it was read from as it is would not save turning it on or off.
+        CanToggleEnabled = model is IFallback fallback && !fallback.SavesItsMembers()
+            ? new ReactivePropertySlim<bool>(false)
+            : CanEdit;
         IsEnabled = model.GetObservable(EngineObject.IsEnabledProperty)
             .ToReactiveProperty();
         _enabledSubscription = IsEnabled.Skip(1).Subscribe(v =>

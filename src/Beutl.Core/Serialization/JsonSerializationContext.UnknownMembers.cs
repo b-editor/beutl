@@ -30,12 +30,18 @@ public partial class JsonSerializationContext
     /// </summary>
     /// <remarks>
     /// A populated object merges them into what it kept before, so a populate that leaves a member out
-    /// keeps it, as it keeps the value of a known property it leaves out. A fallback keeps its whole JSON
-    /// already, and an object that read the JSON object itself is taken to have read every key.
+    /// keeps it, as it keeps the value of a known property it leaves out. A fallback keeps them whatever the
+    /// options say, and an object that read the JSON object itself is taken to have read every key.
     /// </remarks>
     internal void KeepUnknownMembers(ICoreSerializable obj)
     {
-        if (obj is not CoreObject coreObject || obj is IFallback || _readsAllKeys || !KeepsUnknownMembers) return;
+        if (obj is IFallback fallback)
+        {
+            KeepFallbackMembers(fallback);
+            return;
+        }
+
+        if (obj is not CoreObject coreObject || _readsAllKeys || !KeepsUnknownMembers) return;
 
         JsonObject? unknown = null;
         foreach ((string key, JsonNode? node) in _json)
@@ -50,6 +56,44 @@ public partial class JsonSerializationContext
 
         coreObject.KeepUnknownMembers(unknown);
         RootFileVersions.RecordKeptUnknownData();
+    }
+
+    // A fallback keeps the JSON it was read from, for its type name, and the members its type does not read,
+    // which are the data of the type it stands in for. It keeps them even when there are none (see SavesItsMembers).
+    private void KeepFallbackMembers(IFallback fallback)
+    {
+        fallback.Json = _json;
+        if (fallback is not CoreObject coreObject) return;
+
+        var unknown = new JsonObject();
+        foreach ((string key, JsonNode? node) in _json)
+        {
+            if (_readKeys?.Contains(key) != true && !IsReservedKey(key) && !IsDroppedMember(fallback.GetType(), key))
+            {
+                unknown[key] = node?.DeepClone();
+            }
+        }
+
+        coreObject.KeepUnknownMembers(unknown);
+    }
+
+    // Writes what a fallback adds to its members: the $type it was read with. A fallback given JSON it never read, or
+    // written where unknown members are left out, such as into an agent's document, writes that JSON as it is.
+    internal void WriteFallback(IFallback fallback)
+    {
+        if (fallback.Json is not { } json) return;
+
+        if (fallback.SavesItsMembers() && KeepsUnknownMembers)
+        {
+            if (json.TryGetPropertyValue("$type", out JsonNode? type))
+            {
+                _json["$type"] = type?.DeepClone();
+            }
+        }
+        else
+        {
+            SetJsonObject(json);
+        }
     }
 
     // Writes the unknown members obj kept back into this context's JSON, after obj wrote its own members. A

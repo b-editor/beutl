@@ -45,15 +45,17 @@ public class GraphNodePositionSerializationTests
         Assert.That(RestoreGraph(json, unavailable: true).Nodes[0].Position, Is.EqualTo((x, y)));
     }
 
+    // A missing plugin's node writes the position it has, as any node does, and the rest as it was read.
     [TestCase("120,5,8")]
     [TestCase("120,5,80,25")]
     [TestCase("Infinity,80")]
-    public void AmbiguousOrNonFinitePosition_LeavesDefaultAndPreservesFallbackJson(string saved)
+    public void AmbiguousOrNonFinitePosition_LeavesDefaultForNormalAndFallbackNodes(string saved)
     {
         JsonObject json = CreateGraphJson(default);
         json["Nodes"]![0]!["Position"] = saved;
         JsonObject expected = (JsonObject)json.DeepClone();
         expected["Nodes"]![0]!["$type"] = "[Missing.Plugin]Missing:Node";
+        expected["Nodes"]![0]!["Position"] = "0,0";
 
         Assert.That(RestoreGraph(json, unavailable: false).Nodes[0].Position, Is.EqualTo((0d, 0d)));
 
