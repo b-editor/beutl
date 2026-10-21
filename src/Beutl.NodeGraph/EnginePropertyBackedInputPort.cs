@@ -148,7 +148,7 @@ internal interface IReplacedExpressionHolder
 }
 
 [JsonConverter(typeof(NodePortExpressionJsonConverter))]
-public class NodePortExpression<T> : IExpression<T>, INodePortExpression, IReplacedExpressionHolder
+public class NodePortExpression<T> : IReplacingExpression<T>, INodePortExpression, IReplacedExpressionHolder
 {
     public T? Value { get; set; }
 
@@ -156,6 +156,9 @@ public class NodePortExpression<T> : IExpression<T>, INodePortExpression, IRepla
     /// Gets the expression the connection replaced, which the property gets back once nothing is connected to it.
     /// </summary>
     public IExpression<T>? Replaced { get; internal set; }
+
+    IExpression<T> IReplacingExpression<T>.WithReplaced(IExpression<T>? replaced)
+        => new NodePortExpression<T> { Value = Value, Replaced = replaced };
 
     public string ExpressionString => "[NodePort Connected]";
 
