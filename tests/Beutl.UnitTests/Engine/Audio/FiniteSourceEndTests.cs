@@ -92,17 +92,15 @@ public class FiniteSourceEndTests
         Assert.That(speed.GetFiniteSourceEndSample(SampleRate), Is.EqualTo(48000).Within(1));
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void AnimatedEnd_IsCachedAndRecomputedAfterAnimationSourceOrRateChanges(bool preservePitch)
+    // A custom animation has no output range, so only TimeStretchNode's minimum speed bounds its end.
+    [Test]
+    public void AnimatedEnd_IsCachedAndRecomputedAfterAnimationSourceOrRateChanges()
     {
         var animation = new CountingAnimation();
         var property = Property.CreateAnimatable(100f);
         property.Animation = animation;
         using var source = new MutableFiniteSource { Seconds = 0.125 };
-        using AudioNode node = preservePitch
-            ? new TimeStretchNode { Speed = property }
-            : new SpeedNode { Speed = property };
+        using AudioNode node = new TimeStretchNode { Speed = property };
         node.AddInput(source);
         double? first = node.GetFiniteSourceEndSample(SampleRate);
         int calls = animation.Calls;
@@ -143,7 +141,7 @@ public class FiniteSourceEndTests
         public override AudioBuffer Process(AudioProcessContext context) => new(context.SampleRate, 2, context.GetSampleCount());
     }
 
-    private sealed class CountingAnimation : Hierarchical, IAnimationRange<float>
+    private sealed class CountingAnimation : Hierarchical, IAnimation<float>
     {
         public int Calls { get; private set; }
         private float _speed = 100;
@@ -154,7 +152,6 @@ public class FiniteSourceEndTests
         public event EventHandler? Edited;
         public float GetAnimatedValue(TimeSpan time) => Interpolate(time);
         public float Interpolate(TimeSpan time) { Calls++; return _speed; }
-        public bool TryGetOutputRange(out float minimum, out float maximum) { minimum = maximum = _speed; return true; }
         public void SetSpeed(float speed) { _speed = speed; Edited?.Invoke(this, EventArgs.Empty); }
     }
 
