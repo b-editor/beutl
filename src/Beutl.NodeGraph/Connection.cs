@@ -1,4 +1,6 @@
-﻿namespace Beutl.NodeGraph;
+﻿using System.ComponentModel;
+
+namespace Beutl.NodeGraph;
 
 [Flags]
 public enum ConnectionStatus
@@ -13,53 +15,40 @@ public enum ConnectionStatus
 
 public sealed class Connection : Hierarchical
 {
-    public static readonly CoreProperty<Reference<NodeMember>> InputProperty;
-    public static readonly CoreProperty<Reference<NodeMember>> OutputProperty;
-    public static readonly CoreProperty<ConnectionStatus> StatusProperty;
-    private ConnectionStatus _status = ConnectionStatus.Disconnected;
-
-    static Connection()
-    {
-        InputProperty = ConfigureProperty<Reference<NodeMember>, Connection>(nameof(Input))
-            .Accessor(o => o.Input, (o, v) => o.Input = v)
-            .Register();
-        OutputProperty = ConfigureProperty<Reference<NodeMember>, Connection>(nameof(Output))
-            .Accessor(o => o.Output, (o, v) => o.Output = v)
-            .Register();
-        StatusProperty = ConfigureProperty<ConnectionStatus, Connection>(nameof(Status))
-            .Accessor(o => o.Status, (o, v) => o.Status = v)
-            .Register();
-    }
-
     public Connection(IInputPort input, IOutputPort output)
+        : this()
     {
-        Input = new Reference<NodeMember>((NodeMember)input);
-        Output = new Reference<NodeMember>((NodeMember)output);
+        InputProperty.Value = new Reference<NodeMember>((NodeMember)input);
+        OutputProperty.Value = new Reference<NodeMember>((NodeMember)output);
     }
 
     public Connection()
     {
+        // Disconnected is a value rather than the default, as its CoreProperty form had no default.
+        StatusProperty.Value = ConnectionStatus.Disconnected;
+        ScanProperties<Connection>();
+        InputProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Input)));
+        OutputProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Output)));
+        StatusProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Status)));
     }
+
+    public IProperty<Reference<NodeMember>> InputProperty { get; } = new ValueOnlyProperty<Reference<NodeMember>>(default);
+
+    public IProperty<Reference<NodeMember>> OutputProperty { get; } = new ValueOnlyProperty<Reference<NodeMember>>(default);
 
     // Evaluation sets it again on every pass, so history leaves it out.
     [NotTracked]
+    public IProperty<ConnectionStatus> StatusProperty { get; } = new ValueOnlyProperty<ConnectionStatus>(default);
+
     public ConnectionStatus Status
     {
-        get => _status;
-        set => SetAndRaise(StatusProperty, ref _status, value);
+        get => StatusProperty.Value;
+        set => StatusProperty.Value = value;
     }
 
-    public Reference<NodeMember> Input
-    {
-        get;
-        private set => SetAndRaise(InputProperty, ref field, value);
-    }
+    public Reference<NodeMember> Input => InputProperty.Value;
 
-    public Reference<NodeMember> Output
-    {
-        get;
-        private set => SetAndRaise(OutputProperty, ref field, value);
-    }
+    public Reference<NodeMember> Output => OutputProperty.Value;
 
     public void Connect()
     {

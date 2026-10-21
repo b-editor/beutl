@@ -13,19 +13,19 @@ public class ConnectionViewModel : IDisposable
     {
         _nodeGraph = nodeGraph;
         Connection = connection;
-        InputPortVM = connection.GetObservable(Connection.InputProperty)
+        InputPortVM = connection.InputProperty.GetObservable()
             .Select(i => i.Value is IInputPort input
                 ? _nodeGraph.FindNodePortViewModel(input) as InputPortViewModel
                 : null)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        OutputPortVM = connection.GetObservable(Connection.OutputProperty)
+        OutputPortVM = connection.OutputProperty.GetObservable()
             .Select(i => i.Value is IOutputPort output
                 ? _nodeGraph.FindNodePortViewModel(output) as OutputPortViewModel
                 : null)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        Status = connection.GetObservable(Connection.StatusProperty)
+        Status = connection.StatusProperty.GetObservable()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 

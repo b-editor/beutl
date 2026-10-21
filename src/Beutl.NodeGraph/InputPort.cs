@@ -39,7 +39,7 @@ public class InputPort<T> : NodePort<T>, IInputPort
         base.NotifyConnected(connection);
         if (!Connection.IsNull) throw new InvalidOperationException("This input port is already connected.");
         Connection = connection;
-        connection.SetValue(Beutl.NodeGraph.Connection.StatusProperty, ConnectionStatus.Connected);
+        connection.Status = ConnectionStatus.Connected;
     }
 
     public override void NotifyDisconnected(Connection connection)
@@ -48,6 +48,6 @@ public class InputPort<T> : NodePort<T>, IInputPort
         if (Connection.IsNull || Connection.Id != connection.Id)
             throw new InvalidOperationException("This input port is not connected to the specified connection.");
         Connection = default;
-        connection.SetValue(Beutl.NodeGraph.Connection.StatusProperty, ConnectionStatus.Disconnected);
+        connection.Status = ConnectionStatus.Disconnected;
     }
 }
