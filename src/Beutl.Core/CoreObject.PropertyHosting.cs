@@ -85,4 +85,14 @@ public abstract partial class CoreObject : IChildObjectSource
 
     // A base field stands for a CoreProperty field; an object without panels has each value-only property as one.
     internal virtual bool IsBaseField(IProperty property) => property is not (IExpressionProperty or IListProperty);
+
+    // Id and Name, which come after the CoreProperty fields when saved and shown, as their CoreProperty fields did.
+    internal bool IsOwnField(IProperty property) => property == IdProperty || property == NameProperty;
+
+    private void RegisterOwnField(IProperty property, string name)
+    {
+        property.SetAttributes(name, []);
+        property.SetOwnerObject(this);
+        RegisterProperty(property);
+    }
 }

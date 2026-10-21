@@ -29,7 +29,7 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
     public EngineObject()
     {
         ScanProperties<EngineObject>();
-        HideProperties(IsTimeAnchorProperty, IsEnabledProperty, ZIndexProperty, TimeRangeProperty);
+        HideProperties(IsTimeAnchorProperty, IsEnabledProperty, ZIndexProperty, TimeRangeProperty, IdProperty, NameProperty);
         IsTimeAnchorProperty.ValueChanged += (_, e) =>
         {
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsTimeAnchor)));

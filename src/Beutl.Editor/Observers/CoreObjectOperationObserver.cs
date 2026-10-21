@@ -90,7 +90,6 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
         var objectType = _object.GetType();
         foreach (CoreProperty property in PropertyRegistry.GetRegistered(objectType))
         {
-            if (Hierarchical.HierarchicalParentProperty.Id == property.Id) continue;
             if (_propertiesToTrack != null && !_propertiesToTrack.Contains(property.Name))
             {
                 continue;

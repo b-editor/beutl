@@ -12,25 +12,23 @@ public static class ProjectVariableKeys
 
 public sealed class Project : Hierarchical
 {
-    public static readonly CoreProperty<HierarchicalList<ProjectItem>> ItemsProperty;
-    public static readonly CoreProperty<Dictionary<string, string>> VariablesProperty;
     private readonly HierarchicalList<ProjectItem> _items;
-
-    static Project()
-    {
-        ItemsProperty = ConfigureProperty<HierarchicalList<ProjectItem>, Project>(nameof(Items))
-            .Accessor(o => o.Items, (o, v) => o.Items = v)
-            .Register();
-
-        VariablesProperty = ConfigureProperty<Dictionary<string, string>, Project>(nameof(Variables))
-            .Accessor(o => o.Variables)
-            .Register();
-    }
 
     public Project()
     {
         _items = new HierarchicalList<ProjectItem>(this);
+        // The list and the dictionary are values rather than defaults, as their CoreProperty forms had no default.
+        ItemsProperty.Value = _items;
+        VariablesProperty.Value = Variables;
+        ScanProperties<Project>();
     }
+
+    // Serialize and Deserialize write and read the items and variables themselves.
+    [NotAutoSerialized]
+    public IProperty<HierarchicalList<ProjectItem>> ItemsProperty { get; } = new ValueOnlyProperty<HierarchicalList<ProjectItem>>(null!);
+
+    [NotAutoSerialized]
+    public IProperty<Dictionary<string, string>> VariablesProperty { get; } = new ValueOnlyProperty<Dictionary<string, string>>(null!);
 
     /// <summary>
     /// Gets the version of Beutl that last saved the project file, as the file records it, or the running
@@ -48,14 +46,12 @@ public sealed class Project : Hierarchical
     /// </remarks>
     public string MinAppVersion => RootFileVersions.GetMinAppVersion(this) ?? FileFormat.Floor;
 
-    [NotAutoSerialized]
     public HierarchicalList<ProjectItem> Items
     {
         get => _items;
         set => _items.Replace(value);
     }
 
-    [NotAutoSerialized]
     public Dictionary<string, string> Variables { get; } = [];
 
     public override void Deserialize(ICoreSerializationContext context)

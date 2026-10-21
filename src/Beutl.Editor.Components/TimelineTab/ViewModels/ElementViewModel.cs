@@ -72,7 +72,7 @@ public sealed partial class ElementViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        Name = element.GetObservable(CoreObject.NameProperty)
+        Name = element.NameProperty.GetObservable()
             .ToReactiveProperty()
             .AddTo(_disposables)!;
 

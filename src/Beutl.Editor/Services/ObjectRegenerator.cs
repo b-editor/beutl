@@ -186,20 +186,37 @@ public static class ObjectRegenerator
 
     public sealed class ListWrapper<T> : CoreObject
     {
-        public static readonly CoreProperty<CoreList<T>> ItemsProperty;
         private readonly CoreList<T> _items = new();
 
-        static ListWrapper()
+        public ListWrapper()
         {
-            ItemsProperty = ConfigureProperty<CoreList<T>, ListWrapper<T>>(nameof(Items))
-                .Accessor(o => o.Items, (o, v) => o.Items = v)
-                .Register();
+            // The list is a value rather than a default, as its CoreProperty form had no default.
+            ItemsProperty.Value = _items;
+            ScanProperties<ListWrapper<T>>();
         }
+
+        public IProperty<CoreList<T>> ItemsProperty { get; } = new ValueOnlyProperty<CoreList<T>>(null!);
 
         public CoreList<T> Items
         {
             get => _items;
             set => _items.Replace(value);
+        }
+
+        // Items keeps its list, as its CoreProperty accessor did: the saved items replace its items.
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            base.Deserialize(context);
+            if (context is JsonSerializationContext json
+                && json.TryGetPreservedValue(nameof(Items), typeof(CoreList<T>), out _, allowCollections: true))
+            {
+                return;
+            }
+
+            if (context.Contains(nameof(Items)) && context.GetValue<CoreList<T>>(nameof(Items)) is { } items)
+            {
+                _items.Replace(items);
+            }
         }
     }
 }

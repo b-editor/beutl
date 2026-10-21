@@ -53,7 +53,7 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
             Color = Brushes.Transparent;
         }
 
-        NodeName = node.GetObservable(CoreObject.NameProperty)
+        NodeName = node.NameProperty.GetObservable()
             .Select(x => string.IsNullOrWhiteSpace(x) ? _defaultName : x)
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables)!;

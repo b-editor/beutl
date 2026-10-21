@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using Beutl.Collections;
+﻿using Beutl.Collections;
 using Beutl.FFmpegIpc;
 using Beutl.Media.Encoding;
 using Beutl.Serialization;
@@ -19,9 +18,6 @@ public sealed class AdditionalOption : CoreObject
         ValueProperty = ConfigureProperty<string, AdditionalOption>(nameof(Value))
             .DefaultValue("")
             .Register();
-
-        NameProperty.OverrideMetadata<AdditionalOption>(
-            new CorePropertyMetadata<string>(attributes: [new BrowsableAttribute(true)]));
     }
 
     public AdditionalOption()

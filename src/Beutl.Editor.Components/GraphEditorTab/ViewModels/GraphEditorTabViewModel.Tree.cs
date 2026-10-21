@@ -171,8 +171,7 @@ public sealed partial class GraphEditorTabViewModel
 
         foreach (var property in PropertyRegistry.GetRegistered(obj.GetType()))
         {
-            if (property == Hierarchical.HierarchicalParentProperty || property.PropertyType.IsValueType
-                || property.PropertyType == typeof(string)) continue;
+            if (property.PropertyType.IsValueType || property.PropertyType == typeof(string)) continue;
             AppendValue(obj.GetValue(property), parent, $"{path}/core:{property.Name}", result, used, ancestors);
         }
     }

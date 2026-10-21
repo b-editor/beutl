@@ -35,7 +35,7 @@ public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditor
             _defaultName = nodeType.Name;
         }
 
-        NodeName = node.GetObservable(CoreObject.NameProperty)
+        NodeName = node.NameProperty.GetObservable()
             .Select(x => string.IsNullOrWhiteSpace(x) ? _defaultName : x)
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables)!;

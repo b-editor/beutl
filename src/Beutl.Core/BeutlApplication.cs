@@ -9,16 +9,10 @@ namespace Beutl;
 
 public class BeutlApplication : Hierarchical, IHierarchicalRoot
 {
-    public static readonly CoreProperty<Project?> ProjectProperty;
     internal static readonly string s_version;
-    private Project? _project;
 
     static BeutlApplication()
     {
-        ProjectProperty = ConfigureProperty<Project?, BeutlApplication>(nameof(Project))
-            .Accessor(o => o.Project, (o, v) => o.Project = v)
-            .Register();
-
         // Read from this assembly rather than the entry assembly. Every assembly built from the repository
         // carries the version it was built as (root Directory.Build.targets), so this one matches the
         // application's, and a host that is not the application, such as a test runner, gets it too.
@@ -37,26 +31,19 @@ public class BeutlApplication : Hierarchical, IHierarchicalRoot
     [SuppressMessage("Performance", "CA1822:メンバーを static に設定します", Justification = "<保留中>")]
     public ILoggerFactory LoggerFactory => Logging.Log.LoggerFactory;
 
-    public Project? Project
+    public BeutlApplication()
     {
-        get => _project;
-        set => SetAndRaise(ProjectProperty, ref _project, value);
+        ScanProperties<BeutlApplication>();
+        ProjectProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Project)));
     }
 
-    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    // The open project, which the property makes a child of the application.
+    public IProperty<Project?> ProjectProperty { get; } = new ValueOnlyProperty<Project?>(null);
+
+    public Project? Project
     {
-        base.OnPropertyChanged(args);
-        if (args is CorePropertyChangedEventArgs<Project?> { PropertyName: nameof(Project) } args2)
-        {
-            if (args2.OldValue != null)
-            {
-                HierarchicalChildren.Remove(args2.OldValue);
-            }
-            if (args2.NewValue != null)
-            {
-                HierarchicalChildren.Add(args2.NewValue);
-            }
-        }
+        get => ProjectProperty.Value;
+        set => ProjectProperty.Value = value;
     }
 
     public event EventHandler<IHierarchical>? DescendantAttached;

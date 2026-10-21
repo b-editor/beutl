@@ -24,8 +24,8 @@ public partial class GroupNode : GraphNode
         GroupProperty.Value = new GraphGroup() { Name = "Group" };
         Group.Edited += OnGroupEdited;
 
-        this.GetObservable(NameProperty).Subscribe(v => Group.Name = string.IsNullOrWhiteSpace(v) ? "Group" : v);
-        Group.GetObservable(NameProperty).Subscribe(v => Name = v == "Group" ? "" : v);
+        NameProperty.GetObservable().Subscribe(v => Group.Name = string.IsNullOrWhiteSpace(v) ? "Group" : v);
+        Group.NameProperty.GetObservable().Subscribe(v => Name = v == "Group" ? "" : v);
     }
 
     private void SynchronizePortSubscriptions(GraphNode? node,
@@ -53,7 +53,7 @@ public partial class GroupNode : GraphNode
     private CompositeDisposable MirrorNameAndDisplay(INodeMember source, bool outputSide)
     {
         var subscriptions = new CompositeDisposable();
-        ((CoreObject)source).GetPropertyChangedObservable(NameProperty)
+        ((CoreObject)source).NameProperty.GetObservable().Skip(1)
             .Subscribe(_ =>
             {
                 if (FindMirror(source, outputSide) is { } mirror) mirror.Name = source.Name;

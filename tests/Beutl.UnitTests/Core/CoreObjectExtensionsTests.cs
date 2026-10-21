@@ -6,7 +6,7 @@ public class CoreObjectExtensionsTests
     public void GetPropertyChangedObservable_NullObj_Throws()
     {
         Assert.That(
-            () => CoreObjectExtensions.GetPropertyChangedObservable<string>(null!, CoreObject.NameProperty),
+            () => CoreObjectExtensions.GetPropertyChangedObservable<string>(null!, TestCoreObject.LabelProperty),
             Throws.ArgumentNullException);
     }
 
@@ -26,11 +26,11 @@ public class CoreObjectExtensionsTests
         var obj = new TestCoreObject();
         var values = new List<string?>();
 
-        using IDisposable sub = obj.GetPropertyChangedObservable(CoreObject.NameProperty)
+        using IDisposable sub = obj.GetPropertyChangedObservable(TestCoreObject.LabelProperty)
             .Subscribe(args => values.Add(args.NewValue));
 
-        obj.Name = "alpha";
-        obj.Name = "beta";
+        obj.Label = "alpha";
+        obj.Label = "beta";
 
         Assert.That(values, Is.EqualTo(new[] { "alpha", "beta" }));
     }
@@ -39,7 +39,7 @@ public class CoreObjectExtensionsTests
     public void GetObservable_NullObj_Throws()
     {
         Assert.That(
-            () => CoreObjectExtensions.GetObservable<string>(null!, CoreObject.NameProperty),
+            () => CoreObjectExtensions.GetObservable<string>(null!, TestCoreObject.LabelProperty),
             Throws.ArgumentNullException);
     }
 
@@ -56,11 +56,11 @@ public class CoreObjectExtensionsTests
     [Test]
     public void GetObservable_EmitsOncePerChange()
     {
-        var obj = new TestCoreObject { Name = "init" };
+        var obj = new TestCoreObject { Label = "init" };
         var values = new List<string?>();
 
-        using IDisposable sub = obj.GetObservable(CoreObject.NameProperty).Subscribe(values.Add);
-        obj.Name = "next";
+        using IDisposable sub = obj.GetObservable(TestCoreObject.LabelProperty).Subscribe(values.Add);
+        obj.Label = "next";
 
         Assert.That(values, Is.EqualTo(new[] { "init", "next" }));
     }
@@ -68,8 +68,8 @@ public class CoreObjectExtensionsTests
     [Test]
     public void GetObservable_LeavesNoHandlerBehindAfterUnsubscribing()
     {
-        var obj = new TestCoreObject { Name = "init" };
-        IObservable<string> observable = obj.GetObservable(CoreObject.NameProperty);
+        var obj = new TestCoreObject { Label = "init" };
+        IObservable<string> observable = obj.GetObservable(TestCoreObject.LabelProperty);
 
         for (int i = 0; i < 3; i++)
         {
@@ -78,7 +78,7 @@ public class CoreObjectExtensionsTests
 
         var values = new List<string?>();
         using IDisposable sub = observable.Subscribe(values.Add);
-        obj.Name = "next";
+        obj.Label = "next";
 
         Assert.That(values, Is.EqualTo(new[] { "init", "next" }));
     }
@@ -131,5 +131,16 @@ public class CoreObjectExtensionsTests
         Assert.That(result, Is.Null);
     }
 
-    private sealed class TestCoreObject : CoreObject;
+    private sealed class TestCoreObject : CoreObject
+    {
+        public static readonly CoreProperty<string> LabelProperty = ConfigureProperty<string, TestCoreObject>(nameof(Label))
+            .DefaultValue(string.Empty)
+            .Register();
+
+        public string Label
+        {
+            get => GetValue(LabelProperty);
+            set => SetValue(LabelProperty, value);
+        }
+    }
 }

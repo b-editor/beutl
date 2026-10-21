@@ -24,7 +24,7 @@ public sealed class LayerHeaderViewModel : IDisposable
         // TimelineLayer whose ZIndex is that row. The timeline has every header look its model up again when a
         // model changes rows or is added or removed, as a layer move and its undo and redo do.
         Number = num;
-        Name = _model.Select(i => i?.GetObservable(CoreObject.NameProperty) ?? Observable.Return(num.ToString()))
+        Name = _model.Select(i => i?.NameProperty.GetObservable() ?? Observable.Return(num.ToString()))
             .Switch()
             .Select(s => string.IsNullOrEmpty(s) ? $"{num}" : s)
             .ToReactiveProperty($"{num}");

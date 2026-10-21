@@ -205,19 +205,21 @@ public sealed partial class SchemaGenerator
         // Non-serialized scalar properties (e.g. Hierarchical.HierarchicalParent) never appear in
         // documents and the applier ignores them; advertising them would invite silent no-op edits.
         // Non-serialized lists (Objects, Markers, ...) stay: they are applied by explicit handlers.
-        IEnumerable<FieldDescriptor> baseProperties = typeof(CoreObject).IsAssignableFrom(type)
-            && type.GetConstructor(Type.EmptyTypes) is not null
-            && Activator.CreateInstance(type) is CoreObject coreObject
-                ? coreObject.Properties
-                    .Where(property => coreObject.IsBaseField(property)
-                        && (CoreObject.IsAutoSerialized(property)
-                            || typeof(Collections.ICoreList).IsAssignableFrom(property.ValueType)))
-                    .Select(property => new FieldDescriptor(
-                        property.Name, property.ValueType.FullName ?? property.ValueType.Name, property.DefaultValue))
-                : [];
+        CoreObject? coreObject = typeof(CoreObject).IsAssignableFrom(type) && type.GetConstructor(Type.EmptyTypes) is not null
+            ? Activator.CreateInstance(type) as CoreObject
+            : null;
+        IProperty[] baseProperties = coreObject is null
+            ? []
+            :
+            [
+                .. coreObject.Properties.Where(property => coreObject.IsBaseField(property)
+                    && (CoreObject.IsAutoSerialized(property)
+                        || typeof(Collections.ICoreList).IsAssignableFrom(property.ValueType))),
+            ];
+        // Id and Name follow the CoreProperty fields, as they did when they were CoreProperty fields themselves.
         return
         [
-            .. baseProperties,
+            .. baseProperties.Where(property => !coreObject!.IsOwnField(property)).Select(ToField),
             .. PropertyRegistry.GetRegistered(type)
                 .Where(property =>
                     property.GetMetadata<CorePropertyMetadata>(type).ShouldSerialize
@@ -227,7 +229,11 @@ public sealed partial class SchemaGenerator
                     ICorePropertyMetadata metadata = property.GetMetadata<ICorePropertyMetadata>(type);
                     return new FieldDescriptor(property.Name, property.PropertyType.FullName ?? property.PropertyType.Name, metadata.GetDefaultValue());
                 }),
+            .. baseProperties.Where(property => coreObject!.IsOwnField(property)).Select(ToField),
         ];
+
+        static FieldDescriptor ToField(IProperty property)
+            => new(property.Name, property.ValueType.FullName ?? property.ValueType.Name, property.DefaultValue);
     }
 
     private static IReadOnlyList<PropertyDescriptor> CreateProperties(Type type)

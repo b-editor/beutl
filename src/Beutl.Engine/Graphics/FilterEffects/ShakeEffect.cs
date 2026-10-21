@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Language;
@@ -13,14 +12,16 @@ public partial class ShakeEffect : FilterEffect
     private readonly PerlinNoise _random = new();
     private float _offset;
 
-    static ShakeEffect()
-    {
-        AffectsRender<ShakeEffect>(IdProperty);
-    }
-
     public ShakeEffect()
     {
         ScanProperties<ShakeEffect>();
+        UpdateOffset();
+        // The shake follows the Id, so a new Id redraws it.
+        IdProperty.ValueChanged += (_, _) =>
+        {
+            UpdateOffset();
+            RaiseEdited();
+        };
     }
 
     [Display(Name = nameof(GraphicsStrings.ShakeEffect_StrengthX), ResourceType = typeof(GraphicsStrings))]
@@ -32,17 +33,10 @@ public partial class ShakeEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Speed), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
-    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    private void UpdateOffset()
     {
-        base.OnPropertyChanged(args);
-        if (args is CorePropertyChangedEventArgs<Guid> targs)
-        {
-            if (targs.Property.Id == IdProperty.Id)
-            {
-                int hash = Id.GetHashCode();
-                _offset = new Random(hash).NextSingle() * 1000 - 500;
-            }
-        }
+        int hash = Id.GetHashCode();
+        _offset = new Random(hash).NextSingle() * 1000 - 500;
     }
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
