@@ -140,7 +140,7 @@ public class SimplePropertyTests
         IExpressionProperty<int> animatable = property.ToAnimatable();
 
         Assert.That(animatable.Value, Is.EqualTo(7));
-        Assert.That(animatable.HasLocalValue, Is.False);
+        Assert.That(animatable.IsValueSet, Is.False);
     }
 }
 

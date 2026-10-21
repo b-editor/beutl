@@ -57,7 +57,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
         {
             var oldValue = _currentValue;
             _currentValue = validatedValue;
-            HasLocalValue = true;
+            IsValueSet = true;
 
             ValueChanged?.Invoke(this, new PropertyValueChangedEventArgs<T>(this, oldValue, validatedValue));
             Edited?.Invoke(this, EventArgs.Empty);
@@ -73,7 +73,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
     public void SetValueEvenIfEqual(T value)
         => SetCurrentValue(value, replaceEquivalent: true);
 
-    public bool HasLocalValue { get; private set; }
+    public bool IsValueSet { get; private set; }
 
     public bool HasExpression => Expression is not null and not KeyFrameAnimation<T>;
 
@@ -275,7 +275,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
     public void ResetToDefault()
     {
         Value = DefaultValue;
-        HasLocalValue = false;
+        IsValueSet = false;
         SetExpressionChain(null);
     }
 

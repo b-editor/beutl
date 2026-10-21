@@ -45,7 +45,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
         {
             var oldValue = _currentValue;
             _currentValue = validatedValue;
-            HasLocalValue = true;
+            IsValueSet = true;
 
             ValueChanged?.Invoke(this, new PropertyValueChangedEventArgs<T>(this, oldValue, validatedValue));
             Edited?.Invoke(this, EventArgs.Empty);
@@ -91,7 +91,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
         if (keyFrames != null) Expression = (IExpression<T>)keyFrames;
     }
 
-    public bool HasLocalValue { get; private set; }
+    public bool IsValueSet { get; private set; }
 
     public bool HasExpression => Volatile.Read(ref _expressionState) != null;
 
@@ -222,7 +222,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
     public void ResetToDefault()
     {
         Value = DefaultValue;
-        HasLocalValue = false;
+        IsValueSet = false;
         Expression = null;
     }
 

@@ -65,7 +65,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
         Assert.That(args.OldValue, Is.EqualTo(0));
         Assert.That(args.NewValue, Is.EqualTo(42));
         Assert.That(edited, Is.EqualTo(1));
-        Assert.That(property.HasLocalValue, Is.True);
+        Assert.That(property.IsValueSet, Is.True);
     }
 
     [Test]
@@ -81,7 +81,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
 
         Assert.That(valueChanged, Is.Zero);
         Assert.That(edited, Is.Zero);
-        Assert.That(property.HasLocalValue, Is.False);
+        Assert.That(property.IsValueSet, Is.False);
     }
 
     [Test]
@@ -107,7 +107,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
             Assert.That(args!.OldValue, Is.SameAs(current));
             Assert.That(args.NewValue, Is.SameAs(replacement));
             Assert.That(edited, Is.EqualTo(1));
-            Assert.That(property.HasLocalValue, Is.True);
+            Assert.That(property.IsValueSet, Is.True);
         });
     }
 
@@ -169,7 +169,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
         ResetToDefault(property);
 
         Assert.That(property.Value, Is.EqualTo(7));
-        Assert.That(property.HasLocalValue, Is.False);
+        Assert.That(property.IsValueSet, Is.False);
         Assert.That(property.HasExpression, Is.False);
     }
 }

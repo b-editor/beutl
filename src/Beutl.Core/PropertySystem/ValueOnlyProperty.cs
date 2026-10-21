@@ -26,7 +26,7 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
         set => SetCurrentValue(value, replaceEquivalent: false);
     }
 
-    public bool HasLocalValue { get; private set; }
+    public bool IsValueSet { get; private set; }
 
     public event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
 
@@ -40,7 +40,7 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
         {
             var oldValue = _currentValue;
             _currentValue = validatedValue;
-            HasLocalValue = true;
+            IsValueSet = true;
 
             ValueChanged?.Invoke(this, new PropertyValueChangedEventArgs<T>(this, oldValue, validatedValue));
             Edited?.Invoke(this, EventArgs.Empty);

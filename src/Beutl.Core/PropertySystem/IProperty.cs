@@ -31,7 +31,7 @@ public interface IProperty : INotifyEdited
 
     Type ValueType { get; }
 
-    bool HasLocalValue { get; }
+    bool IsValueSet { get; }
 
     void SetAttributes(string name, Attribute[] attributes);
 

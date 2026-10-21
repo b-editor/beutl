@@ -21,7 +21,7 @@ public class ListPropertyTests
         var property = Make<int>();
 
         Assert.That(property, Is.Not.InstanceOf<IExpressionProperty>());
-        Assert.That(property.HasLocalValue, Is.True);
+        Assert.That(property.IsValueSet, Is.True);
         Assert.That(property.HasValidator, Is.False);
         Assert.That(property.GetValidator(), Is.Null);
         Assert.That(property.ElementType, Is.EqualTo(typeof(int)));

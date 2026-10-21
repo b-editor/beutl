@@ -7,7 +7,7 @@ public static class SimplePropertyExtensions
         var animatableProperty = Property.CreateAnimatable(
             simpleProperty.DefaultValue);
 
-        if (simpleProperty.HasLocalValue)
+        if (simpleProperty.IsValueSet)
         {
             animatableProperty.Value = simpleProperty.Value;
         }

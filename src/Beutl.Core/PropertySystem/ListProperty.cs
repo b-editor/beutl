@@ -61,7 +61,7 @@ public class ListProperty<T> : IListProperty<T>
     public void SetValueEvenIfEqual(ICoreList<T> value)
         => _items.Replace(value);
 
-    public bool HasLocalValue => true;
+    public bool IsValueSet => true;
 
     public event EventHandler<PropertyValueChangedEventArgs<ICoreList<T>>>? ValueChanged
     {

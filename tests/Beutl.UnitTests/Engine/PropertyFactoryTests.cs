@@ -23,7 +23,7 @@ public class PropertyFactoryTests
         Assert.That(property.IsAnimatable, Is.False);
         Assert.That(property.DefaultValue, Is.EqualTo(1.5));
         Assert.That(property.Value, Is.EqualTo(1.5));
-        Assert.That(property.HasLocalValue, Is.False);
+        Assert.That(property.IsValueSet, Is.False);
     }
 
     [Test]

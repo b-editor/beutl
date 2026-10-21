@@ -25,7 +25,7 @@ public class AnimatablePropertyTests
         Assert.That(property.IsAnimatable, Is.True);
         Assert.That(property.DefaultValue, Is.EqualTo(7));
         Assert.That(property.Value, Is.EqualTo(7));
-        Assert.That(property.HasLocalValue, Is.False);
+        Assert.That(property.IsValueSet, Is.False);
         Assert.That(property.HasExpression, Is.False);
         Assert.That(property.GetKeyFrameAnimation(), Is.Null);
     }

@@ -28,7 +28,7 @@ public class ValueOnlyPropertyTests
             Assert.That(property, Is.InstanceOf<ValueOnlyProperty<int>>());
             Assert.That(property, Is.Not.InstanceOf<IExpressionProperty>());
             Assert.That(property.Value, Is.EqualTo(5));
-            Assert.That(property.HasLocalValue, Is.False);
+            Assert.That(property.IsValueSet, Is.False);
         }
     }
 
@@ -45,7 +45,7 @@ public class ValueOnlyPropertyTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(owner.Count.Value, Is.EqualTo(10), "An out-of-range value is coerced to the maximum.");
-            Assert.That(owner.Count.HasLocalValue, Is.True);
+            Assert.That(owner.Count.IsValueSet, Is.True);
             Assert.That(changed, Is.EqualTo(1));
         }
     }
