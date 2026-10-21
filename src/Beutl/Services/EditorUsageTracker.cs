@@ -3,6 +3,7 @@ using System.Reflection;
 using Avalonia.Threading;
 using Beutl.Audio.Effects;
 using Beutl.Editor;
+using Beutl.Editor.Infrastructure;
 using Beutl.Editor.Operations;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
@@ -79,11 +80,8 @@ internal sealed class EditorUsageTracker : IDisposable
     {
         Type type = operation.Object.GetType();
         if (type.Assembly != typeof(EngineObject).Assembly && type.Assembly != typeof(Scene).Assembly) return null;
-        string[] parts = operation.PropertyPath.Split('.');
-        string name = parts[^1];
-        // Match the operation resolver: Animation/Expression belong to the
-        // preceding property, not to the owning EngineObject's CLR members.
-        if (parts.Length > 1 && name is "Animation" or "Expression") name = parts[^2];
+        // Animation and Expression belong to the property before them, as the operations read them.
+        string name = PropertyPathHelper.Parse(operation.PropertyPath).Name;
         // Timeline edits propagate TimeRange through the engine hierarchy.
         // These internal updates are not separate property edits.
         if (operation.Object is EngineObject && name == nameof(EngineObject.TimeRange)) return null;

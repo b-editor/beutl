@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Editor.Infrastructure;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 
@@ -21,31 +22,8 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
 
     private (string Name, bool UpdateAnimation, bool UpdateExpression) ParsePropertyPath()
     {
-        string name = PropertyPath;
-        bool updateAnimation = false;
-        bool updateExpression = false;
-
-        if (PropertyPath.Contains('.'))
-        {
-            var parts = PropertyPath.Split('.');
-
-            if (parts[^1] == "Animation")
-            {
-                name = parts[^2];
-                updateAnimation = true;
-            }
-            else if (parts[^1] == "Expression")
-            {
-                name = parts[^2];
-                updateExpression = true;
-            }
-            else
-            {
-                name = parts[^1];
-            }
-        }
-
-        return (name, updateAnimation, updateExpression);
+        (string name, PropertyPathSlot slot) = PropertyPathHelper.Parse(PropertyPath);
+        return (name, slot == PropertyPathSlot.Animation, slot == PropertyPathSlot.Expression);
     }
 
     private static void UpdateEngineProperty(IProperty engineProperty, bool updateAnimation, bool updateExpression, T value)

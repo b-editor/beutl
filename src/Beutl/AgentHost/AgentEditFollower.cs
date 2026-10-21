@@ -7,6 +7,7 @@ using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Editor.Infrastructure;
 using Beutl.Editor.Operations;
 using Beutl.Editor.Services;
 using Beutl.Media;
@@ -296,12 +297,7 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
         return animation.UseGlobalClock ? keyFrame.KeyTime : element.Start + keyFrame.KeyTime;
     }
 
-    // Matches UpdatePropertyValueOperation: "Opacity", "Transform.X", "Opacity.Animation".
-    private static string PropertyNameOf(string propertyPath)
-    {
-        string[] parts = propertyPath.Split('.');
-        return parts.Length >= 2 && parts[^1] is "Animation" or "Expression" ? parts[^2] : parts[^1];
-    }
+    private static string PropertyNameOf(string propertyPath) => PropertyPathHelper.Parse(propertyPath).Name;
 
     private static TimeSpan Clamp(TimeSpan value, TimeSpan min, TimeSpan max)
         => max < min ? min : value < min ? min : value > max ? max : value;
