@@ -16,7 +16,8 @@ public partial class GeometryNode<T> : GraphNode
         ObjectProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Object)));
         Object = new T();
         OutputPort = AddOutput<T>("Output", NodePortDisplays.Output);
-        foreach (IProperty property in Object.Properties)
+        // The object's base fields, such as IsEnabled, are not inputs.
+        foreach (IProperty property in Object.Properties.Where(property => !Object.IsBaseField(property)))
         {
             AddInput(Object, property);
         }

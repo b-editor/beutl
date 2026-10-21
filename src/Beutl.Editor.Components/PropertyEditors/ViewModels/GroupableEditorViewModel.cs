@@ -60,7 +60,7 @@ public abstract class GroupableEditorViewModel<T, TGroup, TFallback> : ValueEdit
                 .DisposeWith(Disposables))
             .DisposeWith(Disposables);
 
-        IsEnabled = Value.Select(x => x?.GetObservable(EngineObject.IsEnabledProperty) ?? Observable.ReturnThenNever(x?.IsEnabled ?? false))
+        IsEnabled = Value.Select(x => x?.IsEnabledProperty.GetObservable() ?? Observable.ReturnThenNever(x?.IsEnabled ?? false))
             .Switch()
             .ToReactiveProperty()
             .DisposeWith(Disposables);

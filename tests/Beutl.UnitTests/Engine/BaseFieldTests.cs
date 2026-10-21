@@ -41,4 +41,18 @@ public class BaseFieldTests
             Assert.That(restored.ShownProperty.Value, Is.EqualTo(4));
         }
     }
+
+    [Test]
+    public void EngineObjectsOwnFields_AreBaseFields()
+    {
+        var owner = new Owner();
+        IProperty[] fields = [owner.IsTimeAnchorProperty, owner.IsEnabledProperty, owner.ZIndexProperty, owner.TimeRangeProperty];
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(fields.Select(field => field.Name), Is.EqualTo(new[] { "IsTimeAnchor", "IsEnabled", "ZIndex", "TimeRange" }));
+            Assert.That(fields.All(owner.IsBaseField), Is.True);
+            Assert.That(owner.GetDisplayProperties(), Is.EqualTo(new IProperty[] { owner.ShownProperty }));
+        }
+    }
 }
