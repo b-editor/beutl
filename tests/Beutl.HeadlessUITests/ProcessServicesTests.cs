@@ -1,5 +1,6 @@
 ﻿using Avalonia.Headless.NUnit;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics.Transitions;
 using Beutl.Helpers;

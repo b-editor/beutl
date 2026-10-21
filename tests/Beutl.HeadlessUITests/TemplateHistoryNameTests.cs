@@ -1,5 +1,6 @@
 ﻿using Avalonia.Headless.NUnit;
 using Beutl.Editor;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
@@ -7,7 +8,6 @@ using Beutl.Graphics.Shapes;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
-using Beutl.ViewModels.Editors;
 using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 
 namespace Beutl.HeadlessUITests;
@@ -33,7 +33,7 @@ public sealed class TemplateHistoryNameTests
             (typeof(Element), element),
             (typeof(HistoryManager), history.History),
             (typeof(Beutl.Api.Services.ExtensionProvider), TestShell.Extensions),
-            (typeof(IPropertyEditorFactory), new Beutl.Services.Adapters.PropertyEditorFactoryAdapter(TestShell.Extensions))));
+            (typeof(IPropertyEditorFactory), new Beutl.Editor.Components.PropertyEditors.Services.PropertyEditorFactoryAdapter(TestShell.Extensions))));
         int entries = history.History.Entries.Count;
 
         bool applied = viewModel.ApplyTemplate(ObjectTemplateItem.CreateFromInstance(new Blur(), "Blur"));

@@ -13,6 +13,7 @@ using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Services;
 using Beutl.Audio;
+using Beutl.Editor.Components;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services.AI;
 using Beutl.Editor.Services.Captions;

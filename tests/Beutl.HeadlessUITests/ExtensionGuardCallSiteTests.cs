@@ -6,11 +6,12 @@ using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.OutputTab.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Services;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.PropertyAdapters;
 using Beutl.Services;
-using Beutl.Services.Adapters;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
 using Beutl.Views;
@@ -90,7 +91,7 @@ public sealed class ExtensionGuardCallSiteTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(PropertyEditorService.MatchProperty([adapter], matching), Is.EqualTo(default((IPropertyAdapter[]?, PropertyEditorExtension?))));
+            Assert.That(CoreObjectPropertyEditorBuilder.MatchProperty([adapter], matching), Is.EqualTo(default((IPropertyAdapter[]?, PropertyEditorExtension?))));
             Assert.That(new PropertyEditorFactoryAdapter(creating).CreateEditor(adapter), Is.Null);
             Assert.That(notifications.All, Has.Count.EqualTo(2));
         }

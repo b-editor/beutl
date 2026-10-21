@@ -2,13 +2,13 @@
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Engine;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
-using Beutl.ViewModels.Editors;
-using Beutl.Views.Editors;
 using FluentAvalonia.UI.Controls;
 using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 

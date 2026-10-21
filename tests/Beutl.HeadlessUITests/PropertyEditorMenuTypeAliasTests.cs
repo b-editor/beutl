@@ -1,8 +1,8 @@
 ﻿using System.Numerics;
 using Beutl.Collections;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Graphics.Effects;
 using Beutl.Media;
-using Beutl.Views.Editors;
 
 namespace Beutl.HeadlessUITests;
 

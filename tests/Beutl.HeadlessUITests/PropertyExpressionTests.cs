@@ -8,13 +8,13 @@ using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Composition;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics.Shapes;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
-using Beutl.ViewModels.Editors;
-using Beutl.Views.Editors;
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;

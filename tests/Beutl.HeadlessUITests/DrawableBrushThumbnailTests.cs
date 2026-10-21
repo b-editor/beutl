@@ -4,6 +4,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Beutl.Composition;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;

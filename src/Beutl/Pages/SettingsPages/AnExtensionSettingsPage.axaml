@@ -5,8 +5,8 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
-             xmlns:local="using:Beutl.Pages.SettingsPages"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:settingsEditors="using:Beutl.Editor.Components.PropertyEditors.Views.Settings"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.SettingsPages"
              d:DesignHeight="450"
@@ -24,7 +24,7 @@
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" Margin="0,12,0,0">
-            <local:PropertiesEditor />
+            <settingsEditors:PropertiesEditor />
         </ScrollViewer>
     </Grid>
 </UserControl>

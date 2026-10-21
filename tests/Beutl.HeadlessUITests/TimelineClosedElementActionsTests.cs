@@ -7,6 +7,8 @@ using Beutl.Animation;
 using Beutl.Audio;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -20,8 +22,6 @@ using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Editors;
-using Beutl.Views.Editors;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 

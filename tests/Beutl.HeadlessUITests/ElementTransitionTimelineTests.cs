@@ -10,6 +10,7 @@ using Beutl.Configuration;
 using Beutl.Editor.Components;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Components.TransitionTab.ViewModels;
@@ -20,7 +21,6 @@ using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
 using RectShape = Beutl.Graphics.Shapes.RectShape;
 

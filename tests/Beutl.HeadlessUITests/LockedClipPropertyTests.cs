@@ -8,6 +8,8 @@ using Beutl.Audio.Effects;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.ElementPropertyTab.Views;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Extensibility;
@@ -21,8 +23,6 @@ using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Editors;
-using Beutl.Views.Editors;
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;

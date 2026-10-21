@@ -1,9 +1,9 @@
 ﻿using Avalonia.Controls;
 using Beutl.Editor;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Observers;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
-using Beutl.ViewModels.Editors;
 
 namespace Beutl.HeadlessUITests;
 

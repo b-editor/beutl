@@ -95,8 +95,8 @@ public partial class EditViewModel
         .AddOwned<IKeyFrameClipboardService>(() => new KeyFrameClipboardService(HistoryManager))
         .AddOwned<INodeGraphMutationService>(() => new NodeGraphMutationService(HistoryManager))
         .AddOwned<IElementObjectService>(() => new ElementObjectService(HistoryManager))
-        .AddOwned<IPropertyEditorFactory>(() => new Services.Adapters.PropertyEditorFactoryAdapter(ExtensionProvider))
-        .AddOwned<IPropertiesEditorFactory>(() => new Services.Adapters.PropertiesEditorFactoryImpl(ExtensionProvider));
+        .AddOwned<IPropertyEditorFactory>(() => new Beutl.Editor.Components.PropertyEditors.Services.PropertyEditorFactoryAdapter(ExtensionProvider))
+        .AddOwned<IPropertiesEditorFactory>(() => new Beutl.Editor.Components.PropertyEditors.Services.PropertiesEditorFactoryImpl(ExtensionProvider));
 
     private static bool TryGetMainViewModel([NotNullWhen(true)] out MainViewModel? main)
     {

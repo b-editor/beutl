@@ -333,7 +333,7 @@ public partial class MissingMediaTests
         string newPath = Path.Combine(directory, "replacement.png");
         File.WriteAllBytes(newPath, s_png);
         var image = new SourceImage { Source = { CurrentValue = ImageSource.Open(oldPath) } };
-        using var vm = new Beutl.ViewModels.Editors.ImageSourceEditorViewModel(
+        using var vm = new Beutl.Editor.Components.PropertyEditors.ViewModels.ImageSourceEditorViewModel(
             new Beutl.PropertyAdapters.EnginePropertyAdapter<ImageSource?>(image.Source, image));
         ImageSource original = image.Source.CurrentValue!;
         ResourceRelocationService.RelinkFileSource(original, new Uri(newPath));

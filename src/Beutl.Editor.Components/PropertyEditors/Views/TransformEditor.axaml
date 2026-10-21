@@ -1,0 +1,69 @@
+<UserControl x:Class="Beutl.Editor.Components.PropertyEditors.Views.TransformEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Editor.Components.PropertyEditors.Views"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pe="using:Beutl.Controls.PropertyEditors"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:Beutl.Editor.Components.PropertyEditors.ViewModels"
+             d:DesignHeight="300"
+             d:DesignWidth="300"
+             x:CompileBindings="False"
+             x:DataType="viewModel:TransformEditorViewModel"
+             mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,Auto">
+        <ToggleButton x:Name="expandToggle"
+                      Margin="8,4"
+                      IsChecked="{Binding IsExpanded.Value}"
+                      IsVisible="{Binding !IsPresenter.Value}"
+                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}"
+                      ToolTip.Tip="{Binding HoverInfo.Value}">
+            <ToggleButton.ContextFlyout>
+                <ui:FAMenuFlyout Placement="Pointer">
+                    <ui:FAMenuFlyoutSubItem x:Name="ChangeTypeMenu"
+                                          IconSource="New"
+                                          Text="{x:Static lang:Strings.Change}" />
+                    <ui:FAMenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
+                </ui:FAMenuFlyout>
+            </ToggleButton.ContextFlyout>
+            <ToggleButton.Tag>
+                <local:EffectEditorHeaderButtons Click="Tag_Click" />
+            </ToggleButton.Tag>
+            <TextBlock Text="{Binding Header, FallbackValue=Transform}" />
+        </ToggleButton>
+
+        <pe:ReferenceEditor Header="{Binding Header, FallbackValue=Transform}"
+                            IsVisible="{Binding IsPresenter.Value}"
+                            SelectTargetRequested="SelectTarget_Requested"
+                            ToolTip.Tip="{Binding HoverInfo.Value}"
+                            TargetName="{Binding CurrentTargetName.Value}">
+            <pe:ReferenceEditor.MenuContent>
+                <Button x:Name="ReferenceMenuButton"
+                        Margin="0,0,4,0"
+                        Padding="0"
+                        Classes="size-24x24"
+                        Theme="{StaticResource TransparentButton}">
+                    <Button.Flyout>
+                        <ui:FAMenuFlyout>
+                            <ui:FAMenuFlyoutSubItem x:Name="PresenterChangeTypeMenu"
+                                                  IconSource="New"
+                                                  Text="{x:Static lang:Strings.Change}" />
+                            <ui:FAMenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
+                        </ui:FAMenuFlyout>
+                    </Button.Flyout>
+                    <icons:FluentIcon Icon="MoreVertical" />
+                </Button>
+            </pe:ReferenceEditor.MenuContent>
+        </pe:ReferenceEditor>
+
+        <Panel x:Name="content"
+               Grid.Row="1"
+               MinHeight="24"
+               IsVisible="{Binding !IsPresenter.Value}">
+            <local:EffectEditorContent />
+        </Panel>
+    </Grid>
+</UserControl>

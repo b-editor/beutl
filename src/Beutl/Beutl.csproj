@@ -178,22 +178,6 @@
   </Target>
 
   <ItemGroup>
-    <None Update="ViewModels\Editors\VectorEditorViewModels.tt">
-      <Generator>TextTemplatingFileGenerator</Generator>
-      <LastGenOutput>VectorEditorViewModels.cs</LastGenOutput>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
-    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Update="ViewModels\Editors\VectorEditorViewModels.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>VectorEditorViewModels.tt</DependentUpon>
-    </Compile>
-  </ItemGroup>
-  <ItemGroup>
     <EmbeddedResource Include="Resources\osx-update.sh" />
     <EmbeddedResource Include="Resources\linux-update.sh" />
   </ItemGroup>
