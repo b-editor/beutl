@@ -10,6 +10,7 @@ namespace Beutl.UnitTests.Core;
 [TestFixture]
 public class ValueOnlyPropertyTests
 {
+    [SuppressResourceClassGeneration]
     private sealed class Owner : EngineObject
     {
         public Owner() => ScanProperties<Owner>();
