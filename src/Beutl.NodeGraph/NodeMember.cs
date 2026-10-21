@@ -18,7 +18,7 @@ public abstract class NodeMember : EngineObject
 
     [NotAutoSerialized]
     [NotTracked]
-    public IProperty<DisplayAttribute?> DisplayProperty { get; } = Property.CreateValue<DisplayAttribute?>();
+    public IProperty<DisplayAttribute?> DisplayProperty { get; } = new ValueOnlyProperty<DisplayAttribute?>(null) { AffectsRender = false };
 
     public DisplayAttribute? Display
     {

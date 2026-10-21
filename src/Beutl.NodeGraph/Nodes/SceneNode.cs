@@ -18,11 +18,11 @@ public partial class SceneNode : GraphNode
 {
     public SceneNode()
     {
-        Output = AddOutput<DrawableRenderNode?>("Output", NodePortDisplays.Output);
-        // After the output port, so the object stays the node's second child.
         ScanProperties<SceneNode>();
         HideProperty(ObjectProperty);
         ObjectProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Object)));
+        Output = AddOutput<DrawableRenderNode?>("Output", NodePortDisplays.Output);
+        Object = new SceneDrawable();
         Object.AlignmentX.Value = Media.AlignmentX.Left;
         Object.AlignmentY.Value = Media.AlignmentY.Top;
         PinTimeToReferencedScene();
@@ -38,10 +38,9 @@ public partial class SceneNode : GraphNode
 
     public NodeMonitor<string?> ErrorMonitor { get; }
 
-    // The object is the property's first value, so the property does not pass on its edits, which the ports pass on.
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]
-    public IProperty<SceneDrawable> ObjectProperty { get; } = Property.CreateValue(new SceneDrawable());
+    public IProperty<SceneDrawable> ObjectProperty { get; } = new ValueOnlyProperty<SceneDrawable>(null!) { AffectsRender = false };
 
     public SceneDrawable Object
     {

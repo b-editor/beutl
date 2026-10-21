@@ -13,11 +13,11 @@ public partial class TextNode : GraphNode
 {
     public TextNode()
     {
-        Output = AddOutput<DrawableRenderNode?>("Output", NodePortDisplays.Output);
-        // After the output port, so the object stays the node's second child.
         ScanProperties<TextNode>();
         HideProperty(ObjectProperty);
         ObjectProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Object)));
+        Output = AddOutput<DrawableRenderNode?>("Output", NodePortDisplays.Output);
+        Object = new TextBlock();
         Object.AlignmentX.Value = AlignmentX.Left;
         Object.AlignmentY.Value = AlignmentY.Top;
         AddInput(Object, Object.FontWeight);
@@ -34,10 +34,9 @@ public partial class TextNode : GraphNode
 
     public OutputPort<DrawableRenderNode?> Output { get; }
 
-    // The object is the property's first value, so the property does not pass on its edits, which the ports pass on.
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]
-    public IProperty<TextBlock> ObjectProperty { get; } = Property.CreateValue(new TextBlock());
+    public IProperty<TextBlock> ObjectProperty { get; } = new ValueOnlyProperty<TextBlock>(null!) { AffectsRender = false };
 
     public TextBlock Object
     {

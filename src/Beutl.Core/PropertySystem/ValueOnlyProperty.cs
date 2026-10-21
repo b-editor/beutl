@@ -30,8 +30,11 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
         set => SetCurrentValue(value, replaceEquivalent: false);
     }
 
-    // False for a value its owner holds elsewhere, like GraphGroup.Input: it is not made a child, and its edits are not passed on.
+    // False for a value its owner holds elsewhere, like GraphGroup.Input: it is not made a child.
     internal bool OwnsValue { get; init; } = true;
+
+    // False for a value that is not drawn, like GraphNode.Position: changing or editing it raises no Edited.
+    internal bool AffectsRender { get; init; } = true;
 
     // Brings a value its owner updates lazily up to date before it is read, like GraphNode.NestedInputPorts.
     internal Action? BeforeRead { get; set; }
@@ -53,11 +56,12 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
             IsValueSet = true;
 
             ValueChanged?.Invoke(this, new PropertyValueChangedEventArgs<T>(this, oldValue, validatedValue));
-            Edited?.Invoke(this, EventArgs.Empty);
-            if (!OwnsValue)
+            if (AffectsRender)
+                Edited?.Invoke(this, EventArgs.Empty);
+            if (OwnsValue)
+                PropertyValueOwnership.Reparent(_owner, oldValue, validatedValue);
+            if (!AffectsRender)
                 return;
-
-            PropertyValueOwnership.Reparent(_owner, oldValue, validatedValue);
 
             if (oldValue is INotifyEdited oldEdited)
                 oldEdited.Edited -= OnChildEdited;

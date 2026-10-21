@@ -68,9 +68,9 @@ public partial class GraphModel : EngineObject
         RaiseEdited();
     }
 
-    public IProperty<HierarchicalList<GraphNode>> NodesProperty { get; } = Property.CreateValue<HierarchicalList<GraphNode>>();
+    public IProperty<HierarchicalList<GraphNode>> NodesProperty { get; } = new ValueOnlyProperty<HierarchicalList<GraphNode>>(null!) { AffectsRender = false };
 
-    public IProperty<HierarchicalList<Connection>> AllConnectionsProperty { get; } = Property.CreateValue<HierarchicalList<Connection>>();
+    public IProperty<HierarchicalList<Connection>> AllConnectionsProperty { get; } = new ValueOnlyProperty<HierarchicalList<Connection>>(null!) { AffectsRender = false };
 
     public HierarchicalList<GraphNode> Nodes
     {

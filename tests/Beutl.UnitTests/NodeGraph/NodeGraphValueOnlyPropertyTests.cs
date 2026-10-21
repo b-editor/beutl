@@ -5,6 +5,7 @@ using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.Serialization;
+using Beutl.UnitTests.TestInfrastructure;
 using static Beutl.UnitTests.NodeGraph.NodeGraphTestHelpers;
 
 namespace Beutl.UnitTests.NodeGraph;
@@ -34,6 +35,32 @@ public class NodeGraphValueOnlyPropertyTests
             Assert.That(graph.Nodes, Has.Count.EqualTo(2));
             Assert.That(graph.AllConnections, Has.Count.EqualTo(1));
             Assert.That(graph.Nodes.All(node => node.HierarchicalParent == graph), Is.True);
+        }
+    }
+
+    // Position and IsExpanded are not drawn, so, as their CoreProperty forms, they edit nothing; the history still records them.
+    [Test]
+    public void MovingAndFoldingANodeEditNeitherTheGraphNorTheScene()
+    {
+        var graph = new GraphModel();
+        var node = new FactoryNode<Pen>();
+        graph.Nodes.Add(node);
+        using SceneHistoryHarness scene = AttachToScene(graph, "nodegraph-edited");
+        int edits = 0;
+        graph.Edited += (_, _) => edits++;
+        scene.Scene.Edited += (_, _) => edits++;
+
+        node.Position = (10, 20);
+        node.IsExpanded = false;
+        int editsByTheChanges = edits;
+        scene.History.Commit("move");
+        scene.History.Undo();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(editsByTheChanges, Is.Zero);
+            Assert.That(node.Position, Is.EqualTo((0d, 0d)));
+            Assert.That(node.IsExpanded, Is.True);
         }
     }
 

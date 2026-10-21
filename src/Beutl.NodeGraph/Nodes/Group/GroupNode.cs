@@ -21,6 +21,7 @@ public partial class GroupNode : GraphNode
     {
         ScanProperties<GroupNode>();
         HideProperty(GroupProperty);
+        GroupProperty.Value = new GraphGroup() { Name = "Group" };
         Group.Edited += OnGroupEdited;
 
         this.GetObservable(NameProperty).Subscribe(v => Group.Name = string.IsNullOrWhiteSpace(v) ? "Group" : v);
@@ -80,10 +81,9 @@ public partial class GroupNode : GraphNode
         RaiseEdited();
     }
 
-    // The group is the property's first value, so the property does not pass on its edits, which OnGroupEdited passes on.
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]
-    public IProperty<GraphGroup> GroupProperty { get; } = Property.CreateValue(new GraphGroup { Name = "Group" });
+    public IProperty<GraphGroup> GroupProperty { get; } = new ValueOnlyProperty<GraphGroup>(null!) { AffectsRender = false };
 
     public GraphGroup Group => GroupProperty.Value;
 

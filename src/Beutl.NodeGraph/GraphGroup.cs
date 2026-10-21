@@ -18,11 +18,11 @@ public class GraphGroup : GraphModel
     // Input and Output name nodes that Nodes holds, so they do not take them as children.
     [NotAutoSerialized]
     [NotTracked]
-    public IProperty<GroupInput?> InputProperty { get; } = new ValueOnlyProperty<GroupInput?>(null) { OwnsValue = false };
+    public IProperty<GroupInput?> InputProperty { get; } = new ValueOnlyProperty<GroupInput?>(null) { OwnsValue = false, AffectsRender = false };
 
     [NotAutoSerialized]
     [NotTracked]
-    public IProperty<GroupOutput?> OutputProperty { get; } = new ValueOnlyProperty<GroupOutput?>(null) { OwnsValue = false };
+    public IProperty<GroupOutput?> OutputProperty { get; } = new ValueOnlyProperty<GroupOutput?>(null) { OwnsValue = false, AffectsRender = false };
 
     public GroupInput? Input => InputProperty.Value;
 

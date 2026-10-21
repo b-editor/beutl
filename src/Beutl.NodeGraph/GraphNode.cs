@@ -16,7 +16,7 @@ public abstract partial class GraphNode : EngineObject
 {
     private readonly HierarchicalList<INodeMember> _items;
     private readonly HierarchicalList<INestedInputPort> _nestedInputPorts;
-    private readonly ValueOnlyProperty<ICoreList<INestedInputPort>> _nestedInputPortsProperty = new(null!);
+    private readonly ValueOnlyProperty<ICoreList<INestedInputPort>> _nestedInputPortsProperty = new(null!) { AffectsRender = false };
     private readonly NestedInputPortManager _nestedPortManager;
     private IInputPort[]? _connectedInputs;
 
@@ -78,15 +78,15 @@ public abstract partial class GraphNode : EngineObject
     }
 
     [SuppressResourceClassGeneration]
-    public IProperty<bool> IsExpandedProperty { get; } = Property.CreateValue(true);
+    public IProperty<bool> IsExpandedProperty { get; } = new ValueOnlyProperty<bool>(true) { AffectsRender = false };
 
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]
-    public IProperty<(double X, double Y)> PositionProperty { get; } = Property.CreateValue<(double X, double Y)>((0, 0));
+    public IProperty<(double X, double Y)> PositionProperty { get; } = new ValueOnlyProperty<(double X, double Y)>((0, 0)) { AffectsRender = false };
 
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]
-    public IProperty<ICoreList<INodeMember>> ItemsProperty { get; } = Property.CreateValue<ICoreList<INodeMember>>();
+    public IProperty<ICoreList<INodeMember>> ItemsProperty { get; } = new ValueOnlyProperty<ICoreList<INodeMember>>(null!) { AffectsRender = false };
 
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]

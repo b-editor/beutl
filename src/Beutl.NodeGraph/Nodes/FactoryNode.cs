@@ -13,6 +13,7 @@ public partial class FactoryNode<T> : GraphNode
         ScanProperties<FactoryNode<T>>();
         HideProperty(ObjectProperty);
         ObjectProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Object)));
+        Object = new T();
         OutputPort = AddOutput<T>("Output", NodePortDisplays.Output);
         foreach (IProperty property in Object.Properties)
         {
@@ -20,10 +21,9 @@ public partial class FactoryNode<T> : GraphNode
         }
     }
 
-    // The object is the property's first value, so the property does not pass on its edits, which the ports pass on.
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]
-    public IProperty<T> ObjectProperty { get; } = Property.CreateValue(new T());
+    public IProperty<T> ObjectProperty { get; } = new ValueOnlyProperty<T>(null!) { AffectsRender = false };
 
     public T Object
     {

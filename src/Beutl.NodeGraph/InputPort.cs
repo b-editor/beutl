@@ -11,7 +11,7 @@ public class InputPort<T> : NodePort<T>, IInputPort
         ConnectionProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Connection)));
     }
 
-    public IProperty<Reference<Connection>> ConnectionProperty { get; } = new ValueOnlyProperty<Reference<Connection>>(default);
+    public IProperty<Reference<Connection>> ConnectionProperty { get; } = new ValueOnlyProperty<Reference<Connection>>(default) { AffectsRender = false };
 
     public Reference<Connection> Connection
     {
@@ -24,13 +24,13 @@ public class InputPort<T> : NodePort<T>, IInputPort
         return ConnectionProperty.GetObservable();
     }
 
-    // The property raises Edited itself.
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
         if (args.PropertyName == nameof(Connection))
         {
             RaiseTopologyChanged();
+            RaiseEdited();
         }
     }
 

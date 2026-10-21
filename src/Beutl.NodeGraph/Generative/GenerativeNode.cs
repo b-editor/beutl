@@ -62,16 +62,16 @@ public abstract partial class GenerativeNode : GraphNode
 
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]
-    public IProperty<HierarchicalList<GenerationRecord>> GenerationsProperty { get; } = Property.CreateValue<HierarchicalList<GenerationRecord>>();
+    public IProperty<HierarchicalList<GenerationRecord>> GenerationsProperty { get; } = new ValueOnlyProperty<HierarchicalList<GenerationRecord>>(null!) { AffectsRender = false };
 
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]
-    public IProperty<Guid> ActiveGenerationIdProperty { get; } = Property.CreateValue<Guid>();
+    public IProperty<Guid> ActiveGenerationIdProperty { get; } = new ValueOnlyProperty<Guid>(default) { AffectsRender = false };
 
     [NotAutoSerialized]
     [NotTracked]
     [SuppressResourceClassGeneration]
-    public IProperty<string> RequestKeySeedProperty { get; } = Property.CreateValue(string.Empty);
+    public IProperty<string> RequestKeySeedProperty { get; } = new ValueOnlyProperty<string>(string.Empty) { AffectsRender = false };
 
     /// <summary>Every generation this node has kept, oldest first.</summary>
     public HierarchicalList<GenerationRecord> Generations => _generations;

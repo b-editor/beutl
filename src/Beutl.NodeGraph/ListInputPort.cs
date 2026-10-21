@@ -19,7 +19,7 @@ public class ListInputPort<T> : NodePort<T>, IListInputPort
     public Reference<Connection> Connection => default;
 
     [NotAutoSerialized]
-    public IProperty<CoreList<Reference<Connection>>> ConnectionsProperty { get; } = new ValueOnlyProperty<CoreList<Reference<Connection>>>([]);
+    public IProperty<CoreList<Reference<Connection>>> ConnectionsProperty { get; } = new ValueOnlyProperty<CoreList<Reference<Connection>>>([]) { AffectsRender = false };
 
     // IListPort
     public CoreList<Reference<Connection>> Connections
