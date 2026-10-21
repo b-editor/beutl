@@ -1,0 +1,704 @@
+{
+  "Nodes": [
+    {
+      "IsExpanded": false,
+      "IsEnabled": true,
+      "Id": "00000000-0000-0000-0000-000000000001",
+      "Name": "",
+      "Animations": {},
+      "Expressions": {},
+      "Position": "120.5,80.25",
+      "Items": [
+        {
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000002",
+          "Name": "Output",
+          "Animations": {},
+          "Expressions": {},
+          "Connections": [],
+          "$type": "[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Media:Pen>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000004",
+          "Name": "Brush",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:Brush>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000005",
+          "Name": "DashArray",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Core]Beutl.Collections:CoreList<[System.Private.CoreLib]System:Single>>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000006",
+          "Name": "DashOffset",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[System.Private.CoreLib]System:Single>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000007",
+          "Name": "Thickness",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[System.Private.CoreLib]System:Single>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000008",
+          "Name": "MiterLimit",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[System.Private.CoreLib]System:Single>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000009",
+          "Name": "StrokeCap",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:StrokeCap>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000010",
+          "Name": "StrokeJoin",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:StrokeJoin>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000011",
+          "Name": "StrokeAlignment",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:StrokeAlignment>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000012",
+          "Name": "TrimStart",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[System.Private.CoreLib]System:Single>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000013",
+          "Name": "TrimEnd",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[System.Private.CoreLib]System:Single>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000014",
+          "Name": "TrimOffset",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[System.Private.CoreLib]System:Single>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000015",
+          "Name": "Offset",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[System.Private.CoreLib]System:Single>"
+        }
+      ],
+      "NestedInputPorts": [
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000016",
+          "Name": "Color",
+          "Animations": {},
+          "Expressions": {},
+          "RootMember": "00000000-0000-0000-0000-000000000004",
+          "PropertyPath": [
+            "p:Color"
+          ],
+          "$type": "[Beutl.NodeGraph]:NestedInputPort<[Beutl.Engine]Beutl.Media:Color>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000017",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000018",
+          "Name": "Opacity",
+          "Animations": {},
+          "Expressions": {},
+          "RootMember": "00000000-0000-0000-0000-000000000004",
+          "PropertyPath": [
+            "p:Opacity"
+          ],
+          "$type": "[Beutl.NodeGraph]:NestedInputPort<[System.Private.CoreLib]System:Single>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000019",
+          "Name": "Transform",
+          "Animations": {},
+          "Expressions": {},
+          "RootMember": "00000000-0000-0000-0000-000000000004",
+          "PropertyPath": [
+            "p:Transform"
+          ],
+          "$type": "[Beutl.NodeGraph]:NestedInputPort<[Beutl.Engine]Beutl.Graphics.Transformation:Transform>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000020",
+          "Name": "TransformOrigin",
+          "Animations": {},
+          "Expressions": {},
+          "RootMember": "00000000-0000-0000-0000-000000000004",
+          "PropertyPath": [
+            "p:TransformOrigin"
+          ],
+          "$type": "[Beutl.NodeGraph]:NestedInputPort<[Beutl.Engine]Beutl.Graphics:RelativePoint>"
+        }
+      ],
+      "Object": {
+        "IsEnabled": true,
+        "Id": "00000000-0000-0000-0000-000000000021",
+        "Name": "",
+        "Animations": {},
+        "Expressions": {},
+        "Brush": {
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000022",
+          "Name": "",
+          "Animations": {},
+          "Expressions": {
+            "Opacity": {
+              "$type": "[Beutl.NodeGraph]:NodePortExpression<[System.Private.CoreLib]System:Single>"
+            }
+          },
+          "Color": "White",
+          "Opacity": 100,
+          "Transform": null,
+          "TransformOrigin": "50%, 50%",
+          "$type": "[Beutl.Engine]Beutl.Media:SolidColorBrush"
+        },
+        "DashArray": null,
+        "DashOffset": 0,
+        "Thickness": 1,
+        "MiterLimit": 10,
+        "StrokeCap": 0,
+        "StrokeJoin": 0,
+        "StrokeAlignment": 0,
+        "TrimStart": 0,
+        "TrimEnd": 100,
+        "TrimOffset": 0,
+        "Offset": 0
+      },
+      "$type": "[Beutl.NodeGraph].Nodes:FactoryNode<[Beutl.Engine]Beutl.Media:Pen>"
+    },
+    {
+      "IsExpanded": true,
+      "IsEnabled": true,
+      "Id": "00000000-0000-0000-0000-000000000023",
+      "Name": "",
+      "Animations": {},
+      "Expressions": {},
+      "Position": "0,0",
+      "Items": [
+        {
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000024",
+          "Name": "Opacity",
+          "Animations": {},
+          "Expressions": {},
+          "Connections": [
+            "00000000-0000-0000-0000-000000000017"
+          ],
+          "Property": "Opacity",
+          "Setter": 42,
+          "$type": "[Beutl.NodeGraph].Nodes:LayerInputNode:LayerInputPort<[System.Private.CoreLib]System:Single>"
+        }
+      ],
+      "$type": "[Beutl.NodeGraph].Nodes:LayerInputNode"
+    },
+    {
+      "IsExpanded": true,
+      "IsEnabled": true,
+      "Id": "00000000-0000-0000-0000-000000000025",
+      "Name": "",
+      "Animations": {},
+      "Expressions": {},
+      "Position": "0,0",
+      "Items": [
+        {
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000026",
+          "Name": "Output",
+          "Animations": {},
+          "Expressions": {},
+          "Connections": [],
+          "$type": "[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Graphics.Rendering:DrawableRenderNode>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000027",
+          "Name": "FontWeight",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:FontWeight>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000028",
+          "Name": "FontStyle",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:FontStyle>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000029",
+          "Name": "FontFamily",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:FontFamily>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000030",
+          "Name": "Size",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[System.Private.CoreLib]System:Single>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000031",
+          "Name": "Spacing",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[System.Private.CoreLib]System:Single>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000032",
+          "Name": "Text",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[System.Private.CoreLib]System:String>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000033",
+          "Name": "Fill",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:Brush>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000034",
+          "Name": "Pen",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:Pen>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000035",
+          "Name": "SplitByCharacters",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[System.Private.CoreLib]System:Boolean>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000036",
+          "Name": "TextAlignment",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:TextAlignment>"
+        }
+      ],
+      "NestedInputPorts": [
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000037",
+          "Name": "Color",
+          "Animations": {},
+          "Expressions": {},
+          "RootMember": "00000000-0000-0000-0000-000000000033",
+          "PropertyPath": [
+            "p:Color"
+          ],
+          "$type": "[Beutl.NodeGraph]:NestedInputPort<[Beutl.Engine]Beutl.Media:Color>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000038",
+          "Name": "Opacity",
+          "Animations": {},
+          "Expressions": {},
+          "RootMember": "00000000-0000-0000-0000-000000000033",
+          "PropertyPath": [
+            "p:Opacity"
+          ],
+          "$type": "[Beutl.NodeGraph]:NestedInputPort<[System.Private.CoreLib]System:Single>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000039",
+          "Name": "Transform",
+          "Animations": {},
+          "Expressions": {},
+          "RootMember": "00000000-0000-0000-0000-000000000033",
+          "PropertyPath": [
+            "p:Transform"
+          ],
+          "$type": "[Beutl.NodeGraph]:NestedInputPort<[Beutl.Engine]Beutl.Graphics.Transformation:Transform>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000040",
+          "Name": "TransformOrigin",
+          "Animations": {},
+          "Expressions": {},
+          "RootMember": "00000000-0000-0000-0000-000000000033",
+          "PropertyPath": [
+            "p:TransformOrigin"
+          ],
+          "$type": "[Beutl.NodeGraph]:NestedInputPort<[Beutl.Engine]Beutl.Graphics:RelativePoint>"
+        }
+      ],
+      "Object": {
+        "IsEnabled": true,
+        "Id": "00000000-0000-0000-0000-000000000041",
+        "Name": "",
+        "Animations": {},
+        "Expressions": {},
+        "Size": 72,
+        "FontFamily": "Golden Sans",
+        "FontStyle": 0,
+        "FontWeight": 400,
+        "Spacing": 0,
+        "TextAlignment": 0,
+        "SplitByCharacters": false,
+        "Text": "",
+        "Pen": null,
+        "Fill": {
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000042",
+          "Name": "",
+          "Animations": {},
+          "Expressions": {},
+          "Color": "White",
+          "Opacity": 100,
+          "Transform": null,
+          "TransformOrigin": "50%, 50%",
+          "$type": "[Beutl.Engine]Beutl.Media:SolidColorBrush"
+        },
+        "Transform": {
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000043",
+          "Name": "",
+          "Animations": {},
+          "Expressions": {},
+          "Children": [],
+          "$type": "[Beutl.Engine]Beutl.Graphics.Transformation:TransformGroup"
+        },
+        "AlignmentX": 0,
+        "AlignmentY": 0,
+        "TransformOrigin": "50%, 50%",
+        "FilterEffect": {
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000044",
+          "Name": "",
+          "Animations": {},
+          "Expressions": {},
+          "Children": [],
+          "$type": "[Beutl.Engine]Beutl.Graphics.Effects:FilterEffectGroup"
+        },
+        "BlendMode": 3,
+        "Opacity": 100,
+        "$type": "[Beutl.Engine]Beutl.Graphics.Shapes:TextBlock"
+      },
+      "$type": "[Beutl.NodeGraph].Nodes:TextNode"
+    },
+    {
+      "IsExpanded": true,
+      "IsEnabled": true,
+      "Id": "00000000-0000-0000-0000-000000000045",
+      "Name": "",
+      "Animations": {},
+      "Expressions": {},
+      "Position": "0,0",
+      "Items": [
+        {
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000046",
+          "Name": "Output",
+          "Animations": {},
+          "Expressions": {},
+          "Connections": [],
+          "$type": "[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Graphics.Rendering:DrawableRenderNode>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000047",
+          "Name": "ReferencedScene",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.ProjectSystem]:Scene>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000048",
+          "Name": "Time",
+          "Animations": {},
+          "Expressions": {},
+          "Setter": "00:00:00",
+          "$type": "[Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:TimeSpan>"
+        },
+        {
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000049",
+          "Name": "Error",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:NodeMonitor<[System.Private.CoreLib]System:String>"
+        }
+      ],
+      "Object": {
+        "IsEnabled": true,
+        "Id": "00000000-0000-0000-0000-000000000050",
+        "Name": "",
+        "Start": "00:00:00",
+        "Duration": "3650.00:00:00",
+        "ZIndex": 0,
+        "Animations": {},
+        "Expressions": {},
+        "ReferencedScene": null,
+        "Transform": {
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000051",
+          "Name": "",
+          "Animations": {},
+          "Expressions": {},
+          "Children": [],
+          "$type": "[Beutl.Engine]Beutl.Graphics.Transformation:TransformGroup"
+        },
+        "AlignmentX": 0,
+        "AlignmentY": 0,
+        "TransformOrigin": "50%, 50%",
+        "FilterEffect": {
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000052",
+          "Name": "",
+          "Animations": {},
+          "Expressions": {},
+          "Children": [],
+          "$type": "[Beutl.Engine]Beutl.Graphics.Effects:FilterEffectGroup"
+        },
+        "BlendMode": 3,
+        "Opacity": 100
+      },
+      "$type": "[Beutl.NodeGraph].Nodes:SceneNode"
+    },
+    {
+      "IsExpanded": true,
+      "IsEnabled": true,
+      "Id": "00000000-0000-0000-0000-000000000053",
+      "Name": "",
+      "Animations": {},
+      "Expressions": {},
+      "Position": "0,0",
+      "Items": [],
+      "node-tree": {
+        "Nodes": [],
+        "AllConnections": [],
+        "IsEnabled": true,
+        "Id": "00000000-0000-0000-0000-000000000054",
+        "Name": "Group",
+        "Animations": {},
+        "Expressions": {},
+        "$type": "[Beutl.NodeGraph]:GraphGroup"
+      },
+      "$type": "[Beutl.NodeGraph].Nodes.Group:GroupNode"
+    },
+    {
+      "IsExpanded": true,
+      "IsEnabled": true,
+      "Id": "00000000-0000-0000-0000-000000000055",
+      "Name": "",
+      "Animations": {},
+      "Expressions": {},
+      "Position": "0,0",
+      "Items": [
+        {
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000056",
+          "Name": "Image",
+          "Animations": {},
+          "Expressions": {},
+          "Connections": [],
+          "$type": "[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Graphics.Rendering:ImageSourceRenderNode>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000057",
+          "Name": "Prompt",
+          "Animations": {},
+          "Expressions": {},
+          "Setter": "",
+          "$type": "[Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:String>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000058",
+          "Name": "AspectRatio",
+          "Animations": {},
+          "Expressions": {},
+          "Setter": "16:9",
+          "$type": "[Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:String>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000059",
+          "Name": "Model",
+          "Animations": {},
+          "Expressions": {},
+          "Setter": "",
+          "$type": "[Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:String>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000060",
+          "Name": "Background",
+          "Animations": {},
+          "Expressions": {},
+          "Setter": "auto",
+          "$type": "[Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:String>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000061",
+          "Name": "Seed",
+          "Animations": {},
+          "Expressions": {},
+          "Setter": 1234,
+          "$type": "[Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:Int32>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000062",
+          "Name": "SeedControl",
+          "Animations": {},
+          "Expressions": {},
+          "Setter": 0,
+          "$type": "[Beutl.NodeGraph]:DefaultInputPort<[Beutl.NodeGraph].Nodes.Generative:GenerativeSeedControl>"
+        },
+        {
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000063",
+          "Name": "References",
+          "Animations": {},
+          "Expressions": {},
+          "Connections": [],
+          "$type": "[Beutl.NodeGraph]:ListInputPort<[Beutl.Engine]Beutl.Graphics.Rendering:RenderNode>"
+        },
+        {
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000064",
+          "Name": "GenerationPreview",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:NodeMonitor<[Beutl.Engine]Beutl.Media.Source:Ref<[Beutl.Engine]Beutl.Media:Bitmap>>"
+        },
+        {
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000065",
+          "Name": "GenerationStatus",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:NodeMonitor<[System.Private.CoreLib]System:String>"
+        }
+      ],
+      "RequestKeySeed": "00000000-0000-0000-0000-000000000066",
+      "Generations": [
+        {
+          "Image": null,
+          "Video": null,
+          "Fingerprint": "fingerprint",
+          "ParameterFingerprint": "parameters",
+          "ModelId": "model",
+          "Seed": 7,
+          "Summary": "kept result",
+          "CreatedAt": "2026-01-02T03:04:05+00:00",
+          "IsPinned": true,
+          "Id": "00000000-0000-0000-0000-000000000067",
+          "Name": ""
+        }
+      ],
+      "ActiveGenerationId": "00000000-0000-0000-0000-000000000067",
+      "$type": "[Beutl.NodeGraph].Nodes.Generative:AiImageGenerationNode"
+    }
+  ],
+  "AllConnections": [
+    {
+      "Input": "00000000-0000-0000-0000-000000000018",
+      "Output": "00000000-0000-0000-0000-000000000024",
+      "Status": 6,
+      "Id": "00000000-0000-0000-0000-000000000017",
+      "Name": ""
+    }
+  ],
+  "IsEnabled": true,
+  "Id": "00000000-0000-0000-0000-000000000068",
+  "Name": "",
+  "Animations": {},
+  "Expressions": {},
+  "$type": "[Beutl.NodeGraph]:GraphModel"
+}
