@@ -1,4 +1,4 @@
-﻿namespace Beutl.Engine.Expressions;
+﻿namespace Beutl;
 
 public class ExpressionException : Exception
 {

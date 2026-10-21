@@ -5,15 +5,8 @@ using Beutl.Composition;
 
 namespace Beutl.Engine;
 
-public class EngineObject
+public class EngineObject : CoreObject
 {
-    public virtual IReadOnlyList<IProperty> Properties => throw null!;
-
-    protected virtual IEnumerable<IProperty> ScanPropertiesCore<T>() where T : EngineObject
-    {
-        throw null!;
-    }
-
     public virtual Resource ToResource(CompositionContext context)
     {
         throw null!;

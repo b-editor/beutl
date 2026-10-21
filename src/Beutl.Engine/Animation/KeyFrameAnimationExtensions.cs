@@ -10,7 +10,7 @@ public static class KeyFrameAnimationExtensions
         => ExpressionChain.FindKeyFrames(property.Expression) as KeyFrameAnimation<T>;
 
     public static IKeyFrameAnimation? GetKeyFrameAnimation(this IProperty property)
-        => ExpressionChain.FindKeyFrames(property.Expression);
+        => ExpressionChain.FindKeyFrames(property.Expression) as IKeyFrameAnimation;
 
     // Puts the keyframes at the bottom of the expression chain, below any user or node-port expression.
     public static void SetKeyFrameAnimation<T>(this IProperty<T> property, KeyFrameAnimation<T>? animation)

@@ -17,7 +17,7 @@ public class AnimatableProperty<T> : IProperty<T>, IExpressionChainHost, IChildO
     private IValidator<T>? _validator;
     private Attribute[]? _attributes;
     private string? _name;
-    private EngineObject? _owner;
+    private CoreObject? _owner;
     private PropertyLookup? _propertyLookup;
 
     public AnimatableProperty(T defaultValue, IValidator<T>? validator = null)
@@ -98,7 +98,7 @@ public class AnimatableProperty<T> : IProperty<T>, IExpressionChainHost, IChildO
     IEnumerable<object?> IChildObjectSource.GetChildObjects()
         => ChildObjects.MayHoldObjects(typeof(T)) ? [_currentValue, _keyFrames] : [_keyFrames];
 
-    void IExpressionChainHost.SetKeyFrames(IKeyFrameAnimation? keyFrames)
+    void IExpressionChainHost.SetKeyFrames(IExpression? keyFrames)
     {
         if (keyFrames is not null and not KeyFrameAnimation<T>)
             throw new ArgumentException($"Property '{_name}' takes KeyFrameAnimation<{typeof(T).Name}>.", nameof(keyFrames));
@@ -156,7 +156,7 @@ public class AnimatableProperty<T> : IProperty<T>, IExpressionChainHost, IChildO
         // Keyframes on top are evaluated without an ExpressionContext.
         if (Volatile.Read(ref _expressionState) is { Expression: not KeyFrameAnimation<T> } expressionState)
         {
-            _propertyLookup ??= new PropertyLookup(_owner?.FindHierarchicalRoot() as ICoreObject ?? BeutlApplication.Current);
+            _propertyLookup ??= new PropertyLookup((_owner as IHierarchical)?.FindHierarchicalRoot() as ICoreObject ?? BeutlApplication.Current);
             if (context is ExpressionContext expressionContext)
             {
                 if (expressionContext.IsEvaluating(this))
@@ -206,7 +206,7 @@ public class AnimatableProperty<T> : IProperty<T>, IExpressionChainHost, IChildO
 
     public IValidator CreateValidator(Attribute[] attributes)
     {
-        IValidator<T>[] validations = Property.ConvertValidators<T>(attributes.OfType<ValidationAttribute>());
+        IValidator<T>[] validations = PropertyValidators.FromAttributes<T>(attributes.OfType<ValidationAttribute>());
 
         return new MultipleValidator<T>(validations);
     }
@@ -222,7 +222,7 @@ public class AnimatableProperty<T> : IProperty<T>, IExpressionChainHost, IChildO
 
     public IValidator? GetValidator() => _validator;
 
-    public void SetOwnerObject(EngineObject? owner)
+    public void SetOwnerObject(CoreObject? owner)
     {
         if (_owner == owner) return;
         _propertyLookup = null;
@@ -247,7 +247,7 @@ public class AnimatableProperty<T> : IProperty<T>, IExpressionChainHost, IChildO
         _owner = owner;
     }
 
-    public EngineObject? GetOwnerObject()
+    public CoreObject? GetOwnerObject()
     {
         return _owner;
     }

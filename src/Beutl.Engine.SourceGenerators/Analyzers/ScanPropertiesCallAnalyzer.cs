@@ -13,7 +13,8 @@ namespace Beutl.Engine.SourceGenerators.Analyzers;
 public sealed class ScanPropertiesCallAnalyzer : DiagnosticAnalyzer
 {
     private const string EngineObjectMetadataName = "Beutl.Engine.EngineObject";
-    private const string PropertyMetadataName = "Beutl.Engine.IProperty";
+    private const string CoreObjectMetadataName = "Beutl.CoreObject";
+    private const string PropertyMetadataName = "Beutl.IProperty";
     private const string ScanPropertiesMethodName = "ScanProperties";
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
@@ -27,19 +28,20 @@ public sealed class ScanPropertiesCallAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(start =>
         {
             if (start.Compilation.GetTypeByMetadataName(EngineObjectMetadataName) is not { } engineObject
+                || start.Compilation.GetTypeByMetadataName(CoreObjectMetadataName) is not { } coreObject
                 || start.Compilation.GetTypeByMetadataName(PropertyMetadataName) is not { } property)
             {
                 return;
             }
 
             start.RegisterSymbolStartAction(
-                symbolStart => AnalyzeType(symbolStart, engineObject, property),
+                symbolStart => AnalyzeType(symbolStart, engineObject, coreObject, property),
                 SymbolKind.NamedType);
         });
     }
 
     private static void AnalyzeType(
-        SymbolStartAnalysisContext context, INamedTypeSymbol engineObject, INamedTypeSymbol property)
+        SymbolStartAnalysisContext context, INamedTypeSymbol engineObject, INamedTypeSymbol coreObject, INamedTypeSymbol property)
     {
         if (context.Symbol is not INamedTypeSymbol { TypeKind: TypeKind.Class, IsStatic: false } type
             || !InheritsFrom(type, engineObject)
@@ -57,7 +59,7 @@ public sealed class ScanPropertiesCallAnalyzer : DiagnosticAnalyzer
             block.RegisterOperationAction(
                 invocation =>
                 {
-                    if (ScansOrChains(((IInvocationOperation)invocation.Operation).TargetMethod, type, engineObject))
+                    if (ScansOrChains(((IInvocationOperation)invocation.Operation).TargetMethod, type, coreObject))
                         scanning.TryAdd(constructor, true);
                 },
                 OperationKind.Invocation);
@@ -83,17 +85,17 @@ public sealed class ScanPropertiesCallAnalyzer : DiagnosticAnalyzer
     }
 
     // A constructor that chains to another one of the same type is checked through that constructor.
-    private static bool ScansOrChains(IMethodSymbol target, INamedTypeSymbol type, INamedTypeSymbol engineObject)
+    private static bool ScansOrChains(IMethodSymbol target, INamedTypeSymbol type, INamedTypeSymbol coreObject)
     {
         if (target.MethodKind == MethodKind.Constructor)
             return SymbolEqualityComparer.Default.Equals(target.ContainingType, type);
 
         return target is { Name: ScanPropertiesMethodName, TypeArguments.Length: 1 }
-            && SymbolEqualityComparer.Default.Equals(target.ContainingType, engineObject)
+            && SymbolEqualityComparer.Default.Equals(target.ContainingType, coreObject)
             && SymbolEqualityComparer.Default.Equals(target.TypeArguments[0], type);
     }
 
-    // Matches what EngineObject.ScanPropertiesCore registers: public instance properties typed as IProperty.
+    // Matches what CoreObject.ScanPropertiesCore registers: public instance properties typed as IProperty.
     private static bool DeclaresProperty(INamedTypeSymbol type, INamedTypeSymbol property)
     {
         foreach (ISymbol member in type.GetMembers())

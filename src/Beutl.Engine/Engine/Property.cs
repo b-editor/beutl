@@ -21,7 +21,7 @@ public static class Property
         params ValidationAttribute[] validationAttributes)
     {
         var validator = validationAttributes.Length > 0
-            ? new MultipleValidator<T>(ConvertValidators<T>(validationAttributes))
+            ? new MultipleValidator<T>(PropertyValidators.FromAttributes<T>(validationAttributes))
             : null;
 
         return CreateAnimatable(defaultValue, validator);
@@ -41,7 +41,7 @@ public static class Property
         params ValidationAttribute[] validationAttributes)
     {
         var validator = validationAttributes.Length > 0
-            ? new MultipleValidator<T>(ConvertValidators<T>(validationAttributes))
+            ? new MultipleValidator<T>(PropertyValidators.FromAttributes<T>(validationAttributes))
             : null;
 
         return Create(defaultValue, validator);
@@ -64,7 +64,7 @@ public static class Property
         params ValidationAttribute[] validationAttributes)
     {
         var validator = validationAttributes.Length > 0
-            ? new MultipleValidator<T>(ConvertValidators<T>(validationAttributes))
+            ? new MultipleValidator<T>(PropertyValidators.FromAttributes<T>(validationAttributes))
             : null;
 
         return CreateWithoutExpression(defaultValue, validator);
@@ -73,13 +73,6 @@ public static class Property
     public static IListProperty<T> CreateList<T>()
     {
         return new ListProperty<T>();
-    }
-
-    internal static IValidator<T>[] ConvertValidators<T>(IEnumerable<ValidationAttribute> attributes)
-    {
-        return attributes
-            .Select(CorePropertyMetadata<T>.ConvertValidator)
-            .ToArray();
     }
 
     public static string GetLocalizedName(IProperty property)

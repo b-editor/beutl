@@ -9,7 +9,7 @@ public class ExpressionGlobals
     public ExpressionGlobals(ExpressionContext context)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
-        EngineObject? obj = _context.CurrentProperty.GetOwnerObject();
+        EngineObject? obj = _context.CurrentProperty.GetOwnerObject() as EngineObject;
         Start = obj?.TimeRange.Start.TotalSeconds ?? 0;
         Duration = obj?.TimeRange.Duration.TotalSeconds ?? 0;
         Time = _context.Time.TotalSeconds - Start;

@@ -26,7 +26,7 @@ public interface ICoreObject : INotifyPropertyChanged, INotifyDataErrorInfo, ICo
     void SetValue(CoreProperty property, object? value);
 }
 
-public abstract class CoreObject : ICoreObject
+public abstract partial class CoreObject : ICoreObject
 {
     public static readonly CoreProperty<Guid> IdProperty;
 

@@ -56,7 +56,7 @@ public class ChildObjectsTests
             Assert.That(graph.FindById(pen.Id), Is.SameAs(pen));
             Assert.That(new ObjectSearcher(graph, v => v is IKeyFrameAnimation).Search(), Is.SameAs(portKeyFrames));
             Assert.That(new ObjectSearcher(element, v => v is IKeyFrameAnimation).Search(), Is.SameAs(keyFrames));
-            Assert.That(new ObjectSearcher(element, v => v is Beutl.Engine.IProperty { Name: "Width" }).Search(),
+            Assert.That(new ObjectSearcher(element, v => v is Beutl.IProperty { Name: "Width" }).Search(),
                 Is.SameAs(shape.Width));
         }
     }

@@ -53,7 +53,7 @@ internal sealed class AudioSpeedMapping : IDisposable
             return TimeSpan.FromSeconds(time.TotalSeconds * factor);
         }
 
-        var ownerStart = Speed.GetOwnerObject()?.TimeRange.Start ?? TimeSpan.Zero;
+        var ownerStart = (Speed.GetOwnerObject() as EngineObject)?.TimeRange.Start ?? TimeSpan.Zero;
         return animation.UseGlobalClock
             ? _integrator.Integrate(time + ownerStart, animation) - _integrator.Integrate(ownerStart, animation)
             : _integrator.Integrate(time, animation);
@@ -69,7 +69,7 @@ internal sealed class AudioSpeedMapping : IDisposable
             return end / minimumSpeed;
 
         Configure(sampleRate);
-        var ownerStart = Speed.GetOwnerObject()?.TimeRange.Start ?? TimeSpan.Zero;
+        var ownerStart = (Speed.GetOwnerObject() as EngineObject)?.TimeRange.Start ?? TimeSpan.Zero;
         var key = new FiniteEndKey(animation, _integrator.CacheVersion, sampleRate, end,
             ownerStart, animation.UseGlobalClock);
         if (_finiteEndKey == key)
@@ -196,7 +196,7 @@ internal sealed class AudioSpeedMapping : IDisposable
         }
 
         var animation = Speed!.GetKeyFrameAnimation()!;
-        var ownerStart = Speed!.GetOwnerObject()?.TimeRange.Start ?? TimeSpan.Zero;
+        var ownerStart = (Speed!.GetOwnerObject() as EngineObject)?.TimeRange.Start ?? TimeSpan.Zero;
         Int128 samplePosition = (Int128)context.TimeRange.Start.Ticks * context.SampleRate;
         long startInSamples = roundSampleClock
             ? checked((long)((samplePosition + (samplePosition < 0

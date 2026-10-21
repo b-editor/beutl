@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 using Beutl.Validation;
 using LinqExpression = System.Linq.Expressions.Expression;
 
-namespace Beutl.Engine;
+namespace Beutl;
 
 public class PropertyCacheEntry
 {

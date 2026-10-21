@@ -1,4 +1,4 @@
-﻿namespace Beutl.Engine.Expressions;
+﻿namespace Beutl;
 
 public class ExpressionContext(TimeSpan time, IProperty currentProperty, PropertyLookup propertyLookup) : EvaluationContext(time)
 {

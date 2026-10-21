@@ -1,14 +1,15 @@
 using System;
+using System.Collections.Generic;
 
 using Beutl.Validation;
 
-namespace Beutl.Engine;
+namespace Beutl;
 
 public interface IProperty
 {
     void SetAttributes(string name, Attribute[] attributes);
 
-    void SetOwnerObject(EngineObject? owner);
+    void SetOwnerObject(CoreObject? owner);
 
     IValidator CreateValidator(Attribute[] attributes);
 
@@ -17,4 +18,14 @@ public interface IProperty
 
 public interface IProperty<T> : IProperty
 {
+}
+
+public class CoreObject
+{
+    public virtual IReadOnlyList<IProperty> Properties => throw null!;
+
+    protected virtual IEnumerable<IProperty> ScanPropertiesCore<T>() where T : CoreObject
+    {
+        throw null!;
+    }
 }
