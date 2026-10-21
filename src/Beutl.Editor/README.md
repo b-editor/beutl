@@ -1,6 +1,6 @@
 # Beutl.Editor contributor guide
 
-This subtree is the **non-UI editor logic** — undo / redo, project packaging, virtualised project root, history transactions. The Avalonia views live in `Beutl.Editor.Components` and `Beutl/`; do **not** add `using Avalonia.*` here.
+This subtree is the **non-UI editor logic** — undo / redo, project packaging, virtualised project root, history transactions. It ships in the extension SDK, so a public type here is public API. The Avalonia views live in `Beutl.Editor.Components` and `Beutl/`; do **not** add `using Avalonia.*` here. [Where new code goes](../../CONTRIBUTING.md#where-new-code-goes) says which of the three a change belongs to.
 
 ## What lives here
 
@@ -36,7 +36,7 @@ Add new edit-pipeline services here, not in `Beutl.Editor.Components`. The View 
 1. **Every undoable model mutation is recorded by the observers (or `Record`) and committed by its owner.** A gesture writes inside `Enter()` of the session `BeginEdit` opened and ends it with `Complete` or `Cancel`; a one-shot edit commits with `Commit` or `ExecuteInTransaction`. Other writers go through `RunAfterEditAsync` and run once the session closes.
 2. **State derived from values is recomputed, not recorded.** The `TimeRange` and `ZIndex` that engine objects get from their element and `Connection.Status` are `[NotTracked]`, and an input port writes its connection-driven expression inside the internal `HistoryReplay` scope.
 3. **Children with IDs are recorded in the same transaction as the change that creates them.** Model3D meshes, equalizer bands and GroupNode mirror ports are created by their owner's change handler, which skips rebuilding them while `HistoryReplay.IsActive`, because replay restores the recorded children.
-4. **No Avalonia / view types here.** ViewModels live in `Beutl.Editor.Components` (or in the app); this project is consumed by them, not the other way around.
+4. **No Avalonia / view types here.** ViewModels live in `Beutl.Editor.Components`, or in the app when only the app uses them; this project is consumed by them, not the other way around.
 5. **`AutoSaveService` runs on the UI thread.** The editor calls it through the dispatcher after each history commit.
 
 ## Tests
