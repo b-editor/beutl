@@ -1,7 +1,7 @@
 ﻿using System.Collections.Immutable;
 using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
-using Beutl.ViewModels;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;

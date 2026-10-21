@@ -1,5 +1,5 @@
 ﻿using Avalonia.Platform.Storage;
-using Beutl.Services.AI;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.ViewModels.Dialogs;
 using Moq;
 

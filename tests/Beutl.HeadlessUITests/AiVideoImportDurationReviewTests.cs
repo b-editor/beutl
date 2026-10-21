@@ -3,7 +3,7 @@ using System.Net;
 using Avalonia.Headless.NUnit;
 using Beutl.Api;
 using Beutl.Api.Services;
-using Beutl.Services.AI;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.Dialogs;
 using static Beutl.HeadlessUITests.AiTestSupport;

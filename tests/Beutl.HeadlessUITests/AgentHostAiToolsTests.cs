@@ -8,6 +8,7 @@ using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.Api.Services;
 using Beutl.Audio;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Services.AI;
 using Beutl.Graphics;
 using Beutl.Media;

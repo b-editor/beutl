@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Beutl.Editor;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;

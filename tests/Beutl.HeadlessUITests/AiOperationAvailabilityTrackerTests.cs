@@ -1,6 +1,6 @@
 ﻿using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
-using Beutl.Services.AI;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Testing.Headless;
 
 namespace Beutl.HeadlessUITests;

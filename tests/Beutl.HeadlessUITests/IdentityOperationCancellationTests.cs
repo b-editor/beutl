@@ -1,4 +1,4 @@
-﻿using Beutl.Services;
+﻿using Beutl.Editor.Components.Helpers;
 
 namespace Beutl.HeadlessUITests;
 

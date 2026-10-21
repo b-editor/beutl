@@ -6,13 +6,12 @@ using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
+using Beutl.Editor.Components.AiWorkspaceTab.Views;
 using Beutl.Language;
-using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Dialogs;
-using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
 using Reactive.Bindings;
 using Refit;
 

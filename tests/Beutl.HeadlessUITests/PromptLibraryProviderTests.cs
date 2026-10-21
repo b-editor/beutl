@@ -1,9 +1,10 @@
 ﻿using System.Collections.Specialized;
 
 using Beutl.Api.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 using Beutl.Language;
 using Beutl.Services.AI;
-using Beutl.ViewModels;
 
 namespace Beutl.HeadlessUITests;
 

@@ -1,4 +1,5 @@
 ﻿using Beutl.Api.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.NodeGraph.Generative;

@@ -1,5 +1,6 @@
 ﻿using System.Reactive.Subjects;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Services.AI;
 using Beutl.Language;
 using Beutl.Services;

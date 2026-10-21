@@ -1,6 +1,6 @@
 ﻿using System.Globalization;
 using Beutl.Api.Services;
-using Beutl.Services.AI;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
 
 namespace Beutl.UnitTests.Services.AI;
 

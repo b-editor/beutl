@@ -1,6 +1,6 @@
 ﻿using System.Reactive.Subjects;
 using Beutl.Api.Services;
-using Beutl.ViewModels;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 
 namespace Beutl.HeadlessUITests;
 

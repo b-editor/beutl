@@ -1,5 +1,5 @@
-﻿using Beutl.Editor.Services.Captions;
-using Beutl.ViewModels.Dialogs;
+﻿using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
+using Beutl.Editor.Services.Captions;
 
 namespace Beutl.HeadlessUITests;
 

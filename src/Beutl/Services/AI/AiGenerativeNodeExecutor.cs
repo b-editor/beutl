@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Services.AI;
 using Beutl.Graphics;
 using Beutl.Language;

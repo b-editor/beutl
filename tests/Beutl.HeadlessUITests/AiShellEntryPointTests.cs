@@ -1,12 +1,12 @@
 ﻿using System.Globalization;
 using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
+using Beutl.Editor.Components.AiWorkspaceTab;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 using Beutl.Language;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Dialogs;
-using Beutl.ViewModels.Tools;
 using Beutl.Views;
 
 namespace Beutl.HeadlessUITests;

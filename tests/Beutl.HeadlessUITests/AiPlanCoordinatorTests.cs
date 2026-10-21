@@ -2,9 +2,9 @@
 using Avalonia.Headless.NUnit;
 using Beutl.Api;
 using Beutl.Api.Services;
-using Beutl.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.Views;
 using Beutl.Testing.Headless;
-using Beutl.Views.Tools;
 using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;

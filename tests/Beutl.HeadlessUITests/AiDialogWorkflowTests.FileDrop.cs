@@ -13,12 +13,12 @@ using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using Beutl.Api;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
+using Beutl.Editor.Components.AiWorkspaceTab.Views;
 using Beutl.Media.Source;
-using Beutl.Services.AI;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Dialogs;
-using Beutl.Views.Tools;
 using Moq;
 using static Beutl.HeadlessUITests.AiTestSupport;
 
@@ -913,7 +913,7 @@ public sealed partial class AiDialogWorkflowTests
     {
         var window = new Window { Content = view, Width = width, Height = 1500 };
         // In the app the views get these styles from AiWorkspaceView.
-        window.Styles.Add(new StyleInclude((Uri?)null) { Source = new Uri("avares://Beutl/Views/Tools/AiFileDropStyles.axaml") });
+        window.Styles.Add(new StyleInclude((Uri?)null) { Source = new Uri("avares://Beutl.Editor.Components/AiWorkspaceTab/Views/AiFileDropStyles.axaml") });
         window.Show();
         HeadlessTestHelpers.Render(3);
         foreach (var expander in view.GetVisualDescendants().OfType<Expander>()) expander.IsExpanded = true;
