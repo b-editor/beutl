@@ -27,7 +27,7 @@ internal sealed partial class MediaTimeMapping
     private readonly Controller[] _controllers;
     private readonly TimeSpan? _videoDuration;
     private readonly bool _loopVideo;
-    private readonly IAnimation<bool>? _loopAnimation;
+    private readonly KeyFrameAnimation<bool>? _loopAnimation;
     private readonly bool _sourceSupported;
     private readonly bool _sourceLocked;
     private readonly bool _opaquePortal;
@@ -46,7 +46,7 @@ internal sealed partial class MediaTimeMapping
         _controllers = controllers.Select(c => new Controller(element, c.Controller, c.Target, timingPeers, ignoreLoops, timingRoles)).ToArray();
         _videoDuration = videoDuration;
         _loopVideo = !ignoreLoops && source is SourceVideo video && video.IsLoop.CurrentValue;
-        _loopAnimation = !ignoreLoops && source is SourceVideo animatedVideo ? animatedVideo.IsLoop.Animation : null;
+        _loopAnimation = !ignoreLoops && source is SourceVideo animatedVideo ? animatedVideo.IsLoop.GetKeyFrameAnimation() : null;
         _opaquePortal = source is PortalObject;
         _clipToSourceRange = portalInput || source is Sound;
         // Referenced/portal media can belong to a locked element even when the
@@ -58,7 +58,7 @@ internal sealed partial class MediaTimeMapping
         // switch/expression. Keep these edits atomic until their mapping is bounded.
         _sourceSupported = source switch
         {
-            SourceVideo videoSource => videoSource.Source.Animation == null && !videoSource.Source.HasExpression
+            SourceVideo videoSource => videoSource.Source.GetKeyFrameAnimation() == null && !videoSource.Source.HasExpression
                 && !videoSource.IsLoop.HasExpression && !videoSource.OffsetPosition.HasExpression,
             SourceSound sound => !sound.Source.HasExpression,
             SceneSound sound => !sound.ReferencedScene.HasExpression,

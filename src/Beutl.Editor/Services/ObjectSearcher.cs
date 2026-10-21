@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Extensibility;
 
@@ -86,7 +87,7 @@ public class ObjectSearcher
                             {
                                 return result;
                             }
-                            if (property.Animation is { } animation
+                            if (property.GetKeyFrameAnimation() is { } animation
                                 && SearchRecursive(animation) is { } animationResult)
                                 return animationResult;
                         }
@@ -174,7 +175,7 @@ public class ObjectSearcher
                             if ((!property.ValueType.IsValueType || property.ValueType.IsAssignableTo(typeof(IOptional)))
                                 && property.CurrentValue is { } value)
                                 SearchAllRecursive(value, list);
-                            if (property.Animation is { } animation)
+                            if (property.GetKeyFrameAnimation() is { } animation)
                                 SearchAllRecursive(animation, list);
                         }
                     }

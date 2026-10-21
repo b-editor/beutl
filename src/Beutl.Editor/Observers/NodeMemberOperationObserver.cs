@@ -92,7 +92,7 @@ public sealed class NodeMemberOperationObserver : IOperationObserver
         return OperationObserverHelpers.AppendPath(_propertyPath, "Animation");
     }
 
-    private void RecreateAnimationObserver(IAnimation? animation)
+    private void RecreateAnimationObserver(IKeyFrameAnimation? animation)
     {
         _animationObserver?.Dispose();
         _animationObserver = null;
@@ -108,7 +108,7 @@ public sealed class NodeMemberOperationObserver : IOperationObserver
         }
     }
 
-    private void OnAnimationChanged(IAnimation? oldAnimation, IAnimation? newAnimation)
+    private void OnAnimationChanged(IKeyFrameAnimation? oldAnimation, IKeyFrameAnimation? newAnimation)
     {
         if (PublishingSuppression.IsSuppressed) return;
 

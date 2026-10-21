@@ -184,13 +184,11 @@ internal sealed class NestedInputPortManager(GraphNode node)
         adapter.GetObservable().Skip(1).Subscribe(_ => Synchronize()).DisposeWith(_subscriptions);
         if (adapter.GetEngineProperty() is { } property)
         {
-            IAnimation? previousAnimation = property.Animation;
+            // Keyframes are part of the expression chain, so a change to either changes Expression.
             IExpression? previousExpression = property.Expression;
             EventHandler handler = (_, _) =>
             {
-                if (ReferenceEquals(previousAnimation, property.Animation)
-                    && ReferenceEquals(previousExpression, property.Expression)) return;
-                previousAnimation = property.Animation;
+                if (ReferenceEquals(previousExpression, property.Expression)) return;
                 previousExpression = property.Expression;
                 Synchronize();
             };
@@ -209,7 +207,7 @@ internal sealed class NestedInputPortManager(GraphNode node)
     private static bool IsValueOverridden(IPropertyAdapter adapter)
         => (adapter as IAnimatablePropertyAdapter)?.Animation != null
            || (adapter as IExpressionPropertyAdapter)?.Expression != null
-           || adapter.GetEngineProperty() is { } property && (property.Animation != null || property.Expression != null);
+           || adapter.GetEngineProperty() is { Expression: not null };
 
     private void Visit(object? value, NodeMember root, string[] path,
         HashSet<EngineObject> ancestors, List<Target> targets, List<UnresolvedSubtree> unresolved, bool hasOverridingAncestor)
@@ -230,7 +228,7 @@ internal sealed class NestedInputPortManager(GraphNode node)
                     typeof(EnginePropertyAdapter<>).MakeGenericType(property.ValueType), property, obj)!;
                 Watch(adapter);
                 Visit(property.CurrentValue, root, childPath, ancestors, targets, unresolved,
-                    hasOverridingAncestor || property.Animation != null || property.Expression != null);
+                    hasOverridingAncestor || property.Expression != null);
             }
             ancestors.Remove(obj);
         }

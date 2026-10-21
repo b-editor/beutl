@@ -10,18 +10,19 @@ namespace Beutl.AgentToolkit.Documents;
 
 internal sealed partial class DeclarativeDocumentApplier
 {
-    private void ApplyKeyFrameAnimation(KeyFrameAnimation animation, JsonObject desired)
+    private void ApplyKeyFrameAnimation(IKeyFrameAnimation animation, JsonObject desired)
     {
+        var target = (CoreObject)animation;
         JsonObject payload = (JsonObject)desired.DeepClone();
-        payload.Remove(nameof(KeyFrameAnimation.KeyFrames));
-        NormalizeRegisteredPropertyValues(animation, payload);
+        payload.Remove(nameof(IKeyFrameAnimation.KeyFrames));
+        NormalizeRegisteredPropertyValues(target, payload);
 
-        CoreSerializer.PopulateFromJsonObject(animation, animation.GetType(), payload, CreateOptions(animation));
-        ClearAbsentRegisteredObjectProperties(animation, desired, payload);
+        CoreSerializer.PopulateFromJsonObject(target, target.GetType(), payload, CreateOptions(target));
+        ClearAbsentRegisteredObjectProperties(target, desired, payload);
 
-        if (desired.TryGetPropertyValue(nameof(KeyFrameAnimation.KeyFrames), out JsonNode? keyframesNode))
+        if (desired.TryGetPropertyValue(nameof(IKeyFrameAnimation.KeyFrames), out JsonNode? keyframesNode))
         {
-            ApplyKeyFrameList(animation.KeyFrames, RequireArrayMember(keyframesNode, nameof(KeyFrameAnimation.KeyFrames)), animation);
+            ApplyKeyFrameList(animation.KeyFrames, RequireArrayMember(keyframesNode, nameof(IKeyFrameAnimation.KeyFrames)), target);
         }
         else
         {
@@ -87,7 +88,7 @@ internal sealed partial class DeclarativeDocumentApplier
             }
             else
             {
-                property.Animation = null;
+                property.SetKeyFrameAnimation(null);
             }
         }
     }
@@ -100,7 +101,7 @@ internal sealed partial class DeclarativeDocumentApplier
         }
 
         HashSet<Guid>? changedValueIds = null;
-        IAnimation? current = property.Animation;
+        IKeyFrameAnimation? current = property.GetKeyFrameAnimation();
         if (current is CoreObject currentObject
             && IdentityMatches(currentObject, animationJson)
             && TypeMatches(currentObject, animationJson))
@@ -117,7 +118,7 @@ internal sealed partial class DeclarativeDocumentApplier
                 currentJson,
                 animationJson);
 
-            if (currentObject is KeyFrameAnimation currentKeyFrameAnimation)
+            if (currentObject is IKeyFrameAnimation currentKeyFrameAnimation)
             {
                 // Existing keyframes already carry the owning validator, but their public setter
                 // can only supply a default context. Populate the requested fields first, then run
@@ -140,9 +141,9 @@ internal sealed partial class DeclarativeDocumentApplier
         }
         else
         {
-            var animation = (IAnimation)CoreSerializer.DeserializeFromJsonObject(
-                NormalizeCoreSerializableJson(animationJson, typeof(IAnimation)),
-                typeof(IAnimation),
+            var animation = (IKeyFrameAnimation)CoreSerializer.DeserializeFromJsonObject(
+                NormalizeCoreSerializableJson(animationJson, typeof(IKeyFrameAnimation)),
+                typeof(IKeyFrameAnimation),
                 CreateOptions(property.GetOwnerObject()));
             if (animation.ValueType != property.ValueType)
             {
@@ -153,12 +154,12 @@ internal sealed partial class DeclarativeDocumentApplier
             }
 
             // CoreSerializer appends keyframes in JSON order, but GetPreviousAndNextKeyFrame walks collection order.
-            if (animation is KeyFrameAnimation keyFrameAnimation)
+            if (animation is IKeyFrameAnimation keyFrameAnimation)
             {
                 SortKeyFramesByKeyTime(keyFrameAnimation.KeyFrames);
             }
 
-            property.Animation = animation;
+            property.SetKeyFrameAnimation(animation);
         }
 
         RevalidateKeyFrameValues(property, changedValueIds);
@@ -168,7 +169,7 @@ internal sealed partial class DeclarativeDocumentApplier
         IProperty property,
         IReadOnlySet<Guid>? changedValueIds)
     {
-        if (property.Animation is not KeyFrameAnimation animation)
+        if (property.GetKeyFrameAnimation() is not IKeyFrameAnimation animation)
         {
             return;
         }

@@ -12,7 +12,7 @@ public abstract class ExpressionPropertyAdapterBase<T>(IProperty<T> property, En
 {
     public IExpression<T>? Expression
     {
-        get => Property.Expression;
+        get => Property.HasExpression ? Property.Expression : null;
         set => Property.Expression = value;
     }
 
@@ -22,6 +22,8 @@ public abstract class ExpressionPropertyAdapterBase<T>(IProperty<T> property, En
     public IObservable<IExpression<T>?> ObserveExpression => field ??= Observable.FromEvent<IExpression<T>?>(
             handler => Property.ExpressionChanged += handler,
             handler => Property.ExpressionChanged -= handler)
+        .Select(_ => Expression)
+        .DistinctUntilChanged()
         .Publish(Expression)
         .RefCount();
 }

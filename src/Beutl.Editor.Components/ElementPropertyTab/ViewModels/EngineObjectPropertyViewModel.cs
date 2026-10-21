@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Animation;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -149,7 +150,7 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
                 if (property.Name == propertyName)
                     return context;
             }
-            else if (Holds(property.CurrentValue, target) || Holds(property.Animation, target)
+            else if (Holds(property.CurrentValue, target) || Holds(property.GetKeyFrameAnimation(), target)
                      || (property is IListProperty list && list.OfType<object>().Any(item => Holds(item, target))))
             {
                 return context;

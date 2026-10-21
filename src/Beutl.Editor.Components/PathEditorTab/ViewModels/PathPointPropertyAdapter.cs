@@ -20,8 +20,8 @@ internal sealed class AnimatedPathPointPropertyAdapter(AnimatableProperty<Point>
 {
     private readonly AnimatablePropertyAdapter<Point> _inner = new(property, owner);
 
-    public IAnimation<Point>? Animation { get => _inner.Animation; set => _inner.Animation = value; }
-    public IObservable<IAnimation<Point>?> ObserveAnimation => _inner.ObserveAnimation;
+    public KeyFrameAnimation<Point>? Animation { get => _inner.Animation; set => _inner.Animation = value; }
+    public IObservable<KeyFrameAnimation<Point>?> ObserveAnimation => _inner.ObserveAnimation;
     public IExpression<Point>? Expression { get => _inner.Expression; set => _inner.Expression = value; }
     public bool HasExpression => _inner.HasExpression;
     public IObservable<IExpression<Point>?> ObserveExpression => _inner.ObserveExpression;

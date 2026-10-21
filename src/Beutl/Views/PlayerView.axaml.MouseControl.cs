@@ -29,7 +29,7 @@ public partial class PlayerView
         TimeSpan globalKeyTime = clock.CurrentTime.Value;
         TimeSpan localKeyTime = localStart.HasValue ? globalKeyTime - localStart.Value : globalKeyTime;
 
-        if (property.Animation is KeyFrameAnimation<T> animation)
+        if (property.GetKeyFrameAnimation() is KeyFrameAnimation<T> animation)
         {
             TimeSpan keyTime = animation.UseGlobalClock ? globalKeyTime : localKeyTime;
             keyTime = keyTime.RoundToRate(rate);

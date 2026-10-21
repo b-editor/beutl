@@ -412,7 +412,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
                         element.Length,
                         sound.OffsetPosition.CurrentValue,
                         sound.Speed.CurrentValue,
-                        sound.Speed.Animation as KeyFrameAnimation<float>,
+                        sound.Speed.GetKeyFrameAnimation() as KeyFrameAnimation<float>,
                         elementId: element.Id));
                 }
             }

@@ -104,7 +104,7 @@ public sealed class EqualizerBandItemViewModel : IDisposable
     public bool CanEditProperty(IProperty<float> property, TimeSpan globalTime)
     {
         if (property.HasExpression) return false;
-        if (property.Animation is null) return true;
+        if (property.GetKeyFrameAnimation() is null) return true;
         return GetEditingKeyFrame(property, globalTime) is not null;
     }
 

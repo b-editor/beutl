@@ -29,7 +29,7 @@ public sealed class UpdateNodeMemberOperation(
             switch (parts[^1])
             {
                 case "Animation" when NodeMember.Property is IAnimatablePropertyAdapter animatablePropertyAdapter:
-                    animatablePropertyAdapter.Animation = value as IAnimation;
+                    animatablePropertyAdapter.Animation = value as IKeyFrameAnimation;
                     return;
                 case "Expression" when NodeMember.Property is IExpressionPropertyAdapter expressiblePropertyAdapter:
                     expressiblePropertyAdapter.Expression = value as IExpression;

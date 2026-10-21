@@ -62,7 +62,7 @@ public sealed partial class TimelineTabViewModel
             IAnimatablePropertyAdapter? anmProp = null;
             EngineObject? engineObject = null;
 
-            void FindAndSetAncestor(Span<object> span, KeyFrameAnimation kfAnm)
+            void FindAndSetAncestor(Span<object> span, IKeyFrameAnimation kfAnm)
             {
                 for (int i = 0; i < span.Length; i++)
                 {
@@ -80,7 +80,7 @@ public sealed partial class TimelineTabViewModel
 
             bool Predicate(Stack<object> stack, object obj)
             {
-                if (obj is IProperty { Animation: KeyFrameAnimation kfAnm } && kfAnm.Id == anmId)
+                if (obj is IProperty property && property.GetKeyFrameAnimation() is { } kfAnm && kfAnm.Id == anmId)
                 {
                     using var pooledArray = new PooledArray<object>(stack.Count);
                     // Walk up the stack to the adapter that holds the animation or to the EngineObject.
@@ -96,7 +96,7 @@ public sealed partial class TimelineTabViewModel
             // properties, also finds animations nested in other objects such as a Pen.
             var searcher = new ObjectSearcher(element, Predicate);
 
-            if (searcher.Search() is IProperty { Animation: KeyFrameAnimation anm } prop)
+            if (searcher.Search() is IProperty prop && prop.GetKeyFrameAnimation() is { } anm)
             {
                 if (anmProp != null)
                 {
@@ -136,7 +136,7 @@ public sealed partial class TimelineTabViewModel
         var inlines = new JsonArray();
         foreach (InlineAnimationLayerViewModel item in Inlines.OrderBy(v => v.Index.Value))
         {
-            if (item.Property.Animation is KeyFrameAnimation { Id: Guid anmId })
+            if (item.Property.Animation is IKeyFrameAnimation { Id: Guid anmId })
             {
                 Guid elementId = item.Element.Model.Id;
 

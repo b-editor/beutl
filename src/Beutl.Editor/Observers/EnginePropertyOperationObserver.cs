@@ -19,7 +19,8 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
     private IOperationObserver? _valuePublisher;
     private IOperationObserver? _animationPublisher;
     private readonly HashSet<string>? _propertyPathsToTrack;
-    private IAnimation<T>? _animation;
+    private readonly bool _tracksAnimation;
+    private KeyFrameAnimation<T>? _animation;
     private IExpression<T>? _expression;
 
     public EnginePropertyOperationObserver(
@@ -51,25 +52,15 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
             _property.ValueChanged += OnValueChanged;
         }
 
-        if (_property is AnimatableProperty<T> animatable)
+        // Keyframes are the bottom of the expression chain; their own edits keep the "Animation" path.
+        _tracksAnimation = _property.IsAnimatable && propertiesToTrack?.Contains("Animation") != false;
+        if (_tracksAnimation)
         {
-            if (propertiesToTrack?.Contains("Animation") != false)
-            {
-                if (animatable.Animation is ICoreObject animationObject)
-                {
-                    _animationPublisher = new CoreObjectOperationObserver(
-                        _operations,
-                        animationObject,
-                        _sequenceNumberGenerator,
-                        $"{_propertyPath}.Animation");
-                }
-
-                _animation = animatable.Animation;
-                animatable.AnimationChanged += OnAnimationChanged;
-            }
+            ObserveAnimation(_property.GetKeyFrameAnimation(), null);
         }
 
-        if (_property.SupportsExpression && propertiesToTrack?.Contains("Expression") != false)
+        if (_property.SupportsExpression
+            && (propertiesToTrack?.Contains("Expression") != false || _tracksAnimation))
         {
             _expression = _property.Expression;
             _property.ExpressionChanged += OnExpressionChanged;
@@ -81,11 +72,7 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
     public void Dispose()
     {
         _property.ValueChanged -= OnValueChanged;
-        if (_property is AnimatableProperty<T> animatable)
-        {
-            _animation = null;
-            animatable.AnimationChanged -= OnAnimationChanged;
-        }
+        _animation = null;
         if (_property.SupportsExpression)
         {
             _expression = null;
@@ -118,10 +105,15 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
 
     private void OnExpressionChanged(IExpression<T>? obj)
     {
-        // KeyFrameAnimation re-sorts its key frames under PublishingSuppression; that is not an edit.
+        // KeyFrameAnimation<T> re-sorts its key frames under PublishingSuppression; that is not an edit.
         if (PublishingSuppression.IsSuppressed)
         {
             return;
+        }
+
+        if (_tracksAnimation)
+        {
+            ObserveAnimation(_property.GetKeyFrameAnimation(), _propertyPathsToTrack);
         }
 
         var operation = new UpdatePropertyValueOperation<IExpression<T>?>(
@@ -133,41 +125,25 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
         _expression = obj;
     }
 
-    private void OnAnimationChanged(IAnimation<T>? newAnimation)
+    private void ObserveAnimation(KeyFrameAnimation<T>? animation, HashSet<string>? propertyPathsToTrack)
     {
-        // KeyFrameAnimation re-sorts its key frames under PublishingSuppression; that is not an edit.
-        if (PublishingSuppression.IsSuppressed)
-        {
-            return;
-        }
+        if (ReferenceEquals(animation, _animation) && (_animationPublisher != null || animation == null)) return;
 
         _animationPublisher?.Dispose();
-        _animationPublisher = null;
-
-        string animationPath = $"{_propertyPath}.Animation";
-
-        if (newAnimation is ICoreObject animObject)
-        {
-            _animationPublisher = new CoreObjectOperationObserver(
+        _animationPublisher = animation == null
+            ? null
+            : new CoreObjectOperationObserver(
                 _operations,
-                animObject,
+                animation,
                 _sequenceNumberGenerator,
-                animationPath,
-                _propertyPathsToTrack);
-        }
-
-        var operation = new UpdatePropertyValueOperation<IAnimation<T>?>(
-            (CoreObject)_object, animationPath, newAnimation, _animation)
-        {
-            SequenceNumber = _sequenceNumberGenerator.GetNext()
-        };
-        _operations.OnNext(operation);
-        _animation = newAnimation;
+                $"{_propertyPath}.Animation",
+                propertyPathsToTrack);
+        _animation = animation;
     }
 
     private void OnValueChanged(object? sender, PropertyValueChangedEventArgs<T> e)
     {
-        // KeyFrameAnimation re-sorts its key frames under PublishingSuppression; that is not an edit.
+        // KeyFrameAnimation<T> re-sorts its key frames under PublishingSuppression; that is not an edit.
         if (PublishingSuppression.IsSuppressed)
         {
             return;

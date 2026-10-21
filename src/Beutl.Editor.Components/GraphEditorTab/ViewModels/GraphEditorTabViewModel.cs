@@ -9,7 +9,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 
-public sealed record GraphEditorItemViewModel(string Name, KeyFrameAnimation Object);
+public sealed record GraphEditorItemViewModel(string Name, IKeyFrameAnimation Object);
 
 public sealed partial class GraphEditorTabViewModel : IToolContext
 {
@@ -139,7 +139,7 @@ public sealed partial class GraphEditorTabViewModel : IToolContext
     /// Occupied tabs are not retargeted; callers create a new tab when needed.
     /// </remarks>
     public static GraphEditorTabViewModel? FindReusable(
-        IEditorContext editorContext, Element? element, KeyFrameAnimation? animation)
+        IEditorContext editorContext, Element? element, IKeyFrameAnimation? animation)
     {
         return ToolTabReuse.Find<GraphEditorTabViewModel>(
             editorContext,
@@ -148,7 +148,7 @@ public sealed partial class GraphEditorTabViewModel : IToolContext
             retargetAnyOpen: false);
     }
 
-    public void Select(KeyFrameAnimation? animation)
+    public void Select(IKeyFrameAnimation? animation)
     {
         if (animation == null)
         {

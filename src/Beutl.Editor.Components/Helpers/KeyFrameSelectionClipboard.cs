@@ -11,10 +11,10 @@ internal static class KeyFrameSelectionClipboard
     {
         if (json == null || JsonNode.Parse(json) is not JsonObject data
             || !data.TryGetDiscriminator(out Type? type)
-            || !type.IsAssignableTo(typeof(KeyFrame)) && !type.IsAssignableTo(typeof(KeyFrameAnimation))) return null;
+            || !type.IsAssignableTo(typeof(KeyFrame)) && !type.IsAssignableTo(typeof(IKeyFrameAnimation))) return null;
         var source = (ICoreSerializable)Activator.CreateInstance(type)!;
         CoreSerializer.PopulateFromJsonObject(source, data);
-        IKeyFrame[] copied = source is KeyFrameAnimation animation ? animation.KeyFrames.ToArray() : [(IKeyFrame)source];
+        IKeyFrame[] copied = source is IKeyFrameAnimation animation ? animation.KeyFrames.ToArray() : [(IKeyFrame)source];
         return (type, copied);
     }
 

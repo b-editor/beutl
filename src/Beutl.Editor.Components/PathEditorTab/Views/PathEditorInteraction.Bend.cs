@@ -82,7 +82,7 @@ internal sealed partial class PathEditorInteraction
             if (figure.Segments[edge] is CubicBezierSegment cubic)
             {
                 IProperty<BtlPoint> property = incoming ? cubic.ControlPoint2 : cubic.ControlPoint1;
-                return !property.HasExpression && property.Animation is null or KeyFrameAnimation<BtlPoint>;
+                return !property.HasExpression && property.GetKeyFrameAnimation() is null or KeyFrameAnimation<BtlPoint>;
             }
             return figure.Segments[edge] is LineSegment or Beutl.Media.QuadraticBezierSegment
                 && PathEditingOperations.CanSplit(figure, edge, preserveSingleKeyframe: false);

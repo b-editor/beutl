@@ -107,7 +107,7 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
         T[] oldItems = describesChange ? [] : _snapshot.ToArray();
 
         // The snapshot and the child publishers follow every change, including one made while publishing
-        // is suppressed (KeyFrameAnimation re-sorts its key frames that way). Otherwise a later Reset would
+        // is suppressed (KeyFrameAnimation<T> re-sorts its key frames that way). Otherwise a later Reset would
         // report stale items, and re-adding an item whose publisher was kept would throw.
         if (describesChange)
         {
@@ -121,7 +121,7 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
             MatchChildPublishersToSnapshot();
         }
 
-        // KeyFrameAnimation re-sorts its key frames under PublishingSuppression; that is not an edit.
+        // KeyFrameAnimation<T> re-sorts its key frames under PublishingSuppression; that is not an edit.
         if (PublishingSuppression.IsSuppressed)
         {
             return;

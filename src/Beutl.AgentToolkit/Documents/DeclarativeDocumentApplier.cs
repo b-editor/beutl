@@ -44,7 +44,7 @@ internal sealed partial class DeclarativeDocumentApplier
             case EngineObject engineObject:
                 ApplyEngineObject(engineObject, desired);
                 break;
-            case KeyFrameAnimation animation:
+            case IKeyFrameAnimation animation:
                 ApplyKeyFrameAnimation(animation, desired);
                 break;
             case IKeyFrame keyFrame:
@@ -374,9 +374,9 @@ internal sealed partial class DeclarativeDocumentApplier
         {
             NormalizeIdentityArray(normalized, nameof(Element.Objects), typeof(EngineObject));
         }
-        else if (typeof(KeyFrameAnimation).IsAssignableFrom(actualType))
+        else if (typeof(IKeyFrameAnimation).IsAssignableFrom(actualType))
         {
-            NormalizeIdentityArray(normalized, nameof(KeyFrameAnimation.KeyFrames), typeof(IKeyFrame));
+            NormalizeIdentityArray(normalized, nameof(IKeyFrameAnimation.KeyFrames), typeof(IKeyFrame));
         }
 
         return normalized;

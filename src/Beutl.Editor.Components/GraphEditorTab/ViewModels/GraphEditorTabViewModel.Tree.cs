@@ -53,11 +53,11 @@ public sealed partial class GraphEditorTabViewModel
             Synchronize(TreeItems, roots);
 
             var animations = new List<GraphEditorItemViewModel>();
-            var seenAnimations = new HashSet<KeyFrameAnimation>();
+            var seenAnimations = new HashSet<IKeyFrameAnimation>();
             foreach (string key in used)
             {
                 var item = _treeCache[key];
-                if (item.PropertyItem != null || item.Animation is not KeyFrameAnimation animation || !seenAnimations.Add(animation)) continue;
+                if (item.PropertyItem != null || item.Animation is not IKeyFrameAnimation animation || !seenAnimations.Add(animation)) continue;
                 animations.Add(Items.FirstOrDefault(x => x.Object == animation && x.Name == item.Name.Value)
                     ?? new GraphEditorItemViewModel(item.Name.Value, animation));
             }
@@ -70,7 +70,7 @@ public sealed partial class GraphEditorTabViewModel
                 {
                     item.Object.DetachedFromHierarchy += OnAnimationDetached;
                     _animationDisposables.Add(Disposable.Create(item.Object, obj => obj.DetachedFromHierarchy -= OnAnimationDetached));
-                    item.Object.GetObservable(KeyFrameAnimation.UseGlobalClockProperty).Skip(1)
+                    item.Object.ObserveUseGlobalClock().Skip(1)
                         .Subscribe(_ => UpdateKeyFrameStates()).DisposeWith(_animationDisposables);
                     item.Object.KeyFrames.CollectionChangedAsObservable()
                         .Subscribe(_ => UpdateKeyFrameStates()).DisposeWith(_animationDisposables);
@@ -105,7 +105,7 @@ public sealed partial class GraphEditorTabViewModel
         List<GraphEditorTreeItemViewModel> result, HashSet<string> used, HashSet<object> ancestors)
     {
         if (value is IOptional optional) value = optional.ToObject().GetValueOrDefault();
-        if (value is null or string or IAnimation || !ancestors.Add(value)) return;
+        if (value is null or string or IKeyFrameAnimation || !ancestors.Add(value)) return;
         try
         {
             if (value is INodeMember { Property: { } adapter } member)
@@ -173,7 +173,7 @@ public sealed partial class GraphEditorTabViewModel
     private void UpdatePropertyItem(GraphEditorTreeItemViewModel item, bool canAnimate, HashSet<string> used, HashSet<object> ancestors)
     {
         var factory = item.ValueType is { } valueType ? GraphEditorViewViewModelFactory.GetFactory(valueType) : null;
-        item.CanAnimate.Value = canAnimate && factory != null && item.Animation is null or KeyFrameAnimation;
+        item.CanAnimate.Value = canAnimate && factory != null;
         item.CanRemoveAnimation.Value = item.Animation != null;
         item.HasAnimation.Value = item.Animation != null;
         var children = new List<GraphEditorTreeItemViewModel>();
@@ -218,7 +218,7 @@ public sealed partial class GraphEditorTabViewModel
     private void SelectTreeItem(GraphEditorTreeItemViewModel? item)
     {
         var property = item?.PropertyItem ?? item;
-        SelectedItem.Value = property?.Animation is KeyFrameAnimation animation ? Items.FirstOrDefault(x => x.Object == animation) : null;
+        SelectedItem.Value = property?.Animation is IKeyFrameAnimation animation ? Items.FirstOrDefault(x => x.Object == animation) : null;
         if (SelectedAnimation.Value is not { } graph) return;
         string? channelName = item?.ChannelName;
         if (channelName != null && graph.Views.FirstOrDefault(x => x.Name == channelName) is { } channel)
@@ -240,7 +240,7 @@ public sealed partial class GraphEditorTabViewModel
         foreach (var item in _treeCache.Values)
         {
             var property = item.PropertyItem ?? item;
-            if (property.Animation is not KeyFrameAnimation animation)
+            if (property.Animation is not IKeyFrameAnimation animation)
             {
                 item.HasKeyFrame.Value = false;
                 continue;
@@ -259,7 +259,7 @@ public sealed partial class GraphEditorTabViewModel
             EnableAnimation(item);
             return;
         }
-        if (property.Animation is not KeyFrameAnimation animation) return;
+        if (property.Animation is not IKeyFrameAnimation animation) return;
         SelectedTreeItem.Value = item;
         SelectTreeItem(item);
         if (SelectedAnimation.Value is not { } graph) return;
@@ -284,11 +284,10 @@ public sealed partial class GraphEditorTabViewModel
     {
         var property = item.PropertyItem ?? item;
         if (!property.CanAnimate.Value || Element.Value == null || property.ValueType is not { } type
-            || property.Animation is not null and not KeyFrameAnimation
             || !_treeCache.TryGetValue(property.Key, out var current) || current != property) return;
         if (property.Animation == null)
         {
-            var animation = (KeyFrameAnimation)Activator.CreateInstance(typeof(KeyFrameAnimation<>).MakeGenericType(type))!;
+            var animation = (IKeyFrameAnimation)Activator.CreateInstance(typeof(KeyFrameAnimation<>).MakeGenericType(type))!;
             var key = (IKeyFrame)Activator.CreateInstance(typeof(KeyFrame<>).MakeGenericType(type))!;
             key.Value = property.Value;
             key.Easing = new SplineEasing();

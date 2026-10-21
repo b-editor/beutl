@@ -59,10 +59,10 @@ internal static class KeyFrameClipboardCommands
         }
     }
 
-    internal static void PasteAnimation(IServiceProvider services, IAnimation animation, string json, ILogger logger)
+    internal static void PasteAnimation(IServiceProvider services, IKeyFrameAnimation animation, string json, ILogger logger)
     {
         logger.LogInformation("Pasting JSON");
-        var keyFrameAnimation = (KeyFrameAnimation)animation;
+        var keyFrameAnimation = (IKeyFrameAnimation)animation;
         IKeyFrameClipboardService service = services.GetRequiredService<IKeyFrameClipboardService>();
         KeyFrameAnimationPasteOutcome outcome = service.PasteAnimation(keyFrameAnimation, json);
 
@@ -70,11 +70,11 @@ internal static class KeyFrameClipboardCommands
     }
 
     internal static void PasteKeyFrame(
-        IServiceProvider services, IAnimation animation, string json, Func<KeyFrameAnimation, TimeSpan> getKeyTime,
+        IServiceProvider services, IKeyFrameAnimation animation, string json, Func<IKeyFrameAnimation, TimeSpan> getKeyTime,
         Action<Easing> insertWithEasing, ILogger logger)
     {
         logger.LogInformation("Pasting JSON");
-        var keyFrameAnimation = (KeyFrameAnimation)animation;
+        var keyFrameAnimation = (IKeyFrameAnimation)animation;
         TimeSpan keyTime = getKeyTime(keyFrameAnimation);
         IKeyFrameClipboardService service = services.GetRequiredService<IKeyFrameClipboardService>();
         KeyFramePasteResult result = service.PasteKeyFrame(keyFrameAnimation, json, keyTime);
@@ -131,7 +131,7 @@ internal static class KeyFrameClipboardCommands
         }
     }
 
-    internal static void ReportAnimationPaste(KeyFrameAnimationPasteOutcome outcome, KeyFrameAnimation animation, ILogger logger)
+    internal static void ReportAnimationPaste(KeyFrameAnimationPasteOutcome outcome, IKeyFrameAnimation animation, ILogger logger)
     {
         switch (outcome)
         {

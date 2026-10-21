@@ -11,7 +11,7 @@ namespace Beutl.Editor.Components.PathEditorTab.Views;
 // Topology edits must not silently bake animation or expressions into the current frame.
 internal static class PathEditingOperations
 {
-    internal static bool IsStatic(IProperty property) => property.Animation == null && !property.HasExpression;
+    internal static bool IsStatic(IProperty property) => property.GetKeyFrameAnimation() == null && !property.HasExpression;
 
     internal static Point Lerp(Point a, Point b, float t) => new(float.Lerp(a.X, b.X, t), float.Lerp(a.Y, b.Y, t));
 
@@ -80,7 +80,7 @@ internal static class PathEditingOperations
             && (index == figure.Segments.Count || figure.Segments[index] is not ArcSegment);
         bool CanUsePoint(IProperty<Point> property) => IsStatic(property)
             || allowKeyframe && !property.HasExpression
-                && property.Animation is KeyFrameAnimation<Point> { KeyFrames.Count: 1 } animation
+                && property.GetKeyFrameAnimation() is KeyFrameAnimation<Point> { KeyFrames.Count: 1 } animation
                 && animation.KeyFrames[0] is KeyFrame<Point>;
         if (index == figure.Segments.Count)
             return CanUsePoint(figure.StartPoint) && !ReadPoint(figure.StartPoint).Value.IsInvalid
@@ -189,7 +189,7 @@ internal static class PathEditingOperations
 
     private static SplitPoint ReadPoint(IProperty<Point> property)
     {
-        var animation = property.Animation as KeyFrameAnimation<Point>;
+        var animation = property.GetKeyFrameAnimation() as KeyFrameAnimation<Point>;
         return new(property.CurrentValue, animation?.KeyFrames[0] is KeyFrame<Point> key
             ? key.Value : property.CurrentValue, animation);
     }
@@ -204,7 +204,7 @@ internal static class PathEditingOperations
     {
         property.CurrentValue = point.BaseValue;
         if (point.Animation == null) return;
-        if (property.Animation is KeyFrameAnimation<Point> { KeyFrames.Count: 1 } existing
+        if (property.GetKeyFrameAnimation() is KeyFrameAnimation<Point> { KeyFrames.Count: 1 } existing
             && existing.KeyFrames[0] is KeyFrame<Point> key)
         {
             key.Value = point.Value;
@@ -222,7 +222,7 @@ internal static class PathEditingOperations
             Name = point.Animation.Name
         };
         animation.KeyFrames.Add(derived);
-        property.Animation = animation;
+        property.SetKeyFrameAnimation(animation);
     }
 
     internal static CubicBezierSegment Cubic(Point c1, Point c2, Point end) => new()

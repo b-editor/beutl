@@ -6,7 +6,7 @@ namespace Beutl.Editor.Services;
 // Approximate the discrete playback sum with a bounded piecewise-linear table.
 // Work depends on curve complexity, not the number of audio samples before the
 // clip. The error allowance travels with the value into source-window checks.
-internal sealed class EditorSpeedIntegral(IAnimation<float> animation, int sampleRate)
+internal sealed class EditorSpeedIntegral(KeyFrameAnimation<float> animation, int sampleRate)
 {
     internal readonly record struct Estimate(double Seconds, double Error);
 
@@ -22,9 +22,8 @@ internal sealed class EditorSpeedIntegral(IAnimation<float> animation, int sampl
     private double _error;
     private long _first;
     private long _end;
-    private readonly bool _customInterpolation = animation.GetType() != typeof(KeyFrameAnimation<float>)
-        || animation is KeyFrameAnimation<float> keys
-            && keys.KeyFrames.Any(k => k.Easing.GetType().Assembly != typeof(Easing).Assembly);
+    private readonly bool _customInterpolation
+        = animation.KeyFrames.Any(k => k.Easing.GetType().Assembly != typeof(Easing).Assembly);
 
     public bool HasCustomInterpolation => _customInterpolation;
 
@@ -61,15 +60,8 @@ internal sealed class EditorSpeedIntegral(IAnimation<float> animation, int sampl
             boundaries.Add(_first);
             boundaries.Add(_end);
         }
-        if (animation is KeyFrameAnimation<float> keys)
-        {
-            foreach (IKeyFrame key in keys.KeyFrames)
-                boundaries.Add((long)Math.Ceiling(key.KeyTime.TotalSeconds * sampleRate));
-        }
-        else
-        {
-            boundaries.Add((long)Math.Ceiling(animation.Duration.TotalSeconds * sampleRate));
-        }
+        foreach (IKeyFrame key in animation.KeyFrames)
+            boundaries.Add((long)Math.Ceiling(key.KeyTime.TotalSeconds * sampleRate));
         boundaries.Add(0);
         _segments.Clear();
         _samples.Clear();

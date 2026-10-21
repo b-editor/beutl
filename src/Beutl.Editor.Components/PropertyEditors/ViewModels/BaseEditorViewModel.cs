@@ -226,7 +226,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     {
     }
 
-    public IAnimation? GetAnimation()
+    public IKeyFrameAnimation? GetAnimation()
     {
         return (PropertyAdapter as IAnimatablePropertyAdapter)?.Animation;
     }

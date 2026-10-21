@@ -46,7 +46,7 @@ public sealed partial class GraphEditorViewModel
         if (selected.Length == 0) return false;
         try
         {
-            var copy = (KeyFrameAnimation)Activator.CreateInstance(Animation.GetType())!;
+            var copy = (IKeyFrameAnimation)Activator.CreateInstance(Animation.GetType())!;
             foreach (var key in selected)
             {
                 ObjectRegenerator.Regenerate(key, key.GetType(), out var clone);

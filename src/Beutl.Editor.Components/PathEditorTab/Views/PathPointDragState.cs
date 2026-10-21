@@ -25,7 +25,7 @@ public sealed class PathPointDragState
         OldPreviousValue = previous?.Value ?? default;
         OldNextValue = next?.Value ?? default;
         OldValue = property.CurrentValue;
-        Animation = property.Animation as KeyFrameAnimation<BtlPoint>;
+        Animation = property.GetKeyFrameAnimation() as KeyFrameAnimation<BtlPoint>;
     }
 
     public KeyFrameAnimation<BtlPoint>? Animation { get; }
