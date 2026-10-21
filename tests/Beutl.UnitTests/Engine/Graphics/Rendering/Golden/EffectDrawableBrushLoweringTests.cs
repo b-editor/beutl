@@ -28,9 +28,9 @@ public class EffectDrawableBrushLoweringTests
             (Func<Brush?, FilterEffect>)(brush =>
             {
                 var effect = new FlatShadow();
-                effect.Angle.CurrentValue = 0;
-                effect.Length.CurrentValue = 40;
-                effect.Brush.CurrentValue = brush;
+                effect.Angle.Value = 0;
+                effect.Length.Value = 40;
+                effect.Brush.Value = brush;
                 return effect;
             }));
         yield return new TestCaseData(
@@ -38,8 +38,8 @@ public class EffectDrawableBrushLoweringTests
             (Func<Brush?, FilterEffect>)(brush =>
             {
                 var effect = new BlendEffect();
-                effect.Brush.CurrentValue = brush;
-                effect.BlendMode.CurrentValue = BlendMode.SrcIn;
+                effect.Brush.Value = brush;
+                effect.BlendMode.Value = BlendMode.SrcIn;
                 return effect;
             }));
         yield return new TestCaseData(
@@ -50,9 +50,9 @@ public class EffectDrawableBrushLoweringTests
                 if (brush is not null)
                 {
                     var pen = new Pen();
-                    pen.Thickness.CurrentValue = 14;
-                    pen.Brush.CurrentValue = brush;
-                    effect.Pen.CurrentValue = pen;
+                    pen.Thickness.Value = 14;
+                    pen.Brush.Value = brush;
+                    effect.Pen.Value = pen;
                 }
 
                 return effect;
@@ -62,7 +62,7 @@ public class EffectDrawableBrushLoweringTests
             (Func<Brush?, FilterEffect>)(brush =>
             {
                 var effect = new NestedActivateBrushEffect();
-                effect.Brush.CurrentValue = brush;
+                effect.Brush.Value = brush;
                 return effect;
             }));
         yield return new TestCaseData(
@@ -70,7 +70,7 @@ public class EffectDrawableBrushLoweringTests
             (Func<Brush?, FilterEffect>)(brush =>
             {
                 var effect = new TypedOperationBeforeBrushEffect();
-                effect.Brush.CurrentValue = brush;
+                effect.Brush.Value = brush;
                 return effect;
             }));
         yield return new TestCaseData(
@@ -78,8 +78,8 @@ public class EffectDrawableBrushLoweringTests
             (Func<Brush?, FilterEffect>)(brush =>
             {
                 var effect = new DisplacementMapEffect();
-                effect.DisplacementMap.CurrentValue = brush;
-                effect.ShowDisplacementMap.CurrentValue = true;
+                effect.DisplacementMap.Value = brush;
+                effect.ShowDisplacementMap.Value = true;
                 return effect;
             }));
         // A drawable map takes the effect-item custom-effect path while every other brush takes the shader
@@ -89,14 +89,14 @@ public class EffectDrawableBrushLoweringTests
             (Func<Brush?, FilterEffect>)(brush =>
             {
                 var transform = new DisplacementMapTranslateTransform();
-                transform.X.CurrentValue = 24;
-                transform.Y.CurrentValue = -16;
+                transform.X.Value = 24;
+                transform.Y.Value = -16;
                 var effect = new DisplacementMapEffect();
-                effect.DisplacementMap.CurrentValue = brush;
-                effect.Transform.CurrentValue = transform;
+                effect.DisplacementMap.Value = brush;
+                effect.Transform.Value = transform;
                 // The source fill is flat, so a uniform displacement only shows where the shifted sampling
                 // leaves the source; clamp sampling would reproduce the unshifted fill instead.
-                effect.SpreadMethod.CurrentValue = GradientSpreadMethod.Decal;
+                effect.SpreadMethod.Value = GradientSpreadMethod.Decal;
                 return effect;
             }));
     }
@@ -116,7 +116,7 @@ public class EffectDrawableBrushLoweringTests
                     var group = new FilterEffectGroup();
                     group.Children.Add(makeEffect(brush));
                     var delay = new DelayAnimationEffect();
-                    delay.Effect.CurrentValue = group;
+                    delay.Effect.Value = group;
                     return delay;
                 }));
         }
@@ -172,36 +172,36 @@ public class EffectDrawableBrushLoweringTests
     private static Brush MakeSolid()
     {
         var brush = new SolidColorBrush();
-        brush.Color.CurrentValue = Colors.Red;
+        brush.Color.Value = Colors.Red;
         return brush;
     }
 
     private static Brush MakeDrawableBrush()
     {
         var content = new RectShape();
-        content.AlignmentX.CurrentValue = AlignmentX.Center;
-        content.AlignmentY.CurrentValue = AlignmentY.Center;
-        content.Width.CurrentValue = 200;
-        content.Height.CurrentValue = 200;
-        content.Fill.CurrentValue = MakeSolid();
+        content.AlignmentX.Value = AlignmentX.Center;
+        content.AlignmentY.Value = AlignmentY.Center;
+        content.Width.Value = 200;
+        content.Height.Value = 200;
+        content.Fill.Value = MakeSolid();
         var brush = new DrawableBrush();
-        brush.Drawable.CurrentValue = content;
-        brush.Stretch.CurrentValue = Stretch.Fill;
+        brush.Drawable.Value = content;
+        brush.Stretch.Value = Stretch.Fill;
         // A stroke paints outside the brush frame, where TileMode.None decals to transparent; tiling keeps the
         // comparison against a solid brush apples-to-apples.
-        brush.TileMode.CurrentValue = TileMode.Tile;
+        brush.TileMode.Value = TileMode.Tile;
         return brush;
     }
 
     private static Drawable.Resource Make(Func<FilterEffect> makeEffect)
     {
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.Width.CurrentValue = 140;
-        shape.Height.CurrentValue = 90;
-        shape.Fill.CurrentValue = Brushes.White;
-        shape.FilterEffect.CurrentValue = makeEffect();
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.Width.Value = 140;
+        shape.Height.Value = 90;
+        shape.Fill.Value = Brushes.White;
+        shape.FilterEffect.Value = makeEffect();
         return shape.ToResource(CompositionContext.Default);
     }
 }

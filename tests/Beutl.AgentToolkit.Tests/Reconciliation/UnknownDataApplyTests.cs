@@ -178,7 +178,7 @@ public sealed class UnknownDataApplyTests
             Length = TimeSpan.FromSeconds(4),
             Uri = new Uri(elementPath),
         };
-        element.AddObject(new RectShape { Width = { CurrentValue = 10 } });
+        element.AddObject(new RectShape { Width = { Value = 10 } });
         var plugin = new RectShape();
         plugin.Width.SetKeyFrameAnimation(new Beutl.Animation.KeyFrameAnimation<float>
         {
@@ -214,7 +214,7 @@ public sealed class UnknownDataApplyTests
             Length = TimeSpan.FromSeconds(4),
             Uri = new Uri(elementPath),
         };
-        element.AddObject(new RectShape { Width = { CurrentValue = 10 } });
+        element.AddObject(new RectShape { Width = { Value = 10 } });
         element.AddObject(new RectShape { Uri = new Uri(sidecarPath) });
         scene.Children.Add(element);
         CoreSerializer.StoreToUri(scene, sceneUri);

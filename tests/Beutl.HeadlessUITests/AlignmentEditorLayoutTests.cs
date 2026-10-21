@@ -60,7 +60,7 @@ public class AlignmentEditorLayoutTests
                 window.MouseDown(point, MouseButton.Left);
                 window.MouseUp(point, MouseButton.Left);
                 HeadlessTestHelpers.Render();
-                Assert.That(text.TextAlignment.CurrentValue, Is.EqualTo((TextAlignment)index));
+                Assert.That(text.TextAlignment.Value, Is.EqualTo((TextAlignment)index));
                 Assert.That(button.IsChecked, Is.True);
                 Assert.That(buttons.Count(b => b.IsChecked == true), Is.EqualTo(1));
             }
@@ -68,7 +68,7 @@ public class AlignmentEditorLayoutTests
             Assert.That(history.History.UndoCount, Is.EqualTo(3));
             history.History.Undo();
             HeadlessTestHelpers.Render();
-            Assert.That(text.TextAlignment.CurrentValue, Is.EqualTo(TextAlignment.End));
+            Assert.That(text.TextAlignment.Value, Is.EqualTo(TextAlignment.End));
             Assert.That(editor.Value, Is.EqualTo(TextAlignment.End));
             Assert.That(buttons[2].IsChecked, Is.True);
         }

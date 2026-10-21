@@ -200,7 +200,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         if (!IsElementEditable) return;
         if (Value.Value is SolidColorBrush solid)
         {
-            solid.Color.CurrentValue = newValue;
+            solid.Color.Value = newValue;
             Commit();
         }
     }
@@ -219,10 +219,10 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
     public void ChangeDrawableType(Type type)
     {
         if (IsDisposed || Value.Value is not Media.DrawableBrush drawable) return;
-        if (!CanReplace(drawable.Drawable.CurrentValue)) return;
+        if (!CanReplace(drawable.Drawable.Value)) return;
         if (Activator.CreateInstance(type) is Drawable instance)
         {
-            drawable.Drawable.CurrentValue = instance;
+            drawable.Drawable.Value = instance;
             CompleteElementRepair();
             Commit();
         }
@@ -231,7 +231,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
     public void SetTarget(Brush? target)
     {
         if (IsDisposed || Value.Value is not IPresenter<Brush> presenter) return;
-        if (!CanReplace(presenter.Target.CurrentValue)) return;
+        if (!CanReplace(presenter.Target.Value)) return;
         PresenterEditorHelper.AssignTarget(presenter, target);
         CompleteElementRepair();
         Commit();
@@ -243,8 +243,8 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         // A kept brush has only its drawable, or the target of its drawable presenter, replaced.
         object? replaced = Value.Value switch
         {
-            DrawableBrush { Drawable.CurrentValue: DrawablePresenter current } => current.Target.CurrentValue,
-            DrawableBrush kept => kept.Drawable.CurrentValue,
+            DrawableBrush { Drawable.Value: DrawablePresenter current } => current.Target.Value,
+            DrawableBrush kept => kept.Drawable.Value,
             var brush => brush,
         };
         if (!CanReplace(replaced)) return;
@@ -255,10 +255,10 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
             PropertyAdapter.SetValue(drawableBrush);
         }
 
-        if (drawableBrush.Drawable.CurrentValue is not DrawablePresenter presenter)
+        if (drawableBrush.Drawable.Value is not DrawablePresenter presenter)
         {
             presenter = new DrawablePresenter();
-            drawableBrush.Drawable.CurrentValue = presenter;
+            drawableBrush.Drawable.Value = presenter;
         }
 
         PresenterEditorHelper.AssignTarget(presenter, target);

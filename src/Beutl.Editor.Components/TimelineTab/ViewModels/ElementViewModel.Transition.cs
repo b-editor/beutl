@@ -112,7 +112,7 @@ public sealed partial class ElementViewModel
     // The duration this element's own side adds at edge, or none when it sets no transition there.
     public TimeSpan? GetOwnTransitionDuration(ElementEdge edge)
     {
-        return ElementTransitionEdits.GetTransition(Model, edge)?.Duration.CurrentValue;
+        return ElementTransitionEdits.GetTransition(Model, edge)?.Duration.Value;
     }
 
     // Redraws the boundary at the duration a drag would commit, on both of its elements, without touching
@@ -192,7 +192,7 @@ public sealed partial class ElementViewModel
             (partEnd - partStart).TimeToPixel(scale),
             Math.Clamp(startFraction, 0, 1),
             Math.Clamp(endFraction, 0, 1),
-            transition.Easing.CurrentValue,
+            transition.Easing.Value,
             toolTip,
             ElementTransitionEdits.GetTransition(Model, edge) is { IsEnabled: true });
     }

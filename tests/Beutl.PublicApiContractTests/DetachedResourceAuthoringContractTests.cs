@@ -61,7 +61,7 @@ public sealed class DetachedResourceAuthoringContractTests
     public void AnAttachedResource_StillReportsItsBackingObject()
     {
         var geometry = new PluginGeometry();
-        geometry.Side.CurrentValue = 10;
+        geometry.Side.Value = 10;
         using Geometry.Resource attached = geometry.ToResource(CompositionContext.Default);
 
         using (Assert.EnterMultipleScope())

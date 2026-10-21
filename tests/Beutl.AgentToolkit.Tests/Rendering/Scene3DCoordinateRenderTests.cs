@@ -21,20 +21,20 @@ public sealed class Scene3DCoordinateRenderTests
     private static TextBlock CreateText(float x, float y)
     {
         var block = new TextBlock();
-        block.Text.CurrentValue = "Hello 3D";
-        block.Size.CurrentValue = 120;
-        block.Fill.CurrentValue = new SolidColorBrush(new Color(255, 230, 80, 20));
-        block.Transform.CurrentValue = new TranslateTransform(x, y);
+        block.Text.Value = "Hello 3D";
+        block.Size.Value = 120;
+        block.Fill.Value = new SolidColorBrush(new Color(255, 230, 80, 20));
+        block.Transform.Value = new TranslateTransform(x, y);
         return block;
     }
 
     private static RectShape CreateRect(float x, float y, Color? color = null)
     {
         var rect = new RectShape();
-        rect.Width.CurrentValue = 400;
-        rect.Height.CurrentValue = 250;
-        rect.Fill.CurrentValue = new SolidColorBrush(color ?? new Color(160, 30, 120, 255));
-        rect.Transform.CurrentValue = new TranslateTransform(x, y);
+        rect.Width.Value = 400;
+        rect.Height.Value = 250;
+        rect.Fill.Value = new SolidColorBrush(color ?? new Color(160, 30, 120, 255));
+        rect.Transform.Value = new TranslateTransform(x, y);
         return rect;
     }
 
@@ -81,7 +81,7 @@ public sealed class Scene3DCoordinateRenderTests
     {
         TestGpu.RequireAnyDevice();
         var cube = new Cube3D();
-        cube.Position.CurrentValue = new Vector3(0, -200, 100);
+        cube.Position.Value = new Vector3(0, -200, 100);
 
         float[] pixels = await RenderAsync([cube, new DirectionalLight3D(), new Scene3D()]);
 

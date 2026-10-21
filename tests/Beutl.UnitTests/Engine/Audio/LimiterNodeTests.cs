@@ -1238,10 +1238,10 @@ public class LimiterNodeTests
         Assert.That(node.Lookahead, Is.SameAs(effect.Lookahead));
         Assert.That(node.MakeupGain, Is.SameAs(effect.MakeupGain));
 
-        Assert.That(effect.Threshold.CurrentValue, Is.EqualTo(DefaultThresholdDb));
-        Assert.That(effect.Release.CurrentValue, Is.EqualTo(DefaultReleaseMs));
-        Assert.That(effect.Lookahead.CurrentValue, Is.EqualTo(DefaultLookaheadMs));
-        Assert.That(effect.MakeupGain.CurrentValue, Is.EqualTo(DefaultMakeupGainDb));
+        Assert.That(effect.Threshold.Value, Is.EqualTo(DefaultThresholdDb));
+        Assert.That(effect.Release.Value, Is.EqualTo(DefaultReleaseMs));
+        Assert.That(effect.Lookahead.Value, Is.EqualTo(DefaultLookaheadMs));
+        Assert.That(effect.MakeupGain.Value, Is.EqualTo(DefaultMakeupGainDb));
     }
 
     [Test]
@@ -1251,7 +1251,7 @@ public class LimiterNodeTests
         // boundary samples in a video editor that has no plugin-delay-compensation. Guards against
         // an accidental revert to a non-zero default.
         Assert.That(DefaultLookaheadMs, Is.EqualTo(0f));
-        Assert.That(new LimiterEffect().Lookahead.CurrentValue, Is.EqualTo(0f));
+        Assert.That(new LimiterEffect().Lookahead.Value, Is.EqualTo(0f));
     }
 
     [TestCase(-6f, 6f)]
@@ -1501,7 +1501,7 @@ public class LimiterNodeTests
         }
 
         // Switch the deque node's static lookahead to B; the scan node steps to B automatically.
-        dequeNode.Lookahead.CurrentValue = lookB;
+        dequeNode.Lookahead.Value = lookB;
 
         using var inDeque2 = CreateBuffer(2, chunkSamples, (ch, i) => Gen(ch, chunkSamples + i));
         using var inScan2 = CreateBuffer(2, chunkSamples, (ch, i) => Gen(ch, chunkSamples + i));
@@ -1630,7 +1630,7 @@ public class LimiterNodeTests
 
         // Switch the deque node's static lookahead to the large window; the rebuild must clamp to the
         // 64-sample history rather than over-reading the peak ring.
-        dequeNode.Lookahead.CurrentValue = lookB;
+        dequeNode.Lookahead.Value = lookB;
 
         using var inDeque2 = CreateBuffer(2, chunk2, (ch, i) => Gen(ch, chunk1 + i));
         using var inScan2 = CreateBuffer(2, chunk2, (ch, i) => Gen(ch, chunk1 + i));

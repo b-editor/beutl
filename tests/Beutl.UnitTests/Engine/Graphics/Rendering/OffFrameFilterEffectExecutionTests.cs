@@ -73,15 +73,15 @@ public sealed class OffFrameFilterEffectExecutionTests
             float y = 18 + ((index % 2) * 66);
             var visible = new RectShape
             {
-                Width = { CurrentValue = 44 },
-                Height = { CurrentValue = 52 },
+                Width = { Value = 44 },
+                Height = { Value = 52 },
                 Fill =
                 {
-                    CurrentValue = index % 2 == 0
+                    Value = index % 2 == 0
                         ? Brushes.White
                         : Brushes.OrangeRed,
                 },
-                Transform = { CurrentValue = new TranslateTransform(x, y) },
+                Transform = { Value = new TranslateTransform(x, y) },
             };
             drawables.Add(visible.ToResource(CompositionContext.Default));
         }
@@ -90,17 +90,17 @@ public sealed class OffFrameFilterEffectExecutionTests
         {
             var offFrame = new RectShape
             {
-                Width = { CurrentValue = 80 },
-                Height = { CurrentValue = 64 },
-                Fill = { CurrentValue = Brushes.CornflowerBlue },
-                AlignmentX = { CurrentValue = AlignmentX.Left },
-                AlignmentY = { CurrentValue = AlignmentY.Top },
-                Transform = { CurrentValue = new TranslateTransform(offFrameX, 40) },
+                Width = { Value = 80 },
+                Height = { Value = 64 },
+                Fill = { Value = Brushes.CornflowerBlue },
+                AlignmentX = { Value = AlignmentX.Left },
+                AlignmentY = { Value = AlignmentY.Top },
+                Transform = { Value = new TranslateTransform(offFrameX, 40) },
                 FilterEffect =
                 {
-                    CurrentValue = new Blur
+                    Value = new Blur
                     {
-                        Sigma = { CurrentValue = new Size(4, 4) },
+                        Sigma = { Value = new Size(4, 4) },
                     },
                 },
             };

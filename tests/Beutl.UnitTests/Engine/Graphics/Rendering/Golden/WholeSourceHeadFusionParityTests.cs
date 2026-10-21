@@ -105,14 +105,14 @@ public sealed class WholeSourceHeadFusionParityTests
         out RenderExecutionStatistics statistics)
     {
         var mosaic = new MosaicEffect();
-        mosaic.TileSize.CurrentValue = new Size(10, 10);
-        mosaic.Origin.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
+        mosaic.TileSize.Value = new Size(10, 10);
+        mosaic.Origin.Value = new RelativePoint(0, 0, RelativeUnit.Absolute);
         var effects = new FilterEffectGroup
         {
             Children =
             {
                 mosaic,
-                new Gamma { Amount = { CurrentValue = 180f } },
+                new Gamma { Amount = { Value = 180f } },
             },
         };
 
@@ -141,7 +141,7 @@ public sealed class WholeSourceHeadFusionParityTests
         {
             Script =
             {
-                CurrentValue =
+                Value =
                     """
                     uniform shader src;
                     uniform float width;
@@ -163,7 +163,7 @@ public sealed class WholeSourceHeadFusionParityTests
             Children =
             {
                 script,
-                new Gamma { Amount = { CurrentValue = 100f } },
+                new Gamma { Amount = { Value = 100f } },
             },
         };
         var contentBounds = new Rect(0, 0, 16, 12);

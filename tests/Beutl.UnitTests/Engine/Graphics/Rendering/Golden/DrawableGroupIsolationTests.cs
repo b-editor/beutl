@@ -23,7 +23,7 @@ public sealed class DrawableGroupIsolationTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var inner = new DrawableGroup();
-            inner.Opacity.CurrentValue = 50;
+            inner.Opacity.Value = 50;
             inner.Children.Add(CreateRectangle(400, 240, Brushes.White));
             using Drawable.Resource outer = CreateGroup(50, null, inner);
             using Bitmap bitmap = RenderScene(outer);
@@ -85,7 +85,7 @@ public sealed class DrawableGroupIsolationTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var identity = new Brightness();
-            identity.Amount.CurrentValue = 100;
+            identity.Amount.Value = 100;
             using Drawable.Resource plain = CreateGroup(
                 opacity: 50,
                 effect: null,
@@ -130,13 +130,13 @@ public sealed class DrawableGroupIsolationTests
                 240,
                 Brushes.OrangeRed,
                 alignmentX: AlignmentX.Left);
-            left.FilterEffect.CurrentValue = CreateSplitEffect();
+            left.FilterEffect.Value = CreateSplitEffect();
             RectShape right = CreateRectangle(
                 240,
                 240,
                 Brushes.SteelBlue,
                 alignmentX: AlignmentX.Right);
-            right.FilterEffect.CurrentValue = CreateSplitEffect();
+            right.FilterEffect.Value = CreateSplitEffect();
             using Drawable.Resource childrenFiltered = CreateGroup(
                 opacity: 100,
                 effect: null,
@@ -161,7 +161,7 @@ public sealed class DrawableGroupIsolationTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var blur = new Blur();
-            blur.Sigma.CurrentValue = new Size(6, 6);
+            blur.Sigma.Value = new Size(6, 6);
             using Drawable.Resource group = CreateGroup(
                 opacity: 100,
                 blur,
@@ -191,14 +191,14 @@ public sealed class DrawableGroupIsolationTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             RectShape offFrame = CreateRectangle(160, 120, Brushes.OrangeRed);
-            offFrame.Transform.CurrentValue = new TranslateTransform(-180, -120);
+            offFrame.Transform.Value = new TranslateTransform(-180, -120);
 
             var blur = new Blur();
-            blur.Sigma.CurrentValue = new Size(10, 10);
+            blur.Sigma.Value = new Size(10, 10);
             var shadow = new DropShadow();
-            shadow.Position.CurrentValue = new Point(10, 10);
-            shadow.Sigma.CurrentValue = new Size(20, 20);
-            shadow.Color.CurrentValue = Colors.Black;
+            shadow.Position.Value = new Point(10, 10);
+            shadow.Sigma.Value = new Size(20, 20);
+            shadow.Color.Value = Colors.Black;
             var chain = new FilterEffectGroup();
             chain.Children.Add(blur);
             chain.Children.Add(shadow);
@@ -290,7 +290,7 @@ public sealed class DrawableGroupIsolationTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var gradient = new LinearGradientBrush();
-            gradient.Opacity.CurrentValue = 50;
+            gradient.Opacity.Value = 50;
             gradient.GradientStops.Add(new GradientStop(Colors.White, 0));
             gradient.GradientStops.Add(new GradientStop(Colors.White, 1));
             using Drawable.Resource group = CreateGroup(
@@ -323,14 +323,14 @@ public sealed class DrawableGroupIsolationTests
         {
             var geometry = new RectGeometry
             {
-                Width = { CurrentValue = width },
-                Height = { CurrentValue = height },
+                Width = { Value = width },
+                Height = { Value = height },
             };
             using Geometry.Resource geometryResource = geometry.ToResource(CompositionContext.Default);
             var nonEmptyGeometry = new RectGeometry
             {
-                Width = { CurrentValue = 4 },
-                Height = { CurrentValue = 4 },
+                Width = { Value = 4 },
+                Height = { Value = 4 },
             };
             using Geometry.Resource nonEmptyGeometryResource =
                 nonEmptyGeometry.ToResource(CompositionContext.Default);
@@ -424,7 +424,7 @@ public sealed class DrawableGroupIsolationTests
         {
             using Drawable.Resource plain = CreateTranslatedMaskGroup(effect: null);
             var identity = new Brightness();
-            identity.Amount.CurrentValue = 100;
+            identity.Amount.Value = 100;
             using Drawable.Resource filtered = CreateTranslatedMaskGroup(identity);
 
             using Bitmap expected = RenderScene(plain);
@@ -457,7 +457,7 @@ public sealed class DrawableGroupIsolationTests
         {
             using Drawable.Resource plain = CreateTranslatedDstOutGroup(effect: null);
             var identity = new Brightness();
-            identity.Amount.CurrentValue = 100;
+            identity.Amount.Value = 100;
             using Drawable.Resource filtered = CreateTranslatedDstOutGroup(identity);
 
             using Bitmap expected = RenderScene(plain);
@@ -498,7 +498,7 @@ public sealed class DrawableGroupIsolationTests
         {
             using Drawable.Resource plain = CreateTranslatedMaskGroup(effect: null);
             var identity = new Brightness();
-            identity.Amount.CurrentValue = 100;
+            identity.Amount.Value = 100;
             using Drawable.Resource filtered = CreateTranslatedMaskGroup(identity);
             using Bitmap expected = RenderScene(0.25f, plain);
             using Bitmap actual = RenderScene(0.25f, filtered);
@@ -566,14 +566,14 @@ public sealed class DrawableGroupIsolationTests
         {
             var sourceColor = new Color(255, 128, 64, 32);
             var inner = new DrawableGroup();
-            inner.Opacity.CurrentValue = 50;
+            inner.Opacity.Value = 50;
             inner.Children.Add(CreateRectangle(
                 240,
                 240,
                 new SolidColorBrush(sourceColor)));
 
             var outer = new DrawableGroup();
-            outer.Opacity.CurrentValue = 50;
+            outer.Opacity.Value = 50;
             outer.Children.Add(inner);
 
             using Drawable.Resource resource = outer.ToResource(CompositionContext.Default);
@@ -682,8 +682,8 @@ public sealed class DrawableGroupIsolationTests
 
             var backdrop = new SourceBackdrop
             {
-                Clear = { CurrentValue = false },
-                FilterEffect = { CurrentValue = new Invert() },
+                Clear = { Value = false },
+                FilterEffect = { Value = new Invert() },
             };
             float effectOpacity = backdropOpacity ?? opacity;
             Drawable effect = backdrop;
@@ -691,12 +691,12 @@ public sealed class DrawableGroupIsolationTests
             {
                 var group = new DrawableGroup();
                 group.Children.Add(backdrop);
-                group.Opacity.CurrentValue = effectOpacity;
+                group.Opacity.Value = effectOpacity;
                 effect = group;
             }
             else
             {
-                backdrop.Opacity.CurrentValue = effectOpacity;
+                backdrop.Opacity.Value = effectOpacity;
             }
 
             return
@@ -786,8 +786,8 @@ public sealed class DrawableGroupIsolationTests
         params Drawable[] children)
     {
         var group = new DrawableGroup();
-        group.Opacity.CurrentValue = opacity;
-        group.FilterEffect.CurrentValue = effect;
+        group.Opacity.Value = opacity;
+        group.FilterEffect.Value = effect;
         foreach (Drawable child in children)
             group.Children.Add(child);
         return group.ToResource(CompositionContext.Default);
@@ -796,18 +796,18 @@ public sealed class DrawableGroupIsolationTests
     private static SplitEffect CreateSplitEffect()
     {
         var effect = new SplitEffect();
-        effect.HorizontalDivisions.CurrentValue = 2;
-        effect.VerticalDivisions.CurrentValue = 2;
-        effect.HorizontalSpacing.CurrentValue = 20;
-        effect.VerticalSpacing.CurrentValue = 20;
+        effect.HorizontalDivisions.Value = 2;
+        effect.VerticalDivisions.Value = 2;
+        effect.HorizontalSpacing.Value = 20;
+        effect.VerticalSpacing.Value = 20;
         return effect;
     }
 
     private static Drawable.Resource CreateTranslatedMaskGroup(FilterEffect? effect)
     {
         var group = new DrawableGroup();
-        group.FilterEffect.CurrentValue = effect;
-        group.Transform.CurrentValue = new TranslateTransform(0.25f, 0.25f);
+        group.FilterEffect.Value = effect;
+        group.Transform.Value = new TranslateTransform(0.25f, 0.25f);
         group.Children.Add(CreateRectangle(200, 200, Brushes.Blue));
         group.Children.Add(CreateRectangle(100, 100, Brushes.White, blendMode: BlendMode.DstIn));
         return group.ToResource(CompositionContext.Default);
@@ -820,11 +820,11 @@ public sealed class DrawableGroupIsolationTests
             160,
             Brushes.White,
             blendMode: BlendMode.DstOut);
-        eraser.Transform.CurrentValue = new TranslateTransform(0.25f, 0.25f);
+        eraser.Transform.Value = new TranslateTransform(0.25f, 0.25f);
 
         var group = new DrawableGroup();
-        group.FilterEffect.CurrentValue = effect;
-        group.Transform.CurrentValue = new TranslateTransform(0.25f, 0);
+        group.FilterEffect.Value = effect;
+        group.Transform.Value = new TranslateTransform(0.25f, 0);
         group.Children.Add(CreateRectangle(320, 320, Brushes.White));
         group.Children.Add(eraser);
         return group.ToResource(CompositionContext.Default);
@@ -839,22 +839,22 @@ public sealed class DrawableGroupIsolationTests
         AlignmentX alignmentX = AlignmentX.Center)
     {
         var shape = new RectShape();
-        shape.Width.CurrentValue = width;
-        shape.Height.CurrentValue = height;
-        shape.Fill.CurrentValue = fill;
-        shape.Opacity.CurrentValue = opacity;
-        shape.BlendMode.CurrentValue = blendMode;
-        shape.AlignmentX.CurrentValue = alignmentX;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
+        shape.Width.Value = width;
+        shape.Height.Value = height;
+        shape.Fill.Value = fill;
+        shape.Opacity.Value = opacity;
+        shape.BlendMode.Value = blendMode;
+        shape.AlignmentX.Value = alignmentX;
+        shape.AlignmentY.Value = AlignmentY.Center;
         return shape;
     }
 
     private static EllipseShape CreateEllipse(float width, float height, Brush fill)
     {
         var shape = new EllipseShape();
-        shape.Width.CurrentValue = width;
-        shape.Height.CurrentValue = height;
-        shape.Fill.CurrentValue = fill;
+        shape.Width.Value = width;
+        shape.Height.Value = height;
+        shape.Fill.Value = fill;
         return shape;
     }
 

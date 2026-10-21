@@ -48,7 +48,7 @@ public class NodeGraphNavigationLayoutTests
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("node-navigation");
         var graph = new GraphModel();
         var drawable = new NodeGraphDrawable();
-        drawable.Model.CurrentValue = graph;
+        drawable.Model.Value = graph;
         var element = new Element { Name = "Composition" };
         element.AddObject(drawable);
         var group = new GroupNode { Position = (0, 0) };

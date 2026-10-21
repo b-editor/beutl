@@ -275,9 +275,9 @@ public sealed class UsageTelemetryTests
     {
         var scene = new Scene(640, 480, "usage-test");
         var video = new SourceVideo();
-        video.Source.CurrentValue = new VideoSource();
+        video.Source.Value = new VideoSource();
         var sound = new Beutl.Audio.SourceSound();
-        sound.Source.CurrentValue = new SoundSource();
+        sound.Source.Value = new SoundSource();
         var element = new Element { Length = TimeSpan.FromSeconds(5) };
         element.Objects.Add(video);
         element.Objects.Add(sound);
@@ -317,7 +317,7 @@ public sealed class UsageTelemetryTests
     {
         (Scene scene, var shape, _) = CreateShapeScene();
         using var tracked = new TrackedHistory(scene);
-        shape.Opacity.CurrentValue = 90;
+        shape.Opacity.Value = 90;
         tracked.History.Commit();
         _usage.Flush();
         Assert.That(_summaries.Single(s => s.Key.Event == "editor.property").Key.Feature, Is.EqualTo("RectShape.Opacity"));
@@ -346,7 +346,7 @@ public sealed class UsageTelemetryTests
     {
         (Scene scene, var shape, _) = CreateShapeScene();
         using var tracked = new TrackedHistory(scene);
-        shape.Opacity.CurrentValue = 90;
+        shape.Opacity.Value = 90;
         shape.Opacity.SetKeyFrameAnimation(new KeyFrameAnimation<float>());
         shape.Opacity.Expression = new StringExpression<float>("42");
         tracked.History.Commit();
@@ -831,7 +831,7 @@ public sealed class UsageTelemetryTests
         var shape = new Beutl.Graphics.Shapes.RectShape();
         if (effect is not null)
         {
-            shape.FilterEffect.CurrentValue = effect;
+            shape.FilterEffect.Value = effect;
         }
 
         var element = new Element();

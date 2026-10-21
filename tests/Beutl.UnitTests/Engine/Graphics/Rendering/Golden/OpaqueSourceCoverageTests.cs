@@ -97,22 +97,22 @@ public sealed class OpaqueSourceCoverageTests
     private static Drawable.Resource CreateAliasingProneSource(bool shifted, bool effectItemIdentityEffect)
     {
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
-        shape.Width.CurrentValue = 150;
-        shape.Height.CurrentValue = 18;
-        shape.Fill.CurrentValue = Brushes.White;
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.TransformOrigin.Value = RelativePoint.Center;
+        shape.Width.Value = 150;
+        shape.Height.Value = 18;
+        shape.Fill.Value = Brushes.White;
         var transform = new TransformGroup();
         transform.Children.Add(new RotationTransform(27));
         if (shifted)
             transform.Children.Add(new TranslateTransform(0.25f, 0.5f));
-        shape.Transform.CurrentValue = transform;
+        shape.Transform.Value = transform;
         if (effectItemIdentityEffect)
         {
             var effect = new TransformEffect();
-            effect.Transform.CurrentValue = new MatrixTransform(Matrix.Identity);
-            shape.FilterEffect.CurrentValue = effect;
+            effect.Transform.Value = new MatrixTransform(Matrix.Identity);
+            shape.FilterEffect.Value = effect;
         }
 
         return shape.ToResource(CompositionContext.Default);
@@ -121,44 +121,44 @@ public sealed class OpaqueSourceCoverageTests
     private static Drawable.Resource CreateDrawableBrushSource()
     {
         var content = new RectShape();
-        content.AlignmentX.CurrentValue = AlignmentX.Center;
-        content.AlignmentY.CurrentValue = AlignmentY.Center;
-        content.Width.CurrentValue = 76;
-        content.Height.CurrentValue = 44;
-        content.Fill.CurrentValue = Brushes.White;
+        content.AlignmentX.Value = AlignmentX.Center;
+        content.AlignmentY.Value = AlignmentY.Center;
+        content.Width.Value = 76;
+        content.Height.Value = 44;
+        content.Fill.Value = Brushes.White;
 
         var brush = new DrawableBrush(content);
-        brush.Stretch.CurrentValue = Stretch.Fill;
-        brush.TileMode.CurrentValue = TileMode.None;
-        brush.DestinationRect.CurrentValue = RelativeRect.Fill;
+        brush.Stretch.Value = Stretch.Fill;
+        brush.TileMode.Value = TileMode.None;
+        brush.DestinationRect.Value = RelativeRect.Fill;
 
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
-        shape.Width.CurrentValue = 146;
-        shape.Height.CurrentValue = 82;
-        shape.Fill.CurrentValue = brush;
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.TransformOrigin.Value = RelativePoint.Center;
+        shape.Width.Value = 146;
+        shape.Height.Value = 82;
+        shape.Fill.Value = brush;
         var transform = new TransformGroup();
         transform.Children.Add(new RotationTransform(27));
         transform.Children.Add(new TranslateTransform(0.25f, 0.5f));
-        shape.Transform.CurrentValue = transform;
+        shape.Transform.Value = transform;
         return shape.ToResource(CompositionContext.Default);
     }
 
     private static Drawable.Resource CreateFallbackBrushSource()
     {
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
-        shape.Width.CurrentValue = 146;
-        shape.Height.CurrentValue = 82;
-        shape.Fill.CurrentValue = new FallbackBrush();
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.TransformOrigin.Value = RelativePoint.Center;
+        shape.Width.Value = 146;
+        shape.Height.Value = 82;
+        shape.Fill.Value = new FallbackBrush();
         var transform = new TransformGroup();
         transform.Children.Add(new RotationTransform(27));
         transform.Children.Add(new TranslateTransform(0.25f, 0.5f));
-        shape.Transform.CurrentValue = transform;
+        shape.Transform.Value = transform;
         return shape.ToResource(CompositionContext.Default);
     }
 

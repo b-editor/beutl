@@ -204,22 +204,22 @@ public sealed class BrushIntermediateAllocationIntentTests
         var source = new ImageSource();
         source.ReadFrom(TestMediaHelper.CreateTestImageUri(4, 4));
         var brush = new ImageBrush(source);
-        brush.Stretch.CurrentValue = Stretch.Fill;
-        brush.TileMode.CurrentValue = TileMode.None;
-        brush.DestinationRect.CurrentValue = RelativeRect.Fill;
+        brush.Stretch.Value = Stretch.Fill;
+        brush.TileMode.Value = TileMode.None;
+        brush.DestinationRect.Value = RelativeRect.Fill;
         return brush.ToResource(CompositionContext.Default);
     }
 
     private static DrawableBrush.Resource CreateDrawableBrush()
     {
         var content = new RectShape();
-        content.Width.CurrentValue = 8;
-        content.Height.CurrentValue = 8;
-        content.Fill.CurrentValue = Brushes.White;
+        content.Width.Value = 8;
+        content.Height.Value = 8;
+        content.Fill.Value = Brushes.White;
         var brush = new DrawableBrush(content);
-        brush.Stretch.CurrentValue = Stretch.Fill;
-        brush.TileMode.CurrentValue = TileMode.None;
-        brush.DestinationRect.CurrentValue = RelativeRect.Fill;
+        brush.Stretch.Value = Stretch.Fill;
+        brush.TileMode.Value = TileMode.None;
+        brush.DestinationRect.Value = RelativeRect.Fill;
         return brush.ToResource(CompositionContext.Default);
     }
 

@@ -17,16 +17,16 @@ public sealed class BrushSourceBoundsIdentityTests
     public void ResizingABrushFilledShape_ReusesTheStructuralPlan()
     {
         var shape = new RectShape();
-        shape.Width.CurrentValue = 200;
-        shape.Height.CurrentValue = 150;
-        shape.Fill.CurrentValue = new LinearGradientBrush();
+        shape.Width.Value = 200;
+        shape.Height.Value = 150;
+        shape.Fill.Value = new LinearGradientBrush();
         using var resource = (Drawable.Resource)shape.ToResource(CompositionContext.Default);
         using var root = new DrawableRenderNode(resource);
         using RenderNodeRenderer renderer = CreateRenderer(root);
 
         long afterFirstSize = RecordAndRasterize(shape, resource, root, renderer);
-        shape.Width.CurrentValue = 320;
-        shape.Height.CurrentValue = 240;
+        shape.Width.Value = 320;
+        shape.Height.Value = 240;
         long afterResize = RecordAndRasterize(shape, resource, root, renderer);
 
         Assert.Multiple(() =>
@@ -42,15 +42,15 @@ public sealed class BrushSourceBoundsIdentityTests
     public void AddingAFilterEffect_CompilesANewStructuralPlan()
     {
         var shape = new RectShape();
-        shape.Width.CurrentValue = 200;
-        shape.Height.CurrentValue = 150;
-        shape.Fill.CurrentValue = new LinearGradientBrush();
+        shape.Width.Value = 200;
+        shape.Height.Value = 150;
+        shape.Fill.Value = new LinearGradientBrush();
         using var resource = (Drawable.Resource)shape.ToResource(CompositionContext.Default);
         using var root = new DrawableRenderNode(resource);
         using RenderNodeRenderer renderer = CreateRenderer(root);
 
         long beforeEffect = RecordAndRasterize(shape, resource, root, renderer);
-        shape.FilterEffect.CurrentValue = new Blur();
+        shape.FilterEffect.Value = new Blur();
         long afterEffect = RecordAndRasterize(shape, resource, root, renderer);
 
         Assert.Multiple(() =>

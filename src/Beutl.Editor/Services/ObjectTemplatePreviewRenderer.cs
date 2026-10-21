@@ -340,37 +340,37 @@ public static class ObjectTemplatePreviewRenderer
             case FilterEffect:
                 if (Clone(instance, typeof(FilterEffect)) is not FilterEffect effect) return null;
                 Shape subject = CreateSubject();
-                subject.FilterEffect.CurrentValue = effect;
+                subject.FilterEffect.Value = effect;
                 return subject;
 
             case Transform:
                 if (Clone(instance, typeof(Transform)) is not Transform transform) return null;
                 Shape transformed = CreateSubject();
-                transformed.Transform.CurrentValue = transform;
+                transformed.Transform.Value = transform;
                 return transformed;
 
             case Brush:
                 if (Clone(instance, typeof(Brush)) is not Brush brush) return null;
                 return new RectShape
                 {
-                    Width = { CurrentValue = PreviewWidth },
-                    Height = { CurrentValue = PreviewHeight },
-                    Fill = { CurrentValue = brush }
+                    Width = { Value = PreviewWidth },
+                    Height = { Value = PreviewHeight },
+                    Fill = { Value = brush }
                 };
 
             case Pen:
                 if (Clone(instance, typeof(Pen)) is not Pen pen) return null;
                 return new RectShape
                 {
-                    Width = { CurrentValue = PreviewWidth },
-                    Height = { CurrentValue = PreviewHeight },
-                    Fill = { CurrentValue = null },
-                    Pen = { CurrentValue = pen }
+                    Width = { Value = PreviewWidth },
+                    Height = { Value = PreviewHeight },
+                    Fill = { Value = null },
+                    Pen = { Value = pen }
                 };
 
             case Geometry:
                 if (Clone(instance, typeof(Geometry)) is not Geometry geometry) return null;
-                return new GeometryShape { Data = { CurrentValue = geometry } };
+                return new GeometryShape { Data = { Value = geometry } };
 
             default:
                 return null;
@@ -383,23 +383,23 @@ public static class ObjectTemplatePreviewRenderer
     {
         var gradient = new LinearGradientBrush
         {
-            StartPoint = { CurrentValue = RelativePoint.TopLeft },
-            EndPoint = { CurrentValue = RelativePoint.BottomRight }
+            StartPoint = { Value = RelativePoint.TopLeft },
+            EndPoint = { Value = RelativePoint.BottomRight }
         };
         gradient.GradientStops.Add(new GradientStop(Color.FromRgb(0x4F, 0x8A, 0xF7), 0f));
         gradient.GradientStops.Add(new GradientStop(Color.FromRgb(0xF7, 0x8A, 0x4F), 1f));
 
         return new RectShape
         {
-            Width = { CurrentValue = PreviewWidth * 0.75f },
-            Height = { CurrentValue = PreviewHeight * 0.75f },
-            Fill = { CurrentValue = gradient },
+            Width = { Value = PreviewWidth * 0.75f },
+            Height = { Value = PreviewHeight * 0.75f },
+            Fill = { Value = gradient },
             Pen =
             {
-                CurrentValue = new Pen
+                Value = new Pen
                 {
-                    Brush = { CurrentValue = new SolidColorBrush(Colors.White) },
-                    Thickness = { CurrentValue = 6f }
+                    Brush = { Value = new SolidColorBrush(Colors.White) },
+                    Thickness = { Value = 6f }
                 }
             }
         };

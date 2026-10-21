@@ -13,7 +13,7 @@ public partial class FlatShadow : FilterEffect
     public FlatShadow()
     {
         ScanProperties<FlatShadow>();
-        Brush.CurrentValue = new SolidColorBrush(Colors.Gray);
+        Brush.Value = new SolidColorBrush(Colors.Gray);
     }
 
     [Display(Name = nameof(GraphicsStrings.Angle), ResourceType = typeof(GraphicsStrings))]

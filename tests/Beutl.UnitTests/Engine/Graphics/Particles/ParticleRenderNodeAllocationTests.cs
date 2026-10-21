@@ -30,16 +30,16 @@ public sealed class ParticleRenderNodeAllocationTests
     {
         var emitter = new ParticleEmitter
         {
-            Seed = { CurrentValue = 1234 },
-            EmissionRate = { CurrentValue = 24 },
-            Lifetime = { CurrentValue = 1.2f },
-            MaxParticles = { CurrentValue = 400 },
-            Speed = { CurrentValue = speed },
-            SpeedRandom = { CurrentValue = speedRandom },
-            Gravity = { CurrentValue = 0 },
-            Spread = { CurrentValue = spread },
-            ParticleSize = { CurrentValue = 14 },
-            ParticleColor = { CurrentValue = Colors.OrangeRed },
+            Seed = { Value = 1234 },
+            EmissionRate = { Value = 24 },
+            Lifetime = { Value = 1.2f },
+            MaxParticles = { Value = 400 },
+            Speed = { Value = speed },
+            SpeedRandom = { Value = speedRandom },
+            Gravity = { Value = 0 },
+            Spread = { Value = spread },
+            ParticleSize = { Value = 14 },
+            ParticleColor = { Value = Colors.OrangeRed },
         };
         using ParticleEmitter.Resource resource = emitter.ToResource(
             new CompositionContext(TimeSpan.FromSeconds(1)));
@@ -194,19 +194,19 @@ public sealed class ParticleRenderNodeAllocationTests
     {
         var emitter = new ParticleEmitter
         {
-            Seed = { CurrentValue = 11 },
-            PrewarmDuration = { CurrentValue = TimeSpan.FromSeconds(prewarm) },
-            EmissionRate = { CurrentValue = 4 },
-            Lifetime = { CurrentValue = 1.2f },
-            MaxParticles = { CurrentValue = 8 },
-            Speed = { CurrentValue = 0 },
-            SpeedRandom = { CurrentValue = 0 },
-            Gravity = { CurrentValue = 0 },
-            Spread = { CurrentValue = 0 },
-            ParticleSize = { CurrentValue = particleSize },
-            ParticleColor = { CurrentValue = Colors.White },
-            InitialRotation = { CurrentValue = initialRotation },
-            InitialRotationRandom = { CurrentValue = 0 },
+            Seed = { Value = 11 },
+            PrewarmDuration = { Value = TimeSpan.FromSeconds(prewarm) },
+            EmissionRate = { Value = 4 },
+            Lifetime = { Value = 1.2f },
+            MaxParticles = { Value = 8 },
+            Speed = { Value = 0 },
+            SpeedRandom = { Value = 0 },
+            Gravity = { Value = 0 },
+            Spread = { Value = 0 },
+            ParticleSize = { Value = particleSize },
+            ParticleColor = { Value = Colors.White },
+            InitialRotation = { Value = initialRotation },
+            InitialRotationRandom = { Value = 0 },
         };
         using ParticleEmitter.Resource resource = emitter.ToResource(
             new CompositionContext(TimeSpan.FromSeconds(time)));
@@ -238,18 +238,18 @@ public sealed class ParticleRenderNodeAllocationTests
     {
         var emitter = new ParticleEmitter
         {
-            Seed = { CurrentValue = 7 },
-            EmissionRate = { CurrentValue = 4 },
-            Lifetime = { CurrentValue = 1.2f },
-            MaxParticles = { CurrentValue = 8 },
-            Speed = { CurrentValue = 0 },
-            SpeedRandom = { CurrentValue = 0 },
-            Gravity = { CurrentValue = 0 },
-            Spread = { CurrentValue = 0 },
-            ParticleSize = { CurrentValue = 40 },
-            ParticleColor = { CurrentValue = Colors.OrangeRed },
-            InitialRotation = { CurrentValue = initialRotation },
-            InitialRotationRandom = { CurrentValue = 0 },
+            Seed = { Value = 7 },
+            EmissionRate = { Value = 4 },
+            Lifetime = { Value = 1.2f },
+            MaxParticles = { Value = 8 },
+            Speed = { Value = 0 },
+            SpeedRandom = { Value = 0 },
+            Gravity = { Value = 0 },
+            Spread = { Value = 0 },
+            ParticleSize = { Value = 40 },
+            ParticleColor = { Value = Colors.OrangeRed },
+            InitialRotation = { Value = initialRotation },
+            InitialRotationRandom = { Value = 0 },
         };
         using ParticleEmitter.Resource resource = emitter.ToResource(
             new CompositionContext(TimeSpan.FromSeconds(1)));

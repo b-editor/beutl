@@ -21,8 +21,8 @@ internal sealed partial class PathEditorInteraction
         _bending = PathEditingOperations.ToCubic(figure, bend.index, Composition);
         if (_bending != null)
         {
-            _bendControl1 = _bending.ControlPoint1.CurrentValue;
-            _bendControl2 = _bending.ControlPoint2.CurrentValue;
+            _bendControl1 = _bending.ControlPoint1.Value;
+            _bendControl2 = _bending.ControlPoint2.Value;
             _bendParameter = bend.t;
             SelectOnly(_bending);
             Capture(e);
@@ -94,7 +94,7 @@ internal sealed partial class PathEditorInteraction
         {
             // Editing existing handles does not replace segments or bake their animation.
             var state = PathPointDragBehavior.CreateThumbDragState(Context!, segment, property);
-            if (state.Previous == null && state.Next == null) property.CurrentValue = value;
+            if (state.Previous == null && state.Next == null) property.Value = value;
             else state.Move((BtlVector)(value - property.GetValue(composition)));
         }
     }

@@ -74,52 +74,52 @@ public sealed class DrawableBrushFractionalContentExtentTests
     private static Drawable.Resource CreateOverreachingBrushHost()
     {
         var near = new RectShape();
-        near.Width.CurrentValue = ContentWidth;
-        near.Height.CurrentValue = ContentHeight;
-        near.Fill.CurrentValue = Brushes.White;
+        near.Width.Value = ContentWidth;
+        near.Height.Value = ContentHeight;
+        near.Fill.Value = Brushes.White;
 
         var far = new RectShape();
-        far.Width.CurrentValue = ContentWidth;
-        far.Height.CurrentValue = ContentHeight;
-        far.Fill.CurrentValue = Brushes.White;
-        far.Transform.CurrentValue = new Beutl.Graphics.Transformation.TranslateTransform(ContentWidth, 0);
+        far.Width.Value = ContentWidth;
+        far.Height.Value = ContentHeight;
+        far.Fill.Value = Brushes.White;
+        far.Transform.Value = new Beutl.Graphics.Transformation.TranslateTransform(ContentWidth, 0);
 
         var group = new DrawableGroup();
         group.Children.Add(near);
         group.Children.Add(far);
 
         var brush = new DrawableBrush();
-        brush.Drawable.CurrentValue = group;
-        brush.Stretch.CurrentValue = Stretch.Uniform;
-        brush.TileMode.CurrentValue = TileMode.None;
+        brush.Drawable.Value = group;
+        brush.Stretch.Value = Stretch.Uniform;
+        brush.TileMode.Value = TileMode.None;
 
         var host = new RectShape();
-        host.AlignmentX.CurrentValue = AlignmentX.Center;
-        host.AlignmentY.CurrentValue = AlignmentY.Center;
-        host.Width.CurrentValue = HostWidth;
-        host.Height.CurrentValue = HostHeight;
-        host.Fill.CurrentValue = brush;
+        host.AlignmentX.Value = AlignmentX.Center;
+        host.AlignmentY.Value = AlignmentY.Center;
+        host.Width.Value = HostWidth;
+        host.Height.Value = HostHeight;
+        host.Fill.Value = brush;
         return host.ToResource(CompositionContext.Default);
     }
 
     private static Drawable.Resource CreateBrushHost(TileMode tileMode)
     {
         var content = new RectShape();
-        content.Width.CurrentValue = ContentWidth;
-        content.Height.CurrentValue = ContentHeight;
-        content.Fill.CurrentValue = Brushes.White;
+        content.Width.Value = ContentWidth;
+        content.Height.Value = ContentHeight;
+        content.Fill.Value = Brushes.White;
 
         var brush = new DrawableBrush();
-        brush.Drawable.CurrentValue = content;
-        brush.Stretch.CurrentValue = Stretch.Uniform;
-        brush.TileMode.CurrentValue = tileMode;
+        brush.Drawable.Value = content;
+        brush.Stretch.Value = Stretch.Uniform;
+        brush.TileMode.Value = tileMode;
 
         var host = new RectShape();
-        host.AlignmentX.CurrentValue = AlignmentX.Center;
-        host.AlignmentY.CurrentValue = AlignmentY.Center;
-        host.Width.CurrentValue = HostWidth;
-        host.Height.CurrentValue = HostHeight;
-        host.Fill.CurrentValue = brush;
+        host.AlignmentX.Value = AlignmentX.Center;
+        host.AlignmentY.Value = AlignmentY.Center;
+        host.Width.Value = HostWidth;
+        host.Height.Value = HostHeight;
+        host.Fill.Value = brush;
         return host.ToResource(CompositionContext.Default);
     }
 

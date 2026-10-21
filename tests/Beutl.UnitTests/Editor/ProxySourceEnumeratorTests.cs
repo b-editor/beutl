@@ -29,7 +29,7 @@ public class ProxySourceEnumeratorTests
     public void EnumerateVideoSources_IncludesSourceVideoCurrentAndAnimatedValues()
     {
         var drawable = new SourceVideo();
-        drawable.Source.CurrentValue = CreateVideoSource("current.mov");
+        drawable.Source.Value = CreateVideoSource("current.mov");
         var animation = new KeyFrameAnimation<VideoSource?>();
         animation.KeyFrames.Add(new KeyFrame<VideoSource?>
         {
@@ -48,7 +48,7 @@ public class ProxySourceEnumeratorTests
         var node = new VideoSourceNode();
         node.Source.Property!.SetValue(CreateVideoSource("node.mov"));
         var drawable = new NodeGraphDrawable();
-        drawable.Model.CurrentValue!.Nodes.Add(node);
+        drawable.Model.Value!.Nodes.Add(node);
         Element element = ElementWith(drawable);
 
         Assert.That(FileNames(element), Is.EquivalentTo(new[] { "node.mov" }));
@@ -60,10 +60,10 @@ public class ProxySourceEnumeratorTests
         var node = new VideoSourceNode();
         node.Source.Property!.SetValue(CreateVideoSource("fx-node.mov"));
         var graphEffect = new NodeGraphFilterEffect();
-        graphEffect.Model.CurrentValue!.Nodes.Add(node);
+        graphEffect.Model.Value!.Nodes.Add(node);
 
         var drawable = new SourceVideo();
-        ((FilterEffectGroup)drawable.FilterEffect.CurrentValue!).Children.Add(graphEffect);
+        ((FilterEffectGroup)drawable.FilterEffect.Value!).Children.Add(graphEffect);
         Element element = ElementWith(drawable);
 
         Assert.That(FileNames(element), Does.Contain("fx-node.mov"));
@@ -74,11 +74,11 @@ public class ProxySourceEnumeratorTests
     {
         Scene childScene = CreateScene("child.scene");
         var childVideo = new SourceVideo();
-        childVideo.Source.CurrentValue = CreateVideoSource("nested.mov");
+        childVideo.Source.Value = CreateVideoSource("nested.mov");
         childScene.Children.Add(ElementWith(childVideo));
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        sceneDrawable.ReferencedScene.Value = childScene;
         Element element = ElementWith(sceneDrawable);
 
         Assert.That(FileNames(element), Is.EquivalentTo(new[] { "nested.mov" }));
@@ -88,7 +88,7 @@ public class ProxySourceEnumeratorTests
     public void EnumerateVideoSources_RecursesIntoDrawableGroupChildren()
     {
         var nested = new SourceVideo();
-        nested.Source.CurrentValue = CreateVideoSource("grouped.mov");
+        nested.Source.Value = CreateVideoSource("grouped.mov");
         var group = new DrawableGroup();
         group.Children.Add(nested);
         Element element = ElementWith(group);
@@ -100,7 +100,7 @@ public class ProxySourceEnumeratorTests
     public void EnumerateVideoSources_RecursesIntoDrawableDecoratorChildren()
     {
         var nested = new SourceVideo();
-        nested.Source.CurrentValue = CreateVideoSource("decorated.mov");
+        nested.Source.Value = CreateVideoSource("decorated.mov");
         var decorator = new DrawableDecorator();
         decorator.Children.Add(nested);
         Element element = ElementWith(decorator);
@@ -114,13 +114,13 @@ public class ProxySourceEnumeratorTests
     public void EnumerateVideoSources_RecursesIntoDrawableTextureSourceDrawable()
     {
         var video = new SourceVideo();
-        video.Source.CurrentValue = CreateVideoSource("texture-drawable.mov");
+        video.Source.Value = CreateVideoSource("texture-drawable.mov");
         var textureSource = new DrawableTextureSource();
-        textureSource.Drawable.CurrentValue = video;
+        textureSource.Drawable.Value = video;
         var material = new BasicMaterial();
-        material.DiffuseMap.CurrentValue = textureSource;
+        material.DiffuseMap.Value = textureSource;
         var cube = new Cube3D();
-        cube.Material.CurrentValue = material;
+        cube.Material.Value = material;
         Element element = ElementWith(cube);
 
         Assert.That(FileNames(element), Does.Contain("texture-drawable.mov"));
@@ -130,9 +130,9 @@ public class ProxySourceEnumeratorTests
     public void EnumerateVideoSources_RecursesIntoDrawableTimeControllerTarget()
     {
         var nested = new SourceVideo();
-        nested.Source.CurrentValue = CreateVideoSource("retimed.mov");
+        nested.Source.Value = CreateVideoSource("retimed.mov");
         var controller = new DrawableTimeController();
-        controller.Target.CurrentValue = nested;
+        controller.Target.Value = nested;
         Element element = ElementWith(controller);
 
         Assert.That(FileNames(element), Does.Contain("retimed.mov"));
@@ -142,9 +142,9 @@ public class ProxySourceEnumeratorTests
     public void EnumerateVideoSources_RecursesIntoDrawablePresenterTarget()
     {
         var nested = new SourceVideo();
-        nested.Source.CurrentValue = CreateVideoSource("presented.mov");
+        nested.Source.Value = CreateVideoSource("presented.mov");
         var presenter = new DrawablePresenter();
-        presenter.Target.CurrentValue = nested;
+        presenter.Target.Value = nested;
         Element element = ElementWith(presenter);
 
         Assert.That(FileNames(element), Does.Contain("presented.mov"));
@@ -156,9 +156,9 @@ public class ProxySourceEnumeratorTests
     public void EnumerateFileSources_SkipDisabled_ExcludesDisabledDrawableGroupChild()
     {
         var enabled = new SourceVideo();
-        enabled.Source.CurrentValue = CreateVideoSource("enabled-child.mov");
+        enabled.Source.Value = CreateVideoSource("enabled-child.mov");
         var disabled = new SourceVideo { IsEnabled = false };
-        disabled.Source.CurrentValue = CreateVideoSource("disabled-child.mov");
+        disabled.Source.Value = CreateVideoSource("disabled-child.mov");
         var group = new DrawableGroup();
         group.Children.Add(enabled);
         group.Children.Add(disabled);
@@ -186,9 +186,9 @@ public class ProxySourceEnumeratorTests
     public void EnumerateFileSources_SkipDisabled_ExcludesDisabledPresenterTarget()
     {
         var disabled = new SourceVideo { IsEnabled = false };
-        disabled.Source.CurrentValue = CreateVideoSource("disabled-target.mov");
+        disabled.Source.Value = CreateVideoSource("disabled-target.mov");
         var presenter = new DrawablePresenter();
-        presenter.Target.CurrentValue = disabled;
+        presenter.Target.Value = disabled;
         Element element = ElementWith(presenter);
 
         Assert.Multiple(() =>
@@ -212,9 +212,9 @@ public class ProxySourceEnumeratorTests
         var node = new VideoSourceNode();
         node.Source.Property!.SetValue(CreateVideoSource("disabled-fx.mov"));
         var graphEffect = new NodeGraphFilterEffect { IsEnabled = false };
-        graphEffect.Model.CurrentValue!.Nodes.Add(node);
+        graphEffect.Model.Value!.Nodes.Add(node);
         var drawable = new SourceVideo();
-        ((FilterEffectGroup)drawable.FilterEffect.CurrentValue!).Children.Add(graphEffect);
+        ((FilterEffectGroup)drawable.FilterEffect.Value!).Children.Add(graphEffect);
         Element element = ElementWith(drawable);
 
         Assert.Multiple(() =>
@@ -237,7 +237,7 @@ public class ProxySourceEnumeratorTests
     public void EnumerateVideoSources_TerminatesOnPresenterTargetCycle()
     {
         var video = new SourceVideo();
-        video.Source.CurrentValue = CreateVideoSource("cycled.mov");
+        video.Source.Value = CreateVideoSource("cycled.mov");
         var group = new DrawableGroup();
         group.Children.Add(video);
         var presenter = new DrawablePresenter();
@@ -257,12 +257,12 @@ public class ProxySourceEnumeratorTests
         Scene sceneB = CreateScene("mutual-b.scene");
 
         var videoA = new SourceVideo();
-        videoA.Source.CurrentValue = CreateVideoSource("in-a.mov");
+        videoA.Source.Value = CreateVideoSource("in-a.mov");
         var referenceToB = new SceneDrawable();
         sceneA.Children.Add(ElementWith(videoA, referenceToB));
 
         var videoB = new SourceVideo();
-        videoB.Source.CurrentValue = CreateVideoSource("in-b.mov");
+        videoB.Source.Value = CreateVideoSource("in-b.mov");
         var referenceToA = new SceneDrawable();
         sceneB.Children.Add(ElementWith(videoB, referenceToA));
 
@@ -287,12 +287,12 @@ public class ProxySourceEnumeratorTests
         var node = new VideoSourceNode();
         node.Source.Property!.SetValue(CreateVideoSource("presented-fx.mov"));
         var graphEffect = new NodeGraphFilterEffect();
-        graphEffect.Model.CurrentValue!.Nodes.Add(node);
+        graphEffect.Model.Value!.Nodes.Add(node);
         var presenter = new FilterEffectPresenter();
-        presenter.Target.CurrentValue = graphEffect;
+        presenter.Target.Value = graphEffect;
 
         var drawable = new SourceVideo();
-        ((FilterEffectGroup)drawable.FilterEffect.CurrentValue!).Children.Add(presenter);
+        ((FilterEffectGroup)drawable.FilterEffect.Value!).Children.Add(presenter);
         Element element = ElementWith(drawable);
 
         Assert.That(FileNames(element), Does.Contain("presented-fx.mov"));
@@ -304,12 +304,12 @@ public class ProxySourceEnumeratorTests
         var node = new VideoSourceNode();
         node.Source.Property!.SetValue(CreateVideoSource("delayed-fx.mov"));
         var graphEffect = new NodeGraphFilterEffect();
-        graphEffect.Model.CurrentValue!.Nodes.Add(node);
+        graphEffect.Model.Value!.Nodes.Add(node);
         var delay = new DelayAnimationEffect();
-        ((FilterEffectGroup)delay.Effect.CurrentValue!).Children.Add(graphEffect);
+        ((FilterEffectGroup)delay.Effect.Value!).Children.Add(graphEffect);
 
         var drawable = new SourceVideo();
-        ((FilterEffectGroup)drawable.FilterEffect.CurrentValue!).Children.Add(delay);
+        ((FilterEffectGroup)drawable.FilterEffect.Value!).Children.Add(delay);
         Element element = ElementWith(drawable);
 
         Assert.That(FileNames(element), Does.Contain("delayed-fx.mov"));
@@ -331,17 +331,17 @@ public class ProxySourceEnumeratorTests
         ((IAnimatablePropertyAdapter<VideoSource?>)node.Source.Property!).Animation = animation;
 
         var graphEffect = new NodeGraphFilterEffect();
-        graphEffect.Model.CurrentValue!.Nodes.Add(node);
+        graphEffect.Model.Value!.Nodes.Add(node);
 
         // The presenter (windowed, threads localRange) is visited before the delay (remapped full walk),
         // both pointing at the same graphEffect.
         var presenter = new FilterEffectPresenter();
-        presenter.Target.CurrentValue = graphEffect;
+        presenter.Target.Value = graphEffect;
         var delay = new DelayAnimationEffect();
-        ((FilterEffectGroup)delay.Effect.CurrentValue!).Children.Add(graphEffect);
+        ((FilterEffectGroup)delay.Effect.Value!).Children.Add(graphEffect);
 
         var drawable = new SourceVideo();
-        var chain = (FilterEffectGroup)drawable.FilterEffect.CurrentValue!;
+        var chain = (FilterEffectGroup)drawable.FilterEffect.Value!;
         chain.Children.Add(presenter);
         chain.Children.Add(delay);
         Element element = ElementWith(drawable);
@@ -373,17 +373,17 @@ public class ProxySourceEnumeratorTests
         ((IAnimatablePropertyAdapter<VideoSource?>)node.Source.Property!).Animation = animation;
 
         var graphEffect = new NodeGraphFilterEffect();
-        graphEffect.Model.CurrentValue!.Nodes.Add(node);
+        graphEffect.Model.Value!.Nodes.Add(node);
         var shared = new FilterEffectGroup();
         shared.Children.Add(graphEffect);
 
         var presenter = new FilterEffectPresenter();
-        presenter.Target.CurrentValue = shared;
+        presenter.Target.Value = shared;
         var delay = new DelayAnimationEffect();
-        delay.Effect.CurrentValue = shared;
+        delay.Effect.Value = shared;
 
         var drawable = new SourceVideo();
-        var chain = (FilterEffectGroup)drawable.FilterEffect.CurrentValue!;
+        var chain = (FilterEffectGroup)drawable.FilterEffect.Value!;
         chain.Children.Add(presenter);
         chain.Children.Add(delay);
         Element element = ElementWith(drawable);
@@ -405,7 +405,7 @@ public class ProxySourceEnumeratorTests
         var groupNode = new GroupNode();
         groupNode.Group.Nodes.Add(node);
         var drawable = new NodeGraphDrawable();
-        drawable.Model.CurrentValue!.Nodes.Add(groupNode);
+        drawable.Model.Value!.Nodes.Add(groupNode);
         Element element = ElementWith(drawable);
 
         Assert.That(FileNames(element), Does.Contain("group-node.mov"));
@@ -418,20 +418,20 @@ public class ProxySourceEnumeratorTests
     public void EnumerateVideoSources_CoversSourceVideo_AndNodeGraph_AndReferencedScene()
     {
         var video = new SourceVideo();
-        video.Source.CurrentValue = CreateVideoSource("direct.mov");
+        video.Source.Value = CreateVideoSource("direct.mov");
 
         var graphNode = new VideoSourceNode();
         graphNode.Source.Property!.SetValue(CreateVideoSource("graph.mov"));
         var graphDrawable = new NodeGraphDrawable();
-        graphDrawable.Model.CurrentValue!.Nodes.Add(graphNode);
+        graphDrawable.Model.Value!.Nodes.Add(graphNode);
 
         Scene referenced = CreateScene("referenced.scene");
         var nestedVideo = new SourceVideo();
-        nestedVideo.Source.CurrentValue = CreateVideoSource("nested.mov");
+        nestedVideo.Source.Value = CreateVideoSource("nested.mov");
         referenced.Children.Add(ElementWith(nestedVideo));
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.CurrentValue = referenced;
+        sceneDrawable.ReferencedScene.Value = referenced;
 
         Element element = ElementWith(video, graphDrawable, sceneDrawable);
 
@@ -445,18 +445,18 @@ public class ProxySourceEnumeratorTests
     public void EnumerateFileSources_CoversAllIFileSourceProperties_AndNodeGraphVideo()
     {
         var video = new SourceVideo();
-        video.Source.CurrentValue = CreateVideoSource("video.mov");
+        video.Source.Value = CreateVideoSource("video.mov");
 
         var sound = new SourceSound();
-        sound.Source.CurrentValue = CreateSoundSource("audio.mp3");
+        sound.Source.Value = CreateSoundSource("audio.mp3");
 
         var image = new SourceImage();
-        image.Source.CurrentValue = CreateImageSource("image.png");
+        image.Source.Value = CreateImageSource("image.png");
 
         var graphNode = new VideoSourceNode();
         graphNode.Source.Property!.SetValue(CreateVideoSource("graph.mov"));
         var graphDrawable = new NodeGraphDrawable();
-        graphDrawable.Model.CurrentValue!.Nodes.Add(graphNode);
+        graphDrawable.Model.Value!.Nodes.Add(graphNode);
 
         // Scene.Children_CollectionChanged dereferences Scene.Uri and Element.Uri, so both must be set.
         Scene scene = CreateScene("covers.scene");
@@ -476,13 +476,13 @@ public class ProxySourceEnumeratorTests
     {
         Scene childScene = CreateScene("child.scene");
         var childImage = new SourceImage();
-        childImage.Source.CurrentValue = CreateImageSource("nested-image.png");
+        childImage.Source.Value = CreateImageSource("nested-image.png");
         var childSound = new SourceSound();
-        childSound.Source.CurrentValue = CreateSoundSource("nested-audio.mp3");
+        childSound.Source.Value = CreateSoundSource("nested-audio.mp3");
         childScene.Children.Add(ElementWith(childImage, childSound));
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        sceneDrawable.ReferencedScene.Value = childScene;
         Scene root = CreateScene("root.scene");
         root.Children.Add(ElementWith(sceneDrawable));
 
@@ -500,11 +500,11 @@ public class ProxySourceEnumeratorTests
     {
         Scene childScene = CreateScene("sound-child.scene");
         var childSound = new SourceSound();
-        childSound.Source.CurrentValue = CreateSoundSource("scene-sound.mp3");
+        childSound.Source.Value = CreateSoundSource("scene-sound.mp3");
         childScene.Children.Add(ElementWith(childSound));
 
         var sceneSound = new SceneSound();
-        sceneSound.ReferencedScene.CurrentValue = childScene;
+        sceneSound.ReferencedScene.Value = childScene;
         Scene root = CreateScene("sound-root.scene");
         root.Children.Add(ElementWith(sceneSound));
 
@@ -521,7 +521,7 @@ public class ProxySourceEnumeratorTests
         var node = new ImageSourceNode();
         node.Source.Property!.SetValue(CreateImageSource("graph-image.png"));
         var drawable = new NodeGraphDrawable();
-        drawable.Model.CurrentValue!.Nodes.Add(node);
+        drawable.Model.Value!.Nodes.Add(node);
         Scene root = CreateScene("graph-image.scene");
         root.Children.Add(ElementWith(drawable));
 
@@ -540,8 +540,8 @@ public class ProxySourceEnumeratorTests
         var videoNode = new VideoSourceNode();
         videoNode.Source.Property!.SetValue(CreateVideoSource("video.mov"));
         var drawable = new NodeGraphDrawable();
-        drawable.Model.CurrentValue!.Nodes.Add(imageNode);
-        drawable.Model.CurrentValue!.Nodes.Add(videoNode);
+        drawable.Model.Value!.Nodes.Add(imageNode);
+        drawable.Model.Value!.Nodes.Add(videoNode);
         Element element = ElementWith(drawable);
 
         Assert.That(FileNames(element), Is.EquivalentTo(new[] { "video.mov" }));
@@ -553,11 +553,11 @@ public class ProxySourceEnumeratorTests
     public void EnumerateFileSources_CoversSoundGroupInsideAudioVisualizer()
     {
         var nestedSound = new SourceSound();
-        nestedSound.Source.CurrentValue = CreateSoundSource("visualized.mp3");
+        nestedSound.Source.Value = CreateSoundSource("visualized.mp3");
         var group = new SoundGroup();
         group.Children.Add(nestedSound);
         var visualizer = new AudioSpectrogramDrawable();
-        visualizer.Source.CurrentValue = group;
+        visualizer.Source.Value = group;
         Scene root = CreateScene("visualizer.scene");
         root.Children.Add(ElementWith(visualizer));
 
@@ -573,11 +573,11 @@ public class ProxySourceEnumeratorTests
     public void EnumerateFileSources_CoversObjectValuedNodeInput()
     {
         var brush = new ImageBrush();
-        brush.Source.CurrentValue = CreateImageSource("node-fill.png");
+        brush.Source.Value = CreateImageSource("node-fill.png");
         var node = new GeometryShapeNode();
         node.Fill.Property!.SetValue(brush);
         var drawable = new NodeGraphDrawable();
-        drawable.Model.CurrentValue!.Nodes.Add(node);
+        drawable.Model.Value!.Nodes.Add(node);
         Scene root = CreateScene("node-fill.scene");
         root.Children.Add(ElementWith(drawable));
 
@@ -598,7 +598,7 @@ public class ProxySourceEnumeratorTests
             TimeRange = new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10))
         };
         var drawable = new NodeGraphDrawable();
-        GraphModel graph = drawable.Model.CurrentValue!;
+        GraphModel graph = drawable.Model.Value!;
         graph.Nodes.AddRange([node, layer]);
         Assert.That(layer.AddNodePort(node.Source, out _), Is.True);
         var output = layer.Items.OfType<LayerInputNode.ILayerInputPort>().Single();
@@ -628,15 +628,15 @@ public class ProxySourceEnumeratorTests
     [Test]
     public void LayerObjectOutputsReportTheirNestedMedia()
     {
-        var brush = new ImageBrush { Source = { CurrentValue = CreateImageSource("layer-object.png") } };
+        var brush = new ImageBrush { Source = { Value = CreateImageSource("layer-object.png") } };
         var node = new GeometryShapeNode();
         node.Fill.Property!.SetValue(brush);
         var layer = new LayerInputNode();
         var drawable = new NodeGraphDrawable();
-        GraphModel graph = drawable.Model.CurrentValue!;
+        GraphModel graph = drawable.Model.Value!;
         graph.Nodes.AddRange([node, layer]);
         Assert.That(layer.AddNodePort(node.Fill, out _), Is.True);
-        node.Fill.Property.SetValue(new ImageBrush { Source = { CurrentValue = CreateImageSource("stale-object.png") } });
+        node.Fill.Property.SetValue(new ImageBrush { Source = { Value = CreateImageSource("stale-object.png") } });
         Element element = ElementWith(drawable);
         Scene scene = CreateScene("layer-object.scene");
         scene.Children.Add(element);
@@ -657,7 +657,7 @@ public class ProxySourceEnumeratorTests
         second.Source.Property!.SetValue(CreateVideoSource("second-local.mov"));
         var layer = new LayerInputNode();
         var drawable = new NodeGraphDrawable();
-        GraphModel graph = drawable.Model.CurrentValue!;
+        GraphModel graph = drawable.Model.Value!;
         graph.Nodes.AddRange([first, second, layer]);
         Assert.That(layer.AddNodePort(first.Source, out var firstConnection), Is.True);
         var secondConnection = graph.Connect(second.Source, layer.Items.OfType<IOutputPort>().Single());
@@ -674,20 +674,20 @@ public class ProxySourceEnumeratorTests
     [Test]
     public void LayerOutputWithOnlyRejectedConsumersDoesNotSupplyRenderableMedia()
     {
-        var brush = new ImageBrush { Source = { CurrentValue = CreateImageSource("unused-layer.png") } };
+        var brush = new ImageBrush { Source = { Value = CreateImageSource("unused-layer.png") } };
         var node = new GeometryShapeNode();
         node.Fill.Property!.SetValue(brush);
         var layer = new LayerInputNode();
         var drawable = new NodeGraphDrawable();
-        GraphModel graph = drawable.Model.CurrentValue!;
+        GraphModel graph = drawable.Model.Value!;
         graph.Nodes.AddRange([node, layer]);
         var port = NestedPort(node, brush.Source);
         Assert.That(layer.AddNodePort(port, out var connection), Is.True);
-        brush.Source.CurrentValue = CreateImageSource("base-local.png");
+        brush.Source.Value = CreateImageSource("base-local.png");
         var animation = new KeyFrameAnimation<Brush?>();
         animation.KeyFrames.Add(new KeyFrame<Brush?>
         {
-            Value = new ImageBrush { Source = { CurrentValue = CreateImageSource("animated-local.png") } }
+            Value = new ImageBrush { Source = { Value = CreateImageSource("animated-local.png") } }
         });
         ((IAnimatablePropertyAdapter<Brush?>)node.Fill.Property).Animation = animation;
         Assert.That(node.CanConnectInput(port), Is.False);
@@ -720,19 +720,19 @@ public class ProxySourceEnumeratorTests
         if (video)
         {
             var child = new SourceVideo();
-            child.Source.CurrentValue = CreateVideoSource("layer-output.mov");
+            child.Source.Value = CreateVideoSource("layer-output.mov");
             node.Object.Children.Add(child);
             property = child.Source;
         }
         else
         {
             var child = new SourceImage();
-            child.Source.CurrentValue = CreateImageSource("layer-output.png");
+            child.Source.Value = CreateImageSource("layer-output.png");
             node.Object.Children.Add(child);
             property = child.Source;
         }
         var drawable = new NodeGraphDrawable();
-        GraphModel graph = drawable.Model.CurrentValue!;
+        GraphModel graph = drawable.Model.Value!;
         if (group)
         {
             var container = new GroupNode();
@@ -778,9 +778,9 @@ public class ProxySourceEnumeratorTests
     public void RejectedNestedSourcesKeepTheirLocalMediaBeforeAndAfterEvaluation(bool windowed, bool evaluated)
     {
         var brush = new ImageBrush();
-        brush.Source.CurrentValue = CreateImageSource("restored-local.png");
+        brush.Source.Value = CreateImageSource("restored-local.png");
         var otherBrush = new ImageBrush();
-        otherBrush.Source.CurrentValue = CreateImageSource("replaced-local.png");
+        otherBrush.Source.Value = CreateImageSource("replaced-local.png");
         var first = new GeometryShapeNode();
         var second = new GeometryShapeNode();
         first.Fill.Property!.SetValue(brush);
@@ -790,7 +790,7 @@ public class ProxySourceEnumeratorTests
         upstream.Input.Property!.SetValue(CreateImageSource("upstream.png"));
         otherUpstream.Input.Property!.SetValue(CreateImageSource("other-upstream.png"));
         var drawable = new NodeGraphDrawable();
-        GraphModel graph = drawable.Model.CurrentValue!;
+        GraphModel graph = drawable.Model.Value!;
         graph.Nodes.AddRange([first, second, upstream, otherUpstream]);
         var firstPort = NestedPort(first, brush.Source);
         var secondPort = NestedPort(second, otherBrush.Source);
@@ -830,16 +830,16 @@ public class ProxySourceEnumeratorTests
     public void ConnectedNestedSourcesExcludeTheirBaseButKeepSiblings(bool group, bool windowed)
     {
         var brush = new ImageBrush();
-        brush.Source.CurrentValue = CreateImageSource("stale.png");
+        brush.Source.Value = CreateImageSource("stale.png");
         var sibling = new ImageBrush();
-        sibling.Source.CurrentValue = CreateImageSource("sibling.png");
+        sibling.Source.Value = CreateImageSource("sibling.png");
         var pen = new Pen();
-        pen.Brush.CurrentValue = brush;
+        pen.Brush.Value = brush;
         var node = new GeometryShapeNode();
         node.Pen.Property!.SetValue(pen);
         node.Fill.Property!.SetValue(sibling);
         var drawable = new NodeGraphDrawable();
-        GraphModel graph = drawable.Model.CurrentValue!;
+        GraphModel graph = drawable.Model.Value!;
         if (group)
         {
             var container = new GroupNode();
@@ -864,20 +864,20 @@ public class ProxySourceEnumeratorTests
     public void ConnectedDrawableBrushPropertiesDoNotLeakSourcesThroughTheStructuralWalk(bool wholeObject)
     {
         var original = new SourceImage();
-        original.Source.CurrentValue = CreateImageSource("stale-drawable.png");
+        original.Source.Value = CreateImageSource("stale-drawable.png");
         var brush = new DrawableBrush();
-        brush.Drawable.CurrentValue = original;
+        brush.Drawable.Value = original;
         var node = new GeometryShapeNode();
         node.Fill.Property!.SetValue(brush);
         var drawable = new NodeGraphDrawable();
-        GraphModel graph = drawable.Model.CurrentValue!;
+        GraphModel graph = drawable.Model.Value!;
         graph.Nodes.Add(node);
         IOutputPort output;
         IProperty target;
         if (wholeObject)
         {
             var upstream = new FactoryNode<SourceImage>();
-            upstream.Object.Source.CurrentValue = CreateImageSource("upstream.png");
+            upstream.Object.Source.Value = CreateImageSource("upstream.png");
             graph.Nodes.Add(upstream);
             output = upstream.Items.OfType<IOutputPort>().Single();
             target = brush.Drawable;
@@ -903,12 +903,12 @@ public class ProxySourceEnumeratorTests
         var shared = CreateImageSource("shared.png");
         var first = new ImageBrush();
         var second = new ImageBrush();
-        first.Source.CurrentValue = shared;
-        second.Source.CurrentValue = shared;
+        first.Source.Value = shared;
+        second.Source.Value = shared;
         var node = new FactoryNode<ImageBrushList>();
         node.Object.Brushes.AddRange([first, second]);
         var drawable = new NodeGraphDrawable();
-        GraphModel graph = drawable.Model.CurrentValue!;
+        GraphModel graph = drawable.Model.Value!;
         graph.Nodes.Add(node);
         var upstream = new FileSourcePassThroughNode();
         upstream.Input.Property!.SetValue(CreateImageSource("upstream.png"));
@@ -918,7 +918,7 @@ public class ProxySourceEnumeratorTests
 
         Assert.That(Files(element), Is.EquivalentTo(new[] { "upstream.png", "shared.png" }));
 
-        second.Source.CurrentValue = CreateImageSource("sibling.png");
+        second.Source.Value = CreateImageSource("sibling.png");
         node.Object.Brushes.Move(0, 1);
         Assert.That(Files(element), Is.EquivalentTo(new[] { "upstream.png", "sibling.png" }));
     }
@@ -930,7 +930,7 @@ public class ProxySourceEnumeratorTests
     public void DescendantConnectionsOverrideOuterAliasesRegardlessOfNodeOrder(bool groupFirst, bool windowed)
     {
         var alias = new FactoryNode<ImageBrush>();
-        alias.Object.Source.CurrentValue = CreateImageSource("stale-outer-alias.png");
+        alias.Object.Source.Value = CreateImageSource("stale-outer-alias.png");
         var group = new GroupNode();
         var nestedGroup = new GroupNode();
         group.Group.Nodes.Add(nestedGroup);
@@ -940,7 +940,7 @@ public class ProxySourceEnumeratorTests
         upstream.Input.Property!.SetValue(CreateImageSource("inner-upstream.png"));
         nestedGroup.Group.Nodes.AddRange([node, upstream]);
         var drawable = new NodeGraphDrawable();
-        GraphModel graph = drawable.Model.CurrentValue!;
+        GraphModel graph = drawable.Model.Value!;
         graph.Nodes.AddRange(groupFirst ? new GraphNode[] { group, alias } : [alias, group]);
         nestedGroup.Group.Connect(NestedPort(node, alias.Object.Source), upstream.Output);
         Element element = ElementWith(drawable);
@@ -963,13 +963,13 @@ public class ProxySourceEnumeratorTests
     public void ConnectedNestedPropertyAlsoOverridesAnAliasedRootInput()
     {
         var alias = new FactoryNode<ImageBrush>();
-        alias.Object.Source.CurrentValue = CreateImageSource("stale-alias.png");
+        alias.Object.Source.Value = CreateImageSource("stale-alias.png");
         var node = new GeometryShapeNode();
         node.Fill.Property!.SetValue(alias.Object);
         var upstream = new FileSourcePassThroughNode();
         upstream.Input.Property!.SetValue(CreateImageSource("upstream.png"));
         var drawable = new NodeGraphDrawable();
-        GraphModel graph = drawable.Model.CurrentValue!;
+        GraphModel graph = drawable.Model.Value!;
         graph.Nodes.AddRange([alias, node, upstream]);
         graph.Connect(NestedPort(node, alias.Object.Source), upstream.Output);
 
@@ -999,16 +999,16 @@ public class ProxySourceEnumeratorTests
             children = factory.Object.Children;
         }
         var image = new SourceImage();
-        image.Source.CurrentValue = CreateImageSource("list-image.png");
+        image.Source.Value = CreateImageSource("list-image.png");
         var video = new SourceVideo();
-        video.Source.CurrentValue = CreateVideoSource("list-video.mov");
+        video.Source.Value = CreateVideoSource("list-video.mov");
         var disabled = new SourceImage { IsEnabled = false };
-        disabled.Source.CurrentValue = CreateImageSource("disabled.png");
+        disabled.Source.Value = CreateImageSource("disabled.png");
         var nested = new DrawableGroup();
         nested.Children.AddRange([image, video, disabled]);
         children.Add(nested);
         var drawable = new NodeGraphDrawable();
-        GraphModel graph = drawable.Model.CurrentValue!;
+        GraphModel graph = drawable.Model.Value!;
         graph.Nodes.Add(node);
         if (connected)
         {
@@ -1036,12 +1036,12 @@ public class ProxySourceEnumeratorTests
     {
         var node = new FactoryNode<DrawableGroup>();
         var video = new SourceVideo();
-        video.Source.CurrentValue = CreateVideoSource("list-cycle.mov");
+        video.Source.Value = CreateVideoSource("list-cycle.mov");
         var presenter = new DrawablePresenter();
         node.Object.Children.AddRange([video, presenter]);
         SetPropertyValueSilently(presenter.Target, node.Object);
         var drawable = new NodeGraphDrawable();
-        drawable.Model.CurrentValue!.Nodes.Add(node);
+        drawable.Model.Value!.Nodes.Add(node);
 
         Assert.That(FileNames(ElementWith(drawable)), Is.EqualTo(new[] { "list-cycle.mov" }));
     }
@@ -1053,7 +1053,7 @@ public class ProxySourceEnumeratorTests
     public void EnumerateFileSources_CoversReferenceExpressionTarget()
     {
         var referenced = new SourceImage();
-        referenced.Source.CurrentValue = CreateImageSource("expr-target.png");
+        referenced.Source.Value = CreateImageSource("expr-target.png");
 
         var driven = new SourceImage();
         driven.Source.Expression = Expression.CreateReference<ImageSource>(referenced.Id, "Source");
@@ -1073,7 +1073,7 @@ public class ProxySourceEnumeratorTests
     public void EnumerateFileSources_IncludesAnimatedKeyframeSources()
     {
         var drawable = new SourceVideo();
-        drawable.Source.CurrentValue = CreateVideoSource("current.mov");
+        drawable.Source.Value = CreateVideoSource("current.mov");
         var animation = new KeyFrameAnimation<VideoSource?>();
         animation.KeyFrames.Add(new KeyFrame<VideoSource?>
         {

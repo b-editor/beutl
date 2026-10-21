@@ -357,7 +357,7 @@ internal sealed partial class DeclarativeDocumentApplier
                 continue;
             }
 
-            property.CurrentValue = null;
+            property.Value = null;
         }
     }
 

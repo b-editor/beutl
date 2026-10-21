@@ -121,8 +121,8 @@ public sealed partial class BrushEditor : UserControl
         if (change.Property == OriginalBrushProperty)
         {
             _flyout.OriginalBrush = OriginalBrush;
-            _flyout.DrawableName = GetDrawableName((OriginalBrush as Media.DrawableBrush)?.Drawable.CurrentValue);
-            _flyout.CanEditDrawable = (OriginalBrush as Media.DrawableBrush)?.Drawable.CurrentValue is not null;
+            _flyout.DrawableName = GetDrawableName((OriginalBrush as Media.DrawableBrush)?.Drawable.Value);
+            _flyout.CanEditDrawable = (OriginalBrush as Media.DrawableBrush)?.Drawable.Value is not null;
             if (_flyout.IsOpen)
                 FollowDrawable(OriginalBrush as Media.DrawableBrush);
         }
@@ -195,8 +195,8 @@ public sealed partial class BrushEditor : UserControl
 
         _flyout.Brush = Brush;
         _flyout.OriginalBrush = OriginalBrush;
-        _flyout.DrawableName = GetDrawableName((OriginalBrush as Media.DrawableBrush)?.Drawable.CurrentValue);
-        _flyout.CanEditDrawable = (OriginalBrush as Media.DrawableBrush)?.Drawable.CurrentValue is not null;
+        _flyout.DrawableName = GetDrawableName((OriginalBrush as Media.DrawableBrush)?.Drawable.Value);
+        _flyout.CanEditDrawable = (OriginalBrush as Media.DrawableBrush)?.Drawable.Value is not null;
 
         _flyout.ShowAt(this, true);
         FollowDrawable(OriginalBrush as Media.DrawableBrush);
@@ -205,7 +205,7 @@ public sealed partial class BrushEditor : UserControl
     private void OnEditDrawableClicked(object? sender, EventArgs e)
     {
         if (DataContext is not BrushEditorViewModel { IsDisposed: false } viewModel) return;
-        if (viewModel.Value.Value is not DrawableBrush { Drawable.CurrentValue: { } drawable }) return;
+        if (viewModel.Value.Value is not DrawableBrush { Drawable.Value: { } drawable }) return;
         if (viewModel.GetService<IEditorContext>() is not { } editorContext) return;
 
         ObjectPropertyTabViewModel.Open(editorContext, drawable, viewModel);
@@ -234,7 +234,7 @@ public sealed partial class BrushEditor : UserControl
 
         if (e == BrushType.SolidColorBrush)
         {
-            viewModel.SetValue(viewModel.Value.Value, new SolidColorBrush { Color = { CurrentValue = Colors.White } });
+            viewModel.SetValue(viewModel.Value.Value, new SolidColorBrush { Color = { Value = Colors.White } });
         }
         else if (e == BrushType.Null)
         {
@@ -264,7 +264,7 @@ public sealed partial class BrushEditor : UserControl
         var gradStops = new List<GradientStop>();
         if (current is GradientBrush oldBrush)
         {
-            gradStops.AddRange(oldBrush.GradientStops.Select(v => new GradientStop(v.Color.CurrentValue, v.Offset.CurrentValue)));
+            gradStops.AddRange(oldBrush.GradientStops.Select(v => new GradientStop(v.Color.Value, v.Offset.Value)));
         }
         else
         {
@@ -300,7 +300,7 @@ public sealed partial class BrushEditor : UserControl
         if (viewModel.Value.Value is not SolidColorBrush solid) return;
         if (viewModel.IsDisposed) return;
 
-        _drag.Write(viewModel, DragOwner, StopFlyoutDrag, () => solid.Color.CurrentValue = e.NewValue.ToBtlColor());
+        _drag.Write(viewModel, DragOwner, StopFlyoutDrag, () => solid.Color.Value = e.NewValue.ToBtlColor());
         viewModel.InvalidateFrameCache();
     }
 

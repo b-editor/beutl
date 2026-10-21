@@ -67,28 +67,28 @@ public class ShrinkingTransformKeepsItsFootprintTests
     private static RectShape Rectangle(float width, float height, float? scaleX, float? scaleY = null)
     {
         var rectangle = new RectShape();
-        rectangle.Width.CurrentValue = width;
-        rectangle.Height.CurrentValue = height;
-        rectangle.Fill.CurrentValue = new SolidColorBrush(Colors.OrangeRed);
-        rectangle.AlignmentX.CurrentValue = AlignmentX.Left;
-        rectangle.AlignmentY.CurrentValue = AlignmentY.Top;
-        rectangle.TransformOrigin.CurrentValue = RelativePoint.TopLeft;
+        rectangle.Width.Value = width;
+        rectangle.Height.Value = height;
+        rectangle.Fill.Value = new SolidColorBrush(Colors.OrangeRed);
+        rectangle.AlignmentX.Value = AlignmentX.Left;
+        rectangle.AlignmentY.Value = AlignmentY.Top;
+        rectangle.TransformOrigin.Value = RelativePoint.TopLeft;
 
         var group = new TransformGroup();
         var translate = new TranslateTransform();
-        translate.X.CurrentValue = 88;
-        translate.Y.CurrentValue = 42;
+        translate.X.Value = 88;
+        translate.Y.Value = 42;
         // A TransformGroup applies its last child first, so the shrink runs in the shape's own space.
         group.Children.Add(translate);
         if (scaleX is { } percentX)
         {
             var scale = new ScaleTransform();
-            scale.ScaleX.CurrentValue = percentX;
-            scale.ScaleY.CurrentValue = scaleY ?? 100f;
+            scale.ScaleX.Value = percentX;
+            scale.ScaleY.Value = scaleY ?? 100f;
             group.Children.Add(scale);
         }
 
-        rectangle.Transform.CurrentValue = group;
+        rectangle.Transform.Value = group;
         return rectangle;
     }
 

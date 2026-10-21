@@ -99,10 +99,10 @@ public sealed class AllocationCensusHarness
         {
             var rect = new RectShape
             {
-                Width = { CurrentValue = 20 },
-                Height = { CurrentValue = 20 },
-                Fill = { CurrentValue = Brushes.CornflowerBlue },
-                Transform = { CurrentValue = new TranslateTransform(index, index) },
+                Width = { Value = 20 },
+                Height = { Value = 20 },
+                Fill = { Value = Brushes.CornflowerBlue },
+                Transform = { Value = new TranslateTransform(index, index) },
             };
             shapes.Add(rect.ToResource(compositionContext));
         }
@@ -536,27 +536,27 @@ public sealed class AllocationCensusHarness
     {
         var background = new RectShape
         {
-            Width = { CurrentValue = s_frameSize.Width },
-            Height = { CurrentValue = s_frameSize.Height },
-            Fill = { CurrentValue = Brushes.CornflowerBlue },
+            Width = { Value = s_frameSize.Width },
+            Height = { Value = s_frameSize.Height },
+            Fill = { Value = Brushes.CornflowerBlue },
         };
 
         var accent = new EllipseShape
         {
-            Width = { CurrentValue = 76 },
-            Height = { CurrentValue = 76 },
-            Fill = { CurrentValue = Brushes.OrangeRed },
-            FilterEffect = { CurrentValue = new Brightness { Amount = { CurrentValue = 78 } } },
-            Transform = { CurrentValue = new TranslateTransform(44, -18) },
+            Width = { Value = 76 },
+            Height = { Value = 76 },
+            Fill = { Value = Brushes.OrangeRed },
+            FilterEffect = { Value = new Brightness { Amount = { Value = 78 } } },
+            Transform = { Value = new TranslateTransform(44, -18) },
         };
 
         var label = new TextBlock
         {
-            FontFamily = { CurrentValue = FontFamily.Default },
-            Size = { CurrentValue = 28 },
-            Fill = { CurrentValue = Brushes.White },
-            Text = { CurrentValue = "CACHE" },
-            Transform = { CurrentValue = new TranslateTransform(-28, 30) },
+            FontFamily = { Value = FontFamily.Default },
+            Size = { Value = 28 },
+            Fill = { Value = Brushes.White },
+            Text = { Value = "CACHE" },
+            Transform = { Value = new TranslateTransform(-28, 30) },
         };
 
         CompositionContext context = CompositionContext.Default;

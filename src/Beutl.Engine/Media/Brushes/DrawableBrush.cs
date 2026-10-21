@@ -18,7 +18,7 @@ public partial class DrawableBrush : TileBrush
 
     public DrawableBrush(Drawable drawable) : this()
     {
-        Drawable.CurrentValue = drawable;
+        Drawable.Value = drawable;
     }
 
     /// <summary>

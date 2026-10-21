@@ -340,9 +340,9 @@ internal static class RenderCacheCandidateTopologyScenes
         var result = new List<Drawable.Resource>(shapes + 1);
         var background = new RectShape
         {
-            Width = { CurrentValue = frameSize.Width },
-            Height = { CurrentValue = frameSize.Height },
-            Fill = { CurrentValue = Brushes.CornflowerBlue },
+            Width = { Value = frameSize.Width },
+            Height = { Value = frameSize.Height },
+            Fill = { Value = Brushes.CornflowerBlue },
         };
         result.Add(background.ToResource(context));
 
@@ -350,11 +350,11 @@ internal static class RenderCacheCandidateTopologyScenes
         {
             var shape = new EllipseShape
             {
-                Width = { CurrentValue = 20 + index % 7 },
-                Height = { CurrentValue = 20 + index % 5 },
-                Fill = { CurrentValue = Brushes.OrangeRed },
-                FilterEffect = { CurrentValue = new Brightness { Amount = { CurrentValue = 50 + index % 40 } } },
-                Transform = { CurrentValue = new TranslateTransform(index % 17 * 7, index % 11 * 9) },
+                Width = { Value = 20 + index % 7 },
+                Height = { Value = 20 + index % 5 },
+                Fill = { Value = Brushes.OrangeRed },
+                FilterEffect = { Value = new Brightness { Amount = { Value = 50 + index % 40 } } },
+                Transform = { Value = new TranslateTransform(index % 17 * 7, index % 11 * 9) },
             };
             result.Add(shape.ToResource(context));
         }

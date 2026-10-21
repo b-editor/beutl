@@ -91,8 +91,8 @@ public sealed class GeometryStrokePathCacheTests
     {
         return new EllipseGeometry
         {
-            Width = { CurrentValue = 100 },
-            Height = { CurrentValue = 50 },
+            Width = { Value = 100 },
+            Height = { Value = 50 },
         }.ToResource(CompositionContext.Default);
     }
 
@@ -100,8 +100,8 @@ public sealed class GeometryStrokePathCacheTests
     {
         return new Pen
         {
-            Brush = { CurrentValue = Brushes.Black },
-            Thickness = { CurrentValue = thickness },
+            Brush = { Value = Brushes.Black },
+            Thickness = { Value = thickness },
         }.ToResource(CompositionContext.Default);
     }
 

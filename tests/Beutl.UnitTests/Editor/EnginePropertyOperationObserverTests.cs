@@ -31,7 +31,7 @@ public class EnginePropertyOperationObserverTests
 
         using var observer = new EnginePropertyOperationObserver<float>(
             testObserver, engineObj, property, _sequenceGenerator, "Parent.FloatValue");
-        property.CurrentValue = 25f;
+        property.Value = 25f;
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<float>)receivedOperations[0];
@@ -106,7 +106,7 @@ public class EnginePropertyOperationObserverTests
         using var observer = new EnginePropertyOperationObserver<float>(
             testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
 
-        property.CurrentValue = 75f;
+        property.Value = 75f;
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<float>)receivedOperations[0];
@@ -131,9 +131,9 @@ public class EnginePropertyOperationObserverTests
 
         using (PublishingSuppression.Enter())
         {
-            property.CurrentValue = 25f;
+            property.Value = 25f;
         }
-        property.CurrentValue = 75f;
+        property.Value = 75f;
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<float>)receivedOperations[0];
@@ -151,7 +151,7 @@ public class EnginePropertyOperationObserverTests
             testObserver, engineObj, engineObj.ChildProperty, _sequenceGenerator, "Child");
 
         var newChild = new TestChildCoreObject { Title = "new" };
-        engineObj.ChildProperty.CurrentValue = newChild;
+        engineObj.ChildProperty.Value = newChild;
         receivedOperations.Clear();
 
         newChild.Title = "modified";
@@ -173,7 +173,7 @@ public class EnginePropertyOperationObserverTests
             testObserver, engineObj, engineObj.ChildProperty, _sequenceGenerator, "Child");
 
         var newChild = new TestChildCoreObject { Title = "new" };
-        engineObj.ChildProperty.CurrentValue = newChild;
+        engineObj.ChildProperty.Value = newChild;
         receivedOperations.Clear();
 
         oldChild.Title = "should not be tracked";
@@ -192,9 +192,9 @@ public class EnginePropertyOperationObserverTests
         using var observer = new EnginePropertyOperationObserver<float>(
             testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
 
-        property.CurrentValue = 10f;
-        property.CurrentValue = 20f;
-        property.CurrentValue = 30f;
+        property.Value = 10f;
+        property.Value = 20f;
+        property.Value = 30f;
 
         Assert.That(receivedOperations, Has.Count.EqualTo(3));
         var operations = receivedOperations.Cast<UpdatePropertyValueOperation<float>>().ToList();
@@ -437,7 +437,7 @@ public class EnginePropertyOperationObserverTests
             testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
 
         observer.Dispose();
-        property.CurrentValue = 50f;
+        property.Value = 50f;
 
         Assert.That(receivedOperations, Is.Empty);
     }
@@ -546,7 +546,7 @@ public class EnginePropertyOperationObserverTests
         using var observer = new EnginePropertyOperationObserver<float>(
             testObserver, engineObj, property, _sequenceGenerator, "FloatValue", propertyPathsToTrack);
 
-        property.CurrentValue = 50f;
+        property.Value = 50f;
 
         Assert.That(receivedOperations, Is.Empty);
     }
@@ -600,7 +600,7 @@ public class EnginePropertyOperationObserverTests
         using var observer = new EnginePropertyOperationObserver<float>(
             testObserver, engineObj, property, _sequenceGenerator, "FloatValue", null);
 
-        property.CurrentValue = 50f;
+        property.Value = 50f;
         property.SetKeyFrameAnimation(new KeyFrameAnimation<float>());
         property.Expression = new TestExpression<float>(75f);
 

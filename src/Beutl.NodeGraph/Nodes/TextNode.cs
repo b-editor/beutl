@@ -24,8 +24,8 @@ public partial class TextNode : GraphNode
     {
         Output = AddOutput<DrawableRenderNode?>("Output", NodePortDisplays.Output);
         Object = new TextBlock();
-        Object.AlignmentX.CurrentValue = AlignmentX.Left;
-        Object.AlignmentY.CurrentValue = AlignmentY.Top;
+        Object.AlignmentX.Value = AlignmentX.Left;
+        Object.AlignmentY.Value = AlignmentY.Top;
         AddInput(Object, Object.FontWeight);
         AddInput(Object, Object.FontStyle);
         AddInput(Object, Object.FontFamily);

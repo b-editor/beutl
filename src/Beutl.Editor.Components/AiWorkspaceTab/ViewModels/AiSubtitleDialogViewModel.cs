@@ -396,7 +396,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
             foreach (EngineObject obj in element.Objects)
             {
                 if (obj is SourceSound sound
-                    && sound.Source.CurrentValue is { } source
+                    && sound.Source.Value is { } source
                     && source.HasUri
                     && source.Uri.IsFile)
                 {
@@ -411,8 +411,8 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
                         duration,
                         element.Start,
                         element.Length,
-                        sound.OffsetPosition.CurrentValue,
-                        sound.Speed.CurrentValue,
+                        sound.OffsetPosition.Value,
+                        sound.Speed.Value,
                         sound.Speed.GetKeyFrameAnimation() as KeyFrameAnimation<float>,
                         elementId: element.Id));
                 }

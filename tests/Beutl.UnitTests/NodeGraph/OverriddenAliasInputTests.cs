@@ -56,8 +56,8 @@ public class OverriddenAliasInputTests
             (acceptedParent, rejectedParent) = (rejectedParent, acceptedParent);
         var shared = new SolidColorBrush(Colors.White, 35f);
         var separate = new SolidColorBrush(Colors.White, 65f);
-        acceptedParent.CurrentValue = shared;
-        rejectedParent.CurrentValue = separate;
+        acceptedParent.Value = shared;
+        rejectedParent.Value = separate;
         var acceptedPort = Find(acceptedNode, shared.Opacity);
         var rejectedPort = Find(rejectedNode, separate.Opacity);
         var accepted = acceptedGraph.Connect(acceptedPort, Source(acceptedGraph, 12f, "Opacity"));
@@ -73,7 +73,7 @@ public class OverriddenAliasInputTests
             animation.KeyFrames.Add(new KeyFrame<Brush?> { Value = replacement });
             rejectedParent.SetKeyFrameAnimation(animation);
         }
-        rejectedParent.CurrentValue = shared;
+        rejectedParent.Value = shared;
         history.History.Commit("Override and share brush");
 
         void CheckSingleWriter()

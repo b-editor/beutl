@@ -147,7 +147,7 @@ public sealed partial class GraphEditorTabViewModel
                 && typeof(EngineObject).IsAssignableFrom(list.ElementType))
             {
                 // Flatten the collection row while retaining property paths used by saved selections.
-                AppendValue(list.CurrentValue, parent, path, children, used, ancestors);
+                AppendValue(list.Value, parent, path, children, used, ancestors);
                 continue;
             }
             var item = GetTreeItem(path, Property.GetLocalizedName(property), parent, used);

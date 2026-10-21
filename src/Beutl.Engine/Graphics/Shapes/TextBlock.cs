@@ -15,7 +15,7 @@ public partial class TextBlock : Drawable
     public TextBlock()
     {
         ScanProperties<TextBlock>();
-        Fill.CurrentValue = new SolidColorBrush(Colors.White);
+        Fill.Value = new SolidColorBrush(Colors.White);
     }
 
     [SuppressResourceClassGeneration]

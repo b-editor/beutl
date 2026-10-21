@@ -166,7 +166,7 @@ public sealed class RecoveryProtectedElementEditorTests
             .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), shape.Width));
         TransformEditorViewModel transform = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
             .OfType<TransformEditorViewModel>().Single();
-        float oldWidth = shape.Width.CurrentValue;
+        float oldWidth = shape.Width.Value;
         width.SetValue(oldWidth, oldWidth + 10);
         transform.IsEnabled.Value = !transform.IsEnabled.Value;
         var objectView = new EngineObjectPropertyView { DataContext = tab.Items[1] };
@@ -176,8 +176,8 @@ public sealed class RecoveryProtectedElementEditorTests
         {
             Assert.That(tab.CanEdit.Value, Is.False);
             Assert.That(width.CanEdit.Value, Is.False);
-            Assert.That(shape.Width.CurrentValue, Is.EqualTo(oldWidth));
-            Assert.That(shape.Transform.CurrentValue!.IsEnabled, Is.True, "Toggling the transform would not be saved.");
+            Assert.That(shape.Width.Value, Is.EqualTo(oldWidth));
+            Assert.That(shape.Transform.Value!.IsEnabled, Is.True, "Toggling the transform would not be saved.");
             Assert.That(tab.Items[0].CanReplace.Value, Is.True, "The shape holds the transform with the unreadable easing.");
             Assert.That(tab.Items[1].CanReplace.Value, Is.False);
             Assert.That(element.Objects, Does.Contain(healthy));
@@ -193,7 +193,7 @@ public sealed class RecoveryProtectedElementEditorTests
         objectView.Remove_Click(null, new RoutedEventArgs());
         Assert.Multiple(() =>
         {
-            Assert.That(shape.Transform.CurrentValue, Is.Null);
+            Assert.That(shape.Transform.Value, Is.Null);
             Assert.That(element.SuppressedStorageSource, Is.Not.Null);
             Assert.That(tab.CanEdit.Value, Is.False);
             Assert.That(element.Objects, Does.Contain(shape), "The shape no longer holds anything to repair.");
@@ -215,8 +215,8 @@ public sealed class RecoveryProtectedElementEditorTests
         Element saved = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
         Assert.Multiple(() =>
         {
-            Assert.That(((RectShape)saved.Objects[0]).Width.CurrentValue, Is.EqualTo(oldWidth + 10));
-            Assert.That(((RectShape)saved.Objects[0]).Transform.CurrentValue, Is.Null);
+            Assert.That(((RectShape)saved.Objects[0]).Width.Value, Is.EqualTo(oldWidth + 10));
+            Assert.That(((RectShape)saved.Objects[0]).Transform.Value, Is.Null);
             Assert.That(saved.Objects, Has.Count.EqualTo(2));
             Assert.That(saved.SuppressedStorageSource, Is.Null);
         });
@@ -235,7 +235,7 @@ public sealed class RecoveryProtectedElementEditorTests
         var shape = (RectShape)element.Objects[0];
         EngineObject healthy = element.Objects[1];
         EngineObject unavailable = element.Objects[2];
-        Assert.That(shape.FilterEffect.CurrentValue, Is.InstanceOf<IFallback>());
+        Assert.That(shape.FilterEffect.Value, Is.InstanceOf<IFallback>());
         Assert.That(unavailable, Is.InstanceOf<IFallback>());
         ((IEditorSelection)editor.GetService(typeof(IEditorSelection))!).Select(element);
         HeadlessTestHelpers.Settle();
@@ -249,7 +249,7 @@ public sealed class RecoveryProtectedElementEditorTests
             .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), shape.Width));
         FilterEffectEditorViewModel filter = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false)
             .OfType<FilterEffectEditorViewModel>().Single();
-        float oldWidth = shape.Width.CurrentValue;
+        float oldWidth = shape.Width.Value;
         width.SetValue(oldWidth, oldWidth + 10);
         filter.IsEnabled.Value = false;
         unavailableItem.IsEnabled.Value = false;
@@ -261,8 +261,8 @@ public sealed class RecoveryProtectedElementEditorTests
         {
             Assert.That(element.SuppressedStorageSource, Is.Null);
             Assert.That(tab.CanEdit.Value, Is.True);
-            Assert.That(shape.Width.CurrentValue, Is.EqualTo(oldWidth + 10));
-            Assert.That(shape.FilterEffect.CurrentValue!.IsEnabled, Is.False);
+            Assert.That(shape.Width.Value, Is.EqualTo(oldWidth + 10));
+            Assert.That(shape.FilterEffect.Value!.IsEnabled, Is.False);
             Assert.That(unavailable.IsEnabled, Is.False);
             Assert.That(unavailableItem.CanToggleEnabled.Value, Is.True);
             Assert.That(element.Objects, Does.Not.Contain(healthy));
@@ -478,7 +478,7 @@ public sealed class RecoveryProtectedElementEditorTests
     private static async Task<(string ProjectPath, string ElementPath)> CreateProjectWithMissingTypes(string name)
     {
         (string projectPath, string elementPath) = await CreateSavedProjectAsync(
-            name, () => new RectShape { FilterEffect = { CurrentValue = new Blur() } }, element =>
+            name, () => new RectShape { FilterEffect = { Value = new Blur() } }, element =>
             {
                 element.AddObject(new EllipseShape());
                 element.AddObject(new RectShape());
@@ -502,7 +502,7 @@ public sealed class RecoveryProtectedElementEditorTests
         var second = new RectShape();
         second.Width.SetKeyFrameAnimation(CreateAnimation(100f));
         (string projectPath, string elementPath) = await CreateSavedProjectAsync(
-            name, () => new RectShape { Transform = { CurrentValue = translation } }, element =>
+            name, () => new RectShape { Transform = { Value = translation } }, element =>
             {
                 element.AddObject(new EllipseShape());
                 element.AddObject(second);

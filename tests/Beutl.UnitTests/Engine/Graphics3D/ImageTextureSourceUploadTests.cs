@@ -93,7 +93,7 @@ public class ImageTextureSourceUploadTests
         resource.GetTexture(context.Object);
         resource.GetTexture(context.Object, 1f, TextureContentKind.Data);
 
-        definition.Source.CurrentValue = Image(nameof(GetTexture_ReplacesBothKindsWhenTheSourceChanges) + "-next");
+        definition.Source.Value = Image(nameof(GetTexture_ReplacesBothKindsWhenTheSourceChanges) + "-next");
         bool versionBumped = false;
         resource.Reconcile(definition, CompositionContext.Default, ref versionBumped);
         ITexture2D? color = resource.GetTexture(context.Object);
@@ -147,7 +147,7 @@ public class ImageTextureSourceUploadTests
         resource.GetTexture(context.Object);
         resource.GetTexture(context.Object, 1f, TextureContentKind.Data);
 
-        definition.Source.CurrentValue = null;
+        definition.Source.Value = null;
         bool versionBumped = false;
         resource.Reconcile(definition, CompositionContext.Default, ref versionBumped);
 
@@ -187,7 +187,7 @@ public class ImageTextureSourceUploadTests
             });
 
         var definition = new ImageTextureSource();
-        definition.Source.CurrentValue = Image(name);
+        definition.Source.Value = Image(name);
         return (definition, context, created);
     }
 

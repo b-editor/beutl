@@ -15,7 +15,7 @@ public abstract partial class AudioVisualizerDrawable : Drawable
     public AudioVisualizerDrawable()
     {
         ScanProperties<AudioVisualizerDrawable>();
-        Fill.CurrentValue = new SolidColorBrush(Colors.White);
+        Fill.Value = new SolidColorBrush(Colors.White);
     }
 
     [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]

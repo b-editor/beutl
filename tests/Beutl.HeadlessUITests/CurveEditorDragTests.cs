@@ -64,7 +64,7 @@ public sealed class CurveEditorDragTests
         (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync($"curve-drag-{end}");
         var curves = new Curves();
         var shape = new RectShape();
-        shape.FilterEffect.CurrentValue = curves;
+        shape.FilterEffect.Value = curves;
         await TestShell.AddElementAsync(editor, () => shape, TimeSpan.Zero, TimeSpan.FromSeconds(2));
         Element element = scene.Children.Single();
         editor.HistoryManager.ExecuteInTransaction(() => element.Name = "earlier", "Earlier");
@@ -89,7 +89,7 @@ public sealed class CurveEditorDragTests
             window.MouseDown(At(0.5, 0.25), MouseButton.Left);
             window.MouseMove(At(0.6, 0.5), RawInputModifiers.LeftMouseButton);
             HeadlessTestHelpers.Render(3);
-            Assert.That(curves.MasterCurve.CurrentValue.Points, Has.Length.EqualTo(3));
+            Assert.That(curves.MasterCurve.Value.Points, Has.Length.EqualTo(3));
             Assert.That(editor.HistoryManager.IsEditing, Is.True, "The drag must hold an edit session.");
 
             switch (end)
@@ -119,7 +119,7 @@ public sealed class CurveEditorDragTests
             HeadlessTestHelpers.Settle(4);
 
             bool kept = end is DragEnd.CaptureLoss or DragEnd.Playback;
-            System.Collections.Immutable.ImmutableArray<CurveControlPoint> points = curves.MasterCurve.CurrentValue.Points;
+            System.Collections.Immutable.ImmutableArray<CurveControlPoint> points = curves.MasterCurve.Value.Points;
             Assert.Multiple(() =>
             {
                 Assert.That(points, Has.Length.EqualTo(kept ? 3 : 2));

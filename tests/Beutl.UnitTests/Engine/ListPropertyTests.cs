@@ -59,12 +59,12 @@ public class ListPropertyTests
     public void Replace_KeepsSameInstance()
     {
         var property = Make<int>();
-        var originalRef = property.CurrentValue;
+        var originalRef = property.Value;
         property.AddRange([1, 2, 3]);
 
         property.Replace([10, 20]);
 
-        Assert.That(property.CurrentValue, Is.SameAs(originalRef));
+        Assert.That(property.Value, Is.SameAs(originalRef));
         Assert.That(property, Is.EqualTo(new[] { 10, 20 }));
     }
 
@@ -119,7 +119,7 @@ public class ListPropertyTests
 
         var value = CompositionContext.Default.Get(property);
 
-        Assert.That(value, Is.SameAs(property.CurrentValue));
+        Assert.That(value, Is.SameAs(property.Value));
     }
 
     [Test]

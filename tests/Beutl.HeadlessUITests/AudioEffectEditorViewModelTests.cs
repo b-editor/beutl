@@ -15,7 +15,7 @@ public class AudioEffectEditorViewModelTests
     public void Dispose_DisposesTheExpandedPropertyEditors()
     {
         var sound = new SourceSound();
-        sound.Effect.CurrentValue = new DelayEffect();
+        sound.Effect.Value = new DelayEffect();
         AudioEffectEditorViewModel viewModel = CreateExpanded(sound);
         BaseEditorViewModel[] children = [.. viewModel.Properties.Value!.Properties.OfType<BaseEditorViewModel>()];
         Assert.That(children, Is.Not.Empty);
@@ -29,7 +29,7 @@ public class AudioEffectEditorViewModelTests
     public void Dispose_DisposesTheExpandedGroupEditor()
     {
         var sound = new SourceSound();
-        sound.Effect.CurrentValue = new AudioEffectGroup();
+        sound.Effect.Value = new AudioEffectGroup();
         AudioEffectEditorViewModel viewModel = CreateExpanded(sound);
         ListEditorViewModel<AudioEffect> group = viewModel.Group.Value!;
 

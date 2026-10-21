@@ -37,13 +37,13 @@ public class NativeBackendWriteSurvivesTargetClearTests
                 compilation.Status,
                 Is.EqualTo(ScriptCompilationStatus.Compiled),
                 $"the fixture's shader must compile, otherwise the effect degrades to a no-op: {compilation.Error}");
-            effect.FragmentShader.CurrentValue = InvertShader;
+            effect.FragmentShader.Value = InvertShader;
 
             var rectangle = new RectShape();
-            rectangle.Width.CurrentValue = 120;
-            rectangle.Height.CurrentValue = 80;
-            rectangle.Fill.CurrentValue = new SolidColorBrush(Colors.OrangeRed);
-            rectangle.FilterEffect.CurrentValue = effect;
+            rectangle.Width.Value = 120;
+            rectangle.Height.Value = 80;
+            rectangle.Fill.Value = new SolidColorBrush(Colors.OrangeRed);
+            rectangle.FilterEffect.Value = effect;
 
             using Bitmap bitmap = SceneRenderHarness.RenderSingle(
                 rectangle,

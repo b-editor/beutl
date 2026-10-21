@@ -55,7 +55,7 @@ public class TrimDisabledFlowControllerTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(position, Is.EqualTo(4.9).Within(0.000001));
             Assert.That(_harness.History.UndoCount, Is.EqualTo(history));
         });
@@ -82,7 +82,7 @@ public class TrimDisabledFlowControllerTests
         {
             Assert.That(applied, Is.True);
             Assert.That(preview.TotalSeconds, Is.EqualTo(expected).Within(0.000001));
-            Assert.That(video.OffsetPosition.CurrentValue.TotalSeconds, Is.EqualTo(expected).Within(0.000001));
+            Assert.That(video.OffsetPosition.Value.TotalSeconds, Is.EqualTo(expected).Within(0.000001));
             Assert.That(plainPosition, Is.LessThanOrEqualTo(sourceLength));
             Assert.That(controlledPosition, Is.LessThanOrEqualTo(sourceLength));
         });
@@ -108,7 +108,7 @@ public class TrimDisabledFlowControllerTests
             Assert.That(preview, Is.EqualTo(Seconds(leftEdge ? 0 : 4)));
             Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero));
             Assert.That(element.Length, Is.EqualTo(Seconds(4)));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(Position(resource), Is.EqualTo(4.9).Within(0.000001));
         });
     }
@@ -152,7 +152,7 @@ public class TrimDisabledFlowControllerTests
         element.Objects.Add(video);
 
         Assert.That(new ElementSlipService(_harness.History).Slip(_harness.Scene, [element], Seconds(1)), Is.True);
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(1)));
     }
 
     [Test]
@@ -163,7 +163,7 @@ public class TrimDisabledFlowControllerTests
         Element element = AddElement(0, 2, first);
         element.Objects.Add(second);
         var disabled = AddDisabledController(element, speed: 50);
-        element.Objects.Add(new DrawableTimeController { Speed = { CurrentValue = 200 } });
+        element.Objects.Add(new DrawableTimeController { Speed = { Value = 200 } });
 
         // While disabled, the final controller consumes the first video. Enabling
         // the earlier controller moves that first input to the end of Flow, so
@@ -179,8 +179,8 @@ public class TrimDisabledFlowControllerTests
         {
             Assert.That(applied, Is.True);
             Assert.That(preview, Is.EqualTo(Seconds(1)));
-            Assert.That(first.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(2)), "Its active 200% clock still owns the offset write.");
-            Assert.That(second.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+            Assert.That(first.OffsetPosition.Value, Is.EqualTo(Seconds(2)), "Its active 200% clock still owns the offset write.");
+            Assert.That(second.OffsetPosition.Value, Is.EqualTo(Seconds(1)));
             Assert.That(Position(secondFrame), Is.EqualTo(4.8).Within(0.000001));
         });
     }
@@ -201,7 +201,7 @@ public class TrimDisabledFlowControllerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(1)));
             Assert.That(Position(resource), Is.EqualTo(4.9).Within(0.000001));
         });
     }
@@ -211,7 +211,7 @@ public class TrimDisabledFlowControllerTests
     public void Slip_SharedPresenterAndDisabledController_PreservesTheActiveOffsetClock(bool presenterFirst)
     {
         var video = CreateVideo(5);
-        var presenter = new DrawablePresenter { Target = { CurrentValue = video } };
+        var presenter = new DrawablePresenter { Target = { Value = video } };
         Element element = AddElement(0, 2, presenterFirst ? presenter : video);
         element.Objects.Add(presenterFirst ? video : presenter);
         var controller = AddDisabledController(element, speed: 200);
@@ -223,7 +223,7 @@ public class TrimDisabledFlowControllerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(1)));
             Assert.That(resources, Has.Length.EqualTo(2));
             Assert.That(resources.Select(Position).Max(), Is.EqualTo(4.8).Within(0.000001));
         });
@@ -234,12 +234,12 @@ public class TrimDisabledFlowControllerTests
     public void Slip_LinkedAudio_UsesOneTimelineDeltaAndRestoresOffsetsWithHistory(bool frozenVideo)
     {
         var video = CreateVideo(5);
-        if (frozenVideo) video.Speed.CurrentValue = 0;
+        if (frozenVideo) video.Speed.Value = 0;
         Element element = AddElement(0, 2, video);
         AddDisabledController(element, speed: 200);
         var source = new SoundSource();
         source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 3)));
-        var sound = new SourceSound { Source = { CurrentValue = source }, Speed = { CurrentValue = 200 } };
+        var sound = new SourceSound { Source = { Value = source }, Speed = { Value = 200 } };
         Element audio = _harness.AddElement(Seconds(5), Seconds(1));
         audio.Objects.Add(sound);
         int history = _harness.History.UndoCount;
@@ -247,21 +247,21 @@ public class TrimDisabledFlowControllerTests
         Assert.That(new ElementSlipService(_harness.History).Slip(_harness.Scene, [element, audio], Seconds(2)), Is.True);
         Assert.Multiple(() =>
         {
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(frozenVideo ? 0 : 0.5)));
-            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(frozenVideo ? 0 : 0.5)));
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(Seconds(1)));
             Assert.That(_harness.History.UndoCount, Is.EqualTo(history + 1));
         });
         Assert.That(_harness.History.Undo(), Is.True);
         Assert.Multiple(() =>
         {
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
         });
         Assert.That(_harness.History.Redo(), Is.True);
         Assert.Multiple(() =>
         {
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(frozenVideo ? 0 : 0.5)));
-            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(frozenVideo ? 0 : 0.5)));
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(Seconds(1)));
         });
     }
 
@@ -279,8 +279,8 @@ public class TrimDisabledFlowControllerTests
         Assert.That(new ElementSlipService(_harness.History).Slip(_harness.Scene, [linkedElement, element], Seconds(1)), Is.False);
         Assert.Multiple(() =>
         {
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(linked.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(linked.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(_harness.History.UndoCount, Is.EqualTo(history));
         });
     }
@@ -301,7 +301,7 @@ public class TrimDisabledFlowControllerTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.EqualTo(!incomingFlow));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(incomingFlow ? 0 : 1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(incomingFlow ? 0 : 1)));
             Assert.That(_harness.History.UndoCount, Is.EqualTo(history + (incomingFlow ? 0 : 1)));
         });
     }
@@ -319,8 +319,8 @@ public class TrimDisabledFlowControllerTests
             videoSource.ReadFrom(videoUri);
             var audioSource = new SoundSource();
             audioSource.ReadFrom(audioUri);
-            Element element = AddElement(0, 2, new SourceVideo { Source = { CurrentValue = videoSource } });
-            element.Objects.Add(new SourceSound { Source = { CurrentValue = audioSource } });
+            Element element = AddElement(0, 2, new SourceVideo { Source = { Value = videoSource } });
+            element.Objects.Add(new SourceSound { Source = { Value = audioSource } });
             for (int i = 0; i < 7; i++) AddDisabledController(element, offset: 0.1);
 
             var targets = SlippableMedia.Collect(element);
@@ -353,7 +353,7 @@ public class TrimDisabledFlowControllerTests
             Uri secondUri = CreateCountingSourceFile(decoder, 20);
             var source = new VideoSource();
             source.ReadFrom(firstUri);
-            Element element = AddElement(0, 2, new SourceVideo { Source = { CurrentValue = source } });
+            Element element = AddElement(0, 2, new SourceVideo { Source = { Value = source } });
             AddDisabledController(element);
 
             TimeSpan? first = SlippableMedia.Collect(element).Single().Total;
@@ -418,8 +418,8 @@ public class TrimDisabledFlowControllerTests
         var controller = new DrawableTimeController
         {
             IsEnabled = false,
-            Speed = { CurrentValue = speed },
-            OffsetPosition = { CurrentValue = Seconds(offset) }
+            Speed = { Value = speed },
+            OffsetPosition = { Value = Seconds(offset) }
         };
         element.Objects.Add(controller);
         return controller;

@@ -19,12 +19,12 @@ public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ISpl
 
     public bool HasOriginalDuration()
     {
-        return Source.CurrentValue != null;
+        return Source.Value != null;
     }
 
     public bool TryGetOriginalDuration(out TimeSpan timeSpan)
     {
-        using var resource = Source.CurrentValue?.ToResource(CompositionContext.Default);
+        using var resource = Source.Value?.ToResource(CompositionContext.Default);
         if (resource != null && resource.Duration > TimeSpan.Zero)
         {
             timeSpan = resource.Duration;
@@ -41,7 +41,7 @@ public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ISpl
     {
         if (backward)
         {
-            OffsetPosition.CurrentValue += startDelta;
+            OffsetPosition.Value += startDelta;
         }
     }
 

@@ -40,15 +40,15 @@ public class SubPixelParticlesStayVisibleTests
     {
         var emitter = new ParticleEmitter();
         // The simulator seeds its Random from this, so an unpinned seed would make the measurement noise.
-        emitter.Seed.CurrentValue = 1234;
-        emitter.EmissionRate.CurrentValue = 24f;
-        emitter.Lifetime.CurrentValue = 1.2f;
-        emitter.MaxParticles.CurrentValue = 400;
-        emitter.Speed.CurrentValue = 150f;
-        emitter.Gravity.CurrentValue = 200f;
-        emitter.Spread.CurrentValue = 40f;
-        emitter.ParticleSize.CurrentValue = particleSize;
-        emitter.ParticleColor.CurrentValue = Colors.OrangeRed;
+        emitter.Seed.Value = 1234;
+        emitter.EmissionRate.Value = 24f;
+        emitter.Lifetime.Value = 1.2f;
+        emitter.MaxParticles.Value = 400;
+        emitter.Speed.Value = 150f;
+        emitter.Gravity.Value = 200f;
+        emitter.Spread.Value = 40f;
+        emitter.ParticleSize.Value = particleSize;
+        emitter.ParticleColor.Value = Colors.OrangeRed;
 
         using Bitmap bitmap = SceneRenderHarness.RenderSingle(
             emitter,

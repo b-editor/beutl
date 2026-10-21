@@ -20,11 +20,11 @@ public class TileBrushFillDensityTests
     private static EllipseShape MakeEllipse(float size = 160)
     {
         var e = new EllipseShape();
-        e.AlignmentX.CurrentValue = AlignmentX.Center;
-        e.AlignmentY.CurrentValue = AlignmentY.Center;
-        e.Width.CurrentValue = size;
-        e.Height.CurrentValue = size;
-        e.Fill.CurrentValue = Brushes.White;
+        e.AlignmentX.Value = AlignmentX.Center;
+        e.AlignmentY.Value = AlignmentY.Center;
+        e.Width.Value = size;
+        e.Height.Value = size;
+        e.Fill.Value = Brushes.White;
         return e;
     }
 
@@ -37,17 +37,17 @@ public class TileBrushFillDensityTests
         Drawable? content = null)
     {
         var brush = new DrawableBrush();
-        brush.Drawable.CurrentValue = content ?? MakeEllipse();
-        brush.Stretch.CurrentValue = stretch;
-        brush.TileMode.CurrentValue = tileMode;
-        brush.DestinationRect.CurrentValue = dest;
+        brush.Drawable.Value = content ?? MakeEllipse();
+        brush.Stretch.Value = stretch;
+        brush.TileMode.Value = tileMode;
+        brush.DestinationRect.Value = dest;
 
         var rect = new RectShape();
-        rect.AlignmentX.CurrentValue = AlignmentX.Center;
-        rect.AlignmentY.CurrentValue = AlignmentY.Center;
-        rect.Width.CurrentValue = 160;
-        rect.Height.CurrentValue = 160;
-        rect.Fill.CurrentValue = brush;
+        rect.AlignmentX.Value = AlignmentX.Center;
+        rect.AlignmentY.Value = AlignmentY.Center;
+        rect.Width.Value = 160;
+        rect.Height.Value = 160;
+        rect.Fill.Value = brush;
         return rect.ToResource(CompositionContext.Default);
     }
 
@@ -103,17 +103,17 @@ public class TileBrushFillDensityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var brush = new DrawableBrush();
-            brush.Drawable.CurrentValue = MakeEllipse(40);
-            brush.Stretch.CurrentValue = Stretch.Fill;
-            brush.TileMode.CurrentValue = TileMode.None;
-            brush.DestinationRect.CurrentValue = RelativeRect.Fill;
+            brush.Drawable.Value = MakeEllipse(40);
+            brush.Stretch.Value = Stretch.Fill;
+            brush.TileMode.Value = TileMode.None;
+            brush.DestinationRect.Value = RelativeRect.Fill;
 
             var host = new RectShape();
-            host.AlignmentX.CurrentValue = AlignmentX.Center;
-            host.AlignmentY.CurrentValue = AlignmentY.Center;
-            host.Width.CurrentValue = 160;
-            host.Height.CurrentValue = 160;
-            host.Fill.CurrentValue = brush;
+            host.AlignmentX.Value = AlignmentX.Center;
+            host.AlignmentY.Value = AlignmentY.Center;
+            host.Width.Value = 160;
+            host.Height.Value = 160;
+            host.Fill.Value = brush;
 
             using Bitmap filled = GoldenImageHarness.RenderAtScale(
                 host.ToResource(CompositionContext.Default), Frame, 1f);
@@ -132,25 +132,25 @@ public class TileBrushFillDensityTests
     private static Drawable.Resource MakeEffectedBrushHost(FilterEffect effect)
     {
         var source = new RectShape();
-        source.AlignmentX.CurrentValue = AlignmentX.Center;
-        source.AlignmentY.CurrentValue = AlignmentY.Center;
-        source.Width.CurrentValue = 60;
-        source.Height.CurrentValue = 40;
-        source.Fill.CurrentValue = Brushes.White;
-        source.FilterEffect.CurrentValue = effect;
+        source.AlignmentX.Value = AlignmentX.Center;
+        source.AlignmentY.Value = AlignmentY.Center;
+        source.Width.Value = 60;
+        source.Height.Value = 40;
+        source.Fill.Value = Brushes.White;
+        source.FilterEffect.Value = effect;
 
         var brush = new DrawableBrush();
-        brush.Drawable.CurrentValue = source;
-        brush.Stretch.CurrentValue = Stretch.Uniform;
-        brush.TileMode.CurrentValue = TileMode.None;
-        brush.DestinationRect.CurrentValue = RelativeRect.Fill;
+        brush.Drawable.Value = source;
+        brush.Stretch.Value = Stretch.Uniform;
+        brush.TileMode.Value = TileMode.None;
+        brush.DestinationRect.Value = RelativeRect.Fill;
 
         var host = new RectShape();
-        host.AlignmentX.CurrentValue = AlignmentX.Center;
-        host.AlignmentY.CurrentValue = AlignmentY.Center;
-        host.Width.CurrentValue = 180;
-        host.Height.CurrentValue = 120;
-        host.Fill.CurrentValue = brush;
+        host.AlignmentX.Value = AlignmentX.Center;
+        host.AlignmentY.Value = AlignmentY.Center;
+        host.Width.Value = 180;
+        host.Height.Value = 120;
+        host.Fill.Value = brush;
         return host.ToResource(CompositionContext.Default);
     }
 
@@ -163,10 +163,10 @@ public class TileBrushFillDensityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var split = new SplitEffect();
-            split.HorizontalDivisions.CurrentValue = 2;
-            split.VerticalDivisions.CurrentValue = 2;
-            split.HorizontalSpacing.CurrentValue = 6;
-            split.VerticalSpacing.CurrentValue = 6;
+            split.HorizontalDivisions.Value = 2;
+            split.VerticalDivisions.Value = 2;
+            split.HorizontalSpacing.Value = 6;
+            split.VerticalSpacing.Value = 6;
 
             using Bitmap filled = GoldenImageHarness.RenderAtScale(MakeEffectedBrushHost(split), Frame, 1f);
             PixelRect painted = PaintedBounds(filled);
@@ -247,20 +247,20 @@ public class TileBrushFillDensityTests
     private static RectShape MakeStripes()
     {
         var stripes = new LinearGradientBrush();
-        stripes.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
-        stripes.EndPoint.CurrentValue = new RelativePoint(11, 7, RelativeUnit.Absolute);
-        stripes.SpreadMethod.CurrentValue = GradientSpreadMethod.Repeat;
+        stripes.StartPoint.Value = new RelativePoint(0, 0, RelativeUnit.Absolute);
+        stripes.EndPoint.Value = new RelativePoint(11, 7, RelativeUnit.Absolute);
+        stripes.SpreadMethod.Value = GradientSpreadMethod.Repeat;
         stripes.GradientStops.Add(new GradientStop(Colors.White, 0));
         stripes.GradientStops.Add(new GradientStop(Colors.White, 0.5f));
         stripes.GradientStops.Add(new GradientStop(Colors.Black, 0.5f));
         stripes.GradientStops.Add(new GradientStop(Colors.Black, 1));
 
         var rect = new RectShape();
-        rect.AlignmentX.CurrentValue = AlignmentX.Center;
-        rect.AlignmentY.CurrentValue = AlignmentY.Center;
-        rect.Width.CurrentValue = 160;
-        rect.Height.CurrentValue = 160;
-        rect.Fill.CurrentValue = stripes;
+        rect.AlignmentX.Value = AlignmentX.Center;
+        rect.AlignmentY.Value = AlignmentY.Center;
+        rect.Width.Value = 160;
+        rect.Height.Value = 160;
+        rect.Fill.Value = stripes;
         return rect;
     }
 
@@ -332,16 +332,16 @@ public class TileBrushFillDensityTests
         var source = new ImageSource();
         source.ReadFrom(uri);
         var brush = new ImageBrush(source);
-        brush.Stretch.CurrentValue = Stretch.Fill;
-        brush.TileMode.CurrentValue = TileMode.None;
-        brush.DestinationRect.CurrentValue = RelativeRect.Fill;
+        brush.Stretch.Value = Stretch.Fill;
+        brush.TileMode.Value = TileMode.None;
+        brush.DestinationRect.Value = RelativeRect.Fill;
 
         var rect = new RectShape();
-        rect.AlignmentX.CurrentValue = AlignmentX.Center;
-        rect.AlignmentY.CurrentValue = AlignmentY.Center;
-        rect.Width.CurrentValue = 160;
-        rect.Height.CurrentValue = 160;
-        rect.Fill.CurrentValue = brush;
+        rect.AlignmentX.Value = AlignmentX.Center;
+        rect.AlignmentY.Value = AlignmentY.Center;
+        rect.Width.Value = 160;
+        rect.Height.Value = 160;
+        rect.Fill.Value = brush;
         return rect.ToResource(CompositionContext.Default);
     }
 

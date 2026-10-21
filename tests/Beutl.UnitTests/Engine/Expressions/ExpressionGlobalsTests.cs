@@ -165,7 +165,7 @@ public class ExpressionGlobalsTests
         // Arrange - Create a hierarchy with a property
         var root = new TestEngineObject();
         var child = new TestEngineObject();
-        child.Value.CurrentValue = 42.0;
+        child.Value.Value = 42.0;
         root.AddChild(child);
 
         var lookup = new PropertyLookup(root);
@@ -186,7 +186,7 @@ public class ExpressionGlobalsTests
         // Arrange - Create a hierarchy with a property
         var root = new TestEngineObject();
         var child = new TestEngineObject();
-        child.Value.CurrentValue = 123.5;
+        child.Value.Value = 123.5;
         root.AddChild(child);
 
         var lookup = new PropertyLookup(root);

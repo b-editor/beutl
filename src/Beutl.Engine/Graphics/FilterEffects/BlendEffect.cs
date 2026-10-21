@@ -12,7 +12,7 @@ public sealed partial class BlendEffect : FilterEffect
     public BlendEffect()
     {
         ScanProperties<BlendEffect>();
-        Brush.CurrentValue = new SolidColorBrush(Colors.White);
+        Brush.Value = new SolidColorBrush(Colors.White);
     }
 
     [Display(Name = nameof(GraphicsStrings.Brush), ResourceType = typeof(GraphicsStrings))]
@@ -33,7 +33,7 @@ public sealed partial class BlendEffect : FilterEffect
         if (context.Contains("Color"))
         {
             Color color = context.GetValue<Color>("Color");
-            Brush.CurrentValue = new SolidColorBrush(color);
+            Brush.Value = new SolidColorBrush(color);
         }
     }
 }

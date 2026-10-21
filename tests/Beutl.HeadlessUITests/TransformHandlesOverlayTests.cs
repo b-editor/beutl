@@ -216,7 +216,7 @@ public class TransformHandlesOverlayTests
         (EditViewModel editor, PlayerView view, Window window, Drawable drawable) = await OpenPreview(Content.LoneTranslate);
         try
         {
-            Transform lone = drawable.Transform.CurrentValue!;
+            Transform lone = drawable.Transform.Value!;
             TransformHandlesOverlay overlay = view.transformHandlesOverlay;
             AvaPoint[] before = Corners(overlay);
             AvaPoint to = before[2] + new Avalonia.Vector(30, 20);
@@ -229,9 +229,9 @@ public class TransformHandlesOverlayTests
             AvaPoint[] after = Corners(overlay);
             Assert.Multiple(() =>
             {
-                Assert.That(drawable.Transform.CurrentValue, Is.TypeOf<TransformGroup>());
-                Assert.That(((TransformGroup)drawable.Transform.CurrentValue!).Children, Has.Member(lone));
-                Assert.That(lone.HierarchicalParent, Is.SameAs(drawable.Transform.CurrentValue));
+                Assert.That(drawable.Transform.Value, Is.TypeOf<TransformGroup>());
+                Assert.That(((TransformGroup)drawable.Transform.Value!).Children, Has.Member(lone));
+                Assert.That(lone.HierarchicalParent, Is.SameAs(drawable.Transform.Value));
                 Assert.That(after[2].X, Is.EqualTo(to.X).Within(0.5), "grabbed corner X");
                 Assert.That(after[2].Y, Is.EqualTo(to.Y).Within(0.5), "grabbed corner Y");
                 Assert.That(after[0].X, Is.EqualTo(before[0].X).Within(0.5), "opposite corner X");
@@ -241,7 +241,7 @@ public class TransformHandlesOverlayTests
             editor.HistoryManager.Undo();
             Assert.Multiple(() =>
             {
-                Assert.That(drawable.Transform.CurrentValue, Is.SameAs(lone));
+                Assert.That(drawable.Transform.Value, Is.SameAs(lone));
                 Assert.That(lone.HierarchicalParent, Is.SameAs(drawable));
             });
         }
@@ -298,14 +298,14 @@ public class TransformHandlesOverlayTests
             Element outgoing = editor.Scene.Children.Single();
             outgoing.Length = TimeSpan.FromSeconds(1);
             var incomingDrawable = new RectShape();
-            incomingDrawable.Width.CurrentValue = 160;
-            incomingDrawable.Height.CurrentValue = 100;
+            incomingDrawable.Width.Value = 160;
+            incomingDrawable.Height.Value = 100;
             await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
                 TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0,
                 new ElementSource.EngineObject(() => incomingDrawable))], CancellationToken.None);
             Element incoming = editor.Scene.Children.Single(e => e != outgoing);
             Assert.That(incoming.ZIndex, Is.EqualTo(outgoing.ZIndex), "The transition joins two clips on one layer.");
-            incoming.EnterTransition = new ZoomTransition { Duration = { CurrentValue = TimeSpan.FromSeconds(1) } };
+            incoming.EnterTransition = new ZoomTransition { Duration = { Value = TimeSpan.FromSeconds(1) } };
             editor.GetRequiredService<IEditorClock>().Seek(TimeSpan.FromSeconds(1.5));
             editor.GetRequiredService<IEditorSelection>().Select(incoming);
             await RenderPreview(editor);
@@ -387,51 +387,51 @@ public class TransformHandlesOverlayTests
         {
             case Content.ShadowedEllipse:
                 var ellipse = new EllipseShape();
-                ellipse.Width.CurrentValue = 120;
-                ellipse.Height.CurrentValue = 120;
+                ellipse.Width.Value = 120;
+                ellipse.Height.Value = 120;
                 var shadow = new DropShadow();
-                shadow.Position.CurrentValue = new BtlPoint(40, 30);
-                shadow.Sigma.CurrentValue = new BtlSize(6, 6);
-                shadow.Color.CurrentValue = Colors.Magenta;
-                ((FilterEffectGroup)ellipse.FilterEffect.CurrentValue!).Children.Add(shadow);
+                shadow.Position.Value = new BtlPoint(40, 30);
+                shadow.Sigma.Value = new BtlSize(6, 6);
+                shadow.Color.Value = Colors.Magenta;
+                ((FilterEffectGroup)ellipse.FilterEffect.Value!).Children.Add(shadow);
                 return ellipse;
 
             case Content.TurnedBlurredRect:
                 var rect = new RectShape();
-                rect.Width.CurrentValue = 100;
-                rect.Height.CurrentValue = 80;
+                rect.Width.Value = 100;
+                rect.Height.Value = 80;
                 var blur = new Blur();
-                blur.Sigma.CurrentValue = new BtlSize(8, 8);
-                ((FilterEffectGroup)rect.FilterEffect.CurrentValue!).Children.Add(blur);
-                var transform = (TransformGroup)rect.Transform.CurrentValue!;
+                blur.Sigma.Value = new BtlSize(8, 8);
+                ((FilterEffectGroup)rect.FilterEffect.Value!).Children.Add(blur);
+                var transform = (TransformGroup)rect.Transform.Value!;
                 transform.Children.Add(new TranslateTransform(-60, 40));
                 transform.Children.Add(new RotationTransform(-30));
                 return rect;
 
             case Content.ScaledAfterTranslate:
                 var scaled = new RectShape();
-                scaled.Width.CurrentValue = 160;
-                scaled.Height.CurrentValue = 100;
-                var layout = (TransformGroup)scaled.Transform.CurrentValue!;
+                scaled.Width.Value = 160;
+                scaled.Height.Value = 100;
+                var layout = (TransformGroup)scaled.Transform.Value!;
                 layout.Children.Add(new ScaleTransform(100, 100, 106));
                 layout.Children.Add(new TranslateTransform(0, -60));
                 return scaled;
 
             case Content.FillsTheFrame:
                 var filling = new RectShape();
-                filling.Width.CurrentValue = 160;
-                filling.Height.CurrentValue = 100;
+                filling.Width.Value = 160;
+                filling.Height.Value = 100;
                 var targetTransform = new TransformEffect();
-                targetTransform.Transform.CurrentValue = new RotationTransform(10);
-                ((FilterEffectGroup)filling.FilterEffect.CurrentValue!).Children.Add(targetTransform);
-                ((TransformGroup)filling.Transform.CurrentValue!).Children.Add(new TranslateTransform(60, 40));
+                targetTransform.Transform.Value = new RotationTransform(10);
+                ((FilterEffectGroup)filling.FilterEffect.Value!).Children.Add(targetTransform);
+                ((TransformGroup)filling.Transform.Value!).Children.Add(new TranslateTransform(60, 40));
                 return filling;
 
             case Content.ScaledAndTurned:
                 var big = new RectShape();
-                big.Width.CurrentValue = 120;
-                big.Height.CurrentValue = 80;
-                var canonical = (TransformGroup)big.Transform.CurrentValue!;
+                big.Width.Value = 120;
+                big.Height.Value = 80;
+                var canonical = (TransformGroup)big.Transform.Value!;
                 canonical.Children.Add(new TranslateTransform());
                 canonical.Children.Add(new RotationTransform(30));
                 canonical.Children.Add(new ScaleTransform(200, 200));
@@ -439,20 +439,20 @@ public class TransformHandlesOverlayTests
 
             case Content.Thin:
                 var thin = new RectShape();
-                thin.Width.CurrentValue = 300;
-                thin.Height.CurrentValue = 2;
+                thin.Width.Value = 300;
+                thin.Height.Value = 2;
                 return thin;
 
             case Content.LoneTranslate:
                 var moved = new RectShape();
-                moved.Width.CurrentValue = 200;
-                moved.Height.CurrentValue = 100;
-                moved.Transform.CurrentValue = new TranslateTransform(0, 130);
+                moved.Width.Value = 200;
+                moved.Height.Value = 100;
+                moved.Transform.Value = new TranslateTransform(0, 130);
                 return moved;
 
             default:
                 var text = new TextBlock();
-                text.Text.CurrentValue = "Beutl";
+                text.Text.Value = "Beutl";
                 return text;
         }
     }

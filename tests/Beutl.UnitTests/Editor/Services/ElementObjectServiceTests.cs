@@ -176,7 +176,7 @@ public class ElementObjectServiceTests
     {
         var container = new FallbackContainer
         {
-            Child = { CurrentValue = CreateBlocker() },
+            Child = { Value = CreateBlocker() },
         };
         var other = new TestEngineObject();
         _service.Add(_element, container);

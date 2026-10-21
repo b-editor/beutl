@@ -15,9 +15,9 @@ public sealed partial class ConicSegment : PathSegment
 
     public ConicSegment(Point controlPoint, Point endPoint, float weight) : this()
     {
-        ControlPoint.CurrentValue = controlPoint;
-        EndPoint.CurrentValue = endPoint;
-        Weight.CurrentValue = weight;
+        ControlPoint.Value = controlPoint;
+        EndPoint.Value = endPoint;
+        Weight.Value = weight;
     }
 
     [Display(Name = nameof(GraphicsStrings.ConicSegment_ControlPoint), ResourceType = typeof(GraphicsStrings))]

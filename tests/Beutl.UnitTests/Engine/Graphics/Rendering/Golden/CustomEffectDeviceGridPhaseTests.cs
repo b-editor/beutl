@@ -17,35 +17,35 @@ public class CustomEffectDeviceGridPhaseTests
     private static SplitEffect Split(float spacing)
     {
         var split = new SplitEffect();
-        split.HorizontalDivisions.CurrentValue = 2;
-        split.VerticalDivisions.CurrentValue = 2;
-        split.HorizontalSpacing.CurrentValue = spacing;
-        split.VerticalSpacing.CurrentValue = spacing;
+        split.HorizontalDivisions.Value = 2;
+        split.VerticalDivisions.Value = 2;
+        split.HorizontalSpacing.Value = spacing;
+        split.VerticalSpacing.Value = spacing;
         return split;
     }
 
     private static Drawable.Resource BrushHost(FilterEffect sourceEffect)
     {
         var source = new RectShape();
-        source.AlignmentX.CurrentValue = AlignmentX.Center;
-        source.AlignmentY.CurrentValue = AlignmentY.Center;
-        source.Width.CurrentValue = 60;
-        source.Height.CurrentValue = 40;
-        source.Fill.CurrentValue = Brushes.White;
-        source.FilterEffect.CurrentValue = sourceEffect;
+        source.AlignmentX.Value = AlignmentX.Center;
+        source.AlignmentY.Value = AlignmentY.Center;
+        source.Width.Value = 60;
+        source.Height.Value = 40;
+        source.Fill.Value = Brushes.White;
+        source.FilterEffect.Value = sourceEffect;
 
         var brush = new DrawableBrush();
-        brush.Drawable.CurrentValue = source;
-        brush.Stretch.CurrentValue = Stretch.Uniform;
-        brush.TileMode.CurrentValue = TileMode.None;
-        brush.DestinationRect.CurrentValue = RelativeRect.Fill;
+        brush.Drawable.Value = source;
+        brush.Stretch.Value = Stretch.Uniform;
+        brush.TileMode.Value = TileMode.None;
+        brush.DestinationRect.Value = RelativeRect.Fill;
 
         var host = new RectShape();
-        host.AlignmentX.CurrentValue = AlignmentX.Center;
-        host.AlignmentY.CurrentValue = AlignmentY.Center;
-        host.Width.CurrentValue = 180;
-        host.Height.CurrentValue = 120;
-        host.Fill.CurrentValue = brush;
+        host.AlignmentX.Value = AlignmentX.Center;
+        host.AlignmentY.Value = AlignmentY.Center;
+        host.Width.Value = 180;
+        host.Height.Value = 120;
+        host.Fill.Value = brush;
         return host.ToResource(CompositionContext.Default);
     }
 
@@ -86,7 +86,7 @@ public class CustomEffectDeviceGridPhaseTests
     private static FilterEffectGroup ColourThen(FilterEffect tail)
     {
         var hueRotate = new HueRotate();
-        hueRotate.Angle.CurrentValue = 120f;
+        hueRotate.Angle.Value = 120f;
         var group = new FilterEffectGroup();
         group.Children.Add(hueRotate);
         group.Children.Add(tail);

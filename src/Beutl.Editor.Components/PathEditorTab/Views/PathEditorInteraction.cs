@@ -322,8 +322,8 @@ internal sealed partial class PathEditorInteraction
         else if (_bending != null && TryLocal(position, out BtlPoint curvePoint))
         {
             var offset = (curvePoint - _penPoint) / (3 * _bendParameter * (1 - _bendParameter));
-            _bending.ControlPoint1.CurrentValue = _bendControl1 + offset;
-            _bending.ControlPoint2.CurrentValue = _bendControl2 + offset;
+            _bending.ControlPoint1.Value = _bendControl1 + offset;
+            _bending.ControlPoint2.Value = _bendControl2 + offset;
             _view.Refresh();
         }
         else if (_adding && TryLocal(position, out BtlPoint local))
@@ -333,7 +333,7 @@ internal sealed partial class PathEditorInteraction
                 if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) local = PathEditingOperations.SnapAngle(_penPoint, local);
                 _outgoing = local;
                 if (_penSegment != null)
-                    _penSegment.ControlPoint2.CurrentValue = new(2 * _penPoint.X - local.X, 2 * _penPoint.Y - local.Y);
+                    _penSegment.ControlPoint2.Value = new(2 * _penPoint.X - local.X, 2 * _penPoint.Y - local.Y);
                 else if (Context?.PathFigure.Value?.Segments.Count == 1)
                     _firstIncoming = new(2 * _penPoint.X - local.X, 2 * _penPoint.Y - local.Y);
                 _view.Refresh();

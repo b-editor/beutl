@@ -66,13 +66,13 @@ public sealed class DrawableDecoratorReplayTests
         if (scaleTransform)
         {
             var transform = new ScaleTransform();
-            decorator.Transform.CurrentValue = transform;
+            decorator.Transform.Value = transform;
             parameter = transform.Scale;
         }
         else
         {
             var transform = new RotationTransform();
-            decorator.Transform.CurrentValue = transform;
+            decorator.Transform.Value = transform;
             parameter = transform.Rotation;
         }
 
@@ -103,12 +103,12 @@ public sealed class DrawableDecoratorReplayTests
     {
         return new RectShape
         {
-            Width = { CurrentValue = width },
-            Height = { CurrentValue = height },
-            Fill = { CurrentValue = new SolidColorBrush(color) },
-            AlignmentX = { CurrentValue = AlignmentX.Left },
-            AlignmentY = { CurrentValue = AlignmentY.Top },
-            Transform = { CurrentValue = new TranslateTransform(x, y) },
+            Width = { Value = width },
+            Height = { Value = height },
+            Fill = { Value = new SolidColorBrush(color) },
+            AlignmentX = { Value = AlignmentX.Left },
+            AlignmentY = { Value = AlignmentY.Top },
+            Transform = { Value = new TranslateTransform(x, y) },
         };
     }
 }

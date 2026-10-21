@@ -116,7 +116,7 @@ internal static class ElementMigration
             if (operatorObj["Count"] is JsonValue countValue
                 && countValue.TryGetValue(out int count))
             {
-                portal.Count.CurrentValue = count;
+                portal.Count.Value = count;
             }
 
             return portal;

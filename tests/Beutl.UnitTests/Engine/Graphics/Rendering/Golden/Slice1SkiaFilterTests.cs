@@ -19,16 +19,16 @@ public class Slice1SkiaFilterTests
     private static Drawable.Resource MakeBlurredEllipse()
     {
         var shape = new EllipseShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
-        shape.Width.CurrentValue = 150;
-        shape.Height.CurrentValue = 110;
-        shape.Fill.CurrentValue = Brushes.White;
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.TransformOrigin.Value = RelativePoint.Center;
+        shape.Width.Value = 150;
+        shape.Height.Value = 110;
+        shape.Fill.Value = Brushes.White;
 
         var blur = new Blur();
-        blur.Sigma.CurrentValue = new Size(8, 8);
-        shape.FilterEffect.CurrentValue = blur;
+        blur.Sigma.Value = new Size(8, 8);
+        shape.FilterEffect.Value = blur;
 
         return shape.ToResource(CompositionContext.Default);
     }

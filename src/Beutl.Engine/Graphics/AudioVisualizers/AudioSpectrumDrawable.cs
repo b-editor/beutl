@@ -12,7 +12,7 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
     public AudioSpectrumDrawable()
     {
         ScanProperties<AudioSpectrumDrawable>();
-        Shape.CurrentValue = new BarSpectrumShape();
+        Shape.Value = new BarSpectrumShape();
 
         // 編集頻度順に並べ替え: Source → 見た目(Shape/Fill) → 信号調整(Gain/FloorDb) → 応答(Smoothing) → 周波数設定(Scale/BarCount) → 解像度(FftSize) → サイズ
         MoveProperty(Source, 0);

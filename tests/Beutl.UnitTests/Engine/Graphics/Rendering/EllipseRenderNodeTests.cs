@@ -16,7 +16,7 @@ public class EllipseRenderNodeTest
         var rect = new Rect(0, 0, 100, 100);
         var fillResource = new SolidColorBrush(Colors.Red).ToResource(CompositionContext.Default);
         Pen.Resource? penResource = withPen
-            ? new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } }
+            ? new Pen { Brush = { Value = Brushes.Black }, Thickness = { Value = 1 } }
                 .ToResource(CompositionContext.Default)
             : null;
         using var node = new EllipseRenderNode(rect, fillResource, penResource);
@@ -36,8 +36,8 @@ public class EllipseRenderNodeTest
         var rect2 = new Rect(0, 0, 200, 200);
         var fillResource1 = new SolidColorBrush(Colors.Red).ToResource(CompositionContext.Default);
         var fillResource2 = new SolidColorBrush(Colors.Blue).ToResource(CompositionContext.Default);
-        Pen pen = new() { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
-        Pen thickerPen = new() { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 2 } };
+        Pen pen = new() { Brush = { Value = Brushes.Black }, Thickness = { Value = 1 } };
+        Pen thickerPen = new() { Brush = { Value = Brushes.Black }, Thickness = { Value = 2 } };
         var penResource = pen.ToResource(CompositionContext.Default);
         var thickerPenResource = thickerPen.ToResource(CompositionContext.Default);
         using var node = new EllipseRenderNode(rect1, fillResource1, null);
@@ -97,7 +97,7 @@ public class EllipseRenderNodeTest
     {
         var rect = new Rect(0, 0, 100, 100);
         Brush fill = new SolidColorBrush(Colors.Red);
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
+        Pen pen = new Pen { Brush = { Value = Brushes.Black }, Thickness = { Value = 1 } };
         var fillResource = fill.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
         using var node = new EllipseRenderNode(rect, fillResource, penResource);
@@ -118,7 +118,7 @@ public class EllipseRenderNodeTest
     {
         var rect = new Rect(0, 0, 100, 100);
         Brush fill = new SolidColorBrush(Colors.Red);
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
+        Pen pen = new Pen { Brush = { Value = Brushes.Black }, Thickness = { Value = 1 } };
         var fillResource = fill.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
         using var node = new EllipseRenderNode(rect, fillResource, penResource);
@@ -131,7 +131,7 @@ public class EllipseRenderNodeTest
     public void HitTest_ShouldReturnTrue_WhenPointIsInsideEllipseStroke()
     {
         var rect = new Rect(25, 25, 75, 75);
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 50 } };
+        Pen pen = new Pen { Brush = { Value = Brushes.Black }, Thickness = { Value = 50 } };
         var penResource = pen.ToResource(CompositionContext.Default);
         using var node = new EllipseRenderNode(rect, null, penResource);
         using var renderer = CreateRenderer(node);

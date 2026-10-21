@@ -222,37 +222,37 @@ public static class PathEditorHelper
     {
         return tag switch
         {
-            "Arc" => new ArcSegment() { Point = { CurrentValue = point } },
+            "Arc" => new ArcSegment() { Point = { Value = point } },
             "Conic" => new ConicSegment()
             {
-                EndPoint = { CurrentValue = point },
+                EndPoint = { Value = point },
                 ControlPoint =
                 {
-                    CurrentValue = new(float.Lerp(point.X, lastPoint.X, 0.5f),
+                    Value = new(float.Lerp(point.X, lastPoint.X, 0.5f),
                         float.Lerp(point.Y, lastPoint.Y, 0.5f))
                 }
             },
             "Cubic" => new CubicBezierSegment()
             {
-                EndPoint = { CurrentValue = point },
+                EndPoint = { Value = point },
                 ControlPoint1 =
                 {
-                    CurrentValue = new(float.Lerp(point.X, lastPoint.X, 0.66f),
+                    Value = new(float.Lerp(point.X, lastPoint.X, 0.66f),
                         float.Lerp(point.Y, lastPoint.Y, 0.66f))
                 },
                 ControlPoint2 =
                 {
-                    CurrentValue = new(float.Lerp(point.X, lastPoint.X, 0.33f),
+                    Value = new(float.Lerp(point.X, lastPoint.X, 0.33f),
                         float.Lerp(point.Y, lastPoint.Y, 0.33f))
                 },
             },
-            "Line" => new LineSegment() { Point = { CurrentValue = point } },
+            "Line" => new LineSegment() { Point = { Value = point } },
             "Quad" => new QuadraticBezierSegment()
             {
-                EndPoint = { CurrentValue = point },
+                EndPoint = { Value = point },
                 ControlPoint =
                 {
-                    CurrentValue = new(float.Lerp(point.X, lastPoint.X, 0.5f),
+                    Value = new(float.Lerp(point.X, lastPoint.X, 0.5f),
                         float.Lerp(point.Y, lastPoint.Y, 0.5f))
                 }
             },

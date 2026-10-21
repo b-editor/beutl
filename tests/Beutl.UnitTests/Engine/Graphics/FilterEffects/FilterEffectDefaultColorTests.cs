@@ -11,9 +11,9 @@ public sealed class FilterEffectDefaultColorTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(new ChromaKey().Color.CurrentValue, Is.EqualTo(Colors.Black));
-            Assert.That(new ColorKey().Color.CurrentValue, Is.EqualTo(Colors.Black));
-            Assert.That(new Lighting().Add.CurrentValue, Is.EqualTo(Colors.Black));
+            Assert.That(new ChromaKey().Color.Value, Is.EqualTo(Colors.Black));
+            Assert.That(new ColorKey().Color.Value, Is.EqualTo(Colors.Black));
+            Assert.That(new Lighting().Add.Value, Is.EqualTo(Colors.Black));
         });
     }
 
@@ -22,8 +22,8 @@ public sealed class FilterEffectDefaultColorTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(new DropShadow().Color.CurrentValue, Is.EqualTo(Colors.White));
-            Assert.That(new InnerShadow().Color.CurrentValue, Is.EqualTo(Colors.White));
+            Assert.That(new DropShadow().Color.Value, Is.EqualTo(Colors.White));
+            Assert.That(new InnerShadow().Color.Value, Is.EqualTo(Colors.White));
         });
     }
 }

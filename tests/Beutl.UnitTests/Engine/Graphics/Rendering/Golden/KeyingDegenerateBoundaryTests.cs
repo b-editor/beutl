@@ -33,9 +33,9 @@ public sealed class KeyingDegenerateBoundaryTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var key = new ColorKey();
-            key.Color.CurrentValue = s_key;
-            key.Range.CurrentValue = 0f;
-            key.Boundary.CurrentValue = boundary;
+            key.Color.Value = s_key;
+            key.Range.Value = 0f;
+            key.Boundary.Value = boundary;
 
             AssertKeyedAway(key, s_key, ellipse: false, $"ColorKey Boundary={boundary:R}");
         });
@@ -48,10 +48,10 @@ public sealed class KeyingDegenerateBoundaryTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var effect = new ChromaKey();
-            effect.Color.CurrentValue = key;
-            effect.HueRange.CurrentValue = 0f;
-            effect.SaturationRange.CurrentValue = 0f;
-            effect.Boundary.CurrentValue = boundary;
+            effect.Color.Value = key;
+            effect.HueRange.Value = 0f;
+            effect.SaturationRange.Value = 0f;
+            effect.Boundary.Value = boundary;
 
             AssertKeyedAway(
                 effect,
@@ -68,9 +68,9 @@ public sealed class KeyingDegenerateBoundaryTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var key = new ColorKey();
-            key.Color.CurrentValue = Colors.Blue;
-            key.Range.CurrentValue = 0f;
-            key.Boundary.CurrentValue = 0f;
+            key.Color.Value = Colors.Blue;
+            key.Range.Value = 0f;
+            key.Boundary.Value = 0f;
 
             AssertSurvives(key, s_key, ellipse: false, "ColorKey Blue");
         });
@@ -83,10 +83,10 @@ public sealed class KeyingDegenerateBoundaryTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var effect = new ChromaKey();
-            effect.Color.CurrentValue = key;
-            effect.HueRange.CurrentValue = 0f;
-            effect.SaturationRange.CurrentValue = 0f;
-            effect.Boundary.CurrentValue = 0f;
+            effect.Color.Value = key;
+            effect.HueRange.Value = 0f;
+            effect.SaturationRange.Value = 0f;
+            effect.Boundary.Value = 0f;
 
             AssertSurvives(
                 effect,
@@ -107,10 +107,10 @@ public sealed class KeyingDegenerateBoundaryTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var effect = new ChromaKey();
-            effect.Color.CurrentValue = Colors.Lime;
-            effect.HueRange.CurrentValue = 0f;
-            effect.SaturationRange.CurrentValue = 0f;
-            effect.Boundary.CurrentValue = 2f;
+            effect.Color.Value = Colors.Lime;
+            effect.HueRange.Value = 0f;
+            effect.SaturationRange.Value = 0f;
+            effect.Boundary.Value = 2f;
 
             Assert.That(
                 RenderMaximumAlpha(effect, Color.FromRgb(0, 0, (byte)level), ellipse: false),
@@ -179,20 +179,20 @@ public sealed class KeyingDegenerateBoundaryTests
         if (ellipse)
         {
             var ellipseShape = new EllipseShape();
-            ellipseShape.Width.CurrentValue = 40f;
-            ellipseShape.Height.CurrentValue = 30f;
+            ellipseShape.Width.Value = 40f;
+            ellipseShape.Height.Value = 30f;
             shape = ellipseShape;
         }
         else
         {
             var rect = new RectShape();
-            rect.Width.CurrentValue = 40f;
-            rect.Height.CurrentValue = 30f;
+            rect.Width.Value = 40f;
+            rect.Height.Value = 30f;
             shape = rect;
         }
 
-        shape.Fill.CurrentValue = new SolidColorBrush(fill);
-        shape.FilterEffect.CurrentValue = effect;
+        shape.Fill.Value = new SolidColorBrush(fill);
+        shape.FilterEffect.Value = effect;
         return (Drawable.Resource)shape.ToResource(CompositionContext.Default);
     }
 

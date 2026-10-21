@@ -28,7 +28,7 @@ public sealed class TestEngineObjectWithFileSource : EngineObject
     public TestEngineObjectWithFileSource(IFileSource? fileSource)
     {
         ScanProperties<TestEngineObjectWithFileSource>();
-        FileSource.CurrentValue = fileSource;
+        FileSource.Value = fileSource;
     }
 
     public IExpressionProperty<IFileSource?> FileSource { get; } = Property.CreateWithExpression<IFileSource?>();

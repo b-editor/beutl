@@ -33,12 +33,12 @@ public class PixelSortEffectTests
 
             using var feCtx = new FilterEffectContext(bounds);
             var effect = new PixelSortEffect();
-            effect.Direction.CurrentValue = PixelSortDirection.Horizontal;
-            effect.SortKey.CurrentValue = PixelSortKey.Luminance;
-            effect.ThresholdMin.CurrentValue = 0f;
-            effect.ThresholdMax.CurrentValue = 100f;
+            effect.Direction.Value = PixelSortDirection.Horizontal;
+            effect.SortKey.Value = PixelSortKey.Luminance;
+            effect.ThresholdMin.Value = 0f;
+            effect.ThresholdMax.Value = 100f;
             // Descending, so that sorting the left-to-right gradient changes it.
-            effect.Ascending.CurrentValue = false;
+            effect.Ascending.Value = false;
 
             var resource = (FilterEffect.Resource)(object)effect.ToResource(new CompositionContext(TimeSpan.Zero));
             effect.ApplyTo(feCtx, resource);

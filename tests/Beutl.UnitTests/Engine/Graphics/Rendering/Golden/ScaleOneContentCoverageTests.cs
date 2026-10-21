@@ -33,7 +33,7 @@ public class ScaleOneContentCoverageTests
         imageSource.ReadFrom(uri);
 
         var image = new SourceImage();
-        image.Source.CurrentValue = imageSource;
+        image.Source.Value = imageSource;
         return image.ToResource(CompositionContext.Default);
     }
 }

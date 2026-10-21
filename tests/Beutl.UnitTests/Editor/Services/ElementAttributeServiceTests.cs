@@ -152,8 +152,8 @@ public class ElementAttributeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(incoming.EnterTransition?.Duration.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
-            Assert.That(outgoing.ExitTransition?.Duration.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
+            Assert.That(incoming.EnterTransition?.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
+            Assert.That(outgoing.ExitTransition?.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
             Assert.That(incoming.EnterTransition, Is.TypeOf<CrossDissolveTransition>());
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
@@ -175,7 +175,7 @@ public class ElementAttributeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.ExitTransition?.Duration.CurrentValue, Is.EqualTo(ClipTransition.DefaultDuration));
+            Assert.That(element.ExitTransition?.Duration.Value, Is.EqualTo(ClipTransition.DefaultDuration));
             Assert.That(element.ExitTransition, Is.TypeOf<FadeTransition>());
         });
     }
@@ -187,8 +187,8 @@ public class ElementAttributeServiceTests
         _service.ApplyTransition(incoming, ElementEdge.Start, typeof(CrossDissolveTransition));
         ClipTransition enter = incoming.EnterTransition!;
         var easing = new CubicEaseInOut();
-        enter.Duration.CurrentValue = TimeSpan.FromSeconds(1);
-        enter.Easing.CurrentValue = easing;
+        enter.Duration.Value = TimeSpan.FromSeconds(1);
+        enter.Easing.Value = easing;
         _history.Commit("duration");
         int before = _history.UndoCount;
 
@@ -198,9 +198,9 @@ public class ElementAttributeServiceTests
         {
             Assert.That(incoming.EnterTransition, Is.TypeOf<WipeTransition>());
             Assert.That(outgoing.ExitTransition, Is.TypeOf<WipeTransition>());
-            Assert.That(incoming.EnterTransition?.Duration.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(outgoing.ExitTransition?.Duration.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
-            Assert.That(incoming.EnterTransition?.Easing.CurrentValue, Is.SameAs(easing));
+            Assert.That(incoming.EnterTransition?.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(outgoing.ExitTransition?.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
+            Assert.That(incoming.EnterTransition?.Easing.Value, Is.SameAs(easing));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
 
@@ -339,7 +339,7 @@ public class ElementAttributeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(outgoing.ExitTransition, Is.Null);
-            Assert.That(incoming.EnterTransition?.Duration.CurrentValue, Is.EqualTo(ClipTransition.DefaultDuration));
+            Assert.That(incoming.EnterTransition?.Duration.Value, Is.EqualTo(ClipTransition.DefaultDuration));
         });
     }
 
@@ -372,8 +372,8 @@ public class ElementAttributeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(incoming.EnterTransition?.Duration.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(outgoing.ExitTransition?.Duration.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
+            Assert.That(incoming.EnterTransition?.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(outgoing.ExitTransition?.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1), "an unchanged duration must not commit");
         });
     }

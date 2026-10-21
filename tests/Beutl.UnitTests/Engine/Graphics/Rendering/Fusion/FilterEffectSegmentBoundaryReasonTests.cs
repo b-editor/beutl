@@ -19,7 +19,7 @@ public sealed class FilterEffectSegmentBoundaryReasonTests
     [Test]
     public void A_segment_without_a_custom_effect_does_not_blame_one()
     {
-        using CompiledRenderRequest compiled = Compile(new Blur { Sigma = { CurrentValue = new(2, 2) } });
+        using CompiledRenderRequest compiled = Compile(new Blur { Sigma = { Value = new(2, 2) } });
 
         Assert.That(SegmentIslandPayload(compiled).HasImperativeItem, Is.False);
     }
@@ -36,7 +36,7 @@ public sealed class FilterEffectSegmentBoundaryReasonTests
     public void PureSkiaSegments_DeclareSingleForOneInput()
     {
         using CompiledRenderRequest imageFilter = Compile(
-            new Blur { Sigma = { CurrentValue = new(2, 2) } });
+            new Blur { Sigma = { Value = new(2, 2) } });
         using CompiledRenderRequest colorFilter = Compile(new PureSkiaColorFilterEffect());
 
         Assert.Multiple(() =>
@@ -58,7 +58,7 @@ public sealed class FilterEffectSegmentBoundaryReasonTests
     public void PureSkiaSegment_WithMultipleInputs_RemainsDynamic()
     {
         using CompiledRenderRequest compiled = Compile(
-            new Blur { Sigma = { CurrentValue = new(2, 2) } },
+            new Blur { Sigma = { Value = new(2, 2) } },
             childCount: 2);
 
         Assert.That(Segment(compiled).ValueCardinality, Is.EqualTo(RenderValueCardinality.Dynamic));

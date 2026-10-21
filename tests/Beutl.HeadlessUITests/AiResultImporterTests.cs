@@ -33,11 +33,11 @@ public sealed class AiResultImporterTests
             new AiResultImportOptions(TimeSpan.Zero, TimeSpan.FromSeconds(2), 0, "Shared resource"));
         Assert.That(added.IsSuccess, Is.True);
         Element element = added.Elements.Single();
-        Uri original = element.Objects.OfType<Beutl.Graphics.SourceImage>().Single().Source.CurrentValue!.Uri;
+        Uri original = element.Objects.OfType<Beutl.Graphics.SourceImage>().Single().Source.Value!.Uri;
         var historySource = new Beutl.Media.Source.ImageSource();
         historySource.ReadFrom(original);
         var historyObject = new Beutl.Graphics.SourceImage();
-        historyObject.Source.CurrentValue = historySource;
+        historyObject.Source.Value = historySource;
         element.AddObject(historyObject);
         editor.HistoryManager.Commit("Add history source");
         element.Objects.Remove(historyObject);
@@ -74,7 +74,7 @@ public sealed class AiResultImporterTests
         string resourcePath = elements.Single().Objects
             .OfType<Beutl.Graphics.SourceImage>()
             .Single()
-            .Source.CurrentValue!.Uri.LocalPath;
+            .Source.Value!.Uri.LocalPath;
         Assert.Multiple(() =>
         {
             Assert.That(resourcePath, Does.Contain(Path.Combine("resources", "ai")));
@@ -465,7 +465,7 @@ public sealed class AiResultImporterTests
             string resourcePath = element.Objects
                 .OfType<Beutl.Graphics.SourceImage>()
                 .Single()
-                .Source.CurrentValue!.Uri.LocalPath;
+                .Source.Value!.Uri.LocalPath;
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(
@@ -497,7 +497,7 @@ public sealed class AiResultImporterTests
             string savedResourcePath = element.Objects
                 .OfType<Beutl.Graphics.SourceImage>()
                 .Single()
-                .Source.CurrentValue!.Uri.LocalPath;
+                .Source.Value!.Uri.LocalPath;
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(savedSidecar, Is.Not.EqualTo(unsavedSidecar));
@@ -523,7 +523,7 @@ public sealed class AiResultImporterTests
             string restoredResource = restoredElement.Objects
                 .OfType<Beutl.Graphics.SourceImage>()
                 .Single()
-                .Source.CurrentValue!.Uri.LocalPath;
+                .Source.Value!.Uri.LocalPath;
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(restoredElement.Uri, Is.EqualTo(savedSidecar));
@@ -573,7 +573,7 @@ public sealed class AiResultImporterTests
             var source = element.Objects
                 .OfType<Beutl.Graphics.SourceImage>()
                 .Single()
-                .Source.CurrentValue!;
+                .Source.Value!;
             Uri originalResource = source.Uri;
             scene.Uri = new Uri(Path.GetFullPath(directoryAtScenePath));
 
@@ -641,7 +641,7 @@ public sealed class AiResultImporterTests
             var source = element.Objects
                 .OfType<Beutl.Graphics.SourceImage>()
                 .Single()
-                .Source.CurrentValue!;
+                .Source.Value!;
             Uri originalResource = source.Uri;
             scene.Uri = sceneUri;
             bool resourceCopiedBeforeFailure = false;

@@ -153,7 +153,7 @@ internal sealed class NestedInputPortManager(GraphNode node)
             {
                 owner = obj;
                 property = obj.Properties.FirstOrDefault(p => p.Name == segment[2..]);
-                value = property?.CurrentValue;
+                value = property?.Value;
             }
             else if (segment.StartsWith("i:", StringComparison.Ordinal) && value is IList list
                      && Guid.TryParse(segment.AsSpan(2), out Guid id))
@@ -226,7 +226,7 @@ internal sealed class NestedInputPortManager(GraphNode node)
                 var adapter = (IPropertyAdapter)Activator.CreateInstance(
                     typeof(EnginePropertyAdapter<>).MakeGenericType(property.ValueType), property, obj)!;
                 Watch(adapter);
-                Visit(property.CurrentValue, root, childPath, ancestors, targets, unresolved,
+                Visit(property.Value, root, childPath, ancestors, targets, unresolved,
                     hasOverridingAncestor || property is IExpressionProperty { Expression: not null });
             }
             ancestors.Remove(obj);

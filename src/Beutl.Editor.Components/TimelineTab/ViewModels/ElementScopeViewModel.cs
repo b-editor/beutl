@@ -88,10 +88,10 @@ public sealed class ElementScopeViewModel : IDisposable
     {
         if (obj is PortalObject portal)
         {
-            if (_model == null || _model.Count.CurrentValue < portal.Count.CurrentValue)
+            if (_model == null || _model.Count.Value < portal.Count.Value)
             {
                 _model = portal;
-                Count.Value = portal.Count.CurrentValue;
+                Count.Value = portal.Count.Value;
             }
 
             portal.Count.ValueChanged += OnPortalCountChanged;
@@ -102,7 +102,7 @@ public sealed class ElementScopeViewModel : IDisposable
     {
         if (e.Property.GetOwnerObject() is PortalObject portal)
         {
-            int newCount = portal.Count.CurrentValue;
+            int newCount = portal.Count.Value;
             if (Count.Value < newCount)
             {
                 _model = portal;
@@ -122,10 +122,10 @@ public sealed class ElementScopeViewModel : IDisposable
         foreach (EngineObject item in Model.Objects)
         {
             if (item is PortalObject portal
-                && maxCount < portal.Count.CurrentValue)
+                && maxCount < portal.Count.Value)
             {
                 model = portal;
-                maxCount = portal.Count.CurrentValue;
+                maxCount = portal.Count.Value;
             }
         }
 

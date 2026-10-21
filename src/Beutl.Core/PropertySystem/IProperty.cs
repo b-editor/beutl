@@ -19,7 +19,7 @@ public interface IProperty : INotifyEdited
 {
     object? DefaultValue { get; }
 
-    object? CurrentValue { get; set; }
+    object? Value { get; set; }
 
     /// <summary>
     /// Validates and installs <paramref name="value"/>, replacing distinct reference-type values
@@ -62,24 +62,24 @@ public interface IProperty<T> : IProperty
 {
     new T DefaultValue { get; }
 
-    new T CurrentValue { get; set; }
+    new T Value { get; set; }
 
     void ReplaceCurrentValue(T value);
 
     object? IProperty.DefaultValue => DefaultValue;
 
-    object? IProperty.CurrentValue
+    object? IProperty.Value
     {
-        get => CurrentValue;
+        get => Value;
         set
         {
             if (value is T tValue)
             {
-                CurrentValue = tValue;
+                Value = tValue;
             }
             else if (value == null && (!typeof(T).IsValueType || Nullable.GetUnderlyingType(typeof(T)) is not null))
             {
-                CurrentValue = default!;
+                Value = default!;
             }
             else
             {

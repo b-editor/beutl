@@ -27,7 +27,7 @@ public class ValueOnlyPropertyTests
         {
             Assert.That(property, Is.InstanceOf<ValueOnlyProperty<int>>());
             Assert.That(property, Is.Not.InstanceOf<IExpressionProperty>());
-            Assert.That(property.CurrentValue, Is.EqualTo(5));
+            Assert.That(property.Value, Is.EqualTo(5));
             Assert.That(property.HasLocalValue, Is.False);
         }
     }
@@ -39,12 +39,12 @@ public class ValueOnlyPropertyTests
         int changed = 0;
         owner.Count.ValueChanged += (_, _) => changed++;
 
-        owner.Count.CurrentValue = 20;
-        owner.Count.CurrentValue = 10;
+        owner.Count.Value = 20;
+        owner.Count.Value = 10;
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(owner.Count.CurrentValue, Is.EqualTo(10), "An out-of-range value is coerced to the maximum.");
+            Assert.That(owner.Count.Value, Is.EqualTo(10), "An out-of-range value is coerced to the maximum.");
             Assert.That(owner.Count.HasLocalValue, Is.True);
             Assert.That(changed, Is.EqualTo(1));
         }
@@ -54,7 +54,7 @@ public class ValueOnlyPropertyTests
     public void ACompositionContext_ReadsTheStoredValue()
     {
         var owner = new Owner();
-        owner.Count.CurrentValue = 3;
+        owner.Count.Value = 3;
 
         Assert.That(new CompositionContext(TimeSpan.FromSeconds(1)).Get(owner.Count), Is.EqualTo(3));
     }
@@ -63,7 +63,7 @@ public class ValueOnlyPropertyTests
     public void TheValue_IsSavedUnderItsNameAndRead()
     {
         var owner = new Owner();
-        owner.Count.CurrentValue = 7;
+        owner.Count.Value = 7;
 
         var json = CoreSerializer.SerializeToJsonObject(owner);
         var restored = (Owner)CoreSerializer.DeserializeFromJsonObject(json, typeof(Owner));
@@ -72,7 +72,7 @@ public class ValueOnlyPropertyTests
         {
             Assert.That((int?)json[nameof(Owner.Count)], Is.EqualTo(7));
             Assert.That(((JsonObject)json["Expressions"]!).ContainsKey(nameof(Owner.Count)), Is.False);
-            Assert.That(restored.Count.CurrentValue, Is.EqualTo(7));
+            Assert.That(restored.Count.Value, Is.EqualTo(7));
         }
     }
 }

@@ -115,7 +115,7 @@ internal static partial class SlippableMedia
                 if (obj is PortalObject { IsEnabled: true } portal)
                 {
                     portalFlow = true;
-                    if (portal.Clear.CurrentValue || portal.Clear.HasExpression) flow.Clear();
+                    if (portal.Clear.Value || portal.Clear.HasExpression) flow.Clear();
                     List<Node>? imported = portal.Clear.HasExpression ? null : ResolvePortal(portal);
                     if (imported == null)
                     {
@@ -159,10 +159,10 @@ internal static partial class SlippableMedia
         private List<Node>? ResolvePortal(PortalObject portal)
         {
             if (portal.Count.HasExpression) return null;
-            if (portal.Count.CurrentValue <= 0) return [];
+            if (portal.Count.Value <= 0) return [];
             if (_opaqueConsumption || _element.HierarchicalParent is not Scene scene) return null;
             int firstLayer = portal.ZIndex + 1;
-            int lastLayer = portal.ZIndex + portal.Count.CurrentValue;
+            int lastLayer = portal.ZIndex + portal.Count.Value;
             Element[] candidates = scene.Children.Where(candidate => candidate.IsEnabled && candidate.ZIndex >= firstLayer && candidate.ZIndex <= lastLayer
                 && IsPortalCandidate(candidate)
                 && !_consumedPortalElements.Contains(candidate)
@@ -193,7 +193,7 @@ internal static partial class SlippableMedia
             => scene.Children.Any(other => other.IsEnabled && other != _element && other.ZIndex <= _element.ZIndex && IsPortalCandidate(other)
                 && objects.Any(obj => LayerVisible(other, obj.GetCompositionTarget()))
                 && other.Objects.OfType<PortalObject>().Any(prior => prior.IsEnabled
-                    && (prior.Count.HasExpression || prior.ZIndex < owner.ZIndex && prior.ZIndex + prior.Count.CurrentValue >= owner.ZIndex)));
+                    && (prior.Count.HasExpression || prior.ZIndex < owner.ZIndex && prior.ZIndex + prior.Count.Value >= owner.ZIndex)));
 
         private bool IsPortalCandidate(Element candidate) => _portalCandidates?.Contains(candidate)
             ?? (candidate.Start < _element.Range.End && _element.Start < candidate.Range.End);
@@ -237,17 +237,17 @@ internal static partial class SlippableMedia
             {
                 case SourceVideo video:
                     {
-                        TimeSpan? duration = GetSourceDuration(video.Source.CurrentValue);
+                        TimeSpan? duration = GetSourceDuration(video.Source.Value);
                         _targets.Add(new Target(video.OffsetPosition, duration,
                             new MediaTimeMapping(_element, video, video.Speed, _controllers, 60, duration, _timingPeers, _ignoreLoops, _timingRoles, portalInput), _element.Length));
                     }
                     break;
                 case SourceSound sound:
-                    _targets.Add(new Target(sound.OffsetPosition, GetSourceDuration(sound.Source.CurrentValue),
+                    _targets.Add(new Target(sound.OffsetPosition, GetSourceDuration(sound.Source.Value),
                         new MediaTimeMapping(_element, sound, sound.Speed, _controllers, _sampleRate, timingPeers: _timingPeers, timingRoles: _timingRoles, portalInput: portalInput), _element.Length));
                     break;
                 case SceneSound sound:
-                    _targets.Add(new Target(sound.OffsetPosition, sound.ReferencedScene.CurrentValue?.Duration,
+                    _targets.Add(new Target(sound.OffsetPosition, sound.ReferencedScene.Value?.Duration,
                         new MediaTimeMapping(_element, sound, sound.Speed, _controllers, _sampleRate, timingPeers: _timingPeers, timingRoles: _timingRoles, portalInput: portalInput), _element.Length));
                     break;
                 case SoundGroup group:
@@ -277,7 +277,7 @@ internal static partial class SlippableMedia
                                 timingPeers: _timingPeers, timingRoles: _timingRoles), _element.Length));
                         break;
                     }
-                    if ((input?.Object ?? controller.Target.CurrentValue) is Drawable target)
+                    if ((input?.Object ?? controller.Target.Value) is Drawable target)
                     {
                         bool applyMapping = IsEnabled(controller) || referenced || input == null;
                         if (applyMapping) _controllers.Add(new MediaTimeMapping.ControllerLink(controller, target));
@@ -292,7 +292,7 @@ internal static partial class SlippableMedia
                         CollectNode(new Node(obj, [], Opaque: true));
                         break;
                     }
-                    if (presenter.Target.CurrentValue is { } presented) CollectFrom(presented, referenced: true);
+                    if (presenter.Target.Value is { } presented) CollectFrom(presented, referenced: true);
                     break;
             }
             _path.Remove(obj);

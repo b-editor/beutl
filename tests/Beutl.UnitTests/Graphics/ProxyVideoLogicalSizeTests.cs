@@ -208,7 +208,7 @@ public class ProxyVideoLogicalSizeTests
             () =>
             {
                 var blur = new Blur();
-                blur.Sigma.CurrentValue = new Size(3, 3);
+                blur.Sigma.Value = new Size(3, 3);
                 return blur;
             },
             new PixelSize(160, 130),
@@ -229,10 +229,10 @@ public class ProxyVideoLogicalSizeTests
             var media = new VideoSource();
             media.ReadFrom(new Uri(scope.OriginalPath));
             var drawable = new SourceVideo();
-            drawable.Source.CurrentValue = media;
+            drawable.Source.Value = media;
             if (createEffect != null)
             {
-                drawable.FilterEffect.CurrentValue = createEffect();
+                drawable.FilterEffect.Value = createEffect();
             }
 
             var element = new Element

@@ -56,13 +56,13 @@ public sealed class WholeSourceFractionalScaleTests
     private static Bitmap Render(float outputScale)
     {
         var effect = new SKSLScriptEffect();
-        effect.Script.CurrentValue = OutsideSourceShader;
+        effect.Script.Value = OutsideSourceShader;
 
         var rectangle = new RectShape();
-        rectangle.Width.CurrentValue = 120;
-        rectangle.Height.CurrentValue = 80;
-        rectangle.Fill.CurrentValue = new SolidColorBrush(Colors.OrangeRed);
-        rectangle.FilterEffect.CurrentValue = effect;
+        rectangle.Width.Value = 120;
+        rectangle.Height.Value = 80;
+        rectangle.Fill.Value = new SolidColorBrush(Colors.OrangeRed);
+        rectangle.FilterEffect.Value = effect;
 
         return SceneRenderHarness.RenderSingle(
             rectangle,

@@ -27,17 +27,17 @@ public sealed class AbandonedRecordedSubtreeTests
     public void ParticleRenderNode_WithParticlesScaledToZero_RendersNothingWithoutFailing()
     {
         var particle = new RectShape();
-        particle.Width.CurrentValue = 20;
-        particle.Height.CurrentValue = 12;
-        particle.Fill.CurrentValue = Brushes.White;
+        particle.Width.Value = 20;
+        particle.Height.Value = 12;
+        particle.Fill.Value = Brushes.White;
 
         var emitter = new ParticleEmitter();
-        emitter.ParticleDrawable.CurrentValue = particle;
-        emitter.MaxParticles.CurrentValue = 1;
-        emitter.Speed.CurrentValue = 0;
-        emitter.Gravity.CurrentValue = 0;
-        emitter.ParticleSize.CurrentValue = 0;
-        emitter.SizeRandom.CurrentValue = 0;
+        emitter.ParticleDrawable.Value = particle;
+        emitter.MaxParticles.Value = 1;
+        emitter.Speed.Value = 0;
+        emitter.Gravity.Value = 0;
+        emitter.ParticleSize.Value = 0;
+        emitter.SizeRandom.Value = 0;
         using var resource = (ParticleEmitter.Resource)emitter.ToResource(
             new CompositionContext(TimeSpan.FromSeconds(1)));
 
@@ -61,9 +61,9 @@ public sealed class AbandonedRecordedSubtreeTests
         using Brush.Resource brushResource = CreateDegenerateDrawableBrush(content);
         var pen = new Pen
         {
-            Thickness = { CurrentValue = 4 },
-            Brush = { CurrentValue = Brushes.White },
-            StrokeAlignment = { CurrentValue = StrokeAlignment.Inside },
+            Thickness = { Value = 4 },
+            Brush = { Value = Brushes.White },
+            StrokeAlignment = { Value = StrokeAlignment.Inside },
         };
         using Pen.Resource penResource = pen.ToResource(CompositionContext.Default);
         using var node = new RectangleRenderNode(s_ownerRect, brushResource, penResource);
@@ -91,9 +91,9 @@ public sealed class AbandonedRecordedSubtreeTests
             return (Brush.Resource)new DrawableBrush().ToResource(CompositionContext.Default);
 
         var drawable = new RectShape();
-        drawable.Width.CurrentValue = 18;
-        drawable.Height.CurrentValue = 12;
-        drawable.Fill.CurrentValue = Brushes.White;
+        drawable.Width.Value = 18;
+        drawable.Height.Value = 12;
+        drawable.Fill.Value = Brushes.White;
         if (content == DegenerateBrushContent.DisabledDrawable)
         {
             drawable.IsEnabled = false;
@@ -101,8 +101,8 @@ public sealed class AbandonedRecordedSubtreeTests
         else
         {
             var collapse = new ScaleTransform();
-            collapse.Scale.CurrentValue = 0;
-            drawable.Transform.CurrentValue = collapse;
+            collapse.Scale.Value = 0;
+            drawable.Transform.Value = collapse;
         }
 
         return (Brush.Resource)new DrawableBrush(drawable).ToResource(CompositionContext.Default);

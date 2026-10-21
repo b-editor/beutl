@@ -50,7 +50,7 @@ internal static class PresenterEditorHelper
         else
         {
             presenter.Target.Expression = null;
-            presenter.Target.CurrentValue = null;
+            presenter.Target.Value = null;
         }
     }
 }

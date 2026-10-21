@@ -42,7 +42,7 @@ public sealed class ShaderMigrationPhysicalFootprintTests
         backing.Value.Canvas.Flush();
         using EffectTargets targets = CreateTargets(backing, bounds, deviceBounds, scale: 2);
         var effect = new SKSLScriptEffect();
-        effect.Script.CurrentValue = script;
+        effect.Script.Value = script;
 
         ApplyDirect(effect, bounds, targets, workingScale: 1);
 
@@ -84,7 +84,7 @@ public sealed class ShaderMigrationPhysicalFootprintTests
             deviceBounds.Height);
         using EffectTargets targets = CreateTargets(backing, bounds, deviceBounds);
         var effect = new SKSLScriptEffect();
-        effect.Script.CurrentValue = script;
+        effect.Script.Value = script;
 
         ApplyDirect(effect, bounds, targets, workingScale: 1);
 
@@ -120,7 +120,7 @@ public sealed class ShaderMigrationPhysicalFootprintTests
         DrawSeparatedContent(apronBacking.Value.Canvas, 1, 1);
 
         var effect = new Invert();
-        effect.Amount.CurrentValue = 0;
+        effect.Amount.Value = 0;
         TargetSnapshot tight = ApplyMovedEffect(effect, bounds, bounds, tightBacking, tightDeviceBounds);
         TargetSnapshot apron = ApplyMovedEffect(effect, bounds, bounds, apronBacking, apronDeviceBounds);
 
@@ -163,10 +163,10 @@ public sealed class ShaderMigrationPhysicalFootprintTests
             deviceBounds.Width,
             deviceBounds.Height);
         var effect = new ColorShift();
-        effect.RedOffset.CurrentValue = new PixelPoint(-2, 1);
-        effect.GreenOffset.CurrentValue = new PixelPoint(1, -1);
-        effect.BlueOffset.CurrentValue = new PixelPoint(2, 2);
-        effect.AlphaOffset.CurrentValue = new PixelPoint(-1, -2);
+        effect.RedOffset.Value = new PixelPoint(-2, 1);
+        effect.GreenOffset.Value = new PixelPoint(1, -1);
+        effect.BlueOffset.Value = new PixelPoint(2, 2);
+        effect.AlphaOffset.Value = new PixelPoint(-1, -2);
 
         TargetSnapshot origin = ApplyMovedEffect(
             effect,

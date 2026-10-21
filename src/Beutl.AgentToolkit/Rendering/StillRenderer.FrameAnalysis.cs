@@ -196,7 +196,7 @@ public sealed partial class StillRenderer
     {
         RenderedTextBounds? best = textBounds
             .Where(item => item.TextBlock.IsEnabled)
-            .Where(item => !string.IsNullOrWhiteSpace(item.TextBlock.Text.CurrentValue))
+            .Where(item => !string.IsNullOrWhiteSpace(item.TextBlock.Text.Value))
             .Where(item => item.Bounds.Width >= 4 && item.Bounds.Height >= 4)
             .OrderByDescending(item => item.Element.ZIndex)
             .ThenByDescending(item => item.Bounds.Width * item.Bounds.Height)

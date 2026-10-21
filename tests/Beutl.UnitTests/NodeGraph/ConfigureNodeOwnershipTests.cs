@@ -17,7 +17,7 @@ public sealed class ConfigureNodeOwnershipTests
     public void BoundFilterInput_FansOutThroughTransformAndFilterEffectConfigureNodes()
     {
         var graph = new NodeGraphFilterEffect();
-        GraphModel model = graph.Model.CurrentValue!;
+        GraphModel model = graph.Model.Value!;
         var input = new FilterEffectInputNode();
         var transform = new TransformNode();
         var filter = new FilterEffectNode<FilterEffectGroup>();
@@ -105,7 +105,7 @@ public sealed class ConfigureNodeOwnershipTests
     public void SharedNonValueFilterInputThroughConfigureReferences_ThrowsAtSecondConsumer()
     {
         var graph = new NodeGraphFilterEffect();
-        GraphModel model = graph.Model.CurrentValue!;
+        GraphModel model = graph.Model.Value!;
         var input = new FilterEffectInputNode();
         var firstTransform = new TransformNode();
         var secondTransform = new TransformNode();

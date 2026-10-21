@@ -34,8 +34,8 @@ public class Scene3DRenderNodeScaleTests
     public void Measure_RespectsMaxWorkingScale_WhenOutputScaleIsHigher()
     {
         var scene = new Scene3D();
-        scene.RenderWidth.CurrentValue = 32;
-        scene.RenderHeight.CurrentValue = 32;
+        scene.RenderWidth.Value = 32;
+        scene.RenderHeight.Value = 32;
         using var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
         using var node = new Scene3DRenderNode(resource);
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
@@ -60,8 +60,8 @@ public class Scene3DRenderNodeScaleTests
     public void Recording_AllowsTheBackendToDropAFrameValue()
     {
         var scene = new Scene3D();
-        scene.RenderWidth.CurrentValue = 32;
-        scene.RenderHeight.CurrentValue = 24;
+        scene.RenderWidth.Value = 32;
+        scene.RenderHeight.Value = 24;
         using var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
         using var node = new Scene3DRenderNode(resource);
         using var request = new RenderRequest(new RenderRequestOptions(
@@ -84,21 +84,21 @@ public class Scene3DRenderNodeScaleTests
     public void Recording_DrawableMaterialTextureUsesSceneWorkingScaleAndFullDomain()
     {
         var drawable = new RectShape();
-        drawable.Width.CurrentValue = 5;
-        drawable.Height.CurrentValue = 3;
-        drawable.Fill.CurrentValue = Brushes.Red;
+        drawable.Width.Value = 5;
+        drawable.Height.Value = 3;
+        drawable.Fill.Value = Brushes.Red;
         var texture = new DrawableTextureSource();
-        texture.Drawable.CurrentValue = drawable;
-        texture.TextureWidth.CurrentValue = 11;
-        texture.TextureHeight.CurrentValue = 7;
+        texture.Drawable.Value = drawable;
+        texture.TextureWidth.Value = 11;
+        texture.TextureHeight.Value = 7;
         var material = new BasicMaterial();
-        material.DiffuseMap.CurrentValue = texture;
+        material.DiffuseMap.Value = texture;
         var cube = new Cube3D();
-        cube.Material.CurrentValue = material;
+        cube.Material.Value = material;
 
         var scene = new Scene3D();
-        scene.RenderWidth.CurrentValue = 32;
-        scene.RenderHeight.CurrentValue = 24;
+        scene.RenderWidth.Value = 32;
+        scene.RenderHeight.Value = 24;
         using var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
         resource.Objects.Add((Object3D.Resource)cube.ToResource(CompositionContext.Default));
         using var node = new Scene3DRenderNode(resource);
@@ -142,21 +142,21 @@ public class Scene3DRenderNodeScaleTests
     public void Recording_OversizedDrawableTextureClampsTheNestedTargetDensity()
     {
         var drawable = new RectShape();
-        drawable.Width.CurrentValue = 1;
-        drawable.Height.CurrentValue = 1;
-        drawable.Fill.CurrentValue = Brushes.Red;
+        drawable.Width.Value = 1;
+        drawable.Height.Value = 1;
+        drawable.Fill.Value = Brushes.Red;
         var texture = new DrawableTextureSource();
-        texture.Drawable.CurrentValue = drawable;
-        texture.TextureWidth.CurrentValue = 8192;
-        texture.TextureHeight.CurrentValue = 1;
+        texture.Drawable.Value = drawable;
+        texture.TextureWidth.Value = 8192;
+        texture.TextureHeight.Value = 1;
         var material = new BasicMaterial();
-        material.DiffuseMap.CurrentValue = texture;
+        material.DiffuseMap.Value = texture;
         var cube = new Cube3D();
-        cube.Material.CurrentValue = material;
+        cube.Material.Value = material;
 
         var scene = new Scene3D();
-        scene.RenderWidth.CurrentValue = 32;
-        scene.RenderHeight.CurrentValue = 24;
+        scene.RenderWidth.Value = 32;
+        scene.RenderHeight.Value = 24;
         using var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
         resource.Objects.Add((Object3D.Resource)cube.ToResource(CompositionContext.Default));
         using var node = new Scene3DRenderNode(resource);
@@ -189,11 +189,11 @@ public class Scene3DRenderNodeScaleTests
     public void Recording_DrawableTextureThatReferencesItsSceneFailsWithAnExplicitCycleAndRollsBack()
     {
         var scene = new Scene3D();
-        scene.RenderWidth.CurrentValue = 32;
-        scene.RenderHeight.CurrentValue = 24;
+        scene.RenderWidth.Value = 32;
+        scene.RenderHeight.Value = 24;
         var texture = new DrawableTextureSource();
-        texture.TextureWidth.CurrentValue = 11;
-        texture.TextureHeight.CurrentValue = 7;
+        texture.TextureWidth.Value = 11;
+        texture.TextureHeight.Value = 7;
         var material = new BasicMaterial();
         var cube = new Cube3D();
 
@@ -242,11 +242,11 @@ public class Scene3DRenderNodeScaleTests
     public void Recording_DisabledParentDoesNotPrepareEnabledDescendantDrawableTexture()
     {
         var scene = new Scene3D();
-        scene.RenderWidth.CurrentValue = 32;
-        scene.RenderHeight.CurrentValue = 24;
+        scene.RenderWidth.Value = 32;
+        scene.RenderHeight.Value = 24;
         var texture = new DrawableTextureSource();
-        texture.TextureWidth.CurrentValue = 11;
-        texture.TextureHeight.CurrentValue = 7;
+        texture.TextureWidth.Value = 11;
+        texture.TextureHeight.Value = 7;
         var material = new BasicMaterial();
         var cube = new Cube3D();
         var disabledGroup = new Group3D { IsEnabled = false };

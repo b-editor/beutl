@@ -27,7 +27,7 @@ public sealed class FullDocumentApplyTests
             Length = TimeSpan.FromSeconds(2),
             ZIndex = 3
         };
-        element.AddObject(new TextBlock { Text = { CurrentValue = "Title" } });
+        element.AddObject(new TextBlock { Text = { Value = "Title" } });
 
         JsonObject elementJson = CoreSerializer.SerializeToJsonObject(element);
         elementJson.Remove(nameof(CoreObject.Id));
@@ -61,7 +61,7 @@ public sealed class FullDocumentApplyTests
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) };
-        element.AddObject(new TextBlock { Text = { CurrentValue = "Title" } });
+        element.AddObject(new TextBlock { Text = { Value = "Title" } });
         scene.Children.Add(element);
         using var session = new AgentToolkitTestSession(scene);
         var reconciler = new Reconciler();
@@ -111,7 +111,7 @@ public sealed class FullDocumentApplyTests
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) };
-        var text = new TextBlock { Text = { CurrentValue = "Title" } };
+        var text = new TextBlock { Text = { Value = "Title" } };
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0 }, out _);
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100 }, out _);
@@ -136,7 +136,7 @@ public sealed class FullDocumentApplyTests
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) };
-        var text = new TextBlock { Text = { CurrentValue = "Title" } };
+        var text = new TextBlock { Text = { Value = "Title" } };
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0 }, out _);
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100 }, out _);

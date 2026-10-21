@@ -157,12 +157,12 @@ public class UpdatePropertyValueOperationTests
     public void Apply_WithEngineProperty_ShouldSetNewValue()
     {
         var engineObj = new TestEngineObject();
-        engineObj.FloatValue.CurrentValue = 0f;
+        engineObj.FloatValue.Value = 0f;
         var op = CreateOp<float>(engineObj, "FloatValue", 50f, 0f);
 
         op.Apply();
 
-        Assert.That(engineObj.FloatValue.CurrentValue, Is.EqualTo(50f));
+        Assert.That(engineObj.FloatValue.Value, Is.EqualTo(50f));
     }
 
     [Test]
@@ -198,7 +198,7 @@ public class UpdatePropertyValueOperationTests
 
         op.Apply();
 
-        Assert.That(engineObj.FloatValue.CurrentValue, Is.EqualTo(75f));
+        Assert.That(engineObj.FloatValue.Value, Is.EqualTo(75f));
     }
 
     [Test]
@@ -259,14 +259,14 @@ public class UpdatePropertyValueOperationTests
     public void ApplyThenRevert_WithEngineProperty_ShouldRestoreOriginalValue()
     {
         var engineObj = new TestEngineObject();
-        engineObj.FloatValue.CurrentValue = 10f;
+        engineObj.FloatValue.Value = 10f;
         var op = CreateOp<float>(engineObj, "FloatValue", 100f, 10f);
 
         op.Apply();
-        Assert.That(engineObj.FloatValue.CurrentValue, Is.EqualTo(100f));
+        Assert.That(engineObj.FloatValue.Value, Is.EqualTo(100f));
         op.Revert();
 
-        Assert.That(engineObj.FloatValue.CurrentValue, Is.EqualTo(10f));
+        Assert.That(engineObj.FloatValue.Value, Is.EqualTo(10f));
     }
 
     #endregion

@@ -17,12 +17,12 @@ public class Slice1ReducedScaleTests
     private static Drawable.Resource MakeScene()
     {
         var shape = new EllipseShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
-        shape.Width.CurrentValue = 160;
-        shape.Height.CurrentValue = 120;
-        shape.Fill.CurrentValue = Brushes.White;
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.TransformOrigin.Value = RelativePoint.Center;
+        shape.Width.Value = 160;
+        shape.Height.Value = 120;
+        shape.Fill.Value = Brushes.White;
         return shape.ToResource(CompositionContext.Default);
     }
 

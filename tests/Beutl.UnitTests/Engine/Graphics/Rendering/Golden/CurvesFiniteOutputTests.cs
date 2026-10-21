@@ -20,17 +20,17 @@ public sealed class CurvesFiniteOutputTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var curves = new Curves();
-            curves.MasterCurve.CurrentValue = new CurveMap(
+            curves.MasterCurve.Value = new CurveMap(
             [
                 new CurveControlPoint(-0.5f, -0.5f),
                 new CurveControlPoint(1.5f, 1.5f),
             ]);
 
             var shape = new RectShape();
-            shape.Width.CurrentValue = s_frame.Width;
-            shape.Height.CurrentValue = s_frame.Height;
-            shape.Fill.CurrentValue = new SolidColorBrush(Colors.Black);
-            shape.FilterEffect.CurrentValue = curves;
+            shape.Width.Value = s_frame.Width;
+            shape.Height.Value = s_frame.Height;
+            shape.Fill.Value = new SolidColorBrush(Colors.Black);
+            shape.FilterEffect.Value = curves;
 
             using Drawable.Resource resource = shape.ToResource(CompositionContext.Default);
             using Bitmap actual = GoldenImageHarness.RenderAtScale(

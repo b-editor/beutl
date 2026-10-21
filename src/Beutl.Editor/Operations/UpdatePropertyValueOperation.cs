@@ -51,7 +51,7 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
         {
             if (engineProperty is IProperty<T> typedProperty)
             {
-                typedProperty.CurrentValue = value;
+                typedProperty.Value = value;
             }
         }
     }

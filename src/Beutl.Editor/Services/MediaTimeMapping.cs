@@ -45,7 +45,7 @@ internal sealed partial class MediaTimeMapping
         _speed = new SpeedMap(speed, sampleRate, videoPlayback: source is SourceVideo);
         _controllers = controllers.Select(c => new Controller(element, c.Controller, c.Target, timingPeers, ignoreLoops, timingRoles)).ToArray();
         _videoDuration = videoDuration;
-        _loopVideo = !ignoreLoops && source is SourceVideo video && video.IsLoop.CurrentValue;
+        _loopVideo = !ignoreLoops && source is SourceVideo video && video.IsLoop.Value;
         _loopAnimation = !ignoreLoops && source is SourceVideo animatedVideo ? animatedVideo.IsLoop.GetKeyFrameAnimation() : null;
         _opaquePortal = source is PortalObject;
         _clipToSourceRange = portalInput || source is Sound;
@@ -276,13 +276,13 @@ internal sealed partial class MediaTimeMapping
             _clock = new Clock(element, controller, timingPeers, timingRoles);
             _targetClock = new Clock(element, target, timingPeers, timingRoles);
             _speed = new SpeedMap(controller.Speed, 60, videoPlayback: true);
-            _offset = controller.OffsetPosition.CurrentValue;
-            _adjust = controller.AdjustTimeRange.CurrentValue;
-            _reverse = controller.Reverse.CurrentValue;
-            _loop = !ignoreLoops && controller.Loop.CurrentValue;
-            _holdFirst = controller.HoldFirstFrame.CurrentValue;
-            _holdLast = controller.HoldLastFrame.CurrentValue;
-            _frameRate = controller.FrameRate.CurrentValue;
+            _offset = controller.OffsetPosition.Value;
+            _adjust = controller.AdjustTimeRange.Value;
+            _reverse = controller.Reverse.Value;
+            _loop = !ignoreLoops && controller.Loop.Value;
+            _holdFirst = controller.HoldFirstFrame.Value;
+            _holdLast = controller.HoldLastFrame.Value;
+            _frameRate = controller.FrameRate.Value;
             _hasMappingExpression = controller.OffsetPosition.HasExpression || controller.AdjustTimeRange.HasExpression
                 || controller.Reverse.HasExpression || controller.Loop.HasExpression || controller.HoldFirstFrame.HasExpression
                 || controller.HoldLastFrame.HasExpression || controller.FrameRate.HasExpression;

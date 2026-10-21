@@ -67,7 +67,7 @@ public sealed class PresenterTargetApplyTests
             {
                 Assert.That(ex!.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
                 Assert.That(ex.Error.Message, Does.Contain("Expressions"));
-                Assert.That(presenter.Target.CurrentValue, Is.Null);
+                Assert.That(presenter.Target.Value, Is.Null);
                 Assert.That(presenter.Target.Expression, Is.Null);
             }
         }

@@ -115,11 +115,11 @@ public class TimeStretchEffectTests
     public void Process_ChangingStaticSpeedReanchorsTheSource()
     {
         var effect = new TimeStretchEffect();
-        effect.Speed.CurrentValue = 50f;
+        effect.Speed.Value = 50f;
         using var node = new TimeStretchNode { Speed = effect.Speed };
         node.AddInput(ToneSource());
         using (node.Process(Context(0, SampleRate / 2))) { }
-        effect.Speed.CurrentValue = 200f;
+        effect.Speed.Value = 200f;
 
         using AudioBuffer changed = node.Process(Context(SampleRate / 2, SampleRate / 2));
         using var fresh = CreateNode(200f, ToneSource());
@@ -361,12 +361,12 @@ public class TimeStretchEffectTests
         WithTemporaryWave(sourceRate, sourceRate * 3, i => (Sine(i, sourceRate, 440), Sine(i, sourceRate, 660)), source =>
         {
             var effect = new TimeStretchEffect();
-            effect.Speed.CurrentValue = speed;
+            effect.Speed.Value = speed;
             var sound = new SourceSound
             {
                 TimeRange = new TimeRange(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(1)),
-                Source = { CurrentValue = source },
-                Effect = { CurrentValue = effect }
+                Source = { Value = source },
+                Effect = { Value = effect }
             };
             using var resource = sound.ToResource(CompositionContext.Default);
             using var composer = new Composer { SampleRate = outputRate };
@@ -394,13 +394,13 @@ public class TimeStretchEffectTests
         WithTemporaryWave(sourceRate, sourceFrames, i => (Sine(i, sourceRate, 440), -Sine(i, sourceRate, 440)), source =>
         {
             var effect = new TimeStretchEffect();
-            effect.Speed.CurrentValue = speed;
+            effect.Speed.Value = speed;
             var sound = new SourceSound
             {
                 TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                Source = { CurrentValue = source },
-                Effect = { CurrentValue = effect },
-                Gain = { CurrentValue = 75f }
+                Source = { Value = source },
+                Effect = { Value = effect },
+                Gain = { Value = 75f }
             };
             using var resource = sound.ToResource(CompositionContext.Default);
             using var composer = new Composer { SampleRate = outputRate };
@@ -457,7 +457,7 @@ public class TimeStretchEffectTests
     public void EffectLatency_TransformsInputBudgetAndMatchesGraph(float speed, int inputLatency, int expected)
     {
         var effect = new TimeStretchEffect();
-        effect.Speed.CurrentValue = speed;
+        effect.Speed.Value = speed;
         using var context = new AudioContext(SampleRate, 2);
         AudioNode source = context.AddNode(new SignalNode(SampleRate, (_, _) => 0, latency: inputLatency));
         AudioNode node = effect.CreateNode(context, source);
@@ -476,7 +476,7 @@ public class TimeStretchEffectTests
     public void EffectLatency_AnimatedSpeedUsesConservativeBoundsAndMatchesGraph(bool unknownRange, int expected)
     {
         var effect = new TimeStretchEffect();
-        effect.Speed.CurrentValue = 200f;
+        effect.Speed.Value = 200f;
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 50f });
         animation.KeyFrames.Add(new KeyFrame<float>
@@ -501,7 +501,7 @@ public class TimeStretchEffectTests
     public void CreateNode_ReusesTheProcessorAcrossGraphUpdates()
     {
         var effect = new TimeStretchEffect();
-        effect.Speed.CurrentValue = 50f;
+        effect.Speed.Value = 50f;
         var source = ToneSource();
         using var context = new AudioContext(SampleRate, 2);
         AudioNode node = effect.CreateNode(context, source);
@@ -520,7 +520,7 @@ public class TimeStretchEffectTests
     public void GraphUpdate_SharedSpeedPropertyKeepsBothNodeTypesAndPitchBehavior(float speed, double shiftedPitch)
     {
         var effect = new TimeStretchEffect();
-        effect.Speed.CurrentValue = speed;
+        effect.Speed.Value = speed;
         using var context = new AudioContext(SampleRate, 2);
         var source = context.AddNode(ToneSource());
         AudioNode stretched = effect.CreateNode(context, source);
@@ -562,9 +562,9 @@ public class TimeStretchEffectTests
         float speed, bool nested, bool limiterFirst, int inputLatency, int expected)
     {
         var limiter = new LimiterEffect();
-        limiter.Lookahead.CurrentValue = 10f;
+        limiter.Lookahead.Value = 10f;
         var stretch = new TimeStretchEffect();
-        stretch.Speed.CurrentValue = speed;
+        stretch.Speed.Value = speed;
         var group = new AudioEffectGroup();
         if (limiterFirst)
             group.Children.Add(limiter);
@@ -595,7 +595,7 @@ public class TimeStretchEffectTests
     public void Serialization_PreservesTheEffectAndSpeedKeyframes()
     {
         var effect = new TimeStretchEffect();
-        effect.Speed.CurrentValue = 150f;
+        effect.Speed.Value = 150f;
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 50f });
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 200f });
@@ -608,7 +608,7 @@ public class TimeStretchEffectTests
 
         Assert.That(restored.Children.Single(), Is.TypeOf<TimeStretchEffect>());
         var restoredEffect = (TimeStretchEffect)restored.Children.Single();
-        Assert.That(restoredEffect.Speed.CurrentValue, Is.EqualTo(150f));
+        Assert.That(restoredEffect.Speed.Value, Is.EqualTo(150f));
         Assert.That(restoredEffect.Speed.GetKeyFrameAnimation()!.Interpolate(TimeSpan.Zero), Is.EqualTo(50f));
         Assert.That(restoredEffect.Speed.GetKeyFrameAnimation()!.Interpolate(TimeSpan.FromSeconds(1)), Is.EqualTo(200f));
     }
@@ -616,7 +616,7 @@ public class TimeStretchEffectTests
     private static TimeStretchNode CreateNode(float speed, AudioNode source)
     {
         var effect = new TimeStretchEffect();
-        effect.Speed.CurrentValue = speed;
+        effect.Speed.Value = speed;
         var node = new TimeStretchNode { Speed = effect.Speed };
         node.AddInput(source);
         return node;

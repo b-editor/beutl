@@ -37,11 +37,11 @@ public sealed class Scene3DTransparentHitTestTests
     private static bool HitTest(Color background, Point point)
     {
         var cube = new Cube3D();
-        cube.Position.CurrentValue = Vector3.Zero;
+        cube.Position.Value = Vector3.Zero;
         var scene = new Scene3D();
-        scene.BackgroundColor.CurrentValue = background;
-        scene.RenderWidth.CurrentValue = (float)s_sceneBounds.Width;
-        scene.RenderHeight.CurrentValue = (float)s_sceneBounds.Height;
+        scene.BackgroundColor.Value = background;
+        scene.RenderWidth.Value = (float)s_sceneBounds.Width;
+        scene.RenderHeight.Value = (float)s_sceneBounds.Height;
         scene.Objects.Add(cube);
         using var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
         using var node = new Scene3DRenderNode(resource);

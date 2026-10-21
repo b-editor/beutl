@@ -15,7 +15,7 @@ internal static class TimeStretchParameters
     public static double GetMinimumSpeedFactor(IProperty<float> speed)
     {
         if (speed.GetKeyFrameAnimation() is not { } animation)
-            return Normalize(speed.CurrentValue) / 100d;
+            return Normalize(speed.Value) / 100d;
 
         if (animation.TryGetOutputRange(out float minimum, out float maximum)
             && float.IsFinite(minimum) && float.IsFinite(maximum) && minimum <= maximum)

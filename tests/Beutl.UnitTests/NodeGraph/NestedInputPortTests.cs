@@ -42,12 +42,12 @@ public class NestedInputPortTests
         else
         {
             var factory = new FactoryNode<Pen>();
-            factory.Object.Brush.CurrentValue = null;
+            factory.Object.Brush.Value = null;
             var brush = new SolidColorBrush();
             node = factory;
             property = brush.Opacity;
-            add = () => factory.Object.Brush.CurrentValue = brush;
-            remove = () => factory.Object.Brush.CurrentValue = null;
+            add = () => factory.Object.Brush.Value = brush;
+            remove = () => factory.Object.Brush.Value = null;
         }
         graph.Nodes.Add(node);
         var source = Source(graph, 42f);
@@ -77,7 +77,7 @@ public class NestedInputPortTests
         var node = new GeometryShapeNode();
         var brush = new SolidColorBrush();
         var pen = new Pen();
-        pen.Brush.CurrentValue = brush;
+        pen.Brush.Value = brush;
         node.Pen.Property!.SetValue(pen);
         graph.Nodes.Add(node);
         int roots = node.Items.Count;
@@ -152,7 +152,7 @@ public class NestedInputPortTests
         {
             var pen = new FactoryNode<Pen>();
             brush = new SolidColorBrush();
-            pen.Object.Brush.CurrentValue = brush;
+            pen.Object.Brush.Value = brush;
             node = pen;
             input = Find(node, brush.Opacity);
         }
@@ -197,13 +197,13 @@ public class NestedInputPortTests
         var graph = new GraphModel();
         var node = new FactoryNode<Pen>();
         var oldBrush = new SolidColorBrush();
-        node.Object.Brush.CurrentValue = oldBrush;
+        node.Object.Brush.Value = oldBrush;
         graph.Nodes.Add(node);
         INestedInputPort port = Find(node, oldBrush.Color);
         var connection = graph.Connect(port, Source(graph, Colors.Red));
         var replacement = new SolidColorBrush();
 
-        node.Object.Brush.CurrentValue = replacement;
+        node.Object.Brush.Value = replacement;
         Evaluate(graph);
 
         Assert.Multiple(() =>
@@ -222,14 +222,14 @@ public class NestedInputPortTests
         var graph = new GraphModel();
         var node = new FactoryNode<Pen>();
         var original = new SolidColorBrush();
-        node.Object.Brush.CurrentValue = original;
+        node.Object.Brush.Value = original;
         graph.Nodes.Add(node);
         var port = Find(node, original.Color);
         var connection = graph.Connect(port, Source(graph, Colors.Red));
         using var history = new HistoryHarness(graph);
         var replacement = setNull ? null : new SolidColorBrush();
 
-        node.Object.Brush.CurrentValue = replacement;
+        node.Object.Brush.Value = replacement;
         history.History.Commit("Replace brush");
         Assert.That(history.History.UndoCount, Is.EqualTo(1));
         Assert.That(original.Color.Expression, Is.Null);
@@ -238,14 +238,14 @@ public class NestedInputPortTests
 
         history.History.Undo();
         Evaluate(graph);
-        Assert.That(node.Object.Brush.CurrentValue, Is.SameAs(original));
+        Assert.That(node.Object.Brush.Value, Is.SameAs(original));
         Assert.That(Find(node, original.Color), Is.SameAs(port));
         Assert.That(graph.AllConnections.Single(), Is.SameAs(connection));
         Assert.That(original.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Red));
 
         history.History.Redo();
         Evaluate(graph);
-        Assert.That(node.Object.Brush.CurrentValue, Is.SameAs(replacement));
+        Assert.That(node.Object.Brush.Value, Is.SameAs(replacement));
         Assert.That(original.Color.Expression, Is.Null);
         if (setNull) Assert.That(graph.AllConnections, Is.Empty);
         else Assert.That(replacement!.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Red));
@@ -258,7 +258,7 @@ public class NestedInputPortTests
         var node = new GeometryShapeNode();
         var pen = new Pen();
         var brush = new SolidColorBrush();
-        pen.Brush.CurrentValue = brush;
+        pen.Brush.Value = brush;
         node.Pen.Property!.SetValue(pen);
         graph.Nodes.Add(node);
         graph.Connect(Find(node, brush.Color), Source(graph, Colors.Red));
@@ -276,7 +276,7 @@ public class NestedInputPortTests
         var node = new GeometryShapeNode();
         var brush = new SolidColorBrush();
         var pen = new Pen();
-        pen.Brush.CurrentValue = brush;
+        pen.Brush.Value = brush;
         node.Fill.Property!.SetValue(brush);
         node.Pen.Property!.SetValue(pen);
         graph.Nodes.Add(node);
@@ -396,7 +396,7 @@ public class NestedInputPortTests
         var fillBrush = new SolidColorBrush();
         var penBrush = new SolidColorBrush();
         var pen = new Pen();
-        pen.Brush.CurrentValue = penBrush;
+        pen.Brush.Value = penBrush;
         node.Fill.Property!.SetValue(fillBrush);
         node.Pen.Property!.SetValue(pen);
         graph.Nodes.Add(node);
@@ -412,7 +412,7 @@ public class NestedInputPortTests
         using var history = new HistoryHarness(graph);
 
         if (differentNodes) otherNode.Fill.Property!.SetValue(fillBrush);
-        else pen.Brush.CurrentValue = fillBrush;
+        else pen.Brush.Value = fillBrush;
         history.History.Commit("Share brush");
         Evaluate(graph);
 
@@ -460,7 +460,7 @@ public class NestedInputPortTests
     {
         var node = new GeometryShapeNode();
         var pen = new Pen();
-        pen.DashArray.CurrentValue = [1f, 2f];
+        pen.DashArray.Value = [1f, 2f];
         node.Pen.Property!.SetValue(pen);
 
         Assert.That(node.NestedInputPorts.Any(p => p.PropertyPath.Any(s => s.StartsWith("i:"))), Is.False);
@@ -476,7 +476,7 @@ public class NestedInputPortTests
         node.Object.Children.Add(item);
         graph.Nodes.Add(node);
         var listPort = (IInputPort)node.Items.Single(p => p.Name == nameof(TransformGroup.Children));
-        var source = Source(graph, node.Object.Children.CurrentValue);
+        var source = Source(graph, node.Object.Children.Value);
 
         Assert.That(node.CanConnectInput(listPort), Is.False);
         Assert.That(node.CanConnectInput(Find(node, item.X)), Is.True);
@@ -495,7 +495,7 @@ public class NestedInputPortTests
         var output = new GroupOutput();
         var factory = new FactoryNode<Pen>();
         var brush = new SolidColorBrush();
-        factory.Object.Brush.CurrentValue = brush;
+        factory.Object.Brush.Value = brush;
         group.Group.Nodes.Add(input);
         group.Group.Nodes.Add(output);
         group.Group.Nodes.Add(factory);
@@ -519,14 +519,14 @@ public class NestedInputPortTests
         var graph = new GraphModel();
         var node = new FactoryNode<Pen>();
         var brush = new SolidColorBrush();
-        node.Object.Brush.CurrentValue = brush;
+        node.Object.Brush.Value = brush;
         graph.Nodes.Add(node);
         var opacity = Find(node, brush.Opacity);
         graph.Connect(opacity, Source(graph, 25f));
         graph.Connect(Find(node, brush.Color), Source(graph, Colors.Red));
 
         var gradient = new LinearGradientBrush();
-        node.Object.Brush.CurrentValue = gradient;
+        node.Object.Brush.Value = gradient;
         Evaluate(graph);
 
         Assert.That(Find(node, gradient.Opacity), Is.SameAs(opacity));
@@ -610,7 +610,7 @@ public class NestedInputPortTests
         {
             var pen = new FactoryNode<Pen>();
             var brush = new SolidColorBrush();
-            pen.Object.Brush.CurrentValue = brush;
+            pen.Object.Brush.Value = brush;
             node = pen;
             target = brush.Opacity;
         }
@@ -671,7 +671,7 @@ public class NestedInputPortTests
         var graph = new GraphModel();
         var node = new FactoryNode<Pen>();
         var brush = new SolidColorBrush();
-        node.Object.Brush.CurrentValue = brush;
+        node.Object.Brush.Value = brush;
         graph.Nodes.Add(node);
         var originalPort = Find(node, brush.Color);
         var originalConnection = graph.Connect(originalPort, Source(graph, Colors.Red));
@@ -689,7 +689,7 @@ public class NestedInputPortTests
             CoreSerializer.SerializeToJsonObject(restored), typeof(GraphModel));
         Evaluate(restored);
         var restoredNode = (FactoryNode<Pen>)restored.Nodes[0];
-        var fallback = (FallbackBrush)restoredNode.Object.Brush.CurrentValue!;
+        var fallback = (FallbackBrush)restoredNode.Object.Brush.Value!;
         var port = (INestedInputPort)restored.FindNodePort(originalPort.Id)!;
         var connection = restored.AllConnections.Single();
         Assert.Multiple(() =>
@@ -710,7 +710,7 @@ public class NestedInputPortTests
         {
             if (!HistoryReplay.IsActive) recorded.Add(operation);
         });
-        restoredNode.Object.Brush.CurrentValue = repaired;
+        restoredNode.Object.Brush.Value = repaired;
         history.History.Commit("Repair brush");
         Evaluate(restored);
         Assert.That(Find(restoredNode, repaired.Color), Is.SameAs(port));
@@ -719,7 +719,7 @@ public class NestedInputPortTests
 
         Assert.That(history.History.Undo(), Is.True);
         Evaluate(restored);
-        Assert.That(restoredNode.Object.Brush.CurrentValue, Is.SameAs(fallback));
+        Assert.That(restoredNode.Object.Brush.Value, Is.SameAs(fallback));
         Assert.That(port.Property, Is.Null);
         Assert.That(repaired.Color.Expression, Is.Null);
         Assert.That(restored.AllConnections.Single(), Is.SameAs(connection));
@@ -860,20 +860,20 @@ public class NestedInputPortTests
     public void LegacyGraphWithoutNestedPortDataBuildsPortsOnLoad()
     {
         var node = new FactoryNode<Pen>();
-        node.Object.Brush.CurrentValue = new SolidColorBrush();
+        node.Object.Brush.Value = new SolidColorBrush();
         var json = CoreSerializer.SerializeToJsonObject(node);
         json.Remove(nameof(GraphNode.NestedInputPorts));
 
         var restored = (FactoryNode<Pen>)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphNode));
 
-        Assert.That(Find(restored, ((SolidColorBrush)restored.Object.Brush.CurrentValue!).Color), Is.Not.Null);
+        Assert.That(Find(restored, ((SolidColorBrush)restored.Object.Brush.Value!).Color), Is.Not.Null);
     }
 
     [Test]
     public void SavingAnUnchangedNodeDoesNotInvalidateItsTopology()
     {
         var node = new FactoryNode<Pen>();
-        node.Object.Brush.CurrentValue = new SolidColorBrush();
+        node.Object.Brush.Value = new SolidColorBrush();
         int changes = 0;
         node.TopologyChanged += (_, _) => changes++;
 
@@ -888,7 +888,7 @@ public class NestedInputPortTests
         var graph = new GraphModel();
         var node = new FactoryNode<Pen>();
         var brush = new SolidColorBrush();
-        node.Object.Brush.CurrentValue = brush;
+        node.Object.Brush.Value = brush;
         graph.Nodes.Add(node);
         var connection = graph.Connect(Find(node, brush.Color), Source(graph, Colors.Red));
         using var history = new HistoryHarness(graph);

@@ -92,7 +92,7 @@ public sealed partial class LimiterEffect : AudioEffect
         // Reserve the worst-case lookahead when automation is present.
         int latency = Lookahead.GetKeyFrameAnimation() != null
             ? ToLatencySamples(MaxLookaheadMs, sampleRate)
-            : ToLatencySamples(Lookahead.CurrentValue, sampleRate);
+            : ToLatencySamples(Lookahead.Value, sampleRate);
         return AudioLatency.SaturatingAdd(inputLatency, latency);
     }
 }

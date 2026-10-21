@@ -1186,9 +1186,9 @@ public sealed class RenderToolsStoryboardTests
         var rect = new RectShape
         {
             Name = name,
-            Width = { CurrentValue = width },
-            Height = { CurrentValue = height },
-            Fill = { CurrentValue = new SolidColorBrush(color) }
+            Width = { Value = width },
+            Height = { Value = height },
+            Fill = { Value = new SolidColorBrush(color) }
         };
         AddElement(scene, workspace, name, start, length, scene.Children.Count, rect);
     }
@@ -1205,12 +1205,12 @@ public sealed class RenderToolsStoryboardTests
         var rect = new RectShape
         {
             Name = name,
-            Width = { CurrentValue = 48 },
-            Height = { CurrentValue = 48 },
-            Fill = { CurrentValue = new SolidColorBrush(Colors.White) },
+            Width = { Value = 48 },
+            Height = { Value = 48 },
+            Fill = { Value = new SolidColorBrush(Colors.White) },
             Transform =
             {
-                CurrentValue = new TransformGroup
+                Value = new TransformGroup
                 {
                     Children = { new TranslateTransform(x, y) }
                 }
@@ -1232,10 +1232,10 @@ public sealed class RenderToolsStoryboardTests
         var rect = new RoundedRectShape
         {
             Name = name,
-            Width = { CurrentValue = width },
-            Height = { CurrentValue = height },
-            CornerRadius = { CurrentValue = new CornerRadius(12) },
-            Fill = { CurrentValue = new SolidColorBrush(color) }
+            Width = { Value = width },
+            Height = { Value = height },
+            CornerRadius = { Value = new CornerRadius(12) },
+            Fill = { Value = new SolidColorBrush(color) }
         };
         AddElement(scene, workspace, name, start, length, scene.Children.Count, rect);
     }
@@ -1245,9 +1245,9 @@ public sealed class RenderToolsStoryboardTests
         var block = new TextBlock
         {
             Name = text,
-            Text = { CurrentValue = text },
-            Size = { CurrentValue = 24 },
-            Fill = { CurrentValue = new SolidColorBrush(Color.Parse("#ff1a2028")) }
+            Text = { Value = text },
+            Size = { Value = 24 },
+            Fill = { Value = new SolidColorBrush(Color.Parse("#ff1a2028")) }
         };
         AddElement(scene, workspace, text, start, length, 10, block);
     }
@@ -1257,12 +1257,12 @@ public sealed class RenderToolsStoryboardTests
         var ellipse = new EllipseShape
         {
             Name = name,
-            Width = { CurrentValue = 42 },
-            Height = { CurrentValue = 42 },
-            Fill = { CurrentValue = new SolidColorBrush(Color.Parse("#ffb85c38")) },
+            Width = { Value = 42 },
+            Height = { Value = 42 },
+            Fill = { Value = new SolidColorBrush(Color.Parse("#ffb85c38")) },
             Transform =
             {
-                CurrentValue = new TransformGroup
+                Value = new TransformGroup
                 {
                     Children = { new TranslateTransform(74, -46) }
                 }

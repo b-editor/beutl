@@ -211,12 +211,12 @@ public sealed class RenderNodeRendererAllocationFailureTests
     {
         var pen = new Pen
         {
-            Thickness = { CurrentValue = 9 },
-            Brush = { CurrentValue = Brushes.OrangeRed },
+            Thickness = { Value = 9 },
+            Brush = { Value = Brushes.OrangeRed },
         };
         var effect = new StrokeEffect
         {
-            Pen = { CurrentValue = pen },
+            Pen = { Value = pen },
         };
         return effect.ToResource(CompositionContext.Default);
     }

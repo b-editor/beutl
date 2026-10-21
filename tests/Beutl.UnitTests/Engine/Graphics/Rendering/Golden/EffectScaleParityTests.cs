@@ -23,52 +23,52 @@ public class EffectScaleParityTests
         yield return new TestCaseData("InnerShadow", (Func<FilterEffect>)(() =>
         {
             var e = new InnerShadow();
-            e.Position.CurrentValue = new Point(6, 6);
-            e.Sigma.CurrentValue = new Size(6, 6);
-            e.Color.CurrentValue = Colors.Black;
+            e.Position.Value = new Point(6, 6);
+            e.Sigma.Value = new Size(6, 6);
+            e.Color.Value = Colors.Black;
             return e;
         }));
         yield return new TestCaseData("ColorShift", (Func<FilterEffect>)(() =>
         {
             var e = new ColorShift();
-            e.RedOffset.CurrentValue = new PixelPoint(18, 6);
-            e.BlueOffset.CurrentValue = new PixelPoint(-18, -6);
+            e.RedOffset.Value = new PixelPoint(18, 6);
+            e.BlueOffset.Value = new PixelPoint(-18, -6);
             return e;
         }));
         yield return new TestCaseData("SplitEffect", (Func<FilterEffect>)(() =>
         {
             var e = new SplitEffect();
-            e.HorizontalDivisions.CurrentValue = 3;
-            e.VerticalDivisions.CurrentValue = 3;
-            e.HorizontalSpacing.CurrentValue = 12;
-            e.VerticalSpacing.CurrentValue = 12;
+            e.HorizontalDivisions.Value = 3;
+            e.VerticalDivisions.Value = 3;
+            e.HorizontalSpacing.Value = 12;
+            e.VerticalSpacing.Value = 12;
             return e;
         }));
         yield return new TestCaseData("FlatShadow", (Func<FilterEffect>)(() =>
         {
             var e = new FlatShadow();
-            e.Angle.CurrentValue = 0;
-            e.Length.CurrentValue = 40;
-            e.Brush.CurrentValue = Brushes.Red;
+            e.Angle.Value = 0;
+            e.Length.Value = 40;
+            e.Brush.Value = Brushes.Red;
             return e;
         }));
         yield return new TestCaseData("Clipping", (Func<FilterEffect>)(() =>
         {
             var e = new Clipping();
-            e.Left.CurrentValue = 24;
-            e.Top.CurrentValue = 24;
-            e.Right.CurrentValue = 24;
-            e.Bottom.CurrentValue = 24;
+            e.Left.Value = 24;
+            e.Top.Value = 24;
+            e.Right.Value = 24;
+            e.Bottom.Value = 24;
             return e;
         }));
         yield return new TestCaseData("Clipping-AutoCenter", (Func<FilterEffect>)(() =>
         {
             var e = new Clipping();
-            e.Left.CurrentValue = 20;
-            e.Top.CurrentValue = 20;
-            e.Right.CurrentValue = 20;
-            e.Bottom.CurrentValue = 20;
-            e.AutoCenter.CurrentValue = true;
+            e.Left.Value = 20;
+            e.Top.Value = 20;
+            e.Right.Value = 20;
+            e.Bottom.Value = 20;
+            e.AutoCenter.Value = true;
             return e;
         }));
         foreach (float width in new[] { 0f, 36.5f, -36.5f })
@@ -79,40 +79,40 @@ public class EffectScaleParityTests
         yield return new TestCaseData("StrokeEffect", (Func<FilterEffect>)(() =>
         {
             var pen = new Pen();
-            pen.Thickness.CurrentValue = 14;
-            pen.Brush.CurrentValue = Brushes.Red;
+            pen.Thickness.Value = 14;
+            pen.Brush.Value = Brushes.Red;
             var e = new StrokeEffect();
-            e.Pen.CurrentValue = pen;
+            e.Pen.Value = pen;
             return e;
         }));
         yield return new TestCaseData("PathFollow", (Func<FilterEffect>)(() =>
         {
             var e = new PathFollowEffect();
-            e.Geometry.CurrentValue = PathGeometry.Parse("M0,0 L70,50");
-            e.Progress.CurrentValue = 100;
+            e.Geometry.Value = PathGeometry.Parse("M0,0 L70,50");
+            e.Progress.Value = 100;
             return e;
         }));
         yield return new TestCaseData("StrokeEffect-Offset", (Func<FilterEffect>)(() =>
         {
             // Non-zero offset is the scale-sensitive case the plain StrokeEffect case omits.
             var pen = new Pen();
-            pen.Thickness.CurrentValue = 14;
-            pen.Brush.CurrentValue = Brushes.Red;
+            pen.Thickness.Value = 14;
+            pen.Brush.Value = Brushes.Red;
             var e = new StrokeEffect();
-            e.Pen.CurrentValue = pen;
-            e.Offset.CurrentValue = new Point(20, 12);
+            e.Pen.Value = pen;
+            e.Offset.Value = new Point(20, 12);
             return e;
         }));
         yield return new TestCaseData("StrokeEffect-Foreground", (Func<FilterEffect>)(() =>
         {
             // Foreground draw-ordering branch at supersample.
             var pen = new Pen();
-            pen.Thickness.CurrentValue = 14;
-            pen.Brush.CurrentValue = Brushes.Red;
+            pen.Thickness.Value = 14;
+            pen.Brush.Value = Brushes.Red;
             var e = new StrokeEffect();
-            e.Pen.CurrentValue = pen;
-            e.Offset.CurrentValue = new Point(16, 16);
-            e.Style.CurrentValue = StrokeEffect.StrokeStyles.Foreground;
+            e.Pen.Value = pen;
+            e.Offset.Value = new Point(16, 16);
+            e.Style.Value = StrokeEffect.StrokeStyles.Foreground;
             return e;
         }));
         yield return new TestCaseData("TransformEffect", (Func<FilterEffect>)(() =>
@@ -120,14 +120,14 @@ public class EffectScaleParityTests
             // Rotate + non-uniform scale: buffer must be placed at working density.
             var group = new TransformGroup();
             var rot = new RotationTransform();
-            rot.Rotation.CurrentValue = 45f;
+            rot.Rotation.Value = 45f;
             var scale = new ScaleTransform();
-            scale.ScaleX.CurrentValue = 120f;
-            scale.ScaleY.CurrentValue = 100f;
+            scale.ScaleX.Value = 120f;
+            scale.ScaleY.Value = 100f;
             group.Children.Add(rot);
             group.Children.Add(scale);
             var e = new TransformEffect();
-            e.Transform.CurrentValue = group;
+            e.Transform.Value = group;
             return e;
         }));
         yield return new TestCaseData("TransformEffect-Filter", (Func<FilterEffect>)(() =>
@@ -135,15 +135,15 @@ public class EffectScaleParityTests
             // ApplyToTarget == false routes through the Skia matrix ImageFilter (non-buffer branch).
             var group = new TransformGroup();
             var rot = new RotationTransform();
-            rot.Rotation.CurrentValue = 45f;
+            rot.Rotation.Value = 45f;
             var scale = new ScaleTransform();
-            scale.ScaleX.CurrentValue = 120f;
-            scale.ScaleY.CurrentValue = 100f;
+            scale.ScaleX.Value = 120f;
+            scale.ScaleY.Value = 100f;
             group.Children.Add(rot);
             group.Children.Add(scale);
             var e = new TransformEffect();
-            e.Transform.CurrentValue = group;
-            e.ApplyToTarget.CurrentValue = false;
+            e.Transform.Value = group;
+            e.ApplyToTarget.Value = false;
             return e;
         }));
         yield return new TestCaseData("PartsSplit", (Func<FilterEffect>)(() =>
@@ -153,10 +153,10 @@ public class EffectScaleParityTests
         {
             // Split into 9 parts so LayerEffect flattens multiple targets at the working density.
             var split = new SplitEffect();
-            split.HorizontalDivisions.CurrentValue = 3;
-            split.VerticalDivisions.CurrentValue = 3;
-            split.HorizontalSpacing.CurrentValue = 10;
-            split.VerticalSpacing.CurrentValue = 10;
+            split.HorizontalDivisions.Value = 3;
+            split.VerticalDivisions.Value = 3;
+            split.HorizontalSpacing.Value = 10;
+            split.VerticalSpacing.Value = 10;
             var group = new FilterEffectGroup();
             group.Children.Add(split);
             group.Children.Add(new LayerEffect());
@@ -167,37 +167,37 @@ public class EffectScaleParityTests
         {
             // Absolute-unit gradient endpoints must stay in logical px.
             var grad = new LinearGradientBrush();
-            grad.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
-            grad.EndPoint.CurrentValue = new RelativePoint(160, 0, RelativeUnit.Absolute);
+            grad.StartPoint.Value = new RelativePoint(0, 0, RelativeUnit.Absolute);
+            grad.EndPoint.Value = new RelativePoint(160, 0, RelativeUnit.Absolute);
             grad.GradientStops.Add(new GradientStop(Colors.Red, 0));
             grad.GradientStops.Add(new GradientStop(Colors.Blue, 1));
             var e = new FlatShadow();
-            e.Angle.CurrentValue = 0;
-            e.Length.CurrentValue = 40;
-            e.Brush.CurrentValue = grad;
+            e.Angle.Value = 0;
+            e.Length.Value = 40;
+            e.Brush.Value = grad;
             return e;
         }));
         yield return new TestCaseData("FlatShadow-PerlinNoise", (Func<FilterEffect>)(() =>
         {
             // Perlin shadow brush: noise must be in logical space, not device space.
             var noise = new PerlinNoiseBrush();
-            noise.BaseFrequencyX.CurrentValue = 2f;
-            noise.BaseFrequencyY.CurrentValue = 2f;
-            noise.Octaves.CurrentValue = 2;
-            noise.Seed.CurrentValue = 1f;
+            noise.BaseFrequencyX.Value = 2f;
+            noise.BaseFrequencyY.Value = 2f;
+            noise.Octaves.Value = 2;
+            noise.Seed.Value = 1f;
             var e = new FlatShadow();
-            e.Angle.CurrentValue = 35;
-            e.Length.CurrentValue = 80;
-            e.Brush.CurrentValue = noise;
-            e.ShadowOnly.CurrentValue = true;
+            e.Angle.Value = 35;
+            e.Length.Value = 80;
+            e.Brush.Value = noise;
+            e.ShadowOnly.Value = true;
             return e;
         }));
         yield return new TestCaseData("Mosaic-AbsoluteOrigin", (Func<FilterEffect>)(() =>
         {
             // Absolute-unit Origin must scale by w.
             var e = new MosaicEffect();
-            e.TileSize.CurrentValue = new Size(16, 16);
-            e.Origin.CurrentValue = new RelativePoint(50, 30, RelativeUnit.Absolute);
+            e.TileSize.Value = new Size(16, 16);
+            e.Origin.Value = new RelativePoint(50, 30, RelativeUnit.Absolute);
             return e;
         }));
         foreach (TestCaseData testCase in DisplacementMapEffects())
@@ -215,36 +215,36 @@ public class EffectScaleParityTests
     {
         // Non-gradient (DrawableBrush) displacement map: exercises the tile-brush density path.
         var stripes = new LinearGradientBrush();
-        stripes.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
-        stripes.EndPoint.CurrentValue = new RelativePoint(24, 0, RelativeUnit.Absolute);
-        stripes.SpreadMethod.CurrentValue = GradientSpreadMethod.Repeat;
+        stripes.StartPoint.Value = new RelativePoint(0, 0, RelativeUnit.Absolute);
+        stripes.EndPoint.Value = new RelativePoint(24, 0, RelativeUnit.Absolute);
+        stripes.SpreadMethod.Value = GradientSpreadMethod.Repeat;
         stripes.GradientStops.Add(new GradientStop(Colors.White, 0));
         stripes.GradientStops.Add(new GradientStop(Colors.White, 0.5f));
         stripes.GradientStops.Add(new GradientStop(Colors.Black, 0.5f));
         stripes.GradientStops.Add(new GradientStop(Colors.Black, 1));
         var mapContent = new RectShape();
-        mapContent.AlignmentX.CurrentValue = AlignmentX.Center;
-        mapContent.AlignmentY.CurrentValue = AlignmentY.Center;
-        mapContent.Width.CurrentValue = 200;
-        mapContent.Height.CurrentValue = 200;
-        mapContent.Fill.CurrentValue = stripes;
+        mapContent.AlignmentX.Value = AlignmentX.Center;
+        mapContent.AlignmentY.Value = AlignmentY.Center;
+        mapContent.Width.Value = 200;
+        mapContent.Height.Value = 200;
+        mapContent.Fill.Value = stripes;
         var map = new DrawableBrush();
-        map.Drawable.CurrentValue = mapContent;
-        map.Stretch.CurrentValue = Stretch.Fill;
+        map.Drawable.Value = mapContent;
+        map.Stretch.Value = Stretch.Fill;
         var transform = new DisplacementMapTranslateTransform();
-        transform.X.CurrentValue = 16;
-        transform.Y.CurrentValue = 0;
+        transform.X.Value = 16;
+        transform.Y.Value = 0;
         var effect = new DisplacementMapEffect();
-        effect.DisplacementMap.CurrentValue = map;
-        effect.Transform.CurrentValue = transform;
-        effect.Channel.CurrentValue = DisplacementMapChannel.Luminance;
+        effect.DisplacementMap.Value = map;
+        effect.Transform.Value = transform;
+        effect.Channel.Value = DisplacementMapChannel.Luminance;
         return effect;
     }
 
     private static FilterEffect MakeNoDisplacementMapEffect()
     {
         var effect = new DisplacementMapEffect();
-        effect.DisplacementMap.CurrentValue = null;
+        effect.DisplacementMap.Value = null;
         return effect;
     }
 
@@ -301,16 +301,16 @@ public class EffectScaleParityTests
     private static FilterEffect MakeSkslBorderEffect()
     {
         var e = new SKSLScriptEffect();
-        e.Script.CurrentValue = SkslBorderScript;
+        e.Script.Value = SkslBorderScript;
         return e;
     }
 
     private static LinearGradientBrush MakeStripes(float period)
     {
         var stripes = new LinearGradientBrush();
-        stripes.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
-        stripes.EndPoint.CurrentValue = new RelativePoint(period, 0, RelativeUnit.Absolute);
-        stripes.SpreadMethod.CurrentValue = GradientSpreadMethod.Repeat;
+        stripes.StartPoint.Value = new RelativePoint(0, 0, RelativeUnit.Absolute);
+        stripes.EndPoint.Value = new RelativePoint(period, 0, RelativeUnit.Absolute);
+        stripes.SpreadMethod.Value = GradientSpreadMethod.Repeat;
         stripes.GradientStops.Add(new GradientStop(Colors.White, 0));
         stripes.GradientStops.Add(new GradientStop(Colors.White, 0.5f));
         stripes.GradientStops.Add(new GradientStop(Colors.Gray, 0.5f));
@@ -321,9 +321,9 @@ public class EffectScaleParityTests
     private static LinearGradientBrush MakeAlphaStripes(float period)
     {
         var stripes = new LinearGradientBrush();
-        stripes.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
-        stripes.EndPoint.CurrentValue = new RelativePoint(period, 0, RelativeUnit.Absolute);
-        stripes.SpreadMethod.CurrentValue = GradientSpreadMethod.Repeat;
+        stripes.StartPoint.Value = new RelativePoint(0, 0, RelativeUnit.Absolute);
+        stripes.EndPoint.Value = new RelativePoint(period, 0, RelativeUnit.Absolute);
+        stripes.SpreadMethod.Value = GradientSpreadMethod.Repeat;
         stripes.GradientStops.Add(new GradientStop(Colors.White, 0));
         stripes.GradientStops.Add(new GradientStop(Colors.White, 0.45f));
         stripes.GradientStops.Add(new GradientStop(Colors.Transparent, 0.45f));
@@ -342,10 +342,10 @@ public class EffectScaleParityTests
     private static TransformEffect MakePartsSplitDifferentiator()
     {
         var scale = new ScaleTransform();
-        scale.ScaleX.CurrentValue = 85;
-        scale.ScaleY.CurrentValue = 85;
+        scale.ScaleX.Value = 85;
+        scale.ScaleY.Value = 85;
         var effect = new TransformEffect();
-        effect.Transform.CurrentValue = scale;
+        effect.Transform.Value = scale;
         return effect;
     }
 
@@ -495,9 +495,9 @@ public class EffectScaleParityTests
 
     private static DiagonalClipping MakeDiagonalClipping(float width) => new()
     {
-        Angle = { CurrentValue = 31f },
-        Position = { CurrentValue = 17.25f },
-        Width = { CurrentValue = width },
+        Angle = { Value = 31f },
+        Position = { Value = 17.25f },
+        Width = { Value = width },
     };
 
     private static Drawable.Resource MakeForCase(string name, Func<FilterEffect> makeEffect)
@@ -519,13 +519,13 @@ public class EffectScaleParityTests
         // Reuse the finite axis-aligned InnerShadow survey input so this fixture isolates density scaling;
         // transformed-edge rendering is a separate renderer contract.
         var shape = new EllipseShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
-        shape.Width.CurrentValue = 150;
-        shape.Height.CurrentValue = 110;
-        shape.Fill.CurrentValue = Brushes.White;
-        shape.FilterEffect.CurrentValue = makeEffect();
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.TransformOrigin.Value = RelativePoint.Center;
+        shape.Width.Value = 150;
+        shape.Height.Value = 110;
+        shape.Fill.Value = Brushes.White;
+        shape.FilterEffect.Value = makeEffect();
         return shape.ToResource(CompositionContext.Default);
     }
 

@@ -30,7 +30,7 @@ public sealed class AuthorFromBriefTests
             Length = TimeSpan.FromSeconds(3),
             ZIndex = 5
         };
-        element.AddObject(new TextBlock { Text = { CurrentValue = "Launch" } });
+        element.AddObject(new TextBlock { Text = { Value = "Launch" } });
 
         JsonObject desired = session.Documents.Read(session.Scene);
         JsonObject elementJson = CoreSerializer.SerializeToJsonObject(element);
@@ -58,7 +58,7 @@ public sealed class AuthorFromBriefTests
             Assert.That(reloadedElement.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
             Assert.That(reloadedElement.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
             Assert.That(reloadedElement.ZIndex, Is.EqualTo(5));
-            Assert.That(text.Text.CurrentValue, Is.EqualTo("Launch"));
+            Assert.That(text.Text.Value, Is.EqualTo("Launch"));
         });
     }
 

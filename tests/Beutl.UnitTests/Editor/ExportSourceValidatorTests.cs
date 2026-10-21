@@ -92,7 +92,7 @@ public sealed class ExportSourceValidatorTests
         childScene.Children.Add(CreateSoundElement(_root, missingSound));
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        sceneDrawable.ReferencedScene.Value = childScene;
         var scene = new Scene(1920, 1080, string.Empty)
         {
             Uri = new Uri(Path.Combine(_root, "root.scene")),
@@ -121,7 +121,7 @@ public sealed class ExportSourceValidatorTests
         childScene.Children.Add(CreateSoundElement(_root, missingSound));
 
         var sceneSound = new SceneSound();
-        sceneSound.ReferencedScene.CurrentValue = childScene;
+        sceneSound.ReferencedScene.Value = childScene;
         var scene = new Scene(1920, 1080, string.Empty)
         {
             Uri = new Uri(Path.Combine(_root, "root.scene")),
@@ -223,7 +223,7 @@ public sealed class ExportSourceValidatorTests
         childScene.Children.Add(disabled);
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        sceneDrawable.ReferencedScene.Value = childScene;
         var scene = new Scene(1920, 1080, string.Empty)
         {
             Uri = new Uri(Path.Combine(_root, "root.scene")),
@@ -360,9 +360,9 @@ public sealed class ExportSourceValidatorTests
         childScene.Children.Add(CreateSoundElement(_root, missingSound));
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        sceneDrawable.ReferencedScene.Value = childScene;
         var sceneSound = new SceneSound();
-        sceneSound.ReferencedScene.CurrentValue = childScene;
+        sceneSound.ReferencedScene.Value = childScene;
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
         scene.Children.Add(ElementWith(_root, sceneDrawable));
         scene.Children.Add(ElementWith(_root, sceneSound));
@@ -418,7 +418,7 @@ public sealed class ExportSourceValidatorTests
     }
 
     // When a property is animated by keyframes, the render samples the animation, not the base
-    // CurrentValue, so a stale missing base must not block export while the keyframed values exist.
+    // Value, so a stale missing base must not block export while the keyframed values exist.
     [Test]
     public void CollectRenderableSources_AnimatedProperty_DoesNotReportOverriddenBaseValue()
     {
@@ -427,7 +427,7 @@ public sealed class ExportSourceValidatorTests
         File.WriteAllBytes(keyframed, [1]);
 
         var drawable = new SourceVideo();
-        drawable.Source.CurrentValue = MakeVideoSource(missingBase);
+        drawable.Source.Value = MakeVideoSource(missingBase);
         var animation = new KeyFrameAnimation<VideoSource?>();
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = MakeVideoSource(keyframed) });
         drawable.Source.SetKeyFrameAnimation(animation);
@@ -510,7 +510,7 @@ public sealed class ExportSourceValidatorTests
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(5), Value = MakeVideoSource(newExisting) });
         ((IAnimatablePropertyAdapter<VideoSource?>)node.Source.Property!).Animation = animation;
         var drawable = new NodeGraphDrawable();
-        drawable.Model.CurrentValue!.Nodes.Add(node);
+        drawable.Model.Value!.Nodes.Add(node);
         Element element = ElementWith(_root, drawable);
         element.Length = TimeSpan.FromSeconds(10);
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
@@ -532,9 +532,9 @@ public sealed class ExportSourceValidatorTests
         var brush = new ImageBrush();
         var imageSource = new ImageSource();
         imageSource.ReadFrom(new Uri(missingImage));
-        brush.Source.CurrentValue = imageSource;
+        brush.Source.Value = imageSource;
         var shape = new RectShape();
-        shape.Fill.CurrentValue = brush;
+        shape.Fill.Value = brush;
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(ElementWith(_root, shape));
 
@@ -572,7 +572,7 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Is.EqualTo(new[] { missingB }));
     }
 
-    // A null-valued keyframe makes GetAnimatedValue fall back to the base CurrentValue, so the base
+    // A null-valued keyframe makes GetAnimatedValue fall back to the base Value, so the base
     // must not be suppressed as overridden — its missing file still blocks export.
     [Test]
     public void CollectRenderableSources_AnimationWithNullKeyframe_KeepsBaseSource()
@@ -580,7 +580,7 @@ public sealed class ExportSourceValidatorTests
         string missingBase = Path.Combine(_root, "base.mov");
 
         var drawable = new SourceVideo();
-        drawable.Source.CurrentValue = MakeVideoSource(missingBase);
+        drawable.Source.Value = MakeVideoSource(missingBase);
         var animation = new KeyFrameAnimation<VideoSource?>();
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = null });
         drawable.Source.SetKeyFrameAnimation(animation);
@@ -617,7 +617,7 @@ public sealed class ExportSourceValidatorTests
         childScene.Children.Add(childElement);
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        sceneDrawable.ReferencedScene.Value = childScene;
         Element outerElement = ElementWith(_root, sceneDrawable, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
         scene.Children.Add(outerElement);
@@ -698,10 +698,10 @@ public sealed class ExportSourceValidatorTests
         File.WriteAllBytes(exprTarget, [1]);
 
         var referenced = new SourceVideo();
-        referenced.Source.CurrentValue = MakeVideoSource(exprTarget);
+        referenced.Source.Value = MakeVideoSource(exprTarget);
 
         var drawable = new SourceVideo();
-        drawable.Source.CurrentValue = MakeVideoSource(missingBase);
+        drawable.Source.Value = MakeVideoSource(missingBase);
         var animation = new KeyFrameAnimation<VideoSource?>();
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = MakeVideoSource(missingKey) });
         drawable.Source.SetKeyFrameAnimation(animation);
@@ -738,7 +738,7 @@ public sealed class ExportSourceValidatorTests
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(30), Value = MakeVideoSource(missingLate) });
         ((IAnimatablePropertyAdapter<VideoSource?>)node.Source.Property!).Animation = animation;
         var drawable = new NodeGraphDrawable();
-        drawable.Model.CurrentValue!.Nodes.Add(node);
+        drawable.Model.Value!.Nodes.Add(node);
         Element element = ElementWith(_root, drawable, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(30));
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(element);
@@ -765,7 +765,7 @@ public sealed class ExportSourceValidatorTests
         childScene.Children.Add(outOfWindow);
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        sceneDrawable.ReferencedScene.Value = childScene;
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
         Element outer = ElementWith(_root, sceneDrawable);
         outer.Length = TimeSpan.FromSeconds(10);
@@ -795,7 +795,7 @@ public sealed class ExportSourceValidatorTests
             childScene.Children.Add(lateChild);
 
             var sceneSound = new SceneSound();
-            sceneSound.ReferencedScene.CurrentValue = childScene;
+            sceneSound.ReferencedScene.Value = childScene;
             if (animateSpeed)
             {
                 var speed = new KeyFrameAnimation<float>();
@@ -826,7 +826,7 @@ public sealed class ExportSourceValidatorTests
     }
 
     // A DrawablePresenter whose Target is supplied by a reference-expression renders the resolved target,
-    // so a missing source inside it must be preflighted even though Target.CurrentValue is null.
+    // so a missing source inside it must be preflighted even though Target.Value is null.
     [Test]
     public void CollectRenderableSources_ExpressionSuppliedPresenterTarget_IsWalked()
     {
@@ -869,9 +869,9 @@ public sealed class ExportSourceValidatorTests
         // Both flow operators reference the same target instance (Target is a reference property, so
         // sharing is allowed) so one walk visits it twice via the shared visited set.
         var presenter = new DrawablePresenter();
-        presenter.Target.CurrentValue = target;
+        presenter.Target.Value = target;
         var controller = new DrawableTimeController();
-        controller.Target.CurrentValue = target;
+        controller.Target.Value = target;
         // Presenter first: its windowed visit would suppress the controller under an identity-only check.
         var group = new DrawableGroup();
         group.Children.Add(presenter);
@@ -888,8 +888,8 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Does.Contain(remappedMissing));
     }
 
-    // When a presenter Target has both a CurrentValue and a reference-expression, the render evaluates
-    // the expression, so preflight must walk the expression's target — not the (stale) CurrentValue.
+    // When a presenter Target has both a Value and a reference-expression, the render evaluates
+    // the expression, so preflight must walk the expression's target — not the (stale) Value.
     [Test]
     public void CollectRenderableSources_PresenterTargetExpression_TakesPrecedenceOverCurrentValue()
     {
@@ -897,12 +897,12 @@ public sealed class ExportSourceValidatorTests
         string expressionVideo = Path.Combine(_root, "expression.mov");
         File.WriteAllBytes(currentVideo, [1]);
 
-        // CurrentValue points at an existing file; the expression points at a missing one. The render
+        // Value points at an existing file; the expression points at a missing one. The render
         // opens the expression target, so its missing file must be reported.
         var currentTarget = VideoDrawable(currentVideo);
         var expressionTarget = VideoDrawable(expressionVideo);
         var presenter = new DrawablePresenter();
-        presenter.Target.CurrentValue = currentTarget;
+        presenter.Target.Value = currentTarget;
         presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(expressionTarget.Id);
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
@@ -917,7 +917,7 @@ public sealed class ExportSourceValidatorTests
 
     // A cyclic reference-expression chain (a presenter Target whose expression resolves back to its own
     // Target property) must not overflow the stack while enumerating. On cycle re-entry the render's
-    // IsEvaluating guard yields DefaultValue (null), never the CurrentValue, so a missing CurrentValue
+    // IsEvaluating guard yields DefaultValue (null), never the Value, so a missing Value
     // file must not be reported — resolution must not fall back to it.
     [Test]
     public void CollectRenderableSources_CyclicTargetExpression_DoesNotReportCurrentValueFile()
@@ -925,9 +925,9 @@ public sealed class ExportSourceValidatorTests
         string missingCurrent = Path.Combine(_root, "current.mov");
 
         var presenter = new DrawablePresenter();
-        // CurrentValue holds a missing file; the expression self-cycles back to the Target property. The
+        // Value holds a missing file; the expression self-cycles back to the Target property. The
         // render evaluates the expression to DefaultValue (null) on cycle, so the missing file never opens.
-        presenter.Target.CurrentValue = VideoDrawable(missingCurrent);
+        presenter.Target.Value = VideoDrawable(missingCurrent);
         presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(presenter.Id, "Target");
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
@@ -944,8 +944,8 @@ public sealed class ExportSourceValidatorTests
     }
 
     // A reference-expression whose target id cannot be resolved evaluates to DefaultValue (null), so
-    // IProperty.GetValue never samples the stale CurrentValue while the expression is set. A presenter
-    // Target with a broken reference and a CurrentValue holding a missing file must therefore not report
+    // IProperty.GetValue never samples the stale Value while the expression is set. A presenter
+    // Target with a broken reference and a Value holding a missing file must therefore not report
     // that file — the render opens nothing.
     [Test]
     public void CollectRenderableSources_UnresolvablePresenterTargetExpression_DoesNotReportCurrentValueFile()
@@ -953,7 +953,7 @@ public sealed class ExportSourceValidatorTests
         string missingCurrent = Path.Combine(_root, "current.mov");
 
         var presenter = new DrawablePresenter();
-        presenter.Target.CurrentValue = VideoDrawable(missingCurrent);
+        presenter.Target.Value = VideoDrawable(missingCurrent);
         presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(Guid.NewGuid());
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
@@ -968,14 +968,14 @@ public sealed class ExportSourceValidatorTests
     }
 
     // DrawableTimeController.PostReconcile renders context.Get(Target); with a broken reference the effective
-    // target is DefaultValue (null), so the stale CurrentValue target's missing file must not be reported.
+    // target is DefaultValue (null), so the stale Value target's missing file must not be reported.
     [Test]
     public void CollectRenderableSources_UnresolvableTimeControllerTargetExpression_DoesNotReportCurrentValueFile()
     {
         string missingCurrent = Path.Combine(_root, "current.mov");
 
         var controller = new DrawableTimeController();
-        controller.Target.CurrentValue = VideoDrawable(missingCurrent);
+        controller.Target.Value = VideoDrawable(missingCurrent);
         controller.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(Guid.NewGuid());
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
@@ -991,7 +991,7 @@ public sealed class ExportSourceValidatorTests
 
     // FilterEffectPresenter and DelayAnimationEffect render their generated resource target from the
     // effective property value; a broken reference evaluates to DefaultValue, so a missing media source
-    // inside the stale CurrentValue filter must not be reported.
+    // inside the stale Value filter must not be reported.
     [Test]
     public void CollectRenderableSources_UnresolvableFilterTargetExpression_DoesNotReportCurrentValueFile()
     {
@@ -999,15 +999,15 @@ public sealed class ExportSourceValidatorTests
         string delayMissing = Path.Combine(_root, "delay-fx.mov");
 
         var presenter = new Beutl.Graphics.Effects.FilterEffectPresenter();
-        presenter.Target.CurrentValue = FilterWithMissingSource(presenterMissing);
+        presenter.Target.Value = FilterWithMissingSource(presenterMissing);
         presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<FilterEffect>(Guid.NewGuid());
 
         var delay = new Beutl.Graphics.Effects.DelayAnimationEffect();
-        delay.Effect.CurrentValue = FilterWithMissingSource(delayMissing);
+        delay.Effect.Value = FilterWithMissingSource(delayMissing);
         delay.Effect.Expression = Beutl.Engine.Expressions.Expression.CreateReference<FilterEffect>(Guid.NewGuid());
 
         var drawable = new SourceVideo();
-        var group = (FilterEffectGroup)drawable.FilterEffect.CurrentValue!;
+        var group = (FilterEffectGroup)drawable.FilterEffect.Value!;
         group.Children.Add(presenter);
         group.Children.Add(delay);
 
@@ -1023,7 +1023,7 @@ public sealed class ExportSourceValidatorTests
     }
 
     // SceneDrawable/SceneSound composite the effective ReferencedScene value; a broken reference evaluates
-    // to DefaultValue, so missing media inside the stale CurrentValue scene must not be reported.
+    // to DefaultValue, so missing media inside the stale Value scene must not be reported.
     [Test]
     public void CollectRenderableSources_UnresolvableReferencedSceneExpression_DoesNotReportCurrentValueMedia()
     {
@@ -1035,11 +1035,11 @@ public sealed class ExportSourceValidatorTests
         childScene.Children.Add(CreateSoundElement(_root, missingSound));
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        sceneDrawable.ReferencedScene.Value = childScene;
         sceneDrawable.ReferencedScene.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Scene>(Guid.NewGuid());
 
         var sceneSound = new SceneSound();
-        sceneSound.ReferencedScene.CurrentValue = childScene;
+        sceneSound.ReferencedScene.Value = childScene;
         sceneSound.ReferencedScene.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Scene>(Guid.NewGuid());
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
@@ -1059,7 +1059,7 @@ public sealed class ExportSourceValidatorTests
         var node = new Beutl.NodeGraph.Nodes.VideoSourceNode();
         node.Source.Property!.SetValue(MakeVideoSource(missingPath));
         var graphEffect = new Beutl.NodeGraph.NodeGraphFilterEffect();
-        graphEffect.Model.CurrentValue!.Nodes.Add(node);
+        graphEffect.Model.Value!.Nodes.Add(node);
         return graphEffect;
     }
 
@@ -1078,7 +1078,7 @@ public sealed class ExportSourceValidatorTests
         childScene.Children.Add(child);
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        sceneDrawable.ReferencedScene.Value = childScene;
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
         Element outer = ElementWith(_root, sceneDrawable);
         outer.Start = TimeSpan.Zero;
@@ -1103,9 +1103,9 @@ public sealed class ExportSourceValidatorTests
         childScene.Children.Add(CreateSoundElement(_root, missingSound));
 
         var sceneSound = new SceneSound();
-        sceneSound.ReferencedScene.CurrentValue = childScene;
+        sceneSound.ReferencedScene.Value = childScene;
         var visualizer = new Beutl.Graphics.AudioVisualizers.AudioWaveformDrawable();
-        visualizer.Source.CurrentValue = sceneSound;
+        visualizer.Source.Value = sceneSound;
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
         scene.Children.Add(ElementWith(_root, visualizer));
@@ -1124,9 +1124,9 @@ public sealed class ExportSourceValidatorTests
         string missingVideo = Path.Combine(_root, "brush.mov");
 
         var brush = new DrawableBrush();
-        brush.Drawable.CurrentValue = VideoDrawable(missingVideo);
+        brush.Drawable.Value = VideoDrawable(missingVideo);
         var shape = new RectShape();
-        shape.Fill.CurrentValue = brush;
+        shape.Fill.Value = brush;
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
         scene.Children.Add(ElementWith(_root, shape));
@@ -1145,11 +1145,11 @@ public sealed class ExportSourceValidatorTests
         string missingVideo = Path.Combine(_root, "node-brush.mov");
 
         var brush = new DrawableBrush();
-        brush.Drawable.CurrentValue = VideoDrawable(missingVideo);
+        brush.Drawable.Value = VideoDrawable(missingVideo);
         var node = new Beutl.NodeGraph.Nodes.GeometryShapeNode();
         node.Fill.Property!.SetValue(brush);
         var drawable = new NodeGraphDrawable();
-        drawable.Model.CurrentValue!.Nodes.Add(node);
+        drawable.Model.Value!.Nodes.Add(node);
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
         scene.Children.Add(ElementWith(_root, drawable));
@@ -1171,11 +1171,11 @@ public sealed class ExportSourceValidatorTests
         SourceVideo disabledInner = VideoDrawable(missingVideo);
         disabledInner.IsEnabled = false;
         var brush = new DrawableBrush();
-        brush.Drawable.CurrentValue = disabledInner;
+        brush.Drawable.Value = disabledInner;
         var node = new Beutl.NodeGraph.Nodes.GeometryShapeNode();
         node.Fill.Property!.SetValue(brush);
         var drawable = new NodeGraphDrawable();
-        drawable.Model.CurrentValue!.Nodes.Add(node);
+        drawable.Model.Value!.Nodes.Add(node);
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
         scene.Children.Add(ElementWith(_root, drawable));
@@ -1195,9 +1195,9 @@ public sealed class ExportSourceValidatorTests
         string missingVideo = Path.Combine(_root, "expr-brush.mov");
 
         var holderBrush = new DrawableBrush();
-        holderBrush.Drawable.CurrentValue = VideoDrawable(missingVideo);
+        holderBrush.Drawable.Value = VideoDrawable(missingVideo);
         var holder = new RectShape();
-        holder.Fill.CurrentValue = holderBrush;
+        holder.Fill.Value = holderBrush;
 
         var refShape = new RectShape();
         refShape.Fill.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Brush>(holder.Id, "Fill");
@@ -1315,7 +1315,7 @@ public sealed class ExportSourceValidatorTests
         childScene.Layers.Add(new TimelineLayer { ZIndex = 4, IsVideoMuted = true });
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        sceneDrawable.ReferencedScene.Value = childScene;
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
         scene.Children.Add(ElementWith(_root, sceneDrawable));
 
@@ -1344,7 +1344,7 @@ public sealed class ExportSourceValidatorTests
         childScene.Layers.Add(new TimelineLayer { ZIndex = 1 });
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        sceneDrawable.ReferencedScene.Value = childScene;
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
         scene.Children.Add(ElementWith(_root, sceneDrawable));
 
@@ -1370,7 +1370,7 @@ public sealed class ExportSourceValidatorTests
 
         // A default SceneSound has the identity audio map, so it windows the referenced scene per-target.
         var sceneSound = new SceneSound();
-        sceneSound.ReferencedScene.CurrentValue = childScene;
+        sceneSound.ReferencedScene.Value = childScene;
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
         scene.Children.Add(ElementWith(_root, sceneSound));
 
@@ -1385,7 +1385,7 @@ public sealed class ExportSourceValidatorTests
         var source = new SoundSource();
         source.ReadFrom(new Uri(sourcePath));
         var sound = new SourceSound();
-        sound.Source.CurrentValue = source;
+        sound.Source.Value = source;
         return sound;
     }
 
@@ -1399,7 +1399,7 @@ public sealed class ExportSourceValidatorTests
     private static SourceVideo VideoDrawable(string sourcePath)
     {
         var drawable = new SourceVideo();
-        drawable.Source.CurrentValue = MakeVideoSource(sourcePath);
+        drawable.Source.Value = MakeVideoSource(sourcePath);
         return drawable;
     }
 
@@ -1411,7 +1411,7 @@ public sealed class ExportSourceValidatorTests
         var source = new ImageSource();
         source.ReadFrom(new Uri(sourcePath));
         var drawable = new SourceImage();
-        drawable.Source.CurrentValue = source;
+        drawable.Source.Value = source;
         return ElementWith(root, drawable);
     }
 

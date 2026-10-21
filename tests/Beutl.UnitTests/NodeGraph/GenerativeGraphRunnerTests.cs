@@ -508,9 +508,9 @@ public sealed class GenerativeGraphRunnerTests
             Uri = new Uri(Path.Combine(_directory, "referenced.scene")),
         };
         var rect = new Beutl.Graphics.Shapes.RectShape();
-        rect.Width.CurrentValue = 32;
-        rect.Height.CurrentValue = 32;
-        rect.Fill.CurrentValue = new Beutl.Media.SolidColorBrush(Beutl.Media.Colors.Red);
+        rect.Width.Value = 32;
+        rect.Height.Value = 32;
+        rect.Fill.Value = new Beutl.Media.SolidColorBrush(Beutl.Media.Colors.Red);
         var element = new Beutl.ProjectSystem.Element
         {
             Start = TimeSpan.Zero,
@@ -522,7 +522,7 @@ public sealed class GenerativeGraphRunnerTests
 
         var model = new GraphModel();
         var scene = new Beutl.NodeGraph.Nodes.SceneNode();
-        scene.Object.ReferencedScene.CurrentValue = referenced;
+        scene.Object.ReferencedScene.Value = referenced;
         var edit = new AiImageEditNode();
         model.Nodes.AddRange([scene, edit]);
         model.Connect(edit.Source, scene.Output);
@@ -537,7 +537,7 @@ public sealed class GenerativeGraphRunnerTests
         await runner.RunAsync(model, null, force: false, CancellationToken.None);
         Assert.That(executor.Requests, Is.Empty, "An unchanged scene is not bought again.");
 
-        rect.Width.CurrentValue = 16;
+        rect.Width.Value = 16;
         await runner.RunAsync(model, null, force: false, CancellationToken.None);
         Assert.That(executor.Requests, Has.Count.EqualTo(1), "A changed scene is.");
     }

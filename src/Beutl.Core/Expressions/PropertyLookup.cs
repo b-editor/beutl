@@ -40,7 +40,7 @@ public class PropertyLookup(ICoreObject root)
         {
             value = typedProperty is IExpressionProperty<T> expressionProperty
                 ? expressionProperty.GetValue(context)
-                : typedProperty.CurrentValue;
+                : typedProperty.Value;
             return true;
         }
 

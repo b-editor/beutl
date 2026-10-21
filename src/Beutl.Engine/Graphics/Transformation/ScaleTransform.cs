@@ -15,16 +15,16 @@ public sealed partial class ScaleTransform : Transform
 
     public ScaleTransform(Vector vector, float scale = 100) : this()
     {
-        Scale.CurrentValue = scale;
-        ScaleX.CurrentValue = vector.X;
-        ScaleY.CurrentValue = vector.Y;
+        Scale.Value = scale;
+        ScaleX.Value = vector.X;
+        ScaleY.Value = vector.Y;
     }
 
     public ScaleTransform(float x, float y, float scale = 100) : this()
     {
-        Scale.CurrentValue = scale;
-        ScaleX.CurrentValue = x;
-        ScaleY.CurrentValue = y;
+        Scale.Value = scale;
+        ScaleX.Value = x;
+        ScaleY.Value = y;
     }
 
     [Display(Name = nameof(GraphicsStrings.Scale), ResourceType = typeof(GraphicsStrings))]

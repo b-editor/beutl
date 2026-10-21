@@ -18,8 +18,8 @@ internal static class SamplePatchBuilder
     {
         return new LinearGradientBrush
         {
-            StartPoint = { CurrentValue = new RelativePoint(0, 0.5f, RelativeUnit.Relative) },
-            EndPoint = { CurrentValue = new RelativePoint(1, 0.5f, RelativeUnit.Relative) },
+            StartPoint = { Value = new RelativePoint(0, 0.5f, RelativeUnit.Relative) },
+            EndPoint = { Value = new RelativePoint(1, 0.5f, RelativeUnit.Relative) },
             GradientStops =
             {
                 new GradientStop(Color.Parse(startColor), 0),
@@ -32,8 +32,8 @@ internal static class SamplePatchBuilder
     {
         return new Pen
         {
-            Brush = { CurrentValue = new SolidColorBrush(Color.Parse(color)) },
-            Thickness = { CurrentValue = thickness }
+            Brush = { Value = new SolidColorBrush(Color.Parse(color)) },
+            Thickness = { Value = thickness }
         };
     }
 
@@ -53,51 +53,51 @@ internal static class SamplePatchBuilder
     public static Blur CreateBlur(float sigma)
     {
         var blur = new Blur();
-        blur.Sigma.CurrentValue = new Size(sigma, sigma);
+        blur.Sigma.Value = new Size(sigma, sigma);
         return blur;
     }
 
     public static Brightness CreateBrightness(float amount)
     {
         var brightness = new Brightness();
-        brightness.Amount.CurrentValue = amount;
+        brightness.Amount.Value = amount;
         return brightness;
     }
 
     public static DropShadow CreateDropShadow(float x, float y, float sigma, string color)
     {
         var dropShadow = new DropShadow();
-        dropShadow.Position.CurrentValue = new Point(x, y);
-        dropShadow.Sigma.CurrentValue = new Size(sigma, sigma);
-        dropShadow.Color.CurrentValue = Color.Parse(color);
+        dropShadow.Position.Value = new Point(x, y);
+        dropShadow.Sigma.Value = new Size(sigma, sigma);
+        dropShadow.Color.Value = Color.Parse(color);
         return dropShadow;
     }
 
     public static Saturate CreateSaturate(float amount)
     {
         var saturate = new Saturate();
-        saturate.Amount.CurrentValue = amount;
+        saturate.Amount.Value = amount;
         return saturate;
     }
 
     public static HueRotate CreateHueRotate(float angle)
     {
         var hueRotate = new HueRotate();
-        hueRotate.Angle.CurrentValue = angle;
+        hueRotate.Angle.Value = angle;
         return hueRotate;
     }
 
     public static HighContrast CreateHighContrast(float contrast)
     {
         var highContrast = new HighContrast();
-        highContrast.Contrast.CurrentValue = contrast;
+        highContrast.Contrast.Value = contrast;
         return highContrast;
     }
 
     public static MosaicEffect CreateMosaic(float tileSize)
     {
         var mosaic = new MosaicEffect();
-        mosaic.TileSize.CurrentValue = new Size(tileSize, tileSize);
+        mosaic.TileSize.Value = new Size(tileSize, tileSize);
         return mosaic;
     }
 
@@ -106,10 +106,10 @@ internal static class SamplePatchBuilder
     public static ColorShift CreateColorShift(int redX, int redY, int blueX, int blueY)
     {
         var colorShift = new ColorShift();
-        colorShift.RedOffset.CurrentValue = new PixelPoint(redX, redY);
-        colorShift.GreenOffset.CurrentValue = new PixelPoint(0, 0);
-        colorShift.BlueOffset.CurrentValue = new PixelPoint(blueX, blueY);
-        colorShift.AlphaOffset.CurrentValue = new PixelPoint(0, 0);
+        colorShift.RedOffset.Value = new PixelPoint(redX, redY);
+        colorShift.GreenOffset.Value = new PixelPoint(0, 0);
+        colorShift.BlueOffset.Value = new PixelPoint(blueX, blueY);
+        colorShift.AlphaOffset.Value = new PixelPoint(0, 0);
         return colorShift;
     }
 

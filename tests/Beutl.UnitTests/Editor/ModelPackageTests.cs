@@ -28,7 +28,7 @@ public class ModelPackageTests
             string modelPath = Path.Combine(external, "model.obj");
             File.WriteAllText(modelPath, "mtllib material.mtl\nv 0 0 0\nv 1 0 0\nv 0 1 0\nusemtl Painted\nf 1 2 3\n");
             var source = new ModelSource(); source.ReadFrom(new Uri(modelPath));
-            var model = new Model3D(); model.Source.CurrentValue = source;
+            var model = new Model3D(); model.Source.Value = source;
             var scene3D = new Scene3D(); scene3D.Objects.Add(model);
             var element = new Element { Uri = new Uri(Path.Combine(projectDirectory, "model.belm")) };
             element.Objects.Add(scene3D);
@@ -78,10 +78,10 @@ public class ModelPackageTests
             byte[] modelBytes = File.ReadAllBytes(path);
             File.WriteAllText(Path.Combine(external, "unrelated-private.txt"), "not part of the model");
             var source = new ModelSource(); source.ReadFrom(new Uri(path));
-            var model = new Model3D(); model.Source.CurrentValue = source;
+            var model = new Model3D(); model.Source.Value = source;
             Object3D child = model.Children.Single();
-            child.Position.CurrentValue = new Vector3(10, 20, 30);
-            ((PBRMaterial)child.Material.CurrentValue!).Albedo.CurrentValue = Beutl.Media.Colors.Red;
+            child.Position.Value = new Vector3(10, 20, 30);
+            ((PBRMaterial)child.Material.Value!).Albedo.Value = Beutl.Media.Colors.Red;
             var scene3D = new Scene3D(); scene3D.Objects.Add(model);
             var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(projectDirectory, "model.belm")) };
             element.Objects.Add(scene3D);
@@ -120,11 +120,11 @@ public class ModelPackageTests
             Assert.Multiple(() =>
             {
                 Assert.That(importedChild.Id, Is.EqualTo(child.Id));
-                Assert.That(importedChild.Position.CurrentValue, Is.EqualTo(new Vector3(10, 20, 30)));
-                Assert.That(((PBRMaterial)importedChild.Material.CurrentValue!).Albedo.CurrentValue, Is.EqualTo(Beutl.Media.Colors.Red));
-                Assert.That(importedModel.Source.CurrentValue!.MeshCount, Is.EqualTo(1));
-                Assert.That(importedModel.Source.CurrentValue.Uri.LocalPath, Does.StartWith(importedRoot + Path.DirectorySeparatorChar));
-                Assert.That(importedModel.Source.CurrentValue.Dependencies.All(File.Exists), Is.True);
+                Assert.That(importedChild.Position.Value, Is.EqualTo(new Vector3(10, 20, 30)));
+                Assert.That(((PBRMaterial)importedChild.Material.Value!).Albedo.Value, Is.EqualTo(Beutl.Media.Colors.Red));
+                Assert.That(importedModel.Source.Value!.MeshCount, Is.EqualTo(1));
+                Assert.That(importedModel.Source.Value.Uri.LocalPath, Does.StartWith(importedRoot + Path.DirectorySeparatorChar));
+                Assert.That(importedModel.Source.Value.Dependencies.All(File.Exists), Is.True);
             });
         }
         finally { Directory.Delete(root, recursive: true); }

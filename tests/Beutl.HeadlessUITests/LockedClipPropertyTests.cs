@@ -111,7 +111,7 @@ public class LockedClipPropertyTests
                 Assert.That(shape.IsEnabled, Is.True);
                 Assert.That(tab.Items[0].IsEnabled.Value, Is.True);
                 Assert.That(element.Objects, Does.Contain(shape));
-                Assert.That(shape.Width.CurrentValue, Is.EqualTo(100));
+                Assert.That(shape.Width.Value, Is.EqualTo(100));
                 Assert.That(shape.Width.GetKeyFrameAnimation(), Is.SameAs(animation));
                 Assert.That(animation.KeyFrames.Select(x => x.Value), Is.EqualTo(new[] { 100f, 200f }));
                 Assert.That(shape.Width.HasExpression, Is.False);
@@ -241,12 +241,12 @@ public class LockedClipPropertyTests
     {
         (EditViewModel editor, Element element, RectShape shape) = await OpenClip();
         var translation = new TranslateTransform();
-        translation.X.CurrentValue = 10;
+        translation.X.Value = 10;
         var group = new TransformGroup();
         group.Children.Add(translation);
-        shape.Transform.CurrentValue = group;
+        shape.Transform.Value = group;
         var brush = new SolidColorBrush(Colors.Red);
-        shape.Fill.CurrentValue = brush;
+        shape.Fill.Value = brush;
         Select(editor, element);
         using var tab = new ElementPropertyTabViewModel(editor);
         tab.Element.Value = element;
@@ -273,12 +273,12 @@ public class LockedClipPropertyTests
         Assert.Multiple(() =>
         {
             Assert.That(x.CanEdit.Value, Is.False);
-            Assert.That(translation.X.CurrentValue, Is.EqualTo(10));
+            Assert.That(translation.X.Value, Is.EqualTo(10));
             Assert.That(translation.IsEnabled, Is.True);
             Assert.That(child.IsEnabled.Value, Is.True);
             Assert.That(group.Children, Is.EqualTo(new[] { translation }));
-            Assert.That(shape.Fill.CurrentValue, Is.SameAs(brush));
-            Assert.That(brush.Color.CurrentValue, Is.EqualTo(Colors.Red));
+            Assert.That(shape.Fill.Value, Is.SameAs(brush));
+            Assert.That(brush.Color.Value, Is.EqualTo(Colors.Red));
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before));
         });
 
@@ -287,10 +287,10 @@ public class LockedClipPropertyTests
         child.IsEnabled.Value = false;
         transform.AddItem(new TranslateTransform());
         fill.SetColor(Colors.Red, Colors.Blue);
-        Assert.That(translation.X.CurrentValue, Is.EqualTo(20));
+        Assert.That(translation.X.Value, Is.EqualTo(20));
         Assert.That(translation.IsEnabled, Is.False);
         Assert.That(group.Children, Has.Count.EqualTo(2));
-        Assert.That(brush.Color.CurrentValue, Is.EqualTo(Colors.Blue));
+        Assert.That(brush.Color.Value, Is.EqualTo(Colors.Blue));
     }
 
     [AvaloniaTest]
@@ -301,7 +301,7 @@ public class LockedClipPropertyTests
         using var property = new NumberEditorViewModel<float>(adapter);
         Assert.That(property.CanEdit.Value, Is.True);
         Assert.That(property.SetCurrentValueAndGetCoerced(123), Is.EqualTo(123));
-        Assert.That(shape.Width.CurrentValue, Is.EqualTo(123));
+        Assert.That(shape.Width.Value, Is.EqualTo(123));
     }
 
     [AvaloniaTest]
@@ -312,7 +312,7 @@ public class LockedClipPropertyTests
         (EditViewModel editor, Element element, _) = await OpenClip();
         var drawable = new NodeGraphDrawable();
         var node = new LayerInputNode { Name = "original" };
-        drawable.Model.CurrentValue!.Nodes.Add(node);
+        drawable.Model.Value!.Nodes.Add(node);
         ((IElementObjectService)editor.GetService(typeof(IElementObjectService))!).Add(element, drawable);
         Select(editor, element);
         using var tab = new ElementPropertyTabViewModel(editor);
@@ -351,7 +351,7 @@ public class LockedClipPropertyTests
         var group = new AudioEffectGroup();
         group.Children.Add(effect);
         var sound = new SourceSound();
-        sound.Effect.CurrentValue = group;
+        sound.Effect.Value = group;
         ((IElementObjectService)editor.GetService(typeof(IElementObjectService))!).Add(element, sound);
         Select(editor, element);
         using var tab = new ElementPropertyTabViewModel(editor);
@@ -375,7 +375,7 @@ public class LockedClipPropertyTests
         FilterEffect effect = presenter ? new FilterEffectPresenter() : new Blur();
         var group = new FilterEffectGroup();
         group.Children.Add(effect);
-        shape.FilterEffect.CurrentValue = group;
+        shape.FilterEffect.Value = group;
         Select(editor, element);
         using var tab = new ElementPropertyTabViewModel(editor);
         tab.Element.Value = element;
@@ -426,7 +426,7 @@ public class LockedClipPropertyTests
         await TestShell.AddElementAsync(editor, () => new RectShape(), TimeSpan.Zero, TimeSpan.FromSeconds(2));
         Element element = scene.Children.First();
         var shape = (RectShape)element.Objects[0];
-        shape.Width.CurrentValue = 100;
+        shape.Width.Value = 100;
         return (editor, element, shape);
     }
 

@@ -13,7 +13,7 @@ public abstract partial class Shape : Drawable
     public Shape()
     {
         ScanProperties<Shape>();
-        Fill.CurrentValue = new SolidColorBrush(Colors.White);
+        Fill.Value = new SolidColorBrush(Colors.White);
     }
 
     [Display(Name = nameof(GraphicsStrings.Stroke), GroupName = nameof(GraphicsStrings.Stroke), ResourceType = typeof(GraphicsStrings))]

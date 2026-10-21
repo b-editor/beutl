@@ -15,12 +15,12 @@ public class StrokeEffectOffsetBoundsTests
     private static Rect TransformedBounds(Point offset, float penOffset = 0f)
     {
         var pen = new Pen();
-        pen.Thickness.CurrentValue = 14;
-        pen.Brush.CurrentValue = Brushes.Red;
-        pen.Offset.CurrentValue = penOffset;
+        pen.Thickness.Value = 14;
+        pen.Brush.Value = Brushes.Red;
+        pen.Offset.Value = penOffset;
         var effect = new StrokeEffect();
-        effect.Pen.CurrentValue = pen;
-        effect.Offset.CurrentValue = offset;
+        effect.Pen.Value = pen;
+        effect.Offset.Value = offset;
 
         var resource = effect.ToResource(CompositionContext.Default);
         var context = new FilterEffectContext(Source);

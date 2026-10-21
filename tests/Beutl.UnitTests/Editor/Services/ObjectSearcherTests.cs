@@ -9,7 +9,7 @@ public class ObjectSearcherTests
     [TestCase(true)]
     public void A_large_script_is_a_leaf_and_does_not_hide_other_references(bool findAll)
     {
-        var script = new SKSLScriptEffect { Script = { CurrentValue = new string('x', 1024 * 1024) } };
+        var script = new SKSLScriptEffect { Script = { Value = new string('x', 1024 * 1024) } };
         var target = new object();
         int characterVisits = 0;
         var searcher = new ObjectSearcher(new object[] { script, target }, value =>

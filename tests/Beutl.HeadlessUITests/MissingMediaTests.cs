@@ -90,7 +90,7 @@ public partial class MissingMediaTests
             Assert.That(tool.Rows, Is.Empty);
             Assert.That(notification.CancellationToken.IsCancellationRequested, Is.True);
             var saved = CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!);
-            Assert.That(((SourceImage)saved.Children.Single().Objects.Single()).Source.CurrentValue!.Uri.LocalPath, Is.EqualTo(moved));
+            Assert.That(((SourceImage)saved.Children.Single().Objects.Single()).Source.Value!.Uri.LocalPath, Is.EqualTo(moved));
         }
         finally
         {
@@ -176,9 +176,9 @@ public partial class MissingMediaTests
             }
             Assert.That(await tool.ApplyAsync(), Is.True, tool.Error.Value);
             Assert.That(tool.Rows, Is.Empty);
-            Assert.That(editor.Scene.Children.Select(element => ((SourceImage)element.Objects.Single()).Source.CurrentValue!.Uri.LocalPath),
+            Assert.That(editor.Scene.Children.Select(element => ((SourceImage)element.Objects.Single()).Source.Value!.Uri.LocalPath),
                 Is.All.EqualTo(replacement));
-            Assert.That(((SourceImage)removed.Objects.Single()).Source.CurrentValue!.Uri.LocalPath, Is.EqualTo(original));
+            Assert.That(((SourceImage)removed.Objects.Single()).Source.Value!.Uri.LocalPath, Is.EqualTo(original));
         }
         finally { await TestReset.ResetShellAsync(); }
     }
@@ -210,8 +210,8 @@ public partial class MissingMediaTests
             await tool.SetReplacementAsync(tool.Rows.Single(row => row.Name == "second.png"), replacement);
             await tool.WaitForCandidatesAsync();
             Assert.That(await tool.ApplyAsync(), Is.True, tool.Error.Value);
-            Assert.That(((SourceImage)editor.Scene.Children[0].Objects.Single()).Source.CurrentValue!.Uri.LocalPath, Is.EqualTo(secondPath));
-            Assert.That(((SourceImage)editor.Scene.Children[1].Objects.Single()).Source.CurrentValue!.Uri.LocalPath, Is.EqualTo(replacement));
+            Assert.That(((SourceImage)editor.Scene.Children[0].Objects.Single()).Source.Value!.Uri.LocalPath, Is.EqualTo(secondPath));
+            Assert.That(((SourceImage)editor.Scene.Children[1].Objects.Single()).Source.Value!.Uri.LocalPath, Is.EqualTo(replacement));
         }
         finally { await TestReset.ResetShellAsync(); }
     }
@@ -223,7 +223,7 @@ public partial class MissingMediaTests
     {
         var element = new Element { Name = name, Length = TimeSpan.FromSeconds(3) };
         if (scene.Uri != null) element.Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri.LocalPath)!, $"{element.Id}.belm"));
-        element.Objects.Add(new SourceImage { Source = { CurrentValue = ImageSource.Open(path) } });
+        element.Objects.Add(new SourceImage { Source = { Value = ImageSource.Open(path) } });
         scene.Children.Add(element);
         return element;
     }
@@ -241,10 +241,10 @@ public partial class MissingMediaTests
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = VideoSource.Open(Path.Combine(directory, "missing.mp4")) });
         video.Source.SetKeyFrameAnimation(animation);
         first.Objects.Add(video);
-        first.Objects.Add(new SourceSound { Source = { CurrentValue = SoundSource.Open(Path.Combine(directory, "missing.wav")) } });
-        ((SourceImage)first.Objects[0]).FilterEffect.CurrentValue = new Beutl.Graphics.Effects.LutEffect
-        { Source = { CurrentValue = CubeSource.Open(Path.Combine(directory, "missing.cube")) } };
-        first.Objects.Add(new Beutl.Graphics.Shapes.TextBlock { FontFamily = { CurrentValue = new Beutl.Media.FontFamily("Absent Test Font") } });
+        first.Objects.Add(new SourceSound { Source = { Value = SoundSource.Open(Path.Combine(directory, "missing.wav")) } });
+        ((SourceImage)first.Objects[0]).FilterEffect.Value = new Beutl.Graphics.Effects.LutEffect
+        { Source = { Value = CubeSource.Open(Path.Combine(directory, "missing.cube")) } };
+        first.Objects.Add(new Beutl.Graphics.Shapes.TextBlock { FontFamily = { Value = new Beutl.Media.FontFamily("Absent Test Font") } });
 
         var missing = new MissingMediaService(_ => false).FindMissing(scene);
         Assert.Multiple(() =>
@@ -332,13 +332,13 @@ public partial class MissingMediaTests
         string oldPath = Path.Combine(directory, "missing.png");
         string newPath = Path.Combine(directory, "replacement.png");
         File.WriteAllBytes(newPath, s_png);
-        var image = new SourceImage { Source = { CurrentValue = ImageSource.Open(oldPath) } };
+        var image = new SourceImage { Source = { Value = ImageSource.Open(oldPath) } };
         using var vm = new Beutl.Editor.Components.PropertyEditors.ViewModels.ImageSourceEditorViewModel(
             new Beutl.PropertyAdapters.EnginePropertyAdapter<ImageSource?>(image.Source, image));
-        ImageSource original = image.Source.CurrentValue!;
+        ImageSource original = image.Source.Value!;
         ResourceRelocationService.RelinkFileSource(original, new Uri(newPath));
         Assert.That(vm.FileInfo.Value!.FullName, Is.EqualTo(newPath));
-        Assert.That(image.Source.CurrentValue, Is.SameAs(original));
+        Assert.That(image.Source.Value, Is.SameAs(original));
     }
 
     [AvaloniaTest]
@@ -351,7 +351,7 @@ public partial class MissingMediaTests
         using (var input = typeof(MissingMediaTests).Assembly.GetManifestResourceStream("ProjectFontFixture.ttf")!)
         using (var output = File.Create(fontPath)) input.CopyTo(output);
         var family = new Beutl.Media.FontFamily("Beutl Test Variable");
-        var text = new Beutl.Graphics.Shapes.TextBlock { Text = { CurrentValue = "Relink test" }, FontFamily = { CurrentValue = family } };
+        var text = new Beutl.Graphics.Shapes.TextBlock { Text = { Value = "Relink test" }, FontFamily = { Value = family } };
         using (editor.HistoryManager.SuppressRecording())
         {
             Element element = AddImage(editor.Scene, Path.Combine(directory, "missing.png"));
@@ -451,7 +451,7 @@ public partial class MissingMediaTests
         File.WriteAllText(path, "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
         var source = new ModelSource();
         source.ReadFrom(new Uri(path));
-        var model = new Model3D { Source = { CurrentValue = source } };
+        var model = new Model3D { Source = { Value = source } };
         model.Children.Single().Name = "Edited mesh";
         var scene = new Scene { Uri = new Uri(Path.Combine(directory, "model.scene")) };
         var element = AddImage(scene, Path.Combine(directory, "offline.png"));
@@ -465,7 +465,7 @@ public partial class MissingMediaTests
         var child = restoredModel.Children.Single();
         var missing = new MissingMediaService(_ => true).FindMissing(restored).Single();
         Assert.That(missing.Kind, Is.EqualTo(MissingMediaKind.Model));
-        ResourceRelocationService.RelinkFileSource(restoredModel.Source.CurrentValue!, new Uri(moved));
+        ResourceRelocationService.RelinkFileSource(restoredModel.Source.Value!, new Uri(moved));
         Assert.That(restoredModel.Children.Single(), Is.SameAs(child));
         Assert.That(child.Name, Is.EqualTo("Edited mesh"));
     }
@@ -479,7 +479,7 @@ public partial class MissingMediaTests
         Element element;
         using (editor.HistoryManager.SuppressRecording()) element = AddImage(editor.Scene, path);
         var drawable = (SourceImage)element.Objects.Single();
-        ImageSource source = drawable.Source.CurrentValue!;
+        ImageSource source = drawable.Source.Value!;
         var compositor = editor.Renderer.Value.Compositor;
         var initial = (SourceImage.Resource)compositor.EvaluateGraphics(TimeSpan.Zero).Objects.Single();
         Assert.That(initial.Source!.IsOffline, Is.True);
@@ -496,7 +496,7 @@ public partial class MissingMediaTests
         Assert.That(repaired.Source!.IsOffline, Is.False);
         Assert.That(repaired.Source.Bitmap, Is.Not.SameAs(shared.Bitmap), "Relinking must discard a live shared decode at the same URI.");
         Assert.That(repaired.Source.FrameSize.Width, Is.EqualTo(1));
-        Assert.That(drawable.Source.CurrentValue, Is.SameAs(source));
+        Assert.That(drawable.Source.Value, Is.SameAs(source));
         await TestReset.ResetShellAsync();
     }
 
@@ -792,8 +792,8 @@ public partial class MissingMediaTests
         var scene = new Scene();
         var element = AddImage(scene, Path.Combine(directory, "missing.png")); element.Objects.Clear();
         var video = VideoSource.Open(original); var sound = SoundSource.Open(original);
-        element.Objects.Add(new SourceVideo { Source = { CurrentValue = video } });
-        element.Objects.Add(new SourceSound { Source = { CurrentValue = sound } });
+        element.Objects.Add(new SourceVideo { Source = { Value = video } });
+        element.Objects.Add(new SourceSound { Source = { Value = sound } });
         var service = new MissingMediaService();
         await service.UpdateFingerprintsAsync(scene);
         string replacement = Path.Combine(directory, "different.mp4");
@@ -871,7 +871,7 @@ public partial class MissingMediaTests
                 {
                     string replacement = Path.Combine(NewDirectory(), "replacement.png");
                     File.WriteAllBytes(replacement, [.. s_png, 1]);
-                    ResourceRelocationService.RelinkFileSource(((SourceImage)element.Objects.Single()).Source.CurrentValue!, new Uri(replacement));
+                    ResourceRelocationService.RelinkFileSource(((SourceImage)element.Objects.Single()).Source.Value!, new Uri(replacement));
                 }
                 else editor.Scene.Children.Remove(element);
             }
@@ -985,9 +985,9 @@ public partial class MissingMediaTests
         string identical = WriteModel("search/identical", 1);
         string different = WriteModel("search/different", 3);
         var source = new ModelSource(); source.ReadFrom(new Uri(original));
-        var model = new Model3D { Source = { CurrentValue = source } };
+        var model = new Model3D { Source = { Value = source } };
         var child = (MeshObject3D)model.Children.Single(); child.Name = "Edited child";
-        var verticesBefore = ((ModelMesh)child.Mesh.CurrentValue!).Vertices.CurrentValue;
+        var verticesBefore = ((ModelMesh)child.Mesh.Value!).Vertices.Value;
         using (editor.HistoryManager.SuppressRecording())
         {
             var element = AddImage(editor.Scene, Path.Combine(directory, "unused.png")); element.Objects.Clear(); element.Objects.Add(model);
@@ -1008,7 +1008,7 @@ public partial class MissingMediaTests
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
             Assert.That(model.Children.Single(), Is.SameAs(child));
             Assert.That(child.Name, Is.EqualTo("Edited child"));
-            var current = ((ModelMesh)child.Mesh.CurrentValue!).Vertices.CurrentValue;
+            var current = ((ModelMesh)child.Mesh.Value!).Vertices.Value;
             if (chooseDifferentBundle) Assert.That(current, Is.Not.EqualTo(verticesBefore));
             else Assert.That(current, Is.EqualTo(verticesBefore));
             await editor.WaitForMediaFingerprintsAsync();
@@ -1051,16 +1051,16 @@ public partial class MissingMediaTests
         File.WriteAllText(original, "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
         File.WriteAllText(replacement, "v 0 0 0\nv 3 0 0\nv 0 2 0\nf 1 2 3\n");
         var source = new ModelSource(); source.ReadFrom(new Uri(original));
-        var model = new Model3D { Source = { CurrentValue = source } };
+        var model = new Model3D { Source = { Value = source } };
         var child = (MeshObject3D)model.Children.Single();
-        child.Name = "User mesh"; var material = child.Material.CurrentValue;
-        var mesh = (ModelMesh)child.Mesh.CurrentValue!;
-        var oldVertices = mesh.Vertices.CurrentValue;
+        child.Name = "User mesh"; var material = child.Material.Value;
+        var mesh = (ModelMesh)child.Mesh.Value!;
+        var oldVertices = mesh.Vertices.Value;
         var extra = new MeshObject3D
         {
             Name = "Added mesh",
-            Mesh = { CurrentValue = new ModelMesh
-        { Vertices = { CurrentValue = oldVertices }, Indices = { CurrentValue = mesh.Indices.CurrentValue } } }
+            Mesh = { Value = new ModelMesh
+        { Vertices = { Value = oldVertices }, Indices = { Value = mesh.Indices.Value } } }
         };
         model.Children.Add(extra);
         string extraJson = CoreSerializer.SerializeToJsonObject(extra).ToJsonString();
@@ -1079,8 +1079,8 @@ public partial class MissingMediaTests
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
             Assert.That(model.Children, Is.EqualTo(new[] { child, extra }));
             Assert.That(child.Name, Is.EqualTo("User mesh"));
-            Assert.That(child.Material.CurrentValue, Is.SameAs(material));
-            Assert.That(((ModelMesh)child.Mesh.CurrentValue!).Vertices.CurrentValue, Is.Not.EqualTo(oldVertices));
+            Assert.That(child.Material.Value, Is.SameAs(material));
+            Assert.That(((ModelMesh)child.Mesh.Value!).Vertices.Value, Is.Not.EqualTo(oldVertices));
             Assert.That(CoreSerializer.SerializeToJsonObject(extra).ToJsonString(), Is.EqualTo(extraJson));
             var persisted = (Model3D)CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!).Children.Single().Objects.Single();
             Assert.That(CoreSerializer.SerializeToJsonObject(persisted.Children[1]).ToJsonString(), Is.EqualTo(extraJson));
@@ -1096,7 +1096,7 @@ public partial class MissingMediaTests
         string directory = NewDirectory(); string path = Path.Combine(directory, "unreadable.obj");
         var source = new ModelSource();
         Assert.Throws<FileNotFoundException>(() => source.ReadFrom(new Uri(path)));
-        var model = new Model3D { Source = { CurrentValue = source } };
+        var model = new Model3D { Source = { Value = source } };
         using (editor.HistoryManager.SuppressRecording())
         {
             var element = AddImage(editor.Scene, Path.Combine(directory, "unused.png")); element.Objects.Clear();
@@ -1130,7 +1130,7 @@ public partial class MissingMediaTests
         File.WriteAllText(Path.Combine(directory, "surface.mtl"), "newmtl surface\nKd 0.2 0.4 0.6\n");
         File.WriteAllText(path, "mtllib surface.mtl\nv 0 0 0\nv 1 0 0\nv 0 1 0\nusemtl surface\nf 1 2 3\n");
         var source = new ModelSource(); source.ReadFrom(new Uri(path));
-        var model = new Model3D { Source = { CurrentValue = source } };
+        var model = new Model3D { Source = { Value = source } };
         model.Children[0].Name = "Saved edit";
         using (editor.HistoryManager.SuppressRecording())
         {
@@ -1143,7 +1143,7 @@ public partial class MissingMediaTests
         editor = await TestShell.ReopenAsync(projectPath);
         Project project = TestShell.Project.CurrentProject.Value!;
         model = (Model3D)editor.Scene.Children.Single().Objects.Single();
-        source = model.Source.CurrentValue!;
+        source = model.Source.Value!;
         Assert.That(source.MeshCount, Is.Zero);
         string savedChild = CoreSerializer.SerializeToJsonObject(model.Children.Single()).ToJsonString();
         File.Move(backup, path);
@@ -1174,17 +1174,17 @@ public partial class MissingMediaTests
         string directory = NewDirectory(); string original = Path.Combine(directory, "shapes.obj");
         File.WriteAllText(original, "o First\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\no Second\nv 3 0 0\nv 5 0 0\nv 3 2 0\nf 4 5 6\n");
         var source = new ModelSource(); source.ReadFrom(new Uri(original));
-        var model = new Model3D { Source = { CurrentValue = source } };
+        var model = new Model3D { Source = { Value = source } };
         Assert.That(model.Children, Has.Count.EqualTo(2));
         var first = model.Children[0]; model.Children.RemoveAt(0); model.Children.Add(first);
-        var mesh = (ModelMesh)((MeshObject3D)first).Mesh.CurrentValue!;
+        var mesh = (ModelMesh)((MeshObject3D)first).Mesh.Value!;
         model.Children.Add(new MeshObject3D
         {
             Name = "Added mesh",
-            Mesh = { CurrentValue = new ModelMesh
-            { Vertices = { CurrentValue = mesh.Vertices.CurrentValue }, Indices = { CurrentValue = mesh.Indices.CurrentValue } } }
+            Mesh = { Value = new ModelMesh
+            { Vertices = { Value = mesh.Vertices.Value }, Indices = { Value = mesh.Indices.Value } } }
         });
-        first.Name = "Edited first"; first.Position.CurrentValue = new System.Numerics.Vector3(7, 8, 9);
+        first.Name = "Edited first"; first.Position.Value = new System.Numerics.Vector3(7, 8, 9);
         using (editor.HistoryManager.SuppressRecording())
         {
             var element = AddImage(editor.Scene, Path.Combine(directory, "unused.png")); element.Objects.Clear();
@@ -1266,7 +1266,7 @@ public partial class MissingMediaTests
         using (editor.HistoryManager.SuppressRecording())
         {
             var element = AddImage(editor.Scene, Path.Combine(NewDirectory(), "missing.png")); element.Objects.Clear();
-            element.Objects.Add(new Beutl.Graphics.Shapes.TextBlock { FontFamily = { CurrentValue = family } });
+            element.Objects.Add(new Beutl.Graphics.Shapes.TextBlock { FontFamily = { Value = family } });
         }
         try
         {
@@ -1324,7 +1324,7 @@ public partial class MissingMediaTests
             Assert.That(sibling.HasCandidate.Value, Is.True);
             Assert.That(chosen.ReplacementPath.Value, Is.EqualTo(chosenPath));
             Assert.That(vm.Rows.Where(row => row.Name is "ignored.png" or "invalid.png" or "ambiguous.png").Select(row => row.CandidatePath.Value), Is.All.Null);
-            Assert.That(editor.Scene.Children.Select(element => ((SourceImage)element.Objects.Single()).Source.CurrentValue!.Uri.LocalPath),
+            Assert.That(editor.Scene.Children.Select(element => ((SourceImage)element.Objects.Single()).Source.Value!.Uri.LocalPath),
                 Is.All.Contains(Path.Combine(directory, "old")));
             Assert.That(GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory, Is.EqualTo(directory));
             Assert.That(vm.CanUseCandidates.Value, Is.True);
@@ -1360,7 +1360,7 @@ public partial class MissingMediaTests
             File.WriteAllText(candidate, "no longer readable");
             vm.UseAllCandidates();
             Assert.That(await vm.ApplyAsync(), Is.False);
-            Assert.That(editor.Scene.Children.Select(element => ((SourceImage)element.Objects.Single()).Source.CurrentValue!.Uri.LocalPath),
+            Assert.That(editor.Scene.Children.Select(element => ((SourceImage)element.Objects.Single()).Source.Value!.Uri.LocalPath),
                 Is.All.Contains(Path.Combine(directory, "old")));
         }
         finally { await TestReset.ResetShellAsync(); }

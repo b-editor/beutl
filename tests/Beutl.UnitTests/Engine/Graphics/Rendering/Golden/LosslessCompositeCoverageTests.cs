@@ -43,7 +43,7 @@ public sealed class LosslessCompositeCoverageTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var identity = new Brightness();
-            identity.Amount.CurrentValue = 100;
+            identity.Amount.Value = 100;
             using Drawable.Resource plain = CreateRectangle(effect: null);
             using Drawable.Resource filtered = CreateRectangle(identity);
             using Bitmap expected = RenderThroughPipeline(plain, density);
@@ -61,7 +61,7 @@ public sealed class LosslessCompositeCoverageTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var identity = new Brightness();
-            identity.Amount.CurrentValue = 100;
+            identity.Amount.Value = 100;
             using Drawable.Resource plain = CreateRectangle(
                 width: 301,
                 height: 201,
@@ -88,7 +88,7 @@ public sealed class LosslessCompositeCoverageTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var identity = new Brightness();
-            identity.Amount.CurrentValue = 100;
+            identity.Amount.Value = 100;
             using Drawable.Resource plain = CreateText(effect: null);
             using Drawable.Resource filtered = CreateText(identity);
             using Bitmap expected = RenderThroughPipeline(plain, density, s_fractionalFrame);
@@ -295,8 +295,8 @@ public sealed class LosslessCompositeCoverageTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var mosaic = new MosaicEffect();
-            mosaic.TileSize.CurrentValue = new Size(20, 20);
-            mosaic.Origin.CurrentValue = RelativePoint.Center;
+            mosaic.TileSize.Value = new Size(20, 20);
+            mosaic.Origin.Value = RelativePoint.Center;
             var frame = new PixelSize(180, 180);
             using Drawable.Resource plain = CreateRectangle(
                 width: 180,
@@ -366,8 +366,8 @@ public sealed class LosslessCompositeCoverageTests
             // size; this frame makes both AMD Radeon and Apple's Metal take the earlier one. The frame holds
             // whole tiles only: a partial tile's centre lies past the source and clamps to its last pixel.
             var mosaic = new MosaicEffect();
-            mosaic.TileSize.CurrentValue = new Size(8, 8);
-            mosaic.Origin.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
+            mosaic.TileSize.Value = new Size(8, 8);
+            mosaic.Origin.Value = new RelativePoint(0, 0, RelativeUnit.Absolute);
             var frame = new PixelSize(200, 200);
             using Drawable.Resource plain = CreateDevicePixelStripes(frame, density, alongY, effect: null);
             using Drawable.Resource filtered = CreateDevicePixelStripes(frame, density, alongY, mosaic);
@@ -509,8 +509,8 @@ public sealed class LosslessCompositeCoverageTests
     private static Drawable.Resource CreateEllipse(FilterEffect? effect)
     {
         var shape = new EllipseShape();
-        shape.Width.CurrentValue = 120;
-        shape.Height.CurrentValue = 80;
+        shape.Width.Value = 120;
+        shape.Height.Value = 80;
         return Configure(shape, effect);
     }
 
@@ -525,10 +525,10 @@ public sealed class LosslessCompositeCoverageTests
         AlignmentY alignmentY = AlignmentY.Center)
     {
         var shape = new RectShape();
-        shape.Width.CurrentValue = width;
-        shape.Height.CurrentValue = height;
-        shape.AlignmentX.CurrentValue = alignmentX;
-        shape.AlignmentY.CurrentValue = alignmentY;
+        shape.Width.Value = width;
+        shape.Height.Value = height;
+        shape.AlignmentX.Value = alignmentX;
+        shape.AlignmentY.Value = alignmentY;
         return Configure(shape, effect);
     }
 
@@ -541,23 +541,23 @@ public sealed class LosslessCompositeCoverageTests
         // A period of two device pixels puts every pixel centre a quarter period inside a stop.
         float period = 2 / density;
         var stripes = new LinearGradientBrush();
-        stripes.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
-        stripes.EndPoint.CurrentValue = alongY
+        stripes.StartPoint.Value = new RelativePoint(0, 0, RelativeUnit.Absolute);
+        stripes.EndPoint.Value = alongY
             ? new RelativePoint(0, period, RelativeUnit.Absolute)
             : new RelativePoint(period, 0, RelativeUnit.Absolute);
-        stripes.SpreadMethod.CurrentValue = GradientSpreadMethod.Repeat;
+        stripes.SpreadMethod.Value = GradientSpreadMethod.Repeat;
         stripes.GradientStops.Add(new GradientStop(Colors.White, 0));
         stripes.GradientStops.Add(new GradientStop(Colors.White, 0.5f));
         stripes.GradientStops.Add(new GradientStop(Colors.Black, 0.5f));
         stripes.GradientStops.Add(new GradientStop(Colors.Black, 1));
         var shape = new RectShape();
-        shape.Width.CurrentValue = frame.Width;
-        shape.Height.CurrentValue = frame.Height;
-        shape.AlignmentX.CurrentValue = AlignmentX.Left;
-        shape.AlignmentY.CurrentValue = AlignmentY.Top;
-        shape.Fill.CurrentValue = stripes;
+        shape.Width.Value = frame.Width;
+        shape.Height.Value = frame.Height;
+        shape.AlignmentX.Value = AlignmentX.Left;
+        shape.AlignmentY.Value = AlignmentY.Top;
+        shape.Fill.Value = stripes;
         if (effect is not null)
-            shape.FilterEffect.CurrentValue = effect;
+            shape.FilterEffect.Value = effect;
         return shape.ToResource(CompositionContext.Default);
     }
 
@@ -578,26 +578,26 @@ public sealed class LosslessCompositeCoverageTests
     {
         Typeface typeface = TypefaceProvider.Typeface();
         var text = new TextBlock();
-        text.AlignmentX.CurrentValue = AlignmentX.Center;
-        text.AlignmentY.CurrentValue = AlignmentY.Center;
-        text.FontFamily.CurrentValue = typeface.FontFamily;
-        text.FontStyle.CurrentValue = typeface.Style;
-        text.FontWeight.CurrentValue = typeface.Weight;
-        text.Size.CurrentValue = 160;
-        text.Fill.CurrentValue = Brushes.White;
-        text.Text.CurrentValue = "Phase";
+        text.AlignmentX.Value = AlignmentX.Center;
+        text.AlignmentY.Value = AlignmentY.Center;
+        text.FontFamily.Value = typeface.FontFamily;
+        text.FontStyle.Value = typeface.Style;
+        text.FontWeight.Value = typeface.Weight;
+        text.Size.Value = 160;
+        text.Fill.Value = Brushes.White;
+        text.Text.Value = "Phase";
         if (effect is not null)
-            text.FilterEffect.CurrentValue = effect;
+            text.FilterEffect.Value = effect;
         return text.ToResource(CompositionContext.Default);
     }
 
     private static Drawable.Resource Configure(Shape shape, FilterEffect? effect)
     {
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.Fill.CurrentValue = Brushes.White;
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.Fill.Value = Brushes.White;
         if (effect is not null)
-            shape.FilterEffect.CurrentValue = effect;
+            shape.FilterEffect.Value = effect;
         return shape.ToResource(CompositionContext.Default);
     }
 
@@ -611,7 +611,7 @@ public sealed class LosslessCompositeCoverageTests
         else
         {
             var brightness = new Brightness();
-            brightness.Amount.CurrentValue = 100;
+            brightness.Amount.Value = 100;
             effect = brightness;
         }
 

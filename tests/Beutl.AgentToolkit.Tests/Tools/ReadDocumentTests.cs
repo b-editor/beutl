@@ -75,12 +75,12 @@ public sealed class ReadDocumentTests
         var plate = new RectShape
         {
             Name = "OffFrame",
-            Width = { CurrentValue = 40 },
-            Height = { CurrentValue = 20 },
-            Fill = { CurrentValue = Brushes.White },
-            AlignmentX = { CurrentValue = AlignmentX.Left },
-            AlignmentY = { CurrentValue = AlignmentY.Top },
-            Transform = { CurrentValue = new TranslateTransform(600, 400) },
+            Width = { Value = 40 },
+            Height = { Value = 20 },
+            Fill = { Value = Brushes.White },
+            AlignmentX = { Value = AlignmentX.Left },
+            AlignmentY = { Value = AlignmentY.Top },
+            Transform = { Value = new TranslateTransform(600, 400) },
         };
         var element = new Element
         {
@@ -118,7 +118,7 @@ public sealed class ReadDocumentTests
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
         var group = new DrawableGroup { Name = "wrapper" };
-        var nested = new TextBlock { Name = "nested", Text = { CurrentValue = "Hi" } };
+        var nested = new TextBlock { Name = "nested", Text = { Value = "Hi" } };
         group.Children.Add(nested);
         var element = new Element
         {
@@ -455,7 +455,7 @@ public sealed class ReadDocumentTests
             Start = TimeSpan.FromSeconds(1),
             Length = TimeSpan.FromSeconds(2)
         };
-        element.AddObject(new TextBlock { Text = { CurrentValue = "Scoped" } });
+        element.AddObject(new TextBlock { Text = { Value = "Scoped" } });
         element.Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"));
         scene.Children.Add(element);
         scene.Children.Add(new Element
@@ -518,12 +518,12 @@ public sealed class ReadDocumentTests
         var text = new TextBlock
         {
             Name = "Title",
-            Text = { CurrentValue = "Summary" },
-            Fill = { CurrentValue = new SolidColorBrush(Colors.White) },
-            FilterEffect = { CurrentValue = new FilterEffectGroup { Children = { new Blur() } } },
+            Text = { Value = "Summary" },
+            Fill = { Value = new SolidColorBrush(Colors.White) },
+            FilterEffect = { Value = new FilterEffectGroup { Children = { new Blur() } } },
             Transform =
             {
-                CurrentValue = new TransformGroup
+                Value = new TransformGroup
                 {
                     Children =
                     {
@@ -534,8 +534,8 @@ public sealed class ReadDocumentTests
             }
         };
         text.Opacity.SetKeyFrameAnimation(new KeyFrameAnimation<float>());
-        ((TranslateTransform)((TransformGroup)text.Transform.CurrentValue!).Children[0]).X.SetKeyFrameAnimation(CreateFloatAnimation());
-        ((RotationTransform)((TransformGroup)text.Transform.CurrentValue!).Children[1]).Rotation.SetKeyFrameAnimation(CreateFloatAnimation());
+        ((TranslateTransform)((TransformGroup)text.Transform.Value!).Children[0]).X.SetKeyFrameAnimation(CreateFloatAnimation());
+        ((RotationTransform)((TransformGroup)text.Transform.Value!).Children[1]).Rotation.SetKeyFrameAnimation(CreateFloatAnimation());
         element.AddObject(text);
         scene.Children.Add(element);
 
@@ -585,8 +585,8 @@ public sealed class ReadDocumentTests
         var plate = new RoundedRectShape
         {
             Name = "Plate",
-            Width = { CurrentValue = 200 },
-            Height = { CurrentValue = 80 }
+            Width = { Value = 200 },
+            Height = { Value = 80 }
         };
         element.AddObject(plate);
         scene.Children.Add(element);
@@ -626,8 +626,8 @@ public sealed class ReadDocumentTests
         var title = new TextBlock
         {
             Name = "Centered title",
-            Text = { CurrentValue = "Center" },
-            Size = { CurrentValue = 100 }
+            Text = { Value = "Center" },
+            Size = { Value = 100 }
         };
         titleElement.AddObject(title);
         scene.Children.Add(titleElement);
@@ -642,9 +642,9 @@ public sealed class ReadDocumentTests
         var plate = new RoundedRectShape
         {
             Name = "Offset plate",
-            Width = { CurrentValue = 200 },
-            Height = { CurrentValue = 80 },
-            Transform = { CurrentValue = new TranslateTransform(120, -40) }
+            Width = { Value = 200 },
+            Height = { Value = 80 },
+            Transform = { Value = new TranslateTransform(120, -40) }
         };
         plateElement.AddObject(plate);
         scene.Children.Add(plateElement);
@@ -706,15 +706,15 @@ public sealed class ReadDocumentTests
         var plate = new RoundedRectShape
         {
             Name = "Shadowed plate",
-            Width = { CurrentValue = 100 },
-            Height = { CurrentValue = 50 },
+            Width = { Value = 100 },
+            Height = { Value = 50 },
             FilterEffect =
             {
-                CurrentValue = new DropShadow
+                Value = new DropShadow
                 {
-                    Position = { CurrentValue = new Point(10, 5) },
-                    Sigma = { CurrentValue = new Size(3, 4) },
-                    Color = { CurrentValue = Colors.Black }
+                    Position = { Value = new Point(10, 5) },
+                    Sigma = { Value = new Size(3, 4) },
+                    Color = { Value = Colors.Black }
                 }
             }
         };
@@ -789,11 +789,11 @@ public sealed class ReadDocumentTests
     private static NodeGraphDrawable BuildMeasureNodeGraphDrawable()
     {
         var drawable = new NodeGraphDrawable { Name = "Graph" };
-        GraphModel model = drawable.Model.CurrentValue!;
+        GraphModel model = drawable.Model.Value!;
 
         var geometryNode = new RectGeometryNode();
-        geometryNode.Object.Width.CurrentValue = 40;
-        geometryNode.Object.Height.CurrentValue = 20;
+        geometryNode.Object.Width.Value = 40;
+        geometryNode.Object.Height.Value = 20;
         var shapeNode = new GeometryShapeNode();
         SetUnconnectedInput(shapeNode.Fill, Brushes.White);
         var shakeNode = new FilterEffectNode<ShakeEffect>();

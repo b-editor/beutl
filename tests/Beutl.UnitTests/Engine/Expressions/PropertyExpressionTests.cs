@@ -23,7 +23,7 @@ public class PropertyExpressionTests
     {
         IExpressionProperty<float> property = animated ? new AnimatableProperty<float>(0) : new SimpleProperty<float>(0);
         property.SetAttributes("Opacity", []);
-        property.CurrentValue = 75;
+        property.Value = 75;
         property.Expression = new StringExpression<float>(source);
 
         var context = TestHelper.CreateExpressionContext(TimeSpan.Zero, property);
@@ -35,7 +35,7 @@ public class PropertyExpressionTests
         {
             Assert.That(property.ExpressionError, Is.Not.Empty);
             Assert.That(context.IsEvaluating(property), Is.False);
-            Assert.That(property.CurrentValue, Is.EqualTo(75));
+            Assert.That(property.Value, Is.EqualTo(75));
             Assert.That(edits, Is.Zero, "Evaluation diagnostics must not enter undo history.");
         });
         property.Expression = null;
@@ -152,7 +152,7 @@ public class PropertyExpressionTests
     {
         var scene = new Scene { Duration = TimeSpan.FromSeconds(2) };
         var shape = new RectShape();
-        shape.Opacity.CurrentValue = 75;
+        shape.Opacity.Value = 75;
         shape.Opacity.Expression = new StringExpression<float>("\"abc\"");
         var element = new Element { Length = scene.Duration };
         element.Objects.Add(shape);

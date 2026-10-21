@@ -12,8 +12,8 @@ public sealed class GeometryPropertyRegistrationTests
     public void FillTypeAndTransform_AreRegisteredAndSaved()
     {
         var geometry = new RectGeometry();
-        geometry.FillType.CurrentValue = PathFillType.EvenOdd;
-        geometry.Transform.CurrentValue = new TranslateTransform(5, 6);
+        geometry.FillType.Value = PathFillType.EvenOdd;
+        geometry.Transform.Value = new TranslateTransform(5, 6);
 
         JsonObject json = CoreSerializer.SerializeToJsonObject(geometry);
         var restored = (RectGeometry)CoreSerializer.DeserializeFromJsonObject(json, typeof(RectGeometry));
@@ -21,8 +21,8 @@ public sealed class GeometryPropertyRegistrationTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(geometry.Properties, Does.Contain(geometry.FillType).And.Contain(geometry.Transform));
-            Assert.That(restored.FillType.CurrentValue, Is.EqualTo(PathFillType.EvenOdd));
-            Assert.That(restored.Transform.CurrentValue, Is.TypeOf<TranslateTransform>());
+            Assert.That(restored.FillType.Value, Is.EqualTo(PathFillType.EvenOdd));
+            Assert.That(restored.Transform.Value, Is.TypeOf<TranslateTransform>());
         }
     }
 }

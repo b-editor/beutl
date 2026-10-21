@@ -193,7 +193,7 @@ public static class ItemValueHelper
                     hierarchical.AddChild(ownedTransform);
                 }
 
-                ownedTransform.Matrix.CurrentValue = matrix;
+                ownedTransform.Matrix.Value = matrix;
                 value = ownedTransform;
                 return true;
             }

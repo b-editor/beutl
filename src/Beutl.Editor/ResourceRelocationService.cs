@@ -181,7 +181,7 @@ public class ResourceRelocationService
         if (propertyName == nameof(INodeMember.Property) && obj is INodeMember { Property: { } adapter })
             return adapter.GetValue() as IFileSource;
         if (obj is EngineObject engineObject
-            && engineObject.Properties.FirstOrDefault(p => p.Name == propertyName)?.CurrentValue is IFileSource source)
+            && engineObject.Properties.FirstOrDefault(p => p.Name == propertyName)?.Value is IFileSource source)
             return source;
         var property = PropertyRegistry.FindRegistered(obj, propertyName);
         return property == null ? null : obj.GetValue(property) as IFileSource;

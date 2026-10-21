@@ -54,7 +54,7 @@ public class PlaybackEditTests
             for (int edit = 0; edit <= step % 3; edit++)
             {
                 color = s_palette[(step + edit) % s_palette.Length];
-                fill.Color.CurrentValue = color;
+                fill.Color.Value = color;
                 await Task.Delay(1);
             }
 
@@ -93,7 +93,7 @@ public class PlaybackEditTests
         await HeadlessTestHelpers.WaitUntilAsync(
             () => player.QueuedFrames == expected.Length, TimeSpan.FromMinutes(1), pump: false);
 
-        fill.Color.CurrentValue = s_palette[1];
+        fill.Color.Value = s_palette[1];
 
         var frames = new List<int>();
         foreach (int _ in expected)
@@ -146,7 +146,7 @@ public class PlaybackEditTests
         (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync(
             "playback-edits-transition", 320, 240, frameRate: Rate, duration: TimeSpan.FromSeconds(4));
         (Element outgoing, _) = CreateRectangle(Colors.Red, TimeSpan.FromSeconds(2));
-        outgoing.ExitTransition = new CrossDissolveTransition { Duration = { CurrentValue = TimeSpan.FromSeconds(1) } };
+        outgoing.ExitTransition = new CrossDissolveTransition { Duration = { Value = TimeSpan.FromSeconds(1) } };
         scene.Children.Add(outgoing);
         RenderThreadDrain.Drain(TimeSpan.FromMinutes(2));
         using var isPlaying = new ReactivePropertySlim<bool>(true);
@@ -208,7 +208,7 @@ public class PlaybackEditTests
             var stopwatch = Stopwatch.StartNew();
             for (int edit = 1; stopwatch.Elapsed < TimeSpan.FromSeconds(1.5); edit++)
             {
-                slow.Opacity.CurrentValue = 100 - (edit * 0.001f);
+                slow.Opacity.Value = 100 - (edit * 0.001f);
                 await Task.Delay(5);
             }
         }
@@ -270,9 +270,9 @@ public class PlaybackEditTests
         var element = new Element { Length = length };
         element.AddObject(new RectShape
         {
-            Width = { CurrentValue = 320 },
-            Height = { CurrentValue = 240 },
-            Fill = { CurrentValue = fill },
+            Width = { Value = 320 },
+            Height = { Value = 240 },
+            Fill = { Value = fill },
         });
         return (element, fill);
     }

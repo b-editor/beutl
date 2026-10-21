@@ -21,7 +21,7 @@ public sealed class TransformEditorAddMenuTests
     public void The_add_menu_of_a_group_adds_the_clicked_transform()
     {
         var group = new TransformGroup();
-        var shape = new RectShape { Transform = { CurrentValue = group } };
+        var shape = new RectShape { Transform = { Value = group } };
         using var history = new HistoryScope(shape);
         using var viewModel = new TransformEditorViewModel(
             new SimplePropertyAdapter<Transform?>((SimpleProperty<Transform?>)shape.Transform, shape));

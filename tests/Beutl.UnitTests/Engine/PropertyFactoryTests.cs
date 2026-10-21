@@ -22,7 +22,7 @@ public class PropertyFactoryTests
         Assert.That(property, Is.InstanceOf<SimpleProperty<double>>());
         Assert.That(property.IsAnimatable, Is.False);
         Assert.That(property.DefaultValue, Is.EqualTo(1.5));
-        Assert.That(property.CurrentValue, Is.EqualTo(1.5));
+        Assert.That(property.Value, Is.EqualTo(1.5));
         Assert.That(property.HasLocalValue, Is.False);
     }
 
@@ -32,7 +32,7 @@ public class PropertyFactoryTests
         IExpressionProperty<int> property = Property.CreateWithExpression<int>();
 
         Assert.That(property.DefaultValue, Is.EqualTo(0));
-        Assert.That(property.CurrentValue, Is.EqualTo(0));
+        Assert.That(property.Value, Is.EqualTo(0));
     }
 
     [Test]
@@ -41,9 +41,9 @@ public class PropertyFactoryTests
         IExpressionProperty<int> property = Property.CreateWithExpression(0, new RangeAttribute(0, 10));
         property.SetAttributes("Test", []);
 
-        property.CurrentValue = 100;
+        property.Value = 100;
 
-        Assert.That(property.CurrentValue, Is.EqualTo(10), "Out-of-range value should be coerced to max.");
+        Assert.That(property.Value, Is.EqualTo(10), "Out-of-range value should be coerced to max.");
     }
 
     [Test]
@@ -78,9 +78,9 @@ public class PropertyFactoryTests
         IExpressionProperty<int> property = Property.CreateAnimatable(0, new RangeAttribute(-5, 5));
         property.SetAttributes("Test", []);
 
-        property.CurrentValue = -100;
+        property.Value = -100;
 
-        Assert.That(property.CurrentValue, Is.EqualTo(-5));
+        Assert.That(property.Value, Is.EqualTo(-5));
     }
 
     [Test]
@@ -93,7 +93,7 @@ public class PropertyFactoryTests
         {
             Assert.That(property.IsReference, Is.True);
             Assert.That(property.IsAnimatable, Is.False);
-            Assert.That(property.CurrentValue, Is.Null);
+            Assert.That(property.Value, Is.Null);
             Assert.Throws<InvalidOperationException>(
                 () => property.SetKeyFrameAnimation(new KeyFrameAnimation<Drawable?>()));
         }

@@ -201,12 +201,12 @@ internal static class AudioEffectAssertions
         Assert.That(property.Name, Is.EqualTo(expectedName),
             $"ScanProperties must name the property '{expectedName}'.");
 
-        property.CurrentValue = max + 1000f;
-        Assert.That(property.CurrentValue, Is.EqualTo(max),
+        property.Value = max + 1000f;
+        Assert.That(property.Value, Is.EqualTo(max),
             $"{expectedName}: a value above the max must be coerced to {max}; validator appears unwired.");
 
-        property.CurrentValue = min - 1000f;
-        Assert.That(property.CurrentValue, Is.EqualTo(min),
+        property.Value = min - 1000f;
+        Assert.That(property.Value, Is.EqualTo(min),
             $"{expectedName}: a value below the min must be coerced to {min}; validator appears unwired.");
     }
 

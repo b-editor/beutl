@@ -16,7 +16,7 @@ public class GainNodeTests
     private static AudioProcessContext CreateContext() =>
         AudioTestContexts.CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1), SampleRate);
 
-    // Animatable Gain with no animation assigned must use the static CurrentValue, not the
+    // Animatable Gain with no animation assigned must use the static Value, not the
     // per-sample path.
     [Test]
     public void Process_AnimatableGainWithoutAnimation_AppliesCurrentValue()

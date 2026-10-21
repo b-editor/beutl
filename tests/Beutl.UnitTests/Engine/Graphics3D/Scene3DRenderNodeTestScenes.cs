@@ -15,9 +15,9 @@ internal static class Scene3DRenderNodeTestScenes
     {
         var scene = new Scene3D();
         // An opaque background answers over the whole scene, so the controls do not depend on geometry.
-        scene.BackgroundColor.CurrentValue = Colors.Black;
-        scene.RenderWidth.CurrentValue = (float)bounds.Width;
-        scene.RenderHeight.CurrentValue = (float)bounds.Height;
+        scene.BackgroundColor.Value = Colors.Black;
+        scene.RenderWidth.Value = (float)bounds.Width;
+        scene.RenderHeight.Value = (float)bounds.Height;
         return (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
     }
 

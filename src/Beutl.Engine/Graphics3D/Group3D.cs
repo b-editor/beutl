@@ -15,7 +15,7 @@ public partial class Group3D : Object3D
     public Group3D()
     {
         ScanProperties<Group3D>();
-        Material.CurrentValue = null;
+        Material.Value = null;
     }
 
     /// <summary>

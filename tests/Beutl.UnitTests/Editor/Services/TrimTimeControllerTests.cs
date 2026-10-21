@@ -69,7 +69,7 @@ public class TrimTimeControllerTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue.TotalSeconds, Is.EqualTo(0.5).Within(0.000001));
+            Assert.That(video.OffsetPosition.Value.TotalSeconds, Is.EqualTo(0.5).Within(0.000001));
             Assert.That(element.Start, Is.EqualTo(Seconds(5)));
             Assert.That(element.Length, Is.EqualTo(Seconds(2)));
             for (int i = 0; i < localSamples.Length; i++)
@@ -103,7 +103,7 @@ public class TrimTimeControllerTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue.TotalSeconds, Is.EqualTo(1.6).Within(0.005));
+            Assert.That(video.OffsetPosition.Value.TotalSeconds, Is.EqualTo(1.6).Within(0.005));
             Assert.That(ReadPosition(controller, 5), Is.EqualTo(beforeShiftedStart).Within(0.005));
             Assert.That(element.Start, Is.EqualTo(Seconds(5)));
             Assert.That(element.Length, Is.EqualTo(Seconds(2)));
@@ -119,7 +119,7 @@ public class TrimTimeControllerTests
         var inner = CreateController(video, speed: 50, offsetSeconds: 0.25);
         inner.IsTimeAnchor = true;
         inner.TimeRange = new TimeRange(Seconds(2), Seconds(4));
-        inner.AdjustTimeRange.CurrentValue = true;
+        inner.AdjustTimeRange.Value = true;
         var outer = CreateController(inner, speed: 200, offsetSeconds: 0.5);
         Element element = AddElement(5, 2, outer);
 
@@ -137,7 +137,7 @@ public class TrimTimeControllerTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue.TotalSeconds, Is.EqualTo(1).Within(0.000001));
+            Assert.That(video.OffsetPosition.Value.TotalSeconds, Is.EqualTo(1).Within(0.000001));
             Assert.That(ReadPosition(outer, 5), Is.EqualTo(beforeShiftedStart).Within(0.000001));
             Assert.That(inner.TimeRange, Is.EqualTo(new TimeRange(Seconds(2), Seconds(4))));
             Assert.That(video.TimeRange, Is.EqualTo(new TimeRange(Seconds(1), Seconds(10))));
@@ -152,7 +152,7 @@ public class TrimTimeControllerTests
         video.IsTimeAnchor = true;
         video.TimeRange = new TimeRange(TimeSpan.Zero, Seconds(6));
         var controller = CreateController(video, speed: 200);
-        controller.Reverse.CurrentValue = true;
+        controller.Reverse.Value = true;
         Element element = AddElement(5, 2, controller);
         double beforeShiftedStart = ReadPosition(controller, 5.5);
 
@@ -173,7 +173,7 @@ public class TrimTimeControllerTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue.TotalSeconds, Is.EqualTo(0).Within(0.000001));
+            Assert.That(video.OffsetPosition.Value.TotalSeconds, Is.EqualTo(0).Within(0.000001));
             Assert.That(ReadPosition(controller, 5), Is.EqualTo(beforeShiftedStart).Within(0.000001));
         });
     }
@@ -185,7 +185,7 @@ public class TrimTimeControllerTests
         video.IsTimeAnchor = true;
         video.TimeRange = new TimeRange(TimeSpan.Zero, Seconds(2));
         var controller = CreateController(video, speed: 200);
-        controller.Loop.CurrentValue = true;
+        controller.Loop.Value = true;
         Element element = AddElement(5, 2, controller);
 
         // Window endpoints both wrap to source 2s, but interior frames approach 4s.
@@ -206,7 +206,7 @@ public class TrimTimeControllerTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue.TotalSeconds, Is.EqualTo(3).Within(0.000001));
+            Assert.That(video.OffsetPosition.Value.TotalSeconds, Is.EqualTo(3).Within(0.000001));
             Assert.That(ReadPosition(controller, 5.75), Is.EqualTo(4.5).Within(0.000001));
         });
     }
@@ -220,8 +220,8 @@ public class TrimTimeControllerTests
         video.IsTimeAnchor = true;
         video.TimeRange = new TimeRange(TimeSpan.Zero, Seconds(4));
         var controller = CreateController(video, offsetSeconds: controllerOffset);
-        controller.HoldFirstFrame.CurrentValue = holdFirst;
-        controller.HoldLastFrame.CurrentValue = holdLast;
+        controller.HoldFirstFrame.Value = holdFirst;
+        controller.HoldLastFrame.Value = holdLast;
         Element element = AddElement(5, 2, controller);
         int before = _harness.History.UndoCount;
 
@@ -236,7 +236,7 @@ public class TrimTimeControllerTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(1)));
             Assert.That(ReadPosition(controller, 5), Is.EqualTo(expectedPosition).Within(0.000001));
             Assert.That(_harness.History.UndoCount, Is.EqualTo(before));
         });
@@ -276,7 +276,7 @@ public class TrimTimeControllerTests
             // 1.5s held at the source in-point plus 9s of remaining source gives 10.5s.
             Assert.That(maximumDuration?.TotalSeconds, Is.EqualTo(10.5).Within(0.000001));
             Assert.That(ReadPosition(controller, 15.5), Is.EqualTo(10).Within(0.000001));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(1)));
             Assert.That(video.TimeRange, Is.EqualTo(new TimeRange(Seconds(5), Seconds(2))));
             Assert.That(element.Length, Is.EqualTo(Seconds(2)));
         });
@@ -287,7 +287,7 @@ public class TrimTimeControllerTests
     {
         var video = CreateVideo(10);
         var controller = CreateController(video, offsetSeconds: 0.25);
-        controller.FrameRate.CurrentValue = 2;
+        controller.FrameRate.Value = 2;
         Element element = AddElement(5, 2, controller);
         double beforeShiftedStart = ReadPosition(controller, 5.3);
 
@@ -302,7 +302,7 @@ public class TrimTimeControllerTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue.TotalSeconds, Is.EqualTo(0.5).Within(0.000001));
+            Assert.That(video.OffsetPosition.Value.TotalSeconds, Is.EqualTo(0.5).Within(0.000001));
             Assert.That(ReadPosition(controller, 5), Is.EqualTo(beforeShiftedStart).Within(0.000001));
         });
     }
@@ -314,8 +314,8 @@ public class TrimTimeControllerTests
         Element element = AddElement(5, 2, video);
         var controller = new DrawableTimeController
         {
-            Speed = { CurrentValue = 200 },
-            OffsetPosition = { CurrentValue = Seconds(0.25) }
+            Speed = { Value = 200 },
+            OffsetPosition = { Value = Seconds(0.25) }
         };
         element.Objects.Add(controller);
         using var compositor = CreateCompositor(_harness.Scene);
@@ -335,7 +335,7 @@ public class TrimTimeControllerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(controller.Target.CurrentValue, Is.Null);
+            Assert.That(controller.Target.Value, Is.Null);
             Assert.That(targets, Has.Count.EqualTo(1), "The consumed video must not also be collected without its controller.");
             Assert.That(ReadFlowPosition(0), Is.EqualTo(0.5).Within(0.000001));
             Assert.That(beforeShiftedStart, Is.EqualTo(1).Within(0.000001));
@@ -348,7 +348,7 @@ public class TrimTimeControllerTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue.TotalSeconds, Is.EqualTo(0.5).Within(0.000001));
+            Assert.That(video.OffsetPosition.Value.TotalSeconds, Is.EqualTo(0.5).Within(0.000001));
             Assert.That(ReadFlowPosition(0), Is.EqualTo(beforeShiftedStart).Within(0.000001));
             Assert.That(ReadFlowPosition(1.5), Is.EqualTo(4).Within(0.000001));
         });
@@ -361,7 +361,7 @@ public class TrimTimeControllerTests
         var second = CreateVideo(10);
         Element element = AddElement(5, 2, first);
         var group = new DrawableGroup();
-        var controller = new DrawableTimeController { Speed = { CurrentValue = 200 } };
+        var controller = new DrawableTimeController { Speed = { Value = 200 } };
         element.Objects.Add(second);
         element.Objects.Add(group);
         element.Objects.Add(controller);
@@ -376,12 +376,12 @@ public class TrimTimeControllerTests
         {
             Assert.That(applied, Is.True);
             Assert.That(group.Children, Is.Empty);
-            Assert.That(controller.Target.CurrentValue, Is.Null);
+            Assert.That(controller.Target.Value, Is.Null);
             Assert.That(targets, Has.Count.EqualTo(2));
             Assert.That(targets.Select(target => target.Offset),
                 Is.EquivalentTo(new[] { first.OffsetPosition, second.OffsetPosition }));
-            Assert.That(first.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(2)));
-            Assert.That(second.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(2)));
+            Assert.That(first.OffsetPosition.Value, Is.EqualTo(Seconds(2)));
+            Assert.That(second.OffsetPosition.Value, Is.EqualTo(Seconds(2)));
             Assert.That(element.Start, Is.EqualTo(Seconds(5)));
             Assert.That(element.Length, Is.EqualTo(Seconds(2)));
             Assert.That(_harness.History.UndoCount, Is.EqualTo(before + 1));
@@ -396,7 +396,7 @@ public class TrimTimeControllerTests
         var controller = new DrawableTimeController
         {
             IsEnabled = false,
-            Speed = { CurrentValue = 50 }
+            Speed = { Value = 50 }
         };
         element.Objects.Add(controller);
         int before = _harness.History.UndoCount;
@@ -412,10 +412,10 @@ public class TrimTimeControllerTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(controller.Target.CurrentValue, Is.Null);
+            Assert.That(controller.Target.Value, Is.Null);
             Assert.That(targets, Has.Count.EqualTo(1));
             Assert.That(clamped.TotalSeconds, Is.EqualTo(2).Within(0.000001));
-            Assert.That(video.OffsetPosition.CurrentValue.TotalSeconds, Is.EqualTo(2).Within(0.000001));
+            Assert.That(video.OffsetPosition.Value.TotalSeconds, Is.EqualTo(2).Within(0.000001));
             Assert.That(frame.Objects[0], Is.TypeOf<SourceVideo.Resource>(),
                 "Playback skips the disabled controller and renders the video directly.");
             Assert.That(ReadPosition(frame.Objects[0]), Is.EqualTo(3.5).Within(0.000001));
@@ -432,7 +432,7 @@ public class TrimTimeControllerTests
     public void Slip_LoopingSourceVideo_UsesWrappedPlaybackWindowBeforeSourceOffset()
     {
         var video = CreateVideo(5);
-        video.IsLoop.CurrentValue = true;
+        video.IsLoop.Value = true;
         var controller = CreateController(video, offsetSeconds: 6);
         Element element = AddElement(5, 1, controller);
 
@@ -453,7 +453,7 @@ public class TrimTimeControllerTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue.TotalSeconds, Is.EqualTo(3).Within(0.000001));
+            Assert.That(video.OffsetPosition.Value.TotalSeconds, Is.EqualTo(3).Within(0.000001));
             Assert.That(ReadPosition(controller, 5), Is.EqualTo(4).Within(0.000001));
             Assert.That(ReadPosition(controller, 5.75), Is.EqualTo(4.75).Within(0.000001));
         });
@@ -464,13 +464,13 @@ public class TrimTimeControllerTests
     public void Slip_LinkedLoopingVideo_RechecksBoundsAfterAnotherStreamReducesDelta(bool reverseOrder)
     {
         var video = CreateVideo(5, offsetSeconds: 1);
-        video.IsLoop.CurrentValue = true;
+        video.IsLoop.Value = true;
         Element videoElement = AddElement(5, 1, video);
         Element audioElement = _harness.AddElement(Seconds(5), Seconds(1), zIndex: 1);
         var sound = new SceneSound
         {
-            ReferencedScene = { CurrentValue = new Scene { Duration = Seconds(5) } },
-            Speed = { CurrentValue = 100 }
+            ReferencedScene = { Value = new Scene { Duration = Seconds(5) } },
+            Speed = { Value = 100 }
         };
         audioElement.Objects.Add(sound);
         Element[] elements = reverseOrder ? [audioElement, videoElement] : [videoElement, audioElement];
@@ -487,15 +487,15 @@ public class TrimTimeControllerTests
         {
             Assert.That(applied, Is.True);
             Assert.That(clamped.TotalSeconds, Is.EqualTo(3).Within(0.000001));
-            Assert.That(video.OffsetPosition.CurrentValue.TotalSeconds, Is.EqualTo(4).Within(0.000001));
-            Assert.That(sound.OffsetPosition.CurrentValue.TotalSeconds, Is.EqualTo(3).Within(0.000001));
+            Assert.That(video.OffsetPosition.Value.TotalSeconds, Is.EqualTo(4).Within(0.000001));
+            Assert.That(sound.OffsetPosition.Value.TotalSeconds, Is.EqualTo(3).Within(0.000001));
             foreach (double localSeconds in new[] { 0d, 0.5d, 1d })
             {
                 double position = ReadPosition(video, 5 + localSeconds);
                 Assert.That(position, Is.EqualTo(4 + localSeconds).Within(0.000001));
                 Assert.That(position, Is.InRange(0d, 5d), $"Looping video source time at local {localSeconds}s");
             }
-            Assert.That(sound.OffsetPosition.CurrentValue + audioElement.Length, Is.LessThanOrEqualTo(Seconds(5)));
+            Assert.That(sound.OffsetPosition.Value + audioElement.Length, Is.LessThanOrEqualTo(Seconds(5)));
             foreach (Element element in elements)
             {
                 Assert.That(element.Start, Is.EqualTo(Seconds(5)));
@@ -527,7 +527,7 @@ public class TrimTimeControllerTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(1)));
             Assert.That(ReadPosition(controller, 5), Is.EqualTo(1).Within(0.000001));
             Assert.That(_harness.History.UndoCount, Is.EqualTo(before));
         });
@@ -541,9 +541,9 @@ public class TrimTimeControllerTests
         Element element = AddElement(5, 1, video);
         element.Objects.Add(new DrawableTimeController
         {
-            Speed = { CurrentValue = 50 },
-            OffsetPosition = { CurrentValue = Seconds(4) },
-            Loop = { CurrentValue = true }
+            Speed = { Value = 50 },
+            OffsetPosition = { Value = Seconds(4) },
+            Loop = { Value = true }
         });
         var constraints = SlippableMedia.CreateResizeConstraints(element);
         var service = new ElementResizeService(_harness.History);
@@ -556,7 +556,7 @@ public class TrimTimeControllerTests
         {
             Assert.That(preview, Is.EqualTo(Seconds(1)));
             Assert.That(element.Length, Is.EqualTo(preview));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
         });
 
         service.Resize(_harness.Scene, [new ElementResizeRequest(element, element.Start, Seconds(2), 0)], ripple);
@@ -577,13 +577,13 @@ public class TrimTimeControllerTests
         double expectedDelta, double videoOffset, double audioOffset, double expectedVideo, double expectedAudio)
     {
         var video = CreateVideo(5, offsetSeconds: videoOffset);
-        video.IsLoop.CurrentValue = true;
+        video.IsLoop.Value = true;
         Element videoElement = AddElement(0, 1, video);
         Element audioElement = _harness.AddElement(TimeSpan.Zero, Seconds(1), 1);
         var audio = new SceneSound
         {
-            ReferencedScene = { CurrentValue = new Scene { Duration = Seconds(30) } },
-            OffsetPosition = { CurrentValue = Seconds(audioOffset) }
+            ReferencedScene = { Value = new Scene { Duration = Seconds(30) } },
+            OffsetPosition = { Value = Seconds(audioOffset) }
         };
         audioElement.Objects.Add(audio);
         Element[] elements = reverseOrder ? [audioElement, videoElement] : [videoElement, audioElement];
@@ -591,9 +591,9 @@ public class TrimTimeControllerTests
         Assert.That(_slip.Slip(_harness.Scene, elements, Seconds(requested)), Is.True);
         Assert.Multiple(() =>
         {
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(expectedVideo)));
-            Assert.That(audio.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(expectedAudio)));
-            Assert.That(audio.OffsetPosition.CurrentValue - Seconds(audioOffset), Is.EqualTo(Seconds(expectedDelta)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(expectedVideo)));
+            Assert.That(audio.OffsetPosition.Value, Is.EqualTo(Seconds(expectedAudio)));
+            Assert.That(audio.OffsetPosition.Value - Seconds(audioOffset), Is.EqualTo(Seconds(expectedDelta)));
         });
     }
 
@@ -605,7 +605,7 @@ public class TrimTimeControllerTests
         Element frontA = AddElement(0, 2, video);
         Element frontB = _harness.AddElement(TimeSpan.Zero, Seconds(2), 1);
         var controller = CreateController(video);
-        controller.Reverse.CurrentValue = true;
+        controller.Reverse.Value = true;
         frontB.Objects.Add(controller);
         Element? middleA = slide ? _harness.AddElement(Seconds(2), Seconds(1), 0) : null;
         Element? middleB = slide ? _harness.AddElement(Seconds(2), Seconds(1), 1) : null;
@@ -624,7 +624,7 @@ public class TrimTimeControllerTests
             Assert.That(frontA.Length, Is.EqualTo(Seconds(3)));
             Assert.That(frontB.Length, Is.EqualTo(Seconds(3)));
             Assert.That(ReadPosition(controller, 0), Is.EqualTo(4));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(1)));
         });
     }
 
@@ -634,7 +634,7 @@ public class TrimTimeControllerTests
     public void OriginalDuration_LoopingVideo_OffersOneCycleOrFrozenSourceLength(float speed, double expected)
     {
         var video = CreateVideo(5, speed);
-        video.IsLoop.CurrentValue = true;
+        video.IsLoop.Value = true;
         Element element = AddElement(0, 1, video);
 
         Assert.Multiple(() =>
@@ -652,9 +652,9 @@ public class TrimTimeControllerTests
         Element element = AddElement(5, 1, video);
         element.Objects.Add(new DrawableTimeController
         {
-            Speed = { CurrentValue = 50 },
-            OffsetPosition = { CurrentValue = Seconds(4) },
-            Loop = { CurrentValue = true }
+            Speed = { Value = 50 },
+            OffsetPosition = { Value = Seconds(4) },
+            Loop = { Value = true }
         });
         Element locked = _harness.AddElement(Seconds(6.5), Seconds(1));
         locked.IsLocked = true;
@@ -673,7 +673,7 @@ public class TrimTimeControllerTests
     public void Resize_AnimatedLoopFalse_DoesNotUseTheStoredTrueValue()
     {
         var video = CreateVideo(5);
-        video.IsLoop.CurrentValue = true;
+        video.IsLoop.Value = true;
         var animation = new KeyFrameAnimation<bool>();
         animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.Zero, Value = false });
         video.IsLoop.SetKeyFrameAnimation(animation);
@@ -696,7 +696,7 @@ public class TrimTimeControllerTests
         int before = _harness.History.UndoCount;
 
         Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(1)), Is.False);
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
         Assert.That(_harness.History.UndoCount, Is.EqualTo(before));
     }
 
@@ -707,9 +707,9 @@ public class TrimTimeControllerTests
         Element element = AddElement(0, 1, video);
         element.Objects.Add(new DrawableTimeController
         {
-            Speed = { CurrentValue = 50 },
-            OffsetPosition = { CurrentValue = Seconds(10) },
-            Loop = { CurrentValue = true }
+            Speed = { Value = 50 },
+            OffsetPosition = { Value = Seconds(10) },
+            Loop = { Value = true }
         });
         TimeSpan? maximum = SlippableMedia.CreateResizeConstraints(element).GetMaximumDuration();
         Assert.That(maximum?.TotalSeconds, Is.GreaterThanOrEqualTo(1.6));
@@ -725,9 +725,9 @@ public class TrimTimeControllerTests
         Element front = AddElement(0, 1, video);
         front.Objects.Add(new DrawableTimeController
         {
-            Speed = { CurrentValue = 50 },
-            OffsetPosition = { CurrentValue = Seconds(4) },
-            Loop = { CurrentValue = true }
+            Speed = { Value = 50 },
+            OffsetPosition = { Value = Seconds(4) },
+            Loop = { Value = true }
         });
         var service = new ElementResizeService(_harness.History);
         if (mode == "resize")
@@ -780,8 +780,8 @@ public class TrimTimeControllerTests
         Assert.That(_slip.Slip(_harness.Scene, [linked, element], Seconds(1)), Is.False);
         Assert.Multiple(() =>
         {
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(linkedVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(linkedVideo.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(_harness.History.UndoCount, Is.EqualTo(history));
         });
     }
@@ -797,7 +797,7 @@ public class TrimTimeControllerTests
         Assert.That(ReadPosition(controller, 1), Is.EqualTo(4));
 
         Assert.That(_slip.Slip(_harness.Scene, [element, controlled], Seconds(1)), Is.False);
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
     }
 
     // Without the empty animation this is the case of ElementSlipServiceTests.Slip_SpeedExpression_RejectsBeforeMutation.
@@ -811,7 +811,7 @@ public class TrimTimeControllerTests
         Assert.That(ReadPosition(video, 1), Is.EqualTo(2));
 
         Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(1)), Is.False);
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
     }
 
     [TestCase(false)]
@@ -819,9 +819,9 @@ public class TrimTimeControllerTests
     public void Trim_AnimatedVideoSource_RejectsBoundsFromStoredSource(bool baseSource)
     {
         var video = CreateVideo(10);
-        if (!baseSource) video.Source.CurrentValue = null;
+        if (!baseSource) video.Source.Value = null;
         var animation = new KeyFrameAnimation<VideoSource?>();
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = CreateVideo(1).Source.CurrentValue });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = CreateVideo(1).Source.Value });
         video.Source.SetKeyFrameAnimation(animation);
         Element element = AddElement(0, 0.5, video);
         using (var resource = (SourceVideo.Resource)video.ToResource(CompositionContext.Default))
@@ -831,7 +831,7 @@ public class TrimTimeControllerTests
         new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start, Seconds(2), 0)]);
         Assert.Multiple(() =>
         {
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(element.Length, Is.EqualTo(Seconds(0.5)));
         });
     }
@@ -865,7 +865,7 @@ public class TrimTimeControllerTests
             Assert.That(front.Length, Is.EqualTo(Seconds(2)));
             if (middle != null) Assert.That(middle.Start, Is.EqualTo(Seconds(2)));
             Assert.That(back.Range, Is.EqualTo(before));
-            Assert.That(backVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(backVideo.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(_harness.History.UndoCount, Is.EqualTo(history));
         });
     }
@@ -880,7 +880,7 @@ public class TrimTimeControllerTests
         element.Objects.Add(video);
 
         Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(1)), Is.True);
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(1)));
     }
 
     [Test]
@@ -910,8 +910,8 @@ public class TrimTimeControllerTests
         owner.ZIndex = 1;
         Element presented = _harness.AddElement(Seconds(5), Seconds(2), 0);
         var controller = CreateController(video);
-        controller.Reverse.CurrentValue = true;
-        presented.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        controller.Reverse.Value = true;
+        presented.Objects.Add(new PortalObject { Count = { Value = 1 } });
         presented.Objects.Add(controller);
         TimeSpan start = Seconds(leftEdge ? 4 : 5);
         ElementResizeRequest[] requests = [new(owner, start, Seconds(3), 1), new(presented, start, Seconds(3), 0)];
@@ -928,7 +928,7 @@ public class TrimTimeControllerTests
             Assert.That(presented.Range, Is.EqualTo(owner.Range));
             Assert.That(ReadPosition(compositor.EvaluateGraphics(presented.Start).Objects.OfType<DrawableTimeController.Resource>().Single()),
                 Is.EqualTo(5).Within(0.000001));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
         });
         _harness.History.Undo();
         Assert.That(owner.Range, Is.EqualTo(new TimeRange(Seconds(5), Seconds(2))));
@@ -949,11 +949,11 @@ public class TrimTimeControllerTests
         if (barrier)
             _harness.AddElement(Seconds(6.25), Seconds(1), 1).IsLocked = true;
         else
-            owner.Objects.Add(new SceneSound { ReferencedScene = { CurrentValue = new Scene { Duration = Seconds(1.5) } } });
+            owner.Objects.Add(new SceneSound { ReferencedScene = { Value = new Scene { Duration = Seconds(1.5) } } });
         Element presented = _harness.AddElement(Seconds(5), Seconds(1), 0);
         var controller = CreateController(video);
-        controller.Reverse.CurrentValue = true;
-        presented.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        controller.Reverse.Value = true;
+        presented.Objects.Add(new PortalObject { Count = { Value = 1 } });
         presented.Objects.Add(controller);
 
         new ElementResizeService(_harness.History).Resize(_harness.Scene,
@@ -971,7 +971,7 @@ public class TrimTimeControllerTests
         AddElement(5, 1, evaluated);
         var stored = CreateVideo(20);
         var controller = CreateController(stored);
-        if (emptyStoredTarget) controller.Target.CurrentValue = null;
+        if (emptyStoredTarget) controller.Target.Value = null;
         controller.Target.Expression = new ReferenceExpression<Drawable?>(evaluated.Id);
         Element element = AddElement(0, 0.5, controller);
         var linkedVideo = CreateVideo(20);
@@ -986,9 +986,9 @@ public class TrimTimeControllerTests
         Assert.That(_slip.Slip(_harness.Scene, [linked, element], Seconds(0.25)), Is.False);
         Assert.Multiple(() =>
         {
-            Assert.That(stored.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(evaluated.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(linkedVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(stored.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(evaluated.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(linkedVideo.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(_harness.History.UndoCount, Is.EqualTo(history));
         });
     }
@@ -1008,8 +1008,8 @@ public class TrimTimeControllerTests
         Assert.That(resource.Target!.GetOriginal(), Is.SameAs(consumed));
 
         Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(1)), Is.True);
-        Assert.That(consumed.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
-        Assert.That(evaluated.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(consumed.OffsetPosition.Value, Is.EqualTo(Seconds(1)));
+        Assert.That(evaluated.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
     }
 
     [TestCase(false)]
@@ -1025,8 +1025,8 @@ public class TrimTimeControllerTests
         Element middleB = _harness.AddElement(Seconds(2), Seconds(2), 0);
         Element backB = _harness.AddElement(Seconds(4), Seconds(4), 0);
         var controller = CreateController(video, offsetSeconds: 8);
-        controller.Reverse.CurrentValue = true;
-        middleB.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        controller.Reverse.Value = true;
+        middleB.Objects.Add(new PortalObject { Count = { Value = 1 } });
         middleB.Objects.Add(controller);
         ElementSlideLane[] lanes = [new(frontA, [middleA], backA), new(frontB, [middleB], backB)];
         if (reverseOrder) Array.Reverse(lanes);
@@ -1047,7 +1047,7 @@ public class TrimTimeControllerTests
             Assert.That(position, Is.LessThanOrEqualTo(11), "The middle must not seek past the shared front source.");
             Assert.That(frontA.Length, Is.EqualTo(Seconds(10)));
             Assert.That(middleB.Start, Is.EqualTo(Seconds(2)));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(1)));
             Assert.That(_harness.History.UndoCount, Is.EqualTo(history));
         });
     }
@@ -1065,8 +1065,8 @@ public class TrimTimeControllerTests
         Element middleB = _harness.AddElement(Seconds(5), Seconds(1), 0);
         Element backB = _harness.AddElement(Seconds(6), Seconds(4), 0);
         var controller = CreateController(video, speed: 200, offsetSeconds: 3);
-        controller.AdjustTimeRange.CurrentValue = true;
-        frontB.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        controller.AdjustTimeRange.Value = true;
+        frontB.Objects.Add(new PortalObject { Count = { Value = 1 } });
         frontB.Objects.Add(controller);
         ElementSlideLane[] lanes = [new(frontA, [middleA], backA), new(frontB, [middleB], backB)];
         if (reverseOrder) Array.Reverse(lanes);
@@ -1084,7 +1084,7 @@ public class TrimTimeControllerTests
             Assert.That(middleA.Length, Is.EqualTo(Seconds(2)));
             Assert.That(middleB.Start, Is.EqualTo(Seconds(6)));
             Assert.That(ReadPosition(resource), Is.EqualTo(9).Within(0.000001));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
         });
     }
 
@@ -1097,9 +1097,9 @@ public class TrimTimeControllerTests
         owner.ZIndex = 1;
         var stored = CreateVideo(20);
         var controller = CreateController(stored, speed: 200);
-        if (emptyStoredTarget) controller.Target.CurrentValue = null;
+        if (emptyStoredTarget) controller.Target.Value = null;
         Element element = AddElement(0, 1, controller);
-        element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
+        element.Objects.Insert(0, new PortalObject { Count = { Value = 1 } });
         using var compositor = CreateCompositor(_harness.Scene);
         var resource = compositor.EvaluateGraphics(Seconds(0.5)).Objects.OfType<DrawableTimeController.Resource>().Single();
         Assert.That(resource.Target!.GetOriginal(), Is.SameAs(imported));
@@ -1107,8 +1107,8 @@ public class TrimTimeControllerTests
         Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(3)), Is.True);
         Assert.Multiple(() =>
         {
-            Assert.That(imported.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(4)));
-            Assert.That(stored.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(imported.OffsetPosition.Value, Is.EqualTo(Seconds(4)));
+            Assert.That(stored.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(element.Length, Is.EqualTo(Seconds(1)));
         });
     }
@@ -1122,9 +1122,9 @@ public class TrimTimeControllerTests
         owner.ZIndex = 1;
         var stored = CreateVideo(20);
         var controller = CreateController(stored, speed: 200);
-        if (emptyStoredTarget) controller.Target.CurrentValue = null;
+        if (emptyStoredTarget) controller.Target.Value = null;
         Element element = AddElement(0, 1, controller);
-        element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
+        element.Objects.Insert(0, new PortalObject { Count = { Value = 1 } });
 
         new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start, Seconds(5), 0)]);
         using var compositor = CreateCompositor(_harness.Scene);
@@ -1133,8 +1133,8 @@ public class TrimTimeControllerTests
         {
             Assert.That(element.Length, Is.EqualTo(Seconds(3)));
             Assert.That(ReadPosition(resource), Is.LessThanOrEqualTo(6));
-            Assert.That(imported.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(stored.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(imported.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(stored.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
         });
     }
 
@@ -1152,7 +1152,7 @@ public class TrimTimeControllerTests
         }
         var controller = CreateController(first);
         Element element = AddElement(0, 2, controller);
-        var portal = new PortalObject { Count = { CurrentValue = 1 } };
+        var portal = new PortalObject { Count = { Value = 1 } };
         if (expressionCount) portal.Count.Expression = Expression.Create<int>("1");
         element.Objects.Insert(0, portal);
         var linkedVideo = CreateVideo(10);
@@ -1164,8 +1164,8 @@ public class TrimTimeControllerTests
             [new(element, element.Start, Seconds(3), 0), new(linked, linked.Start, Seconds(3), 2)]);
         Assert.Multiple(() =>
         {
-            Assert.That(first.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(linkedVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(first.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(linkedVideo.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(element.Length, Is.EqualTo(Seconds(2)));
             Assert.That(linked.Length, Is.EqualTo(Seconds(2)));
         });
@@ -1182,16 +1182,16 @@ public class TrimTimeControllerTests
         {
             Element owner = AddElement(0, 2, video);
             owner.ZIndex = 1;
-            element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
+            element.Objects.Insert(0, new PortalObject { Count = { Value = 1 } });
         }
         else element.Objects.Insert(0, video);
-        element.Objects.Insert(1, new PortalObject { Clear = { CurrentValue = true }, Count = { CurrentValue = importedInput ? 1 : 0 } });
+        element.Objects.Insert(1, new PortalObject { Clear = { Value = true }, Count = { Value = importedInput ? 1 : 0 } });
         using var compositor = CreateCompositor(_harness.Scene);
         var resource = compositor.EvaluateGraphics(Seconds(0.5)).Objects.OfType<DrawableTimeController.Resource>().Single();
         Assert.That(resource.Target, Is.Null);
 
         Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(0.25)), Is.False);
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
     }
 
     [TestCase(false)]
@@ -1202,9 +1202,9 @@ public class TrimTimeControllerTests
         Element element = AddElement(4, 1, video);
         element.Objects.Add(new DrawableTimeController
         {
-            Speed = { CurrentValue = 50 },
-            OffsetPosition = { CurrentValue = Seconds(4) },
-            Loop = { CurrentValue = true }
+            Speed = { Value = 50 },
+            OffsetPosition = { Value = Seconds(4) },
+            Loop = { Value = true }
         });
         TimeSpan requestedStart = Seconds(2.2);
         TimeSpan end = element.Range.End;
@@ -1219,7 +1219,7 @@ public class TrimTimeControllerTests
             Assert.That(element.Start, Is.EqualTo(Seconds(3)));
             Assert.That(element.Length, Is.EqualTo(Seconds(2)));
             Assert.That(element.Range.End, Is.EqualTo(end));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
         });
     }
 
@@ -1232,14 +1232,14 @@ public class TrimTimeControllerTests
         owner.IsEnabled = false;
         var controller = CreateController(video);
         Element element = AddElement(0, 0.5, controller);
-        element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
+        element.Objects.Insert(0, new PortalObject { Count = { Value = 1 } });
         using var compositor = CreateCompositor(_harness.Scene);
         var resource = compositor.EvaluateGraphics(Seconds(0.25)).Objects.OfType<DrawableTimeController.Resource>().Single();
         Assert.That(resource.Target, Is.Null);
 
         Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(0.25)), Is.False);
         new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start, Seconds(2), 0)]);
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
         Assert.That(element.Length, Is.EqualTo(Seconds(2)));
     }
 
@@ -1254,7 +1254,7 @@ public class TrimTimeControllerTests
         owner.ZIndex = 1;
         var controller = CreateController(video);
         Element element = AddElement(2, 2, controller);
-        element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
+        element.Objects.Insert(0, new PortalObject { Count = { Value = 1 } });
         using var compositor = CreateCompositor(_harness.Scene);
         Assert.That(compositor.EvaluateGraphics(Seconds(3)).Objects.OfType<DrawableTimeController.Resource>().Single().Target, Is.Null);
         var constraints = SlippableMedia.CreateResizeConstraints(element);
@@ -1268,7 +1268,7 @@ public class TrimTimeControllerTests
             Assert.That(preview, Is.EqualTo(Seconds(newStart == 2 ? newLength : newStart)));
             Assert.That(element.Start, Is.EqualTo(Seconds(newStart)));
             Assert.That(element.Length, Is.EqualTo(Seconds(newLength)));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(compositor.EvaluateGraphics(element.Start + element.Length / 2).Objects
                 .OfType<DrawableTimeController.Resource>().Single().Target, Is.Null);
         });
@@ -1287,8 +1287,8 @@ public class TrimTimeControllerTests
         owner.ZIndex = 1;
         var sound = new SceneSound
         {
-            ReferencedScene = { CurrentValue = new Scene { Duration = Seconds(20) } },
-            OffsetPosition = { CurrentValue = Seconds(2) }
+            ReferencedScene = { Value = new Scene { Duration = Seconds(20) } },
+            OffsetPosition = { Value = Seconds(2) }
         };
         owner.Objects.Add(sound);
         TimelineLayer layer = _harness.AddLayer(1);
@@ -1297,7 +1297,7 @@ public class TrimTimeControllerTests
         Element front = _harness.AddElement(TimeSpan.Zero, Seconds(operation == "slide" ? 2 : 4), 0);
         Element? middle = operation == "slide" ? _harness.AddElement(Seconds(2), Seconds(2), 0) : null;
         Element element = AddElement(4, 2, new DrawableTimeController());
-        element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
+        element.Objects.Insert(0, new PortalObject { Count = { Value = 1 } });
         var linkedVideo = CreateVideo(20);
         Element linked = AddElement(4, 2, linkedVideo);
         linked.ZIndex = 2;
@@ -1323,9 +1323,9 @@ public class TrimTimeControllerTests
         {
             Assert.That(applied, Is.False);
             Assert.That(preview, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(2)));
-            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(2)));
-            Assert.That(linkedVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(2)));
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(Seconds(2)));
+            Assert.That(linkedVideo.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(front.Length, Is.EqualTo(Seconds(operation == "slide" ? 2 : 4)));
             if (middle != null) Assert.That(middle.Start, Is.EqualTo(Seconds(2)));
             Assert.That(element.Start, Is.EqualTo(Seconds(4)));
@@ -1336,14 +1336,14 @@ public class TrimTimeControllerTests
         // Bounds remain usable when only the unlocked consumer's geometry changes.
         resize.Resize(_harness.Scene, [new(element, element.Start, Seconds(3), 0)]);
         Assert.That(element.Length, Is.EqualTo(Seconds(3)));
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(2)));
-        Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(2)));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(2)));
+        Assert.That(sound.OffsetPosition.Value, Is.EqualTo(Seconds(2)));
 
         owner.IsLocked = false;
         layer.IsLocked = false;
         Assert.That(Apply(), Is.True, "Unlocking the provider must restore offset editing.");
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(2.5)));
-        Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(operation == "slip" ? 2.5 : 2)));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(2.5)));
+        Assert.That(sound.OffsetPosition.Value, Is.EqualTo(Seconds(operation == "slip" ? 2.5 : 2)));
     }
 
     [Test]
@@ -1353,17 +1353,17 @@ public class TrimTimeControllerTests
         Element owner = AddElement(0, 1, video);
         owner.ZIndex = 2;
         Element element = _harness.AddElement(TimeSpan.Zero, Seconds(1), 1);
-        element.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        element.Objects.Add(new PortalObject { Count = { Value = 1 } });
         element.Objects.Add(new DrawableTimeController());
         Element disabled = _harness.AddElement(TimeSpan.Zero, Seconds(1), 0);
         disabled.IsEnabled = false;
-        disabled.Objects.Add(new PortalObject { Count = { CurrentValue = 2 } });
+        disabled.Objects.Add(new PortalObject { Count = { Value = 2 } });
         using var compositor = CreateCompositor(_harness.Scene);
         var resource = compositor.EvaluateGraphics(Seconds(0.25)).Objects.OfType<DrawableTimeController.Resource>().Single();
         Assert.That(resource.Target!.GetOriginal(), Is.SameAs(video));
 
         Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(1)), Is.True);
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(1)));
     }
 
     [TestCase(false)]
@@ -1377,8 +1377,8 @@ public class TrimTimeControllerTests
         speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = Seconds(20), Value = 50 });
         var controller = new DrawableTimeController
         {
-            OffsetPosition = { CurrentValue = Seconds(10) },
-            Loop = { CurrentValue = true }
+            OffsetPosition = { Value = Seconds(10) },
+            Loop = { Value = true }
         };
         controller.Speed.SetKeyFrameAnimation(speed);
         element.Objects.Add(controller);
@@ -1423,13 +1423,13 @@ public class TrimTimeControllerTests
             _harness.Scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsVideoMuted = visibility == "mute" });
         var controller = CreateController(video);
         Element element = AddElement(0, 0.5, controller);
-        element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
+        element.Objects.Insert(0, new PortalObject { Count = { Value = 1 } });
         using var compositor = CreateCompositor(_harness.Scene);
         Assert.That(compositor.EvaluateGraphics(Seconds(0.25)).Objects.OfType<DrawableTimeController.Resource>().Single().Target, Is.Null);
 
         Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(0.25)), Is.False);
         new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start, Seconds(3), 0)]);
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
         Assert.That(element.Length, Is.EqualTo(Seconds(3)));
     }
 
@@ -1440,7 +1440,7 @@ public class TrimTimeControllerTests
         var evaluated = CreateVideo(1);
         AddElement(5, 1, evaluated);
         var stored = CreateVideo(20);
-        var presenter = new DrawablePresenter { Target = { CurrentValue = emptyStoredTarget ? null : stored } };
+        var presenter = new DrawablePresenter { Target = { Value = emptyStoredTarget ? null : stored } };
         presenter.Target.Expression = new ReferenceExpression<Drawable?>(evaluated.Id);
         Element element = AddElement(0, 0.5, presenter);
         // Reference expressions resolve below the scene's hierarchy root.
@@ -1456,9 +1456,9 @@ public class TrimTimeControllerTests
         Assert.Multiple(() =>
         {
             Assert.That(element.Length, Is.EqualTo(Seconds(0.5)));
-            Assert.That(stored.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(evaluated.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(linkedVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(stored.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(evaluated.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(linkedVideo.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
         });
     }
 
@@ -1469,18 +1469,18 @@ public class TrimTimeControllerTests
         var video = CreateVideo(6);
         Element owner = AddElement(0, 1, video);
         owner.ZIndex = 1;
-        var sound = new SceneSound { ReferencedScene = { CurrentValue = new Scene { Duration = Seconds(6) } } };
+        var sound = new SceneSound { ReferencedScene = { Value = new Scene { Duration = Seconds(6) } } };
         owner.Objects.Add(sound);
         _harness.Scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsVideoMuted = videoMuted, IsAudioMuted = !videoMuted });
         Element element = _harness.AddElement(TimeSpan.Zero, Seconds(1), 0);
-        element.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        element.Objects.Add(new PortalObject { Count = { Value = 1 } });
         element.Objects.Add(new DrawableTimeController());
 
         Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(1)), Is.True);
         Assert.Multiple(() =>
         {
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(videoMuted ? 0 : 1)));
-            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(videoMuted ? 1 : 0)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(videoMuted ? 0 : 1)));
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(Seconds(videoMuted ? 1 : 0)));
         });
     }
 
@@ -1495,7 +1495,7 @@ public class TrimTimeControllerTests
         var active = CreateVideo(6);
         if (hasActiveProvider) AddElement(2, 8, active).ZIndex = 1;
         Element element = AddElement(2, 2, new DrawableTimeController());
-        element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
+        element.Objects.Insert(0, new PortalObject { Count = { Value = 1 } });
         using var compositor = CreateCompositor(_harness.Scene);
         var resource = compositor.EvaluateGraphics(Seconds(3)).Objects.OfType<DrawableTimeController.Resource>().Single();
         Assert.That(resource.Target?.GetOriginal(), Is.SameAs(hasActiveProvider ? active : null));
@@ -1506,9 +1506,9 @@ public class TrimTimeControllerTests
         {
             Assert.That(slipped, Is.EqualTo(hasActiveProvider));
             Assert.That(element.Length, Is.EqualTo(Seconds(3)));
-            Assert.That(active.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(hasActiveProvider ? 0.5 : 0)));
-            Assert.That(before.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(after.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(active.OffsetPosition.Value, Is.EqualTo(Seconds(hasActiveProvider ? 0.5 : 0)));
+            Assert.That(before.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(after.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
         });
     }
 
@@ -1521,7 +1521,7 @@ public class TrimTimeControllerTests
         Element front = _harness.AddElement(TimeSpan.Zero, Seconds(2));
         Element? middle = slide ? _harness.AddElement(Seconds(2), Seconds(2)) : null;
         Element back = AddElement(slide ? 4 : 2, 4, video);
-        (sharedMiddle ? middle! : front).Objects.Add(new DrawablePresenter { Target = { CurrentValue = video } });
+        (sharedMiddle ? middle! : front).Objects.Add(new DrawablePresenter { Target = { Value = video } });
         var resize = new ElementResizeService(_harness.History);
         TimeSpan oldBackStart = back.Start;
         _harness.History.Commit();
@@ -1538,15 +1538,15 @@ public class TrimTimeControllerTests
             Assert.That(front.Length, Is.EqualTo(Seconds(2.5)));
             Assert.That(back.Start, Is.EqualTo(oldBackStart + Seconds(0.5)));
             Assert.That(back.Length, Is.EqualTo(Seconds(3.5)));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(1)));
             if (middle != null) Assert.That(middle.Start, Is.EqualTo(Seconds(2.5)));
         });
         _harness.History.Undo();
         Assert.That(back.Start, Is.EqualTo(oldBackStart));
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(1)));
         _harness.History.Redo();
         Assert.That(back.Start, Is.EqualTo(oldBackStart + Seconds(0.5)));
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(1)));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(1)));
     }
 
     [TestCase(false, false)]
@@ -1557,8 +1557,8 @@ public class TrimTimeControllerTests
     {
         var video = CreateVideo(leftEdge ? 2 : 6);
         AddElement(leftEdge ? 0 : 2, leftEdge ? 3 : 8, video).ZIndex = 1;
-        Element element = AddElement(leftEdge ? 4 : 0, 1, new DrawableTimeController { Speed = { CurrentValue = 200 } });
-        element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
+        Element element = AddElement(leftEdge ? 4 : 0, 1, new DrawableTimeController { Speed = { Value = 200 } });
+        element.Objects.Insert(0, new PortalObject { Count = { Value = 1 } });
         using var compositor = CreateCompositor(_harness.Scene);
         Assert.That(compositor.EvaluateGraphics(element.Start + Seconds(0.5)).Objects
             .OfType<DrawableTimeController.Resource>().Single().Target, Is.Null);
@@ -1575,7 +1575,7 @@ public class TrimTimeControllerTests
             Assert.That(element.Length, Is.EqualTo(Seconds(3)));
             Assert.That(resource.Target!.GetOriginal(), Is.SameAs(video));
             Assert.That(ReadPosition(resource), Is.LessThanOrEqualTo(leftEdge ? 2 : 6));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
         });
     }
 
@@ -1585,7 +1585,7 @@ public class TrimTimeControllerTests
         element.Objects.Add(drawable);
         // Target is a reference, so these explicit-target fixtures must supply its clock.
         // Preserve the distinct ranges deliberately assigned by the anchored-target tests.
-        while (drawable is DrawableTimeController controller && controller.Target.CurrentValue is { } target)
+        while (drawable is DrawableTimeController controller && controller.Target.Value is { } target)
         {
             if (!target.IsTimeAnchor && target.TimeRange.Duration == TimeSpan.Zero)
                 target.TimeRange = controller.TimeRange;
@@ -1597,9 +1597,9 @@ public class TrimTimeControllerTests
     private static DrawableTimeController CreateController(Drawable target, float speed = 100, double offsetSeconds = 0)
         => new()
         {
-            Target = { CurrentValue = target },
-            Speed = { CurrentValue = speed },
-            OffsetPosition = { CurrentValue = Seconds(offsetSeconds) }
+            Target = { Value = target },
+            Speed = { Value = speed },
+            OffsetPosition = { Value = Seconds(offsetSeconds) }
         };
 
     private static double ReadPosition(Drawable drawable, double absoluteSeconds)

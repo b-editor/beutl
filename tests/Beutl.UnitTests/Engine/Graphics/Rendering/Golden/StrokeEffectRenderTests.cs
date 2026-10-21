@@ -21,20 +21,20 @@ public class StrokeEffectRenderTests
     private static Drawable.Resource Make(Point offset, float penOffset, StrokeEffect.StrokeStyles style)
     {
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.Width.CurrentValue = 80;
-        shape.Height.CurrentValue = 80;
-        shape.Fill.CurrentValue = Brushes.White;
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.Width.Value = 80;
+        shape.Height.Value = 80;
+        shape.Fill.Value = Brushes.White;
         var pen = new Pen();
-        pen.Thickness.CurrentValue = 12;
-        pen.Brush.CurrentValue = Brushes.Red;
-        pen.Offset.CurrentValue = penOffset;
+        pen.Thickness.Value = 12;
+        pen.Brush.Value = Brushes.Red;
+        pen.Offset.Value = penOffset;
         var e = new StrokeEffect();
-        e.Pen.CurrentValue = pen;
-        e.Offset.CurrentValue = offset;
-        e.Style.CurrentValue = style;
-        shape.FilterEffect.CurrentValue = e;
+        e.Pen.Value = pen;
+        e.Offset.Value = offset;
+        e.Style.Value = style;
+        shape.FilterEffect.Value = e;
         return shape.ToResource(CompositionContext.Default);
     }
 

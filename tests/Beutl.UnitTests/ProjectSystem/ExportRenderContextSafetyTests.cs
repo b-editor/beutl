@@ -100,7 +100,7 @@ public sealed class ExportRenderContextSafetyTests
         var media = new VideoSource();
         media.ReadFrom(new Uri(mediaPath));
         var drawable = new SourceVideo();
-        drawable.Source.CurrentValue = media;
+        drawable.Source.Value = media;
         var element = new Element
         {
             Start = TimeSpan.Zero,

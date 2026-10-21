@@ -17,7 +17,7 @@ public partial class ImageBrush : TileBrush
 
     public ImageBrush(ImageSource source) : this()
     {
-        Source.CurrentValue = source;
+        Source.Value = source;
     }
 
     /// <summary>

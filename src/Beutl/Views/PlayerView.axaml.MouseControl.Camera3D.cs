@@ -141,8 +141,8 @@ public partial class PlayerView
             var scaledPos = _lastPosition / scaleX;
             var screenPoint = new Point((float)scaledPos.X, (float)scaledPos.Y);
 
-            var currentGizmoTarget = _scene3D.GizmoTarget.CurrentValue;
-            var currentGizmoMode = _scene3D.GizmoMode.CurrentValue;
+            var currentGizmoTarget = _scene3D.GizmoTarget.Value;
+            var currentGizmoMode = _scene3D.GizmoMode.Value;
 
             if (currentGizmoTarget.HasValue && currentGizmoMode != GizmoMode.None)
             {
@@ -187,17 +187,17 @@ public partial class PlayerView
 
                 if (_selectedObject != null)
                 {
-                    _scene3D.GizmoTarget.CurrentValue = _selectedObject.Id;
+                    _scene3D.GizmoTarget.Value = _selectedObject.Id;
 
                     _currentGizmoMode = ViewModel.SelectedGizmoMode.Value;
-                    _scene3D.GizmoMode.CurrentValue = _currentGizmoMode;
+                    _scene3D.GizmoMode.Value = _currentGizmoMode;
 
                     CaptureObjectKeyFrames(_selectedObject);
                 }
             }
             else
             {
-                _scene3D.GizmoTarget.CurrentValue = null;
+                _scene3D.GizmoTarget.Value = null;
                 _selectedObject = null;
             }
 
@@ -367,7 +367,7 @@ public partial class PlayerView
             movement = ToParentSpace(selectedObject, movement);
             if (!SetKeyFrameValue(_objectPositionKeyFrame, movement))
             {
-                selectedObject.Position.CurrentValue += movement;
+                selectedObject.Position.Value += movement;
             }
         }
 
@@ -397,14 +397,14 @@ public partial class PlayerView
 
             if (!SetKeyFrameValue(_objectRotationKeyFrame, rotation))
             {
-                selectedObject.Rotation.CurrentValue += rotation;
+                selectedObject.Rotation.Value += rotation;
             }
         }
 
         private void ScaleSelectedObject(Object3D selectedObject, AvaPoint delta)
         {
             float scaleFactor = 1.0f + (float)delta.Y * ObjectScaleSpeed;
-            var currentScale = selectedObject.Scale.CurrentValue;
+            var currentScale = selectedObject.Scale.Value;
             Vector3 scaleDelta;
 
             if (_selectedGizmoAxis is GizmoAxis.X or GizmoAxis.Y or GizmoAxis.Z)
@@ -425,7 +425,7 @@ public partial class PlayerView
 
             if (!SetKeyFrameValue(_objectScaleKeyFrame, scaleDelta))
             {
-                selectedObject.Scale.CurrentValue = currentScale + scaleDelta;
+                selectedObject.Scale.Value = currentScale + scaleDelta;
             }
         }
 
@@ -452,7 +452,7 @@ public partial class PlayerView
 
             if (!SetKeyFrameValue(_targetKeyFrame, targetDelta))
             {
-                camera.Target.CurrentValue = newTarget;
+                camera.Target.Value = newTarget;
             }
         }
 
@@ -516,12 +516,12 @@ public partial class PlayerView
 
             if (!SetKeyFrameValue(posKeyFrame, movement))
             {
-                _camera.Position.CurrentValue = position + movement;
+                _camera.Position.Value = position + movement;
             }
 
             if (!SetKeyFrameValue(targetKeyFrame, movement))
             {
-                _camera.Target.CurrentValue = target + movement;
+                _camera.Target.Value = target + movement;
             }
 
             EditViewModel.HistoryManager.Commit(CommandNames.TransformElement);
@@ -592,12 +592,12 @@ public partial class PlayerView
             {
                 if (!SetKeyFrameValue(_positionKeyFrame, movement))
                 {
-                    _camera.Position.CurrentValue = position + movement;
+                    _camera.Position.Value = position + movement;
                 }
 
                 if (!SetKeyFrameValue(_targetKeyFrame, movement))
                 {
-                    _camera.Target.CurrentValue = target + movement;
+                    _camera.Target.Value = target + movement;
                 }
             }
         }
@@ -736,7 +736,7 @@ public partial class PlayerView
                 if (scene3DObj != null)
                 {
                     _scene3D = scene3DObj;
-                    _camera = _scene3D.Camera.CurrentValue;
+                    _camera = _scene3D.Camera.Value;
                     return;
                 }
             }
@@ -778,7 +778,7 @@ public partial class PlayerView
             if (drawable is Scene3D scene3D)
             {
                 _scene3D = scene3D;
-                _camera = scene3D.Camera.CurrentValue;
+                _camera = scene3D.Camera.Value;
             }
         }
 

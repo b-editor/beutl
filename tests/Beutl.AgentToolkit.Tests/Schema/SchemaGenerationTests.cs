@@ -228,12 +228,12 @@ public sealed class SchemaGenerationTests
         {
             Assert.That(rigElement.Objects, Has.Count.EqualTo(2));
             Assert.That(rigElement.Objects[0], Is.InstanceOf<PortalObject>());
-            Assert.That(((PortalObject)rigElement.Objects[0]).Count.CurrentValue, Is.EqualTo(0));
+            Assert.That(((PortalObject)rigElement.Objects[0]).Count.Value, Is.EqualTo(0));
             Assert.That(rigElement.Objects[1], Is.InstanceOf<DrawableGroup>());
             var group = (DrawableGroup)rigElement.Objects[1];
             Assert.That(group.Children, Has.Count.EqualTo(2));
             Assert.That(group.Children[1], Is.InstanceOf<TextBlock>());
-            var transformGroup = (TransformGroup)group.Transform.CurrentValue!;
+            var transformGroup = (TransformGroup)group.Transform.Value!;
             Assert.That(transformGroup.Children.OfType<ScaleTransform>().Count(), Is.EqualTo(1));
             Assert.That(transformGroup.Children.OfType<TranslateTransform>().Count(), Is.EqualTo(1));
         });
@@ -262,7 +262,7 @@ public sealed class SchemaGenerationTests
         {
             Assert.That(rigElement.Objects, Has.Count.EqualTo(2));
             Assert.That(rigElement.Objects[0], Is.InstanceOf<PortalObject>());
-            Assert.That(((PortalObject)rigElement.Objects[0]).Count.CurrentValue, Is.EqualTo(2));
+            Assert.That(((PortalObject)rigElement.Objects[0]).Count.Value, Is.EqualTo(2));
             Assert.That(rigElement.Objects[1], Is.InstanceOf<DrawableGroup>());
             Assert.That(((DrawableGroup)rigElement.Objects[1]).Children, Is.Empty);
             Assert.That(plateElement.Objects.Single(), Is.InstanceOf<RectShape>());

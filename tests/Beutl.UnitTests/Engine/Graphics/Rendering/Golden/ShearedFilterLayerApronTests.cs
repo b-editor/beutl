@@ -137,7 +137,7 @@ public class ShearedFilterLayerApronTests
     private static FilterEffect NegligibleBlur()
     {
         var blur = new Blur();
-        blur.Sigma.CurrentValue = new Size(0.01f, 0.01f);
+        blur.Sigma.Value = new Size(0.01f, 0.01f);
         return blur;
     }
 
@@ -148,29 +148,29 @@ public class ShearedFilterLayerApronTests
     private static double MeasureInk(FilterEffect? effect, float skewX, float offsetY)
     {
         var rectangle = new RectShape();
-        rectangle.Width.CurrentValue = 100f;
-        rectangle.Height.CurrentValue = 6f;
-        rectangle.Fill.CurrentValue = new SolidColorBrush(Colors.White);
-        rectangle.AlignmentX.CurrentValue = AlignmentX.Left;
-        rectangle.AlignmentY.CurrentValue = AlignmentY.Top;
-        rectangle.TransformOrigin.CurrentValue = RelativePoint.TopLeft;
+        rectangle.Width.Value = 100f;
+        rectangle.Height.Value = 6f;
+        rectangle.Fill.Value = new SolidColorBrush(Colors.White);
+        rectangle.AlignmentX.Value = AlignmentX.Left;
+        rectangle.AlignmentY.Value = AlignmentY.Top;
+        rectangle.TransformOrigin.Value = RelativePoint.TopLeft;
         if (effect is not null)
-            rectangle.FilterEffect.CurrentValue = effect;
+            rectangle.FilterEffect.Value = effect;
 
         var group = new TransformGroup();
         var translate = new TranslateTransform();
-        translate.X.CurrentValue = 64;
-        translate.Y.CurrentValue = offsetY;
+        translate.X.Value = 64;
+        translate.Y.Value = offsetY;
         // A TransformGroup applies its last child first, so the squeeze runs in the shape's own space.
         group.Children.Add(translate);
         var skew = new SkewTransform();
-        skew.SkewX.CurrentValue = skewX;
+        skew.SkewX.Value = skewX;
         group.Children.Add(skew);
         var scale = new ScaleTransform();
-        scale.ScaleX.CurrentValue = 100f;
-        scale.ScaleY.CurrentValue = 10f;
+        scale.ScaleX.Value = 100f;
+        scale.ScaleY.Value = 10f;
         group.Children.Add(scale);
-        rectangle.Transform.CurrentValue = group;
+        rectangle.Transform.Value = group;
 
         using Bitmap bitmap = SceneRenderHarness.RenderSingle(
             rectangle,

@@ -197,7 +197,7 @@ public static partial class ProxySourceEnumerator
 
             switch (drawable)
             {
-                case NodeGraphDrawable { Model.CurrentValue: { } model }:
+                case NodeGraphDrawable { Model.Value: { } model }:
                     foreach (IFileSource source in EnumerateGraphSources(model, walkContext.VisitedGraphGroups, localRange, sceneWindow: walkContext.SceneWindow, walkContext: walkContext, skipDisabledElements: skipDisabledElements))
                         yield return source;
 
@@ -407,7 +407,7 @@ public static partial class ProxySourceEnumerator
     // Then the referenced scene samples the element-local window directly.
     private static bool IsIdentityAudioMap(SceneSound sceneSound)
         => sceneSound.OffsetPosition.GetKeyFrameAnimation() is null
-           && sceneSound.OffsetPosition.CurrentValue == TimeSpan.Zero
+           && sceneSound.OffsetPosition.Value == TimeSpan.Zero
            && sceneSound.Speed.GetKeyFrameAnimation() is null
-           && sceneSound.Speed.CurrentValue == 100f;
+           && sceneSound.Speed.Value == 100f;
 }

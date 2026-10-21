@@ -464,7 +464,7 @@ public class ToolTabPinTests
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("pin-node-graph-removed");
         var graph = new GraphModel();
-        Element element = await AddElement(editor, 0, () => new NodeGraphDrawable { Model = { CurrentValue = graph } });
+        Element element = await AddElement(editor, 0, () => new NodeGraphDrawable { Model = { Value = graph } });
         using var tab = new NodeGraphTabViewModel(editor);
         tab.Model.Value = graph;
         tab.IsPinned.Value = true;
@@ -493,7 +493,7 @@ public class ToolTabPinTests
         figure.Segments.Add(new LineSegment(80, 100));
         figure.Segments.Add(new LineSegment(180, 100));
         Element shaped = await AddElement(editor, 0,
-            () => new GeometryShape { Data = { CurrentValue = new PathGeometry { Figures = { figure } } } });
+            () => new GeometryShape { Data = { Value = new PathGeometry { Figures = { figure } } } });
         Element other = await AddElement(editor, 1, () => new RectShape());
         IEditorSelection selection = SelectionOf(editor);
         ElementPropertyTabViewModel properties = editor.FindToolTab<ElementPropertyTabViewModel>()!;
@@ -544,7 +544,7 @@ public class ToolTabPinTests
         var figure = new PathFigure();
         figure.Segments.Add(new LineSegment(80, 100));
         Element shaped = await AddElement(editor, 0,
-            () => new GeometryShape { Data = { CurrentValue = new PathGeometry { Figures = { figure } } } });
+            () => new GeometryShape { Data = { Value = new PathGeometry { Figures = { figure } } } });
         SelectionOf(editor).Select(shaped);
         GeometryEditorViewModel geometry = editor.FindToolTab<ElementPropertyTabViewModel>()!.Items
             .SelectMany(item => item.Properties)

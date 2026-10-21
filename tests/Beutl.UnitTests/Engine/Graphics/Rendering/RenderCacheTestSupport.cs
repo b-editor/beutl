@@ -133,27 +133,27 @@ internal static class RenderCacheTestSupport
     {
         var background = new RectShape
         {
-            Width = { CurrentValue = 240 },
-            Height = { CurrentValue = 160 },
-            Fill = { CurrentValue = Brushes.CornflowerBlue },
+            Width = { Value = 240 },
+            Height = { Value = 160 },
+            Fill = { Value = Brushes.CornflowerBlue },
         };
 
         var accent = new EllipseShape
         {
-            Width = { CurrentValue = 76 },
-            Height = { CurrentValue = 76 },
-            Fill = { CurrentValue = Brushes.OrangeRed },
-            FilterEffect = { CurrentValue = new Brightness { Amount = { CurrentValue = 78 } } },
-            Transform = { CurrentValue = new TranslateTransform(44, -18) },
+            Width = { Value = 76 },
+            Height = { Value = 76 },
+            Fill = { Value = Brushes.OrangeRed },
+            FilterEffect = { Value = new Brightness { Amount = { Value = 78 } } },
+            Transform = { Value = new TranslateTransform(44, -18) },
         };
 
         var label = new TextBlock
         {
-            FontFamily = { CurrentValue = FontFamily.Default },
-            Size = { CurrentValue = 28 },
-            Fill = { CurrentValue = Brushes.White },
-            Text = { CurrentValue = "CACHE" },
-            Transform = { CurrentValue = new TranslateTransform(-28, 30) },
+            FontFamily = { Value = FontFamily.Default },
+            Size = { Value = 28 },
+            Fill = { Value = Brushes.White },
+            Text = { Value = "CACHE" },
+            Transform = { Value = new TranslateTransform(-28, 30) },
         };
 
         CompositionContext context = CompositionContext.Default;

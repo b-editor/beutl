@@ -347,7 +347,7 @@ public sealed class ElementViewModelProxyStateTests
         var innerVideo = new SourceVideo();
         var firstSource = new VideoSource();
         firstSource.ReadFrom(new Uri(firstPath));
-        innerVideo.Source.CurrentValue = firstSource;
+        innerVideo.Source.Value = firstSource;
 
         var group = new DrawableGroup();
         group.Children.Add(innerVideo);
@@ -366,7 +366,7 @@ public sealed class ElementViewModelProxyStateTests
 
         var secondSource = new VideoSource();
         secondSource.ReadFrom(new Uri(secondPath));
-        innerVideo.Source.CurrentValue = secondSource;
+        innerVideo.Source.Value = secondSource;
 
         string newKey = ProxyFingerprint.FromFile(secondPath).AbsolutePath;
         Assert.Multiple(() =>

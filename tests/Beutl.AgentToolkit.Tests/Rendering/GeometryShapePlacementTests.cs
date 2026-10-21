@@ -27,15 +27,15 @@ public sealed class GeometryShapePlacementTests
         };
 
         var figure = new PathFigure();
-        figure.StartPoint.CurrentValue = new Point(originX, originY);
+        figure.StartPoint.Value = new Point(originX, originY);
         figure.Segments.Add(new LineSegment(new Point(originX + 100, originY + 55)));
         figure.Segments.Add(new LineSegment(new Point(originX, originY + 110)));
-        figure.IsClosed.CurrentValue = true;
+        figure.IsClosed.Value = true;
         var shape = new GeometryShape
         {
             Name = "placement probe",
-            Data = { CurrentValue = new PathGeometry { Figures = { figure } } },
-            Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
+            Data = { Value = new PathGeometry { Figures = { figure } } },
+            Fill = { Value = new SolidColorBrush(Colors.White) }
         };
         element.AddObject(shape);
         scene.Children.Add(element);

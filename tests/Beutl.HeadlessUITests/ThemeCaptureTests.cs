@@ -216,16 +216,16 @@ public class ThemeCaptureTests
     private static RectShape CreateDecoratedRect()
     {
         var rect = new RectShape();
-        rect.Fill.CurrentValue = new SolidColorBrush(0xFF3B82F6);
+        rect.Fill.Value = new SolidColorBrush(0xFF3B82F6);
 
         var pen = new Pen();
-        pen.Brush.CurrentValue = new SolidColorBrush(0xFFE9EBF1);
-        pen.Thickness.CurrentValue = 4;
-        rect.Pen.CurrentValue = pen;
+        pen.Brush.Value = new SolidColorBrush(0xFFE9EBF1);
+        pen.Thickness.Value = 4;
+        rect.Pen.Value = pen;
 
         var blur = new Blur();
-        blur.Sigma.CurrentValue = new Graphics.Size(10, 10);
-        ((FilterEffectGroup)rect.FilterEffect.CurrentValue!).Children.Add(blur);
+        blur.Sigma.Value = new Graphics.Size(10, 10);
+        ((FilterEffectGroup)rect.FilterEffect.Value!).Children.Add(blur);
         return rect;
     }
 

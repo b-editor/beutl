@@ -31,8 +31,8 @@ public class NoMigrationRegressionTests
     public void Dilate_DoesNotSerializeScaleMachinery_AndRoundTripsStably()
     {
         var dilate = new Dilate();
-        dilate.RadiusX.CurrentValue = 5f;
-        dilate.RadiusY.CurrentValue = 7f;
+        dilate.RadiusX.Value = 5f;
+        dilate.RadiusY.Value = 7f;
 
         var json = CoreSerializer.SerializeToJsonObject(dilate);
         string s1 = json.ToJsonString();
@@ -51,11 +51,11 @@ public class NoMigrationRegressionTests
     public void BlurredEllipse_RoundTripsStably_AndIsCurrentFormat()
     {
         var shape = new EllipseShape();
-        shape.Width.CurrentValue = 100;
-        shape.Height.CurrentValue = 80;
+        shape.Width.Value = 100;
+        shape.Height.Value = 80;
         var blur = new Blur();
-        blur.Sigma.CurrentValue = new Size(4, 4);
-        shape.FilterEffect.CurrentValue = blur;
+        blur.Sigma.Value = new Size(4, 4);
+        shape.FilterEffect.Value = blur;
 
         var json = CoreSerializer.SerializeToJsonObject(shape);
         string s1 = json.ToJsonString();

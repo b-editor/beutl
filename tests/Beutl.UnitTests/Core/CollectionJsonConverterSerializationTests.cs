@@ -22,13 +22,13 @@ public class CollectionJsonConverterSerializationTests
     public void EngineProperty_WritesTheValueWithItsConverterAndReadsItBack()
     {
         var holder = new PointListHolder();
-        holder.Points.CurrentValue = new PointList(s_points);
+        holder.Points.Value = new PointList(s_points);
 
         JsonObject json = CoreSerializer.SerializeToJsonObject(holder);
         var restored = (PointListHolder)CoreSerializer.DeserializeFromJsonObject(json, typeof(PointListHolder));
 
         Assert.That(json[nameof(PointListHolder.Points)]!.ToJsonString(), Is.EqualTo(ConverterJson));
-        Assert.That(restored.Points.CurrentValue, Is.EqualTo(s_points));
+        Assert.That(restored.Points.Value, Is.EqualTo(s_points));
     }
 
     // A core property, such as a key frame's value, is read as its own type rather than as an Optional<T>.

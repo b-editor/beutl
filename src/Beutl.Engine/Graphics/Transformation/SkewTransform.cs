@@ -11,8 +11,8 @@ public sealed partial class SkewTransform : Transform
 {
     public SkewTransform(float skewX, float skewY) : this()
     {
-        SkewX.CurrentValue = skewX;
-        SkewY.CurrentValue = skewY;
+        SkewX.Value = skewX;
+        SkewY.Value = skewY;
     }
 
     public SkewTransform()

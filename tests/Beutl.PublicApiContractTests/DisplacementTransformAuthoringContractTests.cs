@@ -18,13 +18,13 @@ public sealed class DisplacementTransformAuthoringContractTests
     public void PluginTransform_IsLoweredByDisplacementMapEffect()
     {
         var transform = new PluginDisplacementTransform();
-        transform.Strength.CurrentValue = 0.25f;
+        transform.Strength.Value = 0.25f;
         var effect = new DisplacementMapEffect();
-        effect.DisplacementMap.CurrentValue = new SolidColorBrush(Colors.White);
-        effect.Transform.CurrentValue = transform;
-        effect.SpreadMethod.CurrentValue = GradientSpreadMethod.Repeat;
-        effect.Channel.CurrentValue = DisplacementMapChannel.Green;
-        effect.Signed.CurrentValue = true;
+        effect.DisplacementMap.Value = new SolidColorBrush(Colors.White);
+        effect.Transform.Value = transform;
+        effect.SpreadMethod.Value = GradientSpreadMethod.Repeat;
+        effect.Channel.Value = DisplacementMapChannel.Green;
+        effect.Signed.Value = true;
 
         using DisplacementMapEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         var pluginResource = resource.Transform as PluginDisplacementTransform.Resource;

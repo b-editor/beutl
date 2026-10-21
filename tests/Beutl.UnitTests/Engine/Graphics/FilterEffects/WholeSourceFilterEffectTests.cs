@@ -124,9 +124,9 @@ public sealed class WholeSourceFilterEffectTests
         Assert.Multiple(() =>
         {
             Assert.That(json.ContainsKey("Mode"), Is.False);
-            Assert.That(restored.Angle.CurrentValue, Is.EqualTo(30));
-            Assert.That(restored.Position.CurrentValue, Is.EqualTo(4));
-            Assert.That(restored.Width.CurrentValue, Is.EqualTo(-20));
+            Assert.That(restored.Angle.Value, Is.EqualTo(30));
+            Assert.That(restored.Position.Value, Is.EqualTo(4));
+            Assert.That(restored.Width.Value, Is.EqualTo(-20));
             Assert.That(resource.Width, Is.EqualTo(expectedWidth));
             Assert.That(FilterEffectTestHarness.BindUniform(description, "width", s_bounds).Floats![0], Is.EqualTo(expectedWidth));
         });
@@ -134,9 +134,9 @@ public sealed class WholeSourceFilterEffectTests
 
     private static DiagonalClipping MakeDiagonalClipping(float angle = 45, float position = 0, float width = 0) => new()
     {
-        Angle = { CurrentValue = angle },
-        Position = { CurrentValue = position },
-        Width = { CurrentValue = width },
+        Angle = { Value = angle },
+        Position = { Value = position },
+        Width = { Value = width },
     };
 
     private static float[] RenderDiagonalClipping(DiagonalClipping effect)
@@ -183,8 +183,8 @@ public sealed class WholeSourceFilterEffectTests
     {
         var effect = new ColorShift
         {
-            RedOffset = { CurrentValue = new PixelPoint(4, 2) },
-            GreenOffset = { CurrentValue = new PixelPoint(1, 0) },
+            RedOffset = { Value = new PixelPoint(4, 2) },
+            GreenOffset = { Value = new PixelPoint(1, 0) },
         };
         (ShaderDescription description, Rect bounds) = FilterEffectTestHarness.RecordShader(effect, s_bounds);
         Assert.Multiple(() =>
@@ -201,13 +201,13 @@ public sealed class WholeSourceFilterEffectTests
     {
         var first = new ColorShift
         {
-            RedOffset = { CurrentValue = new PixelPoint(4, 2) },
-            GreenOffset = { CurrentValue = new PixelPoint(1, 0) },
+            RedOffset = { Value = new PixelPoint(4, 2) },
+            GreenOffset = { Value = new PixelPoint(1, 0) },
         };
         var second = new ColorShift
         {
-            RedOffset = { CurrentValue = new PixelPoint(-3, 5) },
-            GreenOffset = { CurrentValue = new PixelPoint(0, -2) },
+            RedOffset = { Value = new PixelPoint(-3, 5) },
+            GreenOffset = { Value = new PixelPoint(0, -2) },
         };
 
         ShaderDescription firstDescription = FilterEffectTestHarness.RecordShader(first, s_bounds).Description;
@@ -277,7 +277,7 @@ public sealed class WholeSourceFilterEffectTests
     {
         var effect = new DisplacementMapEffect
         {
-            SpreadMethod = { CurrentValue = spreadMethod },
+            SpreadMethod = { Value = spreadMethod },
         };
 
         ShaderDescription description = FilterEffectTestHarness.RecordShader(effect, s_bounds).Description;
@@ -289,7 +289,7 @@ public sealed class WholeSourceFilterEffectTests
     {
         var effect = new DisplacementMapEffect
         {
-            ShowDisplacementMap = { CurrentValue = true },
+            ShowDisplacementMap = { Value = true },
         };
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(s_bounds);
@@ -499,6 +499,6 @@ public sealed class WholeSourceFilterEffectTests
         where T : DisplacementMapTransform, new()
         => new DisplacementMapEffect
         {
-            Transform = { CurrentValue = new T() },
+            Transform = { Value = new T() },
         };
 }

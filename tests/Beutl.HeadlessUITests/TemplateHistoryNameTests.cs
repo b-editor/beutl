@@ -23,7 +23,7 @@ public sealed class TemplateHistoryNameTests
     public void Applying_a_template_to_a_filter_effect_is_labelled_apply_template(bool group)
     {
         var shape = new RectShape();
-        shape.FilterEffect.CurrentValue = group ? new FilterEffectGroup() : new Brightness();
+        shape.FilterEffect.Value = group ? new FilterEffectGroup() : new Brightness();
         var element = new Element { Uri = new Uri("file:///template-history.belm") };
         element.AddObject(shape);
         using var history = new HistoryScope(element);

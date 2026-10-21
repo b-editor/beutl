@@ -108,7 +108,7 @@ public static class AnimationEditTutorial
                         }
 
                         // Transformプロパティの変更を監視
-                        if (drawable.Transform.CurrentValue is TransformGroup group)
+                        if (drawable.Transform.Value is TransformGroup group)
                         {
                             void Handler(Transform t)
                             {

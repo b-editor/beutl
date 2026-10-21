@@ -40,11 +40,11 @@ public class ModelSourceEditorTests
             var child = model.Children.Single();
             Assert.That(history.UndoCount, Is.EqualTo(1));
             Assert.That(history.Undo(), Is.True);
-            Assert.That(model.Source.CurrentValue, Is.Null);
+            Assert.That(model.Source.Value, Is.Null);
             Assert.That(model.Children, Is.Empty);
             Assert.That(history.Redo(), Is.True);
             Assert.That(model.Children.Single(), Is.SameAs(child));
-            Assert.That(model.Source.CurrentValue!.Uri.LocalPath, Is.EqualTo(path));
+            Assert.That(model.Source.Value!.Uri.LocalPath, Is.EqualTo(path));
         }
         finally { Directory.Delete(directory, recursive: true); }
     }
@@ -61,7 +61,7 @@ public class ModelSourceEditorTests
             File.WriteAllText(valid, "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
             File.WriteAllText(invalid, "glTF");
             var original = new ModelSource(); original.ReadFrom(new Uri(valid));
-            var model = new Model3D(); model.Source.CurrentValue = original;
+            var model = new Model3D(); model.Source.Value = original;
             var originalChild = model.Children.Single();
             using var history = new HistoryManager(new OperationSequenceGenerator());
             using var vm = new ModelSourceEditorViewModel(new EnginePropertyAdapter<ModelSource?>(model.Source, model));
@@ -90,7 +90,7 @@ public class ModelSourceEditorTests
             HeadlessTestHelpers.Render();
             Assert.Multiple(() =>
             {
-                Assert.That(model.Source.CurrentValue, Is.SameAs(original));
+                Assert.That(model.Source.Value, Is.SameAs(original));
                 Assert.That(model.Children.Single(), Is.SameAs(originalChild));
                 Assert.That(editor.Value!.FullName, Is.EqualTo(valid));
                 Assert.That(message.IsEffectivelyVisible, Is.True);
@@ -102,7 +102,7 @@ public class ModelSourceEditorTests
             editor.Value = new FileInfo(valid);
             editor.RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo?>(editor.Value, editor.Value, PropertyEditor.ValueConfirmedEvent));
             await view.LoadingTask;
-            Assert.That(model.Source.CurrentValue!.MeshCount, Is.EqualTo(1));
+            Assert.That(model.Source.Value!.MeshCount, Is.EqualTo(1));
             Assert.That(message.IsVisible, Is.False, message.Text);
         }
         finally { window.Close(); Directory.Delete(directory, recursive: true); }
@@ -145,7 +145,7 @@ public class ModelSourceEditorTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(model.Source.CurrentValue!.Uri.LocalPath, Is.EqualTo(valid));
+                Assert.That(model.Source.Value!.Uri.LocalPath, Is.EqualTo(valid));
                 Assert.That(editor.Value!.FullName, Is.EqualTo(valid));
                 Assert.That(message.IsVisible, Is.False, message.Text);
             });
@@ -191,8 +191,8 @@ public class ModelSourceEditorTests
             await view.LoadingTask;
             Assert.Multiple(() =>
             {
-                Assert.That(model.Source.CurrentValue, Is.Null);
-                Assert.That(other.Source.CurrentValue, Is.Null);
+                Assert.That(model.Source.Value, Is.Null);
+                Assert.That(other.Source.Value, Is.Null);
                 Assert.That(progress.IsVisible, Is.False);
             });
         }
@@ -223,13 +223,13 @@ public class ModelSourceEditorTests
             try
             {
                 Confirm(editor, valid);
-                model.Source.CurrentValue = replacement;
+                model.Source.Value = replacement;
                 Assert.That(progress.IsVisible, Is.False);
             }
             finally { release.Set(); }
 
             await view.LoadingTask;
-            Assert.That(model.Source.CurrentValue, Is.SameAs(replacement));
+            Assert.That(model.Source.Value, Is.SameAs(replacement));
         }
         finally { Directory.Delete(directory, recursive: true); }
     }

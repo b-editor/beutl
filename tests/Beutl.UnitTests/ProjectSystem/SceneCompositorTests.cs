@@ -250,7 +250,7 @@ public class SceneCompositorTests
         Element groupElement = CreateElement(_basePath, isEnabled: true, group);
         groupElement.ZIndex = 0;
         groupElement.Length = TimeSpan.FromSeconds(1);
-        ((PortalObject)groupElement.Objects[0]).Count.CurrentValue = 1;
+        ((PortalObject)groupElement.Objects[0]).Count.Value = 1;
 
         var child = new LimiterTailSound();
         Element childElement = CreateElement(_basePath, isEnabled: true, child);
@@ -284,7 +284,7 @@ public class SceneCompositorTests
             Uri = new Uri(Path.Combine(_basePath, $"{Guid.NewGuid():N}.group.layer")),
         };
         groupElement.AddObject(group);
-        ((PortalObject)groupElement.Objects[0]).Count.CurrentValue = 1;
+        ((PortalObject)groupElement.Objects[0]).Count.Value = 1;
 
         var child = new LimiterTailSound();
         var childElement = new ValueEqualElement
@@ -316,8 +316,8 @@ public class SceneCompositorTests
         var sound = new LimiterTailSound();
         Element element = CreateElement(_basePath, isEnabled: true, sound);
         var portal = new PortalObject();
-        portal.Clear.CurrentValue = true;
-        portal.Count.CurrentValue = 0;
+        portal.Clear.Value = true;
+        portal.Count.Value = 0;
         element.Objects.Add(portal);
         scene.Children.Add(element);
         using var compositor = new SceneCompositor(scene);
@@ -346,7 +346,7 @@ public class SceneCompositorTests
         groupElement.Start = TimeSpan.FromSeconds(2);
         groupElement.ZIndex = 0;
         groupElement.Length = TimeSpan.FromSeconds(1);
-        ((PortalObject)groupElement.Objects[0]).Count.CurrentValue = 1;
+        ((PortalObject)groupElement.Objects[0]).Count.Value = 1;
 
         var child = new LimiterTailSound();
         Element childElement = CreateElement(_basePath, isEnabled: true, child);
@@ -380,7 +380,7 @@ public class SceneCompositorTests
         groupElement.Start = duration;
         groupElement.Length = TimeSpan.FromSeconds(1);
         groupElement.ZIndex = 0;
-        ((PortalObject)groupElement.Objects[0]).Count.CurrentValue = 1;
+        ((PortalObject)groupElement.Objects[0]).Count.Value = 1;
 
         var child = new LimiterTailSound { LookaheadMs = 5f };
         Element childElement = CreateElement(_basePath, isEnabled: true, child);
@@ -785,7 +785,7 @@ public class SceneCompositorTests
             childScene.Children.Add(CreateElement(_basePath, isEnabled: true, capture));
             Scene parentScene = CreateScene(_basePath);
             var sceneDrawable = new SceneDrawable();
-            sceneDrawable.ReferencedScene.CurrentValue = childScene;
+            sceneDrawable.ReferencedScene.Value = childScene;
             parentScene.Children.Add(CreateElement(_basePath, isEnabled: true, sceneDrawable));
             using var compositor = new SceneCompositor(parentScene) { ForceOriginalSource = true };
 
@@ -813,7 +813,7 @@ public class SceneCompositorTests
             Scene childScene = CreateScene(_basePath);
             Scene parentScene = CreateScene(_basePath);
             var sceneSound = new SceneSound();
-            sceneSound.ReferencedScene.CurrentValue = childScene;
+            sceneSound.ReferencedScene.Value = childScene;
             parentScene.Children.Add(CreateElement(_basePath, isEnabled: true, sceneSound));
             using var compositor = new SceneCompositor(parentScene) { ForceOriginalSource = true };
 
@@ -838,7 +838,7 @@ public class SceneCompositorTests
     {
         Scene childScene = CreateScene(_basePath);
         var sceneSound = new SceneSound();
-        sceneSound.ReferencedScene.CurrentValue = childScene;
+        sceneSound.ReferencedScene.Value = childScene;
         sceneSound.TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
         using var resource = (SceneSound.Resource)sceneSound.ToResource(CompositionContext.Default);
         using var context = new AudioContext(48000, 2);
@@ -870,7 +870,7 @@ public class SceneCompositorTests
 
         Scene parentScene = CreateScene(_basePath);
         var sceneSound = new SceneSound();
-        sceneSound.ReferencedScene.CurrentValue = childScene;
+        sceneSound.ReferencedScene.Value = childScene;
         Element parentElement = CreateElement(_basePath, isEnabled: true, sceneSound);
         parentElement.Length = duration;
         parentScene.Children.Add(parentElement);
@@ -911,7 +911,7 @@ public class SceneCompositorTests
 
         Scene parentScene = CreateScene(_basePath);
         var sceneSound = new SceneSound();
-        sceneSound.ReferencedScene.CurrentValue = childScene;
+        sceneSound.ReferencedScene.Value = childScene;
         Element parentElement = CreateElement(_basePath, isEnabled: true, sceneSound);
         parentElement.Length = duration;
         parentScene.Children.Add(parentElement);
@@ -956,7 +956,7 @@ public class SceneCompositorTests
 
         Scene parentScene = CreateScene(_basePath);
         var sceneSound = new SceneSound();
-        sceneSound.ReferencedScene.CurrentValue = childScene;
+        sceneSound.ReferencedScene.Value = childScene;
         Element parentElement = CreateElement(_basePath, isEnabled: true, sceneSound);
         parentElement.Length = parentDuration;
         parentScene.Children.Add(parentElement);

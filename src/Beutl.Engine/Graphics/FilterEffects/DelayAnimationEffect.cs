@@ -13,7 +13,7 @@ public partial class DelayAnimationEffect : FilterEffect
     public DelayAnimationEffect()
     {
         ScanProperties<DelayAnimationEffect>();
-        Effect.CurrentValue = new FilterEffectGroup();
+        Effect.Value = new FilterEffectGroup();
     }
 
     [Display(Name = nameof(GraphicsStrings.DelayAnimationEffect_Delay), ResourceType = typeof(GraphicsStrings))]

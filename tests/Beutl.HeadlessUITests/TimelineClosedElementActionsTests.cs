@@ -97,7 +97,7 @@ public class TimelineClosedElementActionsTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(video.Source.CurrentValue, Is.Not.Null);
+                Assert.That(video.Source.Value, Is.Not.Null);
                 Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero));
                 Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(37d / 25).FloorToRate(30)));
             });

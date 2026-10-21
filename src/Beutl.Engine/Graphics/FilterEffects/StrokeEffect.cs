@@ -19,7 +19,7 @@ public partial class StrokeEffect : FilterEffect
     public StrokeEffect()
     {
         ScanProperties<StrokeEffect>();
-        Pen.CurrentValue = new Pen();
+        Pen.Value = new Pen();
     }
 
     [Display(Name = nameof(GraphicsStrings.Stroke), ResourceType = typeof(GraphicsStrings))]

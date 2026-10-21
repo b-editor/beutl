@@ -36,10 +36,10 @@ public sealed partial class RoundedRectShape : Shape
 
         partial void PostReconcile(RoundedRectShape obj, CompositionContext context)
         {
-            _geometry.Width.CurrentValue = Math.Max(Width, 0);
-            _geometry.Height.CurrentValue = Math.Max(Height, 0);
-            _geometry.CornerRadius.CurrentValue = CornerRadius;
-            _geometry.Smoothing.CurrentValue = Math.Clamp(Smoothing, 0, 100);
+            _geometry.Width.Value = Math.Max(Width, 0);
+            _geometry.Height.Value = Math.Max(Height, 0);
+            _geometry.CornerRadius.Value = CornerRadius;
+            _geometry.Smoothing.Value = Math.Clamp(Smoothing, 0, 100);
 
             ReconcileGeometry(_geometry, context);
         }

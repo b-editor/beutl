@@ -85,7 +85,7 @@ public sealed class AudioVisualizerShapeAuthoringContractTests
     public void AnAudioSpectrumDrawable_MaterializesAPluginAuthoredShape()
     {
         var drawable = new AudioSpectrumDrawable();
-        drawable.Shape.CurrentValue = new PluginSpectrumShape();
+        drawable.Shape.Value = new PluginSpectrumShape();
 
         using var resource = (AudioSpectrumDrawable.Resource)drawable.ToResource(CompositionContext.Default);
 
@@ -96,7 +96,7 @@ public sealed class AudioVisualizerShapeAuthoringContractTests
     public void AnAudioWaveformDrawable_MaterializesAPluginAuthoredShape()
     {
         var drawable = new AudioWaveformDrawable();
-        drawable.Shape.CurrentValue = new PluginWaveformShape();
+        drawable.Shape.Value = new PluginWaveformShape();
 
         using var resource = (AudioWaveformDrawable.Resource)drawable.ToResource(CompositionContext.Default);
 
@@ -110,10 +110,10 @@ public sealed class AudioVisualizerShapeAuthoringContractTests
         var bounds = new Rect(0, 0, 8, 8);
         var drawable = new PluginVisualizerDrawable
         {
-            Width = { CurrentValue = 8f },
-            Height = { CurrentValue = 8f },
-            Fill = { CurrentValue = new SolidColorBrush(Colors.White) },
-            Source = { CurrentValue = CreateHalfScaleTone() },
+            Width = { Value = 8f },
+            Height = { Value = 8f },
+            Fill = { Value = new SolidColorBrush(Colors.White) },
+            Source = { Value = CreateHalfScaleTone() },
         };
 
         using var resource = (PluginVisualizerDrawable.Resource)drawable.ToResource(
@@ -171,7 +171,7 @@ public sealed class AudioVisualizerShapeAuthoringContractTests
         soundSource.ReadFrom(new Uri(ToneDecoderInfo.CreateToneFile()));
         return new SourceSound
         {
-            Source = { CurrentValue = soundSource },
+            Source = { Value = soundSource },
             // Sound.Compose clips to TimeRange, so the range has to cover the sample window.
             TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(2)),
         };

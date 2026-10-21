@@ -20,7 +20,7 @@ public class HitTester3DVisibilityTests
     private static Camera3D.Resource CreateCamera(float farPlane)
     {
         var camera = new PerspectiveCamera();
-        camera.FarPlane.CurrentValue = farPlane;
+        camera.FarPlane.Value = farPlane;
         return (Camera3D.Resource)camera.ToResource(CompositionContext.Default);
     }
 
@@ -30,7 +30,7 @@ public class HitTester3DVisibilityTests
     {
         using var camera = CreateCamera(farPlane: 1500);
         var cube = new Cube3D();
-        cube.Position.CurrentValue = new Vector3(0, 0, z);
+        cube.Position.Value = new Vector3(0, 0, z);
         using var resource = (Object3D.Resource)cube.ToResource(CompositionContext.Default);
 
         Object3D.Resource? hit = HitTester3D.HitTest(s_center, 1920, 1080, camera, [resource]);
@@ -48,8 +48,8 @@ public class HitTester3DVisibilityTests
     {
         using var camera = CreateCamera(farPlane: 10000);
         var plane = new Plane3D();
-        plane.Rotation.CurrentValue = new Vector3(rotationX, 0, 0);
-        plane.Scale.CurrentValue = new Vector3(scaleX, 1, 1);
+        plane.Rotation.Value = new Vector3(rotationX, 0, 0);
+        plane.Scale.Value = new Vector3(scaleX, 1, 1);
         using var resource = (Object3D.Resource)plane.ToResource(CompositionContext.Default);
 
         Object3D.Resource? hit = HitTester3D.HitTest(s_center, 1920, 1080, camera, [resource]);
@@ -81,7 +81,7 @@ public class HitTester3DVisibilityTests
         using var camera = CreateCamera(farPlane: 10000);
         var card = new DrawableObject3D();
         card.Children.Add(CreateSquare(0));
-        ((Beutl.Graphics3D.Materials.UnlitMaterial)card.Material.CurrentValue!).Opacity.CurrentValue = 0;
+        ((Beutl.Graphics3D.Materials.UnlitMaterial)card.Material.Value!).Opacity.Value = 0;
         using var resource = (DrawableObject3D.Resource)card.ToResource(CompositionContext.Default);
         resource.UpdateLayout(new Size(1920, 1080), density: 1);
 
@@ -93,7 +93,7 @@ public class HitTester3DVisibilityTests
     {
         using var camera = CreateCamera(farPlane: 10000);
         var cube = new Cube3D();
-        cube.Material.CurrentValue = new Beutl.Graphics3D.Materials.UnlitMaterial { Opacity = { CurrentValue = 0 } };
+        cube.Material.Value = new Beutl.Graphics3D.Materials.UnlitMaterial { Opacity = { Value = 0 } };
         using var resource = (Object3D.Resource)cube.ToResource(CompositionContext.Default);
 
         Assert.That(HitTester3D.HitTest(s_center, 1920, 1080, camera, [resource]), Is.Null);
@@ -103,7 +103,7 @@ public class HitTester3DVisibilityTests
     public void Mesh_WithAFullyTransparentUnlitMaterial_CastsNoShadow()
     {
         var cube = new Cube3D();
-        cube.Material.CurrentValue = new Beutl.Graphics3D.Materials.UnlitMaterial { Opacity = { CurrentValue = 0 } };
+        cube.Material.Value = new Beutl.Graphics3D.Materials.UnlitMaterial { Opacity = { Value = 0 } };
         using var hidden = (Object3D.Resource)cube.ToResource(CompositionContext.Default);
         using var shown = (Object3D.Resource)new Cube3D().ToResource(CompositionContext.Default);
 
@@ -119,8 +119,8 @@ public class HitTester3DVisibilityTests
     public void CoincidentOpaqueUnlitMeshes_TheEarlierOneTakesTheHit()
     {
         using var camera = CreateCamera(farPlane: 10000);
-        var firstCube = new Cube3D { Material = { CurrentValue = new Beutl.Graphics3D.Materials.UnlitMaterial() } };
-        var secondCube = new Cube3D { Material = { CurrentValue = new Beutl.Graphics3D.Materials.UnlitMaterial() } };
+        var firstCube = new Cube3D { Material = { Value = new Beutl.Graphics3D.Materials.UnlitMaterial() } };
+        var secondCube = new Cube3D { Material = { Value = new Beutl.Graphics3D.Materials.UnlitMaterial() } };
         using var first = (Object3D.Resource)firstCube.ToResource(CompositionContext.Default);
         using var second = (Object3D.Resource)secondCube.ToResource(CompositionContext.Default);
 
@@ -176,7 +176,7 @@ public class HitTester3DVisibilityTests
     {
         using var camera = CreateCamera(farPlane: 10000);
         var glass = new Cube3D();
-        glass.Material.CurrentValue = new Beutl.Graphics3D.Materials.TransparentMaterial();
+        glass.Material.Value = new Beutl.Graphics3D.Materials.TransparentMaterial();
         using var transparent = (Object3D.Resource)glass.ToResource(CompositionContext.Default);
         using var opaque = (Object3D.Resource)new Cube3D().ToResource(CompositionContext.Default);
         Object3D.Resource[] objects = transparentFirst ? [transparent, opaque] : [opaque, transparent];
@@ -187,10 +187,10 @@ public class HitTester3DVisibilityTests
     private static RectShape CreateSquare(float x)
     {
         var rect = new RectShape();
-        rect.Width.CurrentValue = 100;
-        rect.Height.CurrentValue = 100;
-        rect.Fill.CurrentValue = Brushes.Red;
-        rect.Transform.CurrentValue = new TranslateTransform(x, 0);
+        rect.Width.Value = 100;
+        rect.Height.Value = 100;
+        rect.Fill.Value = Brushes.Red;
+        rect.Transform.Value = new TranslateTransform(x, 0);
         return rect;
     }
 }

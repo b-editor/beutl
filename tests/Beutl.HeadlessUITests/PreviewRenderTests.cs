@@ -21,9 +21,9 @@ public class PreviewRenderTests
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync(name, 320, 240);
         await TestShell.AddElementAsync(editor, () => new RectShape
         {
-            Width = { CurrentValue = 200 },
-            Height = { CurrentValue = 150 },
-            Fill = { CurrentValue = new SolidColorBrush(Colors.Red) }
+            Width = { Value = 200 },
+            Height = { Value = 150 },
+            Fill = { Value = new SolidColorBrush(Colors.Red) }
         }, TimeSpan.Zero, TimeSpan.FromSeconds(2));
         return editor.Scene;
     }

@@ -57,7 +57,7 @@ public sealed class DeclarativeAnimationTests
         Assert.Multiple(() =>
         {
             Assert.That(createApply.IsSuccess, Is.True, createApply.Error?.Message);
-            Assert.That(createdText.Text.CurrentValue, Is.EqualTo("Animated"));
+            Assert.That(createdText.Text.Value, Is.EqualTo("Animated"));
             Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
             Assert.That(((KeyFrame<float>)animation.KeyFrames[1]).Value, Is.EqualTo(100f));
         });
@@ -434,7 +434,7 @@ public sealed class DeclarativeAnimationTests
         Scene scene = ((FileEditingSession)source.CurrentSession!).Scene;
         Element element = scene.Children.Single();
         var rect = (RectShape)element.Objects.Single();
-        var transform = (TransformGroup)rect.Transform.CurrentValue!;
+        var transform = (TransformGroup)rect.Transform.Value!;
         var translate = (TranslateTransform)transform.Children.Single();
         string outputPath = Path.Combine(workspace, "nested-local-keyframes.png");
         var renderer = new StillRenderer();
@@ -516,7 +516,7 @@ public sealed class DeclarativeAnimationTests
     {
         Scene scene = TestWorkspace.CreateScene();
         element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
-        text = new TextBlock { Text = { CurrentValue = "Launch" } };
+        text = new TextBlock { Text = { Value = "Launch" } };
         element.AddObject(text);
         return scene;
     }

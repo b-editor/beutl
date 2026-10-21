@@ -167,11 +167,11 @@ public sealed class RenderTargetFactoryReachTests
         using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
         var content = new RectShape();
-        content.Width.CurrentValue = 4;
-        content.Height.CurrentValue = 4;
-        content.Fill.CurrentValue = Brushes.White;
+        content.Width.Value = 4;
+        content.Height.Value = 4;
+        content.Fill.Value = Brushes.White;
         var brush = new DrawableBrush(content);
-        brush.Stretch.CurrentValue = Stretch.Fill;
+        brush.Stretch.Value = Stretch.Fill;
         using var brushResource = (Brush.Resource)brush.ToResource(CompositionContext.Default);
 
         var constructor = new BrushConstructor(

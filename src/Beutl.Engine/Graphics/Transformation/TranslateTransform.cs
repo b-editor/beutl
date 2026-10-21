@@ -15,20 +15,20 @@ public sealed partial class TranslateTransform : Transform
 
     public TranslateTransform(float x, float y) : this()
     {
-        X.CurrentValue = x;
-        Y.CurrentValue = y;
+        X.Value = x;
+        Y.Value = y;
     }
 
     public TranslateTransform(Vector vector) : this()
     {
-        X.CurrentValue = vector.X;
-        Y.CurrentValue = vector.Y;
+        X.Value = vector.X;
+        Y.Value = vector.Y;
     }
 
     public TranslateTransform(Point point) : this()
     {
-        X.CurrentValue = point.X;
-        Y.CurrentValue = point.Y;
+        X.Value = point.X;
+        Y.Value = point.Y;
     }
 
     [Display(Name = nameof(GraphicsStrings.TranslateTransform_X), ResourceType = typeof(GraphicsStrings))]

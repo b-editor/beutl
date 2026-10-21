@@ -177,7 +177,7 @@ public static partial class ProxySourceEnumerator
 
                 break;
 
-            case NodeGraphFilterEffect { Model.CurrentValue: { } model }:
+            case NodeGraphFilterEffect { Model.Value: { } model }:
                 foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups, localRange, sceneWindow: sceneWindow, walkContext: walkContext, skipDisabledElements: skipDisabledElements))
                     yield return source;
 

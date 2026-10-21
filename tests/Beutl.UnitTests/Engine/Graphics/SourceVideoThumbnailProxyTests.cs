@@ -137,7 +137,7 @@ public class SourceVideoThumbnailProxyTests
         {
             TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
         };
-        drawable.Source.CurrentValue = media;
+        drawable.Source.Value = media;
 
         await foreach (var _ in drawable.GetThumbnailStripAsync(
                            maxWidth: 100,

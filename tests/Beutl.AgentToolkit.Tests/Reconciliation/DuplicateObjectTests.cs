@@ -22,9 +22,9 @@ public sealed class DuplicateObjectTests
         var rect = new RectShape
         {
             Name = "Original rect",
-            Width = { CurrentValue = 200 },
-            Height = { CurrentValue = 100 },
-            FilterEffect = { CurrentValue = group }
+            Width = { Value = 200 },
+            Height = { Value = 100 },
+            FilterEffect = { Value = group }
         };
         element.AddObject(rect);
         Guid originalRectId = rect.Id;
@@ -38,7 +38,7 @@ public sealed class DuplicateObjectTests
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
         var copy = (RectShape)element.Objects[1];
-        var copyGroup = (FilterEffectGroup)copy.FilterEffect.CurrentValue!;
+        var copyGroup = (FilterEffectGroup)copy.FilterEffect.Value!;
 
         Assert.Multiple(() =>
         {
@@ -61,7 +61,7 @@ public sealed class DuplicateObjectTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        var rect = new RectShape { Name = "Original rect", Width = { CurrentValue = 120 } };
+        var rect = new RectShape { Name = "Original rect", Width = { Value = 120 } };
         element.AddObject(rect);
 
         using var session = new AgentToolkitTestSession(scene);
@@ -113,7 +113,7 @@ public sealed class DuplicateObjectTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        var rect = new RectShape { Name = "Original rect", Width = { CurrentValue = 120 } };
+        var rect = new RectShape { Name = "Original rect", Width = { Value = 120 } };
         element.AddObject(rect);
         Guid originalId = rect.Id;
 
@@ -151,7 +151,7 @@ public sealed class DuplicateObjectTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        var rect = new RectShape { Name = "Original rect", Width = { CurrentValue = 120 } };
+        var rect = new RectShape { Name = "Original rect", Width = { Value = 120 } };
         var group = new DrawableGroup { Name = "Existing group" };
         group.Children.Add(rect);
         element.AddObject(group);
@@ -186,7 +186,7 @@ public sealed class DuplicateObjectTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        var rect = new RectShape { Name = "Original rect", Width = { CurrentValue = 120 } };
+        var rect = new RectShape { Name = "Original rect", Width = { Value = 120 } };
         element.AddObject(rect);
         Guid originalId = rect.Id;
 
@@ -220,8 +220,8 @@ public sealed class DuplicateObjectTests
         var rect = new RectShape
         {
             Name = "Original rect",
-            Width = { CurrentValue = 120 },
-            FilterEffect = { CurrentValue = effect }
+            Width = { Value = 120 },
+            FilterEffect = { Value = effect }
         };
         element.AddObject(rect);
         Guid originalEffectId = effect.Id;
@@ -235,7 +235,7 @@ public sealed class DuplicateObjectTests
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
         DrawableGroup wrapper = element.Objects.OfType<DrawableGroup>().Single();
         var copy = (RectShape)wrapper.Children.Single(item => item.Id.ToString() == result.Value!.ObjectId);
-        var copyEffect = (FilterEffectGroup)copy.FilterEffect.CurrentValue!;
+        var copyEffect = (FilterEffectGroup)copy.FilterEffect.Value!;
 
         Assert.Multiple(() =>
         {
@@ -266,7 +266,7 @@ public sealed class DuplicateObjectTests
 
         var imageSource = new ImageSource();
         imageSource.ReadFrom(new Uri(imagePath));
-        var image = new SourceImage { Source = { CurrentValue = imageSource } };
+        var image = new SourceImage { Source = { Value = imageSource } };
         element.AddObject(image);
 
         using var session = new AgentToolkitTestSession(scene);
@@ -277,7 +277,7 @@ public sealed class DuplicateObjectTests
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
         var copy = (SourceImage)element.Objects.OfType<DrawableGroup>().Single().Children
             .Single(item => item.Id.ToString() == result.Value!.ObjectId);
-        Assert.That(copy.Source.CurrentValue?.Uri?.LocalPath, Is.EqualTo(imagePath));
+        Assert.That(copy.Source.Value?.Uri?.LocalPath, Is.EqualTo(imagePath));
     }
 
     [Test]
@@ -286,7 +286,7 @@ public sealed class DuplicateObjectTests
         // The editor follows each dispatch that commits a transaction, so a second one would navigate twice.
         Scene scene = TestWorkspace.CreateScene();
         Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        var rect = new RectShape { Name = "Original rect", Width = { CurrentValue = 120 } };
+        var rect = new RectShape { Name = "Original rect", Width = { Value = 120 } };
         element.AddObject(rect);
 
         using var session = new DispatchingTestSession(scene);

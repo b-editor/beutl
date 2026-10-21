@@ -19,7 +19,7 @@ public sealed class GradientStopEditsTests
         var red = new GradientStop(Colors.Red, 0f);
         brush.GradientStops.Add(red);
         brush.GradientStops.Add(new GradientStop(Colors.Blue, 0.5f));
-        var shape = new RectShape { Fill = { CurrentValue = brush } };
+        var shape = new RectShape { Fill = { Value = brush } };
         using var history = new HistoryScope(shape);
         using var viewModel = new BrushEditorViewModel(
             new SimplePropertyAdapter<Brush?>((SimpleProperty<Brush?>)shape.Fill, shape));
@@ -33,7 +33,7 @@ public sealed class GradientStopEditsTests
         Assert.Multiple(() =>
         {
             Assert.That(brush.GradientStops[1], Is.SameAs(red));
-            Assert.That(red.Offset.CurrentValue, Is.EqualTo(0.8f));
+            Assert.That(red.Offset.Value, Is.EqualTo(0.8f));
         });
 
         history.History.Undo();
@@ -41,7 +41,7 @@ public sealed class GradientStopEditsTests
         Assert.Multiple(() =>
         {
             Assert.That(brush.GradientStops[0], Is.SameAs(red));
-            Assert.That(red.Offset.CurrentValue, Is.EqualTo(0f));
+            Assert.That(red.Offset.Value, Is.EqualTo(0f));
             Assert.That(brush.GradientStops, Has.Count.EqualTo(2));
         });
     }

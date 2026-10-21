@@ -35,7 +35,7 @@ public partial class MissingMediaTests
             editor.HistoryManager.Commit();
             await editor.WaitForMediaFingerprintsAsync(); await editor.WaitForMissingMediaAsync();
             Assert.That(captures, Is.Zero);
-            ((SourceImage)element.Objects.Single()).Source.CurrentValue = ImageSource.Open(Path.Combine(directory, "missing.png"));
+            ((SourceImage)element.Objects.Single()).Source.Value = ImageSource.Open(Path.Combine(directory, "missing.png"));
             editor.HistoryManager.Commit();
             await editor.WaitForMediaFingerprintsAsync();
             Assert.That(captures, Is.EqualTo(1));
@@ -97,8 +97,8 @@ public partial class MissingMediaTests
             var element = AddImage(editor.Scene, Path.Combine(directory, "unused.png")); element.Objects.Clear();
             element.Objects.Add(new Beutl.Graphics.Shapes.TextBlock
             {
-                FontFamily = { CurrentValue = new FontFamily("Relink") },
-                FontWeight = { CurrentValue = FontWeight.Medium }
+                FontFamily = { Value = new FontFamily("Relink") },
+                FontWeight = { Value = FontWeight.Medium }
             });
             if (selectImage) AddImage(editor.Scene, Path.Combine(directory, "missing.png"));
         }
@@ -144,8 +144,8 @@ public partial class MissingMediaTests
             var element = AddImage(editor.Scene, Path.Combine(directory, "unused.png")); element.Objects.Clear();
             element.Objects.Add(new Beutl.Graphics.Shapes.TextBlock
             {
-                FontFamily = { CurrentValue = new FontFamily("Relink") },
-                FontWeight = { CurrentValue = FontWeight.Medium }
+                FontFamily = { Value = new FontFamily("Relink") },
+                FontWeight = { Value = FontWeight.Medium }
             });
             AddImage(editor.Scene, Path.Combine(directory, "old", "seed.png"));
         }
@@ -216,7 +216,7 @@ public partial class MissingMediaTests
             editor.HistoryManager.Commit(); await editor.WaitForMissingMediaAsync();
             Assert.That(handler.Notifications, Has.Count.EqualTo(1));
             string valid = Path.Combine(directory, "valid.png"); File.WriteAllBytes(valid, s_png);
-            foreach (var element in new[] { first, second }) ((SourceImage)element.Objects.Single()).Source.CurrentValue = ImageSource.Open(valid);
+            foreach (var element in new[] { first, second }) ((SourceImage)element.Objects.Single()).Source.Value = ImageSource.Open(valid);
             editor.HistoryManager.Commit(); await editor.WaitForMissingMediaAsync();
             AddImage(editor.Scene, Path.Combine(directory, "new-missing.png"));
             editor.HistoryManager.Commit(); await editor.WaitForMissingMediaAsync();
@@ -236,7 +236,7 @@ public partial class MissingMediaTests
         File.WriteAllText(path, "mtllib surface.mtl\nv 0 0 0\nv 1 0 0\nv 0 1 0\nusemtl surface\nf 1 2 3\n");
         var source = new ModelSource(); source.ReadFrom(new Uri(path));
         var scene = new Scene(); var element = AddImage(scene, Path.Combine(directory, "unused.png"));
-        element.Objects.Clear(); element.Objects.Add(new Model3D { Source = { CurrentValue = source } });
+        element.Objects.Clear(); element.Objects.Add(new Model3D { Source = { Value = source } });
         var service = new MissingMediaService(); await service.UpdateFingerprintsAsync(scene);
         Assert.That(scene.MediaFingerprints[new Uri(path).AbsoluteUri].Dependencies!.Keys, Does.Contain(missingFile));
         File.Delete(Path.Combine(directory, missingFile));

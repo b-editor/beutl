@@ -36,6 +36,6 @@ public class PresenterTests
             .GetValue(presenter);
 
         Assert.That(target, Is.Not.Null);
-        Assert.That(target!.CurrentValue, Is.Null);
+        Assert.That(target!.Value, Is.Null);
     }
 }

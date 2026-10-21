@@ -229,7 +229,7 @@ public class ProxiesTabLayoutTests
             var source = new VideoSource();
             source.ReadFrom(new Uri(path));
             var video = new SourceVideo();
-            video.Source.CurrentValue = source;
+            video.Source.Value = source;
             var element = new Element { Uri = new Uri(Path.Combine(root, name + ".layer")), Length = TimeSpan.FromSeconds(1) };
             element.AddObject(video);
             scene.Children.Add(element);

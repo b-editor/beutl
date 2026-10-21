@@ -72,14 +72,14 @@ public sealed class BrushMaterializationSmokeTests
     {
         var content = new EllipseShape
         {
-            Width = { CurrentValue = 20 },
-            Height = { CurrentValue = 12 },
-            Fill = { CurrentValue = Brushes.White },
+            Width = { Value = 20 },
+            Height = { Value = 12 },
+            Fill = { Value = Brushes.White },
         };
         var drawableBrush = new DrawableBrush(content);
         var presenter = new BrushPresenter
         {
-            Target = { CurrentValue = drawableBrush },
+            Target = { Value = drawableBrush },
         };
         using BrushPresenter.Resource presenterResource = presenter.ToResource(CompositionContext.Default);
         using var node = new RectangleRenderNode(new Rect(0, 0, 64, 36), presenterResource, null);
@@ -178,12 +178,12 @@ public sealed class BrushMaterializationSmokeTests
     public void PublicExecutor_PaintsADrawableBrushDisplacementMapThroughASuppliedMaterializer()
     {
         var content = new EllipseShape();
-        content.Width.CurrentValue = 24;
-        content.Height.CurrentValue = 24;
-        content.Fill.CurrentValue = Brushes.White;
+        content.Width.Value = 24;
+        content.Height.Value = 24;
+        content.Fill.Value = Brushes.White;
         var effect = new DisplacementMapEffect();
-        effect.DisplacementMap.CurrentValue = new DrawableBrush(content);
-        effect.ShowDisplacementMap.CurrentValue = true;
+        effect.DisplacementMap.Value = new DrawableBrush(content);
+        effect.ShowDisplacementMap.Value = true;
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
 
         var bounds = new Rect(0, 0, 32, 32);

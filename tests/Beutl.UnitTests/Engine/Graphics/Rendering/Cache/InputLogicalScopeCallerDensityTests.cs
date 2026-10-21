@@ -102,7 +102,7 @@ public sealed class InputLogicalScopeCallerDensityTests
     public void AuthoredInputLogicalScope_OverADirectFilterChain_ReplaysAnUnboundedBase(float scale)
     {
         using var producer = new ProbeSourceNode();
-        var blur = new Blur { Sigma = { CurrentValue = new Size(3, 3) } };
+        var blur = new Blur { Sigma = { Value = new Size(3, 3) } };
         using var filter = new FilterEffectRenderNode(blur.ToResource(CompositionContext.Default));
         filter.AddChild(producer);
         using var root = new ScalingScopeNode(filter, scale);

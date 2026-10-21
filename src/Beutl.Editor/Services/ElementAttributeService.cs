@@ -148,9 +148,9 @@ public sealed class ElementAttributeService : IElementAttributeService
         if (IsReadOnly(element)) return;
         if (ElementTransitionEdits.GetTransition(element, edge) is not { } transition) return;
         if (duration < TimeSpan.Zero) duration = TimeSpan.Zero;
-        if (transition.Duration.CurrentValue == duration) return;
+        if (transition.Duration.Value == duration) return;
 
-        transition.Duration.CurrentValue = duration;
+        transition.Duration.Value = duration;
         _historyManager.Commit(CommandNames.ChangeTransitionDuration);
     }
 

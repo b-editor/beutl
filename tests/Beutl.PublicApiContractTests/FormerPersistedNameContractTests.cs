@@ -14,7 +14,7 @@ public sealed class FormerPersistedNameContractTests
     public void Plugin_engine_objects_load_from_their_former_type_name_and_property_key()
     {
         var source = new RenamedPluginObject();
-        source.Size.CurrentValue = 7;
+        source.Size.Value = 7;
         JsonObject json = CoreSerializer.SerializeToJsonObject(source);
         // What the version of the plugin before the rename saved.
         json["$type"] = RenamedPluginObject.FormerTypeName;
@@ -27,7 +27,7 @@ public sealed class FormerPersistedNameContractTests
         Assert.Multiple(() =>
         {
             Assert.That(restored, Is.TypeOf<RenamedPluginObject>());
-            Assert.That(((RenamedPluginObject)restored).Size.CurrentValue, Is.EqualTo(7));
+            Assert.That(((RenamedPluginObject)restored).Size.Value, Is.EqualTo(7));
             Assert.That((string?)resaved["$type"], Is.Not.EqualTo(RenamedPluginObject.FormerTypeName));
             Assert.That(resaved.ContainsKey(nameof(RenamedPluginObject.Size)), Is.True);
             Assert.That(resaved.ContainsKey(RenamedPluginObject.FormerSizeKey), Is.False);

@@ -57,7 +57,7 @@ public sealed class RadialBlurTests
     public void NonFiniteCenter_RecordsNothing()
     {
         var effect = Create(RadialBlurMode.Zoom);
-        effect.Center.CurrentValue = new RelativePoint(float.NaN, 0, RelativeUnit.Absolute);
+        effect.Center.Value = new RelativePoint(float.NaN, 0, RelativeUnit.Absolute);
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(s_bounds);
         context.ApplyTransactional(effect, resource);
@@ -92,7 +92,7 @@ public sealed class RadialBlurTests
     public void Zoom_ExtendsBoundsAroundTheSelectedCenter(RelativeUnit unit)
     {
         var effect = Create(RadialBlurMode.Zoom, 100);
-        effect.Center.CurrentValue = unit == RelativeUnit.Relative
+        effect.Center.Value = unit == RelativeUnit.Relative
             ? new RelativePoint(0.25f, 0.75f, unit)
             : new RelativePoint(25, 45, unit);
 
@@ -123,9 +123,9 @@ public sealed class RadialBlurTests
     public void Rendering_ResolvesRelativeAndAbsoluteCentersEqually(RadialBlurMode mode, float scale)
     {
         RadialBlur relative = Create(mode, 80, 64);
-        relative.Center.CurrentValue = new RelativePoint(0.25f, 0.75f, RelativeUnit.Relative);
+        relative.Center.Value = new RelativePoint(0.25f, 0.75f, RelativeUnit.Relative);
         RadialBlur absolute = Create(mode, 80, 64);
-        absolute.Center.CurrentValue = new RelativePoint(10, 30, RelativeUnit.Absolute);
+        absolute.Center.Value = new RelativePoint(10, 30, RelativeUnit.Absolute);
         var translation = new Vector(10, 20);
 
         using Bitmap expected = RenderMarker(relative, out Rect expectedBounds, scale: scale, translation: translation);
@@ -140,7 +140,7 @@ public sealed class RadialBlurTests
     public void Serialization_RetainsAllSettingsInAnEffectGroup(RadialBlurMode mode)
     {
         var effect = Create(mode, 45, 64);
-        effect.Center.CurrentValue = new RelativePoint(12, 8, RelativeUnit.Absolute);
+        effect.Center.Value = new RelativePoint(12, 8, RelativeUnit.Absolute);
         var group = new FilterEffectGroup();
         group.Children.Add(effect);
         var json = CoreSerializer.SerializeToJsonObject(group);
@@ -149,10 +149,10 @@ public sealed class RadialBlurTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(actual.Mode.CurrentValue, Is.EqualTo(mode));
-            Assert.That(actual.Amount.CurrentValue, Is.EqualTo(45));
-            Assert.That(actual.Samples.CurrentValue, Is.EqualTo(64));
-            Assert.That(actual.Center.CurrentValue, Is.EqualTo(effect.Center.CurrentValue));
+            Assert.That(actual.Mode.Value, Is.EqualTo(mode));
+            Assert.That(actual.Amount.Value, Is.EqualTo(45));
+            Assert.That(actual.Samples.Value, Is.EqualTo(64));
+            Assert.That(actual.Center.Value, Is.EqualTo(effect.Center.Value));
         });
     }
 
@@ -296,7 +296,7 @@ public sealed class RadialBlurTests
                 new EffectTarget(backing, new Rect(90, 0, 10, 10), EffectiveScale.At(1)),
             };
             RadialBlur effect = Create(mode, mode == RadialBlurMode.Zoom ? 100 : 90, 65);
-            effect.Center.CurrentValue = new RelativePoint(centerX, unit == RelativeUnit.Relative ? 0.5f : 5, unit);
+            effect.Center.Value = new RelativePoint(centerX, unit == RelativeUnit.Relative ? 0.5f : 5, unit);
             using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
             using var context = new FilterEffectContext(targets.CalculateBounds());
             context.ApplyTransactional(effect, resource);
@@ -341,9 +341,9 @@ public sealed class RadialBlurTests
     private static RadialBlur Create(RadialBlurMode mode, float amount = 10, int samples = 32)
         => new()
         {
-            Mode = { CurrentValue = mode },
-            Amount = { CurrentValue = amount },
-            Samples = { CurrentValue = samples },
+            Mode = { Value = mode },
+            Amount = { Value = amount },
+            Samples = { Value = samples },
         };
 
     private static Bitmap RenderMarker(

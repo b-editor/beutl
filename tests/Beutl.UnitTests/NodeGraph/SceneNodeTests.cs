@@ -149,9 +149,9 @@ public sealed class SceneNodeTests
         var node = new SceneNode();
         graph.Nodes.Add(node);
         var drawable = new NodeGraphDrawable();
-        drawable.Model.CurrentValue = graph;
+        drawable.Model.Value = graph;
         Scene scene = CreateScene(drawable);
-        node.Object.ReferencedScene.CurrentValue = scene;
+        node.Object.ReferencedScene.Value = scene;
 
         using var compositor = new SceneCompositor(scene);
         Assert.DoesNotThrow(() => compositor.EvaluateGraphics(TimeSpan.FromSeconds(0.5)));
@@ -175,18 +175,18 @@ public sealed class SceneNodeTests
     // A 20 px red square at the top left.
     private static RectShape CreateRedSquare() => new()
     {
-        Width = { CurrentValue = 20 },
-        Height = { CurrentValue = 20 },
-        AlignmentX = { CurrentValue = Beutl.Media.AlignmentX.Left },
-        AlignmentY = { CurrentValue = Beutl.Media.AlignmentY.Top },
-        Fill = { CurrentValue = new Beutl.Media.SolidColorBrush(Beutl.Media.Colors.Red) },
+        Width = { Value = 20 },
+        Height = { Value = 20 },
+        AlignmentX = { Value = Beutl.Media.AlignmentX.Left },
+        AlignmentY = { Value = Beutl.Media.AlignmentY.Top },
+        Fill = { Value = new Beutl.Media.SolidColorBrush(Beutl.Media.Colors.Red) },
     };
 
     // As in the editor: the graph's element starts at 5 s in a scene of its own, in the referenced scene's project.
     private Scene HostGraph(GraphModel model, Scene referenced)
     {
         var drawable = new NodeGraphDrawable();
-        drawable.Model.CurrentValue = model;
+        drawable.Model.Value = model;
         var host = new Element
         {
             Start = TimeSpan.FromSeconds(5),
@@ -208,7 +208,7 @@ public sealed class SceneNodeTests
     {
         var model = new GraphModel();
         var node = new SceneNode();
-        node.Object.ReferencedScene.CurrentValue = referenced;
+        node.Object.ReferencedScene.Value = referenced;
         model.Nodes.Add(node);
         return (model, node);
     }

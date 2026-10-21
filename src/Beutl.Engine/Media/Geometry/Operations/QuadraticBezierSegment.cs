@@ -15,8 +15,8 @@ public sealed partial class QuadraticBezierSegment : PathSegment
 
     public QuadraticBezierSegment(Point controlPoint, Point endPoint) : this()
     {
-        ControlPoint.CurrentValue = controlPoint;
-        EndPoint.CurrentValue = endPoint;
+        ControlPoint.Value = controlPoint;
+        EndPoint.Value = endPoint;
     }
 
     [Display(Name = nameof(GraphicsStrings.QuadraticBezierSegment_ControlPoint), ResourceType = typeof(GraphicsStrings))]

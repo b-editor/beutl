@@ -59,7 +59,7 @@ public class ObjectTemplateItemTests
 
         Assert.That(instance, Is.Not.Null);
         Assert.That(
-            (instance!.FileSource.CurrentValue as BlobFileSource)?.Data,
+            (instance!.FileSource.Value as BlobFileSource)?.Data,
             Is.EqualTo(Encoding.UTF8.GetBytes("png")));
     }
 

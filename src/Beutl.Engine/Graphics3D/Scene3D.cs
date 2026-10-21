@@ -23,7 +23,7 @@ public partial class Scene3D : Drawable, IFlowOperator
         ScanProperties<Scene3D>();
         HideProperty(GizmoMode);
         HideProperty(GizmoTarget);
-        Camera.CurrentValue = new PerspectiveCamera();
+        Camera.Value = new PerspectiveCamera();
     }
 
     /// <summary>

@@ -145,12 +145,12 @@ public class RelativeFileSourceApplyTests
         var source = new ImageSource();
         source.ReadFrom(new Uri(imagePath));
         var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(belmPath) };
-        element.Objects.Add(new SourceImage { Source = { CurrentValue = source } });
+        element.Objects.Add(new SourceImage { Source = { Value = source } });
         return element;
     }
 
     private static Uri? SourceUriOf(Element element)
-        => element.Objects.OfType<SourceImage>().Single().Source.CurrentValue?.Uri;
+        => element.Objects.OfType<SourceImage>().Single().Source.Value?.Uri;
 
     private static JsonArray RequireArray(JsonObject document, string name)
         => document[name] as JsonArray ?? throw new InvalidOperationException($"'{name}' is not an array.");

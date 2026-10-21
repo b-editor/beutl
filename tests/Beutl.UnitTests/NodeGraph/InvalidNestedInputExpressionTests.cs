@@ -100,7 +100,7 @@ public class InvalidNestedInputExpressionTests
         var graph = new GraphModel();
         var node = new FactoryNode<Pen>();
         var brush = new SolidColorBrush();
-        node.Object.Brush.CurrentValue = brush;
+        node.Object.Brush.Value = brush;
         graph.Nodes.Add(node);
         var connection = graph.Connect(Find(node, brush.Opacity), Source(graph, 12f, "Opacity"));
         var expression = Expression.Create<float>("73");
@@ -120,7 +120,7 @@ public class InvalidNestedInputExpressionTests
         var graph = new GraphModel();
         var node = new FactoryNode<Pen>();
         var brush = new SolidColorBrush();
-        node.Object.Brush.CurrentValue = brush;
+        node.Object.Brush.Value = brush;
         graph.Nodes.Add(node);
         IOutputPort source = Source(graph, 12f, "Opacity");
         using var history = new HistoryHarness(graph);
@@ -146,7 +146,7 @@ public class InvalidNestedInputExpressionTests
         var graph = new GraphModel();
         var node = new FactoryNode<Pen>();
         var brush = new SolidColorBrush();
-        node.Object.Brush.CurrentValue = brush;
+        node.Object.Brush.Value = brush;
         graph.Nodes.Add(node);
         brush.Opacity.Expression = Expression.Create<float>("73");
         INestedInputPort port = Find(node, brush.Opacity);

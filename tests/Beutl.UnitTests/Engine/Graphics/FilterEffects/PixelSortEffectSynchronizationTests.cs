@@ -226,11 +226,11 @@ public sealed class PixelSortEffectSynchronizationTests
     private static RenderTarget ApplyPixelSort(RenderTarget source, Rect bounds, float thresholdMin, float thresholdMax)
     {
         var effect = new PixelSortEffect();
-        effect.Direction.CurrentValue = PixelSortDirection.Horizontal;
-        effect.SortKey.CurrentValue = PixelSortKey.Luminance;
-        effect.ThresholdMin.CurrentValue = thresholdMin;
-        effect.ThresholdMax.CurrentValue = thresholdMax;
-        effect.Ascending.CurrentValue = true;
+        effect.Direction.Value = PixelSortDirection.Horizontal;
+        effect.SortKey.Value = PixelSortKey.Luminance;
+        effect.ThresholdMin.Value = thresholdMin;
+        effect.ThresholdMax.Value = thresholdMax;
+        effect.Ascending.Value = true;
 
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(bounds);
@@ -263,11 +263,11 @@ public sealed class PixelSortEffectSynchronizationTests
         RenderTargetPool registry)
     {
         var effect = new PixelSortEffect();
-        effect.Direction.CurrentValue = PixelSortDirection.Horizontal;
-        effect.SortKey.CurrentValue = PixelSortKey.Luminance;
-        effect.ThresholdMin.CurrentValue = 0f;
-        effect.ThresholdMax.CurrentValue = 100f;
-        effect.Ascending.CurrentValue = true;
+        effect.Direction.Value = PixelSortDirection.Horizontal;
+        effect.SortKey.Value = PixelSortKey.Luminance;
+        effect.ThresholdMin.Value = 0f;
+        effect.ThresholdMax.Value = 100f;
+        effect.Ascending.Value = true;
 
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(s_bounds);

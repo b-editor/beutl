@@ -54,7 +54,7 @@ public sealed class EngineResourceIdentityRoutingTests
     [Test]
     public void GeometryRenderNode_WithADetachedFill_RendersInsteadOfThrowing()
     {
-        var geometry = new EllipseGeometry { Width = { CurrentValue = 40 }, Height = { CurrentValue = 30 } };
+        var geometry = new EllipseGeometry { Width = { Value = 40 }, Height = { Value = 30 } };
         using Beutl.Media.Geometry.Resource geometryResource = geometry.ToResource(CompositionContext.Default);
         using var fill = new SolidColorBrush.Resource();
         using var node = new GeometryRenderNode(geometryResource, fill, null);
@@ -126,9 +126,9 @@ public sealed class EngineResourceIdentityRoutingTests
     [Test]
     public void EveryRoutedSite_BuildsItsIdentityWithoutAllocating()
     {
-        var geometry = new EllipseGeometry { Width = { CurrentValue = 40 }, Height = { CurrentValue = 30 } };
+        var geometry = new EllipseGeometry { Width = { Value = 40 }, Height = { Value = 30 } };
         var fill = new SolidColorBrush(Colors.Red);
-        var pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 2 } };
+        var pen = new Pen { Brush = { Value = Brushes.Black }, Thickness = { Value = 2 } };
         using Beutl.Media.Geometry.Resource geometryResource = geometry.ToResource(CompositionContext.Default);
         using SolidColorBrush.Resource fillResource = fill.ToResource(CompositionContext.Default);
         using Pen.Resource penResource = pen.ToResource(CompositionContext.Default);

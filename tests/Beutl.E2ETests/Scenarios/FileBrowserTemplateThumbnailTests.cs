@@ -162,9 +162,9 @@ public class FileBrowserTemplateThumbnailTests
     {
         return new RectShape
         {
-            Width = { CurrentValue = 100 },
-            Height = { CurrentValue = 100 },
-            Fill = { CurrentValue = new SolidColorBrush(Colors.Red) }
+            Width = { Value = 100 },
+            Height = { Value = 100 },
+            Fill = { Value = new SolidColorBrush(Colors.Red) }
         };
     }
 

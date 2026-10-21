@@ -39,7 +39,7 @@ internal static class NodeGraphTestHelpers
         var scene = new SceneHistoryHarness(prefix);
         ((IModifiableHierarchical)new TestHierarchicalRoot()).AddChild(scene.Scene);
         var drawable = new NodeGraphDrawable();
-        drawable.Model.CurrentValue = graph;
+        drawable.Model.Value = graph;
         scene.AddElement().AddObject(drawable);
         return scene;
     }

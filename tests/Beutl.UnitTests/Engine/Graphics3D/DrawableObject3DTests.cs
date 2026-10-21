@@ -18,10 +18,10 @@ public class DrawableObject3DTests
     private static RectShape CreateRect(float x, float y)
     {
         var rect = new RectShape();
-        rect.Width.CurrentValue = 400;
-        rect.Height.CurrentValue = 250;
-        rect.Fill.CurrentValue = Brushes.Red;
-        rect.Transform.CurrentValue = new TranslateTransform(x, y);
+        rect.Width.Value = 400;
+        rect.Height.Value = 250;
+        rect.Fill.Value = Brushes.Red;
+        rect.Transform.Value = new TranslateTransform(x, y);
         return rect;
     }
 
@@ -70,8 +70,8 @@ public class DrawableObject3DTests
     {
         var card = new DrawableObject3D();
 
-        Assert.That(card.Material.CurrentValue, Is.InstanceOf<UnlitMaterial>());
-        Assert.That(card.CastShadows.CurrentValue, Is.False);
+        Assert.That(card.Material.Value, Is.InstanceOf<UnlitMaterial>());
+        Assert.That(card.CastShadows.Value, Is.False);
     }
 
     // The card covers where the drawables sit on a 2D canvas the size of the scene and keeps that place as an
@@ -100,7 +100,7 @@ public class DrawableObject3DTests
     {
         var card = new DrawableObject3D();
         card.Children.Add(CreateRect(0, 0));
-        card.Material.CurrentValue = new PBRMaterial();
+        card.Material.Value = new PBRMaterial();
         using var resource = (DrawableObject3D.Resource)card.ToResource(CompositionContext.Default);
 
         resource.UpdateLayout(new Size(1920, 1080), density: 1);

@@ -37,7 +37,7 @@ public sealed class PathFigurePreviewLifetimeTests
         DrainPreviewUpdates();
         int evaluationsAtDisposal = expression.EvaluationCount;
 
-        figure.IsClosed.CurrentValue = true;
+        figure.IsClosed.Value = true;
         DrainPreviewUpdates();
 
         Assert.Multiple(() =>
@@ -63,7 +63,7 @@ public sealed class PathFigurePreviewLifetimeTests
         value.OnNext(null);
         DrainPreviewUpdates();
         int evaluationsAfterClearing = expression.EvaluationCount;
-        figure.IsClosed.CurrentValue = true;
+        figure.IsClosed.Value = true;
         DrainPreviewUpdates();
 
         Assert.Multiple(() =>

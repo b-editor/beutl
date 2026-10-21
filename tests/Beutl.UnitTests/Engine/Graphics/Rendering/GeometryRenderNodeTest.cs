@@ -21,12 +21,12 @@ public class GeometryRenderNodeTest
     [Test]
     public void Update_ShouldReturnTrue_WhenPropertiesDoNotMatch()
     {
-        var geometry1 = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
-        var geometry2 = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
+        var geometry1 = new EllipseGeometry { Width = { Value = 100 }, Height = { Value = 100 } };
+        var geometry2 = new EllipseGeometry { Width = { Value = 100 }, Height = { Value = 100 } };
         Brush fill1 = new SolidColorBrush(Colors.Red);
         Brush fill2 = new SolidColorBrush(Colors.Blue);
-        Pen pen1 = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
-        Pen pen2 = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 2 } };
+        Pen pen1 = new Pen { Brush = { Value = Brushes.Black }, Thickness = { Value = 1 } };
+        Pen pen2 = new Pen { Brush = { Value = Brushes.Black }, Thickness = { Value = 2 } };
         var geometryResource1 = geometry1.ToResource(CompositionContext.Default);
         var geometryResource2 = geometry2.ToResource(CompositionContext.Default);
         var fillResource1 = fill1.ToResource(CompositionContext.Default);
@@ -60,13 +60,13 @@ public class GeometryRenderNodeTest
     [Test]
     public void Measure_ShouldCoverTheFill_WhenANegativeOffsetErodesTheStroke()
     {
-        var geometry = new EllipseGeometry { Width = { CurrentValue = 140 }, Height = { CurrentValue = 95 } };
+        var geometry = new EllipseGeometry { Width = { Value = 140 }, Height = { Value = 95 } };
         Brush fill = new SolidColorBrush(Colors.Gold);
         Pen pen = new Pen
         {
-            Brush = { CurrentValue = Brushes.Blue },
-            Thickness = { CurrentValue = 5 },
-            Offset = { CurrentValue = -12 },
+            Brush = { Value = Brushes.Blue },
+            Thickness = { Value = 5 },
+            Offset = { Value = -12 },
         };
         var geometryResource = geometry.ToResource(CompositionContext.Default);
         var fillResource = fill.ToResource(CompositionContext.Default);
@@ -90,14 +90,14 @@ public class GeometryRenderNodeTest
     [Test]
     public void Measure_ShouldCoverTheFill_WhenATrimmedPenStrokesOnlyAnArc()
     {
-        var geometry = new EllipseGeometry { Width = { CurrentValue = 140 }, Height = { CurrentValue = 95 } };
+        var geometry = new EllipseGeometry { Width = { Value = 140 }, Height = { Value = 95 } };
         Brush fill = new SolidColorBrush(Colors.Gold);
         Pen pen = new Pen
         {
-            Brush = { CurrentValue = Brushes.Blue },
-            Thickness = { CurrentValue = 5 },
-            TrimStart = { CurrentValue = 40 },
-            TrimEnd = { CurrentValue = 60 },
+            Brush = { Value = Brushes.Blue },
+            Thickness = { Value = 5 },
+            TrimStart = { Value = 40 },
+            TrimEnd = { Value = 60 },
         };
         var geometryResource = geometry.ToResource(CompositionContext.Default);
         var fillResource = fill.ToResource(CompositionContext.Default);
@@ -121,12 +121,12 @@ public class GeometryRenderNodeTest
     [Test]
     public void Measure_ShouldStayStrokeOnly_WhenThereIsNoFillToCover()
     {
-        var geometry = new EllipseGeometry { Width = { CurrentValue = 140 }, Height = { CurrentValue = 95 } };
+        var geometry = new EllipseGeometry { Width = { Value = 140 }, Height = { Value = 95 } };
         Pen pen = new Pen
         {
-            Brush = { CurrentValue = Brushes.Blue },
-            Thickness = { CurrentValue = 5 },
-            Offset = { CurrentValue = -12 },
+            Brush = { Value = Brushes.Blue },
+            Thickness = { Value = 5 },
+            Offset = { Value = -12 },
         };
         var geometryResource = geometry.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
@@ -160,8 +160,8 @@ public class GeometryRenderNodeTest
     [Test]
     public void HitTest_ShouldReturnTrue_WhenPointIsInsideGeometryStroke()
     {
-        var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 50 } };
+        var geometry = new EllipseGeometry { Width = { Value = 100 }, Height = { Value = 100 } };
+        Pen pen = new Pen { Brush = { Value = Brushes.Black }, Thickness = { Value = 50 } };
         var geometryResource = geometry.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
         using var node = new GeometryRenderNode(geometryResource, null, penResource);
@@ -174,10 +174,10 @@ public class GeometryRenderNodeTest
     [Test]
     public void HitTest_UsesTheUpdatedPenWithoutRecompilingThePlan()
     {
-        var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
+        var geometry = new EllipseGeometry { Width = { Value = 100 }, Height = { Value = 100 } };
         Brush.Resource fill = Brushes.Resource.White;
-        var thinPen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
-        var thickPen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 30 } };
+        var thinPen = new Pen { Brush = { Value = Brushes.Black }, Thickness = { Value = 1 } };
+        var thickPen = new Pen { Brush = { Value = Brushes.Black }, Thickness = { Value = 30 } };
         Geometry.Resource geometryResource = geometry.ToResource(CompositionContext.Default);
         Pen.Resource thinPenResource = thinPen.ToResource(CompositionContext.Default);
         Pen.Resource thickPenResource = thickPen.ToResource(CompositionContext.Default);
@@ -202,9 +202,9 @@ public class GeometryRenderNodeTest
     // A red 100x100 ellipse outlined by a black pen one unit thick.
     private static (Geometry.Resource Geometry, Brush.Resource Fill, Pen.Resource Pen) CreateOutlinedEllipse()
     {
-        var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
+        var geometry = new EllipseGeometry { Width = { Value = 100 }, Height = { Value = 100 } };
         Brush fill = new SolidColorBrush(Colors.Red);
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
+        Pen pen = new Pen { Brush = { Value = Brushes.Black }, Thickness = { Value = 1 } };
         return (
             geometry.ToResource(CompositionContext.Default),
             fill.ToResource(CompositionContext.Default),

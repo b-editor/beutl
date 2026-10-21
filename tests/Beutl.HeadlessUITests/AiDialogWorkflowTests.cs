@@ -4704,7 +4704,7 @@ public sealed partial class AiDialogWorkflowTests
         soundSource.ReadFrom(new Uri(sourcePath));
         var sound = new SourceSound
         {
-            Source = { CurrentValue = soundSource },
+            Source = { Value = soundSource },
         };
         var element = new Element
         {
@@ -4729,7 +4729,7 @@ public sealed partial class AiDialogWorkflowTests
                 new AiTranscriptionSegment { Start = 0, End = 1, Text = "Paid transcript" },
             ];
 
-            sound.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(1);
+            sound.OffsetPosition.Value = TimeSpan.FromSeconds(1);
             await WaitUntilAsync(() =>
                 viewModel.SelectedAudioSource.Value is { } current
                 && current.ElementId == element.Id

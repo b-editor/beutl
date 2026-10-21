@@ -103,7 +103,7 @@ public sealed class ReconcilerIdIntegrityTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
-        var rect = new RectShape { Name = "mark", Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
+        var rect = new RectShape { Name = "mark", Width = { Value = 100 }, Height = { Value = 100 } };
         element.AddObject(rect);
 
         using var session = new AgentToolkitTestSession(scene);
@@ -138,7 +138,7 @@ public sealed class ReconcilerIdIntegrityTests
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "second.belm"))
         };
         scene.Children.Add(secondElement);
-        var rect = new RectShape { Name = "mark", Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
+        var rect = new RectShape { Name = "mark", Width = { Value = 100 }, Height = { Value = 100 } };
         firstElement.AddObject(rect);
 
         using var session = new AgentToolkitTestSession(scene);
@@ -196,17 +196,17 @@ public sealed class ReconcilerIdIntegrityTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
-        var rotationA = new RotationTransform { Rotation = { CurrentValue = -18 } };
-        var rotationB = new RotationTransform { Rotation = { CurrentValue = -18 } };
+        var rotationA = new RotationTransform { Rotation = { Value = -18 } };
+        var rotationB = new RotationTransform { Rotation = { Value = -18 } };
         rotationB.Id = rotationA.Id;
         var rect = new RectShape
         {
             Name = "pane",
-            Width = { CurrentValue = 100 },
-            Height = { CurrentValue = 100 },
+            Width = { Value = 100 },
+            Height = { Value = 100 },
             Transform =
             {
-                CurrentValue = new TransformGroup
+                Value = new TransformGroup
                 {
                     Children = { rotationA, new TranslateTransform(), rotationB }
                 }
@@ -248,7 +248,7 @@ public sealed class ReconcilerIdIntegrityTests
             Uri = new Uri(Path.Combine(directory, "carrier.belm")),
         };
         var holder = new NonHierarchicalValueHolder();
-        holder.Value.CurrentValue = new RectShape();
+        holder.Value.Value = new RectShape();
         carrier.AddObject(holder);
         scene.Children.Add(carrier);
         CoreSerializer.StoreToUri(scene, scene.Uri!);

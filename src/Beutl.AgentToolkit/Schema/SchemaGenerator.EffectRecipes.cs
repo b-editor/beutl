@@ -409,7 +409,7 @@ public sealed partial class SchemaGenerator
     {
         return effects.Children
             .OfType<SKSLScriptEffect>()
-            .Any(effect => !string.IsNullOrWhiteSpace(effect.Script.CurrentValue));
+            .Any(effect => !string.IsNullOrWhiteSpace(effect.Script.Value));
     }
 
     private static bool IsShaderSourceRequirementNote(string note)
@@ -478,143 +478,143 @@ public sealed partial class SchemaGenerator
                 group.Children.Add(CreateBrightness(108));
                 break;
             case Blur blur:
-                blur.Sigma.CurrentValue = new Size(8, 8);
+                blur.Sigma.Value = new Size(8, 8);
                 break;
             case DropShadow dropShadow:
-                dropShadow.Position.CurrentValue = new Point(8, 10);
-                dropShadow.Sigma.CurrentValue = new Size(18, 18);
-                dropShadow.Color.CurrentValue = Color.Parse("#aa36f0ff");
+                dropShadow.Position.Value = new Point(8, 10);
+                dropShadow.Sigma.Value = new Size(18, 18);
+                dropShadow.Color.Value = Color.Parse("#aa36f0ff");
                 break;
             case InnerShadow innerShadow:
-                innerShadow.Position.CurrentValue = new Point(10, 12);
-                innerShadow.Sigma.CurrentValue = new Size(18, 18);
-                innerShadow.Color.CurrentValue = Color.Parse("#aa000000");
+                innerShadow.Position.Value = new Point(10, 12);
+                innerShadow.Sigma.Value = new Size(18, 18);
+                innerShadow.Color.Value = Color.Parse("#aa000000");
                 break;
             case FlatShadow flatShadow:
-                flatShadow.Angle.CurrentValue = 138;
-                flatShadow.Length.CurrentValue = 34;
-                flatShadow.Brush.CurrentValue = new SolidColorBrush(Color.Parse("#aa05121f"));
+                flatShadow.Angle.Value = 138;
+                flatShadow.Length.Value = 34;
+                flatShadow.Brush.Value = new SolidColorBrush(Color.Parse("#aa05121f"));
                 break;
             case StrokeEffect stroke:
-                stroke.Pen.CurrentValue = CreatePen("#ff36f0ff", 6);
+                stroke.Pen.Value = CreatePen("#ff36f0ff", 6);
                 break;
             case Clipping clipping:
-                clipping.Left.CurrentValue = 16;
-                clipping.Top.CurrentValue = 16;
-                clipping.Right.CurrentValue = 16;
-                clipping.Bottom.CurrentValue = 16;
+                clipping.Left.Value = 16;
+                clipping.Top.Value = 16;
+                clipping.Right.Value = 16;
+                clipping.Bottom.Value = 16;
                 break;
             case Dilate dilate:
-                dilate.RadiusX.CurrentValue = 6;
-                dilate.RadiusY.CurrentValue = 6;
+                dilate.RadiusX.Value = 6;
+                dilate.RadiusY.Value = 6;
                 break;
             case Erode erode:
-                erode.RadiusX.CurrentValue = 4;
-                erode.RadiusY.CurrentValue = 4;
+                erode.RadiusX.Value = 4;
+                erode.RadiusY.Value = 4;
                 break;
             case HighContrast highContrast:
-                highContrast.Contrast.CurrentValue = 18;
+                highContrast.Contrast.Value = 18;
                 break;
             case HueRotate hueRotate:
-                hueRotate.Angle.CurrentValue = 24;
+                hueRotate.Angle.Value = 24;
                 break;
             case Lighting lighting:
-                lighting.Multiply.CurrentValue = Color.Parse("#ffffffff");
-                lighting.Add.CurrentValue = Color.Parse("#221ad8ff");
+                lighting.Multiply.Value = Color.Parse("#ffffffff");
+                lighting.Add.Value = Color.Parse("#221ad8ff");
                 break;
             case Saturate saturate:
-                saturate.Amount.CurrentValue = 136;
+                saturate.Amount.Value = 136;
                 break;
             case Threshold threshold:
-                threshold.Value.CurrentValue = 52;
-                threshold.Smoothness.CurrentValue = 18;
-                threshold.Strength.CurrentValue = 70;
+                threshold.Value.Value = 52;
+                threshold.Smoothness.Value = 18;
+                threshold.Strength.Value = 70;
                 break;
             case Brightness brightness:
-                brightness.Amount.CurrentValue = 116;
+                brightness.Amount.Value = 116;
                 break;
             case Gamma gamma:
-                gamma.Amount.CurrentValue = 92;
-                gamma.Strength.CurrentValue = 65;
+                gamma.Amount.Value = 92;
+                gamma.Strength.Value = 65;
                 break;
             case ColorGrading colorGrading:
-                colorGrading.Temperature.CurrentValue = -8;
-                colorGrading.Tint.CurrentValue = 5;
-                colorGrading.Contrast.CurrentValue = 12;
-                colorGrading.Saturation.CurrentValue = 18;
-                colorGrading.Vibrance.CurrentValue = 20;
+                colorGrading.Temperature.Value = -8;
+                colorGrading.Tint.Value = 5;
+                colorGrading.Contrast.Value = 12;
+                colorGrading.Saturation.Value = 18;
+                colorGrading.Vibrance.Value = 20;
                 break;
             case Invert invert:
-                invert.Amount.CurrentValue = 80;
-                invert.ExcludeAlphaChannel.CurrentValue = true;
+                invert.Amount.Value = 80;
+                invert.ExcludeAlphaChannel.Value = true;
                 break;
             case BlendEffect blend:
-                blend.Brush.CurrentValue = new SolidColorBrush(Color.Parse("#7736f0ff"));
-                blend.BlendMode.CurrentValue = BlendMode.Plus;
+                blend.Brush.Value = new SolidColorBrush(Color.Parse("#7736f0ff"));
+                blend.BlendMode.Value = BlendMode.Plus;
                 break;
             case Negaposi negaposi:
-                negaposi.Red.CurrentValue = 255;
-                negaposi.Blue.CurrentValue = 255;
-                negaposi.Strength.CurrentValue = 65;
+                negaposi.Red.Value = 255;
+                negaposi.Blue.Value = 255;
+                negaposi.Strength.Value = 65;
                 break;
             case ChromaKey chromaKey:
-                chromaKey.Color.CurrentValue = Color.Parse("#ff00ff00");
-                chromaKey.HueRange.CurrentValue = 12;
-                chromaKey.SaturationRange.CurrentValue = 35;
-                chromaKey.Boundary.CurrentValue = 3;
+                chromaKey.Color.Value = Color.Parse("#ff00ff00");
+                chromaKey.HueRange.Value = 12;
+                chromaKey.SaturationRange.Value = 35;
+                chromaKey.Boundary.Value = 3;
                 break;
             case ColorKey colorKey:
-                colorKey.Color.CurrentValue = Color.Parse("#ffffffff");
-                colorKey.Range.CurrentValue = 18;
-                colorKey.Boundary.CurrentValue = 3;
+                colorKey.Color.Value = Color.Parse("#ffffffff");
+                colorKey.Range.Value = 18;
+                colorKey.Boundary.Value = 3;
                 break;
             case SplitEffect split:
-                split.HorizontalDivisions.CurrentValue = 3;
-                split.VerticalDivisions.CurrentValue = 2;
-                split.HorizontalSpacing.CurrentValue = 12;
-                split.VerticalSpacing.CurrentValue = 8;
+                split.HorizontalDivisions.Value = 3;
+                split.VerticalDivisions.Value = 2;
+                split.HorizontalSpacing.Value = 12;
+                split.VerticalSpacing.Value = 8;
                 break;
             case TransformEffect transform:
-                transform.Transform.CurrentValue = new RotationTransform(8);
-                transform.TransformOrigin.CurrentValue = RelativePoint.Center;
+                transform.Transform.Value = new RotationTransform(8);
+                transform.TransformOrigin.Value = RelativePoint.Center;
                 break;
             case MosaicEffect mosaic:
-                mosaic.TileSize.CurrentValue = new Size(18, 18);
+                mosaic.TileSize.Value = new Size(18, 18);
                 break;
             case ColorShift colorShift:
-                colorShift.RedOffset.CurrentValue = new PixelPoint(12, 0);
-                colorShift.BlueOffset.CurrentValue = new PixelPoint(-12, 0);
+                colorShift.RedOffset.Value = new PixelPoint(12, 0);
+                colorShift.BlueOffset.Value = new PixelPoint(-12, 0);
                 break;
             case ShakeEffect shake:
-                shake.StrengthX.CurrentValue = 18;
-                shake.StrengthY.CurrentValue = 7;
-                shake.Speed.CurrentValue = 120;
+                shake.StrengthX.Value = 18;
+                shake.StrengthY.Value = 7;
+                shake.Speed.Value = 120;
                 break;
             case DisplacementMapEffect displacement:
-                if (displacement.Transform.CurrentValue is DisplacementMapTranslateTransform translate)
+                if (displacement.Transform.Value is DisplacementMapTranslateTransform translate)
                 {
-                    translate.X.CurrentValue = 18;
-                    translate.Y.CurrentValue = 10;
+                    translate.X.Value = 18;
+                    translate.Y.Value = 10;
                 }
 
-                displacement.Signed.CurrentValue = true;
+                displacement.Signed.Value = true;
                 break;
             case PathFollowEffect pathFollow:
-                pathFollow.Progress.CurrentValue = 42;
-                pathFollow.FollowRotation.CurrentValue = true;
+                pathFollow.Progress.Value = 42;
+                pathFollow.FollowRotation.Value = true;
                 break;
             case DelayAnimationEffect delay:
-                delay.Delay.CurrentValue = 55;
-                delay.Effect.CurrentValue = CreateDropShadow(0, 0, 18, "#9936f0ff");
+                delay.Delay.Value = 55;
+                delay.Effect.Value = CreateDropShadow(0, 0, 18, "#9936f0ff");
                 break;
             case PixelSortEffect pixelSort:
-                pixelSort.Direction.CurrentValue = PixelSortDirection.Horizontal;
-                pixelSort.SortKey.CurrentValue = PixelSortKey.Hue;
-                pixelSort.ThresholdMin.CurrentValue = 18;
-                pixelSort.ThresholdMax.CurrentValue = 82;
+                pixelSort.Direction.Value = PixelSortDirection.Horizontal;
+                pixelSort.SortKey.Value = PixelSortKey.Hue;
+                pixelSort.ThresholdMin.Value = 18;
+                pixelSort.ThresholdMax.Value = 82;
                 break;
             case SKSLScriptEffect sksl:
-                sksl.Script.CurrentValue = CreateNeutralShaderScript();
+                sksl.Script.Value = CreateNeutralShaderScript();
                 break;
         }
     }
@@ -666,7 +666,7 @@ public sealed partial class SchemaGenerator
     private static SKSLScriptEffect CreateOrganicShaderEffect()
     {
         var effect = new SKSLScriptEffect();
-        effect.Script.CurrentValue = CreateOrganicShaderScript();
+        effect.Script.Value = CreateOrganicShaderScript();
         return effect;
     }
 
@@ -708,7 +708,7 @@ public sealed partial class SchemaGenerator
     private static SKSLScriptEffect CreateFilmGrainEffect()
     {
         var effect = new SKSLScriptEffect();
-        effect.Script.CurrentValue = CreateFilmGrainScript();
+        effect.Script.Value = CreateFilmGrainScript();
         return effect;
     }
 
@@ -760,46 +760,46 @@ public sealed partial class SchemaGenerator
         float tint = 0)
     {
         var colorGrading = new ColorGrading();
-        colorGrading.Temperature.CurrentValue = temperature;
-        colorGrading.Saturation.CurrentValue = saturation;
-        colorGrading.Contrast.CurrentValue = contrast;
-        colorGrading.Vibrance.CurrentValue = vibrance;
-        colorGrading.Tint.CurrentValue = tint;
+        colorGrading.Temperature.Value = temperature;
+        colorGrading.Saturation.Value = saturation;
+        colorGrading.Contrast.Value = contrast;
+        colorGrading.Vibrance.Value = vibrance;
+        colorGrading.Tint.Value = tint;
         return colorGrading;
     }
 
     private static ShakeEffect CreateShake(float strengthX, float strengthY, float speed)
     {
         var shake = new ShakeEffect();
-        shake.StrengthX.CurrentValue = strengthX;
-        shake.StrengthY.CurrentValue = strengthY;
-        shake.Speed.CurrentValue = speed;
+        shake.StrengthX.Value = strengthX;
+        shake.StrengthY.Value = strengthY;
+        shake.Speed.Value = speed;
         return shake;
     }
 
     private static StrokeEffect CreateStroke(string color, float thickness)
     {
         var stroke = new StrokeEffect();
-        stroke.Pen.CurrentValue = CreatePen(color, thickness);
+        stroke.Pen.Value = CreatePen(color, thickness);
         return stroke;
     }
 
     private static FlatShadow CreateFlatShadow(float angle, float length, string color)
     {
         var flatShadow = new FlatShadow();
-        flatShadow.Angle.CurrentValue = angle;
-        flatShadow.Length.CurrentValue = length;
-        flatShadow.Brush.CurrentValue = new SolidColorBrush(Color.Parse(color));
+        flatShadow.Angle.Value = angle;
+        flatShadow.Length.Value = length;
+        flatShadow.Brush.Value = new SolidColorBrush(Color.Parse(color));
         return flatShadow;
     }
 
     private static PixelSortEffect CreatePixelSort()
     {
         var pixelSort = new PixelSortEffect();
-        pixelSort.Direction.CurrentValue = PixelSortDirection.Horizontal;
-        pixelSort.SortKey.CurrentValue = PixelSortKey.Hue;
-        pixelSort.ThresholdMin.CurrentValue = 18;
-        pixelSort.ThresholdMax.CurrentValue = 82;
+        pixelSort.Direction.Value = PixelSortDirection.Horizontal;
+        pixelSort.SortKey.Value = PixelSortKey.Hue;
+        pixelSort.ThresholdMin.Value = 18;
+        pixelSort.ThresholdMax.Value = 82;
         return pixelSort;
     }
 }

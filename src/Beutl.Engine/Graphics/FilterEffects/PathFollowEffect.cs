@@ -12,7 +12,7 @@ public sealed partial class PathFollowEffect : FilterEffect
     public PathFollowEffect()
     {
         ScanProperties<PathFollowEffect>();
-        Geometry.CurrentValue = new PathGeometry();
+        Geometry.Value = new PathGeometry();
     }
 
     [Display(Name = nameof(GraphicsStrings.PathFollowEffect_Geometry), ResourceType = typeof(GraphicsStrings))]

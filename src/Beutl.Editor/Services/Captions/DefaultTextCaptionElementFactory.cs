@@ -34,11 +34,11 @@ public sealed class DefaultTextCaptionElementFactory : ICaptionElementFactory
                 cue,
                 () => new TextBlock
                 {
-                    Text = { CurrentValue = cue.Text },
-                    Size = { CurrentValue = 48 },
-                    FontFamily = { CurrentValue = FontFamily },
-                    AlignmentX = { CurrentValue = AlignmentX.Center },
-                    AlignmentY = { CurrentValue = AlignmentY.Center },
+                    Text = { Value = cue.Text },
+                    Size = { Value = 48 },
+                    FontFamily = { Value = FontFamily },
+                    AlignmentX = { Value = AlignmentX.Center },
+                    AlignmentY = { Value = AlignmentY.Center },
                 }),
         ];
     }

@@ -100,29 +100,29 @@ public class DelayAnimationNestedBrushTimeTests
     private static Drawable.Resource MakeSplitDelayedBrush()
     {
         var split = new SplitEffect();
-        split.HorizontalDivisions.CurrentValue = 2;
-        split.VerticalDivisions.CurrentValue = 1;
-        split.HorizontalSpacing.CurrentValue = 20;
+        split.HorizontalDivisions.Value = 2;
+        split.VerticalDivisions.Value = 1;
+        split.HorizontalSpacing.Value = 20;
 
         var blend = new BlendEffect();
-        blend.Brush.CurrentValue = MakeTimeColouredDrawableBrush();
-        blend.BlendMode.CurrentValue = BlendMode.SrcIn;
+        blend.Brush.Value = MakeTimeColouredDrawableBrush();
+        blend.BlendMode.Value = BlendMode.SrcIn;
 
         var delay = new DelayAnimationEffect();
-        delay.Delay.CurrentValue = 1000f;
-        delay.Effect.CurrentValue = blend;
+        delay.Delay.Value = 1000f;
+        delay.Effect.Value = blend;
 
         var group = new FilterEffectGroup();
         group.Children.Add(split);
         group.Children.Add(delay);
 
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.Width.CurrentValue = 160;
-        shape.Height.CurrentValue = 120;
-        shape.Fill.CurrentValue = Brushes.White;
-        shape.FilterEffect.CurrentValue = group;
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.Width.Value = 160;
+        shape.Height.Value = 120;
+        shape.Fill.Value = Brushes.White;
+        shape.FilterEffect.Value = group;
         return shape.ToResource(new CompositionContext(CompositionTime));
     }
 
@@ -136,16 +136,16 @@ public class DelayAnimationNestedBrushTimeTests
         fill.Color.SetKeyFrameAnimation(animation);
 
         var content = new RectShape();
-        content.AlignmentX.CurrentValue = AlignmentX.Center;
-        content.AlignmentY.CurrentValue = AlignmentY.Center;
-        content.Width.CurrentValue = 200;
-        content.Height.CurrentValue = 200;
-        content.Fill.CurrentValue = fill;
+        content.AlignmentX.Value = AlignmentX.Center;
+        content.AlignmentY.Value = AlignmentY.Center;
+        content.Width.Value = 200;
+        content.Height.Value = 200;
+        content.Fill.Value = fill;
 
         var brush = new DrawableBrush();
-        brush.Drawable.CurrentValue = content;
-        brush.Stretch.CurrentValue = Stretch.Fill;
-        brush.TileMode.CurrentValue = TileMode.Tile;
+        brush.Drawable.Value = content;
+        brush.Stretch.Value = Stretch.Fill;
+        brush.TileMode.Value = TileMode.Tile;
         return brush;
     }
 
@@ -153,10 +153,10 @@ public class DelayAnimationNestedBrushTimeTests
     private static Drawable.Resource MakeSplitGrid(bool delayedBrightness)
     {
         var split = new SplitEffect();
-        split.HorizontalDivisions.CurrentValue = 2;
-        split.VerticalDivisions.CurrentValue = 2;
-        split.HorizontalSpacing.CurrentValue = 24;
-        split.VerticalSpacing.CurrentValue = 24;
+        split.HorizontalDivisions.Value = 2;
+        split.VerticalDivisions.Value = 2;
+        split.HorizontalSpacing.Value = 24;
+        split.VerticalSpacing.Value = 24;
 
         var group = new FilterEffectGroup();
         group.Children.Add(split);
@@ -169,19 +169,19 @@ public class DelayAnimationNestedBrushTimeTests
             brightness.Amount.SetKeyFrameAnimation(animation);
 
             var delay = new DelayAnimationEffect();
-            delay.Delay.CurrentValue = 250f;
-            delay.Effect.CurrentValue = brightness;
+            delay.Delay.Value = 250f;
+            delay.Effect.Value = brightness;
             group.Children.Add(delay);
         }
 
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.Width.CurrentValue = 140;
-        shape.Height.CurrentValue = 140;
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.Width.Value = 140;
+        shape.Height.Value = 140;
         // Mid grey keeps the brightest tile inside the unit range, so no factor is clipped away.
-        shape.Fill.CurrentValue = new SolidColorBrush(Color.FromArgb(255, 96, 96, 96));
-        shape.FilterEffect.CurrentValue = group;
+        shape.Fill.Value = new SolidColorBrush(Color.FromArgb(255, 96, 96, 96));
+        shape.FilterEffect.Value = group;
         return shape.ToResource(new CompositionContext(CompositionTime));
     }
 

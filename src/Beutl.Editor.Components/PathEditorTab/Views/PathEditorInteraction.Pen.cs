@@ -66,7 +66,7 @@ internal sealed partial class PathEditorInteraction
                 figure.Segments.Add(PathEditingOperations.Cubic(outgoing,
                     PathEditingOperations.Lerp(last, explicitStart, 2f / 3), explicitStart));
             }
-            figure.IsClosed.CurrentValue = true;
+            figure.IsClosed.Value = true;
         });
         Tool = PathEditorTool.Move;
     }
@@ -80,8 +80,8 @@ internal sealed partial class PathEditorInteraction
             {
                 // The first segment is the closing edge for implicit-start
                 // figures. Keep its identity and any untouched handle data.
-                if (_outgoing is { } outgoing) closing.ControlPoint1.CurrentValue = outgoing;
-                if (_firstIncoming is { } incoming) closing.ControlPoint2.CurrentValue = incoming;
+                if (_outgoing is { } outgoing) closing.ControlPoint1.Value = outgoing;
+                if (_firstIncoming is { } incoming) closing.ControlPoint2.Value = incoming;
             }
             else if (figure.Segments[0] is LineSegment && (_firstIncoming != null || _outgoing != null))
             {
@@ -91,7 +91,7 @@ internal sealed partial class PathEditorInteraction
                     _outgoing ?? PathEditingOperations.Lerp(last, first, 1f / 3),
                     _firstIncoming ?? PathEditingOperations.Lerp(last, first, 2f / 3), first);
             }
-            figure.IsClosed.CurrentValue = true;
+            figure.IsClosed.Value = true;
         });
         Tool = PathEditorTool.Move;
     }

@@ -62,7 +62,7 @@ public sealed class ParticlePrewarmEditorTests
             Assert.That(done.Focus(), Is.True);
             HeadlessTestHelpers.Render(3);
 
-            Assert.That(emitter.PrewarmDuration.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2.25)));
+            Assert.That(emitter.PrewarmDuration.Value, Is.EqualTo(TimeSpan.FromSeconds(2.25)));
             Assert.That(history.UndoCount, Is.EqualTo(1));
             Assert.That(history.Undo(), Is.True);
             HeadlessTestHelpers.Render(3);
@@ -79,7 +79,7 @@ public sealed class ParticlePrewarmEditorTests
             window.KeyTextInput(unsupportedInput);
             Assert.That(done.Focus(), Is.True);
             HeadlessTestHelpers.Render(3);
-            Assert.That(emitter.PrewarmDuration.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(emitter.PrewarmDuration.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(editor.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(input.Text, Is.EqualTo(editor.Value.ToString()));
             Assert.That(history.Undo(), Is.True);

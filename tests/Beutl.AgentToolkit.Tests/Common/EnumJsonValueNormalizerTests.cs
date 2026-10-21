@@ -17,7 +17,7 @@ public class EnumJsonValueNormalizerTests
         object? value = EnumJsonValueNormalizer.Deserialize(json, typeof(UnsealedAlignedObject));
 
         Assert.That(value, Is.TypeOf<UnsealedAlignedObject>());
-        Assert.That(((UnsealedAlignedObject)value!).Alignment.CurrentValue, Is.EqualTo(AlignmentX.Center));
+        Assert.That(((UnsealedAlignedObject)value!).Alignment.Value, Is.EqualTo(AlignmentX.Center));
     }
 
     [SuppressResourceClassGeneration]

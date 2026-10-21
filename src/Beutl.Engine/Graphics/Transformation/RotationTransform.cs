@@ -16,7 +16,7 @@ public sealed partial class RotationTransform : Transform
 
     public RotationTransform(float rotation) : this()
     {
-        Rotation.CurrentValue = rotation;
+        Rotation.Value = rotation;
     }
 
     [Display(Name = nameof(GraphicsStrings.Rotation), ResourceType = typeof(GraphicsStrings))]

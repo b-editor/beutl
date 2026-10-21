@@ -84,10 +84,10 @@ public sealed class EqualizerNode : AudioNode
         for (int bandIndex = 0; bandIndex < Bands.Count; bandIndex++)
         {
             var band = Bands[bandIndex];
-            var filterType = band.FilterType.CurrentValue;
-            float frequency = band.Frequency.CurrentValue;
-            float gain = band.Gain.CurrentValue;
-            float q = band.Q.CurrentValue;
+            var filterType = band.FilterType.Value;
+            float frequency = band.Frequency.Value;
+            float gain = band.Gain.Value;
+            float q = band.Q.Value;
 
             for (int ch = 0; ch < input.ChannelCount; ch++)
             {
@@ -149,7 +149,7 @@ public sealed class EqualizerNode : AudioNode
                     {
                         var band = Bands[bandIndex];
                         var filter = _filters![bandIndex][ch];
-                        var filterType = band.FilterType.CurrentValue;
+                        var filterType = band.FilterType.Value;
 
                         context.AnimationSampler.SampleBuffer(band.Frequency, chunkRange, context.SampleRate, frequencies[..chunkSize]);
                         context.AnimationSampler.SampleBuffer(band.Gain, chunkRange, context.SampleRate, gains[..chunkSize]);

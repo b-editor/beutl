@@ -31,7 +31,7 @@ public class PropertyExpressionTests
     {
         var shape = new RectShape();
         var property = (AnimatableProperty<float>)shape.Opacity;
-        property.CurrentValue = 75;
+        property.Value = 75;
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 50 });
         property.SetKeyFrameAnimation(animation);
@@ -85,7 +85,7 @@ public class PropertyExpressionTests
                 Assert.That(errorText.IsVisible, Is.True);
                 Assert.That(errorText.Text, Is.Not.Empty);
                 Assert.That(property.GetKeyFrameAnimation(), Is.SameAs(animation));
-                Assert.That(property.CurrentValue, Is.EqualTo(75));
+                Assert.That(property.Value, Is.EqualTo(75));
                 if (runtimeFailure)
                 {
                     Assert.That(errorText.Text, Is.EqualTo(property.ExpressionError));

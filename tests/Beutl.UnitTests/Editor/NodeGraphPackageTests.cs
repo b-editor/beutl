@@ -45,13 +45,13 @@ public class NodeGraphPackageTests
             ImageSource first = TestImages.WriteImage(Path.Combine(assetDirectory, "first.png"));
             ImageSource second = TestImages.WriteImage(Path.Combine(assetDirectory, "second.png"));
             var drawable = new NodeGraphDrawable();
-            GraphModel graph = drawable.Model.CurrentValue!;
+            GraphModel graph = drawable.Model.Value!;
             var output = new OutputNode(); graph.Nodes.Add(output);
             if (kind == "brush")
             {
                 var node = new GeometryShapeNode();
-                node.Geometry.Property!.SetValue(new RectGeometry { Width = { CurrentValue = 4 }, Height = { CurrentValue = 4 } });
-                node.Fill.Property!.SetValue(new ImageBrush { Source = { CurrentValue = first } });
+                node.Geometry.Property!.SetValue(new RectGeometry { Width = { Value = 4 }, Height = { Value = 4 } });
+                node.Fill.Property!.SetValue(new ImageBrush { Source = { Value = first } });
                 graph.Nodes.Add(node); graph.Connect(output.InputPort, node.Output);
             }
             else
@@ -94,10 +94,10 @@ public class NodeGraphPackageTests
             Project? imported = await ProjectPackageService.Current.ImportAsync(package, Path.Combine(root, "imported"));
             Assert.That(imported, Is.Not.Null);
             string importedDirectory = Path.GetDirectoryName(imported!.Uri!.LocalPath)!;
-            var restored = imported.Items.OfType<Scene>().Single().Children.Single().Objects.OfType<NodeGraphDrawable>().Single().Model.CurrentValue!;
+            var restored = imported.Items.OfType<Scene>().Single().Children.Single().Objects.OfType<NodeGraphDrawable>().Single().Model.Value!;
             var sources = new List<ImageSource>();
             if (kind == "brush")
-                sources.Add(((ImageBrush)restored.Nodes.OfType<GeometryShapeNode>().Single().Fill.Property!.GetValue()!).Source.CurrentValue!);
+                sources.Add(((ImageBrush)restored.Nodes.OfType<GeometryShapeNode>().Single().Fill.Property!.GetValue()!).Source.Value!);
             else
             {
                 IPropertyAdapter<ImageSource?> property = restored.Nodes.OfType<ImageSourceNode>().Single().Source.Property!;

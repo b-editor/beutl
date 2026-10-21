@@ -11,18 +11,18 @@ public class PenAndGradientStopTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(pen.Brush.CurrentValue, Is.Null);
-            Assert.That(pen.DashArray.CurrentValue, Is.Null);
-            Assert.That(pen.DashOffset.CurrentValue, Is.EqualTo(0f));
-            Assert.That(pen.Thickness.CurrentValue, Is.EqualTo(1f));
-            Assert.That(pen.MiterLimit.CurrentValue, Is.EqualTo(10f));
-            Assert.That(pen.StrokeCap.CurrentValue, Is.EqualTo(StrokeCap.Flat));
-            Assert.That(pen.StrokeJoin.CurrentValue, Is.EqualTo(StrokeJoin.Miter));
-            Assert.That(pen.StrokeAlignment.CurrentValue, Is.EqualTo(StrokeAlignment.Center));
-            Assert.That(pen.TrimStart.CurrentValue, Is.EqualTo(0f));
-            Assert.That(pen.TrimEnd.CurrentValue, Is.EqualTo(100f));
-            Assert.That(pen.TrimOffset.CurrentValue, Is.EqualTo(0f));
-            Assert.That(pen.Offset.CurrentValue, Is.EqualTo(0f));
+            Assert.That(pen.Brush.Value, Is.Null);
+            Assert.That(pen.DashArray.Value, Is.Null);
+            Assert.That(pen.DashOffset.Value, Is.EqualTo(0f));
+            Assert.That(pen.Thickness.Value, Is.EqualTo(1f));
+            Assert.That(pen.MiterLimit.Value, Is.EqualTo(10f));
+            Assert.That(pen.StrokeCap.Value, Is.EqualTo(StrokeCap.Flat));
+            Assert.That(pen.StrokeJoin.Value, Is.EqualTo(StrokeJoin.Miter));
+            Assert.That(pen.StrokeAlignment.Value, Is.EqualTo(StrokeAlignment.Center));
+            Assert.That(pen.TrimStart.Value, Is.EqualTo(0f));
+            Assert.That(pen.TrimEnd.Value, Is.EqualTo(100f));
+            Assert.That(pen.TrimOffset.Value, Is.EqualTo(0f));
+            Assert.That(pen.Offset.Value, Is.EqualTo(0f));
         });
     }
 
@@ -32,8 +32,8 @@ public class PenAndGradientStopTests
         var stop = new GradientStop();
         Assert.Multiple(() =>
         {
-            Assert.That(stop.Offset.CurrentValue, Is.EqualTo(0f));
-            Assert.That(stop.Color.CurrentValue, Is.EqualTo(Colors.White));
+            Assert.That(stop.Offset.Value, Is.EqualTo(0f));
+            Assert.That(stop.Color.Value, Is.EqualTo(Colors.White));
         });
     }
 
@@ -45,8 +45,8 @@ public class PenAndGradientStopTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(stop.Color.CurrentValue, Is.EqualTo(color));
-            Assert.That(stop.Offset.CurrentValue, Is.EqualTo(0.5f));
+            Assert.That(stop.Color.Value, Is.EqualTo(color));
+            Assert.That(stop.Offset.Value, Is.EqualTo(0.5f));
         });
     }
 }

@@ -64,7 +64,7 @@ public class UnknownMemberTests
         json["Expressions"]!["FutureAmount"] = new JsonObject { ["Source"] = "1 + 2" };
 
         var restored = (RectShape)CoreSerializer.DeserializeFromJsonObject(json, typeof(EngineObject));
-        restored.Height.CurrentValue = 42;
+        restored.Height.Value = 42;
         JsonObject written = CoreSerializer.SerializeToJsonObject(restored);
 
         Assert.Multiple(() =>
@@ -110,7 +110,7 @@ public class UnknownMemberTests
     public void MembersReadUnderAFormerName_AreNotKeptAsUnknown()
     {
         var source = new RenamedHolder { Title = "title" };
-        source.Amount.CurrentValue = 3;
+        source.Amount.Value = 3;
         source.Amount.SetKeyFrameAnimation(CreateAnimation(4f));
         source.Amount.Expression = Expression.Create<float>("5");
         JsonObject json = CoreSerializer.SerializeToJsonObject(source);
@@ -130,7 +130,7 @@ public class UnknownMemberTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(restored.Amount.CurrentValue, Is.EqualTo(3));
+            Assert.That(restored.Amount.Value, Is.EqualTo(3));
             Assert.That(restored.Amount.GetKeyFrameAnimation(), Is.Not.Null);
             Assert.That(restored.Amount.Expression?.ExpressionString, Is.EqualTo("5"));
             Assert.That(restored.Title, Is.EqualTo("title"));
@@ -153,7 +153,7 @@ public class UnknownMemberTests
         string elementPath = Path.Combine(_root, "element.belm");
         var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
         var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(elementPath) };
-        element.AddObject(new RectShape { Fill = { CurrentValue = new SolidColorBrush(Colors.Red) } });
+        element.AddObject(new RectShape { Fill = { Value = new SolidColorBrush(Colors.Red) } });
         scene.Children.Add(element);
         CoreSerializer.StoreToUri(scene, sceneUri);
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();

@@ -18,18 +18,18 @@ public class ClippingAutoCenterTests
     private static Drawable.Resource Make(float left, float top, float right, float bottom)
     {
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.Width.CurrentValue = 120;
-        shape.Height.CurrentValue = 120;
-        shape.Fill.CurrentValue = Brushes.White;
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.Width.Value = 120;
+        shape.Height.Value = 120;
+        shape.Fill.Value = Brushes.White;
         var c = new Clipping();
-        c.Left.CurrentValue = left;
-        c.Top.CurrentValue = top;
-        c.Right.CurrentValue = right;
-        c.Bottom.CurrentValue = bottom;
-        c.AutoCenter.CurrentValue = true;
-        shape.FilterEffect.CurrentValue = c;
+        c.Left.Value = left;
+        c.Top.Value = top;
+        c.Right.Value = right;
+        c.Bottom.Value = bottom;
+        c.AutoCenter.Value = true;
+        shape.FilterEffect.Value = c;
         return shape.ToResource(CompositionContext.Default);
     }
 
@@ -87,19 +87,19 @@ public class ClippingAutoCenterTests
     private static Drawable.Resource MakeBordered(float left)
     {
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.Width.CurrentValue = 120;
-        shape.Height.CurrentValue = 120;
-        shape.Fill.CurrentValue = Brushes.White;
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.Width.Value = 120;
+        shape.Height.Value = 120;
+        shape.Fill.Value = Brushes.White;
         var pen = new Pen();
-        pen.Thickness.CurrentValue = 10;
-        pen.Brush.CurrentValue = Brushes.Red;
-        shape.Pen.CurrentValue = pen;
+        pen.Thickness.Value = 10;
+        pen.Brush.Value = Brushes.Red;
+        shape.Pen.Value = pen;
         var c = new Clipping();
-        c.Left.CurrentValue = left;
-        c.AutoCenter.CurrentValue = true;
-        shape.FilterEffect.CurrentValue = c;
+        c.Left.Value = left;
+        c.AutoCenter.Value = true;
+        shape.FilterEffect.Value = c;
         return shape.ToResource(CompositionContext.Default);
     }
 
@@ -146,25 +146,25 @@ public class ClippingAutoCenterTests
     private static Drawable.Resource MakeAutoClipChain()
     {
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.Width.CurrentValue = 110;
-        shape.Height.CurrentValue = 90;
-        shape.Fill.CurrentValue = Brushes.White;
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.Width.Value = 110;
+        shape.Height.Value = 90;
+        shape.Fill.Value = Brushes.White;
 
         var expand = new Clipping();
-        expand.Left.CurrentValue = -30;
-        expand.Top.CurrentValue = -30;
-        expand.Right.CurrentValue = -30;
-        expand.Bottom.CurrentValue = -30;
+        expand.Left.Value = -30;
+        expand.Top.Value = -30;
+        expand.Right.Value = -30;
+        expand.Bottom.Value = -30;
 
         var autoClip = new Clipping();
-        autoClip.AutoClip.CurrentValue = true;
+        autoClip.AutoClip.Value = true;
 
         var group = new FilterEffectGroup();
         group.Children.Add(expand);
         group.Children.Add(autoClip);
-        shape.FilterEffect.CurrentValue = group;
+        shape.FilterEffect.Value = group;
         return shape.ToResource(CompositionContext.Default);
     }
 

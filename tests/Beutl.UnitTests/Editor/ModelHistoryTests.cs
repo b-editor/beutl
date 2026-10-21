@@ -23,46 +23,46 @@ public class ModelHistoryTests
     {
         var model = new Model3D();
         ModelSource? original = initialMeshes == 0 ? null : Load("original.obj", initialMeshes);
-        model.Source.CurrentValue = original;
-        if (initialMeshes > 0) model.Children[0].Position.CurrentValue = new Vector3(7, 0, 0);
+        model.Source.Value = original;
+        if (initialMeshes > 0) model.Children[0].Position.Value = new Vector3(7, 0, 0);
         var originalChildren = model.Children.ToArray();
         var element = new Element(); element.Objects.Add(model);
         using var harness = new HistoryHarness(element);
         HistoryManager history = harness.History;
         ModelSource replacement = Load("replacement.obj", replacementMeshes);
 
-        model.Source.CurrentValue = replacement;
+        model.Source.Value = replacement;
         history.Commit("Change model");
         var replacementChildren = model.Children.ToArray();
         Assert.That(replacementChildren, Has.Length.EqualTo(replacementMeshes));
-        var material = (PBRMaterial)replacementChildren[0].Material.CurrentValue!;
-        var originalColor = material.Albedo.CurrentValue;
-        replacementChildren[0].Position.CurrentValue = new Vector3(9, 8, 7);
-        material.Albedo.CurrentValue = Beutl.Media.Colors.Red;
+        var material = (PBRMaterial)replacementChildren[0].Material.Value!;
+        var originalColor = material.Albedo.Value;
+        replacementChildren[0].Position.Value = new Vector3(9, 8, 7);
+        material.Albedo.Value = Beutl.Media.Colors.Red;
         history.Commit("Edit mesh");
 
         Assert.That(history.Undo(), Is.True);
-        Assert.That(replacementChildren[0].Position.CurrentValue, Is.EqualTo(Vector3.Zero));
-        Assert.That(material.Albedo.CurrentValue, Is.EqualTo(originalColor));
+        Assert.That(replacementChildren[0].Position.Value, Is.EqualTo(Vector3.Zero));
+        Assert.That(material.Albedo.Value, Is.EqualTo(originalColor));
         Assert.That(history.Undo(), Is.True);
-        Assert.That(model.Source.CurrentValue, Is.SameAs(original));
+        Assert.That(model.Source.Value, Is.SameAs(original));
         Assert.That(model.Children, Has.Count.EqualTo(initialMeshes));
         if (initialMeshes > 0)
         {
             Assert.That(model.Children[0], Is.SameAs(originalChildren[0]));
-            Assert.That(model.Children[0].Position.CurrentValue, Is.EqualTo(new Vector3(7, 0, 0)));
+            Assert.That(model.Children[0].Position.Value, Is.EqualTo(new Vector3(7, 0, 0)));
         }
 
         Assert.That(history.Redo(), Is.True);
-        Assert.That(model.Source.CurrentValue, Is.SameAs(replacement));
+        Assert.That(model.Source.Value, Is.SameAs(replacement));
         Assert.That(model.Children, Has.Count.EqualTo(replacementMeshes));
         for (int i = 0; i < replacementMeshes; i++)
             Assert.That(model.Children[i], Is.SameAs(replacementChildren[i]));
         Assert.That(history.Redo(), Is.True);
         Assert.Multiple(() =>
         {
-            Assert.That(model.Children[0].Position.CurrentValue, Is.EqualTo(new Vector3(9, 8, 7)));
-            Assert.That(((PBRMaterial)model.Children[0].Material.CurrentValue!).Albedo.CurrentValue, Is.EqualTo(Beutl.Media.Colors.Red));
+            Assert.That(model.Children[0].Position.Value, Is.EqualTo(new Vector3(9, 8, 7)));
+            Assert.That(((PBRMaterial)model.Children[0].Material.Value!).Albedo.Value, Is.EqualTo(Beutl.Media.Colors.Red));
             Assert.That(history.UndoCount, Is.EqualTo(2));
             Assert.That(history.RedoCount, Is.Zero);
         });
@@ -74,11 +74,11 @@ public class ModelHistoryTests
         var model = new Model3D();
         using var harness = new HistoryHarness(model);
         HistoryManager history = harness.History;
-        model.Source.CurrentValue = Load("model.obj", 2);
+        model.Source.Value = Load("model.obj", 2);
 
         history.Rollback();
 
-        Assert.That(model.Source.CurrentValue, Is.Null);
+        Assert.That(model.Source.Value, Is.Null);
         Assert.That(model.Children, Is.Empty);
         Assert.That(history.CanUndo, Is.False);
     }

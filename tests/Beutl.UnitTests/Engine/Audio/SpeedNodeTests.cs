@@ -365,7 +365,7 @@ public class SpeedNodeTests
         }
 
         // Change the static speed while playback continues onto the next contiguous chunk.
-        speedProp.CurrentValue = 200f;
+        speedProp.Value = 200f;
 
         using AudioBuffer after = node.Process(
             new AudioProcessContext(new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)), sr, sampler, null));

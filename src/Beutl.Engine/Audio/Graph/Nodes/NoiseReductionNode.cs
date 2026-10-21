@@ -266,20 +266,20 @@ public sealed class NoiseReductionNode : AudioNode
                     || Smoothing.GetKeyFrameAnimation() != null
                     || Adaptation.GetKeyFrameAnimation() != null;
         _staticSettings = NoiseReductionParameters.Normalize(
-            Reduction.CurrentValue,
-            Sensitivity.CurrentValue,
-            Smoothing.CurrentValue,
-            Adaptation.CurrentValue);
+            Reduction.Value,
+            Sensitivity.Value,
+            Smoothing.Value,
+            Adaptation.Value);
     }
 
     // Animated controls are compared by animation; static ones by value.
     private Controls ReadControls()
     {
         return new Controls(
-            Reduction.GetKeyFrameAnimation(), Reduction.GetKeyFrameAnimation() is null ? Reduction.CurrentValue : 0,
-            Sensitivity.GetKeyFrameAnimation(), Sensitivity.GetKeyFrameAnimation() is null ? Sensitivity.CurrentValue : 0,
-            Smoothing.GetKeyFrameAnimation(), Smoothing.GetKeyFrameAnimation() is null ? Smoothing.CurrentValue : 0,
-            Adaptation.GetKeyFrameAnimation(), Adaptation.GetKeyFrameAnimation() is null ? Adaptation.CurrentValue : 0);
+            Reduction.GetKeyFrameAnimation(), Reduction.GetKeyFrameAnimation() is null ? Reduction.Value : 0,
+            Sensitivity.GetKeyFrameAnimation(), Sensitivity.GetKeyFrameAnimation() is null ? Sensitivity.Value : 0,
+            Smoothing.GetKeyFrameAnimation(), Smoothing.GetKeyFrameAnimation() is null ? Smoothing.Value : 0,
+            Adaptation.GetKeyFrameAnimation(), Adaptation.GetKeyFrameAnimation() is null ? Adaptation.Value : 0);
     }
 
     // Animated parameters are evaluated once per frame, at the frame's center.
@@ -299,7 +299,7 @@ public sealed class NoiseReductionNode : AudioNode
     private float Sample(IProperty<float> property, TimeSpan time)
     {
         if (property.GetKeyFrameAnimation() is null)
-            return property.CurrentValue;
+            return property.Value;
 
         Span<float> value = stackalloc float[1];
         _sampler!.SampleBuffer(property, new TimeRange(time, TimeSpan.Zero), _sampleRate, value);

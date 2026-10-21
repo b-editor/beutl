@@ -60,7 +60,7 @@ public class SourceSoundThumbnailTests
 
         var sound = new SourceSound
         {
-            Source = { CurrentValue = soundSource },
+            Source = { Value = soundSource },
             TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(2)),
         };
 
@@ -102,7 +102,7 @@ public class SourceSoundThumbnailTests
 
         var sound = new SourceSound
         {
-            Source = { CurrentValue = soundSource },
+            Source = { Value = soundSource },
             TimeRange = new TimeRange(TimeSpan.Zero, duration),
         };
 
@@ -144,7 +144,7 @@ public class SourceSoundThumbnailTests
         soundSource.ReadFrom(new Uri(path));
         var sound = new SourceSound
         {
-            Source = { CurrentValue = soundSource }
+            Source = { Value = soundSource }
         };
 
         bool result = sound.TryGetOriginalDuration(out TimeSpan duration);

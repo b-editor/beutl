@@ -24,9 +24,9 @@ public sealed class Scene3DGizmoStateTests
     public void TheGizmoSelection_IsNotSaved()
     {
         var scene = new Scene3D();
-        scene.GizmoTarget.CurrentValue = Guid.NewGuid();
-        scene.GizmoMode.CurrentValue = GizmoMode.Rotate;
-        scene.AmbientIntensity.CurrentValue = 0.5f;
+        scene.GizmoTarget.Value = Guid.NewGuid();
+        scene.GizmoMode.Value = GizmoMode.Rotate;
+        scene.AmbientIntensity.Value = 0.5f;
 
         JsonObject json = CoreSerializer.SerializeToJsonObject(scene);
 
@@ -53,8 +53,8 @@ public sealed class Scene3DGizmoStateTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(restored.GizmoTarget.CurrentValue, Is.Null);
-            Assert.That(restored.GizmoMode.CurrentValue, Is.EqualTo(GizmoMode.None));
+            Assert.That(restored.GizmoTarget.Value, Is.Null);
+            Assert.That(restored.GizmoMode.Value, Is.EqualTo(GizmoMode.None));
         });
     }
 
@@ -64,16 +64,16 @@ public sealed class Scene3DGizmoStateTests
         var scene = new Scene3D();
         using var harness = new HistoryHarness(scene);
 
-        scene.GizmoTarget.CurrentValue = Guid.NewGuid();
-        scene.GizmoMode.CurrentValue = GizmoMode.Translate;
+        scene.GizmoTarget.Value = Guid.NewGuid();
+        scene.GizmoMode.Value = GizmoMode.Translate;
         harness.History.Commit();
-        scene.GizmoTarget.CurrentValue = null;
-        scene.GizmoMode.CurrentValue = GizmoMode.None;
+        scene.GizmoTarget.Value = null;
+        scene.GizmoMode.Value = GizmoMode.None;
         harness.History.Commit();
 
         Assert.That(harness.History.UndoCount, Is.Zero);
 
-        scene.AmbientIntensity.CurrentValue = 0.5f;
+        scene.AmbientIntensity.Value = 0.5f;
         harness.History.Commit();
 
         Assert.That(harness.History.UndoCount, Is.EqualTo(1), "the control: an edit to the scene is still recorded");
@@ -89,8 +89,8 @@ public sealed class Scene3DGizmoStateTests
         {
             var cube = new Cube3D();
             var scene3D = new Scene3D();
-            scene3D.RenderWidth.CurrentValue = 160;
-            scene3D.RenderHeight.CurrentValue = 120;
+            scene3D.RenderWidth.Value = 160;
+            scene3D.RenderHeight.Value = 120;
             scene3D.Objects.Add(cube);
             var element = new Element
             {
@@ -105,8 +105,8 @@ public sealed class Scene3DGizmoStateTests
             string previewWithout = RenderAndHash(new SceneRenderer(scene, RenderIntent.Preview));
             string exportWithout = RenderAndHash(ExportRendererFactory.Create(scene));
 
-            scene3D.GizmoTarget.CurrentValue = cube.Id;
-            scene3D.GizmoMode.CurrentValue = GizmoMode.Translate;
+            scene3D.GizmoTarget.Value = cube.Id;
+            scene3D.GizmoMode.Value = GizmoMode.Translate;
             string previewWith = RenderAndHash(new SceneRenderer(scene, RenderIntent.Preview));
             string exportWith = RenderAndHash(ExportRendererFactory.Create(scene));
 

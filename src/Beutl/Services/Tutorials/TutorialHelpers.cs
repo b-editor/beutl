@@ -237,12 +237,12 @@ public static class TutorialHelpers
 
     public static TranslateTransform? GetTranslateTransform(Drawable? drawable)
     {
-        if (drawable?.Transform.CurrentValue is TransformGroup group)
+        if (drawable?.Transform.Value is TransformGroup group)
         {
             return group.Children.OfType<TranslateTransform>().FirstOrDefault();
         }
 
-        return drawable?.Transform.CurrentValue as TranslateTransform;
+        return drawable?.Transform.Value as TranslateTransform;
     }
 
     public static Drawable? GetDrawable(EditViewModel? editVm)

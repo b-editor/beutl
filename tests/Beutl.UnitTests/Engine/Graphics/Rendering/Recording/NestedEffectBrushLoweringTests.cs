@@ -61,23 +61,23 @@ public sealed class NestedEffectBrushLoweringTests
     private static DelayAnimationEffect MakeDelayed(FilterEffect child)
     {
         var delay = new DelayAnimationEffect();
-        delay.Delay.CurrentValue = 0f;
-        delay.Effect.CurrentValue = child;
+        delay.Delay.Value = 0f;
+        delay.Effect.Value = child;
         return delay;
     }
 
     private static FilterEffect MakeDrawableBrushShadow()
     {
         var content = new RectShape();
-        content.Width.CurrentValue = 10;
-        content.Height.CurrentValue = 10;
-        content.Fill.CurrentValue = Brushes.White;
+        content.Width.Value = 10;
+        content.Height.Value = 10;
+        content.Fill.Value = Brushes.White;
         var brush = new DrawableBrush(content);
-        brush.Stretch.CurrentValue = Stretch.Fill;
+        brush.Stretch.Value = Stretch.Fill;
 
         var shadow = new FlatShadow();
-        shadow.Length.CurrentValue = 4;
-        shadow.Brush.CurrentValue = brush;
+        shadow.Length.Value = 4;
+        shadow.Brush.Value = brush;
         return shadow;
     }
 }

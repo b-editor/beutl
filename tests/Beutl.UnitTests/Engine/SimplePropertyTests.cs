@@ -12,11 +12,11 @@ public class SimplePropertyTests
     public void UntypedNullableValueAcceptsNull(bool replace)
     {
         IExpressionProperty<Guid?> typed = Property.CreateWithExpression<Guid?>();
-        typed.CurrentValue = Guid.NewGuid();
+        typed.Value = Guid.NewGuid();
         IProperty property = typed;
         if (replace) property.ReplaceCurrentValue(null);
-        else property.CurrentValue = null;
-        Assert.That(typed.CurrentValue, Is.Null);
+        else property.Value = null;
+        Assert.That(typed.Value, Is.Null);
     }
 
     private static SimpleProperty<T> Make<T>(T defaultValue, string name = "Value")
@@ -41,7 +41,7 @@ public class SimplePropertyTests
 
         property <<= 7;
 
-        Assert.That(property.CurrentValue, Is.EqualTo(7));
+        Assert.That(property.Value, Is.EqualTo(7));
     }
 
     [Test]
@@ -122,13 +122,13 @@ public class SimplePropertyTests
     public void ToAnimatable_PreservesLocalValue()
     {
         var property = Make(1);
-        property.CurrentValue = 42;
+        property.Value = 42;
 
         IExpressionProperty<int> animatable = property.ToAnimatable();
 
         Assert.That(animatable, Is.InstanceOf<AnimatableProperty<int>>());
         Assert.That(animatable.DefaultValue, Is.EqualTo(1));
-        Assert.That(animatable.CurrentValue, Is.EqualTo(42));
+        Assert.That(animatable.Value, Is.EqualTo(42));
         Assert.That(animatable.IsAnimatable, Is.True);
     }
 
@@ -139,7 +139,7 @@ public class SimplePropertyTests
 
         IExpressionProperty<int> animatable = property.ToAnimatable();
 
-        Assert.That(animatable.CurrentValue, Is.EqualTo(7));
+        Assert.That(animatable.Value, Is.EqualTo(7));
         Assert.That(animatable.HasLocalValue, Is.False);
     }
 }

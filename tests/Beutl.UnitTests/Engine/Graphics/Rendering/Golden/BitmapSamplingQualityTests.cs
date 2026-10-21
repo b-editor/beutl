@@ -117,7 +117,7 @@ public sealed class BitmapSamplingQualityTests
     private static Brightness CreateBrightness(float amount)
     {
         var brightness = new Brightness();
-        brightness.Amount.CurrentValue = amount;
+        brightness.Amount.Value = amount;
         return brightness;
     }
 
@@ -149,10 +149,10 @@ public sealed class BitmapSamplingQualityTests
         imageSource.ReadFrom(UriHelper.CreateBase64DataUri("image/png", stream.ToArray()));
         var image = new SourceImage
         {
-            Source = { CurrentValue = imageSource },
-            AlignmentX = { CurrentValue = AlignmentX.Left },
-            AlignmentY = { CurrentValue = AlignmentY.Top },
-            FilterEffect = { CurrentValue = effect },
+            Source = { Value = imageSource },
+            AlignmentX = { Value = AlignmentX.Left },
+            AlignmentY = { Value = AlignmentY.Top },
+            FilterEffect = { Value = effect },
         };
         return image.ToResource(CompositionContext.Default);
     }

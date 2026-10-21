@@ -27,7 +27,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
 
     public T DefaultValue { get; } = defaultValue;
 
-    public T CurrentValue
+    public T Value
     {
         get => _currentValue;
         set => SetCurrentValue(value, replaceEquivalent: false);
@@ -105,7 +105,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
 
     public void operator <<=(T value)
     {
-        CurrentValue = value;
+        Value = value;
     }
 
     private void OnChildEdited(object? sender, EventArgs e)
@@ -181,12 +181,12 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
 
         if (owner is IModifiableHierarchical ownerHierarchical)
         {
-            if (CurrentValue is IHierarchical hierarchical)
+            if (Value is IHierarchical hierarchical)
                 ownerHierarchical.AddChild(hierarchical);
         }
         else if (_owner is IModifiableHierarchical oldOwnerHierarchical)
         {
-            if (CurrentValue is IHierarchical hierarchical)
+            if (Value is IHierarchical hierarchical)
                 oldOwnerHierarchical.RemoveChild(hierarchical);
         }
 
@@ -221,7 +221,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
 
     public void ResetToDefault()
     {
-        CurrentValue = DefaultValue;
+        Value = DefaultValue;
         HasLocalValue = false;
         Expression = null;
     }
@@ -247,16 +247,16 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
             if (optional.Value is IReference { IsNull: false } reference)
             {
                 context.Resolve(reference.Id,
-                    resolved => CurrentValue = (T)reference.Resolved((CoreObject)resolved));
+                    resolved => Value = (T)reference.Resolved((CoreObject)resolved));
             }
 
-            CurrentValue = optional.Value;
+            Value = optional.Value;
         }
     }
 
     public void SerializeValue(ICoreSerializationContext context)
     {
-        context.SetValue(Name, CurrentValue);
+        context.SetValue(Name, Value);
     }
 
     public void DeserializeExpression(JsonNode expressionNode)

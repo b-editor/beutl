@@ -62,7 +62,7 @@ public class AnimationSamplerTests
         var sampler = new AnimationSampler();
         var property = Property.CreateAnimatable(3.5f);
         property.SetAttributes("Value", []);
-        property.CurrentValue = 9.5f;
+        property.Value = 9.5f;
 
         Span<float> buffer = stackalloc float[4];
         sampler.SampleBuffer(property, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 4, buffer);

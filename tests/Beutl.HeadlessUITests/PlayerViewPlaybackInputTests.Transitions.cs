@@ -28,7 +28,7 @@ public partial class PlayerViewPlaybackInputTests
         EditViewModel editor = await OpenEditor();
         var scene = await Add3DScene(editor);
         var cube = scene.Objects.Single();
-        var camera = scene.Camera.CurrentValue!;
+        var camera = scene.Camera.Value!;
         editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
@@ -44,9 +44,9 @@ public partial class PlayerViewPlaybackInputTests
             if (button == MouseButton.Right)
                 window.KeyPress(Key.W, RawInputModifiers.None, PhysicalKey.W, "w");
             object handler = MouseHandler(view)!;
-            var position = cube.Position.CurrentValue;
-            var target = camera.Target.CurrentValue;
-            var cameraPosition = camera.Position.CurrentValue;
+            var position = cube.Position.Value;
+            var target = camera.Target.Value;
+            var cameraPosition = camera.Position.Value;
             int index = editor.HistoryManager.CurrentIndex;
 
             PublishPlayingOffUI(editor.Player, stop: true);
@@ -67,9 +67,9 @@ public partial class PlayerViewPlaybackInputTests
             HeadlessTestHelpers.Settle();
             Assert.Multiple(() =>
             {
-                Assert.That(cube.Position.CurrentValue, Is.EqualTo(position));
-                Assert.That(camera.Target.CurrentValue, Is.EqualTo(target));
-                Assert.That(camera.Position.CurrentValue, Is.EqualTo(cameraPosition));
+                Assert.That(cube.Position.Value, Is.EqualTo(position));
+                Assert.That(camera.Target.Value, Is.EqualTo(target));
+                Assert.That(camera.Position.Value, Is.EqualTo(cameraPosition));
                 Assert.That(editor.HistoryManager.CurrentIndex, Is.EqualTo(index + 1));
             });
         }
@@ -91,7 +91,7 @@ public partial class PlayerViewPlaybackInputTests
         EditViewModel editor = await OpenEditor();
         var scene = await Add3DScene(editor);
         var cube = scene.Objects.Single();
-        var camera = scene.Camera.CurrentValue!;
+        var camera = scene.Camera.Value!;
         editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
@@ -113,9 +113,9 @@ public partial class PlayerViewPlaybackInputTests
             int index = editor.HistoryManager.CurrentIndex;
             render = await BlockRenderThreadAsync(release);
             PublishPlayingOffUI(editor.Player);
-            var position = cube.Position.CurrentValue;
-            var target = camera.Target.CurrentValue;
-            var cameraPosition = camera.Position.CurrentValue;
+            var position = cube.Position.Value;
+            var target = camera.Target.Value;
+            var cameraPosition = camera.Position.Value;
             Assert.That(MouseHandler(view), Is.SameAs(handler));
             release.CancelAfter(TimeSpan.FromSeconds(2));
 
@@ -140,9 +140,9 @@ public partial class PlayerViewPlaybackInputTests
                 Assert.That(release.IsCancellationRequested, Is.False, "Early input must not wait for the render dispatcher.");
                 Assert.That(MouseHandler(view), Is.SameAs(handler), "The subscription must still be pending when the guard is tested.");
                 Assert.That(editor.HistoryManager.CurrentIndex, Is.EqualTo(index + 1), "The callback must finish the gesture itself.");
-                Assert.That(cube.Position.CurrentValue, Is.EqualTo(position));
-                Assert.That(camera.Target.CurrentValue, Is.EqualTo(target));
-                Assert.That(camera.Position.CurrentValue, Is.EqualTo(cameraPosition));
+                Assert.That(cube.Position.Value, Is.EqualTo(position));
+                Assert.That(camera.Target.Value, Is.EqualTo(target));
+                Assert.That(camera.Position.Value, Is.EqualTo(cameraPosition));
             });
             release.Cancel();
             await render.WaitAsync(TimeSpan.FromSeconds(5));
@@ -172,7 +172,7 @@ public partial class PlayerViewPlaybackInputTests
         await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
             TimeSpan.Zero, TimeSpan.FromSeconds(4), 0, new ElementSource.EngineObject(() => shape))], CancellationToken.None);
         editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
-        var originalTransform = shape.Transform.CurrentValue;
+        var originalTransform = shape.Transform.Value;
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
         Point point = default;
@@ -221,7 +221,7 @@ public partial class PlayerViewPlaybackInputTests
                 Assert.That(MouseHandler(view), Is.Null);
             });
             editor.HistoryManager.Undo();
-            Assert.That(shape.Transform.CurrentValue, Is.SameAs(originalTransform));
+            Assert.That(shape.Transform.Value, Is.SameAs(originalTransform));
             Capture(window, $"move-transition-{handle}-{queuedStop}");
         }
         finally
@@ -306,9 +306,9 @@ public partial class PlayerViewPlaybackInputTests
 
     private static (float X, float Y, float ScaleX, float ScaleY) TransformPose(RectShape shape)
     {
-        var group = (TransformGroup)shape.Transform.CurrentValue!;
+        var group = (TransformGroup)shape.Transform.Value!;
         var translate = group.Children.OfType<TranslateTransform>().Single();
         var scale = group.Children.OfType<ScaleTransform>().Single();
-        return (translate.X.CurrentValue, translate.Y.CurrentValue, scale.ScaleX.CurrentValue, scale.ScaleY.CurrentValue);
+        return (translate.X.Value, translate.Y.Value, scale.ScaleX.Value, scale.ScaleY.Value);
     }
 }

@@ -16,8 +16,8 @@ public sealed partial class GradientStop : EngineObject
 
     public GradientStop(Color color, float offset) : this()
     {
-        Color.CurrentValue = color;
-        Offset.CurrentValue = offset;
+        Color.Value = color;
+        Offset.Value = offset;
     }
 
     [Display(Name = nameof(GraphicsStrings.Offset), ResourceType = typeof(GraphicsStrings))]

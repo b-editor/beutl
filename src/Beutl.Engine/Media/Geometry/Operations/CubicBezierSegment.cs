@@ -15,9 +15,9 @@ public sealed partial class CubicBezierSegment : PathSegment
 
     public CubicBezierSegment(Point controlPoint1, Point controlPoint2, Point endPoint) : this()
     {
-        ControlPoint1.CurrentValue = controlPoint1;
-        ControlPoint2.CurrentValue = controlPoint2;
-        EndPoint.CurrentValue = endPoint;
+        ControlPoint1.Value = controlPoint1;
+        ControlPoint2.Value = controlPoint2;
+        EndPoint.Value = endPoint;
     }
 
     [Display(Name = nameof(GraphicsStrings.CubicBezierSegment_ControlPoint1), ResourceType = typeof(GraphicsStrings))]

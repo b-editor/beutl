@@ -49,11 +49,11 @@ public class GateEffectTests
     {
         var effect = new GateEffect();
 
-        Assert.That(effect.Threshold.CurrentValue, Is.EqualTo(DefaultThresholdDb));
-        Assert.That(effect.Attack.CurrentValue, Is.EqualTo(DefaultAttackMs));
-        Assert.That(effect.Hold.CurrentValue, Is.EqualTo(DefaultHoldMs));
-        Assert.That(effect.Release.CurrentValue, Is.EqualTo(DefaultReleaseMs));
-        Assert.That(effect.Range.CurrentValue, Is.EqualTo(DefaultRangeDb));
+        Assert.That(effect.Threshold.Value, Is.EqualTo(DefaultThresholdDb));
+        Assert.That(effect.Attack.Value, Is.EqualTo(DefaultAttackMs));
+        Assert.That(effect.Hold.Value, Is.EqualTo(DefaultHoldMs));
+        Assert.That(effect.Release.Value, Is.EqualTo(DefaultReleaseMs));
+        Assert.That(effect.Range.Value, Is.EqualTo(DefaultRangeDb));
     }
 
     [Test]

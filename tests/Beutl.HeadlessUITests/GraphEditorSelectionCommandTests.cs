@@ -218,7 +218,7 @@ public class GraphEditorSelectionCommandTests
         var effect = new StrokeEffect();
         effect.Offset.SetKeyFrameAnimation(animation);
         var shape = graph.Model.Element!.Objects.OfType<RectShape>().Single();
-        ((FilterEffectGroup)shape.FilterEffect.CurrentValue!).Children.Add(effect);
+        ((FilterEffectGroup)shape.FilterEffect.Value!).Children.Add(effect);
         graph.Model.HistoryManager.Commit();
         using var model = new GraphEditorViewModel(graph.Model.EditorContext, animation, graph.Model.Element);
         graph.View.DataContext = model;

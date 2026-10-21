@@ -26,9 +26,9 @@ public sealed partial class DrawableObject3D : Object3D, IFlowOperator
     {
         ScanProperties<DrawableObject3D>();
         // The drawables reach the screen only through an unlit material, so the card keeps its own.
-        Material.CurrentValue = new UnlitMaterial();
+        Material.Value = new UnlitMaterial();
         HideProperty(Material);
-        CastShadows.CurrentValue = false;
+        CastShadows.Value = false;
     }
 
     [SuppressResourceClassGeneration]
@@ -41,7 +41,7 @@ public sealed partial class DrawableObject3D : Object3D, IFlowOperator
         private static readonly Matrix4x4 s_planeToCard = Matrix4x4.CreateRotationX(MathF.PI / 2);
 
         private readonly FlowChildren _children = new(keepsFlowInputs: false);
-        private readonly PlaneMesh _mesh = new() { Width = { CurrentValue = 1 }, Height = { CurrentValue = 1 } };
+        private readonly PlaneMesh _mesh = new() { Width = { Value = 1 }, Height = { Value = 1 } };
         private PlaneMesh.Resource? _meshResource;
         private readonly DrawableContentTexture _content = new();
 

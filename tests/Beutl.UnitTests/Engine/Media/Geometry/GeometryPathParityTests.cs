@@ -16,48 +16,48 @@ public sealed class GeometryPathParityTests
     {
         yield return new TestCaseData((Func<Geometry>)(() => new EllipseGeometry
         {
-            Width = { CurrentValue = 100 },
-            Height = { CurrentValue = 50 },
+            Width = { Value = 100 },
+            Height = { Value = 50 },
         })).SetName("Ellipse");
 
         yield return new TestCaseData((Func<Geometry>)(() => new EllipseGeometry
         {
-            Width = { CurrentValue = float.PositiveInfinity },
-            Height = { CurrentValue = 50 },
+            Width = { Value = float.PositiveInfinity },
+            Height = { Value = 50 },
         })).SetName("EllipseWithInfiniteWidth");
 
         yield return new TestCaseData((Func<Geometry>)(() => new RectGeometry
         {
-            Width = { CurrentValue = 30 },
-            Height = { CurrentValue = 40 },
+            Width = { Value = 30 },
+            Height = { Value = 40 },
         })).SetName("Rect");
 
         yield return new TestCaseData((Func<Geometry>)(() =>
         {
             var geometry = new RectGeometry
             {
-                Width = { CurrentValue = 30 },
-                Height = { CurrentValue = 40 },
+                Width = { Value = 30 },
+                Height = { Value = 40 },
             };
-            geometry.FillType.CurrentValue = PathFillType.EvenOdd;
-            geometry.Transform.CurrentValue = new RotationTransform { Rotation = { CurrentValue = 30 } };
+            geometry.FillType.Value = PathFillType.EvenOdd;
+            geometry.Transform.Value = new RotationTransform { Rotation = { Value = 30 } };
             return geometry;
         })).SetName("RectWithTransformAndFillType");
 
         yield return new TestCaseData((Func<Geometry>)(() => new RoundedRectGeometry
         {
-            Width = { CurrentValue = 120 },
-            Height = { CurrentValue = 80 },
-            CornerRadius = { CurrentValue = new CornerRadius(12, 4, 30, 0) },
-            Smoothing = { CurrentValue = 60 },
+            Width = { Value = 120 },
+            Height = { Value = 80 },
+            CornerRadius = { Value = new CornerRadius(12, 4, 30, 0) },
+            Smoothing = { Value = 60 },
         })).SetName("RoundedRectSmoothed");
 
         yield return new TestCaseData((Func<Geometry>)(() => new RoundedRectGeometry
         {
-            Width = { CurrentValue = 120 },
-            Height = { CurrentValue = 80 },
-            CornerRadius = { CurrentValue = new CornerRadius(0) },
-            Smoothing = { CurrentValue = 0 },
+            Width = { Value = 120 },
+            Height = { Value = 80 },
+            CornerRadius = { Value = new CornerRadius(0) },
+            Smoothing = { Value = 0 },
         })).SetName("RoundedRectSquare");
 
         yield return new TestCaseData((Func<Geometry>)(() =>
@@ -69,15 +69,15 @@ public sealed class GeometryPathParityTests
         yield return new TestCaseData((Func<Geometry>)(() =>
         {
             PathGeometry geometry = AllSegmentKinds();
-            geometry.Figures[0].StartPoint.CurrentValue = new Point(float.NaN, float.NaN);
+            geometry.Figures[0].StartPoint.Value = new Point(float.NaN, float.NaN);
             return geometry;
         })).SetName("PathGeometryWithoutStartPoint");
 
         yield return new TestCaseData((Func<Geometry>)(() =>
         {
             PathGeometry geometry = AllSegmentKinds();
-            geometry.Figures[0].StartPoint.CurrentValue = new Point(float.NaN, float.NaN);
-            geometry.Figures[0].IsClosed.CurrentValue = true;
+            geometry.Figures[0].StartPoint.Value = new Point(float.NaN, float.NaN);
+            geometry.Figures[0].IsClosed.Value = true;
             return geometry;
         })).SetName("PathGeometryClosedWithoutStartPoint");
 
@@ -86,7 +86,7 @@ public sealed class GeometryPathParityTests
             PathGeometry geometry = AllSegmentKinds();
             geometry.Figures.Add(new PathFigure
             {
-                StartPoint = { CurrentValue = new Point(200, 200) },
+                StartPoint = { Value = new Point(200, 200) },
                 Segments = { new LineSegment(new Point(260, 240)) },
             });
             return geometry;
@@ -98,7 +98,7 @@ public sealed class GeometryPathParityTests
         var geometry = new PathGeometry();
         geometry.Figures.Add(new PathFigure
         {
-            StartPoint = { CurrentValue = new Point(5, 5) },
+            StartPoint = { Value = new Point(5, 5) },
             Segments =
             {
                 new LineSegment(new Point(50, 5)),
@@ -107,11 +107,11 @@ public sealed class GeometryPathParityTests
                 new ConicSegment(new Point(0, 25), new Point(5, 5), 0.7f),
                 new ArcSegment
                 {
-                    Radius = { CurrentValue = new Size(20, 12) },
-                    RotationAngle = { CurrentValue = 15 },
-                    IsLargeArc = { CurrentValue = true },
-                    SweepClockwise = { CurrentValue = false },
-                    Point = { CurrentValue = new Point(40, 20) },
+                    Radius = { Value = new Size(20, 12) },
+                    RotationAngle = { Value = 15 },
+                    IsLargeArc = { Value = true },
+                    SweepClockwise = { Value = false },
+                    Point = { Value = new Point(40, 20) },
                 },
             },
         });
@@ -157,8 +157,8 @@ public sealed class GeometryPathParityTests
         using Geometry.Resource resource = geometry.ToResource(CompositionContext.Default);
         using Pen.Resource pen = new Pen
         {
-            Brush = { CurrentValue = Brushes.Black },
-            Thickness = { CurrentValue = 6 },
+            Brush = { Value = Brushes.Black },
+            Thickness = { Value = 6 },
         }.ToResource(CompositionContext.Default);
         using GeometryContext expected = PreChangeGeometryPath.Build(resource);
         Rect expectedBounds = expected.NativeObject.TightBounds.ToGraphicsRect();

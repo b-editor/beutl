@@ -132,19 +132,19 @@ public class SplitTransformEffectCombinationTests
     private static SplitEffect MakeSplit()
     {
         var effect = new SplitEffect();
-        effect.HorizontalDivisions.CurrentValue = 3;
-        effect.VerticalDivisions.CurrentValue = 3;
-        effect.HorizontalSpacing.CurrentValue = 12;
-        effect.VerticalSpacing.CurrentValue = 12;
+        effect.HorizontalDivisions.Value = 3;
+        effect.VerticalDivisions.Value = 3;
+        effect.HorizontalSpacing.Value = 12;
+        effect.VerticalSpacing.Value = 12;
         return effect;
     }
 
     private static TransformEffect MakeTransform(bool applyToTarget)
     {
         var effect = new TransformEffect();
-        effect.Transform.CurrentValue = EffectTransformGroup();
-        effect.TransformOrigin.CurrentValue = RelativePoint.Center;
-        effect.ApplyToTarget.CurrentValue = applyToTarget;
+        effect.Transform.Value = EffectTransformGroup();
+        effect.TransformOrigin.Value = RelativePoint.Center;
+        effect.ApplyToTarget.Value = applyToTarget;
         return effect;
     }
 
@@ -152,10 +152,10 @@ public class SplitTransformEffectCombinationTests
     {
         var group = new TransformGroup();
         var rotation = new RotationTransform();
-        rotation.Rotation.CurrentValue = EffectRotation;
+        rotation.Rotation.Value = EffectRotation;
         var scale = new ScaleTransform();
-        scale.ScaleX.CurrentValue = EffectScaleX;
-        scale.ScaleY.CurrentValue = EffectScaleY;
+        scale.ScaleX.Value = EffectScaleX;
+        scale.ScaleY.Value = EffectScaleY;
         group.Children.Add(rotation);
         group.Children.Add(scale);
         return group;
@@ -164,7 +164,7 @@ public class SplitTransformEffectCombinationTests
     private static Transform ShapeTransform()
     {
         var rotation = new RotationTransform();
-        rotation.Rotation.CurrentValue = ShapeRotation;
+        rotation.Rotation.Value = ShapeRotation;
         return rotation;
     }
 
@@ -181,14 +181,14 @@ public class SplitTransformEffectCombinationTests
     private static Bitmap Render(FilterEffect effect, Transform transform)
     {
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
-        shape.Width.CurrentValue = 140;
-        shape.Height.CurrentValue = 90;
-        shape.Fill.CurrentValue = Brushes.White;
-        shape.Transform.CurrentValue = transform;
-        shape.FilterEffect.CurrentValue = effect;
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.TransformOrigin.Value = RelativePoint.Center;
+        shape.Width.Value = 140;
+        shape.Height.Value = 90;
+        shape.Fill.Value = Brushes.White;
+        shape.Transform.Value = transform;
+        shape.FilterEffect.Value = effect;
 
         return GoldenImageHarness.RenderAtScale(shape.ToResource(CompositionContext.Default), Frame, 1f);
     }

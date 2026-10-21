@@ -74,7 +74,7 @@ public sealed class ApplierReviewFollowupTests
                 Length = TimeSpan.FromSeconds(2),
                 Uri = new Uri(elementPath),
             };
-            var text = new TextBlock { Text = { CurrentValue = "Title" } };
+            var text = new TextBlock { Text = { Value = "Title" } };
             var animation = new KeyFrameAnimation<float>();
             var keyFrame = new KeyFrame<float>
             {
@@ -129,7 +129,7 @@ public sealed class ApplierReviewFollowupTests
             Length = TimeSpan.FromSeconds(4),
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "second.belm"))
         };
-        second.AddObject(new TextBlock { Text = { CurrentValue = "Second" } });
+        second.AddObject(new TextBlock { Text = { Value = "Second" } });
         scene.Children.Add(second);
         scene.Groups.Add([first.Id, second.Id]);
         using var session = new AgentToolkitTestSession(scene);
@@ -138,7 +138,7 @@ public sealed class ApplierReviewFollowupTests
         JsonArray elements = (JsonArray)document["Elements"]!;
         JsonObject firstJson = FindById(document, first.Id)!;
         var third = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
-        third.AddObject(new TextBlock { Text = { CurrentValue = "Third" } });
+        third.AddObject(new TextBlock { Text = { Value = "Third" } });
         JsonObject thirdJson = CoreSerializer.SerializeToJsonObject(third);
         elements.Clear();
         elements.Add(firstJson.DeepClone());
@@ -159,7 +159,7 @@ public sealed class ApplierReviewFollowupTests
     {
         Scene scene = TestWorkspace.CreateScene();
         element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
-        element.AddObject(new TextBlock { Text = { CurrentValue = "Launch" } });
+        element.AddObject(new TextBlock { Text = { Value = "Launch" } });
         return scene;
     }
 

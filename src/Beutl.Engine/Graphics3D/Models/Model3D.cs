@@ -21,7 +21,7 @@ public sealed partial class Model3D : Group3D
     {
         ScanProperties<Model3D>();
         // Model files are usually authored in meters; show one meter as 100 px.
-        Scale.CurrentValue = new System.Numerics.Vector3(100);
+        Scale.Value = new System.Numerics.Vector3(100);
         Source.ValueChanged += (_, _) => SourceChanged();
     }
 
@@ -52,15 +52,15 @@ public sealed partial class Model3D : Group3D
             return;
 
         Children.Clear();
-        if (Source.CurrentValue is { HasUri: true })
+        if (Source.Value is { HasUri: true })
             SynchronizeSourceGeometry();
     }
 
     internal void SynchronizeSourceGeometry()
     {
-        if (Source.CurrentValue is not { } source) return;
+        if (Source.Value is not { } source) return;
         MeshObject3D[] previous = Children.OfType<MeshObject3D>().ToArray();
-        static int Origin(MeshObject3D child) => child.Mesh.CurrentValue is ModelMesh mesh && mesh.SourceChildId == child.Id
+        static int Origin(MeshObject3D child) => child.Mesh.Value is ModelMesh mesh && mesh.SourceChildId == child.Id
             ? mesh.SourceMeshIndex : -1;
         bool hasOrigins = previous.Any(child => Origin(child) >= 0);
         // Legacy scenes have no provenance. Position matching is best-effort;
@@ -72,20 +72,20 @@ public sealed partial class Model3D : Group3D
             if (child == null && !hasOrigins && i < previous.Length) child = previous[i];
             bool created = child == null;
             child ??= new MeshObject3D();
-            if (child.Mesh.CurrentValue is not ModelMesh mesh)
+            if (child.Mesh.Value is not ModelMesh mesh)
             {
                 mesh = new ModelMesh();
-                child.Mesh.CurrentValue = mesh;
+                child.Mesh.Value = mesh;
             }
-            mesh.Vertices.CurrentValue = data.Vertices;
-            mesh.Indices.CurrentValue = data.Indices;
+            mesh.Vertices.Value = data.Vertices;
+            mesh.Indices.Value = data.Indices;
             mesh.SourceChildId = child.Id;
             mesh.SourceMeshIndex = i;
             // A new child is filled in before it is added, so history records only the addition.
             if (created)
             {
                 if (data.MaterialIndex >= 0 && data.MaterialIndex < source.MaterialCount)
-                    child.Material.CurrentValue = CreateMaterial(source.GetMaterialData(data.MaterialIndex));
+                    child.Material.Value = CreateMaterial(source.GetMaterialData(data.MaterialIndex));
                 Children.Add(child);
             }
         }
@@ -99,22 +99,22 @@ public sealed partial class Model3D : Group3D
     {
         var children = Children.ToArray();
         var meshes = children.OfType<MeshObject3D>().Select(child =>
-            (Child: child, Mesh: child.Mesh.CurrentValue,
-                Vertices: (child.Mesh.CurrentValue as ModelMesh)?.Vertices.CurrentValue,
-                Indices: (child.Mesh.CurrentValue as ModelMesh)?.Indices.CurrentValue,
-                Origin: (child.Mesh.CurrentValue as ModelMesh)?.SourceChildId,
-                Index: (child.Mesh.CurrentValue as ModelMesh)?.SourceMeshIndex)).ToArray();
+            (Child: child, Mesh: child.Mesh.Value,
+                Vertices: (child.Mesh.Value as ModelMesh)?.Vertices.Value,
+                Indices: (child.Mesh.Value as ModelMesh)?.Indices.Value,
+                Origin: (child.Mesh.Value as ModelMesh)?.SourceChildId,
+                Index: (child.Mesh.Value as ModelMesh)?.SourceMeshIndex)).ToArray();
         return () =>
         {
             Children.Clear();
             foreach (var child in children) Children.Add(child);
             foreach (var state in meshes)
             {
-                state.Child.Mesh.CurrentValue = state.Mesh;
+                state.Child.Mesh.Value = state.Mesh;
                 if (state.Mesh is ModelMesh mesh)
                 {
-                    mesh.Vertices.CurrentValue = state.Vertices!.Value;
-                    mesh.Indices.CurrentValue = state.Indices!.Value;
+                    mesh.Vertices.Value = state.Vertices!.Value;
+                    mesh.Indices.Value = state.Indices!.Value;
                     mesh.SourceChildId = state.Origin!.Value;
                     mesh.SourceMeshIndex = state.Index!.Value;
                 }
@@ -125,10 +125,10 @@ public sealed partial class Model3D : Group3D
     private static PBRMaterial CreateMaterial(MaterialData materialData)
     {
         var material = new PBRMaterial();
-        material.Albedo.CurrentValue = materialData.Albedo;
-        material.Emissive.CurrentValue = materialData.Emissive;
-        material.Metallic.CurrentValue = materialData.Metallic;
-        material.Roughness.CurrentValue = materialData.Roughness;
+        material.Albedo.Value = materialData.Albedo;
+        material.Emissive.Value = materialData.Emissive;
+        material.Metallic.Value = materialData.Metallic;
+        material.Roughness.Value = materialData.Roughness;
 
         TrySetTextureMap(material.AlbedoMap, materialData.AlbedoMapPath);
         TrySetTextureMap(material.NormalMap, materialData.NormalMapPath);
@@ -149,7 +149,7 @@ public sealed partial class Model3D : Group3D
         {
             var textureSource = CreateTextureSource(path);
             if (textureSource != null)
-                map.CurrentValue = textureSource;
+                map.Value = textureSource;
         }
     }
 
@@ -161,7 +161,7 @@ public sealed partial class Model3D : Group3D
             imageSource.ReadFrom(new Uri(path));
 
             var textureSource = new ImageTextureSource();
-            textureSource.Source.CurrentValue = imageSource;
+            textureSource.Source.Value = imageSource;
 
             return textureSource;
         }

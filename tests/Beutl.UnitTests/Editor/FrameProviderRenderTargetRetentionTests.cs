@@ -127,16 +127,16 @@ public sealed class FrameProviderRenderTargetRetentionTests
 
         var shape = new RectShape
         {
-            Height = { CurrentValue = 32 },
-            Fill = { CurrentValue = Brushes.White },
+            Height = { Value = 32 },
+            Fill = { Value = Brushes.White },
             FilterEffect =
             {
                 // A built-in Skia filter fuses onto the destination as a save layer and owns no
                 // buffer, so the retention this measures needs an effect that opens its own target.
-                CurrentValue = new InnerShadow
+                Value = new InnerShadow
                 {
-                    Sigma = { CurrentValue = new Size(4, 4) },
-                    Color = { CurrentValue = Colors.Black },
+                    Sigma = { Value = new Size(4, 4) },
+                    Color = { Value = Colors.Black },
                 },
             },
         };

@@ -101,7 +101,7 @@ public abstract partial class ClipTransition : EngineObject
             public void Update(Resource owner, Media.Color color, CompositionContext context)
             {
                 _brush ??= new SolidColorBrush();
-                _brush.Color.CurrentValue = color;
+                _brush.Color.Value = color;
                 owner.Reconcile(_brush, ref _fill, context);
             }
 

@@ -15,7 +15,7 @@ public class CompressorEffectTests
     public void CreateNode_WiresEveryPropertyToMatchingNodeSlot()
     {
         // Each property must be forwarded to its node slot by reference, not copied: the node reads
-        // CurrentValue/Animation through these references at process time, and copying would freeze
+        // Value/Animation through these references at process time, and copying would freeze
         // the value. Also catches a swap of any two properties (Threshold↔Ratio, etc.).
         var effect = new CompressorEffect();
         using var context = new AudioContext(48000, 2);
@@ -54,16 +54,16 @@ public class CompressorEffectTests
     [Test]
     public void CreateNode_DefaultPropertyValuesMatchCompressorParameters()
     {
-        // Defaults come from CompressorParameters; assert each CurrentValue matches so a drifted
+        // Defaults come from CompressorParameters; assert each Value matches so a drifted
         // default (file edited but not the [Range]) is caught.
         var effect = new CompressorEffect();
 
-        Assert.That(effect.Threshold.CurrentValue, Is.EqualTo(-20f));
-        Assert.That(effect.Ratio.CurrentValue, Is.EqualTo(4f));
-        Assert.That(effect.Attack.CurrentValue, Is.EqualTo(10f));
-        Assert.That(effect.Release.CurrentValue, Is.EqualTo(100f));
-        Assert.That(effect.Knee.CurrentValue, Is.EqualTo(6f));
-        Assert.That(effect.MakeupGain.CurrentValue, Is.EqualTo(0f));
+        Assert.That(effect.Threshold.Value, Is.EqualTo(-20f));
+        Assert.That(effect.Ratio.Value, Is.EqualTo(4f));
+        Assert.That(effect.Attack.Value, Is.EqualTo(10f));
+        Assert.That(effect.Release.Value, Is.EqualTo(100f));
+        Assert.That(effect.Knee.Value, Is.EqualTo(6f));
+        Assert.That(effect.MakeupGain.Value, Is.EqualTo(0f));
     }
 
     [Test]

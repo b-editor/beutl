@@ -141,7 +141,7 @@ public sealed class AgentEditFollowerTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(fixture.FarRect.Width.CurrentValue, Is.EqualTo(100));
+                Assert.That(fixture.FarRect.Width.Value, Is.EqualTo(100));
                 Assert.That(fixture.Selection.Value, Is.SameAs(fixture.Far), "Follows the last edit the undo reverted.");
             });
         }
@@ -265,7 +265,7 @@ public sealed class AgentEditFollowerTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(fixture.FarRect.Width.CurrentValue, Is.EqualTo(200));
+                Assert.That(fixture.FarRect.Width.Value, Is.EqualTo(200));
                 Assert.That(fixture.Selection.Value, Is.Null);
                 Assert.That(fixture.Clock.Value, Is.EqualTo(TimeSpan.Zero));
                 Assert.That(fixture.Timeline.Options.Value.Offset.X, Is.Zero);
@@ -339,7 +339,7 @@ public sealed class AgentEditFollowerTests
             ZIndex = zIndex,
             Uri = new Uri(Path.Combine(directory, $"{name}.belm"))
         };
-        element.AddObject(new RectShape { Name = name, Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } });
+        element.AddObject(new RectShape { Name = name, Width = { Value = 100 }, Height = { Value = 100 } });
         scene.Children.Add(element);
         return element;
     }

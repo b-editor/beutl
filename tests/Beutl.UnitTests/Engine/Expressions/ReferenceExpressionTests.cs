@@ -148,7 +148,7 @@ public class ReferenceExpressionTests
         // Arrange
         var root = new TestEngineObject();
         var target = new TestEngineObject();
-        target.Value.CurrentValue = 42.0;
+        target.Value.Value = 42.0;
         root.AddChild(target);
         var objectId = target.Id;
         var expression = new ReferenceExpression<double>(objectId, "Value");

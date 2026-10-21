@@ -69,9 +69,9 @@ internal sealed partial class ElementAdderImpl
         if (description.Position is not { } position)
             return;
 
-        Transform? transform = drawable.Transform.CurrentValue;
+        Transform? transform = drawable.Transform.Value;
         AddOrSetHelper.AddOrSet(ref transform, new TranslateTransform(position));
-        drawable.Transform.CurrentValue = transform;
+        drawable.Transform.Value = transform;
     }
 
     private static T? TrySetDuration<T>(Element element, Func<T> initialize, Func<T, TimeSpan> getDuration)
@@ -329,7 +329,7 @@ internal sealed partial class ElementAdderImpl
                             context.Description,
                             fileName,
                             out SourceImage sourceImage);
-                        sourceImage.Source.CurrentValue = ImageSource.Open(fileName);
+                        sourceImage.Source.Value = ImageSource.Open(fileName);
                         return ElementSourceMaterializationResult.Materialized(
                             new ElementMaterialization(imageElement));
 
@@ -339,7 +339,7 @@ internal sealed partial class ElementAdderImpl
                             fileName,
                             out SourceVideo sourceVideo);
                         VideoSource video = VideoSource.Open(fileName);
-                        sourceVideo.Source.CurrentValue = video;
+                        sourceVideo.Source.Value = video;
                         TrackDurationResource(
                             videoElement,
                             () => video.ToResource(CompositionContext.Default),
@@ -359,7 +359,7 @@ internal sealed partial class ElementAdderImpl
                         soundElement.ZIndex++;
                         owner.BeforeCompanionAudioMaterialization?.Invoke();
                         SoundSource sound = SoundSource.Open(fileName);
-                        sourceSound.Source.CurrentValue = sound;
+                        sourceSound.Source.Value = sound;
                         TrackDurationResource(
                             soundElement,
                             () => sound.ToResource(CompositionContext.Default),
@@ -379,7 +379,7 @@ internal sealed partial class ElementAdderImpl
                             fileName,
                             out SourceSound sourceAudio);
                         SoundSource audio = SoundSource.Open(fileName);
-                        sourceAudio.Source.CurrentValue = audio;
+                        sourceAudio.Source.Value = audio;
                         TrackDurationResource(
                             audioElement,
                             () => audio.ToResource(CompositionContext.Default),

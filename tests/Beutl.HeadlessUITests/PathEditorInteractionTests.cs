@@ -54,16 +54,16 @@ public class PathEditorInteractionTests
         editor.Drag(new(60, 75), new(205, 125));
         Assert.That(editor.Selected, Has.Length.EqualTo(2));
         editor.Key(Key.Right, RawInputModifiers.Shift);
-        Assert.That(editor.Figure.Segments[0].GetEndPoint().CurrentValue, Is.EqualTo(new BtlPoint(90, 100)));
-        Assert.That(editor.Figure.Segments[1].GetEndPoint().CurrentValue, Is.EqualTo(new BtlPoint(190, 100)));
-        Assert.That(editor.Figure.Segments[2].GetEndPoint().CurrentValue, Is.EqualTo(new BtlPoint(280, 180)));
+        Assert.That(editor.Figure.Segments[0].GetEndPoint().Value, Is.EqualTo(new BtlPoint(90, 100)));
+        Assert.That(editor.Figure.Segments[1].GetEndPoint().Value, Is.EqualTo(new BtlPoint(190, 100)));
+        Assert.That(editor.Figure.Segments[2].GetEndPoint().Value, Is.EqualTo(new BtlPoint(280, 180)));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(1));
         Assert.That(editor.Editor.HistoryManager.Undo(), Is.True);
-        Assert.That(editor.Figure.Segments[0].GetEndPoint().CurrentValue, Is.EqualTo(new BtlPoint(80, 100)));
+        Assert.That(editor.Figure.Segments[0].GetEndPoint().Value, Is.EqualTo(new BtlPoint(80, 100)));
         editor.Key(Key.Escape);
         editor.Key(Key.Right);
         Assert.That(editor.Selected, Is.Empty);
-        Assert.That(editor.Figure.Segments[1].GetEndPoint().CurrentValue, Is.EqualTo(new BtlPoint(180, 100)));
+        Assert.That(editor.Figure.Segments[1].GetEndPoint().Value, Is.EqualTo(new BtlPoint(180, 100)));
         editor.Drag(new(60, 75), new(110, 125));
         editor.Drag(new(260, 160), new(300, 200), RawInputModifiers.Shift);
         Assert.That(editor.Selected, Is.EqualTo(new[] { editor.Figure.Segments[0], editor.Figure.Segments[2] }));
@@ -153,7 +153,7 @@ public class PathEditorInteractionTests
     [TestCase(true, true)]
     public async Task Pen_does_not_sample_a_driven_start_into_new_static_controls(bool empty, bool expression)
     {
-        var figure = new PathFigure { StartPoint = { CurrentValue = new(80, 100) } };
+        var figure = new PathFigure { StartPoint = { Value = new(80, 100) } };
         if (!empty) figure.Segments.Add(new LineSegment(180, 100));
         using var editor = await Fixture.Create(pathFigure: figure);
         var source = empty ? figure.StartPoint : figure.Segments[^1].GetEndPoint();
@@ -163,7 +163,7 @@ public class PathEditorInteractionTests
             else
             {
                 var animation = new KeyFrameAnimation<BtlPoint>();
-                animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = source.CurrentValue });
+                animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = source.Value });
                 animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = TimeSpan.FromSeconds(1), Value = new(100, 180) });
                 source.SetKeyFrameAnimation(animation);
             }
@@ -186,7 +186,7 @@ public class PathEditorInteractionTests
         HeadlessTestHelpers.Render(3);
         editor.Drag(new(240, 160), new(270, 160));
         Assert.That(figure.Segments, Has.Count.EqualTo(empty ? 1 : 2));
-        Assert.That(((CubicBezierSegment)figure.Segments[^1]).ControlPoint2.CurrentValue, Is.EqualTo(new BtlPoint(210, 160)));
+        Assert.That(((CubicBezierSegment)figure.Segments[^1]).ControlPoint2.Value, Is.EqualTo(new BtlPoint(210, 160)));
     }
 
     [AvaloniaTest]
@@ -268,13 +268,13 @@ public class PathEditorInteractionTests
         editor.Click(80, 100);
         editor.Click(180, 100, RawInputModifiers.Shift);
         editor.Drag(new(80, 100), new(120, 117), RawInputModifiers.Shift);
-        Assert.That(editor.Figure.Segments[0].GetEndPoint().CurrentValue, Is.EqualTo(new BtlPoint(120, 100)));
-        Assert.That(editor.Figure.Segments[1].GetEndPoint().CurrentValue, Is.EqualTo(new BtlPoint(220, 100)));
+        Assert.That(editor.Figure.Segments[0].GetEndPoint().Value, Is.EqualTo(new BtlPoint(120, 100)));
+        Assert.That(editor.Figure.Segments[1].GetEndPoint().Value, Is.EqualTo(new BtlPoint(220, 100)));
         Assert.That(editor.Selected, Has.Length.EqualTo(2));
         Assert.That(editor.View.SkipUpdatePosition, Is.False);
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(1));
         editor.Editor.HistoryManager.Undo();
-        Assert.That(editor.Figure.Segments[0].GetEndPoint().CurrentValue, Is.EqualTo(new BtlPoint(80, 100)));
+        Assert.That(editor.Figure.Segments[0].GetEndPoint().Value, Is.EqualTo(new BtlPoint(80, 100)));
     }
 
     [AvaloniaTest]
@@ -287,7 +287,7 @@ public class PathEditorInteractionTests
         editor.Window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
         Assert.That(editor.View.Matrix.M31, Is.EqualTo(35));
         Assert.That(editor.View.Matrix.M32, Is.EqualTo(20));
-        Assert.That(editor.Figure.Segments[0].GetEndPoint().CurrentValue, Is.EqualTo(new BtlPoint(80, 100)));
+        Assert.That(editor.Figure.Segments[0].GetEndPoint().Value, Is.EqualTo(new BtlPoint(80, 100)));
         Point screen = new(230, 170);
         Point local = editor.View.Matrix.Invert().Transform(screen);
         editor.MouseWheel(screen, new Vector(0, 1), RawInputModifiers.Control);
@@ -311,10 +311,10 @@ public class PathEditorInteractionTests
         editor.Click(290, 100);
         Assert.That(editor.Figure.Segments, Has.Count.EqualTo(3));
         var curve = (CubicBezierSegment)editor.Figure.Segments[1];
-        Assert.That(curve.ControlPoint2.CurrentValue, Is.EqualTo(new BtlPoint(145, 160)));
-        Assert.That(((CubicBezierSegment)editor.Figure.Segments[2]).ControlPoint1.CurrentValue, Is.EqualTo(new BtlPoint(215, 160)));
+        Assert.That(curve.ControlPoint2.Value, Is.EqualTo(new BtlPoint(145, 160)));
+        Assert.That(((CubicBezierSegment)editor.Figure.Segments[2]).ControlPoint1.Value, Is.EqualTo(new BtlPoint(215, 160)));
         editor.Click(80, 100);
-        Assert.That(editor.Figure.IsClosed.CurrentValue, Is.True);
+        Assert.That(editor.Figure.IsClosed.Value, Is.True);
         Assert.That(editor.View.Tool, Is.EqualTo(PathEditorTool.Move));
         editor.Click(180, 160);
         editor.Click(290, 100, RawInputModifiers.Shift);
@@ -331,20 +331,20 @@ public class PathEditorInteractionTests
     [TestCase(true)]
     public async Task Pen_creates_the_first_explicit_edge_with_drag_handles_and_one_history_entry(bool drag)
     {
-        var figure = new PathFigure { StartPoint = { CurrentValue = new(80, 100) } };
+        var figure = new PathFigure { StartPoint = { Value = new(80, 100) } };
         using var editor = await Fixture.Create(pathFigure: figure);
         editor.Key(Key.P);
         if (drag) editor.Drag(new(180, 160), new(215, 160));
         else editor.Click(180, 160);
         Assert.That(figure.Segments, Has.Count.EqualTo(1));
         var first = figure.Segments[0];
-        Assert.That(first.GetEndPoint().CurrentValue, Is.EqualTo(new BtlPoint(180, 160)));
-        Assert.That(figure.StartPoint.CurrentValue, Is.EqualTo(new BtlPoint(80, 100)));
-        var midpoint = PathEditingOperations.Evaluate(figure.StartPoint.CurrentValue, first, .5f, CompositionContext.Default);
+        Assert.That(first.GetEndPoint().Value, Is.EqualTo(new BtlPoint(180, 160)));
+        Assert.That(figure.StartPoint.Value, Is.EqualTo(new BtlPoint(80, 100)));
+        var midpoint = PathEditingOperations.Evaluate(figure.StartPoint.Value, first, .5f, CompositionContext.Default);
         if (drag)
         {
             Assert.That(first, Is.TypeOf<CubicBezierSegment>());
-            Assert.That(((CubicBezierSegment)first).ControlPoint2.CurrentValue, Is.EqualTo(new BtlPoint(145, 160)));
+            Assert.That(((CubicBezierSegment)first).ControlPoint2.Value, Is.EqualTo(new BtlPoint(145, 160)));
             Assert.That(midpoint.Y, Is.Not.EqualTo(130));
         }
         else Assert.That(midpoint.Y, Is.EqualTo(130).Within(.001));
@@ -353,10 +353,10 @@ public class PathEditorInteractionTests
         var firstEdge = CoreSerializer.SerializeToJsonObject(first);
         editor.Click(290, 100);
         Assert.That(figure.Segments, Has.Count.EqualTo(2));
-        if (drag) Assert.That(((CubicBezierSegment)figure.Segments[1]).ControlPoint1.CurrentValue, Is.EqualTo(new BtlPoint(215, 160)));
+        if (drag) Assert.That(((CubicBezierSegment)figure.Segments[1]).ControlPoint1.Value, Is.EqualTo(new BtlPoint(215, 160)));
         var secondState = CoreSerializer.SerializeToJsonObject(figure);
         editor.Click(80, 100);
-        Assert.That(figure.IsClosed.CurrentValue, Is.True);
+        Assert.That(figure.IsClosed.Value, Is.True);
         Assert.That(JsonNode.DeepEquals(firstEdge, CoreSerializer.SerializeToJsonObject(first)), Is.True);
         var closedState = CoreSerializer.SerializeToJsonObject(figure);
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(3));
@@ -366,7 +366,7 @@ public class PathEditorInteractionTests
         Assert.That(JsonNode.DeepEquals(firstState, CoreSerializer.SerializeToJsonObject(figure)), Is.True);
         editor.Editor.HistoryManager.Undo();
         Assert.That(figure.Segments, Is.Empty);
-        Assert.That(figure.StartPoint.CurrentValue, Is.EqualTo(new BtlPoint(80, 100)));
+        Assert.That(figure.StartPoint.Value, Is.EqualTo(new BtlPoint(80, 100)));
         editor.Editor.HistoryManager.Redo();
         editor.Editor.HistoryManager.Redo();
         editor.Editor.HistoryManager.Redo();
@@ -376,7 +376,7 @@ public class PathEditorInteractionTests
     [AvaloniaTest]
     public async Task Escape_cancels_first_explicit_edge_drag_without_losing_the_start_point()
     {
-        var figure = new PathFigure { StartPoint = { CurrentValue = new(80, 100) } };
+        var figure = new PathFigure { StartPoint = { Value = new(80, 100) } };
         using var editor = await Fixture.Create(pathFigure: figure);
         editor.Key(Key.P);
         editor.MouseDown(new(180, 160), MouseButton.Left);
@@ -385,7 +385,7 @@ public class PathEditorInteractionTests
         editor.Key(Key.Escape);
         editor.MouseUp(new(215, 160), MouseButton.Left);
         Assert.That(figure.Segments, Is.Empty);
-        Assert.That(figure.StartPoint.CurrentValue, Is.EqualTo(new BtlPoint(80, 100)));
+        Assert.That(figure.StartPoint.Value, Is.EqualTo(new BtlPoint(80, 100)));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.Zero);
         Assert.That(editor.Editor.HistoryManager.HasPendingOperations, Is.False);
     }
@@ -414,13 +414,13 @@ public class PathEditorInteractionTests
         var incoming = first.ControlPoint2.GetKeyFrameAnimation();
         int history = editor.Editor.HistoryManager.UndoCount;
         editor.Click(80, 100);
-        Assert.That(figure.IsClosed.CurrentValue, Is.True);
+        Assert.That(figure.IsClosed.Value, Is.True);
         Assert.That(editor.View.Tool, Is.EqualTo(PathEditorTool.Move));
         Assert.That(figure.Segments[0], Is.SameAs(first));
-        Assert.That(first.ControlPoint1.CurrentValue, Is.EqualTo(new BtlPoint(270, 120)));
-        Assert.That(first.ControlPoint2.CurrentValue, Is.EqualTo(new BtlPoint(40, 140)));
+        Assert.That(first.ControlPoint1.Value, Is.EqualTo(new BtlPoint(270, 120)));
+        Assert.That(first.ControlPoint2.Value, Is.EqualTo(new BtlPoint(40, 140)));
         Assert.That(first.ControlPoint2.GetKeyFrameAnimation(), Is.SameAs(incoming));
-        Assert.That(first.EndPoint.CurrentValue, Is.EqualTo(new BtlPoint(80, 100)));
+        Assert.That(first.EndPoint.Value, Is.EqualTo(new BtlPoint(80, 100)));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(history + 1));
         var after = CoreSerializer.SerializeToJsonObject(figure);
         editor.Editor.HistoryManager.Undo();
@@ -452,7 +452,7 @@ public class PathEditorInteractionTests
             {
                 var property = kind == "animation" ? cubic.ControlPoint1 : figure.Segments[^1].GetEndPoint();
                 var animation = new KeyFrameAnimation<BtlPoint>();
-                animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = property.CurrentValue });
+                animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = property.Value });
                 property.SetKeyFrameAnimation(animation);
             }
         }
@@ -474,7 +474,7 @@ public class PathEditorInteractionTests
             HeadlessTestHelpers.Render(3);
         }
         editor.Click(220, 160);
-        Assert.That(((CubicBezierSegment)figure.Segments[^1]).ControlPoint1.CurrentValue, Is.EqualTo(new BtlPoint(270, 120)));
+        Assert.That(((CubicBezierSegment)figure.Segments[^1]).ControlPoint1.Value, Is.EqualTo(new BtlPoint(270, 120)));
     }
 
     [AvaloniaTest]
@@ -484,7 +484,7 @@ public class PathEditorInteractionTests
     [TestCase(true, true)]
     public async Task Pen_closes_at_explicit_start_without_changing_the_first_edge(bool curved, bool preview)
     {
-        var figure = new PathFigure { StartPoint = { CurrentValue = new(80, 100) } };
+        var figure = new PathFigure { StartPoint = { Value = new(80, 100) } };
         var first = new LineSegment(180, 100);
         figure.Segments.Add(first);
         figure.Segments.Add(new LineSegment(280, 180));
@@ -509,7 +509,7 @@ public class PathEditorInteractionTests
         var originalFirst = CoreSerializer.SerializeToJsonObject(first);
         int history = editor.Editor.HistoryManager.UndoCount;
         ClickAnchor(first);
-        Assert.That(figure.IsClosed.CurrentValue, Is.False, "the first segment endpoint is not the start");
+        Assert.That(figure.IsClosed.Value, Is.False, "the first segment endpoint is not the start");
         Assert.That(figure.Segments, Is.EqualTo(originalEdges));
         Assert.That(JsonNode.DeepEquals(originalFirst, CoreSerializer.SerializeToJsonObject(first)), Is.True);
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(history));
@@ -517,19 +517,19 @@ public class PathEditorInteractionTests
         var startMarker = ((Control)view).FindControl<Canvas>("canvas")!.Children.OfType<Border>()
             .Single(b => b.Name == "PathStartPoint");
         editor.ClickControl(startMarker);
-        Assert.That(figure.IsClosed.CurrentValue, Is.True);
+        Assert.That(figure.IsClosed.Value, Is.True);
         Assert.That(figure.Segments.Take(originalEdges.Length), Is.EqualTo(originalEdges));
         Assert.That(JsonNode.DeepEquals(originalFirst, CoreSerializer.SerializeToJsonObject(first)), Is.True);
         Assert.That(figure.Segments, Has.Count.EqualTo(originalEdges.Length + (curved ? 1 : 0)));
         if (curved)
         {
             var closing = (CubicBezierSegment)figure.Segments[^1];
-            Assert.That(closing.EndPoint.CurrentValue, Is.EqualTo(figure.StartPoint.CurrentValue));
-            Assert.That(closing.ControlPoint1.CurrentValue, Is.EqualTo(new BtlPoint(270, 120)));
+            Assert.That(closing.EndPoint.Value, Is.EqualTo(figure.StartPoint.Value));
+            Assert.That(closing.ControlPoint1.Value, Is.EqualTo(new BtlPoint(270, 120)));
         }
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(history + 1));
         editor.Editor.HistoryManager.Undo();
-        Assert.That(figure.IsClosed.CurrentValue, Is.False);
+        Assert.That(figure.IsClosed.Value, Is.False);
         Assert.That(figure.Segments, Is.EqualTo(originalEdges));
 
         Point Screen(BtlPoint p) => view.Matrix.Transform(new Point(p.X, p.Y)) * view.Scale;
@@ -545,7 +545,7 @@ public class PathEditorInteractionTests
     public async Task Pen_rejects_closure_when_closed_state_has_animation_or_expression(bool explicitStart, bool expression)
     {
         var figure = new PathFigure();
-        if (explicitStart) figure.StartPoint.CurrentValue = new(80, 100);
+        if (explicitStart) figure.StartPoint.Value = new(80, 100);
         else figure.Segments.Add(new LineSegment(80, 100));
         figure.Segments.Add(new LineSegment(180, 100));
         figure.Segments.Add(new LineSegment(280, 180));
@@ -578,7 +578,7 @@ public class PathEditorInteractionTests
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(history));
         Assert.That(editor.Editor.HistoryManager.HasPendingOperations, Is.False);
         editor.Click(220, 160);
-        Assert.That(((CubicBezierSegment)figure.Segments[^1]).ControlPoint1.CurrentValue, Is.EqualTo(new BtlPoint(270, 120)),
+        Assert.That(((CubicBezierSegment)figure.Segments[^1]).ControlPoint1.Value, Is.EqualTo(new BtlPoint(270, 120)),
             "a rejected closure must preserve the pending outgoing handle for continuation");
     }
 
@@ -589,7 +589,7 @@ public class PathEditorInteractionTests
     [TestCase(true, true)]
     public async Task Pen_retains_pending_handle_when_closing_endpoint_is_not_static(bool last, bool expression)
     {
-        var figure = new PathFigure { StartPoint = { CurrentValue = new(80, 100) } };
+        var figure = new PathFigure { StartPoint = { Value = new(80, 100) } };
         figure.Segments.Add(new LineSegment(180, 100));
         figure.Segments.Add(new LineSegment(280, 180));
         using var editor = await Fixture.Create(pathFigure: figure);
@@ -606,7 +606,7 @@ public class PathEditorInteractionTests
             else
             {
                 var animation = new KeyFrameAnimation<BtlPoint>();
-                animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = property.CurrentValue });
+                animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = property.Value });
                 property.SetKeyFrameAnimation(animation);
             }
         }
@@ -627,17 +627,17 @@ public class PathEditorInteractionTests
         editor.View.Refresh();
         HeadlessTestHelpers.Render(3);
         editor.Click(80, 100);
-        Assert.That(figure.IsClosed.CurrentValue, Is.True);
+        Assert.That(figure.IsClosed.Value, Is.True);
         var closing = (CubicBezierSegment)figure.Segments[^1];
-        Assert.That(closing.EndPoint.CurrentValue, Is.EqualTo(new BtlPoint(80, 100)));
-        Assert.That(closing.ControlPoint1.CurrentValue, Is.EqualTo(new BtlPoint(270, 120)));
+        Assert.That(closing.EndPoint.Value, Is.EqualTo(new BtlPoint(80, 100)));
+        Assert.That(closing.ControlPoint1.Value, Is.EqualTo(new BtlPoint(270, 120)));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(history + 1));
     }
 
     [AvaloniaTest]
     public async Task Explicit_start_marker_requires_a_live_pen_continuation()
     {
-        var figure = new PathFigure { StartPoint = { CurrentValue = new(80, 100) } };
+        var figure = new PathFigure { StartPoint = { Value = new(80, 100) } };
         figure.Segments.Add(new LineSegment(180, 100));
         figure.Segments.Add(new LineSegment(280, 180));
         using var editor = await Fixture.Create(pathFigure: figure);
@@ -704,7 +704,7 @@ public class PathEditorInteractionTests
         const int count = 12;
         using (editor.Editor.HistoryManager.SuppressRecording())
         {
-            editor.Figure.StartPoint.CurrentValue = new(10000, 10000);
+            editor.Figure.StartPoint.Value = new(10000, 10000);
             for (int i = 0; i < count; i++)
             {
                 float x = 10000 + i * 400;
@@ -731,8 +731,8 @@ public class PathEditorInteractionTests
         editor.Key(Key.P);
         editor.Click(130, 100);
         Assert.That(editor.Figure.Segments, Has.Count.EqualTo(4));
-        Assert.That(editor.Figure.Segments[1].GetEndPoint().CurrentValue, Is.EqualTo(new BtlPoint(130, 100)));
-        Assert.That(editor.Figure.Segments[2].GetEndPoint().CurrentValue, Is.EqualTo(new BtlPoint(180, 100)));
+        Assert.That(editor.Figure.Segments[1].GetEndPoint().Value, Is.EqualTo(new BtlPoint(130, 100)));
+        Assert.That(editor.Figure.Segments[2].GetEndPoint().Value, Is.EqualTo(new BtlPoint(180, 100)));
         editor.Editor.HistoryManager.Undo();
         Assert.That(editor.Figure.Segments, Has.Count.EqualTo(3));
     }
@@ -749,19 +749,19 @@ public class PathEditorInteractionTests
         Point click = new(180, 100);
         using (editor.Editor.HistoryManager.SuppressRecording())
         {
-            editor.Figure.StartPoint.CurrentValue = new(80, 100);
+            editor.Figure.StartPoint.Value = new(80, 100);
             switch (kind)
             {
                 case "arc":
                     editor.Figure.Segments.Add(new ArcSegment
                     {
-                        Radius = { CurrentValue = new(100, 80) },
-                        Point = { CurrentValue = new(280, 100) }
+                        Radius = { Value = new(100, 80) },
+                        Point = { Value = new(280, 100) }
                     });
                     click = new(180, 20);
                     break;
                 case "closing-edge":
-                    editor.Figure.IsClosed.CurrentValue = true;
+                    editor.Figure.IsClosed.Value = true;
                     editor.Figure.Segments.Add(new LineSegment(280, 100));
                     editor.Figure.Segments.Add(new LineSegment(280, 260));
                     click = new(180, 180);
@@ -791,7 +791,7 @@ public class PathEditorInteractionTests
         var inserted = editor.Model.SelectedOperation.Value!;
         Assert.That(editor.Figure.Segments.IndexOf(inserted), Is.EqualTo(kind == "closing-edge" ? original.Length : 0),
             "the point must split the clicked edge, not append an unrelated edge");
-        BtlPoint point = inserted.GetEndPoint().CurrentValue;
+        BtlPoint point = inserted.GetEndPoint().Value;
         Assert.That(point.X, Is.EqualTo(click.X).Within(.1));
         Assert.That(point.Y, Is.EqualTo(click.Y).Within(.1));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(1));
@@ -817,7 +817,7 @@ public class PathEditorInteractionTests
         };
         using (editor.Editor.HistoryManager.SuppressRecording())
         {
-            editor.Figure.StartPoint.CurrentValue = start;
+            editor.Figure.StartPoint.Value = start;
             editor.Figure.Segments.Add(curve);
         }
         HeadlessTestHelpers.Render(3);
@@ -825,8 +825,8 @@ public class PathEditorInteractionTests
         editor.Click(130, 100);
         Assert.That(editor.Figure.Segments, Has.Count.EqualTo(2));
         Assert.That(editor.Figure.Segments[1], Is.SameAs(curve));
-        Assert.That(editor.Figure.Segments[0].GetEndPoint().CurrentValue.X, Is.EqualTo(130).Within(.5));
-        Assert.That(editor.Figure.Segments[0].GetEndPoint().CurrentValue.Y, Is.EqualTo(100).Within(.001));
+        Assert.That(editor.Figure.Segments[0].GetEndPoint().Value.X, Is.EqualTo(130).Within(.5));
+        Assert.That(editor.Figure.Segments[0].GetEndPoint().Value.Y, Is.EqualTo(100).Within(.001));
     }
 
     [AvaloniaTest]
@@ -836,7 +836,7 @@ public class PathEditorInteractionTests
         var curve = PathEditingOperations.Cubic(new(0, 2000), new(2000, 2000), new(2000, 0));
         using (editor.Editor.HistoryManager.SuppressRecording())
         {
-            editor.Figure.StartPoint.CurrentValue = default;
+            editor.Figure.StartPoint.Value = default;
             editor.Figure.Segments.Add(curve);
         }
         BtlPoint point = PathEditingOperations.Evaluate(default, curve, 32.5f / 64, CompositionContext.Default);
@@ -846,7 +846,7 @@ public class PathEditorInteractionTests
         editor.Click(180, 100);
         Assert.That(editor.Figure.Segments, Has.Count.EqualTo(2));
         Assert.That(editor.Figure.Segments[1], Is.SameAs(curve), "split the curve instead of extending the path");
-        var inserted = editor.Figure.Segments[0].GetEndPoint().CurrentValue;
+        var inserted = editor.Figure.Segments[0].GetEndPoint().Value;
         Assert.That(inserted.X, Is.EqualTo(point.X).Within(.01));
         Assert.That(inserted.Y, Is.EqualTo(point.Y).Within(.01));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(1));
@@ -862,14 +862,14 @@ public class PathEditorInteractionTests
         editor.Click(180, 100);
         var incoming = (CubicBezierSegment)editor.Figure.Segments[1];
         var outgoing = (CubicBezierSegment)editor.Figure.Segments[2];
-        Assert.That(incoming.ControlPoint2.CurrentValue, Is.Not.EqualTo(new BtlPoint(180, 100)));
-        BtlPoint original = outgoing.ControlPoint1.CurrentValue;
-        BtlPoint point = incoming.ControlPoint2.CurrentValue;
+        Assert.That(incoming.ControlPoint2.Value, Is.Not.EqualTo(new BtlPoint(180, 100)));
+        BtlPoint original = outgoing.ControlPoint1.Value;
+        BtlPoint point = incoming.ControlPoint2.Value;
         editor.Key(Key.V);
         editor.Drag(new(point.X, point.Y), new(point.X, point.Y - 30), RawInputModifiers.Alt);
-        Assert.That(outgoing.ControlPoint1.CurrentValue, Is.EqualTo(original));
+        Assert.That(outgoing.ControlPoint1.Value, Is.EqualTo(original));
         editor.Drag(new(point.X, point.Y - 30), new(point.X - 15, point.Y - 35));
-        Assert.That(outgoing.ControlPoint1.CurrentValue, Is.Not.EqualTo(original));
+        Assert.That(outgoing.ControlPoint1.Value, Is.Not.EqualTo(original));
         Assert.That(editor.Model.Symmetry.Value, Is.True);
     }
 
@@ -890,7 +890,7 @@ public class PathEditorInteractionTests
         Assert.That(overlay.GetSelectedAnchors(), Has.Length.EqualTo(1));
         editor.Window.KeyPress(Key.Right, RawInputModifiers.Shift, PhysicalKey.ArrowRight, null);
         editor.Window.KeyRelease(Key.Right, RawInputModifiers.Shift, PhysicalKey.ArrowRight, null);
-        Assert.That(editor.Figure.Segments[0].GetEndPoint().CurrentValue, Is.EqualTo(new BtlPoint(90, 100)));
+        Assert.That(editor.Figure.Segments[0].GetEndPoint().Value, Is.EqualTo(new BtlPoint(90, 100)));
         editor.MouseDown(new(350, 280), MouseButton.Middle);
         editor.MouseMove(new(370, 300), RawInputModifiers.MiddleMouseButton);
         editor.MouseUp(new(370, 300), MouseButton.Middle);
@@ -908,8 +908,8 @@ public class PathEditorInteractionTests
         HeadlessTestHelpers.Render(3);
         Assert.That(editor.Selected, Is.EqualTo(new[] { editor.Figure.Segments[2] }));
         editor.Key(Key.Right);
-        Assert.That(editor.Figure.Segments[0].GetEndPoint().CurrentValue, Is.EqualTo(new BtlPoint(80, 100)));
-        Assert.That(editor.Figure.Segments[2].GetEndPoint().CurrentValue, Is.EqualTo(new BtlPoint(281, 180)));
+        Assert.That(editor.Figure.Segments[0].GetEndPoint().Value, Is.EqualTo(new BtlPoint(80, 100)));
+        Assert.That(editor.Figure.Segments[2].GetEndPoint().Value, Is.EqualTo(new BtlPoint(281, 180)));
     }
 
     [AvaloniaTest]
@@ -921,7 +921,7 @@ public class PathEditorInteractionTests
         Point start = editor.View.Matrix.Transform(new Point(80, 100));
         Point end = editor.View.Matrix.Transform(new Point(95, 110));
         editor.Drag(start, end);
-        Assert.That(editor.Figure.Segments[0].GetEndPoint().CurrentValue, Is.EqualTo(new BtlPoint(95, 110)));
+        Assert.That(editor.Figure.Segments[0].GetEndPoint().Value, Is.EqualTo(new BtlPoint(95, 110)));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(1));
     }
 
@@ -952,7 +952,7 @@ public class PathEditorInteractionTests
     [TestCase(2)]
     public async Task Single_keyframe_control_allows_insertion_on_each_segment(int index)
     {
-        var figure = new PathFigure { IsClosed = { CurrentValue = true } };
+        var figure = new PathFigure { IsClosed = { Value = true } };
         figure.Segments.Add(PathEditingOperations.Cubic(new(589.81f, 56.57f), new(392.78f, 134.8f), new(276.76f, 115.35f)));
         figure.Segments.Add(PathEditingOperations.Cubic(new(191.89f, 101.12f), new(130.91277f, -95.69183f), new(208.2f, -133.51f)));
         var third = PathEditingOperations.Cubic(new(323.6624f, -190.00803f), new(437.95f, -115.68f), new(580.59f, -33.32f));
@@ -1012,7 +1012,7 @@ public class PathEditorInteractionTests
         {
             float t = i / 100f;
             var actual = t <= .5f ? PathEditingOperations.Evaluate(start, leftBase, t * 2, context)
-                : PathEditingOperations.Evaluate(leftBase.EndPoint.CurrentValue, rightBase, (t - .5f) * 2, context);
+                : PathEditingOperations.Evaluate(leftBase.EndPoint.Value, rightBase, (t - .5f) * 2, context);
             Assert.That(((Beutl.Graphics.Vector)(actual - expectedBase[i])).Length, Is.LessThan(.02), "base values must not be replaced with keyframe values");
         }
         foreach (var time in new[] { -1, 0, 1, 5 })
@@ -1047,7 +1047,7 @@ public class PathEditorInteractionTests
         }
 
         static CubicBezierSegment BaseCurve(CubicBezierSegment curve) => PathEditingOperations.Cubic(
-            curve.ControlPoint1.CurrentValue, curve.ControlPoint2.CurrentValue, curve.EndPoint.CurrentValue);
+            curve.ControlPoint1.Value, curve.ControlPoint2.Value, curve.EndPoint.Value);
     }
 
     [AvaloniaTest]
@@ -1074,7 +1074,7 @@ public class PathEditorInteractionTests
         editor.MouseMove(new(110, 120), RawInputModifiers.LeftMouseButton);
         editor.Key(Key.Escape);
         editor.MouseUp(new(110, 120), MouseButton.Left);
-        Assert.That(editor.Figure.Segments[0].GetEndPoint().CurrentValue, Is.EqualTo(new BtlPoint(80, 100)));
+        Assert.That(editor.Figure.Segments[0].GetEndPoint().Value, Is.EqualTo(new BtlPoint(80, 100)));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.Zero);
         Assert.That(editor.View.SkipUpdatePosition, Is.False);
         editor.Key(Key.P);
@@ -1107,7 +1107,7 @@ public class PathEditorInteractionTests
         Assert.Multiple(() =>
         {
             Assert.That(editor.Figure.Segments, Has.Count.EqualTo(3));
-            Assert.That(editor.Figure.Segments[0].GetEndPoint().CurrentValue, Is.EqualTo(new BtlPoint(80, 100)));
+            Assert.That(editor.Figure.Segments[0].GetEndPoint().Value, Is.EqualTo(new BtlPoint(80, 100)));
             Assert.That(element.Start, Is.GreaterThan(start));
             Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(1));
             Assert.That(editor.Editor.HistoryManager.PeekUndo()!.Name, Is.EqualTo("CommandNames.MoveElement"));
@@ -1140,8 +1140,8 @@ public class PathEditorInteractionTests
         editor.Window.KeyTextInput("150");
         editor.View.Focus();
         HeadlessTestHelpers.Render(2);
-        Assert.That(editor.Figure.Segments[0].GetEndPoint().CurrentValue.X, Is.EqualTo(100));
-        Assert.That(editor.Figure.Segments[1].GetEndPoint().CurrentValue.X, Is.EqualTo(200));
+        Assert.That(editor.Figure.Segments[0].GetEndPoint().Value.X, Is.EqualTo(100));
+        Assert.That(editor.Figure.Segments[1].GetEndPoint().Value.X, Is.EqualTo(200));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(1));
         editor.Key(Key.D2, RawInputModifiers.Shift);
         foreach (var thumb in editor.View.GetSelectedAnchors())
@@ -1201,7 +1201,7 @@ public class PathEditorInteractionTests
         var context = (BaseEditorViewModel)controlPoint.DataContext!;
         var input = controlPoint.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "PART_InnerFirstTextBox");
         int undo = editor.Editor.HistoryManager.UndoCount;
-        BtlPoint previous = curve.ControlPoint2.CurrentValue;
+        BtlPoint previous = curve.ControlPoint2.Value;
         input.BringIntoView();
         HeadlessTestHelpers.Render(2);
         input.Focus();
@@ -1209,7 +1209,7 @@ public class PathEditorInteractionTests
         editor.Window.KeyTextInput("115");
         editor.View.Focus();
         HeadlessTestHelpers.Render(2);
-        Assert.That(curve.ControlPoint2.CurrentValue, Is.EqualTo(new BtlPoint(115, previous.Y)));
+        Assert.That(curve.ControlPoint2.Value, Is.EqualTo(new BtlPoint(115, previous.Y)));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
         Assert.That(editor.Model.PointProperties.Value, Is.SameAs(properties));
         var controlThumb = editor.View.FindThumb(curve, curve.ControlPoint2)!;
@@ -1224,11 +1224,11 @@ public class PathEditorInteractionTests
         Assert.That(reset.Command, Is.Not.Null);
         Assert.That(reset.IsEnabled, Is.True);
         editor.ClickControl(reset);
-        Assert.That(curve.ControlPoint2.CurrentValue, Is.EqualTo(default(BtlPoint)));
+        Assert.That(curve.ControlPoint2.Value, Is.EqualTo(default(BtlPoint)));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(undo + 2));
         editor.Editor.HistoryManager.Undo();
         HeadlessTestHelpers.Render(2);
-        Assert.That(curve.ControlPoint2.CurrentValue, Is.EqualTo(new BtlPoint(115, previous.Y)));
+        Assert.That(curve.ControlPoint2.Value, Is.EqualTo(new BtlPoint(115, previous.Y)));
 
         context.PrepareToEditAnimation();
         HeadlessTestHelpers.Render(2);
@@ -1251,7 +1251,7 @@ public class PathEditorInteractionTests
         var anchor = editor.Figure.Segments[1];
         var outgoing = (CubicBezierSegment)editor.Figure.Segments[2];
         var properties = editor.Model.PointProperties.Value;
-        BtlPoint point = outgoing.ControlPoint1.CurrentValue;
+        BtlPoint point = outgoing.ControlPoint1.Value;
         editor.Click(point.X, point.Y);
         Assert.That(editor.Model.SelectedOperation.Value, Is.SameAs(anchor));
         Assert.That(editor.Model.PointProperties.Value, Is.SameAs(properties));
@@ -1268,9 +1268,9 @@ public class PathEditorInteractionTests
         editor.Key(Key.V);
         var anchor = (CubicBezierSegment)editor.Figure.Segments[1];
         var next = (CubicBezierSegment)editor.Figure.Segments[2];
-        BtlPoint unrelated = anchor.ControlPoint1.CurrentValue;
-        BtlPoint otherHandle = next.ControlPoint2.CurrentValue;
-        BtlPoint previous = next.ControlPoint1.CurrentValue;
+        BtlPoint unrelated = anchor.ControlPoint1.Value;
+        BtlPoint otherHandle = next.ControlPoint2.Value;
+        BtlPoint previous = next.ControlPoint1.Value;
         var control = editor.View.FindControl<ItemsControl>("PointPropertyList")!
             .GetVisualDescendants().OfType<Vector2Editor<float>>().Last();
         var input = control.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "PART_InnerFirstTextBox");
@@ -1280,13 +1280,13 @@ public class PathEditorInteractionTests
         editor.Window.KeyTextInput("220");
         editor.View.Focus();
         HeadlessTestHelpers.Render(3);
-        Assert.That(next.ControlPoint1.CurrentValue, Is.EqualTo(new BtlPoint(220, previous.Y)));
-        Assert.That(anchor.ControlPoint1.CurrentValue, Is.EqualTo(unrelated));
-        Assert.That(next.ControlPoint2.CurrentValue, Is.EqualTo(otherHandle));
-        Assert.That(anchor.EndPoint.CurrentValue, Is.EqualTo(new BtlPoint(180, 100)));
-        Assert.That(next.EndPoint.CurrentValue, Is.EqualTo(new BtlPoint(280, 180)));
+        Assert.That(next.ControlPoint1.Value, Is.EqualTo(new BtlPoint(220, previous.Y)));
+        Assert.That(anchor.ControlPoint1.Value, Is.EqualTo(unrelated));
+        Assert.That(next.ControlPoint2.Value, Is.EqualTo(otherHandle));
+        Assert.That(anchor.EndPoint.Value, Is.EqualTo(new BtlPoint(180, 100)));
+        Assert.That(next.EndPoint.Value, Is.EqualTo(new BtlPoint(280, 180)));
         editor.Editor.HistoryManager.Undo();
-        Assert.That(next.ControlPoint1.CurrentValue, Is.EqualTo(previous));
+        Assert.That(next.ControlPoint1.Value, Is.EqualTo(previous));
     }
 
     [AvaloniaTest]
@@ -1298,7 +1298,7 @@ public class PathEditorInteractionTests
         editor.Key(Key.V);
         editor.Click(80, 100, RawInputModifiers.Shift);
         var next = (CubicBezierSegment)editor.Figure.Segments[1];
-        var point = next.ControlPoint1.CurrentValue;
+        var point = next.ControlPoint1.Value;
         editor.Click(point.X, point.Y);
         Assert.That(editor.View.GetSelectedAnchors(), Has.Length.EqualTo(2));
         Assert.That(editor.Model.SelectedOperation.Value, Is.SameAs(editor.Figure.Segments[0]));
@@ -1343,12 +1343,12 @@ public class PathEditorInteractionTests
         Check(first, first.EndPoint, middle.ControlPoint1);
         Check(middle, middle.EndPoint, middle.ControlPoint2, last.ControlPoint1);
         Check(last, last.EndPoint, last.ControlPoint2);
-        figure.IsClosed.CurrentValue = true;
+        figure.IsClosed.Value = true;
         Check(first, first.EndPoint, first.ControlPoint2, middle.ControlPoint1);
         Check(last, last.EndPoint, last.ControlPoint2, first.ControlPoint1);
-        figure.StartPoint.CurrentValue = new(-10, -10);
+        figure.StartPoint.Value = new(-10, -10);
         Check(last, last.EndPoint, last.ControlPoint2);
-        figure.IsClosed.CurrentValue = false;
+        figure.IsClosed.Value = false;
         Check(first, first.EndPoint, first.ControlPoint2, middle.ControlPoint1);
 
         void Check(PathSegment anchor, params Beutl.IProperty<BtlPoint>[] expected)
@@ -1367,7 +1367,7 @@ public class PathEditorInteractionTests
         PathSegment segment = conic ? new ConicSegment(new(30, 50), new(90, 10), .5f)
             : new QuadraticBezierSegment(new(30, 50), new(90, 10));
         figure.Segments.Add(segment);
-        figure.IsClosed.CurrentValue = true;
+        figure.IsClosed.Value = true;
         var properties = PathPointProperties.Get(figure, segment, new CompositionContext(TimeSpan.Zero));
         Assert.That(properties.Select(p => p.Property), Is.EqualTo(new[]
         {
@@ -1386,7 +1386,7 @@ public class PathEditorInteractionTests
         using var editor = await Fixture.CreateCollapsed(last);
         var anchor = (CubicBezierSegment)editor.Figure.Segments[last ? 2 : 0];
         var next = (CubicBezierSegment)editor.Figure.Segments[last ? 0 : 1];
-        BtlPoint point = anchor.EndPoint.CurrentValue;
+        BtlPoint point = anchor.EndPoint.Value;
         var incoming = editor.View.FindThumb(anchor, anchor.ControlPoint2)!;
         var outgoing = editor.View.FindThumb(next, next.ControlPoint1)!;
         var anchorThumb = editor.View.FindAnchorThumb(anchor)!;
@@ -1398,9 +1398,9 @@ public class PathEditorInteractionTests
         editor.Key(Key.B);
         editor.Click(position.X, position.Y);
         editor.Key(Key.V);
-        BtlPoint bentIncoming = anchor.ControlPoint2.CurrentValue;
-        BtlPoint bentOutgoing = next.ControlPoint1.CurrentValue;
-        Assert.That(anchor.EndPoint.CurrentValue, Is.EqualTo(point));
+        BtlPoint bentIncoming = anchor.ControlPoint2.Value;
+        BtlPoint bentOutgoing = next.ControlPoint1.Value;
+        Assert.That(anchor.EndPoint.Value, Is.EqualTo(point));
         Assert.That(bentIncoming, Is.Not.EqualTo(point));
         Assert.That(bentOutgoing, Is.Not.EqualTo(point));
         Assert.That(incoming.IsVisible && outgoing.IsVisible, Is.True);
@@ -1409,19 +1409,19 @@ public class PathEditorInteractionTests
         Point to = from + new Vector(-26, -15);
         Point expected = editor.View.Matrix.Invert().Transform(to);
         editor.Drag(from, to, independent ? RawInputModifiers.Alt : RawInputModifiers.None);
-        Assert.That(anchor.EndPoint.CurrentValue, Is.EqualTo(point));
-        Assert.That(anchor.ControlPoint2.CurrentValue.X, Is.EqualTo(expected.X).Within(.02));
-        Assert.That(anchor.ControlPoint2.CurrentValue.Y, Is.EqualTo(expected.Y).Within(.02));
-        Assert.That(next.ControlPoint1.CurrentValue, independent ? Is.EqualTo(bentOutgoing) : Is.Not.EqualTo(bentOutgoing));
+        Assert.That(anchor.EndPoint.Value, Is.EqualTo(point));
+        Assert.That(anchor.ControlPoint2.Value.X, Is.EqualTo(expected.X).Within(.02));
+        Assert.That(anchor.ControlPoint2.Value.Y, Is.EqualTo(expected.Y).Within(.02));
+        Assert.That(next.ControlPoint1.Value, independent ? Is.EqualTo(bentOutgoing) : Is.Not.EqualTo(bentOutgoing));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(2));
         editor.Editor.HistoryManager.Undo();
-        Assert.That(anchor.ControlPoint2.CurrentValue, Is.EqualTo(bentIncoming));
-        Assert.That(next.ControlPoint1.CurrentValue, Is.EqualTo(bentOutgoing));
+        Assert.That(anchor.ControlPoint2.Value, Is.EqualTo(bentIncoming));
+        Assert.That(next.ControlPoint1.Value, Is.EqualTo(bentOutgoing));
         editor.Editor.HistoryManager.Undo();
         editor.View.Refresh();
         HeadlessTestHelpers.Render(3);
-        Assert.That(anchor.ControlPoint2.CurrentValue, Is.EqualTo(point));
-        Assert.That(next.ControlPoint1.CurrentValue, Is.EqualTo(point));
+        Assert.That(anchor.ControlPoint2.Value, Is.EqualTo(point));
+        Assert.That(next.ControlPoint1.Value, Is.EqualTo(point));
         Assert.That(PathEditorHelper.GetCanvasPosition(incoming), Is.EqualTo(position));
         Assert.That(PathEditorHelper.GetCanvasPosition(outgoing), Is.EqualTo(position));
     }
@@ -1437,7 +1437,7 @@ public class PathEditorInteractionTests
         using var editor = await Fixture.CreateCollapsed(false);
         var anchor = (CubicBezierSegment)editor.Figure.Segments[0];
         var next = (CubicBezierSegment)editor.Figure.Segments[1];
-        BtlPoint point = anchor.EndPoint.CurrentValue;
+        BtlPoint point = anchor.EndPoint.Value;
         var context = new CompositionContext(TimeSpan.Zero);
         var animation = new KeyFrameAnimation<BtlPoint>();
         animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = TimeSpan.Zero, Value = point });
@@ -1448,9 +1448,9 @@ public class PathEditorInteractionTests
             if (scenario == "animated-anchor") anchor.EndPoint.SetKeyFrameAnimation(animation);
             if (scenario == "animated-handles") anchor.ControlPoint2.SetKeyFrameAnimation(animation);
             if (scenario == "coincident-neighbors")
-                editor.Figure.Segments[^1].GetEndPoint().CurrentValue = next.EndPoint.CurrentValue;
+                editor.Figure.Segments[^1].GetEndPoint().Value = next.EndPoint.Value;
             if (scenario == "nearly-collapsed")
-                anchor.ControlPoint2.CurrentValue = point + new Beutl.Graphics.Vector(.001f, -.001f);
+                anchor.ControlPoint2.Value = point + new Beutl.Graphics.Vector(.001f, -.001f);
         }
         BtlPoint originalIncoming = anchor.ControlPoint2.GetValue(context);
         editor.View.Refresh();
@@ -1484,20 +1484,20 @@ public class PathEditorInteractionTests
     {
         using var editor = await Fixture.CreateCollapsed(last: true);
         using (editor.Editor.HistoryManager.SuppressRecording())
-            editor.Figure.StartPoint.CurrentValue = new(190, 160);
+            editor.Figure.StartPoint.Value = new(190, 160);
         editor.View.Refresh();
         HeadlessTestHelpers.Render(3);
         var anchor = (CubicBezierSegment)editor.Figure.Segments[^1];
         var first = (CubicBezierSegment)editor.Figure.Segments[0];
-        BtlPoint unrelated = first.ControlPoint1.CurrentValue;
+        BtlPoint unrelated = first.ControlPoint1.Value;
         Point position = PathEditorHelper.GetCanvasPosition(editor.View.FindAnchorThumb(anchor)!);
         editor.Key(Key.B);
         editor.Click(position.X, position.Y);
-        Assert.That(anchor.ControlPoint2.CurrentValue, Is.Not.EqualTo(anchor.EndPoint.CurrentValue));
-        Assert.That(first.ControlPoint1.CurrentValue, Is.EqualTo(unrelated));
+        Assert.That(anchor.ControlPoint2.Value, Is.Not.EqualTo(anchor.EndPoint.Value));
+        Assert.That(first.ControlPoint1.Value, Is.EqualTo(unrelated));
         editor.Click(position.X, position.Y);
-        Assert.That(anchor.ControlPoint2.CurrentValue, Is.EqualTo(anchor.EndPoint.CurrentValue));
-        Assert.That(first.ControlPoint1.CurrentValue, Is.EqualTo(unrelated));
+        Assert.That(anchor.ControlPoint2.Value, Is.EqualTo(anchor.EndPoint.Value));
+        Assert.That(first.ControlPoint1.Value, Is.EqualTo(unrelated));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(2));
     }
 
@@ -1507,25 +1507,25 @@ public class PathEditorInteractionTests
         using var editor = await Fixture.CreateCollapsed(false);
         var anchor = (CubicBezierSegment)editor.Figure.Segments[0];
         var next = (CubicBezierSegment)editor.Figure.Segments[1];
-        BtlPoint original = anchor.EndPoint.CurrentValue;
+        BtlPoint original = anchor.EndPoint.Value;
         var thumb = editor.View.FindThumb(anchor, anchor.ControlPoint2)!;
         Point position = PathEditorHelper.GetCanvasPosition(thumb);
-        Assert.That(anchor.ControlPoint2.CurrentValue, Is.EqualTo(original));
-        Assert.That(next.ControlPoint1.CurrentValue, Is.EqualTo(original));
+        Assert.That(anchor.ControlPoint2.Value, Is.EqualTo(original));
+        Assert.That(next.ControlPoint1.Value, Is.EqualTo(original));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.Zero);
         editor.Key(Key.B);
         editor.Click(position.X, position.Y);
         editor.Key(Key.V);
-        BtlPoint incoming = anchor.ControlPoint2.CurrentValue;
-        BtlPoint outgoing = next.ControlPoint1.CurrentValue;
+        BtlPoint incoming = anchor.ControlPoint2.Value;
+        BtlPoint outgoing = next.ControlPoint1.Value;
         Point from = PathEditorHelper.GetCanvasPosition(thumb);
         editor.MouseDown(from, MouseButton.Left);
         editor.MouseMove(from + new Vector(-30, -10), RawInputModifiers.LeftMouseButton);
         editor.Key(Key.Escape);
         editor.MouseUp(from + new Vector(-30, -10), MouseButton.Left);
         HeadlessTestHelpers.Render(3);
-        Assert.That(anchor.ControlPoint2.CurrentValue, Is.EqualTo(incoming));
-        Assert.That(next.ControlPoint1.CurrentValue, Is.EqualTo(outgoing));
+        Assert.That(anchor.ControlPoint2.Value, Is.EqualTo(incoming));
+        Assert.That(next.ControlPoint1.Value, Is.EqualTo(outgoing));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(1));
         Assert.That(editor.Editor.HistoryManager.HasPendingOperations, Is.False);
     }
@@ -1546,8 +1546,8 @@ public class PathEditorInteractionTests
         Point to = from + new Vector(-30, 15);
         Point expected = editor.View.Matrix.Invert().Transform(to);
         editor.Drag(from, to);
-        Assert.That(anchor.ControlPoint2.CurrentValue.X, Is.EqualTo(expected.X).Within(.02));
-        Assert.That(anchor.ControlPoint2.CurrentValue.Y, Is.EqualTo(expected.Y).Within(.02));
+        Assert.That(anchor.ControlPoint2.Value.X, Is.EqualTo(expected.X).Within(.02));
+        Assert.That(anchor.ControlPoint2.Value.Y, Is.EqualTo(expected.Y).Within(.02));
         Point actual = thumb.TranslatePoint(new Point(thumb.Bounds.Width / 2, thumb.Bounds.Height / 2),
             editor.View.FindControl<Canvas>("canvas")!)!.Value;
         Assert.That(actual.X, Is.EqualTo(to.X).Within(.51));
@@ -1570,11 +1570,11 @@ public class PathEditorInteractionTests
         var anchorThumb = overlay.GetSelectedAnchors().Single();
         Point position = PathEditorHelper.GetCanvasPosition(anchorThumb);
         Assert.That(PathEditorHelper.GetCanvasPosition(thumb), Is.EqualTo(position));
-        Assert.That(anchor.ControlPoint2.CurrentValue, Is.EqualTo(anchor.EndPoint.CurrentValue));
+        Assert.That(anchor.ControlPoint2.Value, Is.EqualTo(anchor.EndPoint.Value));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.Zero);
         overlay.Tool = PathEditorTool.Bend;
         editor.Click(position.X, position.Y);
-        Assert.That(anchor.ControlPoint2.CurrentValue, Is.Not.EqualTo(anchor.EndPoint.CurrentValue));
+        Assert.That(anchor.ControlPoint2.Value, Is.Not.EqualTo(anchor.EndPoint.Value));
         Assert.That(thumb.IsVisible, Is.True);
         overlay.DataContext = null;
         model.FigureContext.Value = null;
@@ -1599,8 +1599,8 @@ public class PathEditorInteractionTests
         Assert.That(thumb.Bounds.Width, Is.GreaterThan(0));
         Point point = thumb.TranslatePoint(new Point(thumb.Bounds.Width / 2, thumb.Bounds.Height / 2),
             editor.View.FindControl<Canvas>("canvas")!)!.Value;
-        Assert.That(point.X, Is.EqualTo(property.CurrentValue.X).Within(.51));
-        Assert.That(point.Y, Is.EqualTo(property.CurrentValue.Y).Within(.51));
+        Assert.That(point.X, Is.EqualTo(property.Value.X).Within(.51));
+        Assert.That(point.Y, Is.EqualTo(property.Value.Y).Within(.51));
     }
 
     [AvaloniaTest]
@@ -1646,13 +1646,13 @@ public class PathEditorInteractionTests
         HeadlessTestHelpers.Render(3);
         editor.Click(280, 180);
         Assert.That(editor.Model.PointProperties.Value, Has.Count.EqualTo(2));
-        editor.Figure.IsClosed.CurrentValue = true;
+        editor.Figure.IsClosed.Value = true;
         HeadlessTestHelpers.Render(3);
         Assert.That(editor.Model.PointProperties.Value, Has.Count.EqualTo(3));
         Assert.That(((BaseEditorViewModel)editor.Model.PointProperties.Value[2]).PropertyAdapter.GetEngineProperty(),
             Is.SameAs(first.ControlPoint1));
         Assert.That(editor.View.FindThumb(first, first.ControlPoint1)!.IsVisible, Is.True);
-        editor.Figure.IsClosed.CurrentValue = false;
+        editor.Figure.IsClosed.Value = false;
         HeadlessTestHelpers.Render(3);
         Assert.That(editor.Model.PointProperties.Value, Has.Count.EqualTo(2));
         Assert.That(editor.View.FindThumb(first, first.ControlPoint1)!.IsVisible, Is.False);
@@ -1696,14 +1696,14 @@ public class PathEditorInteractionTests
     public void Arc_insertion_preserves_the_native_rendered_path(float rx, float ry, float rotation,
         bool large, bool clockwise, float t)
     {
-        var figure = new PathFigure { StartPoint = { CurrentValue = new(80, 100) } };
+        var figure = new PathFigure { StartPoint = { Value = new(80, 100) } };
         figure.Segments.Add(new ArcSegment
         {
-            Radius = { CurrentValue = new(rx, ry) },
-            RotationAngle = { CurrentValue = rotation },
-            IsLargeArc = { CurrentValue = large },
-            SweepClockwise = { CurrentValue = clockwise },
-            Point = { CurrentValue = new(280, 180) }
+            Radius = { Value = new(rx, ry) },
+            RotationAngle = { Value = rotation },
+            IsLargeArc = { Value = large },
+            SweepClockwise = { Value = clockwise },
+            Point = { Value = new(280, 180) }
         });
         using var before = Draw();
         Assert.That(PathEditingOperations.Split(figure, 0, t, CompositionContext.Default), Is.Not.Null);
@@ -1721,13 +1721,13 @@ public class PathEditorInteractionTests
         GeometryContext Draw()
         {
             var context = new GeometryContext();
-            context.MoveTo(figure.StartPoint.CurrentValue);
+            context.MoveTo(figure.StartPoint.Value);
             foreach (var segment in figure.Segments)
             {
                 if (segment is ArcSegment arc)
-                    context.ArcTo(arc.Radius.CurrentValue, arc.RotationAngle.CurrentValue,
-                        arc.IsLargeArc.CurrentValue, arc.SweepClockwise.CurrentValue, arc.Point.CurrentValue);
-                else context.LineTo(segment.GetEndPoint().CurrentValue);
+                    context.ArcTo(arc.Radius.Value, arc.RotationAngle.Value,
+                        arc.IsLargeArc.Value, arc.SweepClockwise.Value, arc.Point.Value);
+                else context.LineTo(segment.GetEndPoint().Value);
             }
             return context;
         }
@@ -1747,7 +1747,7 @@ public class PathEditorInteractionTests
         {
             float t = i / 100f;
             var actual = t <= .4f ? PathEditingOperations.Evaluate(default, inserted, t / .4f, context)
-                : PathEditingOperations.Evaluate(inserted.GetEndPoint().CurrentValue, cubic, (t - .4f) / .6f, context);
+                : PathEditingOperations.Evaluate(inserted.GetEndPoint().Value, cubic, (t - .4f) / .6f, context);
             Assert.That(((Beutl.Graphics.Vector)(actual - expected[i])).Length, Is.LessThan(.001));
         }
         cubic.EndPoint.SetKeyFrameAnimation(new KeyFrameAnimation<BtlPoint>());
@@ -1778,7 +1778,7 @@ public class PathEditorInteractionTests
             }
             var geometry = new PathGeometry();
             geometry.Figures.Add(figure);
-            var shape = new GeometryShape { Data = { CurrentValue = geometry } };
+            var shape = new GeometryShape { Data = { Value = geometry } };
             var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(10) };
             element.AddObject(shape);
             scene.Children.Add(element);
@@ -1819,23 +1819,23 @@ public class PathEditorInteractionTests
         {
             var fixture = await Create(empty: true);
             var first = PathEditingOperations.Cubic(new(170, 90), new(203.16f, -83.08f), new(203.16f, -83.08f));
-            var second = PathEditingOperations.Cubic(first.EndPoint.CurrentValue, new(440, -90), new(430, -20));
+            var second = PathEditingOperations.Cubic(first.EndPoint.Value, new(440, -90), new(430, -20));
             var third = PathEditingOperations.Cubic(new(430, 85), new(310, 155), new(250, 140));
             using (fixture.Editor.HistoryManager.SuppressRecording())
             {
-                fixture.Figure.IsClosed.CurrentValue = true;
+                fixture.Figure.IsClosed.Value = true;
                 fixture.Figure.Segments.Add(first);
                 fixture.Figure.Segments.Add(second);
                 fixture.Figure.Segments.Add(third);
                 if (last)
                 {
-                    third.ControlPoint2.CurrentValue = third.EndPoint.CurrentValue;
-                    first.ControlPoint1.CurrentValue = third.EndPoint.CurrentValue;
+                    third.ControlPoint2.Value = third.EndPoint.Value;
+                    first.ControlPoint1.Value = third.EndPoint.Value;
                 }
             }
             fixture.View.Matrix = Matrix.CreateTranslation(-120, 140);
             HeadlessTestHelpers.Render(3);
-            BtlPoint selected = last ? third.EndPoint.CurrentValue : first.EndPoint.CurrentValue;
+            BtlPoint selected = last ? third.EndPoint.Value : first.EndPoint.Value;
             fixture.Click(selected.X - 120, selected.Y + 140);
             HeadlessTestHelpers.Render(3);
             return fixture;

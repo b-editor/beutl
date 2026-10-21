@@ -279,11 +279,11 @@ public sealed class GpuPassFusionFeature003RegressionTests
     private static Drawable.Resource CreateVector()
     {
         var shape = new EllipseShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.Width.CurrentValue = 126;
-        shape.Height.CurrentValue = 78;
-        shape.Fill.CurrentValue = Brushes.OrangeRed;
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.Width.Value = 126;
+        shape.Height.Value = 78;
+        shape.Fill.Value = Brushes.OrangeRed;
         return shape.ToResource(CompositionContext.Default);
     }
 
@@ -328,14 +328,14 @@ public sealed class GpuPassFusionFeature003RegressionTests
     {
         Typeface typeface = TypefaceProvider.Typeface();
         var text = new TextBlock();
-        text.AlignmentX.CurrentValue = AlignmentX.Center;
-        text.AlignmentY.CurrentValue = AlignmentY.Center;
-        text.FontFamily.CurrentValue = typeface.FontFamily;
-        text.FontStyle.CurrentValue = typeface.Style;
-        text.FontWeight.CurrentValue = typeface.Weight;
-        text.Size.CurrentValue = 34;
-        text.Fill.CurrentValue = Brushes.White;
-        text.Text.CurrentValue = "Density";
+        text.AlignmentX.Value = AlignmentX.Center;
+        text.AlignmentY.Value = AlignmentY.Center;
+        text.FontFamily.Value = typeface.FontFamily;
+        text.FontStyle.Value = typeface.Style;
+        text.FontWeight.Value = typeface.Weight;
+        text.Size.Value = 34;
+        text.Fill.Value = Brushes.White;
+        text.Text.Value = "Density";
         return text.ToResource(CompositionContext.Default);
     }
 

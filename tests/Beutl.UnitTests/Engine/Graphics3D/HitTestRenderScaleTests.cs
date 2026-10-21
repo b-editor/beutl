@@ -24,17 +24,17 @@ public class HitTestRenderScaleTests
     private static (Camera3D.Resource Camera, Sphere3D.Resource Sphere) BuildScene(CompositionContext context)
     {
         var camera = new PerspectiveCamera();
-        camera.Position.CurrentValue = new Vector3(0, 0, 5);
-        camera.Target.CurrentValue = Vector3.Zero;
-        camera.Up.CurrentValue = Vector3.UnitY;
-        camera.FieldOfView.CurrentValue = 45f;
-        camera.NearPlane.CurrentValue = 0.1f;
-        camera.FarPlane.CurrentValue = 100f;
+        camera.Position.Value = new Vector3(0, 0, 5);
+        camera.Target.Value = Vector3.Zero;
+        camera.Up.Value = Vector3.UnitY;
+        camera.FieldOfView.Value = 45f;
+        camera.NearPlane.Value = 0.1f;
+        camera.FarPlane.Value = 100f;
         var cameraResource = (Camera3D.Resource)camera.ToResource(context);
 
         var sphere = new Sphere3D();
-        sphere.Position.CurrentValue = Vector3.Zero;
-        sphere.Radius.CurrentValue = 1.0f;
+        sphere.Position.Value = Vector3.Zero;
+        sphere.Radius.Value = 1.0f;
         var sphereResource = (Sphere3D.Resource)sphere.ToResource(context);
 
         return (cameraResource, sphereResource);
@@ -59,9 +59,9 @@ public class HitTestRenderScaleTests
             var objects = new List<Object3D.Resource> { sphere };
 
             var keyLight = new DirectionalLight3D();
-            keyLight.Direction.CurrentValue = Vector3.Normalize(new Vector3(0, 0, -1));
-            keyLight.Color.CurrentValue = Colors.White;
-            keyLight.Intensity.CurrentValue = 1f;
+            keyLight.Direction.Value = Vector3.Normalize(new Vector3(0, 0, -1));
+            keyLight.Color.Value = Colors.White;
+            keyLight.Intensity.Value = 1f;
             keyLight.IsEnabled = true;
             var lights = new List<Light3D.Resource> { (Light3D.Resource)keyLight.ToResource(context) };
 

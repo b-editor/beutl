@@ -19,8 +19,8 @@ public abstract partial class Drawable : EngineObject
     public Drawable()
     {
         ScanProperties<Drawable>();
-        FilterEffect.CurrentValue = new FilterEffectGroup();
-        Transform.CurrentValue = new TransformGroup();
+        FilterEffect.Value = new FilterEffectGroup();
+        Transform.Value = new TransformGroup();
     }
 
     public override CompositionTarget GetCompositionTarget() => CompositionTarget.Graphics;

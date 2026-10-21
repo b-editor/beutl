@@ -29,9 +29,9 @@ internal static class TrimTestMedia
     public static SourceVideo CreateVideo(int durationSeconds, float speed = 100, double offsetSeconds = 0)
         => new()
         {
-            Source = { CurrentValue = CreateVideoSource(durationSeconds) },
-            Speed = { CurrentValue = speed },
-            OffsetPosition = { CurrentValue = Seconds(offsetSeconds) }
+            Source = { Value = CreateVideoSource(durationSeconds) },
+            Speed = { Value = speed },
+            OffsetPosition = { Value = Seconds(offsetSeconds) }
         };
 
     // Adds the SourceVideo, SourceSound or SceneSound that mediaType names, with a source of durationSeconds.
@@ -49,7 +49,7 @@ internal static class TrimTestMedia
         switch (mediaType)
         {
             case nameof(SourceVideo):
-                var video = new SourceVideo { Source = { CurrentValue = CreateVideoSource(durationSeconds) } };
+                var video = new SourceVideo { Source = { Value = CreateVideoSource(durationSeconds) } };
                 media = video;
                 speedProperty = video.Speed;
                 offsetProperty = video.OffsetPosition;
@@ -57,7 +57,7 @@ internal static class TrimTestMedia
             case nameof(SourceSound):
                 var soundSource = new SoundSource();
                 soundSource.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: durationSeconds)));
-                var sound = new SourceSound { Source = { CurrentValue = soundSource } };
+                var sound = new SourceSound { Source = { Value = soundSource } };
                 media = sound;
                 speedProperty = sound.Speed;
                 offsetProperty = sound.OffsetPosition;
@@ -65,7 +65,7 @@ internal static class TrimTestMedia
             case nameof(SceneSound):
                 var sceneSound = new SceneSound
                 {
-                    ReferencedScene = { CurrentValue = new Scene { Duration = Seconds(durationSeconds) } }
+                    ReferencedScene = { Value = new Scene { Duration = Seconds(durationSeconds) } }
                 };
                 media = sceneSound;
                 speedProperty = sceneSound.Speed;
@@ -75,10 +75,10 @@ internal static class TrimTestMedia
                 throw new ArgumentOutOfRangeException(nameof(mediaType), mediaType, "Unknown media type.");
         }
 
-        speedProperty.CurrentValue = speed;
+        speedProperty.Value = speed;
         if (speedAnimation != null)
             speedProperty.SetKeyFrameAnimation(speedAnimation);
-        offsetProperty.CurrentValue = Seconds(offsetSeconds);
+        offsetProperty.Value = Seconds(offsetSeconds);
         element.Objects.Add(media);
         return (speedProperty, offsetProperty);
     }

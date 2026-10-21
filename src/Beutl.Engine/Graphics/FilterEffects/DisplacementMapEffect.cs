@@ -15,7 +15,7 @@ public partial class DisplacementMapEffect : FilterEffect
     {
         ScanProperties<DisplacementMapEffect>();
 
-        DisplacementMap.CurrentValue = new RadialGradientBrush
+        DisplacementMap.Value = new RadialGradientBrush
         {
             GradientStops =
             {
@@ -24,7 +24,7 @@ public partial class DisplacementMapEffect : FilterEffect
             }
         };
 
-        Transform.CurrentValue = new DisplacementMapTranslateTransform();
+        Transform.Value = new DisplacementMapTranslateTransform();
     }
 
     [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_DisplacementMap), ResourceType = typeof(GraphicsStrings))]

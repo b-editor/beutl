@@ -21,10 +21,10 @@ public class VideoSourceRenderNodeTest
     {
         var pen = new Pen
         {
-            Brush = { CurrentValue = Brushes.Black },
-            Thickness = { CurrentValue = 40 },
-            Offset = { CurrentValue = offset },
-            StrokeAlignment = { CurrentValue = alignment },
+            Brush = { Value = Brushes.Black },
+            Thickness = { Value = 40 },
+            Offset = { Value = offset },
+            StrokeAlignment = { Value = alignment },
         };
         using var penResource = pen.ToResource(CompositionContext.Default);
         using var fillBuilder = new SKPathBuilder();

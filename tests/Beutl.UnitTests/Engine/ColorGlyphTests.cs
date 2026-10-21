@@ -59,11 +59,11 @@ public class ColorGlyphTests
     {
         var block = new TextBlock
         {
-            Text = { CurrentValue = "<font='Roboto'>I</font>😀 😁<font='Roboto'>I</font>\n👩‍💻" },
-            FontFamily = { CurrentValue = s_font },
-            Size = { CurrentValue = 64f },
-            Spacing = { CurrentValue = 12f },
-            SplitByCharacters = { CurrentValue = split },
+            Text = { Value = "<font='Roboto'>I</font>😀 😁<font='Roboto'>I</font>\n👩‍💻" },
+            FontFamily = { Value = s_font },
+            Size = { Value = 64f },
+            Spacing = { Value = 12f },
+            SplitByCharacters = { Value = split },
         };
         using TextBlock.Resource resource = block.ToResource(CompositionContext.Default);
         using var node = new DrawableRenderNode(resource);
@@ -207,8 +207,8 @@ public class ColorGlyphTests
         FormattedText last = text.GetNonOutlineGlyph(2)!;
         var gradient = new LinearGradientBrush
         {
-            StartPoint = { CurrentValue = RelativePoint.TopLeft },
-            EndPoint = { CurrentValue = new RelativePoint(vertical ? 0f : 1f, vertical ? 1f : 0f, RelativeUnit.Relative) },
+            StartPoint = { Value = RelativePoint.TopLeft },
+            EndPoint = { Value = new RelativePoint(vertical ? 0f : 1f, vertical ? 1f : 0f, RelativeUnit.Relative) },
         };
         gradient.GradientStops.Add(new GradientStop(Colors.Red, 0));
         gradient.GradientStops.Add(new GradientStop(Colors.Blue, 1));

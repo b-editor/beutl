@@ -42,8 +42,8 @@ public sealed class GeometryClipRenderNodeTests
     {
         var geometry = new RectGeometry
         {
-            Width = { CurrentValue = width },
-            Height = { CurrentValue = height },
+            Width = { Value = width },
+            Height = { Value = height },
         };
         return geometry.ToResource(CompositionContext.Default);
     }

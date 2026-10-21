@@ -83,7 +83,7 @@ public sealed class GainNode : AudioNode
 
     private AudioBuffer ProcessStaticGain(AudioBuffer input)
     {
-        float gain = Gain.CurrentValue / 100f;
+        float gain = Gain.Value / 100f;
         // Unity gain: pass the input through (caller owns it, don't dispose).
         if (System.Math.Abs(gain - 1.0f) < float.Epsilon)
             return input;

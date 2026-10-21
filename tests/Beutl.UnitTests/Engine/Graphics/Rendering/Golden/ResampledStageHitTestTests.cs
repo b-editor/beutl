@@ -55,7 +55,7 @@ public sealed class ResampledStageHitTestTests
         var map = new SolidColorBrush(new Color(128, 255, 255, 255));
         var alpha = Displace(Translated(20, 0), map);
         var red = Displace(Translated(20, 0), map);
-        red.Channel.CurrentValue = DisplacementMapChannel.Red;
+        red.Channel.Value = DisplacementMapChannel.Red;
         for (int x = 0; x < 60; x += 2)
         {
             var point = new Point(x, 92);
@@ -621,18 +621,18 @@ public sealed class ResampledStageHitTestTests
     private static DisplacementMapEffect Displace(DisplacementMapTransform transform, Brush? map = null)
         => new()
         {
-            DisplacementMap = { CurrentValue = map ?? new SolidColorBrush(Colors.White) },
-            Transform = { CurrentValue = transform },
+            DisplacementMap = { Value = map ?? new SolidColorBrush(Colors.White) },
+            Transform = { Value = transform },
         };
 
     private static DisplacementMapTranslateTransform Translated(float x, float y)
-        => new() { X = { CurrentValue = x }, Y = { CurrentValue = y } };
+        => new() { X = { Value = x }, Y = { Value = y } };
 
     private static DisplacementMapScaleTransform Scaled(float percent)
-        => new() { ScaleX = { CurrentValue = percent }, ScaleY = { CurrentValue = percent } };
+        => new() { ScaleX = { Value = percent }, ScaleY = { Value = percent } };
 
     private static DisplacementMapRotationTransform Rotated(float degrees)
-        => new() { Rotation = { CurrentValue = degrees } };
+        => new() { Rotation = { Value = degrees } };
 
     private static IEnumerable<TestCaseData> ColorShiftCases()
     {
@@ -689,17 +689,17 @@ public sealed class ResampledStageHitTestTests
     private static ColorShift Shift(PixelPoint red, PixelPoint green, PixelPoint blue, PixelPoint alpha)
         => new()
         {
-            RedOffset = { CurrentValue = red },
-            GreenOffset = { CurrentValue = green },
-            BlueOffset = { CurrentValue = blue },
-            AlphaOffset = { CurrentValue = alpha },
+            RedOffset = { Value = red },
+            GreenOffset = { Value = green },
+            BlueOffset = { Value = blue },
+            AlphaOffset = { Value = alpha },
         };
 
     private static MosaicEffect Mosaic(float tile, RelativePoint origin)
         => new()
         {
-            TileSize = { CurrentValue = new Size(tile, tile) },
-            Origin = { CurrentValue = origin },
+            TileSize = { Value = new Size(tile, tile) },
+            Origin = { Value = origin },
         };
 
     /// <remarks>

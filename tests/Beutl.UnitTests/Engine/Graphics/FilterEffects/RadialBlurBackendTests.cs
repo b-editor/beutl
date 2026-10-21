@@ -59,7 +59,7 @@ public sealed class RadialBlurBackendTests
 
         ushort[] Render()
         {
-            var effect = new RadialBlur { Mode = { CurrentValue = mode }, Amount = { CurrentValue = 50 } };
+            var effect = new RadialBlur { Mode = { Value = mode }, Amount = { Value = 50 } };
             using var brush = (Brush.Resource)new SolidColorBrush(Colors.Red).ToResource(CompositionContext.Default);
             using var root = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
             root.AddChild(new RectangleRenderNode(new Rect(4, 4, 16, 8), brush, null));
@@ -124,7 +124,7 @@ public sealed class RadialBlurBackendTests
             using RenderTargetLeaseSession session = pool.BeginSession(intent);
             var custom = new CustomFilterEffectContext(targets, intent, RenderRequestPurpose.Auxiliary,
                 renderTargetLeaseSession: session);
-            var effect = new RadialBlur { Mode = { CurrentValue = mode } };
+            var effect = new RadialBlur { Mode = { Value = mode } };
             using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
             using var context = new FilterEffectContext(bounds);
             context.ApplyTransactional(effect, resource);
@@ -156,7 +156,7 @@ public sealed class RadialBlurBackendTests
         {
             using var before = new TestShaderNode(ShaderDescription.CurrentPixel(
                 "half4 apply(half4 color) { return color * 0.5; }"));
-            using var radial = new FilterEffectRenderNode(new RadialBlur { Mode = { CurrentValue = mode } }
+            using var radial = new FilterEffectRenderNode(new RadialBlur { Mode = { Value = mode } }
                 .ToResource(CompositionContext.Default));
             using var after = new TestShaderNode(ShaderDescription.CurrentPixel(
                 "half4 apply(half4 color) { return half4(color.g, color.b, color.r, color.a); }"));
@@ -193,10 +193,10 @@ public sealed class RadialBlurBackendTests
         {
             var effect = new RadialBlur
             {
-                Mode = { CurrentValue = mode },
-                Amount = { CurrentValue = 47 },
-                Samples = { CurrentValue = samples },
-                Center = { CurrentValue = new RelativePoint(0.3f, 0.7f, RelativeUnit.Relative) },
+                Mode = { Value = mode },
+                Amount = { Value = 47 },
+                Samples = { Value = samples },
+                Center = { Value = new RelativePoint(0.3f, 0.7f, RelativeUnit.Relative) },
             };
             var gradient = new LinearGradientBrush();
             gradient.GradientStops.Add(new GradientStop(Color.FromArgb(210, 255, 32, 64), 0));

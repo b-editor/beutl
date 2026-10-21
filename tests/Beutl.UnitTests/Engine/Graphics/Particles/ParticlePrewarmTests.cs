@@ -18,10 +18,10 @@ public sealed class ParticlePrewarmTests
     public void UnsupportedDuration_IsRejectedBeforeSimulation(string text)
     {
         var emitter = CreateEmitter();
-        emitter.PrewarmDuration.CurrentValue = TimeSpan.Parse(text, CultureInfo.InvariantCulture);
+        emitter.PrewarmDuration.Value = TimeSpan.Parse(text, CultureInfo.InvariantCulture);
 
         // Assert before evaluating the resource so the regression cannot run days of simulation.
-        Assert.That(emitter.PrewarmDuration.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(emitter.PrewarmDuration.Value, Is.EqualTo(TimeSpan.Zero));
         using var resource = emitter.ToResource(new CompositionContext(TimeSpan.Zero));
         Assert.That(resource.GetAliveParticles().Length, Is.Zero);
     }
@@ -32,9 +32,9 @@ public sealed class ParticlePrewarmTests
     {
         var emitter = CreateEmitter();
         var duration = TimeSpan.Parse(text, CultureInfo.InvariantCulture);
-        emitter.PrewarmDuration.CurrentValue = duration;
+        emitter.PrewarmDuration.Value = duration;
 
-        Assert.That(emitter.PrewarmDuration.CurrentValue, Is.EqualTo(duration));
+        Assert.That(emitter.PrewarmDuration.Value, Is.EqualTo(duration));
         using var resource = emitter.ToResource(new CompositionContext(TimeSpan.Zero));
         Assert.That(resource.GetAliveParticles().Length, Is.GreaterThan(0));
     }
@@ -51,7 +51,7 @@ public sealed class ParticlePrewarmTests
             using var resource = restored.ToResource(new CompositionContext(TimeSpan.Zero));
             Assert.That(resource.GetAliveParticles().Length, Is.Zero);
         });
-        Assert.That(restored.PrewarmDuration.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(restored.PrewarmDuration.Value, Is.EqualTo(TimeSpan.Zero));
     }
 
     [TestCase(0.125, 0)]
@@ -61,7 +61,7 @@ public sealed class ParticlePrewarmTests
     {
         var emitter = CreateEmitter();
         using var expected = emitter.ToResource(new CompositionContext(TimeSpan.FromSeconds(duration)));
-        emitter.PrewarmDuration.CurrentValue = TimeSpan.FromSeconds(duration);
+        emitter.PrewarmDuration.Value = TimeSpan.FromSeconds(duration);
         emitter.TimeRange = new TimeRange(TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(10));
         using var actual = emitter.ToResource(new CompositionContext(emitter.Start));
 
@@ -75,7 +75,7 @@ public sealed class ParticlePrewarmTests
     {
         var emitter = CreateEmitter();
         using var expected = emitter.ToResource(new CompositionContext(TimeSpan.FromSeconds(1)));
-        emitter.PrewarmDuration.CurrentValue = TimeSpan.FromSeconds(duration);
+        emitter.PrewarmDuration.Value = TimeSpan.FromSeconds(duration);
         using var actual = emitter.ToResource(new CompositionContext(TimeSpan.Zero));
         Assert.That(actual.GetAliveParticles().Length, Is.Zero);
 
@@ -88,7 +88,7 @@ public sealed class ParticlePrewarmTests
     {
         var emitter = CreateEmitter();
         emitter.TimeRange = new TimeRange(TimeSpan.FromSeconds(7), TimeSpan.FromSeconds(10));
-        emitter.PrewarmDuration.CurrentValue = TimeSpan.FromSeconds(2);
+        emitter.PrewarmDuration.Value = TimeSpan.FromSeconds(2);
         using var resource = emitter.ToResource(new CompositionContext(emitter.Start));
         Assert.That(resource.GetAliveParticles().Length, Is.GreaterThan(0));
 
@@ -101,7 +101,7 @@ public sealed class ParticlePrewarmTests
     public void SequentialFrames_MatchColdSeekAndUnwarmedSimulation(int frameRate)
     {
         var emitter = CreateEmitter();
-        emitter.PrewarmDuration.CurrentValue = TimeSpan.FromSeconds(2.125);
+        emitter.PrewarmDuration.Value = TimeSpan.FromSeconds(2.125);
         using var sequential = emitter.ToResource(new CompositionContext(TimeSpan.Zero));
         TimeSpan time = default;
         for (int frame = 1; frame <= 89; frame++)
@@ -112,7 +112,7 @@ public sealed class ParticlePrewarmTests
 
         using var cold = emitter.ToResource(new CompositionContext(time));
         var unwarmed = CreateEmitter();
-        using var expected = unwarmed.ToResource(new CompositionContext(time + emitter.PrewarmDuration.CurrentValue));
+        using var expected = unwarmed.ToResource(new CompositionContext(time + emitter.PrewarmDuration.Value));
         Assert.Multiple(() =>
         {
             Assert.That(sequential.GetAliveParticles().ToArray(), Is.EqualTo(cold.GetAliveParticles().ToArray()));
@@ -124,7 +124,7 @@ public sealed class ParticlePrewarmTests
     public void ForwardAndBackwardSeeks_MatchColdStateAfterCheckpointEviction()
     {
         var emitter = CreateEmitter();
-        emitter.PrewarmDuration.CurrentValue = TimeSpan.FromSeconds(2);
+        emitter.PrewarmDuration.Value = TimeSpan.FromSeconds(2);
         using var reused = emitter.ToResource(new CompositionContext(TimeSpan.Zero));
         foreach (int seconds in new[] { 1, 70, 2, 0, 10 })
         {
@@ -142,11 +142,11 @@ public sealed class ParticlePrewarmTests
     public void ChangingDurationAtSameTime_UpdatesParticlesAndRenderVersion(double duration)
     {
         var emitter = CreateEmitter();
-        emitter.PrewarmDuration.CurrentValue = TimeSpan.FromSeconds(2);
+        emitter.PrewarmDuration.Value = TimeSpan.FromSeconds(2);
         using var resource = emitter.ToResource(new CompositionContext(TimeSpan.Zero));
         var before = resource.GetAliveParticles().ToArray();
         int version = resource.Version;
-        emitter.PrewarmDuration.CurrentValue = TimeSpan.FromSeconds(duration);
+        emitter.PrewarmDuration.Value = TimeSpan.FromSeconds(duration);
         Update(resource, emitter, TimeSpan.Zero);
         using var cold = emitter.ToResource(new CompositionContext(TimeSpan.Zero));
 
@@ -162,10 +162,10 @@ public sealed class ParticlePrewarmTests
     public void ChangingSeed_RebuildsThePrewarmedState()
     {
         var emitter = CreateEmitter();
-        emitter.PrewarmDuration.CurrentValue = TimeSpan.FromSeconds(2);
+        emitter.PrewarmDuration.Value = TimeSpan.FromSeconds(2);
         using var resource = emitter.ToResource(new CompositionContext(TimeSpan.Zero));
         var before = resource.GetAliveParticles().ToArray();
-        emitter.Seed.CurrentValue++;
+        emitter.Seed.Value++;
         Update(resource, emitter, TimeSpan.Zero);
         using var cold = emitter.ToResource(new CompositionContext(TimeSpan.Zero));
 
@@ -177,7 +177,7 @@ public sealed class ParticlePrewarmTests
     public void Prewarm_DoesNotAdvancePropertyAnimationsOrTheCompositionClock()
     {
         var emitter = CreateEmitter();
-        emitter.PrewarmDuration.CurrentValue = TimeSpan.FromSeconds(2);
+        emitter.PrewarmDuration.Value = TimeSpan.FromSeconds(2);
         emitter.Speed.SetKeyFrameAnimation(new KeyFrameAnimation<float>
         {
             KeyFrames =
@@ -212,14 +212,14 @@ public sealed class ParticlePrewarmTests
     public void Serialization_PreservesDurationAndDefaultsMissingPropertyToZero()
     {
         var emitter = CreateEmitter();
-        emitter.PrewarmDuration.CurrentValue = TimeSpan.FromSeconds(2.125);
+        emitter.PrewarmDuration.Value = TimeSpan.FromSeconds(2.125);
         var json = CoreSerializer.SerializeToJsonObject(emitter);
         var restored = (ParticleEmitter)CoreSerializer.DeserializeFromJsonObject(json, typeof(ParticleEmitter));
-        Assert.That(restored.PrewarmDuration.CurrentValue, Is.EqualTo(emitter.PrewarmDuration.CurrentValue));
+        Assert.That(restored.PrewarmDuration.Value, Is.EqualTo(emitter.PrewarmDuration.Value));
 
         json.Remove(nameof(ParticleEmitter.PrewarmDuration));
         var legacy = (ParticleEmitter)CoreSerializer.DeserializeFromJsonObject(json, typeof(ParticleEmitter));
-        Assert.That(legacy.PrewarmDuration.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(legacy.PrewarmDuration.Value, Is.EqualTo(TimeSpan.Zero));
         using var resource = legacy.ToResource(new CompositionContext(TimeSpan.Zero));
         Assert.That(resource.GetAliveParticles().Length, Is.Zero);
     }
@@ -234,17 +234,17 @@ public sealed class ParticlePrewarmTests
     {
         return new ParticleEmitter
         {
-            Seed = { CurrentValue = 2112 },
-            EmitterShape = { CurrentValue = EmitterShape.Line },
-            EmitterWidth = { CurrentValue = 320 },
-            EmissionRate = { CurrentValue = 60 },
-            Lifetime = { CurrentValue = 4 },
-            Speed = { CurrentValue = 20 },
-            SpeedRandom = { CurrentValue = 5 },
-            Direction = { CurrentValue = 90 },
-            Spread = { CurrentValue = 5 },
-            Gravity = { CurrentValue = 10 },
-            TurbulenceStrength = { CurrentValue = 2 },
+            Seed = { Value = 2112 },
+            EmitterShape = { Value = EmitterShape.Line },
+            EmitterWidth = { Value = 320 },
+            EmissionRate = { Value = 60 },
+            Lifetime = { Value = 4 },
+            Speed = { Value = 20 },
+            SpeedRandom = { Value = 5 },
+            Direction = { Value = 90 },
+            Spread = { Value = 5 },
+            Gravity = { Value = 10 },
+            TurbulenceStrength = { Value = 2 },
         };
     }
 }

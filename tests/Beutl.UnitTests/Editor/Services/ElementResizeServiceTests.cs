@@ -567,7 +567,7 @@ public class ElementResizeServiceTests
             Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
             Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
             // Back in-point advances so its content stays anchored to the timeline.
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
         });
     }
 
@@ -582,7 +582,7 @@ public class ElementResizeServiceTests
 
         _history.Undo();
 
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
     }
 
     [Test]
@@ -592,7 +592,7 @@ public class ElementResizeServiceTests
         // adjacent lengths would allow must clamp to +1s rather than extend past the media.
         var frontSource = CreateVideoSource(3);
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
-        front.Objects.Add(new SourceVideo { Source = { CurrentValue = frontSource } });
+        front.Objects.Add(new SourceVideo { Source = { Value = frontSource } });
         Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10));
 
         bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(5));
@@ -614,7 +614,7 @@ public class ElementResizeServiceTests
         var source = CreateVideoSource(5);
         var video = new SourceVideo
         {
-            Source = { CurrentValue = source },
+            Source = { Value = source },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(2)
         };
@@ -641,8 +641,8 @@ public class ElementResizeServiceTests
             Assert.That(back.Range, Is.EqualTo(TimeRange.FromSeconds(5, 7)));
             Assert.That(video.TimeRange, Is.EqualTo(TimeRange.FromSeconds(2)));
             Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(backVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(backVideo.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(3)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
 
@@ -651,7 +651,7 @@ public class ElementResizeServiceTests
         {
             Assert.That(front.Range, Is.EqualTo(TimeRange.FromSeconds(2)));
             Assert.That(back.Range, Is.EqualTo(TimeRange.FromSeconds(2, 10)));
-            Assert.That(backVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(backVideo.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
         });
     }
 
@@ -675,9 +675,9 @@ public class ElementResizeServiceTests
         var source = CreateVideoSource(5);
         var video = new SourceVideo
         {
-            Source = { CurrentValue = source },
-            Speed = { CurrentValue = speed },
-            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(offset) },
+            Source = { Value = source },
+            Speed = { Value = speed },
+            OffsetPosition = { Value = TimeSpan.FromSeconds(offset) },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(3, 2)
         };
@@ -706,7 +706,7 @@ public class ElementResizeServiceTests
             Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(1 + expectedDelta)));
             Assert.That(back.Start, Is.EqualTo(backStart + TimeSpan.FromSeconds(expectedDelta)));
             Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(10 - expectedDelta)));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(offset)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(offset)));
             Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + (expectedDelta > 0 ? 1 : 0)));
             if (middle is not null)
@@ -729,14 +729,14 @@ public class ElementResizeServiceTests
         var source = CreateVideoSource(5);
         var video = new SourceVideo
         {
-            Source = { CurrentValue = source },
-            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(1) },
+            Source = { Value = source },
+            OffsetPosition = { Value = TimeSpan.FromSeconds(1) },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(10, 2)
         };
         var controller = new DrawableTimeController
         {
-            Target = { CurrentValue = video },
+            Target = { Value = video },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(controllerStart, 2)
         };
@@ -765,8 +765,8 @@ public class ElementResizeServiceTests
             Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(1 + expectedDelta)));
             Assert.That(back.Start, Is.EqualTo(backStart + TimeSpan.FromSeconds(expectedDelta)));
             Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(10 - expectedDelta)));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(linked.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedDelta)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(linked.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(expectedDelta)));
             Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + (expectedDelta > 0 ? 1 : 0)));
             if (middle != null) Assert.That(middle.Start, Is.EqualTo(front.Range.End));
@@ -795,9 +795,9 @@ public class ElementResizeServiceTests
         var source = CreateVideoSource(5);
         var video = new SourceVideo
         {
-            Source = { CurrentValue = source },
-            IsLoop = { CurrentValue = true },
-            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(offset) },
+            Source = { Value = source },
+            IsLoop = { Value = true },
+            OffsetPosition = { Value = TimeSpan.FromSeconds(offset) },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(videoStart, 2)
         };
@@ -839,7 +839,7 @@ public class ElementResizeServiceTests
         source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 5)));
         var sound = new SourceSound
         {
-            Source = { CurrentValue = source },
+            Source = { Value = source },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(2, 2)
         };
@@ -859,8 +859,8 @@ public class ElementResizeServiceTests
             Assert.That(middle.Range, Is.EqualTo(TimeRange.FromSeconds(15, 2)));
             Assert.That(back.Range, Is.EqualTo(TimeRange.FromSeconds(17, 5)));
             Assert.That(sound.TimeRange, Is.EqualTo(TimeRange.FromSeconds(2, 2)));
-            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(backSound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(5)));
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(backSound.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(5)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -882,7 +882,7 @@ public class ElementResizeServiceTests
             source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 5)));
             var sound = new SourceSound
             {
-                Source = { CurrentValue = source },
+                Source = { Value = source },
                 IsTimeAnchor = true,
                 TimeRange = TimeRange.FromSeconds(sourceStart, sourceLength)
             };
@@ -895,7 +895,7 @@ public class ElementResizeServiceTests
             var source = CreateVideoSource(5);
             var video = new SourceVideo
             {
-                Source = { CurrentValue = source },
+                Source = { Value = source },
                 IsTimeAnchor = true,
                 TimeRange = TimeRange.FromSeconds(sourceStart, sourceLength)
             };
@@ -925,7 +925,7 @@ public class ElementResizeServiceTests
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(FrontLength));
         Element back = AddElement(TimeSpan.FromSeconds(FrontLength), TimeSpan.FromSeconds(10));
         var source = CreateVideoSource(5);
-        var video = new SourceVideo { Source = { CurrentValue = source } };
+        var video = new SourceVideo { Source = { Value = source } };
         var inner = new DrawableGroup
         {
             IsTimeAnchor = fixedInnerGroup,
@@ -953,7 +953,7 @@ public class ElementResizeServiceTests
         {
             var frontSource = CreateVideoSource(3);
             Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
-            front.Objects.Add(new SourceVideo { Source = { CurrentValue = frontSource } });
+            front.Objects.Add(new SourceVideo { Source = { Value = frontSource } });
             Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10));
 
             bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(5));
@@ -979,8 +979,8 @@ public class ElementResizeServiceTests
         var backSource = CreateVideoSource(3);
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
         Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2));
-        var video = new SourceVideo { Source = { CurrentValue = backSource } };
-        video.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(0.5);
+        var video = new SourceVideo { Source = { Value = backSource } };
+        video.OffsetPosition.Value = TimeSpan.FromSeconds(0.5);
         back.Objects.Add(video);
 
         bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(-5));
@@ -988,7 +988,7 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
             Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
             Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
@@ -1003,7 +1003,7 @@ public class ElementResizeServiceTests
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
         Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2));
         var video = new SourceVideo();
-        video.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(0.5);
+        video.OffsetPosition.Value = TimeSpan.FromSeconds(0.5);
         back.Objects.Add(video);
 
         bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(-5));
@@ -1011,7 +1011,7 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
             Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
             Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
@@ -1241,7 +1241,7 @@ public class ElementResizeServiceTests
             Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
             // Middle only shifts in time; the back clip is trimmed at its head, so its in-point advances.
             Assert.That(middle.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
         });
     }
 
@@ -1313,7 +1313,7 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
             Assert.That(back.Start, Is.EqualTo(backStart));
             Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
@@ -1329,12 +1329,12 @@ public class ElementResizeServiceTests
         Element? middle = slide ? AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2)) : null;
         TimeSpan backStart = TimeSpan.FromSeconds(slide ? 4 : 2);
         Element back = AddElement(backStart, TimeSpan.FromSeconds(2));
-        var video = new SourceVideo { Speed = { CurrentValue = 200 } };
+        var video = new SourceVideo { Speed = { Value = 200 } };
         back.Objects.Add(video);
         back.Objects.Add(new DrawableTimeController
         {
-            Speed = { CurrentValue = 50 },
-            Target = { CurrentValue = video }
+            Speed = { Value = 50 },
+            Target = { Value = video }
         });
         _history.Commit();
         int before = _history.UndoCount;
@@ -1344,7 +1344,7 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
             Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
             Assert.That(back.Start, Is.EqualTo(backStart + TimeSpan.FromSeconds(1)));
             Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
@@ -1362,8 +1362,8 @@ public class ElementResizeServiceTests
         Element? middle = slide ? AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2)) : null;
         TimeSpan backStart = TimeSpan.FromSeconds(slide ? 4 : 2);
         Element back = AddElement(backStart, TimeSpan.FromSeconds(2));
-        var video = new SourceVideo { Speed = { CurrentValue = 200 } };
-        back.Objects.Add(new DrawableTimeController { Speed = { CurrentValue = 50 } });
+        var video = new SourceVideo { Speed = { Value = 200 } };
+        back.Objects.Add(new DrawableTimeController { Speed = { Value = 50 } });
         back.Objects.Add(video);
         _history.Commit();
         int before = _history.UndoCount;
@@ -1373,7 +1373,7 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(2)));
             Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
             Assert.That(back.Start, Is.EqualTo(backStart + TimeSpan.FromSeconds(1)));
             Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
@@ -1409,17 +1409,17 @@ public class ElementResizeServiceTests
         Element? middle = slide ? AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2)) : null;
         TimeSpan backStart = TimeSpan.FromSeconds(slide ? 4 : 2);
         Element back = AddElement(backStart, TimeSpan.FromSeconds(2));
-        var video = new SourceVideo { Speed = { CurrentValue = 200 } };
+        var video = new SourceVideo { Speed = { Value = 200 } };
         Drawable container = decorator ? new DrawableDecorator() : new DrawableGroup();
         var children = container is DrawableDecorator d ? d.Children : ((DrawableGroup)container).Children;
-        children.Add(new DrawableTimeController { Speed = { CurrentValue = 50 } });
+        children.Add(new DrawableTimeController { Speed = { Value = 50 } });
         children.Add(video);
         back.Objects.Add(container);
 
         bool applied = RollOrSlide(front, middle, back, TimeSpan.FromSeconds(1));
 
         Assert.That(applied, Is.True);
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(2)));
         Assert.That(back.Start, Is.EqualTo(backStart + TimeSpan.FromSeconds(1)));
         Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
     }
@@ -1435,15 +1435,15 @@ public class ElementResizeServiceTests
         var source = CreateVideoSource(5);
         var video = new SourceVideo
         {
-            Source = { CurrentValue = source },
+            Source = { Value = source },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(10, 2)
         };
         var controller = new DrawableTimeController
         {
             IsEnabled = false,
-            Speed = { CurrentValue = 200 },
-            Target = { CurrentValue = video }
+            Speed = { Value = 200 },
+            Target = { Value = video }
         };
         front.Objects.Add(controller);
         var linked = new SourceSound();
@@ -1464,7 +1464,7 @@ public class ElementResizeServiceTests
             Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
             Assert.That(back.Start, Is.EqualTo(backStart + TimeSpan.FromSeconds(0.5)));
             Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
-            Assert.That(linked.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
+            Assert.That(linked.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
             Assert.That(after, Is.EqualTo(before + 1));
             Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
             if (middle != null)
@@ -1480,16 +1480,16 @@ public class ElementResizeServiceTests
         Element? middle = slide ? AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2)) : null;
         TimeSpan backStart = TimeSpan.FromSeconds(slide ? 4 : 2);
         Element back = AddElement(backStart, TimeSpan.FromSeconds(2));
-        var video = new SourceVideo { Speed = { CurrentValue = 200 } };
+        var video = new SourceVideo { Speed = { Value = 200 } };
         var controller = new DrawableTimeController
         {
             IsEnabled = false,
-            Speed = { CurrentValue = 50 },
-            Target = { CurrentValue = video }
+            Speed = { Value = 50 },
+            Target = { Value = video }
         };
         back.Objects.Add(video);
         back.Objects.Add(controller);
-        back.Objects.Add(new DrawablePresenter { Target = { CurrentValue = controller } });
+        back.Objects.Add(new DrawablePresenter { Target = { Value = controller } });
         _history.Commit();
         int before = _history.UndoCount;
 
@@ -1498,7 +1498,7 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
             Assert.That(back.Start, Is.EqualTo(backStart));
             Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
@@ -1513,7 +1513,7 @@ public class ElementResizeServiceTests
         // 1s of tail; the bounds must report the same +1s ceiling the Roll commit applies.
         var frontSource = CreateVideoSource(3);
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
-        front.Objects.Add(new SourceVideo { Source = { CurrentValue = frontSource } });
+        front.Objects.Add(new SourceVideo { Source = { Value = frontSource } });
         Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10));
 
         (TimeSpan _, TimeSpan max) = TrimDeltaBounds(new ElementTrimPair(front, back));
@@ -1527,7 +1527,7 @@ public class ElementResizeServiceTests
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
         Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2));
         var video = new SourceVideo();
-        video.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(0.5);
+        video.OffsetPosition.Value = TimeSpan.FromSeconds(0.5);
         back.Objects.Add(video);
 
         (TimeSpan min, TimeSpan _) = TrimDeltaBounds(new ElementTrimPair(front, back));
@@ -1543,7 +1543,7 @@ public class ElementResizeServiceTests
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
         Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2));
         var video = new SourceVideo();
-        video.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(-1);
+        video.OffsetPosition.Value = TimeSpan.FromSeconds(-1);
         back.Objects.Add(video);
 
         (TimeSpan min, TimeSpan max) = TrimDeltaBounds(new ElementTrimPair(front, back));
@@ -1642,7 +1642,7 @@ public class ElementResizeServiceTests
             Assert.That(frontB.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
             Assert.That(backB.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
             Assert.That(backB.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(backVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(backVideo.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -1680,7 +1680,7 @@ public class ElementResizeServiceTests
         var video = new SourceVideo();
         backA.Objects.Add(video);
         var presenter = new DrawablePresenter();
-        presenter.Target.CurrentValue = video;
+        presenter.Target.Value = video;
         backB.Objects.Add(presenter);
 
         bool applied = _service.Roll(
@@ -1691,7 +1691,7 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
         });
     }
 
@@ -1706,7 +1706,7 @@ public class ElementResizeServiceTests
         var video = new SourceVideo();
         (backOwnsSource ? backB : frontA).Objects.Add(video);
         var presenter = new DrawablePresenter();
-        presenter.Target.CurrentValue = video;
+        presenter.Target.Value = video;
         (backOwnsSource ? frontA : backB).Objects.Add(presenter);
         int before = _history.UndoCount;
 
@@ -1718,7 +1718,7 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.EqualTo(!backOwnsSource));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(frontA.Length, Is.EqualTo(TimeSpan.FromSeconds(backOwnsSource ? 2 : 3)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + (backOwnsSource ? 0 : 1)));
         });
@@ -1902,7 +1902,7 @@ public class ElementResizeServiceTests
         var video = new SourceVideo();
         middle.Objects.Add(video);
         var presenter = new DrawablePresenter();
-        presenter.Target.CurrentValue = video;
+        presenter.Target.Value = video;
         back.Objects.Add(presenter);
         int before = _history.UndoCount;
 
@@ -1914,7 +1914,7 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
@@ -2008,7 +2008,7 @@ public class ElementResizeServiceTests
         var source = new VideoSource();
         source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(16, 16, frameRate, frameCount)));
         Element element = AddElement(start, length);
-        element.Objects.Add(new SourceVideo { Source = { CurrentValue = source } });
+        element.Objects.Add(new SourceVideo { Source = { Value = source } });
         return element;
     }
 }

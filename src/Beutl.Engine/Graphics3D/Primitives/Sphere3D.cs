@@ -45,9 +45,9 @@ public sealed partial class Sphere3D : Object3D
 
         partial void PostReconcile(Sphere3D obj, CompositionContext context)
         {
-            _mesh.Radius.CurrentValue = Math.Max(Radius, 0.001f);
-            _mesh.Segments.CurrentValue = Math.Max(Segments, 3);
-            _mesh.Rings.CurrentValue = Math.Max(Rings, 2);
+            _mesh.Radius.Value = Math.Max(Radius, 0.001f);
+            _mesh.Segments.Value = Math.Max(Segments, 3);
+            _mesh.Rings.Value = Math.Max(Rings, 2);
 
             bool changed = false;
             ResourceReconciler.ReconcileResource(

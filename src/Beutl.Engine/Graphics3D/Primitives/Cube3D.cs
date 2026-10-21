@@ -45,9 +45,9 @@ public sealed partial class Cube3D : Object3D
 
         partial void PostReconcile(Cube3D obj, CompositionContext context)
         {
-            _mesh.Width.CurrentValue = Math.Max(Width, 0.001f);
-            _mesh.Height.CurrentValue = Math.Max(Height, 0.001f);
-            _mesh.Depth.CurrentValue = Math.Max(Depth, 0.001f);
+            _mesh.Width.Value = Math.Max(Width, 0.001f);
+            _mesh.Height.Value = Math.Max(Height, 0.001f);
+            _mesh.Depth.Value = Math.Max(Depth, 0.001f);
 
             bool changed = false;
             ResourceReconciler.ReconcileResource(

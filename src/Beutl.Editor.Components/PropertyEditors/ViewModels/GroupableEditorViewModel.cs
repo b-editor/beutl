@@ -184,7 +184,7 @@ public abstract class GroupableEditorViewModel<T, TGroup, TFallback> : ValueEdit
     {
         // Only the presenter's target is replaced, so check that rather than the whole value.
         if (IsDisposed || Value.Value is not IPresenter<T> presenter) return;
-        if (!CanReplace(presenter.Target.CurrentValue)) return;
+        if (!CanReplace(presenter.Target.Value)) return;
         PresenterEditorHelper.AssignTarget(presenter, target);
         CompleteElementRepair();
         Commit();

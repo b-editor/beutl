@@ -99,8 +99,8 @@ public partial class PlayerViewPlaybackInputTests
         selection.Select(selectedScene ? editor.Scene.Children.Single() : null);
         if (scene != null)
         {
-            scene.GizmoTarget.CurrentValue = scene.Objects.Single().Id;
-            scene.GizmoMode.CurrentValue = GizmoMode.Translate;
+            scene.GizmoTarget.Value = scene.Objects.Single().Id;
+            scene.GizmoMode.Value = GizmoMode.Translate;
         }
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
@@ -114,8 +114,8 @@ public partial class PlayerViewPlaybackInputTests
             editor.Player.IsPlaying.Value = true;
             HeadlessTestHelpers.Render();
             object? selected = selection.SelectedObject.Value;
-            Vector3? target = scene?.Camera.CurrentValue?.Target.CurrentValue;
-            Vector3? position = scene?.Objects.Single().Position.CurrentValue;
+            Vector3? target = scene?.Camera.Value?.Target.Value;
+            Vector3? position = scene?.Objects.Single().Position.Value;
             Point point = PreviewCenter(view, window);
 
             render = await BlockRenderThreadAsync(release);
@@ -133,8 +133,8 @@ public partial class PlayerViewPlaybackInputTests
                 Assert.That(editor.Player.IsPlaying.Value, Is.True);
                 if (scene != null)
                 {
-                    Assert.That(scene.Camera.CurrentValue!.Target.CurrentValue, Is.EqualTo(target!.Value));
-                    Assert.That(scene.Objects.Single().Position.CurrentValue, Is.EqualTo(position!.Value));
+                    Assert.That(scene.Camera.Value!.Target.Value, Is.EqualTo(target!.Value));
+                    Assert.That(scene.Objects.Single().Position.Value, Is.EqualTo(position!.Value));
                 }
             });
             Capture(window, $"camera-playing-{button}-{selectedScene}");
@@ -156,7 +156,7 @@ public partial class PlayerViewPlaybackInputTests
         EditViewModel editor = await OpenEditor();
         Scene3D scene = await Add3DScene(editor);
         Object3D cube = scene.Objects.Single();
-        var camera = scene.Camera.CurrentValue!;
+        var camera = scene.Camera.Value!;
         editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
@@ -170,13 +170,13 @@ public partial class PlayerViewPlaybackInputTests
             editor.Player.IsMoveMode.Value = false;
             editor.Player.IsCameraMode.Value = true;
             point = PreviewCenter(view, window);
-            Vector3 originalPosition = cube.Position.CurrentValue;
-            Vector3 originalTarget = camera.Target.CurrentValue;
+            Vector3 originalPosition = cube.Position.Value;
+            Vector3 originalTarget = camera.Target.Value;
 
             window.MouseDown(point, button);
             window.MouseMove(point + new Vector(12, 8), modifiers);
-            Vector3 position = cube.Position.CurrentValue;
-            Vector3 target = camera.Target.CurrentValue;
+            Vector3 position = cube.Position.Value;
+            Vector3 target = camera.Target.Value;
             Assert.That(button == MouseButton.Left ? position != originalPosition : target != originalTarget,
                 Is.True, "The drag must actually edit the object or camera before playback starts.");
 
@@ -190,8 +190,8 @@ public partial class PlayerViewPlaybackInputTests
             Assert.Multiple(() =>
             {
                 Assert.That(returnedWhileRendering, Is.True, "An existing drag must not query the renderer during playback.");
-                Assert.That(cube.Position.CurrentValue, Is.EqualTo(position));
-                Assert.That(camera.Target.CurrentValue, Is.EqualTo(target));
+                Assert.That(cube.Position.Value, Is.EqualTo(position));
+                Assert.That(camera.Target.Value, Is.EqualTo(target));
             });
 
             release.Cancel();
@@ -202,15 +202,15 @@ public partial class PlayerViewPlaybackInputTests
             window.MouseUp(point, button);
             Assert.Multiple(() =>
             {
-                Assert.That(cube.Position.CurrentValue, Is.EqualTo(position), "The old drag must not resume after playback stops.");
-                Assert.That(camera.Target.CurrentValue, Is.EqualTo(target));
+                Assert.That(cube.Position.Value, Is.EqualTo(position), "The old drag must not resume after playback stops.");
+                Assert.That(camera.Target.Value, Is.EqualTo(target));
             });
 
             editor.HistoryManager.Undo();
             Assert.Multiple(() =>
             {
-                Assert.That(cube.Position.CurrentValue, Is.EqualTo(originalPosition));
-                Assert.That(camera.Target.CurrentValue, Is.EqualTo(originalTarget), "Playback must finish the edit as one undoable gesture.");
+                Assert.That(cube.Position.Value, Is.EqualTo(originalPosition));
+                Assert.That(camera.Target.Value, Is.EqualTo(originalTarget), "Playback must finish the edit as one undoable gesture.");
             });
         }
         finally
@@ -228,7 +228,7 @@ public partial class PlayerViewPlaybackInputTests
     {
         EditViewModel editor = await OpenEditor();
         Scene3D scene = await Add3DScene(editor);
-        var camera = scene.Camera.CurrentValue!;
+        var camera = scene.Camera.Value!;
         editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
@@ -239,28 +239,28 @@ public partial class PlayerViewPlaybackInputTests
             editor.Player.IsMoveMode.Value = false;
             editor.Player.IsCameraMode.Value = true;
             point = PreviewCenter(view, window);
-            Vector3 originalPosition = camera.Position.CurrentValue;
+            Vector3 originalPosition = camera.Position.Value;
             window.MouseDown(point, MouseButton.Right);
             window.KeyPress(Key.W, RawInputModifiers.None, PhysicalKey.W, "w");
-            for (int i = 0; i < 40 && camera.Position.CurrentValue == originalPosition; i++)
+            for (int i = 0; i < 40 && camera.Position.Value == originalPosition; i++)
             {
                 await Task.Delay(25);
                 HeadlessTestHelpers.Settle();
             }
-            Assert.That(camera.Position.CurrentValue, Is.Not.EqualTo(originalPosition), "The movement timer must be running before playback.");
+            Assert.That(camera.Position.Value, Is.Not.EqualTo(originalPosition), "The movement timer must be running before playback.");
 
             editor.Player.IsPlaying.Value = true;
             HeadlessTestHelpers.Settle();
-            Vector3 position = camera.Position.CurrentValue;
+            Vector3 position = camera.Position.Value;
             await Task.Delay(80);
             HeadlessTestHelpers.Settle();
-            Assert.That(camera.Position.CurrentValue, Is.EqualTo(position));
+            Assert.That(camera.Position.Value, Is.EqualTo(position));
 
             editor.Player.IsPlaying.Value = false;
             HeadlessTestHelpers.Settle();
             await Task.Delay(80);
             HeadlessTestHelpers.Settle();
-            Assert.That(camera.Position.CurrentValue, Is.EqualTo(position), "Held movement keys must not restart the old session after playback stops.");
+            Assert.That(camera.Position.Value, Is.EqualTo(position), "Held movement keys must not restart the old session after playback stops.");
         }
         finally
         {
@@ -279,7 +279,7 @@ public partial class PlayerViewPlaybackInputTests
         EditViewModel editor = await OpenEditor();
         Scene3D scene = await Add3DScene(editor);
         Object3D cube = scene.Objects.Single();
-        var camera = scene.Camera.CurrentValue!;
+        var camera = scene.Camera.Value!;
         editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
@@ -294,13 +294,13 @@ public partial class PlayerViewPlaybackInputTests
             editor.Player.IsPlaying.Value = false;
             HeadlessTestHelpers.Settle();
             point = PreviewCenter(view, window);
-            Vector3 position = cube.Position.CurrentValue;
-            Vector3 target = camera.Target.CurrentValue;
+            Vector3 position = cube.Position.Value;
+            Vector3 target = camera.Target.Value;
             window.MouseDown(point, button);
             window.MouseMove(point + new Vector(20, 10), HeldButton(button));
             window.MouseUp(point, button);
 
-            Assert.That(button == MouseButton.Left ? cube.Position.CurrentValue != position : camera.Target.CurrentValue != target,
+            Assert.That(button == MouseButton.Left ? cube.Position.Value != position : camera.Target.Value != target,
                 Is.True, "Object selection and camera control must be available while paused.");
             Capture(window, $"camera-stopped-{button}");
         }
@@ -318,7 +318,7 @@ public partial class PlayerViewPlaybackInputTests
     {
         EditViewModel editor = await OpenEditor();
         Scene3D scene = await Add3DScene(editor);
-        var camera = scene.Camera.CurrentValue!;
+        var camera = scene.Camera.Value!;
         editor.GetRequiredService<IEditorSelection>().Select(
             selectedScene ? editor.Scene.Children.Single() : null);
         var view = new PlayerView { DataContext = editor.Player };
@@ -328,24 +328,24 @@ public partial class PlayerViewPlaybackInputTests
             await PreparePreview(view, window);
             editor.Player.IsMoveMode.Value = false;
             editor.Player.IsCameraMode.Value = true;
-            Vector3 position = camera.Position.CurrentValue;
-            Vector3 target = camera.Target.CurrentValue;
+            Vector3 position = camera.Position.Value;
+            Vector3 target = camera.Target.Value;
 
             window.MouseWheel(PreviewCenter(view, window), new Vector(0, 1));
 
-            Vector3 movement = camera.Position.CurrentValue - position;
+            Vector3 movement = camera.Position.Value - position;
             Assert.Multiple(() =>
             {
                 Assert.That(movement, Is.Not.EqualTo(Vector3.Zero), "The wheel must move the camera.");
-                Assert.That(Vector3.Distance(camera.Target.CurrentValue - target, movement), Is.LessThan(1e-3f),
+                Assert.That(Vector3.Distance(camera.Target.Value - target, movement), Is.LessThan(1e-3f),
                     "The target moves with the camera.");
             });
 
             editor.HistoryManager.Undo();
             Assert.Multiple(() =>
             {
-                Assert.That(camera.Position.CurrentValue, Is.EqualTo(position));
-                Assert.That(camera.Target.CurrentValue, Is.EqualTo(target));
+                Assert.That(camera.Position.Value, Is.EqualTo(position));
+                Assert.That(camera.Target.Value, Is.EqualTo(target));
             });
         }
         finally
@@ -359,7 +359,7 @@ public partial class PlayerViewPlaybackInputTests
     {
         EditViewModel editor = await OpenEditor();
         Scene3D scene = await Add3DScene(editor);
-        var camera = scene.Camera.CurrentValue!;
+        var camera = scene.Camera.Value!;
         editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
@@ -370,18 +370,18 @@ public partial class PlayerViewPlaybackInputTests
             editor.Player.IsMoveMode.Value = false;
             editor.Player.IsCameraMode.Value = true;
             point = PreviewCenter(view, window);
-            Vector3 position = camera.Position.CurrentValue;
+            Vector3 position = camera.Position.Value;
 
             window.MouseDown(point, MouseButton.Right);
             window.MouseMove(point + new Vector(20, 10), RawInputModifiers.RightMouseButton);
             window.MouseWheel(point + new Vector(20, 10), new Vector(0, 1), RawInputModifiers.RightMouseButton);
 
-            Assert.That(camera.Position.CurrentValue, Is.EqualTo(position),
+            Assert.That(camera.Position.Value, Is.EqualTo(position),
                 "A wheel step during an orbit would be committed together with the unfinished orbit.");
 
             window.MouseUp(point + new Vector(20, 10), MouseButton.Right);
             window.MouseWheel(point, new Vector(0, 1));
-            Assert.That(camera.Position.CurrentValue, Is.Not.EqualTo(position), "After the drag the wheel dollies again.");
+            Assert.That(camera.Position.Value, Is.Not.EqualTo(position), "After the drag the wheel dollies again.");
         }
         finally
         {
@@ -410,19 +410,19 @@ public partial class PlayerViewPlaybackInputTests
             editor.Player.IsCameraMode.Value = true;
             point = PreviewCenter(view, window);
             window.MouseDown(point, MouseButton.Left);
-            Assert.That(scene.GizmoTarget.CurrentValue, Is.EqualTo(cube.Id), "The press must select the cube.");
-            Vector3 position = cube.Position.CurrentValue;
+            Assert.That(scene.GizmoTarget.Value, Is.EqualTo(cube.Id), "The press must select the cube.");
+            Vector3 position = cube.Position.Value;
             PlayerView.RenderThreadWait = TimeSpan.FromMilliseconds(50);
             render = await BlockRenderThreadAsync(release);
 
             window.MouseMove(point + new Vector(30, 10), RawInputModifiers.LeftMouseButton);
-            Assert.That(cube.Position.CurrentValue, Is.EqualTo(position));
+            Assert.That(cube.Position.Value, Is.EqualTo(position));
 
             release.Cancel();
             await render.WaitAsync(TimeSpan.FromMinutes(1));
             PlayerView.RenderThreadWait = wait;
             window.MouseMove(point + new Vector(60, 20), RawInputModifiers.LeftMouseButton);
-            Assert.That(cube.Position.CurrentValue, Is.Not.EqualTo(position), "A move the render thread answers goes through.");
+            Assert.That(cube.Position.Value, Is.Not.EqualTo(position), "A move the render thread answers goes through.");
         }
         finally
         {
@@ -501,14 +501,14 @@ public partial class PlayerViewPlaybackInputTests
             point = PreviewCenter(view, window);
             window.MouseDown(point, MouseButton.Left);
             window.MouseUp(point, MouseButton.Left);
-            Assert.That(scene.GizmoTarget.CurrentValue, Is.EqualTo(cube.Id), "The first press must select the cube.");
+            Assert.That(scene.GizmoTarget.Value, Is.EqualTo(cube.Id), "The first press must select the cube.");
             PlayerView.RenderThreadWait = TimeSpan.FromMilliseconds(50);
             render = await BlockRenderThreadAsync(release);
 
             window.MouseDown(point, MouseButton.Left);
             window.MouseUp(point, MouseButton.Left);
 
-            Assert.That(scene.GizmoTarget.CurrentValue, Is.EqualTo(cube.Id));
+            Assert.That(scene.GizmoTarget.Value, Is.EqualTo(cube.Id));
         }
         finally
         {
@@ -524,12 +524,12 @@ public partial class PlayerViewPlaybackInputTests
     {
         EditViewModel editor = await OpenEditor();
         var aside = new RectShape();
-        aside.Width.CurrentValue = 200;
-        aside.Height.CurrentValue = 200;
-        aside.Transform.CurrentValue = new TranslateTransform(-600, 0);
+        aside.Width.Value = 200;
+        aside.Height.Value = 200;
+        aside.Transform.Value = new TranslateTransform(-600, 0);
         var clicked = new RectShape();
-        clicked.Width.CurrentValue = 400;
-        clicked.Height.CurrentValue = 300;
+        clicked.Width.Value = 400;
+        clicked.Height.Value = 300;
         await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
             TimeSpan.Zero, TimeSpan.FromSeconds(4), 0, new ElementSource.EngineObject(() => aside))], CancellationToken.None);
         Element element = editor.Scene.Children.Single();
@@ -622,8 +622,8 @@ public partial class PlayerViewPlaybackInputTests
     {
         TestGpu.RequireAnyDevice();
         var scene = new Scene3D();
-        scene.RenderWidth.CurrentValue = 640;
-        scene.RenderHeight.CurrentValue = 480;
+        scene.RenderWidth.Value = 640;
+        scene.RenderHeight.Value = 480;
         scene.Objects.Add(new Cube3D());
         await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
             TimeSpan.Zero, TimeSpan.FromSeconds(4), 0, new ElementSource.EngineObject(() => scene))], CancellationToken.None);

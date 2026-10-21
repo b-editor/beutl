@@ -39,7 +39,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
 
     public T DefaultValue { get; }
 
-    public T CurrentValue
+    public T Value
     {
         get => _currentValue;
         set => SetCurrentValue(value, replaceEquivalent: false);
@@ -141,7 +141,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
 
     public void operator <<=(T value)
     {
-        CurrentValue = value;
+        Value = value;
     }
 
     private void OnChildEdited(object? sender, EventArgs e)
@@ -229,7 +229,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
 
         if (owner is IModifiableHierarchical ownerHierarchical)
         {
-            if (CurrentValue is IHierarchical hierarchical)
+            if (Value is IHierarchical hierarchical)
                 ownerHierarchical.AddChild(hierarchical);
 
             if (_keyFrames != null)
@@ -237,7 +237,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
         }
         else if (_owner is IModifiableHierarchical oldOwnerHierarchical)
         {
-            if (CurrentValue is IHierarchical hierarchical)
+            if (Value is IHierarchical hierarchical)
                 oldOwnerHierarchical.RemoveChild(hierarchical);
 
             if (_keyFrames != null)
@@ -274,7 +274,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
 
     public void ResetToDefault()
     {
-        CurrentValue = DefaultValue;
+        Value = DefaultValue;
         HasLocalValue = false;
         SetExpressionChain(null);
     }
@@ -290,13 +290,13 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
         var optional = context.GetValue<Optional<T>>(FormerPersistedNames.ResolveMemberKey(context, Name, _attributes));
         if (optional.HasValue)
         {
-            CurrentValue = optional.Value;
+            Value = optional.Value;
         }
     }
 
     public void SerializeValue(ICoreSerializationContext context)
     {
-        context.SetValue(Name, CurrentValue);
+        context.SetValue(Name, Value);
     }
 
     public void DeserializeExpression(JsonNode expressionNode)

@@ -14,9 +14,9 @@ public sealed class DrawableResourceRenderTests
     {
         var shape = new RectShape
         {
-            Width = { CurrentValue = 40 },
-            Height = { CurrentValue = 30 },
-            Fill = { CurrentValue = Brushes.White },
+            Width = { Value = 40 },
+            Height = { Value = 30 },
+            Fill = { Value = Brushes.White },
         };
         using Drawable.Resource attached = shape.ToResource(CompositionContext.Default);
         using var node = new DrawableRenderNode(attached);

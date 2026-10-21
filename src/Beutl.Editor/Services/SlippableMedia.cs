@@ -14,7 +14,7 @@ internal static partial class SlippableMedia
     {
         public IProperty<TimeSpan> Offset { get; } = offset;
         public TimeSpan? Total { get; } = total;
-        public TimeSpan InitialOffset { get; } = offset.CurrentValue;
+        public TimeSpan InitialOffset { get; } = offset.Value;
         public MediaTimeMapping Mapping { get; } = mapping;
         public List<MediaTimeMapping> SampleMappings { get; } = [mapping];
         public TimeSpan Length { get; } = length;
@@ -160,7 +160,7 @@ internal static partial class SlippableMedia
     public static void ApplyOffsetChanges(Dictionary<IProperty<TimeSpan>, TimeSpan> changes)
     {
         foreach ((IProperty<TimeSpan> offset, TimeSpan delta) in changes)
-            if (delta != TimeSpan.Zero) offset.CurrentValue += delta;
+            if (delta != TimeSpan.Zero) offset.Value += delta;
     }
 
     public static TimeSpan OutPointRoom(IReadOnlyList<Target> targets, TimeSpan elementLength, TimeSpan limit)

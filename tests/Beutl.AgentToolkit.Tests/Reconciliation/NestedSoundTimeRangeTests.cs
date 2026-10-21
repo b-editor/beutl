@@ -65,7 +65,7 @@ public sealed class NestedSoundTimeRangeTests
         ToolResult<ApplyEditResponse> second = tools.ApplyEdit(patch: setSource, schemaVersion: SchemaVersion.Current);
         Assert.That(second.IsSuccess, Is.True, second.Error?.Message);
 
-        Sound? sound = drawable.Source.CurrentValue;
+        Sound? sound = drawable.Source.Value;
         Assert.That(sound, Is.Not.Null);
         Assert.Multiple(() =>
         {
@@ -108,7 +108,7 @@ public sealed class NestedSoundTimeRangeTests
         Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
 
         var drawable = (AudioSpectrumDrawable)session.Scene.Children.Single().Objects.Single();
-        Sound? sound = drawable.Source.CurrentValue;
+        Sound? sound = drawable.Source.Value;
         Assert.That(sound, Is.Not.Null);
         Assert.That(sound!.TimeRange, Is.EqualTo(new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4))));
     }

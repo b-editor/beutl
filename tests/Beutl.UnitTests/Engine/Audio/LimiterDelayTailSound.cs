@@ -23,10 +23,10 @@ public sealed partial class LimiterDelayTailSound : Sound
         var source = context.AddNode(new AbsoluteSineNode(context.SampleRate));
         var limiter = new LimiterEffect
         {
-            Threshold = { CurrentValue = LimiterParameters.MaxThresholdDb },
-            Release = { CurrentValue = LimiterParameters.DefaultReleaseMs },
-            Lookahead = { CurrentValue = LookaheadMs },
-            MakeupGain = { CurrentValue = 0f },
+            Threshold = { Value = LimiterParameters.MaxThresholdDb },
+            Release = { Value = LimiterParameters.DefaultReleaseMs },
+            Lookahead = { Value = LookaheadMs },
+            MakeupGain = { Value = 0f },
         };
         if (LookaheadRampEnd is { } rampEnd)
         {
@@ -59,10 +59,10 @@ public sealed partial class LimiterDelayTailSound : Sound
 
         var delay = new DelayEffect
         {
-            DelayTime = { CurrentValue = 1f },
-            Feedback = { CurrentValue = 100f },
-            DryMix = { CurrentValue = 0f },
-            WetMix = { CurrentValue = 100f },
+            DelayTime = { Value = 1f },
+            Feedback = { Value = 100f },
+            DryMix = { Value = 0f },
+            WetMix = { Value = 100f },
         };
 
         var group = new AudioEffectGroup();

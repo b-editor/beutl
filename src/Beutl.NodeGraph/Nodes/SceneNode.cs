@@ -29,8 +29,8 @@ public partial class SceneNode : GraphNode
     {
         Output = AddOutput<DrawableRenderNode?>("Output", NodePortDisplays.Output);
         Object = new SceneDrawable();
-        Object.AlignmentX.CurrentValue = Media.AlignmentX.Left;
-        Object.AlignmentY.CurrentValue = Media.AlignmentY.Top;
+        Object.AlignmentX.Value = Media.AlignmentX.Left;
+        Object.AlignmentY.Value = Media.AlignmentY.Top;
         PinTimeToReferencedScene();
         AddInput(Object, Object.ReferencedScene);
         Time = AddInput<TimeSpan>("Time", NodePortDisplays.Time);

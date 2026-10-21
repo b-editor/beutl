@@ -9,7 +9,7 @@ public static class SimplePropertyExtensions
 
         if (simpleProperty.HasLocalValue)
         {
-            animatableProperty.CurrentValue = simpleProperty.CurrentValue;
+            animatableProperty.Value = simpleProperty.Value;
         }
 
         return animatableProperty;

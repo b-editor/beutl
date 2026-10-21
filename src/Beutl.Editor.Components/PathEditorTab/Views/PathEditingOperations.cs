@@ -85,19 +85,19 @@ internal static class PathEditingOperations
                 && animation.KeyFrames[0] is KeyFrame<Point>;
         if (index == figure.Segments.Count)
             return CanUsePoint(figure.StartPoint) && !ReadPoint(figure.StartPoint).Value.IsInvalid
-                && IsStatic(figure.IsClosed) && figure.IsClosed.CurrentValue
+                && IsStatic(figure.IsClosed) && figure.IsClosed.Value
                 && CanUsePoint(figure.Segments[^1].GetEndPoint());
         // Only this edge's actual start point affects its split. Animation on an
         // unrelated anchor (or on an unused explicit start) must not block insertion.
         bool supportedStart = index > 0 ? CanUsePoint(figure.Segments[index - 1].GetEndPoint())
             : CanUsePoint(figure.StartPoint) && (!ReadPoint(figure.StartPoint).Value.IsInvalid
-                || IsStatic(figure.IsClosed) && figure.IsClosed.CurrentValue
+                || IsStatic(figure.IsClosed) && figure.IsClosed.Value
                     && CanUsePoint(figure.Segments[^1].GetEndPoint()));
         var segment = figure.Segments[index];
         return supportedStart && segment is LineSegment or CubicBezierSegment or QuadraticBezierSegment or ConicSegment or ArcSegment
             && CanUsePoint(segment.GetEndPoint())
             && PathEditorHelper.GetControlPointProperties(segment).All(CanUsePoint)
-            && (segment is not ConicSegment c || IsStatic(c.Weight) && float.IsFinite(c.Weight.CurrentValue) && c.Weight.CurrentValue >= 0)
+            && (segment is not ConicSegment c || IsStatic(c.Weight) && float.IsFinite(c.Weight.Value) && c.Weight.Value >= 0)
             && (segment is not ArcSegment arc || IsStatic(arc.Radius) && IsStatic(arc.RotationAngle)
                 && IsStatic(arc.IsLargeArc) && IsStatic(arc.SweepClockwise));
     }
@@ -144,18 +144,18 @@ internal static class PathEditingOperations
         }
         else if (segment is ConicSegment conic)
         {
-            float w = conic.Weight.CurrentValue, u = 1 - t;
+            float w = conic.Weight.Value, u = 1 - t;
             float wa = u + w * t, wb = w * u + t, wm = u * wa + t * wb;
             SplitPoint control = ReadPoint(conic.ControlPoint);
             SplitPoint a = Weighted(startPoint, u, control, w * t);
             SplitPoint b = Weighted(control, w * u, endPoint, t);
             SplitPoint point = Weighted(a, u * wa, b, t * wb);
-            var part = new ConicSegment { Weight = { CurrentValue = wa / MathF.Sqrt(wm) } };
+            var part = new ConicSegment { Weight = { Value = wa / MathF.Sqrt(wm) } };
             WritePoint(part.ControlPoint, a);
             WritePoint(part.EndPoint, point);
             inserted = part;
             WritePoint(conic.ControlPoint, b);
-            conic.Weight.CurrentValue = wb / MathF.Sqrt(wm);
+            conic.Weight.Value = wb / MathF.Sqrt(wm);
         }
         else if (segment is ArcSegment arc && GetArc(start, arc, context) is { } ellipse)
         {
@@ -164,14 +164,14 @@ internal static class PathEditingOperations
             Size radius = new((float)ellipse.RadiusX, (float)ellipse.RadiusY);
             inserted = new ArcSegment
             {
-                Radius = { CurrentValue = radius },
-                RotationAngle = { CurrentValue = arc.RotationAngle.CurrentValue },
-                IsLargeArc = { CurrentValue = Math.Abs(ellipse.Sweep * t) > Math.PI },
-                SweepClockwise = { CurrentValue = arc.SweepClockwise.CurrentValue },
-                Point = { CurrentValue = ellipse.At(t) }
+                Radius = { Value = radius },
+                RotationAngle = { Value = arc.RotationAngle.Value },
+                IsLargeArc = { Value = Math.Abs(ellipse.Sweep * t) > Math.PI },
+                SweepClockwise = { Value = arc.SweepClockwise.Value },
+                Point = { Value = ellipse.At(t) }
             };
-            arc.Radius.CurrentValue = radius;
-            arc.IsLargeArc.CurrentValue = Math.Abs(ellipse.Sweep * (1 - t)) > Math.PI;
+            arc.Radius.Value = radius;
+            arc.IsLargeArc.Value = Math.Abs(ellipse.Sweep * (1 - t)) > Math.PI;
         }
         else
         {
@@ -191,8 +191,8 @@ internal static class PathEditingOperations
     private static SplitPoint ReadPoint(IExpressionProperty<Point> property)
     {
         var animation = property.GetKeyFrameAnimation() as KeyFrameAnimation<Point>;
-        return new(property.CurrentValue, animation?.KeyFrames[0] is KeyFrame<Point> key
-            ? key.Value : property.CurrentValue, animation);
+        return new(property.Value, animation?.KeyFrames[0] is KeyFrame<Point> key
+            ? key.Value : property.Value, animation);
     }
 
     private static SplitPoint Blend(SplitPoint a, SplitPoint b, float t) =>
@@ -203,7 +203,7 @@ internal static class PathEditingOperations
 
     private static void WritePoint(IExpressionProperty<Point> property, SplitPoint point)
     {
-        property.CurrentValue = point.BaseValue;
+        property.Value = point.BaseValue;
         if (point.Animation == null) return;
         if (property.GetKeyFrameAnimation() is KeyFrameAnimation<Point> { KeyFrames.Count: 1 } existing
             && existing.KeyFrames[0] is KeyFrame<Point> key)
@@ -228,9 +228,9 @@ internal static class PathEditingOperations
 
     internal static CubicBezierSegment Cubic(Point c1, Point c2, Point end) => new()
     {
-        ControlPoint1 = { CurrentValue = c1 },
-        ControlPoint2 = { CurrentValue = c2 },
-        EndPoint = { CurrentValue = end }
+        ControlPoint1 = { Value = c1 },
+        ControlPoint2 = { Value = c2 },
+        EndPoint = { Value = end }
     };
 
     internal static CubicBezierSegment? ToCubic(PathFigure figure, int index, CompositionContext context)
@@ -245,9 +245,9 @@ internal static class PathEditingOperations
         }
         if (figure.Segments[index] is not (LineSegment or CubicBezierSegment or QuadraticBezierSegment)) return null;
         if (figure.Segments[index] is CubicBezierSegment cubic) return cubic;
-        Point start = Start(figure, index, context), end = figure.Segments[index].GetEndPoint().CurrentValue;
+        Point start = Start(figure, index, context), end = figure.Segments[index].GetEndPoint().Value;
         cubic = figure.Segments[index] is QuadraticBezierSegment q
-            ? Cubic(Lerp(start, q.ControlPoint.CurrentValue, 2f / 3), Lerp(end, q.ControlPoint.CurrentValue, 2f / 3), end)
+            ? Cubic(Lerp(start, q.ControlPoint.Value, 2f / 3), Lerp(end, q.ControlPoint.Value, 2f / 3), end)
             : Cubic(Lerp(start, end, 1f / 3), Lerp(start, end, 2f / 3), end);
         figure.Segments[index] = cubic;
         return cubic;

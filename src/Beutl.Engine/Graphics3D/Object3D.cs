@@ -17,7 +17,7 @@ public abstract partial class Object3D : EngineObject
     public Object3D()
     {
         ScanProperties<Object3D>();
-        Material.CurrentValue = new PBRMaterial();
+        Material.Value = new PBRMaterial();
     }
 
     public override CompositionTarget GetCompositionTarget() => CompositionTarget.Graphics;

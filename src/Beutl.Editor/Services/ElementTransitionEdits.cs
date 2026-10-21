@@ -73,7 +73,7 @@ public static class ElementTransitionEdits
         }
 
         var transition = (ClipTransition)Activator.CreateInstance(transitionType)!;
-        transition.Duration.CurrentValue = duration;
+        transition.Duration.Value = duration;
         return transition;
     }
 
@@ -84,8 +84,8 @@ public static class ElementTransitionEdits
     public static ClipTransition ChangeType(ClipTransition source, Type transitionType)
     {
         ArgumentNullException.ThrowIfNull(source);
-        ClipTransition transition = CreateTransition(transitionType, source.Duration.CurrentValue);
-        transition.Easing.CurrentValue = source.Easing.CurrentValue;
+        ClipTransition transition = CreateTransition(transitionType, source.Duration.Value);
+        transition.Easing.Value = source.Easing.Value;
         transition.Easing.Expression = source.Easing.Expression;
         transition.IsEnabled = source.IsEnabled;
         return transition;

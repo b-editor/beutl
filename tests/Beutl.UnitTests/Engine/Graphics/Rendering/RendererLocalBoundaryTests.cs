@@ -80,12 +80,12 @@ public class RendererLocalBoundaryTests
     public void LocalBoundary_OfContentThatFillsTheFrame_IsItsLayoutBox(float rotation)
     {
         var rect = new RectShape();
-        rect.Width.CurrentValue = 100;
-        rect.Height.CurrentValue = 60;
+        rect.Width.Value = 100;
+        rect.Height.Value = 60;
         var effect = new TransformEffect();
-        effect.Transform.CurrentValue = new RotationTransform(10);
-        ((FilterEffectGroup)rect.FilterEffect.CurrentValue!).Children.Add(effect);
-        var transform = (TransformGroup)rect.Transform.CurrentValue!;
+        effect.Transform.Value = new RotationTransform(10);
+        ((FilterEffectGroup)rect.FilterEffect.Value!).Children.Add(effect);
+        var transform = (TransformGroup)rect.Transform.Value!;
         transform.Children.Add(new TranslateTransform(50, 30));
         transform.Children.Add(new RotationTransform(rotation));
 
@@ -110,10 +110,10 @@ public class RendererLocalBoundaryTests
     public void LocalBoundary_IsNull_WhenItsBoxReachesPastTheCameraPlane()
     {
         RectShape rect = CreateBlurredRect(rotation: 0);
-        ((Blur)((FilterEffectGroup)rect.FilterEffect.CurrentValue!).Children[0]).Sigma.CurrentValue = new Size(20, 20);
+        ((Blur)((FilterEffectGroup)rect.FilterEffect.Value!).Children[0]).Sigma.Value = new Size(20, 20);
         // The divisor is 1 - 0.012 * (x - 50) about the rectangle's centre: from 0.4 to 1.6 across its 100 px,
         // and below zero 60 px further right, where the blur still draws.
-        rect.Transform.CurrentValue = new MatrixTransform(new Matrix(
+        rect.Transform.Value = new MatrixTransform(new Matrix(
             1, 0, -0.012f,
             0, 1, 0,
             0, 0, 1));
@@ -156,24 +156,24 @@ public class RendererLocalBoundaryTests
     private static EllipseShape CreateShadowedEllipse()
     {
         var ellipse = new EllipseShape();
-        ellipse.Width.CurrentValue = 60;
-        ellipse.Height.CurrentValue = 60;
+        ellipse.Width.Value = 60;
+        ellipse.Height.Value = 60;
         var shadow = new DropShadow();
-        shadow.Position.CurrentValue = new Point(20, 15);
-        shadow.Sigma.CurrentValue = new Size(3, 3);
-        ((FilterEffectGroup)ellipse.FilterEffect.CurrentValue!).Children.Add(shadow);
+        shadow.Position.Value = new Point(20, 15);
+        shadow.Sigma.Value = new Size(3, 3);
+        ((FilterEffectGroup)ellipse.FilterEffect.Value!).Children.Add(shadow);
         return ellipse;
     }
 
     private static RectShape CreateBlurredRect(float rotation)
     {
         var rect = new RectShape();
-        rect.Width.CurrentValue = 100;
-        rect.Height.CurrentValue = 60;
+        rect.Width.Value = 100;
+        rect.Height.Value = 60;
         var blur = new Blur();
-        blur.Sigma.CurrentValue = new Size(4, 4);
-        ((FilterEffectGroup)rect.FilterEffect.CurrentValue!).Children.Add(blur);
-        rect.Transform.CurrentValue = new RotationTransform(rotation);
+        blur.Sigma.Value = new Size(4, 4);
+        ((FilterEffectGroup)rect.FilterEffect.Value!).Children.Add(blur);
+        rect.Transform.Value = new RotationTransform(rotation);
         return rect;
     }
 

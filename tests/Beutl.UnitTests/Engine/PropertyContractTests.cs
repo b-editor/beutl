@@ -58,7 +58,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
         property.ValueChanged += (_, e) => args = e;
         property.Edited += (_, _) => edited++;
 
-        property.CurrentValue = 42;
+        property.Value = 42;
 
         Assert.That(args, Is.Not.Null);
         Assert.That(args!.Property, Is.SameAs(property));
@@ -77,7 +77,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
         property.ValueChanged += (_, _) => valueChanged++;
         property.Edited += (_, _) => edited++;
 
-        property.CurrentValue = 10;
+        property.Value = 10;
 
         Assert.That(valueChanged, Is.Zero);
         Assert.That(edited, Is.Zero);
@@ -101,8 +101,8 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
 
         Assert.Multiple(() =>
         {
-            Assert.That(property.CurrentValue, Is.SameAs(replacement));
-            Assert.That(property.CurrentValue.State, Is.EqualTo("new"));
+            Assert.That(property.Value, Is.SameAs(replacement));
+            Assert.That(property.Value.State, Is.EqualTo("new"));
             Assert.That(validator.CoerceCount, Is.EqualTo(1));
             Assert.That(args!.OldValue, Is.SameAs(current));
             Assert.That(args.NewValue, Is.SameAs(replacement));
@@ -152,7 +152,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
     public void GetValue_WithoutAnimationOrExpression_ReturnsCurrentValue()
     {
         IExpressionProperty<int> property = Make(0);
-        property.CurrentValue = 99;
+        property.Value = 99;
 
         int value = property.GetValue(CompositionContext.Default);
 
@@ -163,12 +163,12 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
     public void ResetToDefault_RestoresDefaultsAndClearsState()
     {
         IExpressionProperty<int> property = Make(7);
-        property.CurrentValue = 100;
+        property.Value = 100;
         property.Expression = Expression.Create<int>("1+2");
 
         ResetToDefault(property);
 
-        Assert.That(property.CurrentValue, Is.EqualTo(7));
+        Assert.That(property.Value, Is.EqualTo(7));
         Assert.That(property.HasLocalValue, Is.False);
         Assert.That(property.HasExpression, Is.False);
     }

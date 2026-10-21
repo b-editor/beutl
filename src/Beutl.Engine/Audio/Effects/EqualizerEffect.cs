@@ -56,7 +56,7 @@ public sealed partial class EqualizerEffect : AudioEffect
         PropertyValueChangedEventArgs<BandCountPreset> propertyValueChangedEventArgs)
     {
         if (HistoryReplay.IsActive) return;
-        InitializeBands(BandCountOption.CurrentValue);
+        InitializeBands(BandCountOption.Value);
     }
 
     private void InitializeBands(BandCountPreset preset)
@@ -86,10 +86,10 @@ public sealed partial class EqualizerEffect : AudioEffect
         foreach (float frequency in frequencies)
         {
             var band = new EqualizerBand();
-            band.FilterType.CurrentValue = BiQuadFilterType.Peak;
-            band.Frequency.CurrentValue = frequency;
-            band.Gain.CurrentValue = 0f;
-            band.Q.CurrentValue = q;
+            band.FilterType.Value = BiQuadFilterType.Peak;
+            band.Frequency.Value = frequency;
+            band.Gain.Value = 0f;
+            band.Q.Value = q;
             Bands.Add(band);
         }
     }
@@ -115,7 +115,7 @@ public sealed partial class EqualizerEffect : AudioEffect
     {
         // Only gain-dependent filter types collapse to pass-through at 0 dB.
         // LowPass/HighPass/BandPass/Notch still shape the signal regardless of gain.
-        var type = band.FilterType.CurrentValue;
+        var type = band.FilterType.Value;
         if (type != BiQuadFilterType.Peak
             && type != BiQuadFilterType.LowShelf
             && type != BiQuadFilterType.HighShelf)
@@ -123,11 +123,11 @@ public sealed partial class EqualizerEffect : AudioEffect
             return false;
         }
 
-        // Expressions render at CurrentValue, so only an animation keeps the gain live.
+        // Expressions render at Value, so only an animation keeps the gain live.
         // FIXME(expression): also treat HasExpression as live once AnimationSampler evaluates expressions.
         if (band.Gain.GetKeyFrameAnimation() is not null) return false;
 
-        return band.Gain.CurrentValue == 0f;
+        return band.Gain.Value == 0f;
     }
 
     public override void Deserialize(ICoreSerializationContext context)

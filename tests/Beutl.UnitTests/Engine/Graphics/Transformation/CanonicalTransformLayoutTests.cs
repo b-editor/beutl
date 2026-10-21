@@ -40,7 +40,7 @@ public class CanonicalTransformLayoutTests
     public void Ensure_EmptyTransform_AppendsTRSInCanonicalOrder()
     {
         var drawable = CreateDrawable();
-        drawable.Transform.CurrentValue = null;
+        drawable.Transform.Value = null;
 
         CanonicalTransformLayoutResult result = CanonicalTransformLayout.Ensure(drawable, Context);
 
@@ -62,7 +62,7 @@ public class CanonicalTransformLayoutTests
         var existing = new TranslateTransform(50f, 0f);
         var group = new TransformGroup();
         group.Children.Add(existing);
-        drawable.Transform.CurrentValue = group;
+        drawable.Transform.Value = group;
 
         CanonicalTransformLayoutResult result = CanonicalTransformLayout.Ensure(drawable, Context);
 
@@ -86,7 +86,7 @@ public class CanonicalTransformLayoutTests
         var existing = new RotationTransform(45f);
         var group = new TransformGroup();
         group.Children.Add(existing);
-        drawable.Transform.CurrentValue = group;
+        drawable.Transform.Value = group;
 
         CanonicalTransformLayoutResult result = CanonicalTransformLayout.Ensure(drawable, Context);
 
@@ -109,7 +109,7 @@ public class CanonicalTransformLayoutTests
         var existing = new ScaleTransform(200f, 200f);
         var group = new TransformGroup();
         group.Children.Add(existing);
-        drawable.Transform.CurrentValue = group;
+        drawable.Transform.Value = group;
 
         CanonicalTransformLayoutResult result = CanonicalTransformLayout.Ensure(drawable, Context);
 
@@ -134,7 +134,7 @@ public class CanonicalTransformLayoutTests
         var group = new TransformGroup();
         group.Children.Add(skew);
         group.Children.Add(translate);
-        drawable.Transform.CurrentValue = group;
+        drawable.Transform.Value = group;
 
         CanonicalTransformLayoutResult result = CanonicalTransformLayout.Ensure(drawable, Context);
 
@@ -163,7 +163,7 @@ public class CanonicalTransformLayoutTests
         var drawable = CreateDrawable();
         (TransformGroup group, TranslateTransform t, RotationTransform r, ScaleTransform s) = CreateGroup(order);
         Transform[] children = [.. group.Children];
-        drawable.Transform.CurrentValue = group;
+        drawable.Transform.Value = group;
 
         CanonicalTransformLayoutResult result = CanonicalTransformLayout.Ensure(drawable, Context);
 
@@ -194,7 +194,7 @@ public class CanonicalTransformLayoutTests
         group.Children.Add(s1);
         group.Children.Add(s2);
         group.Children.Add(t);
-        drawable.Transform.CurrentValue = group;
+        drawable.Transform.Value = group;
 
         CanonicalTransformLayoutResult result = CanonicalTransformLayout.Ensure(drawable, Context);
 
@@ -224,7 +224,7 @@ public class CanonicalTransformLayoutTests
         var group = new TransformGroup();
         group.Children.Add(t);
         group.Children.Add(s);
-        drawable.Transform.CurrentValue = group;
+        drawable.Transform.Value = group;
 
         CanonicalTransformLayoutResult result = CanonicalTransformLayout.Ensure(drawable, Context);
 
@@ -252,7 +252,7 @@ public class CanonicalTransformLayoutTests
         var group = new TransformGroup();
         group.Children.Add(r);
         group.Children.Add(t);
-        drawable.Transform.CurrentValue = group;
+        drawable.Transform.Value = group;
 
         CanonicalTransformLayoutResult result = CanonicalTransformLayout.Ensure(drawable, Context);
 
@@ -283,7 +283,7 @@ public class CanonicalTransformLayoutTests
         group.Children.Add(r);
         group.Children.Add(s);
         group.Children.Add(tExtra);
-        drawable.Transform.CurrentValue = group;
+        drawable.Transform.Value = group;
 
         CanonicalTransformLayoutResult result = CanonicalTransformLayout.Ensure(drawable, Context);
 
@@ -306,14 +306,14 @@ public class CanonicalTransformLayoutTests
     {
         var drawable = CreateDrawable();
         var existing = new TranslateTransform(7f, 3f);
-        drawable.Transform.CurrentValue = existing;
+        drawable.Transform.Value = existing;
 
         CanonicalTransformLayoutResult result = CanonicalTransformLayout.Ensure(drawable, Context);
 
         Assert.Multiple(() =>
         {
             // Wrapped in a TransformGroup, becoming [T_existing, R_new, S_new]
-            Assert.That(drawable.Transform.CurrentValue, Is.TypeOf<TransformGroup>());
+            Assert.That(drawable.Transform.Value, Is.TypeOf<TransformGroup>());
             Assert.That(result.Group.Children, Has.Member(existing));
             Assert.That(result.Translate, Is.SameAs(existing));
             Assert.That(result.StructureChanged, Is.True);
@@ -328,14 +328,14 @@ public class CanonicalTransformLayoutTests
         var root = new TestHierarchicalRoot();
         var drawable = CreateDrawable();
         var existing = new TranslateTransform(7f, 3f);
-        drawable.Transform.CurrentValue = existing;
+        drawable.Transform.Value = existing;
         ((IModifiableHierarchical)root).AddChild(drawable);
 
         CanonicalTransformLayoutResult result = CanonicalTransformLayout.Ensure(drawable, Context);
 
         Assert.Multiple(() =>
         {
-            Assert.That(drawable.Transform.CurrentValue, Is.SameAs(result.Group));
+            Assert.That(drawable.Transform.Value, Is.SameAs(result.Group));
             Assert.That(result.Group.Children[0], Is.SameAs(existing));
             Assert.That(existing.HierarchicalParent, Is.SameAs(result.Group));
             Assert.That(((IHierarchical)existing).FindHierarchicalRoot(), Is.SameAs(root));
@@ -480,7 +480,7 @@ public class CanonicalTransformLayoutTests
         group.Children.Add(disabledT);
         group.Children.Add(disabledR);
         group.Children.Add(disabledS);
-        drawable.Transform.CurrentValue = group;
+        drawable.Transform.Value = group;
 
         CanonicalTransformLayoutResult result = CanonicalTransformLayout.Ensure(drawable, Context);
 

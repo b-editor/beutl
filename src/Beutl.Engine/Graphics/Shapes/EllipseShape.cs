@@ -28,8 +28,8 @@ public sealed partial class EllipseShape : Shape
 
         partial void PostReconcile(EllipseShape obj, CompositionContext context)
         {
-            _geometry.Width.CurrentValue = Math.Max(Width, 0);
-            _geometry.Height.CurrentValue = Math.Max(Height, 0);
+            _geometry.Width.Value = Math.Max(Width, 0);
+            _geometry.Height.Value = Math.Max(Height, 0);
 
             ReconcileGeometry(_geometry, context);
         }

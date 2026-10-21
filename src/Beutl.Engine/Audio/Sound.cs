@@ -17,7 +17,7 @@ public abstract partial class Sound : EngineObject
     public Sound()
     {
         ScanProperties<Sound>();
-        Effect.CurrentValue = new AudioEffectGroup();
+        Effect.Value = new AudioEffectGroup();
     }
 
     public override CompositionTarget GetCompositionTarget() => CompositionTarget.Audio;
@@ -56,7 +56,7 @@ public abstract partial class Sound : EngineObject
 
         var sourceNode = context.CreateSourceNode(soundSource);
 
-        var shiftNode = context.CreateShiftNode(OffsetPosition.CurrentValue);
+        var shiftNode = context.CreateShiftNode(OffsetPosition.Value);
         context.Connect(sourceNode, shiftNode);
 
         var resampleNode = context.CreateResampleNode(soundSource.SampleRate);
@@ -70,9 +70,9 @@ public abstract partial class Sound : EngineObject
 
         AudioNode currentNode = gainNode;
 
-        if (Effect.CurrentValue != null && Effect.CurrentValue.IsEnabled)
+        if (Effect.Value != null && Effect.Value.IsEnabled)
         {
-            currentNode = Effect.CurrentValue.CreateNode(context, currentNode);
+            currentNode = Effect.Value.CreateNode(context, currentNode);
         }
 
         var clipNode = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);

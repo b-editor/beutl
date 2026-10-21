@@ -146,7 +146,7 @@ public class ExportTests
         editor.Scene.Duration = TimeSpan.FromMilliseconds(200);
         await TestShell.AddElementAsync(
             editor,
-            () => new RectShape { Width = { CurrentValue = 200 }, Height = { CurrentValue = 150 } },
+            () => new RectShape { Width = { Value = 200 }, Height = { Value = 150 } },
             TimeSpan.Zero,
             TimeSpan.FromMilliseconds(200));
         return editor;
@@ -332,7 +332,7 @@ public class ExportTests
         TestGpu.RequireAnyDevice();
         EditViewModel editor = await OpenEditorWithRectangle("export-cross-scene");
         string folder = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
-        var source = new RectShape { Width = { CurrentValue = 200 } };
+        var source = new RectShape { Width = { Value = 200 } };
         var sourceElement = new Element
         {
             Length = TimeSpan.FromSeconds(1),
@@ -343,7 +343,7 @@ public class ExportTests
         other.Children.Add(sourceElement);
         editor.Scene.FindHierarchicalParent<Project>()!.Items.Add(other);
         RectShape rect = editor.Scene.Children.Single().Objects.OfType<RectShape>().Single();
-        rect.Width.CurrentValue = 0;
+        rect.Width.Value = 0;
         rect.Width.Expression = stringExpression
             ? new StringExpression<float>($"GetProperty<float>(\"{{{source.Id}}}.Width\")")
             : new ReferenceExpression<float>(source.Id, nameof(RectShape.Width));

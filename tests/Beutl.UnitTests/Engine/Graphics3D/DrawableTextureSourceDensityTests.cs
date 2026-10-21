@@ -22,14 +22,14 @@ public class DrawableTextureSourceDensityTests
     {
         // A re-rasterizable vector Drawable: a filled rectangle the size of the texture.
         var rect = new RectShape();
-        rect.Width.CurrentValue = AuthorSize;
-        rect.Height.CurrentValue = AuthorSize;
-        rect.Fill.CurrentValue = Brushes.White;
+        rect.Width.Value = AuthorSize;
+        rect.Height.Value = AuthorSize;
+        rect.Fill.Value = Brushes.White;
 
         var source = new DrawableTextureSource();
-        source.Drawable.CurrentValue = rect;
-        source.TextureWidth.CurrentValue = AuthorSize;
-        source.TextureHeight.CurrentValue = AuthorSize;
+        source.Drawable.Value = rect;
+        source.TextureWidth.Value = AuthorSize;
+        source.TextureHeight.Value = AuthorSize;
         return (DrawableTextureSource.Resource)source.ToResource(CompositionContext.Default);
     }
 
@@ -77,8 +77,8 @@ public class DrawableTextureSourceDensityTests
     public void GetTexture_NestedOversizedDrawableUsesTheClampedRecordingDensity()
     {
         var sourceDefinition = new DrawableTextureSource();
-        sourceDefinition.TextureWidth.CurrentValue = 8192;
-        sourceDefinition.TextureHeight.CurrentValue = 1;
+        sourceDefinition.TextureWidth.Value = 8192;
+        sourceDefinition.TextureHeight.Value = 1;
         using var source =
             (DrawableTextureSource.Resource)sourceDefinition.ToResource(CompositionContext.Default);
         using var registry = new RenderTargetPool(new CpuTargetFactory());

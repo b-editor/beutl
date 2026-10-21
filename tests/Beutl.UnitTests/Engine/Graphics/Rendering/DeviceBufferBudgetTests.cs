@@ -971,16 +971,16 @@ public sealed class DeviceBufferBudgetTests
     {
         var emitter = new ParticleEmitter
         {
-            Seed = { CurrentValue = 7 },
-            EmissionRate = { CurrentValue = 4 },
-            Lifetime = { CurrentValue = 1.2f },
-            MaxParticles = { CurrentValue = 8 },
-            Speed = { CurrentValue = 0 },
-            SpeedRandom = { CurrentValue = 0 },
-            Gravity = { CurrentValue = 0 },
-            Spread = { CurrentValue = 0 },
-            ParticleSize = { CurrentValue = 40 },
-            ParticleColor = { CurrentValue = Colors.OrangeRed },
+            Seed = { Value = 7 },
+            EmissionRate = { Value = 4 },
+            Lifetime = { Value = 1.2f },
+            MaxParticles = { Value = 8 },
+            Speed = { Value = 0 },
+            SpeedRandom = { Value = 0 },
+            Gravity = { Value = 0 },
+            Spread = { Value = 0 },
+            ParticleSize = { Value = 40 },
+            ParticleColor = { Value = Colors.OrangeRed },
         };
         using ParticleEmitter.Resource resource = emitter.ToResource(
             new CompositionContext(TimeSpan.FromSeconds(1)));

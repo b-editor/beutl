@@ -725,12 +725,12 @@ public sealed class RendererWideRecordingTests
             var group = new DrawableGroup();
             group.Children.Add(new RectShape
             {
-                Width = { CurrentValue = 3 },
-                Height = { CurrentValue = 2 },
-                AlignmentX = { CurrentValue = AlignmentX.Left },
-                AlignmentY = { CurrentValue = AlignmentY.Top },
-                Transform = { CurrentValue = new TranslateTransform(2, 1) },
-                Fill = { CurrentValue = Brushes.White },
+                Width = { Value = 3 },
+                Height = { Value = 2 },
+                AlignmentX = { Value = AlignmentX.Left },
+                AlignmentY = { Value = AlignmentY.Top },
+                Transform = { Value = new TranslateTransform(2, 1) },
+                Fill = { Value = Brushes.White },
             });
             using Drawable.Resource resource =
                 (Drawable.Resource)group.ToResource(CompositionContext.Default);

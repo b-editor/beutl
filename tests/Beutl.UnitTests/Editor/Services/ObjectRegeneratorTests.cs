@@ -129,11 +129,11 @@ public class ObjectRegeneratorTests
     {
         var effect = new NodeGraphFilterEffect();
         var image = new AiImageGenerationNode();
-        effect.Model.CurrentValue!.Nodes.Add(image);
+        effect.Model.Value!.Nodes.Add(image);
 
         ObjectRegenerator.Regenerate(effect, typeof(NodeGraphFilterEffect), out ICoreSerializable copy);
 
-        AiImageGenerationNode copiedImage = ((NodeGraphFilterEffect)copy).Model.CurrentValue!.Nodes
+        AiImageGenerationNode copiedImage = ((NodeGraphFilterEffect)copy).Model.Value!.Nodes
             .OfType<AiImageGenerationNode>().Single();
         Assert.That(copiedImage.RequestKeySeed, Is.Not.EqualTo(image.RequestKeySeed));
     }
@@ -211,9 +211,9 @@ public class ObjectRegeneratorTests
     {
         var (element, _, _) = CreateElementWithAiNodes();
         var other = new ObjectWithMembersNamedLikeAiResults();
-        other.Generations.CurrentValue = 3;
-        other.ActiveGenerationId.CurrentValue = "active";
-        other.RequestKeySeed.CurrentValue = "seed";
+        other.Generations.Value = 3;
+        other.ActiveGenerationId.Value = "active";
+        other.RequestKeySeed.Value = "seed";
         element.AddObject(other);
 
         ObjectTemplateItem template = ObjectTemplateItem.CreateFromInstance(element, "AI clip");
@@ -223,9 +223,9 @@ public class ObjectRegeneratorTests
             instance.Objects.OfType<ObjectWithMembersNamedLikeAiResults>().Single();
         Assert.Multiple(() =>
         {
-            Assert.That(restored.Generations.CurrentValue, Is.EqualTo(3));
-            Assert.That(restored.ActiveGenerationId.CurrentValue, Is.EqualTo("active"));
-            Assert.That(restored.RequestKeySeed.CurrentValue, Is.EqualTo("seed"));
+            Assert.That(restored.Generations.Value, Is.EqualTo(3));
+            Assert.That(restored.ActiveGenerationId.Value, Is.EqualTo("active"));
+            Assert.That(restored.RequestKeySeed.Value, Is.EqualTo("seed"));
             Assert.That(FindAiNodes(instance).Image.Generations, Is.Empty, "the AI node still leaves its results behind");
         });
     }
@@ -237,7 +237,7 @@ public class ObjectRegeneratorTests
     {
         var effect = new NodeGraphFilterEffect();
         var image = new AiImageGenerationNode();
-        effect.Model.CurrentValue!.Nodes.Add(image);
+        effect.Model.Value!.Nodes.Add(image);
         (Type baseType, string format) = ObjectTemplateCategoryResolver.Resolve(typeof(NodeGraphFilterEffect));
         var template = new ObjectTemplateItem(
             Guid.NewGuid(), baseType, typeof(NodeGraphFilterEffect), CoreSerializer.SerializeToJsonObject(effect),
@@ -245,7 +245,7 @@ public class ObjectRegeneratorTests
         Assert.That(template.Json.ToJsonString(), Does.Contain(image.RequestKeySeed));
 
         string[] seeds = Enumerable.Range(0, 2)
-            .Select(_ => ((NodeGraphFilterEffect)template.CreateInstance()!).Model.CurrentValue!.Nodes
+            .Select(_ => ((NodeGraphFilterEffect)template.CreateInstance()!).Model.Value!.Nodes
                 .OfType<AiImageGenerationNode>().Single().RequestKeySeed)
             .ToArray();
 
@@ -273,7 +273,7 @@ public class ObjectRegeneratorTests
         Element element)
     {
         var drawable = new NodeGraphDrawable();
-        GraphModel graph = drawable.Model.CurrentValue!;
+        GraphModel graph = drawable.Model.Value!;
         var image = new AiImageGenerationNode();
         image.Generations.Add(new GenerationRecord { Summary = "kept result" });
         var group = new GroupNode();
@@ -287,7 +287,7 @@ public class ObjectRegeneratorTests
 
     private static (AiImageGenerationNode Image, AiImageGenerationNode Nested) FindAiNodes(Element element)
     {
-        GraphModel graph = element.Objects.OfType<NodeGraphDrawable>().Single().Model.CurrentValue!;
+        GraphModel graph = element.Objects.OfType<NodeGraphDrawable>().Single().Model.Value!;
         return (
             graph.Nodes.OfType<AiImageGenerationNode>().Single(),
             graph.Nodes.OfType<GroupNode>().Single().Group.Nodes.OfType<AiImageGenerationNode>().Single());

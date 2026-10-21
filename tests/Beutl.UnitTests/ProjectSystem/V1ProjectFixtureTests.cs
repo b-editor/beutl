@@ -329,7 +329,7 @@ public class V1ProjectFixtureTests
         if (parent is EngineObject engineObject
             && engineObject.Properties.FirstOrDefault(p => p.Name == key) is { } property)
         {
-            return property.CurrentValue;
+            return property.Value;
         }
 
         return parent is ICoreObject coreObject

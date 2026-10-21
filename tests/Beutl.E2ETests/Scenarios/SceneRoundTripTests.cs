@@ -55,9 +55,9 @@ public class SceneRoundTripTests
         scene.Children.Add(c);
 
         var shape = new RectShape();
-        shape.Width.CurrentValue = 320f;
-        shape.Height.CurrentValue = 180f;
-        shape.Opacity.CurrentValue = 75f;
+        shape.Width.Value = 320f;
+        shape.Height.Value = 180f;
+        shape.Opacity.Value = 75f;
         c.Objects.Add(shape);
 
         CoreSerializer.StoreToUri(scene, scene.Uri!);
@@ -96,9 +96,9 @@ public class SceneRoundTripTests
         RectShape restoredShape = rc.Objects.OfType<RectShape>().Single();
         Assert.Multiple(() =>
         {
-            Assert.That(restoredShape.Width.CurrentValue, Is.EqualTo(320f));
-            Assert.That(restoredShape.Height.CurrentValue, Is.EqualTo(180f));
-            Assert.That(restoredShape.Opacity.CurrentValue, Is.EqualTo(75f));
+            Assert.That(restoredShape.Width.Value, Is.EqualTo(320f));
+            Assert.That(restoredShape.Height.Value, Is.EqualTo(180f));
+            Assert.That(restoredShape.Opacity.Value, Is.EqualTo(75f));
         });
     }
 
@@ -112,7 +112,7 @@ public class SceneRoundTripTests
         Element only = NewElement("only.belm", TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(6), 3, false, Color.FromArgb(255, 1, 2, 3));
         scene.Children.Add(only);
         var ellipse = new EllipseShape();
-        ellipse.Width.CurrentValue = 64f;
+        ellipse.Width.Value = 64f;
         only.Objects.Add(ellipse);
 
         var options = new CoreSerializerOptions
@@ -145,7 +145,7 @@ public class SceneRoundTripTests
             Assert.That(restoredElement.Length, Is.EqualTo(TimeSpan.FromSeconds(6)));
             Assert.That(restoredElement.ZIndex, Is.EqualTo(3));
             Assert.That(restoredElement.IsEnabled, Is.False);
-            Assert.That(restoredElement.Objects.OfType<EllipseShape>().Single().Width.CurrentValue, Is.EqualTo(64f));
+            Assert.That(restoredElement.Objects.OfType<EllipseShape>().Single().Width.Value, Is.EqualTo(64f));
         });
     }
 
@@ -154,7 +154,7 @@ public class SceneRoundTripTests
     {
         Element element = NewElement("solo.belm", TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(8), 4, false, Color.FromArgb(255, 9, 8, 7));
         var shape = new RectShape();
-        shape.Width.CurrentValue = 12f;
+        shape.Width.Value = 12f;
         element.Objects.Add(shape);
 
         CoreSerializer.StoreToUri(element, element.Uri!);
@@ -168,7 +168,7 @@ public class SceneRoundTripTests
             Assert.That(restored.ZIndex, Is.EqualTo(4));
             Assert.That(restored.IsEnabled, Is.False);
             Assert.That(restored.AccentColor, Is.EqualTo(element.AccentColor));
-            Assert.That(restored.Objects.OfType<RectShape>().Single().Width.CurrentValue, Is.EqualTo(12f));
+            Assert.That(restored.Objects.OfType<RectShape>().Single().Width.Value, Is.EqualTo(12f));
         });
     }
 }

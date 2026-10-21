@@ -290,7 +290,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                     BtlPoint newValue = Mirror(anchor.GetEndPoint().GetValue(new CompositionContext(time)),
                         _dragState!.GetInterpolatedValue(time), c.GetInterpolatedValue(time), viewModel.Symmetry.Value);
 
-                    c.Property.CurrentValue = newValue;
+                    c.Property.Value = newValue;
                     UpdateThumbPosition(c.Thumb, newValue);
                 }
             }
