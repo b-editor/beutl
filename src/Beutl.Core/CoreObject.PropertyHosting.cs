@@ -35,12 +35,18 @@ public abstract partial class CoreObject : IChildObjectSource
             var validator = PropertyReflectionCache.GetOrCreateValidator(type, propertyInfo.Name,
                 () => property.CreateValidator(attrs));
 
-            property.SetAttributes(propertyInfo.Name, attrs);
+            property.SetAttributes(ToPropertyName(propertyInfo.Name), attrs);
             property.SetValidator(validator);
             property.SetOwnerObject(this);
             yield return property;
         }
     }
+
+    // A property exposed as XxxProperty, beside a value accessor Xxx, is registered, saved and recorded as Xxx.
+    private static string ToPropertyName(string memberName)
+        => memberName.Length > "Property".Length && memberName.EndsWith("Property", StringComparison.Ordinal)
+            ? memberName[..^"Property".Length]
+            : memberName;
 
     protected void ScanProperties<T>() where T : CoreObject
     {
