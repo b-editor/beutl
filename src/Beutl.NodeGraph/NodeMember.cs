@@ -34,13 +34,16 @@ public abstract class NodeMember : EngineObject
     }
 }
 
-public class NodeMember<T> : NodeMember, INodeMember
+public class NodeMember<T> : NodeMember, INodeMember, IChildObjectSource
 {
     public IPropertyAdapter<T>? Property { get; protected set; }
 
     public virtual Type? AssociatedType => typeof(T);
 
     IPropertyAdapter? INodeMember.Property => Property;
+
+    // The adapter holds the port's value, which no registered property does.
+    IEnumerable<object?> IChildObjectSource.GetChildObjects() => [.. Properties, Property];
 
     // Shared by DefaultInputPort<T>, DefaultNodeMember<T> and LayerInputPort<T>, which keep their value in an adapter.
     private protected NodePropertyAdapter<T>? PropertyAdapter => Property as NodePropertyAdapter<T>;

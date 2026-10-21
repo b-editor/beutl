@@ -2,7 +2,7 @@
 
 namespace Beutl.PropertyAdapters;
 
-public class CorePropertyAdapter<T>(CoreProperty<T> property, ICoreObject obj) : IPropertyAdapter<T>
+public class CorePropertyAdapter<T>(CoreProperty<T> property, ICoreObject obj) : IPropertyAdapter<T>, IChildObjectSource
 {
     private Type? _implementedType;
     private IObservable<T?>? _observable;
@@ -10,6 +10,9 @@ public class CorePropertyAdapter<T>(CoreProperty<T> property, ICoreObject obj) :
     public ICoreObject Object { get; } = obj;
 
     public CoreProperty<T> Property { get; } = property;
+
+    IEnumerable<object?> IChildObjectSource.GetChildObjects()
+        => ChildObjects.MayHoldObjects(typeof(T)) ? [GetValue()] : [];
 
     public Type ImplementedType => _implementedType ??= Object.GetType();
 

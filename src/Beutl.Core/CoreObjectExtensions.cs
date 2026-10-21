@@ -29,7 +29,7 @@ public static class CoreObjectExtensions
 
     public static object? Find(this ICoreObject obj, Predicate<object?> predicate, bool includeSelf = true)
     {
-        return obj.Find(predicate, includeSelf, []);
+        return obj.Find(predicate, includeSelf, new HashSet<object>(ReferenceEqualityComparer.Instance));
     }
 
     public static object? Find(this ICoreObject obj, Predicate<object?> predicate, bool includeSelf, HashSet<object> hashSet)
@@ -42,57 +42,22 @@ public static class CoreObjectExtensions
         if (includeSelf && predicate(obj))
             return obj;
 
-        if (obj is IHierarchical hierarchical)
-        {
-            object? match = hierarchical.FindHierarchy(predicate, hashSet);
-            if (match != null)
-                return match;
-        }
-
-        Type type = obj.GetType();
-
-        IReadOnlyList<CoreProperty> props = PropertyRegistry.GetRegistered(type);
-        foreach (CoreProperty prop in props)
-        {
-            object? inner = obj.GetValue(prop);
-            if (inner != null && MatchOrSearch(inner, predicate, hashSet) is { } match)
-            {
-                return match;
-            }
-        }
-
-        return null;
+        return FindBelow(obj, predicate, hashSet);
     }
 
-    private static object? FindHierarchy(this IHierarchical hierarchical, Predicate<object?> predicate, HashSet<object> hashSet)
+    // The first match below obj, which stays below it rather than searching through its parent.
+    private static object? FindBelow(object obj, Predicate<object?> predicate, HashSet<object> hashSet)
     {
-        foreach (IHierarchical item in hierarchical.HierarchicalChildren)
+        foreach (object child in ChildObjects.Of(obj))
         {
-            if (MatchOrSearch(item, predicate, hashSet) is { } match)
-            {
+            if (!child.GetType().IsValueType && !hashSet.Add(child))
+                continue;
+
+            if (predicate(child))
+                return child;
+
+            if (FindBelow(child, predicate, hashSet) is { } match)
                 return match;
-            }
-        }
-
-        return null;
-    }
-
-    // The candidate when it matches, else the first match inside it. A candidate that yields neither
-    // is marked searched.
-    private static object? MatchOrSearch(object candidate, Predicate<object?> predicate, HashSet<object> hashSet)
-    {
-        if (!hashSet.Contains(candidate))
-        {
-            if (predicate(candidate))
-            {
-                return candidate;
-            }
-            else if ((candidate as ICoreObject)?.Find(predicate, true, hashSet) is { } match)
-            {
-                return match;
-            }
-
-            hashSet.Add(candidate);
         }
 
         return null;
