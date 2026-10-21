@@ -73,7 +73,7 @@ public class GainNodeTests
         Span<float> data = result.GetChannelData(0);
         for (int i = 0; i < data.Length; i++)
         {
-            float expected = gain.GetValue(new CompositionContext(TimeSpan.FromSeconds(i / (double)SampleRate))) / 100f;
+            float expected = gain.Evaluate(new CompositionContext(TimeSpan.FromSeconds(i / (double)SampleRate))) / 100f;
             Assert.That(data[i], Is.EqualTo(expected).Within(1e-6f), $"sample {i}");
         }
     }

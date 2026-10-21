@@ -160,7 +160,7 @@ public class AnimationSamplerTests
         for (int i = 0; i < buffer.Length; i++)
         {
             var time = owner.TimeRange.Start + TimeSpan.FromSeconds(i / 10.0);
-            Assert.That(buffer[i], Is.EqualTo(property.GetValue(new CompositionContext(time))), $"sample {i}");
+            Assert.That(buffer[i], Is.EqualTo(property.Evaluate(new CompositionContext(time))), $"sample {i}");
         }
     }
 

@@ -1046,7 +1046,7 @@ public class ProxySourceEnumeratorTests
         Assert.That(FileNames(ElementWith(drawable)), Is.EqualTo(new[] { "list-cycle.mov" }));
     }
 
-    // A reference-expression makes IProperty.GetValue return another object's value ahead of the
+    // A reference-expression makes IExpressionProperty.Evaluate return another object's value ahead of the
     // base/animation, so the render opens whatever file source it resolves to. Preflight must resolve
     // the reference (by id, no evaluation) and enumerate the target's sources.
     [Test]

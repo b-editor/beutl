@@ -30,7 +30,7 @@ internal static class PresenterEditorHelper
 
         ReadOnlyReactivePropertySlim<string?> currentTargetName = expressionObservable
             .Select(t => t.Item2 is ReferenceExpression<T>
-                ? t.Item1?.Target.GetValue(CompositionContext.Default)
+                ? t.Item1?.Target.Evaluate(CompositionContext.Default)
                 : null)
             .Select(obj => obj != null ? CoreObjectHelper.GetDisplayName(obj) : MessageStrings.PropertyUnset)
             .ToReadOnlyReactivePropertySlim()

@@ -65,7 +65,7 @@ public class GraphTraversalTests
             Assert.That(notificationsForOneEdit, Is.EqualTo(1));
             Assert.That(node.CanConnectInput(port), Is.True);
             Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Success));
-            Assert.That(brush.Opacity.GetValue(CompositionContext.Default), Is.EqualTo(37f));
+            Assert.That(brush.Opacity.Evaluate(CompositionContext.Default), Is.EqualTo(37f));
         });
     }
 

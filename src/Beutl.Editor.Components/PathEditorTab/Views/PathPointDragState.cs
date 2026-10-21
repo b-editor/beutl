@@ -49,7 +49,7 @@ public sealed class PathPointDragState
     public BtlPoint GetInterpolatedValue(TimeSpan currentTime)
     {
         var ctx = new CompositionContext(currentTime);
-        return Property.GetValue(ctx);
+        return Property.Evaluate(ctx);
     }
 
     public void MoveFromStart(BtlVector delta)

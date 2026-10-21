@@ -46,7 +46,7 @@ public class NestedInputPortOverrideTests
         Assert.That(node.CanConnectInput(port), Is.True);
         Evaluate(graph);
         Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Success));
-        Assert.That(scenario.Connected.GetValue(CompositionContext.Default), Is.EqualTo(42f));
+        Assert.That(scenario.Connected.Evaluate(CompositionContext.Default), Is.EqualTo(42f));
 
         Assert.That(history.History.Redo(), Is.True);
         Assert.That(node.CanConnectInput(port), Is.False);

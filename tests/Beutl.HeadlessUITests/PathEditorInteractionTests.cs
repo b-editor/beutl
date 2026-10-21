@@ -1022,7 +1022,7 @@ public class PathEditorInteractionTests
             {
                 float t = i / 100f;
                 var actual = t <= .5f ? PathEditingOperations.Evaluate(start, inserted, t * 2, context)
-                    : PathEditingOperations.Evaluate(inserted.GetEndPoint().GetValue(context), original, (t - .5f) * 2, context);
+                    : PathEditingOperations.Evaluate(inserted.GetEndPoint().Evaluate(context), original, (t - .5f) * 2, context);
                 Assert.That(((Beutl.Graphics.Vector)(actual - expected[i])).Length, Is.LessThan(.02));
             }
         }
@@ -1452,7 +1452,7 @@ public class PathEditorInteractionTests
             if (scenario == "nearly-collapsed")
                 anchor.ControlPoint2.Value = point + new Beutl.Graphics.Vector(.001f, -.001f);
         }
-        BtlPoint originalIncoming = anchor.ControlPoint2.GetValue(context);
+        BtlPoint originalIncoming = anchor.ControlPoint2.Evaluate(context);
         editor.View.Refresh();
         HeadlessTestHelpers.Render(3);
         var tool = editor.View.GetVisualDescendants().OfType<StackPanel>().Single(p => p.Name == "PathTools")
@@ -1461,9 +1461,9 @@ public class PathEditorInteractionTests
         Assert.That(editor.View.Tool, Is.EqualTo(PathEditorTool.Bend));
         Point position = PathEditorHelper.GetCanvasPosition(editor.View.FindAnchorThumb(anchor)!);
         editor.Click(position.X, position.Y);
-        Assert.That(anchor.ControlPoint2.GetValue(context), Is.Not.EqualTo(point), "incoming handle must expand");
-        Assert.That(next.ControlPoint1.GetValue(context), Is.Not.EqualTo(point), "outgoing handle must expand");
-        Assert.That(anchor.EndPoint.GetValue(context), Is.EqualTo(point));
+        Assert.That(anchor.ControlPoint2.Evaluate(context), Is.Not.EqualTo(point), "incoming handle must expand");
+        Assert.That(next.ControlPoint1.Evaluate(context), Is.Not.EqualTo(point), "outgoing handle must expand");
+        Assert.That(anchor.EndPoint.Evaluate(context), Is.EqualTo(point));
         Assert.That(later.Value, Is.EqualTo(new BtlPoint(220, -70)), "a different keyframe must stay unchanged");
         foreach (var property in PathPointProperties.Get(editor.Figure, anchor, context).Skip(1))
         {
@@ -1473,8 +1473,8 @@ public class PathEditorInteractionTests
         }
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(1));
         editor.Editor.HistoryManager.Undo();
-        Assert.That(anchor.ControlPoint2.GetValue(context), Is.EqualTo(originalIncoming));
-        Assert.That(next.ControlPoint1.GetValue(context), Is.EqualTo(point));
+        Assert.That(anchor.ControlPoint2.Evaluate(context), Is.EqualTo(originalIncoming));
+        Assert.That(next.ControlPoint1.Evaluate(context), Is.EqualTo(point));
         if (scenario == "animated-anchor") Assert.That(anchor.EndPoint.GetKeyFrameAnimation(), Is.SameAs(animation));
         if (scenario == "animated-handles") Assert.That(anchor.ControlPoint2.GetKeyFrameAnimation(), Is.SameAs(animation));
     }

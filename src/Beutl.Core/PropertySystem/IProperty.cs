@@ -144,7 +144,7 @@ public interface IExpressionProperty<T> : IExpressionProperty, IProperty<T>
         set => Expression = (IExpression<T>?)value;
     }
 
-    T GetValue(EvaluationContext context);
+    T Evaluate(EvaluationContext context);
 
     event Action<IExpression<T>?>? ExpressionChanged;
 }

@@ -61,7 +61,7 @@ public class NestedInputPortTests
         }
         Assert.That(history.History.HasPendingOperations, Is.False);
         Evaluate(graph);
-        Assert.That(((IExpressionProperty<float>)property).GetValue(CompositionContext.Default), Is.EqualTo(42f));
+        Assert.That(((IExpressionProperty<float>)property).Evaluate(CompositionContext.Default), Is.EqualTo(42f));
 
         using (PublishingSuppression.Enter()) remove();
 
@@ -88,8 +88,8 @@ public class NestedInputPortTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(pen.Thickness.GetValue(CompositionContext.Default), Is.EqualTo(17f));
-            Assert.That(brush.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Red));
+            Assert.That(pen.Thickness.Evaluate(CompositionContext.Default), Is.EqualTo(17f));
+            Assert.That(brush.Color.Evaluate(CompositionContext.Default), Is.EqualTo(Colors.Red));
             Assert.That(node.Items.Count, Is.EqualTo(roots));
             Assert.That(graph.AllConnections.Select(c => c.Status), Is.All.EqualTo(ConnectionStatus.Success));
         });
@@ -210,7 +210,7 @@ public class NestedInputPortTests
         {
             Assert.That(Find(node, replacement.Color), Is.SameAs(port));
             Assert.That(port.Connection.Value, Is.SameAs(connection));
-            Assert.That(replacement.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Red));
+            Assert.That(replacement.Color.Evaluate(CompositionContext.Default), Is.EqualTo(Colors.Red));
             Assert.That(oldBrush.Color.Expression, Is.Null);
         });
     }
@@ -241,14 +241,14 @@ public class NestedInputPortTests
         Assert.That(node.Object.Brush.Value, Is.SameAs(original));
         Assert.That(Find(node, original.Color), Is.SameAs(port));
         Assert.That(graph.AllConnections.Single(), Is.SameAs(connection));
-        Assert.That(original.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Red));
+        Assert.That(original.Color.Evaluate(CompositionContext.Default), Is.EqualTo(Colors.Red));
 
         history.History.Redo();
         Evaluate(graph);
         Assert.That(node.Object.Brush.Value, Is.SameAs(replacement));
         Assert.That(original.Color.Expression, Is.Null);
         if (setNull) Assert.That(graph.AllConnections, Is.Empty);
-        else Assert.That(replacement!.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Red));
+        else Assert.That(replacement!.Color.Evaluate(CompositionContext.Default), Is.EqualTo(Colors.Red));
     }
 
     [Test]
@@ -294,14 +294,14 @@ public class NestedInputPortTests
         Assert.Throws<InvalidOperationException>(() => graph.Connect(second, blue));
         Evaluate(graph);
         Assert.That(graph.AllConnections.Single(), Is.SameAs(connection));
-        Assert.That(brush.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Red));
+        Assert.That(brush.Color.Evaluate(CompositionContext.Default), Is.EqualTo(Colors.Red));
         Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Success));
 
         graph.Disconnect(connection);
         Assert.That(node.CanConnectInput(second), Is.True);
         graph.Connect(second, blue);
         Evaluate(graph);
-        Assert.That(brush.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Blue));
+        Assert.That(brush.Color.Evaluate(CompositionContext.Default), Is.EqualTo(Colors.Blue));
     }
 
     [TestCase(false, "flat")]
@@ -346,14 +346,14 @@ public class NestedInputPortTests
         Evaluate(graph);
         Assert.That(firstGraph.AllConnections.Single(), Is.SameAs(connection));
         Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Success));
-        Assert.That(brush.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Red));
+        Assert.That(brush.Color.Evaluate(CompositionContext.Default), Is.EqualTo(Colors.Red));
 
         firstGraph.Disconnect(connection);
         Assert.That(second.CanConnectInput(secondPort), Is.True);
         secondGraph.Connect(secondPort, blue);
         Evaluate(graph);
         Assert.That(first.CanConnectInput(firstPort), Is.False);
-        Assert.That(brush.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Blue));
+        Assert.That(brush.Color.Evaluate(CompositionContext.Default), Is.EqualTo(Colors.Blue));
     }
 
     [TestCase(false)]
@@ -384,7 +384,7 @@ public class NestedInputPortTests
         Evaluate(graph);
 
         Assert.That((disconnectOuter ? innerConnection : outerConnection).Status, Is.EqualTo(ConnectionStatus.Success));
-        Assert.That(shared.Color.GetValue(CompositionContext.Default), Is.EqualTo(disconnectOuter ? Colors.Blue : Colors.Red));
+        Assert.That(shared.Color.Evaluate(CompositionContext.Default), Is.EqualTo(disconnectOuter ? Colors.Blue : Colors.Red));
     }
 
     [TestCase(false)]
@@ -422,8 +422,8 @@ public class NestedInputPortTests
         Assert.That(history.History.Undo(), Is.True);
         Evaluate(graph);
         Assert.That(graph.AllConnections.Select(c => c.Status), Is.All.EqualTo(ConnectionStatus.Success));
-        Assert.That(fillBrush.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Red));
-        Assert.That(penBrush.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Blue));
+        Assert.That(fillBrush.Color.Evaluate(CompositionContext.Default), Is.EqualTo(Colors.Red));
+        Assert.That(penBrush.Color.Evaluate(CompositionContext.Default), Is.EqualTo(Colors.Blue));
 
         Assert.That(history.History.Redo(), Is.True);
         Evaluate(graph);
@@ -431,7 +431,7 @@ public class NestedInputPortTests
         graph.Disconnect(penConnection);
         Evaluate(graph);
         Assert.That(graph.AllConnections.Single().Status, Is.EqualTo(ConnectionStatus.Success));
-        Assert.That(fillBrush.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Red));
+        Assert.That(fillBrush.Color.Evaluate(CompositionContext.Default), Is.EqualTo(Colors.Red));
     }
 
     [Test]
@@ -451,8 +451,8 @@ public class NestedInputPortTests
 
         Assert.That(Find(node, original.X), Is.SameAs(port));
         Assert.That(Find(node, inserted.X).Id, Is.Not.EqualTo(port.Id));
-        Assert.That(original.X.GetValue(CompositionContext.Default), Is.EqualTo(42f));
-        Assert.That(inserted.X.GetValue(CompositionContext.Default), Is.Zero);
+        Assert.That(original.X.Evaluate(CompositionContext.Default), Is.EqualTo(42f));
+        Assert.That(inserted.X.Evaluate(CompositionContext.Default), Is.Zero);
     }
 
     [Test]
@@ -508,7 +508,7 @@ public class NestedInputPortTests
 
         Assert.That(group.Items, Is.EqualTo(roots));
         Assert.That(group.EnumerateMembers().Take(roots.Length), Is.EqualTo(roots));
-        Assert.That(factory.Object.Brush.GetValue(CompositionContext.Default)!.Opacity.GetValue(CompositionContext.Default),
+        Assert.That(factory.Object.Brush.Evaluate(CompositionContext.Default)!.Opacity.Evaluate(CompositionContext.Default),
             Is.EqualTo(25f));
         Assert.That(graph.AllConnections.Single().Status, Is.EqualTo(ConnectionStatus.Success));
     }
@@ -530,7 +530,7 @@ public class NestedInputPortTests
         Evaluate(graph);
 
         Assert.That(Find(node, gradient.Opacity), Is.SameAs(opacity));
-        Assert.That(gradient.Opacity.GetValue(CompositionContext.Default), Is.EqualTo(25f));
+        Assert.That(gradient.Opacity.Evaluate(CompositionContext.Default), Is.EqualTo(25f));
         Assert.That(graph.AllConnections, Has.Count.EqualTo(1));
         Assert.That(brush.Color.Expression, Is.Null);
     }
@@ -553,8 +553,8 @@ public class NestedInputPortTests
         history.History.Commit("Move");
         Evaluate(graph);
         Assert.That(Find(node, first.X), Is.SameAs(port));
-        Assert.That(first.X.GetValue(CompositionContext.Default), Is.EqualTo(42f));
-        Assert.That(second.X.GetValue(CompositionContext.Default), Is.Zero);
+        Assert.That(first.X.Evaluate(CompositionContext.Default), Is.EqualTo(42f));
+        Assert.That(second.X.Evaluate(CompositionContext.Default), Is.Zero);
 
         node.Object.Children.Remove(first);
         history.History.Commit("Remove");
@@ -565,7 +565,7 @@ public class NestedInputPortTests
         Evaluate(graph);
         Assert.That(Find(node, first.X), Is.SameAs(port));
         Assert.That(graph.AllConnections.Single(), Is.SameAs(connection));
-        Assert.That(first.X.GetValue(CompositionContext.Default), Is.EqualTo(42f));
+        Assert.That(first.X.Evaluate(CompositionContext.Default), Is.EqualTo(42f));
 
         history.History.Redo();
         Assert.That(graph.AllConnections, Is.Empty);
@@ -626,7 +626,7 @@ public class NestedInputPortTests
         Assert.That(restoredPort, Is.Not.Null);
         var restoredProperty = (IExpressionProperty<float>)restoredPort.Property!.GetEngineProperty()!;
         Assert.That(restoredProperty.Expression, Is.InstanceOf<NodePortExpression<float>>());
-        Assert.That(restoredProperty.GetValue(CompositionContext.Default), Is.EqualTo(42f));
+        Assert.That(restoredProperty.Evaluate(CompositionContext.Default), Is.EqualTo(42f));
         Assert.That(restored.AllConnections.Single().Status, Is.EqualTo(ConnectionStatus.Success));
     }
 
@@ -653,16 +653,16 @@ public class NestedInputPortTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(CoreSerializer.SerializeToJsonObject(restored).ToJsonString(), Is.EqualTo(json.ToJsonString()));
-            Assert.That(x.GetValue(context), Is.EqualTo(42f));
+            Assert.That(x.Evaluate(context), Is.EqualTo(42f));
             Assert.That(x.Expression, Is.InstanceOf<NodePortExpression<float>>());
             Assert.That(x.Expression!.Replaced!.ExpressionString, Is.EqualTo("7"));
             Assert.That(x.Expression.Replaced.Replaced, Is.SameAs(x.GetKeyFrameAnimation()).And.Not.Null);
         }
 
         restored.Disconnect(restored.AllConnections.Single());
-        Assert.That(x.GetValue(context), Is.EqualTo(7f));
+        Assert.That(x.Evaluate(context), Is.EqualTo(7f));
         x.Expression = null;
-        Assert.That(x.GetValue(context), Is.EqualTo(50f).Within(1e-4f));
+        Assert.That(x.Evaluate(context), Is.EqualTo(50f).Within(1e-4f));
     }
 
     [Test]
@@ -714,7 +714,7 @@ public class NestedInputPortTests
         history.History.Commit("Repair brush");
         Evaluate(restored);
         Assert.That(Find(restoredNode, repaired.Color), Is.SameAs(port));
-        Assert.That(repaired.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Red));
+        Assert.That(repaired.Color.Evaluate(CompositionContext.Default), Is.EqualTo(Colors.Red));
         Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Success));
 
         Assert.That(history.History.Undo(), Is.True);
@@ -728,7 +728,7 @@ public class NestedInputPortTests
         Assert.That(history.History.Redo(), Is.True);
         Evaluate(restored);
         Assert.That(Find(restoredNode, repaired.Color), Is.SameAs(port));
-        Assert.That(repaired.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Red));
+        Assert.That(repaired.Color.Evaluate(CompositionContext.Default), Is.EqualTo(Colors.Red));
         Assert.That(restored.AllConnections.Single(), Is.SameAs(connection));
         Assert.That(recorded, Has.Count.EqualTo(1), "Repairing and rebinding must only record the brush replacement.");
     }
@@ -779,8 +779,8 @@ public class NestedInputPortTests
 
         Assert.That(Find(node, repaired.X), Is.SameAs(retainedPort));
         Assert.That(graph.AllConnections.Single().Id, Is.EqualTo(connection.Id));
-        Assert.That(repaired.X.GetValue(CompositionContext.Default), Is.EqualTo(42f));
-        Assert.That(((TranslateTransform)node.Object.Children[0]).X.GetValue(CompositionContext.Default), Is.Zero);
+        Assert.That(repaired.X.Evaluate(CompositionContext.Default), Is.EqualTo(42f));
+        Assert.That(((TranslateTransform)node.Object.Children[0]).X.Evaluate(CompositionContext.Default), Is.Zero);
         Assert.That(graph.AllConnections.Single().Status, Is.EqualTo(ConnectionStatus.Success));
     }
 
@@ -846,8 +846,8 @@ public class NestedInputPortTests
         Assert.That(node.Object.Children, Is.EqualTo(new[] { first, third, second }));
         Assert.That(node.NestedInputPorts, Is.EqualTo(originalPorts));
         Assert.That(graph.AllConnections, Is.EquivalentTo(new[] { firstConnection, thirdConnection }));
-        Assert.That(first.X.GetValue(CompositionContext.Default), Is.EqualTo(42f));
-        Assert.That(third.X.GetValue(CompositionContext.Default), Is.EqualTo(73f));
+        Assert.That(first.X.Evaluate(CompositionContext.Default), Is.EqualTo(42f));
+        Assert.That(third.X.Evaluate(CompositionContext.Default), Is.EqualTo(73f));
 
         Assert.That(history.History.Redo(), Is.True);
         Assert.That(node.Object.Children, Is.EqualTo(new[] { second }));
@@ -900,6 +900,6 @@ public class NestedInputPortTests
         Evaluate(graph);
 
         Assert.That(graph.AllConnections.Single(), Is.SameAs(connection));
-        Assert.That(brush.Color.GetValue(CompositionContext.Default), Is.EqualTo(Colors.Red));
+        Assert.That(brush.Color.Evaluate(CompositionContext.Default), Is.EqualTo(Colors.Red));
     }
 }

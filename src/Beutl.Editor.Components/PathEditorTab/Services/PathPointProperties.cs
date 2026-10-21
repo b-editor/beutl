@@ -21,8 +21,8 @@ internal static class PathPointProperties
         {
             new(anchor, anchor.GetEndPoint(), PathPointPropertyRole.Position)
         };
-        bool closed = figure.IsClosed.GetValue(context);
-        bool explicitStart = !figure.StartPoint.GetValue(context).IsInvalid;
+        bool closed = figure.IsClosed.Evaluate(context);
+        bool explicitStart = !figure.StartPoint.Evaluate(context).IsInvalid;
         if (index > 0 || closed || explicitStart)
         {
             IExpressionProperty<Point>? incoming = anchor switch

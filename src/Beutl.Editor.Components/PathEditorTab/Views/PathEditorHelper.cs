@@ -25,7 +25,7 @@ public static class PathEditorHelper
         foreach (Thumb thumb in canvas.Children.OfType<Thumb>())
         {
             if (GetProperty(thumb) is { } property)
-                SetCanvasPosition(thumb, view.Matrix.Transform(property.GetValue(context).ToAvaPoint()) * view.Scale);
+                SetCanvasPosition(thumb, view.Matrix.Transform(property.Evaluate(context).ToAvaPoint()) * view.Scale);
         }
     }
 
@@ -105,7 +105,7 @@ public static class PathEditorHelper
             if (index > 0)
             {
                 PathSegment lastOp = figure.Segments[index - 1];
-                lastPoint = lastOp.GetEndPoint().GetValue(new CompositionContext(clock.CurrentTime.Value));
+                lastPoint = lastOp.GetEndPoint().Evaluate(new CompositionContext(clock.CurrentTime.Value));
             }
 
             BtlPoint point = (click / scale).ToBtlPoint();

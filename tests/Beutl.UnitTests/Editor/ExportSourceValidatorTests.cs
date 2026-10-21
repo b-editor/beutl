@@ -686,7 +686,7 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Is.Empty);
     }
 
-    // When a property carries an expression, IProperty.GetValue evaluates the expression and never
+    // When a property carries an expression, IExpressionProperty.Evaluate evaluates the expression and never
     // samples the base or the animation, so a missing base/keyframe source must not block export while
     // the expression resolves to an existing source.
     [Test]
@@ -944,7 +944,7 @@ public sealed class ExportSourceValidatorTests
     }
 
     // A reference-expression whose target id cannot be resolved evaluates to DefaultValue (null), so
-    // IProperty.GetValue never samples the stale Value while the expression is set. A presenter
+    // IExpressionProperty.Evaluate never samples the stale Value while the expression is set. A presenter
     // Target with a broken reference and a Value holding a missing file must therefore not report
     // that file — the render opens nothing.
     [Test]

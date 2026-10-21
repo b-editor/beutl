@@ -36,21 +36,21 @@ internal sealed partial class PathEditorInteraction
         var composition = Composition;
         int first = PathEditingOperations.FirstEdge(figure, composition);
         int next = index + 1;
-        if (next == figure.Segments.Count && figure.IsClosed.GetValue(composition)
-            && figure.StartPoint.GetValue(composition).IsInvalid) next = 0;
+        if (next == figure.Segments.Count && figure.IsClosed.Evaluate(composition)
+            && figure.StartPoint.Evaluate(composition).IsInvalid) next = 0;
         if (index >= first && !CanBendEdge(index, incoming: true)
             || next < figure.Segments.Count && !CanBendEdge(next, incoming: false)) return;
-        BtlPoint point = anchor.GetEndPoint().GetValue(composition);
+        BtlPoint point = anchor.GetEndPoint().Evaluate(composition);
         // Sub-pixel differences must not turn an apparently collapsed corner into
         // a "remove handles" click. The inspector rounds these coordinates too.
         bool hasHandles = PathPointProperties.Get(figure, anchor, composition)
             .Any(p => p.Role != PathPointPropertyRole.Position
-                && ((Vector)(Screen(p.Property.GetValue(composition)) - Screen(point))).SquaredLength > 1);
+                && ((Vector)(Screen(p.Property.Evaluate(composition)) - Screen(point))).SquaredLength > 1);
         PathSegment selected = anchor;
         Mutate(() =>
         {
             BtlPoint before = index >= first ? PathEditingOperations.Start(figure, index, composition) : point;
-            BtlPoint after = next < figure.Segments.Count ? figure.Segments[next].GetEndPoint().GetValue(composition) : point;
+            BtlPoint after = next < figure.Segments.Count ? figure.Segments[next].GetEndPoint().Evaluate(composition) : point;
             var tangent = after - before;
             float length = MathF.Sqrt(tangent.X * tangent.X + tangent.Y * tangent.Y);
             if (length == 0)
@@ -95,7 +95,7 @@ internal sealed partial class PathEditorInteraction
             // Editing existing handles does not replace segments or bake their animation.
             var state = PathPointDragBehavior.CreateThumbDragState(Context!, segment, property);
             if (state.Previous == null && state.Next == null) property.Value = value;
-            else state.Move((BtlVector)(value - property.GetValue(composition)));
+            else state.Move((BtlVector)(value - property.Evaluate(composition)));
         }
     }
 }

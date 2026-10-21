@@ -259,8 +259,8 @@ internal sealed partial class GroupPenProbeNode : GraphNode
         public override void Update(GraphCompositionContext context)
         {
             var node = RequireOriginal();
-            node.LastThickness = Input?.Thickness.GetValue(context);
-            node.LastOpacity = Input?.Brush.GetValue(context)?.Opacity.GetValue(context);
+            node.LastThickness = Input?.Thickness.Evaluate(context);
+            node.LastOpacity = Input?.Brush.Evaluate(context)?.Opacity.Evaluate(context);
         }
     }
 }

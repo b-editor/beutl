@@ -27,38 +27,38 @@ internal static class PathEditingOperations
 
     internal static Point Start(PathFigure figure, int index, CompositionContext context)
     {
-        if (index > 0) return figure.Segments[index - 1].GetEndPoint().GetValue(context);
-        Point start = figure.StartPoint.GetValue(context);
-        return !start.IsInvalid ? start : figure.Segments[^1].GetEndPoint().GetValue(context);
+        if (index > 0) return figure.Segments[index - 1].GetEndPoint().Evaluate(context);
+        Point start = figure.StartPoint.Evaluate(context);
+        return !start.IsInvalid ? start : figure.Segments[^1].GetEndPoint().Evaluate(context);
     }
 
     internal static int FirstEdge(PathFigure figure, CompositionContext context) =>
-        figure.StartPoint.GetValue(context).IsInvalid && !figure.IsClosed.GetValue(context) ? 1 : 0;
+        figure.StartPoint.Evaluate(context).IsInvalid && !figure.IsClosed.Evaluate(context) ? 1 : 0;
 
     internal static int EdgeCount(PathFigure figure, CompositionContext context) => figure.Segments.Count
-        + (figure.Segments.Count > 0 && figure.IsClosed.GetValue(context)
-            && !figure.StartPoint.GetValue(context).IsInvalid ? 1 : 0);
+        + (figure.Segments.Count > 0 && figure.IsClosed.Evaluate(context)
+            && !figure.StartPoint.Evaluate(context).IsInvalid ? 1 : 0);
 
     internal static Point EvaluateEdge(PathFigure figure, int index, float t, CompositionContext context) =>
         index == figure.Segments.Count
-            ? Lerp(Start(figure, index, context), figure.StartPoint.GetValue(context), t)
+            ? Lerp(Start(figure, index, context), figure.StartPoint.Evaluate(context), t)
             : Evaluate(Start(figure, index, context), figure.Segments[index], t, context);
 
     internal static Point Evaluate(Point start, PathSegment segment, float t, CompositionContext context)
     {
-        Point end = segment.GetEndPoint().GetValue(context);
+        Point end = segment.GetEndPoint().Evaluate(context);
         switch (segment)
         {
             case CubicBezierSegment c:
-                Point a = Lerp(start, c.ControlPoint1.GetValue(context), t);
-                Point b = Lerp(c.ControlPoint1.GetValue(context), c.ControlPoint2.GetValue(context), t);
-                Point d = Lerp(c.ControlPoint2.GetValue(context), end, t);
+                Point a = Lerp(start, c.ControlPoint1.Evaluate(context), t);
+                Point b = Lerp(c.ControlPoint1.Evaluate(context), c.ControlPoint2.Evaluate(context), t);
+                Point d = Lerp(c.ControlPoint2.Evaluate(context), end, t);
                 return Lerp(Lerp(a, b, t), Lerp(b, d, t), t);
             case QuadraticBezierSegment q:
-                return Lerp(Lerp(start, q.ControlPoint.GetValue(context), t), Lerp(q.ControlPoint.GetValue(context), end, t), t);
+                return Lerp(Lerp(start, q.ControlPoint.Evaluate(context), t), Lerp(q.ControlPoint.Evaluate(context), end, t), t);
             case ConicSegment c:
-                float w = c.Weight.GetValue(context), u = 1 - t;
-                Point control = c.ControlPoint.GetValue(context);
+                float w = c.Weight.Evaluate(context), u = 1 - t;
+                Point control = c.ControlPoint.Evaluate(context);
                 float denominator = u * u + 2 * w * u * t + t * t;
                 return new((u * u * start.X + 2 * w * u * t * control.X + t * t * end.X) / denominator,
                     (u * u * start.Y + 2 * w * u * t * control.Y + t * t * end.Y) / denominator);
@@ -238,7 +238,7 @@ internal static class PathEditingOperations
         if (!CanSplit(figure, index, preserveSingleKeyframe: false)) return null;
         if (index == figure.Segments.Count)
         {
-            Point last = Start(figure, index, context), first = figure.StartPoint.GetValue(context);
+            Point last = Start(figure, index, context), first = figure.StartPoint.Evaluate(context);
             var closing = Cubic(Lerp(last, first, 1f / 3), Lerp(last, first, 2f / 3), first);
             figure.Segments.Add(closing);
             return closing;
@@ -269,11 +269,11 @@ internal static class PathEditingOperations
     // A double-precision center can differ visibly at a nearly semicircular arc.
     private static EllipticalArc? GetArc(Point start, ArcSegment arc, CompositionContext context)
     {
-        Point end = arc.Point.GetValue(context);
-        Size radius = arc.Radius.GetValue(context);
+        Point end = arc.Point.Evaluate(context);
+        Size radius = arc.Radius.Evaluate(context);
         float rx = Math.Abs(radius.Width), ry = Math.Abs(radius.Height);
         if (start == end || rx == 0 || ry == 0) return null;
-        float rotation = arc.RotationAngle.GetValue(context);
+        float rotation = arc.RotationAngle.Evaluate(context);
         SKMatrix unrotate = SKMatrix.CreateRotationDegrees(-rotation);
         var midpoint = unrotate.MapPoint((start.X - end.X) / 2, (start.Y - end.Y) / 2);
         float scale = midpoint.X * midpoint.X / (rx * rx) + midpoint.Y * midpoint.Y / (ry * ry);
@@ -281,9 +281,9 @@ internal static class PathEditingOperations
         SKMatrix normalize = SKMatrix.Concat(SKMatrix.CreateScale(1 / rx, 1 / ry), unrotate);
         SKPoint a = normalize.MapPoint(start.X, start.Y), b = normalize.MapPoint(end.X, end.Y);
         float dx = b.X - a.X, dy = b.Y - a.Y;
-        bool clockwise = arc.SweepClockwise.GetValue(context);
+        bool clockwise = arc.SweepClockwise.Evaluate(context);
         float factor = MathF.Sqrt(Math.Max(0, 1 / (dx * dx + dy * dy) - .25f));
-        if (!clockwise != arc.IsLargeArc.GetValue(context)) factor = -factor;
+        if (!clockwise != arc.IsLargeArc.Evaluate(context)) factor = -factor;
         float cx = (a.X + b.X) / 2 - dy * factor, cy = (a.Y + b.Y) / 2 + dx * factor;
         float angle = MathF.Atan2(a.Y - cy, a.X - cx);
         float sweep = MathF.Atan2(b.Y - cy, b.X - cx) - angle;

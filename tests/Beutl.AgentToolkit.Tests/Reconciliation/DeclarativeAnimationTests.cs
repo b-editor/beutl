@@ -374,7 +374,7 @@ public sealed class DeclarativeAnimationTests
         Element element = ((FileEditingSession)source.CurrentSession!).Scene.Children.Single();
         var rect = (RectShape)element.Objects.Single();
         var animation = (KeyFrameAnimation<float>)rect.Opacity.GetKeyFrameAnimation()!;
-        float actual = rect.Opacity.GetValue(new CompositionContext(TimeSpan.FromSeconds(5.5)));
+        float actual = rect.Opacity.Evaluate(new CompositionContext(TimeSpan.FromSeconds(5.5)));
 
         Assert.Multiple(() =>
         {
@@ -445,8 +445,8 @@ public sealed class DeclarativeAnimationTests
             outputPath,
             renderScale: 1,
             CancellationToken.None);
-        float opacity = rect.Opacity.GetValue(new CompositionContext(TimeSpan.FromSeconds(2.5)));
-        float translateY = translate.Y.GetValue(new CompositionContext(TimeSpan.FromSeconds(2.5)));
+        float opacity = rect.Opacity.Evaluate(new CompositionContext(TimeSpan.FromSeconds(2.5)));
+        float translateY = translate.Y.Evaluate(new CompositionContext(TimeSpan.FromSeconds(2.5)));
 
         Assert.Multiple(() =>
         {

@@ -1380,7 +1380,7 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(migratedOptionalReference.Value, Is.SameAs(reloadedRepaired));
             Assert.That(migratedExpression.ObjectId, Is.EqualTo(repairedId));
             Assert.That(
-                reloadedHolder.ExpressionTarget.GetValue(CompositionContext.Default),
+                reloadedHolder.ExpressionTarget.Evaluate(CompositionContext.Default),
                 Is.SameAs(reloadedRepaired));
         });
     }

@@ -25,14 +25,14 @@ public static partial class ProxySourceEnumerator
             // Connected nested inputs override this exact property, including its base, animation,
             // and object subtree. The upstream node contributes the effective sources instead.
             if (walkContext?.ConnectedNodeInputs?.Contains(property) == true) continue;
-            // IProperty.GetValue evaluates an expression ahead of the animation/current value, so a
+            // IExpressionProperty.Evaluate evaluates an expression ahead of the animation/current value, so a
             // reference-expression pointing at a file source is what the render opens. Resolve it (no
             // evaluation — just id/path lookup) and report its sources. StringExpressions are arbitrary
             // C# and are not evaluated here.
             foreach (IFileSource source in EnumerateExpressionFileSources(obj, (property as IExpressionProperty)?.Expression, localRange, skipDisabledElements, visitedValues, sceneWindow, walkContext: walkContext))
                 yield return source;
 
-            // When an expression is present, GetValue takes the expression branch and never samples the
+            // When an expression is present, Evaluate takes the expression branch and never samples the
             // base value or the animation, so in a windowed pass (which mirrors what the render opens)
             // they must not block export. Without a window (proxy/badge scan) keep them, since an
             // unresolvable expression is not something the scanner can follow.

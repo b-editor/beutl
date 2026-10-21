@@ -224,8 +224,8 @@ internal sealed partial class PathEditorInteraction
             || Context?.PathFigure.Value is not { Segments.Count: > 0 } figure
             || !figure.Segments.Contains(_penEnd)) return;
         var context = Composition;
-        BtlPoint start = figure.StartPoint.GetValue(context);
-        if (start.IsInvalid || figure.IsClosed.GetValue(context) || !CanCloseExplicitPath(figure)) return;
+        BtlPoint start = figure.StartPoint.Evaluate(context);
+        if (start.IsInvalid || figure.IsClosed.Evaluate(context) || !CanCloseExplicitPath(figure)) return;
         Point point = Screen(start);
         Canvas.SetLeft(_explicitStart, point.X - 4);
         Canvas.SetTop(_explicitStart, point.Y - 4);
@@ -360,7 +360,7 @@ internal sealed partial class PathEditorInteraction
         _preview.IsVisible = Tool == PathEditorTool.Pen && _penEnd != null;
         if (_preview.IsVisible)
         {
-            _preview.StartPoint = Screen(_penEnd!.GetEndPoint().GetValue(Composition));
+            _preview.StartPoint = Screen(_penEnd!.GetEndPoint().Evaluate(Composition));
             _preview.EndPoint = position;
         }
     }

@@ -254,8 +254,8 @@ public partial class PlayerView
             if (_camera != null)
             {
                 // カメラの方向からYawとPitchを計算する（+Yが下向きなので、Pitchが増えると下を向く）
-                var position = _camera.Position.GetValue(CompositionContext);
-                var target = _camera.Target.GetValue(CompositionContext);
+                var position = _camera.Position.Evaluate(CompositionContext);
+                var target = _camera.Target.Evaluate(CompositionContext);
                 var forward = Vector3.Normalize(target - position);
 
                 _yaw = MathF.Atan2(forward.X, forward.Z);
@@ -277,10 +277,10 @@ public partial class PlayerView
 
             if (_leftPressed && _selectedObject != null && _camera != null)
             {
-                var cameraPosition = _camera.Position.GetValue(CompositionContext);
-                var cameraTarget = _camera.Target.GetValue(CompositionContext);
+                var cameraPosition = _camera.Position.Evaluate(CompositionContext);
+                var cameraTarget = _camera.Target.Evaluate(CompositionContext);
                 var forward = Vector3.Normalize(cameraTarget - cameraPosition);
-                var up = _camera.Up.GetValue(CompositionContext);
+                var up = _camera.Up.Evaluate(CompositionContext);
                 var right = Vector3.Normalize(Vector3.Cross(forward, up));
                 var cameraUp = Vector3.Normalize(Vector3.Cross(right, forward));
 
@@ -444,8 +444,8 @@ public partial class PlayerView
             );
 
             // カメラのターゲットを、注視点までの距離を保ったまま更新する
-            var cameraPosition = camera.Position.GetValue(CompositionContext);
-            var currentTarget = camera.Target.GetValue(CompositionContext);
+            var cameraPosition = camera.Position.Evaluate(CompositionContext);
+            var currentTarget = camera.Target.Evaluate(CompositionContext);
             float targetDistance = MathF.Max(Vector3.Distance(cameraPosition, currentTarget), 1f);
             var newTarget = cameraPosition + forward * targetDistance;
             var targetDelta = newTarget - currentTarget;
@@ -505,8 +505,8 @@ public partial class PlayerView
             var posKeyFrame = FindKeyFramePairOrNull(_camera.Position);
             var targetKeyFrame = FindKeyFramePairOrNull(_camera.Target);
 
-            var position = _camera.Position.GetValue(CompositionContext);
-            var target = _camera.Target.GetValue(CompositionContext);
+            var position = _camera.Position.Evaluate(CompositionContext);
+            var target = _camera.Target.Evaluate(CompositionContext);
             // A camera on its target has no direction to move along.
             if (target == position) return;
             var forward = Vector3.Normalize(target - position);
@@ -555,10 +555,10 @@ public partial class PlayerView
             if (_camera == null)
                 return;
 
-            var position = _camera.Position.GetValue(CompositionContext);
-            var target = _camera.Target.GetValue(CompositionContext);
+            var position = _camera.Position.Evaluate(CompositionContext);
+            var target = _camera.Target.Evaluate(CompositionContext);
             var forward = Vector3.Normalize(target - position);
-            var up = _camera.Up.GetValue(CompositionContext);
+            var up = _camera.Up.Evaluate(CompositionContext);
             var right = Vector3.Normalize(Vector3.Cross(forward, up));
 
             var movement = Vector3.Zero;
@@ -651,21 +651,21 @@ public partial class PlayerView
 
             Scene scene = EditViewModel.Scene;
             float sceneHeight = scene.FrameSize.Height;
-            float renderHeight = _scene3D.RenderHeight.GetValue(CompositionContext);
-            float renderWidth = _scene3D.RenderWidth.GetValue(CompositionContext);
+            float renderHeight = _scene3D.RenderHeight.Evaluate(CompositionContext);
+            float renderWidth = _scene3D.RenderWidth.Evaluate(CompositionContext);
             // The 3D render is drawn at its own size into the scene, which the preview then fits to the view.
             double renderPixelsPerViewPixel = sceneHeight / viewHeight;
             float worldPerRenderPixel = _camera switch
             {
                 PerspectiveCamera perspective => 2
                     * GizmoHitTester.GetViewDepth(
-                        _camera.Position.GetValue(CompositionContext),
-                        _camera.Target.GetValue(CompositionContext),
-                        _camera.NearPlane.GetValue(CompositionContext),
+                        _camera.Position.Evaluate(CompositionContext),
+                        _camera.Target.Evaluate(CompositionContext),
+                        _camera.NearPlane.Evaluate(CompositionContext),
                         GetWorldPosition(obj))
-                    * MathF.Tan(perspective.FieldOfView.GetValue(CompositionContext) * MathF.PI / 360f)
+                    * MathF.Tan(perspective.FieldOfView.Evaluate(CompositionContext) * MathF.PI / 360f)
                     / renderHeight,
-                OrthographicCamera orthographic => orthographic.Width.GetValue(CompositionContext) / renderWidth,
+                OrthographicCamera orthographic => orthographic.Width.Evaluate(CompositionContext) / renderWidth,
                 _ => 1f,
             };
 
@@ -686,7 +686,7 @@ public partial class PlayerView
                         : Renderer3D.GetWorldPosition(sceneResource.Objects, target);
                 }, RenderThreadWait);
 
-            return position ?? obj.Position.GetValue(CompositionContext);
+            return position ?? obj.Position.Evaluate(CompositionContext);
         }
 
         // Converts a world-space direction into the space of the groups the object is nested in.

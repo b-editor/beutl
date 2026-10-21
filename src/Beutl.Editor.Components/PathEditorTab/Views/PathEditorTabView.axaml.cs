@@ -128,7 +128,7 @@ public partial class PathEditorTabView : PathEditorViewBase
         var clock = model.EditorContext.GetRequiredService<IEditorClock>();
         var composition = new CompositionContext(clock.CurrentTime.Value);
         BtlPoint[] points = GetSelectedAnchors().Select(PathEditorHelper.GetProperty)
-            .Where(p => p != null).Select(p => p!.GetValue(composition)).ToArray();
+            .Where(p => p != null).Select(p => p!.Evaluate(composition)).ToArray();
         _updatingCoordinates = true;
         try
         {

@@ -113,7 +113,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
         Edited?.Invoke(sender, e);
     }
 
-    public T GetValue(EvaluationContext context)
+    public T Evaluate(EvaluationContext context)
     {
         if (Volatile.Read(ref _expressionState) is { } expressionState)
         {

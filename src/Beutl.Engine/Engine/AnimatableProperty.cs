@@ -149,7 +149,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
         Edited?.Invoke(sender, e);
     }
 
-    public T GetValue(EvaluationContext context)
+    public T Evaluate(EvaluationContext context)
     {
         T value;
 

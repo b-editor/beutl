@@ -321,12 +321,12 @@ public partial class PlayerView
             // Snapshot before Ensure mutates the document — a non-finite value here aborts the drag so
             // we don't leave a structural mutation that the user can't fix via undo. Fallbacks must match
             // the property defaults of the R/S/T inserted by Ensure (T=0, S=100, R=0).
-            var (probeR, probeS, probeT) = CanonicalTransformLayout.FindCanonicalTransforms(_press.Drawable.Transform.GetValue(ctx));
-            float startTransX = probeT?.X.GetValue(ctx) ?? 0f;
-            float startTransY = probeT?.Y.GetValue(ctx) ?? 0f;
-            float startScaleX = probeS?.ScaleX.GetValue(ctx) ?? 100f;
-            float startScaleY = probeS?.ScaleY.GetValue(ctx) ?? 100f;
-            float startRotation = probeR?.Rotation.GetValue(ctx) ?? 0f;
+            var (probeR, probeS, probeT) = CanonicalTransformLayout.FindCanonicalTransforms(_press.Drawable.Transform.Evaluate(ctx));
+            float startTransX = probeT?.X.Evaluate(ctx) ?? 0f;
+            float startTransY = probeT?.Y.Evaluate(ctx) ?? 0f;
+            float startScaleX = probeS?.ScaleX.Evaluate(ctx) ?? 100f;
+            float startScaleY = probeS?.ScaleY.Evaluate(ctx) ?? 100f;
+            float startRotation = probeR?.Rotation.Evaluate(ctx) ?? 0f;
 
             if (!float.IsFinite(startTransX) || !float.IsFinite(startTransY)
                 || !float.IsFinite(startScaleX) || !float.IsFinite(startScaleY)
@@ -680,8 +680,8 @@ public partial class PlayerView
             float dx = ((ex * afterTranslate.M22) - (ey * afterTranslate.M21)) / det;
             float dy = ((ey * afterTranslate.M11) - (ex * afterTranslate.M12)) / det;
 
-            return (ensured.Translate.X.GetValue(ctx) + dx - ensured.StartTransX,
-                ensured.Translate.Y.GetValue(ctx) + dy - ensured.StartTransY);
+            return (ensured.Translate.X.Evaluate(ctx) + dx - ensured.StartTransX,
+                ensured.Translate.Y.Evaluate(ctx) + dy - ensured.StartTransY);
         }
 
         // The enabled transforms the group applies after the given one, which are the ones before it in the list.

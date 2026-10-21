@@ -32,9 +32,9 @@ public class PredefinedColorsAndBrushesTests
     [Test]
     public void Brushes_BasicBrushes_HaveMatchingColors()
     {
-        Assert.That(Brushes.Black.Color.GetValue(Composition.CompositionContext.Default), Is.EqualTo(Colors.Black));
-        Assert.That(Brushes.White.Color.GetValue(Composition.CompositionContext.Default), Is.EqualTo(Colors.White));
-        Assert.That(Brushes.Red.Color.GetValue(Composition.CompositionContext.Default), Is.EqualTo(Colors.Red));
-        Assert.That(Brushes.Transparent.Color.GetValue(Composition.CompositionContext.Default), Is.EqualTo(Colors.Transparent));
+        Assert.That(Brushes.Black.Color.Evaluate(Composition.CompositionContext.Default), Is.EqualTo(Colors.Black));
+        Assert.That(Brushes.White.Color.Evaluate(Composition.CompositionContext.Default), Is.EqualTo(Colors.White));
+        Assert.That(Brushes.Red.Color.Evaluate(Composition.CompositionContext.Default), Is.EqualTo(Colors.Red));
+        Assert.That(Brushes.Transparent.Color.Evaluate(Composition.CompositionContext.Default), Is.EqualTo(Colors.Transparent));
     }
 }

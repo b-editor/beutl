@@ -35,6 +35,6 @@ public class CorePropertyHostingTests
         var host = new Host();
         host.Value.Expression = Expression.Create<double>("Time + 1");
 
-        Assert.That(host.Value.GetValue(new EvaluationContext(TimeSpan.FromSeconds(2))), Is.EqualTo(3));
+        Assert.That(host.Value.Evaluate(new EvaluationContext(TimeSpan.FromSeconds(2))), Is.EqualTo(3));
     }
 }

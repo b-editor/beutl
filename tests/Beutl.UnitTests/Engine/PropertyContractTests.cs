@@ -154,7 +154,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
         IExpressionProperty<int> property = Make(0);
         property.Value = 99;
 
-        int value = property.GetValue(CompositionContext.Default);
+        int value = property.Evaluate(CompositionContext.Default);
 
         Assert.That(value, Is.EqualTo(99));
     }
