@@ -2,6 +2,7 @@
 using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Services;

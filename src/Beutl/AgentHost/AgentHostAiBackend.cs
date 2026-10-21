@@ -1,11 +1,11 @@
 ﻿using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Audio;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Services.AI;
 using Beutl.Media.Decoding;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
-using Beutl.Services.AI;
 
 namespace Beutl.AgentHost;
 

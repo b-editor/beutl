@@ -8,6 +8,7 @@ using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Editor;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.Services.AI;
 using Beutl.Editor.Services.Captions;
@@ -101,6 +102,7 @@ public sealed partial class MainViewModel : BasePageViewModel
         _editorService.BrowserSettingsHost = new BrowserSettingsHost(CreateSettingsDialog);
         _editorService.StorageProviders = new Beutl.Editor.Components.FileBrowserTab.FileBrowserStorageProviderRegistry(
             new BeutlStorageProvider(_beutlClients, CreateSettingsDialog));
+        _editorService.AiWorkspaceHost = this;
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
         _aiJobCompletionNotifier = new AiJobCompletionNotifier(
             _beutlClients.GetResource<IAiJobMonitor>().Snapshot,

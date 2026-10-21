@@ -5,6 +5,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using Beutl.Api.Services;
 using Beutl.Editor;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.VersionControl.Views;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;

@@ -1,6 +1,6 @@
 ﻿using System.Text.Json;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Language;
-using Beutl.Services.AI;
 
 namespace Beutl.UnitTests.Services.AI;
 

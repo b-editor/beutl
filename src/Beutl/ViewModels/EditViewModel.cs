@@ -2,6 +2,8 @@
 using System.Reactive.Linq;
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Services.AI;
 using Beutl.Graphics.Rendering;

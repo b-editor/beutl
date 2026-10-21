@@ -4,13 +4,14 @@ using System.Text.Json;
 using Avalonia.Headless.NUnit;
 using Beutl.Api;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Language;
-using Beutl.Services;
 using Beutl.Services.AI;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Dialogs;
 using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;

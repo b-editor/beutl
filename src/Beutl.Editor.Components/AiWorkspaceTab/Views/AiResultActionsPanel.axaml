@@ -1,0 +1,19 @@
+<UserControl x:Class="Beutl.Editor.Components.AiWorkspaceTab.Views.AiResultActionsPanel"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:vm="using:Beutl.Editor.Components.AiWorkspaceTab.ViewModels"
+             x:CompileBindings="True"
+             x:DataType="vm:IAiResultActions"
+             IsVisible="{CompiledBinding CanAddToScene.Value}">
+    <WrapPanel Orientation="Horizontal">
+        <Button x:Name="AddToSceneButton"
+                Margin="0,0,8,8"
+                Command="{CompiledBinding AddToScene}"
+                Content="{x:Static lang:Strings.AiAddToScene}" />
+        <Button x:Name="SaveToFileButton"
+                Margin="0,0,0,8"
+                Command="{CompiledBinding SaveToFile}"
+                Content="{x:Static lang:Strings.AiSaveToFile}" />
+    </WrapPanel>
+</UserControl>

@@ -1,7 +1,7 @@
 ﻿using System.Text;
 using Beutl.Api.Services;
-using Beutl.Services.AI;
-using Beutl.ViewModels.Dialogs;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 
 namespace Beutl.HeadlessUITests;
 

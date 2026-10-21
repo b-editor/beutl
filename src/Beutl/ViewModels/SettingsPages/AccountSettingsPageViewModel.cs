@@ -2,6 +2,9 @@
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
 using Beutl.ViewModels.ExtensionsPages;

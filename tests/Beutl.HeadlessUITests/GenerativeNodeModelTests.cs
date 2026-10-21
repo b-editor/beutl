@@ -2,6 +2,7 @@
 using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Components.NodeGraphTab.PropertyEditors;
 using Beutl.Editor.Services.AI;
 using Beutl.Extensibility;

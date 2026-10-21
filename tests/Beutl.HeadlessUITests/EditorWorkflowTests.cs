@@ -1,12 +1,12 @@
 ﻿using System.Runtime.Versioning;
 using Avalonia.Headless.NUnit;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
-using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using SkiaSharp;

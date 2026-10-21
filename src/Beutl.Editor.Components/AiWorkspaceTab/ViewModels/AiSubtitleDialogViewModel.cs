@@ -1,0 +1,846 @@
+﻿using Avalonia.Threading;
+using Beutl.Animation;
+using Beutl.Api;
+using Beutl.Api.Services;
+using Beutl.Audio;
+using Beutl.Collections;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
+using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Models;
+using Beutl.Editor.Services;
+using Beutl.Editor.Services.AI;
+using Beutl.Editor.Services.Captions;
+using Beutl.Engine;
+using Beutl.Graphics.Shapes;
+using Beutl.Language;
+using Beutl.Logging;
+using Beutl.Media;
+using Beutl.Media.Source;
+using Beutl.ProjectSystem;
+using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Reactive.Bindings;
+
+namespace Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
+
+public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDisposable, IAiModelListConsumer, IAiPlanOffer
+{
+    private readonly CompositeDisposable _disposables = [];
+    private readonly AsyncOperationLifetime _operations = new();
+    private readonly object _disposeGate = new();
+    private readonly LifetimeCancellationSource _lifetimeCts = new();
+    private CancellationTokenSource? _requestCts;
+    private readonly ILogger _logger = Log.CreateLogger<AiSubtitleDialogViewModel>();
+    private readonly IAiTranscriptionService _transcription;
+    private readonly IAiCaptionTranslationService _translation;
+    private readonly IAiEntitlementService _entitlements;
+    private readonly IAiOperationAvailabilityService _availability;
+    private readonly IAiModelCatalogService _modelCatalog;
+    private readonly IAiPlanCoordinator _aiPlanCoordinator;
+    private readonly IAiJobResultEditorContext? _editor;
+    private readonly ICaptionCodecProvider _captionCodecs;
+    private readonly ICaptionTemplateProvider _captionTemplates;
+    private readonly ICoreReadOnlyList<CaptionTemplateDescriptor> _registeredCaptionTemplates;
+    private readonly CoreList<CaptionTemplateDescriptor> _captionTemplateChoices;
+    private CaptionTemplateDescriptor[]? _latestCaptionTemplates;
+    private CaptionTemplateId? _chosenCaptionTemplateId;
+    private readonly CaptionDocumentSerializer _captionSerializer;
+    private readonly ICaptionDraftStore _captionDraftStore;
+    private readonly IObservable<CaptionDraftScope?> _captionDraftScopes;
+    private bool _disposed;
+    private bool _updatingAudioSources;
+    private readonly OnceAsyncDisposal _disposal;
+
+    internal AiSubtitleDialogViewModel(
+        IAiEntitlementService entitlements,
+        IAiOperationAvailabilityService availability,
+        IAiModelCatalogService modelCatalog,
+        IAiPlanCoordinator aiPlanCoordinator,
+        IAiTranscriptionService transcription,
+        IAiCaptionTranslationService translation,
+        CaptionCatalog captionCatalog,
+        ICaptionDraftStore captionDraftStore,
+        IObservable<CaptionDraftScope?> captionDraftScopes,
+        IAiJobResultEditorContext? editor = null)
+    {
+        _disposal = new OnceAsyncDisposal(_disposeGate);
+        _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
+        _availability = availability ?? throw new ArgumentNullException(nameof(availability));
+        _modelCatalog = modelCatalog ?? throw new ArgumentNullException(nameof(modelCatalog));
+        _aiPlanCoordinator = aiPlanCoordinator
+            ?? throw new ArgumentNullException(nameof(aiPlanCoordinator));
+        _transcription = transcription ?? throw new ArgumentNullException(nameof(transcription));
+        _translation = translation ?? throw new ArgumentNullException(nameof(translation));
+        ArgumentNullException.ThrowIfNull(captionCatalog);
+        _editor = editor;
+        _captionDraftStore = captionDraftStore
+            ?? throw new ArgumentNullException(nameof(captionDraftStore));
+        _captionDraftScopes = captionDraftScopes
+            ?? throw new ArgumentNullException(nameof(captionDraftScopes));
+        _captionCodecs = captionCatalog.Codecs;
+        _captionTemplates = captionCatalog.Templates;
+        _captionSerializer = captionCatalog.Serializer;
+        Usage = new AiUsageViewModel(_entitlements.Entitlements).DisposeWith(_disposables);
+        // Two operations on one screen, so two pickers: transcription and
+        // translation have their own models and their own prices.
+        TranscriptionModelPicker = new AiModelPickerViewModel(_modelCatalog, _entitlements)
+            .DisposeWith(_disposables);
+        TranslationModelPicker = new AiModelPickerViewModel(_modelCatalog, _entitlements)
+            .DisposeWith(_disposables);
+        // A run holds the model it started on, so replacing the list under it
+        // could not rename its pieces — but it would say the wrong thing about
+        // what the next one will cost.
+        TranscriptionModelPicker.CanReload =
+            _ => !HasPendingTranscriptionName();
+        TranslationModelPicker.CanReload =
+            _ => !HasPendingTranslationName();
+        TranscriptionModelPicker.KeepOffered = operation =>
+            operation == AiOperations.Transcription
+                ? OutstandingTranscriptionModels()
+                : [];
+        TranslationModelPicker.KeepOffered = operation =>
+            operation == AiOperations.CaptionTranslation
+                ? OutstandingTranslationModels()
+                : [];
+
+        AudioSources = new ReactivePropertySlim<IReadOnlyList<AudioSourceItem>>([])
+            .DisposeWith(_disposables);
+        SelectedAudioSource = new ReactivePropertySlim<AudioSourceItem?>()
+            .DisposeWith(_disposables);
+        SelectedAudioSource.Subscribe(_ =>
+        {
+            if (_updatingAudioSources)
+                return;
+
+            ResultSegments.Value = null;
+            Error.Value = null;
+            InvalidatePartialResultResume();
+        }).DisposeWith(_disposables);
+
+        // The picker gets its own copy of the registry's list, so this view model decides when and
+        // how the picker sees a swap; see OfferLatestCaptionTemplates.
+        _registeredCaptionTemplates = captionCatalog.Templates.Templates;
+        _registeredCaptionTemplates.CollectionChanged += OnCaptionTemplatesChanged;
+        _captionTemplateChoices = new CoreList<CaptionTemplateDescriptor>(_registeredCaptionTemplates);
+        CaptionTemplates = _captionTemplateChoices;
+        SelectedCaptionTemplate = new ReactivePropertySlim<CaptionTemplateDescriptor?>(
+                ChooseCaptionTemplate(_captionTemplateChoices, preferredId: null))
+            .DisposeWith(_disposables);
+        // Kept apart from the selection, which is empty while no template exists and for a moment
+        // after the picker has dropped a removed template.
+        SelectedCaptionTemplate.Subscribe(template =>
+        {
+            if (template is not null)
+                _chosenCaptionTemplateId = template.Id;
+        }).DisposeWith(_disposables);
+
+        IsTranscribing = new ReactivePropertySlim<bool>(false)
+            .DisposeWith(_disposables);
+        TranscriptionStatusText = IsTranscribing
+            .Select(value => value ? Strings.AiSubtitle_Transcribing : string.Empty)
+            .ToReadOnlyReactivePropertySlim(string.Empty)
+            .DisposeWith(_disposables);
+
+        InitializeCaptionEditing();
+
+        CanTranscribe = CanTranscribeInput
+            .CombineLatest(
+                IsTranscribing,
+                IsTranslating,
+                (hasInput, transcribing, translating) => hasInput && !transcribing && !translating)
+            // A run that has already named pieces holds a name: a run whose last
+            // piece spent the balance has to stay collectable.
+            .WhenAffordable(TranscriptionEstimate.CanAfford, HasOutstandingTranscriptionRequest)
+            .WhenSomeModelUsable(
+                TranscriptionModelPicker.OffersNothingUsable,
+                HasOutstandingTranscriptionRequest)
+            .WhenModelsLoaded(TranscriptionModelPicker.IsLoaded)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        Transcribe = new AsyncReactiveCommand(CanTranscribe)
+            .WithSubscribe(TranscribeCore);
+
+        StopRequest = new ReactiveCommand(
+            IsTranscribing.CombineLatest(IsTranslating, (a, b) => a || b));
+        StopRequest.Subscribe(() => _requestCts?.Cancel()).DisposeWith(_disposables);
+
+        CanAddToScene = HasValidCues
+            .CombineLatest(
+                SelectedCaptionTemplate,
+                (hasValidCues, template) => hasValidCues && template is not null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        AddToScene = new AsyncReactiveCommand(CanAddToScene)
+            .WithSubscribe(AddToSceneCore);
+
+        OpenAiPlan = new ReactiveCommand();
+        OpenAiPlan.Subscribe(aiPlanCoordinator.OpenAiPlan).DisposeWith(_disposables);
+
+        ShowJoinPro = Usage.HasSnapshot
+            .CombineLatest(Usage.CanUseAi, (hasSnapshot, canUseAi) => hasSnapshot && !canUseAi)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        _ = LoadEntitlementsAsync();
+        LoadAudioSources();
+    }
+
+    public ReactivePropertySlim<IReadOnlyList<AudioSourceItem>> AudioSources { get; }
+
+    public ReactivePropertySlim<AudioSourceItem?> SelectedAudioSource { get; }
+
+    /// <summary>
+    /// The templates the picker offers: this tool's copy of the registry's list, updated on the
+    /// UI thread.
+    /// </summary>
+    public ICoreReadOnlyList<CaptionTemplateDescriptor> CaptionTemplates { get; }
+
+    /// <summary>
+    /// The template captions are added with. Null while no template is registered, and for a moment
+    /// while a removed template is being replaced.
+    /// </summary>
+    public ReactivePropertySlim<CaptionTemplateDescriptor?> SelectedCaptionTemplate { get; }
+
+    public ReactivePropertySlim<bool> IsTranscribing { get; }
+
+    public ReadOnlyReactivePropertySlim<string> TranscriptionStatusText { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> CanTranscribe { get; }
+
+    public AsyncReactiveCommand Transcribe { get; }
+
+    /// <summary>
+    /// Abandons the transcription or translation in flight. A long scene takes
+    /// minutes, so a wrong audio source must not mean closing the tab.
+    /// </summary>
+    public ReactiveCommand StopRequest { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> CanAddToScene { get; }
+
+    public AsyncReactiveCommand AddToScene { get; }
+
+    public ReactiveCommand OpenAiPlan { get; }
+
+    internal IAiPlanCoordinator AiPlanCoordinator => _aiPlanCoordinator;
+
+    internal void RefreshAvailability()
+    {
+        _transcriptionEstimateRevision.Value++;
+        RefreshTranslationEstimate();
+    }
+
+    public ReactivePropertySlim<AiTranscriptionSegment[]?> ResultSegments { get; } = new();
+
+    internal AiUsageViewModel Usage { get; }
+
+    internal AiModelPickerViewModel TranscriptionModelPicker { get; }
+
+    internal AiModelPickerViewModel TranslationModelPicker { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> ShowJoinPro { get; }
+
+    public ReactivePropertySlim<string?> Error { get; } = new();
+
+    public void Dispose() => _ = BeginDisposeAsync();
+
+    public ValueTask DisposeAsync() => new(BeginDisposeAsync());
+
+    private Task BeginDisposeAsync() => _disposal.Run(DisposeCoreAsync, () => _disposed = true);
+
+    private async Task DisposeCoreAsync()
+    {
+        StopTemplatePreviewAdmission();
+        await _operations.DisposeAsync(
+            _lifetimeCts.Cancel,
+            () =>
+            {
+                _registeredCaptionTemplates.CollectionChanged -= OnCaptionTemplatesChanged;
+                DisposeCaptionEditing();
+                AudioSources.Dispose();
+                SelectedAudioSource.Dispose();
+                SelectedCaptionTemplate.Dispose();
+                IsTranscribing.Dispose();
+                ResultSegments.Dispose();
+                PartialResultMessage.Dispose();
+                HasPartialResult.Dispose();
+                HasPendingHistoryResult.Dispose();
+                HistoryOverwriteMessage.Dispose();
+                Error.Dispose();
+                _disposables.Dispose();
+                _lifetimeCts.Dispose();
+                return ValueTask.CompletedTask;
+            });
+    }
+
+    /// <inheritdoc />
+    public void RefreshModels() => _ = RefreshModelsAsync();
+
+    private async Task RefreshModelsAsync()
+    {
+        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        if (operation is null)
+            return;
+        // A run waiting to be collected names its unfinished pieces partly by
+        // the model it started on. The run itself holds that model, so a reload
+        // could not rename them — but moving the picker under a run that is
+        // still going says the wrong thing about what the next piece will cost.
+        if (HasOutstandingTranscriptionRequest.Value
+            || HasOutstandingTranslationRequest.Value)
+        {
+            return;
+        }
+
+        try
+        {
+            await LoadModelPickersAsync(operation.CancellationToken);
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to reload the AI models for subtitles.");
+        }
+    }
+
+    private async Task LoadEntitlementsAsync()
+    {
+        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        if (operation is null)
+            return;
+        try
+        {
+            await _entitlements.RefreshAsync(operation.CancellationToken);
+            // A restored run is put back on the model it was named for; without
+            // that, its unfinished pieces would be named differently and bought
+            // a second time.
+            await LoadModelPickersAsync(operation.CancellationToken);
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load AI entitlements.");
+        }
+    }
+
+    private async Task LoadModelPickersAsync(CancellationToken cancellationToken)
+    {
+        await TranscriptionModelPicker.LoadAsync(
+            AiOperations.Transcription,
+            _restoredTranscriptionModel,
+            cancellationToken);
+        await TranslationModelPicker.LoadAsync(
+            AiOperations.CaptionTranslation,
+            _restoredTranslationModel,
+            cancellationToken);
+    }
+
+    private void LoadAudioSources()
+    {
+        if (_disposed)
+            return;
+
+        if (_editor == null)
+        {
+            AudioSources.Value = [];
+            return;
+        }
+
+        List<AudioSourceItem> items = CollectAudioSources(_editor.Scene);
+
+        AudioSourceItem? previous = SelectedAudioSource.Value;
+        AudioSourceItem? selected = previous is null
+            ? items.FirstOrDefault()
+            : items.FirstOrDefault(item =>
+                AudioSourceItem.HasSameSelectionIdentity(item, previous))
+              ?? items.FirstOrDefault();
+        if (selected is not null
+            && previous is not null
+            && AudioSourceItem.CanReuseSelectionSnapshot(selected, previous))
+        {
+            int selectedIndex = items.IndexOf(selected);
+            items[selectedIndex] = previous;
+            selected = previous;
+        }
+
+        AudioSources.Value = items;
+        if (!ReferenceEquals(SelectedAudioSource.Value, selected))
+        {
+            _updatingAudioSources = true;
+            try
+            {
+                SelectedAudioSource.Value = selected;
+            }
+            finally
+            {
+                _updatingAudioSources = false;
+            }
+        }
+    }
+
+    // The scene mix first, then every element that plays a sound file.
+    private static List<AudioSourceItem> CollectAudioSources(Scene scene)
+    {
+        var items = new List<AudioSourceItem>();
+        items.Add(AudioSourceItem.CreateSceneMix(
+            Strings.AiSubtitle_SceneMix,
+            scene.Start,
+            scene.Duration));
+        foreach (Element element in scene.Children)
+        {
+            foreach (EngineObject obj in element.Objects)
+            {
+                if (obj is SourceSound sound
+                    && sound.Source.CurrentValue is { } source
+                    && source.HasUri
+                    && source.Uri.IsFile)
+                {
+                    // The original audio duration bounds what a run can send; the element can run
+                    // past the end of the audio.
+                    TimeSpan duration = sound.TryGetOriginalDuration(out TimeSpan original)
+                        ? original
+                        : element.Length;
+                    items.Add(new AudioSourceItem(
+                        element.Name,
+                        source.Uri.LocalPath,
+                        duration,
+                        element.Start,
+                        element.Length,
+                        sound.OffsetPosition.CurrentValue,
+                        sound.Speed.CurrentValue,
+                        sound.Speed.Animation as KeyFrameAnimation<float>,
+                        elementId: element.Id));
+                }
+            }
+        }
+
+        return items;
+    }
+
+    /// <summary>
+    /// The token the request in flight runs under: the tab's lifetime, plus the
+    /// person's own request to stop.
+    /// </summary>
+    private CancellationToken RequestToken => _requestCts?.Token ?? _lifetimeCts.Token;
+
+    private bool IsRequestCanceled
+        => _lifetimeCts.IsCancellationRequested || _requestCts?.IsCancellationRequested == true;
+
+    private async Task TranscribeCore()
+    {
+        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        if (operation is null)
+            return;
+        if (SelectedAudioSource.Value is not { } source)
+        {
+            return;
+        }
+
+        long draftScopeRevision = Interlocked.Read(ref _captionDraftScopeRevision);
+        Error.Value = null;
+        IsTranscribing.Value = true;
+        using CancellationTokenSource requestCts =
+            CancellationTokenSource.CreateLinkedTokenSource(
+                operation.CancellationToken,
+                _lifetimeCts.Token);
+        _requestCts = requestCts;
+        try
+        {
+            await TranscribeSelectedSourceAsync(source, operation);
+        }
+        catch (Exception ex) when (KnownRunFailureMessage(ex) is { } message)
+        {
+            SetCaptionErrorIfCurrent(draftScopeRevision, message);
+        }
+        catch (AiFileTooLargeException)
+        {
+            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiFileTooLarge);
+        }
+        // This execution's name belongs to another request (scene-mixed audio can change whenever it
+        // is recomposed, so a restored execution can arrive here), or the job it made is gone.
+        catch (Exception ex) when (ex is AiRequestChangedException or AiRequestWasDeletedException)
+        {
+            RetireTranscriptionRunNames();
+            SetCaptionErrorIfCurrent(
+                draftScopeRevision,
+                ex is AiRequestWasDeletedException ? Strings.AiRequestWasDeleted : Strings.AiRequestChanged);
+        }
+        catch (RejectedTranscriptionResultException ex)
+        {
+            _logger.LogWarning(ex, "Rejected the transcription result; retaining its recovery key.");
+        }
+        catch (SubtitleInputException ex)
+        {
+            SetCaptionErrorIfCurrent(draftScopeRevision, ex.Message);
+        }
+        catch (OperationCanceledException) when (IsRequestCanceled)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to transcribe audio.");
+            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiUnexpectedError);
+        }
+        finally
+        {
+            _requestCts = null;
+            operation.TryPublish(() =>
+            {
+                if (IsCurrentCaptionDraftScope(draftScopeRevision))
+                    IsTranscribing.Value = false;
+            });
+        }
+    }
+
+    private async Task AddToSceneCore()
+    {
+        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        if (operation is null)
+            return;
+        // A swap on a worker thread may not have reached the picker yet, so the chosen template may
+        // already be gone. Catch up first, and add nothing if that changed the choice: the person
+        // then sees the template the picker falls back to before anything is added with it.
+        CaptionTemplateId? chosenId = SelectedCaptionTemplate.Value?.Id;
+        OfferLatestCaptionTemplates();
+        if (_editor == null
+            || SelectedCaptionTemplate.Value is not { } template
+            || template.Id != chosenId
+            || !TryBuildCaptionDocument(out CaptionDocument? document, out _)
+            || document is null)
+        {
+            return;
+        }
+
+        try
+        {
+            CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
+                _editor.Scene,
+                _editor.GetRequiredService<IElementAdder>(),
+                document,
+                _captionTemplates.GetTemplate(template.Id),
+                operation.CancellationToken);
+
+            if (result.IsSuccess)
+            {
+                operation.TryPublish(() => NotificationService.ShowSuccess(Strings.AiSubtitle, Strings.AiSubtitleAddedToScene));
+            }
+            else if (result.FailureId == ElementAddFailureIds.LockedLayer)
+            {
+                operation.TryPublish(() => NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked));
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    $"Failed to add caption elements: {result.FailureId}.");
+            }
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to add subtitles to the scene.");
+            operation.TryPublish(() => Error.Value = Strings.AiUnexpectedError);
+        }
+    }
+
+    private void OnCaptionTemplatesChanged(
+        object? sender,
+        System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (_disposed)
+            return;
+
+        // The registry raises this while it holds its mutation lock, which a package load can take
+        // on a worker thread. So the list is copied here, and the UI thread always offers the
+        // latest copy: a job that runs late cannot bring back an older list.
+        CaptionTemplateDescriptor[] templates = [.. _registeredCaptionTemplates];
+        Volatile.Write(ref _latestCaptionTemplates, templates);
+        if (Dispatcher.UIThread.CheckAccess())
+            OfferLatestCaptionTemplates();
+        else
+            Dispatcher.UIThread.Post(OfferLatestCaptionTemplates);
+    }
+
+    // Runs on the UI thread.
+    private void OfferLatestCaptionTemplates()
+    {
+        if (_disposed
+            || Volatile.Read(ref _latestCaptionTemplates) is not { } templates
+            || _captionTemplateChoices.SequenceEqual(templates))
+        {
+            return;
+        }
+
+        try
+        {
+            try
+            {
+                UpdateCaptionTemplateChoices(templates);
+            }
+            finally
+            {
+                // The picker drops its selection when the chosen template is removed or moved, and
+                // without a picker the selection still holds a removed template.
+                SelectedCaptionTemplate.Value =
+                    ChooseCaptionTemplate(_captionTemplateChoices, _chosenCaptionTemplateId);
+            }
+        }
+        catch (Exception ex)
+        {
+            // The registry ignores an exception from its notification, and one from a dispatcher
+            // job would reach the unhandled exception handler.
+            _logger.LogError(ex, "Failed to offer the updated caption templates.");
+        }
+    }
+
+    // The picker keeps its selection as an index into this list. Replacing the whole list would
+    // drop that index even for a template that stays, so the list is changed one template at a
+    // time: the picker then only shifts the index of a template that stays, and drops it only for
+    // a template that is removed or moved.
+    private void UpdateCaptionTemplateChoices(CaptionTemplateDescriptor[] templates)
+    {
+        for (int i = _captionTemplateChoices.Count - 1; i >= 0; i--)
+        {
+            if (!templates.Contains(_captionTemplateChoices[i]))
+                _captionTemplateChoices.RemoveAt(i);
+        }
+
+        // Every template left is also in templates, and the registry lists each one once, so the
+        // list only needs the new templates inserted and the ones whose position changed moved.
+        for (int i = 0; i < templates.Length; i++)
+        {
+            if (i < _captionTemplateChoices.Count && _captionTemplateChoices[i] == templates[i])
+                continue;
+
+            // Never before i: the positions before it already hold the other templates.
+            int current = _captionTemplateChoices.IndexOf(templates[i]);
+            if (current > i)
+                _captionTemplateChoices.Move(current, i);
+            else
+                _captionTemplateChoices.Insert(i, templates[i]);
+        }
+    }
+
+    private static CaptionTemplateDescriptor? ChooseCaptionTemplate(
+        IEnumerable<CaptionTemplateDescriptor> templates,
+        CaptionTemplateId? preferredId)
+        => templates.FirstOrDefault(template => template.Id == preferredId)
+            ?? templates.FirstOrDefault(template => template.Id == CaptionTemplateIds.DefaultText)
+            ?? templates.FirstOrDefault();
+}
+
+public sealed class AudioSourceItem
+{
+    private const int AnimationSampleRate = 1000;
+    private readonly TimeSpan _elementStart;
+    private readonly TimeSpan _elementLength;
+    private readonly TimeSpan _sourceOffset;
+    private readonly float _speed;
+    private readonly KeyFrameAnimation<float>? _speedAnimation;
+    private readonly Guid _elementId;
+
+    public AudioSourceItem(
+        string name,
+        string filePath,
+        TimeSpan duration,
+        TimeSpan elementStart = default,
+        TimeSpan? elementLength = null,
+        TimeSpan sourceOffset = default,
+        float speed = 100,
+        KeyFrameAnimation<float>? speedAnimation = null,
+        Guid elementId = default)
+    {
+        Name = name;
+        FilePath = filePath;
+        Duration = duration;
+        _elementId = elementId;
+        _elementStart = elementStart;
+        _elementLength = elementLength ?? duration;
+        _sourceOffset = sourceOffset;
+        _speed = Math.Max(speed, 0);
+        _speedAnimation = speedAnimation;
+    }
+
+    private AudioSourceItem(string name, TimeSpan sceneStart, TimeSpan duration)
+    {
+        Name = name;
+        FilePath = null;
+        Duration = duration;
+        IsSceneMix = true;
+        SceneStart = sceneStart;
+        _elementStart = sceneStart;
+        _elementLength = duration;
+        _speed = 100;
+    }
+
+    public string Name { get; }
+
+    public string? FilePath { get; }
+
+    public TimeSpan Duration { get; }
+
+    public bool IsSceneMix { get; }
+
+    public TimeSpan SceneStart { get; }
+
+    internal Guid ElementId => _elementId;
+
+    internal TimeSpan SourceOffset => _sourceOffset;
+
+    internal double GetSourceElapsedSeconds()
+    {
+        if (_speedAnimation is null)
+            return Math.Max(_elementLength.TotalSeconds * (_speed / 100d), 0);
+
+        using var integrator = new SpeedIntegrator(AnimationSampleRate);
+        integrator.EnsureCache(_speedAnimation);
+        TimeSpan elapsed = _speedAnimation.UseGlobalClock
+            ? integrator.Integrate(_elementStart + _elementLength, _speedAnimation)
+              - integrator.Integrate(_elementStart, _speedAnimation)
+            : integrator.Integrate(_elementLength, _speedAnimation);
+        return Math.Max(elapsed.TotalSeconds, 0);
+    }
+
+    internal static AudioSourceItem CreateSceneMix(string name, TimeSpan sceneStart, TimeSpan duration)
+        => new(name, sceneStart, duration);
+
+    internal static bool CanResume(AudioSourceItem? candidate, AudioSourceItem? previous)
+    {
+        if (candidate is null || previous is null)
+            return false;
+        if (ReferenceEquals(candidate, previous))
+            return true;
+        if (candidate.IsSceneMix || previous.IsSceneMix)
+            return false;
+
+        return FilePathsEqual(candidate.FilePath!, previous.FilePath!)
+            && candidate.Duration == previous.Duration
+            && candidate._elementId == previous._elementId
+            && candidate._elementStart == previous._elementStart
+            && candidate._elementLength == previous._elementLength
+            && candidate._sourceOffset == previous._sourceOffset
+            && candidate._speed == previous._speed
+            && ReferenceEquals(candidate._speedAnimation, previous._speedAnimation);
+    }
+
+    internal static bool HasSameSelectionIdentity(
+        AudioSourceItem candidate,
+        AudioSourceItem previous)
+    {
+        if (candidate.IsSceneMix || previous.IsSceneMix)
+            return candidate.IsSceneMix && previous.IsSceneMix;
+        if (candidate._elementId != Guid.Empty && previous._elementId != Guid.Empty)
+            return candidate._elementId == previous._elementId;
+        return FilePathsEqual(candidate.FilePath!, previous.FilePath!);
+    }
+
+    internal static bool CanReuseSelectionSnapshot(
+        AudioSourceItem candidate,
+        AudioSourceItem previous)
+        => candidate.IsSceneMix && previous.IsSceneMix
+            ? candidate.SceneStart == previous.SceneStart
+              && candidate.Duration == previous.Duration
+            : string.Equals(candidate.Name, previous.Name, StringComparison.Ordinal)
+              && CanResume(candidate, previous);
+
+    internal static bool FilePathsEqual(string first, string second)
+        => GetFilePathComparer().Equals(Path.GetFullPath(first), Path.GetFullPath(second));
+
+    private static StringComparer GetFilePathComparer()
+        => OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparer.OrdinalIgnoreCase
+            : StringComparer.Ordinal;
+
+    internal AiTranscriptionSegment[] MapSegmentsToScene(IEnumerable<AiTranscriptionSegment> segments)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+
+        double elementLength = Math.Max(_elementLength.TotalSeconds, 0);
+        if (elementLength <= 0)
+            return [];
+
+        using var integrator = new SpeedIntegrator(AnimationSampleRate);
+        if (_speedAnimation != null)
+        {
+            integrator.EnsureCache(_speedAnimation);
+        }
+
+        double SourceElapsedAt(double localSeconds)
+        {
+            TimeSpan localTime = TimeSpan.FromSeconds(Math.Clamp(localSeconds, 0, elementLength));
+            if (_speedAnimation == null)
+                return localTime.TotalSeconds * (_speed / 100d);
+
+            TimeSpan elapsed = _speedAnimation.UseGlobalClock
+                ? integrator.Integrate(_elementStart + localTime, _speedAnimation)
+                  - integrator.Integrate(_elementStart, _speedAnimation)
+                : integrator.Integrate(localTime, _speedAnimation);
+            return Math.Max(elapsed.TotalSeconds, 0);
+        }
+
+        double totalSourceElapsed = SourceElapsedAt(elementLength);
+        if (totalSourceElapsed <= 0)
+            return [];
+
+        double sourceWindowStart = _sourceOffset.TotalSeconds;
+        double sourceWindowEnd = sourceWindowStart + totalSourceElapsed;
+
+        double ToLocalTime(double sourceSeconds)
+        {
+            double target = Math.Clamp(sourceSeconds - sourceWindowStart, 0, totalSourceElapsed);
+            double low = 0;
+            double high = elementLength;
+            for (int iteration = 0; iteration < 50; iteration++)
+            {
+                double middle = (low + high) / 2;
+                if (SourceElapsedAt(middle) < target)
+                {
+                    low = middle;
+                }
+                else
+                {
+                    high = middle;
+                }
+            }
+            return (low + high) / 2;
+        }
+
+        var result = new List<AiTranscriptionSegment>();
+        foreach (AiTranscriptionSegment segment in segments)
+        {
+            if (!double.IsFinite(segment.Start)
+                || !double.IsFinite(segment.End)
+                || segment.End <= segment.Start)
+            {
+                continue;
+            }
+
+            double clippedStart = Math.Max(segment.Start, sourceWindowStart);
+            double clippedEnd = Math.Min(segment.End, sourceWindowEnd);
+            if (clippedEnd <= clippedStart)
+                continue;
+
+            double sceneStart = _elementStart.TotalSeconds + ToLocalTime(clippedStart);
+            double sceneEnd = _elementStart.TotalSeconds + ToLocalTime(clippedEnd);
+            if (sceneEnd <= sceneStart)
+                continue;
+
+            result.Add(new AiTranscriptionSegment
+            {
+                Start = sceneStart,
+                End = sceneEnd,
+                Text = segment.Text,
+            });
+        }
+
+        return result.ToArray();
+    }
+
+    public override string ToString() => $"{Name} ({Duration.TotalSeconds:F1}s)";
+}

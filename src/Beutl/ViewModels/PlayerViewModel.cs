@@ -29,7 +29,7 @@ public enum PlaybackDirection
     Backward,
 }
 
-public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
+public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, IFullScaleFrameRenderer
 {
     private static readonly TimeSpan s_second = TimeSpan.FromSeconds(1);
     // Bound the native audio/backend wait. Scene composition and rendering are drained separately

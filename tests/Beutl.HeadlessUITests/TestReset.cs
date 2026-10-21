@@ -1,5 +1,5 @@
-﻿using Beutl.Services;
-using Beutl.Services.AI;
+﻿using Beutl.Editor.Components.AiWorkspaceTab.Services;
+using Beutl.Services;
 using Beutl.Testing.Headless;
 
 namespace Beutl.HeadlessUITests;

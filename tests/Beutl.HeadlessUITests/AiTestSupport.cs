@@ -7,11 +7,10 @@ using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 using Beutl.Editor.Services.Captions;
-using Beutl.Services;
-using Beutl.Services.AI;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Dialogs;
 using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;

@@ -3,7 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-using Beutl.Services;
+using Beutl.Editor.Components.Helpers;
 using Beutl.ViewModels;
 
 namespace Beutl.Views;

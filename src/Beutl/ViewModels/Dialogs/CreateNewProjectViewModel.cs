@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 
 using Beutl.Configuration;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.VersionControl;
 using Beutl.Logging;
 using Beutl.Services;

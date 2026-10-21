@@ -4,10 +4,10 @@ using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Layout;
 using Avalonia.LogicalTree;
+using Beutl.Editor.Components.AiWorkspaceTab.Views;
 using Beutl.Language;
 using Beutl.Testing.Headless;
 using Beutl.Views;
-using Beutl.Views.Tools;
 
 namespace Beutl.HeadlessUITests;
 

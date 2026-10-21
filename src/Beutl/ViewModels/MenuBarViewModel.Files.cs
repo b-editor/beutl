@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Configuration;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.VersionControl;
 using Beutl.Serialization;
 using Beutl.Services;
