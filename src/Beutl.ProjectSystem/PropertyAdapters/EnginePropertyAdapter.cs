@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Linq;
-using Beutl.Engine;
 using Beutl.Extensibility;
 
 namespace Beutl.PropertyAdapters;
@@ -12,7 +11,7 @@ public class EnginePropertyAdapter<T> : IPropertyAdapter<T>, IChildObjectSource
     private readonly Lazy<DisplayAttribute?> _displayAttribute;
     private IObservable<T?>? _observable;
 
-    public EnginePropertyAdapter(IProperty<T> property, EngineObject obj)
+    public EnginePropertyAdapter(IProperty<T> property, CoreObject obj)
     {
         _attributes = new Lazy<Attribute[]>(() => property.GetAttributes() ?? []);
         _displayAttribute = new Lazy<DisplayAttribute?>(() => _attributes.Value.FirstOrDefault(i => i is DisplayAttribute) as DisplayAttribute);
@@ -20,7 +19,7 @@ public class EnginePropertyAdapter<T> : IPropertyAdapter<T>, IChildObjectSource
         Property = property;
     }
 
-    public EngineObject Object { get; }
+    public CoreObject Object { get; }
 
     public IProperty<T> Property { get; }
 

@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Linq.Expressions;
 using System.Text.Json.Nodes;
+using Beutl.Collections;
 using Beutl.Serialization;
 using Beutl.Validation;
 
@@ -385,6 +386,14 @@ public abstract partial class CoreObject : ICoreObject
 
     public virtual void Serialize(ICoreSerializationContext context)
     {
+        IProperty[] saved = [.. RegisteredProperties.Where(IsAutoSerialized)];
+        // Base fields come first, where the CoreProperty fields they replace were written.
+        foreach (IProperty property in saved)
+        {
+            if (IsBaseField(property))
+                property.SerializeValue(context);
+        }
+
         Type ownerType = GetType();
 
         IReadOnlyList<CoreProperty> list = PropertyRegistry.GetRegistered(ownerType);
@@ -392,6 +401,13 @@ public abstract partial class CoreObject : ICoreObject
         {
             CoreProperty item = list[i];
             item.RouteSerialize(context, GetValue(item));
+        }
+
+        SerializeMembers(context, saved);
+        foreach (IProperty property in saved)
+        {
+            if (!IsBaseField(property))
+                property.SerializeValue(context);
         }
     }
 
@@ -415,5 +431,23 @@ public abstract partial class CoreObject : ICoreObject
                 SetValue(item, value.Value);
             }
         }
+
+        foreach (IProperty property in RegisteredProperties)
+        {
+            // A base field that holds a list keeps that list; its owner reads the items into it.
+            if (IsAutoSerialized(property) && !(IsBaseField(property) && property.Value is ICoreList))
+                property.DeserializeValue(context);
+        }
+
+        DeserializeMembers(context);
+    }
+
+    // What a kind of object saves besides property values, such as EngineObject's animations and expressions.
+    internal virtual void SerializeMembers(ICoreSerializationContext context, IProperty[] saved)
+    {
+    }
+
+    internal virtual void DeserializeMembers(ICoreSerializationContext context)
+    {
     }
 }

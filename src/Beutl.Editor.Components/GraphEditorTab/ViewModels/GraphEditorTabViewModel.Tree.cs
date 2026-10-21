@@ -163,13 +163,10 @@ public sealed partial class GraphEditorTabViewModel
         List<GraphEditorTreeItemViewModel> result, HashSet<string> used, HashSet<object> ancestors)
     {
         // Base fields are listed where the CoreProperty fields they replace were.
-        if (obj is EngineObject owner)
+        foreach (IProperty field in obj.Properties.Where(obj.IsBaseField))
         {
-            foreach (IProperty field in owner.Properties.Where(owner.IsBaseField))
-            {
-                if (field.ValueType.IsValueType || field.ValueType == typeof(string)) continue;
-                AppendValue(field.Value, parent, $"{path}/core:{field.Name}", result, used, ancestors);
-            }
+            if (field.ValueType.IsValueType || field.ValueType == typeof(string)) continue;
+            AppendValue(field.Value, parent, $"{path}/core:{field.Name}", result, used, ancestors);
         }
 
         foreach (var property in PropertyRegistry.GetRegistered(obj.GetType()))

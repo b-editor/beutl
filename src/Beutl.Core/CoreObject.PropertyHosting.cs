@@ -1,10 +1,13 @@
 ﻿using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace Beutl;
 
 // The IProperty members of a type, which ScanProperties<T>() registers in the order the type declares them.
 public abstract partial class CoreObject : IChildObjectSource
 {
+    // The members ScanPropertiesCore reads and their names, found once per type rather than for each object.
+    private static readonly ConditionalWeakTable<Type, (PropertyInfo Info, string Name)[]> s_scannedMembers = [];
     private List<IProperty>? _properties;
 
     public virtual IReadOnlyList<IProperty> Properties => RegisteredProperties;
@@ -18,14 +21,15 @@ public abstract partial class CoreObject : IChildObjectSource
     protected virtual IEnumerable<IProperty> ScanPropertiesCore<T>() where T : CoreObject
     {
         var type = typeof(T);
-        var propertyInfos = type.GetProperties(
-            BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+        (PropertyInfo Info, string Name)[] members = s_scannedMembers.GetValue(type, static type =>
+        [
+            .. type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                .Where(info => typeof(IProperty).IsAssignableFrom(info.PropertyType))
+                .Select(info => (info, ToPropertyName(info.Name))),
+        ]);
 
-        for (int index = 0; index < propertyInfos.Length; index++)
+        foreach ((PropertyInfo propertyInfo, string name) in members)
         {
-            PropertyInfo propertyInfo = propertyInfos[index];
-            if (!typeof(IProperty).IsAssignableFrom(propertyInfo.PropertyType)) continue;
-
             var func = PropertyReflectionCache.GetOrCreateAccessor(type, propertyInfo);
             var property = func(this);
             if (property == null) continue;
@@ -35,7 +39,7 @@ public abstract partial class CoreObject : IChildObjectSource
             var validator = PropertyReflectionCache.GetOrCreateValidator(type, propertyInfo.Name,
                 () => property.CreateValidator(attrs));
 
-            property.SetAttributes(ToPropertyName(propertyInfo.Name), attrs);
+            property.SetAttributes(name, attrs);
             property.SetValidator(validator);
             property.SetOwnerObject(this);
             yield return property;
@@ -70,4 +74,15 @@ public abstract partial class CoreObject : IChildObjectSource
             _properties.Insert(Math.Min(index, _properties.Count), property);
         }
     }
+
+    /// <summary>Whether <paramref name="property"/> is saved with this object.</summary>
+    /// <remarks>
+    /// <see cref="NotAutoSerializedAttribute"/> means here what it means on a <see cref="CoreProperty"/>: the value
+    /// is state outside the document, such as an editor's, so it is neither written nor read back.
+    /// </remarks>
+    internal static bool IsAutoSerialized(IProperty property)
+        => property.GetAttributes()?.Any(static attribute => attribute is NotAutoSerializedAttribute) != true;
+
+    // A base field stands for a CoreProperty field; an object without panels has each value-only property as one.
+    internal virtual bool IsBaseField(IProperty property) => property is not (IExpressionProperty or IListProperty);
 }

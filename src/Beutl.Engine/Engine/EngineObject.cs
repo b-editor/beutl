@@ -3,7 +3,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
-using Beutl.Collections;
 using Beutl.Composition;
 using Beutl.Media;
 using Beutl.Reactive;
@@ -130,9 +129,8 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
         _timeAnchorSubscription = Disposable.Create((d1, d2), t => t.DisposeAll());
     }
 
-    public override void Deserialize(ICoreSerializationContext context)
+    internal override void DeserializeMembers(ICoreSerializationContext context)
     {
-        base.Deserialize(context);
         var start = context.GetValue<Optional<TimeSpan>>(nameof(TimeRange.Start));
         var duration = context.GetValue<Optional<TimeSpan>>(nameof(TimeRange.Duration));
         var zIndex = context.GetValue<Optional<int>>(nameof(ZIndex));
@@ -150,14 +148,9 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
 
         foreach (IProperty property in RegisteredProperties)
         {
-            // A base field that holds a list keeps that list; its owner reads the items into it.
-            if (!IsAutoSerialized(property) || (IsBaseField(property) && property.Value is ICoreList))
-                continue;
-
-            // A property renamed with a FormerPersistedNameAttribute reads its value, animation and expression
-            // under the former name when the current one is not there.
-            property.DeserializeValue(context);
-            if (property is not IExpressionProperty expressionProperty)
+            // A property renamed with a FormerPersistedNameAttribute reads its animation and expression under the
+            // former name when the current one is not there.
+            if (!IsAutoSerialized(property) || property is not IExpressionProperty expressionProperty)
                 continue;
 
             Attribute[]? attributes = property.GetAttributes();
@@ -226,16 +219,8 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
         }
     }
 
-    public override void Serialize(ICoreSerializationContext context)
+    internal override void SerializeMembers(ICoreSerializationContext context, IProperty[] saved)
     {
-        IProperty[] serialized = [.. RegisteredProperties.Where(IsAutoSerialized)];
-        // Base fields come before the CoreObject members, where the CoreProperty fields they replace were written.
-        foreach (IProperty property in serialized.Where(IsBaseField))
-        {
-            property.SerializeValue(context);
-        }
-
-        base.Serialize(context);
         if (IsTimeAnchor)
         {
             context.SetValue(nameof(TimeRange.Start), TimeRange.Start);
@@ -243,7 +228,7 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
             context.SetValue(nameof(ZIndex), ZIndex);
         }
 
-        Dictionary<string, IKeyFrameAnimation> animations = serialized
+        Dictionary<string, IKeyFrameAnimation> animations = saved
             .Where(p => p is IExpressionProperty { IsAnimatable: true })
             .Select(p => (p.Name, Animation: p.GetKeyFrameAnimation()))
             .Where(p => p.Animation is not null)
@@ -252,32 +237,18 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
         context.SetValue("Animations", animations);
         WriteUnknownEntries(context, "Animations", _unknownAnimations);
 
-        Dictionary<string, JsonNode> expressions = serialized
+        Dictionary<string, JsonNode> expressions = saved
             .Select(p => (Name: p.Name, Node: (p as IExpressionProperty)?.SerializeExpression()))
             .Where(p => p.Node is not null)
             .ToDictionary(p => p.Name, p => p.Node!);
 
         context.SetValue("Expressions", expressions);
         WriteUnknownEntries(context, "Expressions", _unknownExpressions);
-
-        foreach (IProperty property in serialized)
-        {
-            if (!IsBaseField(property))
-                property.SerializeValue(context);
-        }
     }
 
-    /// <summary>Whether <paramref name="property"/> is saved with this object.</summary>
-    /// <remarks>
-    /// <see cref="NotAutoSerializedAttribute"/> means here what it means on a <see cref="CoreProperty"/>: the value
-    /// is state outside the document, such as an editor's, so it is neither written nor read back.
-    /// </remarks>
-    internal static bool IsAutoSerialized(IProperty property)
-        => property.GetAttributes()?.Any(static attribute => attribute is NotAutoSerializedAttribute) != true;
-
-    // A value-only property hidden from the panels stands for a CoreProperty field: it is saved, walked and described as one.
-    internal bool IsBaseField(IProperty property)
-        => property is not IExpressionProperty && _displayProperties?.Contains(property) == false;
+    // An engine object's base fields are the value-only properties it hides from its panels.
+    internal override bool IsBaseField(IProperty property)
+        => base.IsBaseField(property) && _displayProperties?.Contains(property) == false;
 
     protected static void AffectsRender<T>(params CoreProperty[] properties)
         where T : EngineObject

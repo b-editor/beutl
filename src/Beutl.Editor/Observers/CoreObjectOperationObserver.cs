@@ -49,9 +49,9 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
             obj.PropertyChanged += OnPropertyChanged;
         }
 
-        if (obj is EngineObject engineObject)
+        if (obj is CoreObject coreObject)
         {
-            InitializeEnginePropertyPublishers(engineObject);
+            InitializePropertyPublishers(coreObject);
         }
     }
 
@@ -151,9 +151,9 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
         }
     }
 
-    private void InitializeEnginePropertyPublishers(EngineObject engineObject)
+    private void InitializePropertyPublishers(CoreObject coreObject)
     {
-        foreach (IProperty property in engineObject.Properties)
+        foreach (IProperty property in coreObject.Properties)
         {
             if (_propertiesToTrack != null && !_propertiesToTrack.Contains(property.Name))
             {
@@ -172,7 +172,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
             var publisher = (IOperationObserver)Activator.CreateInstance(
                 publisherType,
                 _operations,
-                engineObject,
+                coreObject,
                 property,
                 _sequenceNumberGenerator,
                 childPath,

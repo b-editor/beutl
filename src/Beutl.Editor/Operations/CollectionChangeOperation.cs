@@ -178,18 +178,24 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
         return list2;
     }
 
-    private IProperty FindListProperty(EngineObject engineObj, string name)
+    // A plain CoreObject without the property is skipped (null).
+    private IProperty? FindListProperty(CoreObject owner, string name)
     {
-        var engineProperty = engineObj.Properties.FirstOrDefault(p => p.Name == name)
-                             ?? throw new InvalidOperationException(
-                                 $"Engine property {PropertyPath} not found on type {engineObj.GetType().FullName}.");
+        var engineProperty = owner.Properties.FirstOrDefault(p => p.Name == name);
+        if (engineProperty is null)
+        {
+            return owner is EngineObject
+                ? throw new InvalidOperationException(
+                    $"Engine property {PropertyPath} not found on type {owner.GetType().FullName}.")
+                : null;
+        }
 
         // A value-only property that holds its object's list, like GraphModel.Nodes, changes that list.
         if (engineProperty is not IListProperty<T>
             && (engineProperty is IExpressionProperty || engineProperty.Value is not IList<T>))
         {
             throw new InvalidOperationException(
-                $"Engine property {PropertyPath} is not a list on type {engineObj.GetType().FullName}.");
+                $"Engine property {PropertyPath} is not a list on type {owner.GetType().FullName}.");
         }
 
         return engineProperty;
@@ -216,20 +222,17 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
             return;
         }
 
-        if (Object is EngineObject engineObj)
+        if (FindListProperty(Object, name) is not { } engineProperty) return;
+        if (engineProperty is IListProperty<T> listProperty)
         {
-            IProperty engineProperty = FindListProperty(engineObj, name);
-            if (engineProperty is IListProperty<T> listProperty)
-            {
-                ExecuteWithFailureState(listProperty, revert, revert
-                    ? () => RevertToEngineProperty(listProperty)
-                    : () => ApplyToEngineProperty(listProperty));
-                return;
-            }
-
-            IList<T> list = (IList<T>)engineProperty.Value!;
-            ExecuteWithFailureState(list, revert, revert ? () => RevertTo(list) : () => ApplyTo(list));
+            ExecuteWithFailureState(listProperty, revert, revert
+                ? () => RevertToEngineProperty(listProperty)
+                : () => ApplyToEngineProperty(listProperty));
+            return;
         }
+
+        IList<T> engineList = (IList<T>)engineProperty.Value!;
+        ExecuteWithFailureState(engineList, revert, revert ? () => RevertTo(engineList) : () => ApplyTo(engineList));
     }
 
     public override void Apply() => Execute(revert: false);

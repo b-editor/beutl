@@ -68,14 +68,16 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
             return;
         }
 
-        if (Object is EngineObject engineObj)
+        var engineProperty = Object.Properties.FirstOrDefault(p => p.Name == name);
+        if (engineProperty is null)
         {
-            var engineProperty = engineObj.Properties.FirstOrDefault(p => p.Name == name)
-                                 ?? throw new InvalidOperationException(
-                                     $"Engine property {PropertyPath} not found on type {engineObj.GetType().FullName}.");
-
-            UpdateEngineProperty(engineProperty, updateAnimation, updateExpression, value);
+            // A plain CoreObject without the property is skipped.
+            if (Object is not EngineObject) return;
+            throw new InvalidOperationException(
+                $"Engine property {PropertyPath} not found on type {Object.GetType().FullName}.");
         }
+
+        UpdateEngineProperty(engineProperty, updateAnimation, updateExpression, value);
     }
 
     public override void Apply() => SetValue(NewValue);

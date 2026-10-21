@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
-using Beutl.AgentToolkit.Schema;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Engine;
@@ -262,7 +261,7 @@ internal sealed partial class DeclarativeDocumentApplier
         {
             // A base field stands for a CoreProperty field, which takes neither.
             IProperty? property = target.Properties.FirstOrDefault(
-                item => item.Name == name && !SchemaGenerator.IsBaseField(target, item));
+                item => item.Name == name && !target.IsBaseField(item));
             if (property is null)
             {
                 throw new ReconcileException(new ToolError(
