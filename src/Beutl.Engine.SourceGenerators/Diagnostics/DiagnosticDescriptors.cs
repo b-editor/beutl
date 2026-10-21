@@ -161,6 +161,16 @@ public static class DiagnosticDescriptors
             + "each. Treat silence as the absence of the shape authors usually write, not as a "
             + "purity proof.");
 
+    public static readonly DiagnosticDescriptor MissingScanProperties = new(
+        id: "BESG006",
+        title: "EngineObject constructor does not register the type's properties",
+        messageFormat:
+            "'{0}' declares properties, but this constructor does not call ScanProperties<{0}>(), so they are "
+            + "not saved, edited or recorded in history",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true);
+
     public static readonly DiagnosticDescriptor UnmarkedRenderNodeMutation = new(
         id: "BESG005",
         title: "Render node changes state its Process reads without marking the node changed",

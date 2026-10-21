@@ -747,13 +747,13 @@ Beutl.Utilities
   keys: AlignmentX, AlignmentY, Animations, BitmapInterpolationMode, DestinationRect, Drawable, Expressions, Id, IsEnabled, Name, Opacity, SourceRect, Stretch, TileMode, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Media:EllipseGeometry
   sealed
-  keys: Animations, Expressions, Height, Id, IsEnabled, Name, Width
+  keys: Animations, Expressions, FillType, Height, Id, IsEnabled, Name, Transform, Width
 [Beutl.Engine]Beutl.Media:FallbackBrush
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Opacity, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Media:FallbackGeometry
   sealed
-  keys: Animations, Expressions, Id, IsEnabled, Name
+  keys: Animations, Expressions, FillType, Id, IsEnabled, Name, Transform
 [Beutl.Engine]Beutl.Media:FallbackPathSegment
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name
@@ -778,7 +778,7 @@ Beutl.Utilities
   keys: Animations, Expressions, Id, IsClosed, IsEnabled, Name, Segments, StartPoint
 [Beutl.Engine]Beutl.Media:PathGeometry
   sealed
-  keys: Animations, Expressions, Figures, Id, IsEnabled, Name
+  keys: Animations, Expressions, Figures, FillType, Id, IsEnabled, Name, Transform
 [Beutl.Engine]Beutl.Media:PathSegment
   abstract
 [Beutl.Engine]Beutl.Media:Pen
@@ -795,13 +795,13 @@ Beutl.Utilities
   keys: Animations, Center, Expressions, GradientOrigin, GradientStops, Id, IsEnabled, Name, Opacity, Radius, SpreadMethod, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Media:RectGeometry
   sealed
-  keys: Animations, Expressions, Height, Id, IsEnabled, Name, Width
+  keys: Animations, Expressions, FillType, Height, Id, IsEnabled, Name, Transform, Width
 [Beutl.Engine]Beutl.Media:RoundedRectGeometry
   sealed
-  keys: Animations, CornerRadius, Expressions, Height, Id, IsEnabled, Name, Smoothing, Width
+  keys: Animations, CornerRadius, Expressions, FillType, Height, Id, IsEnabled, Name, Smoothing, Transform, Width
 [Beutl.Engine]Beutl.Media:SKPathGeometry
   sealed
-  keys: Animations, Expressions, Id, IsEnabled, Name
+  keys: Animations, Expressions, FillType, Id, IsEnabled, Name, Transform
 [Beutl.Engine]Beutl.Media:SolidColorBrush
   unsealed
   keys: Animations, Color, Expressions, Id, IsEnabled, Name, Opacity, Transform, TransformOrigin
@@ -1075,6 +1075,9 @@ Beutl.Utilities
   keys: Animations, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph]:EnginePropertyBackedInputPort<T>
   unsealed
+[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Graphics.Transformation:Transform>
+  unsealed
+  keys: (no public parameterless constructor)
 [Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:Brush>
   unsealed
   keys: (no public parameterless constructor)
@@ -1088,6 +1091,9 @@ Beutl.Utilities
   unsealed
   keys: (no public parameterless constructor)
 [Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:FontWeight>
+  unsealed
+  keys: (no public parameterless constructor)
+[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:PathFillType>
   unsealed
   keys: (no public parameterless constructor)
 [Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:Pen>

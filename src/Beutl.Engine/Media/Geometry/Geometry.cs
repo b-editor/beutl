@@ -14,6 +14,7 @@ public abstract partial class Geometry : EngineObject
 {
     public Geometry()
     {
+        ScanProperties<Geometry>();
     }
 
     [Display(Name = nameof(GraphicsStrings.Geometry_FillType), ResourceType = typeof(GraphicsStrings))]
