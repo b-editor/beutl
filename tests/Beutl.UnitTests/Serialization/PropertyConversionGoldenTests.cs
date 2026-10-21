@@ -59,9 +59,17 @@ public partial class PropertyConversionGoldenTests
             Duration = TimeSpan.FromSeconds(30),
             Uri = new Uri("file:///golden/scene/golden.scene"),
         };
+        // Fixed Ids, as a group writes its members in the order of their hashes.
         Element first = CreateElement();
+        first.Id = new Guid("00000000-0000-0000-0000-0000000000f1");
         first.Uri = new Uri("file:///golden/scene/first.belm");
-        var second = new Element { Name = "second", Length = TimeSpan.FromSeconds(1), Uri = new Uri("file:///golden/scene/second.belm") };
+        var second = new Element
+        {
+            Id = new Guid("00000000-0000-0000-0000-0000000000f2"),
+            Name = "second",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri("file:///golden/scene/second.belm"),
+        };
         scene.Children.Add(first);
         scene.Children.Add(second);
         scene.Groups.Add([first.Id, second.Id]);
