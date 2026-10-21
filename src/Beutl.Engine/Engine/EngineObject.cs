@@ -200,7 +200,7 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
         {
             KeepUnknownEntries(
                 jsonContext, "Animations", static property => property is IExpressionProperty { IsAnimatable: true }, ref _unknownAnimations);
-            KeepUnknownEntries(jsonContext, "Expressions", static _ => true, ref _unknownExpressions);
+            KeepUnknownEntries(jsonContext, "Expressions", static property => property is IExpressionProperty, ref _unknownExpressions);
         }
     }
 
