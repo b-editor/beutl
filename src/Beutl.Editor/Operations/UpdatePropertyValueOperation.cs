@@ -42,9 +42,9 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
             {
                 host.SetExpressionChain(value as IExpression);
             }
-            else if (engineProperty.SupportsExpression)
+            else if (engineProperty is IExpressionProperty expressionProperty)
             {
-                engineProperty.Expression = value as IExpression;
+                expressionProperty.Expression = value as IExpression;
             }
         }
         else

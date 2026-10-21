@@ -17,7 +17,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
 
     [Display(Name = nameof(GraphicsStrings.Target), ResourceType = typeof(GraphicsStrings))]
     [SuppressResourceClassGeneration]
-    public IProperty<Drawable?> Target { get; } = Property.Create<Drawable?>();
+    public IProperty<Drawable?> Target { get; } = Property.CreateReference<Drawable?>();
 
     [Display(Name = nameof(GraphicsStrings.DrawableTimeController_OffsetPosition), ResourceType = typeof(GraphicsStrings))]
     public IProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();

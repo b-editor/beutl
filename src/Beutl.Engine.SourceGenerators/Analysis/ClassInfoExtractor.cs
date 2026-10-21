@@ -90,7 +90,9 @@ public static class ClassInfoExtractor
 
             var excludeResource = TypeAnalysisHelpers.HasAttribute(propertySymbol, types.SuppressAttribute);
 
-            if (namedType.IsGenericType && SymbolEqualityComparer.Default.Equals(namedType.ConstructedFrom, types.IProperty))
+            if (namedType.IsGenericType
+                && (SymbolEqualityComparer.Default.Equals(namedType.ConstructedFrom, types.IProperty)
+                    || SymbolEqualityComparer.Default.Equals(namedType.ConstructedFrom, types.IExpressionProperty)))
             {
                 ITypeSymbol valueType = namedType.TypeArguments[0];
                 ImmutableArray<AttributeData> propAttrs = propertySymbol.GetAttributes();
@@ -192,6 +194,7 @@ public static class ClassInfoExtractor
     private readonly record struct KnownTypes(
         INamedTypeSymbol EngineObject,
         INamedTypeSymbol IProperty,
+        INamedTypeSymbol? IExpressionProperty,
         INamedTypeSymbol IListProperty,
         INamedTypeSymbol SuppressAttribute,
         INamedTypeSymbol? InputPort,
@@ -203,6 +206,7 @@ public static class ClassInfoExtractor
         {
             INamedTypeSymbol? engineObjectSymbol = compilation.GetTypeByMetadataName("Beutl.Engine.EngineObject");
             INamedTypeSymbol? iPropertySymbol = compilation.GetTypeByMetadataName("Beutl.IProperty`1");
+            INamedTypeSymbol? iExpressionPropertySymbol = compilation.GetTypeByMetadataName("Beutl.IExpressionProperty`1");
             INamedTypeSymbol? iListPropertySymbol = compilation.GetTypeByMetadataName("Beutl.IListProperty`1");
             INamedTypeSymbol? suppressAttribute = compilation.GetTypeByMetadataName("Beutl.Engine.SuppressResourceClassGenerationAttribute");
             if (engineObjectSymbol is null || iPropertySymbol is null || iListPropertySymbol is null || suppressAttribute is null)
@@ -218,6 +222,7 @@ public static class ClassInfoExtractor
             return new KnownTypes(
                 engineObjectSymbol,
                 iPropertySymbol,
+                iExpressionPropertySymbol,
                 iListPropertySymbol,
                 suppressAttribute,
                 inputNodePortSymbol,

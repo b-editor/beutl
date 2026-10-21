@@ -64,11 +64,9 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
         cprops.RemoveAll(x => !(predicate?.Invoke(x) ?? true));
         List<IPropertyAdapter> props = cprops.ConvertAll(x =>
         {
-            Type determinedType = x.IsAnimatable
-                ? animatableAdapterType
-                : x.SupportsExpression
-                    ? simpleAdapterType
-                    : adapterType;
+            Type determinedType = x is IExpressionProperty expressionProperty
+                ? expressionProperty.IsAnimatable ? animatableAdapterType : simpleAdapterType
+                : adapterType;
             Type adapterGType = determinedType.MakeGenericType(x.ValueType);
             return (IPropertyAdapter)Activator.CreateInstance(adapterGType, x, obj)!;
         });

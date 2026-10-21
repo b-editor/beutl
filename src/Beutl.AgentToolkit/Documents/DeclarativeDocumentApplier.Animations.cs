@@ -232,10 +232,10 @@ internal sealed partial class DeclarativeDocumentApplier
 
         if (expressions is not null)
         {
-            RequireTargetProperties(target, expressions, "Expression", static property => property.SupportsExpression, "does not support expressions");
+            RequireTargetProperties(target, expressions, "Expression", static property => property is IExpressionProperty, "does not support expressions");
         }
 
-        foreach (IProperty property in target.Properties.Where(property => property.SupportsExpression))
+        foreach (IExpressionProperty property in target.Properties.OfType<IExpressionProperty>())
         {
             if (expressions?.TryGetPropertyValue(property.Name, out JsonNode? node) == true && node is not null)
             {

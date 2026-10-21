@@ -136,7 +136,7 @@ public partial class NodePortView : UserControl
 
     private void InitNodePortPoint(NodePortViewModel obj)
     {
-        if (obj.Model is IInputPort && obj.Model.Property?.GetEngineProperty() is { SupportsExpression: false })
+        if (obj.Model is IInputPort && obj.Model.Property?.GetEngineProperty() is { } and not IExpressionProperty)
             return;
         if (obj.Model is IListPort)
         {

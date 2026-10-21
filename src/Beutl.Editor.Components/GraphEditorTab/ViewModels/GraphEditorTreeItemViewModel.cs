@@ -57,7 +57,7 @@ public sealed class GraphEditorTreeItemViewModel : IDisposable
 
     internal void ClearExpression()
     {
-        if (Property is { SupportsExpression: true }) Property.Expression = null;
+        if (Property is IExpressionProperty expressionProperty) expressionProperty.Expression = null;
         else if (Adapter is IExpressionPropertyAdapter adapter) adapter.Expression = null;
     }
 

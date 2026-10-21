@@ -93,7 +93,7 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
 
     private void UpdateExpression()
     {
-        if (_property == null || !_property.SupportsExpression) return;
+        if (_property is not IExpressionProperty<T>) return;
         // Observers must update their previous-expression state, but this derived change must not
         // be recorded separately from the connection (or replayed on a replaced object). The user's
         // expression rides along in the port expression, so undoing the connection gives it back.

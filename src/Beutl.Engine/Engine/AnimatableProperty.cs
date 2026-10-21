@@ -9,7 +9,7 @@ using ValidationContext = Beutl.Validation.ValidationContext;
 
 namespace Beutl.Engine;
 
-public class AnimatableProperty<T> : IProperty<T>, IExpressionChainHost, IChildObjectSource
+public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHost, IChildObjectSource
 {
     private T _currentValue;
     private KeyFrameAnimation<T>? _keyFrames;
@@ -36,6 +36,8 @@ public class AnimatableProperty<T> : IProperty<T>, IExpressionChainHost, IChildO
     public bool IsAnimatable { get; }
 
     public bool SupportsExpression { get; } = true;
+
+    public bool IsReference => false;
 
     public T DefaultValue { get; }
 

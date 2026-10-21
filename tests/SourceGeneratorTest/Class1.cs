@@ -21,6 +21,8 @@ public partial class Derived : EngineObject
 public partial class Derived2 : Derived
 {
     public IProperty<float> Z { get; } = Property.Create(0f);
+
+    public IExpressionProperty<float> W { get; } = null!;
 }
 
 public partial class Derived3 : Derived

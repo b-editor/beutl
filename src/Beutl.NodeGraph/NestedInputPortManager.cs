@@ -221,7 +221,7 @@ internal sealed class NestedInputPortManager(GraphNode node)
             foreach (IProperty property in obj.GetDisplayProperties())
             {
                 string[] childPath = [.. path, "p:" + property.Name];
-                if (property.SupportsExpression)
+                if (property is IExpressionProperty)
                     targets.Add(new Target(root, childPath, obj, property, hasOverridingAncestor));
                 var adapter = (IPropertyAdapter)Activator.CreateInstance(
                     typeof(EnginePropertyAdapter<>).MakeGenericType(property.ValueType), property, obj)!;

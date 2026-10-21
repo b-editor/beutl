@@ -1,4 +1,10 @@
-﻿using Beutl.Engine;
+﻿using Beutl.Animation;
+using Beutl.Engine;
+using Beutl.Graphics;
+using Beutl.Graphics.Effects;
+using Beutl.Graphics.Transformation;
+using Beutl.Media;
+using Beutl.ProjectSystem;
 using DisplayAttribute = System.ComponentModel.DataAnnotations.DisplayAttribute;
 using RangeAttribute = System.ComponentModel.DataAnnotations.RangeAttribute;
 using ValidationAttribute = System.ComponentModel.DataAnnotations.ValidationAttribute;
@@ -76,6 +82,37 @@ public class PropertyFactoryTests
         property.CurrentValue = -100;
 
         Assert.That(property.CurrentValue, Is.EqualTo(-5));
+    }
+
+    [Test]
+    public void CreateReference_DeclaresAReferenceThatTakesNoKeyFrames()
+    {
+        IExpressionProperty<Drawable?> property = Property.CreateReference<Drawable?>();
+        property.SetAttributes("Target", []);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(property.IsReference, Is.True);
+            Assert.That(property.IsAnimatable, Is.False);
+            Assert.That(property.CurrentValue, Is.Null);
+            Assert.Throws<InvalidOperationException>(
+                () => property.SetKeyFrameAnimation(new KeyFrameAnimation<Drawable?>()));
+        }
+    }
+
+    [TestCase(typeof(DrawablePresenter), "Target")]
+    [TestCase(typeof(DrawableTimeController), "Target")]
+    [TestCase(typeof(FilterEffectPresenter), "Target")]
+    [TestCase(typeof(TransformPresenter), "Target")]
+    [TestCase(typeof(BrushPresenter), "Target")]
+    [TestCase(typeof(SceneDrawable), "ReferencedScene")]
+    [TestCase(typeof(SceneSound), "ReferencedScene")]
+    public void ThePropertiesThatPointAtAnotherObject_AreDeclaredAsReferences(Type ownerType, string name)
+    {
+        var owner = (EngineObject)Activator.CreateInstance(ownerType)!;
+        IProperty property = owner.Properties.Single(p => p.Name == name);
+
+        Assert.That(property is IExpressionProperty { IsReference: true }, Is.True);
     }
 
     [Test]

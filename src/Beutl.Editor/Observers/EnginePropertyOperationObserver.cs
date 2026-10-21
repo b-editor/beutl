@@ -14,6 +14,7 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
     private readonly IDisposable? _subscription;
     private readonly ICoreObject _object;
     private readonly IProperty<T> _property;
+    private readonly IExpressionProperty<T>? _expressionProperty;
     private readonly string _propertyPath;
     private readonly OperationSequenceGenerator _sequenceNumberGenerator;
     private IOperationObserver? _valuePublisher;
@@ -33,6 +34,7 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
     {
         _object = obj;
         _property = property;
+        _expressionProperty = property as IExpressionProperty<T>;
         _propertyPath = propertyPath;
         _sequenceNumberGenerator = sequenceNumberGenerator;
         _propertyPathsToTrack = propertyPathsToTrack;
@@ -53,17 +55,17 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
         }
 
         // Keyframes are the bottom of the expression chain; their own edits keep the "Animation" path.
-        _tracksAnimation = _property.IsAnimatable && propertiesToTrack?.Contains("Animation") != false;
+        _tracksAnimation = _expressionProperty?.IsAnimatable == true && propertiesToTrack?.Contains("Animation") != false;
         if (_tracksAnimation)
         {
             ObserveAnimation(_property.GetKeyFrameAnimation(), null);
         }
 
-        if (_property.SupportsExpression
+        if (_expressionProperty != null
             && (propertiesToTrack?.Contains("Expression") != false || _tracksAnimation))
         {
-            _expression = _property.Expression;
-            _property.ExpressionChanged += OnExpressionChanged;
+            _expression = _expressionProperty.Expression;
+            _expressionProperty.ExpressionChanged += OnExpressionChanged;
         }
     }
 
@@ -73,10 +75,10 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
     {
         _property.ValueChanged -= OnValueChanged;
         _animation = null;
-        if (_property.SupportsExpression)
+        if (_expressionProperty != null)
         {
             _expression = null;
-            _property.ExpressionChanged -= OnExpressionChanged;
+            _expressionProperty.ExpressionChanged -= OnExpressionChanged;
         }
 
         _valuePublisher?.Dispose();

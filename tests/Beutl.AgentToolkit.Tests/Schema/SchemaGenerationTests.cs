@@ -330,6 +330,17 @@ public sealed class SchemaGenerationTests
         });
     }
 
+    // The only presenter in the library; the others are made by the editors and are not listed.
+    [Test]
+    public void The_time_controller_target_is_described_as_a_reference()
+    {
+        CapabilitySchema schema = new SchemaGenerator().Generate(typeFilter: nameof(DrawableTimeController));
+        PropertyDescriptor target = schema.Types.Single(type => type.Type == typeof(DrawableTimeController).FullName)
+            .Properties.Single(property => property.Name == nameof(DrawableTimeController.Target));
+
+        Assert.That(target.UsageHint, Does.Contain("references an existing Drawable"));
+    }
+
     [Test]
     public void Animatable_property_usage_hint_shows_concrete_angle_bracket_keyframe_discriminator()
     {

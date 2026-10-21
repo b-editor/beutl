@@ -14,7 +14,7 @@ public sealed partial class TransformPresenter : Transform, IPresenter<Transform
     }
 
     [Display(Name = nameof(GraphicsStrings.Target), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Transform?> Target { get; } = Property.Create<Transform?>();
+    public IProperty<Transform?> Target { get; } = Property.CreateReference<Transform?>();
 
     public override Matrix CreateMatrix(CompositionContext context)
     {

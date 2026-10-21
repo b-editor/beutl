@@ -6,9 +6,9 @@ namespace Beutl.AgentToolkit.Reconciliation;
 
 public sealed partial class Reconciler
 {
-    // A scene reference is set through the Expressions form (ReferenceExpression), which resolves its
-    // ObjectId against the project at composition time. A direct value on the property cannot resolve
-    // that way — the engine would mint a new empty object from it — so any non-null direct value is
+    // A reference (a scene, or a presenter's target) is set through the Expressions form (ReferenceExpression),
+    // which resolves its ObjectId against the project at composition time. A direct value on the property cannot
+    // resolve that way — the engine would mint a new empty object from it — so any non-null direct value is
     // rejected here, and the Expressions form (if present) is validated for a resolvable target.
     private static void ValidateReferenceValues(CoreObject liveRoot, JsonNode? node, string path = "$")
     {

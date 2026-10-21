@@ -7,7 +7,7 @@ using ValidationContext = Beutl.Validation.ValidationContext;
 namespace Beutl;
 
 public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
-    : IProperty<T>, IExpressionChainHost, IChildObjectSource
+    : IExpressionProperty<T>, IExpressionChainHost, IChildObjectSource
 {
     private IValidator<T>? _validator = validator;
     private T _currentValue = defaultValue;
@@ -28,6 +28,8 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
     /// with time, such as one that shapes a structure, sets this to <see langword="false"/>.
     /// </summary>
     public bool SupportsExpression { get; init; } = true;
+
+    public bool IsReference { get; init; }
 
     public T DefaultValue { get; } = defaultValue;
 

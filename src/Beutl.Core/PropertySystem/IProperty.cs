@@ -141,6 +141,17 @@ public interface IProperty<T> : IProperty
     void operator <<=(T value);
 }
 
+// A property that also takes an expression: a user expression, a reference, a node connection or keyframes.
+public interface IExpressionProperty : IProperty
+{
+    // Whether the expression slot holds a reference to another object, as Property.CreateReference<T>() declares.
+    bool IsReference { get; }
+}
+
+public interface IExpressionProperty<T> : IExpressionProperty, IProperty<T>
+{
+}
+
 public class PropertyValueChangedEventArgs<T>(IProperty<T> property, T oldValue, T newValue) : EventArgs
 {
     public IProperty<T> Property { get; } = property;
