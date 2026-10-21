@@ -20,10 +20,8 @@ public class ListPropertyTests
     {
         var property = Make<int>();
 
-        Assert.That(property.IsAnimatable, Is.False);
-        Assert.That(property.SupportsExpression, Is.False);
+        Assert.That(property, Is.Not.InstanceOf<IExpressionProperty>());
         Assert.That(property.HasLocalValue, Is.True);
-        Assert.That(property.HasExpression, Is.False);
         Assert.That(property.HasValidator, Is.False);
         Assert.That(property.GetValidator(), Is.Null);
         Assert.That(property.ElementType, Is.EqualTo(typeof(int)));
@@ -114,21 +112,12 @@ public class ListPropertyTests
     }
 
     [Test]
-    public void Expression_AlwaysNullAndSilentSet()
-    {
-        var property = Make<int>();
-
-        Assert.That(property.Expression, Is.Null);
-        Assert.DoesNotThrow(() => property.Expression = null);
-    }
-
-    [Test]
-    public void GetValue_ReturnsCurrentValueInstance()
+    public void Get_ReturnsCurrentValueInstance()
     {
         var property = Make<int>();
         property.Add(7);
 
-        var value = property.GetValue(CompositionContext.Default);
+        var value = CompositionContext.Default.Get(property);
 
         Assert.That(value, Is.SameAs(property.CurrentValue));
     }
@@ -179,13 +168,5 @@ public class ListPropertyTests
         ((Beutl.Collections.ICoreList<int>)property).Clear();
 
         Assert.That(property.Count, Is.Zero);
-    }
-
-    [Test]
-    public void SerializeExpression_IsNull()
-    {
-        var property = Make<int>();
-
-        Assert.That(property.SerializeExpression(), Is.Null);
     }
 }

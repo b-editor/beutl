@@ -143,7 +143,7 @@ public static class PathEditorHelper
         }
     }
 
-    internal static Thumb? FindThumb(Panel canvas, PathSegment segment, IProperty<BtlPoint> property)
+    internal static Thumb? FindThumb(Panel canvas, PathSegment segment, IExpressionProperty<BtlPoint> property)
     {
         return canvas.Children.FirstOrDefault(v =>
             ReferenceEquals(v.DataContext, segment) && Equals(v.Tag, property.Name)) as Thumb;
@@ -156,7 +156,7 @@ public static class PathEditorHelper
             .ToArray();
     }
 
-    public static IProperty<BtlPoint>[] GetControlPointProperties(object datacontext)
+    public static IExpressionProperty<BtlPoint>[] GetControlPointProperties(object datacontext)
     {
         return datacontext switch
         {
@@ -168,7 +168,7 @@ public static class PathEditorHelper
         };
     }
 
-    public static IProperty<BtlPoint>? GetProperty(Thumb t)
+    public static IExpressionProperty<BtlPoint>? GetProperty(Thumb t)
     {
         switch (t.DataContext)
         {

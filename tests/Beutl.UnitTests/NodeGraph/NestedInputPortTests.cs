@@ -27,7 +27,7 @@ public class NestedInputPortTests
     {
         var graph = new GraphModel();
         GraphNode node;
-        IProperty property;
+        IExpressionProperty property;
         Action add;
         Action remove;
         if (list)
@@ -61,7 +61,7 @@ public class NestedInputPortTests
         }
         Assert.That(history.History.HasPendingOperations, Is.False);
         Evaluate(graph);
-        Assert.That(((IProperty<float>)property).GetValue(CompositionContext.Default), Is.EqualTo(42f));
+        Assert.That(((IExpressionProperty<float>)property).GetValue(CompositionContext.Default), Is.EqualTo(42f));
 
         using (PublishingSuppression.Enter()) remove();
 
@@ -624,8 +624,9 @@ public class NestedInputPortTests
 
         var restoredPort = (INestedInputPort)restored.FindNodePort(port.Id)!;
         Assert.That(restoredPort, Is.Not.Null);
-        Assert.That(restoredPort.Property!.GetEngineProperty()!.Expression, Is.InstanceOf<NodePortExpression<float>>());
-        Assert.That(((IProperty<float>)restoredPort.Property.GetEngineProperty()!).GetValue(CompositionContext.Default), Is.EqualTo(42f));
+        var restoredProperty = (IExpressionProperty<float>)restoredPort.Property!.GetEngineProperty()!;
+        Assert.That(restoredProperty.Expression, Is.InstanceOf<NodePortExpression<float>>());
+        Assert.That(restoredProperty.GetValue(CompositionContext.Default), Is.EqualTo(42f));
         Assert.That(restored.AllConnections.Single().Status, Is.EqualTo(ConnectionStatus.Success));
     }
 
@@ -646,7 +647,7 @@ public class NestedInputPortTests
         var json = CoreSerializer.SerializeToJsonObject(graph);
         var restored = (GraphModel)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
         Evaluate(restored);
-        var x = (IProperty<float>)((INestedInputPort)restored.FindNodePort(port.Id)!).Property!.GetEngineProperty()!;
+        var x = (IExpressionProperty<float>)((INestedInputPort)restored.FindNodePort(port.Id)!).Property!.GetEngineProperty()!;
         var context = new CompositionContext(TimeSpan.FromSeconds(0.5));
 
         using (Assert.EnterMultipleScope())

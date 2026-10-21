@@ -30,7 +30,7 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
     {
         if (updateAnimation)
         {
-            if (engineProperty.IsAnimatable)
+            if (engineProperty is IExpressionProperty { IsAnimatable: true })
             {
                 engineProperty.SetKeyFrameAnimation(value as IKeyFrameAnimation);
             }

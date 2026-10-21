@@ -25,7 +25,7 @@ public sealed partial class QuadraticBezierSegment : PathSegment
     [Display(Name = nameof(GraphicsStrings.EndPoint), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<Point> EndPoint { get; } = Property.CreateAnimatable<Point>();
 
-    public override IProperty<Point> GetEndPoint()
+    public override IExpressionProperty<Point> GetEndPoint()
     {
         return EndPoint;
     }

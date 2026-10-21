@@ -26,7 +26,7 @@ public sealed partial class LineSegment : PathSegment
     [Display(Name = nameof(GraphicsStrings.LineSegment_Point), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<Point> Point { get; } = Property.CreateAnimatable<Point>();
 
-    public override IProperty<Point> GetEndPoint()
+    public override IExpressionProperty<Point> GetEndPoint()
     {
         return Point;
     }

@@ -165,7 +165,7 @@ public abstract class PathEditorViewBase : UserControl, IPathEditorView
         }
     }
 
-    public Thumb? FindThumb(PathSegment segment, IProperty<BtlPoint> property)
+    public Thumb? FindThumb(PathSegment segment, IExpressionProperty<BtlPoint> property)
     {
         return PathEditorHelper.FindThumb(_canvas, segment, property);
     }

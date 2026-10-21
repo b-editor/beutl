@@ -391,7 +391,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         PathFigure figure,
         PathSegment segment)
     {
-        IProperty<BtlPoint>? prop = PathEditorHelper.GetProperty(thumb);
+        IExpressionProperty<BtlPoint>? prop = PathEditorHelper.GetProperty(thumb);
         if (prop != null)
         {
             HistoryManager history = viewModel.EditorContext.GetRequiredService<HistoryManager>();
@@ -409,7 +409,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                 {
                     if (anchor == thumb) continue;
 
-                    IProperty<BtlPoint>? prop2 = PathEditorHelper.GetProperty(anchor);
+                    IExpressionProperty<BtlPoint>? prop2 = PathEditorHelper.GetProperty(anchor);
                     if (anchor.DataContext is PathSegment s && prop2 != null)
                     {
                         PathPointDragState d = CreateThumbDragState(viewModel, s, prop2);
@@ -461,7 +461,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         PathFigure figure,
         PathSegment segment,
         // [ControlPoint, ControlPoint1, ControlPoint2] のいずれか
-        IProperty<BtlPoint> property)
+        IExpressionProperty<BtlPoint> property)
     {
         if (GetAnchor(viewModel, figure, segment, property.Name) is not { } anchor) return;
         var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
@@ -483,7 +483,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
     internal static PathPointDragState CreateThumbDragState(
         IPathEditorContext viewModel,
         PathSegment segment,
-        IProperty<BtlPoint> property)
+        IExpressionProperty<BtlPoint> property)
     {
         var scene = viewModel.EditorContext.GetRequiredService<Scene>();
         var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();

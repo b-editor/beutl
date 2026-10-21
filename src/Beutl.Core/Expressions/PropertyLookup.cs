@@ -38,7 +38,9 @@ public class PropertyLookup(ICoreObject root)
 
         if (property is IProperty<T> typedProperty)
         {
-            value = typedProperty.GetValue(context);
+            value = typedProperty is IExpressionProperty<T> expressionProperty
+                ? expressionProperty.GetValue(context)
+                : typedProperty.CurrentValue;
             return true;
         }
 

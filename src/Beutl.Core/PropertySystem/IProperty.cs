@@ -31,23 +31,7 @@ public interface IProperty : INotifyEdited
 
     Type ValueType { get; }
 
-    // The top of the expression chain; setting one without keyframes keeps the property's keyframes below it.
-    IExpression? Expression { get; set; }
-
-    bool IsAnimatable { get; }
-
-    bool SupportsExpression { get; }
-
     bool HasLocalValue { get; }
-
-    // Whether an expression other than keyframes is on top.
-    bool HasExpression { get; }
-
-    /// <summary>
-    /// Gets the latest expression evaluation error, cleared after a successful evaluation or
-    /// when the expression changes. This transient diagnostic is not a document edit.
-    /// </summary>
-    string? ExpressionError => null;
 
     void SetAttributes(string name, Attribute[] attributes);
 
@@ -72,10 +56,6 @@ public interface IProperty : INotifyEdited
     /// This can differ from <see cref="CreateValidator"/> when a library or plugin supplies a custom validator.
     /// </remarks>
     IValidator? GetValidator();
-
-    void DeserializeExpression(JsonNode expressionNode);
-
-    JsonNode? SerializeExpression();
 }
 
 public interface IProperty<T> : IProperty
@@ -86,15 +66,7 @@ public interface IProperty<T> : IProperty
 
     void ReplaceCurrentValue(T value);
 
-    new IExpression<T>? Expression { get; set; }
-
     object? IProperty.DefaultValue => DefaultValue;
-
-    IExpression? IProperty.Expression
-    {
-        get => Expression;
-        set => Expression = (IExpression<T>?)value;
-    }
 
     object? IProperty.CurrentValue
     {
@@ -132,11 +104,7 @@ public interface IProperty<T> : IProperty
         }
     }
 
-    T GetValue(EvaluationContext context);
-
     event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
-
-    event Action<IExpression<T>?>? ExpressionChanged;
 
     void operator <<=(T value);
 }
@@ -144,12 +112,41 @@ public interface IProperty<T> : IProperty
 // A property that also takes an expression: a user expression, a reference, a node connection or keyframes.
 public interface IExpressionProperty : IProperty
 {
+    // The top of the expression chain; setting one without keyframes keeps the property's keyframes below it.
+    IExpression? Expression { get; set; }
+
+    bool IsAnimatable { get; }
+
     // Whether the expression slot holds a reference to another object, as Property.CreateReference<T>() declares.
     bool IsReference { get; }
+
+    // Whether an expression other than keyframes is on top.
+    bool HasExpression { get; }
+
+    /// <summary>
+    /// Gets the latest expression evaluation error, cleared after a successful evaluation or
+    /// when the expression changes. This transient diagnostic is not a document edit.
+    /// </summary>
+    string? ExpressionError => null;
+
+    void DeserializeExpression(JsonNode expressionNode);
+
+    JsonNode? SerializeExpression();
 }
 
 public interface IExpressionProperty<T> : IExpressionProperty, IProperty<T>
 {
+    new IExpression<T>? Expression { get; set; }
+
+    IExpression? IExpressionProperty.Expression
+    {
+        get => Expression;
+        set => Expression = (IExpression<T>?)value;
+    }
+
+    T GetValue(EvaluationContext context);
+
+    event Action<IExpression<T>?>? ExpressionChanged;
 }
 
 public class PropertyValueChangedEventArgs<T>(IProperty<T> property, T oldValue, T newValue) : EventArgs

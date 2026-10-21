@@ -13,7 +13,7 @@ namespace Beutl.Editor.Components.PathEditorTab.Views;
 public sealed class PathPointDragState
 {
     public PathPointDragState(
-        IProperty<BtlPoint> property,
+        IExpressionProperty<BtlPoint> property,
         PathSegment target,
         KeyFrame<BtlPoint>? previous,
         KeyFrame<BtlPoint>? next)
@@ -36,7 +36,7 @@ public sealed class PathPointDragState
 
     public Thumb? Thumb { get; set; }
 
-    public IProperty<BtlPoint> Property { get; }
+    public IExpressionProperty<BtlPoint> Property { get; }
 
     public PathSegment Target { get; }
 

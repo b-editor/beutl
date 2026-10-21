@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Serialization;
 using RangeAttribute = System.ComponentModel.DataAnnotations.RangeAttribute;
@@ -47,6 +48,15 @@ public class ValueOnlyPropertyTests
             Assert.That(owner.Count.HasLocalValue, Is.True);
             Assert.That(changed, Is.EqualTo(1));
         }
+    }
+
+    [Test]
+    public void ACompositionContext_ReadsTheStoredValue()
+    {
+        var owner = new Owner();
+        owner.Count.CurrentValue = 3;
+
+        Assert.That(new CompositionContext(TimeSpan.FromSeconds(1)).Get(owner.Count), Is.EqualTo(3));
     }
 
     [Test]

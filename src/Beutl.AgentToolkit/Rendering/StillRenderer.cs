@@ -177,7 +177,7 @@ public sealed partial class StillRenderer
             foreach (IProperty property in drawable.Properties)
             {
                 if (Common.ReferenceProperties.Describe(property) is { } descriptor
-                    && property.Expression is IReferenceExpression { HasPropertyPath: false } referenceExpression
+                    && property is IExpressionProperty { Expression: IReferenceExpression { HasPropertyPath: false } referenceExpression }
                     && lookupRoot.FindById(referenceExpression.ObjectId) is IHierarchical expressionTarget
                     && descriptor.ReferencedType.IsInstanceOfType(expressionTarget)
                     && ContainsEnabledGpuContent(expressionTarget, visited))

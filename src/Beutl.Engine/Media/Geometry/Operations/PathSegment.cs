@@ -7,7 +7,7 @@ namespace Beutl.Media;
 [FallbackType(typeof(FallbackPathSegment))]
 public abstract partial class PathSegment : EngineObject
 {
-    public abstract IProperty<Point> GetEndPoint();
+    public abstract IExpressionProperty<Point> GetEndPoint();
 
     public partial class Resource
     {

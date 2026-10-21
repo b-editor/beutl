@@ -77,10 +77,10 @@ internal sealed partial class DeclarativeDocumentApplier
 
         if (animations is not null)
         {
-            RequireTargetProperties(target, animations, "Animation", static property => property.IsAnimatable, "is not animatable");
+            RequireTargetProperties(target, animations, "Animation", static property => property is IExpressionProperty { IsAnimatable: true }, "is not animatable");
         }
 
-        foreach (IProperty property in target.Properties.Where(property => property.IsAnimatable))
+        foreach (IProperty property in target.Properties.Where(property => property is IExpressionProperty { IsAnimatable: true }))
         {
             if (animations?.TryGetPropertyValue(property.Name, out JsonNode? node) == true && node is JsonObject animationJson)
             {

@@ -156,7 +156,7 @@ public class InvalidNestedInputExpressionTests
         var restored = (GraphModel)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
         Evaluate(restored);
         var restoredPort = (INestedInputPort)restored.FindNodePort(port.Id)!;
-        var restoredOpacity = (IProperty<float>)restoredPort.Property!.GetEngineProperty()!;
+        var restoredOpacity = (IExpressionProperty<float>)restoredPort.Property!.GetEngineProperty()!;
         Assert.That(restoredOpacity.GetValue(CompositionContext.Default), Is.EqualTo(12f), "the reloaded connection drives the property");
 
         restored.Disconnect(restored.AllConnections.Single());

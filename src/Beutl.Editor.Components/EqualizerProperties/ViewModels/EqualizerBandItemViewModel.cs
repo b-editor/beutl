@@ -88,8 +88,8 @@ public sealed class EqualizerBandItemViewModel : IDisposable
     {
         if (GetEditingKeyFrame(property, globalTime) is { } kf)
             return kf.Value;
-        if (property.HasExpression)
-            return property.GetValue(new CompositionContext(globalTime));
+        if (property is IExpressionProperty<float> { HasExpression: true } expressionProperty)
+            return expressionProperty.GetValue(new CompositionContext(globalTime));
         return property.CurrentValue;
     }
 
@@ -103,7 +103,7 @@ public sealed class EqualizerBandItemViewModel : IDisposable
 
     public bool CanEditProperty(IProperty<float> property, TimeSpan globalTime)
     {
-        if (property.HasExpression) return false;
+        if (property is IExpressionProperty { HasExpression: true }) return false;
         if (property.GetKeyFrameAnimation() is null) return true;
         return GetEditingKeyFrame(property, globalTime) is not null;
     }

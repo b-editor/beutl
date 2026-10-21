@@ -160,7 +160,7 @@ public sealed partial class PropertyEditorMenu : UserControl
             var flyout = new ExpressionEditorFlyout();
             flyout.Placement = PlacementMode.BottomEdgeAlignedRight;
             flyout.ExpressionText = currentExpression ?? "";
-            flyout.ErrorMessage = viewModel.PropertyAdapter.GetEngineProperty()?.ExpressionError;
+            flyout.ErrorMessage = (viewModel.PropertyAdapter.GetEngineProperty() as IExpressionProperty)?.ExpressionError;
             flyout.Confirmed += (_, args) =>
             {
                 bool isValid = viewModel.SetExpression(args.ExpressionText, out var error);

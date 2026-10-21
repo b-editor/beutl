@@ -7,7 +7,7 @@ namespace Beutl.Editor.Components.PathEditorTab.Services;
 
 internal enum PathPointPropertyRole { Position, Incoming, Outgoing, Shared }
 
-internal readonly record struct PathPointProperty(PathSegment Owner, IProperty<Point> Property, PathPointPropertyRole Role);
+internal readonly record struct PathPointProperty(PathSegment Owner, IExpressionProperty<Point> Property, PathPointPropertyRole Role);
 
 internal static class PathPointProperties
 {
@@ -25,7 +25,7 @@ internal static class PathPointProperties
         bool explicitStart = !figure.StartPoint.GetValue(context).IsInvalid;
         if (index > 0 || closed || explicitStart)
         {
-            IProperty<Point>? incoming = anchor switch
+            IExpressionProperty<Point>? incoming = anchor switch
             {
                 CubicBezierSegment cubic => cubic.ControlPoint2,
                 QuadraticBezierSegment quadratic => quadratic.ControlPoint,
@@ -42,7 +42,7 @@ internal static class PathPointProperties
         if (nextIndex < figure.Segments.Count)
         {
             PathSegment next = figure.Segments[nextIndex];
-            IProperty<Point>? outgoing = next switch
+            IExpressionProperty<Point>? outgoing = next switch
             {
                 CubicBezierSegment cubic => cubic.ControlPoint1,
                 QuadraticBezierSegment quadratic => quadratic.ControlPoint,

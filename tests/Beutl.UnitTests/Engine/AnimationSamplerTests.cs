@@ -29,7 +29,7 @@ public class AnimationSamplerTests
         return property;
     }
 
-    private static (IProperty<float> Property, EngineObject Owner) AttachedAnimatedFloat(
+    private static (IExpressionProperty<float> Property, EngineObject Owner) AttachedAnimatedFloat(
         float from, float to, double durationSeconds, TimeRange ownerTimeRange, bool useGlobalClock)
     {
         var owner = new AnimationSamplerTestRoot { TimeRange = ownerTimeRange };

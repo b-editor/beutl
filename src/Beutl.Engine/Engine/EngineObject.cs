@@ -177,8 +177,11 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
             // A property renamed with a FormerPersistedNameAttribute reads its value, animation and expression
             // under the former name when the current one is not there.
             property.DeserializeValue(context);
+            if (property is not IExpressionProperty expressionProperty)
+                continue;
+
             Attribute[]? attributes = property.GetAttributes();
-            if (property.IsAnimatable
+            if (expressionProperty.IsAnimatable
                 && FormerPersistedNames.TryGetMember(animations, property.Name, attributes, out IKeyFrameAnimation? animation))
             {
                 property.SetKeyFrameAnimation(animation);
@@ -186,7 +189,7 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
 
             if (FormerPersistedNames.TryGetMember(expressions, property.Name, attributes, out JsonNode? expressionNode))
             {
-                property.DeserializeExpression(expressionNode);
+                expressionProperty.DeserializeExpression(expressionNode);
             }
         }
 
@@ -194,7 +197,7 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
         if (context is JsonSerializationContext jsonContext && (this is IFallback || jsonContext.KeepsUnknownMembers))
         {
             KeepUnknownEntries(
-                jsonContext, "Animations", static property => property.IsAnimatable, ref _unknownAnimations);
+                jsonContext, "Animations", static property => property is IExpressionProperty { IsAnimatable: true }, ref _unknownAnimations);
             KeepUnknownEntries(jsonContext, "Expressions", static _ => true, ref _unknownExpressions);
         }
     }
@@ -256,7 +259,7 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
         IProperty[] serialized = [.. RegisteredProperties.Where(IsAutoSerialized)];
 
         Dictionary<string, IKeyFrameAnimation> animations = serialized
-            .Where(p => p.IsAnimatable)
+            .Where(p => p is IExpressionProperty { IsAnimatable: true })
             .Select(p => (p.Name, Animation: p.GetKeyFrameAnimation()))
             .Where(p => p.Animation is not null)
             .ToDictionary(p => p.Name, p => p.Animation!);
@@ -265,7 +268,7 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
         WriteUnknownEntries(context, "Animations", _unknownAnimations);
 
         Dictionary<string, JsonNode> expressions = serialized
-            .Select(p => (Name: p.Name, Node: p.SerializeExpression()))
+            .Select(p => (Name: p.Name, Node: (p as IExpressionProperty)?.SerializeExpression()))
             .Where(p => p.Node is not null)
             .ToDictionary(p => p.Name, p => p.Node!);
 

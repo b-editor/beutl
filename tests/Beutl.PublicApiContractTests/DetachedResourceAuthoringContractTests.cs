@@ -445,7 +445,7 @@ public sealed partial class PluginSegment : PathSegment
 
     public IExpressionProperty<Point> To { get; } = Property.CreateAnimatable<Point>();
 
-    public override IProperty<Point> GetEndPoint() => To;
+    public override IExpressionProperty<Point> GetEndPoint() => To;
 
     public partial class Resource
     {

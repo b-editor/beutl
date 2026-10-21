@@ -249,7 +249,7 @@ internal static class AudioTestProperties
     /// An animatable property named <paramref name="name"/> with a linear ramp from <paramref name="from"/> at zero
     /// to <paramref name="to"/> at <paramref name="seconds"/>.
     /// </summary>
-    public static IProperty<float> Ramp(string name, float from, float to, double seconds)
+    public static IExpressionProperty<float> Ramp(string name, float from, float to, double seconds)
     {
         var property = Property.CreateAnimatable(from);
         property.SetAttributes(name, []);

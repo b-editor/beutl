@@ -50,8 +50,8 @@ public class OverriddenAliasInputTests
             acceptedGraph.Nodes.Add(acceptedNode);
             rejectedGraph.Nodes.Add(rejectedNode);
         }
-        IProperty<Brush?> acceptedParent = acceptedNode.Object.First;
-        IProperty<Brush?> rejectedParent = rejectedNode.Object.Second;
+        IExpressionProperty<Brush?> acceptedParent = acceptedNode.Object.First;
+        IExpressionProperty<Brush?> rejectedParent = rejectedNode.Object.Second;
         if (layout == "same" && rejectedFirst)
             (acceptedParent, rejectedParent) = (rejectedParent, acceptedParent);
         var shared = new SolidColorBrush(Colors.White, 35f);

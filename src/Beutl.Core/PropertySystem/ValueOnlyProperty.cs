@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Nodes;
 using Beutl.Serialization;
 using Beutl.Validation;
 using ValidationContext = Beutl.Validation.ValidationContext;
@@ -19,10 +18,6 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
 
     public Type ValueType { get; } = typeof(T);
 
-    public bool IsAnimatable => false;
-
-    public bool SupportsExpression => false;
-
     public T DefaultValue { get; } = defaultValue;
 
     public T CurrentValue
@@ -33,27 +28,9 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
 
     public bool HasLocalValue { get; private set; }
 
-    public bool HasExpression => false;
-
-    public IExpression<T>? Expression
-    {
-        get => null;
-        set
-        {
-            if (value != null)
-                throw new InvalidOperationException($"Property '{Name}' does not support expressions.");
-        }
-    }
-
     public event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
 
     public event EventHandler? Edited;
-
-    event Action<IExpression<T>?>? IProperty<T>.ExpressionChanged
-    {
-        add { }
-        remove { }
-    }
 
     private void SetCurrentValue(T value, bool replaceEquivalent)
     {
@@ -91,8 +68,6 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
 
     IEnumerable<object?> IChildObjectSource.GetChildObjects()
         => ChildObjects.MayHoldObjects(typeof(T)) ? [_currentValue] : [];
-
-    public T GetValue(EvaluationContext context) => _currentValue;
 
     public void SetAttributes(string name, Attribute[] attributes)
     {
@@ -173,10 +148,4 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
     {
         context.SetValue(Name, CurrentValue);
     }
-
-    public void DeserializeExpression(JsonNode expressionNode)
-    {
-    }
-
-    public JsonNode? SerializeExpression() => null;
 }

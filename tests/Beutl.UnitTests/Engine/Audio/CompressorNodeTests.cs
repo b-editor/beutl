@@ -857,8 +857,9 @@ public class CompressorNodeTests
         // CurrentValue stays -20; the expression evaluates to -40 (which would compress harder).
         // Because the static path ignores the expression, -40 must NOT take effect.
         var exprNode = CreateNode();
-        exprNode.Threshold.Expression = new StringExpression<float>("-40");
-        Assert.That(exprNode.Threshold.HasExpression, Is.True);
+        var threshold = (IExpressionProperty<float>)exprNode.Threshold;
+        threshold.Expression = new StringExpression<float>("-40");
+        Assert.That(threshold.HasExpression, Is.True);
         Assert.That(exprNode.Threshold.GetKeyFrameAnimation(), Is.Null);
         exprNode.AddInput(new BufferReplayNode(input));
         using var exprOut = exprNode.Process(CreateContext(TimeSpan.Zero, duration));

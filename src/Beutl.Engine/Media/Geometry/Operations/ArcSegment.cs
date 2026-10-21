@@ -28,7 +28,7 @@ public sealed partial class ArcSegment : PathSegment
     [Display(Name = nameof(GraphicsStrings.ArcSegment_Point), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<Point> Point { get; } = Property.CreateAnimatable<Point>();
 
-    public override IProperty<Point> GetEndPoint()
+    public override IExpressionProperty<Point> GetEndPoint()
     {
         return Point;
     }

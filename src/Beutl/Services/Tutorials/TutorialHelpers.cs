@@ -86,7 +86,7 @@ public static class TutorialHelpers
     }
 
     public static IDisposable? SubscribeToAnimationEnabled<T>(
-        IProperty<T>? property,
+        IExpressionProperty<T>? property,
         Action onAnimationEnabled)
         where T : struct
     {

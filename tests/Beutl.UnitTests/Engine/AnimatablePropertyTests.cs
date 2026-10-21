@@ -23,7 +23,6 @@ public class AnimatablePropertyTests
         var property = Make(7);
 
         Assert.That(property.IsAnimatable, Is.True);
-        Assert.That(property.SupportsExpression, Is.True);
         Assert.That(property.DefaultValue, Is.EqualTo(7));
         Assert.That(property.CurrentValue, Is.EqualTo(7));
         Assert.That(property.HasLocalValue, Is.False);

@@ -22,7 +22,7 @@ internal interface IPathEditorView
 
     double Scale { get; }
 
-    Thumb? FindThumb(PathSegment segment, IProperty<BtlPoint> property);
+    Thumb? FindThumb(PathSegment segment, IExpressionProperty<BtlPoint> property);
 
     Thumb[] GetSelectedAnchors();
 }

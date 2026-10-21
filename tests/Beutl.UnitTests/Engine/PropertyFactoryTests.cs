@@ -21,7 +21,6 @@ public class PropertyFactoryTests
 
         Assert.That(property, Is.InstanceOf<SimpleProperty<double>>());
         Assert.That(property.IsAnimatable, Is.False);
-        Assert.That(property.SupportsExpression, Is.True);
         Assert.That(property.DefaultValue, Is.EqualTo(1.5));
         Assert.That(property.CurrentValue, Is.EqualTo(1.5));
         Assert.That(property.HasLocalValue, Is.False);

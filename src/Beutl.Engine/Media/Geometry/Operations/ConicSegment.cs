@@ -29,7 +29,7 @@ public sealed partial class ConicSegment : PathSegment
     [Display(Name = nameof(GraphicsStrings.ConicSegment_Weight), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> Weight { get; } = Property.CreateAnimatable<float>(1);
 
-    public override IProperty<Point> GetEndPoint()
+    public override IExpressionProperty<Point> GetEndPoint()
     {
         return EndPoint;
     }

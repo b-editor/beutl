@@ -124,7 +124,7 @@ public class SimplePropertyTests
         var property = Make(1);
         property.CurrentValue = 42;
 
-        IProperty<int> animatable = property.ToAnimatable();
+        IExpressionProperty<int> animatable = property.ToAnimatable();
 
         Assert.That(animatable, Is.InstanceOf<AnimatableProperty<int>>());
         Assert.That(animatable.DefaultValue, Is.EqualTo(1));
@@ -137,7 +137,7 @@ public class SimplePropertyTests
     {
         var property = Make(7);
 
-        IProperty<int> animatable = property.ToAnimatable();
+        IExpressionProperty<int> animatable = property.ToAnimatable();
 
         Assert.That(animatable.CurrentValue, Is.EqualTo(7));
         Assert.That(animatable.HasLocalValue, Is.False);

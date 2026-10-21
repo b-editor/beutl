@@ -11,7 +11,8 @@ namespace Beutl.Editor.Components.PathEditorTab.Views;
 // Topology edits must not silently bake animation or expressions into the current frame.
 internal static class PathEditingOperations
 {
-    internal static bool IsStatic(IProperty property) => property.GetKeyFrameAnimation() == null && !property.HasExpression;
+    internal static bool IsStatic(IProperty property)
+        => property.GetKeyFrameAnimation() == null && property is not IExpressionProperty { HasExpression: true };
 
     internal static Point Lerp(Point a, Point b, float t) => new(float.Lerp(a.X, b.X, t), float.Lerp(a.Y, b.Y, t));
 
@@ -78,7 +79,7 @@ internal static class PathEditingOperations
         // require a different representation and must not be baked to this frame.
         bool allowKeyframe = preserveSingleKeyframe
             && (index == figure.Segments.Count || figure.Segments[index] is not ArcSegment);
-        bool CanUsePoint(IProperty<Point> property) => IsStatic(property)
+        bool CanUsePoint(IExpressionProperty<Point> property) => IsStatic(property)
             || allowKeyframe && !property.HasExpression
                 && property.GetKeyFrameAnimation() is KeyFrameAnimation<Point> { KeyFrames.Count: 1 } animation
                 && animation.KeyFrames[0] is KeyFrame<Point>;
@@ -187,7 +188,7 @@ internal static class PathEditingOperations
 
     private readonly record struct SplitPoint(Point BaseValue, Point Value, KeyFrameAnimation<Point>? Animation);
 
-    private static SplitPoint ReadPoint(IProperty<Point> property)
+    private static SplitPoint ReadPoint(IExpressionProperty<Point> property)
     {
         var animation = property.GetKeyFrameAnimation() as KeyFrameAnimation<Point>;
         return new(property.CurrentValue, animation?.KeyFrames[0] is KeyFrame<Point> key
@@ -200,7 +201,7 @@ internal static class PathEditingOperations
     private static SplitPoint Weighted(SplitPoint a, float wa, SplitPoint b, float wb) =>
         new(Weighted(a.BaseValue, wa, b.BaseValue, wb), Weighted(a.Value, wa, b.Value, wb), a.Animation ?? b.Animation);
 
-    private static void WritePoint(IProperty<Point> property, SplitPoint point)
+    private static void WritePoint(IExpressionProperty<Point> property, SplitPoint point)
     {
         property.CurrentValue = point.BaseValue;
         if (point.Animation == null) return;

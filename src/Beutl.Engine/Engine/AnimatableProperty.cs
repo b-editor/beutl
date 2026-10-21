@@ -35,8 +35,6 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
 
     public bool IsAnimatable { get; }
 
-    public bool SupportsExpression { get; } = true;
-
     public bool IsReference => false;
 
     public T DefaultValue { get; }

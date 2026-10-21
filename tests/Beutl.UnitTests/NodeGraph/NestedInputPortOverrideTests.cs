@@ -59,7 +59,7 @@ public class NestedInputPortOverrideTests
     public void AnOverrideOnTheConnectedPropertyItselfDoesNotBlockThePort(string overrideKind)
     {
         GraphNode node;
-        IProperty connected;
+        IExpressionProperty connected;
         var brush = new SolidColorBrush();
         if (overrideKind == "animation")
         {
@@ -82,7 +82,7 @@ public class NestedInputPortOverrideTests
     }
 
     // The node, the overridden ancestor input, the descendant property the port drives, and the override switch.
-    private sealed record Scenario(GraphNode Node, IInputPort Parent, IProperty<float> Connected, Action<bool> SetOverride);
+    private sealed record Scenario(GraphNode Node, IInputPort Parent, IExpressionProperty<float> Connected, Action<bool> SetOverride);
 
     private static Scenario AnimatedPen(bool intermediate)
     {
@@ -109,7 +109,7 @@ public class NestedInputPortOverrideTests
         var brush = new SolidColorBrush();
         var expression = new ConstantExpression<Brush?>(new SolidColorBrush(Colors.Blue));
         GraphNode node;
-        IProperty<Brush?> property;
+        IExpressionProperty<Brush?> property;
         if (intermediate)
         {
             var shape = new GeometryShapeNode();

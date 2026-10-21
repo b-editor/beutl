@@ -152,7 +152,7 @@ public sealed partial class GraphEditorTabViewModel
             }
             var item = GetTreeItem(path, Property.GetLocalizedName(property), parent, used);
             item.Property = property;
-            UpdatePropertyItem(item, property.IsAnimatable, used, ancestors);
+            UpdatePropertyItem(item, property is IExpressionProperty { IsAnimatable: true }, used, ancestors);
             children.Add(item);
         }
         AppendCoreChildren(obj, parent, parent.Key, children, used, ancestors);
