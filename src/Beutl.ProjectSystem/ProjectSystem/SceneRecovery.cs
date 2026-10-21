@@ -173,7 +173,7 @@ internal sealed partial class SceneRecovery(Scene scene)
             object? migratedValue = rewriter.Rewrite(currentValue);
             if (RecoveredReferenceRewriter.HasReferenceRewrite(currentValue, migratedValue))
             {
-                property.ReplaceCurrentValue(migratedValue);
+                property.SetValueEvenIfEqual(migratedValue);
             }
 
             if (property is IExpressionProperty { Expression: IReferenceExpression referenceExpression } expressionProperty

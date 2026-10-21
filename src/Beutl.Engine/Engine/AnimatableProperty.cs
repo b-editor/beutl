@@ -70,7 +70,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
         }
     }
 
-    public void ReplaceCurrentValue(T value)
+    public void SetValueEvenIfEqual(T value)
         => SetCurrentValue(value, replaceEquivalent: true);
 
     public bool HasLocalValue { get; private set; }

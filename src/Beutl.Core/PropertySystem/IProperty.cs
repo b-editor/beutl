@@ -25,7 +25,7 @@ public interface IProperty : INotifyEdited
     /// Validates and installs <paramref name="value"/>, replacing distinct reference-type values
     /// even when they compare equal while preserving the normal notification semantics.
     /// </summary>
-    void ReplaceCurrentValue(object? value);
+    void SetValueEvenIfEqual(object? value);
 
     string Name { get; }
 
@@ -64,7 +64,7 @@ public interface IProperty<T> : IProperty
 
     new T Value { get; set; }
 
-    void ReplaceCurrentValue(T value);
+    void SetValueEvenIfEqual(T value);
 
     object? IProperty.DefaultValue => DefaultValue;
 
@@ -88,15 +88,15 @@ public interface IProperty<T> : IProperty
         }
     }
 
-    void IProperty.ReplaceCurrentValue(object? value)
+    void IProperty.SetValueEvenIfEqual(object? value)
     {
         if (value is T typed)
         {
-            ReplaceCurrentValue(typed);
+            SetValueEvenIfEqual(typed);
         }
         else if (value is null && (!typeof(T).IsValueType || Nullable.GetUnderlyingType(typeof(T)) is not null))
         {
-            ReplaceCurrentValue(default!);
+            SetValueEvenIfEqual(default!);
         }
         else
         {

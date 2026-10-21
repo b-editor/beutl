@@ -58,7 +58,7 @@ public class ListProperty<T> : IListProperty<T>
         set => _items.Replace(value);
     }
 
-    public void ReplaceCurrentValue(ICoreList<T> value)
+    public void SetValueEvenIfEqual(ICoreList<T> value)
         => _items.Replace(value);
 
     public bool HasLocalValue => true;

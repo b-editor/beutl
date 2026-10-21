@@ -58,7 +58,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
         }
     }
 
-    public void ReplaceCurrentValue(T value)
+    public void SetValueEvenIfEqual(T value)
         => SetCurrentValue(value, replaceEquivalent: true);
 
     public IExpression<T>? Expression

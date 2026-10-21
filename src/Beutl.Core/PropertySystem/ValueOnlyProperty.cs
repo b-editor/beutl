@@ -53,7 +53,7 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
         }
     }
 
-    public void ReplaceCurrentValue(T value)
+    public void SetValueEvenIfEqual(T value)
         => SetCurrentValue(value, replaceEquivalent: true);
 
     public void operator <<=(T value)

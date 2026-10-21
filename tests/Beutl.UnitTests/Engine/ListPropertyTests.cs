@@ -69,13 +69,13 @@ public class ListPropertyTests
     }
 
     [Test]
-    public void ReplaceCurrentValue_ThroughBaseContract_ReplacesContents()
+    public void SetValueEvenIfEqual_ThroughBaseContract_ReplacesContents()
     {
         var property = Make<int>();
         property.AddRange([1, 2, 3]);
         IProperty baseProperty = property;
 
-        baseProperty.ReplaceCurrentValue(new CoreList<int>([4, 5]));
+        baseProperty.SetValueEvenIfEqual(new CoreList<int>([4, 5]));
 
         Assert.That(property, Is.EqualTo(new[] { 4, 5 }));
     }

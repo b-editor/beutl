@@ -14,7 +14,7 @@ public class SimplePropertyTests
         IExpressionProperty<Guid?> typed = Property.CreateWithExpression<Guid?>();
         typed.Value = Guid.NewGuid();
         IProperty property = typed;
-        if (replace) property.ReplaceCurrentValue(null);
+        if (replace) property.SetValueEvenIfEqual(null);
         else property.Value = null;
         Assert.That(typed.Value, Is.Null);
     }

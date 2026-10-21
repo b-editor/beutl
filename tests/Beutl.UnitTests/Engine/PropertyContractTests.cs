@@ -85,7 +85,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
     }
 
     [Test]
-    public void ReplaceCurrentValue_EquivalentInstance_ReplacesAndNotifiesOnce()
+    public void SetValueEvenIfEqual_EquivalentInstance_ReplacesAndNotifiesOnce()
     {
         var current = new EqualityValue("same", "old");
         var replacement = new EqualityValue("same", "new");
@@ -97,7 +97,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
         property.ValueChanged += (_, e) => args = e;
         property.Edited += (_, _) => edited++;
 
-        ((IProperty)property).ReplaceCurrentValue(replacement);
+        ((IProperty)property).SetValueEvenIfEqual(replacement);
 
         Assert.Multiple(() =>
         {
