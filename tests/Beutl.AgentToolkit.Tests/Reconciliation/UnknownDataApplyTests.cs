@@ -36,6 +36,9 @@ public sealed class UnknownDataApplyTests
         JsonObject saved = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
         JsonArray writtenObjects = written[nameof(Element.Objects)]!.AsArray();
         JsonArray savedObjects = saved[nameof(Element.Objects)]!.AsArray();
+        // The object whose type is missing moved with its element, which is a member it knows.
+        JsonNode unavailable = writtenObjects[1]!.DeepClone();
+        unavailable[nameof(Element.Start)] = TimeSpan.FromSeconds(1).ToString("c");
 
         Assert.Multiple(() =>
         {
@@ -46,8 +49,8 @@ public sealed class UnknownDataApplyTests
             Assert.That(JsonNode.DeepEquals(saved["FutureClip"], written["FutureClip"]), Is.True);
             Assert.That(savedObjects[0]!["FutureShape"]!.GetValue<int>(), Is.EqualTo(3));
             Assert.That(savedObjects[0]![nameof(Shape.Fill)]!["FutureBrush"]!.GetValue<int>(), Is.EqualTo(4));
-            Assert.That(JsonNode.DeepEquals(savedObjects[1], writtenObjects[1]), Is.True,
-                "The object whose type is missing is saved as it was read.");
+            Assert.That(JsonNode.DeepEquals(savedObjects[1], unavailable), Is.True,
+                "The rest of the object whose type is missing is saved as it was read.");
         });
     }
 

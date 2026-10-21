@@ -265,7 +265,7 @@ public class UnknownMemberTests
         });
     }
 
-    // A fallback saves the JSON it was read from, the type it names included, also as the root of a file.
+    // A fallback writes back the type it names and the members it does not know, also as the root of a file.
     [Test]
     public void Fallback_KeepsTheTypeItStandsInFor_WhenWrittenAsTheRoot()
     {
@@ -283,6 +283,57 @@ public class UnknownMemberTests
         {
             Assert.That(fallback, Is.InstanceOf<FallbackTransform>());
             Assert.That(fallback.Id.ToString(), Is.EqualTo(json[nameof(CoreObject.Id)]!.GetValue<string>()));
+            Assert.That(json.All(member => JsonNode.DeepEquals(written[member.Key], member.Value)), Is.True);
+        });
+    }
+
+    // A fallback saves an edit of a member it knows, and writes back the members and expressions of the type it
+    // stands in for as they were read.
+    [Test]
+    public void Fallback_SavesAnEditOfAMemberItKnows_AndWritesBackTheRest()
+    {
+        var json = new JsonObject
+        {
+            ["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform",
+            [nameof(CoreObject.Id)] = Guid.NewGuid().ToString(),
+            ["Amount"] = 3,
+            ["Expressions"] = new JsonObject { ["Amount"] = new JsonObject { ["Plugin"] = 1 } },
+        };
+
+        var fallback = (Transform)CoreSerializer.DeserializeFromJsonObject(json, typeof(Transform));
+        fallback.IsEnabled = false;
+        JsonObject written = CoreSerializer.SerializeToJsonObject(fallback);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(written[nameof(EngineObject.IsEnabled)]!.GetValue<bool>(), Is.False);
+            Assert.That(written["Amount"]!.GetValue<int>(), Is.EqualTo(3));
+            Assert.That(JsonNode.DeepEquals(written["Expressions"], json["Expressions"]), Is.True);
+            Assert.That(written["$type"]!.GetValue<string>(), Is.EqualTo(json["$type"]!.GetValue<string>()));
+        });
+    }
+
+    // A fallback for an object whose data failed to load never read its members, so it saves the JSON it was given
+    // as it is, not the defaults it holds.
+    [Test]
+    public void FailedFallback_SavesTheJsonItWasGivenAsItIs()
+    {
+        var json = new JsonObject
+        {
+            [nameof(CoreObject.Id)] = Guid.NewGuid().ToString(),
+            [nameof(CoreObject.Name)] = "Kept",
+            [nameof(EngineObject.IsEnabled)] = false,
+        };
+        json.WriteDiscriminator(typeof(UnreadableEngineObject));
+
+        var fallback = (EngineObject)CoreSerializer.DeserializeFromJsonObject(json, typeof(EngineObject));
+        fallback.Name = "Edited";
+        JsonObject written = CoreSerializer.SerializeToJsonObject(fallback);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fallback, Is.InstanceOf<FallbackEngineObject>());
+            Assert.That(((IFallback)fallback).Reason, Is.EqualTo(FallbackReason.DeserializationFailed));
             Assert.That(JsonNode.DeepEquals(written, json), Is.True);
         });
     }
@@ -367,4 +418,10 @@ public class UnknownMemberTests
             _ = ((IJsonSerializationContext)context).GetJsonObject()["Legacy"];
         }
     }
+}
+
+[SuppressResourceClassGeneration]
+public sealed class UnreadableEngineObject : EngineObject
+{
+    public override void Deserialize(ICoreSerializationContext context) => throw new InvalidOperationException("Invalid payload.");
 }

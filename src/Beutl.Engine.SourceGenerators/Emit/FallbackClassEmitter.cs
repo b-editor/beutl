@@ -33,12 +33,6 @@ public static class FallbackClassEmitter
         EmitJsonProperty(sb, indent);
         sb.AppendLine();
 
-        EmitSerialize(sb, indent);
-        sb.AppendLine();
-
-        EmitDeserialize(sb, indent);
-        sb.AppendLine();
-
         EmitTryGetTypeName(sb, indent);
 
         foreach (AbstractMethodInfo methodInfo in info.AbstractMethods)
@@ -64,27 +58,6 @@ public static class FallbackClassEmitter
         sb.AppendLine($"{indent}public global::Beutl.Serialization.FallbackReason Reason {{ get; set; }}");
         sb.AppendLine();
         sb.AppendLine($"{indent}public string? ErrorMessage {{ get; set; }}");
-    }
-
-    private static void EmitSerialize(StringBuilder sb, string indent)
-    {
-        sb.AppendLine($"{indent}public override void Serialize(global::Beutl.Serialization.ICoreSerializationContext context)");
-        sb.AppendLine($"{indent}{{");
-        sb.AppendLine($"{indent}    base.Serialize(context);");
-        sb.AppendLine($"{indent}    if (Json != null)");
-        sb.AppendLine($"{indent}    {{");
-        sb.AppendLine($"{indent}        (context as global::Beutl.Serialization.IJsonSerializationContext)?.SetJsonObject(Json);");
-        sb.AppendLine($"{indent}    }}");
-        sb.AppendLine($"{indent}}}");
-    }
-
-    private static void EmitDeserialize(StringBuilder sb, string indent)
-    {
-        sb.AppendLine($"{indent}public override void Deserialize(global::Beutl.Serialization.ICoreSerializationContext context)");
-        sb.AppendLine($"{indent}{{");
-        sb.AppendLine($"{indent}    base.Deserialize(context);");
-        sb.AppendLine($"{indent}    Json = (context as global::Beutl.Serialization.IJsonSerializationContext)?.GetJsonObject();");
-        sb.AppendLine($"{indent}}}");
     }
 
     private static void EmitTryGetTypeName(StringBuilder sb, string indent)

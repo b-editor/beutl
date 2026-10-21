@@ -1,8 +1,11 @@
-﻿using Beutl.Editor;
+﻿using System.Text.Json.Nodes;
+using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
+using Beutl.NodeGraph.Nodes.Utilities;
+using Beutl.Serialization;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.Services;
@@ -307,6 +310,39 @@ public class NodeGraphMutationServiceTests
         {
             Assert.That(_graph.Nodes.Count, Is.EqualTo(beforeNodes - 1));
             Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo + 1));
+        });
+    }
+
+    // A missing plugin's node has no ports, so the connections that name the ports it was saved with go with it, as a
+    // node's connections do. Undo brings both back.
+    [Test]
+    public void RemoveNode_OnAMissingPluginsNode_RemovesItsConnectionsAndUndoBringsThemBack()
+    {
+        var source = new RandomSingleNode();
+        var output = new OutputNode();
+        var original = new GraphModel();
+        original.Nodes.AddRange([source, output]);
+        original.Connect(output.InputPort, source.Value);
+        JsonObject json = CoreSerializer.SerializeToJsonObject(original);
+        json["Nodes"]![0]!["$type"] = "[Missing.Plugin]Missing:Node";
+        var graph = (GraphModel)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
+        using var harness = new HistoryHarness(graph);
+        var service = new NodeGraphMutationService(harness.History);
+        var fallback = (FallbackGraphNode)graph.Nodes[0];
+        var healthy = (OutputNode)graph.Nodes[1];
+        Connection connection = graph.AllConnections.Single();
+
+        service.RemoveNode(graph, fallback);
+        bool removedConnection = graph.AllConnections.Count == 0 && healthy.InputPort.Connection.IsNull;
+        bool undone = harness.History.Undo();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(removedConnection, Is.True);
+            Assert.That(undone, Is.True);
+            Assert.That(graph.Nodes, Does.Contain(fallback));
+            Assert.That(graph.AllConnections.Single(), Is.SameAs(connection));
+            Assert.That(healthy.InputPort.Connection.Id, Is.EqualTo(connection.Id));
         });
     }
 }

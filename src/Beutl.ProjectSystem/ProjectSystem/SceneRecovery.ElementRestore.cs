@@ -44,7 +44,7 @@ internal sealed partial class SceneRecovery
 
         if (!KeepsOriginalFile(element, incidents))
         {
-            // Saving writes every fallback's JSON back, so the element saves normally and stays editable.
+            // Saving writes back what every fallback kept, so the element saves normally and stays editable.
             foreach (IFallback fallback in fallbacks)
             {
                 GiveIdlessFallbackItsRuntimeId(fallback);
@@ -92,8 +92,8 @@ internal sealed partial class SceneRecovery
     // Whether saving the element would lose part of what it was read with, so that recovery must keep its
     // original file: content the Beutl 1.x migration could not convert, a load incident that left no fallback
     // (such as a keyframe easing that could not be read), or a fallback that saving the element does not
-    // write. A fallback that saving writes is no reason: it writes the JSON it was read from back, so the
-    // object whose type could not be loaded survives the save as it was.
+    // write. A fallback that saving writes is no reason: it writes back what it was read with, so the object
+    // whose type could not be loaded survives the save.
     private static bool KeepsOriginalFile(
         Element element,
         IReadOnlyList<DeserializationIncidents.DeserializationIncident> incidents)
@@ -288,9 +288,9 @@ internal sealed partial class SceneRecovery
     // Whether content (an element, one of its objects, or a value or animation inside one) holds
     // what recovery keeps the element's original file for: content the Beutl 1.x migration could not
     // convert, the stand-in for an element file that could not be read, or a keyframe whose easing could
-    // not be read. A fallback for an object whose type could not be loaded is not one: saving writes its
-    // JSON back. Content nested where the serialized graph does not reach (for example inside a record) is
-    // not found.
+    // not be read. A fallback for an object whose type could not be loaded is not one: saving writes back what
+    // it kept. Content nested where the serialized graph does not reach (for example inside a record) is not
+    // found.
     internal static bool HoldsRecoveryBlocker(object? content)
     {
         return SerializedGraphTraversal.Visit(

@@ -132,7 +132,7 @@ public class Element : Hierarchical, INotifyEdited
 
     // True while recovery keeps this element's original file because saving would lose part of
     // what it was read with, for example a keyframe easing from a plugin that is not installed (an
-    // object whose type is missing does not count: its fallback saves the JSON it was read from).
+    // object whose type is missing does not count: its fallback saves what it was read with).
     // Saving leaves that file as it is, so the editor treats the element as read-only, except for
     // removing the element or the content that could not be loaded. A completed repair clears it;
     // undoing the repair sets it again.

@@ -110,7 +110,7 @@
                     </ui:FAMenuFlyoutItem>
                     <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="NodeGraph.Rename"
                                          Click="RenameClick"
-                                         IsEnabled="{Binding !IsFallback}"
+                                         IsEnabled="{Binding !IsReadOnly}"
                                          Text="{x:Static lang:Strings.Rename}">
                         <ui:FAMenuFlyoutItem.IconSource>
                             <icons:FluentIconSource Icon="Rename" />

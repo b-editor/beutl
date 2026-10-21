@@ -13,7 +13,7 @@ internal sealed class SerializedObjectCapture : IDisposable
     public SerializedObjectCapture() => t_current = this;
     public IEnumerable<CoreObject> Objects => _objects;
 
-    // Whether fallback was serialized, which writes the JSON it was read from back.
+    // Whether fallback was serialized, which writes back what it kept.
     public bool Contains(IFallback fallback) => _fallbacks?.Contains(fallback) == true;
 
     public static void Record(ICoreSerializable value)
