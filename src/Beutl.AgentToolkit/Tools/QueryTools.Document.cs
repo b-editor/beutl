@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
+using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.Animation;
 using Beutl.Engine;
@@ -131,7 +132,8 @@ public sealed partial class QueryTools
                     yield break;
                 }
 
-                foreach (IProperty property in engineObject.Properties)
+                // A base field stands for a CoreProperty field, which this walk does not enter.
+                foreach (IProperty property in engineObject.Properties.Where(property => !SchemaGenerator.IsBaseField(engineObject, property)))
                 {
                     string propertyPath = $"{path}.{property.Name}";
                     if (property.GetKeyFrameAnimation() is not null)

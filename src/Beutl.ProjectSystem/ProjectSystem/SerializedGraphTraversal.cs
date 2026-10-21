@@ -113,6 +113,18 @@ internal static class SerializedGraphTraversal
                 break;
         }
 
+        // A saved base field is walked where the CoreProperty field it replaces was.
+        if (coreObject is EngineObject owner)
+        {
+            foreach (IProperty field in owner.Properties.Where(property => owner.IsBaseField(property) && EngineObject.IsAutoSerialized(property)))
+            {
+                if (VisitCore(field.Value, $"{path}/{field.Name}", visited, visitor))
+                {
+                    return true;
+                }
+            }
+        }
+
         foreach (CoreProperty property in PropertyRegistry.GetRegistered(coreObject.GetType()))
         {
             if (property.GetMetadata<CorePropertyMetadata>(coreObject.GetType()).ShouldSerialize
@@ -132,7 +144,7 @@ internal static class SerializedGraphTraversal
         ISet<object> visited,
         Func<object, string, bool> visitor)
     {
-        foreach (IProperty property in engineObject.Properties)
+        foreach (IProperty property in engineObject.Properties.Where(property => !engineObject.IsBaseField(property)))
         {
             if (VisitCore(property.Value, $"{path}/{property.Name}", visited, visitor))
             {

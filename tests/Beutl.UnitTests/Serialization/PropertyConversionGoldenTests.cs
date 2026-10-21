@@ -16,7 +16,8 @@ using static Beutl.UnitTests.NodeGraph.NodeGraphTestHelpers;
 namespace Beutl.UnitTests.Serialization;
 
 // Pins the JSON text of the types whose CoreProperty members become IProperty (#2884 steps 7 and 8), keys, value
-// shapes and key order alike. Set BEUTL_UPDATE_GOLDEN_JSON=1 to rewrite the files.
+// shapes and key order alike, and the paths the serialized graph walks give them. Set BEUTL_UPDATE_GOLDEN_JSON=1 to
+// rewrite the files.
 [TestFixture]
 public partial class PropertyConversionGoldenTests
 {
@@ -41,6 +42,33 @@ public partial class PropertyConversionGoldenTests
 
     [Test]
     public void AGraphWithEachKindOfNode()
+    {
+        AssertGolden(CoreSerializer.SerializeToJsonObject(CreateGraph()), "graph");
+    }
+
+    // The recovery metadata saves these paths, and the agent toolkit reports them.
+    [Test]
+    public void TheSerializedGraphPathsOfAGraph()
+    {
+        var drawable = new NodeGraphDrawable();
+        drawable.Model.Value = CreateGraph();
+        var element = new Element { Name = "graph" };
+        element.AddObject(drawable);
+
+        var lines = new List<string>();
+        foreach ((CoreObject obj, SerializedGraphPath path) in SerializedGraphPaths.EnumerateSerializedGraphDescendantPaths(element))
+            lines.Add($"{obj.GetType().Name} {path.Stable} {path.Positional}");
+        lines.Add("");
+        SerializedGraphTraversal.Visit(element, "$", (value, path) =>
+        {
+            lines.Add($"{value.GetType().Name} {path}");
+            return false;
+        });
+
+        AssertGolden(string.Join("\n", lines), "graph-paths", "txt");
+    }
+
+    private static GraphModel CreateGraph()
     {
         var graph = new GraphModel();
         var brush = new SolidColorBrush();
@@ -70,14 +98,16 @@ public partial class PropertyConversionGoldenTests
         generative.ActiveGenerationId = record.Id;
         graph.Nodes.Add(generative);
         Evaluate(graph);
-
-        AssertGolden(CoreSerializer.SerializeToJsonObject(graph), "graph");
+        return graph;
     }
 
     private static void AssertGolden(JsonObject json, string name, [CallerFilePath] string source = "")
+        => AssertGolden(json.ToJsonString(JsonHelper.SerializerOptions), name, "json", source);
+
+    private static void AssertGolden(string text, string name, string extension, [CallerFilePath] string source = "")
     {
-        string actual = NumberIds(json.ToJsonString(JsonHelper.SerializerOptions)) + "\n";
-        string path = Path.Combine(Path.GetDirectoryName(source)!, "Golden", name + ".json");
+        string actual = NumberIds(text) + "\n";
+        string path = Path.Combine(Path.GetDirectoryName(source)!, "Golden", $"{name}.{extension}");
         if (Environment.GetEnvironmentVariable("BEUTL_UPDATE_GOLDEN_JSON") == "1")
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
