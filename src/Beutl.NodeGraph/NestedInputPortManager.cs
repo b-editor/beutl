@@ -3,7 +3,6 @@ using System.Collections.Specialized;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text.Json.Nodes;
-using Beutl.Animation;
 using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;

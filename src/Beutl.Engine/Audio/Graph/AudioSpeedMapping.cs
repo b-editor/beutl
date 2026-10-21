@@ -196,7 +196,7 @@ internal sealed class AudioSpeedMapping : IDisposable
         }
 
         var animation = Speed!.GetKeyFrameAnimation()!;
-        var ownerStart = Speed.GetOwnerObject()?.TimeRange.Start ?? TimeSpan.Zero;
+        var ownerStart = Speed!.GetOwnerObject()?.TimeRange.Start ?? TimeSpan.Zero;
         Int128 samplePosition = (Int128)context.TimeRange.Start.Ticks * context.SampleRate;
         long startInSamples = roundSampleClock
             ? checked((long)((samplePosition + (samplePosition < 0

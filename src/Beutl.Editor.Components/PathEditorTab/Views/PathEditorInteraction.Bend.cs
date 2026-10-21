@@ -1,6 +1,5 @@
 ﻿using Avalonia;
 using Avalonia.Input;
-using Beutl.Animation;
 using Beutl.Editor.Components.PathEditorTab.Services;
 using Beutl.Engine;
 using Microsoft.Extensions.DependencyInjection;
@@ -82,7 +81,7 @@ internal sealed partial class PathEditorInteraction
             if (figure.Segments[edge] is CubicBezierSegment cubic)
             {
                 IProperty<BtlPoint> property = incoming ? cubic.ControlPoint2 : cubic.ControlPoint1;
-                return !property.HasExpression && property.GetKeyFrameAnimation() is null or KeyFrameAnimation<BtlPoint>;
+                return !property.HasExpression;
             }
             return figure.Segments[edge] is LineSegment or Beutl.Media.QuadraticBezierSegment
                 && PathEditingOperations.CanSplit(figure, edge, preserveSingleKeyframe: false);
