@@ -30,7 +30,7 @@ public partial class Scene3D : Drawable, IFlowOperator
     /// Gets the camera for this scene.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Scene3D_Camera), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Camera3D?> Camera { get; } = Property.Create<Camera3D?>();
+    public IExpressionProperty<Camera3D?> Camera { get; } = Property.CreateWithExpression<Camera3D?>();
 
     /// <summary>
     /// Gets the 3D objects in this scene.
@@ -88,7 +88,7 @@ public partial class Scene3D : Drawable, IFlowOperator
     /// </remarks>
     [NotAutoSerialized]
     [NotTracked]
-    public IExpressionProperty<Guid?> GizmoTarget { get; } = Property.Create<Guid?>();
+    public IExpressionProperty<Guid?> GizmoTarget { get; } = Property.CreateWithExpression<Guid?>();
 
     /// <summary>
     /// Gets the gizmo visualization mode.
@@ -96,7 +96,7 @@ public partial class Scene3D : Drawable, IFlowOperator
     /// <remarks>Editor state, like <see cref="GizmoTarget"/>.</remarks>
     [NotAutoSerialized]
     [NotTracked]
-    public IExpressionProperty<GizmoMode> GizmoMode { get; } = Property.Create(Gizmo.GizmoMode.None);
+    public IExpressionProperty<GizmoMode> GizmoMode { get; } = Property.CreateWithExpression(Gizmo.GizmoMode.None);
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {

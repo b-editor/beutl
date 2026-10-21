@@ -15,7 +15,7 @@ public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ISpl
     }
 
     [Display(Name = nameof(AudioStrings.SourceSound_Source), ResourceType = typeof(AudioStrings))]
-    public IExpressionProperty<SoundSource?> Source { get; } = Property.Create<SoundSource?>();
+    public IExpressionProperty<SoundSource?> Source { get; } = Property.CreateWithExpression<SoundSource?>();
 
     public bool HasOriginalDuration()
     {

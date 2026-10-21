@@ -493,5 +493,5 @@ public sealed partial class PluginObjectDefaultOwner : EngineObject
         ScanProperties<PluginObjectDefaultOwner>();
     }
 
-    public IExpressionProperty<PluginObjectDefault?> Child { get; } = Property.Create<PluginObjectDefault?>();
+    public IExpressionProperty<PluginObjectDefault?> Child { get; } = Property.CreateWithExpression<PluginObjectDefault?>();
 }

@@ -28,19 +28,19 @@ public partial class DisplacementMapEffect : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_DisplacementMap), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Brush?> DisplacementMap { get; } = Property.Create<Brush?>();
+    public IExpressionProperty<Brush?> DisplacementMap { get; } = Property.CreateWithExpression<Brush?>();
 
     [Display(Name = nameof(GraphicsStrings.Transform), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<DisplacementMapTransform?> Transform { get; } = Property.Create<DisplacementMapTransform?>();
+    public IExpressionProperty<DisplacementMapTransform?> Transform { get; } = Property.CreateWithExpression<DisplacementMapTransform?>();
 
     [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_SpreadMethod), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<GradientSpreadMethod> SpreadMethod { get; } = Property.CreateAnimatable(GradientSpreadMethod.Pad);
 
     [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_Channel), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<DisplacementMapChannel> Channel { get; } = Property.Create(DisplacementMapChannel.Alpha);
+    public IExpressionProperty<DisplacementMapChannel> Channel { get; } = Property.CreateWithExpression(DisplacementMapChannel.Alpha);
 
     [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_Signed), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<bool> Signed { get; } = Property.Create(false);
+    public IExpressionProperty<bool> Signed { get; } = Property.CreateWithExpression(false);
 
     [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_ShowDisplacementMap), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<bool> ShowDisplacementMap { get; } = Property.CreateAnimatable(false);

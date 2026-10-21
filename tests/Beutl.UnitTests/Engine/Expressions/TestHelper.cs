@@ -6,7 +6,7 @@ namespace Beutl.UnitTests.Engine.Expressions;
 public static class TestHelper
 {
     public static ExpressionContext CreateExpressionContext(TimeSpan time)
-        => CreateExpressionContext(time, Property.Create(0.0));
+        => CreateExpressionContext(time, Property.CreateWithExpression(0.0));
 
     public static ExpressionContext CreateExpressionContext(TimeSpan time, IProperty property)
     {
@@ -27,7 +27,7 @@ public partial class TestEngineObject : EngineObject
         ScanProperties<TestEngineObject>();
     }
 
-    public IExpressionProperty<double> Value { get; } = Property.Create(0.0);
+    public IExpressionProperty<double> Value { get; } = Property.CreateWithExpression(0.0);
 
     public void AddChild(IHierarchical child)
     {

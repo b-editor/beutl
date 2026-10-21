@@ -31,7 +31,7 @@ public sealed class TestEngineObjectWithFileSource : EngineObject
         FileSource.CurrentValue = fileSource;
     }
 
-    public IExpressionProperty<IFileSource?> FileSource { get; } = Property.Create<IFileSource?>();
+    public IExpressionProperty<IFileSource?> FileSource { get; } = Property.CreateWithExpression<IFileSource?>();
 
     public void AddChild(IHierarchical child)
     {

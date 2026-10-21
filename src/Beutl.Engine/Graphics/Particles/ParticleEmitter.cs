@@ -22,7 +22,7 @@ public partial class ParticleEmitter : Drawable
 
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_EmitterShape), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_EmitterGroup))]
-    public IExpressionProperty<EmitterShape> EmitterShape { get; } = Property.Create(Particles.EmitterShape.Point);
+    public IExpressionProperty<EmitterShape> EmitterShape { get; } = Property.CreateWithExpression(Particles.EmitterShape.Point);
 
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_EmitterWidth), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_EmitterGroup))]
@@ -37,7 +37,7 @@ public partial class ParticleEmitter : Drawable
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_MaxParticles), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_EmitterGroup))]
     [Range(1, 50000)]
-    public IExpressionProperty<int> MaxParticles { get; } = Property.Create(5000);
+    public IExpressionProperty<int> MaxParticles { get; } = Property.CreateWithExpression(5000);
 
     /// <summary>
     /// Time to simulate before the emitter starts, from zero to one minute (3,600 fixed steps).
@@ -47,7 +47,7 @@ public partial class ParticleEmitter : Drawable
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_PrewarmDuration), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_EmissionGroup))]
     [Range(typeof(TimeSpan), "00:00:00", "00:01:00", ParseLimitsInInvariantCulture = true)]
-    public IExpressionProperty<TimeSpan> PrewarmDuration { get; } = Property.Create<TimeSpan>();
+    public IExpressionProperty<TimeSpan> PrewarmDuration { get; } = Property.CreateWithExpression<TimeSpan>();
 
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_EmissionRate), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_EmissionGroup))]
@@ -109,7 +109,7 @@ public partial class ParticleEmitter : Drawable
 
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_ParticleDrawable), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_VisualGroup))]
-    public IExpressionProperty<Drawable?> ParticleDrawable { get; } = Property.Create<Drawable?>();
+    public IExpressionProperty<Drawable?> ParticleDrawable { get; } = Property.CreateWithExpression<Drawable?>();
 
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_ParticleSize), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_VisualGroup))]
@@ -159,7 +159,7 @@ public partial class ParticleEmitter : Drawable
 
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_UseEndColor), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_OverLifeGroup))]
-    public IExpressionProperty<bool> UseEndColor { get; } = Property.Create(false);
+    public IExpressionProperty<bool> UseEndColor { get; } = Property.CreateWithExpression(false);
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {

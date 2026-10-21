@@ -172,7 +172,7 @@ public class MissingDiscriminatorTests
     {
         public UnsealedLeaf() => ScanProperties<UnsealedLeaf>();
 
-        public IExpressionProperty<float> Width { get; } = Property.Create(1f);
+        public IExpressionProperty<float> Width { get; } = Property.CreateWithExpression(1f);
     }
 
     [SuppressResourceClassGeneration]
@@ -186,7 +186,7 @@ public class MissingDiscriminatorTests
     {
         public LeafHolder() => ScanProperties<LeafHolder>();
 
-        public IExpressionProperty<UnsealedLeaf?> Leaf { get; } = Property.Create<UnsealedLeaf?>();
+        public IExpressionProperty<UnsealedLeaf?> Leaf { get; } = Property.CreateWithExpression<UnsealedLeaf?>();
     }
 
     private sealed class CoreHolder : CoreObject

@@ -24,7 +24,7 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
 
     [Display(Name = nameof(GraphicsStrings.Script), ResourceType = typeof(GraphicsStrings))]
     [DataType(DataType.MultilineText)]
-    public IExpressionProperty<string> Script { get; } = Property.Create(GetDefaultScript());
+    public IExpressionProperty<string> Script { get; } = Property.CreateWithExpression(GetDefaultScript());
 
     private static string GetDefaultScript()
     {

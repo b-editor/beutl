@@ -676,7 +676,7 @@ public class EnginePropertyOperationObserverTests
     {
         public TestEngineObjectWithFloat()
         {
-            FloatValue = Property.Create(0f);
+            FloatValue = Property.CreateWithExpression(0f);
             ScanProperties<TestEngineObjectWithFloat>();
         }
 
@@ -700,7 +700,7 @@ public class EnginePropertyOperationObserverTests
     {
         public TestEngineObjectWithCoreObject(TestChildCoreObject? initialValue)
         {
-            ChildProperty = Property.Create(initialValue)!;
+            ChildProperty = Property.CreateWithExpression(initialValue)!;
             ScanProperties<TestEngineObjectWithCoreObject>();
         }
 
@@ -712,7 +712,7 @@ public class EnginePropertyOperationObserverTests
     {
         public TestEngineObjectWithList(CoreList<TestChildCoreObject>? initialValue)
         {
-            ItemsProperty = Property.Create(initialValue)!;
+            ItemsProperty = Property.CreateWithExpression(initialValue)!;
             ScanProperties<TestEngineObjectWithList>();
         }
 

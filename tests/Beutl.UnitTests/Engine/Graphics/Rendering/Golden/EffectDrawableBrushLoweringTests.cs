@@ -218,7 +218,7 @@ internal sealed partial class TypedOperationBeforeBrushEffect : FilterEffect
         ScanProperties<TypedOperationBeforeBrushEffect>();
     }
 
-    public IExpressionProperty<Brush?> Brush { get; } = Property.Create<Brush?>();
+    public IExpressionProperty<Brush?> Brush { get; } = Property.CreateWithExpression<Brush?>();
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
@@ -240,7 +240,7 @@ internal sealed partial class NestedActivateBrushEffect : FilterEffect
         ScanProperties<NestedActivateBrushEffect>();
     }
 
-    public IExpressionProperty<Brush?> Brush { get; } = Property.Create<Brush?>();
+    public IExpressionProperty<Brush?> Brush { get; } = Property.CreateWithExpression<Brush?>();
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

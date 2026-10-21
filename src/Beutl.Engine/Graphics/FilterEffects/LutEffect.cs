@@ -179,7 +179,7 @@ public sealed partial class LutEffect : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<CubeSource?> Source { get; } = Property.Create<CubeSource?>();
+    public IExpressionProperty<CubeSource?> Source { get; } = Property.CreateWithExpression<CubeSource?>();
 
     [Display(Name = nameof(GraphicsStrings.Strength), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]

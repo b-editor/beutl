@@ -18,7 +18,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
     }
 
     [Display(Name = nameof(GraphicsStrings.SourceVideo_OffsetPosition), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
+    public IExpressionProperty<TimeSpan> OffsetPosition { get; } = Property.CreateWithExpression<TimeSpan>();
 
     [Display(Name = nameof(GraphicsStrings.Speed), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]

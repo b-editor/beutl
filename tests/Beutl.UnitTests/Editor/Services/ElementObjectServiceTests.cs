@@ -57,7 +57,7 @@ public class ElementObjectServiceTests
             ScanProperties<FallbackContainer>();
         }
 
-        public IExpressionProperty<EngineObject?> Child { get; } = Property.Create<EngineObject?>();
+        public IExpressionProperty<EngineObject?> Child { get; } = Property.CreateWithExpression<EngineObject?>();
     }
 
     // Takes obj out of the element by removing it or by pasting a new object over it, and returns whether it did.

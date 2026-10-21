@@ -26,7 +26,7 @@ public abstract partial class Drawable : EngineObject
     public override CompositionTarget GetCompositionTarget() => CompositionTarget.Graphics;
 
     [Display(Name = nameof(GraphicsStrings.Transform), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Transform))]
-    public IExpressionProperty<Transform?> Transform { get; } = Property.Create<Transform?>();
+    public IExpressionProperty<Transform?> Transform { get; } = Property.CreateWithExpression<Transform?>();
 
     [Display(Name = nameof(GraphicsStrings.Drawable_AlignmentX), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Transform))]
     public IExpressionProperty<AlignmentX> AlignmentX { get; } = Property.CreateAnimatable(Media.AlignmentX.Center);
@@ -40,7 +40,7 @@ public abstract partial class Drawable : EngineObject
 
     [Display(Name = nameof(GraphicsStrings.FilterEffect), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.FilterEffect))]
-    public IExpressionProperty<FilterEffect?> FilterEffect { get; } = Property.Create<FilterEffect?>();
+    public IExpressionProperty<FilterEffect?> FilterEffect { get; } = Property.CreateWithExpression<FilterEffect?>();
 
     [Display(Name = nameof(GraphicsStrings.Drawable_BlendMode), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<BlendMode> BlendMode { get; } = Property.CreateAnimatable(Graphics.BlendMode.SrcOver);

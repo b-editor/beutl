@@ -23,7 +23,7 @@ public partial class StrokeEffect : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.Stroke), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
+    public IExpressionProperty<Pen?> Pen { get; } = Property.CreateWithExpression<Pen?>();
 
     [Display(Name = nameof(GraphicsStrings.Offset), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<Point> Offset { get; } = Property.CreateAnimatable(default(Point));

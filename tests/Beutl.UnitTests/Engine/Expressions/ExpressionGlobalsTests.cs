@@ -169,7 +169,7 @@ public class ExpressionGlobalsTests
         root.AddChild(child);
 
         var lookup = new PropertyLookup(root);
-        var property = Property.Create(0.0);
+        var property = Property.CreateWithExpression(0.0);
         var context = new ExpressionContext(TimeSpan.Zero, property, lookup);
         var globals = new ExpressionGlobals(context);
 
@@ -190,7 +190,7 @@ public class ExpressionGlobalsTests
         root.AddChild(child);
 
         var lookup = new PropertyLookup(root);
-        var property = Property.Create(0.0);
+        var property = Property.CreateWithExpression(0.0);
         var context = new ExpressionContext(TimeSpan.Zero, property, lookup);
         var globals = new ExpressionGlobals(context);
 

@@ -46,7 +46,7 @@ public sealed class ApplyEditTests
         }
 
         public IExpressionProperty<Dictionary<string, Transform>> Transforms { get; }
-            = Property.Create<Dictionary<string, Transform>>();
+            = Property.CreateWithExpression<Dictionary<string, Transform>>();
     }
 
     [SuppressResourceClassGeneration]
@@ -57,7 +57,7 @@ public sealed class ApplyEditTests
             ScanProperties<ArbitraryValueHolder>();
         }
 
-        public IExpressionProperty<object?> Value { get; } = Property.Create<object?>();
+        public IExpressionProperty<object?> Value { get; } = Property.CreateWithExpression<object?>();
     }
 
     [SuppressResourceClassGeneration]
@@ -69,7 +69,7 @@ public sealed class ApplyEditTests
         }
 
         public IExpressionProperty<Optional<Transform>> Transform { get; }
-            = Property.Create<Optional<Transform>>();
+            = Property.CreateWithExpression<Optional<Transform>>();
     }
 
     public sealed record TransformWrapper(ICoreSerializable Transform);

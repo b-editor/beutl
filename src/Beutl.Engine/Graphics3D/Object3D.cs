@@ -46,7 +46,7 @@ public abstract partial class Object3D : EngineObject
     /// Gets the material applied to this object.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Object3D_Material), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Material3D?> Material { get; } = Property.Create<Material3D?>();
+    public IExpressionProperty<Material3D?> Material { get; } = Property.CreateWithExpression<Material3D?>();
 
     /// <summary>
     /// Gets whether this object casts shadows.

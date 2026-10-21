@@ -17,10 +17,10 @@ public abstract partial class Shape : Drawable
     }
 
     [Display(Name = nameof(GraphicsStrings.Stroke), GroupName = nameof(GraphicsStrings.Stroke), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
+    public IExpressionProperty<Pen?> Pen { get; } = Property.CreateWithExpression<Pen?>();
 
     [Display(Name = nameof(GraphicsStrings.Fill), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Fill))]
-    public IExpressionProperty<Brush?> Fill { get; } = Property.Create<Brush?>();
+    public IExpressionProperty<Brush?> Fill { get; } = Property.CreateWithExpression<Brush?>();
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {

@@ -14,10 +14,10 @@ public sealed partial class PortalObject : EngineObject
     }
 
     [Display(Name = nameof(Strings.Portal_Count), ResourceType = typeof(Strings))]
-    public IExpressionProperty<int> Count { get; } = Property.Create<int>();
+    public IExpressionProperty<int> Count { get; } = Property.CreateWithExpression<int>();
 
     [Display(Name = nameof(Strings.Portal_Clear), ResourceType = typeof(Strings))]
-    public IExpressionProperty<bool> Clear { get; } = Property.Create<bool>();
+    public IExpressionProperty<bool> Clear { get; } = Property.CreateWithExpression<bool>();
 
     public partial class Resource
     {

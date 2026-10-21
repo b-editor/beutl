@@ -29,7 +29,7 @@ public sealed partial class Model3D : Group3D
     /// Gets the model source to load.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<ModelSource?> Source { get; } = Property.Create<ModelSource?>(null);
+    public IExpressionProperty<ModelSource?> Source { get; } = Property.CreateWithExpression<ModelSource?>(null);
 
     public override void Deserialize(ICoreSerializationContext context)
     {

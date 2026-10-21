@@ -15,7 +15,7 @@ public sealed partial class BlockWaveformShape : WaveformShape
 
     [Display(Name = nameof(GraphicsStrings.WaveformShape_BlockCount), ResourceType = typeof(GraphicsStrings))]
     [Range(1, 128)]
-    public IExpressionProperty<int> BlockCount { get; } = Property.Create(16);
+    public IExpressionProperty<int> BlockCount { get; } = Property.CreateWithExpression(16);
 
     [Display(Name = nameof(GraphicsStrings.WaveformShape_BlockGap), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 50f)]
@@ -27,7 +27,7 @@ public sealed partial class BlockWaveformShape : WaveformShape
     public IExpressionProperty<float> BarWidth { get; } = Property.CreateAnimatable(0f);
 
     [Display(Name = nameof(GraphicsStrings.WaveformShape_Mirrored), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<bool> Mirrored { get; } = Property.Create(false);
+    public IExpressionProperty<bool> Mirrored { get; } = Property.CreateWithExpression(false);
 
     public new partial class Resource
     {

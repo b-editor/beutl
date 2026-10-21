@@ -25,15 +25,15 @@ public partial class TextBlock : Drawable
 
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.TextBlock_FontFamily), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<FontFamily?> FontFamily { get; } = Property.Create<FontFamily?>(Media.FontFamily.Default);
+    public IExpressionProperty<FontFamily?> FontFamily { get; } = Property.CreateWithExpression<FontFamily?>(Media.FontFamily.Default);
 
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.TextBlock_FontStyle), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<FontStyle> FontStyle { get; } = Property.Create(Media.FontStyle.Normal);
+    public IExpressionProperty<FontStyle> FontStyle { get; } = Property.CreateWithExpression(Media.FontStyle.Normal);
 
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.TextBlock_FontWeight), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<FontWeight> FontWeight { get; } = Property.Create(Media.FontWeight.Regular);
+    public IExpressionProperty<FontWeight> FontWeight { get; } = Property.CreateWithExpression(Media.FontWeight.Regular);
 
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.TextBlock_Spacing), ResourceType = typeof(GraphicsStrings))]
@@ -48,14 +48,14 @@ public partial class TextBlock : Drawable
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.TextBlock_Text), ResourceType = typeof(GraphicsStrings))]
     [DataType(DataType.MultilineText)]
-    public IExpressionProperty<string?> Text { get; } = Property.Create<string?>(string.Empty);
+    public IExpressionProperty<string?> Text { get; } = Property.CreateWithExpression<string?>(string.Empty);
 
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.Stroke), GroupName = nameof(GraphicsStrings.Stroke), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
+    public IExpressionProperty<Pen?> Pen { get; } = Property.CreateWithExpression<Pen?>();
 
     [Display(Name = nameof(GraphicsStrings.Fill), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Fill))]
-    public IExpressionProperty<Brush?> Fill { get; } = Property.Create<Brush?>();
+    public IExpressionProperty<Brush?> Fill { get; } = Property.CreateWithExpression<Brush?>();
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {

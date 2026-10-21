@@ -25,5 +25,5 @@ public partial class DrawableBrush : TileBrush
     /// Gets or sets the visual to draw.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Drawable), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Drawable?> Drawable { get; } = Property.Create<Drawable?>();
+    public IExpressionProperty<Drawable?> Drawable { get; } = Property.CreateWithExpression<Drawable?>();
 }

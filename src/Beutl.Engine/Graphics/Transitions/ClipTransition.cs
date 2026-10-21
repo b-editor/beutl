@@ -54,7 +54,7 @@ public abstract partial class ClipTransition : EngineObject
     public new IProperty<TimeSpan> Duration { get; } = Property.CreateWithoutExpression(DefaultDuration);
 
     [Display(Name = nameof(GraphicsStrings.ClipTransition_Easing), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Easing> Easing { get; } = Property.Create<Easing>(new LinearEasing());
+    public IExpressionProperty<Easing> Easing { get; } = Property.CreateWithExpression<Easing>(new LinearEasing());
 
     public partial class Resource
     {

@@ -16,7 +16,7 @@ public sealed partial class BlendEffect : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.Brush), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Brush?> Brush { get; } = Property.Create<Brush?>();
+    public IExpressionProperty<Brush?> Brush { get; } = Property.CreateWithExpression<Brush?>();
 
     [Display(Name = nameof(GraphicsStrings.BlendEffect_BlendMode), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<BlendMode> BlendMode { get; } = Property.CreateAnimatable(Graphics.BlendMode.SrcIn);

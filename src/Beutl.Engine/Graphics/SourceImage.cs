@@ -16,7 +16,7 @@ public partial class SourceImage : Drawable
     }
 
     [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<ImageSource?> Source { get; } = Property.Create<ImageSource?>();
+    public IExpressionProperty<ImageSource?> Source { get; } = Property.CreateWithExpression<ImageSource?>();
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {

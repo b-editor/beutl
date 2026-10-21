@@ -13,10 +13,10 @@ public sealed partial class Pen : EngineObject
     }
 
     [Display(Name = nameof(GraphicsStrings.Brush), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Brush?> Brush { get; } = Property.Create<Brush?>();
+    public IExpressionProperty<Brush?> Brush { get; } = Property.CreateWithExpression<Brush?>();
 
     [Display(Name = nameof(GraphicsStrings.Pen_DashArray), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Beutl.Collections.CoreList<float>?> DashArray { get; } = Property.Create<CoreList<float>?>();
+    public IExpressionProperty<Beutl.Collections.CoreList<float>?> DashArray { get; } = Property.CreateWithExpression<CoreList<float>?>();
 
     [Display(Name = nameof(GraphicsStrings.Pen_DashOffset), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> DashOffset { get; } = Property.CreateAnimatable<float>(0);
@@ -29,13 +29,13 @@ public sealed partial class Pen : EngineObject
     public IExpressionProperty<float> MiterLimit { get; } = Property.CreateAnimatable<float>(10);
 
     [Display(Name = nameof(GraphicsStrings.Pen_StrokeCap), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<StrokeCap> StrokeCap { get; } = Property.Create(Media.StrokeCap.Flat);
+    public IExpressionProperty<StrokeCap> StrokeCap { get; } = Property.CreateWithExpression(Media.StrokeCap.Flat);
 
     [Display(Name = nameof(GraphicsStrings.Pen_StrokeJoin), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<StrokeJoin> StrokeJoin { get; } = Property.Create(Media.StrokeJoin.Miter);
+    public IExpressionProperty<StrokeJoin> StrokeJoin { get; } = Property.CreateWithExpression(Media.StrokeJoin.Miter);
 
     [Display(Name = nameof(GraphicsStrings.Pen_StrokeAlignment), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<StrokeAlignment> StrokeAlignment { get; } = Property.Create(Media.StrokeAlignment.Center);
+    public IExpressionProperty<StrokeAlignment> StrokeAlignment { get; } = Property.CreateWithExpression(Media.StrokeAlignment.Center);
 
     [Display(Name = nameof(GraphicsStrings.Pen_TrimStart), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> TrimStart { get; } = Property.CreateAnimatable<float>(0);

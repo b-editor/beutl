@@ -12,7 +12,7 @@ public sealed partial class SampleDrawable : Drawable
         ScanProperties<SampleDrawable>();
     }
 
-    public IExpressionProperty<float> Size { get; } = Property.Create(100f);
+    public IExpressionProperty<float> Size { get; } = Property.CreateWithExpression(100f);
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {

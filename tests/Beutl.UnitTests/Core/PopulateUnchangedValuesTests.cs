@@ -204,7 +204,7 @@ public class PopulateUnchangedValuesTests
         {
             Values = animatable
                 ? Property.CreateAnimatable<List<int>>([1, 2])
-                : Property.Create<List<int>>([1, 2]);
+                : Property.CreateWithExpression<List<int>>([1, 2]);
             ScanProperties<EngineCollectionOwner>();
         }
 

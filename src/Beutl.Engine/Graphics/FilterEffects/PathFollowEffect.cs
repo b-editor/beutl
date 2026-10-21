@@ -16,7 +16,7 @@ public sealed partial class PathFollowEffect : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.PathFollowEffect_Geometry), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Geometry?> Geometry { get; } = Property.Create<Geometry?>();
+    public IExpressionProperty<Geometry?> Geometry { get; } = Property.CreateWithExpression<Geometry?>();
 
     [Display(Name = nameof(GraphicsStrings.PathFollowEffect_Progress), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> Progress { get; } = Property.CreateAnimatable(0f);
