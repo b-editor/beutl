@@ -122,7 +122,7 @@ EnginePropertyBackedInputPort`1 $/Objects[0]/Model/Nodes[3]/HierarchicalChildren
 DefaultInputPort`1 $/Objects[0]/Model/Nodes[3]/HierarchicalChildren[3]
 NodeMonitor`1 $/Objects[0]/Model/Nodes[3]/HierarchicalChildren[4]
 GroupNode $/Objects[0]/Model/Nodes[4]
-GraphGroup $/Objects[0]/Model/Nodes[4]/Group
+GraphGroup $/Objects[0]/Model/Nodes[4]/HierarchicalChildren[0]
 AiImageGenerationNode $/Objects[0]/Model/Nodes[5]
 OutputPort`1 $/Objects[0]/Model/Nodes[5]/HierarchicalChildren[0]
 DefaultInputPort`1 $/Objects[0]/Model/Nodes[5]/HierarchicalChildren[1]

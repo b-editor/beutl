@@ -369,7 +369,7 @@ public partial class NodePortView : UserControl
             UpdateHoverInfo();
             if (obj.Model is NodeMember nodeMember)
             {
-                nodeMember.GetPropertyChangedObservable(NodeMember.DisplayProperty)
+                nodeMember.DisplayProperty.GetObservable().Skip(1)
                     .Subscribe(_ => UpdateHoverInfo())
                     .DisposeWith(_disposables);
             }

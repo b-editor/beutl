@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using Beutl.Collections;
@@ -13,40 +14,25 @@ namespace Beutl.NodeGraph;
 [FallbackType(typeof(FallbackGraphNode))]
 public abstract partial class GraphNode : EngineObject
 {
-    public static readonly CoreProperty<bool> IsExpandedProperty;
-    public static readonly CoreProperty<(double X, double Y)> PositionProperty;
-    public static readonly CoreProperty<ICoreList<INodeMember>> ItemsProperty;
-    public static readonly CoreProperty<ICoreList<INestedInputPort>> NestedInputPortsProperty;
     private readonly HierarchicalList<INodeMember> _items;
     private readonly HierarchicalList<INestedInputPort> _nestedInputPorts;
+    private readonly ValueOnlyProperty<ICoreList<INestedInputPort>> _nestedInputPortsProperty = new(null!);
     private readonly NestedInputPortManager _nestedPortManager;
     private IInputPort[]? _connectedInputs;
-    private (double X, double Y) _position;
-
-    static GraphNode()
-    {
-        IsExpandedProperty = ConfigureProperty<bool, GraphNode>(nameof(IsExpanded))
-            .DefaultValue(true)
-            .Register();
-
-        PositionProperty = ConfigureProperty<(double X, double Y), GraphNode>(nameof(Position))
-            .Accessor(o => o.Position, (o, v) => o.Position = v)
-            .DefaultValue((0, 0))
-            .Register();
-
-        ItemsProperty = ConfigureProperty<ICoreList<INodeMember>, GraphNode>(nameof(Items))
-            .Accessor(o => o.Items, (o, v) => o._items.Replace(v))
-            .Register();
-        NestedInputPortsProperty = ConfigureProperty<ICoreList<INestedInputPort>, GraphNode>(nameof(NestedInputPorts))
-            .Accessor(o => o.NestedInputPorts, (o, v) => o._nestedInputPorts.Replace(v))
-            .Register();
-    }
 
     public GraphNode()
     {
         _items = new(this);
         _nestedInputPorts = new(this);
         _nestedPortManager = new(this);
+        ItemsProperty.Value = _items;
+        _nestedInputPortsProperty.Value = _nestedInputPorts;
+        // Reading the ports through the property brings them up to date first, as NestedInputPorts does.
+        _nestedInputPortsProperty.BeforeRead = () => _nestedPortManager.EnsureSynchronized();
+        ScanProperties<GraphNode>();
+        HideProperties(IsExpandedProperty, PositionProperty, ItemsProperty, NestedInputPortsProperty);
+        IsExpandedProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsExpanded)));
+        PositionProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Position)));
 
         _items.Attached += OnItemAttached;
         _items.Detached += OnItemDetached;
@@ -91,9 +77,23 @@ public abstract partial class GraphNode : EngineObject
         RaiseTopologyChanged();
     }
 
-    [NotAutoSerialized] public ICoreList<INodeMember> Items => _items;
+    [SuppressResourceClassGeneration]
+    public IProperty<bool> IsExpandedProperty { get; } = Property.CreateValue(true);
 
     [NotAutoSerialized]
+    [SuppressResourceClassGeneration]
+    public IProperty<(double X, double Y)> PositionProperty { get; } = Property.CreateValue<(double X, double Y)>((0, 0));
+
+    [NotAutoSerialized]
+    [SuppressResourceClassGeneration]
+    public IProperty<ICoreList<INodeMember>> ItemsProperty { get; } = Property.CreateValue<ICoreList<INodeMember>>();
+
+    [NotAutoSerialized]
+    [SuppressResourceClassGeneration]
+    public IProperty<ICoreList<INestedInputPort>> NestedInputPortsProperty => _nestedInputPortsProperty;
+
+    public ICoreList<INodeMember> Items => _items;
+
     public ICoreList<INestedInputPort> NestedInputPorts
     {
         get
@@ -194,14 +194,13 @@ public abstract partial class GraphNode : EngineObject
 
     public bool IsExpanded
     {
-        get => GetValue(IsExpandedProperty);
-        set => SetValue(IsExpandedProperty, value);
+        get => IsExpandedProperty.Value;
+        set => IsExpandedProperty.Value = value;
     }
 
-    [NotAutoSerialized]
     public (double X, double Y) Position
     {
-        get => _position;
+        get => PositionProperty.Value;
         set
         {
             double x = value.X;
@@ -212,7 +211,7 @@ public abstract partial class GraphNode : EngineObject
             if (double.IsNaN(y))
                 y = 0;
 
-            SetAndRaise(PositionProperty, ref _position, (x, y));
+            PositionProperty.Value = (x, y);
         }
     }
 

@@ -1,4 +1,6 @@
-﻿using Beutl.Graphics;
+﻿using System.ComponentModel;
+using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -9,21 +11,13 @@ namespace Beutl.NodeGraph.Nodes;
 
 public partial class TextNode : GraphNode
 {
-    public static readonly CoreProperty<TextBlock> ObjectProperty;
-
-    static TextNode()
-    {
-        ObjectProperty = ConfigureProperty<TextBlock, TextNode>(nameof(Object))
-            .Accessor(o => o.Object, (o, v) => o.Object = v)
-            .Register();
-
-        Hierarchy(ObjectProperty);
-    }
-
     public TextNode()
     {
         Output = AddOutput<DrawableRenderNode?>("Output", NodePortDisplays.Output);
-        Object = new TextBlock();
+        // After the output port, so the object stays the node's second child.
+        ScanProperties<TextNode>();
+        HideProperty(ObjectProperty);
+        ObjectProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Object)));
         Object.AlignmentX.Value = AlignmentX.Left;
         Object.AlignmentY.Value = AlignmentY.Top;
         AddInput(Object, Object.FontWeight);
@@ -40,11 +34,15 @@ public partial class TextNode : GraphNode
 
     public OutputPort<DrawableRenderNode?> Output { get; }
 
+    // The object is the property's first value, so the property does not pass on its edits, which the ports pass on.
     [NotAutoSerialized]
+    [SuppressResourceClassGeneration]
+    public IProperty<TextBlock> ObjectProperty { get; } = Property.CreateValue(new TextBlock());
+
     public TextBlock Object
     {
-        get;
-        set => SetAndRaise(ObjectProperty, ref field, value);
+        get => ObjectProperty.Value;
+        set => ObjectProperty.Value = value;
     }
 
     public override void Serialize(ICoreSerializationContext context)

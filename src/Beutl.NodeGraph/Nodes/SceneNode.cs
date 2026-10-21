@@ -1,4 +1,6 @@
-﻿using Beutl.Composition;
+﻿using System.ComponentModel;
+using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
@@ -14,21 +16,13 @@ namespace Beutl.NodeGraph.Nodes;
 /// </summary>
 public partial class SceneNode : GraphNode
 {
-    public static readonly CoreProperty<SceneDrawable> ObjectProperty;
-
-    static SceneNode()
-    {
-        ObjectProperty = ConfigureProperty<SceneDrawable, SceneNode>(nameof(Object))
-            .Accessor(o => o.Object, (o, v) => o.Object = v)
-            .Register();
-
-        Hierarchy(ObjectProperty);
-    }
-
     public SceneNode()
     {
         Output = AddOutput<DrawableRenderNode?>("Output", NodePortDisplays.Output);
-        Object = new SceneDrawable();
+        // After the output port, so the object stays the node's second child.
+        ScanProperties<SceneNode>();
+        HideProperty(ObjectProperty);
+        ObjectProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Object)));
         Object.AlignmentX.Value = Media.AlignmentX.Left;
         Object.AlignmentY.Value = Media.AlignmentY.Top;
         PinTimeToReferencedScene();
@@ -44,11 +38,15 @@ public partial class SceneNode : GraphNode
 
     public NodeMonitor<string?> ErrorMonitor { get; }
 
+    // The object is the property's first value, so the property does not pass on its edits, which the ports pass on.
     [NotAutoSerialized]
+    [SuppressResourceClassGeneration]
+    public IProperty<SceneDrawable> ObjectProperty { get; } = Property.CreateValue(new SceneDrawable());
+
     public SceneDrawable Object
     {
-        get;
-        set => SetAndRaise(ObjectProperty, ref field, value);
+        get => ObjectProperty.Value;
+        set => ObjectProperty.Value = value;
     }
 
     public override void Serialize(ICoreSerializationContext context)

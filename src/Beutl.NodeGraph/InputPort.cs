@@ -4,33 +4,33 @@ namespace Beutl.NodeGraph;
 
 public class InputPort<T> : NodePort<T>, IInputPort
 {
-    public static readonly CoreProperty<Reference<Connection>> ConnectionProperty;
-
-    static InputPort()
+    public InputPort()
     {
-        ConnectionProperty = ConfigureProperty<Reference<Connection>, InputPort<T>>(nameof(Connection))
-            .Accessor(o => o.Connection, (o, v) => o.Connection = v)
-            .Register();
+        ScanProperties<InputPort<T>>();
+        HideProperty(ConnectionProperty);
+        ConnectionProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Connection)));
     }
+
+    public IProperty<Reference<Connection>> ConnectionProperty { get; } = new ValueOnlyProperty<Reference<Connection>>(default);
 
     public Reference<Connection> Connection
     {
-        get;
-        set => SetAndRaise(ConnectionProperty, ref field, value);
+        get => ConnectionProperty.Value;
+        set => ConnectionProperty.Value = value;
     }
 
     IObservable<Reference<Connection>> IInputPort.GetConnectionObservable()
     {
-        return this.GetObservable(ConnectionProperty);
+        return ConnectionProperty.GetObservable();
     }
 
+    // The property raises Edited itself.
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args is CorePropertyChangedEventArgs coreArgs && coreArgs.Property.Id == ConnectionProperty.Id)
+        if (args.PropertyName == nameof(Connection))
         {
             RaiseTopologyChanged();
-            RaiseEdited();
         }
     }
 

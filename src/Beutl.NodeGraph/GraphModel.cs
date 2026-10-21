@@ -1,35 +1,28 @@
 ﻿using Beutl.Collections;
 using Beutl.Engine;
 using Beutl.NodeGraph.Nodes.Group;
+using Beutl.Serialization;
 
 namespace Beutl.NodeGraph;
 
 [SuppressResourceClassGeneration]
 public partial class GraphModel : EngineObject
 {
-    public static readonly CoreProperty<HierarchicalList<GraphNode>> NodesProperty;
-    public static readonly CoreProperty<HierarchicalList<Connection>> AllConnectionsProperty;
     private readonly HierarchicalList<GraphNode> _nodes;
     private readonly HierarchicalList<Connection> _allConnections;
     private Dictionary<IProperty, (IInputPort Port, int Count)>? _connectedInputProperties;
 
     public event EventHandler? TopologyChanged;
 
-    static GraphModel()
-    {
-        NodesProperty = ConfigureProperty<HierarchicalList<GraphNode>, GraphModel>(nameof(Nodes))
-            .Accessor(o => o.Nodes, (o, v) => o.Nodes = v)
-            .Register();
-
-        AllConnectionsProperty = ConfigureProperty<HierarchicalList<Connection>, GraphModel>(nameof(AllConnections))
-            .Accessor(o => o.AllConnections, (o, v) => o.AllConnections = v)
-            .Register();
-    }
-
     public GraphModel()
     {
         _nodes = new HierarchicalList<GraphNode>(this);
         _allConnections = new HierarchicalList<Connection>(this);
+        // The lists are values rather than defaults, as their CoreProperty forms had no default.
+        NodesProperty.Value = _nodes;
+        AllConnectionsProperty.Value = _allConnections;
+        ScanProperties<GraphModel>();
+        HideProperties(NodesProperty, AllConnectionsProperty);
         Nodes.Attached += OnNodeAttached;
         Nodes.Detached += OnNodeDetached;
         AllConnections.Attached += OnConnectionAttached;
@@ -75,6 +68,10 @@ public partial class GraphModel : EngineObject
         RaiseEdited();
     }
 
+    public IProperty<HierarchicalList<GraphNode>> NodesProperty { get; } = Property.CreateValue<HierarchicalList<GraphNode>>();
+
+    public IProperty<HierarchicalList<Connection>> AllConnectionsProperty { get; } = Property.CreateValue<HierarchicalList<Connection>>();
+
     public HierarchicalList<GraphNode> Nodes
     {
         get => _nodes;
@@ -85,6 +82,30 @@ public partial class GraphModel : EngineObject
     {
         get => _allConnections;
         set => _allConnections.Replace(value);
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        // The lists keep their instances, as the CoreProperty accessors did, and are read first, where those were.
+        ReadInto(context, NodesProperty.Name, _nodes);
+        ReadInto(context, AllConnectionsProperty.Name, _allConnections);
+        base.Deserialize(context);
+    }
+
+    // Reads the list the way a CoreProperty read one: an unchanged list a populate preserved is left as it is.
+    private static void ReadInto<T>(ICoreSerializationContext context, string name, HierarchicalList<T> list)
+        where T : IHierarchical
+    {
+        if (context is JsonSerializationContext json
+            && json.TryGetPreservedValue(name, typeof(HierarchicalList<T>), out _, allowCollections: true))
+        {
+            return;
+        }
+
+        if (context.Contains(name) && context.GetValue<HierarchicalList<T>>(name) is { } items)
+        {
+            list.Replace(items);
+        }
     }
 
     public Connection Connect(IInputPort inputNodePort, IOutputPort outputNodePort)

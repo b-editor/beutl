@@ -1,4 +1,5 @@
-﻿using Beutl.Engine;
+﻿using System.ComponentModel;
+using Beutl.Engine;
 using Beutl.NodeGraph.Composition;
 using Beutl.Serialization;
 
@@ -7,11 +8,11 @@ namespace Beutl.NodeGraph.Nodes;
 public partial class FactoryNode<T> : GraphNode
     where T : EngineObject, new()
 {
-    public static readonly CoreProperty<T> ObjectProperty;
-
     public FactoryNode()
     {
-        Object = new T();
+        ScanProperties<FactoryNode<T>>();
+        HideProperty(ObjectProperty);
+        ObjectProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Object)));
         OutputPort = AddOutput<T>("Output", NodePortDisplays.Output);
         foreach (IProperty property in Object.Properties)
         {
@@ -19,20 +20,15 @@ public partial class FactoryNode<T> : GraphNode
         }
     }
 
-    static FactoryNode()
-    {
-        ObjectProperty = ConfigureProperty<T, FactoryNode<T>>(nameof(Object))
-            .Accessor(o => o.Object, (o, v) => o.Object = v)
-            .Register();
-
-        Hierarchy(ObjectProperty);
-    }
-
+    // The object is the property's first value, so the property does not pass on its edits, which the ports pass on.
     [NotAutoSerialized]
+    [SuppressResourceClassGeneration]
+    public IProperty<T> ObjectProperty { get; } = Property.CreateValue(new T());
+
     public T Object
     {
-        get;
-        set => SetAndRaise(ObjectProperty, ref field, value);
+        get => ObjectProperty.Value;
+        set => ObjectProperty.Value = value;
     }
 
     protected OutputPort<T> OutputPort { get; }

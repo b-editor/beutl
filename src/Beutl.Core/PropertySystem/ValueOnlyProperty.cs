@@ -22,9 +22,19 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
 
     public T Value
     {
-        get => _currentValue;
+        get
+        {
+            BeforeRead?.Invoke();
+            return _currentValue;
+        }
         set => SetCurrentValue(value, replaceEquivalent: false);
     }
+
+    // False for a value its owner holds elsewhere, like GraphGroup.Input: it is not made a child, and its edits are not passed on.
+    internal bool OwnsValue { get; init; } = true;
+
+    // Brings a value its owner updates lazily up to date before it is read, like GraphNode.NestedInputPorts.
+    internal Action? BeforeRead { get; set; }
 
     public bool IsValueSet { get; private set; }
 
@@ -44,6 +54,9 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
 
             ValueChanged?.Invoke(this, new PropertyValueChangedEventArgs<T>(this, oldValue, validatedValue));
             Edited?.Invoke(this, EventArgs.Empty);
+            if (!OwnsValue)
+                return;
+
             PropertyValueOwnership.Reparent(_owner, oldValue, validatedValue);
 
             if (oldValue is INotifyEdited oldEdited)
@@ -67,7 +80,7 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
     }
 
     IEnumerable<object?> IChildObjectSource.GetChildObjects()
-        => ChildObjects.MayHoldObjects(typeof(T)) ? [_currentValue] : [];
+        => ChildObjects.MayHoldObjects(typeof(T)) ? [Value] : [];
 
     public void SetAttributes(string name, Attribute[] attributes)
     {
@@ -95,14 +108,11 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
     {
         if (_owner == owner) return;
 
-        if (owner is IModifiableHierarchical ownerHierarchical)
+        if (OwnsValue && _currentValue is IHierarchical hierarchical)
         {
-            if (Value is IHierarchical hierarchical)
+            if (owner is IModifiableHierarchical ownerHierarchical)
                 ownerHierarchical.AddChild(hierarchical);
-        }
-        else if (_owner is IModifiableHierarchical oldOwnerHierarchical)
-        {
-            if (Value is IHierarchical hierarchical)
+            else if (_owner is IModifiableHierarchical oldOwnerHierarchical)
                 oldOwnerHierarchical.RemoveChild(hierarchical);
         }
 

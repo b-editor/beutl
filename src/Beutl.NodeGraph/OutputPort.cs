@@ -5,18 +5,10 @@ namespace Beutl.NodeGraph;
 
 public class OutputPort<T> : NodePort<T>, IOutputPort
 {
-    public static readonly CoreProperty<CoreList<Reference<Connection>>> ConnectionsProperty;
-    private readonly CoreList<Reference<Connection>> _connections = [];
-
-    static OutputPort()
-    {
-        ConnectionsProperty = ConfigureProperty<CoreList<Reference<Connection>>, OutputPort<T>>(nameof(Connections))
-            .Accessor(o => o.Connections, (o, v) => o.Connections = v)
-            .Register();
-    }
-
     public OutputPort()
     {
+        ScanProperties<OutputPort<T>>();
+        HideProperty(ConnectionsProperty);
         Connections.CollectionChanged += (_, _) =>
         {
             RaiseTopologyChanged();
@@ -25,10 +17,12 @@ public class OutputPort<T> : NodePort<T>, IOutputPort
     }
 
     [NotAutoSerialized]
+    public IProperty<CoreList<Reference<Connection>>> ConnectionsProperty { get; } = new ValueOnlyProperty<CoreList<Reference<Connection>>>([]);
+
     public CoreList<Reference<Connection>> Connections
     {
-        get => _connections;
-        set => _connections.Replace(value);
+        get => ConnectionsProperty.Value;
+        set => ConnectionsProperty.Value.Replace(value);
     }
 
     public override void NotifyConnected(Connection connection)

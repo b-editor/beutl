@@ -13,9 +13,7 @@ public partial class GroupOutput : GraphNode, IDynamicPortNode
         protected override void OnPropertyChanged(PropertyChangedEventArgs args)
         {
             base.OnPropertyChanged(args);
-            if (args is not CorePropertyChangedEventArgs coreArgs) return;
-
-            if (coreArgs.Property.Id == ConnectionProperty.Id)
+            if (args.PropertyName == nameof(Connection))
             {
                 if (Connection.Value?.Output.Value is OutputPort<T> outputNodePort)
                 {
