@@ -82,9 +82,9 @@ the PR instead of silently choosing either compatibility or a sweeping rewrite.
 - **`Beutl`** (the app): composition of the above and what only the app uses.
 
 Tool tabs and editors ask `IEditorContext` for capability interfaces, such as
-`IHistoryNavigator`, instead of using `EditViewModel`. The editor registers them
-in its service registry (`EditViewModel.Services.cs`). Add a new capability as
-`internal` first; making it public adds it to the SDK's API.
+`IHistoryNavigator`, instead of using `EditViewModel`. `EditViewModel`
+registers them in its service registry (`EditViewModel.Services.cs`). Add a new
+capability as `internal` first; a public one in `Beutl.Editor` becomes SDK API.
 
 When you move a type whose name is saved, such as an extension or a serialized
 type, add `[FormerPersistedName]` with its old name so that saved layouts,

@@ -62,8 +62,8 @@ PR に削除時期を記載する必要があります。判断が自明でな�
 - **`Beutl`**（アプリ）: これらの組み立てと、アプリだけが使うものです。
 
 ツールタブやエディターは、`EditViewModel` を使わずに、`IEditorContext` から `IHistoryNavigator` のような
-能力インターフェイスを受け取ります。エディターはそれをサービスのレジストリ（`EditViewModel.Services.cs`）に
-登録します。新しい能力はまず `internal` で追加してください。public にすると SDK の API に加わります。
+能力インターフェイスを受け取ります。能力は `EditViewModel` がサービスのレジストリ（`EditViewModel.Services.cs`）に
+登録します。新しい能力はまず `internal` で追加してください。`Beutl.Editor` で public にすると SDK の API に加わります。
 
 名前が保存される型（拡張機能やシリアライズされる型）を移すときは、古い名前を `[FormerPersistedName]` で
 付けてください。保存済みのレイアウト、設定、ファイルから引き続き読み込めます。
