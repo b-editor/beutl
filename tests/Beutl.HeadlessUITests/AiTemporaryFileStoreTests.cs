@@ -1,4 +1,4 @@
-﻿using Beutl.Services.AI;
+﻿using Beutl.Editor.Components.AiWorkspaceTab.Services;
 
 namespace Beutl.HeadlessUITests;
 

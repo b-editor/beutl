@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Styling;
 using Beutl.Api.Clients;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 using Beutl.Language;
 using Beutl.Services;
 using Beutl.Testing.Headless;

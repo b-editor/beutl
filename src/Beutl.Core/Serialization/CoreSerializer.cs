@@ -112,14 +112,16 @@ public static partial class CoreSerializer
         {
             obj.Serialize(context);
             context.WriteUnknownMembers(obj);
-            var jsonObject = context.GetJsonObject();
-            // A fallback writes the JSON it was read from, whose discriminator names the type that could not be
-            // loaded; replacing it with the fallback's own type would lose that type for good.
-            if (obj is not IFallback)
+            // A fallback writes the discriminator it was read with, which names the type that could not be loaded;
+            // replacing it with the fallback's own type would lose that type for good.
+            if (obj is IFallback fallback)
             {
-                jsonObject.WriteDiscriminator(type);
+                context.WriteFallback(fallback);
+                return context.GetJsonObject();
             }
 
+            var jsonObject = context.GetJsonObject();
+            jsonObject.WriteDiscriminator(type);
             return jsonObject;
         }
     }

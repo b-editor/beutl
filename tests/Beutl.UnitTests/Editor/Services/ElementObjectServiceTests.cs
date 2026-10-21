@@ -46,7 +46,7 @@ public class ElementObjectServiceTests
     private sealed class TestEngineObject : EngineObject;
 
     // A fallback that makes recovery keep its element's file: the one that stands in for a Beutl 1.x node tree.
-    // A fallback for a missing type does not, since it saves the JSON it was read from.
+    // A fallback for a missing type does not, since saving writes back what it kept.
     private static FallbackEngineObject CreateBlocker() => RecoveryBlockers.CreateUnmigratedObject();
 
     [SuppressResourceClassGeneration]
@@ -386,28 +386,27 @@ public class ElementObjectServiceTests
         });
     }
 
-    // A fallback saves the JSON it was read from, so turning it off would be lost on save. Its element stays
-    // editable, so the other object can still be turned off.
+    // A fallback read from JSON saves turning it off. One given JSON it never read saves that JSON as it is, so the
+    // change would be lost on save.
     [Test]
-    public void SetEnabled_OnAFallback_IsRefusedWhileItsElementStaysEditable()
+    public void SetEnabled_OnAFallback_IsSavedUnlessItSavesItsJsonAsItIs()
     {
-        var fallback = (FallbackEngineObject)CoreSerializer.DeserializeFromJsonObject(
-            new JsonObject { ["$type"] = "[Missing.Plugin]Missing.Namespace:MissingObject" },
-            typeof(EngineObject));
-        var other = new TestEngineObject();
-        _service.Add(_element, fallback);
-        _service.Add(_element, other);
+        var json = new JsonObject { ["$type"] = "[Missing.Plugin]Missing.Namespace:MissingObject" };
+        var missing = (FallbackEngineObject)CoreSerializer.DeserializeFromJsonObject(json, typeof(EngineObject));
+        var unread = new FallbackEngineObject { Json = (JsonObject)json.DeepClone() };
+        _service.Add(_element, missing);
+        _service.Add(_element, unread);
         int before = _history.UndoCount;
 
-        bool toggledFallback = _service.SetEnabled(fallback, false);
-        bool toggledOther = _service.SetEnabled(other, false);
+        bool toggledMissing = _service.SetEnabled(missing, false);
+        bool toggledUnread = _service.SetEnabled(unread, false);
 
         Assert.Multiple(() =>
         {
-            Assert.That(toggledFallback, Is.False);
-            Assert.That(fallback.IsEnabled, Is.True);
-            Assert.That(toggledOther, Is.True);
-            Assert.That(other.IsEnabled, Is.False);
+            Assert.That(toggledMissing, Is.True);
+            Assert.That(CoreSerializer.SerializeToJsonObject(missing)[nameof(EngineObject.IsEnabled)]!.GetValue<bool>(), Is.False);
+            Assert.That(toggledUnread, Is.False);
+            Assert.That(unread.IsEnabled, Is.True);
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }

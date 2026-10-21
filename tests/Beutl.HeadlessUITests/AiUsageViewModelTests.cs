@@ -1,9 +1,9 @@
 ﻿using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
-using Beutl.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.SettingsPages;
 using Reactive.Bindings;
 
@@ -27,7 +27,7 @@ public sealed class AiUsageViewModelTests
                 clients.GetResource<IAiJobKindRegistry>(),
                 clients.GetResource<IAiJobMonitor>(),
                 clients.GetResource<IAiJobClient>(),
-                editViewModel: null,
+                editor: null,
                 requestRecoveryContext: AiRetryTestContext.CreateForm());
 
         using (Assert.EnterMultipleScope())

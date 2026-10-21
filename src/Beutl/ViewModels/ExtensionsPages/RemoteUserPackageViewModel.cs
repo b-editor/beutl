@@ -1,6 +1,7 @@
 ﻿using Avalonia.Controls;
 using Beutl.Api;
 using Beutl.Api.Objects;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;

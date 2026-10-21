@@ -11,6 +11,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.Views.Tutorial;

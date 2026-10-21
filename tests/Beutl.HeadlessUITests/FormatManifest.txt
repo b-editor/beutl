@@ -1278,6 +1278,8 @@ Beutl.Utilities
 # settings.json). The id is the tools[].id that BeutlToolDockable.CreateId gives it, with <guid> in place
 # of a GUID it generates.
 
+[Beutl.Editor.Components].AiWorkspaceTab:AiWorkspaceTabExtension
+  id: Beutl.Editor.Components.AiWorkspaceTab.AiWorkspaceTabExtension#<guid>
 [Beutl.Editor.Components].AudioVisualizerTab:AudioVisualizerTabExtension
   id: Beutl.Editor.Components.AudioVisualizerTab.AudioVisualizerTabExtension#<guid>
 [Beutl.Editor.Components].ColorGradingTab:ColorGradingTabExtension
@@ -1324,8 +1326,6 @@ Beutl.Utilities
   id: Beutl.Editor.Components.WebBrowserTab.WebBrowserTabExtension#<guid>
 [Beutl.Editor.Components]Beutl.Services.PrimitiveImpls:TimelineTabExtension
   id: Beutl.Services.PrimitiveImpls.TimelineTabExtension
-[Beutl].Services.PrimitiveImpls:AiWorkspaceTabExtension
-  id: Beutl.Services.PrimitiveImpls.AiWorkspaceTabExtension#<guid>
 
 ## Keymap
 # keymap.json: the id of every context command of every ViewExtension.

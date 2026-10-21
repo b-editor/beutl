@@ -11,12 +11,12 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Beutl.Configuration;
 using Beutl.Controls;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
+using Beutl.Editor.Components.AiWorkspaceTab.Views;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Editor.Components.LibraryTab.Views;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
 using FluentAvalonia.UI.Controls;
 using FluentIcons.Avalonia.Fluent;
 

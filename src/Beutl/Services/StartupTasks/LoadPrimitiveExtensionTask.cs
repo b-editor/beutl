@@ -1,4 +1,5 @@
 ﻿using Beutl.Api.Services;
+using Beutl.Editor.Components.AiWorkspaceTab;
 using Beutl.Editor.Components.AudioVisualizerTab;
 using Beutl.Editor.Components.ColorGradingProperties;
 using Beutl.Editor.Components.ColorGradingTab;

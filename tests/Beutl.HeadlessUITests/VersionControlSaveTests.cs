@@ -1,6 +1,7 @@
 ﻿using System.Reactive.Linq;
 using Avalonia.Headless.NUnit;
 using Beutl.Configuration;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;

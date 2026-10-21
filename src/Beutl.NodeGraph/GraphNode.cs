@@ -346,16 +346,18 @@ public abstract partial class GraphNode : EngineObject
 
     public override void Deserialize(ICoreSerializationContext context)
     {
-        if (this is FallbackGraphNode fallback)
-        {
-            fallback.RestoreMetadata((context as IJsonSerializationContext)?.GetJsonObject());
-            return;
-        }
         base.Deserialize(context);
         if (context.GetValue<string>(nameof(Position)) is { } posStr
             && TryParsePosition(posStr, out var position))
         {
             Position = position;
+        }
+
+        // A missing plugin's node reads what every node has. Its ports stay unknown members and are written back.
+        if (this is FallbackGraphNode fallback)
+        {
+            fallback.MarkMetadataRead();
+            return;
         }
 
         if (context.GetValue<JsonArray>(nameof(Items)) is { } itemsArray)
@@ -386,6 +388,8 @@ public abstract partial class GraphNode : EngineObject
         _nestedPortManager.EnsureSynchronized(force: true);
         base.Serialize(context);
         context.SetValue(nameof(Position), string.Create(CultureInfo.InvariantCulture, $"{Position.X:R},{Position.Y:R}"));
+        // A fallback with saved ports writes them back as they were read.
+        if (this is FallbackGraphNode { Json: not null }) return;
 
         context.SetValue(nameof(Items), Items);
         if (_nestedInputPorts.Count > 0)

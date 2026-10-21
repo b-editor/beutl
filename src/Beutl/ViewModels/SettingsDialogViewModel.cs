@@ -1,7 +1,7 @@
 ﻿using System.Reactive.Subjects;
 using Beutl.Api;
 using Beutl.Api.Services;
-using Beutl.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.ViewModels.SettingsPages;
 
 namespace Beutl.ViewModels;

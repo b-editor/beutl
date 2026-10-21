@@ -1,12 +1,12 @@
 ﻿using System.Reflection;
 using System.Windows.Input;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 using Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
 using Beutl.Editor.Components.ColorGradingTab.ViewModels;
 using Beutl.Editor.Components.ColorScopesTab.ViewModels;
 using Beutl.Editor.Components.CurvesTab.ViewModels;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Editor.Components.PreviewSettingsTab.ViewModels;
-using Beutl.ViewModels.Tools;
 using Reactive.Bindings;
 
 namespace Beutl.Services;

@@ -1,5 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using Beutl.Services.AI;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
 
 namespace Beutl.HeadlessUITests;
 

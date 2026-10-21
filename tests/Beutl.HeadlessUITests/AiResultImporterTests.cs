@@ -1,5 +1,7 @@
 ﻿using System.Buffers.Binary;
 using Avalonia.Headless.NUnit;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.AI;
 using Beutl.Extensibility;
@@ -7,7 +9,6 @@ using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
-using Beutl.Services.AI;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;

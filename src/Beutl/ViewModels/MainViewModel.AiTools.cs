@@ -1,12 +1,13 @@
 ﻿using Beutl.Api.Services;
+using Beutl.Editor.Components.AiWorkspaceTab;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 using Beutl.Services.AI;
-using Beutl.ViewModels.Dialogs;
-using Beutl.ViewModels.Tools;
 using DynamicData;
 
 namespace Beutl.ViewModels;
 
-public partial class MainViewModel
+public partial class MainViewModel : IAiWorkspaceHost
 {
     internal AiImageGenerationDialogViewModel CreateAiImageGenerationToolViewModel(EditViewModel editViewModel)
         => new(
@@ -179,6 +180,9 @@ public partial class MainViewModel
         await workspace.DisposeAsync();
         return false;
     }
+
+    AiWorkspaceViewModel? IAiWorkspaceHost.CreateWorkspace(IEditorContext editorContext)
+        => editorContext is EditViewModel editViewModel ? CreateAiWorkspaceViewModel(editViewModel) : null;
 
     internal AiWorkspaceViewModel CreateAiWorkspaceViewModel(EditViewModel editViewModel)
     {

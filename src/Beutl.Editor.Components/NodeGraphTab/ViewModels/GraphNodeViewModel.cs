@@ -62,7 +62,7 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        IsExpanded.Where(_ => !IsFallback).Subscribe(v => GraphNode.IsExpanded = v)
+        IsExpanded.Where(_ => !IsReadOnly).Subscribe(v => GraphNode.IsExpanded = v)
             .DisposeWith(_disposables);
 
         Position = node.GetObservable(GraphNode.PositionProperty)
@@ -70,10 +70,10 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        Delete = new ReactiveCommand(Observable.ReturnThenNever(!IsFallback)).DisposeWith(_disposables);
+        Delete = new ReactiveCommand(Observable.ReturnThenNever(!IsReadOnly)).DisposeWith(_disposables);
         Delete.Subscribe(() =>
         {
-            if (IsFallback) return;
+            if (IsReadOnly) return;
             GraphModel? tree = GraphNode.FindHierarchicalParent<GraphModel>();
             if (tree != null)
             {
@@ -100,6 +100,9 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
     public ReactiveProperty<bool> IsSelected { get; } = new();
 
     public bool IsFallback => GraphNode is IFallback;
+
+    // A fallback that saves the JSON it was read from as it is would not keep an edit.
+    public bool IsReadOnly => GraphNode is IFallback fallback && !fallback.SavesItsMembers();
 
     public string ActualTypeName => FallbackHelper.GetTypeName(GraphNode);
 
@@ -315,9 +318,9 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
 
     public void UpdatePosition(IEnumerable<GraphNodeViewModel> selection)
     {
-        if (IsFallback) return;
+        if (IsReadOnly) return;
         var moves = new List<(GraphNode Node, double X, double Y)>();
-        foreach (GraphNodeViewModel item in selection.Where(item => !item.IsFallback))
+        foreach (GraphNodeViewModel item in selection.Where(item => !item.IsReadOnly))
         {
             moves.Add((item.GraphNode, item.Position.Value.X, item.Position.Value.Y));
         }
@@ -328,7 +331,7 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
 
     public void UpdateName(string? name)
     {
-        if (name == null || IsFallback) return;
+        if (name == null || IsReadOnly) return;
         EditorContext.GetRequiredService<INodeGraphMutationService>().RenameNode(GraphNode, name);
     }
 

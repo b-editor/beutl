@@ -1,4 +1,5 @@
-﻿using Beutl.Services;
+﻿using Beutl.Editor.Components.Helpers;
+using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 

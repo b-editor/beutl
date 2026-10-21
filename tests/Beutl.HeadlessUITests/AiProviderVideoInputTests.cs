@@ -6,10 +6,10 @@ using Avalonia.LogicalTree;
 using Avalonia.Styling;
 using Beutl.Api;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.Views;
 using Beutl.Language;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
-using Beutl.Views.Tools;
 using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;

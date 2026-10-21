@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Services.AI;
 using Microsoft.Extensions.Time.Testing;
 

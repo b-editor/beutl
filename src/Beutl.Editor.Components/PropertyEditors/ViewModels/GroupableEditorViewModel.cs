@@ -70,8 +70,8 @@ public abstract class GroupableEditorViewModel<T, TGroup, TFallback> : ValueEdit
             {
                 if (Value.Value is { } value && value.IsEnabled != v)
                 {
-                    // A fallback saves the JSON it was read from, so the change would be lost.
-                    if (!IsElementEditable || value is IFallback)
+                    // A fallback that saves the JSON it was read from as it is would lose the change.
+                    if (!IsElementEditable || value is IFallback fallback && !fallback.SavesItsMembers())
                     {
                         IsEnabled.Value = value.IsEnabled;
                         return;

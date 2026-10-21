@@ -3,6 +3,7 @@ using System.Text.Json;
 using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
 using Beutl.Audio;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.AI;
 using Beutl.Extensibility;
@@ -11,7 +12,6 @@ using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
-using Beutl.Services.AI;
 using Beutl.Testing.Headless;
 using Moq;
 

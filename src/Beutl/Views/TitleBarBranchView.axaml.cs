@@ -1,9 +1,9 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.Components.VersionControl.Views;
 using Beutl.Language;
-using Beutl.Services;
 
 namespace Beutl.Views;
 

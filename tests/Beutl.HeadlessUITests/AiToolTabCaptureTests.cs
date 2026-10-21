@@ -5,11 +5,11 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Styling;
 using Beutl.Api.Services;
 using Beutl.Controls.Styling.Themes;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
+using Beutl.Editor.Components.AiWorkspaceTab.Views;
 using Beutl.Language;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
 
 namespace Beutl.HeadlessUITests;
 

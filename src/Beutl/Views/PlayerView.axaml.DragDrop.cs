@@ -2,6 +2,7 @@
 using Avalonia.Platform.Storage;
 using Beutl.Controls;
 using Beutl.Editor.Components.FileBrowserTab;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
@@ -10,7 +11,6 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
-using Beutl.Helpers;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;

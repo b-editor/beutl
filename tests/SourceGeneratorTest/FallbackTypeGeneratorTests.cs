@@ -81,8 +81,9 @@ public class FallbackTypeGeneratorTests
             Assert.That(source, Does.Contain("public global::System.Text.Json.Nodes.JsonObject? Json"));
             Assert.That(source, Does.Contain("public global::Beutl.Serialization.FallbackReason Reason"));
             Assert.That(source, Does.Contain("public string? ErrorMessage"));
-            Assert.That(source, Does.Contain("public override void Serialize("));
-            Assert.That(source, Does.Contain("public override void Deserialize("));
+            // The serializer keeps and writes back what a fallback was read from.
+            Assert.That(source, Does.Not.Contain("void Serialize("));
+            Assert.That(source, Does.Not.Contain("void Deserialize("));
             Assert.That(source, Does.Contain("public bool TryGetTypeName("));
         });
     }

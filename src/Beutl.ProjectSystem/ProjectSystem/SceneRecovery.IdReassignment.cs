@@ -110,7 +110,7 @@ internal sealed partial class SceneRecovery
                 ? previousAssignedId
                 : RecoveredIdentity.ClaimRecoveredDescendantId(relativePath, remapKey, claims.ClaimedIds);
             descendant.Id = assignedId;
-            // A fallback saves the JSON it was read from, so the new Id goes into that JSON too.
+            // A fallback that saves the JSON it was read from as it is gets the new Id in that JSON too.
             if (descendant is IFallback { Json: { } fallbackJson })
             {
                 fallbackJson[nameof(CoreObject.Id)] = assignedId.ToString();

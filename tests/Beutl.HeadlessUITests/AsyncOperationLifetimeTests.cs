@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Services;
 
 namespace Beutl.HeadlessUITests;

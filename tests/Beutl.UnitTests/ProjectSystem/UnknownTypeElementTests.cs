@@ -10,8 +10,8 @@ using Beutl.UnitTests.TestInfrastructure;
 namespace Beutl.UnitTests.ProjectSystem;
 
 // An object whose type could not be loaded, usually because an extension is not installed, loads as a fallback
-// that saves the JSON it was read from. Its element therefore stays editable and its edits are saved (b-editor/
-// beutl#2855). Recovery keeps an element's file only when saving would lose part of it.
+// that saves its known members and writes back the rest. Its element therefore stays editable and its edits are
+// saved (b-editor/beutl#2855). Recovery keeps an element's file only when saving would lose part of it.
 [TestFixture]
 public class UnknownTypeElementTests
 {
@@ -69,6 +69,8 @@ public class UnknownTypeElementTests
         JsonObject saved = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
         JsonArray savedObjects = saved[nameof(Element.Objects)]!.AsArray();
         Element reopened = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+        // The object whose type is missing moved with its element, which is a member it knows.
+        unavailableJson["Start"] = "00:00:02";
 
         Assert.Multiple(() =>
         {
@@ -78,7 +80,7 @@ public class UnknownTypeElementTests
             Assert.That(reopened.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
             Assert.That(((RectShape)reopened.Objects[0]).Width.CurrentValue, Is.EqualTo(20));
             Assert.That(JsonNode.DeepEquals(savedObjects[1], unavailableJson), Is.True,
-                "The object whose type is missing is saved as it was read.");
+                "The rest of the object whose type is missing is saved as it was read.");
             Assert.That(JsonNode.DeepEquals(saved["FutureClip"], json["FutureClip"]), Is.True);
             Assert.That(savedObjects[0]!["FutureShape"]!.GetValue<int>(), Is.EqualTo(3));
             Assert.That(reopened.Objects[1], Is.InstanceOf<IFallback>());

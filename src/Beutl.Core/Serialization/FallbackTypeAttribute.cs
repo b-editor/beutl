@@ -25,3 +25,10 @@ public interface IFallback : ICoreSerializable
 
     bool TryGetTypeName([NotNullWhen(true)] out string? result);
 }
+
+internal static class FallbackExtensions
+{
+    // A fallback read from JSON writes its known members from the object and keeps the rest. One given JSON it
+    // never read, such as one for an object whose data failed to load, writes that JSON as it is.
+    internal static bool SavesItsMembers(this IFallback fallback) => fallback is CoreObject { UnknownMembers: not null };
+}

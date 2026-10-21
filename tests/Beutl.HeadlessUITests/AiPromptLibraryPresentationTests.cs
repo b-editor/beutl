@@ -7,12 +7,13 @@ using Avalonia.Headless.NUnit;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 using Beutl.Api;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
+using Beutl.Editor.Components.AiWorkspaceTab.Views;
 using Beutl.Language;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Dialogs;
-using Beutl.Views.Tools;
 using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;

@@ -8,11 +8,10 @@ using Avalonia.LogicalTree;
 using Avalonia.Styling;
 using Beutl.Api;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
+using Beutl.Editor.Components.AiWorkspaceTab.Views;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
-using Beutl.ViewModels.Dialogs;
-using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
 using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;

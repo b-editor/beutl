@@ -8,6 +8,22 @@ public sealed partial class FallbackGraphNode : GraphNode, IFallback
 {
     private bool _metadataRestored;
 
+    // A node read from JSON has its metadata already.
+    internal void MarkMetadataRead() => _metadataRestored = true;
+
+    // The Ids of the ports in the JSON this node stands in for, which its connections name.
+    internal IEnumerable<Guid> SavedPortIds()
+    {
+        foreach (string member in (string[])[nameof(Items), nameof(NestedInputPorts)])
+        {
+            if (Json?[member] is not JsonArray ports) continue;
+            foreach (JsonNode? port in ports)
+            {
+                if (port?[nameof(Id)] is JsonValue id && Guid.TryParse(id.ToString(), out Guid value)) yield return value;
+            }
+        }
+    }
+
     internal void RestoreMetadata(JsonObject? json)
     {
         if (_metadataRestored || json == null) return;
