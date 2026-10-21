@@ -42,11 +42,11 @@ internal sealed partial class DeclarativeDocumentApplier
 
         if (desired.TryGetPropertyValue(nameof(KeyFrame<float>.Value), out JsonNode? valueNode)
             && keyFrame is CoreObject keyFrameObject
-            && PropertyRegistry.FindRegistered(keyFrameObject, nameof(KeyFrame<float>.Value)) is { } valueProperty)
+            && keyFrameObject.Properties.FirstOrDefault(property => property.Name == nameof(KeyFrame<float>.Value)) is { } valueProperty)
         {
             keyFrame.Value = valueNode is null
                 ? null
-                : EnumJsonValueNormalizer.Deserialize(valueNode, valueProperty.PropertyType, CreateOptions(keyFrameObject));
+                : EnumJsonValueNormalizer.Deserialize(valueNode, valueProperty.ValueType, CreateOptions(keyFrameObject));
         }
 
         if (desired.TryGetPropertyValue(nameof(KeyFrame.Easing), out JsonNode? easingNode) && easingNode is not null)

@@ -652,7 +652,7 @@ public class GraphEditorInteractionTests
         if (redo) graph.Model.HistoryManager.Undo();
         float before = graph.Second.Value;
         bool? playingWhenMoved = null;
-        using IDisposable watch = graph.Second.GetObservable(KeyFrame<float>.ValueProperty)
+        using IDisposable watch = graph.Second.ValueProperty.GetObservable()
             .Subscribe(value =>
             {
                 if (value != before) playingWhenMoved ??= editor.Player.IsPlaying.Value;

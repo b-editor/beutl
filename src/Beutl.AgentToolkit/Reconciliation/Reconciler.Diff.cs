@@ -2,7 +2,6 @@
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
 using Beutl.Animation;
-using Beutl.Engine;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
@@ -318,8 +317,7 @@ public sealed partial class Reconciler
                 return;
             }
 
-            if (target is EngineObject engineObject
-                && engineObject.Properties.FirstOrDefault(p => p.Name == propertyName) is { } engineProperty)
+            if (target.Properties.FirstOrDefault(p => p.Name == propertyName) is { } engineProperty)
             {
                 object? value = valueNode is null
                     ? null
@@ -345,9 +343,7 @@ public sealed partial class Reconciler
             return coreProperty.PropertyType;
         }
 
-        return target is EngineObject engineObject
-            ? engineObject.Properties.FirstOrDefault(p => p.Name == propertyName)?.ValueType
-            : null;
+        return target.Properties.FirstOrDefault(p => p.Name == propertyName)?.ValueType;
     }
 
     private static bool ShouldSkip(string propertyName)

@@ -10,27 +10,21 @@ namespace Beutl.Animation;
 // Keyframe animation is the expression at the bottom of a property's expression chain (see IExpression<T>.Replaced).
 public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpression<T>, IKeyFrameExpression
 {
-    public static readonly CoreProperty<KeyFrames> KeyFramesProperty;
-    public static readonly CoreProperty<bool> UseGlobalClockProperty;
     private readonly KeyFrames _keyFrames;
-    private bool _useGlobalClock;
     private IValidator<T>? _validator;
     private EngineObject? _parent;
-
-    static KeyFrameAnimation()
-    {
-        UseGlobalClockProperty = ConfigureProperty<bool, KeyFrameAnimation<T>>(nameof(UseGlobalClock))
-            .Accessor(o => o.UseGlobalClock, (o, v) => o.UseGlobalClock = v)
-            .Register();
-
-        KeyFramesProperty = ConfigureProperty<KeyFrames, KeyFrameAnimation<T>>(nameof(KeyFrames))
-            .Accessor(o => o.KeyFrames, (o, v) => o.KeyFrames = v)
-            .Register();
-    }
 
     public KeyFrameAnimation()
     {
         _keyFrames = new KeyFrames(this);
+        // The list is a value rather than a default, as its CoreProperty form had no default.
+        KeyFramesProperty.Value = _keyFrames;
+        ScanProperties<KeyFrameAnimation<T>>();
+        UseGlobalClockProperty.ValueChanged += (_, _) =>
+        {
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(UseGlobalClock)));
+            Edited?.Invoke(this, EventArgs.Empty);
+        };
         _keyFrames.Attached += OnKeyFrameAttached;
         _keyFrames.Detached += OnKeyFrameDetached;
     }
@@ -41,13 +35,18 @@ public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpressio
 
     public string ExpressionString => "[KeyFrames]";
 
+    public IProperty<bool> UseGlobalClockProperty { get; } = Property.CreateValue(false);
+
+    // Serialize and Deserialize write and read the key frames themselves.
+    [NotAutoSerialized]
+    public IProperty<KeyFrames> KeyFramesProperty { get; } = Property.CreateValue<KeyFrames>(null!);
+
     public bool UseGlobalClock
     {
-        get => _useGlobalClock;
-        set => SetAndRaise(UseGlobalClockProperty, ref _useGlobalClock, value);
+        get => UseGlobalClockProperty.Value;
+        set => UseGlobalClockProperty.Value = value;
     }
 
-    [NotAutoSerialized]
     public KeyFrames KeyFrames
     {
         get => _keyFrames;
@@ -172,15 +171,6 @@ public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpressio
     {
         base.OnDetachedFromHierarchy(in args);
         _parent = null;
-    }
-
-    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
-    {
-        base.OnPropertyChanged(args);
-        if (args.PropertyName is nameof(UseGlobalClock))
-        {
-            Edited?.Invoke(this, EventArgs.Empty);
-        }
     }
 
     private void OnKeyTimeChanged(object? sender, EventArgs e)

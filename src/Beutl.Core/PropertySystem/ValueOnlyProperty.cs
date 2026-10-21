@@ -39,6 +39,9 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
     // Brings a value its owner updates lazily up to date before it is read, like GraphNode.NestedInputPorts.
     internal Action? BeforeRead { get; set; }
 
+    // Adjusts each value before it is validated, like KeyFrame<T>.Value with its animation's validator.
+    internal Func<T, T>? Coerce { get; init; }
+
     public bool IsValueSet { get; private set; }
 
     public event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
@@ -48,7 +51,7 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
     private void SetCurrentValue(T value, bool replaceEquivalent)
     {
         DocumentWriteCheck.Verify(_owner, _name);
-        var validatedValue = ValidateAndCoerce(value);
+        var validatedValue = ValidateAndCoerce(Coerce is { } coerce ? coerce(value) : value);
         if (ValueReplacement.RequiresReplacement(_currentValue, validatedValue, replaceEquivalent))
         {
             var oldValue = _currentValue;

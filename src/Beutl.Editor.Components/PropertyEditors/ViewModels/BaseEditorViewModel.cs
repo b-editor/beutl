@@ -162,7 +162,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         if (ElementEditability.CanRepair(_element, content, _scene)) return true;
 
         // An easing is a value, not an object of its own: the keyframe holds an easing that could not be read.
-        return PropertyAdapter is CorePropertyAdapter<Easing> { Object: KeyFrame keyFrame }
+        return PropertyAdapter is EnginePropertyAdapter<Easing> { Object: KeyFrame keyFrame }
                && ElementEditability.CanRepair(_element, keyFrame, _scene);
     }
 

@@ -7,42 +7,42 @@ namespace Beutl.Animation;
 
 public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
 {
-    public static readonly CoreProperty<T?> ValueProperty;
-    internal static readonly Animator<T> s_animator;
-    private T? _value;
+    internal static readonly Animator<T> s_animator = AnimatorRegistry.CreateAnimator<T>();
 
     public KeyFrame()
     {
-        _value = s_animator.DefaultValue();
+        ValueProperty = new ValueOnlyProperty<T?>(s_animator.DefaultValue()) { Coerce = CoerceValue };
+        ScanProperties<KeyFrame<T>>();
+        ValueProperty.ValueChanged += OnValueChanged;
+        EasingProperty.ValueChanged += (_, _) => Edited?.Invoke(this, EventArgs.Empty);
+        KeyTimeProperty.ValueChanged += (_, _) =>
+        {
+            Edited?.Invoke(this, EventArgs.Empty);
+            KeyTimeChanged?.Invoke(this, EventArgs.Empty);
+        };
     }
 
-    static KeyFrame()
-    {
-        s_animator = AnimatorRegistry.CreateAnimator<T>();
-
-        ValueProperty = ConfigureProperty<T?, KeyFrame<T>>(nameof(Value))
-            .Accessor(o => o.Value, (o, v) => o.Value = v)
-            .Register();
-    }
+    public IProperty<T?> ValueProperty { get; }
 
     public T? Value
     {
-        get => _value;
-        set => SetValue(value, replaceEquivalent: false);
+        get => ValueProperty.Value;
+        set => ValueProperty.Value = value;
     }
 
-    private void SetValue(T? value, bool replaceEquivalent)
+    // The animation's validator adjusts each value set, whichever way it is set.
+    private T? CoerceValue(T? value)
     {
         if (Validator != null)
         {
             T? coerced = value;
             if (Validator.TryCoerce(default, ref coerced))
             {
-                value = coerced!;
+                return coerced!;
             }
         }
 
-        SetAndRaise(ValueProperty, ref _value, value, replaceEquivalent);
+        return value;
     }
 
     object? IKeyFrame.Value
@@ -66,11 +66,11 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
     {
         if (value is T typed)
         {
-            SetValue(typed, replaceEquivalent: true);
+            ValueProperty.SetValueEvenIfEqual(typed);
         }
         else if (value is null && (!typeof(T).IsValueType || Nullable.GetUnderlyingType(typeof(T)) is not null))
         {
-            SetValue(default, replaceEquivalent: true);
+            ValueProperty.SetValueEvenIfEqual(default);
         }
         else
         {
@@ -88,33 +88,20 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
 
     public event EventHandler? Edited;
 
-    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    private void OnValueChanged(object? sender, PropertyValueChangedEventArgs<T?> e)
     {
-        base.OnPropertyChanged(args);
-        if (args is CorePropertyChangedEventArgs args1
-            && args.PropertyName is nameof(Value) or nameof(Easing) or nameof(KeyTime))
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(Value)));
+        Edited?.Invoke(this, EventArgs.Empty);
+
+        // Resubscribe to the value's INotifyEdited.
+        if (e.OldValue is INotifyEdited oldEdited)
         {
-            Edited?.Invoke(this, EventArgs.Empty);
+            oldEdited.Edited -= OnPropertyEdited;
+        }
 
-            switch (args.PropertyName)
-            {
-                case nameof(KeyTime):
-                    KeyTimeChanged?.Invoke(this, EventArgs.Empty);
-                    break;
-                case nameof(Value):
-                    // Resubscribe to the value's INotifyEdited.
-                    if (args1.OldValue is INotifyEdited oldEdited)
-                    {
-                        oldEdited.Edited -= OnPropertyEdited;
-                    }
-
-                    if (args1.NewValue is INotifyEdited newEdited)
-                    {
-                        newEdited.Edited += OnPropertyEdited;
-                    }
-
-                    break;
-            }
+        if (e.NewValue is INotifyEdited newEdited)
+        {
+            newEdited.Edited += OnPropertyEdited;
         }
     }
 

@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-using System.ComponentModel;
 using System.Reactive.Subjects;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
@@ -44,9 +43,9 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
         _propertiesToTrack = OperationObserverHelpers.GetTrackedChildNames(_propertyPathsToTrack, _propertyPath);
         InitializeChildPublishers();
 
-        if (obj is KeyFrame)
+        if (obj is KeyFrame keyFrame)
         {
-            obj.PropertyChanged += OnPropertyChanged;
+            keyFrame.EasingProperty.ValueChanged += OnEasingChanged;
         }
 
         if (obj is CoreObject coreObject)
@@ -59,7 +58,10 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
 
     public void Dispose()
     {
-        _object.PropertyChanged -= OnPropertyChanged;
+        if (_object is KeyFrame keyFrame)
+        {
+            keyFrame.EasingProperty.ValueChanged -= OnEasingChanged;
+        }
 
         foreach (IOperationObserver collection in _corePropertyPublishers.Values)
         {
@@ -182,18 +184,12 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
         }
     }
 
-    private void OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnEasingChanged(object? sender, PropertyValueChangedEventArgs<Easing> e)
     {
         if (PublishingSuppression.IsSuppressed) return;
 
-        if (e is not CorePropertyChangedEventArgs<Easing> args || sender is not CoreObject source)
-            return;
-
-        if (args.Property.Id != KeyFrame.EasingProperty.Id)
-            return;
-
         if (_propertiesToTrack != null &&
-            !_propertiesToTrack.Contains(args.Property.Name))
+            !_propertiesToTrack.Contains(e.Property.Name))
             return;
 
         RecreateSplineEasingPublisher();

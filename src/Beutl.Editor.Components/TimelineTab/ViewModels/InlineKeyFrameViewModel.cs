@@ -28,7 +28,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         Timeline = parent.Timeline;
         Parent = parent;
 
-        Left = keyframe.GetObservable(KeyFrame.KeyTimeProperty)
+        Left = ((KeyFrame)keyframe).KeyTimeProperty.GetObservable()
             .CombineLatest(Timeline.Options)
             .Select(item => item.First.TimeToPixel(item.Second.Scale))
             .ToReactiveProperty()

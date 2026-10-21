@@ -1,7 +1,6 @@
 ﻿using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Beutl.Engine;
 using Beutl.Serialization;
 
 namespace Beutl.AgentToolkit.Common;
@@ -59,10 +58,11 @@ internal static class EnumJsonValueNormalizer
             NormalizeObjectProperty(normalized, property.Name, property.PropertyType);
         }
 
-        if (typeof(EngineObject).IsAssignableFrom(actualType)
-            && Activator.CreateInstance(actualType) is EngineObject engineObject)
+        if (typeof(CoreObject).IsAssignableFrom(actualType)
+            && actualType.GetConstructor(Type.EmptyTypes) is not null
+            && Activator.CreateInstance(actualType) is CoreObject coreObject)
         {
-            foreach (IProperty property in engineObject.Properties)
+            foreach (IProperty property in coreObject.Properties)
             {
                 NormalizeObjectProperty(normalized, property.Name, property.ValueType);
                 if (property is IListProperty listProperty)

@@ -170,7 +170,7 @@ public sealed class FallbackEditorPersistenceTests
             var animation = (KeyFrameAnimation<float>)shape.Width.GetKeyFrameAnimation()!;
             var keyFrame = (KeyFrame<float>)animation.KeyFrames.Single();
             using var history = new HistoryScope(recoveredElement);
-            var adapter = new CorePropertyAdapter<Easing>(KeyFrame.EasingProperty, keyFrame);
+            var adapter = new EnginePropertyAdapter<Easing>(keyFrame.EasingProperty, keyFrame);
             using var viewModel = new ValueEditorViewModel<Easing>(adapter);
             viewModel.Accept(Services(recoveredElement, history.History));
 

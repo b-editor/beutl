@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Text.Json;
@@ -6,6 +7,7 @@ using System.Text.Json.Nodes;
 
 using Beutl.Animation.Easings;
 using Beutl.Converters;
+using Beutl.Engine;
 using Beutl.Serialization;
 using Beutl.Utilities;
 using Beutl.Validation;
@@ -14,44 +16,37 @@ namespace Beutl.Animation;
 
 public class KeyFrame : Hierarchical
 {
-    public static readonly CoreProperty<Easing> EasingProperty;
-    public static readonly CoreProperty<TimeSpan> KeyTimeProperty;
-    private Easing _easing;
+    // Every key frame starts with this one easing, as the CoreProperty's default value was shared.
+    private static readonly LinearEasing s_defaultEasing = new();
     private Easing? _lossyFallbackEasing;
     private JsonNode? _lossyFallbackEasingJson;
-    private TimeSpan _keyTime;
 
     protected KeyFrame()
     {
-        _easing = EasingProperty.GetMetadata<CorePropertyMetadata<Easing>>(GetType()).DefaultValue ?? new LinearEasing();
+        ScanProperties<KeyFrame>();
+        EasingProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Easing)));
+        KeyTimeProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(KeyTime)));
     }
 
-    static KeyFrame()
-    {
-        EasingProperty = ConfigureProperty<Easing, KeyFrame>(nameof(Easing))
-            .Accessor(o => o.Easing, (o, v) => o.Easing = v)
-            .DefaultValue(new LinearEasing())
-            .Register();
-
-        KeyTimeProperty = ConfigureProperty<TimeSpan, KeyFrame>(nameof(KeyTime))
-            .Accessor(o => o.KeyTime, (o, v) => o.KeyTime = v)
-            .Register();
-    }
-
+    // Serialize and Deserialize write and read the easing themselves.
     [NotAutoSerialized]
+    public IProperty<Easing> EasingProperty { get; } = Property.CreateValue<Easing>(s_defaultEasing);
+
+    public IProperty<TimeSpan> KeyTimeProperty { get; } = Property.CreateValue(TimeSpan.Zero);
+
     public Easing Easing
     {
-        get => _easing;
-        set => SetAndRaise(EasingProperty, ref _easing, value);
+        get => EasingProperty.Value;
+        set => EasingProperty.Value = value;
     }
 
     [NotAutoSerialized]
-    internal bool HasLossyEasing => ReferenceEquals(_easing, _lossyFallbackEasing);
+    internal bool HasLossyEasing => ReferenceEquals(Easing, _lossyFallbackEasing);
 
     public TimeSpan KeyTime
     {
-        get => _keyTime;
-        set => SetAndRaise(KeyTimeProperty, ref _keyTime, value);
+        get => KeyTimeProperty.Value;
+        set => KeyTimeProperty.Value = value;
     }
 
     public IValidator? Validator { get; set; }
