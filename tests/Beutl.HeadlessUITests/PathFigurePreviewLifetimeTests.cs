@@ -1,11 +1,11 @@
 ﻿using System.Reactive.Subjects;
 using Avalonia.Headless.NUnit;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Threading;
-using Beutl.ViewModels.Editors;
 using Moq;
 
 namespace Beutl.HeadlessUITests;

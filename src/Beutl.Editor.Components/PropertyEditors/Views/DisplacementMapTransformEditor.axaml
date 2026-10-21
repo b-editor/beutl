@@ -1,0 +1,81 @@
+<UserControl x:Class="Beutl.Editor.Components.PropertyEditors.Views.DisplacementMapTransformEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Editor.Components.PropertyEditors.Views"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:Beutl.Editor.Components.PropertyEditors.ViewModels"
+             d:DesignHeight="300"
+             d:DesignWidth="300"
+             x:CompileBindings="False"
+             x:DataType="viewModel:DisplacementMapTransformEditorViewModel"
+             mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,Auto">
+        <ToggleButton x:Name="expandToggle"
+                      Margin="8,4"
+                      IsChecked="{Binding IsExpanded.Value}"
+                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}"
+                      ToolTip.Tip="{Binding HoverInfo.Value}">
+            <ToggleButton.ContextFlyout>
+                <ui:FAMenuFlyout>
+                    <ui:FARadioMenuFlyoutItem Click="TransformTypeClicked"
+                                            IsChecked="{Binding IsTranslate.Value, Mode=OneWay}"
+                                            Tag="Translate"
+                                            Text="{x:Static lang:GraphicsStrings.TranslateTransform}">
+                        <ui:FARadioMenuFlyoutItem.IconSource>
+                            <ui:FAPathIconSource Data="{StaticResource TranslateTransformIconData}" />
+                        </ui:FARadioMenuFlyoutItem.IconSource>
+                    </ui:FARadioMenuFlyoutItem>
+                    <ui:FARadioMenuFlyoutItem Click="TransformTypeClicked"
+                                            IsChecked="{Binding IsRotation.Value, Mode=OneWay}"
+                                            Tag="Rotation"
+                                            Text="{x:Static lang:GraphicsStrings.Rotation}">
+                        <ui:FARadioMenuFlyoutItem.IconSource>
+                            <ui:FAPathIconSource Data="{StaticResource RotationTransformIconData}" />
+                        </ui:FARadioMenuFlyoutItem.IconSource>
+                    </ui:FARadioMenuFlyoutItem>
+                    <ui:FARadioMenuFlyoutItem Click="TransformTypeClicked"
+                                            IsChecked="{Binding IsScale.Value, Mode=OneWay}"
+                                            Tag="Scale"
+                                            Text="{x:Static lang:GraphicsStrings.Scale}">
+                        <ui:FARadioMenuFlyoutItem.IconSource>
+                            <ui:FAPathIconSource Data="{StaticResource ScaleTransformIconData}" />
+                        </ui:FARadioMenuFlyoutItem.IconSource>
+                    </ui:FARadioMenuFlyoutItem>
+                    <ui:FARadioMenuFlyoutItem Click="TransformTypeClicked"
+                                            IsChecked="{Binding !Value.Value, Mode=OneWay}"
+                                            Tag="Null"
+                                            Text="{x:Static lang:Strings.Null}" />
+                </ui:FAMenuFlyout>
+            </ToggleButton.ContextFlyout>
+            <ToggleButton.Tag>
+                <Button Padding="0"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Classes="size-24x24"
+                        Click="Tag_Click"
+                        Theme="{StaticResource TransparentButton}">
+                    <icons:FluentIcon Icon="Compose" />
+                </Button>
+            </ToggleButton.Tag>
+            <TextBlock Text="{Binding Header, FallbackValue=Transform}" />
+        </ToggleButton>
+
+        <Panel x:Name="content"
+               Grid.Row="1"
+               MinHeight="24">
+            <TextBlock Margin="16,0,0,0"
+                       IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}"
+                       Text="{x:Static lang:MessageStrings.PropertyUnset}" />
+
+            <controls:TreeLineDecorator LineBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+                <local:PropertiesEditor Padding="0"
+                                        DataContext="{Binding Properties.Value}" />
+            </controls:TreeLineDecorator>
+        </Panel>
+    </Grid>
+</UserControl>

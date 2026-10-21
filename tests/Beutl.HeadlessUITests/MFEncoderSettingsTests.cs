@@ -11,6 +11,7 @@ using Avalonia.VisualTree;
 using Beutl.Audio;
 using Beutl.Composition;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Services;
 using Beutl.Embedding.MediaFoundation.Encoding;
 using Beutl.Engine;
@@ -18,7 +19,6 @@ using Beutl.Media.Source;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
-using Beutl.Views.Editors;
 
 namespace Beutl.HeadlessUITests;
 

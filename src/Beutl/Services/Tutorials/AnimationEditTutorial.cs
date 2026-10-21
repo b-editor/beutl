@@ -6,13 +6,14 @@ using Beutl.Editor.Components.GraphEditorTab;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.LibraryTab;
 using Beutl.Editor.Components.LibraryTab.Views;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Editors;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Services.Tutorials;
@@ -398,7 +399,7 @@ public static class AnimationEditTutorial
     {
         TopLevel? topLevel = AppHelper.GetTopLevel();
         return topLevel?.GetVisualDescendants()
-            .OfType<Views.Editors.TransformEditor>()
+            .OfType<TransformEditor>()
             .FirstOrDefault(c =>
                 c.DataContext is TransformEditorViewModel vm &&
                 (vm.GetService(typeof(Element)) as Element)?.Objects.OfType<EllipseShape>().Any() ==

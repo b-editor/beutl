@@ -15,6 +15,7 @@ using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Editor.Components.FileBrowserTab.Views;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Editor.Components.LibraryTab.Views;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics.Effects;
@@ -23,7 +24,6 @@ using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Editors;
 using Beutl.Views;
 using FluentAvalonia.Styling;
 

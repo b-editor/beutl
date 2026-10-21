@@ -1,0 +1,105 @@
+<UserControl x:Class="Beutl.Editor.Components.PropertyEditors.Views.PropertyEditorMenu"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:Beutl.Editor.Components.PropertyEditors.ViewModels"
+             Margin="0,0,4,0"
+             Classes="property-editor-menu"
+             VerticalAlignment="Center"
+             d:DesignHeight="500"
+             d:DesignWidth="500"
+             x:CompileBindings="True"
+             x:DataType="vm:BaseEditorViewModel"
+             mc:Ignorable="d">
+    <Button Width="24"
+            Height="24"
+            Padding="0"
+            HorizontalAlignment="Center"
+            BorderThickness="0"
+            Click="Button_Click"
+            Theme="{StaticResource TransparentButton}">
+        <Button.ContextFlyout>
+            <ui:FAMenuFlyout>
+                <ui:FAMenuFlyoutItem x:Name="resetItem" Command="{Binding Reset}"
+                                   Text="{x:Static lang:Strings.Reset}">
+                    <ui:FAMenuFlyoutItem.IsEnabled>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="CanEditProperty.Value" />
+                            <Binding Path="CanReset" />
+                        </MultiBinding>
+                    </ui:FAMenuFlyoutItem.IsEnabled>
+                </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutItem x:Name="editAnimationItem"
+                                   IsEnabled="{Binding CanEditProperty.Value}"
+                                   Click="EditAnimation_Click"
+                                   Text="{x:Static lang:Strings.EditAnimation}" />
+                <ui:FAMenuFlyoutItem x:Name="editInlineAnimationItem"
+                                   IsEnabled="{Binding CanEditProperty.Value}"
+                                   Click="EditInlineAnimation_Click"
+                                   Text="{x:Static lang:Strings.EditAnimationInInlineView}" />
+                <ui:FAMenuFlyoutItem x:Name="removeAnimationItem"
+                                   IsEnabled="{Binding CanRemoveAnimation.Value}"
+                                   Click="RemoveAnimation_Click"
+                                   Text="{x:Static lang:Strings.RemoveAnimation}" />
+                <ui:FAToggleMenuFlyoutItem x:Name="toggleLivePreview"
+                                         IsChecked="{ReflectionBinding IsLivePreviewEnabled.Value,
+                                                                       Mode=TwoWay}"
+                                         IsVisible="False"
+                                         Text="{x:Static lang:Strings.EnableLivePreview}" />
+                <ui:FAToggleMenuFlyoutItem x:Name="uniformEditorToggle"
+                                         IsChecked="{ReflectionBinding IsUniformEditorEnabled.Value,
+                                                                       Mode=TwoWay}"
+                                         IsVisible="False"
+                                         Text="{x:Static lang:Strings.UniformValue}" />
+                <ui:FAMenuFlyoutSeparator x:Name="expressionSeparator" IsVisible="False" />
+                <ui:FAMenuFlyoutItem x:Name="editExpressionItem"
+                                   IsEnabled="{Binding CanEditProperty.Value}"
+                                   Click="EditExpression_Click"
+                                   IsVisible="False"
+                                   Text="{x:Static lang:Strings.EditExpression}" />
+                <ui:FAMenuFlyoutItem x:Name="removeExpressionItem"
+                                   Click="RemoveExpression_Click"
+                                   IsVisible="False"
+                                   Text="{x:Static lang:Strings.RemoveExpression}">
+                    <ui:FAMenuFlyoutItem.IsEnabled>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="CanEditProperty.Value" />
+                            <Binding Path="HasExpression.Value" />
+                        </MultiBinding>
+                    </ui:FAMenuFlyoutItem.IsEnabled>
+                </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutSeparator x:Name="copyPropertyPathSeparator" IsVisible="False" />
+                <ui:FAMenuFlyoutItem x:Name="copyPropertyPathItem"
+                                   Click="CopyPropertyPath_Click"
+                                   IsVisible="False"
+                                   Text="{x:Static lang:Strings.CopyPropertyPath}" />
+                <ui:FAMenuFlyoutItem x:Name="copyGetPropertyCodeItem"
+                                   Click="CopyGetPropertyCode_Click"
+                                   IsVisible="False"
+                                   Text="{x:Static lang:Strings.CopyGetPropertyCode}" />
+            </ui:FAMenuFlyout>
+        </Button.ContextFlyout>
+        <icons:FluentIcon x:Name="symbolIcon"
+                          Classes.hasAnimation="{Binding HasAnimation.Value}"
+                          Classes.hasExpression="{Binding HasExpression.Value}"
+                          IconVariant="{Binding SymbolIconVariant.Value}">
+            <icons:FluentIcon.Styles>
+                <Style Selector="icons|FluentIcon">
+                    <Setter Property="Icon" Value="MoreVertical" />
+                </Style>
+                <Style Selector="icons|FluentIcon.hasAnimation">
+                    <Setter Property="Icon" Value="Diamond" />
+                    <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCaution}" />
+                </Style>
+                <Style Selector="icons|FluentIcon.hasExpression">
+                    <Setter Property="Icon" Value="MathFormula" />
+                    <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccess}" />
+                </Style>
+            </icons:FluentIcon.Styles>
+        </icons:FluentIcon>
+    </Button>
+</UserControl>

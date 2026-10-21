@@ -5,6 +5,7 @@ using Beutl.Animation.Easings;
 using Beutl.Api.Services;
 using Beutl.Collections;
 using Beutl.Editor;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -17,7 +18,6 @@ using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Beutl.Serialization;
 using Beutl.Testing.Headless;
-using Beutl.ViewModels.Editors;
 using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 using static Beutl.Testing.Headless.JsonTestHelpers;
 

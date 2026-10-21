@@ -1,0 +1,28 @@
+<UserControl x:Class="Beutl.Editor.Components.PropertyEditors.Views.VideoSourceEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Beutl.Editor.Components.PropertyEditors.ViewModels"
+             xmlns:editor="using:Beutl.Controls.PropertyEditors"
+             xmlns:local="using:Beutl.Editor.Components.PropertyEditors.Views"
+             d:DesignWidth="300"
+             x:CompileBindings="True"
+             x:DataType="vm:VideoSourceEditorViewModel"
+             mc:Ignorable="d">
+    <StackPanel>
+        <editor:StorageFileEditor x:Name="FileEditor"
+                                  Value="{Binding FileInfo.Value}"
+                                  KeyFrameCount="{Binding KeyFrameCount.Value}"
+                                  KeyFrameIndex="{Binding KeyFrameIndex.Value}"
+                                  IsReadOnly="{Binding !CanEdit.Value}"
+                                  Header="{Binding Header, Mode=OneTime}"
+                                  Description="{Binding Description.Value}"
+                                  HoverInfo="{Binding HoverInfo.Value}">
+            <editor:StorageFileEditor.MenuContent>
+                <local:PropertyEditorMenu />
+            </editor:StorageFileEditor.MenuContent>
+        </editor:StorageFileEditor>
+        <TextBlock x:Name="message" Theme="{StaticResource ErrorTextBlockStyle}" IsVisible="False" />
+    </StackPanel>
+</UserControl>

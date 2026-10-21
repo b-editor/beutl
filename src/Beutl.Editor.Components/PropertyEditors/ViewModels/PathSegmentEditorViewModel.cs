@@ -1,0 +1,118 @@
+﻿using System.Text.Json.Nodes;
+using Beutl.Editor.Components.Helpers;
+using Beutl.Media;
+using Reactive.Bindings;
+
+namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
+
+public sealed class PathSegmentEditorViewModel : ValueEditorViewModel<PathSegment?>
+{
+    public PathSegmentEditorViewModel(IPropertyAdapter<PathSegment?> property)
+        : base(property)
+    {
+        OpName = Value.Select(GetOpName)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        IsExpanded.SkipWhile(v => !v)
+            .Take(1)
+            .Subscribe(_ =>
+                Value.Subscribe(v =>
+                    {
+                        Properties.Value?.Dispose();
+                        Properties.Value = null;
+
+                        if (v != null)
+                        {
+                            Properties.Value = new PropertiesEditorViewModel(v, GetExtensionProvider());
+                        }
+
+                        AcceptProperties();
+                    })
+                    .DisposeWith(Disposables))
+            .DisposeWith(Disposables);
+
+    }
+
+    private static string? GetOpName(PathSegment? v)
+    {
+        if (v != null)
+        {
+            var name = v switch
+            {
+                ArcSegment => GraphicsStrings.ArcSegment,
+                ConicSegment => GraphicsStrings.ConicSegment,
+                CubicBezierSegment => GraphicsStrings.CubicBezierSegment,
+                LineSegment => GraphicsStrings.LineSegment,
+                QuadraticBezierSegment => GraphicsStrings.QuadraticBezierSegment,
+                _ => null,
+            };
+
+            if (name == null)
+            {
+                Type type = v.GetType();
+                name = TypeDisplayHelpers.GetLocalizedName(type);
+            }
+
+            return name;
+        }
+        else
+        {
+            return "Null";
+        }
+    }
+
+    public ReadOnlyReactivePropertySlim<string?> OpName { get; }
+
+    public ReactivePropertySlim<bool> IsExpanded { get; } = new();
+
+    public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
+
+    public override void Accept(IPropertyEditorContextVisitor visitor)
+    {
+        base.Accept(visitor);
+        AcceptProperties();
+    }
+
+    private void AcceptProperties()
+    {
+        NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), null, Properties.Value);
+    }
+
+    public override void ReadFromJson(JsonObject json)
+    {
+        base.ReadFromJson(json);
+        try
+        {
+            if (json.TryGetPropertyValue(nameof(IsExpanded), out var isExpandedNode)
+                && isExpandedNode is JsonValue isExpanded)
+            {
+                IsExpanded.Value = (bool)isExpanded;
+            }
+
+            Properties.Value?.ReadFromJson(json);
+        }
+        catch
+        {
+        }
+    }
+
+    public override void WriteToJson(JsonObject json)
+    {
+        base.WriteToJson(json);
+        try
+        {
+            json[nameof(IsExpanded)] = IsExpanded.Value;
+            Properties.Value?.WriteToJson(json);
+        }
+        catch
+        {
+        }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        Properties.Value?.Dispose();
+    }
+}

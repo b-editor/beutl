@@ -488,5 +488,10 @@ public sealed partial class PluginObjectDefault : EngineObject
 
 public sealed partial class PluginObjectDefaultOwner : EngineObject
 {
+    public PluginObjectDefaultOwner()
+    {
+        ScanProperties<PluginObjectDefaultOwner>();
+    }
+
     public IProperty<PluginObjectDefault?> Child { get; } = Property.Create<PluginObjectDefault?>();
 }

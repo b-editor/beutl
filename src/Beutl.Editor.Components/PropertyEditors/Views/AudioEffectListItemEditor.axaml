@@ -1,0 +1,56 @@
+<UserControl x:Class="Beutl.Editor.Components.PropertyEditors.Views.AudioEffectListItemEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Editor.Components.PropertyEditors.Views"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:Beutl.Editor.Components.PropertyEditors.ViewModels"
+             d:DesignHeight="450"
+             d:DesignWidth="400"
+             x:CompileBindings="False"
+             mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,Auto">
+        <Grid Margin="8,0,0,0" ColumnDefinitions="*,Auto,Auto">
+            <ToggleButton x:Name="reorderHandle"
+                          Content="{Binding FilterName.Value}"
+                          Cursor="SizeNorthSouth"
+                          IsChecked="{Binding IsExpanded.Value}"
+                          Theme="{StaticResource ListEditorMiniExpanderToggleButton}"
+                          ToolTip.Tip="{Binding HoverInfo.Value}" />
+
+            <ToggleButton Grid.Column="1"
+                          Margin="4,0,0,0"
+                          Padding="0"
+                          Classes="size-24x24"
+                          IsChecked="{Binding IsEnabled.Value}"
+                          IsEnabled="{Binding CanEditProperty.Value}"
+                          Theme="{StaticResource VisibilityToggleButtonStyle}" />
+
+            <Button Grid.Column="2"
+                    Margin="4,0,8,0"
+                    Padding="0"
+                    Classes="size-24x24"
+                    Click="DeleteClick"
+                    Theme="{StaticResource TransparentButton}">
+                <icons:FluentIcon Icon="Delete" />
+            </Button>
+        </Grid>
+
+        <Panel x:Name="content" Grid.Row="2">
+            <local:PropertiesEditor Margin="16,0,0,0"
+                                    Padding="0"
+                                    DataContext="{Binding Properties.Value}" />
+
+            <ItemsControl DataContext="{Binding Group.Value}" ItemsSource="{Binding Items}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <local:ListItemEditor />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Panel>
+    </Grid>
+</UserControl>

@@ -7,6 +7,7 @@ using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics;
@@ -15,7 +16,6 @@ using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
-using Beutl.ViewModels.Editors;
 using Moq;
 using TextBlock = Avalonia.Controls.TextBlock;
 

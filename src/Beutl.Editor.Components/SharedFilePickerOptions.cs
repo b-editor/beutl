@@ -1,0 +1,185 @@
+﻿using Avalonia.Platform.Storage;
+
+namespace Beutl.Editor.Components;
+
+public static class SharedFilePickerOptions
+{
+    // SKEncodedImageFormat; also what an imported file must match to be added as an image.
+    internal static readonly string[] ImagePatterns =
+    [
+        "*.bmp",
+        "*.gif",
+        "*.ico",
+        "*.jpg",
+        "*.jpeg",
+        "*.png",
+        "*.wbmp",
+        "*.webp",
+        "*.pkm",
+        "*.ktx",
+        "*.astc",
+        "*.dng",
+        "*.heif",
+        "*.avif"
+    ];
+
+    public static FilePickerOpenOptions OpenImage()
+    {
+        return new()
+        {
+            FileTypeFilter =
+            [
+                new FilePickerFileType("All Images")
+                {
+                    Patterns = ImagePatterns,
+                    AppleUniformTypeIdentifiers = ["public.image"],
+                    MimeTypes = ["image/*"]
+                }
+            ]
+        };
+    }
+
+    /// <summary>
+    /// The pictures an AI endpoint takes as input. Deliberately narrower than
+    /// <see cref="OpenImage"/>: the server decodes a fixed set and refuses
+    /// everything else, so a format it cannot read is better left out of the
+    /// picker than refused after the upload has gone out.
+    /// </summary>
+    public static FilePickerOpenOptions OpenAiInputImage()
+        => AiImagePicker("PNG, JPEG, WebP, GIF", ["*.png", "*.jpg", "*.jpeg", "*.webp", "*.gif"]);
+
+    /// <summary>
+    /// The pictures a video generation takes as a first or last frame. The
+    /// endpoint reads one fewer format than the image endpoints do.
+    /// </summary>
+    public static FilePickerOpenOptions OpenAiVideoFrame()
+        => AiImagePicker("PNG, JPEG, WebP", ["*.png", "*.jpg", "*.jpeg", "*.webp"]);
+
+    private static FilePickerOpenOptions AiImagePicker(string name, string[] patterns)
+    {
+        string[] mimeTypes = patterns
+            .Select(pattern => pattern switch
+            {
+                "*.png" => "image/png",
+                "*.jpg" or "*.jpeg" => "image/jpeg",
+                "*.webp" => "image/webp",
+                _ => "image/gif",
+            })
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        return new()
+        {
+            FileTypeFilter =
+            [
+                new FilePickerFileType(name)
+                {
+                    Patterns = patterns,
+                    MimeTypes = mimeTypes,
+                    AppleUniformTypeIdentifiers = mimeTypes
+                        .Select(mimeType => mimeType switch
+                        {
+                            "image/png" => "public.png",
+                            "image/jpeg" => "public.jpeg",
+                            "image/webp" => "org.webmproject.webp",
+                            _ => "com.compuserve.gif",
+                        })
+                        .ToArray(),
+                }
+            ]
+        };
+    }
+
+    public static FilePickerSaveOptions SaveImage()
+    {
+        return new()
+        {
+            DefaultExtension = "png",
+            FileTypeChoices =
+            [
+                new FilePickerFileType("PNG, JPEG, WebP")
+                {
+                    Patterns =
+                    [
+                        "*.png",
+                        "*.jpg",
+                        "*.jpeg",
+                        "*.webp"
+                    ],
+                    AppleUniformTypeIdentifiers = ["public.png", "public.jpeg", "org.webmproject.webp"],
+                    MimeTypes = ["image/png", "image/jpeg", "image/webp"]
+                }
+            ]
+        };
+    }
+
+    public static FilePickerSaveOptions SavePngImage()
+    {
+        return new()
+        {
+            DefaultExtension = "png",
+            FileTypeChoices =
+            [
+                new FilePickerFileType("PNG Image")
+                {
+                    Patterns = ["*.png"],
+                    AppleUniformTypeIdentifiers = ["public.png"],
+                    MimeTypes = ["image/png"]
+                }
+            ]
+        };
+    }
+
+    public static FilePickerSaveOptions SaveVideo()
+    {
+        return new()
+        {
+            FileTypeChoices =
+            [
+                new FilePickerFileType("All Videos")
+                {
+                    Patterns =
+                    [
+                        "*.mp4",
+                        "*.mov",
+                        "*.webm",
+                        "*.mkv"
+                    ],
+                    AppleUniformTypeIdentifiers = ["public.movie"],
+                    MimeTypes = ["video/*"]
+                }
+            ]
+        };
+    }
+
+    internal static IDisposable OwnStorageFiles(IReadOnlyList<IStorageFile> files)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        return new StorageFileOwnership(files.ToArray());
+    }
+
+    private sealed class StorageFileOwnership(IReadOnlyList<IStorageFile> files) : IDisposable
+    {
+        private IReadOnlyList<IStorageFile>? _files = files;
+
+        public void Dispose()
+        {
+            IReadOnlyList<IStorageFile>? owned = Interlocked.Exchange(ref _files, null);
+            if (owned is null)
+                return;
+
+            foreach (IStorageFile file in owned)
+            {
+                try
+                {
+                    file.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Trace.TraceWarning(
+                        "Failed to release a storage-picker file: {0}",
+                        ex.Message);
+                }
+            }
+        }
+    }
+}

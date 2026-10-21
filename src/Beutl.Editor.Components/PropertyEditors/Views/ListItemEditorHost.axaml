@@ -1,0 +1,37 @@
+<UserControl x:Class="Beutl.Editor.Components.PropertyEditors.Views.ListItemEditorHost"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:local="using:Beutl.Editor.Components.PropertyEditors.Views"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModel="using:Beutl.Editor.Components.PropertyEditors.ViewModels"
+             d:DesignHeight="450"
+             d:DesignWidth="400"
+             x:CompileBindings="False"
+             mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,Auto">
+        <Grid Margin="8,0,0,0"
+              ColumnDefinitions="Auto,*,Auto"
+              ToolTip.Tip="{Binding HoverInfo.Value}">
+            <Border Name="reorderHandle" Theme="{StaticResource PropertyEditorReorderHandle}" />
+
+            <TextBlock Grid.Column="1"
+                       Margin="0,4"
+                       Text="{Binding Header}" />
+
+            <Button Grid.Column="2"
+                    Margin="4,0"
+                    Padding="0"
+                    Classes="size-24x24"
+                    Click="DeleteClick"
+                    Theme="{StaticResource TransparentButton}">
+                <icons:FluentIcon VerticalAlignment="Center" Icon="Delete" />
+            </Button>
+        </Grid>
+
+        <ContentControl x:Name="content"
+                        Grid.Row="2"
+                        Margin="16,0,0,0" />
+    </Grid>
+</UserControl>
