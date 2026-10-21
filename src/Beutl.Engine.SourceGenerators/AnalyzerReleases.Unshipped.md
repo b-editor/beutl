@@ -7,3 +7,4 @@ BESG002 | Beutl.Engine.SourceGenerators | Warning | FallbackTypeGenerator
 BESG003 | Beutl.Engine.SourceGenerators | Warning | MetadataCallbackPurityAnalyzer
 BESG004 | Beutl.Engine.SourceGenerators | Warning | MetadataCallbackPurityAnalyzer
 BESG005 | Beutl.Engine.SourceGenerators | Warning | RenderNodeChangeMarkingAnalyzer
+BESG006 | Beutl.Engine.SourceGenerators | Warning | ScanPropertiesCallAnalyzer
