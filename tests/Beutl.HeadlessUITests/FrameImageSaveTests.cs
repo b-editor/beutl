@@ -1,4 +1,5 @@
 ﻿using Avalonia.Platform.Storage;
+using Beutl.Editor.Components;
 using Beutl.Media;
 using Beutl.Views;
 using Moq;

@@ -4,12 +4,12 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Styling;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Observers;
 using Beutl.Graphics3D.Models;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
-using Beutl.ViewModels.Editors;
-using Beutl.Views.Editors;
 using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 
 namespace Beutl.HeadlessUITests;
