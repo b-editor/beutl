@@ -51,15 +51,15 @@ public static class Property
     /// Creates a property that takes no expression, for a value that has no meaning that varies with time,
     /// such as one that lays out a structure once.
     /// </summary>
-    public static IProperty<T> CreateWithoutExpression<T>(
+    public static IProperty<T> CreateValue<T>(
         T defaultValue = default(T)!,
         IValidator<T>? validator = null)
     {
         return new ValueOnlyProperty<T>(defaultValue, validator);
     }
 
-    /// <inheritdoc cref="CreateWithoutExpression{T}(T, IValidator{T})"/>
-    public static IProperty<T> CreateWithoutExpression<T>(
+    /// <inheritdoc cref="CreateValue{T}(T, IValidator{T})"/>
+    public static IProperty<T> CreateValue<T>(
         T defaultValue,
         params ValidationAttribute[] validationAttributes)
     {
@@ -67,7 +67,7 @@ public static class Property
             ? new MultipleValidator<T>(PropertyValidators.FromAttributes<T>(validationAttributes))
             : null;
 
-        return CreateWithoutExpression(defaultValue, validator);
+        return CreateValue(defaultValue, validator);
     }
 
     // A property whose expression slot holds a reference to another object; it takes no keyframes.

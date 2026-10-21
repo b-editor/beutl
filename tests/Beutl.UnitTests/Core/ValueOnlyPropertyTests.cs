@@ -15,13 +15,13 @@ public class ValueOnlyPropertyTests
         public Owner() => ScanProperties<Owner>();
 
         [Range(0, 10)]
-        public IProperty<int> Count { get; } = Property.CreateWithoutExpression(1);
+        public IProperty<int> Count { get; } = Property.CreateValue(1);
     }
 
     [Test]
-    public void CreateWithoutExpression_MakesAPropertyThatIsNotAnExpressionProperty()
+    public void CreateValue_MakesAPropertyThatIsNotAnExpressionProperty()
     {
-        IProperty<int> property = Property.CreateWithoutExpression(5);
+        IProperty<int> property = Property.CreateValue(5);
 
         using (Assert.EnterMultipleScope())
         {
