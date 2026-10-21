@@ -1,5 +1,6 @@
 ﻿using Beutl.Animation;
 using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.NodeGraph;
@@ -41,6 +42,8 @@ public class ChildObjectsTests
         var graph = new GraphModel();
         var pen = new Pen();
         Source(graph, pen);
+        var portKeyFrames = TestAnimations.Linear(0f, 1f, TimeSpan.FromSeconds(1));
+        ((IAnimatablePropertyAdapter)Source(graph, 0f, "Amount").Property!).Animation = portKeyFrames;
         var shape = new RectShape();
         var keyFrames = TestAnimations.Linear(0f, 1f, TimeSpan.FromSeconds(1));
         shape.Width.SetKeyFrameAnimation(keyFrames);
@@ -51,6 +54,7 @@ public class ChildObjectsTests
         {
             Assert.That(new ObjectSearcher(graph, v => v is Pen).Search(), Is.SameAs(pen));
             Assert.That(graph.FindById(pen.Id), Is.SameAs(pen));
+            Assert.That(new ObjectSearcher(graph, v => v is IKeyFrameAnimation).Search(), Is.SameAs(portKeyFrames));
             Assert.That(new ObjectSearcher(element, v => v is IKeyFrameAnimation).Search(), Is.SameAs(keyFrames));
             Assert.That(new ObjectSearcher(element, v => v is Beutl.Engine.IProperty { Name: "Width" }).Search(),
                 Is.SameAs(shape.Width));
