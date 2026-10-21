@@ -1,0 +1,43 @@
+{
+  "FrameSize": "1280, 720",
+  "Start": "00:00:01",
+  "Duration": "00:00:30",
+  "Layers": [
+    {
+      "ZIndex": 2,
+      "Color": "Blue",
+      "IsLocked": true,
+      "IsAudioMuted": true,
+      "IsVideoMuted": true,
+      "IsSolo": true,
+      "Id": "00000000-0000-0000-0000-000000000001",
+      "Name": "layer",
+      "$type": "[Beutl.ProjectSystem]:TimelineLayer"
+    }
+  ],
+  "Id": "00000000-0000-0000-0000-000000000002",
+  "Name": "golden",
+  "Width": 1280,
+  "Height": 720,
+  "Groups": [
+    "00000000-0000-0000-0000-000000000003:00000000-0000-0000-0000-000000000004"
+  ],
+  "Markers": [
+    {
+      "Time": "00:00:03",
+      "Color": "Green",
+      "Note": "note",
+      "Id": "00000000-0000-0000-0000-000000000005",
+      "Name": "",
+      "$type": "[Beutl.ProjectSystem]:SceneMarker"
+    }
+  ],
+  "Elements": {
+    "Include": [
+      "**/*.belm",
+      "first.belm",
+      "second.belm"
+    ]
+  },
+  "$type": "[Beutl.ProjectSystem]:Scene"
+}

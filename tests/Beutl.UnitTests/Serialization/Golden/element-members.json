@@ -1,0 +1,141 @@
+{
+  "Start": "00:00:01",
+  "Length": "00:00:04",
+  "ZIndex": 2,
+  "AccentColor": "Red",
+  "IsEnabled": false,
+  "IsLocked": true,
+  "Id": "00000000-0000-0000-0000-000000000001",
+  "Name": "golden",
+  "Objects": [
+    {
+      "IsEnabled": true,
+      "Id": "00000000-0000-0000-0000-000000000002",
+      "Name": "",
+      "Start": "00:00:01",
+      "Duration": "00:00:04",
+      "ZIndex": 2,
+      "Animations": {
+        "Width": {
+          "UseGlobalClock": false,
+          "Id": "00000000-0000-0000-0000-000000000003",
+          "Name": "",
+          "KeyFrames": [
+            {
+              "Value": 10,
+              "KeyTime": "00:00:00",
+              "Id": "00000000-0000-0000-0000-000000000004",
+              "Name": "",
+              "Easing": "[Beutl.Engine]Beutl.Animation.Easings:LinearEasing",
+              "$type": "[Beutl.Engine]Beutl.Animation:KeyFrame<[System.Private.CoreLib]System:Single>"
+            },
+            {
+              "Value": 20,
+              "KeyTime": "00:00:01",
+              "Id": "00000000-0000-0000-0000-000000000005",
+              "Name": "",
+              "Easing": {
+                "X1": 0.1,
+                "Y1": 0.2,
+                "X2": 0.3,
+                "Y2": 0.4
+              },
+              "$type": "[Beutl.Engine]Beutl.Animation:KeyFrame<[System.Private.CoreLib]System:Single>"
+            },
+            {
+              "Value": 30,
+              "KeyTime": "00:00:02",
+              "Id": "00000000-0000-0000-0000-000000000006",
+              "Name": "",
+              "Easing": "[Beutl.Engine]Beutl.Animation.Easings:SineEaseIn",
+              "$type": "[Beutl.Engine]Beutl.Animation:KeyFrame<[System.Private.CoreLib]System:Single>"
+            }
+          ],
+          "$type": "[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[System.Private.CoreLib]System:Single>"
+        },
+        "Height": {
+          "UseGlobalClock": true,
+          "Id": "00000000-0000-0000-0000-000000000007",
+          "Name": "",
+          "KeyFrames": [
+            {
+              "Value": 40,
+              "KeyTime": "00:00:01",
+              "Id": "00000000-0000-0000-0000-000000000008",
+              "Name": "",
+              "Easing": "[Beutl.Engine]Beutl.Animation.Easings:LinearEasing",
+              "$type": "[Beutl.Engine]Beutl.Animation:KeyFrame<[System.Private.CoreLib]System:Single>"
+            }
+          ],
+          "$type": "[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[System.Private.CoreLib]System:Single>"
+        }
+      },
+      "Expressions": {},
+      "Width": 100,
+      "Height": 100,
+      "Pen": null,
+      "Fill": {
+        "IsEnabled": true,
+        "Id": "00000000-0000-0000-0000-000000000009",
+        "Name": "",
+        "Animations": {},
+        "Expressions": {},
+        "Color": "White",
+        "Opacity": 100,
+        "Transform": null,
+        "TransformOrigin": "50%, 50%",
+        "$type": "[Beutl.Engine]Beutl.Media:SolidColorBrush"
+      },
+      "Transform": {
+        "IsEnabled": true,
+        "Id": "00000000-0000-0000-0000-000000000010",
+        "Name": "",
+        "Animations": {},
+        "Expressions": {},
+        "Children": [],
+        "$type": "[Beutl.Engine]Beutl.Graphics.Transformation:TransformGroup"
+      },
+      "AlignmentX": 1,
+      "AlignmentY": 1,
+      "TransformOrigin": "50%, 50%",
+      "FilterEffect": {
+        "IsEnabled": true,
+        "Id": "00000000-0000-0000-0000-000000000011",
+        "Name": "",
+        "Animations": {},
+        "Expressions": {},
+        "Children": [],
+        "$type": "[Beutl.Engine]Beutl.Graphics.Effects:FilterEffectGroup"
+      },
+      "BlendMode": 3,
+      "Opacity": 100,
+      "$type": "[Beutl.Engine]Beutl.Graphics.Shapes:RectShape"
+    }
+  ],
+  "EnterTransition": {
+    "IsEnabled": true,
+    "Id": "00000000-0000-0000-0000-000000000012",
+    "Name": "",
+    "Animations": {},
+    "Expressions": {},
+    "Duration": "00:00:00.5000000",
+    "Easing": {
+      "$type": "[Beutl.Engine]Beutl.Animation.Easings:LinearEasing"
+    },
+    "$type": "[Beutl.Engine]Beutl.Graphics.Transitions:FadeTransition"
+  },
+  "ExitTransition": {
+    "IsEnabled": true,
+    "Id": "00000000-0000-0000-0000-000000000013",
+    "Name": "",
+    "Animations": {},
+    "Expressions": {},
+    "Direction": 0,
+    "Duration": "00:00:00.5000000",
+    "Easing": {
+      "$type": "[Beutl.Engine]Beutl.Animation.Easings:LinearEasing"
+    },
+    "$type": "[Beutl.Engine]Beutl.Graphics.Transitions:SlideTransition"
+  },
+  "$type": "[Beutl.ProjectSystem]:Element"
+}
