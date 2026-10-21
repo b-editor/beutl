@@ -134,7 +134,7 @@ public interface IProperty<T> : IProperty
         }
     }
 
-    T GetValue(CompositionContext context);
+    T GetValue(EvaluationContext context);
 
     event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
 

@@ -102,7 +102,7 @@ public class ListProperty<T> : IListProperty<T>
         Edited?.Invoke(sender, e);
     }
 
-    public ICoreList<T> GetValue(CompositionContext context)
+    public ICoreList<T> GetValue(EvaluationContext context)
     {
         return CurrentValue;
     }

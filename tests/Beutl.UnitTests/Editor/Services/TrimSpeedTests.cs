@@ -407,6 +407,8 @@ public class TrimSpeedTests
     [TestCase(nameof(SceneSound), true)]
     public void Trim_AudioSourceExpression_RejectsStoredDuration(string mediaType, bool hasStoredSource)
     {
+        // Reference expressions resolve below the scene's hierarchy root.
+        ((IModifiableHierarchical)new TestHierarchicalRoot()).AddChild(_scene);
         Element element = AddElement(0, 0.5);
         Element providerElement = AddElement(5, 0.5);
         Sound sound;
@@ -425,8 +427,7 @@ public class TrimSpeedTests
             }
             source.Source.Expression = new ReferenceExpression<SoundSource?>(provider.Id, nameof(SourceSound.Source));
             element.Objects.Add(source);
-            using var resource = (SourceSound.Resource)source.ToResource(
-                new ExpressionContext(TimeSpan.Zero, source.Source, new PropertyLookup(_scene)));
+            using var resource = (SourceSound.Resource)source.ToResource(CompositionContext.Default);
             Assert.That(resource.Source!.Duration, Is.EqualTo(TimeSpan.FromSeconds(1)));
             sound = source;
         }
@@ -438,8 +439,7 @@ public class TrimSpeedTests
             if (hasStoredSource) source.ReferencedScene.CurrentValue = new Scene { Duration = TimeSpan.FromSeconds(10) };
             source.ReferencedScene.Expression = new ReferenceExpression<Scene?>(provider.Id, nameof(SceneSound.ReferencedScene));
             element.Objects.Add(source);
-            using var resource = (SceneSound.Resource)source.ToResource(
-                new ExpressionContext(TimeSpan.Zero, source.ReferencedScene, new PropertyLookup(_scene)));
+            using var resource = (SceneSound.Resource)source.ToResource(CompositionContext.Default);
             Assert.That(resource.ReferencedScene!.Duration, Is.EqualTo(TimeSpan.FromSeconds(1)));
             sound = source;
         }
