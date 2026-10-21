@@ -163,8 +163,8 @@ public class EngineObject : Hierarchical, INotifyEdited
             ZIndex = zIndex.Value;
         IsTimeAnchor = start.HasValue && duration.HasValue && zIndex.HasValue;
 
-        Dictionary<string, IAnimation>? animations
-            = context.GetValue<Dictionary<string, IAnimation>>("Animations");
+        Dictionary<string, IKeyFrameAnimation>? animations
+            = context.GetValue<Dictionary<string, IKeyFrameAnimation>>("Animations");
 
         Dictionary<string, JsonNode>? expressions
             = context.GetValue<Dictionary<string, JsonNode>>("Expressions");
@@ -179,9 +179,9 @@ public class EngineObject : Hierarchical, INotifyEdited
             property.DeserializeValue(context);
             Attribute[]? attributes = property.GetAttributes();
             if (property.IsAnimatable
-                && FormerPersistedNames.TryGetMember(animations, property.Name, attributes, out IAnimation? animation))
+                && FormerPersistedNames.TryGetMember(animations, property.Name, attributes, out IKeyFrameAnimation? animation))
             {
-                property.Animation = animation;
+                property.SetKeyFrameAnimation(animation);
             }
 
             if (FormerPersistedNames.TryGetMember(expressions, property.Name, attributes, out JsonNode? expressionNode))
@@ -255,8 +255,10 @@ public class EngineObject : Hierarchical, INotifyEdited
 
         IProperty[] serialized = [.. _properties.Where(IsAutoSerialized)];
 
-        Dictionary<string, IAnimation> animations = serialized
-            .Where(p => p is { IsAnimatable: true, Animation: not null })
+        Dictionary<string, IKeyFrameAnimation> animations = serialized
+            .Where(p => p.IsAnimatable)
+            .Select(p => (p.Name, Animation: p.GetKeyFrameAnimation()))
+            .Where(p => p.Animation is not null)
             .ToDictionary(p => p.Name, p => p.Animation!);
 
         context.SetValue("Animations", animations);
