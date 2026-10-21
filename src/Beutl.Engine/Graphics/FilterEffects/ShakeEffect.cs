@@ -24,13 +24,13 @@ public partial class ShakeEffect : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.ShakeEffect_StrengthX), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> StrengthX { get; } = Property.CreateAnimatable(50f);
+    public IExpressionProperty<float> StrengthX { get; } = Property.CreateAnimatable(50f);
 
     [Display(Name = nameof(GraphicsStrings.ShakeEffect_StrengthY), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> StrengthY { get; } = Property.CreateAnimatable(50f);
+    public IExpressionProperty<float> StrengthY { get; } = Property.CreateAnimatable(50f);
 
     [Display(Name = nameof(GraphicsStrings.Speed), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
+    public IExpressionProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {

@@ -11,8 +11,8 @@ public sealed class PropertyValidatorAccessContractTests
     public void PublicPropertiesExposeTheValidatorTheyActuallyUse()
     {
         var validator = new PassthroughValidator();
-        IProperty<int> simple = Property.Create(0, validator);
-        IProperty<int> animatable = Property.CreateAnimatable(0, validator);
+        IExpressionProperty<int> simple = Property.Create(0, validator);
+        IExpressionProperty<int> animatable = Property.CreateAnimatable(0, validator);
         IListProperty<int> list = Property.CreateList<int>();
 
         using (Assert.EnterMultipleScope())

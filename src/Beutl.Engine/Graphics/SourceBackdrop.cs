@@ -14,7 +14,7 @@ public partial class SourceBackdrop : Drawable
     }
 
     [Display(Name = nameof(GraphicsStrings.SourceBackdrop_Clear), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> Clear { get; } = Property.CreateAnimatable(false);
+    public IExpressionProperty<bool> Clear { get; } = Property.CreateAnimatable(false);
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {

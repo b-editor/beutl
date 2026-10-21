@@ -45,7 +45,7 @@ public sealed class ApplyEditTests
             ScanProperties<DictionaryTransformHolder>();
         }
 
-        public IProperty<Dictionary<string, Transform>> Transforms { get; }
+        public IExpressionProperty<Dictionary<string, Transform>> Transforms { get; }
             = Property.Create<Dictionary<string, Transform>>();
     }
 
@@ -57,7 +57,7 @@ public sealed class ApplyEditTests
             ScanProperties<ArbitraryValueHolder>();
         }
 
-        public IProperty<object?> Value { get; } = Property.Create<object?>();
+        public IExpressionProperty<object?> Value { get; } = Property.Create<object?>();
     }
 
     [SuppressResourceClassGeneration]
@@ -68,7 +68,7 @@ public sealed class ApplyEditTests
             ScanProperties<OptionalTransformHolder>();
         }
 
-        public IProperty<Optional<Transform>> Transform { get; }
+        public IExpressionProperty<Optional<Transform>> Transform { get; }
             = Property.Create<Optional<Transform>>();
     }
 
@@ -79,7 +79,7 @@ public sealed class ApplyEditTests
     {
         public WrappedTransformHolder() => ScanProperties<WrappedTransformHolder>();
 
-        public IProperty<List<TransformWrapper>> Wrapped { get; } = Property.CreateAnimatable<List<TransformWrapper>>();
+        public IExpressionProperty<List<TransformWrapper>> Wrapped { get; } = Property.CreateAnimatable<List<TransformWrapper>>();
     }
 
     [Test]

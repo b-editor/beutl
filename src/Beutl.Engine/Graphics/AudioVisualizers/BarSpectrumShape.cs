@@ -16,10 +16,10 @@ public sealed partial class BarSpectrumShape : SpectrumShape
 
     [Display(Name = nameof(GraphicsStrings.SpectrumShape_BarWidth), ResourceType = typeof(GraphicsStrings))]
     [Range(0.5f, 10000f)]
-    public IProperty<float> BarWidth { get; } = Property.CreateAnimatable(6f);
+    public IExpressionProperty<float> BarWidth { get; } = Property.CreateAnimatable(6f);
 
     [Display(Name = nameof(GraphicsStrings.SpectrumShape_CornerRadius), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<CornerRadius> CornerRadius { get; } =
+    public IExpressionProperty<CornerRadius> CornerRadius { get; } =
         Property.CreateAnimatable<CornerRadius>(new CornerRadius(0f));
 
     public new partial class Resource

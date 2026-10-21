@@ -27,38 +27,38 @@ public abstract partial class Object3D : EngineObject
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Position), ResourceType = typeof(GraphicsStrings))]
     [NumberStep(1, 0.1)]
-    public IProperty<Vector3> Position { get; } = Property.CreateAnimatable(Vector3.Zero);
+    public IExpressionProperty<Vector3> Position { get; } = Property.CreateAnimatable(Vector3.Zero);
 
     /// <summary>
     /// Gets the rotation of the object as Euler angles in degrees (X=Pitch, Y=Yaw, Z=Roll).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Rotation), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Vector3> Rotation { get; } = Property.CreateAnimatable(Vector3.Zero);
+    public IExpressionProperty<Vector3> Rotation { get; } = Property.CreateAnimatable(Vector3.Zero);
 
     /// <summary>
     /// Gets the scale of the object.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Scale), ResourceType = typeof(GraphicsStrings))]
     [NumberStep(0.1, 0.01)]
-    public IProperty<Vector3> Scale { get; } = Property.CreateAnimatable(Vector3.One);
+    public IExpressionProperty<Vector3> Scale { get; } = Property.CreateAnimatable(Vector3.One);
 
     /// <summary>
     /// Gets the material applied to this object.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Object3D_Material), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Material3D?> Material { get; } = Property.Create<Material3D?>();
+    public IExpressionProperty<Material3D?> Material { get; } = Property.Create<Material3D?>();
 
     /// <summary>
     /// Gets whether this object casts shadows.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Object3D_CastShadows), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> CastShadows { get; } = Property.CreateAnimatable(true);
+    public IExpressionProperty<bool> CastShadows { get; } = Property.CreateAnimatable(true);
 
     /// <summary>
     /// Gets whether this object receives shadows.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Object3D_ReceiveShadows), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> ReceiveShadows { get; } = Property.CreateAnimatable(true);
+    public IExpressionProperty<bool> ReceiveShadows { get; } = Property.CreateAnimatable(true);
 
     public abstract partial class Resource
     {

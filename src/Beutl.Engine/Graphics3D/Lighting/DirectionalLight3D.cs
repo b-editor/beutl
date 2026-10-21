@@ -22,7 +22,7 @@ public partial class DirectionalLight3D : Light3D
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Direction), ResourceType = typeof(GraphicsStrings))]
     [NumberStep(1, 0.1)]
-    public IProperty<Vector3> Direction { get; } = Property.CreateAnimatable(new Vector3(0.5f, 1, 1));
+    public IExpressionProperty<Vector3> Direction { get; } = Property.CreateAnimatable(new Vector3(0.5f, 1, 1));
 
     /// <summary>
     /// Gets the normalized light direction for use in shaders.
@@ -38,7 +38,7 @@ public partial class DirectionalLight3D : Light3D
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.DirectionalLight3D_ShadowDistance), ResourceType = typeof(GraphicsStrings))]
     [Range(1f, 100000f), NumberStep(10, 1)]
-    public IProperty<float> ShadowDistance { get; } = Property.CreateAnimatable(5000f);
+    public IExpressionProperty<float> ShadowDistance { get; } = Property.CreateAnimatable(5000f);
 
     /// <summary>
     /// Gets the size of the shadow map frustum (orthographic projection width/height).
@@ -46,5 +46,5 @@ public partial class DirectionalLight3D : Light3D
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.DirectionalLight3D_ShadowMapSize), ResourceType = typeof(GraphicsStrings))]
     [Range(1f, 50000f), NumberStep(10, 1)]
-    public IProperty<float> ShadowMapSize { get; } = Property.CreateAnimatable(2000f);
+    public IExpressionProperty<float> ShadowMapSize { get; } = Property.CreateAnimatable(2000f);
 }

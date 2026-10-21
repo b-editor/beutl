@@ -18,7 +18,7 @@ public sealed partial class SceneDrawable : Drawable
     }
 
     [Display(Name = nameof(GraphicsStrings.SceneDrawable_ReferencedScene), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Scene?> ReferencedScene { get; } = Property.CreateReference<Scene?>();
+    public IExpressionProperty<Scene?> ReferencedScene { get; } = Property.CreateReference<Scene?>();
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {

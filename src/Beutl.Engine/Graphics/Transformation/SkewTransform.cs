@@ -21,10 +21,10 @@ public sealed partial class SkewTransform : Transform
     }
 
     [Display(Name = nameof(GraphicsStrings.SkewTransform_SkewX), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> SkewX { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> SkewX { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.SkewTransform_SkewY), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> SkewY { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> SkewY { get; } = Property.CreateAnimatable<float>();
 
     public override Matrix CreateMatrix(CompositionContext context)
     {

@@ -52,13 +52,13 @@ public partial class ColorKey : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Color> Color { get; } = Property.CreateAnimatable(Colors.Black);
+    public IExpressionProperty<Color> Color { get; } = Property.CreateAnimatable(Colors.Black);
 
     [Display(Name = nameof(GraphicsStrings.ColorKey_Range), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Range { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Range { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.ColorKey_Boundary), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Boundary { get; } = Property.CreateAnimatable(2f);
+    public IExpressionProperty<float> Boundary { get; } = Property.CreateAnimatable(2f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

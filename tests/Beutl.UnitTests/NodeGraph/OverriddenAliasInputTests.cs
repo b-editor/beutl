@@ -122,6 +122,6 @@ internal sealed partial class OverridableBrushPair : EngineObject
 {
     public OverridableBrushPair() => ScanProperties<OverridableBrushPair>();
 
-    public IProperty<Brush?> First { get; } = Property.CreateAnimatable<Brush?>();
-    public IProperty<Brush?> Second { get; } = Property.CreateAnimatable<Brush?>();
+    public IExpressionProperty<Brush?> First { get; } = Property.CreateAnimatable<Brush?>();
+    public IExpressionProperty<Brush?> Second { get; } = Property.CreateAnimatable<Brush?>();
 }

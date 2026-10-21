@@ -20,11 +20,11 @@ public sealed partial class ConicGradientBrush : GradientBrush
     /// Gets or sets the center point of the gradient.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.ConicGradientBrush_Center), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<RelativePoint> Center { get; } = Property.CreateAnimatable(RelativePoint.Center);
+    public IExpressionProperty<RelativePoint> Center { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
     /// <summary>
     /// Gets or sets the angle of the start and end of the sweep, measured from above the center point.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Angle), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Angle { get; } = Property.CreateAnimatable(0f);
+    public IExpressionProperty<float> Angle { get; } = Property.CreateAnimatable(0f);
 }

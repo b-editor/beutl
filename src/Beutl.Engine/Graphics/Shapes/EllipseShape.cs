@@ -16,11 +16,11 @@ public sealed partial class EllipseShape : Shape
 
     [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
-    public IProperty<float> Width { get; } = Property.CreateAnimatable<float>(100);
+    public IExpressionProperty<float> Width { get; } = Property.CreateAnimatable<float>(100);
 
     [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
-    public IProperty<float> Height { get; } = Property.CreateAnimatable<float>(100);
+    public IExpressionProperty<float> Height { get; } = Property.CreateAnimatable<float>(100);
 
     public partial class Resource
     {

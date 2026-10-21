@@ -179,11 +179,11 @@ public sealed partial class LutEffect : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<CubeSource?> Source { get; } = Property.Create<CubeSource?>();
+    public IExpressionProperty<CubeSource?> Source { get; } = Property.Create<CubeSource?>();
 
     [Display(Name = nameof(GraphicsStrings.Strength), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
-    public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
+    public IExpressionProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

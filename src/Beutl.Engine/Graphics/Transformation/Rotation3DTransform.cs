@@ -32,25 +32,25 @@ public sealed partial class Rotation3DTransform : Transform
     }
 
     [Display(Name = nameof(GraphicsStrings.Rotation3DTransform_RotationX), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> RotationX { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> RotationX { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.Rotation3DTransform_RotationY), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> RotationY { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> RotationY { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.Rotation3DTransform_RotationZ), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> RotationZ { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> RotationZ { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.CenterX), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> CenterX { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> CenterX { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.CenterY), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> CenterY { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> CenterY { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.Rotation3DTransform_CenterZ), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> CenterZ { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> CenterZ { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.Depth), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Depth { get; } = Property.CreateAnimatable(500f);
+    public IExpressionProperty<float> Depth { get; } = Property.CreateAnimatable(500f);
 
     public override Matrix CreateMatrix(CompositionContext context)
     {

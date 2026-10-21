@@ -374,7 +374,7 @@ public class UnknownMemberTests
     {
         public SimpleHolder() => ScanProperties<SimpleHolder>();
 
-        public IProperty<float> Size { get; } = Property.Create(1f);
+        public IExpressionProperty<float> Size { get; } = Property.Create(1f);
     }
 
     // An engine object whose properties were renamed: an IProperty and a CoreProperty, each with a former name.
@@ -396,7 +396,7 @@ public class UnknownMemberTests
         public RenamedHolder() => ScanProperties<RenamedHolder>();
 
         [FormerPersistedName(FormerAmount)]
-        public IProperty<float> Amount { get; } = Property.CreateAnimatable(1f);
+        public IExpressionProperty<float> Amount { get; } = Property.CreateAnimatable(1f);
 
         public string? Title
         {

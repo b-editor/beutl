@@ -38,10 +38,10 @@ public partial class MosaicEffect : FilterEffect
 
     [Range(typeof(Size), "0.0001, 0.0001", "max,max")]
     [Display(Name = nameof(GraphicsStrings.MosaicEffect_TileSize), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Size> TileSize { get; } = Property.CreateAnimatable(new Size(10, 10));
+    public IExpressionProperty<Size> TileSize { get; } = Property.CreateAnimatable(new Size(10, 10));
 
     [Display(Name = nameof(GraphicsStrings.MosaicEffect_Origin), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<RelativePoint> Origin { get; } = Property.CreateAnimatable(RelativePoint.Center);
+    public IExpressionProperty<RelativePoint> Origin { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

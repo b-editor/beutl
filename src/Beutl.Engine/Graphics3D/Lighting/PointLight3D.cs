@@ -21,7 +21,7 @@ public partial class PointLight3D : Light3D
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Position), ResourceType = typeof(GraphicsStrings))]
     [NumberStep(1, 0.1)]
-    public IProperty<Vector3> Position { get; } = Property.CreateAnimatable(Vector3.Zero);
+    public IExpressionProperty<Vector3> Position { get; } = Property.CreateAnimatable(Vector3.Zero);
 
     /// <summary>
     /// Gets the constant attenuation factor.
@@ -29,21 +29,21 @@ public partial class PointLight3D : Light3D
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PointLight3D_ConstantAttenuation), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, float.MaxValue), NumberStep(0.1, 0.01)]
-    public IProperty<float> ConstantAttenuation { get; } = Property.CreateAnimatable(1.0f);
+    public IExpressionProperty<float> ConstantAttenuation { get; } = Property.CreateAnimatable(1.0f);
 
     /// <summary>
     /// Gets the linear attenuation factor.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PointLight3D_LinearAttenuation), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, float.MaxValue), NumberStep(0.0001, 0.00001)]
-    public IProperty<float> LinearAttenuation { get; } = Property.CreateAnimatable(0.0009f);
+    public IExpressionProperty<float> LinearAttenuation { get; } = Property.CreateAnimatable(0.0009f);
 
     /// <summary>
     /// Gets the quadratic attenuation factor.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PointLight3D_QuadraticAttenuation), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, float.MaxValue), NumberStep(0.000001, 0.0000001)]
-    public IProperty<float> QuadraticAttenuation { get; } = Property.CreateAnimatable(0.0000032f);
+    public IExpressionProperty<float> QuadraticAttenuation { get; } = Property.CreateAnimatable(0.0000032f);
 
     /// <summary>
     /// Gets the maximum range of the light.
@@ -51,5 +51,5 @@ public partial class PointLight3D : Light3D
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PointLight3D_Range), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, float.MaxValue), NumberStep(10, 1)]
-    public IProperty<float> Range { get; } = Property.CreateAnimatable(5000f);
+    public IExpressionProperty<float> Range { get; } = Property.CreateAnimatable(5000f);
 }

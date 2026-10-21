@@ -44,7 +44,7 @@ public sealed partial class EqualizerEffect : AudioEffect
     }
 
     [Display(Name = nameof(AudioStrings.Equalizer_BandCount), ResourceType = typeof(AudioStrings))]
-    public IProperty<BandCountPreset> BandCountOption { get; } = Property.Create(BandCountPreset.Bands10);
+    public IExpressionProperty<BandCountPreset> BandCountOption { get; } = Property.Create(BandCountPreset.Bands10);
 
     /// <summary>
     /// List of equalizer bands (fixed frequencies).

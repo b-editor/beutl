@@ -20,7 +20,7 @@ public sealed partial class RotationTransform : Transform
     }
 
     [Display(Name = nameof(GraphicsStrings.Rotation), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Rotation { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Rotation { get; } = Property.CreateAnimatable<float>();
 
     public override Matrix CreateMatrix(CompositionContext context)
     {

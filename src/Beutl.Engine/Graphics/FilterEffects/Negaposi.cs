@@ -37,17 +37,17 @@ public partial class Negaposi : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.Negaposi_Red), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<int> Red { get; } = Property.CreateAnimatable<int>();
+    public IExpressionProperty<int> Red { get; } = Property.CreateAnimatable<int>();
 
     [Display(Name = nameof(GraphicsStrings.Negaposi_Green), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<int> Green { get; } = Property.CreateAnimatable<int>();
+    public IExpressionProperty<int> Green { get; } = Property.CreateAnimatable<int>();
 
     [Display(Name = nameof(GraphicsStrings.Negaposi_Blue), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<int> Blue { get; } = Property.CreateAnimatable<int>();
+    public IExpressionProperty<int> Blue { get; } = Property.CreateAnimatable<int>();
 
     [Range(0, 100)]
     [Display(Name = nameof(GraphicsStrings.Strength), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
+    public IExpressionProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

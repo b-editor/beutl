@@ -44,16 +44,16 @@ public partial class ColorShift : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.ColorShift_RedOffset), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<PixelPoint> RedOffset { get; } = Property.CreateAnimatable<PixelPoint>();
+    public IExpressionProperty<PixelPoint> RedOffset { get; } = Property.CreateAnimatable<PixelPoint>();
 
     [Display(Name = nameof(GraphicsStrings.ColorShift_GreenOffset), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<PixelPoint> GreenOffset { get; } = Property.CreateAnimatable<PixelPoint>();
+    public IExpressionProperty<PixelPoint> GreenOffset { get; } = Property.CreateAnimatable<PixelPoint>();
 
     [Display(Name = nameof(GraphicsStrings.ColorShift_BlueOffset), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<PixelPoint> BlueOffset { get; } = Property.CreateAnimatable<PixelPoint>();
+    public IExpressionProperty<PixelPoint> BlueOffset { get; } = Property.CreateAnimatable<PixelPoint>();
 
     [Display(Name = nameof(GraphicsStrings.ColorShift_AlphaOffset), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<PixelPoint> AlphaOffset { get; } = Property.CreateAnimatable<PixelPoint>();
+    public IExpressionProperty<PixelPoint> AlphaOffset { get; } = Property.CreateAnimatable<PixelPoint>();
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

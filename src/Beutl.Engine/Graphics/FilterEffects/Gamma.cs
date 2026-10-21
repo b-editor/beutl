@@ -40,11 +40,11 @@ public sealed partial class Gamma : FilterEffect
 
     [Display(Name = nameof(GraphicsStrings.Amount), ResourceType = typeof(GraphicsStrings))]
     [Range(1, 300)]
-    public IProperty<float> Amount { get; } = Property.CreateAnimatable(100f);
+    public IExpressionProperty<float> Amount { get; } = Property.CreateAnimatable(100f);
 
     [Display(Name = nameof(GraphicsStrings.Strength), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
-    public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
+    public IExpressionProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

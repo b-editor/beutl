@@ -14,7 +14,7 @@ public sealed partial class BrushPresenter : Brush, IPresenter<Brush>
     }
 
     [Display(Name = nameof(GraphicsStrings.Target), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Brush?> Target { get; } = Property.CreateReference<Brush?>();
+    public IExpressionProperty<Brush?> Target { get; } = Property.CreateReference<Brush?>();
 
     public partial class Resource
     {

@@ -919,9 +919,9 @@ public sealed partial class AliasedBrushPair : EngineObject
 {
     public AliasedBrushPair() => ScanProperties<AliasedBrushPair>();
 
-    public IProperty<Brush?> Primary { get; } = Property.Create<Brush?>();
+    public IExpressionProperty<Brush?> Primary { get; } = Property.Create<Brush?>();
 
-    public IProperty<Brush?> Secondary { get; } = Property.Create<Brush?>();
+    public IExpressionProperty<Brush?> Secondary { get; } = Property.Create<Brush?>();
 }
 
 public sealed partial class AliasedBrushList : EngineObject

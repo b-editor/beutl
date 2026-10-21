@@ -16,19 +16,19 @@ public sealed partial class RoundedRectShape : Shape
 
     [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
-    public IProperty<float> Width { get; } = Property.CreateAnimatable<float>(100);
+    public IExpressionProperty<float> Width { get; } = Property.CreateAnimatable<float>(100);
 
     [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
-    public IProperty<float> Height { get; } = Property.CreateAnimatable<float>(100);
+    public IExpressionProperty<float> Height { get; } = Property.CreateAnimatable<float>(100);
 
     [Display(Name = nameof(GraphicsStrings.RoundedRectShape_CornerRadius), ResourceType = typeof(GraphicsStrings))]
     [Range(typeof(CornerRadius), "0", "max")]
-    public IProperty<CornerRadius> CornerRadius { get; } = Property.CreateAnimatable<CornerRadius>(new(25));
+    public IExpressionProperty<CornerRadius> CornerRadius { get; } = Property.CreateAnimatable<CornerRadius>(new(25));
 
     [Range(0, 100)]
     [Display(Name = nameof(GraphicsStrings.Smoothing), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Smoothing { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Smoothing { get; } = Property.CreateAnimatable<float>();
 
     public partial class Resource
     {

@@ -303,9 +303,9 @@ public sealed class ObjectWithMembersNamedLikeAiResults : EngineObject
         ScanProperties<ObjectWithMembersNamedLikeAiResults>();
     }
 
-    public IProperty<int> Generations { get; } = Property.Create(0);
+    public IExpressionProperty<int> Generations { get; } = Property.Create(0);
 
-    public IProperty<string> ActiveGenerationId { get; } = Property.Create(string.Empty);
+    public IExpressionProperty<string> ActiveGenerationId { get; } = Property.Create(string.Empty);
 
-    public IProperty<string> RequestKeySeed { get; } = Property.Create(string.Empty);
+    public IExpressionProperty<string> RequestKeySeed { get; } = Property.Create(string.Empty);
 }

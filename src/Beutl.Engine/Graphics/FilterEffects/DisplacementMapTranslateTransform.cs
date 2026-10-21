@@ -15,10 +15,10 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
     }
 
     [Display(Name = nameof(GraphicsStrings.TranslateTransform_X), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> X { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> X { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.TranslateTransform_Y), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Y { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Y { get; } = Property.CreateAnimatable<float>();
 
     public partial class Resource
     {

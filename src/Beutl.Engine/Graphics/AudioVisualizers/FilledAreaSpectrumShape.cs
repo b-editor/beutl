@@ -16,7 +16,7 @@ public sealed partial class FilledAreaSpectrumShape : SpectrumShape
 
     [Display(Name = nameof(GraphicsStrings.SpectrumShape_Smoothness), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 100f)]
-    public IProperty<float> Smoothness { get; } = Property.CreateAnimatable(0f);
+    public IExpressionProperty<float> Smoothness { get; } = Property.CreateAnimatable(0f);
 
     public new partial class Resource
     {

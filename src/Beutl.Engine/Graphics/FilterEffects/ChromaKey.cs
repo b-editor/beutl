@@ -106,16 +106,16 @@ public partial class ChromaKey : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Color> Color { get; } = Property.CreateAnimatable(Colors.Black);
+    public IExpressionProperty<Color> Color { get; } = Property.CreateAnimatable(Colors.Black);
 
     [Display(Name = nameof(GraphicsStrings.ChromaKey_HueRange), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> HueRange { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> HueRange { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.ChromaKey_SaturationRange), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> SaturationRange { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> SaturationRange { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.ChromaKey_Boundary), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Boundary { get; } = Property.CreateAnimatable(2f);
+    public IExpressionProperty<float> Boundary { get; } = Property.CreateAnimatable(2f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

@@ -17,7 +17,7 @@ public class PropertyFactoryTests
     [Test]
     public void Create_ReturnsSimpleProperty_NotAnimatable()
     {
-        IProperty<double> property = Property.Create(1.5);
+        IExpressionProperty<double> property = Property.Create(1.5);
 
         Assert.That(property, Is.InstanceOf<SimpleProperty<double>>());
         Assert.That(property.IsAnimatable, Is.False);
@@ -30,7 +30,7 @@ public class PropertyFactoryTests
     [Test]
     public void Create_WithDefaultedGeneric_UsesTypeDefault()
     {
-        IProperty<int> property = Property.Create<int>();
+        IExpressionProperty<int> property = Property.Create<int>();
 
         Assert.That(property.DefaultValue, Is.EqualTo(0));
         Assert.That(property.CurrentValue, Is.EqualTo(0));
@@ -39,7 +39,7 @@ public class PropertyFactoryTests
     [Test]
     public void Create_WithValidationAttributes_AppliesValidatorOnSet()
     {
-        IProperty<int> property = Property.Create(0, new RangeAttribute(0, 10));
+        IExpressionProperty<int> property = Property.Create(0, new RangeAttribute(0, 10));
         property.SetAttributes("Test", []);
 
         property.CurrentValue = 100;
@@ -66,7 +66,7 @@ public class PropertyFactoryTests
     [Test]
     public void CreateAnimatable_ReturnsAnimatableProperty()
     {
-        IProperty<float> property = Property.CreateAnimatable(2.0f);
+        IExpressionProperty<float> property = Property.CreateAnimatable(2.0f);
 
         Assert.That(property, Is.InstanceOf<AnimatableProperty<float>>());
         Assert.That(property.IsAnimatable, Is.True);
@@ -76,7 +76,7 @@ public class PropertyFactoryTests
     [Test]
     public void CreateAnimatable_WithValidationAttributes_AppliesValidator()
     {
-        IProperty<int> property = Property.CreateAnimatable(0, new RangeAttribute(-5, 5));
+        IExpressionProperty<int> property = Property.CreateAnimatable(0, new RangeAttribute(-5, 5));
         property.SetAttributes("Test", []);
 
         property.CurrentValue = -100;
@@ -128,7 +128,7 @@ public class PropertyFactoryTests
     [Test]
     public void GetLocalizedName_ReturnsDisplayNameWhenAttributeSet()
     {
-        IProperty<int> property = Property.Create(0);
+        IExpressionProperty<int> property = Property.Create(0);
         property.SetAttributes(
             "RawName",
             new Attribute[] { new DisplayAttribute { Name = "Friendly" } });
@@ -139,7 +139,7 @@ public class PropertyFactoryTests
     [Test]
     public void GetLocalizedName_FallsBackToPropertyName()
     {
-        IProperty<int> property = Property.Create(0);
+        IExpressionProperty<int> property = Property.Create(0);
         property.SetAttributes("RawName", []);
 
         Assert.That(Property.GetLocalizedName(property), Is.EqualTo("RawName"));

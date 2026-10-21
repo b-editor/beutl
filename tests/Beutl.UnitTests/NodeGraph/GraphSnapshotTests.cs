@@ -241,7 +241,7 @@ internal sealed partial class SnapshotBrushHolder : EngineObject
 {
     public SnapshotBrushHolder() => ScanProperties<SnapshotBrushHolder>();
 
-    public IProperty<Brush?> Brush { get; } = Property.CreateAnimatable<Brush?>();
+    public IExpressionProperty<Brush?> Brush { get; } = Property.CreateAnimatable<Brush?>();
 }
 
 internal sealed partial class GroupPenProbeNode : GraphNode

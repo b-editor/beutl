@@ -111,7 +111,7 @@ public sealed class MalformedElementRecoveryTests
     public sealed class WrappedStorageHolder : EngineObject
     {
         public WrappedStorageHolder() => ScanProperties<WrappedStorageHolder>();
-        public IProperty<List<StorageWrapper>> Wrapped { get; } = Property.Create<List<StorageWrapper>>();
+        public IExpressionProperty<List<StorageWrapper>> Wrapped { get; } = Property.Create<List<StorageWrapper>>();
     }
 
     [TestCase(typeof(ContentConstructorFailureTransform))]
@@ -322,9 +322,9 @@ public sealed class MalformedElementRecoveryTests
             ScanProperties<ElementReferenceHolder>();
         }
 
-        public IProperty<Reference<Element>> Target { get; } = Property.Create<Reference<Element>>();
+        public IExpressionProperty<Reference<Element>> Target { get; } = Property.Create<Reference<Element>>();
 
-        public IProperty<Element?> ExpressionTarget { get; } = Property.Create<Element?>();
+        public IExpressionProperty<Element?> ExpressionTarget { get; } = Property.Create<Element?>();
     }
 
     [SuppressResourceClassGeneration]
@@ -335,7 +335,7 @@ public sealed class MalformedElementRecoveryTests
             ScanProperties<CustomReferenceHolder>();
         }
 
-        public IProperty<IReference?> Target { get; } = Property.Create<IReference?>();
+        public IExpressionProperty<IReference?> Target { get; } = Property.Create<IReference?>();
     }
 
     [SuppressResourceClassGeneration]
@@ -346,7 +346,7 @@ public sealed class MalformedElementRecoveryTests
             ScanProperties<OptionalReferenceHolder>();
         }
 
-        public IProperty<Optional<Reference<Element>>> Target { get; }
+        public IExpressionProperty<Optional<Reference<Element>>> Target { get; }
             = Property.Create<Optional<Reference<Element>>>();
     }
 
@@ -358,13 +358,13 @@ public sealed class MalformedElementRecoveryTests
             ScanProperties<NestedReferenceHolder>();
         }
 
-        public IProperty<List<Reference<Element>>> ListTargets { get; }
+        public IExpressionProperty<List<Reference<Element>>> ListTargets { get; }
             = Property.Create<List<Reference<Element>>>();
 
-        public IProperty<Dictionary<string, Reference<Element>>> DictionaryTargets { get; }
+        public IExpressionProperty<Dictionary<string, Reference<Element>>> DictionaryTargets { get; }
             = Property.Create<Dictionary<string, Reference<Element>>>();
 
-        public IProperty<Reference<Element>> AnimatedTarget { get; }
+        public IExpressionProperty<Reference<Element>> AnimatedTarget { get; }
             = Property.CreateAnimatable<Reference<Element>>();
     }
 
@@ -376,7 +376,7 @@ public sealed class MalformedElementRecoveryTests
             ScanProperties<DictionaryTransformHolder>();
         }
 
-        public IProperty<Dictionary<string, Transform>> Transforms { get; }
+        public IExpressionProperty<Dictionary<string, Transform>> Transforms { get; }
             = Property.Create<Dictionary<string, Transform>>();
     }
 
@@ -406,7 +406,7 @@ public sealed class MalformedElementRecoveryTests
             ScanProperties<TransformReferenceHolder>();
         }
 
-        public IProperty<Reference<Transform>> Target { get; } = Property.Create<Reference<Transform>>();
+        public IExpressionProperty<Reference<Transform>> Target { get; } = Property.Create<Reference<Transform>>();
     }
 
     [SuppressResourceClassGeneration]
@@ -417,7 +417,7 @@ public sealed class MalformedElementRecoveryTests
             ScanProperties<DrawableReferenceHolder>();
         }
 
-        public IProperty<Reference<Drawable>> Target { get; } = Property.Create<Reference<Drawable>>();
+        public IExpressionProperty<Reference<Drawable>> Target { get; } = Property.Create<Reference<Drawable>>();
     }
 
     public sealed class RegisteredRecoveryElement : Element

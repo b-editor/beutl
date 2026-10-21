@@ -25,25 +25,25 @@ public sealed partial class BasicMaterial : Material3D
     /// Gets the diffuse color of the material.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.BasicMaterial_DiffuseColor), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Color> DiffuseColor { get; } = Property.CreateAnimatable(Colors.White);
+    public IExpressionProperty<Color> DiffuseColor { get; } = Property.CreateAnimatable(Colors.White);
 
     /// <summary>
     /// Gets the diffuse texture map.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.BasicMaterial_DiffuseMap), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<TextureSource?> DiffuseMap { get; } = Property.Create<TextureSource?>(null);
+    public IExpressionProperty<TextureSource?> DiffuseMap { get; } = Property.Create<TextureSource?>(null);
 
     /// <summary>
     /// Gets the ambient color contribution.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.BasicMaterial_AmbientColor), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Color> AmbientColor { get; } = Property.CreateAnimatable(Colors.White);
+    public IExpressionProperty<Color> AmbientColor { get; } = Property.CreateAnimatable(Colors.White);
 
     /// <summary>
     /// Gets the specular color for highlights.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.BasicMaterial_SpecularColor), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Color> SpecularColor { get; } = Property.CreateAnimatable(Colors.White);
+    public IExpressionProperty<Color> SpecularColor { get; } = Property.CreateAnimatable(Colors.White);
 
     /// <summary>
     /// Gets the shininess factor for specular highlights.
@@ -51,7 +51,7 @@ public sealed partial class BasicMaterial : Material3D
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.BasicMaterial_Shininess), ResourceType = typeof(GraphicsStrings))]
     [Range(1f, 256f)]
-    public IProperty<float> Shininess { get; } = Property.CreateAnimatable(32f);
+    public IExpressionProperty<float> Shininess { get; } = Property.CreateAnimatable(32f);
 
     public partial class Resource
     {

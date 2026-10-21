@@ -14,7 +14,7 @@ public sealed partial class HueRotate : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.Angle), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Angle { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Angle { get; } = Property.CreateAnimatable<float>();
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

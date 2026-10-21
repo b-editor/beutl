@@ -16,7 +16,7 @@ public sealed partial class ImageTextureSource : TextureSource
     }
 
     [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<ImageSource?> Source { get; } = Property.Create<ImageSource?>(null);
+    public IExpressionProperty<ImageSource?> Source { get; } = Property.Create<ImageSource?>(null);
 
     public partial class Resource
     {

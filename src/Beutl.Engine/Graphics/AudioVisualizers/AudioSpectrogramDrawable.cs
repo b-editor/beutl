@@ -31,22 +31,22 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_WindowSeconds), ResourceType = typeof(GraphicsStrings))]
     [Range(0.01f, 3600f)]
-    public IProperty<float> WindowSeconds { get; } = Property.CreateAnimatable(4f);
+    public IExpressionProperty<float> WindowSeconds { get; } = Property.CreateAnimatable(4f);
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_FftSize), ResourceType = typeof(GraphicsStrings))]
     [Range(64, 16384)]
-    public IProperty<int> FftSize { get; } = Property.Create(512);
+    public IExpressionProperty<int> FftSize { get; } = Property.Create(512);
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_FloorDb), ResourceType = typeof(GraphicsStrings))]
     [Range(-200f, 0f)]
-    public IProperty<float> FloorDb { get; } = Property.CreateAnimatable(-80f);
+    public IExpressionProperty<float> FloorDb { get; } = Property.CreateAnimatable(-80f);
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_TimeColumns), ResourceType = typeof(GraphicsStrings))]
     [Range(2, 2048)]
-    public IProperty<int> TimeColumns { get; } = Property.Create(256);
+    public IExpressionProperty<int> TimeColumns { get; } = Property.Create(256);
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_FrequencyScale), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<FrequencyScale> FrequencyScale { get; } = Property.Create(AudioVisualizers.FrequencyScale.Logarithmic);
+    public IExpressionProperty<FrequencyScale> FrequencyScale { get; } = Property.Create(AudioVisualizers.FrequencyScale.Logarithmic);
 
     public new partial class Resource
     {

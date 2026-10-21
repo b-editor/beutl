@@ -21,14 +21,14 @@ public partial class SpotLight3D : Light3D
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Position), ResourceType = typeof(GraphicsStrings))]
     [NumberStep(1, 0.1)]
-    public IProperty<Vector3> Position { get; } = Property.CreateAnimatable(new Vector3(0, -500, 0));
+    public IExpressionProperty<Vector3> Position { get; } = Property.CreateAnimatable(new Vector3(0, -500, 0));
 
     /// <summary>
     /// Gets the direction the spotlight is pointing.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Direction), ResourceType = typeof(GraphicsStrings))]
     [NumberStep(0.1, 0.01)]
-    public IProperty<Vector3> Direction { get; } = Property.CreateAnimatable(new Vector3(0, 1, 0));
+    public IExpressionProperty<Vector3> Direction { get; } = Property.CreateAnimatable(new Vector3(0, 1, 0));
 
     /// <summary>
     /// Gets the inner cone angle in degrees.
@@ -37,7 +37,7 @@ public partial class SpotLight3D : Light3D
     [Display(Name = nameof(GraphicsStrings.SpotLight3D_InnerConeAngle), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 90f)]
     [NumberStep(1, 0.1)]
-    public IProperty<float> InnerConeAngle { get; } = Property.CreateAnimatable(12.5f);
+    public IExpressionProperty<float> InnerConeAngle { get; } = Property.CreateAnimatable(12.5f);
 
     /// <summary>
     /// Gets the outer cone angle in degrees.
@@ -46,7 +46,7 @@ public partial class SpotLight3D : Light3D
     [Display(Name = nameof(GraphicsStrings.SpotLight3D_OuterConeAngle), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 90f)]
     [NumberStep(1, 0.1)]
-    public IProperty<float> OuterConeAngle { get; } = Property.CreateAnimatable(17.5f);
+    public IExpressionProperty<float> OuterConeAngle { get; } = Property.CreateAnimatable(17.5f);
 
     /// <summary>
     /// Gets the constant attenuation factor.
@@ -54,7 +54,7 @@ public partial class SpotLight3D : Light3D
     [Display(Name = nameof(GraphicsStrings.SpotLight3D_ConstantAttenuation), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, float.MaxValue)]
     [NumberStep(0.1, 0.01)]
-    public IProperty<float> ConstantAttenuation { get; } = Property.CreateAnimatable(1.0f);
+    public IExpressionProperty<float> ConstantAttenuation { get; } = Property.CreateAnimatable(1.0f);
 
     /// <summary>
     /// Gets the linear attenuation factor.
@@ -62,7 +62,7 @@ public partial class SpotLight3D : Light3D
     [Display(Name = nameof(GraphicsStrings.SpotLight3D_LinearAttenuation), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, float.MaxValue)]
     [NumberStep(0.0001, 0.00001)]
-    public IProperty<float> LinearAttenuation { get; } = Property.CreateAnimatable(0.0009f);
+    public IExpressionProperty<float> LinearAttenuation { get; } = Property.CreateAnimatable(0.0009f);
 
     /// <summary>
     /// Gets the quadratic attenuation factor.
@@ -70,7 +70,7 @@ public partial class SpotLight3D : Light3D
     [Display(Name = nameof(GraphicsStrings.SpotLight3D_QuadraticAttenuation), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, float.MaxValue)]
     [NumberStep(0.000001, 0.0000001)]
-    public IProperty<float> QuadraticAttenuation { get; } = Property.CreateAnimatable(0.0000032f);
+    public IExpressionProperty<float> QuadraticAttenuation { get; } = Property.CreateAnimatable(0.0000032f);
 
     /// <summary>
     /// Gets the maximum range of the light.
@@ -78,7 +78,7 @@ public partial class SpotLight3D : Light3D
     [Display(Name = nameof(GraphicsStrings.SpotLight3D_Range), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, float.MaxValue)]
     [NumberStep(10, 1)]
-    public IProperty<float> Range { get; } = Property.CreateAnimatable(5000f);
+    public IExpressionProperty<float> Range { get; } = Property.CreateAnimatable(5000f);
 
     /// <summary>
     /// Gets the normalized direction for use in shaders.

@@ -234,21 +234,21 @@ public sealed partial class PixelSortEffect : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.PixelSortEffect_Direction), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<PixelSortDirection> Direction { get; } = Property.Create(PixelSortDirection.Horizontal);
+    public IExpressionProperty<PixelSortDirection> Direction { get; } = Property.Create(PixelSortDirection.Horizontal);
 
     [Display(Name = nameof(GraphicsStrings.PixelSortEffect_SortKey), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<PixelSortKey> SortKey { get; } = Property.Create(PixelSortKey.Luminance);
+    public IExpressionProperty<PixelSortKey> SortKey { get; } = Property.Create(PixelSortKey.Luminance);
 
     [Display(Name = nameof(GraphicsStrings.PixelSortEffect_ThresholdMin), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 100f)]
-    public IProperty<float> ThresholdMin { get; } = Property.CreateAnimatable(25f);
+    public IExpressionProperty<float> ThresholdMin { get; } = Property.CreateAnimatable(25f);
 
     [Display(Name = nameof(GraphicsStrings.PixelSortEffect_ThresholdMax), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 100f)]
-    public IProperty<float> ThresholdMax { get; } = Property.CreateAnimatable(80f);
+    public IExpressionProperty<float> ThresholdMax { get; } = Property.CreateAnimatable(80f);
 
     [Display(Name = nameof(GraphicsStrings.PixelSortEffect_Ascending), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> Ascending { get; } = Property.Create(true);
+    public IExpressionProperty<bool> Ascending { get; } = Property.Create(true);
 
     private static PixelSortPipelines<GLSLShader>? GetOrCreateShaders(
         PixelSortDirection direction,

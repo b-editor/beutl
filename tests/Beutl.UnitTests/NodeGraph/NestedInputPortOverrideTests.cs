@@ -137,12 +137,12 @@ public sealed partial class AnimatedPenHolder : EngineObject
 {
     public AnimatedPenHolder() => ScanProperties<AnimatedPenHolder>();
 
-    public IProperty<AnimatedPenContainer> Value { get; } = Property.Create(new AnimatedPenContainer());
+    public IExpressionProperty<AnimatedPenContainer> Value { get; } = Property.Create(new AnimatedPenContainer());
 }
 
 public sealed partial class AnimatedPenContainer : EngineObject
 {
     public AnimatedPenContainer() => ScanProperties<AnimatedPenContainer>();
 
-    public IProperty<Pen?> Pen { get; } = Property.CreateAnimatable<Pen?>();
+    public IExpressionProperty<Pen?> Pen { get; } = Property.CreateAnimatable<Pen?>();
 }

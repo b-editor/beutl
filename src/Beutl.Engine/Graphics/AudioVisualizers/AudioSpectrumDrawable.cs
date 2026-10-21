@@ -29,26 +29,26 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
     }
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_Shape), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<SpectrumShape?> Shape { get; } = Property.Create<SpectrumShape?>();
+    public IExpressionProperty<SpectrumShape?> Shape { get; } = Property.Create<SpectrumShape?>();
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_BarCount), ResourceType = typeof(GraphicsStrings))]
     [Range(1, 10000)]
-    public IProperty<int> BarCount { get; } = Property.Create(128);
+    public IExpressionProperty<int> BarCount { get; } = Property.Create(128);
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_FftSize), ResourceType = typeof(GraphicsStrings))]
     [Range(64, 16384)]
-    public IProperty<int> FftSize { get; } = Property.Create(1024);
+    public IExpressionProperty<int> FftSize { get; } = Property.Create(1024);
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_FrequencyScale), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<FrequencyScale> FrequencyScale { get; } = Property.Create(AudioVisualizers.FrequencyScale.Logarithmic);
+    public IExpressionProperty<FrequencyScale> FrequencyScale { get; } = Property.Create(AudioVisualizers.FrequencyScale.Logarithmic);
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_FloorDb), ResourceType = typeof(GraphicsStrings))]
     [Range(-200f, 0f)]
-    public IProperty<float> FloorDb { get; } = Property.CreateAnimatable(-80f);
+    public IExpressionProperty<float> FloorDb { get; } = Property.CreateAnimatable(-80f);
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_Smoothing), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 99f)]
-    public IProperty<float> Smoothing { get; } = Property.CreateAnimatable(85f);
+    public IExpressionProperty<float> Smoothing { get; } = Property.CreateAnimatable(85f);
 
     public new partial class Resource
     {

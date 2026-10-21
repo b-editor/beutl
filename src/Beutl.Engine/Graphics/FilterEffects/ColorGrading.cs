@@ -144,64 +144,64 @@ public sealed partial class ColorGrading : FilterEffect
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_Temperature), ResourceType = typeof(GraphicsStrings))]
     [Range(-100, 100)]
-    public IProperty<float> Temperature { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Temperature { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_Tint), ResourceType = typeof(GraphicsStrings))]
     [Range(-100, 100)]
-    public IProperty<float> Tint { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Tint { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_Exposure), ResourceType = typeof(GraphicsStrings))]
     [Range(-5, 5), NumberStep(0.1, 0.01)]
-    public IProperty<float> Exposure { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Exposure { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_Contrast), ResourceType = typeof(GraphicsStrings))]
     [Range(-100, 100)]
-    public IProperty<float> Contrast { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Contrast { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_ContrastPivot), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 1), NumberStep(0.1, 0.01)]
-    public IProperty<float> ContrastPivot { get; } = Property.CreateAnimatable(0.5f);
+    public IExpressionProperty<float> ContrastPivot { get; } = Property.CreateAnimatable(0.5f);
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_Saturation), ResourceType = typeof(GraphicsStrings))]
     [Range(-100, 100)]
-    public IProperty<float> Saturation { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Saturation { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_Vibrance), ResourceType = typeof(GraphicsStrings))]
     [Range(-100, 100)]
-    public IProperty<float> Vibrance { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Vibrance { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_Hue), ResourceType = typeof(GraphicsStrings))]
     [Range(-180, 180)]
-    public IProperty<float> Hue { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Hue { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_LowRange), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
-    public IProperty<float> LowRange { get; } = Property.CreateAnimatable(40f);
+    public IExpressionProperty<float> LowRange { get; } = Property.CreateAnimatable(40f);
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_HighRange), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
-    public IProperty<float> HighRange { get; } = Property.CreateAnimatable(60f);
+    public IExpressionProperty<float> HighRange { get; } = Property.CreateAnimatable(60f);
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_Shadows), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<GradingColor> Shadows { get; } = Property.CreateAnimatable(GradingColor.Zero);
+    public IExpressionProperty<GradingColor> Shadows { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_Midtones), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<GradingColor> Midtones { get; } = Property.CreateAnimatable(GradingColor.Zero);
+    public IExpressionProperty<GradingColor> Midtones { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_Highlights), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<GradingColor> Highlights { get; } = Property.CreateAnimatable(GradingColor.Zero);
+    public IExpressionProperty<GradingColor> Highlights { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_Lift), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<GradingColor> Lift { get; } = Property.CreateAnimatable(GradingColor.Zero);
+    public IExpressionProperty<GradingColor> Lift { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_Gamma), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<GradingColor> Gamma { get; } = Property.CreateAnimatable(GradingColor.One);
+    public IExpressionProperty<GradingColor> Gamma { get; } = Property.CreateAnimatable(GradingColor.One);
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_Gain), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<GradingColor> Gain { get; } = Property.CreateAnimatable(GradingColor.One);
+    public IExpressionProperty<GradingColor> Gain { get; } = Property.CreateAnimatable(GradingColor.One);
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_Offset), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<GradingColor> Offset { get; } = Property.CreateAnimatable(GradingColor.Zero);
+    public IExpressionProperty<GradingColor> Offset { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

@@ -16,14 +16,14 @@ public sealed partial class LineWaveformShape : WaveformShape
 
     [Display(Name = nameof(GraphicsStrings.SpectrumShape_Thickness), ResourceType = typeof(GraphicsStrings))]
     [Range(0.5f, 50f)]
-    public IProperty<float> Thickness { get; } = Property.CreateAnimatable(1.5f);
+    public IExpressionProperty<float> Thickness { get; } = Property.CreateAnimatable(1.5f);
 
     [Display(Name = nameof(GraphicsStrings.SpectrumShape_Smoothness), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 100f)]
-    public IProperty<float> Smoothness { get; } = Property.CreateAnimatable(0f);
+    public IExpressionProperty<float> Smoothness { get; } = Property.CreateAnimatable(0f);
 
     [Display(Name = nameof(GraphicsStrings.WaveformShape_Mirrored), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> Mirrored { get; } = Property.Create(false);
+    public IExpressionProperty<bool> Mirrored { get; } = Property.Create(false);
 
     public new partial class Resource
     {

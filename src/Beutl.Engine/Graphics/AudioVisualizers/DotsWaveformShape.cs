@@ -16,10 +16,10 @@ public sealed partial class DotsWaveformShape : WaveformShape
 
     [Display(Name = nameof(GraphicsStrings.WaveformShape_DotRadius), ResourceType = typeof(GraphicsStrings))]
     [Range(0.5f, 100f)]
-    public IProperty<float> DotRadius { get; } = Property.CreateAnimatable(2f);
+    public IExpressionProperty<float> DotRadius { get; } = Property.CreateAnimatable(2f);
 
     [Display(Name = nameof(GraphicsStrings.WaveformShape_DotMode), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<DotsWaveformMode> Mode { get; } = Property.Create(DotsWaveformMode.MinMax);
+    public IExpressionProperty<DotsWaveformMode> Mode { get; } = Property.Create(DotsWaveformMode.MinMax);
 
     public new partial class Resource
     {

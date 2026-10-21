@@ -20,21 +20,21 @@ public abstract partial class Camera3D : EngineObject
     internal const float DefaultDistance = 935.3074f;
 
     [Display(Name = nameof(GraphicsStrings.Position), ResourceType = typeof(GraphicsStrings)), NumberStep(1, 0.1)]
-    public IProperty<Vector3> Position { get; } = Property.CreateAnimatable(new Vector3(0, 0, -DefaultDistance));
+    public IExpressionProperty<Vector3> Position { get; } = Property.CreateAnimatable(new Vector3(0, 0, -DefaultDistance));
 
     [Display(Name = nameof(GraphicsStrings.Target), ResourceType = typeof(GraphicsStrings)), NumberStep(1, 0.1)]
-    public IProperty<Vector3> Target { get; } = Property.CreateAnimatable(Vector3.Zero);
+    public IExpressionProperty<Vector3> Target { get; } = Property.CreateAnimatable(Vector3.Zero);
 
     [Display(Name = nameof(GraphicsStrings.Camera3D_Up), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Vector3> Up { get; } = Property.CreateAnimatable(-Vector3.UnitY);
+    public IExpressionProperty<Vector3> Up { get; } = Property.CreateAnimatable(-Vector3.UnitY);
 
     [Display(Name = nameof(GraphicsStrings.Camera3D_NearPlane), ResourceType = typeof(GraphicsStrings))]
     [Range(0.001f, float.MaxValue), NumberStep(1, 0.1)]
-    public IProperty<float> NearPlane { get; } = Property.CreateAnimatable(1f);
+    public IExpressionProperty<float> NearPlane { get; } = Property.CreateAnimatable(1f);
 
     [Display(Name = nameof(GraphicsStrings.Camera3D_FarPlane), ResourceType = typeof(GraphicsStrings))]
     [Range(0.001f, float.MaxValue), NumberStep(1, 0.1)]
-    public IProperty<float> FarPlane { get; } = Property.CreateAnimatable(10000f);
+    public IExpressionProperty<float> FarPlane { get; } = Property.CreateAnimatable(10000f);
 
     /// <summary>
     /// Gets the view matrix for this camera.

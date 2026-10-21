@@ -15,7 +15,7 @@ public sealed partial class Brightness : FilterEffect
 
     [Display(Name = nameof(GraphicsStrings.Amount), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
-    public IProperty<float> Amount { get; } = Property.CreateAnimatable(100f);
+    public IExpressionProperty<float> Amount { get; } = Property.CreateAnimatable(100f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

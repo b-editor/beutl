@@ -24,5 +24,5 @@ public partial class ImageBrush : TileBrush
     /// Gets or sets the image to draw.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<ImageSource?> Source { get; } = Property.Create<ImageSource?>();
+    public IExpressionProperty<ImageSource?> Source { get; } = Property.Create<ImageSource?>();
 }

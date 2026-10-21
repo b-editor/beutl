@@ -26,14 +26,14 @@ public sealed partial class UnlitMaterial : Material3D
     }
 
     [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Color> Color { get; } = Property.CreateAnimatable(Colors.White);
+    public IExpressionProperty<Color> Color { get; } = Property.CreateAnimatable(Colors.White);
 
     [Display(Name = nameof(GraphicsStrings.UnlitMaterial_ColorMap), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<TextureSource?> ColorMap { get; } = Property.Create<TextureSource?>(null);
+    public IExpressionProperty<TextureSource?> ColorMap { get; } = Property.Create<TextureSource?>(null);
 
     [Display(Name = nameof(GraphicsStrings.Opacity), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 1f), NumberStep(0.1, 0.01)]
-    public IProperty<float> Opacity { get; } = Property.CreateAnimatable(1f);
+    public IExpressionProperty<float> Opacity { get; } = Property.CreateAnimatable(1f);
 
     public partial class Resource
     {

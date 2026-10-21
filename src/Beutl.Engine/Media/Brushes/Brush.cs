@@ -24,11 +24,11 @@ public abstract partial class Brush : EngineObject
 
     [Display(Name = nameof(GraphicsStrings.Opacity), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
-    public IProperty<float> Opacity { get; } = Property.CreateAnimatable(100f);
+    public IExpressionProperty<float> Opacity { get; } = Property.CreateAnimatable(100f);
 
     [Display(Name = nameof(GraphicsStrings.Transform), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Transform?> Transform { get; } = Property.Create<Transform?>();
+    public IExpressionProperty<Transform?> Transform { get; } = Property.Create<Transform?>();
 
     [Display(Name = nameof(GraphicsStrings.TransformOrigin), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<RelativePoint> TransformOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
+    public IExpressionProperty<RelativePoint> TransformOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
 }

@@ -15,22 +15,22 @@ public sealed partial class Clipping : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.Clipping_Left), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Left { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Left { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.Clipping_Top), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Top { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Top { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.Clipping_Right), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Right { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Right { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.Clipping_Bottom), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Bottom { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Bottom { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.Clipping_AutoCenter), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> AutoCenter { get; } = Property.CreateAnimatable(false);
+    public IExpressionProperty<bool> AutoCenter { get; } = Property.CreateAnimatable(false);
 
     [Display(Name = nameof(GraphicsStrings.Clipping_AutoClip), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> AutoClip { get; } = Property.CreateAnimatable(false);
+    public IExpressionProperty<bool> AutoClip { get; } = Property.CreateAnimatable(false);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

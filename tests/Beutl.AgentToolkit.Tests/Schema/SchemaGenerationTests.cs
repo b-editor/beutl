@@ -899,6 +899,6 @@ public sealed class SchemaGenerationTests
         }
 
         [System.ComponentModel.DataAnnotations.Range(0, 1)]
-        public IProperty<float> Amount { get; } = Property.CreateAnimatable(0.5f);
+        public IExpressionProperty<float> Amount { get; } = Property.CreateAnimatable(0.5f);
     }
 }

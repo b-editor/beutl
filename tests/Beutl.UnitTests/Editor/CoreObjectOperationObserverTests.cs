@@ -840,7 +840,7 @@ public class CoreObjectOperationObserverTests
         }
 
         [System.ComponentModel.DataAnnotations.Range(0f, 100f)]
-        public IProperty<float> FloatValue { get; } = Property.CreateAnimatable(0f);
+        public IExpressionProperty<float> FloatValue { get; } = Property.CreateAnimatable(0f);
     }
 
     #endregion

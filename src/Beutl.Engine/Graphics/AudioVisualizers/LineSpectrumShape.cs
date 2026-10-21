@@ -16,11 +16,11 @@ public sealed partial class LineSpectrumShape : SpectrumShape
 
     [Display(Name = nameof(GraphicsStrings.SpectrumShape_Thickness), ResourceType = typeof(GraphicsStrings))]
     [Range(0.5f, 50f)]
-    public IProperty<float> Thickness { get; } = Property.CreateAnimatable(2f);
+    public IExpressionProperty<float> Thickness { get; } = Property.CreateAnimatable(2f);
 
     [Display(Name = nameof(GraphicsStrings.SpectrumShape_Smoothness), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 100f)]
-    public IProperty<float> Smoothness { get; } = Property.CreateAnimatable(0f);
+    public IExpressionProperty<float> Smoothness { get; } = Property.CreateAnimatable(0f);
 
     public new partial class Resource
     {

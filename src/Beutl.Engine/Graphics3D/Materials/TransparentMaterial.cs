@@ -25,20 +25,20 @@ public sealed partial class TransparentMaterial : Material3D
     /// Gets the base color of the material.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Color> Color { get; } = Property.CreateAnimatable(Colors.White);
+    public IExpressionProperty<Color> Color { get; } = Property.CreateAnimatable(Colors.White);
 
     /// <summary>
     /// Gets the opacity of the material (0-1).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Opacity), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 1f), NumberStep(0.1, 0.01)]
-    public IProperty<float> Opacity { get; } = Property.CreateAnimatable(0.5f);
+    public IExpressionProperty<float> Opacity { get; } = Property.CreateAnimatable(0.5f);
 
     /// <summary>
     /// Gets the color map texture.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.TransparentMaterial_ColorMap), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<TextureSource?> ColorMap { get; } = Property.Create<TextureSource?>(null);
+    public IExpressionProperty<TextureSource?> ColorMap { get; } = Property.Create<TextureSource?>(null);
 
     /// <summary>
     /// Gets the index of refraction for fresnel effect (1.0-2.5).
@@ -46,14 +46,14 @@ public sealed partial class TransparentMaterial : Material3D
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.TransparentMaterial_IndexOfRefraction), ResourceType = typeof(GraphicsStrings))]
     [Range(1f, 2.5f), NumberStep(0.1, 0.01)]
-    public IProperty<float> IndexOfRefraction { get; } = Property.CreateAnimatable(1.5f);
+    public IExpressionProperty<float> IndexOfRefraction { get; } = Property.CreateAnimatable(1.5f);
 
     /// <summary>
     /// Gets the roughness of the material (0-1).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.TransparentMaterial_Roughness), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 1f), NumberStep(0.1, 0.01)]
-    public IProperty<float> Roughness { get; } = Property.CreateAnimatable(0.1f);
+    public IExpressionProperty<float> Roughness { get; } = Property.CreateAnimatable(0.1f);
 
     public partial class Resource
     {

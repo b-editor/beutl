@@ -59,7 +59,7 @@ public sealed partial class PluginDisplacementTransform : DisplacementMapTransfo
         ScanProperties<PluginDisplacementTransform>();
     }
 
-    public IProperty<float> Strength { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Strength { get; } = Property.CreateAnimatable<float>();
 
     public partial class Resource
     {

@@ -186,7 +186,7 @@ public sealed partial class PluginSpectrumShape : SpectrumShape
         ScanProperties<PluginSpectrumShape>();
     }
 
-    public IProperty<float> Thickness { get; } = Property.CreateAnimatable(4f);
+    public IExpressionProperty<float> Thickness { get; } = Property.CreateAnimatable(4f);
 
     public partial class Resource
     {

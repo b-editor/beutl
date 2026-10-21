@@ -21,17 +21,17 @@ public sealed partial class RadialSpectrumShape : SpectrumShape
 
     [Display(Name = nameof(GraphicsStrings.SpectrumShape_InnerRadius), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 10000f)]
-    public IProperty<float> InnerRadius { get; } = Property.CreateAnimatable(40f);
+    public IExpressionProperty<float> InnerRadius { get; } = Property.CreateAnimatable(40f);
 
     [Display(Name = nameof(GraphicsStrings.SpectrumShape_StartAngle), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> StartAngle { get; } = Property.CreateAnimatable(-90f);
+    public IExpressionProperty<float> StartAngle { get; } = Property.CreateAnimatable(-90f);
 
     [Display(Name = nameof(GraphicsStrings.SpectrumShape_BarWidth), ResourceType = typeof(GraphicsStrings))]
     [Range(0.5f, 100f)]
-    public IProperty<float> BarWidth { get; } = Property.CreateAnimatable(4f);
+    public IExpressionProperty<float> BarWidth { get; } = Property.CreateAnimatable(4f);
 
     [Display(Name = nameof(GraphicsStrings.SpectrumShape_Direction), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<RadialSpectrumDirection> Direction { get; } =
+    public IExpressionProperty<RadialSpectrumDirection> Direction { get; } =
         Property.Create(RadialSpectrumDirection.Outward);
 
     public new partial class Resource
