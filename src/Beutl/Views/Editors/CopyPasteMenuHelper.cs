@@ -1,8 +1,8 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Services;
-using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;

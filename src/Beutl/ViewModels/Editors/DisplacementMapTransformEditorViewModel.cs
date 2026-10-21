@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Graphics.Effects;
 using Beutl.Serialization;
 using Reactive.Bindings;

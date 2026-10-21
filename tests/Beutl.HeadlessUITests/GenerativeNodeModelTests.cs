@@ -232,13 +232,13 @@ public sealed class GenerativeNodeModelTests
                      prompt.Exclusions.Property!, image.Prompt.Property!,
                  })
         {
-            using var vm = new Beutl.ViewModels.Editors.StringEditorViewModel((IPropertyAdapter<string?>)property);
+            using var vm = new Beutl.Editor.Components.PropertyEditors.ViewModels.StringEditorViewModel((IPropertyAdapter<string?>)property);
             var editor = new StringEditor();
             vm.Accept(editor);
             Assert.That(editor.Classes.Contains("multiline"), Is.True, property.DisplayName);
         }
 
-        using var aspect = new Beutl.ViewModels.Editors.StringEditorViewModel((IPropertyAdapter<string?>)image.Model.Property!);
+        using var aspect = new Beutl.Editor.Components.PropertyEditors.ViewModels.StringEditorViewModel((IPropertyAdapter<string?>)image.Model.Property!);
         var single = new StringEditor();
         aspect.Accept(single);
         Assert.That(single.Classes.Contains("multiline"), Is.False, "Only prompts are multi-line.");

@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;

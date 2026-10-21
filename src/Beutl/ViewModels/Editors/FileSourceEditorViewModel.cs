@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Interactivity;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.IO;
 using Beutl.Media.Source;
 using Beutl.Services;

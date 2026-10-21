@@ -1,8 +1,8 @@
 <UserControl x:Class="Beutl.Views.Editors.ScriptEditor"
              xmlns="https://github.com/avaloniaui"
+             xmlns:propertyEditors="using:Beutl.Editor.Components.PropertyEditors.Views"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Beutl.ViewModels.Editors"
              xmlns:editor="using:Beutl.Controls.PropertyEditors"
@@ -21,7 +21,7 @@
                               KeyFrameIndex="{Binding KeyFrameIndex.Value}"
                               IsReadOnly="{Binding !CanEdit.Value}">
             <editor:StringEditor.MenuContent>
-                <local:PropertyEditorMenu />
+                <propertyEditors:PropertyEditorMenu />
             </editor:StringEditor.MenuContent>
         </editor:StringEditor>
         <SelectableTextBlock Foreground="{DynamicResource SystemFillColorCriticalBrush}"

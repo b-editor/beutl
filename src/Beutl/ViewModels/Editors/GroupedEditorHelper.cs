@@ -1,4 +1,5 @@
 ﻿using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.PropertyAdapters;
 
 using Reactive.Bindings;

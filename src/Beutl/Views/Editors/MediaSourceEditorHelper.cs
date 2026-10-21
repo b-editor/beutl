@@ -1,8 +1,8 @@
 ﻿using Beutl.Configuration;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Editors;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;

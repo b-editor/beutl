@@ -1,5 +1,6 @@
 ﻿using Beutl.Api.Services;
 using Beutl.Editor;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Services;
 using Beutl.Media.Encoding;

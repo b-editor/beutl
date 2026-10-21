@@ -8,6 +8,8 @@ using Beutl.Api.Services;
 using Beutl.Collections;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
@@ -15,7 +17,6 @@ using Beutl.PropertyAdapters;
 using Beutl.Services.Adapters;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.Editors;
-using Beutl.Views.Editors;
 using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 
 namespace Beutl.HeadlessUITests;

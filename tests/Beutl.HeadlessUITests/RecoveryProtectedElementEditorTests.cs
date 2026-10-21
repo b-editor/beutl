@@ -10,6 +10,8 @@ using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.ElementPropertyTab.Views;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Services;
@@ -27,7 +29,6 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using Beutl.Views;
-using Beutl.Views.Editors;
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;

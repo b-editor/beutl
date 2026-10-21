@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Engine;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;

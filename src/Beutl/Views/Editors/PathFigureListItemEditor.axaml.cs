@@ -3,6 +3,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Media;
 using Beutl.Services;
 using Beutl.ViewModels;

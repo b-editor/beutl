@@ -1,6 +1,6 @@
 ﻿using Beutl.Api.Services;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Services;
-using Beutl.ViewModels;
 
 namespace Beutl.Services.Adapters;
 
@@ -8,7 +8,7 @@ internal sealed class PropertyEditorFactoryAdapter(ExtensionProvider extensionPr
 {
     public IPropertyEditorContext? CreateEditor(IPropertyAdapter property)
     {
-        var (props, ext) = PropertyEditorService.MatchProperty([property], extensionProvider);
+        var (props, ext) = CoreObjectPropertyEditorBuilder.MatchProperty([property], extensionProvider);
         return props != null && ext != null
             ? ExtensionGuard.Call(ext, () => ext.TryCreateContext(props, out IPropertyEditorContext? ctx) ? ctx : null)
             : null;
@@ -16,7 +16,7 @@ internal sealed class PropertyEditorFactoryAdapter(ExtensionProvider extensionPr
 
     public (IPropertyAdapter[]? Properties, PropertyEditorExtension? Extension) MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
     {
-        return PropertyEditorService.MatchProperty(properties, extensionProvider);
+        return CoreObjectPropertyEditorBuilder.MatchProperty(properties, extensionProvider);
     }
 
     public IReadOnlyList<IPropertyEditorContext?> CreatePropertyEditorContexts(

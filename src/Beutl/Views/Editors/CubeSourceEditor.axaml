@@ -1,9 +1,9 @@
 <UserControl x:Class="Beutl.Views.Editors.CubeSourceEditor"
              xmlns="https://github.com/avaloniaui"
+             xmlns:propertyEditors="using:Beutl.Editor.Components.PropertyEditors.Views"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:editor="using:Beutl.Controls.PropertyEditors"
-             xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Beutl.ViewModels.Editors"
              d:DesignWidth="300"
@@ -20,7 +20,7 @@
                                   KeyFrameIndex="{Binding KeyFrameIndex.Value}"
                                   Value="{Binding FileInfo.Value}">
             <editor:StorageFileEditor.MenuContent>
-                <local:PropertyEditorMenu />
+                <propertyEditors:PropertyEditorMenu />
             </editor:StorageFileEditor.MenuContent>
         </editor:StorageFileEditor>
     </StackPanel>

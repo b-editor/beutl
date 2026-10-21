@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 
 namespace Beutl.ViewModels.Editors;

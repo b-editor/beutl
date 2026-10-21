@@ -1,8 +1,8 @@
 <UserControl x:Class="Beutl.Views.Editors.GradientStopsEditor"
              xmlns="https://github.com/avaloniaui"
+             xmlns:propertyEditors="using:Beutl.Editor.Components.PropertyEditors.Views"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
@@ -28,7 +28,7 @@
                                 SelectedStop="{Binding SelectedItem.Value, Mode=TwoWay}"
                                 Stops="{Binding Stops.Value}" />
 
-        <local:PropertyEditorMenu Grid.Row="1" Grid.Column="1" />
+        <propertyEditors:PropertyEditorMenu Grid.Row="1" Grid.Column="1" />
 
         <StackPanel Grid.Row="2"
                     Margin="8,8,4,0"
@@ -50,7 +50,7 @@
         <Panel Grid.Row="3"
                Grid.ColumnSpan="2"
                IsVisible="{Binding NodeItems.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
-            <local:ListEditor DataContext="{Binding NodeItems.Value}" />
+            <propertyEditors:ListEditor DataContext="{Binding NodeItems.Value}" />
         </Panel>
     </Grid>
 </UserControl>

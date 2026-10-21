@@ -2,7 +2,7 @@
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using Beutl.Editor.Components.Helpers;
-using Beutl.ViewModels.Editors;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 
 namespace Beutl.Views.Editors;
 

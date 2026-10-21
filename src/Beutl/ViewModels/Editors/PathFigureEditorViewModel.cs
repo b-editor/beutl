@@ -2,6 +2,7 @@
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Services;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Media;
 using Beutl.PropertyAdapters;
 using Microsoft.Extensions.DependencyInjection;

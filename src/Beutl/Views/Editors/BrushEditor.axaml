@@ -1,12 +1,12 @@
 <UserControl x:Class="Beutl.Views.Editors.BrushEditor"
              xmlns="https://github.com/avaloniaui"
+             xmlns:propertyEditors="using:Beutl.Editor.Components.PropertyEditors.Views"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:intv="using:Avalonia.Xaml.Interactivity"
              xmlns:lang="using:Beutl.Language"
-             xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
@@ -89,10 +89,10 @@
             <Panel>
                 <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:MessageStrings.PropertyUnset}" />
 
-                <local:PropertiesEditor Padding="0"
+                <propertyEditors:PropertiesEditor Padding="0"
                                         DataContext="{Binding ChildContext.Value}"
                                         IsEnabled="{ReflectionBinding #root.DataContext.CanEdit.Value}">
-                    <local:PropertiesEditor.IsVisible>
+                    <propertyEditors:PropertiesEditor.IsVisible>
                         <MultiBinding Converter="{x:Static BoolConverters.And}">
                             <Binding Converter="{x:Static ObjectConverters.IsNotNull}"
                                      ElementName="root"
@@ -101,8 +101,8 @@
                                      ElementName="root"
                                      Path="DataContext.IsFallback.Value" />
                         </MultiBinding>
-                    </local:PropertiesEditor.IsVisible>
-                </local:PropertiesEditor>
+                    </propertyEditors:PropertiesEditor.IsVisible>
+                </propertyEditors:PropertiesEditor>
             </Panel>
         </controls:TreeLineDecorator>
     </Grid>

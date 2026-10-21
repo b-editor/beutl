@@ -12,6 +12,8 @@ using Beutl.Composition;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
@@ -26,7 +28,6 @@ using Beutl.Serialization;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
-using Beutl.Views.Editors;
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;

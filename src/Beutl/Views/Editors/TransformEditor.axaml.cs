@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Graphics.Transformation;
 using Beutl.Models;
 using Beutl.Services;

@@ -9,6 +9,8 @@ using Beutl.Animation.Easings;
 using Beutl.Api.Services;
 using Beutl.Audio.Effects;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
@@ -30,25 +32,6 @@ public static class PropertyEditorService
     public static IPropertyAdapter<T> ToTyped<T>(this IPropertyAdapter pi)
     {
         return (IPropertyAdapter<T>)pi;
-    }
-
-    public static (IPropertyAdapter[]? Properties, PropertyEditorExtension? Extension) MatchProperty(
-        IReadOnlyList<IPropertyAdapter> properties, ExtensionProvider extensionProvider)
-    {
-        ArgumentNullException.ThrowIfNull(extensionProvider);
-
-        PropertyEditorExtension[] items = extensionProvider.GetExtensions<PropertyEditorExtension>();
-        for (int i = items.Length - 1; i >= 0; i--)
-        {
-            PropertyEditorExtension item = items[i];
-            IPropertyAdapter[] array = ExtensionGuard.Call(item, () => item.MatchProperty(properties).ToArray()) ?? [];
-            if (array.Length > 0)
-            {
-                return (array, item);
-            }
-        }
-
-        return default;
     }
 
     private static BaseEditorViewModel? CreateEnumViewModel(IPropertyAdapter s)

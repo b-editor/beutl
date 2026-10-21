@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Effects;
+﻿using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Graphics.Effects;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;

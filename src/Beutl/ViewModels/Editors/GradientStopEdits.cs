@@ -1,4 +1,5 @@
 ﻿using Beutl.Controls;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Media;
 using AM = Avalonia.Media;
 

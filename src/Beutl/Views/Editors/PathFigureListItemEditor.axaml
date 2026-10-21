@@ -1,11 +1,11 @@
 <UserControl x:Class="Beutl.Views.Editors.PathFigureListItemEditor"
              xmlns="https://github.com/avaloniaui"
+             xmlns:propertyEditors="using:Beutl.Editor.Components.PropertyEditors.Views"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
-             xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.ViewModels.Editors"
@@ -96,7 +96,7 @@
                     Margin="16,0,0,0">
             <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:MessageStrings.PropertyUnset}" />
 
-            <local:PropertiesEditor Padding="0"
+            <propertyEditors:PropertiesEditor Padding="0"
                                     DataContext="{Binding Properties.Value}" />
 
 
@@ -106,7 +106,7 @@
                               ItemsSource="{Binding Items}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <local:ListItemEditor />
+                            <propertyEditors:ListItemEditor />
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>

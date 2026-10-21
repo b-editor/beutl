@@ -2,6 +2,8 @@
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Engine;
 using Beutl.Services;
 using Beutl.ViewModels;

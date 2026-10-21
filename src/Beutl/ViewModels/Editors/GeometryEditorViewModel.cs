@@ -3,6 +3,7 @@
 using Avalonia.Input;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.Services;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Media;
 using Beutl.PropertyAdapters;
 using Beutl.Serialization;

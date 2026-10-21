@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Services;

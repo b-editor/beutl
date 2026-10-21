@@ -1,5 +1,6 @@
 <local:PresenterListItemEditor x:Class="Beutl.Views.Editors.CoreObjectListItemEditor"
                                xmlns="https://github.com/avaloniaui"
+                               xmlns:propertyEditors="using:Beutl.Editor.Components.PropertyEditors.Views"
                                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                                xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                                xmlns:icons="using:FluentIcons.Avalonia.Fluent"
@@ -66,7 +67,7 @@
         <Panel x:Name="content"
                Grid.Row="2"
                IsVisible="{Binding !IsPresenter.Value}">
-            <local:PropertiesEditor Margin="16,0,0,0"
+            <propertyEditors:PropertiesEditor Margin="16,0,0,0"
                                     Padding="0"
                                     DataContext="{Binding Properties.Value}" />
         </Panel>

@@ -9,6 +9,7 @@ using Avalonia.VisualTree;
 using Beutl.Editor.Components.GraphEditorTab.Views;
 using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Components.PathEditorTab.Views;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Testing.Headless;
 using Beutl.Views;

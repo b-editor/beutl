@@ -5,12 +5,12 @@ using Beutl.Animation;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Editors;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Services.Tutorials;

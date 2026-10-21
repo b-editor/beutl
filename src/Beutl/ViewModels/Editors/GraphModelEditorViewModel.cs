@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;

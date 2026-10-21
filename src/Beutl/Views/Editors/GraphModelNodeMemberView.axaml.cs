@@ -2,6 +2,7 @@
 using Avalonia.Interactivity;
 
 using Beutl.Controls;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.ViewModels.Editors;
 
 namespace Beutl.Views.Editors;

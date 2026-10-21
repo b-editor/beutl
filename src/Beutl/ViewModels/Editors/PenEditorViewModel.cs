@@ -2,6 +2,7 @@
 using Avalonia.Input;
 using Beutl.Collections.Pooled;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Media;

@@ -5,6 +5,7 @@ using Beutl.Animation.Easings;
 using Beutl.Api.Services;
 using Beutl.Collections;
 using Beutl.Editor;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;

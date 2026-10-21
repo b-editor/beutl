@@ -2,9 +2,9 @@
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Extensibility;
 using Beutl.Media;
-using Beutl.ViewModels.Editors;
 using Reactive.Bindings;
 using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 using AColor = Avalonia.Media.Color;
