@@ -610,7 +610,7 @@ public class TimeStretchEffectTests
         var restoredEffect = (TimeStretchEffect)restored.Children.Single();
         Assert.That(restoredEffect.Speed.CurrentValue, Is.EqualTo(150f));
         Assert.That(restoredEffect.Speed.GetKeyFrameAnimation()!.Interpolate(TimeSpan.Zero), Is.EqualTo(50f));
-        Assert.That(restoredEffect.Speed.GetKeyFrameAnimation().Interpolate(TimeSpan.FromSeconds(1)), Is.EqualTo(200f));
+        Assert.That(restoredEffect.Speed.GetKeyFrameAnimation()!.Interpolate(TimeSpan.FromSeconds(1)), Is.EqualTo(200f));
     }
 
     private static TimeStretchNode CreateNode(float speed, AudioNode source)

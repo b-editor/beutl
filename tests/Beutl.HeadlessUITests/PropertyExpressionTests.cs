@@ -93,7 +93,7 @@ public class PropertyExpressionTests
                 }
                 else
                 {
-                    Assert.That(property.Expression, Is.Null);
+                    Assert.That(property.HasExpression, Is.False);
                     Assert.That(errorText.Text, Does.Contain("string").And.Contain("float"));
                 }
             });

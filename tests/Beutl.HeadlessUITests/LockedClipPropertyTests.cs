@@ -114,7 +114,7 @@ public class LockedClipPropertyTests
                 Assert.That(shape.Width.CurrentValue, Is.EqualTo(100));
                 Assert.That(shape.Width.GetKeyFrameAnimation(), Is.SameAs(animation));
                 Assert.That(animation.KeyFrames.Select(x => x.Value), Is.EqualTo(new[] { 100f, 200f }));
-                Assert.That(shape.Width.Expression, Is.Null);
+                Assert.That(shape.Width.HasExpression, Is.False);
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before));
             });
 
