@@ -851,7 +851,7 @@ public class TrimTimeControllerTests
         });
     }
 
-    private sealed class RampSpeedAnimation : Hierarchical, IAnimationRange<float>
+    private sealed class RampSpeedAnimation : Hierarchical, IAnimation<float>
     {
         public TimeSpan Duration => Seconds(10);
         public bool UseGlobalClock => false;
@@ -860,7 +860,6 @@ public class TrimTimeControllerTests
         public event EventHandler? Edited { add { } remove { } }
         public float GetAnimatedValue(TimeSpan time) => Interpolate(time);
         public float Interpolate(TimeSpan timeSpan) => 100 + (float)Math.Clamp(timeSpan.TotalSeconds, 0, 10) * 10;
-        public bool TryGetOutputRange(out float minimum, out float maximum) { minimum = 100; maximum = 200; return true; }
     }
 
     [TestCase("roll", false)]
