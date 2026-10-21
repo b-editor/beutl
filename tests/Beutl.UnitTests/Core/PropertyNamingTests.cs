@@ -8,6 +8,7 @@ namespace Beutl.UnitTests.Core;
 [TestFixture]
 public class PropertyNamingTests
 {
+    [SuppressResourceClassGeneration]
     private sealed class ReflectedOwner : EngineObject
     {
         public ReflectedOwner() => ScanProperties<ReflectedOwner>();
