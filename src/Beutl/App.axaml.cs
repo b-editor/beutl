@@ -13,6 +13,7 @@ using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Controls.Styling;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Graphics.Backend;
 using Beutl.Helpers;
 using Beutl.Logging;

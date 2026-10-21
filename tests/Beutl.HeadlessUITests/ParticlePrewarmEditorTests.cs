@@ -13,7 +13,6 @@ using Beutl.Editor.Observers;
 using Beutl.Graphics.Particles;
 using Beutl.Language;
 using Beutl.Testing.Headless;
-using Beutl.ViewModels.Editors;
 using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 
 namespace Beutl.HeadlessUITests;

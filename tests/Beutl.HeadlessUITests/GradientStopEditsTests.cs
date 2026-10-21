@@ -1,9 +1,9 @@
 ﻿using Avalonia.Headless.NUnit;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Engine;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.PropertyAdapters;
-using Beutl.ViewModels.Editors;
 using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 using AM = Avalonia.Media;
 

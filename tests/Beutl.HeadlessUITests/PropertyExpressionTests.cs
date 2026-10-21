@@ -15,7 +15,6 @@ using Beutl.Engine.Expressions;
 using Beutl.Graphics.Shapes;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
-using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;

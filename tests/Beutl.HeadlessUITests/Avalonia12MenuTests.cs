@@ -13,7 +13,6 @@ using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Testing.Headless;
 using Beutl.Views;
-using Beutl.Views.Editors;
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;

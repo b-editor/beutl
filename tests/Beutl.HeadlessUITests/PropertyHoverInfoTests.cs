@@ -16,7 +16,6 @@ using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
-using Beutl.ViewModels.Editors;
 using Moq;
 using TextBlock = Avalonia.Controls.TextBlock;
 

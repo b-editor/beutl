@@ -5,7 +5,6 @@ using Beutl.Audio.Effects;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Extensibility;
 using Beutl.PropertyAdapters;
-using Beutl.ViewModels.Editors;
 
 namespace Beutl.HeadlessUITests;
 

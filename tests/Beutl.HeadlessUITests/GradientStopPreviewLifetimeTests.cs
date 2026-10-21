@@ -2,6 +2,7 @@
 using System.Reactive.Linq;
 using Avalonia.Headless.NUnit;
 using Beutl.Collections;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Threading;

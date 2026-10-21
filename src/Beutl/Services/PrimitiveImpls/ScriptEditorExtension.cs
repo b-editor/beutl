@@ -1,10 +1,10 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
 using Avalonia.Controls;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
-using Beutl.ViewModels.Editors;
-using Beutl.Views.Editors;
 
 namespace Beutl.Services.PrimitiveImpls;
 

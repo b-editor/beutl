@@ -27,7 +27,6 @@ using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Editors;
 using Beutl.Views;
 using FluentAvalonia.UI.Controls;
 

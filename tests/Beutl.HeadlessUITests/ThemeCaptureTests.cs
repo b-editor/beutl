@@ -24,7 +24,6 @@ using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Editors;
 using Beutl.Views;
 using FluentAvalonia.Styling;
 
