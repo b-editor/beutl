@@ -34,7 +34,7 @@ public class PropertyExpressionTests
         property.CurrentValue = 75;
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 50 });
-        property.Animation = animation;
+        property.SetKeyFrameAnimation(animation);
         if (runtimeFailure)
         {
             property.Expression = new StringExpression<float>("1 / (int)Time");
@@ -84,7 +84,7 @@ public class PropertyExpressionTests
                 Assert.That(popup.IsOpen, Is.True);
                 Assert.That(errorText.IsVisible, Is.True);
                 Assert.That(errorText.Text, Is.Not.Empty);
-                Assert.That(property.Animation, Is.SameAs(animation));
+                Assert.That(property.GetKeyFrameAnimation(), Is.SameAs(animation));
                 Assert.That(property.CurrentValue, Is.EqualTo(75));
                 if (runtimeFailure)
                 {

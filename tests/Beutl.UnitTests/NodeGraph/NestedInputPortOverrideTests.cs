@@ -64,7 +64,7 @@ public class NestedInputPortOverrideTests
         if (overrideKind == "animation")
         {
             var shape = new GeometryShapeNode();
-            brush.Color.Animation = new KeyFrameAnimation<Color>();
+            brush.Color.SetKeyFrameAnimation(new KeyFrameAnimation<Color>());
             shape.Fill.Property!.SetValue(brush);
             node = shape;
             connected = brush.Color;
@@ -95,7 +95,7 @@ public class NestedInputPortOverrideTests
             var container = factory.Object.Value.CurrentValue;
             container.Pen.CurrentValue = pen;
             return new Scenario(factory, Find(factory, container.Pen), pen.Thickness,
-                enabled => container.Pen.Animation = enabled ? animation : null);
+                enabled => container.Pen.SetKeyFrameAnimation(enabled ? animation : null));
         }
 
         var shape = new GeometryShapeNode();

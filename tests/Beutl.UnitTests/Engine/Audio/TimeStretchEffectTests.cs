@@ -191,7 +191,7 @@ public class TimeStretchEffectTests
         TimeSpan offset = useGlobalClock ? effect.TimeRange.Start : TimeSpan.Zero;
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = offset, Value = 50f, Easing = new LinearEasing() });
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = offset + TimeSpan.FromSeconds(2), Value = 200f, Easing = new LinearEasing() });
-        effect.Speed.Animation = animation;
+        effect.Speed.SetKeyFrameAnimation(animation);
         var source = ToneSource();
         using var node = new TimeStretchNode { Speed = effect.Speed };
         node.AddInput(source);
@@ -224,7 +224,7 @@ public class TimeStretchEffectTests
             Value = 200f,
             Easing = new LinearEasing()
         });
-        effect.Speed.Animation = animation;
+        effect.Speed.SetKeyFrameAnimation(animation);
         using var node = new TimeStretchNode { Speed = effect.Speed };
         node.AddInput(ToneSource());
 
@@ -265,7 +265,7 @@ public class TimeStretchEffectTests
             Value = 200f,
             Easing = new LinearEasing()
         });
-        effect.Speed.Animation = animation;
+        effect.Speed.SetKeyFrameAnimation(animation);
         using var wholeNode = new TimeStretchNode { Speed = effect.Speed };
         wholeNode.AddInput(new SignalNode(sampleRate, (_, index) => Sine(index, sampleRate, 440)));
         using var chunkedNode = new TimeStretchNode { Speed = effect.Speed };
@@ -319,7 +319,7 @@ public class TimeStretchEffectTests
             Value = 400f,
             Easing = new BackEaseIn()
         });
-        effect.Speed.Animation = animation;
+        effect.Speed.SetKeyFrameAnimation(animation);
         Assert.That(animation.Interpolate(TimeSpan.FromSeconds(0.4)), Is.LessThan(0),
             "This case must exercise an easing that would otherwise reverse the source mapping.");
         var source = ToneSource();
@@ -485,7 +485,7 @@ public class TimeStretchEffectTests
             Value = 200f,
             Easing = unknownRange ? new UnknownRangeEasing() : new LinearEasing()
         });
-        effect.Speed.Animation = animation;
+        effect.Speed.SetKeyFrameAnimation(animation);
         using var context = new AudioContext(SampleRate, 2);
         AudioNode source = context.AddNode(new SignalNode(SampleRate, (_, _) => 0, latency: 200));
         AudioNode node = effect.CreateNode(context, source);
@@ -599,7 +599,7 @@ public class TimeStretchEffectTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 50f });
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 200f });
-        effect.Speed.Animation = animation;
+        effect.Speed.SetKeyFrameAnimation(animation);
         var group = new AudioEffectGroup();
         group.Children.Add(effect);
 
@@ -609,8 +609,8 @@ public class TimeStretchEffectTests
         Assert.That(restored.Children.Single(), Is.TypeOf<TimeStretchEffect>());
         var restoredEffect = (TimeStretchEffect)restored.Children.Single();
         Assert.That(restoredEffect.Speed.CurrentValue, Is.EqualTo(150f));
-        Assert.That(restoredEffect.Speed.Animation!.Interpolate(TimeSpan.Zero), Is.EqualTo(50f));
-        Assert.That(restoredEffect.Speed.Animation.Interpolate(TimeSpan.FromSeconds(1)), Is.EqualTo(200f));
+        Assert.That(restoredEffect.Speed.GetKeyFrameAnimation()!.Interpolate(TimeSpan.Zero), Is.EqualTo(50f));
+        Assert.That(restoredEffect.Speed.GetKeyFrameAnimation().Interpolate(TimeSpan.FromSeconds(1)), Is.EqualTo(200f));
     }
 
     private static TimeStretchNode CreateNode(float speed, AudioNode source)

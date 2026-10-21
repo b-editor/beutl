@@ -533,9 +533,9 @@ public sealed class ReadDocumentTests
                 }
             }
         };
-        text.Opacity.Animation = new KeyFrameAnimation<float>();
-        ((TranslateTransform)((TransformGroup)text.Transform.CurrentValue!).Children[0]).X.Animation = CreateFloatAnimation();
-        ((RotationTransform)((TransformGroup)text.Transform.CurrentValue!).Children[1]).Rotation.Animation = CreateFloatAnimation();
+        text.Opacity.SetKeyFrameAnimation(new KeyFrameAnimation<float>());
+        ((TranslateTransform)((TransformGroup)text.Transform.CurrentValue!).Children[0]).X.SetKeyFrameAnimation(CreateFloatAnimation());
+        ((RotationTransform)((TransformGroup)text.Transform.CurrentValue!).Children[1]).Rotation.SetKeyFrameAnimation(CreateFloatAnimation());
         element.AddObject(text);
         scene.Children.Add(element);
 

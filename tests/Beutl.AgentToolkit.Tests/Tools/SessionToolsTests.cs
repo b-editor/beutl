@@ -200,7 +200,7 @@ public sealed class SessionToolsTests
             KeyTime = TimeSpan.Zero,
             Value = new RectShape(),
         }, out _);
-        holder.AnimatedValue.Animation = animation;
+        holder.AnimatedValue.SetKeyFrameAnimation(animation);
         var element = new Element
         {
             Name = "Animated fallback",
@@ -220,7 +220,7 @@ public sealed class SessionToolsTests
         JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
         JsonObject objectJson = elementJson[nameof(Element.Objects)]!.AsArray()[0]!.AsObject();
         JsonObject animationJson = objectJson["Animations"]![nameof(AnimatedValueHolder.AnimatedValue)]!.AsObject();
-        JsonObject keyFrameJson = animationJson[nameof(KeyFrameAnimation.KeyFrames)]!.AsArray()[0]!.AsObject();
+        JsonObject keyFrameJson = animationJson[nameof(IKeyFrameAnimation.KeyFrames)]!.AsArray()[0]!.AsObject();
         keyFrameJson[nameof(IKeyFrame.Value)]!.AsObject()["$type"] = MissingType;
         keyFrameJson[nameof(KeyFrame.Easing)] = "[Missing.Assembly]Missing.Namespace:MissingEasing";
         File.WriteAllText(elementPath, elementJson.ToJsonString());
@@ -269,7 +269,7 @@ public sealed class SessionToolsTests
             KeyTime = TimeSpan.Zero,
             Value = 32,
         });
-        shape.Width.Animation = animation;
+        shape.Width.SetKeyFrameAnimation(animation);
         var element = new Element
         {
             Name = "Easing replacement",
@@ -289,7 +289,7 @@ public sealed class SessionToolsTests
         JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
         JsonObject objectJson = elementJson[nameof(Element.Objects)]!.AsArray()[0]!.AsObject();
         JsonObject animationJson = objectJson["Animations"]![nameof(RectShape.Width)]!.AsObject();
-        JsonObject keyFrameJson = animationJson[nameof(KeyFrameAnimation.KeyFrames)]!.AsArray()[0]!.AsObject();
+        JsonObject keyFrameJson = animationJson[nameof(IKeyFrameAnimation.KeyFrames)]!.AsArray()[0]!.AsObject();
         keyFrameJson[nameof(KeyFrame.Easing)] = "[Missing.Assembly]Missing.Namespace:MissingEasing";
         File.WriteAllText(elementPath, elementJson.ToJsonString());
 

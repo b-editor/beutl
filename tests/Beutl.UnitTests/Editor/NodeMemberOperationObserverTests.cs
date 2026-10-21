@@ -25,7 +25,7 @@ public class NodeMemberOperationObserverTests
     [SuppressResourceClassGeneration]
     private sealed partial class TestNodeMember<T> : NodeMember<T>
     {
-        public TestNodeMember(string name, T? value = default, IAnimation<T>? animation = null)
+        public TestNodeMember(string name, T? value = default, KeyFrameAnimation<T>? animation = null)
         {
             var adapter = new NodePropertyAdapter<T>(name, value, animation);
             Property = adapter;
@@ -36,7 +36,7 @@ public class NodeMemberOperationObserverTests
             Property?.SetValue(value);
         }
 
-        public void SetAnimation(IAnimation<T>? animation)
+        public void SetAnimation(KeyFrameAnimation<T>? animation)
         {
             if (Property is NodePropertyAdapter<T> adapter)
             {

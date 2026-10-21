@@ -1,6 +1,7 @@
 ﻿using Beutl.Animation;
 using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.TestInfrastructure;
 
@@ -27,20 +28,20 @@ public class AnimatablePropertyTests
         Assert.That(property.CurrentValue, Is.EqualTo(7));
         Assert.That(property.HasLocalValue, Is.False);
         Assert.That(property.HasExpression, Is.False);
-        Assert.That(property.Animation, Is.Null);
+        Assert.That(property.GetKeyFrameAnimation(), Is.Null);
     }
 
     [Test]
     public void Animation_AssigningRaisesEdited()
     {
         var property = Make(0);
-        IAnimation<int>? captured = null;
+        IExpression<int>? captured = null;
         int edited = 0;
-        property.AnimationChanged += a => captured = a;
+        property.ExpressionChanged += e => captured = e;
         property.Edited += (_, _) => edited++;
 
         var animation = TestAnimations.Linear(0, 10, TimeSpan.FromSeconds(1));
-        property.Animation = animation;
+        property.SetKeyFrameAnimation(animation);
 
         Assert.That(captured, Is.SameAs(animation));
         Assert.That(edited, Is.EqualTo(1));
@@ -51,11 +52,11 @@ public class AnimatablePropertyTests
     {
         var property = Make(0);
         var animation = TestAnimations.Linear(0, 10, TimeSpan.FromSeconds(1));
-        property.Animation = animation;
+        property.SetKeyFrameAnimation(animation);
         int edited = 0;
         property.Edited += (_, _) => edited++;
 
-        property.Animation = animation;
+        property.SetKeyFrameAnimation(animation);
 
         Assert.That(edited, Is.Zero);
     }
@@ -64,21 +65,21 @@ public class AnimatablePropertyTests
     public void Animation_ClearingToNull_RaisesEdited()
     {
         var property = Make(0);
-        property.Animation = TestAnimations.Linear(0, 10, TimeSpan.FromSeconds(1));
+        property.SetKeyFrameAnimation(TestAnimations.Linear(0, 10, TimeSpan.FromSeconds(1)));
         int edited = 0;
         property.Edited += (_, _) => edited++;
 
-        property.Animation = null;
+        property.SetKeyFrameAnimation(null);
 
         Assert.That(edited, Is.EqualTo(1));
-        Assert.That(property.Animation, Is.Null);
+        Assert.That(property.GetKeyFrameAnimation(), Is.Null);
     }
 
     [Test]
     public void GetValue_WithAnimation_ReturnsInterpolatedValue()
     {
         var property = Make(0);
-        property.Animation = TestAnimations.Linear(0, 100, TimeSpan.FromSeconds(1.0));
+        property.SetKeyFrameAnimation(TestAnimations.Linear(0, 100, TimeSpan.FromSeconds(1.0)));
 
         var midpoint = property.GetValue(new CompositionContext(TimeSpan.FromSeconds(0.5)));
 
@@ -91,7 +92,7 @@ public class AnimatablePropertyTests
         var owner = new TestEngineObjectForProperty();
         var property = Make(0);
         property.SetOwnerObject(owner);
-        property.Animation = TestAnimations.Linear(100, 0, TimeSpan.FromSeconds(1.0));
+        property.SetKeyFrameAnimation(TestAnimations.Linear(100, 0, TimeSpan.FromSeconds(1.0)));
         var element = new Element
         {
             Start = TimeSpan.FromSeconds(5),
@@ -111,11 +112,11 @@ public class AnimatablePropertyTests
     public void ResetToDefault_ClearsTheAnimation()
     {
         var property = Make(7);
-        property.Animation = TestAnimations.Linear(0, 10, TimeSpan.FromSeconds(1));
+        property.SetKeyFrameAnimation(TestAnimations.Linear(0, 10, TimeSpan.FromSeconds(1)));
 
         property.ResetToDefault();
 
-        Assert.That(property.Animation, Is.Null);
+        Assert.That(property.GetKeyFrameAnimation(), Is.Null);
     }
 
     [Test]

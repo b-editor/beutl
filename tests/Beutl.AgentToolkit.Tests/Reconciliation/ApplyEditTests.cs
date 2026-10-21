@@ -165,7 +165,7 @@ public sealed class ApplyEditTests
         {
             Value = [new(new PlainFallback())],
         });
-        holder.Wrapped.Animation = animation;
+        holder.Wrapped.SetKeyFrameAnimation(animation);
         element.AddObject(holder);
         using var session = new AgentToolkitTestSession(scene);
         JsonObject desired = session.Documents.Read(scene);

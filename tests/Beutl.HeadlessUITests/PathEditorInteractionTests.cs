@@ -165,7 +165,7 @@ public class PathEditorInteractionTests
                 var animation = new KeyFrameAnimation<BtlPoint>();
                 animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = source.CurrentValue });
                 animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = TimeSpan.FromSeconds(1), Value = new(100, 180) });
-                source.Animation = animation;
+                source.SetKeyFrameAnimation(animation);
             }
         }
         editor.View.Refresh();
@@ -179,7 +179,7 @@ public class PathEditorInteractionTests
         Assert.That(editor.View.Tool, Is.EqualTo(PathEditorTool.Pen));
         using (editor.Editor.HistoryManager.SuppressRecording())
         {
-            source.Animation = null;
+            source.SetKeyFrameAnimation(null);
             source.Expression = null;
         }
         editor.View.Refresh();
@@ -401,7 +401,7 @@ public class PathEditorInteractionTests
         {
             var animation = new KeyFrameAnimation<BtlPoint>();
             animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = new(35, 85) });
-            first.ControlPoint2.Animation = animation;
+            first.ControlPoint2.SetKeyFrameAnimation(animation);
         }
         figure.Segments.Add(first);
         figure.Segments.Add(new LineSegment(180, 100));
@@ -411,7 +411,7 @@ public class PathEditorInteractionTests
         editor.Click(280, 180);
         editor.Drag(new(240, 120), new(270, 120));
         var before = CoreSerializer.SerializeToJsonObject(figure);
-        var incoming = first.ControlPoint2.Animation;
+        var incoming = first.ControlPoint2.GetKeyFrameAnimation();
         int history = editor.Editor.HistoryManager.UndoCount;
         editor.Click(80, 100);
         Assert.That(figure.IsClosed.CurrentValue, Is.True);
@@ -419,7 +419,7 @@ public class PathEditorInteractionTests
         Assert.That(figure.Segments[0], Is.SameAs(first));
         Assert.That(first.ControlPoint1.CurrentValue, Is.EqualTo(new BtlPoint(270, 120)));
         Assert.That(first.ControlPoint2.CurrentValue, Is.EqualTo(new BtlPoint(40, 140)));
-        Assert.That(first.ControlPoint2.Animation, Is.SameAs(incoming));
+        Assert.That(first.ControlPoint2.GetKeyFrameAnimation(), Is.SameAs(incoming));
         Assert.That(first.EndPoint.CurrentValue, Is.EqualTo(new BtlPoint(80, 100)));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(history + 1));
         var after = CoreSerializer.SerializeToJsonObject(figure);
@@ -453,7 +453,7 @@ public class PathEditorInteractionTests
                 var property = kind == "animation" ? cubic.ControlPoint1 : figure.Segments[^1].GetEndPoint();
                 var animation = new KeyFrameAnimation<BtlPoint>();
                 animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = property.CurrentValue });
-                property.Animation = animation;
+                property.SetKeyFrameAnimation(animation);
             }
         }
         editor.View.Refresh();
@@ -469,7 +469,7 @@ public class PathEditorInteractionTests
         {
             // Appending from a driven endpoint is protected just like closing it.
             using (editor.Editor.HistoryManager.SuppressRecording())
-                figure.Segments[^1].GetEndPoint().Animation = null;
+                figure.Segments[^1].GetEndPoint().SetKeyFrameAnimation(null);
             editor.View.Refresh();
             HeadlessTestHelpers.Render(3);
         }
@@ -564,7 +564,7 @@ public class PathEditorInteractionTests
                 var animation = new KeyFrameAnimation<bool>();
                 animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.Zero, Value = false });
                 animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.FromSeconds(1), Value = true });
-                figure.IsClosed.Animation = animation;
+                figure.IsClosed.SetKeyFrameAnimation(animation);
             }
         }
         editor.View.Refresh();
@@ -607,7 +607,7 @@ public class PathEditorInteractionTests
             {
                 var animation = new KeyFrameAnimation<BtlPoint>();
                 animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = property.CurrentValue });
-                property.Animation = animation;
+                property.SetKeyFrameAnimation(animation);
             }
         }
         editor.View.Refresh();
@@ -621,7 +621,7 @@ public class PathEditorInteractionTests
         Assert.That(editor.Editor.HistoryManager.HasPendingOperations, Is.False);
         using (editor.Editor.HistoryManager.SuppressRecording())
         {
-            property.Animation = null;
+            property.SetKeyFrameAnimation(null);
             property.Expression = null;
         }
         editor.View.Refresh();
@@ -778,7 +778,7 @@ public class PathEditorInteractionTests
                     var animated = new LineSegment(280, 260);
                     var animation = new KeyFrameAnimation<BtlPoint>();
                     animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = new(280, 260) });
-                    animated.GetEndPoint().Animation = animation;
+                    animated.GetEndPoint().SetKeyFrameAnimation(animation);
                     editor.Figure.Segments.Add(animated);
                     break;
             }
@@ -935,13 +935,13 @@ public class PathEditorInteractionTests
         animation.KeyFrames.Add(first);
         animation.KeyFrames.Add(second);
         using (editor.Editor.HistoryManager.SuppressRecording())
-            editor.Figure.Segments[0].GetEndPoint().Animation = animation;
+            editor.Figure.Segments[0].GetEndPoint().SetKeyFrameAnimation(animation);
         HeadlessTestHelpers.Render(3);
         editor.Click(80, 100);
         editor.Key(Key.Right, RawInputModifiers.Shift);
         Assert.That(first.Value, Is.EqualTo(new BtlPoint(90, 100)));
         Assert.That(second.Value, Is.EqualTo(new BtlPoint(110, 130)));
-        Assert.That(editor.Figure.Segments[0].GetEndPoint().Animation, Is.SameAs(animation));
+        Assert.That(editor.Figure.Segments[0].GetEndPoint().GetKeyFrameAnimation(), Is.SameAs(animation));
         editor.Editor.HistoryManager.Undo();
         Assert.That(first.Value, Is.EqualTo(new BtlPoint(80, 100)));
     }
@@ -963,7 +963,7 @@ public class PathEditorInteractionTests
             KeyTime = TimeSpan.Zero,
             Easing = new SplineEasing(0, 0, 1, 1)
         });
-        third.ControlPoint2.Animation = singleKey;
+        third.ControlPoint2.SetKeyFrameAnimation(singleKey);
         figure.Segments.Add(third);
         using var editor = await Fixture.Create(pathFigure: figure);
         editor.Window.Width = 900;
@@ -979,7 +979,7 @@ public class PathEditorInteractionTests
         var baseCurve = BaseCurve(original);
         BtlPoint[] expectedBase = Enumerable.Range(0, 101)
             .Select(i => PathEditingOperations.Evaluate(start, baseCurve, i / 100f, context)).ToArray();
-        var animation = ((CubicBezierSegment)figure.Segments[2]).ControlPoint2.Animation!;
+        var animation = ((CubicBezierSegment)figure.Segments[2]).ControlPoint2.GetKeyFrameAnimation()!;
         var key = (KeyFrame<BtlPoint>)((KeyFrameAnimation<BtlPoint>)animation).KeyFrames.Single();
         var keyId = key.Id;
         var easing = key.Easing;
@@ -991,18 +991,18 @@ public class PathEditorInteractionTests
         var inserted = figure.Segments[index];
         Assert.That(editor.Model.SelectedOperation.Value, Is.SameAs(inserted));
         Assert.That(figure.Segments[index + 1], Is.SameAs(original));
-        if (index == 2) Assert.That(original.ControlPoint2.Animation, Is.SameAs(animation));
+        if (index == 2) Assert.That(original.ControlPoint2.GetKeyFrameAnimation(), Is.SameAs(animation));
         Assert.That(key.Id, Is.EqualTo(keyId));
         Assert.That(key.Easing, Is.SameAs(easing));
         Assert.That(key.KeyTime, Is.EqualTo(TimeSpan.Zero));
         var animatedProperties = figure.Segments.SelectMany(s => PathEditorHelper.GetControlPointProperties(s).Append(s.GetEndPoint()))
-            .Select(p => p.Animation).OfType<KeyFrameAnimation<BtlPoint>>().ToArray();
+            .Select(p => p.GetKeyFrameAnimation()).OfType<KeyFrameAnimation<BtlPoint>>().ToArray();
         Assert.That(animatedProperties.Select(a => a.Id).Distinct().Count(), Is.EqualTo(animatedProperties.Length));
         Assert.That(animatedProperties.SelectMany(a => a.KeyFrames).Select(k => k.Id).Distinct().Count(), Is.EqualTo(animatedProperties.Length));
         if (index == 2)
         {
             Assert.That(animatedProperties, Has.Length.EqualTo(4));
-            var derived = ((KeyFrameAnimation<BtlPoint>)inserted.GetEndPoint().Animation!).KeyFrames[0];
+            var derived = ((KeyFrameAnimation<BtlPoint>)inserted.GetEndPoint().GetKeyFrameAnimation()!).KeyFrames[0];
             Assert.That(derived.Easing, Is.Not.SameAs(easing));
             Assert.That(derived.KeyTime, Is.EqualTo(key.KeyTime));
         }
@@ -1058,11 +1058,11 @@ public class PathEditorInteractionTests
         animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = TimeSpan.Zero, Value = new(180, 100) });
         animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = TimeSpan.FromSeconds(1), Value = new(200, 120) });
         using (editor.Editor.HistoryManager.SuppressRecording())
-            editor.Figure.Segments[1].GetEndPoint().Animation = animation;
+            editor.Figure.Segments[1].GetEndPoint().SetKeyFrameAnimation(animation);
         editor.Key(Key.P);
         editor.Click(130, 100);
         Assert.That(editor.Figure.Segments, Has.Count.EqualTo(3));
-        Assert.That(editor.Figure.Segments[1].GetEndPoint().Animation, Is.SameAs(animation));
+        Assert.That(editor.Figure.Segments[1].GetEndPoint().GetKeyFrameAnimation(), Is.SameAs(animation));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.Zero);
     }
 
@@ -1232,7 +1232,7 @@ public class PathEditorInteractionTests
 
         context.PrepareToEditAnimation();
         HeadlessTestHelpers.Render(2);
-        Assert.That(curve.ControlPoint2.Animation, Is.Not.Null);
+        Assert.That(curve.ControlPoint2.GetKeyFrameAnimation(), Is.Not.Null);
         Assert.That(controlPoint.KeyFrameCount, Is.GreaterThan(0));
         Assert.That(controlPoint.MenuContent, Is.SameAs(menu));
         editor.Click(80, 100);
@@ -1445,8 +1445,8 @@ public class PathEditorInteractionTests
         animation.KeyFrames.Add(later);
         using (editor.Editor.HistoryManager.SuppressRecording())
         {
-            if (scenario == "animated-anchor") anchor.EndPoint.Animation = animation;
-            if (scenario == "animated-handles") anchor.ControlPoint2.Animation = animation;
+            if (scenario == "animated-anchor") anchor.EndPoint.SetKeyFrameAnimation(animation);
+            if (scenario == "animated-handles") anchor.ControlPoint2.SetKeyFrameAnimation(animation);
             if (scenario == "coincident-neighbors")
                 editor.Figure.Segments[^1].GetEndPoint().CurrentValue = next.EndPoint.CurrentValue;
             if (scenario == "nearly-collapsed")
@@ -1475,8 +1475,8 @@ public class PathEditorInteractionTests
         editor.Editor.HistoryManager.Undo();
         Assert.That(anchor.ControlPoint2.GetValue(context), Is.EqualTo(originalIncoming));
         Assert.That(next.ControlPoint1.GetValue(context), Is.EqualTo(point));
-        if (scenario == "animated-anchor") Assert.That(anchor.EndPoint.Animation, Is.SameAs(animation));
-        if (scenario == "animated-handles") Assert.That(anchor.ControlPoint2.Animation, Is.SameAs(animation));
+        if (scenario == "animated-anchor") Assert.That(anchor.EndPoint.GetKeyFrameAnimation(), Is.SameAs(animation));
+        if (scenario == "animated-handles") Assert.That(anchor.ControlPoint2.GetKeyFrameAnimation(), Is.SameAs(animation));
     }
 
     [AvaloniaTest]
@@ -1750,7 +1750,7 @@ public class PathEditorInteractionTests
                 : PathEditingOperations.Evaluate(inserted.GetEndPoint().CurrentValue, cubic, (t - .4f) / .6f, context);
             Assert.That(((Beutl.Graphics.Vector)(actual - expected[i])).Length, Is.LessThan(.001));
         }
-        cubic.EndPoint.Animation = new KeyFrameAnimation<BtlPoint>();
+        cubic.EndPoint.SetKeyFrameAnimation(new KeyFrameAnimation<BtlPoint>());
         Assert.That(PathEditingOperations.Split(figure, 2, .5f, context), Is.Null);
         Assert.That(figure.Segments, Has.Count.EqualTo(3));
     }

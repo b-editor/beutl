@@ -78,7 +78,7 @@ public class EnginePropertyOperationObserverTests
         var engineObj = new TestEngineObjectWithAnimatableFloat();
         var property = (AnimatableProperty<float>)engineObj.FloatValue;
         var animation = new KeyFrameAnimation<float>();
-        property.Animation = animation;
+        property.SetKeyFrameAnimation(animation);
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
@@ -224,14 +224,15 @@ public class EnginePropertyOperationObserverTests
             testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
 
         var newAnimation = new KeyFrameAnimation<float>();
-        property.Animation = newAnimation;
+        property.SetKeyFrameAnimation(newAnimation);
 
+        // Keyframes are the bottom of the expression chain, so setting them changes the chain.
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
-        var operation = receivedOperations[0] as UpdatePropertyValueOperation<IAnimation<float>>;
+        var operation = receivedOperations[0] as UpdatePropertyValueOperation<IExpression<float>>;
         Assert.That(operation, Is.Not.Null);
         Assert.Multiple(() =>
         {
-            Assert.That(operation!.PropertyPath, Is.EqualTo("FloatValue.Animation"));
+            Assert.That(operation!.PropertyPath, Is.EqualTo("FloatValue.Expression"));
             Assert.That(operation.NewValue, Is.SameAs(newAnimation));
             Assert.That(operation.OldValue, Is.Null);
         });
@@ -250,7 +251,7 @@ public class EnginePropertyOperationObserverTests
 
         using (PublishingSuppression.Enter())
         {
-            property.Animation = new KeyFrameAnimation<float>();
+            property.SetKeyFrameAnimation(new KeyFrameAnimation<float>());
         }
 
         Assert.That(receivedOperations, Is.Empty);
@@ -268,7 +269,7 @@ public class EnginePropertyOperationObserverTests
             testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
 
         var newAnimation = new KeyFrameAnimation<float>();
-        property.Animation = newAnimation;
+        property.SetKeyFrameAnimation(newAnimation);
         receivedOperations.Clear();
 
         newAnimation.KeyFrames.Add(new KeyFrame<float> { Value = 1.0f, KeyTime = TimeSpan.FromSeconds(1) });
@@ -285,13 +286,13 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         var oldAnimation = new KeyFrameAnimation<float>();
-        property.Animation = oldAnimation;
+        property.SetKeyFrameAnimation(oldAnimation);
 
         using var observer = new EnginePropertyOperationObserver<float>(
             testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
 
         var newAnimation = new KeyFrameAnimation<float>();
-        property.Animation = newAnimation;
+        property.SetKeyFrameAnimation(newAnimation);
         receivedOperations.Clear();
 
         oldAnimation.KeyFrames.Add(new KeyFrame<float> { Value = 1.0f, KeyTime = TimeSpan.FromSeconds(1) });
@@ -308,18 +309,18 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         var animation = new KeyFrameAnimation<float>();
-        property.Animation = animation;
+        property.SetKeyFrameAnimation(animation);
 
         using var observer = new EnginePropertyOperationObserver<float>(
             testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
         receivedOperations.Clear();
 
-        property.Animation = null;
+        property.SetKeyFrameAnimation(null);
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
-        var operation = receivedOperations[0] as UpdatePropertyValueOperation<IAnimation<float>>;
+        var operation = receivedOperations[0] as UpdatePropertyValueOperation<IExpression<float>>;
         Assert.That(operation, Is.Not.Null);
-        Assert.That(operation!.NewValue, Is.Null);
+        Assert.That((operation!.PropertyPath, operation.NewValue), Is.EqualTo(("FloatValue.Expression", (IExpression<float>?)null)));
     }
 
     #endregion
@@ -453,7 +454,7 @@ public class EnginePropertyOperationObserverTests
             testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
 
         observer.Dispose();
-        property.Animation = new KeyFrameAnimation<float>();
+        property.SetKeyFrameAnimation(new KeyFrameAnimation<float>());
 
         Assert.That(receivedOperations, Is.Empty);
     }
@@ -514,7 +515,7 @@ public class EnginePropertyOperationObserverTests
         var engineObj = new TestEngineObjectWithAnimatableFloat();
         var property = (AnimatableProperty<float>)engineObj.FloatValue;
         var animation = new KeyFrameAnimation<float>();
-        property.Animation = animation;
+        property.SetKeyFrameAnimation(animation);
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
@@ -562,10 +563,10 @@ public class EnginePropertyOperationObserverTests
         using var observer = new EnginePropertyOperationObserver<float>(
             testObserver, engineObj, property, _sequenceGenerator, "FloatValue", propertyPathsToTrack);
 
-        property.Animation = new KeyFrameAnimation<float>();
+        property.SetKeyFrameAnimation(new KeyFrameAnimation<float>());
 
         var animationOps = receivedOperations.Where(op =>
-            op is UpdatePropertyValueOperation<IAnimation<float>> update && update.PropertyPath.Contains("Animation")).ToList();
+            op is UpdatePropertyValueOperation<KeyFrameAnimation<float>> update && update.PropertyPath.Contains("Animation")).ToList();
         Assert.That(animationOps, Is.Empty);
     }
 
@@ -600,7 +601,7 @@ public class EnginePropertyOperationObserverTests
             testObserver, engineObj, property, _sequenceGenerator, "FloatValue", null);
 
         property.CurrentValue = 50f;
-        property.Animation = new KeyFrameAnimation<float>();
+        property.SetKeyFrameAnimation(new KeyFrameAnimation<float>());
         property.Expression = new TestExpression<float>(75f);
 
         Assert.That(receivedOperations, Has.Count.EqualTo(3));
@@ -621,8 +622,8 @@ public class EnginePropertyOperationObserverTests
         using var observer = new EnginePropertyOperationObserver<float>(
             testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
 
-        property.Animation = new KeyFrameAnimation<float>();
-        property.Animation = new KeyFrameAnimation<float>();
+        property.SetKeyFrameAnimation(new KeyFrameAnimation<float>());
+        property.SetKeyFrameAnimation(new KeyFrameAnimation<float>());
 
         Assert.That(receivedOperations, Has.Count.EqualTo(2));
         Assert.That(receivedOperations[1].SequenceNumber, Is.GreaterThan(receivedOperations[0].SequenceNumber));

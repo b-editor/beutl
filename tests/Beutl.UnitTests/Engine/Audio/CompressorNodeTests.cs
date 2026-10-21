@@ -380,7 +380,7 @@ public class CompressorNodeTests
         var source = new BufferReplayNode(input);
 
         var node = CreateNode(threshold: -10f, ratio: 8f, attack: 1f);
-        node.Threshold.Animation = Ramp(-10f, -40f, TimeSpan.FromSeconds(0.5));
+        node.Threshold.SetKeyFrameAnimation(Ramp(-10f, -40f, TimeSpan.FromSeconds(0.5)));
         node.AddInput(source);
 
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.5));
@@ -453,7 +453,7 @@ public class CompressorNodeTests
         var node = CreateNode(threshold: thresholdDb, ratio: ratio);
         if (animated)
         {
-            node.Threshold.Animation = Ramp(thresholdDb, thresholdDb, duration);
+            node.Threshold.SetKeyFrameAnimation(Ramp(thresholdDb, thresholdDb, duration));
         }
         node.AddInput(new BufferReplayNode(input));
 
@@ -572,7 +572,7 @@ public class CompressorNodeTests
         }
 
         var node = CreateNode(attack: 1f);
-        node.Attack.Animation = Ramp(1f, 200f, TimeSpan.FromSeconds(1.0));
+        node.Attack.SetKeyFrameAnimation(Ramp(1f, 200f, TimeSpan.FromSeconds(1.0)));
         node.AddInput(new BufferReplayNode(input));
 
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1.0));
@@ -607,7 +607,7 @@ public class CompressorNodeTests
 
         var node = CreateNode();
         // Trivial threshold animation (constant value) just to force the ProcessAnimated path.
-        node.Threshold.Animation = Ramp(-20f, -20f, TimeSpan.FromSeconds(sampleCount / (double)SampleRate));
+        node.Threshold.SetKeyFrameAnimation(Ramp(-20f, -20f, TimeSpan.FromSeconds(sampleCount / (double)SampleRate)));
         node.AddInput(new BufferReplayNode(input));
 
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(sampleCount / (double)SampleRate));
@@ -653,7 +653,7 @@ public class CompressorNodeTests
             AnimatedParam.MakeupGain => node.MakeupGain,
             _ => throw new ArgumentOutOfRangeException(nameof(param))
         };
-        target.Animation = Ramp(float.NaN, float.NaN, TimeSpan.FromSeconds(0.25));
+        target.SetKeyFrameAnimation(Ramp(float.NaN, float.NaN, TimeSpan.FromSeconds(0.25)));
         node.AddInput(new BufferReplayNode(input));
 
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25));
@@ -675,7 +675,7 @@ public class CompressorNodeTests
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
         var node = CreateNode();
-        node.MakeupGain.Animation = Ramp(0f, 12f, TimeSpan.FromSeconds(1.0));
+        node.MakeupGain.SetKeyFrameAnimation(Ramp(0f, 12f, TimeSpan.FromSeconds(1.0)));
         node.AddInput(new BufferReplayNode(input));
 
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1.0));
@@ -704,7 +704,7 @@ public class CompressorNodeTests
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
         var node = CreateNode(ratio: 0.5f);
-        node.Ratio.Animation = Ramp(0.5f, 0.5f, TimeSpan.FromSeconds(0.25));
+        node.Ratio.SetKeyFrameAnimation(Ramp(0.5f, 0.5f, TimeSpan.FromSeconds(0.25)));
         node.AddInput(new BufferReplayNode(input));
 
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25));
@@ -728,7 +728,7 @@ public class CompressorNodeTests
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
         var node = CreateNode(threshold: -50f, attack: 1e9f);
-        node.Attack.Animation = Ramp(1e9f, 1e9f, TimeSpan.FromSeconds(1.0));
+        node.Attack.SetKeyFrameAnimation(Ramp(1e9f, 1e9f, TimeSpan.FromSeconds(1.0)));
         node.AddInput(new BufferReplayNode(input));
 
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1.0));
@@ -753,8 +753,8 @@ public class CompressorNodeTests
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
         var node = CreateNode();
-        node.Threshold.Animation = Ramp(float.NaN, float.NaN, TimeSpan.FromSeconds(0.25));
-        node.Attack.Animation = Ramp(float.NaN, float.NaN, TimeSpan.FromSeconds(0.25));
+        node.Threshold.SetKeyFrameAnimation(Ramp(float.NaN, float.NaN, TimeSpan.FromSeconds(0.25)));
+        node.Attack.SetKeyFrameAnimation(Ramp(float.NaN, float.NaN, TimeSpan.FromSeconds(0.25)));
         node.AddInput(new BufferReplayNode(input));
 
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25));
@@ -792,7 +792,7 @@ public class CompressorNodeTests
         // unanimated, so AnimationSampler fills each with the same CurrentValue static reads.
 
         var animatedNode = CreateNode(knee: 6f, makeup: 3f);
-        animatedNode.Threshold.Animation = Ramp(-20f, -20f, duration);
+        animatedNode.Threshold.SetKeyFrameAnimation(Ramp(-20f, -20f, duration));
         animatedNode.AddInput(new BufferReplayNode(input));
         using var animatedOut = animatedNode.Process(CreateContext(TimeSpan.Zero, duration));
 
@@ -859,7 +859,7 @@ public class CompressorNodeTests
         var exprNode = CreateNode();
         exprNode.Threshold.Expression = new StringExpression<float>("-40");
         Assert.That(exprNode.Threshold.HasExpression, Is.True);
-        Assert.That(exprNode.Threshold.Animation, Is.Null);
+        Assert.That(exprNode.Threshold.GetKeyFrameAnimation(), Is.Null);
         exprNode.AddInput(new BufferReplayNode(input));
         using var exprOut = exprNode.Process(CreateContext(TimeSpan.Zero, duration));
 
@@ -930,7 +930,7 @@ public class CompressorNodeTests
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
         var node = CreateNode();
-        node.Attack.Animation = Ramp(1e9f, 1e9f, TimeSpan.FromSeconds(0.25));
+        node.Attack.SetKeyFrameAnimation(Ramp(1e9f, 1e9f, TimeSpan.FromSeconds(0.25)));
         node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25)));

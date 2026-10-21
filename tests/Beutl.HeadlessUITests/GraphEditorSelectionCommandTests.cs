@@ -216,7 +216,7 @@ public class GraphEditorSelectionCommandTests
         animation.KeyFrames.Add(first);
         animation.KeyFrames.Add(second);
         var effect = new StrokeEffect();
-        effect.Offset.Animation = animation;
+        effect.Offset.SetKeyFrameAnimation(animation);
         var shape = graph.Model.Element!.Objects.OfType<RectShape>().Single();
         ((FilterEffectGroup)shape.FilterEffect.CurrentValue!).Children.Add(effect);
         graph.Model.HistoryManager.Commit();

@@ -364,7 +364,7 @@ public class AudioLatencyCompensationTests
         var speedProperty = Property.CreateAnimatable(50f);
         if (animated)
         {
-            speedProperty.Animation = new KeyFrameAnimation<float>
+            speedProperty.SetKeyFrameAnimation(new KeyFrameAnimation<float>
             {
                 KeyFrames =
                 {
@@ -381,7 +381,7 @@ public class AudioLatencyCompensationTests
                         Easing = new LinearEasing(),
                     },
                 },
-            };
+            });
         }
 
         using var speed = new SpeedNode { Speed = speedProperty };
@@ -452,12 +452,12 @@ public class AudioLatencyCompensationTests
 
         using var input = new RecordingFlushRequestNode();
         var speedProperty = Property.CreateAnimatable(animatedSpeed);
-        speedProperty.Animation = ConstantSpeedAnimation(animatedSpeed);
+        speedProperty.SetKeyFrameAnimation(ConstantSpeedAnimation(animatedSpeed));
         using var speed = new SpeedNode { Speed = speedProperty };
         speed.AddInput(input);
 
         using var processed = speed.Process(Context(TimeSpan.Zero, sampleCount));
-        speedProperty.Animation = null;
+        speedProperty.SetKeyFrameAnimation(null);
         speedProperty.CurrentValue = 100f;
         using var tail = speed.Flush(
             Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
@@ -486,9 +486,9 @@ public class AudioLatencyCompensationTests
         speed.AddInput(input);
 
         using var staticChunk = speed.Process(Context(TimeSpan.Zero, sampleCount));
-        speedProperty.Animation = ConstantSpeedAnimation(200f);
+        speedProperty.SetKeyFrameAnimation(ConstantSpeedAnimation(200f));
         using var animatedChunk = speed.Process(Context(chunkDuration, sampleCount));
-        speedProperty.Animation = null;
+        speedProperty.SetKeyFrameAnimation(null);
         speedProperty.CurrentValue = 50f;
         using var tail = speed.Flush(Context(chunkDuration + chunkDuration, sampleCount));
 
@@ -588,14 +588,14 @@ public class AudioLatencyCompensationTests
 
         using var source = new AbsoluteSineNode(SampleRate);
         using var limiter = CreateTransparentLimiter(20f);
-        limiter.Lookahead.Animation = new KeyFrameAnimation<float>
+        limiter.Lookahead.SetKeyFrameAnimation(new KeyFrameAnimation<float>
         {
             KeyFrames =
             {
                 new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 20f, Easing = new LinearEasing() },
                 new KeyFrame<float> { KeyTime = branchEnd - oneSample, Value = 0f, Easing = new LinearEasing() },
             },
-        };
+        });
         limiter.AddInput(source);
         using var delay = new DelayNode
         {
@@ -1252,7 +1252,7 @@ public class AudioLatencyCompensationTests
             },
         };
         var lookahead = Property.CreateAnimatable(0f);
-        lookahead.Animation = animation;
+        lookahead.SetKeyFrameAnimation(animation);
 
         using var node = new LimiterNode
         {
@@ -1267,7 +1267,7 @@ public class AudioLatencyCompensationTests
             "Animated lookahead must report the worst case so the drain reserves enough room.");
 
         var effect = new LimiterEffect();
-        effect.Lookahead.Animation = animation;
+        effect.Lookahead.SetKeyFrameAnimation(animation);
         Assert.That(effect.GetLatencySamples(SampleRate),
             Is.EqualTo(LookaheadSamples(LimiterParameters.MaxLookaheadMs)));
         Assert.That(effect.GetLatencySamples(SampleRate, 200),
@@ -1295,7 +1295,7 @@ public class AudioLatencyCompensationTests
             },
         };
         var lookahead = Property.CreateAnimatable(lookaheadMs);
-        lookahead.Animation = animation;
+        lookahead.SetKeyFrameAnimation(animation);
 
         using var node = new LimiterNode
         {
@@ -1340,7 +1340,7 @@ public class AudioLatencyCompensationTests
             },
         };
         var makeup = Property.CreateAnimatable(0f);
-        makeup.Animation = animation;
+        makeup.SetKeyFrameAnimation(animation);
 
         using var node = new LimiterNode
         {

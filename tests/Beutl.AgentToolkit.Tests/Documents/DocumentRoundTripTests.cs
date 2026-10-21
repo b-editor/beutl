@@ -20,7 +20,7 @@ public class DocumentRoundTripTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0 }, out _);
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100 }, out _);
-        text.Opacity.Animation = animation;
+        text.Opacity.SetKeyFrameAnimation(animation);
         var adapter = new DocumentAdapter();
 
         JsonObject document = adapter.Read(text);
@@ -29,7 +29,7 @@ public class DocumentRoundTripTests
         document["Animations"] = new JsonArray();
 
         Assert.Throws<ReconcileException>(() => adapter.Write(text, document));
-        Assert.That(text.Opacity.Animation, Is.SameAs(animation));
+        Assert.That(text.Opacity.GetKeyFrameAnimation(), Is.SameAs(animation));
     }
 
     [Test]
@@ -83,7 +83,7 @@ public class DocumentRoundTripTests
 
         adapter.Write(target, document);
 
-        var animation = (KeyFrameAnimation<float>)target.Amount.Animation!;
+        var animation = (KeyFrameAnimation<float>)target.Amount.GetKeyFrameAnimation()!;
         Assert.Multiple(() =>
         {
             Assert.That(animation.KeyFrames.Single().Value, Is.EqualTo(100));
@@ -94,7 +94,7 @@ public class DocumentRoundTripTests
         target.Validator.ResetCounts();
         JsonObject update = adapter.Read(target);
         var updatedAnimation = (JsonObject)update["Animations"]![nameof(ContextValidatedEngineObject.Amount)]!;
-        var updatedKeyFrames = (JsonArray)updatedAnimation[nameof(KeyFrameAnimation.KeyFrames)]!;
+        var updatedKeyFrames = (JsonArray)updatedAnimation[nameof(IKeyFrameAnimation.KeyFrames)]!;
         updatedKeyFrames[0]![nameof(KeyFrame<float>.Value)] = 125;
 
         adapter.Write(target, update);

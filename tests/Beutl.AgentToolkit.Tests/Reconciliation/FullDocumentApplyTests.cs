@@ -115,7 +115,7 @@ public sealed class FullDocumentApplyTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0 }, out _);
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100 }, out _);
-        text.Opacity.Animation = animation;
+        text.Opacity.SetKeyFrameAnimation(animation);
         element.AddObject(text);
         scene.Children.Add(element);
         using var session = new AgentToolkitTestSession(scene);
@@ -123,11 +123,11 @@ public sealed class FullDocumentApplyTests
 
         JsonObject desired = session.Documents.Read(scene);
         var animationJson = (JsonObject)desired["Elements"]![0]!["Objects"]![0]!["Animations"]!["Opacity"]!;
-        animationJson.Remove(nameof(KeyFrameAnimation.KeyFrames));
+        animationJson.Remove(nameof(IKeyFrameAnimation.KeyFrames));
 
         reconciler.Apply(session, desired);
 
-        Assert.That(((KeyFrameAnimation<float>)text.Opacity.Animation!).KeyFrames, Is.Empty);
+        Assert.That(((KeyFrameAnimation<float>)text.Opacity.GetKeyFrameAnimation()!).KeyFrames, Is.Empty);
     }
 
     [Test]
@@ -140,7 +140,7 @@ public sealed class FullDocumentApplyTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0 }, out _);
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100 }, out _);
-        text.Opacity.Animation = animation;
+        text.Opacity.SetKeyFrameAnimation(animation);
         element.AddObject(text);
         scene.Children.Add(element);
         using var session = new AgentToolkitTestSession(scene);
@@ -150,7 +150,7 @@ public sealed class FullDocumentApplyTests
         var animationJson = (JsonObject)desired["Elements"]![0]!["Objects"]![0]!["Animations"]!["Opacity"]!;
         // A primitive entry has no Id, so silently skipping it would leave the removal pass to delete
         // every existing keyframe. The apply must be rejected instead.
-        animationJson[nameof(KeyFrameAnimation.KeyFrames)] = new JsonArray(JsonValue.Create(42));
+        animationJson[nameof(IKeyFrameAnimation.KeyFrames)] = new JsonArray(JsonValue.Create(42));
 
         ReconcileException rejection = Assert.Throws<ReconcileException>(() => reconciler.Apply(session, desired))!;
 
@@ -158,7 +158,7 @@ public sealed class FullDocumentApplyTests
         {
             Assert.That(rejection.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(rejection.Error.Target, Is.EqualTo("KeyFrames[0]"));
-            Assert.That(((KeyFrameAnimation<float>)text.Opacity.Animation!).KeyFrames, Has.Count.EqualTo(2));
+            Assert.That(((KeyFrameAnimation<float>)text.Opacity.GetKeyFrameAnimation()!).KeyFrames, Has.Count.EqualTo(2));
         });
     }
 

@@ -76,7 +76,7 @@ public sealed class DrawableDecoratorReplayTests
             parameter = transform.Rotation;
         }
 
-        parameter.Animation = new KeyFrameAnimation<float>
+        parameter.SetKeyFrameAnimation(new KeyFrameAnimation<float>
         {
             KeyFrames =
             {
@@ -84,7 +84,7 @@ public sealed class DrawableDecoratorReplayTests
                 new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = scaleTransform ? 150 : 30 },
                 new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = scaleTransform ? 75 : -20 },
             },
-        };
+        });
 
         var scene = new Scene(256, 144, "decorator") { Uri = new Uri("file:///decorator/scene") };
         var element = new Element

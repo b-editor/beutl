@@ -178,14 +178,14 @@ public sealed class ParticlePrewarmTests
     {
         var emitter = CreateEmitter();
         emitter.PrewarmDuration.CurrentValue = TimeSpan.FromSeconds(2);
-        emitter.Speed.Animation = new KeyFrameAnimation<float>
+        emitter.Speed.SetKeyFrameAnimation(new KeyFrameAnimation<float>
         {
             KeyFrames =
             {
                 new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 20 },
                 new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = 200 },
             },
-        };
+        });
         var context = new CompositionContext(TimeSpan.Zero);
         using var actual = emitter.ToResource(context);
         using var expected = CreateEmitter().ToResource(new CompositionContext(TimeSpan.FromSeconds(2)));

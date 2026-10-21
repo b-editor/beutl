@@ -299,7 +299,7 @@ public sealed class FileSourceEditorTests
         var animation = new KeyFrameAnimation<TestMediaSource?>();
         animation.KeyFrames.Add(keyframe);
         var property = (AnimatableProperty<TestMediaSource?>)holder.Source;
-        property.Animation = animation;
+        property.SetKeyFrameAnimation(animation);
         var (vm, control) = CreateControl(new AnimatablePropertyAdapter<TestMediaSource?>(property, holder));
         using var _ = vm;
         using var history = new HistoryScope(holder);

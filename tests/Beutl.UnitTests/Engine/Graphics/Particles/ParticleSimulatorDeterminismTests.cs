@@ -72,14 +72,13 @@ public sealed class ParticleSimulatorDeterminismTests
     public void AnimatedParameters_WithAnimatedTransformMatchColdSeek(int frameRate, bool animateTransform)
     {
         var emitter = CreateSyntheticEmitter();
-        emitter.EmissionRate.Animation = CreateAnimation(30, 90);
-        emitter.Gravity.Animation = CreateAnimation(0, 60);
+        emitter.EmissionRate.SetKeyFrameAnimation(CreateAnimation(30, 90));
+        emitter.Gravity.SetKeyFrameAnimation(CreateAnimation(0, 60));
         if (animateTransform)
         {
-            emitter.Transform.CurrentValue = new TranslateTransform
-            {
-                X = { Animation = CreateAnimation(0, 200) },
-            };
+            var transform = new TranslateTransform();
+            transform.X.SetKeyFrameAnimation(CreateAnimation(0, 200));
+            emitter.Transform.CurrentValue = transform;
         }
 
         using var sequential = emitter.ToResource(new CompositionContext(TimeSpan.Zero));

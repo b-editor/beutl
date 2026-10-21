@@ -454,7 +454,7 @@ public class CollectionOperationObserverTests
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
             testObserver, list, owner, "Items", _sequenceGenerator);
 
-        // Changes made while publishing is suppressed (as KeyFrameAnimation re-sorts its key frames)
+        // Changes made while publishing is suppressed (as KeyFrameAnimation<T> re-sorts its key frames)
         // are not published, but a later Reset still has to report what the list held.
         using (PublishingSuppression.Enter())
         {

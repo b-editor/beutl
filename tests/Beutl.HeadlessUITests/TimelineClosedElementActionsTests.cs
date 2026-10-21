@@ -140,7 +140,7 @@ public class TimelineClosedElementActionsTests
             {
                 Assert.That(inline.Element.Model, Is.SameAs(element));
                 Assert.That(inline.Property.GetEngineProperty(), Is.SameAs(shape.Width));
-                Assert.That(shape.Width.Animation, Is.InstanceOf<IKeyFrameAnimation>());
+                Assert.That(shape.Width.GetKeyFrameAnimation(), Is.InstanceOf<IKeyFrameAnimation>());
             });
         }
         finally

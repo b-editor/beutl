@@ -458,11 +458,11 @@ public class HistoryManagerIntegrationTests
         var model = new TestEngineModel();
         using var harness = new HistoryHarness(model);
         var original = new KeyFrameAnimation<float>();
-        model.Value.Animation = original;
+        model.Value.SetKeyFrameAnimation(original);
         harness.History.Commit("Animate");
 
-        model.Value.Animation = new KeyFrameAnimation<float>();
-        model.Value.Animation = original;
+        model.Value.SetKeyFrameAnimation(new KeyFrameAnimation<float>());
+        model.Value.SetKeyFrameAnimation(original);
 
         Assert.That(harness.History.HasPendingOperations, Is.False);
     }

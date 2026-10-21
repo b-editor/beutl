@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Media;
 using Beutl.UnitTests.TestInfrastructure;
@@ -24,7 +25,7 @@ public class AnimationSamplerTests
     {
         var property = Property.CreateAnimatable(from);
         property.SetAttributes("Value", []);
-        property.Animation = TestAnimations.Linear(from, to, TimeSpan.FromSeconds(durationSeconds));
+        property.SetKeyFrameAnimation(TestAnimations.Linear(from, to, TimeSpan.FromSeconds(durationSeconds)));
         return property;
     }
 
@@ -35,7 +36,7 @@ public class AnimationSamplerTests
 
         var property = Property.CreateAnimatable(from);
         property.SetAttributes("Value", []);
-        property.Animation = TestAnimations.Linear(from, to, TimeSpan.FromSeconds(durationSeconds), useGlobalClock);
+        property.SetKeyFrameAnimation(TestAnimations.Linear(from, to, TimeSpan.FromSeconds(durationSeconds), useGlobalClock));
         property.SetOwnerObject(owner);
         return (property, owner);
     }
@@ -137,6 +138,29 @@ public class AnimationSamplerTests
         for (int i = 1; i < buffer.Length; i++)
         {
             Assert.That(buffer[i], Is.GreaterThan(buffer[i - 1]));
+        }
+    }
+
+    // Audio samples the keyframes the property gives video at the same times (#1818).
+    [TestCase(false)]
+    [TestCase(true)]
+    public void SampleBuffer_MatchesTheValuesThePropertyGives(bool useGlobalClock)
+    {
+        var sampler = new AnimationSampler();
+        var (property, owner) = AttachedAnimatedFloat(
+            from: 0f,
+            to: 100f,
+            durationSeconds: 6.0,
+            ownerTimeRange: new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1)),
+            useGlobalClock: useGlobalClock);
+
+        Span<float> buffer = stackalloc float[10];
+        sampler.SampleBuffer(property, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 10, buffer);
+
+        for (int i = 0; i < buffer.Length; i++)
+        {
+            var time = owner.TimeRange.Start + TimeSpan.FromSeconds(i / 10.0);
+            Assert.That(buffer[i], Is.EqualTo(property.GetValue(new CompositionContext(time))), $"sample {i}");
         }
     }
 

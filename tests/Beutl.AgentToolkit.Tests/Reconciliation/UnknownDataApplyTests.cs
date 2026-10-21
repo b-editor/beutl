@@ -4,6 +4,7 @@ using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
+using Beutl.Animation;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -176,10 +177,10 @@ public sealed class UnknownDataApplyTests
         };
         element.AddObject(new RectShape { Width = { CurrentValue = 10 } });
         var plugin = new RectShape();
-        plugin.Width.Animation = new Beutl.Animation.KeyFrameAnimation<float>
+        plugin.Width.SetKeyFrameAnimation(new Beutl.Animation.KeyFrameAnimation<float>
         {
             KeyFrames = { new Beutl.Animation.KeyFrame<float> { Value = 5 } },
-        };
+        });
         element.AddObject(plugin);
         scene.Children.Add(element);
         CoreSerializer.StoreToUri(scene, sceneUri);

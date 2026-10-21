@@ -37,7 +37,7 @@ public sealed class ApplierReviewFollowupTests
     public void KeyTime_edit_that_crosses_a_neighbour_re_sorts_the_keyframes()
     {
         Scene scene = CreateSceneWithAnimatedText(out _, out TextBlock text);
-        var animation = (KeyFrameAnimation<float>)text.Opacity.Animation!;
+        var animation = (KeyFrameAnimation<float>)text.Opacity.GetKeyFrameAnimation()!;
         Guid firstId = animation.KeyFrames[0].Id;
         Guid secondId = animation.KeyFrames[1].Id;
         using var session = new AgentToolkitTestSession(scene);
@@ -83,7 +83,7 @@ public sealed class ApplierReviewFollowupTests
                 Easing = new LinearEasing(),
             };
             animation.KeyFrames.Add(keyFrame, out _);
-            text.Opacity.Animation = animation;
+            text.Opacity.SetKeyFrameAnimation(animation);
             element.AddObject(text);
             scene.Children.Add(element);
             CoreSerializer.StoreToUri(scene, sceneUri);
@@ -170,7 +170,7 @@ public sealed class ApplierReviewFollowupTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0, Easing = new LinearEasing() }, out _);
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100, Easing = new LinearEasing() }, out _);
-        text.Opacity.Animation = animation;
+        text.Opacity.SetKeyFrameAnimation(animation);
         return scene;
     }
 

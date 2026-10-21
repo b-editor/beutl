@@ -167,7 +167,7 @@ public sealed class FallbackEditorPersistenceTests
             Recovered recovered = StoreCorruptAndRestore(root, CreateAnimatedShape(), CorruptTheEasing);
             Element recoveredElement = recovered.Element;
             var shape = (RectShape)recoveredElement.Objects.Single();
-            var animation = (KeyFrameAnimation<float>)shape.Width.Animation!;
+            var animation = (KeyFrameAnimation<float>)shape.Width.GetKeyFrameAnimation()!;
             var keyFrame = (KeyFrame<float>)animation.KeyFrames.Single();
             using var history = new HistoryScope(recoveredElement);
             var adapter = new CorePropertyAdapter<Easing>(KeyFrame.EasingProperty, keyFrame);
@@ -204,7 +204,7 @@ public sealed class FallbackEditorPersistenceTests
             var animation = new KeyFrameAnimation<float>();
             animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 32 });
             animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(0.5), Value = 48 });
-            shape.Width.Animation = animation;
+            shape.Width.SetKeyFrameAnimation(animation);
             Recovered recovered = StoreCorruptAndRestore(
                 root,
                 shape,
@@ -213,7 +213,7 @@ public sealed class FallbackEditorPersistenceTests
 
             Element recoveredElement = recovered.Element;
             var recoveredShape = (RectShape)recoveredElement.Objects.Single();
-            var recoveredAnimation = (KeyFrameAnimation<float>)recoveredShape.Width.Animation!;
+            var recoveredAnimation = (KeyFrameAnimation<float>)recoveredShape.Width.GetKeyFrameAnimation()!;
             using var history = new HistoryScope(recoveredElement);
             using var viewModel = new ValueEditorViewModel<float>(new AnimatablePropertyAdapter<float>(
                 (AnimatableProperty<float>)recoveredShape.Width, recoveredShape));
@@ -725,7 +725,7 @@ public sealed class FallbackEditorPersistenceTests
             Recovered recovered = StoreCorruptAndRestore(root, CreateAnimatedShape(), CorruptTheEasing);
             Element recoveredElement = recovered.Element;
             var shape = (RectShape)recoveredElement.Objects.Single();
-            var animation = (KeyFrameAnimation<float>)shape.Width.Animation!;
+            var animation = (KeyFrameAnimation<float>)shape.Width.GetKeyFrameAnimation()!;
             Assert.That(animation.KeyFrames, Has.Count.EqualTo(1));
             using var history = new HistoryScope(recoveredElement);
             var adapter = new AnimatablePropertyAdapter<float>(
@@ -753,7 +753,7 @@ public sealed class FallbackEditorPersistenceTests
             byte[] repairedBytes = File.ReadAllBytes(recovered.ElementPath);
             bool undone = history.History.Undo();
             CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
-            var restoredAnimation = (KeyFrameAnimation<float>)shape.Width.Animation!;
+            var restoredAnimation = (KeyFrameAnimation<float>)shape.Width.GetKeyFrameAnimation()!;
 
             Assert.Multiple(() =>
             {
@@ -855,7 +855,7 @@ public sealed class FallbackEditorPersistenceTests
         var property = (AnimatableProperty<T>)select(holder);
         property.CurrentValue = currentValue;
         var keyFrame = new KeyFrame<T> { Value = keyFrameValue };
-        property.Animation = CreateAnimation(keyFrame);
+        property.SetKeyFrameAnimation(CreateAnimation(keyFrame));
         var element = new Element { Uri = new Uri("file:///editor-test.belm") };
         element.AddObject(holder);
         using var history = new HistoryScope(element);
@@ -937,7 +937,7 @@ public sealed class FallbackEditorPersistenceTests
             KeyTime = TimeSpan.Zero,
             Value = 32,
         });
-        shape.Width.Animation = animation;
+        shape.Width.SetKeyFrameAnimation(animation);
         return shape;
     }
 
@@ -969,11 +969,11 @@ public sealed class FallbackEditorPersistenceTests
         var obj = new T();
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 1 });
-        obj.Properties.Single(property => property.Name == propertyName).Animation = animation;
+        obj.Properties.Single(property => property.Name == propertyName).SetKeyFrameAnimation(animation);
         JsonObject animationJson = CoreSerializer.SerializeToJsonObject(obj)["Animations"]![propertyName]!
             .DeepClone()
             .AsObject();
-        animationJson[nameof(KeyFrameAnimation.KeyFrames)]![0]![nameof(KeyFrame.Easing)] = MissingEasingType;
+        animationJson[nameof(IKeyFrameAnimation.KeyFrames)]![0]![nameof(KeyFrame.Easing)] = MissingEasingType;
         objectJson["Animations"]![propertyName] = animationJson;
     }
 

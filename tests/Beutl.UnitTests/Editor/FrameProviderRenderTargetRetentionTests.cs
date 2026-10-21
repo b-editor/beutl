@@ -140,7 +140,7 @@ public sealed class FrameProviderRenderTargetRetentionTests
                 },
             },
         };
-        shape.Width.Animation = width;
+        shape.Width.SetKeyFrameAnimation(width);
         var element = new Element
         {
             Start = TimeSpan.Zero,

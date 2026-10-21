@@ -256,7 +256,7 @@ public class GateNodeTests
         using var input = CreateConstantBuffer(0.01f, sampleCount); // ≈-40 dB
 
         var node = CreateNode(threshold: -60f, hold: 0f, release: 20f);
-        node.Threshold.Animation = Ramp(-60f, -20f, TimeSpan.FromSeconds(0.5));
+        node.Threshold.SetKeyFrameAnimation(Ramp(-60f, -20f, TimeSpan.FromSeconds(0.5)));
         node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.5)));
@@ -281,7 +281,7 @@ public class GateNodeTests
         using var staticOut = staticNode.Process(CreateContext(TimeSpan.Zero, duration));
 
         var animatedNode = CreateNode(attack: 2f, hold: 5f, release: 30f, range: -50f);
-        animatedNode.Threshold.Animation = Ramp(-40f, -40f, duration);
+        animatedNode.Threshold.SetKeyFrameAnimation(Ramp(-40f, -40f, duration));
         animatedNode.AddInput(new BufferReplayNode(input));
         using var animatedOut = animatedNode.Process(CreateContext(TimeSpan.Zero, duration));
 
@@ -369,7 +369,7 @@ public class GateNodeTests
             AnimatedParam.Range => node.Range,
             _ => throw new ArgumentOutOfRangeException(nameof(param))
         };
-        target.Animation = Ramp(float.NaN, float.NaN, TimeSpan.FromSeconds(0.25));
+        target.SetKeyFrameAnimation(Ramp(float.NaN, float.NaN, TimeSpan.FromSeconds(0.25)));
         node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25)));
@@ -416,7 +416,7 @@ public class GateNodeTests
         using var input = CreateConstantBuffer(0.9f, sampleCount);
 
         var node = CreateNode(attack: 5f);
-        node.Threshold.Animation = Ramp(-40f, -40f, TimeSpan.FromSeconds(sampleCount / (double)SampleRate));
+        node.Threshold.SetKeyFrameAnimation(Ramp(-40f, -40f, TimeSpan.FromSeconds(sampleCount / (double)SampleRate)));
         node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(sampleCount / (double)SampleRate)));
@@ -501,7 +501,7 @@ public class GateNodeTests
         var node = CreateNode();
         if (animated)
         {
-            node.Threshold.Animation = Ramp(-40f, -40f, duration);
+            node.Threshold.SetKeyFrameAnimation(Ramp(-40f, -40f, duration));
         }
         node.AddInput(new BufferReplayNode(input));
         using var output = node.Process(CreateContext(TimeSpan.Zero, duration));
@@ -682,7 +682,7 @@ public class GateNodeTests
         using var staticOut = staticNode.Process(CreateContext(TimeSpan.Zero, duration));
 
         var animatedNode = CreateNode(attack: 2f, hold: 5f, release: 30f, range: -50f);
-        animatedNode.Threshold.Animation = Ramp(-40f, -40f, duration);
+        animatedNode.Threshold.SetKeyFrameAnimation(Ramp(-40f, -40f, duration));
         animatedNode.AddInput(new BufferReplayNode(input));
         using var animatedOut = animatedNode.Process(CreateContext(TimeSpan.Zero, duration));
 
@@ -706,7 +706,7 @@ public class GateNodeTests
         using var input = CreateConstantBuffer(0.9f, sampleCount);
 
         var node = CreateNode();
-        node.Attack.Animation = Ramp(1e9f, 1e9f, TimeSpan.FromSeconds(0.25));
+        node.Attack.SetKeyFrameAnimation(Ramp(1e9f, 1e9f, TimeSpan.FromSeconds(0.25)));
         node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25)));

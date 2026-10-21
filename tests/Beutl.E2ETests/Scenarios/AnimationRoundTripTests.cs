@@ -53,14 +53,14 @@ public class AnimationRoundTripTests
             Uri = new Uri(Path.Combine(_baseDir, "animated.belm")),
         };
         var shape = new RectShape();
-        shape.Opacity.Animation = BuildOpacityAnimation();
+        shape.Opacity.SetKeyFrameAnimation(BuildOpacityAnimation());
         element.Objects.Add(shape);
 
         CoreSerializer.StoreToUri(element, element.Uri!);
         var restored = CoreSerializer.RestoreFromUri<Element>(element.Uri!);
 
         RectShape restoredShape = restored.Objects.OfType<RectShape>().Single();
-        var restoredAnimation = restoredShape.Opacity.Animation as KeyFrameAnimation<float>;
+        var restoredAnimation = restoredShape.Opacity.GetKeyFrameAnimation() as KeyFrameAnimation<float>;
 
         Assert.That(restoredAnimation, Is.Not.Null);
         Assert.Multiple(() =>

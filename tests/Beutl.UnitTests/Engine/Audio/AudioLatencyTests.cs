@@ -347,14 +347,14 @@ public class AudioLatencyTests
     public void SpeedNode_GetTotalLatencySamples_AnimatedSpeedUsesSlowestKeyFrame()
     {
         var speedProperty = Property.CreateAnimatable(200f);
-        speedProperty.Animation = new KeyFrameAnimation<float>
+        speedProperty.SetKeyFrameAnimation(new KeyFrameAnimation<float>
         {
             KeyFrames =
             {
                 new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 200f },
                 new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 50f },
             },
-        };
+        });
         using var limiter = CreateLimiterNode(5f);
         using var speed = new SpeedNode { Speed = speedProperty };
         speed.AddInput(limiter);
@@ -371,14 +371,14 @@ public class AudioLatencyTests
         var duration = AudioProcessContext.GetDurationForSampleCount(processSamples, SampleRate);
         var terminalSample = AudioProcessContext.GetDurationForSampleCount(1, SampleRate);
         var speedProperty = Property.CreateAnimatable(100f);
-        speedProperty.Animation = new KeyFrameAnimation<float>
+        speedProperty.SetKeyFrameAnimation(new KeyFrameAnimation<float>
         {
             KeyFrames =
             {
                 new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 50f },
                 new KeyFrame<float> { KeyTime = duration - terminalSample - terminalSample, Value = 100f },
             },
-        };
+        });
 
         using var limiter = CreateLimiterNode(5f);
         using var speed = new SpeedNode { Speed = speedProperty };
@@ -403,7 +403,7 @@ public class AudioLatencyTests
     {
         var easing = new BackEaseIn();
         var speedProperty = Property.CreateAnimatable(100f);
-        speedProperty.Animation = new KeyFrameAnimation<float>
+        speedProperty.SetKeyFrameAnimation(new KeyFrameAnimation<float>
         {
             KeyFrames =
             {
@@ -415,7 +415,7 @@ public class AudioLatencyTests
                     Easing = easing,
                 },
             },
-        };
+        });
         using var limiter = CreateLimiterNode(5f);
         using var speed = new SpeedNode { Speed = speedProperty };
         speed.AddInput(limiter);
@@ -437,7 +437,7 @@ public class AudioLatencyTests
     public void SpeedNode_GetTotalLatencySamples_UnknownEasingSaturates()
     {
         var speedProperty = Property.CreateAnimatable(100f);
-        speedProperty.Animation = new KeyFrameAnimation<float>
+        speedProperty.SetKeyFrameAnimation(new KeyFrameAnimation<float>
         {
             KeyFrames =
             {
@@ -449,7 +449,7 @@ public class AudioLatencyTests
                     Easing = new UnknownRangeEasing(),
                 },
             },
-        };
+        });
         using var limiter = CreateLimiterNode(5f);
         using var speed = new SpeedNode { Speed = speedProperty };
         speed.AddInput(limiter);
@@ -461,7 +461,7 @@ public class AudioLatencyTests
     public void SpeedNode_GetTotalLatencySamples_UnknownAnimationSaturates()
     {
         var speedProperty = Property.CreateAnimatable(100f);
-        speedProperty.Animation = new Mock<IAnimation<float>>().Object;
+        speedProperty.SetKeyFrameAnimation(new Mock<KeyFrameAnimation<float>>().Object);
         using var limiter = CreateLimiterNode(5f);
         using var speed = new SpeedNode { Speed = speedProperty };
         speed.AddInput(limiter);

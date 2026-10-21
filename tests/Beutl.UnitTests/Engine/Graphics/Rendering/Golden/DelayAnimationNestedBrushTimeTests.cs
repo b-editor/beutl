@@ -133,7 +133,7 @@ public class DelayAnimationNestedBrushTimeTests
         var animation = new KeyFrameAnimation<Color>();
         animation.KeyFrames.Add(new KeyFrame<Color> { Value = Colors.Red, KeyTime = TimeSpan.Zero });
         animation.KeyFrames.Add(new KeyFrame<Color> { Value = Colors.Blue, KeyTime = CompositionTime });
-        fill.Color.Animation = animation;
+        fill.Color.SetKeyFrameAnimation(animation);
 
         var content = new RectShape();
         content.AlignmentX.CurrentValue = AlignmentX.Center;
@@ -166,7 +166,7 @@ public class DelayAnimationNestedBrushTimeTests
             var animation = new KeyFrameAnimation<float>();
             animation.KeyFrames.Add(new KeyFrame<float> { Value = 40f, KeyTime = TimeSpan.Zero });
             animation.KeyFrames.Add(new KeyFrame<float> { Value = 220f, KeyTime = TimeSpan.FromSeconds(2) });
-            brightness.Amount.Animation = animation;
+            brightness.Amount.SetKeyFrameAnimation(animation);
 
             var delay = new DelayAnimationEffect();
             delay.Delay.CurrentValue = 250f;

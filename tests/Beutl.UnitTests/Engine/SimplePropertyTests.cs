@@ -1,4 +1,5 @@
-﻿using Beutl.Engine;
+﻿using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Engine.Expressions;
 
 namespace Beutl.UnitTests.Engine;
@@ -48,7 +49,7 @@ public class SimplePropertyTests
     {
         var property = Make(0);
 
-        Assert.Throws<InvalidOperationException>(() => property.Animation = new Beutl.Animation.KeyFrameAnimation<int>());
+        Assert.Throws<InvalidOperationException>(() => property.SetKeyFrameAnimation(new Beutl.Animation.KeyFrameAnimation<int>()));
     }
 
     [Test]
@@ -56,8 +57,8 @@ public class SimplePropertyTests
     {
         var property = Make(0);
 
-        Assert.DoesNotThrow(() => property.Animation = null);
-        Assert.That(property.Animation, Is.Null);
+        Assert.DoesNotThrow(() => property.SetKeyFrameAnimation(null));
+        Assert.That(property.GetKeyFrameAnimation(), Is.Null);
     }
 
     [Test]

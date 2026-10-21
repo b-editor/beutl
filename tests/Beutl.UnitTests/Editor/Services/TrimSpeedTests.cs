@@ -92,7 +92,7 @@ public class TrimSpeedTests
     {
         Element element = AddElement(5, 2);
         var media = AddMedia(element, mediaType, 50, offsetSeconds: 1);
-        media.Speed.Animation = CreateSpeedRamp(useGlobalClock);
+        media.Speed.SetKeyFrameAnimation(CreateSpeedRamp(useGlobalClock));
 
         // speed(t) / 100 = 1 + t/10: integral 0..1 = 1.05 (local), 5..6 = 1.55 (global).
         bool applied = _slip.Slip(_scene, [element], TimeSpan.FromSeconds(1));
@@ -119,7 +119,7 @@ public class TrimSpeedTests
         Element front = AddElement(3, 2);
         Element back = AddElement(5, 3);
         var media = AddMedia(back, mediaType, 50, offsetSeconds: 1);
-        media.Speed.Animation = CreateSpeedRamp(useGlobalClock);
+        media.Speed.SetKeyFrameAnimation(CreateSpeedRamp(useGlobalClock));
 
         // Use the original start at 5s for global 5..6, not the updated start at 6s.
         // The local curve always uses 0..1, whose integral is 1.05s.
@@ -158,7 +158,7 @@ public class TrimSpeedTests
             Value = 200,
             Easing = new LinearEasing()
         });
-        media.Speed.Animation = animation;
+        media.Speed.SetKeyFrameAnimation(animation);
 
         Assert.That(_slip.Slip(_scene, [element], TimeSpan.FromSeconds(-0.5)), Is.True);
         // Integral of 1.5 + 0.5t over -0.5..0 is 0.6875 seconds of source.
@@ -182,7 +182,7 @@ public class TrimSpeedTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 300, Easing = new LinearEasing() });
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(4), Value = 100, Easing = new LinearEasing() });
-        media.Speed.Animation = animation;
+        media.Speed.SetKeyFrameAnimation(animation);
         TimeSpan requested = TimeSpan.FromSeconds(2);
         var constraints = ElementResizeService.CreateTrimConstraints(_scene, [new ElementTrimPair(front, back)]);
         TimeSpan preview = constraints.Clamp(requested);
@@ -256,7 +256,7 @@ public class TrimSpeedTests
         var animation = new KeyFrameAnimation<float> { UseGlobalClock = true };
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100, Easing = new LinearEasing() });
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(10), Value = 300, Easing = new LinearEasing() });
-        media.Speed.Animation = animation;
+        media.Speed.SetKeyFrameAnimation(animation);
         TimeSpan requested = TimeSpan.FromSeconds(2);
         TimeSpan preview = ElementResizeService.CreateTrimConstraints(_scene,
             [new ElementTrimPair(front, back)], [middle]).Clamp(requested);
@@ -302,7 +302,7 @@ public class TrimSpeedTests
             Value = 300,
             Easing = customEasing ? easing : new LinearEasing()
         });
-        sound.Speed.Animation = animation;
+        sound.Speed.SetKeyFrameAnimation(animation);
         element.Objects.Add(sound);
         TimeSpan? maximum = null;
 
@@ -322,7 +322,7 @@ public class TrimSpeedTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1000), Value = 200, Easing = new NarrowPeakEasing() });
-        sound.Speed.Animation = animation;
+        sound.Speed.SetKeyFrameAnimation(animation);
         element.Objects.Add(sound);
         _resize.Resize(_scene, [new(element, element.Start, TimeSpan.FromSeconds(250), 0)]);
         using var playback = new SpeedIntegrator(44100);
@@ -340,7 +340,7 @@ public class TrimSpeedTests
         playback.EnsureCache(animation);
         TimeSpan duration = playback.Integrate(back.Range.End, animation) - playback.Integrate(back.Start, animation);
         var sound = new SceneSound { ReferencedScene = { CurrentValue = new Scene { Duration = duration } } };
-        sound.Speed.Animation = animation;
+        sound.Speed.SetKeyFrameAnimation(animation);
         back.Objects.Add(sound);
         Assert.That(_resize.Roll(_scene, [new(front, back)], TimeSpan.FromSeconds(0.5)), Is.True);
         Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
@@ -359,7 +359,7 @@ public class TrimSpeedTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1000), Value = 200, Easing = new NarrowPeakEasing() });
-        sound.Speed.Animation = animation;
+        sound.Speed.SetKeyFrameAnimation(animation);
         back.Objects.Add(sound);
         using var playback = new SpeedIntegrator(44100);
         playback.EnsureCache(animation);
@@ -388,7 +388,7 @@ public class TrimSpeedTests
     {
         Element element = AddElement(0, 2);
         var sound = new SceneSound { ReferencedScene = { CurrentValue = new Scene { Duration = TimeSpan.FromSeconds(3) } } };
-        sound.Speed.Animation = CreateSpeedRamp(useGlobalClock: true);
+        sound.Speed.SetKeyFrameAnimation(CreateSpeedRamp(useGlobalClock: true));
         element.Objects.Add(sound);
 
         _resize.Resize(_scene, [new(element, TimeSpan.FromSeconds(8), element.Length, 0)]);

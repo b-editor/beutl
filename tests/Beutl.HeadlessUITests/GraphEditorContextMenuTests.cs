@@ -213,7 +213,7 @@ public class GraphEditorContextMenuTests
             animation.KeyFrames.Add(first);
             animation.KeyFrames.Add(second);
             var shape = new RectShape();
-            shape.Width.Animation = animation;
+            shape.Width.SetKeyFrameAnimation(animation);
             await TestShell.AddElementAsync(editor, () => shape, elementStart, TimeSpan.FromSeconds(2));
             var model = new GraphEditorViewModel(editor, animation, scene.Children.Single());
             model.Options.Value = model.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };

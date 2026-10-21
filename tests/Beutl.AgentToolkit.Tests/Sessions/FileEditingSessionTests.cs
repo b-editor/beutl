@@ -41,7 +41,7 @@ public sealed class FileEditingSessionTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 10 });
         var shape = new RectShape();
-        shape.Width.Animation = animation;
+        shape.Width.SetKeyFrameAnimation(animation);
         var element = new Element { Uri = new Uri(elementPath), Length = TimeSpan.FromSeconds(1) };
         var holder = new WrappedKeyFrameHolder();
         holder.Frames.CurrentValue = [new KeyFrameWrapper(new KeyFrame<float> { Value = 10 })];
@@ -76,7 +76,7 @@ public sealed class FileEditingSessionTests
         EngineObject reopened = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath)).Objects.Single();
         IKeyFrame reopenedFrame = wrapped
             ? (KeyFrame<float>)((WrappedKeyFrameHolder)reopened).Frames.CurrentValue!.Single().Frame
-            : ((KeyFrameAnimation<float>)((RectShape)reopened).Width.Animation!).KeyFrames.Single();
+            : ((KeyFrameAnimation<float>)((RectShape)reopened).Width.GetKeyFrameAnimation()!).KeyFrames.Single();
         Assert.That(reopenedFrame.Easing, Is.TypeOf<LinearEasing>());
         Assert.That(recovered.History.Undo(), Is.True);
         recovered.Save(skipConflictCheck: true);

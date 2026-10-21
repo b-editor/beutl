@@ -324,7 +324,7 @@ public sealed class UsageTelemetryTests
         _summaries.Clear();
 
         if (expression) shape.Opacity.Expression = new StringExpression<float>("42 + 8");
-        else shape.Opacity.Animation = new KeyFrameAnimation<float>();
+        else shape.Opacity.SetKeyFrameAnimation(new KeyFrameAnimation<float>());
         tracked.History.Commit();
         _usage.Flush();
         UsageSummary assignment = _summaries.Single(s => s.Key.Event == "editor.property");
@@ -333,7 +333,7 @@ public sealed class UsageTelemetryTests
         _summaries.Clear();
 
         if (expression) shape.Opacity.Expression = null;
-        else shape.Opacity.Animation = null;
+        else shape.Opacity.SetKeyFrameAnimation(null);
         tracked.History.Commit();
         _usage.Flush();
         UsageSummary removal = _summaries.Single(s => s.Key.Event == "editor.property");
@@ -347,7 +347,7 @@ public sealed class UsageTelemetryTests
         (Scene scene, var shape, _) = CreateShapeScene();
         using var tracked = new TrackedHistory(scene);
         shape.Opacity.CurrentValue = 90;
-        shape.Opacity.Animation = new KeyFrameAnimation<float>();
+        shape.Opacity.SetKeyFrameAnimation(new KeyFrameAnimation<float>());
         shape.Opacity.Expression = new StringExpression<float>("42");
         tracked.History.Commit();
         _usage.Flush();

@@ -63,7 +63,7 @@ public class SourceVideoSpeedTest
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.FromSeconds(2) });
-        _sourceVideo!.Speed.Animation = animation;
+        _sourceVideo!.Speed.SetKeyFrameAnimation(animation);
 
         SourceVideo.Resource resource = EvaluateAt(TimeSpan.FromSeconds(1));
 
@@ -78,7 +78,7 @@ public class SourceVideoSpeedTest
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 300f, KeyTime = TimeSpan.FromSeconds(4) });
-        _sourceVideo!.Speed.Animation = animation;
+        _sourceVideo!.Speed.SetKeyFrameAnimation(animation);
 
         SourceVideo.Resource resource = EvaluateAt(TimeSpan.FromSeconds(2));
 
@@ -104,7 +104,7 @@ public class SourceVideoSpeedTest
         animation.KeyFrames.Add(new KeyFrame<float> { Value = speed, KeyTime = TimeSpan.Zero });
         if (keepUntilTheEnd)
             animation.KeyFrames.Add(new KeyFrame<float> { Value = speed, KeyTime = TimeSpan.FromSeconds(10) });
-        _sourceVideo!.Speed.Animation = animation;
+        _sourceVideo!.Speed.SetKeyFrameAnimation(animation);
 
         SourceVideo.Resource resource = EvaluateAt(TimeSpan.FromMilliseconds(milliseconds));
 
@@ -117,14 +117,14 @@ public class SourceVideoSpeedTest
         // Arrange: 最初のアニメーション（速度200）
         var animation1 = new KeyFrameAnimation<float>();
         animation1.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.Zero });
-        _sourceVideo!.Speed.Animation = animation1;
+        _sourceVideo!.Speed.SetKeyFrameAnimation(animation1);
 
         var firstPosition = EvaluateAt(TimeSpan.FromSeconds(1)).RequestedPosition;
 
         // Act: アニメーションを変更（速度100）
         var animation2 = new KeyFrameAnimation<float>();
         animation2.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
-        _sourceVideo.Speed.Animation = animation2;
+        _sourceVideo.Speed.SetKeyFrameAnimation(animation2);
 
         // 同じ時点で再度更新
         var secondPosition = ReconcileAt(TimeSpan.FromSeconds(1)).RequestedPosition;
@@ -141,7 +141,7 @@ public class SourceVideoSpeedTest
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.FromSeconds(10) });
-        _sourceVideo!.Speed.Animation = animation;
+        _sourceVideo!.Speed.SetKeyFrameAnimation(animation);
 
         _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
 
@@ -175,7 +175,7 @@ public class SourceVideoSpeedTest
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.FromSeconds(10) });
-        _sourceVideo!.Speed.Animation = animation;
+        _sourceVideo!.Speed.SetKeyFrameAnimation(animation);
 
         SourceVideo.Resource resource = EvaluateAt(TimeSpan.Zero);
 
@@ -198,7 +198,7 @@ public class SourceVideoSpeedTest
         };
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.FromSeconds(15) });
-        _sourceVideo.Speed.Animation = animation;
+        _sourceVideo.Speed.SetKeyFrameAnimation(animation);
 
         // グローバル 6s = 要素ローカル 1s
         SourceVideo.Resource resource = EvaluateAt(TimeSpan.FromSeconds(6));
@@ -219,7 +219,7 @@ public class SourceVideoSpeedTest
         };
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.FromSeconds(15) });
-        _sourceVideo.Speed.Animation = animation;
+        _sourceVideo.Speed.SetKeyFrameAnimation(animation);
 
         SourceVideo.Resource resource = EvaluateAt(TimeSpan.FromSeconds(6));
 
@@ -234,7 +234,7 @@ public class SourceVideoSpeedTest
         // Arrange: 非常に遅い速度（5%）でのテスト - 上限拡大が必要
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 5f, KeyTime = TimeSpan.Zero });
-        _sourceVideo!.Speed.Animation = animation;
+        _sourceVideo!.Speed.SetKeyFrameAnimation(animation);
 
         SourceVideo.Resource resource = EvaluateAt(TimeSpan.Zero);
 

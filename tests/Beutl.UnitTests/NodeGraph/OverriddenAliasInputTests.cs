@@ -71,7 +71,7 @@ public class OverriddenAliasInputTests
         {
             var animation = new KeyFrameAnimation<Brush?>();
             animation.KeyFrames.Add(new KeyFrame<Brush?> { Value = replacement });
-            rejectedParent.Animation = animation;
+            rejectedParent.SetKeyFrameAnimation(animation);
         }
         rejectedParent.CurrentValue = shared;
         history.History.Commit("Override and share brush");
@@ -104,7 +104,7 @@ public class OverriddenAliasInputTests
         CheckSingleWriter();
 
         rejectedParent.Expression = null;
-        rejectedParent.Animation = null;
+        rejectedParent.SetKeyFrameAnimation(null);
         history.History.Commit("Restore aliased path");
         Assert.That(acceptedNode.CanConnectInput(acceptedPort), Is.False);
         Assert.That(rejectedNode.CanConnectInput(rejectedPort), Is.False);

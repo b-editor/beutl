@@ -199,7 +199,7 @@ public class TimelineMediaDurationTests
             Value = 100,
             Easing = new LinearEasing()
         });
-        sound.Speed.Animation = speed;
+        sound.Speed.SetKeyFrameAnimation(speed);
         ElementViewModel back = await OpenElement(sound, startSeconds: 4, lengthSeconds: 4);
         TimelineTabViewModel timeline = back.Timeline;
         var adder = (IElementAdder)timeline.EditorContext.GetService(typeof(IElementAdder))!;
@@ -477,7 +477,7 @@ public class TimelineMediaDurationTests
         var animation = new KeyFrameAnimation<float> { UseGlobalClock = true };
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(10), Value = 200 });
-        sound.Speed.Animation = animation;
+        sound.Speed.SetKeyFrameAnimation(animation);
         ElementViewModel model = await OpenElement(sound, lengthSeconds: 2);
         TimelineTabViewModel timeline = model.Timeline;
         timeline.Options.Value = timeline.Options.Value with { Scale = 0.5f };

@@ -395,8 +395,8 @@ public sealed class RecoveryProtectedElementEditorTests
             Assert.Multiple(() =>
             {
                 Assert.That(offeredWhileLocked, Is.False, "The user's lock still wins.");
-                Assert.That(shape.Width.Animation, Is.Null);
-                Assert.That(shape.Height.Animation, Is.Not.Null);
+                Assert.That(shape.Width.GetKeyFrameAnimation(), Is.Null);
+                Assert.That(shape.Height.GetKeyFrameAnimation(), Is.Not.Null);
                 Assert.That(element.SuppressedStorageSource, Is.Null);
             });
         }
@@ -419,11 +419,11 @@ public sealed class RecoveryProtectedElementEditorTests
             var widthAnimation = new KeyFrameAnimation<float>();
             widthAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
             widthAnimation.KeyFrames.Add(unreadable);
-            shape.Width.Animation = widthAnimation;
+            shape.Width.SetKeyFrameAnimation(widthAnimation);
             var heightAnimation = new KeyFrameAnimation<float>();
             heightAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 50 });
             heightAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 80 });
-            shape.Height.Animation = heightAnimation;
+            shape.Height.SetKeyFrameAnimation(heightAnimation);
         });
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
@@ -495,9 +495,9 @@ public sealed class RecoveryProtectedElementEditorTests
     private static async Task<(string ProjectPath, string ElementPath)> CreateProjectWithUnreadableEasings(string name)
     {
         var translation = new TranslateTransform();
-        translation.X.Animation = CreateAnimation(0f);
+        translation.X.SetKeyFrameAnimation(CreateAnimation(0f));
         var second = new RectShape();
-        second.Width.Animation = CreateAnimation(100f);
+        second.Width.SetKeyFrameAnimation(CreateAnimation(100f));
         (string projectPath, string elementPath) = await CreateSavedProjectAsync(
             name, () => new RectShape { Transform = { CurrentValue = translation } }, element =>
             {
@@ -506,8 +506,8 @@ public sealed class RecoveryProtectedElementEditorTests
             });
         IKeyFrame[] unreadable =
         [
-            ((KeyFrameAnimation<float>)translation.X.Animation!).KeyFrames.Single(),
-            ((KeyFrameAnimation<float>)second.Width.Animation!).KeyFrames.Single(),
+            ((KeyFrameAnimation<float>)translation.X.GetKeyFrameAnimation()!).KeyFrames.Single(),
+            ((KeyFrameAnimation<float>)second.Width.GetKeyFrameAnimation()!).KeyFrames.Single(),
         ];
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
