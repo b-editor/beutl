@@ -79,28 +79,30 @@ public interface IPropertyAdapter<T> : IPropertyAdapter
     }
 }
 
+// The keyframes of the property, which lie at the bottom of its expression chain.
 public interface IAnimatablePropertyAdapter : IPropertyAdapter
 {
-    IAnimation? Animation { get; set; }
+    IKeyFrameAnimation? Animation { get; set; }
 
-    IObservable<IAnimation?> ObserveAnimation { get; }
+    IObservable<IKeyFrameAnimation?> ObserveAnimation { get; }
 }
 
 public interface IAnimatablePropertyAdapter<T> : IPropertyAdapter<T>, IAnimatablePropertyAdapter, IExpressionPropertyAdapter<T>
 {
-    new IAnimation<T>? Animation { get; set; }
+    new KeyFrameAnimation<T>? Animation { get; set; }
 
-    new IObservable<IAnimation<T>?> ObserveAnimation { get; }
+    new IObservable<KeyFrameAnimation<T>?> ObserveAnimation { get; }
 
-    IAnimation? IAnimatablePropertyAdapter.Animation
+    IKeyFrameAnimation? IAnimatablePropertyAdapter.Animation
     {
         get => Animation;
-        set => Animation = value as IAnimation<T>;
+        set => Animation = value as KeyFrameAnimation<T>;
     }
 
-    IObservable<IAnimation?> IAnimatablePropertyAdapter.ObserveAnimation => ObserveAnimation;
+    IObservable<IKeyFrameAnimation?> IAnimatablePropertyAdapter.ObserveAnimation => ObserveAnimation;
 }
 
+// The expression over the property's keyframes; the keyframes are IAnimatablePropertyAdapter.Animation.
 public interface IExpressionPropertyAdapter : IPropertyAdapter
 {
     IExpression? Expression { get; set; }

@@ -1,4 +1,5 @@
-﻿using Beutl.Audio.Effects;
+﻿using Beutl.Animation;
+using Beutl.Audio.Effects;
 using Beutl.Engine;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -31,11 +32,11 @@ public sealed class GateNode : DynamicsNode
 
     // AnimationSampler does not yet evaluate expressions per sample.
     protected override bool HasAnimatedParameters =>
-        Threshold.Animation != null ||
-        Attack.Animation != null ||
-        Hold.Animation != null ||
-        Release.Animation != null ||
-        Range.Animation != null;
+        Threshold.GetKeyFrameAnimation() != null ||
+        Attack.GetKeyFrameAnimation() != null ||
+        Hold.GetKeyFrameAnimation() != null ||
+        Release.GetKeyFrameAnimation() != null ||
+        Range.GetKeyFrameAnimation() != null;
 
     protected override AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context)
     {

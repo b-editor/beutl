@@ -74,7 +74,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         // SpeedIntegrator.Integrate(t) は「時刻 0 から t までの累積積分」を返すため、
         // UseGlobalClock=true でグローバル時刻を渡す場合は要素開始 (TimeRange.Start) 時点の
         // 積分を差し引いて要素ローカルから見た累積に揃える。
-        var anm = Speed.Animation;
+        var anm = Speed.GetKeyFrameAnimation();
         if (anm is KeyFrameAnimation<float> keyFrameAnimation && keyFrameAnimation.KeyFrames.Count > 0)
         {
             if (keyFrameAnimation.UseGlobalClock)

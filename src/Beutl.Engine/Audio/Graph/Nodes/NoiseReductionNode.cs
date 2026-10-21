@@ -261,10 +261,10 @@ public sealed class NoiseReductionNode : AudioNode
     {
         _sampler = context.AnimationSampler;
         _processedControls = ReadControls();
-        _animated = Reduction.Animation != null
-                    || Sensitivity.Animation != null
-                    || Smoothing.Animation != null
-                    || Adaptation.Animation != null;
+        _animated = Reduction.GetKeyFrameAnimation() != null
+                    || Sensitivity.GetKeyFrameAnimation() != null
+                    || Smoothing.GetKeyFrameAnimation() != null
+                    || Adaptation.GetKeyFrameAnimation() != null;
         _staticSettings = NoiseReductionParameters.Normalize(
             Reduction.CurrentValue,
             Sensitivity.CurrentValue,
@@ -276,10 +276,10 @@ public sealed class NoiseReductionNode : AudioNode
     private Controls ReadControls()
     {
         return new Controls(
-            Reduction.Animation, Reduction.Animation is null ? Reduction.CurrentValue : 0,
-            Sensitivity.Animation, Sensitivity.Animation is null ? Sensitivity.CurrentValue : 0,
-            Smoothing.Animation, Smoothing.Animation is null ? Smoothing.CurrentValue : 0,
-            Adaptation.Animation, Adaptation.Animation is null ? Adaptation.CurrentValue : 0);
+            Reduction.GetKeyFrameAnimation(), Reduction.GetKeyFrameAnimation() is null ? Reduction.CurrentValue : 0,
+            Sensitivity.GetKeyFrameAnimation(), Sensitivity.GetKeyFrameAnimation() is null ? Sensitivity.CurrentValue : 0,
+            Smoothing.GetKeyFrameAnimation(), Smoothing.GetKeyFrameAnimation() is null ? Smoothing.CurrentValue : 0,
+            Adaptation.GetKeyFrameAnimation(), Adaptation.GetKeyFrameAnimation() is null ? Adaptation.CurrentValue : 0);
     }
 
     // Animated parameters are evaluated once per frame, at the frame's center.
@@ -298,7 +298,7 @@ public sealed class NoiseReductionNode : AudioNode
 
     private float Sample(IProperty<float> property, TimeSpan time)
     {
-        if (property.Animation is null)
+        if (property.GetKeyFrameAnimation() is null)
             return property.CurrentValue;
 
         Span<float> value = stackalloc float[1];

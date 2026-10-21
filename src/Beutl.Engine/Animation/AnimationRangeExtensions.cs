@@ -10,7 +10,7 @@ public static class AnimationRangeExtensions
     /// <c>KeyFrameAnimation&lt;float&gt;</c> implementation.
     /// </summary>
     public static bool TryGetOutputRange<T>(
-        this IAnimation<T> animation,
+        this KeyFrameAnimation<T> animation,
         out T minimum,
         out T maximum)
         where T : IComparable<T>

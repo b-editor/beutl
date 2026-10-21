@@ -10,7 +10,7 @@ public sealed class SpeedIntegrator : IDisposable
 {
     private Dictionary<int, double>? _integralCache;
     private int _greatestCachedSecond = -1;
-    private IAnimation<float>? _trackedAnimation;
+    private KeyFrameAnimation<float>? _trackedAnimation;
     private int _sampleRate;
     private readonly Action? _invalidateCallback;
     private Func<float, float>? _speedTransform;
@@ -53,7 +53,7 @@ public sealed class SpeedIntegrator : IDisposable
     /// Starts tracking the animation and initializes the cache.
     /// If the animation changes, clears the cache and re-registers the event handler.
     /// </summary>
-    public void EnsureCache(IAnimation<float>? animation)
+    public void EnsureCache(KeyFrameAnimation<float>? animation)
     {
         _integralCache ??= new Dictionary<int, double>();
 
@@ -117,7 +117,7 @@ public sealed class SpeedIntegrator : IDisposable
     /// <summary>
     /// Integrates the speed animation and returns the transformed time corresponding to the specified time.
     /// </summary>
-    public TimeSpan Integrate(TimeSpan timeSpan, IAnimation<float> animation)
+    public TimeSpan Integrate(TimeSpan timeSpan, KeyFrameAnimation<float> animation)
     {
         int targetSec = (int)timeSpan.TotalSeconds;
         (int cachedSec, double cachedSum) = TryGetCache(targetSec);
@@ -179,7 +179,7 @@ public sealed class SpeedIntegrator : IDisposable
         return TimeSpan.FromSeconds(sum);
     }
 
-    private float SampleSpeed(IAnimation<float> animation, TimeSpan time)
+    private float SampleSpeed(KeyFrameAnimation<float> animation, TimeSpan time)
     {
         float speed = animation.Interpolate(time);
         return _speedTransform?.Invoke(speed) ?? speed;

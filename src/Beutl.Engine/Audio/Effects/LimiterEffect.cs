@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Animation;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
@@ -89,7 +90,7 @@ public sealed partial class LimiterEffect : AudioEffect
             return inputLatency;
 
         // Reserve the worst-case lookahead when automation is present.
-        int latency = Lookahead.Animation != null
+        int latency = Lookahead.GetKeyFrameAnimation() != null
             ? ToLatencySamples(MaxLookaheadMs, sampleRate)
             : ToLatencySamples(Lookahead.CurrentValue, sampleRate);
         return AudioLatency.SaturatingAdd(inputLatency, latency);

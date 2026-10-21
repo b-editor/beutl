@@ -2,7 +2,6 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Text.Json.Nodes;
-using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Composition;
 using Beutl.Engine.Expressions;
@@ -68,12 +67,6 @@ public class ListProperty<T> : IListProperty<T>
 
     public void ReplaceCurrentValue(ICoreList<T> value)
         => _items.Replace(value);
-
-    public IAnimation<ICoreList<T>>? Animation
-    {
-        get => null;
-        set { }
-    }
 
     public IExpression<ICoreList<T>>? Expression
     {

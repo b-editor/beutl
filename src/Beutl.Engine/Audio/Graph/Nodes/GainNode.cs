@@ -1,4 +1,5 @@
-﻿using Beutl.Engine;
+﻿using Beutl.Animation;
+using Beutl.Engine;
 
 namespace Beutl.Audio.Graph.Nodes;
 
@@ -16,7 +17,7 @@ public sealed class GainNode : AudioNode
 
     protected override AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context, bool draining)
     {
-        if (Gain.Animation is null)
+        if (Gain.GetKeyFrameAnimation() is null)
         {
             return ProcessStaticGain(input);
         }

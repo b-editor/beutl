@@ -16,7 +16,7 @@ internal static class SpeedAdjustedTime
     /// </summary>
     public static TimeSpan Map(IProperty<float> speed, float currentSpeed, SpeedIntegrator integrator, TimeSpan time)
     {
-        var anm = speed.Animation;
+        var anm = speed.GetKeyFrameAnimation();
         if (anm is not KeyFrameAnimation<float> keyFrameAnimation)
             return time;
 

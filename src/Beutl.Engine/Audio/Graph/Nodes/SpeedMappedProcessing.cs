@@ -1,4 +1,5 @@
 ﻿using System.Buffers;
+using Beutl.Animation;
 
 namespace Beutl.Audio.Graph.Nodes;
 
@@ -47,7 +48,7 @@ internal sealed class SpeedMappedProcessing<TProcessor>(
             _lastSampleRate = context.SampleRate;
         }
         bool forceReanchor = mapping.IsInvalidated && !draining;
-        AudioBuffer result = mapping.Speed?.Animation is null
+        AudioBuffer result = mapping.Speed?.GetKeyFrameAnimation() is null
             ? ProcessStaticSpeed(_processor, context, expectedOut, draining, forceReanchor)
             : ProcessAnimatedSpeed(_processor, context, expectedOut, draining, forceReanchor);
         if (!draining)
