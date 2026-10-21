@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Beutl.Collections;
 using Beutl.Media;
 using Beutl.Serialization;
 using Microsoft.Extensions.FileSystemGlobbing;
@@ -117,9 +118,26 @@ public partial class Scene
         }
     }
 
+    // Layers keeps its list, as its CoreProperty accessor did: the saved layers replace its items, and an unchanged
+    // list a populate preserved is left as it is.
+    private void ReadLayers(ICoreSerializationContext context)
+    {
+        if (context is JsonSerializationContext json
+            && json.TryGetPreservedValue(nameof(Layers), typeof(CoreList<TimelineLayer>), out _, allowCollections: true))
+        {
+            return;
+        }
+
+        if (context.Contains(nameof(Layers)) && context.GetValue<CoreList<TimelineLayer>>(nameof(Layers)) is { } layers)
+        {
+            Layers.Replace(layers);
+        }
+    }
+
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
+        ReadLayers(context);
 
         if (context.Contains("Width") && context.Contains("Height"))
         {

@@ -58,7 +58,7 @@ internal static class ElementEditability
     // of the layer it is on may have changed.
     private static IObservable<Unit> ObserveChanges(Element element, Scene? scene)
     {
-        IObservable<Unit> elementChanges = element.GetObservable(Element.IsLockedProperty)
+        IObservable<Unit> elementChanges = element.IsLockedProperty.GetObservable()
             .Select(_ => Unit.Default)
             .Merge(Observable.FromEventPattern(
                     handler => element.RecoveryProtectionChanged += handler,
@@ -79,14 +79,14 @@ internal static class ElementEditability
             .Select(_ => owner.Layers.Count == 0
                 ? Observable.Return(Unit.Default)
                 : owner.Layers
-                    .Select(layer => layer.GetObservable(TimelineLayer.IsLockedProperty)
-                        .CombineLatest(layer.GetObservable(TimelineLayer.ZIndexProperty), (_, _) => Unit.Default))
+                    .Select(layer => layer.IsLockedProperty.GetObservable()
+                        .CombineLatest(layer.ZIndexProperty.GetObservable(), (_, _) => Unit.Default))
                     .CombineLatest()
                     .Select(_ => Unit.Default))
             .Switch();
 
         return elementChanges
-            .Merge(element.GetObservable(Element.ZIndexProperty).Select(_ => Unit.Default))
+            .Merge(element.ZIndexProperty.GetObservable().Select(_ => Unit.Default))
             .CombineLatest(layerChanges, (_, _) => Unit.Default);
     }
 }

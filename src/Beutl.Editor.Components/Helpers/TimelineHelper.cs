@@ -17,14 +17,14 @@ public static class TimelineHelper
         ReadOnlyReactivePropertySlim<double> PanelWidth) CreateSceneBarMargins(
             Scene scene, IEditorClock clock, IObservable<float> scale, CompositeDisposable disposables)
     {
-        ReadOnlyReactivePropertySlim<Thickness> startingBarMargin = scene.GetObservable(Scene.StartProperty)
+        ReadOnlyReactivePropertySlim<Thickness> startingBarMargin = scene.StartProperty.GetObservable()
             .CombineLatest(scale)
             .Select(item => item.First.TimeToPixel(item.Second))
             .Select(p => new Thickness(p, 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(disposables);
 
-        ReadOnlyReactivePropertySlim<Thickness> endingBarMargin = scene.GetObservable(Scene.DurationProperty)
+        ReadOnlyReactivePropertySlim<Thickness> endingBarMargin = scene.DurationProperty.GetObservable()
             .CombineLatest(scale, startingBarMargin)
             .Select(item => item.First.TimeToPixel(item.Second) + item.Third.Left)
             .Select(p => new Thickness(p, 0, 0, 0))
@@ -33,8 +33,8 @@ public static class TimelineHelper
 
         ReadOnlyReactivePropertySlim<double> panelWidth = clock.MaximumTime
             .CombineLatest(
-                scene.GetObservable(Scene.DurationProperty),
-                scene.GetObservable(Scene.StartProperty),
+                scene.DurationProperty.GetObservable(),
+                scene.StartProperty.GetObservable(),
                 clock.CurrentTime)
             .Select(i => TimeSpan.FromTicks(
                 Math.Max(

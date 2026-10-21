@@ -34,7 +34,7 @@ public sealed class ElementScopeViewModel : IDisposable
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        IObservable<int> zIndex = element.GetObservable(Element.ZIndexProperty);
+        IObservable<int> zIndex = element.ZIndexProperty.GetObservable();
         IObservable<(int EndZIndex, int ZIndex, int Count)> zIndexTuple = zIndex
             .CombineLatest(Count)
             .Select(t => (t.First + t.Second + 1, t.First, t.Second));

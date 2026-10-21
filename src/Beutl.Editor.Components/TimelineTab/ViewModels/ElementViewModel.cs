@@ -64,11 +64,11 @@ public sealed partial class ElementViewModel : IDisposable
 
         InitializeElementGroup();
 
-        IsEnabled = element.GetObservable(Element.IsEnabledProperty)
+        IsEnabled = element.IsEnabledProperty.GetObservable()
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        IsLocked = element.GetObservable(Element.IsLockedProperty)
+        IsLocked = element.IsLockedProperty.GetObservable()
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
@@ -76,25 +76,25 @@ public sealed partial class ElementViewModel : IDisposable
             .ToReactiveProperty()
             .AddTo(_disposables)!;
 
-        IObservable<int> zIndexSubject = element.GetObservable(Element.ZIndexProperty);
+        IObservable<int> zIndexSubject = element.ZIndexProperty.GetObservable();
         Margin = Timeline.GetTrackedLayerTopObservable(zIndexSubject)
             .Select(item => new Thickness(0, item, 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        BorderMargin = element.GetObservable(Element.StartProperty)
+        BorderMargin = element.StartProperty.GetObservable()
             .CombineLatest(timeline.Scale)
             .Select(item => new Thickness(item.First.TimeToPixel(item.Second), 0, 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        Width = element.GetObservable(Element.LengthProperty)
+        Width = element.LengthProperty.GetObservable()
             .CombineLatest(timeline.Scale)
             .Select(item => item.First.TimeToPixel(item.Second))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        Color = element.GetObservable(Element.AccentColorProperty)
+        Color = element.AccentColorProperty.GetObservable()
             .Select(c => c.ToAvaColor())
             .ToReactiveProperty()
             .AddTo(_disposables);

@@ -29,15 +29,15 @@ public sealed class LayerHeaderViewModel : IDisposable
             .Select(s => string.IsNullOrEmpty(s) ? $"{num}" : s)
             .ToReactiveProperty($"{num}");
         Color = _model.Select(i =>
-                i?.GetObservable(TimelineLayer.ColorProperty) ?? Observable.ReturnThenNever(Media.Colors.Transparent))
+                i?.ColorProperty.GetObservable() ?? Observable.ReturnThenNever(Media.Colors.Transparent))
             .Switch()
             .Select(c => c.ToAvaColor())
             .ToReactiveProperty(Colors.Transparent);
 
-        IsLocked = ObserveLayerFlag(TimelineLayer.IsLockedProperty);
-        IsAudioMuted = ObserveLayerFlag(TimelineLayer.IsAudioMutedProperty);
-        IsVideoMuted = ObserveLayerFlag(TimelineLayer.IsVideoMutedProperty);
-        IsSolo = ObserveLayerFlag(TimelineLayer.IsSoloProperty);
+        IsLocked = ObserveLayerFlag(layer => layer.IsLockedProperty);
+        IsAudioMuted = ObserveLayerFlag(layer => layer.IsAudioMutedProperty);
+        IsVideoMuted = ObserveLayerFlag(layer => layer.IsVideoMutedProperty);
+        IsSolo = ObserveLayerFlag(layer => layer.IsSoloProperty);
 
         ToggleLockCommand = new ReactiveCommand()
             .WithSubscribe(() => ToggleLayerFlag(IsLocked, (s, scene, n, v) => s.SetLocked(scene, n, v)));
@@ -70,10 +70,10 @@ public sealed class LayerHeaderViewModel : IDisposable
     }
 
     // A missing model reads as false: the flag is off until a TimelineLayer exists for this row.
-    private ReactiveProperty<bool> ObserveLayerFlag(CoreProperty<bool> property)
+    private ReactiveProperty<bool> ObserveLayerFlag(Func<TimelineLayer, IProperty<bool>> property)
     {
         return _model.Select(i =>
-                i?.GetObservable(property) ?? Observable.ReturnThenNever(false))
+                i != null ? property(i).GetObservable() : Observable.ReturnThenNever(false))
             .Switch()
             .ToReactiveProperty(false);
     }
