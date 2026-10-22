@@ -14,6 +14,9 @@ public sealed class WaveDecoderInfo : IDecoderInfo
 
     public MediaReader? Open(string file, MediaOptions options)
     {
+        if (!options.StreamsToLoad.HasFlag(MediaMode.Audio))
+            return null;
+
         try
         {
             return new WaveReader(file);

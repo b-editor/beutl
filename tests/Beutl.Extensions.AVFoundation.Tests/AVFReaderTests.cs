@@ -128,6 +128,22 @@ public class AVFReaderTests
         Assert.That(sound, Is.Null);
     }
 
+    // Like the other decoders, the reader opens the requested streams the file has, and fails without any of them.
+    [Test]
+    public void Open_OpensTheRequestedStreamsTheFileHas()
+    {
+        using var reader = new AVFReader(_file, new MediaOptions(MediaMode.AudioVideo), new AVFDecodingExtension());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reader.HasAudio, Is.True);
+            Assert.That(reader.HasVideo, Is.False);
+            Assert.That(
+                () => new AVFReader(_file, new MediaOptions(MediaMode.Video), new AVFDecodingExtension()),
+                Throws.InvalidOperationException);
+        });
+    }
+
     private static AVFReader OpenReader(string file)
     {
         return new AVFReader(file, new MediaOptions(MediaMode.Audio), new AVFDecodingExtension());

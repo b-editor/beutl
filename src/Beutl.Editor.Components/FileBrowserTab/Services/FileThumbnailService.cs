@@ -194,8 +194,7 @@ public sealed class FileThumbnailService
     }
 
     // AVFoundation and Media Foundation both claim '.adts' as video and as audio, so the
-    // classification can be wrong, and AVFReader throws outright when a requested stream is absent
-    // — including when both are requested for a single-stream file.
+    // classification can be wrong, and AVFReader throws outright when the one requested stream is absent.
     private static MediaReader? OpenForProbe(string filePath, MediaFileKind kind)
     {
         MediaMode first = kind == MediaFileKind.Audio ? MediaMode.Audio : MediaMode.Video;

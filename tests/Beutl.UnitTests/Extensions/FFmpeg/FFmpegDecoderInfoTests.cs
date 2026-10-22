@@ -146,9 +146,15 @@ public sealed class FFmpegDecoderInfoTests
             File.WriteAllBytes(source, new byte[64]);
             var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
 
-            // The decoder opens nothing, so generation fails after the open.
+            // The decoder opens nothing, so generation fails after the open and the audio probe that follows it.
             Assert.CatchAsync(() => generator.GenerateAsync(job).AsTask());
-            Assert.That(decoder.Requests.Select(options => options.IsBackground), Is.EqualTo(new[] { true }));
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    decoder.Requests.Select(options => options.StreamsToLoad),
+                    Is.EqualTo(new[] { MediaMode.Video, MediaMode.Audio }));
+                Assert.That(decoder.Requests.Select(options => options.IsBackground), Is.All.True);
+            });
         }
         finally
         {

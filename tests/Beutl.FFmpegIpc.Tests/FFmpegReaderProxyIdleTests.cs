@@ -198,6 +198,18 @@ public class FFmpegReaderProxyIdleTests
             Assert.That(chunked!.SampleCount, Is.EqualTo(9000));
     }
 
+    [Test]
+    public void ReadAudio_OfAVideoOnlyReader_ReturnsFalse()
+    {
+        using var reader = CreateVideoProxy();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reader.ReadAudio(0, 100, out var sound), Is.False);
+            Assert.That(sound, Is.Null);
+        });
+    }
+
     // The sweep runs on a timer thread; it must never close the worker reader under a read in progress.
     [Test]
     public void TrySuspend_Declines_WhileAReadIsInProgress()
@@ -718,6 +730,16 @@ public class FFmpegReaderProxyIdleTests
         _worker.WaitForClose(1);
     }
 
+    // DecoderRegistry tries the next decoder only when this one returns null.
+    [Test]
+    public void DecoderInfo_Open_ReturnsNull_AndClosesTheReader_WhenTheFileHasNoneOfTheRequestedStreams()
+    {
+        var decoderInfo = new FFmpegDecoderInfo(new FFmpegDecodingSettings(), _ => _worker.Connection, _tracker);
+
+        Assert.That(decoderInfo.Open("clip.mp4", new MediaOptions(MediaMode.Audio)), Is.Null);
+        _worker.WaitForClose(1);
+    }
+
     private static bool TrySuspend(FFmpegReaderProxy reader)
     {
         var suspendable = (IIdleSuspendableReader)reader;
@@ -939,9 +961,14 @@ public class FFmpegReaderProxyIdleTests
 
         private IpcMessage HandleOpen(IpcMessage request)
         {
-            OpenRequests.Enqueue(request.GetPayload<OpenFileRequest>()!);
+            var payload = request.GetPayload<OpenFileRequest>()!;
+            OpenRequests.Enqueue(payload);
             ReleaseOpens.Wait(TimeSpan.FromSeconds(10));
-            return IpcMessage.Create(request.Id, MessageType.OpenFileResult, OpenVideo());
+            // The fake file has only video, so an open without video finds no stream, as the worker answers then.
+            OpenFileResponse response = ((MediaMode)payload.StreamsToLoad).HasFlag(MediaMode.Video)
+                ? OpenVideo()
+                : new OpenFileResponse { ReaderId = Interlocked.Increment(ref _nextReaderId) };
+            return IpcMessage.Create(request.Id, MessageType.OpenFileResult, response);
         }
 
         private IpcMessage HandleReadVideo(IpcMessage request)
