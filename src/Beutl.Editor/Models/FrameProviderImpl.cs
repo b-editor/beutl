@@ -107,21 +107,12 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     // the last frame
     internal static long ToFrameCount(TimeSpan duration, Rational rate)
     {
-        long numerator = rate.Numerator;
-        long denominator = rate.Denominator;
-        if (denominator < 0)
-        {
-            numerator = -numerator;
-            denominator = -denominator;
-        }
-
-        if (duration <= TimeSpan.Zero || numerator <= 0 || denominator == 0)
+        bool positiveRate = rate.Numerator != 0 && rate.Denominator != 0
+            && long.IsNegative(rate.Numerator) == long.IsNegative(rate.Denominator);
+        if (duration <= TimeSpan.Zero || !positiveRate)
             return 0;
 
-        // duration.Ticks / (TicksPerSecond * denominator / numerator), with the frame length kept exact
-        Int128 dividend = (Int128)duration.Ticks * numerator;
-        Int128 divisor = (Int128)TimeSpan.TicksPerSecond * denominator;
-        return (long)((2 * dividend + divisor) / (2 * divisor));
+        return MediaTime.FromTimeSpan(duration).ToFrame(rate, MidpointRounding.AwayFromZero);
     }
 
     private async ValueTask<Bitmap> RenderFrameCore(long frame, CancellationToken cancellationToken)
