@@ -38,6 +38,31 @@ public class NodeGraphValueOnlyPropertyTests
         }
     }
 
+    // As the CoreProperty setters did, setting a kept list replaces its items, so the graph saves what it uses.
+    [Test]
+    public void SettingAKeptListReplacesItsItems()
+    {
+        var graph = new GraphModel();
+        HierarchicalList<GraphNode> nodes = graph.Nodes;
+        HierarchicalList<Connection> connections = graph.AllConnections;
+        var factory = new FactoryNode<Pen>();
+        var output = new OutputNode();
+
+        graph.NodesProperty.Value = [factory, output];
+        graph.AllConnectionsProperty.Value = [];
+        JsonObject json = CoreSerializer.SerializeToJsonObject(graph);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(graph.NodesProperty.Value, Is.SameAs(nodes));
+            Assert.That(graph.AllConnectionsProperty.Value, Is.SameAs(connections));
+            Assert.That(graph.Nodes, Is.EqualTo(new GraphNode[] { factory, output }));
+            Assert.That(factory.HierarchicalParent, Is.SameAs(graph));
+            Assert.That(json["Nodes"]!.AsArray().Select(node => Guid.Parse(node!["Id"]!.GetValue<string>())),
+                Is.EqualTo(new[] { factory.Id, output.Id }));
+        }
+    }
+
     // Position and IsExpanded are not drawn, so, as their CoreProperty forms, they edit nothing; the history still records them.
     [Test]
     public void MovingAndFoldingANodeEditNeitherTheGraphNorTheScene()

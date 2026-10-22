@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Collections;
 using Beutl.Serialization;
 using Beutl.Validation;
 using ValidationContext = Beutl.Validation.ValidationContext;
@@ -42,6 +43,9 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
     // Adjusts each value before it is validated, like KeyFrame<T>.Value with its animation's validator.
     internal Func<IProperty<T>, T, T>? Coerce { get; init; }
 
+    // True for a list its owner keeps, like GraphModel.Nodes: setting another list replaces the kept list's items.
+    internal bool KeepsList { get; init; }
+
     public bool IsValueSet { get; private set; }
 
     public event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
@@ -51,6 +55,12 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
     private void SetCurrentValue(T value, bool replaceEquivalent)
     {
         DocumentWriteCheck.Verify(_owner, _name);
+        if (KeepsList && _currentValue is IReplaceableList kept && !ReferenceEquals(kept, value))
+        {
+            kept.ReplaceItems(value);
+            return;
+        }
+
         var validatedValue = ValidateAndCoerce(Coerce is { } coerce ? coerce(this, value) : value);
         if (ValueReplacement.RequiresReplacement(_currentValue, validatedValue, replaceEquivalent))
         {
