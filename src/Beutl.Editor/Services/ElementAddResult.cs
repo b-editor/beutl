@@ -18,8 +18,6 @@ public static class ElementAddFailureIds
     public static ElementAddFailureId InvalidMaterialization { get; }
         = new("element.invalid-materialization");
 
-    public static ElementAddFailureId Persistence { get; } = new("element.persistence");
-
     public static ElementAddFailureId SceneChanged { get; } = new("element.scene-changed");
 
     public static ElementAddFailureId SceneMutation { get; } = new("element.scene-mutation");
@@ -73,15 +71,6 @@ public sealed record InvalidElementMaterializationFailure : ElementAddFailure
     public InvalidElementMaterializationFailure(string message)
         : base(ElementAddFailureIds.InvalidMaterialization, message)
     {
-    }
-}
-
-public sealed record ElementPersistenceFailure : ElementAddFailure
-{
-    public ElementPersistenceFailure(Exception exception)
-        : base(ElementAddFailureIds.Persistence, "The element batch could not be persisted.", exception)
-    {
-        ArgumentNullException.ThrowIfNull(exception);
     }
 }
 

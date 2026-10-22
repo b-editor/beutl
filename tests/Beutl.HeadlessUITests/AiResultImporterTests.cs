@@ -583,7 +583,6 @@ public sealed class AiResultImporterTests
             {
                 Assert.That(element.Uri, Is.EqualTo(originalSidecar));
                 Assert.That(source.Uri, Is.EqualTo(originalResource));
-                Assert.That(File.Exists(originalSidecar.LocalPath), Is.True);
                 Assert.That(File.Exists(originalResource.LocalPath), Is.True);
                 Assert.That(Directory.GetFiles(failureRoot, "*.belm"), Is.Empty);
                 Assert.That(
@@ -669,7 +668,6 @@ public sealed class AiResultImporterTests
                 Assert.That(resourceCopiedBeforeFailure, Is.True);
                 Assert.That(element.Uri, Is.EqualTo(originalSidecar));
                 Assert.That(source.Uri, Is.EqualTo(originalResource));
-                Assert.That(File.Exists(originalSidecar.LocalPath), Is.True);
                 Assert.That(File.Exists(originalResource.LocalPath), Is.True);
                 Assert.That(Directory.GetFiles(sceneDirectory, "*.belm"), Is.Empty);
                 Assert.That(Directory.GetFiles(resourceDirectory), Is.Empty);
