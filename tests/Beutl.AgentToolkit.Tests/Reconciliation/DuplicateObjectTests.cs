@@ -1,11 +1,16 @@
 ﻿using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
+using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Media.Source;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes.Generative;
+using Beutl.NodeGraph.Nodes.Group;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Tests.Reconciliation;
@@ -342,4 +347,99 @@ public sealed class DuplicateObjectTests
         });
     }
 
+    // An AI node of a copy needs a request key of its own, or Regenerate on the copy returns the original's result.
+    // apply_edit cannot take this graph yet (#3450), so the probe below covers the copy made without a group.
+    [Test]
+    public void Duplicate_object_wrap_in_group_gives_the_ai_nodes_of_the_copy_request_keys_of_their_own()
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var drawable = new NodeGraphDrawable();
+        var image = new AiImageGenerationNode();
+        var group = new GroupNode();
+        var nested = new AiImageGenerationNode();
+        group.Group.Nodes.Add(nested);
+        drawable.Model.Value!.Nodes.Add(image);
+        drawable.Model.Value.Nodes.Add(group);
+        element.AddObject(drawable);
+        using var session = new AgentToolkitTestSession(scene);
+
+        ToolResult<DuplicateObjectResponse> result =
+            session.CreateEditTools().DuplicateObject(drawable.Id.ToString(), wrapInGroup: true);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        GraphModel graph = ((NodeGraphDrawable)FindCopy(element, result.Value!)).Model.Value!;
+        var copiedImage = graph.Nodes.OfType<AiImageGenerationNode>().Single();
+        var copiedNested = graph.Nodes.OfType<GroupNode>().Single().Group.Nodes.OfType<AiImageGenerationNode>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(copiedImage.RequestKeySeed, Is.Not.EqualTo(image.RequestKeySeed));
+            Assert.That(copiedNested.RequestKeySeed, Is.Not.EqualTo(nested.RequestKeySeed));
+        });
+    }
+
+    // Each object of the copy renews what it must not share with the original, as an AI node renews its request key.
+    [Test]
+    public void Duplicate_object_renews_the_values_a_copy_must_not_share()
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var probe = new SeededCopyProbe();
+        element.AddObject(probe);
+        using var session = new AgentToolkitTestSession(scene);
+
+        ToolResult<DuplicateObjectResponse> result = session.CreateEditTools().DuplicateObject(probe.Id.ToString());
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        Assert.That(((SeededCopyProbe)FindCopy(element, result.Value!)).Seed.Value, Is.Not.EqualTo(probe.Seed.Value));
+    }
+
+    // A copy holds a file-backed object itself, or saving it would write over the original's file.
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Duplicate_object_gives_the_copy_its_own_file_backed_objects(bool wrapInGroup)
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var file = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "width.json"));
+        var rect = new RectShape();
+        var animation = new KeyFrameAnimation<float> { Uri = file, KeyFrames = { new KeyFrame<float> { Value = 50 } } };
+        rect.Width.SetKeyFrameAnimation(animation);
+        element.AddObject(rect);
+        using var session = new AgentToolkitTestSession(scene);
+
+        ToolResult<DuplicateObjectResponse> result =
+            session.CreateEditTools().DuplicateObject(rect.Id.ToString(), wrapInGroup: wrapInGroup);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        KeyFrameAnimation<float> copied = ((RectShape)FindCopy(element, result.Value!)).Width.GetKeyFrameAnimation()!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(copied.Uri, Is.Null);
+            Assert.That(copied.KeyFrames.Single().Value, Is.EqualTo(50));
+            Assert.That(rect.Width.GetKeyFrameAnimation()!.Uri, Is.EqualTo(file));
+        });
+    }
+
+    // The copy a duplicate_object call made, on its element or in the group around the original.
+    private static EngineObject FindCopy(Element element, DuplicateObjectResponse response)
+    {
+        return element.Objects
+            .Concat(element.Objects.OfType<DrawableGroup>().SelectMany(group => group.Children))
+            .Single(item => item.Id.ToString() == response.ObjectId);
+    }
+}
+
+// Renews its seed in a copy, as an AI node renews its request key.
+[SuppressResourceClassGeneration]
+public sealed class SeededCopyProbe : EngineObject, ICopyRenewable
+{
+    public SeededCopyProbe()
+    {
+        ScanProperties<SeededCopyProbe>();
+    }
+
+    public IProperty<string> Seed { get; } = Property.CreateValue(Guid.NewGuid().ToString("N"));
+
+    void ICopyRenewable.RenewForCopy() => Seed.Value = Guid.NewGuid().ToString("N");
 }
