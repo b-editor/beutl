@@ -6,24 +6,9 @@ using DynamicData;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
-// Building blocks shared by the hosts that edit the CoreProperty values of a settings object.
+// Building blocks shared by the hosts that edit the properties of a settings object.
 internal static class CoreObjectPropertyEditorBuilder
 {
-    public static List<IPropertyAdapter> CreateAdapters(
-        ICoreObject obj, Func<CoreProperty, CorePropertyMetadata, bool>? predicate)
-    {
-        Type objType = obj.GetType();
-        Type adapterType = typeof(CorePropertyAdapter<>);
-
-        List<CoreProperty> cprops = [.. PropertyRegistry.GetRegistered(objType)];
-        cprops.RemoveAll(x => !(predicate?.Invoke(x, x.GetMetadata<CorePropertyMetadata>(objType)) ?? true));
-        return cprops.ConvertAll(x =>
-        {
-            Type adapterGType = adapterType.MakeGenericType(x.PropertyType);
-            return (IPropertyAdapter)Activator.CreateInstance(adapterGType, x, obj)!;
-        });
-    }
-
     // A settings object's properties as its page shows them: without Id, Name and those marked [Browsable(false)].
     public static List<IPropertyAdapter> CreateSettingsAdapters(CoreObject obj)
     {

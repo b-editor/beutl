@@ -17,15 +17,17 @@ public class EasingSerializationTests
 
     public sealed class EasingHolder : CoreObject
     {
-        public static readonly CoreProperty<Easing> EasingProperty =
-            ConfigureProperty<Easing, EasingHolder>(nameof(Easing))
-                .DefaultValue(new LinearEasing())
-                .Register();
+        public EasingHolder()
+        {
+            ScanProperties<EasingHolder>();
+        }
+
+        public IProperty<Easing> EasingProperty { get; } = new ValueOnlyProperty<Easing>(new LinearEasing());
 
         public Easing Easing
         {
-            get => GetValue(EasingProperty);
-            set => SetValue(EasingProperty, value);
+            get => EasingProperty.Value;
+            set => EasingProperty.Value = value;
         }
     }
 

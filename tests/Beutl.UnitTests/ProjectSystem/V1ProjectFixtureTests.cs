@@ -325,18 +325,9 @@ public class V1ProjectFixtureTests
 
     // The value of the property named key on a live object, or null.
     private static object? Child(object? parent, string key)
-    {
-        if (parent is EngineObject engineObject
-            && engineObject.Properties.FirstOrDefault(p => p.Name == key) is { } property)
-        {
-            return property.Value;
-        }
-
-        return parent is ICoreObject coreObject
-               && PropertyRegistry.GetRegistered(coreObject.GetType()).FirstOrDefault(p => p.Name == key) is { } coreProperty
-            ? coreObject.GetValue(coreProperty)
+        => parent is CoreObject coreObject && coreObject.Properties.FirstOrDefault(p => p.Name == key) is { } property
+            ? property.Value
             : null;
-    }
 
     private static string Join(string path, string key) => path.Length == 0 ? key : $"{path}.{key}";
 

@@ -61,14 +61,14 @@ public sealed class RenamedPluginSettings : ExtensionSettings
 {
     public const string FormerLimitKey = "FormerLimit";
 
-    public static readonly CoreProperty<int> LimitProperty =
-        ConfigureProperty<int, RenamedPluginSettings>(nameof(Limit))
-            .FormerPersistedName(FormerLimitKey)
-            .Register();
+    public RenamedPluginSettings() => ScanProperties<RenamedPluginSettings>();
+
+    [FormerPersistedName(FormerLimitKey)]
+    public IProperty<int> LimitProperty { get; } = new ValueOnlyProperty<int>(0);
 
     public int Limit
     {
-        get => GetValue(LimitProperty);
-        set => SetValue(LimitProperty, value);
+        get => LimitProperty.Value;
+        set => LimitProperty.Value = value;
     }
 }

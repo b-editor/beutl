@@ -47,28 +47,6 @@ public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHiera
 
     public event EventHandler<HierarchyAttachmentEventArgs>? DetachedFromHierarchy;
 
-    protected static void Hierarchy(params CoreProperty[] properties)
-    {
-        foreach (CoreProperty item in properties)
-        {
-            item.Changed.Subscribe(e =>
-            {
-                if (e.Sender is IModifiableHierarchical s)
-                {
-                    if (e.OldValue is Hierarchical oldHierarchical)
-                    {
-                        s.RemoveChild(oldHierarchical);
-                    }
-
-                    if (e.NewValue is Hierarchical newHierarchical)
-                    {
-                        s.AddChild(newHierarchical);
-                    }
-                }
-            });
-        }
-    }
-
     protected virtual void HierarchicalChildrenCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         void SetParent(IList children)

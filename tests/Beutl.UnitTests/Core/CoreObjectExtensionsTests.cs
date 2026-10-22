@@ -3,53 +3,10 @@
 public class CoreObjectExtensionsTests
 {
     [Test]
-    public void GetPropertyChangedObservable_NullObj_Throws()
-    {
-        Assert.That(
-            () => CoreObjectExtensions.GetPropertyChangedObservable<string>(null!, TestCoreObject.LabelProperty),
-            Throws.ArgumentNullException);
-    }
-
-    [Test]
-    public void GetPropertyChangedObservable_NullProperty_Throws()
-    {
-        var obj = new TestCoreObject();
-
-        Assert.That(
-            () => obj.GetPropertyChangedObservable<string>(null!),
-            Throws.ArgumentNullException);
-    }
-
-    [Test]
-    public void GetPropertyChangedObservable_FiresOnPropertyChange()
-    {
-        var obj = new TestCoreObject();
-        var values = new List<string?>();
-
-        using IDisposable sub = obj.GetPropertyChangedObservable(TestCoreObject.LabelProperty)
-            .Subscribe(args => values.Add(args.NewValue));
-
-        obj.Label = "alpha";
-        obj.Label = "beta";
-
-        Assert.That(values, Is.EqualTo(new[] { "alpha", "beta" }));
-    }
-
-    [Test]
-    public void GetObservable_NullObj_Throws()
-    {
-        Assert.That(
-            () => CoreObjectExtensions.GetObservable<string>(null!, TestCoreObject.LabelProperty),
-            Throws.ArgumentNullException);
-    }
-
-    [Test]
     public void GetObservable_NullProperty_Throws()
     {
-        var obj = new TestCoreObject();
-
         Assert.That(
-            () => obj.GetObservable<string>(null!),
+            () => CoreObjectExtensions.GetObservable<string>(null!),
             Throws.ArgumentNullException);
     }
 
@@ -59,7 +16,7 @@ public class CoreObjectExtensionsTests
         var obj = new TestCoreObject { Label = "init" };
         var values = new List<string?>();
 
-        using IDisposable sub = obj.GetObservable(TestCoreObject.LabelProperty).Subscribe(values.Add);
+        using IDisposable sub = obj.LabelProperty.GetObservable().Subscribe(values.Add);
         obj.Label = "next";
 
         Assert.That(values, Is.EqualTo(new[] { "init", "next" }));
@@ -69,7 +26,7 @@ public class CoreObjectExtensionsTests
     public void GetObservable_LeavesNoHandlerBehindAfterUnsubscribing()
     {
         var obj = new TestCoreObject { Label = "init" };
-        IObservable<string> observable = obj.GetObservable(TestCoreObject.LabelProperty);
+        IObservable<string> observable = obj.LabelProperty.GetObservable();
 
         for (int i = 0; i < 3; i++)
         {
@@ -133,14 +90,17 @@ public class CoreObjectExtensionsTests
 
     private sealed class TestCoreObject : CoreObject
     {
-        public static readonly CoreProperty<string> LabelProperty = ConfigureProperty<string, TestCoreObject>(nameof(Label))
-            .DefaultValue(string.Empty)
-            .Register();
+        public TestCoreObject()
+        {
+            ScanProperties<TestCoreObject>();
+        }
+
+        public IProperty<string> LabelProperty { get; } = new ValueOnlyProperty<string>(string.Empty);
 
         public string Label
         {
-            get => GetValue(LabelProperty);
-            set => SetValue(LabelProperty, value);
+            get => LabelProperty.Value;
+            set => LabelProperty.Value = value;
         }
     }
 }

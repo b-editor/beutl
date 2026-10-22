@@ -143,20 +143,6 @@ internal static class SerializedGraphPaths
                 visited,
                 objects);
         }
-
-        foreach (CoreProperty property in PropertyRegistry.GetRegistered(registeredObject.GetType()))
-        {
-            if (!property.GetMetadata<CorePropertyMetadata>(registeredObject.GetType()).ShouldSerialize)
-            {
-                continue;
-            }
-
-            CollectSerializedGraphObjectPaths(
-                registeredObject.GetValue(property),
-                AppendSerializedGraphPath(path, "property", property.Name),
-                visited,
-                objects);
-        }
     }
 
     private static void CollectSerializedGraphPathItems(

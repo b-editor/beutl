@@ -60,14 +60,6 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
     {
         var (name, updateAnimation, updateExpression) = ParsePropertyPath();
 
-        var coreProperty = PropertyRegistry.FindRegistered(Object.GetType(), name);
-
-        if (coreProperty != null)
-        {
-            Object.SetValue(coreProperty, value);
-            return;
-        }
-
         var engineProperty = Object.Properties.FirstOrDefault(p => p.Name == name);
         if (engineProperty is null)
         {

@@ -20,7 +20,7 @@ public abstract class MediaEncoderSettings : CoreObject
         set => CodecOptionsProperty.Value = value;
     }
 
-    // A setting raises PropertyChanged under its name, as its CoreProperty field did.
+    // A setting raises PropertyChanged under its name.
     internal override void OnPropertyValueChanged(IProperty property)
     {
         if (!IsOwnField(property))

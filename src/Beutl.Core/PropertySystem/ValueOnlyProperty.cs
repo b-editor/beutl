@@ -140,9 +140,9 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
         if (_validator == null)
             return value;
 
-        var context = new ValidationContext(this, null);
+        // An error names the property, and the owner keeps it by that name.
+        var context = new ValidationContext(this, this);
         string? error = _validator.TryCoerce(context, ref value!) ? null : _validator.Validate(context, value);
-        // The owner keeps the error by name, as it kept a CoreProperty's.
         if (_owner != null && _name != null)
             _owner.SetPropertyError(_name, error);
 

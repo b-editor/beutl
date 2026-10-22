@@ -13,7 +13,6 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
 {
     private readonly ICoreObject _object;
     private readonly string _propertyPath;
-    private readonly Dictionary<int, IOperationObserver> _corePropertyPublishers = new();
     private readonly Dictionary<string, IOperationObserver> _enginePropertyPublishers = new();
     private SplineEasingOperationObserver? _splineEasingPublisher;
     private NodeMemberOperationObserver? _nodeMemberPublisher;
@@ -63,11 +62,6 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
             keyFrame.EasingProperty.ValueChanged -= OnEasingChanged;
         }
 
-        foreach (IOperationObserver collection in _corePropertyPublishers.Values)
-        {
-            collection.Dispose();
-        }
-
         foreach (IOperationObserver enginePublisher in _enginePropertyPublishers.Values)
         {
             enginePublisher.Dispose();
@@ -87,35 +81,6 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
 
     private void InitializeChildPublishers()
     {
-        var objectType = _object.GetType();
-        foreach (CoreProperty property in PropertyRegistry.GetRegistered(objectType))
-        {
-            if (_propertiesToTrack != null && !_propertiesToTrack.Contains(property.Name))
-            {
-                continue;
-            }
-
-            if (property.TryGetMetadata<CorePropertyMetadata>(objectType, out var metadata)
-                && !metadata.Tracked)
-            {
-                continue;
-            }
-
-            string childPath = BuildPropertyPath(property.Name);
-
-            var observerType = typeof(CorePropertyOperationObserver<>).MakeGenericType(property.PropertyType);
-            var propertyPublisher = (IOperationObserver)Activator.CreateInstance(
-                observerType,
-                _operations,
-                _object,
-                property,
-                _sequenceNumberGenerator,
-                childPath,
-                _propertyPathsToTrack)!;
-
-            _corePropertyPublishers.Add(property.Id, propertyPublisher);
-        }
-
         RecreateSplineEasingPublisher();
         InitializeNodeMemberPublisher();
     }
@@ -161,8 +126,8 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
                 continue;
             }
 
-            // As for a CoreProperty, [NotTracked] marks state that is not an edit, such as camera mode's gizmo
-            // selection, so changing it records nothing.
+            // [NotTracked] marks state that is not an edit, such as camera mode's gizmo selection, so changing it
+            // records nothing.
             if (property.GetAttributes()?.Any(static attribute => attribute is NotTrackedAttribute) == true)
             {
                 continue;

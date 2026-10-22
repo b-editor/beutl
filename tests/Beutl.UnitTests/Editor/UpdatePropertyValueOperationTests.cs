@@ -64,10 +64,10 @@ public class UpdatePropertyValueOperationTests
 
     #endregion
 
-    #region Apply Tests - CoreProperty
+    #region Apply Tests - ValueOnlyProperty
 
     [Test]
-    public void Apply_WithCoreProperty_ShouldSetNewValue()
+    public void Apply_WithValueOnlyProperty_ShouldSetNewValue()
     {
         _root.Value = 0;
         var op = CreateOp(_root, "Value", 42, 0);
@@ -78,7 +78,7 @@ public class UpdatePropertyValueOperationTests
     }
 
     [Test]
-    public void Apply_WithStringCoreProperty_ShouldSetNewValue()
+    public void Apply_WithStringValueOnlyProperty_ShouldSetNewValue()
     {
         _root.Title = "original";
         var op = CreateOp<string?>(_root, "Title", "modified", "original");
@@ -112,10 +112,10 @@ public class UpdatePropertyValueOperationTests
 
     #endregion
 
-    #region Revert Tests - CoreProperty
+    #region Revert Tests - ValueOnlyProperty
 
     [Test]
-    public void Revert_WithStringCoreProperty_ShouldSetOldValue()
+    public void Revert_WithStringValueOnlyProperty_ShouldSetOldValue()
     {
         _root.Title = "modified";
         var op = CreateOp<string?>(_root, "Title", "modified", "original");
@@ -137,7 +137,7 @@ public class UpdatePropertyValueOperationTests
     }
 
     [Test]
-    public void ApplyThenRevert_WithCoreProperty_ShouldRestoreOriginalValue()
+    public void ApplyThenRevert_WithValueOnlyProperty_ShouldRestoreOriginalValue()
     {
         _root.Value = 10;
         var op = CreateOp(_root, "Value", 50, 10);
@@ -417,45 +417,33 @@ public class UpdatePropertyValueOperationTests
 
     private class TestCoreObject : CoreObject
     {
-        public static readonly CoreProperty<int> ValueProperty;
-        public static readonly CoreProperty<string?> TitleProperty;
-        public static readonly CoreProperty<CoreList<int>?> ItemsProperty;
-
-        private int _value;
-        private string? _title;
-        private CoreList<int>? _items;
-
-        static TestCoreObject()
+        public TestCoreObject()
         {
-            ValueProperty = ConfigureProperty<int, TestCoreObject>(nameof(Value))
-                .Accessor(o => o.Value, (o, v) => o.Value = v)
-                .Register();
-
-            TitleProperty = ConfigureProperty<string?, TestCoreObject>(nameof(Title))
-                .Accessor(o => o.Title, (o, v) => o.Title = v)
-                .Register();
-
-            ItemsProperty = ConfigureProperty<CoreList<int>?, TestCoreObject>(nameof(Items))
-                .Accessor(o => o.Items, (o, v) => o.Items = v)
-                .Register();
+            ScanProperties<TestCoreObject>();
         }
+
+        public IProperty<int> ValueProperty { get; } = new ValueOnlyProperty<int>(default);
+
+        public IProperty<string?> TitleProperty { get; } = new ValueOnlyProperty<string?>(null);
+
+        public IProperty<CoreList<int>?> ItemsProperty { get; } = new ValueOnlyProperty<CoreList<int>?>(null);
 
         public int Value
         {
-            get => _value;
-            set => SetAndRaise(ValueProperty, ref _value, value);
+            get => ValueProperty.Value;
+            set => ValueProperty.Value = value;
         }
 
         public string? Title
         {
-            get => _title;
-            set => SetAndRaise(TitleProperty, ref _title, value);
+            get => TitleProperty.Value;
+            set => TitleProperty.Value = value;
         }
 
         public CoreList<int>? Items
         {
-            get => _items;
-            set => SetAndRaise(ItemsProperty, ref _items, value);
+            get => ItemsProperty.Value;
+            set => ItemsProperty.Value = value;
         }
     }
 

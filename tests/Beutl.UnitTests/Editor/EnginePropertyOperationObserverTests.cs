@@ -653,21 +653,17 @@ public class EnginePropertyOperationObserverTests
 
     private class TestChildCoreObject : CoreObject
     {
-        public static readonly CoreProperty<string?> TitleProperty;
-
-        private string? _title;
-
-        static TestChildCoreObject()
+        public TestChildCoreObject()
         {
-            TitleProperty = ConfigureProperty<string?, TestChildCoreObject>(nameof(Title))
-                .Accessor(o => o.Title, (o, v) => o.Title = v)
-                .Register();
+            ScanProperties<TestChildCoreObject>();
         }
+
+        public IProperty<string?> TitleProperty { get; } = new ValueOnlyProperty<string?>(null);
 
         public string? Title
         {
-            get => _title;
-            set => SetAndRaise(TitleProperty, ref _title, value);
+            get => TitleProperty.Value;
+            set => TitleProperty.Value = value;
         }
     }
 

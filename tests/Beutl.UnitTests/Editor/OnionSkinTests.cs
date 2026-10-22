@@ -24,7 +24,7 @@ public class OnionSkinTests
     }
 
     [Test]
-    public void EditorConfig_SetValues_RoundTripThroughCoreProperty()
+    public void EditorConfig_SetValues_RoundTripThroughProperties()
     {
         var config = new EditorConfig
         {

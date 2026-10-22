@@ -122,15 +122,6 @@ internal static class SerializedGraphTraversal
             }
         }
 
-        foreach (CoreProperty property in PropertyRegistry.GetRegistered(coreObject.GetType()))
-        {
-            if (property.GetMetadata<CorePropertyMetadata>(coreObject.GetType()).ShouldSerialize
-                && VisitCore(coreObject.GetValue(property), $"{path}/{property.Name}", visited, visitor))
-            {
-                return true;
-            }
-        }
-
         return coreObject is IHierarchical hierarchical
                && VisitItems(hierarchical.HierarchicalChildren, $"{path}/HierarchicalChildren", visited, visitor);
     }

@@ -308,15 +308,6 @@ public sealed partial class Reconciler
             CoreSerializerOptions options = DeclarativeDocumentApplier.CreateOptions(
                 DeclarativeDocumentApplier.ResolveBaseUri(target) ?? root.Uri);
 
-            if (PropertyRegistry.FindRegistered(target, propertyName) is { } coreProperty)
-            {
-                object? value = valueNode is null
-                    ? null
-                    : EnumJsonValueNormalizer.Deserialize(valueNode, coreProperty.PropertyType, options);
-                validation.Add(ValidationEvaluator.Evaluate(target, coreProperty, value, options));
-                return;
-            }
-
             if (target.Properties.FirstOrDefault(p => p.Name == propertyName) is { } engineProperty)
             {
                 object? value = valueNode is null
@@ -337,14 +328,7 @@ public sealed partial class Reconciler
     }
 
     private static Type? ResolvePropertyType(CoreObject target, string propertyName)
-    {
-        if (PropertyRegistry.FindRegistered(target, propertyName) is { } coreProperty)
-        {
-            return coreProperty.PropertyType;
-        }
-
-        return target.Properties.FirstOrDefault(p => p.Name == propertyName)?.ValueType;
-    }
+        => target.Properties.FirstOrDefault(p => p.Name == propertyName)?.ValueType;
 
     private static bool ShouldSkip(string propertyName)
     {

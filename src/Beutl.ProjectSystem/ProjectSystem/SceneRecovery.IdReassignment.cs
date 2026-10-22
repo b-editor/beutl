@@ -368,18 +368,6 @@ internal sealed partial class SceneRecovery
             foreach (CoreObject obj in EnumerateSceneOwnedGraphObjects(value))
                 yield return obj;
         }
-
-        foreach (CoreProperty property in PropertyRegistry.GetRegistered(_scene.GetType()))
-        {
-            if (!property.GetMetadata<CorePropertyMetadata>(_scene.GetType()).ShouldSerialize
-                || _scene.GetValue(property) is not { } value)
-            {
-                continue;
-            }
-
-            foreach (CoreObject obj in EnumerateSceneOwnedGraphObjects(value))
-                yield return obj;
-        }
     }
 
     private IEnumerable<CoreObject> EnumerateSceneOwnedGraphObjects(object value)

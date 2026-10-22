@@ -57,15 +57,6 @@ public static partial class ProxySourceEnumerator
                     yield return animated;
             }
         }
-
-        foreach (CoreProperty prop in PropertyRegistry.GetRegistered(obj.GetType()))
-        {
-            if (prop.PropertyType.IsValueType)
-                continue;
-
-            foreach (IFileSource source in EnumeratePropertyValueFileSources(obj.GetValue(prop), localRange, skipDisabledElements, visitedValues, walkContext))
-                yield return source;
-        }
     }
 
     private static bool HasActiveExpression(IProperty property, ObjectWalkContext? context)
@@ -203,11 +194,10 @@ public static partial class ProxySourceEnumerator
             yield break;
         }
 
-        // "GUID.PropertyName" resolves through PropertyLookup.TryGetPropertyValue, which tries the
-        // target's IProperty surface first, then a registered CoreProperty. Mirror that resolution and,
-        // for an IProperty, enumerate the same way the property walk does (its own expression, animated
-        // keyframes, and current value) so the reference reaches sources hidden in the target's
-        // animation/expression, not just its current value.
+        // "GUID.PropertyName" resolves through PropertyLookup.TryGetPropertyValue, which looks up the
+        // target's IProperty surface. Mirror that resolution and enumerate the same way the property walk
+        // does (its own expression, animated keyframes, and current value) so the reference reaches sources
+        // hidden in the target's animation/expression, not just its current value.
         IProperty? property = target.Properties.FirstOrDefault(
             p => string.Equals(p.Name, reference.PropertyPath, StringComparison.OrdinalIgnoreCase));
         if (property is not null)
@@ -240,16 +230,6 @@ public static partial class ProxySourceEnumerator
             }
 
             yield break;
-        }
-
-        // Fall back to a registered CoreProperty (PropertyLookup's second strategy). CoreProperties are
-        // not animatable/expressible on this surface, so only the resolved value matters.
-        CoreProperty? coreProperty = PropertyRegistry.GetRegistered(target.GetType())
-            .FirstOrDefault(p => string.Equals(p.Name, reference.PropertyPath, StringComparison.OrdinalIgnoreCase));
-        if (coreProperty is not null && !coreProperty.PropertyType.IsValueType)
-        {
-            foreach (IFileSource source in EnumeratePropertyValueFileSources(target.GetValue(coreProperty), localRange, skipDisabledElements, visitedValues, walkContext))
-                yield return source;
         }
     }
 
@@ -289,14 +269,6 @@ public static partial class ProxySourceEnumerator
                     {
                         return ResolveExpressionValue<T>(target, targetProperty, visited, walkContext);
                     }
-
-                    // PropertyLookup's second strategy: a registered CoreProperty (e.g. a plugin exposing
-                    // CoreProperty<Drawable>). It is not animatable/expressible on this surface, so the
-                    // resolved value is what the render opens — mirror EnumerateExpressionFileSources.
-                    CoreProperty? coreProperty = PropertyRegistry.GetRegistered(target.GetType())
-                        .FirstOrDefault(p => string.Equals(p.Name, reference.PropertyPath, StringComparison.OrdinalIgnoreCase));
-                    if (coreProperty is not null && !coreProperty.PropertyType.IsValueType)
-                        return target.GetValue(coreProperty) as T ?? property.DefaultValue as T;
                 }
             }
 

@@ -131,7 +131,7 @@ public sealed partial class QueryTools
                     yield break;
                 }
 
-                // A base field stands for a CoreProperty field, which this walk does not enter.
+                // Base fields, which take no animation, are not entered.
                 foreach (IProperty property in engineObject.Properties.Where(property => !engineObject.IsBaseField(property)))
                 {
                     string propertyPath = $"{path}.{property.Name}";

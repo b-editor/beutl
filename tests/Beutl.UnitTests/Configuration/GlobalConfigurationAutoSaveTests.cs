@@ -46,19 +46,19 @@ public class GlobalConfigurationAutoSaveTests
             .Where(p => typeof(ConfigurationBase).IsAssignableFrom(p.PropertyType))
             .Select(p => (ConfigurationBase)p.GetValue(config)!))
         {
-            foreach (CoreProperty property in PropertyRegistry.GetRegistered(section.GetType()))
+            foreach (IProperty property in section.Properties)
             {
                 string name = $"{section.GetType().Name}.{property.Name}";
                 // Lists save through their CollectionChanged handlers.
                 if (property.Name is nameof(CoreObject.Id) or nameof(CoreObject.Name)
                     || s_savedOnExit.Contains(name)
-                    || property.PropertyType.IsGenericType && property.PropertyType.GetGenericTypeDefinition() == typeof(CoreList<>))
+                    || property.ValueType.IsGenericType && property.ValueType.GetGenericTypeDefinition() == typeof(CoreList<>))
                 {
                     continue;
                 }
 
                 changed.Clear();
-                section.SetValue(property, Different(property.PropertyType, section.GetValue(property)));
+                property.Value = Different(property.ValueType, property.Value);
                 if (!changed.Contains(section))
                     unsaved.Add(name);
             }

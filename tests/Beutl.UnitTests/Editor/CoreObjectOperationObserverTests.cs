@@ -45,7 +45,8 @@ public class CoreObjectOperationObserverTests
         var obj = new TestCoreObject();
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-        var propertyPathsToTrack = new HashSet<string> { "StringValue" };
+        // A value-only property's value is its CurrentValue slot.
+        var propertyPathsToTrack = new HashSet<string> { "StringValue.CurrentValue" };
 
         using var operationObserver = new CoreObjectOperationObserver(
             testObserver, obj, _sequenceGenerator, "", propertyPathsToTrack);
@@ -417,7 +418,8 @@ public class CoreObjectOperationObserverTests
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-        var propertyPathsToTrack = new HashSet<string> { "Child.StringValue" };
+        // Child's own value is tracked too, so that its object is observed.
+        var propertyPathsToTrack = new HashSet<string> { "Child.CurrentValue", "Child.StringValue.CurrentValue" };
 
         using var operationObserver = new CoreObjectOperationObserver(
             testObserver, parent, _sequenceGenerator, "", propertyPathsToTrack);
@@ -683,146 +685,114 @@ public class CoreObjectOperationObserverTests
 
     private class TestCoreObject : CoreObject
     {
-        public static readonly CoreProperty<string?> StringValueProperty;
-        public static readonly CoreProperty<int> IntValueProperty;
-
-        private string? _stringValue;
-        private int _intValue;
-
-        static TestCoreObject()
+        public TestCoreObject()
         {
-            StringValueProperty = ConfigureProperty<string?, TestCoreObject>(nameof(StringValue))
-                .Accessor(o => o.StringValue, (o, v) => o.StringValue = v)
-                .Register();
-
-            IntValueProperty = ConfigureProperty<int, TestCoreObject>(nameof(IntValue))
-                .Accessor(o => o.IntValue, (o, v) => o.IntValue = v)
-                .Register();
+            ScanProperties<TestCoreObject>();
         }
+
+        public IProperty<string?> StringValueProperty { get; } = new ValueOnlyProperty<string?>(null);
+
+        public IProperty<int> IntValueProperty { get; } = new ValueOnlyProperty<int>(default);
 
         public string? StringValue
         {
-            get => _stringValue;
-            set => SetAndRaise(StringValueProperty, ref _stringValue, value);
+            get => StringValueProperty.Value;
+            set => StringValueProperty.Value = value;
         }
 
         public int IntValue
         {
-            get => _intValue;
-            set => SetAndRaise(IntValueProperty, ref _intValue, value);
+            get => IntValueProperty.Value;
+            set => IntValueProperty.Value = value;
         }
     }
 
     private class TestParentCoreObject : CoreObject
     {
-        public static readonly CoreProperty<TestCoreObject?> ChildProperty;
-
-        private TestCoreObject? _child;
-
-        static TestParentCoreObject()
+        public TestParentCoreObject()
         {
-            ChildProperty = ConfigureProperty<TestCoreObject?, TestParentCoreObject>(nameof(Child))
-                .Accessor(o => o.Child, (o, v) => o.Child = v)
-                .Register();
+            ScanProperties<TestParentCoreObject>();
         }
+
+        public IProperty<TestCoreObject?> ChildProperty { get; } = new ValueOnlyProperty<TestCoreObject?>(null);
 
         public TestCoreObject? Child
         {
-            get => _child;
-            set => SetAndRaise(ChildProperty, ref _child, value);
+            get => ChildProperty.Value;
+            set => ChildProperty.Value = value;
         }
     }
 
     private class TestCollectionCoreObject : CoreObject
     {
-        public static readonly CoreProperty<CoreList<TestCoreObject>> ItemsProperty;
-
-        private CoreList<TestCoreObject> _items = new();
-
-        static TestCollectionCoreObject()
+        public TestCollectionCoreObject()
         {
-            ItemsProperty = ConfigureProperty<CoreList<TestCoreObject>, TestCollectionCoreObject>(nameof(Items))
-                .Accessor(o => o.Items, (o, v) => o.Items = v)
-                .Register();
+            ScanProperties<TestCollectionCoreObject>();
         }
+
+        public IProperty<CoreList<TestCoreObject>> ItemsProperty { get; } = new ValueOnlyProperty<CoreList<TestCoreObject>>([]);
 
         public CoreList<TestCoreObject> Items
         {
-            get => _items;
-            set => SetAndRaise(ItemsProperty, ref _items, value);
+            get => ItemsProperty.Value;
+            set => ItemsProperty.Value = value;
         }
     }
 
     private class TestCoreObjectWithNotTrackedProperty : CoreObject
     {
-        public static readonly CoreProperty<string?> NotTrackedValueProperty;
-        public static readonly CoreProperty<string?> TrackedValueProperty;
-
-        private string? _notTrackedValue;
-        private string? _trackedValue;
-
-        static TestCoreObjectWithNotTrackedProperty()
+        public TestCoreObjectWithNotTrackedProperty()
         {
-            NotTrackedValueProperty = ConfigureProperty<string?, TestCoreObjectWithNotTrackedProperty>(nameof(NotTrackedValue))
-                .Accessor(o => o.NotTrackedValue, (o, v) => o.NotTrackedValue = v)
-                .Register();
-
-            TrackedValueProperty = ConfigureProperty<string?, TestCoreObjectWithNotTrackedProperty>(nameof(TrackedValue))
-                .Accessor(o => o.TrackedValue, (o, v) => o.TrackedValue = v)
-                .Register();
+            ScanProperties<TestCoreObjectWithNotTrackedProperty>();
         }
 
         [NotTracked]
+        public IProperty<string?> NotTrackedValueProperty { get; } = new ValueOnlyProperty<string?>(null);
+
+        public IProperty<string?> TrackedValueProperty { get; } = new ValueOnlyProperty<string?>(null);
+
         public string? NotTrackedValue
         {
-            get => _notTrackedValue;
-            set => SetAndRaise(NotTrackedValueProperty, ref _notTrackedValue, value);
+            get => NotTrackedValueProperty.Value;
+            set => NotTrackedValueProperty.Value = value;
         }
 
         public string? TrackedValue
         {
-            get => _trackedValue;
-            set => SetAndRaise(TrackedValueProperty, ref _trackedValue, value);
+            get => TrackedValueProperty.Value;
+            set => TrackedValueProperty.Value = value;
         }
     }
 
     private class TestGrandParentCoreObject : CoreObject
     {
-        public static readonly CoreProperty<TestParentCoreObject?> MiddleChildProperty;
-
-        private TestParentCoreObject? _middleChild;
-
-        static TestGrandParentCoreObject()
+        public TestGrandParentCoreObject()
         {
-            MiddleChildProperty = ConfigureProperty<TestParentCoreObject?, TestGrandParentCoreObject>(nameof(MiddleChild))
-                .Accessor(o => o.MiddleChild, (o, v) => o.MiddleChild = v)
-                .Register();
+            ScanProperties<TestGrandParentCoreObject>();
         }
+
+        public IProperty<TestParentCoreObject?> MiddleChildProperty { get; } = new ValueOnlyProperty<TestParentCoreObject?>(null);
 
         public TestParentCoreObject? MiddleChild
         {
-            get => _middleChild;
-            set => SetAndRaise(MiddleChildProperty, ref _middleChild, value);
+            get => MiddleChildProperty.Value;
+            set => MiddleChildProperty.Value = value;
         }
     }
 
     private class TestHierarchicalObject : Hierarchical
     {
-        public static readonly CoreProperty<string?> TitleProperty;
-
-        private string? _title;
-
-        static TestHierarchicalObject()
+        public TestHierarchicalObject()
         {
-            TitleProperty = ConfigureProperty<string?, TestHierarchicalObject>(nameof(Title))
-                .Accessor(o => o.Title, (o, v) => o.Title = v)
-                .Register();
+            ScanProperties<TestHierarchicalObject>();
         }
+
+        public IProperty<string?> TitleProperty { get; } = new ValueOnlyProperty<string?>(null);
 
         public string? Title
         {
-            get => _title;
-            set => SetAndRaise(TitleProperty, ref _title, value);
+            get => TitleProperty.Value;
+            set => TitleProperty.Value = value;
         }
 
         public void AddTestChild(TestHierarchicalObject child)

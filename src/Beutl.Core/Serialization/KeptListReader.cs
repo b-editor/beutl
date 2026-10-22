@@ -2,7 +2,7 @@
 
 namespace Beutl.Serialization;
 
-// Reads a list an object keeps as a base field, as a CoreProperty whose setter replaced the list's items read one.
+// Reads the saved items into a list an object keeps, in place of the items it held.
 internal static class KeptListReader
 {
     // TList is the type the list was saved as; an unchanged list a populate preserved is left as it is.

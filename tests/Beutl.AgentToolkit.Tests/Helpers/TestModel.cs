@@ -2,14 +2,16 @@
 
 internal sealed class TestModel : CoreObject
 {
-    public static readonly CoreProperty<int> ValueProperty =
-        ConfigureProperty<int, TestModel>(nameof(Value))
-            .DefaultValue(0)
-            .Register();
+    public TestModel()
+    {
+        ScanProperties<TestModel>();
+    }
+
+    public IProperty<int> ValueProperty { get; } = new ValueOnlyProperty<int>(0);
 
     public int Value
     {
-        get => GetValue(ValueProperty);
-        set => SetValue(ValueProperty, value);
+        get => ValueProperty.Value;
+        set => ValueProperty.Value = value;
     }
 }

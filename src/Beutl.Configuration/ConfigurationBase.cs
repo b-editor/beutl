@@ -17,27 +17,12 @@ public abstract class ConfigurationBase : CoreObject
 
     private static ILogger Logger => Log.GetLoggerOnceConfigured(ref s_logger, typeof(ConfigurationBase));
 
-    protected static void AffectsConfig<T>(params CoreProperty[] properties)
-        where T : ConfigurationBase
-    {
-        foreach (CoreProperty? item in properties)
-        {
-            item.Changed.Subscribe(e =>
-            {
-                if (e.Sender is T s)
-                {
-                    s.OnChanged();
-                }
-            });
-        }
-    }
-
     protected void OnChanged()
     {
         ConfigurationChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    // A setting raises PropertyChanged under its name, as its CoreProperty field did.
+    // A setting raises PropertyChanged under its name.
     internal override void OnPropertyValueChanged(IProperty property)
     {
         if (!IsOwnField(property))
@@ -68,26 +53,6 @@ public abstract class ConfigurationBase : CoreObject
                     throw new JsonException($"{property.Name} cannot be null.");
 
                 property.DeserializeValue(context);
-            }
-            catch (Exception ex)
-            {
-                RecordDeserializeFailure(property.Name, ex);
-            }
-        }
-
-        foreach (CoreProperty property in PropertyRegistry.GetRegistered(GetType()))
-        {
-            try
-            {
-                Optional<object?> value = property.RouteDeserialize(context);
-                if (!value.HasValue)
-                    continue;
-
-                // A JSON null reads as default(T) without an error, which would leave, say, UICulture null.
-                if (IsJsonNull(context, property.GetReadName(context)) && !AcceptsNull(property.PropertyType, property.Name))
-                    throw new JsonException($"{property.Name} cannot be null.");
-
-                SetValue(property, value.Value);
             }
             catch (Exception ex)
             {

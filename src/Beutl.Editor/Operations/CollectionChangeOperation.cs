@@ -204,16 +204,7 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
     private void Execute(bool revert)
     {
         _failureState = ChangeOperationFailureState.Unknown;
-        var type = Object.GetType();
         var name = PropertyPathHelper.GetPropertyNameFromPath(PropertyPath);
-        var coreProperty = PropertyRegistry.FindRegistered(type, name);
-
-        if (coreProperty != null)
-        {
-            IList<T> list = VerifyType(Object, Object.GetValue(coreProperty));
-            ExecuteWithFailureState(list, revert, revert ? () => RevertTo(list) : () => ApplyTo(list));
-            return;
-        }
 
         if (Object is INodeMember nodeMember && name == "Property")
         {

@@ -815,117 +815,106 @@ public class HistoryManagerIntegrationTests
 
     private class TestModel : CoreObject
     {
-        public static readonly CoreProperty<int> IntValueProperty =
-            ConfigureProperty<int, TestModel>(nameof(IntValue))
-                .DefaultValue(0)
-                .Register();
+        public TestModel()
+        {
+            ScanProperties<TestModel>();
+        }
 
-        public static readonly CoreProperty<string?> StringValueProperty =
-            ConfigureProperty<string?, TestModel>(nameof(StringValue))
-                .DefaultValue(null)
-                .Register();
+        public IProperty<int> IntValueProperty { get; } = new ValueOnlyProperty<int>(0);
 
-        public static readonly CoreProperty<double> DoubleValueProperty =
-            ConfigureProperty<double, TestModel>(nameof(DoubleValue))
-                .DefaultValue(0.0)
-                .Register();
+        public IProperty<string?> StringValueProperty { get; } = new ValueOnlyProperty<string?>(null);
 
-        public static readonly CoreProperty<int?> NullableValueProperty =
-            ConfigureProperty<int?, TestModel>(nameof(NullableValue))
-                .DefaultValue(null)
-                .Register();
+        public IProperty<double> DoubleValueProperty { get; } = new ValueOnlyProperty<double>(0.0);
 
-        public static readonly CoreProperty<TestNestedModel?> NestedObjectProperty =
-            ConfigureProperty<TestNestedModel?, TestModel>(nameof(NestedObject))
-                .DefaultValue(null)
-                .Register();
+        public IProperty<int?> NullableValueProperty { get; } = new ValueOnlyProperty<int?>(null);
+
+        public IProperty<TestNestedModel?> NestedObjectProperty { get; } = new ValueOnlyProperty<TestNestedModel?>(null);
 
         public int IntValue
         {
-            get => GetValue(IntValueProperty);
-            set => SetValue(IntValueProperty, value);
+            get => IntValueProperty.Value;
+            set => IntValueProperty.Value = value;
         }
 
         public string? StringValue
         {
-            get => GetValue(StringValueProperty);
-            set => SetValue(StringValueProperty, value);
+            get => StringValueProperty.Value;
+            set => StringValueProperty.Value = value;
         }
 
         public double DoubleValue
         {
-            get => GetValue(DoubleValueProperty);
-            set => SetValue(DoubleValueProperty, value);
+            get => DoubleValueProperty.Value;
+            set => DoubleValueProperty.Value = value;
         }
 
         public int? NullableValue
         {
-            get => GetValue(NullableValueProperty);
-            set => SetValue(NullableValueProperty, value);
+            get => NullableValueProperty.Value;
+            set => NullableValueProperty.Value = value;
         }
 
         public TestNestedModel? NestedObject
         {
-            get => GetValue(NestedObjectProperty);
-            set => SetValue(NestedObjectProperty, value);
+            get => NestedObjectProperty.Value;
+            set => NestedObjectProperty.Value = value;
         }
     }
 
     private class TestNestedModel : CoreObject
     {
-        public static readonly CoreProperty<int> NestedIntValueProperty =
-            ConfigureProperty<int, TestNestedModel>(nameof(NestedIntValue))
-                .DefaultValue(0)
-                .Register();
+        public TestNestedModel()
+        {
+            ScanProperties<TestNestedModel>();
+        }
 
-        public static readonly CoreProperty<string?> NestedStringValueProperty =
-            ConfigureProperty<string?, TestNestedModel>(nameof(NestedStringValue))
-                .DefaultValue(null)
-                .Register();
+        public IProperty<int> NestedIntValueProperty { get; } = new ValueOnlyProperty<int>(0);
+
+        public IProperty<string?> NestedStringValueProperty { get; } = new ValueOnlyProperty<string?>(null);
 
         public int NestedIntValue
         {
-            get => GetValue(NestedIntValueProperty);
-            set => SetValue(NestedIntValueProperty, value);
+            get => NestedIntValueProperty.Value;
+            set => NestedIntValueProperty.Value = value;
         }
 
         public string? NestedStringValue
         {
-            get => GetValue(NestedStringValueProperty);
-            set => SetValue(NestedStringValueProperty, value);
+            get => NestedStringValueProperty.Value;
+            set => NestedStringValueProperty.Value = value;
         }
     }
 
     private class TestModelWithList : CoreObject
     {
-        public static readonly CoreProperty<CoreList<TestItem>> ItemsProperty =
-            ConfigureProperty<CoreList<TestItem>, TestModelWithList>(nameof(Items))
-                .DefaultValue(null!)
-                .Register();
+        public IProperty<CoreList<TestItem>> ItemsProperty { get; } = new ValueOnlyProperty<CoreList<TestItem>>(null!);
 
         public TestModelWithList()
         {
+            ScanProperties<TestModelWithList>();
             Items = new CoreList<TestItem>();
         }
 
         public CoreList<TestItem> Items
         {
-            get => GetValue(ItemsProperty);
-            set => SetValue(ItemsProperty, value);
+            get => ItemsProperty.Value;
+            set => ItemsProperty.Value = value;
         }
     }
 
     private class TestItem : CoreObject
     {
-        public static readonly CoreProperty<string?> ValueProperty =
-            ConfigureProperty<string?, TestItem>(nameof(Value))
-                .DefaultValue(null)
-                .Register();
+        public TestItem()
+        {
+            ScanProperties<TestItem>();
+        }
+
+        public IProperty<string?> ValueProperty { get; } = new ValueOnlyProperty<string?>(null);
 
         public string? Value
         {
-            get => GetValue(ValueProperty);
-            set => SetValue(ValueProperty, value);
+            get => ValueProperty.Value;
+            set => ValueProperty.Value = value;
         }
     }
 

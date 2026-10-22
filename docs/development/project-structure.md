@@ -3,7 +3,7 @@
 | Project | Responsibility |
 |---|---|
 | `Beutl.Utilities`, `Beutl.Threading` | Low-level helpers, and the `Dispatcher` with its scheduling primitives. |
-| `Beutl.Core` | `CoreObject`/`CoreProperty`, serialization, file sources, collections, and the Beutl home directory layout. |
+| `Beutl.Core` | `CoreObject`/`IProperty`, serialization, file sources, collections, and the Beutl home directory layout. |
 | `Beutl.Configuration` | Application settings (`GlobalConfiguration` and its sections). |
 | `Beutl.Language` | Localized string resources; see `src/Beutl.Language/README.md` for which file to use. |
 | `Beutl.Engine` | Core rendering, animation, audio, composition, and media abstractions. It must not depend on UI projects. |

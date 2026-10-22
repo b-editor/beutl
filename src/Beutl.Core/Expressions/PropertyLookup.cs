@@ -44,16 +44,6 @@ public class PropertyLookup(ICoreObject root)
             return true;
         }
 
-        Type type = coreObject.GetType();
-        CoreProperty? coreProperty = PropertyRegistry.GetRegistered(type)
-            .FirstOrDefault(p => string.Equals(p.Name, propertyName, StringComparison.OrdinalIgnoreCase));
-
-        if (coreProperty is CoreProperty<T> typedCoreProperty)
-        {
-            value = coreObject.GetValue(typedCoreProperty);
-            return true;
-        }
-
         return false;
     }
 }

@@ -187,7 +187,7 @@ public sealed partial class Reconciler
             : null;
     }
 
-    // A base field stands for a CoreProperty field, which takes no animation.
+    // A base field holds only a value and takes no animation.
     private static IProperty? FindAnimationTarget(EngineObject engineObject, string propertyName)
         => engineObject.Properties.FirstOrDefault(
             property => property.Name == propertyName && !engineObject.IsBaseField(property));
