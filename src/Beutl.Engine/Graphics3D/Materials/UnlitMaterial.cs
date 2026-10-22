@@ -29,7 +29,7 @@ public sealed partial class UnlitMaterial : Material3D
     public IExpressionProperty<Color> Color { get; } = Property.CreateAnimatable(Colors.White);
 
     [Display(Name = nameof(GraphicsStrings.UnlitMaterial_ColorMap), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<TextureSource?> ColorMap { get; } = Property.CreateWithExpression<TextureSource?>(null);
+    public IExpressionProperty<TextureSource?> ColorMap { get; } = Property.CreateExpression<TextureSource?>(null);
 
     [Display(Name = nameof(GraphicsStrings.Opacity), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 1f), NumberStep(0.1, 0.01)]

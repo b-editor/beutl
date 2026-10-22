@@ -133,5 +133,5 @@ internal sealed partial class ImageMaskTransition : ClipTransition
 {
     public ImageMaskTransition() => ScanProperties<ImageMaskTransition>();
 
-    public IExpressionProperty<ImageSource?> Mask { get; } = Property.CreateWithExpression<ImageSource?>();
+    public IExpressionProperty<ImageSource?> Mask { get; } = Property.CreateExpression<ImageSource?>();
 }

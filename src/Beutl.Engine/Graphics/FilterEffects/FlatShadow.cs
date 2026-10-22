@@ -23,7 +23,7 @@ public partial class FlatShadow : FilterEffect
     public IExpressionProperty<float> Length { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.Brush), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Brush?> Brush { get; } = Property.CreateWithExpression<Brush?>();
+    public IExpressionProperty<Brush?> Brush { get; } = Property.CreateExpression<Brush?>();
 
     [Display(Name = nameof(GraphicsStrings.ShadowOnly), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<bool> ShadowOnly { get; } = Property.CreateAnimatable(false);

@@ -58,7 +58,7 @@ public sealed partial class RadialBlur : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.RadialBlur_Mode), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<RadialBlurMode> Mode { get; } = Property.CreateWithExpression(RadialBlurMode.Zoom);
+    public IExpressionProperty<RadialBlurMode> Mode { get; } = Property.CreateExpression(RadialBlurMode.Zoom);
 
     [Display(Name = nameof(GraphicsStrings.RadialBlur_Center), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<RelativePoint> Center { get; } = Property.CreateAnimatable(RelativePoint.Center);

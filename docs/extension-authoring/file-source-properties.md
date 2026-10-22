@@ -17,7 +17,7 @@ using Beutl;
 using Beutl.Engine;
 
 [FileFilter("Photoshop documents", "*.psd", "*.psb")]
-public IExpressionProperty<PsdSource?> Source { get; } = Property.CreateWithExpression<PsdSource?>();
+public IExpressionProperty<PsdSource?> Source { get; } = Property.CreateExpression<PsdSource?>();
 ```
 
 `PsdSource` should implement `IFileSource` or derive from `MediaSource` and
@@ -37,7 +37,7 @@ arguments supply platform-specific picker metadata:
 ```csharp
 [FileFilter("Subtitles", "*.srt", MimeTypes = new[] { "application/x-subrip" })]
 [FileFilter("Text files", "*.txt", AppleUniformTypeIdentifiers = new[] { "public.plain-text" })]
-public IExpressionProperty<FileInfo?> SubtitleFile { get; } = Property.CreateWithExpression<FileInfo?>();
+public IExpressionProperty<FileInfo?> SubtitleFile { get; } = Property.CreateExpression<FileInfo?>();
 ```
 
 Without an attribute, the generic editor leaves the picker unfiltered. Existing

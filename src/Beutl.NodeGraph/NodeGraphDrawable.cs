@@ -19,7 +19,7 @@ public sealed partial class NodeGraphDrawable : Drawable
         Model.Value = new GraphModel();
     }
 
-    public IExpressionProperty<GraphModel?> Model { get; } = Property.CreateWithExpression<GraphModel?>();
+    public IExpressionProperty<GraphModel?> Model { get; } = Property.CreateExpression<GraphModel?>();
 
     public override Resource ToResource(CompositionContext context)
     {
