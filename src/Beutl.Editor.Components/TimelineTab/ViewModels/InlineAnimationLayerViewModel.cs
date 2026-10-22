@@ -7,6 +7,7 @@ using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.Serialization;
 using Beutl.Services;

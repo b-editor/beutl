@@ -5,9 +5,9 @@ using Beutl.Animation.Easings;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
 
-namespace Beutl.Editor.Components.Helpers;
+namespace Beutl.Editor.Services;
 
-public static class AnimationOperations
+internal static class AnimationOperations
 {
     private static readonly MethodInfo s_insertKeyFrame = typeof(AnimationOperations).GetMethods()
         .Single(m => m.Name == nameof(InsertKeyFrame) && m.IsGenericMethodDefinition);

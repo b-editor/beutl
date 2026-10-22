@@ -5,6 +5,7 @@ using Avalonia.Media;
 using Beutl.Animation;
 using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Serialization;

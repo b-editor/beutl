@@ -2,9 +2,9 @@
 using System.Globalization;
 using Beutl.Language;
 
-namespace Beutl.Controls.PropertyEditors;
+namespace Beutl.Editor.PropertyEditors;
 
-public static class PropertyHoverInfoFormatter
+internal static class PropertyHoverInfoFormatter
 {
     public static string? Format(Type? propertyType, string? description, IEnumerable<Attribute>? attributes)
     {

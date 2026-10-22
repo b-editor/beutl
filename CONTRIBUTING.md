@@ -76,7 +76,8 @@ the PR instead of silently choosing either compatibility or a sweeping rewrite.
 
 - **`Beutl.Editor`**: editing logic without UI, which a headless host or a
   test without the shell can use. It ships in the extension SDK, so its public
-  types are public API.
+  types are public API. Its one kind of view model is the Avalonia-free base of
+  the property editors (`PropertyEditors/`), which extensions derive from.
 - **`Beutl.Editor.Components`**: tool tabs, editor views and their view models.
   The SDK does not include it.
 - **`Beutl`** (the app): composition of the above and what only the app uses.

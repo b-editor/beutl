@@ -41,6 +41,28 @@ public class PropertyEditorExtension : Extension
 
     public override string DisplayName => "";
 
+    private PropertyEditorRegistry? _registry;
+
+    // Registers this extension's editors; called once, before the host first uses them.
+    protected internal virtual void RegisterEditors(PropertyEditorRegistry registry)
+    {
+    }
+
+    internal PropertyEditorRegistry Registry
+    {
+        get
+        {
+            if (_registry is null)
+            {
+                var registry = new PropertyEditorRegistry(this);
+                RegisterEditors(registry);
+                _registry = registry;
+            }
+
+            return _registry;
+        }
+    }
+
     public virtual IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
     {
         return DefaultHandler.MatchProperty(properties);
