@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using Beutl.Language;
 using Beutl.Media;
 
@@ -6,33 +7,16 @@ namespace Beutl.ProjectSystem;
 
 public class SceneMarker : Hierarchical
 {
-    public static readonly CoreProperty<TimeSpan> TimeProperty;
-    public static readonly CoreProperty<Color> ColorProperty;
-    public static readonly CoreProperty<string> NoteProperty;
-
-    static SceneMarker()
-    {
-        TimeProperty = ConfigureProperty<TimeSpan, SceneMarker>(nameof(Time))
-            .Accessor(o => o.Time, (o, v) => o.Time = v)
-            .DefaultValue(TimeSpan.Zero)
-            .Register();
-
-        ColorProperty = ConfigureProperty<Color, SceneMarker>(nameof(Color))
-            .Accessor(o => o.Color, (o, v) => o.Color = v)
-            .DefaultValue(Colors.Yellow)
-            .Register();
-
-        NoteProperty = ConfigureProperty<string, SceneMarker>(nameof(Note))
-            .Accessor(o => o.Note, (o, v) => o.Note = v)
-            .DefaultValue(string.Empty)
-            .Register();
-    }
-
     public SceneMarker()
     {
+        ScanProperties<SceneMarker>();
+        TimeProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Time)));
+        ColorProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Color)));
+        NoteProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Note)));
     }
 
     public SceneMarker(TimeSpan time, string? name = null, Color? color = null, string? note = null)
+        : this()
     {
         Time = time;
         Name = name ?? string.Empty;
@@ -41,27 +25,33 @@ public class SceneMarker : Hierarchical
     }
 
     [Display(Name = nameof(Strings.StartTime), ResourceType = typeof(Strings))]
+    public IProperty<TimeSpan> TimeProperty { get; } = new ValueOnlyProperty<TimeSpan>(TimeSpan.Zero)
+    {
+        Coerce = static (_, value) => value < TimeSpan.Zero ? TimeSpan.Zero : value
+    };
+
+    public IProperty<Color> ColorProperty { get; } = new ValueOnlyProperty<Color>(Colors.Yellow);
+
+    public IProperty<string> NoteProperty { get; } = new ValueOnlyProperty<string>(string.Empty)
+    {
+        Coerce = static (_, value) => value ?? string.Empty
+    };
+
     public TimeSpan Time
     {
-        get;
-        set
-        {
-            if (value < TimeSpan.Zero)
-                value = TimeSpan.Zero;
-
-            SetAndRaise(TimeProperty, ref field, value);
-        }
+        get => TimeProperty.Value;
+        set => TimeProperty.Value = value;
     }
 
     public Color Color
     {
-        get;
-        set => SetAndRaise(ColorProperty, ref field, value);
-    } = Colors.Yellow;
+        get => ColorProperty.Value;
+        set => ColorProperty.Value = value;
+    }
 
     public string Note
     {
-        get;
-        set => SetAndRaise(NoteProperty, ref field, value ?? string.Empty);
-    } = string.Empty;
+        get => NoteProperty.Value;
+        set => NoteProperty.Value = value;
+    }
 }

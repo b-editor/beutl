@@ -47,26 +47,26 @@ public sealed partial class GraphEditorViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        ElementMargin = (Element?.GetObservable(Element.StartProperty) ?? Observable.ReturnThenNever<TimeSpan>(default))
+        ElementMargin = (Element?.StartProperty.GetObservable() ?? Observable.ReturnThenNever<TimeSpan>(default))
             .CombineLatest(timelineOptions.Scale)
             .Select(t => new Thickness(t.First.TimeToPixel(t.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        ElementWidth = (Element?.GetObservable(Element.LengthProperty) ?? Observable.ReturnThenNever<TimeSpan>(default))
+        ElementWidth = (Element?.LengthProperty.GetObservable() ?? Observable.ReturnThenNever<TimeSpan>(default))
             .CombineLatest(timelineOptions.Scale)
             .Select(t => t.First.TimeToPixel(t.Second))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        ElementColor = (Element?.GetObservable(Element.AccentColorProperty) ??
+        ElementColor = (Element?.AccentColorProperty.GetObservable() ??
                         Observable.ReturnThenNever(Media.Colors.Transparent))
             .Select(v => (IBrush)new ImmutableSolidColorBrush(v.ToAvaColor()))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         Margin = UseGlobalClock.Select(v => !v
-                ? Element?.GetObservable(Element.StartProperty)
+                ? Element?.StartProperty.GetObservable()
                     .CombineLatest(Options)
                     .Select(item => new Thickness(item.First.TimeToPixel(item.Second.Scale), 0, 0, 0))
                 : null)

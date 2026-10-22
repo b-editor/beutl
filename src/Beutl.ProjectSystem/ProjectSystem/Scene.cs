@@ -33,22 +33,12 @@ public enum ElementOverlapHandling
 
 public partial class Scene : ProjectItem, INotifyEdited
 {
-    public static readonly CoreProperty<PixelSize> FrameSizeProperty;
-    public static readonly CoreProperty<Elements> ChildrenProperty;
-    public static readonly CoreProperty<TimeSpan> StartProperty;
-    public static readonly CoreProperty<TimeSpan> DurationProperty;
-    public static readonly CoreProperty<CoreList<ImmutableHashSet<Guid>>> GroupsProperty;
-    public static readonly CoreProperty<CoreList<TimelineLayer>> LayersProperty;
-    public static readonly CoreProperty<CoreList<SceneMarker>> MarkersProperty;
     private readonly List<string> _includeElements = ["**/*.belm"];
     private readonly List<string> _excludeElements = [];
     private readonly Elements _children;
     private readonly HierarchicalList<TimelineLayer> _layers;
     private readonly HierarchicalList<SceneMarker> _markers;
     private readonly SceneRecovery _recovery;
-    private TimeSpan _start = TimeSpan.FromMinutes(0);
-    private TimeSpan _duration = TimeSpan.FromMinutes(5);
-    private PixelSize _frameSize;
 
     public Scene()
         : this(1920, 1080, string.Empty)
@@ -58,16 +48,26 @@ public partial class Scene : ProjectItem, INotifyEdited
     public Scene(int width, int height, string name)
     {
         _recovery = new SceneRecovery(this);
-        FrameSize = new PixelSize(width, height);
         _children = new Elements(this);
+        _layers = new HierarchicalList<TimelineLayer>(this);
+        _markers = new HierarchicalList<SceneMarker>(this);
+        // The lists are values rather than defaults, as their CoreProperty forms had no default.
+        ChildrenProperty.Value = _children;
+        GroupsProperty.Value = Groups;
+        LayersProperty.Value = _layers;
+        MarkersProperty.Value = _markers;
+        DurationProperty.Value = TimeSpan.FromMinutes(5);
+        ScanProperties<Scene>();
+        FrameSizeProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(FrameSize)));
+        StartProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Start)));
+        DurationProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Duration)));
+        FrameSize = new PixelSize(width, height);
         _children.CollectionChanged += Children_CollectionChanged;
         _children.Attached += item => item.Edited += OnElementEdited;
         _children.Detached += item => item.Edited -= OnElementEdited;
-        _layers = new HierarchicalList<TimelineLayer>(this);
         _layers.CollectionChanged += Layers_CollectionChanged;
         _layers.Attached += OnLayerAttached;
         _layers.Detached += OnLayerDetached;
-        _markers = new HierarchicalList<SceneMarker>(this);
         // A plain list, so it names its owner for the write check itself.
         Groups.WriteOwner = this;
         Name = name;
@@ -75,79 +75,52 @@ public partial class Scene : ProjectItem, INotifyEdited
 
     internal SceneRecovery Recovery => _recovery;
 
-    static Scene()
-    {
-        FrameSizeProperty = ConfigureProperty<PixelSize, Scene>(nameof(FrameSize))
-            .Accessor(o => o.FrameSize, (o, v) => o.FrameSize = v)
-            .Register();
-
-        ChildrenProperty = ConfigureProperty<Elements, Scene>(nameof(Children))
-            .Accessor(o => o.Children, (o, v) => o.Children = v)
-            .Register();
-
-        StartProperty = ConfigureProperty<TimeSpan, Scene>(nameof(Start))
-            .Accessor(o => o.Start, (o, v) => o.Start = v)
-            .Register();
-
-        DurationProperty = ConfigureProperty<TimeSpan, Scene>(nameof(Duration))
-            .Accessor(o => o.Duration, (o, v) => o.Duration = v)
-            .Register();
-
-        GroupsProperty = ConfigureProperty<CoreList<ImmutableHashSet<Guid>>, Scene>(nameof(Groups))
-            .Accessor(o => o.Groups, (o, v) => o.Groups = v)
-            .Register();
-
-        LayersProperty = ConfigureProperty<CoreList<TimelineLayer>, Scene>(nameof(Layers))
-            .Accessor(o => o.Layers, (o, v) => o.Layers = v)
-            .Register();
-
-        MarkersProperty = ConfigureProperty<CoreList<SceneMarker>, Scene>(nameof(Markers))
-            .Accessor(o => o.Markers, (o, v) => o.Markers = v)
-            .Register();
-    }
-
     public event EventHandler? Edited;
+
+    public IProperty<PixelSize> FrameSizeProperty { get; } = new ValueOnlyProperty<PixelSize>(default);
+
+    // Serialize and Deserialize write and read the elements, groups and markers themselves.
+    [NotAutoSerialized]
+    public IProperty<Elements> ChildrenProperty { get; } = new ValueOnlyProperty<Elements>(null!) { KeepsList = true };
+
+    [Display(Name = nameof(Strings.StartTime), ResourceType = typeof(Strings))]
+    public IProperty<TimeSpan> StartProperty { get; } = new ValueOnlyProperty<TimeSpan>(TimeSpan.Zero) { Coerce = static (_, value) => NotNegative(value) };
+
+    [Display(Name = nameof(Strings.DurationTime), ResourceType = typeof(Strings))]
+    public IProperty<TimeSpan> DurationProperty { get; } = new ValueOnlyProperty<TimeSpan>(TimeSpan.Zero) { Coerce = static (_, value) => NotNegative(value) };
+
+    [NotAutoSerialized]
+    public IProperty<CoreList<ImmutableHashSet<Guid>>> GroupsProperty { get; } = new ValueOnlyProperty<CoreList<ImmutableHashSet<Guid>>>(null!) { KeepsList = true };
+
+    public IProperty<CoreList<TimelineLayer>> LayersProperty { get; } = new ValueOnlyProperty<CoreList<TimelineLayer>>(null!) { KeepsList = true };
+
+    [NotAutoSerialized]
+    public IProperty<CoreList<SceneMarker>> MarkersProperty { get; } = new ValueOnlyProperty<CoreList<SceneMarker>>(null!) { KeepsList = true };
 
     public PixelSize FrameSize
     {
-        get => _frameSize;
-        set => SetAndRaise(FrameSizeProperty, ref _frameSize, value);
+        get => FrameSizeProperty.Value;
+        set => FrameSizeProperty.Value = value;
     }
 
-    [Display(Name = nameof(Strings.StartTime), ResourceType = typeof(Strings))]
     public TimeSpan Start
     {
-        get => _start;
-        set
-        {
-            if (value < TimeSpan.Zero)
-                value = TimeSpan.Zero;
-
-            SetAndRaise(StartProperty, ref _start, value);
-        }
+        get => StartProperty.Value;
+        set => StartProperty.Value = value;
     }
 
-    [Display(Name = nameof(Strings.DurationTime), ResourceType = typeof(Strings))]
     public TimeSpan Duration
     {
-        get => _duration;
-        set
-        {
-            if (value < TimeSpan.Zero)
-                value = TimeSpan.Zero;
-
-            SetAndRaise(DurationProperty, ref _duration, value);
-        }
+        get => DurationProperty.Value;
+        set => DurationProperty.Value = value;
     }
 
-    [NotAutoSerialized]
     public Elements Children
     {
         get => _children;
         set => _children.Replace(value);
     }
 
-    [NotAutoSerialized]
     public CoreList<ImmutableHashSet<Guid>> Groups
     {
         get;
@@ -160,12 +133,13 @@ public partial class Scene : ProjectItem, INotifyEdited
         set => _layers.Replace(value);
     }
 
-    [NotAutoSerialized]
     public CoreList<SceneMarker> Markers
     {
         get => _markers;
         set => _markers.Replace(value);
     }
+
+    private static TimeSpan NotNegative(TimeSpan value) => value < TimeSpan.Zero ? TimeSpan.Zero : value;
 
     public bool IsLayerLocked(int zIndex)
     {

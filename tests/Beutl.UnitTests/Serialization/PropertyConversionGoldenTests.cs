@@ -1,8 +1,12 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transitions;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Generative;
@@ -41,6 +45,81 @@ public partial class PropertyConversionGoldenTests
     }
 
     [Test]
+    public void AnElementWithEachSavedMember()
+    {
+        AssertGolden(CoreSerializer.SerializeToJsonObject(CreateElement()), "element-members");
+    }
+
+    [Test]
+    public void ASceneWithLayersMarkersAndGroups()
+    {
+        var scene = new Scene(1280, 720, "golden")
+        {
+            Start = TimeSpan.FromSeconds(1),
+            Duration = TimeSpan.FromSeconds(30),
+            Uri = new Uri("file:///golden/scene/golden.scene"),
+        };
+        // Fixed Ids, as a group writes its members in the order of their hashes.
+        Element first = CreateElement();
+        first.Id = new Guid("00000000-0000-0000-0000-0000000000f1");
+        first.Uri = new Uri("file:///golden/scene/first.belm");
+        var second = new Element
+        {
+            Id = new Guid("00000000-0000-0000-0000-0000000000f2"),
+            Name = "second",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri("file:///golden/scene/second.belm"),
+        };
+        scene.Children.Add(first);
+        scene.Children.Add(second);
+        scene.Groups.Add([first.Id, second.Id]);
+        scene.Layers.Add(new TimelineLayer
+        {
+            ZIndex = 2,
+            Color = Colors.Blue,
+            IsLocked = true,
+            IsAudioMuted = true,
+            IsVideoMuted = true,
+            IsSolo = true,
+            Name = "layer",
+        });
+        scene.Markers.Add(new SceneMarker { Time = TimeSpan.FromSeconds(3), Color = Colors.Green, Note = "note" });
+
+        AssertGolden(CoreSerializer.SerializeToJsonObject(scene), "scene");
+        AssertGolden(
+            CoreSerializer.SerializeToJsonObject(scene, new CoreSerializerOptions { Mode = CoreSerializationMode.EmbedReferencedObjects }),
+            "scene-embedded");
+    }
+
+    [Test]
+    public void AProjectWithItsVariables()
+    {
+        var project = new Project { Uri = new Uri("file:///golden/golden.bproj") };
+        project.Items.Add(new Scene(1920, 1080, "scene") { Uri = new Uri("file:///golden/scene/scene.scene") });
+        project.Variables[ProjectVariableKeys.FrameRate] = "30";
+
+        AssertGolden(CoreSerializer.SerializeToJsonObject(project), "project");
+    }
+
+    // The keyframes are in the serialized graph too, so their paths are pinned with the element's.
+    [Test]
+    public void TheSerializedGraphPathsOfAnElement()
+    {
+        Element element = CreateElement();
+        var lines = new List<string>();
+        foreach ((CoreObject obj, SerializedGraphPath path) in SerializedGraphPaths.EnumerateSerializedGraphDescendantPaths(element))
+            lines.Add($"{obj.GetType().Name} {path.Stable} {path.Positional}");
+        lines.Add("");
+        SerializedGraphTraversal.Visit(element, "$", (value, path) =>
+        {
+            lines.Add($"{value.GetType().Name} {path}");
+            return false;
+        });
+
+        AssertGolden(string.Join("\n", lines), "element-paths", "txt");
+    }
+
+    [Test]
     public void AGraphWithEachKindOfNode()
     {
         AssertGolden(CoreSerializer.SerializeToJsonObject(CreateGraph()), "graph");
@@ -66,6 +145,34 @@ public partial class PropertyConversionGoldenTests
         });
 
         AssertGolden(string.Join("\n", lines), "graph-paths", "txt");
+    }
+
+    // An element with each member it saves, and keyframes with each kind of easing.
+    private static Element CreateElement()
+    {
+        var element = new Element
+        {
+            Name = "golden",
+            Start = TimeSpan.FromSeconds(1),
+            Length = TimeSpan.FromSeconds(4),
+            ZIndex = 2,
+            AccentColor = Colors.Red,
+            IsEnabled = false,
+            IsLocked = true,
+            EnterTransition = new FadeTransition(),
+            ExitTransition = new SlideTransition(),
+        };
+        var shape = new RectShape();
+        var width = new KeyFrameAnimation<float>();
+        width.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 10, Easing = new LinearEasing() });
+        width.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 20, Easing = new SplineEasing(0.1f, 0.2f, 0.3f, 0.4f) });
+        width.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = 30, Easing = new SineEaseIn() });
+        shape.Width.SetKeyFrameAnimation(width);
+        var height = new KeyFrameAnimation<float> { UseGlobalClock = true };
+        height.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 40 });
+        shape.Height.SetKeyFrameAnimation(height);
+        element.AddObject(shape);
+        return element;
     }
 
     private static GraphModel CreateGraph()

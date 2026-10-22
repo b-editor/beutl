@@ -1,0 +1,11 @@
+{
+  "Id": "00000000-0000-0000-0000-000000000001",
+  "Name": "",
+  "items": [
+    "file:///golden/scene/scene.scene"
+  ],
+  "variables": {
+    "framerate": "30"
+  },
+  "$type": "[Beutl.Core]Beutl:Project"
+}

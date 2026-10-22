@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using Avalonia.Threading;
+﻿using Avalonia.Threading;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Reactive.Bindings;
@@ -18,7 +17,7 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
 
         foreach (Element element in _scene.Children)
         {
-            element.PropertyChanged += OnElementPropertyChanged;
+            Subscribe(element);
         }
 
         _scene.Children.Attached += OnElementAttached;
@@ -41,9 +40,21 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
             Dispatcher.UIThread.Post(() => _currentTime.Value = time);
     }
 
+    private void Subscribe(Element element)
+    {
+        element.StartProperty.ValueChanged += OnElementStartChanged;
+        element.LengthProperty.ValueChanged += OnElementLengthChanged;
+    }
+
+    private void Unsubscribe(Element element)
+    {
+        element.StartProperty.ValueChanged -= OnElementStartChanged;
+        element.LengthProperty.ValueChanged -= OnElementLengthChanged;
+    }
+
     private void OnElementAttached(Element obj)
     {
-        obj.PropertyChanged += OnElementPropertyChanged;
+        Subscribe(obj);
 
         if (MaximumTime.Value < obj.Range.End)
         {
@@ -53,7 +64,7 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
 
     private void OnElementDetached(Element obj)
     {
-        obj.PropertyChanged -= OnElementPropertyChanged;
+        Unsubscribe(obj);
 
         // A bulk removal raises Detached after removing every element, so a removed element never raises the
         // maximum; it is recalculated over the elements left when the removed one ended at it.
@@ -63,28 +74,27 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
         }
     }
 
-    private void OnElementPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnElementStartChanged(object? sender, PropertyValueChangedEventArgs<TimeSpan> e)
     {
-        if (e is CorePropertyChangedEventArgs<TimeSpan> typedArgs)
+        if (e.Property.GetOwnerObject() is Element element)
+            OnElementRangeChanged(element, element.Range.WithStart(e.OldValue));
+    }
+
+    private void OnElementLengthChanged(object? sender, PropertyValueChangedEventArgs<TimeSpan> e)
+    {
+        if (e.Property.GetOwnerObject() is Element element)
+            OnElementRangeChanged(element, element.Range.WithDuration(e.OldValue));
+    }
+
+    private void OnElementRangeChanged(Element element, TimeRange oldRange)
+    {
+        if (MaximumTime.Value < element.Range.End)
         {
-            bool startChanged = typedArgs.Property.Id == Element.StartProperty.Id;
-            bool lengthChanged = typedArgs.Property.Id == Element.LengthProperty.Id;
-
-            if (sender is Element element && (startChanged || lengthChanged))
-            {
-                TimeRange oldRange = element.Range;
-                if (startChanged) oldRange = oldRange.WithStart(typedArgs.OldValue);
-                if (lengthChanged) oldRange = oldRange.WithDuration(typedArgs.OldValue);
-
-                if (MaximumTime.Value < element.Range.End)
-                {
-                    MaximumTime.Value = element.Range.End;
-                }
-                else if (MaximumTime.Value == oldRange.End)
-                {
-                    CalculateMaximumTime();
-                }
-            }
+            MaximumTime.Value = element.Range.End;
+        }
+        else if (MaximumTime.Value == oldRange.End)
+        {
+            CalculateMaximumTime();
         }
     }
 
@@ -102,7 +112,7 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
 
         foreach (Element element in _scene.Children)
         {
-            element.PropertyChanged -= OnElementPropertyChanged;
+            Unsubscribe(element);
         }
 
         _currentTime.Dispose();

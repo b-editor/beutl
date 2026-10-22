@@ -356,10 +356,22 @@ internal sealed partial class SceneRecovery
                 yield return obj;
         }
 
+        foreach (IProperty property in _scene.Properties)
+        {
+            if (property == _scene.ChildrenProperty || property == _scene.LayersProperty || property == _scene.MarkersProperty
+                || !CoreObject.IsAutoSerialized(property)
+                || property.Value is not { } value)
+            {
+                continue;
+            }
+
+            foreach (CoreObject obj in EnumerateSceneOwnedGraphObjects(value))
+                yield return obj;
+        }
+
         foreach (CoreProperty property in PropertyRegistry.GetRegistered(_scene.GetType()))
         {
-            if (property == Scene.ChildrenProperty || property == Scene.LayersProperty || property == Scene.MarkersProperty
-                || !property.GetMetadata<CorePropertyMetadata>(_scene.GetType()).ShouldSerialize
+            if (!property.GetMetadata<CorePropertyMetadata>(_scene.GetType()).ShouldSerialize
                 || _scene.GetValue(property) is not { } value)
             {
                 continue;

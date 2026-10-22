@@ -33,7 +33,7 @@ public class ListInputPort<T> : NodePort<T>, IListInputPort
         base.NotifyConnected(connection);
         if (ConnectionReferenceList.AddIfMissing(Connections, connection))
         {
-            connection.SetValue(Beutl.NodeGraph.Connection.StatusProperty, ConnectionStatus.Connected);
+            connection.Status = ConnectionStatus.Connected;
         }
     }
 
@@ -42,7 +42,7 @@ public class ListInputPort<T> : NodePort<T>, IListInputPort
         base.NotifyDisconnected(connection);
         if (ConnectionReferenceList.RemoveIfPresent(Connections, connection))
         {
-            connection.SetValue(Beutl.NodeGraph.Connection.StatusProperty, ConnectionStatus.Disconnected);
+            connection.Status = ConnectionStatus.Disconnected;
         }
     }
 

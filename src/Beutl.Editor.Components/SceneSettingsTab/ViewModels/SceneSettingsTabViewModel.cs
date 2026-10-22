@@ -24,18 +24,18 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         _editorContext = editorContext;
         _scene = editorContext.GetService<Scene>()!;
         _optionsProvider = editorContext.GetService<ITimelineOptionsProvider>()!;
-        IObservable<Media.PixelSize> frameSize = _scene.GetObservable(Scene.FrameSizeProperty);
+        IObservable<Media.PixelSize> frameSize = _scene.FrameSizeProperty.GetObservable();
         Width = frameSize.Select(v => v.Width)
             .ToReactiveProperty()
             .DisposeWith(_disposable);
         Height = frameSize.Select(v => v.Height)
             .ToReactiveProperty()
             .DisposeWith(_disposable);
-        StartInput = _scene.GetObservable(Scene.StartProperty)
+        StartInput = _scene.StartProperty.GetObservable()
             .Select(v => v.ToString())
             .ToReactiveProperty()
             .DisposeWith(_disposable)!;
-        DurationInput = _scene.GetObservable(Scene.DurationProperty)
+        DurationInput = _scene.DurationProperty.GetObservable()
             .Select(v => v.ToString())
             .ToReactiveProperty()
             .DisposeWith(_disposable)!;

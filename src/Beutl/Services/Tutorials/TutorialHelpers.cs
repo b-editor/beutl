@@ -161,9 +161,9 @@ public static class TutorialHelpers
             Dispatcher.UIThread.Post(onEasingChanged);
         }
 
-        foreach (var item in animation.KeyFrames)
+        foreach (KeyFrame item in animation.KeyFrames.OfType<KeyFrame>())
         {
-            item.GetPropertyChangedObservable(KeyFrame.EasingProperty)
+            item.EasingProperty.GetObservable().Skip(1)
                 .Subscribe(_ => EasingChangedHandler())
                 .DisposeWith(disposables);
         }

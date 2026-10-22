@@ -1,5 +1,4 @@
 ﻿using Beutl.Animation;
-using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Graphics3D.Models;
 using Beutl.IO;
@@ -82,10 +81,7 @@ public sealed class ExternalResourceCollector
             }
         }
 
-        if (obj is EngineObject engineObj)
-        {
-            CollectFromEngineObject(engineObj, projectDirectory);
-        }
+        CollectFromProperties(obj, projectDirectory);
 
         if (obj.Uri != null && IsExternalFile(obj.Uri, projectDirectory))
         {
@@ -113,7 +109,7 @@ public sealed class ExternalResourceCollector
         }
     }
 
-    private void CollectFromEngineObject(EngineObject obj, string projectDirectory)
+    private void CollectFromProperties(CoreObject obj, string projectDirectory)
     {
         foreach (IProperty property in obj.Properties)
         {

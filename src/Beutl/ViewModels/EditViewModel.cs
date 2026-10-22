@@ -78,7 +78,7 @@ public sealed partial class EditViewModel
             .DisposeWith(_disposables);
 
         IObservable<(PixelSize FrameSize, float OutputScale)> frameSizeAndScale =
-            scene.GetObservable(Scene.FrameSizeProperty)
+            scene.FrameSizeProperty.GetObservable()
                 .CombineLatest(PreviewScale, PreviewSurfaceSize,
                     (frameSize, scale, surface) => (FrameSize: frameSize, OutputScale: scale.ResolveOutputScale(frameSize, surface)))
                 .DistinctUntilChanged();
@@ -89,7 +89,7 @@ public sealed partial class EditViewModel
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
         // SceneComposer is scale-independent; rebuild only on frame-size changes.
-        Composer = scene.GetObservable(Scene.FrameSizeProperty)
+        Composer = scene.FrameSizeProperty.GetObservable()
             .Select(_ => new SceneComposer(Scene)
             {
                 SampleRate = Scene.FindHierarchicalParent<Project>().GetSampleRate()

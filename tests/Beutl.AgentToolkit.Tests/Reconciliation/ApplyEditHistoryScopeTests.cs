@@ -312,18 +312,18 @@ public sealed class ApplyEditHistoryScopeTests
     {
         Scene scene = TestWorkspace.CreateScene();
         CustomSerializedTransformElement element = AddCustomElement(scene);
-        CoreProperty[] properties =
-        [
-            Element.EnterTransitionProperty,
-            Element.ExitTransitionProperty,
-            CustomSerializedTransformElement.CustomTransformProperty
-        ];
-        var original = properties.ToDictionary(property => property, element.GetValue);
-        CoreProperty changedProperty = properties.Single(property => property.Name == propertyName);
+        var properties = new Dictionary<string, Func<object?>>
+        {
+            [nameof(Element.EnterTransition)] = () => element.EnterTransition,
+            [nameof(Element.ExitTransition)] = () => element.ExitTransition,
+            [nameof(CustomSerializedTransformElement.CustomTransform)] = () => element.CustomTransform,
+        };
+        var original = properties.ToDictionary(pair => pair.Key, pair => pair.Value());
+        Func<object?> changedProperty = properties[propertyName];
         JsonObject? value = null;
         if (!remove)
         {
-            value = CoreSerializer.SerializeToJsonObject((ICoreSerializable)original[changedProperty]!);
+            value = CoreSerializer.SerializeToJsonObject((ICoreSerializable)original[propertyName]!);
             if (propertyName == nameof(CustomSerializedTransformElement.CustomTransform))
             {
                 value[nameof(TranslateTransform.X)] = 50;
@@ -352,29 +352,29 @@ public sealed class ApplyEditHistoryScopeTests
         Assert.That(session.History.PeekUndo()?.Operations, Has.Count.EqualTo(1));
         var operations = session.History.PeekUndo()!.Operations.OfType<IUpdatePropertyValueOperation>().ToArray();
         IUpdatePropertyValueOperation operation = operations.Single(update => ReferenceEquals(update.Object, element));
-        object? applied = element.GetValue(changedProperty);
+        object? applied = changedProperty();
         Assert.Multiple(() =>
         {
             Assert.That(operation.Object, Is.SameAs(element));
             Assert.That(operation.PropertyPath.Split('.')[^1], Is.EqualTo(propertyName));
-            Assert.That(operation.OldValue, Is.SameAs(original[changedProperty]));
-            Assert.That(applied, Is.Not.SameAs(original[changedProperty]));
+            Assert.That(operation.OldValue, Is.SameAs(original[propertyName]));
+            Assert.That(applied, Is.Not.SameAs(original[propertyName]));
             Assert.That(remove ? applied is null : JsonNode.DeepEquals(
                 CoreSerializer.SerializeToJsonObject((ICoreSerializable)applied!), value), Is.True);
             if (applied is ClipTransition transition)
             {
                 Assert.That(transition.TimeRange, Is.EqualTo(element.Range));
             }
-            foreach (CoreProperty property in properties.Where(property => property != changedProperty))
+            foreach ((string name, Func<object?> property) in properties.Where(pair => pair.Key != propertyName))
             {
-                Assert.That(element.GetValue(property), Is.SameAs(original[property]));
+                Assert.That(property(), Is.SameAs(original[name]));
             }
         });
 
         Assert.That(session.History.Undo(), Is.True);
-        Assert.That(element.GetValue(changedProperty), Is.SameAs(original[changedProperty]));
+        Assert.That(changedProperty(), Is.SameAs(original[propertyName]));
         Assert.That(session.History.Redo(), Is.True);
-        Assert.That(element.GetValue(changedProperty), Is.SameAs(applied));
+        Assert.That(changedProperty(), Is.SameAs(applied));
     }
 
     private static CustomSerializedTransformElement AddCustomElement(Scene scene)

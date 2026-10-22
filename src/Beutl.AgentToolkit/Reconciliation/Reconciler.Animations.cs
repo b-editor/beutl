@@ -2,7 +2,6 @@
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
-using Beutl.AgentToolkit.Schema;
 using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
@@ -191,7 +190,7 @@ public sealed partial class Reconciler
     // A base field stands for a CoreProperty field, which takes no animation.
     private static IProperty? FindAnimationTarget(EngineObject engineObject, string propertyName)
         => engineObject.Properties.FirstOrDefault(
-            property => property.Name == propertyName && !SchemaGenerator.IsBaseField(engineObject, property));
+            property => property.Name == propertyName && !engineObject.IsBaseField(property));
 
     private static bool ExpandAnimationShorthand(CoreObject sandboxRoot, JsonNode? node)
     {

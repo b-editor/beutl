@@ -245,7 +245,7 @@ public sealed partial class AiSubtitleDialogViewModel
             .DisposeWith(_captionDisposables);
         if (_editor is { } editor)
         {
-            editor.Scene.GetObservable(Scene.FrameSizeProperty)
+            editor.Scene.FrameSizeProperty.GetObservable()
                 .DistinctUntilChanged()
                 .Skip(1)
                 .Subscribe(_ => RefreshTemplatePreview())

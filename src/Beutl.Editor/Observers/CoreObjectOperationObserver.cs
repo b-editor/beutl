@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-using System.ComponentModel;
 using System.Reactive.Subjects;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
@@ -44,14 +43,14 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
         _propertiesToTrack = OperationObserverHelpers.GetTrackedChildNames(_propertyPathsToTrack, _propertyPath);
         InitializeChildPublishers();
 
-        if (obj is KeyFrame)
+        if (obj is KeyFrame keyFrame)
         {
-            obj.PropertyChanged += OnPropertyChanged;
+            keyFrame.EasingProperty.ValueChanged += OnEasingChanged;
         }
 
-        if (obj is EngineObject engineObject)
+        if (obj is CoreObject coreObject)
         {
-            InitializeEnginePropertyPublishers(engineObject);
+            InitializePropertyPublishers(coreObject);
         }
     }
 
@@ -59,7 +58,10 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
 
     public void Dispose()
     {
-        _object.PropertyChanged -= OnPropertyChanged;
+        if (_object is KeyFrame keyFrame)
+        {
+            keyFrame.EasingProperty.ValueChanged -= OnEasingChanged;
+        }
 
         foreach (IOperationObserver collection in _corePropertyPublishers.Values)
         {
@@ -88,7 +90,6 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
         var objectType = _object.GetType();
         foreach (CoreProperty property in PropertyRegistry.GetRegistered(objectType))
         {
-            if (Hierarchical.HierarchicalParentProperty.Id == property.Id) continue;
             if (_propertiesToTrack != null && !_propertiesToTrack.Contains(property.Name))
             {
                 continue;
@@ -151,9 +152,9 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
         }
     }
 
-    private void InitializeEnginePropertyPublishers(EngineObject engineObject)
+    private void InitializePropertyPublishers(CoreObject coreObject)
     {
-        foreach (IProperty property in engineObject.Properties)
+        foreach (IProperty property in coreObject.Properties)
         {
             if (_propertiesToTrack != null && !_propertiesToTrack.Contains(property.Name))
             {
@@ -172,7 +173,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
             var publisher = (IOperationObserver)Activator.CreateInstance(
                 publisherType,
                 _operations,
-                engineObject,
+                coreObject,
                 property,
                 _sequenceNumberGenerator,
                 childPath,
@@ -182,18 +183,12 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
         }
     }
 
-    private void OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnEasingChanged(object? sender, PropertyValueChangedEventArgs<Easing> e)
     {
         if (PublishingSuppression.IsSuppressed) return;
 
-        if (e is not CorePropertyChangedEventArgs<Easing> args || sender is not CoreObject source)
-            return;
-
-        if (args.Property.Id != KeyFrame.EasingProperty.Id)
-            return;
-
         if (_propertiesToTrack != null &&
-            !_propertiesToTrack.Contains(args.Property.Name))
+            !_propertiesToTrack.Contains(e.Property.Name))
             return;
 
         RecreateSplineEasingPublisher();

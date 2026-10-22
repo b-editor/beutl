@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Linq;
-using Beutl.Engine;
+using Beutl.Collections;
 using Beutl.Extensibility;
 
 namespace Beutl.PropertyAdapters;
@@ -12,7 +12,7 @@ public class EnginePropertyAdapter<T> : IPropertyAdapter<T>, IChildObjectSource
     private readonly Lazy<DisplayAttribute?> _displayAttribute;
     private IObservable<T?>? _observable;
 
-    public EnginePropertyAdapter(IProperty<T> property, EngineObject obj)
+    public EnginePropertyAdapter(IProperty<T> property, CoreObject obj)
     {
         _attributes = new Lazy<Attribute[]>(() => property.GetAttributes() ?? []);
         _displayAttribute = new Lazy<DisplayAttribute?>(() => _attributes.Value.FirstOrDefault(i => i is DisplayAttribute) as DisplayAttribute);
@@ -20,7 +20,7 @@ public class EnginePropertyAdapter<T> : IPropertyAdapter<T>, IChildObjectSource
         Property = property;
     }
 
-    public EngineObject Object { get; }
+    public CoreObject Object { get; }
 
     public IProperty<T> Property { get; }
 
@@ -41,7 +41,8 @@ public class EnginePropertyAdapter<T> : IPropertyAdapter<T>, IChildObjectSource
 
     public string? Description => _displayAttribute.Value?.GetDescription();
 
-    public bool IsReadOnly => false;
+    // A list its object keeps as a base field is changed item by item, never replaced, like Element.Objects was.
+    public bool IsReadOnly => Property is not IListProperty && Property.Value is ICoreList && Object.IsBaseField(Property);
 
     IProperty IPropertyAdapter.GetEngineProperty() => Property;
 

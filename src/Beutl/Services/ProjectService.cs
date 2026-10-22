@@ -23,7 +23,7 @@ public sealed partial class ProjectService
 
     public ProjectService()
     {
-        CurrentProject = _app.GetObservable(BeutlApplication.ProjectProperty)
+        CurrentProject = _app.ProjectProperty.GetObservable()
             .ToReadOnlyReactivePropertySlim();
         _isOpened = CurrentProject.Select(v => v != null).ToReadOnlyReactivePropertySlim();
     }

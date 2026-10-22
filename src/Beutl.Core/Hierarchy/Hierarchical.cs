@@ -1,22 +1,15 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using Beutl.Collections;
 
 namespace Beutl;
 
 public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHierarchical
 {
-    public static readonly CoreProperty<IHierarchical?> HierarchicalParentProperty;
     private readonly CoreList<IHierarchical> _hierarchicalChildren;
     private IHierarchical? _parent;
     private IHierarchicalRoot? _root;
-
-    static Hierarchical()
-    {
-        HierarchicalParentProperty = ConfigureProperty<IHierarchical?, Hierarchical>(nameof(HierarchicalParent))
-            .Accessor(o => o.HierarchicalParent, (o, v) => o.HierarchicalParent = v)
-            .Register();
-    }
 
     public Hierarchical()
     {
@@ -28,11 +21,18 @@ public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHiera
         _hierarchicalChildren.CollectionChanged += HierarchicalChildrenCollectionChanged;
     }
 
-    [NotAutoSerialized]
+    // A plain property: the hierarchy sets it, so it is neither saved nor recorded.
     public IHierarchical? HierarchicalParent
     {
         get => _parent;
-        private set => SetAndRaise(HierarchicalParentProperty, ref _parent, value);
+        private set
+        {
+            DocumentWriteCheck.Verify(this, nameof(HierarchicalParent));
+            if (!ValueReplacement.RequiresReplacement(_parent, value, false)) return;
+
+            _parent = value;
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(HierarchicalParent)));
+        }
     }
 
     protected ICoreList<IHierarchical> HierarchicalChildren => _hierarchicalChildren;

@@ -1,4 +1,5 @@
-﻿using Beutl.Media.Source;
+﻿using System.ComponentModel;
+using Beutl.Media.Source;
 
 namespace Beutl.NodeGraph.Generative;
 
@@ -12,69 +13,59 @@ namespace Beutl.NodeGraph.Generative;
 /// </remarks>
 public sealed class GenerationRecord : Hierarchical
 {
-    public static readonly CoreProperty<ImageSource?> ImageProperty;
-    public static readonly CoreProperty<VideoSource?> VideoProperty;
-    public static readonly CoreProperty<string> FingerprintProperty;
-    public static readonly CoreProperty<string> ParameterFingerprintProperty;
-    public static readonly CoreProperty<string?> ModelIdProperty;
-    public static readonly CoreProperty<int?> SeedProperty;
-    public static readonly CoreProperty<string?> SummaryProperty;
-    public static readonly CoreProperty<DateTimeOffset> CreatedAtProperty;
-    public static readonly CoreProperty<bool> IsPinnedProperty;
-
-    static GenerationRecord()
+    public GenerationRecord()
     {
-        ImageProperty = ConfigureProperty<ImageSource?, GenerationRecord>(nameof(Image))
-            .Accessor(o => o.Image, (o, v) => o.Image = v)
-            .Register();
-        VideoProperty = ConfigureProperty<VideoSource?, GenerationRecord>(nameof(Video))
-            .Accessor(o => o.Video, (o, v) => o.Video = v)
-            .Register();
-        FingerprintProperty = ConfigureProperty<string, GenerationRecord>(nameof(Fingerprint))
-            .Accessor(o => o.Fingerprint, (o, v) => o.Fingerprint = v)
-            .DefaultValue(string.Empty)
-            .Register();
-        ParameterFingerprintProperty = ConfigureProperty<string, GenerationRecord>(nameof(ParameterFingerprint))
-            .Accessor(o => o.ParameterFingerprint, (o, v) => o.ParameterFingerprint = v)
-            .DefaultValue(string.Empty)
-            .Register();
-        ModelIdProperty = ConfigureProperty<string?, GenerationRecord>(nameof(ModelId))
-            .Accessor(o => o.ModelId, (o, v) => o.ModelId = v)
-            .Register();
-        SeedProperty = ConfigureProperty<int?, GenerationRecord>(nameof(Seed))
-            .Accessor(o => o.Seed, (o, v) => o.Seed = v)
-            .Register();
-        SummaryProperty = ConfigureProperty<string?, GenerationRecord>(nameof(Summary))
-            .Accessor(o => o.Summary, (o, v) => o.Summary = v)
-            .Register();
-        CreatedAtProperty = ConfigureProperty<DateTimeOffset, GenerationRecord>(nameof(CreatedAt))
-            .Accessor(o => o.CreatedAt, (o, v) => o.CreatedAt = v)
-            .Register();
-        IsPinnedProperty = ConfigureProperty<bool, GenerationRecord>(nameof(IsPinned))
-            .Accessor(o => o.IsPinned, (o, v) => o.IsPinned = v)
-            .Register();
+        ScanProperties<GenerationRecord>();
+        ImageProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Image)));
+        VideoProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Video)));
+        FingerprintProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Fingerprint)));
+        ParameterFingerprintProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(ParameterFingerprint)));
+        ModelIdProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(ModelId)));
+        SeedProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Seed)));
+        SummaryProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Summary)));
+        CreatedAtProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(CreatedAt)));
+        IsPinnedProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsPinned)));
     }
+
+    // The sources are not made children, as their CoreProperty forms did not make them.
+    public IProperty<ImageSource?> ImageProperty { get; } = new ValueOnlyProperty<ImageSource?>(null) { OwnsValue = false };
+
+    public IProperty<VideoSource?> VideoProperty { get; } = new ValueOnlyProperty<VideoSource?>(null) { OwnsValue = false };
+
+    public IProperty<string> FingerprintProperty { get; } = new ValueOnlyProperty<string>(string.Empty);
+
+    public IProperty<string> ParameterFingerprintProperty { get; } = new ValueOnlyProperty<string>(string.Empty);
+
+    public IProperty<string?> ModelIdProperty { get; } = new ValueOnlyProperty<string?>(null);
+
+    public IProperty<int?> SeedProperty { get; } = new ValueOnlyProperty<int?>(null);
+
+    public IProperty<string?> SummaryProperty { get; } = new ValueOnlyProperty<string?>(null);
+
+    public IProperty<DateTimeOffset> CreatedAtProperty { get; } = new ValueOnlyProperty<DateTimeOffset>(default);
+
+    public IProperty<bool> IsPinnedProperty { get; } = new ValueOnlyProperty<bool>(false);
 
     /// <summary>The generated picture, stored as a file next to the project.</summary>
     public ImageSource? Image
     {
-        get;
-        set => SetAndRaise(ImageProperty, ref field, value);
+        get => ImageProperty.Value;
+        set => ImageProperty.Value = value;
     }
 
     /// <summary>The generated clip, for a video generation.</summary>
     public VideoSource? Video
     {
-        get;
-        set => SetAndRaise(VideoProperty, ref field, value);
+        get => VideoProperty.Value;
+        set => VideoProperty.Value = value;
     }
 
     /// <summary>Identifies the complete request, reference pictures included.</summary>
     public string Fingerprint
     {
-        get;
-        set => SetAndRaise(FingerprintProperty, ref field, value);
-    } = string.Empty;
+        get => FingerprintProperty.Value;
+        set => FingerprintProperty.Value = value;
+    }
 
     /// <summary>
     /// Identifies the scalar inputs only. Cheap enough to compare every frame, so it is
@@ -82,39 +73,39 @@ public sealed class GenerationRecord : Hierarchical
     /// </summary>
     public string ParameterFingerprint
     {
-        get;
-        set => SetAndRaise(ParameterFingerprintProperty, ref field, value);
-    } = string.Empty;
+        get => ParameterFingerprintProperty.Value;
+        set => ParameterFingerprintProperty.Value = value;
+    }
 
     public string? ModelId
     {
-        get;
-        set => SetAndRaise(ModelIdProperty, ref field, value);
+        get => ModelIdProperty.Value;
+        set => ModelIdProperty.Value = value;
     }
 
     public int? Seed
     {
-        get;
-        set => SetAndRaise(SeedProperty, ref field, value);
+        get => SeedProperty.Value;
+        set => SeedProperty.Value = value;
     }
 
     /// <summary>A short description of what was asked for, shown in the history.</summary>
     public string? Summary
     {
-        get;
-        set => SetAndRaise(SummaryProperty, ref field, value);
+        get => SummaryProperty.Value;
+        set => SummaryProperty.Value = value;
     }
 
     public DateTimeOffset CreatedAt
     {
-        get;
-        set => SetAndRaise(CreatedAtProperty, ref field, value);
+        get => CreatedAtProperty.Value;
+        set => CreatedAtProperty.Value = value;
     }
 
     /// <summary>A pinned generation is kept when older ones are pruned.</summary>
     public bool IsPinned
     {
-        get;
-        set => SetAndRaise(IsPinnedProperty, ref field, value);
+        get => IsPinnedProperty.Value;
+        set => IsPinnedProperty.Value = value;
     }
 }

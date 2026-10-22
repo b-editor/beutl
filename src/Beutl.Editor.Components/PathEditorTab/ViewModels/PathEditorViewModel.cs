@@ -26,7 +26,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
         _clock = editorContext.GetRequiredService<IEditorClock>();
         _scene = editorContext.GetRequiredService<Scene>();
 
-        SceneWidth = _scene.GetObservable(Scene.FrameSizeProperty)
+        SceneWidth = _scene.FrameSizeProperty.GetObservable()
             .Select(v => v.Width)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -60,8 +60,8 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
 
         IsVisible = _clock.CurrentTime
             .CombineLatest(Element
-                .Select(e => e?.GetObservable(ProjectSystem.Element.StartProperty)
-                    .CombineLatest(e.GetObservable(ProjectSystem.Element.LengthProperty))
+                .Select(e => e?.StartProperty.GetObservable()
+                    .CombineLatest(e.LengthProperty.GetObservable())
                     .Select(t => new TimeRange(t.First, t.Second)) ?? Observable.ReturnThenNever<TimeRange>(default))
                 .Switch())
             .Select(t => t.Second.Contains(t.First))

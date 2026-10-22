@@ -28,9 +28,6 @@ public interface ICoreObject : INotifyPropertyChanged, INotifyDataErrorInfo, ICo
 
 public abstract partial class CoreObject : ICoreObject
 {
-    public static readonly CoreProperty<Guid> IdProperty;
-
-    public static readonly CoreProperty<string> NameProperty;
     private Dictionary<int, IEntry>? _values;
     private Dictionary<int, string>? _errors;
     private CoreProperty? _forcedReplacementProperty;
@@ -44,34 +41,39 @@ public abstract partial class CoreObject : ICoreObject
         public T? Value;
     }
 
-    static CoreObject()
-    {
-        IdProperty = ConfigureProperty<Guid, CoreObject>(nameof(Id))
-            .DefaultValue(Guid.Empty)
-            .Register();
+    // Shared by every object, so that none allocates handlers of its own.
+    private static readonly EventHandler<PropertyValueChangedEventArgs<Guid>> s_idChanged =
+        static (_, e) => e.Property.GetOwnerObject()?.OnPropertyChanged(new PropertyChangedEventArgs(nameof(Id)));
 
-        NameProperty = ConfigureProperty<string, CoreObject>(nameof(Name))
-            .DefaultValue(string.Empty)
-            .Register();
-    }
+    private static readonly EventHandler<PropertyValueChangedEventArgs<string>> s_nameChanged =
+        static (_, e) => e.Property.GetOwnerObject()?.OnPropertyChanged(new PropertyChangedEventArgs(nameof(Name)));
 
     protected CoreObject()
     {
+        RegisterOwnField(IdProperty, nameof(Id));
+        RegisterOwnField(NameProperty, nameof(Name));
+        IdProperty.ValueChanged += s_idChanged;
+        NameProperty.ValueChanged += s_nameChanged;
         Id = Guid.NewGuid();
     }
+
+    // Every object has these, so the constructor registers them without a scan. They raise no Edited.
+    public IProperty<Guid> IdProperty { get; } = new ValueOnlyProperty<Guid>(Guid.Empty) { AffectsRender = false };
+
+    public IProperty<string> NameProperty { get; } = new ValueOnlyProperty<string>(string.Empty) { AffectsRender = false };
 
     [Browsable(false)]
     public Guid Id
     {
-        get => GetValue(IdProperty);
-        set => SetValue(IdProperty, value);
+        get => IdProperty.Value;
+        set => IdProperty.Value = value;
     }
 
     [Browsable(false)]
     public string Name
     {
-        get => GetValue(NameProperty);
-        set => SetValue(NameProperty, value);
+        get => NameProperty.Value;
+        set => NameProperty.Value = value;
     }
 
     public Uri? Uri { get; set; }
@@ -385,6 +387,14 @@ public abstract partial class CoreObject : ICoreObject
 
     public virtual void Serialize(ICoreSerializationContext context)
     {
+        IProperty[] saved = [.. RegisteredProperties.Where(IsAutoSerialized)];
+        // Base fields come first, where the CoreProperty fields they replace were written.
+        foreach (IProperty property in saved)
+        {
+            if (IsBaseField(property) && !IsOwnField(property))
+                property.SerializeValue(context);
+        }
+
         Type ownerType = GetType();
 
         IReadOnlyList<CoreProperty> list = PropertyRegistry.GetRegistered(ownerType);
@@ -392,6 +402,15 @@ public abstract partial class CoreObject : ICoreObject
         {
             CoreProperty item = list[i];
             item.RouteSerialize(context, GetValue(item));
+        }
+
+        IdProperty.SerializeValue(context);
+        NameProperty.SerializeValue(context);
+        SerializeMembers(context, saved);
+        foreach (IProperty property in saved)
+        {
+            if (!IsBaseField(property) && !IsOwnField(property))
+                property.SerializeValue(context);
         }
     }
 
@@ -415,5 +434,23 @@ public abstract partial class CoreObject : ICoreObject
                 SetValue(item, value.Value);
             }
         }
+
+        foreach (IProperty property in RegisteredProperties)
+        {
+            // A list its owner keeps is read by the owner into that list.
+            if (IsAutoSerialized(property) && !(IsBaseField(property) && property is IValueOnlyProperty { KeepsList: true }))
+                property.DeserializeValue(context);
+        }
+
+        DeserializeMembers(context);
+    }
+
+    // What a kind of object saves besides property values, such as EngineObject's animations and expressions.
+    internal virtual void SerializeMembers(ICoreSerializationContext context, IProperty[] saved)
+    {
+    }
+
+    internal virtual void DeserializeMembers(ICoreSerializationContext context)
+    {
     }
 }

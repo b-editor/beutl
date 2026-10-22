@@ -60,7 +60,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Right = keyframe.GetObservable(KeyFrame.KeyTimeProperty)
+        Right = ((KeyFrame)keyframe).KeyTimeProperty.GetObservable()
             .CombineLatest(parent.Parent.Options)
             .Select(item => item.First.TimeToPixel(item.Second.Scale))
             .ToReactiveProperty()
@@ -84,7 +84,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IsSplineEasing = keyframe.GetObservable(KeyFrame.EasingProperty)
+        IsSplineEasing = ((KeyFrame)keyframe).EasingProperty.GetObservable()
             .Select(v => v is SplineEasing)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -96,7 +96,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 (selected, spline, previous) => selected && spline && previous != null)
             .ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
 
-        IObservable<(Vector, Vector)> controlPointObservable = keyframe.GetObservable(KeyFrame.EasingProperty)
+        IObservable<(Vector, Vector)> controlPointObservable = ((KeyFrame)keyframe).EasingProperty.GetObservable()
             .Select(v =>
             {
                 if (v is SplineEasing splineEasing)
@@ -135,7 +135,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        keyframe.GetObservable(KeyFrame.EasingProperty).Skip(1)
+        ((KeyFrame)keyframe).EasingProperty.GetObservable().Skip(1)
             .Subscribe(_ => Parent.NotifyGraphChanged()).DisposeWith(_disposables);
 
         CopyCommand = new AsyncReactiveCommand()

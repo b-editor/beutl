@@ -1,0 +1,26 @@
+RectShape $/property:Objects/id:00000000-0000-0000-0000-000000000001#0 $/property:Objects/index:0
+KeyFrame`1 $/property:Objects/id:00000000-0000-0000-0000-000000000001#0/animation:Width/id:00000000-0000-0000-0000-000000000002#0 $/property:Objects/index:0/animation:Width/index:0
+KeyFrame`1 $/property:Objects/id:00000000-0000-0000-0000-000000000001#0/animation:Width/id:00000000-0000-0000-0000-000000000003#0 $/property:Objects/index:0/animation:Width/index:1
+KeyFrame`1 $/property:Objects/id:00000000-0000-0000-0000-000000000001#0/animation:Width/id:00000000-0000-0000-0000-000000000004#0 $/property:Objects/index:0/animation:Width/index:2
+KeyFrame`1 $/property:Objects/id:00000000-0000-0000-0000-000000000001#0/animation:Height/id:00000000-0000-0000-0000-000000000005#0 $/property:Objects/index:0/animation:Height/index:0
+SolidColorBrush $/property:Objects/id:00000000-0000-0000-0000-000000000001#0/property:Fill $/property:Objects/index:0/property:Fill
+TransformGroup $/property:Objects/id:00000000-0000-0000-0000-000000000001#0/property:Transform $/property:Objects/index:0/property:Transform
+FilterEffectGroup $/property:Objects/id:00000000-0000-0000-0000-000000000001#0/property:FilterEffect $/property:Objects/index:0/property:FilterEffect
+KeyFrameAnimation`1 $/property:Objects/id:00000000-0000-0000-0000-000000000001#0/collection:HierarchicalChildren/id:00000000-0000-0000-0000-000000000006#0 $/property:Objects/index:0/collection:HierarchicalChildren/index:3
+KeyFrameAnimation`1 $/property:Objects/id:00000000-0000-0000-0000-000000000001#0/collection:HierarchicalChildren/id:00000000-0000-0000-0000-000000000007#0 $/property:Objects/index:0/collection:HierarchicalChildren/index:4
+FadeTransition $/collection:HierarchicalChildren/id:00000000-0000-0000-0000-000000000008#0 $/collection:HierarchicalChildren/index:0
+SlideTransition $/collection:HierarchicalChildren/id:00000000-0000-0000-0000-000000000009#0 $/collection:HierarchicalChildren/index:1
+
+Element $
+RectShape $/Objects[0]
+KeyFrame`1 $/Objects[0]/Animations/Width/KeyFrames[0]
+KeyFrame`1 $/Objects[0]/Animations/Width/KeyFrames[1]
+KeyFrame`1 $/Objects[0]/Animations/Width/KeyFrames[2]
+KeyFrame`1 $/Objects[0]/Animations/Height/KeyFrames[0]
+SolidColorBrush $/Objects[0]/Fill
+TransformGroup $/Objects[0]/Transform
+FilterEffectGroup $/Objects[0]/FilterEffect
+KeyFrameAnimation`1 $/Objects[0]/HierarchicalChildren[3]
+KeyFrameAnimation`1 $/Objects[0]/HierarchicalChildren[4]
+FadeTransition $/HierarchicalChildren[0]
+SlideTransition $/HierarchicalChildren[1]

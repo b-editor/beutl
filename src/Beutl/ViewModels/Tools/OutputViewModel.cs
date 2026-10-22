@@ -110,7 +110,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
         // Pre-validate the render surface only when the output uses video.
         SupersampleWarning = SupersampleFactor
-            .CombineLatest(Model.GetObservable(Scene.FrameSizeProperty), videoEnabled, (factor, frameSize, enabled) =>
+            .CombineLatest(Model.FrameSizeProperty.GetObservable(), videoEnabled, (factor, frameSize, enabled) =>
             {
                 if (!enabled) return null;
                 BufferDimensionBudget budget = BufferDimensionBudget.Resolve(BufferBudgetScope.Prediction);

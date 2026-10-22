@@ -36,7 +36,7 @@ internal sealed class EditorSelectionImpl : IEditorSelection, IDisposable
         SelectedElements.Detached += element => element.DetachedFromHierarchy -= OnSelectedElementDetachedFromHierarchy;
 
         SelectedLayerNumber = _selectedObject.Select(v =>
-                (v as Element)?.GetObservable(Element.ZIndexProperty).Select(i => (int?)i) ??
+                (v as Element)?.ZIndexProperty.GetObservable().Select(i => (int?)i) ??
                 Observable.ReturnThenNever<int?>(null))
             .Switch()
             .ToReadOnlyReactivePropertySlim()

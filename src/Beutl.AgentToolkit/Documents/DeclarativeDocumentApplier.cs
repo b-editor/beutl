@@ -1,9 +1,10 @@
-﻿using System.Collections.Immutable;
+﻿using System.Collections;
+using System.Collections.Immutable;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
-using Beutl.AgentToolkit.Schema;
 using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Editor;
@@ -256,6 +257,27 @@ internal sealed partial class DeclarativeDocumentApplier
 
     private void ApplyRegisteredProperties(CoreObject target, JsonObject desired, IReadOnlySet<string> excluded)
     {
+        // Base fields are applied as the CoreProperty fields they replace were, a list item by item.
+        foreach (IProperty field in SavedBaseFields(target))
+        {
+            if (excluded.Contains(field.Name) || !desired.TryGetPropertyValue(field.Name, out JsonNode? fieldNode))
+            {
+                continue;
+            }
+
+            object? fieldValue = fieldNode is null
+                ? null
+                : EnumJsonValueNormalizer.Deserialize(fieldNode, field.ValueType, CreateOptions(target));
+            if (field.Value is ICoreList list && fieldValue is IList items)
+            {
+                ReplaceItems(list, items);
+            }
+            else
+            {
+                field.Value = fieldValue;
+            }
+        }
+
         foreach (CoreProperty property in PropertyRegistry.GetRegistered(target.GetType()))
         {
             if (excluded.Contains(property.Name)
@@ -274,6 +296,11 @@ internal sealed partial class DeclarativeDocumentApplier
 
     private static void NormalizeRegisteredPropertyValues(CoreObject target, JsonObject payload)
     {
+        foreach (IProperty field in target.Properties.Where(target.IsBaseField))
+        {
+            NormalizePropertyValue(payload, field.Name, field.ValueType);
+        }
+
         foreach (CoreProperty property in PropertyRegistry.GetRegistered(target.GetType()))
         {
             NormalizePropertyValue(payload, property.Name, property.PropertyType);
@@ -282,11 +309,29 @@ internal sealed partial class DeclarativeDocumentApplier
 
     private static void NormalizeEnginePropertyValues(EngineObject target, JsonObject payload)
     {
-        foreach (IProperty property in target.Properties)
+        foreach (IProperty property in target.Properties.Where(property => !target.IsBaseField(property)))
         {
             NormalizePropertyValue(payload, property.Name, property.ValueType);
         }
     }
+
+    // The base fields saved with target, which the passes over CoreProperty fields also take.
+    private static IEnumerable<IProperty> SavedBaseFields(CoreObject target)
+        => target.Properties.Where(property => target.IsBaseField(property) && CoreObject.IsAutoSerialized(property));
+
+    // Replaces the items of a list a base field holds, as its CoreProperty accessor did with ICoreList<T>.Replace.
+    private static void ReplaceItems(ICoreList list, IList items)
+    {
+        Type itemType = list.GetType().GetInterfaces()
+            .First(type => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ICoreList<>))
+            .GenericTypeArguments[0];
+        typeof(DeclarativeDocumentApplier)
+            .GetMethod(nameof(ReplaceItemsOf), BindingFlags.NonPublic | BindingFlags.Static)!
+            .MakeGenericMethod(itemType)
+            .Invoke(null, [list, items]);
+    }
+
+    private static void ReplaceItemsOf<T>(ICoreList<T> list, IList items) => list.Replace([.. items.Cast<T>()]);
 
     private static void NormalizePropertyValue(JsonObject payload, string propertyName, Type valueType)
     {
@@ -335,6 +380,20 @@ internal sealed partial class DeclarativeDocumentApplier
 
             target.SetValue(property, null);
         }
+
+        foreach (IProperty field in SavedBaseFields(target))
+        {
+            if (field.ValueType.IsValueType
+                || field.ValueType == typeof(string)
+                || typeof(ICoreList).IsAssignableFrom(field.ValueType)
+                || desired.ContainsKey(field.Name)
+                || serializedPayload.ContainsKey(field.Name))
+            {
+                continue;
+            }
+
+            field.Value = null;
+        }
     }
 
     private static bool IsSerializedProperty(CoreObject target, CoreProperty property)
@@ -347,8 +406,7 @@ internal sealed partial class DeclarativeDocumentApplier
         JsonObject desired,
         JsonObject serializedPayload)
     {
-        // Base fields stay as their owners keep them: each is unsaved or a list, which the CoreProperty pass skips too.
-        foreach (IProperty property in target.Properties.Where(property => !SchemaGenerator.IsBaseField(target, property)))
+        foreach (IProperty property in target.Properties.Where(property => !target.IsBaseField(property)))
         {
             if (property is IListProperty
                 || property.ValueType.IsValueType

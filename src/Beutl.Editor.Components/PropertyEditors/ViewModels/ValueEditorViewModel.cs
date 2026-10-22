@@ -21,7 +21,7 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
                 hasExpression && PropertyAdapter is EnginePropertyAdapter<T> { Property: var engineProperty }
                     ? CurrentTime.Select(t => new CompositionContext(t).Get(engineProperty))
                     : EditingKeyFrame
-                        .Select(x => x?.GetObservable(KeyFrame<T>.ValueProperty))
+                        .Select(x => (x as KeyFrame<T>)?.ValueProperty.GetObservable())
                         .Select(x => x ?? PropertyAdapter.GetObservable())
                         .Switch())
             .Switch()

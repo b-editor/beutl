@@ -74,10 +74,9 @@ public sealed class PathPointDragState
         }
         else
         {
-            CoreProperty<BtlPoint> prop = KeyFrame<BtlPoint>.ValueProperty;
-            Previous?.SetValue(prop, Previous.GetValue(prop) + delta);
+            if (Previous != null) Previous.Value += delta;
 
-            Next?.SetValue(prop, Next.GetValue(prop) + delta);
+            if (Next != null) Next.Value += delta;
         }
     }
 }

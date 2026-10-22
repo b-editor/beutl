@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Beutl.Collections;
 using Beutl.Media;
 using Beutl.Serialization;
 using Microsoft.Extensions.FileSystemGlobbing;
@@ -120,6 +121,8 @@ public partial class Scene
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
+        // Layers keeps its list, as its CoreProperty accessor did.
+        KeptListReader.ReadInto<CoreList<TimelineLayer>, TimelineLayer>(context, nameof(Layers), _layers);
 
         if (context.Contains("Width") && context.Contains("Height"))
         {

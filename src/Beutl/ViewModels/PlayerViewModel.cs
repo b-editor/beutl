@@ -166,7 +166,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
 
         Duration = _editorClock.MaximumTime
-            .CombineLatest(Scene.GetObservable(Scene.DurationProperty), Scene.GetObservable(Scene.StartProperty),
+            .CombineLatest(Scene.DurationProperty.GetObservable(), Scene.StartProperty.GetObservable(),
                 CurrentFrame)
             .Select(i =>
             {

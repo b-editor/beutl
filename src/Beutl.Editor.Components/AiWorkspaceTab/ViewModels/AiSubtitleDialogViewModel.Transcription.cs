@@ -981,9 +981,9 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private IObservable<TimeSpan> CreateSceneRangeObservable()
         => _editor is { } editor
-            ? editor.Scene.GetObservable(Scene.StartProperty)
+            ? editor.Scene.StartProperty.GetObservable()
                 .CombineLatest(
-                    editor.Scene.GetObservable(Scene.DurationProperty),
+                    editor.Scene.DurationProperty.GetObservable(),
                     (start, duration) => start < TimeSpan.Zero ? TimeSpan.Zero : duration)
             : Observable.Return(TimeSpan.Zero);
 

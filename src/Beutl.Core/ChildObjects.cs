@@ -21,8 +21,7 @@ internal static class ChildObjects
             case CoreObject coreObject:
                 foreach (CoreProperty property in PropertyRegistry.GetRegistered(coreObject.GetType()))
                 {
-                    if (property.Id != Hierarchical.HierarchicalParentProperty.Id
-                        && MayHoldObjects(property.PropertyType)
+                    if (MayHoldObjects(property.PropertyType)
                         && Unwrap(coreObject.GetValue(property)) is { } value)
                     {
                         yield return value;

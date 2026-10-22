@@ -2,7 +2,7 @@
 
 public class PropertyRegistryTests
 {
-    private sealed class FixtureA : CoreObject
+    private class FixtureA : CoreObject
     {
         public static readonly CoreProperty<int> BaseValueProperty;
 
@@ -20,7 +20,7 @@ public class PropertyRegistryTests
         }
     }
 
-    private sealed class FixtureB : CoreObject
+    private sealed class FixtureB : FixtureA
     {
         public static readonly CoreProperty<string> LabelProperty;
 
@@ -53,8 +53,7 @@ public class PropertyRegistryTests
         Assert.Multiple(() =>
         {
             Assert.That(registered, Does.Contain(FixtureB.LabelProperty));
-            Assert.That(registered, Does.Contain(CoreObject.IdProperty));
-            Assert.That(registered, Does.Contain(CoreObject.NameProperty));
+            Assert.That(registered, Does.Contain(FixtureA.BaseValueProperty));
         });
     }
 

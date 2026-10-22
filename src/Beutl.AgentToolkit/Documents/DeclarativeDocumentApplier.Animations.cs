@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
-using Beutl.AgentToolkit.Schema;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Engine;
@@ -43,11 +42,11 @@ internal sealed partial class DeclarativeDocumentApplier
 
         if (desired.TryGetPropertyValue(nameof(KeyFrame<float>.Value), out JsonNode? valueNode)
             && keyFrame is CoreObject keyFrameObject
-            && PropertyRegistry.FindRegistered(keyFrameObject, nameof(KeyFrame<float>.Value)) is { } valueProperty)
+            && keyFrameObject.Properties.FirstOrDefault(property => property.Name == nameof(KeyFrame<float>.Value)) is { } valueProperty)
         {
             keyFrame.Value = valueNode is null
                 ? null
-                : EnumJsonValueNormalizer.Deserialize(valueNode, valueProperty.PropertyType, CreateOptions(keyFrameObject));
+                : EnumJsonValueNormalizer.Deserialize(valueNode, valueProperty.ValueType, CreateOptions(keyFrameObject));
         }
 
         if (desired.TryGetPropertyValue(nameof(KeyFrame.Easing), out JsonNode? easingNode) && easingNode is not null)
@@ -262,7 +261,7 @@ internal sealed partial class DeclarativeDocumentApplier
         {
             // A base field stands for a CoreProperty field, which takes neither.
             IProperty? property = target.Properties.FirstOrDefault(
-                item => item.Name == name && !SchemaGenerator.IsBaseField(target, item));
+                item => item.Name == name && !target.IsBaseField(item));
             if (property is null)
             {
                 throw new ReconcileException(new ToolError(

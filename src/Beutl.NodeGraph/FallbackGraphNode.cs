@@ -42,7 +42,6 @@ public sealed partial class FallbackGraphNode : GraphNode, IFallback
         // The failure path only assigns Json. Restore display metadata when the graph owns it,
         // once, so later hierarchy attachments do not undo scene recovery's ID reconciliation.
         base.OnPropertyChanged(args);
-        if (args is CorePropertyChangedEventArgs change && change.Property == HierarchicalParentProperty
-            && HierarchicalParent != null) RestoreMetadata(Json);
+        if (args.PropertyName == nameof(HierarchicalParent) && HierarchicalParent != null) RestoreMetadata(Json);
     }
 }

@@ -17,7 +17,7 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
 
     public string Name => _name ?? throw new InvalidOperationException("Property is not initialized.");
 
-    public Type ValueType { get; } = typeof(T);
+    public Type ValueType => typeof(T);
 
     public T DefaultValue { get; } = defaultValue;
 
@@ -40,6 +40,9 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
     // Brings a value its owner updates lazily up to date before it is read, like GraphNode.NestedInputPorts.
     internal Action? BeforeRead { get; set; }
 
+    // Adjusts each value before it is validated, like KeyFrame<T>.Value with its animation's validator.
+    internal Func<IProperty<T>, T, T>? Coerce { get; init; }
+
     // True for a list its owner keeps, like GraphModel.Nodes: setting another list replaces the kept list's items,
     // and the owner reads the saved items into it.
     internal bool KeepsList { get; init; }
@@ -61,7 +64,7 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
             return;
         }
 
-        var validatedValue = ValidateAndCoerce(value);
+        var validatedValue = ValidateAndCoerce(Coerce is { } coerce ? coerce(this, value) : value);
         if (ValueReplacement.RequiresReplacement(_currentValue, validatedValue, replaceEquivalent))
         {
             var oldValue = _currentValue;

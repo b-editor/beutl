@@ -82,7 +82,8 @@ public sealed class ExtensionGuardCallSiteTests
     [AvaloniaTest]
     public void A_property_editor_extension_that_throws_matches_nothing_and_creates_nothing()
     {
-        var adapter = new CorePropertyAdapter<string>(CoreObject.NameProperty, new TestObject());
+        var target = new TestObject();
+        var adapter = new EnginePropertyAdapter<string>(target.NameProperty, target);
         var matching = new ExtensionProvider();
         matching.AddExtensions(new LocalPackage().LocalId, [new ThrowingPropertyEditor(throwOnMatch: true)]);
         var creating = new ExtensionProvider();
