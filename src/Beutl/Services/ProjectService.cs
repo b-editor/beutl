@@ -382,6 +382,7 @@ public sealed partial class ProjectService
             {
                 Uri = UriHelper.CreateFromPath(Path.Combine(location, name, $"{name}.{EditorConstants.SceneFileExtension}")),
             };
+#pragma warning disable RS0030 // Writes a new project's rates until #2885 stores them as a rational rate.
             var project = new Project()
             {
                 Items = { scene },
@@ -392,6 +393,7 @@ public sealed partial class ProjectService
                     [ProjectVariableKeys.SampleRate] = samplerate.ToString(),
                 }
             };
+#pragma warning restore RS0030
 
             CoreSerializer.StoreToUri(scene, scene.Uri);
             ProjectPersistence.PersistOrRollback(

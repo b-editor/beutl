@@ -122,10 +122,12 @@ internal static partial class SceneSnapshot
         var project = new Project();
         if (source.FindHierarchicalParent<Project>() is { } sourceProject)
         {
+#pragma warning disable RS0030 // Copies every variable, not only the rates, into the detached project.
             foreach ((string key, string value) in sourceProject.Variables)
             {
                 project.Variables[key] = value;
             }
+#pragma warning restore RS0030
         }
 
         foreach (CoreObject reference in references)

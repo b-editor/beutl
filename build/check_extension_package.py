@@ -29,7 +29,8 @@ PROJECT = """<Project Sdk="Beutl.Extensibility.Sdk/{version}">
 """
 
 # Resource comes from the source generator that the SDK references.
-SOURCE = """using Beutl.Engine;
+SOURCE = """using Beutl;
+using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Graphics.Effects;
 
@@ -45,7 +46,7 @@ public sealed partial class Dim : FilterEffect
         ScanProperties<Dim>();
     }
 
-    public IProperty<float> Amount { get; } = Property.CreateAnimatable(50f);
+    public IExpressionProperty<float> Amount { get; } = Property.CreateAnimatable(50f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
