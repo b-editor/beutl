@@ -105,7 +105,9 @@ public sealed partial class Reconciler
         }
 
         ICoreObject searchRoot = (liveRoot as IHierarchical)?.FindHierarchicalRoot() as ICoreObject ?? liveRoot;
-        ICoreObject? target = searchRoot.FindById(objectId);
+        ICoreObject? target = liveRoot is IHierarchical anchor
+            ? ReferenceScope.Find(anchor, objectId, searchRoot)
+            : searchRoot.FindById(objectId);
         if (target is null || !property.ReferencedType.IsInstanceOfType(target))
         {
             throw new ReconcileException(new ToolError(

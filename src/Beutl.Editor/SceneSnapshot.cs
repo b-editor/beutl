@@ -89,7 +89,7 @@ internal static partial class SceneSnapshot
                     foreach (Match match in GuidPattern().Matches(expression.ExpressionString))
                     {
                         if (Guid.TryParse(match.ValueSpan, out Guid id)
-                            && lookupRoot?.FindById(id) is IHierarchical target
+                            && ReferenceScope.Find(engineObject, id, lookupRoot) is IHierarchical target
                             && target.FindHierarchicalParent<ProjectItem>(includeSelf: true) is { } item)
                         {
                             yield return item;

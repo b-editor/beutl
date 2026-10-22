@@ -18,7 +18,7 @@ public class ReferenceResolver(IHierarchical anchor, Guid id)
             root = await tcs.Task;
         }
 
-        var found = (root as ICoreObject)?.FindById(id);
+        var found = ReferenceScope.Find(anchor, id, root as ICoreObject);
         if (found != null)
         {
             return found;

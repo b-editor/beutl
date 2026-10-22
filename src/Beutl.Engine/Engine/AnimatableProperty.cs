@@ -156,7 +156,9 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
         // Keyframes on top are evaluated without an ExpressionContext.
         if (Volatile.Read(ref _expressionState) is { Expression: not KeyFrameAnimation<T> } expressionState)
         {
-            _propertyLookup ??= new PropertyLookup((_owner as IHierarchical)?.FindHierarchicalRoot() as ICoreObject ?? BeutlApplication.Current);
+            _propertyLookup ??= new PropertyLookup(
+                (_owner as IHierarchical)?.FindHierarchicalRoot() as ICoreObject ?? BeutlApplication.Current,
+                _owner as IHierarchical);
             if (context is ExpressionContext expressionContext)
             {
                 if (expressionContext.IsEvaluating(this))
