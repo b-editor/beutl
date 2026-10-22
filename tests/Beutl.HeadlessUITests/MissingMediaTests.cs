@@ -1255,8 +1255,9 @@ public partial class MissingMediaTests
         }
         string path = Path.Combine(NewDirectory(), "families.ttc"); File.WriteAllBytes(path, collection);
         Beutl.Media.FontFamily firstFamily;
-        using (var first = SkiaSharp.SKTypeface.FromFile(path, 0))
-        using (var second = SkiaSharp.SKTypeface.FromFile(path, 1))
+        SkiaSharp.SKTypeface[] opened = [.. FontManager.OpenFontFaces(path)];
+        using (var first = opened.ElementAtOrDefault(0))
+        using (var second = opened.ElementAtOrDefault(1))
         {
             Assert.That(first, Is.Not.Null); Assert.That(second, Is.Not.Null);
             Assert.That(first!.FamilyName, Is.Not.EqualTo(second!.FamilyName));
