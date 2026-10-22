@@ -34,6 +34,9 @@ public sealed class FontManager
     private FontFamily[] _fallbackFamilies = [];
     private FontFamily? _emojiFamily;
     private readonly Dictionary<FontFamily, Dictionary<Typeface, Lazy<SKTypeface?>>> _deferredFonts = [];
+    // macOS faces after the first of a collection, loaded with their family on its first lookup.
+    private readonly Dictionary<FontFamily, List<(FontCollection Collection, int Index)>> _lazyFaces = [];
+    private Dictionary<FontFamily, List<(FontCollection Collection, int Index)>> _lazyProjectFaces = [];
 
     private FontManager()
     {
@@ -53,6 +56,7 @@ public sealed class FontManager
     {
         var list = new List<SKTypeface>();
 
+        var names = new Dictionary<FontFamily, FontName>();
         foreach (string file in _fontDirs
             .Where(dir => Directory.Exists(dir))
             .SelectMany(EnumerateFontCandidates))
@@ -63,6 +67,31 @@ public sealed class FontManager
             {
                 list.Add(face);
             }
+
+            int count = GetFontFaceCount(file);
+            if (count > 1 && OperatingSystem.IsMacOS())
+            {
+                // Copying every later face of the system collections would take hundreds of megabytes.
+                try
+                {
+                    using FileStream stream = File.OpenRead(file);
+                    var collection = new FontCollection(file);
+                    foreach ((int index, string family, FontName? name) in FontCollection.ReadLaterFamilies(stream, count))
+                    {
+                        AddLazyFace(_lazyFaces, new FontFamily(family), collection, index);
+                        if (name is not null) names.TryAdd(new FontFamily(family), name);
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    _logger.LogError(ex, "Failed to load font from {File}", file);
+                }
+            }
+            else
+            {
+                for (int index = 1; index < count; index++)
+                    if (LoadFont(file, index: index) is { } later) list.Add(later);
+            }
         }
 
         foreach (IGrouping<string, SKTypeface> item in list.GroupBy(i => i.FamilyName))
@@ -72,6 +101,9 @@ public sealed class FontManager
             _fonts.Add(family, TypefaceCollection.Create(typefaces));
             TryRegisterFontName(family, typefaces[0]);
         }
+
+        foreach ((FontFamily family, FontName name) in names)
+            _fontNames.TryAdd(family, name);
     }
 
     private void TryRegisterFontName(FontFamily family, SKTypeface typeface)
@@ -109,7 +141,8 @@ public sealed class FontManager
             // 内部状態が壊れて無限ループや null 例外になり得るのでスナップショットを返す。
             lock (_gate)
             {
-                return _fonts.Keys.Concat(_projectFonts.Keys).Concat(_deferredFonts.Keys).Distinct().ToArray();
+                return _fonts.Keys.Concat(_projectFonts.Keys).Concat(_deferredFonts.Keys)
+                    .Concat(_lazyFaces.Keys).Concat(_lazyProjectFaces.Keys).Distinct().ToArray();
             }
         }
     }
@@ -118,7 +151,11 @@ public sealed class FontManager
     {
         get
         {
-            lock (_gate) return _fonts.Keys.Concat(_projectFonts.Keys).Concat(_deferredFonts.Keys).Distinct().Count();
+            lock (_gate)
+            {
+                return _fonts.Keys.Concat(_projectFonts.Keys).Concat(_deferredFonts.Keys)
+                    .Concat(_lazyFaces.Keys).Concat(_lazyProjectFaces.Keys).Distinct().Count();
+            }
         }
     }
 
@@ -214,13 +251,14 @@ public sealed class FontManager
     {
         ArgumentNullException.ThrowIfNull(project);
         var fonts = new List<SKTypeface>();
+        var lazyFaces = new Dictionary<FontFamily, List<(FontCollection Collection, int Index)>>();
         if (project.Uri is { IsFile: true } uri)
         {
             string directory = Path.Combine(Path.GetDirectoryName(uri.LocalPath)!, "resources", "fonts");
             if (Directory.Exists(directory))
             {
                 foreach (string file in EnumerateFontCandidates(directory))
-                    fonts.AddRange(LoadProjectFontFaces(file));
+                    fonts.AddRange(LoadProjectFontFaces(file, lazyFaces));
             }
         }
 
@@ -230,6 +268,7 @@ public sealed class FontManager
             // matching. Keep system fonts separate so the next project can restore them.
             _projectFonts = fonts.GroupBy(font => font.FamilyName).ToDictionary(
                 group => new FontFamily(group.Key), group => TypefaceCollection.Create(group.ToArray()));
+            _lazyProjectFaces = lazyFaces;
             _projectFontsOwner = new WeakReference<Project>(project);
             Interlocked.Increment(ref _revision);
         }
@@ -244,6 +283,7 @@ public sealed class FontManager
                     || !ReferenceEquals(owner, expectedProject)))
                 return;
             _projectFonts = [];
+            _lazyProjectFaces = [];
             _projectFontsOwner = null;
             Interlocked.Increment(ref _revision);
         }
@@ -369,58 +409,31 @@ public sealed class FontManager
     public static IEnumerable<SKTypeface> OpenFontFaces(string file)
     {
         int count = GetFontFaceCount(file);
-        byte[]? collection = null;
+        FontCollection? collection = null;
         for (int index = 0; index < count; index++)
         {
             SKTypeface? face = index == 0 || !OperatingSystem.IsMacOS()
                 ? SKTypeface.FromFile(file, index)
-                : LoadFace(collection ??= File.ReadAllBytes(file), index);
+                : (collection ??= new FontCollection(file)).LoadCopy(index);
             if (face is not null) yield return face;
         }
     }
 
-    // Skia's CoreText port opens only face 0 of a collection, so macOS loads a later face from a copy of its tables.
-    private static SKTypeface? LoadFace(byte[] font, int index)
+    // The family of every face of a file; on macOS later faces are named from their tables instead of copied.
+    internal static IEnumerable<string> ReadFamilyNames(string file)
     {
-        if (index > 0 && OperatingSystem.IsMacOS())
+        int count = GetFontFaceCount(file);
+        for (int index = 0; index < (OperatingSystem.IsMacOS() ? Math.Min(count, 1) : count); index++)
         {
-            if (CopyCollectionFace(font, index) is not { } face) return null;
-            (font, index) = (face, 0);
+            using SKTypeface? face = SKTypeface.FromFile(file, index);
+            if (face is not null) yield return face.FamilyName;
         }
 
-        using var stream = new MemoryStream(font, writable: false);
-        return SKTypeface.FromStream(stream, index);
-    }
-
-    // A standalone font with one face of a collection, or null when the collection is malformed.
-    private static byte[]? CopyCollectionFace(ReadOnlySpan<byte> collection, int index)
-    {
-        try
+        if (count > 1 && OperatingSystem.IsMacOS())
         {
-            int start = checked((int)BinaryPrimitives.ReadUInt32BigEndian(collection[(12 + index * 4)..]));
-            int tables = BinaryPrimitives.ReadUInt16BigEndian(collection[(start + 4)..]);
-            byte[] directory = collection.Slice(start, 12 + tables * 16).ToArray();
-            using var font = new MemoryStream();
-            font.Write(directory);
-            for (int table = 0; table < tables; table++)
-            {
-                Span<byte> record = directory.AsSpan(12 + table * 16, 16);
-                int offset = checked((int)BinaryPrimitives.ReadUInt32BigEndian(record[8..]));
-                int length = checked((int)BinaryPrimitives.ReadUInt32BigEndian(record[12..]));
-                // One face's tables cannot add up to more than the collection holds.
-                if (font.Length + length > directory.Length + collection.Length) return null;
-                font.Position = (font.Length + 3) & ~3L;
-                BinaryPrimitives.WriteUInt32BigEndian(record[8..], (uint)font.Position);
-                font.Write(collection.Slice(offset, length));
-            }
-
-            font.Position = 0;
-            font.Write(directory);
-            return font.ToArray();
-        }
-        catch (Exception ex) when (ex is ArgumentOutOfRangeException or OverflowException)
-        {
-            return null;
+            using FileStream stream = File.OpenRead(file);
+            foreach ((_, string family, _) in FontCollection.ReadLaterFamilies(stream, count))
+                yield return family;
         }
     }
 
@@ -442,41 +455,59 @@ public sealed class FontManager
         return count > 0 && count <= 1024 && 12L + count * 4 <= length ? (int)count : 0;
     }
 
-    private List<SKTypeface> LoadProjectFontFaces(string file)
+    private List<SKTypeface> LoadProjectFontFaces(
+        string file, Dictionary<FontFamily, List<(FontCollection Collection, int Index)>> lazyFaces)
     {
         var faces = new List<SKTypeface>();
+        SKData? data = null;
         try
         {
             byte[] bytes = File.ReadAllBytes(file);
             string hash = Convert.ToHexString(SHA256.HashData(bytes));
             int count = GetFontFaceCount(bytes, bytes.LongLength);
-            for (int index = 0; index < count; index++)
-                if (LoadFont(file, bytes, hash, index) is { } typeface) faces.Add(typeface);
+            int eager = OperatingSystem.IsMacOS() ? Math.Min(count, 1) : count;
+            for (int index = 0; index < eager; index++)
+            {
+                // The faces of one file share a single copy of it.
+                if (LoadProjectFace(hash, index, () => SKTypeface.FromData(data ??= SKData.CreateCopy(bytes), index)) is { } typeface)
+                    faces.Add(typeface);
+            }
+
+            if (eager < count)
+            {
+                var collection = new FontCollection(file, bytes) { Hash = hash };
+                foreach ((int index, string family, _) in FontCollection.ReadLaterFamilies(new MemoryStream(bytes, writable: false), count))
+                    AddLazyFace(lazyFaces, new FontFamily(family), collection, index);
+            }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load font from {File}", file);
         }
+        finally
+        {
+            data?.Dispose();
+        }
         return faces;
     }
 
-    private SKTypeface? LoadFont(string file, byte[]? bytes = null, string? hash = null, int index = 0)
+    // Renderers can still hold registered faces, so faces are cached by content across project switches.
+    private SKTypeface? LoadProjectFace(string hash, int index, Func<SKTypeface?> load)
+    {
+        string key = hash + ":" + index;
+        lock (_gate)
+        {
+            if (_projectFontCache.TryGetValue(key, out SKTypeface? cached)) return cached;
+            SKTypeface? face = load();
+            if (face is not null) _projectFontCache.Add(key, face);
+            return face;
+        }
+    }
+
+    private SKTypeface? LoadFont(string file, int index = 0)
     {
         try
         {
-            if (bytes is not null)
-            {
-                string key = hash + ":" + index;
-                lock (_gate)
-                {
-                    // Registered faces can still be held by renderers. Cache immutable font
-                    // bytes across project switches instead of disposing or duplicating them.
-                    if (_projectFontCache.TryGetValue(key, out SKTypeface? cached)) return cached;
-                    SKTypeface? face = LoadFace(bytes, index);
-                    if (face is not null) _projectFontCache.Add(key, face);
-                    return face;
-                }
-            }
             return SKTypeface.FromFile(file, index);
         }
         catch (Exception ex)
@@ -486,10 +517,59 @@ public sealed class FontManager
         }
     }
 
+    private static void AddLazyFace(
+        Dictionary<FontFamily, List<(FontCollection Collection, int Index)>> lazyFaces,
+        FontFamily family, FontCollection collection, int index)
+    {
+        if (!lazyFaces.TryGetValue(family, out var faces))
+            lazyFaces[family] = faces = [];
+        faces.Add((collection, index));
+    }
+
+    // Loads the lazy faces of the family with their own keys. Callers hold _gate.
+    private void LoadLazyFaces(FontFamily family)
+    {
+        if (_lazyProjectFaces.Remove(family, out var projectFaces))
+        {
+            foreach (IGrouping<string, SKTypeface> loaded in projectFaces
+                         .Select(lazy => LoadProjectFace(lazy.Collection.Hash!, lazy.Index, () => LoadLazyFace(lazy.Collection, lazy.Index)))
+                         .OfType<SKTypeface>()
+                         .GroupBy(face => face.FamilyName))
+            {
+                var loadedFamily = new FontFamily(loaded.Key);
+                SKTypeface[] known = _projectFonts.TryGetValue(loadedFamily, out var existing) ? [.. existing.Values] : [];
+                _projectFonts[loadedFamily] = TypefaceCollection.Create([.. known, .. loaded]);
+            }
+        }
+
+        if (_lazyFaces.Remove(family, out var faces))
+        {
+            foreach ((FontCollection collection, int index) in faces)
+            {
+                if (LoadLazyFace(collection, index) is { } face && !AddFont(face))
+                    face.Dispose();
+            }
+        }
+    }
+
+    private SKTypeface? LoadLazyFace(FontCollection collection, int index)
+    {
+        try
+        {
+            return collection.LoadCopy(index);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogError(ex, "Failed to load font from {File}", collection.File);
+            return null;
+        }
+    }
+
     public ImmutableArray<Typeface> GetTypefaces(FontFamily fontFamily)
     {
         lock (_gate)
         {
+            LoadLazyFaces(fontFamily);
             if (_projectFonts.TryGetValue(fontFamily, out var project))
                 return project.Keys;
             if (_deferredFonts.TryGetValue(fontFamily, out var deferred))
@@ -533,6 +613,7 @@ public sealed class FontManager
 
     private bool TryResolveTypeface(Typeface typeface, out SKTypeface face)
     {
+        LoadLazyFaces(typeface.FontFamily);
         if (_projectFonts.TryGetValue(typeface.FontFamily, out var project))
         {
             face = project.Get(typeface);
@@ -620,7 +701,8 @@ public sealed class FontManager
     {
         lock (_gate)
         {
-            return _projectFonts.ContainsKey(fontFamily) || _fonts.ContainsKey(fontFamily) || _deferredFonts.ContainsKey(fontFamily);
+            return _projectFonts.ContainsKey(fontFamily) || _fonts.ContainsKey(fontFamily) || _deferredFonts.ContainsKey(fontFamily)
+                || _lazyFaces.ContainsKey(fontFamily) || _lazyProjectFaces.ContainsKey(fontFamily);
         }
     }
 }
