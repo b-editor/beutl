@@ -51,4 +51,22 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
   </ItemGroup>
+
+  <!-- APIs code under src must not call; tests still may, to test them. Build-only, so packages do not carry it. -->
+  <PropertyGroup>
+    <_BeutlBansApis>$(MSBuildProjectDirectory.StartsWith('$(MSBuildThisFileDirectory)src'))</_BeutlBansApis>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(_BeutlBansApis)' == 'true'">
+    <WarningsAsErrors>$(WarningsAsErrors);RS0030</WarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(_BeutlBansApis)' == 'true'">
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)build/BannedSymbols.txt" />
+    <!-- The project and its rate helpers own the variables. -->
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)build/BannedSymbols.ProjectVariables.txt"
+                     Condition="'$(MSBuildProjectName)' != 'Beutl.Core' And '$(MSBuildProjectName)' != 'Beutl.ProjectSystem'" />
+  </ItemGroup>
 </Project>
