@@ -47,6 +47,30 @@ internal static class ChildObjects
         }
     }
 
+    // Every object below root, root first and each once, in the order Find visits them.
+    public static IEnumerable<object> Walk(object root)
+    {
+        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance) { root };
+        var pending = new Stack<IEnumerator<object>>();
+        yield return root;
+        pending.Push(Of(root).GetEnumerator());
+        while (pending.TryPeek(out IEnumerator<object>? children))
+        {
+            if (!children.MoveNext())
+            {
+                pending.Pop().Dispose();
+                continue;
+            }
+
+            object child = children.Current;
+            if (child.GetType().IsValueType || visited.Add(child))
+            {
+                yield return child;
+                pending.Push(Of(child).GetEnumerator());
+            }
+        }
+    }
+
     // A value type holds no object to walk into, unless it is an Optional around one.
     public static bool MayHoldObjects(Type type) => !type.IsValueType || type.IsAssignableTo(typeof(IOptional));
 

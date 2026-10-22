@@ -545,6 +545,8 @@ public sealed partial class EditViewModel
         }
 
         relocation.Commit();
+        if (scene.FindHierarchicalParent<Project>() is { } project)
+            DuplicateIds.Report(project, "save");
 
         SaveState(isExplicitUserSave: true);
         _logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id);

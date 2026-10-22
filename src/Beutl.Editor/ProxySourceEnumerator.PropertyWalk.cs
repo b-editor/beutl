@@ -171,7 +171,7 @@ public static partial class ProxySourceEnumerator
         };
 
     // A reference-expression resolves to another object's value (or one of its properties) by id; the
-    // render opens whatever file source that yields. Resolve via the shared hierarchy root and route the
+    // render opens whatever file source that yields. Resolve it as the render does, scene first, and route the
     // target through the value recursion. A cross-referenced target has its own guarded walk when it is
     // reached structurally, so recursing its resolved value here (guarded by visitedValues) only adds the
     // file sources it exposes as a value, without re-walking a scene/element/drawable navigator.
@@ -180,8 +180,7 @@ public static partial class ProxySourceEnumerator
         TimeRange? sceneWindow = null, HashSet<IProperty>? visitedExpressionProps = null, ObjectWalkContext? walkContext = null)
     {
         if (expression is not IReferenceExpression reference
-            || owner.FindHierarchicalRoot() is not ICoreObject root
-            || root.FindById(reference.ObjectId) is not EngineObject target)
+            || ReferenceScope.Find(owner, reference.ObjectId) is not EngineObject target)
         {
             yield break;
         }
@@ -256,8 +255,7 @@ public static partial class ProxySourceEnumerator
 
         if (property is IExpressionProperty { Expression: IReferenceExpression reference })
         {
-            if (owner.FindHierarchicalRoot() is ICoreObject root
-                && root.FindById(reference.ObjectId) is { } resolved)
+            if (ReferenceScope.Find(owner, reference.ObjectId) is { } resolved)
             {
                 if (!reference.HasPropertyPath)
                     return resolved as T ?? property.DefaultValue as T;

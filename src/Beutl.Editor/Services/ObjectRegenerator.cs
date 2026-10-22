@@ -1,8 +1,8 @@
-﻿using System.Text;
+﻿using System.Buffers.Text;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Collections;
-using Beutl.NodeGraph.Generative;
 using Beutl.Serialization;
 using Beutl.Utilities;
 
@@ -10,28 +10,22 @@ namespace Beutl.Editor.Services;
 
 public static class ObjectRegenerator
 {
-    private const int DefaultGuidStringSize = 36;
+    private const int GuidLength = 36;
     private const int BufferSizeDefault = 16 * 1024;
 
     private static void RegenerateCore(ICoreSerializable obj, PooledArrayBufferWriter<byte> output)
     {
-        var searcher = new ObjectSearcher(obj, v => v is ICoreObject);
-
         // ICoreObjects with a Uri serialize as a file reference by default, hiding their
-        // inner Ids from the JSON. Embed them so GuidToUtf8 can rewrite every Id.
+        // inner Ids from the JSON. Embed them so every Id of the copy is in it.
         var jsonObject = CoreSerializer.SerializeToJsonObject(obj, new CoreSerializerOptions
         {
             Mode = CoreSerializationMode.EmbedReferencedObjects
         });
 
-        // A fallback and an object's unknown members keep objects as JSON that no object in the graph
-        // stands for, so their Ids are read from the JSON: the copy must not share them with the original.
-        Guid[] ids = searcher.SearchAll()
-            .Cast<ICoreObject>()
-            .Select(v => v.Id)
-            .Concat(CollectSerializedIds(jsonObject))
-            .Distinct()
-            .ToArray();
+        // Each object of the copy writes its Id, including fallbacks and the objects unknown members keep.
+        var newIds = new Dictionary<Guid, Guid>();
+        foreach (Guid id in CollectSerializedIds(jsonObject))
+            newIds.TryAdd(id, Guid.NewGuid());
 
         JsonSerializerOptions options = JsonHelper.SerializerOptions;
         var writerOptions = new JsonWriterOptions
@@ -46,31 +40,35 @@ public static class ObjectRegenerator
             jsonObject.WriteTo(writer, options);
         }
 
-        Span<byte> buffer = GetWrittenSpan(output);
-        Span<byte> oldStr = stackalloc byte[DefaultGuidStringSize];
-        Span<byte> newStr = stackalloc byte[DefaultGuidStringSize];
-        foreach (Guid oldId in ids)
-        {
-            Guid newId = Guid.NewGuid();
-            GuidToUtf8(oldId, oldStr);
-            GuidToUtf8(newId, newStr);
-            Span<byte> localBuffer = buffer;
+        ReplaceIds(GetWrittenSpan(output), newIds);
+    }
 
-            int index;
-            while ((index = localBuffer.IndexOf(oldStr)) >= 0)
+    // One pass over the text: a reference follows its object wherever the copy holds its Id, even inside a script.
+    private static void ReplaceIds(Span<byte> json, Dictionary<Guid, Guid> newIds)
+    {
+        int i = 0;
+        while (i <= json.Length - GuidLength)
+        {
+            Span<byte> token = json.Slice(i, GuidLength);
+            if (token[8] == '-' && token[13] == '-' && token[18] == '-' && token[23] == '-'
+                && Utf8Parser.TryParse(token, out Guid id, out int consumed, 'D') && consumed == GuidLength
+                && newIds.TryGetValue(id, out Guid newId))
             {
-                newStr.CopyTo(localBuffer.Slice(index));
-                localBuffer = localBuffer.Slice(index + newStr.Length);
+                newId.TryFormat(token, out _);
+                i += GuidLength;
+            }
+            else
+            {
+                i++;
             }
         }
     }
 
-    // The server answers an idempotency key it has already seen with the earlier job, so an AI node in a copy must
-    // not send its first request under the original's key. The key's seed is not an Id, so it is renewed here.
-    internal static void RenewRequestKeys(object copy)
+    // Runs the hook of each object in a copy that must not share a value with its original besides the Ids.
+    internal static void RenewCopiedValues(object copy)
     {
-        foreach (object node in new ObjectSearcher(copy, static v => v is GenerativeNode).SearchAll())
-            ((GenerativeNode)node).RenewRequestKey();
+        foreach (ICopyRenewable renewable in ChildObjects.Walk(copy).OfType<ICopyRenewable>())
+            renewable.RenewForCopy();
     }
 
     // The Ids of every object serialized in node, found under the "Id" key that CoreObject writes them to.
@@ -128,12 +126,12 @@ public static class ObjectRegenerator
         var instance = new T();
 
         CoreSerializer.PopulateFromJsonObject(instance, jsonObj);
-        RenewRequestKeys(instance);
+        RenewCopiedValues(instance);
 
         newInstance = instance;
     }
 
-    // The JSON keeps the request keys of AI nodes; only the overloads that build objects renew them.
+    // The JSON keeps what copies renew, such as AI nodes' request keys; only the overloads that build objects renew it.
     public static void Regenerate(ICoreSerializable obj, out string json)
     {
         using var output = new PooledArrayBufferWriter<byte>(BufferSizeDefault);
@@ -153,7 +151,7 @@ public static class ObjectRegenerator
 
         var instance = (ICoreSerializable)Activator.CreateInstance(actualType)!;
         CoreSerializer.PopulateFromJsonObject(instance, actualType, jsonObj);
-        RenewRequestKeys(instance);
+        RenewCopiedValues(instance);
         newInstance = instance;
     }
 
@@ -171,17 +169,9 @@ public static class ObjectRegenerator
         var instance = new ListWrapper<T>();
 
         CoreSerializer.PopulateFromJsonObject(instance, jsonObj);
-        RenewRequestKeys(instance);
+        RenewCopiedValues(instance);
 
         newInstance = instance.Items.ToArray();
-    }
-
-    private static void GuidToUtf8(Guid id, Span<byte> utf8)
-    {
-        Span<char> utf16 = stackalloc char[DefaultGuidStringSize];
-
-        id.TryFormat(utf16, out _);
-        Encoding.UTF8.GetBytes(utf16, utf8);
     }
 
     public sealed class ListWrapper<T> : CoreObject

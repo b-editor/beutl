@@ -69,7 +69,7 @@ public sealed class ObjectTemplateItem(
 
             // A template saved before AI results were left out still holds the request key of the node it was
             // saved from, and the property editors apply instances as they are, so each one gets a key of its own.
-            ObjectRegenerator.RenewRequestKeys(instance);
+            ObjectRegenerator.RenewCopiedValues(instance);
             return instance;
         }
         catch

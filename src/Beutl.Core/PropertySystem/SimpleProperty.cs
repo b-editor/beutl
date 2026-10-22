@@ -118,7 +118,8 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
         if (Volatile.Read(ref _expressionState) is { } expressionState)
         {
             _propertyLookup ??= new PropertyLookup(
-                (_owner as IHierarchical)?.FindHierarchicalRoot() as ICoreObject ?? BeutlApplication.Current);
+                (_owner as IHierarchical)?.FindHierarchicalRoot() as ICoreObject ?? BeutlApplication.Current,
+                _owner as IHierarchical);
 
             ExpressionContext expressionContext;
             if (context is ExpressionContext ec)
