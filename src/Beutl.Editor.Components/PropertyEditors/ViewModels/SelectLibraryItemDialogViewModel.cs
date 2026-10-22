@@ -125,8 +125,7 @@ public class SelectLibraryItemDialogViewModel
                     .SelectMany(x => x.GetTypes())
                     .Where(x => x is { IsAbstract: false, IsPublic: true }
                                 && x.IsAssignableTo(itemType)
-                                && (itemType.GetConstructor([]) != null
-                                    || itemType.GetConstructors().Length == 0))
+                                && (x.IsValueType || x.GetConstructor(Type.EmptyTypes) != null))
                     .ToArray();
 
                 return availableTypes

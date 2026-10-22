@@ -114,6 +114,21 @@ public sealed class SelectLibraryItemSearchTests
         Assert.That(viewModel.Items.Select(i => i.DisplayName), Is.EqualTo(new[] { "Preferred catalog" }));
     }
 
+    // The editor creates the chosen type with its parameterless constructor.
+    [AvaloniaTest]
+    public async Task Show_all_lists_only_types_the_editor_can_create()
+    {
+        var viewModel = new SelectLibraryItemDialogViewModel("Beutl.HeadlessUITests.PickerProbe", typeof(ILibraryPickerProbe));
+        using var showAll = viewModel.ShowAll;
+        using var searchText = viewModel.SearchText;
+
+        PinnableLibraryItem[] items = await viewModel.LoadAllItems().WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.That(
+            items.Select(i => i.UserData).OfType<SingleTypeLibraryItem>().Select(i => i.ImplementationType),
+            Is.EquivalentTo(new[] { typeof(ConstructibleLibraryPickerProbe), typeof(ValueLibraryPickerProbe) }));
+    }
+
     private static SelectLibraryItemDialogViewModel CreateViewModel(
         Task<PinnableLibraryItem[]> preferred, Task<PinnableLibraryItem[]> all)
     {
@@ -129,4 +144,21 @@ public sealed class SelectLibraryItemSearchTests
         var item = new SingleTypeLibraryItem(KnownLibraryItemFormats.Drawable, type, displayName);
         return new PinnableLibraryItem(displayName, false, item);
     }
+}
+
+public interface ILibraryPickerProbe
+{
+}
+
+public sealed class ConstructibleLibraryPickerProbe : ILibraryPickerProbe
+{
+}
+
+public sealed class NonConstructibleLibraryPickerProbe(int value) : ILibraryPickerProbe
+{
+    public int Value { get; } = value;
+}
+
+public struct ValueLibraryPickerProbe : ILibraryPickerProbe
+{
 }
