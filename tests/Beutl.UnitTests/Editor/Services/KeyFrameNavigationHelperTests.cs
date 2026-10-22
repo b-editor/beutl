@@ -33,7 +33,7 @@ public class KeyFrameNavigationHelperTests
 
         var animation = CreateAnimation(useGlobalClock: false,
             TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1));
-        obj.FloatValue.Animation = animation;
+        obj.FloatValue.SetKeyFrameAnimation(animation);
 
         var result = KeyFrameNavigationHelper.EnumerateKeyFrameAnimations(element).ToList();
 
@@ -54,7 +54,7 @@ public class KeyFrameNavigationHelperTests
 
         var animation = CreateAnimation(useGlobalClock: true,
             TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1));
-        obj.FloatValue.Animation = animation;
+        obj.FloatValue.SetKeyFrameAnimation(animation);
 
         var result = KeyFrameNavigationHelper.EnumerateKeyFrameAnimations(element).ToList();
 
@@ -75,8 +75,8 @@ public class KeyFrameNavigationHelperTests
 
         var anim1 = CreateAnimation(useGlobalClock: false, TimeSpan.Zero);
         var anim2 = CreateAnimation(useGlobalClock: false, TimeSpan.FromSeconds(1));
-        obj.FloatA.Animation = anim1;
-        obj.FloatB.Animation = anim2;
+        obj.FloatA.SetKeyFrameAnimation(anim1);
+        obj.FloatB.SetKeyFrameAnimation(anim2);
 
         var result = KeyFrameNavigationHelper.EnumerateKeyFrameAnimations(element).ToList();
 
@@ -138,8 +138,8 @@ public class KeyFrameNavigationHelperTests
         // intentionally kept out of the searched tree, so the excluded port is the only path that
         // could otherwise surface its animation.
         var backing = new TestAnimatableObject();
-        backing.FloatValue.Animation = CreateAnimation(useGlobalClock: false,
-            TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        backing.FloatValue.SetKeyFrameAnimation(CreateAnimation(useGlobalClock: false,
+            TimeSpan.Zero, TimeSpan.FromSeconds(1)));
         node.Items.Add(new EnginePropertyBackedInputPort<float>(backing, backing.FloatValue));
 
         var result = KeyFrameNavigationHelper.EnumerateKeyFrameAnimations(element).ToList();
@@ -166,7 +166,7 @@ public class KeyFrameNavigationHelperTests
 
         var animation = CreateAnimation(useGlobalClock: true,
             TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(5));
-        obj.FloatValue.Animation = animation;
+        obj.FloatValue.SetKeyFrameAnimation(animation);
 
         TimeSpan? result = KeyFrameNavigationHelper.FindAdjacentKeyFrame(
             [element], TimeSpan.FromSeconds(currentSeconds), forward);
@@ -183,7 +183,7 @@ public class KeyFrameNavigationHelperTests
 
         var animation = CreateAnimation(useGlobalClock: true,
             TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        obj.FloatValue.Animation = animation;
+        obj.FloatValue.SetKeyFrameAnimation(animation);
 
         TimeSpan? result = KeyFrameNavigationHelper.FindAdjacentKeyFrame(
             [element], TimeSpan.FromSeconds(5), forward: true);
@@ -197,14 +197,14 @@ public class KeyFrameNavigationHelperTests
         var el1 = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(10) };
         var obj1 = new TestAnimatableObject();
         el1.AddObject(obj1);
-        obj1.FloatValue.Animation = CreateAnimation(useGlobalClock: true,
-            TimeSpan.FromSeconds(5));
+        obj1.FloatValue.SetKeyFrameAnimation(CreateAnimation(useGlobalClock: true,
+            TimeSpan.FromSeconds(5)));
 
         var el2 = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(10) };
         var obj2 = new TestAnimatableObject();
         el2.AddObject(obj2);
-        obj2.FloatValue.Animation = CreateAnimation(useGlobalClock: true,
-            TimeSpan.FromSeconds(2));
+        obj2.FloatValue.SetKeyFrameAnimation(CreateAnimation(useGlobalClock: true,
+            TimeSpan.FromSeconds(2)));
 
         TimeSpan? result = KeyFrameNavigationHelper.FindAdjacentKeyFrame(
             [el1, el2], TimeSpan.FromSeconds(1), forward: true);
@@ -221,7 +221,7 @@ public class KeyFrameNavigationHelperTests
 
         var animation = CreateAnimation(useGlobalClock: false,
             TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2));
-        obj.FloatValue.Animation = animation;
+        obj.FloatValue.SetKeyFrameAnimation(animation);
 
         TimeSpan? result = KeyFrameNavigationHelper.FindAdjacentKeyFrame(
             [element], TimeSpan.FromSeconds(9), forward: true);
@@ -300,7 +300,7 @@ public class KeyFrameNavigationHelperTests
 
     private sealed class TestNodeMember<T> : NodeMember<T>
     {
-        public TestNodeMember(string name, IAnimation<T>? animation)
+        public TestNodeMember(string name, KeyFrameAnimation<T>? animation)
         {
             Property = new NodePropertyAdapter<T>(name, default, animation);
         }

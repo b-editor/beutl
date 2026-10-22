@@ -54,12 +54,17 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
         {
             if (engineProperty.IsAnimatable)
             {
-                engineProperty.Animation = value as IAnimation;
+                engineProperty.SetKeyFrameAnimation(value as IKeyFrameAnimation);
             }
         }
         else if (updateExpression)
         {
-            if (engineProperty.SupportsExpression)
+            // The recorded chain is restored as it was, keyframes included.
+            if (engineProperty is IExpressionChainHost host)
+            {
+                host.SetExpressionChain(value as IExpression);
+            }
+            else if (engineProperty.SupportsExpression)
             {
                 engineProperty.Expression = value as IExpression;
             }

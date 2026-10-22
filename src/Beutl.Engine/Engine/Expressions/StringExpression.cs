@@ -11,7 +11,7 @@ namespace Beutl.Engine.Expressions;
 /// <summary>
 /// Evaluates a C# expression synchronously. Scripts containing <c>await</c> are rejected during validation.
 /// </summary>
-public sealed class StringExpression<T> : IExpression<T>
+public sealed class StringExpression<T> : IReplacingExpression<T>
 {
     private static readonly ScriptOptions s_scriptOptions = CreateScriptOptions();
 
@@ -23,7 +23,19 @@ public sealed class StringExpression<T> : IExpression<T>
         _parseResult = new Lazy<ParseResult>(Parse, LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
+    // A copy over another expression shares the compiled script.
+    private StringExpression(StringExpression<T> source, IExpression<T>? replaced)
+    {
+        ExpressionString = source.ExpressionString;
+        _parseResult = source._parseResult;
+        Replaced = replaced;
+    }
+
     public string ExpressionString { get; }
+
+    public IExpression<T>? Replaced { get; }
+
+    IExpression<T> IReplacingExpression<T>.WithReplaced(IExpression<T>? replaced) => new StringExpression<T>(this, replaced);
 
     public T Evaluate(ExpressionContext context)
     {

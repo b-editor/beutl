@@ -401,7 +401,7 @@ public sealed partial class SchemaGenerator
     private static JsonObject CreateFloatAnimationWithLocalClock(params (double Seconds, float Value, Type Easing)[] keyframes)
     {
         JsonObject animation = CreateFloatAnimation(keyframes);
-        animation[nameof(KeyFrameAnimation.UseGlobalClock)] = false;
+        animation[nameof(IKeyFrameAnimation.UseGlobalClock)] = false;
         return animation;
     }
 

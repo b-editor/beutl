@@ -239,7 +239,7 @@ public partial class MissingMediaTests
         var video = new SourceVideo();
         var animation = new KeyFrameAnimation<VideoSource?>();
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = VideoSource.Open(Path.Combine(directory, "missing.mp4")) });
-        video.Source.Animation = animation;
+        video.Source.SetKeyFrameAnimation(animation);
         first.Objects.Add(video);
         first.Objects.Add(new SourceSound { Source = { CurrentValue = SoundSource.Open(Path.Combine(directory, "missing.wav")) } });
         ((SourceImage)first.Objects[0]).FilterEffect.CurrentValue = new Beutl.Graphics.Effects.LutEffect

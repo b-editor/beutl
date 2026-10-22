@@ -101,7 +101,7 @@ internal static class SerializedGraphPaths
         {
             SerializedGraphPath propertyPath = AppendSerializedGraphPath(path, "property", property.Name);
             CollectSerializedGraphObjectPaths(property.CurrentValue, propertyPath, visited, objects);
-            if (property.Animation is IKeyFrameAnimation animation)
+            if (property.GetKeyFrameAnimation() is { } animation)
             {
                 SerializedGraphPath keyFramesPath = AppendSerializedGraphPath(
                     path,

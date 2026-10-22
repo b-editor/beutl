@@ -65,7 +65,7 @@ public class CaptionTemplateTests
             Transform = { CurrentValue = new TranslateTransform(120, 300) },
             FilterEffect = { CurrentValue = new Blur { Sigma = { CurrentValue = new Size(2, 3) } } },
         };
-        source.Opacity.Animation = new KeyFrameAnimation<float>();
+        source.Opacity.SetKeyFrameAnimation(new KeyFrameAnimation<float>());
         source.Text.Expression = Expression.Create<string?>("\"Expression text\"");
         ObjectTemplateItem item = ObjectTemplateItem.CreateFromInstance(source, "Outlined caption");
         CaptionTemplate template = TextBlockCaptionTemplateAdapter.TryCreate(item)!;
@@ -95,7 +95,7 @@ public class CaptionTemplateTests
             Assert.That(((TranslateTransform)first.Transform.CurrentValue!).Y.CurrentValue, Is.EqualTo(300));
             Assert.That(first.FilterEffect.CurrentValue, Is.TypeOf<Blur>());
             Assert.That(((Blur)first.FilterEffect.CurrentValue!).Sigma.CurrentValue, Is.EqualTo(new Size(2, 3)));
-            Assert.That(first.Opacity.Animation, Is.Not.Null);
+            Assert.That(first.Opacity.GetKeyFrameAnimation(), Is.Not.Null);
             Assert.That(first.Id, Is.Not.EqualTo(source.Id));
             Assert.That(second.Id, Is.Not.EqualTo(first.Id));
         }

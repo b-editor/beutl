@@ -183,7 +183,7 @@ internal sealed partial class SceneRecovery(Scene scene)
                 property.Expression = (IExpression)reboundExpression;
             }
 
-            if (property.Animation is IKeyFrameAnimation animation)
+            if (property.GetKeyFrameAnimation() is { } animation)
             {
                 MigrateKeyFrameReferences(animation, rewriter);
             }

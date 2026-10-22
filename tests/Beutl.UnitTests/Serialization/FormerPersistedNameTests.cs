@@ -165,7 +165,7 @@ public class FormerPersistedNameTests
         source.Width.CurrentValue = 3;
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 32 });
-        source.Width.Animation = animation;
+        source.Width.SetKeyFrameAnimation(animation);
         source.Width.Expression = Expression.Create<float>("5");
         source.Tags.Add("a");
         JsonObject json = CoreSerializer.SerializeToJsonObject(source);
@@ -181,7 +181,7 @@ public class FormerPersistedNameTests
         {
             Assert.That(restored.Width.CurrentValue, Is.EqualTo(3));
             Assert.That(
-                (restored.Width.Animation as KeyFrameAnimation<float>)?.KeyFrames.Select(keyFrame => keyFrame.Value),
+                (restored.Width.GetKeyFrameAnimation() as KeyFrameAnimation<float>)?.KeyFrames.Select(keyFrame => keyFrame.Value),
                 Is.EqualTo(new[] { 32f }));
             Assert.That(restored.Width.Expression?.ExpressionString, Is.EqualTo("5"));
             Assert.That(restored.Tags, Is.EqualTo(new[] { "a" }));

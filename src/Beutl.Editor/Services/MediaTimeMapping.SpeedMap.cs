@@ -9,7 +9,7 @@ internal sealed partial class MediaTimeMapping
     private sealed class SpeedMap
     {
         private readonly float _constant;
-        private readonly IAnimation<float>? _animation;
+        private readonly KeyFrameAnimation<float>? _animation;
         private readonly SpeedIntegrator _integrator;
         private readonly EditorSpeedIntegral? _editorIntegral;
         private readonly float? _constantAnimation;
@@ -25,8 +25,8 @@ internal sealed partial class MediaTimeMapping
 
         public SpeedMap(IProperty<float> speed, int sampleRate, bool videoPlayback = false)
         {
-            _constant = speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: 0 } ? 0 : speed.CurrentValue;
-            _animation = speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: 0 } ? null : speed.Animation;
+            _constant = speed.GetKeyFrameAnimation() is { KeyFrames.Count: 0 } ? 0 : speed.CurrentValue;
+            _animation = speed.GetKeyFrameAnimation() is { KeyFrames.Count: 0 } ? null : speed.GetKeyFrameAnimation();
             _minimum = _constant;
             _maximum = _constant;
             bool known = _animation == null || _animation.TryGetOutputRange(out _minimum, out _maximum);
@@ -34,9 +34,8 @@ internal sealed partial class MediaTimeMapping
             if (videoPlayback)
             {
                 // Video/controller playback integrates only nonempty keyframe curves.
-                // Other animations multiply time by their evaluated value instead.
-                IsSupported &= (_animation == null || _animation is KeyFrameAnimation<float>)
-                    && (!speed.HasExpression || _animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 });
+                // An expression over no keyframes multiplies time by its evaluated value instead.
+                IsSupported &= !speed.HasExpression || _animation is { KeyFrames.Count: > 0 };
             }
             _integrator = new SpeedIntegrator(sampleRate);
             if (sampleRate > 60 && _animation != null)

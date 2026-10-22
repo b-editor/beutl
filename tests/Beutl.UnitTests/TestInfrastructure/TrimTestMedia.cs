@@ -77,7 +77,7 @@ internal static class TrimTestMedia
 
         speedProperty.CurrentValue = speed;
         if (speedAnimation != null)
-            speedProperty.Animation = speedAnimation;
+            speedProperty.SetKeyFrameAnimation(speedAnimation);
         offsetProperty.CurrentValue = Seconds(offsetSeconds);
         element.Objects.Add(media);
         return (speedProperty, offsetProperty);

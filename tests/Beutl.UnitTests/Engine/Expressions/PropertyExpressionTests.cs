@@ -140,11 +140,11 @@ public class PropertyExpressionTests
     {
         var property = new AnimatableProperty<float>(7);
         KeyFrameAnimation<float> animation = TestAnimations.Linear(20f, 80f, TimeSpan.FromSeconds(2));
-        property.Animation = animation;
+        property.SetKeyFrameAnimation(animation);
         property.Expression = new StringExpression<float>("throw new InvalidOperationException();");
 
         Assert.That(property.GetValue(new CompositionContext(TimeSpan.FromSeconds(1))), Is.EqualTo(50));
-        Assert.That(property.Animation, Is.SameAs(animation));
+        Assert.That(property.GetKeyFrameAnimation(), Is.SameAs(animation));
     }
 
     [Test]

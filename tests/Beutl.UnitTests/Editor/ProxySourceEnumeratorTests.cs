@@ -36,7 +36,7 @@ public class ProxySourceEnumeratorTests
             KeyTime = TimeSpan.FromSeconds(1),
             Value = CreateVideoSource("animated.mov"),
         });
-        drawable.Source.Animation = animation;
+        drawable.Source.SetKeyFrameAnimation(animation);
         Element element = ElementWith(drawable);
 
         Assert.That(FileNames(element), Is.EquivalentTo(new[] { "current.mov", "animated.mov" }));
@@ -1080,7 +1080,7 @@ public class ProxySourceEnumeratorTests
             KeyTime = TimeSpan.FromSeconds(1),
             Value = CreateVideoSource("animated.mov"),
         });
-        drawable.Source.Animation = animation;
+        drawable.Source.SetKeyFrameAnimation(animation);
         Scene scene = CreateScene("animated.scene");
         scene.Children.Add(ElementWith(drawable));
 

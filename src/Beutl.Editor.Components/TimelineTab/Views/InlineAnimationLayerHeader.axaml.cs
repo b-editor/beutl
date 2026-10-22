@@ -23,7 +23,7 @@ public partial class InlineAnimationLayerHeader : UserControl
     private void OpenTab_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is InlineAnimationLayerViewModel viewModel
-            && viewModel.Property is IAnimatablePropertyAdapter { Animation: KeyFrameAnimation kfAnimation })
+            && viewModel.Property is IAnimatablePropertyAdapter { Animation: IKeyFrameAnimation kfAnimation })
         {
             var editorContext = viewModel.Timeline.EditorContext;
             GraphEditorTabViewModel graphEditorViewModel =

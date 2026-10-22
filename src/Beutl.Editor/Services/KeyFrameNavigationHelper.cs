@@ -14,19 +14,19 @@ public static class KeyFrameNavigationHelper
     //   Pass 2 (INodeMember.Property): offset = parent GraphNode.Start (local clock),
     //     matching GraphSnapshot.LoadAnimatedValues. IEnginePropertyBackedInputPort is
     //     excluded to avoid double-counting with pass 1.
-    public static IEnumerable<(KeyFrameAnimation Animation, TimeSpan Offset)>
+    public static IEnumerable<(IKeyFrameAnimation Animation, TimeSpan Offset)>
         EnumerateKeyFrameAnimations(Element root)
     {
         ArgumentNullException.ThrowIfNull(root);
 
-        var visited = new HashSet<KeyFrameAnimation>();
+        var visited = new HashSet<IKeyFrameAnimation>();
 
         var enginePass = new ObjectSearcher(root, v => v is EngineObject);
         foreach (EngineObject obj in enginePass.SearchAll().OfType<EngineObject>())
         {
             foreach (IProperty property in obj.Properties)
             {
-                if (property.Animation is KeyFrameAnimation kfa && visited.Add(kfa))
+                if (property.GetKeyFrameAnimation() is { } kfa && visited.Add(kfa))
                 {
                     TimeSpan offset = kfa.UseGlobalClock
                         ? TimeSpan.Zero
@@ -42,7 +42,7 @@ public static class KeyFrameNavigationHelper
             if (member is IEnginePropertyBackedInputPort)
                 continue;
 
-            if (member.Property is IAnimatablePropertyAdapter { Animation: KeyFrameAnimation kfa }
+            if (member.Property is IAnimatablePropertyAdapter { Animation: { } kfa }
                 && visited.Add(kfa))
             {
                 TimeSpan offset;
@@ -71,7 +71,7 @@ public static class KeyFrameNavigationHelper
         TimeSpan? target = null;
         foreach (Element el in roots)
         {
-            foreach ((KeyFrameAnimation anim, TimeSpan offset) in EnumerateKeyFrameAnimations(el))
+            foreach ((IKeyFrameAnimation anim, TimeSpan offset) in EnumerateKeyFrameAnimations(el))
             {
                 foreach (IKeyFrame kf in anim.KeyFrames)
                 {

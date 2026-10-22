@@ -929,10 +929,11 @@ public class ElementSlipServiceTests
         var video = new SourceVideo
         {
             Source = { CurrentValue = source },
-            IsLoop = { CurrentValue = storedLoop, Animation = animation },
+            IsLoop = { CurrentValue = storedLoop },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(2)
         };
+        video.IsLoop.SetKeyFrameAnimation(animation);
         var group = new DrawableGroup();
         group.Children.Add(video);
         element.Objects.Add(group);

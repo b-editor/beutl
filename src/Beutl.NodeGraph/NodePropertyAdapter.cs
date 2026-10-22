@@ -12,10 +12,10 @@ namespace Beutl.NodeGraph;
 public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
 {
     private readonly ReactivePropertySlim<T?> _rxProperty = new();
-    private IAnimation<T>? _animation;
+    private KeyFrameAnimation<T>? _animation;
 
     // For tests, which start an adapter with a value or an animation.
-    internal NodePropertyAdapter(string name, T? value, IAnimation<T>? animation)
+    internal NodePropertyAdapter(string name, T? value, KeyFrameAnimation<T>? animation)
     {
         Name = name;
         Animation = animation;
@@ -29,11 +29,11 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
         ObserveAnimation = new AnimationObservable(this);
     }
 
-    private sealed class AnimationObservable(NodePropertyAdapter<T> adapter) : LightweightObservableBase<IAnimation<T>?>
+    private sealed class AnimationObservable(NodePropertyAdapter<T> adapter) : LightweightObservableBase<KeyFrameAnimation<T>?>
     {
-        private IAnimation<T>? _prevAnimation = adapter.Animation;
+        private KeyFrameAnimation<T>? _prevAnimation = adapter.Animation;
 
-        protected override void Subscribed(IObserver<IAnimation<T>?> observer, bool first)
+        protected override void Subscribed(IObserver<KeyFrameAnimation<T>?> observer, bool first)
         {
             base.Subscribed(observer, first);
             observer.OnNext(adapter.Animation);
@@ -59,7 +59,7 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
         }
     }
 
-    public IAnimation<T>? Animation
+    public KeyFrameAnimation<T>? Animation
     {
         get => _animation;
         set
@@ -83,7 +83,7 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
         }
     }
 
-    public IObservable<IAnimation<T>?> ObserveAnimation { get; }
+    public IObservable<KeyFrameAnimation<T>?> ObserveAnimation { get; }
 
     // NodeGraphでは式をサポートしない
     public IExpression<T>? Expression
@@ -184,12 +184,12 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
         if (context.GetValue<JsonNode>("Setter") is not { } setterNode)
             return;
 
-        (Optional<object?> value, IAnimation? animation) =
+        (Optional<object?> value, IKeyFrameAnimation? animation) =
             PropertyEntrySerializer.ToTuple(setterNode, PropertyType);
 
         if (animation != null)
         {
-            Animation = animation as IAnimation<T>;
+            Animation = animation as KeyFrameAnimation<T>;
         }
 
         if (value is { HasValue: true, Value: T typedValue })

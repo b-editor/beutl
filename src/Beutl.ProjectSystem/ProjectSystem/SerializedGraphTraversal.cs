@@ -139,7 +139,7 @@ internal static class SerializedGraphTraversal
                 return true;
             }
 
-            if (property.Animation is IKeyFrameAnimation animation)
+            if (property.GetKeyFrameAnimation() is { } animation)
             {
                 int index = 0;
                 foreach (IKeyFrame keyFrame in animation.KeyFrames)

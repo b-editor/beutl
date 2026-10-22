@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.Media;
@@ -103,7 +104,7 @@ public sealed partial class QueryTools
             obj.Name,
             obj.GetType().FullName ?? obj.GetType().Name,
             IdentityHelper.WriteDiscriminator(obj.GetType()),
-            properties.Where(property => property.Animation is not null).Select(property => property.Name).ToArray(),
+            properties.Where(property => property.GetKeyFrameAnimation() is not null).Select(property => property.Name).ToArray(),
             properties.Where(property => property.HasExpression).Select(property => property.Name).ToArray(),
             properties.Where(IsBrushProperty).Select(property => property.Name).ToArray(),
             properties.Where(IsEffectProperty).Select(property => property.Name).ToArray(),
@@ -133,7 +134,7 @@ public sealed partial class QueryTools
                 foreach (IProperty property in engineObject.Properties)
                 {
                     string propertyPath = $"{path}.{property.Name}";
-                    if (property.Animation is not null)
+                    if (property.GetKeyFrameAnimation() is not null)
                     {
                         yield return propertyPath;
                     }

@@ -8,7 +8,7 @@ namespace Beutl;
 [ExcludeFromCodeCoverage]
 internal static class PropertyEntrySerializer
 {
-    public static (Optional<object?> value, IAnimation? animation) ToTuple(JsonNode? json, Type valueType)
+    public static (Optional<object?> value, IKeyFrameAnimation? animation) ToTuple(JsonNode? json, Type valueType)
     {
         JsonNode? animationNode = null;
         JsonNode? valueNode = null;
@@ -33,16 +33,16 @@ internal static class PropertyEntrySerializer
             value = CoreSerializer.DeserializeFromJsonNode(valueNode, valueType);
         }
 
-        IAnimation? animation = null;
+        IKeyFrameAnimation? animation = null;
         if (animationNode != null)
         {
-            animation = CoreSerializer.DeserializeFromJsonNode(animationNode, typeof(IAnimation)) as IAnimation;
+            animation = CoreSerializer.DeserializeFromJsonNode(animationNode, typeof(IKeyFrameAnimation)) as IKeyFrameAnimation;
         }
 
         return (value, animation);
     }
 
-    public static JsonNode? ToJson(object? value, IAnimation? animation)
+    public static JsonNode? ToJson(object? value, IKeyFrameAnimation? animation)
     {
         JsonNode? animationNode = null;
 

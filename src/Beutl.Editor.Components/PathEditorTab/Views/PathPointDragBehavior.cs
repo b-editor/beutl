@@ -492,7 +492,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         TimeSpan globalkeyTime = clock.CurrentTime.Value;
         TimeSpan localKeyTime = element != null ? globalkeyTime - element.Start : globalkeyTime;
 
-        if (property.Animation is KeyFrameAnimation<BtlPoint> animation)
+        if (property.GetKeyFrameAnimation() is KeyFrameAnimation<BtlPoint> animation)
         {
             TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
             keyTime = keyTime.RoundToRate(rate);

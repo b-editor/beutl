@@ -52,7 +52,7 @@ public sealed class DeclarativeAnimationTests
         TextBlock createdText = element.Objects
             .OfType<TextBlock>()
             .Single(item => item.Name == "animated-new-text");
-        var animation = (KeyFrameAnimation<float>)createdText.Opacity.Animation!;
+        var animation = (KeyFrameAnimation<float>)createdText.Opacity.GetKeyFrameAnimation()!;
 
         Assert.Multiple(() =>
         {
@@ -88,10 +88,10 @@ public sealed class DeclarativeAnimationTests
         Assert.Multiple(() =>
         {
             Assert.That(createApply.IsSuccess, Is.True, createApply.Error?.Message);
-            Assert.That(text.Opacity.Animation, Is.Not.Null);
+            Assert.That(text.Opacity.GetKeyFrameAnimation(), Is.Not.Null);
         });
 
-        var createdAnimation = (KeyFrameAnimation<float>)text.Opacity.Animation!;
+        var createdAnimation = (KeyFrameAnimation<float>)text.Opacity.GetKeyFrameAnimation()!;
         KeyFrame<float>[] createdFrames = createdAnimation.KeyFrames.Cast<KeyFrame<float>>().ToArray();
         float[] createdValues = createdFrames.Select(frame => frame.Value).ToArray();
 
@@ -127,7 +127,7 @@ public sealed class DeclarativeAnimationTests
 
         Assert.That(updateApply.IsSuccess, Is.True, updateApply.Error?.Message);
 
-        var updatedAnimation = (KeyFrameAnimation<float>)text.Opacity.Animation!;
+        var updatedAnimation = (KeyFrameAnimation<float>)text.Opacity.GetKeyFrameAnimation()!;
         var remaining = (KeyFrame<float>)updatedAnimation.KeyFrames.Single();
 
         Assert.Multiple(() =>
@@ -155,9 +155,9 @@ public sealed class DeclarativeAnimationTests
         EditTools tools = session.CreateEditTools();
 
         JsonObject animationDocument = CreateOpacityAnimationDocument(TimeSpan.Zero, TimeSpan.FromSeconds(1));
-        var frames = (JsonArray)animationDocument[nameof(KeyFrameAnimation.KeyFrames)]!;
+        var frames = (JsonArray)animationDocument[nameof(IKeyFrameAnimation.KeyFrames)]!;
         // Present the keyframes in descending KeyTime order; CoreSerializer preserves array order.
-        animationDocument[nameof(KeyFrameAnimation.KeyFrames)] = new JsonArray(
+        animationDocument[nameof(IKeyFrameAnimation.KeyFrames)] = new JsonArray(
             frames[1]!.DeepClone(),
             frames[0]!.DeepClone());
 
@@ -177,7 +177,7 @@ public sealed class DeclarativeAnimationTests
             schemaVersion: SchemaVersion.Current);
         Assert.That(createApply.IsSuccess, Is.True, createApply.Error?.Message);
 
-        var animation = (KeyFrameAnimation<float>)text.Opacity.Animation!;
+        var animation = (KeyFrameAnimation<float>)text.Opacity.GetKeyFrameAnimation()!;
         KeyFrame<float>[] resultFrames = animation.KeyFrames.Cast<KeyFrame<float>>().ToArray();
 
         Assert.Multiple(() =>
@@ -212,7 +212,7 @@ public sealed class DeclarativeAnimationTests
             schemaVersion: SchemaVersion.Current);
         Assert.That(createApply.IsSuccess, Is.True, createApply.Error?.Message);
 
-        var createdAnimation = (KeyFrameAnimation<float>)text.Opacity.Animation!;
+        var createdAnimation = (KeyFrameAnimation<float>)text.Opacity.GetKeyFrameAnimation()!;
         KeyFrame<float>[] createdFrames = createdAnimation.KeyFrames.Cast<KeyFrame<float>>().ToArray();
         Easing originalEasing = createdFrames[0].Easing;
 
@@ -272,7 +272,7 @@ public sealed class DeclarativeAnimationTests
         JsonObject desired = session.Documents.Read(session.Root);
         ToolResult<ApplyEditResponse> roundTripApply = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
 
-        var animation = (KeyFrameAnimation<float>)text.Opacity.Animation!;
+        var animation = (KeyFrameAnimation<float>)text.Opacity.GetKeyFrameAnimation()!;
         var second = (KeyFrame<float>)animation.KeyFrames[1];
 
         Assert.Multiple(() =>
@@ -373,7 +373,7 @@ public sealed class DeclarativeAnimationTests
 
         Element element = ((FileEditingSession)source.CurrentSession!).Scene.Children.Single();
         var rect = (RectShape)element.Objects.Single();
-        var animation = (KeyFrameAnimation<float>)rect.Opacity.Animation!;
+        var animation = (KeyFrameAnimation<float>)rect.Opacity.GetKeyFrameAnimation()!;
         float actual = rect.Opacity.GetValue(new CompositionContext(TimeSpan.FromSeconds(5.5)));
 
         Assert.Multiple(() =>
@@ -452,8 +452,8 @@ public sealed class DeclarativeAnimationTests
         {
             Assert.That(render.VisibilityAnalysis!.VisiblePixelRatio, Is.GreaterThan(0));
             Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(((KeyFrameAnimation<float>)rect.Opacity.Animation!).UseGlobalClock, Is.False);
-            Assert.That(((KeyFrameAnimation<float>)translate.Y.Animation!).UseGlobalClock, Is.False);
+            Assert.That(((KeyFrameAnimation<float>)rect.Opacity.GetKeyFrameAnimation()!).UseGlobalClock, Is.False);
+            Assert.That(((KeyFrameAnimation<float>)translate.Y.GetKeyFrameAnimation()!).UseGlobalClock, Is.False);
             Assert.That(opacity, Is.EqualTo(50f).Within(0.001f));
             Assert.That(translateY, Is.EqualTo(50f).Within(0.001f));
         });
@@ -503,19 +503,9 @@ public sealed class DeclarativeAnimationTests
 
     private static JsonObject CreateTransformGroupWithAnimatedTranslateYDocument()
     {
-        var transform = new TransformGroup
-        {
-            Children =
-            {
-                new TranslateTransform
-                {
-                    Y =
-                    {
-                        Animation = TestWorkspace.CreateLinearFloatAnimation(0, 100)
-                    }
-                }
-            }
-        };
+        var translate = new TranslateTransform();
+        translate.Y.SetKeyFrameAnimation(TestWorkspace.CreateLinearFloatAnimation(0, 100));
+        var transform = new TransformGroup { Children = { translate } };
 
         JsonObject transformJson = CoreSerializer.SerializeToJsonObject(transform);
         CollectionReconciler.RemoveIds(transformJson);

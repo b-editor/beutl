@@ -80,7 +80,7 @@ public sealed class AgentEditFollowerTests
             var second = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1.5), Value = 100 };
             animation.KeyFrames.Add(first, out _);
             animation.KeyFrames.Add(second, out _);
-            fixture.FarRect.Opacity.Animation = animation;
+            fixture.FarRect.Opacity.SetKeyFrameAnimation(animation);
             await using AgentHostEndpoint host = fixture.CreateHost();
             await host.StartAsync();
             await using McpClient client = await ConnectAsync(host);

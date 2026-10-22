@@ -1,5 +1,4 @@
 ﻿using System.Text.Json.Nodes;
-using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Composition;
 using Beutl.Engine.Expressions;
@@ -34,8 +33,7 @@ public interface IProperty : INotifyEdited
 
     Type ValueType { get; }
 
-    IAnimation? Animation { get; set; }
-
+    // The top of the expression chain; setting one without keyframes keeps the property's keyframes below it.
     IExpression? Expression { get; set; }
 
     bool IsAnimatable { get; }
@@ -44,6 +42,7 @@ public interface IProperty : INotifyEdited
 
     bool HasLocalValue { get; }
 
+    // Whether an expression other than keyframes is on top.
     bool HasExpression { get; }
 
     /// <summary>
@@ -89,17 +88,9 @@ public interface IProperty<T> : IProperty
 
     void ReplaceCurrentValue(T value);
 
-    new IAnimation<T>? Animation { get; set; }
-
     new IExpression<T>? Expression { get; set; }
 
     object? IProperty.DefaultValue => DefaultValue;
-
-    IAnimation? IProperty.Animation
-    {
-        get => Animation;
-        set => Animation = (IAnimation<T>?)value;
-    }
 
     IExpression? IProperty.Expression
     {

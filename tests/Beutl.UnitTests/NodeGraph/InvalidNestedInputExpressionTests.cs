@@ -36,7 +36,7 @@ public class InvalidNestedInputExpressionTests
         {
             var animation = new KeyFrameAnimation<float>();
             animation.KeyFrames.Add(new KeyFrame<float> { Value = 55f });
-            shared.Opacity.Animation = animation;
+            shared.Opacity.SetKeyFrameAnimation(animation);
         }
         first.Fill.Property!.SetValue(shared);
         second.Fill.Property!.SetValue(separate);
@@ -65,7 +65,7 @@ public class InvalidNestedInputExpressionTests
             {
                 Assert.That(firstConnection.Status, Is.EqualTo(ConnectionStatus.Error));
                 Assert.That(secondConnection.Status, Is.EqualTo(ConnectionStatus.Error));
-                Assert.That(shared.Opacity.Expression, Is.Null);
+                Assert.That(shared.Opacity.Expression, Is.SameAs(shared.Opacity.GetKeyFrameAnimation()));
                 Assert.That(shared.Opacity.GetValue(CompositionContext.Default), Is.EqualTo(animated ? 55f : 35f));
                 Assert.That(resource.Opacity, Is.EqualTo(animated ? 55f : 35f));
                 Assert.That(recordedExpressions, Is.Empty, "Derived expression changes must not be recorded.");

@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Animation;
 using Beutl.Audio.Effects.Equalizer;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
@@ -124,7 +125,7 @@ public sealed partial class EqualizerEffect : AudioEffect
 
         // Expressions render at CurrentValue, so only an animation keeps the gain live.
         // FIXME(expression): also treat HasExpression as live once AnimationSampler evaluates expressions.
-        if (band.Gain.Animation is not null) return false;
+        if (band.Gain.GetKeyFrameAnimation() is not null) return false;
 
         return band.Gain.CurrentValue == 0f;
     }

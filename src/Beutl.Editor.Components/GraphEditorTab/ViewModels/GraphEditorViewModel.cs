@@ -43,7 +43,7 @@ public sealed partial class GraphEditorViewModel : IDisposable
         Scene = timelineOptions.Scene;
         HistoryManager = editorContext.GetRequiredService<HistoryManager>();
 
-        UseGlobalClock = ((CoreObject)animation).GetObservable(KeyFrameAnimation.UseGlobalClockProperty)
+        UseGlobalClock = animation.ObserveUseGlobalClock()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -237,7 +237,7 @@ public sealed partial class GraphEditorViewModel : IDisposable
     {
         var newValue = !UseGlobalClock.Value;
         _logger.LogInformation("Updating UseGlobalClock to {Value}", newValue);
-        ((KeyFrameAnimation)Animation).UseGlobalClock = newValue;
+        ((IKeyFrameAnimation)Animation).UseGlobalClock = newValue;
         HistoryManager.Commit(CommandNames.ChangeUseGlobalClock);
     }
 

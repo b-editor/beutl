@@ -21,7 +21,6 @@ using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.Testing.Headless;
-using Beutl.Validation;
 using FluentAvalonia.UI.Controls;
 using FluentIcons.Common;
 using Moq;
@@ -99,7 +98,7 @@ public class GraphEditorTreeTests
             Assert.That(item.CanAnimate.Value, Is.False, property.Name);
             Assert.That(scope.AnimationButton(item).IsVisible, Is.False, property.Name);
             scope.Model.EnableAnimation(item);
-            Assert.That(property.Animation, Is.Null, property.Name);
+            Assert.That(property.GetKeyFrameAnimation(), Is.Null, property.Name);
         }
     }
 
@@ -111,7 +110,7 @@ public class GraphEditorTreeTests
         using var scope = await TreeScope.CreateAsync(light: light);
         var animation = new KeyFrameAnimation<AlignmentX>();
         animation.KeyFrames.Add(new KeyFrame<AlignmentX> { Value = AlignmentX.Left });
-        scope.Shape.AlignmentX.Animation = animation;
+        scope.Shape.AlignmentX.SetKeyFrameAnimation(animation);
         scope.Base.Model.HistoryManager.Commit();
         HeadlessTestHelpers.Render(3);
         var item = scope.Find(scope.Shape.AlignmentX);
@@ -132,12 +131,12 @@ public class GraphEditorTreeTests
         scope.Base.Window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.None, null);
         scope.Base.Window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.None, null);
         HeadlessTestHelpers.Render(3);
-        Assert.That(scope.Shape.AlignmentX.Animation, Is.Null);
+        Assert.That(scope.Shape.AlignmentX.GetKeyFrameAnimation(), Is.Null);
         Assert.That(button.IsVisible, Is.False);
         Assert.That(scope.Base.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
         scope.Base.Model.HistoryManager.Undo();
         HeadlessTestHelpers.Render(3);
-        Assert.That(scope.Shape.AlignmentX.Animation, Is.SameAs(animation));
+        Assert.That(scope.Shape.AlignmentX.GetKeyFrameAnimation(), Is.SameAs(animation));
         Assert.That(button.IsVisible, Is.True);
         Point point = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), scope.Base.Window)!.Value;
         scope.Base.RightClick(point);
@@ -145,67 +144,10 @@ public class GraphEditorTreeTests
         menu.Hide();
         scope.Base.Model.HistoryManager.Redo();
         HeadlessTestHelpers.Render(3);
-        Assert.That(scope.Shape.AlignmentX.Animation, Is.Null);
+        Assert.That(scope.Shape.AlignmentX.GetKeyFrameAnimation(), Is.Null);
         Assert.That(button.IsVisible, Is.False);
         scope.Model.EnableAnimation(item);
-        Assert.That(scope.Shape.AlignmentX.Animation, Is.Null);
-    }
-
-    [AvaloniaTest]
-    [TestCase(false, false)]
-    [TestCase(false, true)]
-    [TestCase(true, false)]
-    [TestCase(true, true)]
-    public async Task Existing_custom_animation_is_preserved_until_explicit_removal(bool refreshFirst, bool light)
-    {
-        using var scope = await TreeScope.CreateAsync(light: light);
-        var item = scope.Find(scope.Shape.Width);
-        var provider = new ConstantAnimation();
-        scope.Shape.Width.Animation = provider;
-        scope.Base.Model.HistoryManager.Commit();
-        if (refreshFirst) HeadlessTestHelpers.Render(3);
-        int undo = scope.Base.Model.HistoryManager.UndoCount;
-        scope.Model.EnableAnimation(item);
-        scope.Model.ToggleKeyFrame(item);
-        Assert.That(scope.Shape.Width.Animation, Is.SameAs(provider));
-        Assert.That(scope.Base.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
-        HeadlessTestHelpers.Render(3);
-        Assert.That(item.CanAnimate.Value, Is.False);
-        Assert.That(item.HasAnimation.Value, Is.True);
-        var button = scope.AnimationButton(item);
-        Assert.That(button.IsVisible, Is.True);
-        Assert.That(ToolTip.GetTip(button), Is.EqualTo(Strings.RemoveAnimation));
-        button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        HeadlessTestHelpers.Render(3);
-        var menu = (FAMenuFlyout)button.ContextFlyout!;
-        Assert.That(menu.IsOpen, Is.True);
-        Assert.That(scope.Shape.Width.Animation, Is.SameAs(provider));
-        var remove = menu.Items.OfType<FAMenuFlyoutItem>().Single();
-        remove.Focus();
-        scope.Base.Window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.None, null);
-        scope.Base.Window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.None, null);
-        HeadlessTestHelpers.Render(3);
-        Assert.That(scope.Shape.Width.Animation, Is.Null);
-        Assert.That(item.CanAnimate.Value, Is.True);
-        Assert.That(scope.Base.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
-        scope.Base.Model.HistoryManager.Undo();
-        HeadlessTestHelpers.Render(3);
-        Assert.That(scope.Shape.Width.Animation, Is.SameAs(provider));
-        Assert.That(item.CanAnimate.Value, Is.False);
-        scope.Base.Model.HistoryManager.Redo();
-        HeadlessTestHelpers.Render(3);
-        Assert.That(scope.Shape.Width.Animation, Is.Null);
-    }
-
-    public sealed class ConstantAnimation : Hierarchical, IAnimation<float>
-    {
-        public TimeSpan Duration => TimeSpan.FromSeconds(5);
-        public bool UseGlobalClock => false;
-        public Type ValueType => typeof(float);
-        public IValidator<float>? Validator { get; set; }
-        public event EventHandler? Edited { add { } remove { } }
-        public float GetAnimatedValue(TimeSpan time) => 84;
-        public float Interpolate(TimeSpan timeSpan) => 84;
+        Assert.That(scope.Shape.AlignmentX.GetKeyFrameAnimation(), Is.Null);
     }
 
     [AvaloniaTest]
@@ -233,7 +175,7 @@ public class GraphEditorTreeTests
         view.DataContext = old;
         HeadlessTestHelpers.Render(3);
         string before = GraphScope.Snapshot(old.Animation);
-        string otherBefore = GraphScope.Snapshot(scope.Shape.Height.Animation!);
+        string otherBefore = GraphScope.Snapshot(scope.Shape.Height.GetKeyFrameAnimation()!);
         int undo = old.HistoryManager.UndoCount;
         var clipboard = new Mock<IClipboard>();
         bool switched = false;
@@ -263,7 +205,7 @@ public class GraphEditorTreeTests
             Assert.That(switched, Is.True);
             Assert.That(old.IsDisposed, Is.False, "Disposal alone cannot protect this destination.");
             Assert.That(GraphScope.Snapshot(old.Animation), Is.EqualTo(before));
-            Assert.That(GraphScope.Snapshot(scope.Shape.Height.Animation!), Is.EqualTo(otherBefore));
+            Assert.That(GraphScope.Snapshot(scope.Shape.Height.GetKeyFrameAnimation()!), Is.EqualTo(otherBefore));
             Assert.That(old.HistoryManager.UndoCount, Is.EqualTo(undo));
         }
         finally { copied?.Dispose(); view.DataContext = null; }
@@ -286,7 +228,7 @@ public class GraphEditorTreeTests
         int undo = scope.Base.Model.HistoryManager.UndoCount;
         scope.AnimationButton(item).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         HeadlessTestHelpers.Render(3);
-        var animation = (KeyFrameAnimation<float>)scope.Shape.Width.Animation!;
+        var animation = (KeyFrameAnimation<float>)scope.Shape.Width.GetKeyFrameAnimation()!;
         Assert.That(animation.KeyFrames, Has.Count.EqualTo(1));
         Assert.That(animation.KeyFrames[0].Value, Is.EqualTo(240));
         Assert.That(animation.KeyFrames[0].KeyTime, Is.EqualTo(TimeSpan.Zero));
@@ -294,11 +236,11 @@ public class GraphEditorTreeTests
         Assert.That(scope.Model.SelectedTreeItem.Value, Is.SameAs(item));
         Assert.That(scope.Base.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
         scope.Model.EnableAnimation(item);
-        Assert.That(scope.Shape.Width.Animation, Is.SameAs(animation));
+        Assert.That(scope.Shape.Width.GetKeyFrameAnimation(), Is.SameAs(animation));
         Assert.That(scope.Base.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
         scope.Base.Model.HistoryManager.Undo();
         HeadlessTestHelpers.Render(3);
-        Assert.That(scope.Shape.Width.Animation, Is.Null);
+        Assert.That(scope.Shape.Width.GetKeyFrameAnimation(), Is.Null);
         Assert.That(scope.Find(scope.Shape.Width), Is.SameAs(item));
         Assert.That(item.HasAnimation.Value, Is.False);
         Assert.That(scope.Model.SelectedAnimation.Value, Is.Null);
@@ -308,7 +250,7 @@ public class GraphEditorTreeTests
         Assert.That(scope.Model.SelectedAnimation.Value!.Animation, Is.SameAs(animation));
         Assert.That(item.HasAnimation.Value, Is.True);
         scope.Model.EnableAnimation(scope.Find(scope.Shape.Fill));
-        Assert.That(scope.Shape.Fill.Animation, Is.Null, "An object-valued non-animatable property must remain unchanged.");
+        Assert.That(scope.Shape.Fill.GetKeyFrameAnimation(), Is.Null, "An object-valued non-animatable property must remain unchanged.");
     }
 
     [AvaloniaTest]
@@ -334,7 +276,7 @@ public class GraphEditorTreeTests
             Value = 500,
             Easing = new SplineEasing(1f / 3, 0, 2f / 3, 1)
         });
-        scope.Shape.Width.Animation = animation;
+        scope.Shape.Width.SetKeyFrameAnimation(animation);
         scope.Base.Model.Seek(TimeSpan.FromSeconds(3.007));
         scope.Base.Model.HistoryManager.Commit();
         HeadlessTestHelpers.Render(3);
@@ -388,7 +330,7 @@ public class GraphEditorTreeTests
         var button = scope.AnimationButton(item);
         button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         HeadlessTestHelpers.Render(3);
-        var animation = scope.Shape.Width.Animation;
+        var animation = scope.Shape.Width.GetKeyFrameAnimation();
         int undo = scope.Base.Model.HistoryManager.UndoCount;
         Point point = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), scope.Base.Window)!.Value;
         scope.Base.RightClick(point);
@@ -397,13 +339,13 @@ public class GraphEditorTreeTests
         var remove = menu.Items.OfType<FAMenuFlyoutItem>().Single();
         Assert.That(remove.Text, Is.EqualTo(Strings.RemoveAnimation));
         Assert.That(remove.IsEnabled, Is.True);
-        Assert.That(scope.Shape.Width.Animation, Is.SameAs(animation));
+        Assert.That(scope.Shape.Width.GetKeyFrameAnimation(), Is.SameAs(animation));
         remove.Focus();
         scope.Base.Window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.None, null);
         scope.Base.Window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.None, null);
         HeadlessTestHelpers.Render(3);
         Assert.That(menu.IsOpen, Is.False);
-        Assert.That(scope.Shape.Width.Animation, Is.Null);
+        Assert.That(scope.Shape.Width.GetKeyFrameAnimation(), Is.Null);
         Assert.That(scope.Shape.Width.CurrentValue, Is.EqualTo(240));
         Assert.That(item.HasAnimation.Value, Is.False);
         Assert.That(ToolTip.GetTip(button), Is.EqualTo(Strings.EnableAnimation));
@@ -413,7 +355,7 @@ public class GraphEditorTreeTests
         Assert.That(scope.Base.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
         scope.Base.Model.HistoryManager.Undo();
         HeadlessTestHelpers.Render(3);
-        Assert.That(scope.Shape.Width.Animation, Is.SameAs(animation));
+        Assert.That(scope.Shape.Width.GetKeyFrameAnimation(), Is.SameAs(animation));
         Assert.That(item.HasAnimation.Value, Is.True);
         Assert.That(item.HasKeyFrame.Value, Is.True);
         Assert.That(scope.Model.SelectedAnimation.Value!.Animation, Is.SameAs(animation));
@@ -425,7 +367,7 @@ public class GraphEditorTreeTests
         using var scope = await TreeScope.CreateAsync();
         var item = scope.Find(scope.Shape.Width);
         scope.Model.EnableAnimation(item);
-        var animation = (KeyFrameAnimation<float>)scope.Shape.Width.Animation!;
+        var animation = (KeyFrameAnimation<float>)scope.Shape.Width.GetKeyFrameAnimation()!;
         scope.Base.Model.Element!.Start = TimeSpan.FromSeconds(1);
         scope.Base.Model.Seek(TimeSpan.FromSeconds(1));
         HeadlessTestHelpers.Render(3);
@@ -438,7 +380,7 @@ public class GraphEditorTreeTests
         scope.AnimationButton(item).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         HeadlessTestHelpers.Render(3);
         Assert.That(animation.KeyFrames, Is.Empty);
-        Assert.That(scope.Shape.Width.Animation, Is.SameAs(animation));
+        Assert.That(scope.Shape.Width.GetKeyFrameAnimation(), Is.SameAs(animation));
         Assert.That(item.HasAnimation.Value, Is.True);
         Assert.That(item.HasKeyFrame.Value, Is.False);
     }
@@ -453,7 +395,7 @@ public class GraphEditorTreeTests
         HeadlessTestHelpers.Render(3);
         scope.AnimationButton(color).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         HeadlessTestHelpers.Render(3);
-        var animation = (KeyFrameAnimation<Color>)scope.Brush.Color.Animation!;
+        var animation = (KeyFrameAnimation<Color>)scope.Brush.Color.GetKeyFrameAnimation()!;
         Assert.That(animation.KeyFrames.Single().Value, Is.EqualTo(scope.Brush.Color.CurrentValue));
         var graph = scope.Model.SelectedAnimation.Value!;
         var tree = scope.View.FindControl<TreeView>("PropertiesTree")!;
@@ -487,7 +429,7 @@ public class GraphEditorTreeTests
         scope.Base.Model.HistoryManager.Undo();
         HeadlessTestHelpers.Render(3);
         Assert.That(scope.Find(scope.Brush.Color), Is.SameAs(color));
-        Assert.That(scope.Model.SelectedAnimation.Value!.Animation, Is.SameAs(scope.Brush.Color.Animation));
+        Assert.That(scope.Model.SelectedAnimation.Value!.Animation, Is.SameAs(scope.Brush.Color.GetKeyFrameAnimation()));
         Assert.That(scope.Model.SelectedAnimation.Value.SelectedView.Value!.Name, Is.EqualTo("Red"));
     }
 
@@ -587,7 +529,7 @@ public class GraphEditorTreeTests
         Assert.That(scope.Model.SelectedAnimation.Value, Is.SameAs(graph));
         using var restored = new GraphEditorTabViewModel(scope.Base.Model.EditorContext);
         restored.ReadFromJson(saved);
-        Assert.That(restored.SelectedAnimation.Value!.Animation, Is.SameAs(move.X.Animation));
+        Assert.That(restored.SelectedAnimation.Value!.Animation, Is.SameAs(move.X.GetKeyFrameAnimation()));
         Assert.That(restored.SelectedTreeItem.Value!.Parent!.Parent!.Property, Is.SameAs(scope.Shape.Transform));
         transforms.Children.Remove(scale);
         HeadlessTestHelpers.Render(3);
@@ -642,7 +584,7 @@ public class GraphEditorTreeTests
             json.Remove("propertyPath");
             using var legacy = new GraphEditorTabViewModel(scope.Base.Model.EditorContext);
             legacy.ReadFromJson(json);
-            Assert.That(legacy.SelectedAnimation.Value!.Animation, Is.SameAs(scope.Brush.Color.Animation));
+            Assert.That(legacy.SelectedAnimation.Value!.Animation, Is.SameAs(scope.Brush.Color.GetKeyFrameAnimation()));
         }
     }
 

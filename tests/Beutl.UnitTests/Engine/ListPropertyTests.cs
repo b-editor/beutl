@@ -1,4 +1,5 @@
-﻿using Beutl.Collections;
+﻿using Beutl.Animation;
+using Beutl.Collections;
 using Beutl.Composition;
 using Beutl.Engine;
 
@@ -104,12 +105,12 @@ public class ListPropertyTests
     }
 
     [Test]
-    public void Animation_AlwaysNullAndAcceptsAnyAssignment()
+    public void Animation_AlwaysNullAndAcceptsRemoval()
     {
         var property = Make<int>();
 
-        Assert.That(property.Animation, Is.Null);
-        Assert.DoesNotThrow(() => property.Animation = null);
+        Assert.That(property.GetKeyFrameAnimation(), Is.Null);
+        Assert.DoesNotThrow(() => property.SetKeyFrameAnimation(null));
     }
 
     [Test]

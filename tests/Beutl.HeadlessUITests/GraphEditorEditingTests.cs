@@ -148,7 +148,7 @@ public class GraphEditorEditingTests
         animation.KeyFrames.Add(new KeyFrame<Beutl.Media.Color> { KeyTime = TimeSpan.FromSeconds(1), Value = Beutl.Media.Color.FromArgb(255, 30, 40, 50) });
         var shape = graph.Model.Element!.Objects.OfType<Beutl.Graphics.Shapes.RectShape>().Single();
         var brush = new Beutl.Media.SolidColorBrush();
-        brush.Color.Animation = animation;
+        brush.Color.SetKeyFrameAnimation(animation);
         shape.Fill.CurrentValue = brush;
         graph.Model.HistoryManager.Commit();
         using var model = new GraphEditorViewModel(graph.Model.EditorContext, animation, graph.Model.Element);
@@ -293,7 +293,7 @@ public class GraphEditorEditingTests
         target.KeyFrames.Add(new KeyFrame<float> { Value = 20 });
         double start = globalClock ? 5 : 3;
         if (occupied) target.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(start), Value = 900 });
-        shape.Height.Animation = target;
+        shape.Height.SetKeyFrameAnimation(target);
         graph.Model.Element.Start = TimeSpan.FromSeconds(2);
         graph.Model.Element.IsLocked = locked;
         graph.Model.HistoryManager.Commit();
@@ -336,7 +336,7 @@ public class GraphEditorEditingTests
         var shape = graph.Model.Element!.Objects.OfType<Beutl.Graphics.Shapes.RectShape>().Single();
         var target = new KeyFrameAnimation<float>();
         target.KeyFrames.Add(new KeyFrame<float> { Value = 20 });
-        shape.Height.Animation = target;
+        shape.Height.SetKeyFrameAnimation(target);
         graph.Model.HistoryManager.Commit();
         var timeline = ((EditViewModel)graph.Model.EditorContext).FindToolTab<TimelineTabViewModel>()!;
         var property = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)shape.Height, shape);
@@ -347,14 +347,14 @@ public class GraphEditorEditingTests
         Task paste = inline.PasteKeyFrameAtPositionAsync(TimeSpan.FromSeconds(3), clipboard.Object);
         Assert.That(paste.IsCompleted, Is.False);
         if (change == "lock") graph.Model.Element.IsLocked = true;
-        else if (change == "replace") shape.Height.Animation = new KeyFrameAnimation<float>();
+        else if (change == "replace") shape.Height.SetKeyFrameAnimation(new KeyFrameAnimation<float>());
         else inline.Dispose();
         int undo = graph.Model.HistoryManager.UndoCount;
         gate.SetResult();
         await paste;
         Assert.That(target.KeyFrames, Has.Count.EqualTo(1));
         Assert.That(target.KeyFrames[0].Value, Is.EqualTo(20));
-        if (change == "replace") Assert.That(((KeyFrameAnimation<float>)shape.Height.Animation!).KeyFrames, Is.Empty);
+        if (change == "replace") Assert.That(((KeyFrameAnimation<float>)shape.Height.GetKeyFrameAnimation()!).KeyFrames, Is.Empty);
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
 
         async Task<IAsyncDataTransfer?> Read()
@@ -376,7 +376,7 @@ public class GraphEditorEditingTests
         var shape = graph.Model.Element!.Objects.OfType<Beutl.Graphics.Shapes.RectShape>().Single();
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(0.5), Value = 20 });
-        shape.Height.Animation = animation;
+        shape.Height.SetKeyFrameAnimation(animation);
         var timeline = ((EditViewModel)graph.Model.EditorContext).FindToolTab<TimelineTabViewModel>()!;
         var property = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)shape.Height, shape);
         timeline.AttachInline(property, graph.Model.Element);
@@ -430,7 +430,7 @@ public class GraphEditorEditingTests
         ICoreSerializable payload = source;
         if (animationFormat)
         {
-            KeyFrameAnimation animation = crossType ? new KeyFrameAnimation<int>() : new KeyFrameAnimation<float>();
+            IKeyFrameAnimation animation = crossType ? new KeyFrameAnimation<int>() : new KeyFrameAnimation<float>();
             animation.KeyFrames.Add(source);
             payload = animation;
         }

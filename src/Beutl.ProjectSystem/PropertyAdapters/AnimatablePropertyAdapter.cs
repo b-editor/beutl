@@ -2,6 +2,7 @@
 using System.Reactive.Linq;
 using Beutl.Animation;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 
 namespace Beutl.PropertyAdapters;
@@ -9,16 +10,18 @@ namespace Beutl.PropertyAdapters;
 public sealed class AnimatablePropertyAdapter<T>(AnimatableProperty<T> property, EngineObject obj)
     : ExpressionPropertyAdapterBase<T>(property, obj), IAnimatablePropertyAdapter<T>
 {
-    public IAnimation<T>? Animation
+    public KeyFrameAnimation<T>? Animation
     {
-        get => Property.Animation;
-        set => Property.Animation = value;
+        get => Property.GetKeyFrameAnimation();
+        set => Property.SetKeyFrameAnimation(value);
     }
 
     [field: AllowNull]
-    public IObservable<IAnimation<T>?> ObserveAnimation => field ??= Observable.FromEvent<IAnimation<T>?>(
-            handler => ((AnimatableProperty<T>)Property).AnimationChanged += handler,
-            handler => ((AnimatableProperty<T>)Property).AnimationChanged -= handler)
+    public IObservable<KeyFrameAnimation<T>?> ObserveAnimation => field ??= Observable.FromEvent<IExpression<T>?>(
+            handler => Property.ExpressionChanged += handler,
+            handler => Property.ExpressionChanged -= handler)
+        .Select(_ => Animation)
+        .DistinctUntilChanged()
         .Publish(Animation)
         .RefCount();
 }

@@ -98,7 +98,7 @@ public static partial class ProxySourceEnumerator
                 && walkContext.ConnectedNodeInputs?.Contains(engineProperty) == true)
                 continue;
 
-            IAnimation? animation = (property as IAnimatablePropertyAdapter)?.Animation;
+            IKeyFrameAnimation? animation = (property as IAnimatablePropertyAdapter)?.Animation;
 
             // Like the EngineObject property walk: when range-filtering, the render samples an input's
             // animation, not its base value, so an overridden stale base must not block export.

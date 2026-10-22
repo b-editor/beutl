@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using Beutl.Animation;
 using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
@@ -148,7 +149,7 @@ internal interface IReplacedExpressionHolder
 }
 
 [JsonConverter(typeof(NodePortExpressionJsonConverter))]
-public class NodePortExpression<T> : IExpression<T>, INodePortExpression, IReplacedExpressionHolder
+public class NodePortExpression<T> : IReplacingExpression<T>, INodePortExpression, IReplacedExpressionHolder
 {
     public T? Value { get; set; }
 
@@ -156,6 +157,9 @@ public class NodePortExpression<T> : IExpression<T>, INodePortExpression, IRepla
     /// Gets the expression the connection replaced, which the property gets back once nothing is connected to it.
     /// </summary>
     public IExpression<T>? Replaced { get; internal set; }
+
+    IExpression<T> IReplacingExpression<T>.WithReplaced(IExpression<T>? replaced)
+        => new NodePortExpression<T> { Value = Value, Replaced = replaced };
 
     public string ExpressionString => "[NodePort Connected]";
 
@@ -170,9 +174,10 @@ public class NodePortExpression<T> : IExpression<T>, INodePortExpression, IRepla
         return Value!;
     }
 
+    // Keyframes below the connection are written under "Animations".
     JsonNode? IReplacedExpressionHolder.ReplacedToNode()
     {
-        return Replaced == null ? null : Expression.ToNode(Replaced);
+        return Replaced is null or KeyFrameAnimation<T> ? null : Expression.ToNode(Replaced);
     }
 
     void IReplacedExpressionHolder.ReplacedFromNode(JsonNode node)

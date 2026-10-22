@@ -7,7 +7,7 @@ This subtree is the **rendering / scene-graph core**. Nothing else in the soluti
 - `Graphics/` — 2D drawables, shapes, filter effects, and the `ImmediateCanvas` drawing surface
 - `Graphics/Rendering/` — `RenderNode` tree recorded for each render request; nodes are **structurally immutable per frame** — do not mutate fields after a node is added to its parent in the same frame
 - `Graphics3D/` — 3D pipeline, mesh / material / camera
-- `Animation/` — `IAnimation<T>` / animators / easing; integer animators round to even, and the 32/64-bit ones compute in double and saturate, with `Int64` / `UInt64` returning the endpoints directly (see `cd6c40b5b`)
+- `Animation/` — `KeyFrameAnimation<T>` (the bottom of a property's expression chain) / animators / easing; integer animators round to even, and the 32/64-bit ones compute in double and saturate, with `Int64` / `UInt64` returning the endpoints directly (see `cd6c40b5b`)
 - `Audio/` — sample-rate-agnostic audio graph
 - `Composition/` — per-frame composition (`ICompositor`, `CompositionContext`)
 - `Engine/` — `EngineObject`, the property system (`IProperty<T>`), expressions, and resource reconciliation

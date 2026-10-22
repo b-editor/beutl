@@ -51,8 +51,8 @@ public sealed class GraphSnapshotTests
         {
             var animation = new KeyFrameAnimation<Brush?>();
             animation.KeyFrames.Add(new KeyFrame<Brush?> { Value = new SolidColorBrush() });
-            invalidate = () => factory.Object.Brush.Animation = animation;
-            restore = () => factory.Object.Brush.Animation = null;
+            invalidate = () => factory.Object.Brush.SetKeyFrameAnimation(animation);
+            restore = () => factory.Object.Brush.SetKeyFrameAnimation(null);
         }
         using var snapshot = new GraphSnapshot();
         snapshot.Build(model, CompositionContext.Default);

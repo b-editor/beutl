@@ -1,6 +1,7 @@
 ﻿using Beutl.Audio;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
+using Beutl.Composition;
 using Beutl.Engine;
 
 using static Beutl.UnitTests.Engine.Audio.AudioTestProperties;
@@ -56,6 +57,24 @@ public class GainNodeTests
         foreach (float sample in data)
         {
             Assert.That(float.IsFinite(sample), Is.True);
+        }
+    }
+
+    // Each sample gets the gain the property gives video at the same time (#1818).
+    [Test]
+    public void Process_GainWithAnimation_MatchesThePropertyValue()
+    {
+        IProperty<float> gain = Ramp("Gain", 0f, 100f, 1.0);
+        using var node = new GainNode { Gain = gain };
+        node.AddInput(new ConstantInputNode(SampleRate, 1, SampleRate, 1.0f));
+
+        using AudioBuffer result = node.Process(CreateContext());
+
+        Span<float> data = result.GetChannelData(0);
+        for (int i = 0; i < data.Length; i++)
+        {
+            float expected = gain.GetValue(new CompositionContext(TimeSpan.FromSeconds(i / (double)SampleRate))) / 100f;
+            Assert.That(data[i], Is.EqualTo(expected).Within(1e-6f), $"sample {i}");
         }
     }
 

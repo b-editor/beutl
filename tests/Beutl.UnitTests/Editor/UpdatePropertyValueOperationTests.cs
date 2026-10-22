@@ -170,11 +170,11 @@ public class UpdatePropertyValueOperationTests
     {
         var engineObj = new TestAnimatableEngineObject();
         var animation = new KeyFrameAnimation<float>();
-        var op = CreateOp<IAnimation<float>?>(engineObj, "FloatValue.Animation", animation, null);
+        var op = CreateOp<KeyFrameAnimation<float>?>(engineObj, "FloatValue.Animation", animation, null);
 
         op.Apply();
 
-        Assert.That(engineObj.FloatValue.Animation, Is.SameAs(animation));
+        Assert.That(engineObj.FloatValue.GetKeyFrameAnimation(), Is.SameAs(animation));
     }
 
     [Test]
@@ -220,12 +220,12 @@ public class UpdatePropertyValueOperationTests
         var engineObj = new TestAnimatableEngineObject();
         var newAnimation = new KeyFrameAnimation<float>();
         var oldAnimation = new KeyFrameAnimation<float>();
-        engineObj.FloatValue.Animation = newAnimation;
-        var op = CreateOp<IAnimation<float>?>(engineObj, "FloatValue.Animation", newAnimation, oldAnimation);
+        engineObj.FloatValue.SetKeyFrameAnimation(newAnimation);
+        var op = CreateOp<KeyFrameAnimation<float>?>(engineObj, "FloatValue.Animation", newAnimation, oldAnimation);
 
         op.Revert();
 
-        Assert.That(engineObj.FloatValue.Animation, Is.SameAs(oldAnimation));
+        Assert.That(engineObj.FloatValue.GetKeyFrameAnimation(), Is.SameAs(oldAnimation));
     }
 
     [Test]
@@ -233,12 +233,12 @@ public class UpdatePropertyValueOperationTests
     {
         var engineObj = new TestAnimatableEngineObject();
         var animation = new KeyFrameAnimation<float>();
-        engineObj.FloatValue.Animation = animation;
-        var op = CreateOp<IAnimation<float>?>(engineObj, "FloatValue.Animation", animation, null);
+        engineObj.FloatValue.SetKeyFrameAnimation(animation);
+        var op = CreateOp<KeyFrameAnimation<float>?>(engineObj, "FloatValue.Animation", animation, null);
 
         op.Revert();
 
-        Assert.That(engineObj.FloatValue.Animation, Is.Null);
+        Assert.That(engineObj.FloatValue.GetKeyFrameAnimation(), Is.Null);
     }
 
     [Test]
@@ -350,11 +350,11 @@ public class UpdatePropertyValueOperationTests
         // "Parent.Child.FloatValue.Animation" should identify "FloatValue" as property name
         var engineObj = new TestAnimatableEngineObject();
         var animation = new KeyFrameAnimation<float>();
-        var op = CreateOp<IAnimation<float>?>(engineObj, "Parent.Child.FloatValue.Animation", animation, null);
+        var op = CreateOp<KeyFrameAnimation<float>?>(engineObj, "Parent.Child.FloatValue.Animation", animation, null);
 
         op.Apply();
 
-        Assert.That(engineObj.FloatValue.Animation, Is.SameAs(animation));
+        Assert.That(engineObj.FloatValue.GetKeyFrameAnimation(), Is.SameAs(animation));
     }
 
     [Test]
@@ -405,7 +405,7 @@ public class UpdatePropertyValueOperationTests
     {
         // SimpleProperty (non-animatable) doesn't support Animation
         var engineObj = new TestEngineObject();
-        var op = CreateOp<IAnimation?>(engineObj, "FloatValue.Animation", null, null);
+        var op = CreateOp<IKeyFrameAnimation?>(engineObj, "FloatValue.Animation", null, null);
 
         // Should not throw, but also shouldn't do anything
         Assert.DoesNotThrow(() => op.Apply());

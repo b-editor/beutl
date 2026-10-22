@@ -9,12 +9,12 @@ internal static class KeyFrameValueChangeDetector
         JsonObject? currentAnimation,
         JsonObject desiredAnimation)
     {
-        if (desiredAnimation[nameof(KeyFrameAnimation.KeyFrames)] is not JsonArray desiredKeyFrames)
+        if (desiredAnimation[nameof(IKeyFrameAnimation.KeyFrames)] is not JsonArray desiredKeyFrames)
         {
             return [];
         }
 
-        if (currentAnimation?[nameof(KeyFrameAnimation.KeyFrames)] is not JsonArray currentKeyFrames)
+        if (currentAnimation?[nameof(IKeyFrameAnimation.KeyFrames)] is not JsonArray currentKeyFrames)
         {
             return null;
         }

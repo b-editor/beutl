@@ -7,6 +7,7 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
 using Beutl.ProjectSystem;
@@ -91,24 +92,24 @@ public static class TutorialHelpers
     {
         if (property == null) return null;
 
-        if (property.Animation != null)
+        if (property.GetKeyFrameAnimation() != null)
         {
             Dispatcher.UIThread.Post(onAnimationEnabled);
             return null;
         }
 
-        if (property is AnimatableProperty<T> animatableProp)
+        if (property.IsAnimatable)
         {
-            void Handler(IAnimation<T>? anm)
+            void Handler(IExpression<T>? expression)
             {
-                if (anm != null)
+                if (property.GetKeyFrameAnimation() != null)
                 {
                     Dispatcher.UIThread.Post(onAnimationEnabled);
                 }
             }
 
-            animatableProp.AnimationChanged += Handler;
-            return Disposable.Create(() => animatableProp.AnimationChanged -= Handler);
+            property.ExpressionChanged += Handler;
+            return Disposable.Create(() => property.ExpressionChanged -= Handler);
         }
 
         return null;

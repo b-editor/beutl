@@ -148,7 +148,7 @@ internal static class SamplePatchBuilder
         return new JsonObject
         {
             ["$type"] = animationType,
-            [nameof(KeyFrameAnimation.KeyFrames)] = new JsonArray(keyframes
+            [nameof(IKeyFrameAnimation.KeyFrames)] = new JsonArray(keyframes
                 .Select(keyframe => new JsonObject
                 {
                     ["$type"] = keyFrameType,

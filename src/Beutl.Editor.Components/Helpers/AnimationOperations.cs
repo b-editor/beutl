@@ -21,7 +21,7 @@ public static class AnimationOperations
     }
 
     // The animation's key time at a time on the timeline, rounded to the frames of the scene.
-    internal static TimeSpan ConvertKeyTime(IAnimation animation, TimeSpan globalkeyTime, Element? element, Scene? scene)
+    internal static TimeSpan ConvertKeyTime(IKeyFrameAnimation animation, TimeSpan globalkeyTime, Element? element, Scene? scene)
     {
         TimeSpan localKeyTime = element != null ? globalkeyTime - element.Start : globalkeyTime;
         TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;

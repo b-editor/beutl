@@ -186,7 +186,7 @@ public static class AnimationEditTutorial
                             TutorialHelpers.GetDrawable(editVm));
                         if (translateTransform == null) return;
 
-                        if (translateTransform.X.Animation is not KeyFrameAnimation<float> animation) return;
+                        if (translateTransform.X.GetKeyFrameAnimation() is not KeyFrameAnimation<float> animation) return;
 
                         // Move playhead forward
                         if (animation.KeyFrames.Count >= 2)
@@ -238,7 +238,7 @@ public static class AnimationEditTutorial
                         // Monitor easing change
                         TranslateTransform? translateTransform = TutorialHelpers.GetTranslateTransform(
                             TutorialHelpers.GetDrawable(editVm));
-                        if (translateTransform?.X.Animation is not KeyFrameAnimation<float> animation) return;
+                        if (translateTransform?.X.GetKeyFrameAnimation() is not KeyFrameAnimation<float> animation) return;
 
                         step5Subscription.Current = TutorialHelpers.SubscribeToEasingChanged(
                             animation,
@@ -352,7 +352,7 @@ public static class AnimationEditTutorial
 
                         TranslateTransform? translateTransform = TutorialHelpers.GetTranslateTransform(
                             TutorialHelpers.GetDrawable(editVm));
-                        if (translateTransform?.Y.Animation is KeyFrameAnimation<float> animation)
+                        if (translateTransform?.Y.GetKeyFrameAnimation() is KeyFrameAnimation<float> animation)
                         {
                             step11Subscription.Current = TutorialHelpers.SubscribeToKeyFrameAdded(
                                 animation,

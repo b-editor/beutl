@@ -1,5 +1,6 @@
 ﻿using System.Collections.Specialized;
 using System.Reactive.Linq;
+using Beutl.Animation;
 using Beutl.Composition;
 using Beutl.Editor;
 using Beutl.Editor.Operations;
@@ -626,6 +627,41 @@ public class NestedInputPortTests
         Assert.That(restoredPort.Property!.GetEngineProperty()!.Expression, Is.InstanceOf<NodePortExpression<float>>());
         Assert.That(((IProperty<float>)restoredPort.Property.GetEngineProperty()!).GetValue(CompositionContext.Default), Is.EqualTo(42f));
         Assert.That(restored.AllConnections.Single().Status, Is.EqualTo(ConnectionStatus.Success));
+    }
+
+    [Test]
+    public void ConnectionOverAnExpressionAndKeyFrames_SavesTheSameJsonAndGivesEachBack()
+    {
+        var graph = new GraphModel();
+        var node = new FactoryNode<TransformGroup>();
+        var transform = new TranslateTransform();
+        transform.X.SetKeyFrameAnimation(TestAnimations.Linear(0f, 100f, TimeSpan.FromSeconds(1)));
+        transform.X.Expression = Expression.Create<float>("7");
+        node.Object.Children.Add(transform);
+        graph.Nodes.Add(node);
+        var port = Find(node, transform.X);
+        graph.Connect(port, Source(graph, 42f));
+        Evaluate(graph);
+
+        var json = CoreSerializer.SerializeToJsonObject(graph);
+        var restored = (GraphModel)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
+        Evaluate(restored);
+        var x = (IProperty<float>)((INestedInputPort)restored.FindNodePort(port.Id)!).Property!.GetEngineProperty()!;
+        var context = new CompositionContext(TimeSpan.FromSeconds(0.5));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(CoreSerializer.SerializeToJsonObject(restored).ToJsonString(), Is.EqualTo(json.ToJsonString()));
+            Assert.That(x.GetValue(context), Is.EqualTo(42f));
+            Assert.That(x.Expression, Is.InstanceOf<NodePortExpression<float>>());
+            Assert.That(x.Expression!.Replaced!.ExpressionString, Is.EqualTo("7"));
+            Assert.That(x.Expression.Replaced.Replaced, Is.SameAs(x.GetKeyFrameAnimation()).And.Not.Null);
+        }
+
+        restored.Disconnect(restored.AllConnections.Single());
+        Assert.That(x.GetValue(context), Is.EqualTo(7f));
+        x.Expression = null;
+        Assert.That(x.GetValue(context), Is.EqualTo(50f).Within(1e-4f));
     }
 
     [Test]

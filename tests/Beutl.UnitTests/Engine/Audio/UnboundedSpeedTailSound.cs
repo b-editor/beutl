@@ -31,7 +31,7 @@ public sealed partial class UnboundedSpeedTailSound : Sound
         context.Connect(source, limiter);
 
         var speed = Property.CreateAnimatable(100f);
-        speed.Animation = new KeyFrameAnimation<float>
+        speed.SetKeyFrameAnimation(new KeyFrameAnimation<float>
         {
             KeyFrames =
             {
@@ -48,7 +48,7 @@ public sealed partial class UnboundedSpeedTailSound : Sound
                     Easing = new UnknownRangeEasing(),
                 },
             },
-        };
+        });
         var speedNode = context.AddNode(new SpeedNode { Speed = speed });
         context.Connect(limiter, speedNode);
 

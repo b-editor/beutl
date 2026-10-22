@@ -191,8 +191,6 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Animation:KeyFrame<[System.Private.CoreLib]System:Single>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
-[Beutl.Engine]Beutl.Animation:KeyFrameAnimation
-  abstract
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<T>
   unsealed
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:HighContrastInvertStyle>

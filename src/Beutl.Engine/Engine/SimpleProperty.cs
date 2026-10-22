@@ -10,7 +10,7 @@ using ValidationContext = Beutl.Validation.ValidationContext;
 namespace Beutl.Engine;
 
 public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
-    : IProperty<T>
+    : IProperty<T>, IExpressionChainHost
 {
     private IValidator<T>? _validator = validator;
     private T _currentValue = defaultValue;
@@ -68,24 +68,17 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
     public void ReplaceCurrentValue(T value)
         => SetCurrentValue(value, replaceEquivalent: true);
 
-    public IAnimation<T>? Animation
-    {
-        get => null;
-        set
-        {
-            if (value != null)
-            {
-                throw new InvalidOperationException(
-                    $"Property '{Name}' does not support animations. Use Property.CreateAnimatable<T>() to create animatable properties.");
-            }
-        }
-    }
-
     public IExpression<T>? Expression
     {
         get => Volatile.Read(ref _expressionState)?.Expression;
         set
         {
+            if (ExpressionChain.FindKeyFrames(value) != null)
+            {
+                throw new InvalidOperationException(
+                    $"Property '{Name}' does not support animations. Use Property.CreateAnimatable<T>() to create animatable properties.");
+            }
+
             if (value != null && !SupportsExpression)
             {
                 throw new InvalidOperationException($"Property '{Name}' does not support expressions.");
@@ -98,6 +91,13 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
                 Edited?.Invoke(this, EventArgs.Empty);
             }
         }
+    }
+
+    void IExpressionChainHost.SetExpressionChain(IExpression? chain) => Expression = (IExpression<T>?)chain;
+
+    void IExpressionChainHost.SetKeyFrames(IKeyFrameAnimation? keyFrames)
+    {
+        if (keyFrames != null) Expression = (IExpression<T>)keyFrames;
     }
 
     public bool HasLocalValue { get; private set; }

@@ -1,4 +1,5 @@
-﻿using Beutl.Audio.Effects;
+﻿using Beutl.Animation;
+using Beutl.Audio.Effects;
 using Beutl.Engine;
 using static Beutl.Audio.Effects.DelayParameters;
 
@@ -56,10 +57,10 @@ public sealed class DelayNode : AudioNode
         _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
         // Check Animation (actual keyframe), not IsAnimatable (always true for animatable properties).
-        bool hasAnimation = DelayTime.Animation != null ||
-                            Feedback.Animation != null ||
-                            DryMix.Animation != null ||
-                            WetMix.Animation != null;
+        bool hasAnimation = DelayTime.GetKeyFrameAnimation() != null ||
+                            Feedback.GetKeyFrameAnimation() != null ||
+                            DryMix.GetKeyFrameAnimation() != null ||
+                            WetMix.GetKeyFrameAnimation() != null;
 
         if (!hasAnimation)
         {

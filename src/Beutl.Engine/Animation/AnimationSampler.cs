@@ -14,7 +14,7 @@ public sealed class AnimationSampler
     {
         ArgumentNullException.ThrowIfNull(property);
 
-        var animation = property.Animation;
+        var animation = property.GetKeyFrameAnimation();
         if (animation is KeyFrameAnimation<T> keyFrameAnimation)
         {
             // 音声グラフでは ClipNode で時刻が要素ローカルに変換されているため、

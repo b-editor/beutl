@@ -195,7 +195,7 @@ public sealed class ColorPickerDragTests
         var animation = new KeyFrameAnimation<Color>();
         animation.KeyFrames.Add(new KeyFrame<Color> { KeyTime = TimeSpan.Zero, Value = Colors.Blue });
         animation.KeyFrames.Add(new KeyFrame<Color> { KeyTime = TimeSpan.FromSeconds(1), Value = Colors.Lime });
-        brush.Color.Animation = animation;
+        brush.Color.SetKeyFrameAnimation(animation);
         var shape = new RectShape { Fill = { CurrentValue = brush } };
         using var history = new HistoryScope(shape);
         var time = new ReactivePropertySlim<TimeSpan>(TimeSpan.Zero);

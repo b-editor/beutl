@@ -1,4 +1,5 @@
-﻿using Beutl.Audio;
+﻿using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Extensibility;
@@ -405,8 +406,8 @@ public static partial class ProxySourceEnumerator
     // identity: OffsetPosition is 0 with no animation, and Speed is 100 (== 1.0x) with no animation.
     // Then the referenced scene samples the element-local window directly.
     private static bool IsIdentityAudioMap(SceneSound sceneSound)
-        => sceneSound.OffsetPosition.Animation is null
+        => sceneSound.OffsetPosition.GetKeyFrameAnimation() is null
            && sceneSound.OffsetPosition.CurrentValue == TimeSpan.Zero
-           && sceneSound.Speed.Animation is null
+           && sceneSound.Speed.GetKeyFrameAnimation() is null
            && sceneSound.Speed.CurrentValue == 100f;
 }

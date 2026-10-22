@@ -2,7 +2,7 @@
 
 namespace Beutl.Engine.Expressions;
 
-public sealed class ReferenceExpression<T> : IExpression<T>, IReferenceExpression
+public sealed class ReferenceExpression<T> : IReplacingExpression<T>, IReferenceExpression
 {
     private ICoreObject? _cachedObject;
 
@@ -24,10 +24,15 @@ public sealed class ReferenceExpression<T> : IExpression<T>, IReferenceExpressio
 
     public bool HasPropertyPath => !string.IsNullOrEmpty(PropertyPath);
 
+    public IExpression<T>? Replaced { get; private init; }
+
     public IReferenceExpression? Rebind(Guid objectId)
     {
-        return new ReferenceExpression<T>(objectId, PropertyPath);
+        return new ReferenceExpression<T>(objectId, PropertyPath) { Replaced = Replaced };
     }
+
+    IExpression<T> IReplacingExpression<T>.WithReplaced(IExpression<T>? replaced)
+        => new ReferenceExpression<T>(ObjectId, PropertyPath) { Replaced = replaced };
 
     public string ExpressionString =>
         HasPropertyPath ? $"{ObjectId}.{PropertyPath}" : ObjectId.ToString();

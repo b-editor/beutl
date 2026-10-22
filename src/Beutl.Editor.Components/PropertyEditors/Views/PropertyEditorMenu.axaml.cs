@@ -100,7 +100,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
             // Shows the animation in a graph editor tab.
             Element? element = viewModel.GetService<Element>();
-            var animation = animatableProperty.Animation as KeyFrameAnimation;
+            var animation = animatableProperty.Animation as IKeyFrameAnimation;
             GraphEditorTabViewModel graphEditorTab =
                 GraphEditorTabViewModel.FindReusable(editorContext, element, animation)
                 ?? new GraphEditorTabViewModel(editorContext);

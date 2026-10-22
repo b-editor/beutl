@@ -183,7 +183,7 @@ public class SpeedNodeTests
             Easing = new LinearEasing()
         });
 
-        IAnimation<float> source = animation;
+        KeyFrameAnimation<float> source = animation;
         Assert.That(source.TryGetOutputRange(out float minimum, out float maximum), Is.True);
         Assert.That(minimum, Is.EqualTo(50f));
         Assert.That(maximum, Is.EqualTo(200f));
@@ -196,7 +196,7 @@ public class SpeedNodeTests
         const int sampleCount = 256;
         var speed = Property.CreateAnimatable(50f);
         speed.SetAttributes("Speed", []);
-        speed.Animation = new KeyFrameAnimation<float>
+        speed.SetKeyFrameAnimation(new KeyFrameAnimation<float>
         {
             KeyFrames =
             {
@@ -219,7 +219,7 @@ public class SpeedNodeTests
                     Easing = new LinearEasing()
                 }
             }
-        };
+        });
 
         using var node = new SpeedNode { Speed = speed };
         node.AddInput(new FlushRampInputNode(sampleRate));

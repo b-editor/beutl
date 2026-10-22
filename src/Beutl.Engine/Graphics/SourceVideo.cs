@@ -68,7 +68,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
 
         var duration = resource.Source.Duration;
 
-        var anm = Speed.Animation;
+        var anm = Speed.GetKeyFrameAnimation();
 
         // スピードのアニメーションまたはキーフレームが 1 つもない場合は、単純に逆変換する
         if (anm is not KeyFrameAnimation<float> keyFrameAnimation || keyFrameAnimation.KeyFrames.Count == 0)
@@ -174,7 +174,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
             // SpeedIntegrator.Integrate は「時刻 0 から入力時刻までの累積積分」を返すため、
             // UseGlobalClock=true でグローバル時刻を渡す場合は要素開始 (obj.TimeRange.Start) 時点の
             // 積分を差し引いて要素ローカルから見た累積に揃える。
-            var anm = obj.Speed.Animation;
+            var anm = obj.Speed.GetKeyFrameAnimation();
             if (anm is KeyFrameAnimation<float> keyFrameAnimation)
             {
                 if (keyFrameAnimation.UseGlobalClock)

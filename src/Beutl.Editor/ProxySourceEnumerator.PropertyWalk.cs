@@ -41,7 +41,7 @@ public static partial class ProxySourceEnumerator
             // A property animated by >=1 keyframe is sampled from its animation, never its base
             // CurrentValue, so when range-filtering to a render window the base must not block export —
             // its file is never opened. Without a window (proxy/badge scan) keep the base too.
-            bool baseOverridden = localRange is not null && (expressionOverrides || AnimationSuppliesValue(property.Animation));
+            bool baseOverridden = localRange is not null && (expressionOverrides || AnimationSuppliesValue(property.GetKeyFrameAnimation()));
             if (!baseOverridden)
             {
                 foreach (IFileSource source in EnumeratePropertyValueFileSources(property.CurrentValue, localRange, skipDisabledElements, visitedValues, walkContext))
@@ -53,7 +53,7 @@ public static partial class ProxySourceEnumerator
             // the animation entirely in a windowed pass.
             if (!expressionOverrides)
             {
-                foreach (IFileSource animated in EnumerateAnimatedFileSources(property.Animation, localRange, skipDisabledElements, visitedValues, sceneWindow, walkContext))
+                foreach (IFileSource animated in EnumerateAnimatedFileSources(property.GetKeyFrameAnimation(), localRange, skipDisabledElements, visitedValues, sceneWindow, walkContext))
                     yield return animated;
             }
         }
@@ -71,7 +71,7 @@ public static partial class ProxySourceEnumerator
     private static bool HasActiveExpression(IProperty property, ObjectWalkContext? context)
         // Discovery may run before GraphSnapshot removes a rejected connection's generated
         // expression. Its stored value/animation is already the effective fallback in that case.
-        => property.Expression is { } expression
+        => property.Expression is { } expression and not IKeyFrameAnimation
            && (expression is not INodePortExpression
                || context?.ConnectedNodeInputs?.Contains(property) != false);
 
@@ -224,7 +224,7 @@ public static partial class ProxySourceEnumerator
                 yield return source;
 
             bool targetExpressionOverrides = localRange is not null && HasActiveExpression(property, walkContext);
-            bool targetBaseOverridden = localRange is not null && (targetExpressionOverrides || AnimationSuppliesValue(property.Animation));
+            bool targetBaseOverridden = localRange is not null && (targetExpressionOverrides || AnimationSuppliesValue(property.GetKeyFrameAnimation()));
             if (!targetBaseOverridden)
             {
                 foreach (IFileSource source in EnumeratePropertyValueFileSources(property.CurrentValue, localRange, skipDisabledElements, visitedValues, walkContext))
@@ -235,7 +235,7 @@ public static partial class ProxySourceEnumerator
             {
                 // The target property renders through PropertyLookup at scene time, so a global-clock
                 // source animation on it is windowed by sceneWindow just like a direct property.
-                foreach (IFileSource source in EnumerateAnimatedFileSources(property.Animation, localRange, skipDisabledElements, visitedValues, sceneWindow, walkContext))
+                foreach (IFileSource source in EnumerateAnimatedFileSources(property.GetKeyFrameAnimation(), localRange, skipDisabledElements, visitedValues, sceneWindow, walkContext))
                     yield return source;
             }
 
@@ -255,9 +255,9 @@ public static partial class ProxySourceEnumerator
 
     // The base value goes unused only when every keyframe is non-null. When in doubt it is counted, so a
     // file the render falls back to is never omitted.
-    private static bool AnimationSuppliesValue(IAnimation? animation)
-        => animation is KeyFrameAnimation { KeyFrames.Count: > 0 } keyFrameAnimation
-           && keyFrameAnimation.KeyFrames.All(k => k.Value is not null);
+    private static bool AnimationSuppliesValue(IKeyFrameAnimation? animation)
+        => animation is { KeyFrames.Count: > 0 }
+           && animation.KeyFrames.All(k => k.Value is not null);
 
     // An expression replaces the base value, so resolve a reference expression as the evaluator does (an
     // unresolvable one yields DefaultValue); only an expression this walk cannot evaluate uses CurrentValue.
@@ -309,10 +309,10 @@ public static partial class ProxySourceEnumerator
     }
 
     private static IEnumerable<IFileSource> EnumerateAnimatedFileSources(
-        IAnimation? animation, TimeRange? localRange = null, bool skipDisabledElements = false, HashSet<EngineObject>? visitedValues = null,
+        IKeyFrameAnimation? animation, TimeRange? localRange = null, bool skipDisabledElements = false, HashSet<EngineObject>? visitedValues = null,
         TimeRange? sceneWindow = null, ObjectWalkContext? walkContext = null)
     {
-        if (animation is not KeyFrameAnimation keyFrameAnimation)
+        if (animation is not { } keyFrameAnimation)
             yield break;
 
         visitedValues ??= new HashSet<EngineObject>(ReferenceEqualityComparer.Instance);

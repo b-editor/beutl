@@ -9,10 +9,10 @@ using ValidationContext = Beutl.Validation.ValidationContext;
 
 namespace Beutl.Engine;
 
-public class AnimatableProperty<T> : IProperty<T>
+public class AnimatableProperty<T> : IProperty<T>, IExpressionChainHost
 {
     private T _currentValue;
-    private IAnimation<T>? _animation;
+    private KeyFrameAnimation<T>? _keyFrames;
     private ExpressionEvaluationState<T>? _expressionState;
     private IValidator<T>? _validator;
     private Attribute[]? _attributes;
@@ -73,60 +73,68 @@ public class AnimatableProperty<T> : IProperty<T>
     public void ReplaceCurrentValue(T value)
         => SetCurrentValue(value, replaceEquivalent: true);
 
-    public IAnimation<T>? Animation
-    {
-        get => _animation;
-        set
-        {
-            if (_animation != value)
-            {
-                var oldValue = _animation;
-                _animation = value;
-
-                if (_animation != null && _validator != null)
-                {
-                    _animation.Validator = _validator;
-                }
-
-                AnimationChanged?.Invoke(_animation!);
-                Edited?.Invoke(this, EventArgs.Empty);
-                PropertyValueOwnership.Reparent(_owner, oldValue, value);
-
-                if (oldValue is INotifyEdited oldEdited)
-                    oldEdited.Edited -= OnChildEdited;
-                if (_animation is INotifyEdited newEdited)
-                    newEdited.Edited += OnChildEdited;
-            }
-        }
-    }
-
     public bool HasLocalValue { get; private set; }
 
-    public bool HasExpression => Volatile.Read(ref _expressionState) != null;
+    public bool HasExpression => Expression is not null and not KeyFrameAnimation<T>;
 
     public string? ExpressionError => Volatile.Read(ref _expressionState)?.Error;
 
     public IExpression<T>? Expression
     {
         get => Volatile.Read(ref _expressionState)?.Expression;
-        set
-        {
-            if (Expression != value)
-            {
-                Volatile.Write(ref _expressionState, value == null ? null : new ExpressionEvaluationState<T>(value));
-                ExpressionChanged?.Invoke(value);
-                Edited?.Invoke(this, EventArgs.Empty);
-            }
-        }
+        set => SetExpressionChain(value is null || ExpressionChain.FindKeyFrames(value) == null
+            ? ExpressionChain.WithKeyFrames(value, _keyFrames)
+            : value);
     }
 
     public event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
 
     public event EventHandler? Edited;
 
-    public event Action<IAnimation<T>?>? AnimationChanged;
-
     public event Action<IExpression<T>?>? ExpressionChanged;
+
+    void IExpressionChainHost.SetExpressionChain(IExpression? chain) => SetExpressionChain((IExpression<T>?)chain);
+
+    void IExpressionChainHost.SetKeyFrames(IKeyFrameAnimation? keyFrames)
+    {
+        if (keyFrames is not null and not KeyFrameAnimation<T>)
+            throw new ArgumentException($"Property '{_name}' takes KeyFrameAnimation<{typeof(T).Name}>.", nameof(keyFrames));
+
+        if (ReferenceEquals(keyFrames, _keyFrames)) return;
+        IExpression<T>? chain = ExpressionChain.WithKeyFrames(Expression, (KeyFrameAnimation<T>?)keyFrames);
+        if (ExpressionChain.FindKeyFrames(chain) != keyFrames)
+            throw new InvalidOperationException($"The expression on property '{_name}' cannot hold keyframes below it.");
+
+        SetExpressionChain(chain);
+    }
+
+    private void SetExpressionChain(IExpression<T>? chain)
+    {
+        if (Expression == chain) return;
+
+        Volatile.Write(ref _expressionState, chain == null ? null : new ExpressionEvaluationState<T>(chain));
+        var keyFrames = ExpressionChain.FindKeyFrames(chain) as KeyFrameAnimation<T>;
+        KeyFrameAnimation<T>? oldKeyFrames = _keyFrames;
+        if (keyFrames != oldKeyFrames)
+        {
+            _keyFrames = keyFrames;
+            if (keyFrames != null && _validator != null)
+            {
+                keyFrames.Validator = _validator;
+            }
+        }
+
+        ExpressionChanged?.Invoke(chain);
+        Edited?.Invoke(this, EventArgs.Empty);
+        if (keyFrames != oldKeyFrames)
+        {
+            PropertyValueOwnership.Reparent(_owner, oldKeyFrames, keyFrames);
+            if (oldKeyFrames != null)
+                oldKeyFrames.Edited -= OnChildEdited;
+            if (keyFrames != null)
+                keyFrames.Edited += OnChildEdited;
+        }
+    }
 
     public void operator <<=(T value)
     {
@@ -142,7 +150,8 @@ public class AnimatableProperty<T> : IProperty<T>
     {
         T value;
 
-        if (Volatile.Read(ref _expressionState) is { } expressionState)
+        // Keyframes on top are evaluated without an ExpressionContext.
+        if (Volatile.Read(ref _expressionState) is { Expression: not KeyFrameAnimation<T> } expressionState)
         {
             _propertyLookup ??= new PropertyLookup(_owner?.FindHierarchicalRoot() as ICoreObject ?? BeutlApplication.Current);
             if (context is ExpressionContext expressionContext)
@@ -171,9 +180,9 @@ public class AnimatableProperty<T> : IProperty<T>
                 expressionContext.EndEvaluation(this);
             }
         }
-        if (_animation != null)
+        if (_keyFrames is { } keyFrames)
         {
-            value = _animation.GetAnimatedValue(context.Time) ?? _currentValue;
+            value = keyFrames.GetAnimatedValue(context.Time) ?? _currentValue;
             value = ValidateAndCoerce(value);
         }
         else
@@ -202,9 +211,9 @@ public class AnimatableProperty<T> : IProperty<T>
     public void SetValidator(IValidator validator)
     {
         _validator = (IValidator<T>)validator;
-        if (Animation != null)
+        if (_keyFrames != null)
         {
-            Animation.Validator = _validator;
+            _keyFrames.Validator = _validator;
         }
     }
 
@@ -220,16 +229,16 @@ public class AnimatableProperty<T> : IProperty<T>
             if (CurrentValue is IHierarchical hierarchical)
                 ownerHierarchical.AddChild(hierarchical);
 
-            if (Animation != null)
-                ownerHierarchical.AddChild(Animation);
+            if (_keyFrames != null)
+                ownerHierarchical.AddChild(_keyFrames);
         }
         else if (_owner is IModifiableHierarchical oldOwnerHierarchical)
         {
             if (CurrentValue is IHierarchical hierarchical)
                 oldOwnerHierarchical.RemoveChild(hierarchical);
 
-            if (Animation != null)
-                oldOwnerHierarchical.RemoveChild(Animation);
+            if (_keyFrames != null)
+                oldOwnerHierarchical.RemoveChild(_keyFrames);
         }
 
         _owner = owner;
@@ -264,8 +273,7 @@ public class AnimatableProperty<T> : IProperty<T>
     {
         CurrentValue = DefaultValue;
         HasLocalValue = false;
-        Animation = null;
-        Expression = null;
+        SetExpressionChain(null);
     }
 
     public void DeserializeValue(ICoreSerializationContext context)
@@ -293,8 +301,11 @@ public class AnimatableProperty<T> : IProperty<T>
         Expression = Expressions.Expression.CreateFromNode<T>(expressionNode);
     }
 
+    // Keyframes are written under "Animations"; the rest of the chain is written here, as before.
     public JsonNode? SerializeExpression()
     {
-        return Expression == null ? null : Expressions.Expression.ToNode(Expression);
+        return Expression is { } expression and not KeyFrameAnimation<T>
+            ? Expressions.Expression.ToNode(expression)
+            : null;
     }
 }

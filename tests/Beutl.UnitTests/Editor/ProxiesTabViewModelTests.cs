@@ -454,7 +454,7 @@ public sealed class ProxiesTabViewModelTests
             KeyTime = TimeSpan.FromSeconds(1),
             Value = CreateVideoSource(secondPath),
         });
-        drawable.Source.Animation = animation;
+        drawable.Source.SetKeyFrameAnimation(animation);
         AddObject(scene, root, drawable);
 
         using var viewModel = new ProxiesTabViewModel(CreateContext(scene, store));

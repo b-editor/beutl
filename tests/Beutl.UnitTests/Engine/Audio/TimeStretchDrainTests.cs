@@ -76,7 +76,7 @@ public class TimeStretchDrainTests
             TimeSpan offset = globalClock ? effect.TimeRange.Start : TimeSpan.Zero;
             animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = offset, Value = speed, Easing = new LinearEasing() });
             animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = offset + TimeSpan.FromSeconds(2), Value = 200f, Easing = new LinearEasing() });
-            effect.Speed.Animation = animation;
+            effect.Speed.SetKeyFrameAnimation(animation);
         }
         // The linear curve reaches its second keyframe at two seconds; integrate its first second.
         double factor = (animated ? speed + (200 - speed) / 4d : speed) / 100d;

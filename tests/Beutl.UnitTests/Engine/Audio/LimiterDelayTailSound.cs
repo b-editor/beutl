@@ -31,7 +31,7 @@ public sealed partial class LimiterDelayTailSound : Sound
         if (LookaheadRampEnd is { } rampEnd)
         {
             var oneSample = AudioProcessContext.GetDurationForSampleCount(1, context.SampleRate);
-            limiter.Lookahead.Animation = new KeyFrameAnimation<float>
+            limiter.Lookahead.SetKeyFrameAnimation(new KeyFrameAnimation<float>
             {
                 KeyFrames =
                 {
@@ -54,7 +54,7 @@ public sealed partial class LimiterDelayTailSound : Sound
                         Easing = new LinearEasing(),
                     },
                 },
-            };
+            });
         }
 
         var delay = new DelayEffect

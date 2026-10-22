@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using Beutl.Animation;
 using Beutl.Audio.Effects;
 using Beutl.Engine;
 using Beutl.Logging;
@@ -114,13 +115,13 @@ public sealed class LimiterNode : AudioNode
             Reset();
         }
 
-        bool hasAnimation = Threshold.Animation != null
-                            || Release.Animation != null
-                            || Lookahead.Animation != null
-                            || MakeupGain.Animation != null;
+        bool hasAnimation = Threshold.GetKeyFrameAnimation() != null
+                            || Release.GetKeyFrameAnimation() != null
+                            || Lookahead.GetKeyFrameAnimation() != null
+                            || MakeupGain.GetKeyFrameAnimation() != null;
 
         AudioBuffer output;
-        if (draining && Lookahead.Animation != null && _hasLastDerived)
+        if (draining && Lookahead.GetKeyFrameAnimation() != null && _hasLastDerived)
         {
             // Freeze the terminal lookahead while the other parameters remain animated during drain.
             output = ProcessAnimated(input, context, _lastDerived.LookaheadSamples);
@@ -147,7 +148,7 @@ public sealed class LimiterNode : AudioNode
     public override int GetLatencySamples(int sampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
-        return Lookahead.Animation != null
+        return Lookahead.GetKeyFrameAnimation() != null
             ? LimiterParameters.ToLatencySamples(LimiterParameters.MaxLookaheadMs, sampleRate)
             : LimiterParameters.ToLatencySamples(Lookahead.CurrentValue, sampleRate);
     }
@@ -157,7 +158,7 @@ public sealed class LimiterNode : AudioNode
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
 
         int upstream = GetMaxInputLatency(sampleRate, drain: true);
-        int ownLatency = Lookahead.Animation != null
+        int ownLatency = Lookahead.GetKeyFrameAnimation() != null
             && _hasLastDerived
             && _lastSampleRate == sampleRate
             ? _lastDerived.LookaheadSamples

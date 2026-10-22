@@ -75,7 +75,7 @@ public class FileReferenceWalkerParityTests
                 var video = new SourceVideo();
                 var animation = new KeyFrameAnimation<VideoSource?>();
                 animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(1), Value = Open<VideoSource>(uri) });
-                video.Source.Animation = animation;
+                video.Source.SetKeyFrameAnimation(animation);
                 element = ElementWith(video);
                 break;
             case Place.NodePort:

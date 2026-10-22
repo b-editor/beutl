@@ -41,7 +41,7 @@ public class LockedClipPropertyTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 200 });
-        shape.Width.Animation = animation;
+        shape.Width.SetKeyFrameAnimation(animation);
         var layer = new TimelineLayer { ZIndex = element.ZIndex };
         editor.Scene.Layers.Add(layer);
         if (!lockAfterSelection) SetLock(true);
@@ -112,9 +112,9 @@ public class LockedClipPropertyTests
                 Assert.That(tab.Items[0].IsEnabled.Value, Is.True);
                 Assert.That(element.Objects, Does.Contain(shape));
                 Assert.That(shape.Width.CurrentValue, Is.EqualTo(100));
-                Assert.That(shape.Width.Animation, Is.SameAs(animation));
+                Assert.That(shape.Width.GetKeyFrameAnimation(), Is.SameAs(animation));
                 Assert.That(animation.KeyFrames.Select(x => x.Value), Is.EqualTo(new[] { 100f, 200f }));
-                Assert.That(shape.Width.Expression, Is.Null);
+                Assert.That(shape.Width.HasExpression, Is.False);
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before));
             });
 
@@ -224,7 +224,7 @@ public class LockedClipPropertyTests
             property.RemoveExpression();
             property.PrepareToEditAnimation();
             Assert.That(shape.Width.Expression, Is.SameAs(expression));
-            Assert.That(shape.Width.Animation, Is.Null);
+            Assert.That(shape.Width.GetKeyFrameAnimation(), Is.Null);
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before));
 
             element.IsLocked = false;

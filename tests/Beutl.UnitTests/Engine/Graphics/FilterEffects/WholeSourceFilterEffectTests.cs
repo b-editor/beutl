@@ -107,14 +107,14 @@ public sealed class WholeSourceFilterEffectTests
     public void DiagonalClipping_SerializationPreservesWidthAnimationAcrossZero(int seconds, float expectedWidth)
     {
         var effect = MakeDiagonalClipping(30, 4, -20);
-        effect.Width.Animation = new KeyFrameAnimation<float>
+        effect.Width.SetKeyFrameAnimation(new KeyFrameAnimation<float>
         {
             KeyFrames =
             {
                 new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 16 },
                 new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = -16 },
             },
-        };
+        });
         var json = CoreSerializer.SerializeToJsonObject(effect);
         var restored = (DiagonalClipping)CoreSerializer.DeserializeFromJsonObject(json, typeof(DiagonalClipping));
         using DiagonalClipping.Resource resource = restored.ToResource(new CompositionContext(TimeSpan.FromSeconds(seconds)));

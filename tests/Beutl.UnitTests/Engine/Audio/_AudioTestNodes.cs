@@ -253,7 +253,7 @@ internal static class AudioTestProperties
     {
         var property = Property.CreateAnimatable(from);
         property.SetAttributes(name, []);
-        property.Animation = AudioTestAnimations.Ramp(from, to, TimeSpan.FromSeconds(seconds));
+        property.SetKeyFrameAnimation(AudioTestAnimations.Ramp(from, to, TimeSpan.FromSeconds(seconds)));
         return property;
     }
 }

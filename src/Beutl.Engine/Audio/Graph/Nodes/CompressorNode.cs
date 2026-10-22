@@ -1,4 +1,5 @@
-﻿using Beutl.Audio.Effects;
+﻿using Beutl.Animation;
+using Beutl.Audio.Effects;
 using Beutl.Engine;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -32,12 +33,12 @@ public sealed class CompressorNode : DynamicsNode
     // AnimationSampler does not evaluate expressions per sample, so expression-backed properties
     // remain at CurrentValue.
     protected override bool HasAnimatedParameters =>
-        Threshold.Animation != null ||
-        Ratio.Animation != null ||
-        Attack.Animation != null ||
-        Release.Animation != null ||
-        Knee.Animation != null ||
-        MakeupGain.Animation != null;
+        Threshold.GetKeyFrameAnimation() != null ||
+        Ratio.GetKeyFrameAnimation() != null ||
+        Attack.GetKeyFrameAnimation() != null ||
+        Release.GetKeyFrameAnimation() != null ||
+        Knee.GetKeyFrameAnimation() != null ||
+        MakeupGain.GetKeyFrameAnimation() != null;
 
     protected override AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context)
     {

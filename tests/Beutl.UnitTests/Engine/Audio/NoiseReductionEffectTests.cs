@@ -419,7 +419,7 @@ public class NoiseReductionEffectTests
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0, Easing = new LinearEasing() });
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 0, Easing = new LinearEasing() });
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1.5), Value = 24, Easing = new LinearEasing() });
-        effect.Reduction.Animation = animation;
+        effect.Reduction.SetKeyFrameAnimation(animation);
         using var context = new AudioContext(SampleRate, 2);
         var node = (NoiseReductionNode)effect.CreateNode(context, new SignalSource(s_noise));
 
@@ -442,7 +442,7 @@ public class NoiseReductionEffectTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 6 });
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 30 });
-        effect.Reduction.Animation = animation;
+        effect.Reduction.SetKeyFrameAnimation(animation);
         var group = new AudioEffectGroup();
         group.Children.Add(effect);
 
@@ -454,7 +454,7 @@ public class NoiseReductionEffectTests
         Assert.That(restoredEffect.Sensitivity.CurrentValue, Is.EqualTo(6));
         Assert.That(restoredEffect.Smoothing.CurrentValue, Is.EqualTo(80));
         Assert.That(restoredEffect.Adaptation.CurrentValue, Is.EqualTo(4));
-        Assert.That(restoredEffect.Reduction.Animation!.Interpolate(TimeSpan.FromSeconds(1)), Is.EqualTo(30));
+        Assert.That(restoredEffect.Reduction.GetKeyFrameAnimation()!.Interpolate(TimeSpan.FromSeconds(1)), Is.EqualTo(30));
     }
 
     [TestCase(0f)]

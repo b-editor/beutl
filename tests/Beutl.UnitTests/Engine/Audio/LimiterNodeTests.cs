@@ -636,7 +636,7 @@ public class LimiterNodeTests
             Value = value,
             KeyTime = TimeSpan.Zero,
         });
-        prop.Animation = animation;
+        prop.SetKeyFrameAnimation(animation);
         return prop;
     }
 
@@ -675,7 +675,7 @@ public class LimiterNodeTests
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
         using var node = CreateNode(thresholdDb: thresholdDb);
-        node.Threshold.Animation = Ramp(thresholdDb, thresholdDb, TimeSpan.FromSeconds((double)sampleCount / SampleRate));
+        node.Threshold.SetKeyFrameAnimation(Ramp(thresholdDb, thresholdDb, TimeSpan.FromSeconds((double)sampleCount / SampleRate)));
         node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
@@ -706,7 +706,7 @@ public class LimiterNodeTests
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
         using var node = CreateNode(thresholdDb: 0f, releaseMs: 1f);
-        node.Threshold.Animation = Ramp(0f, -20f, duration);
+        node.Threshold.SetKeyFrameAnimation(Ramp(0f, -20f, duration));
         node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
@@ -1139,7 +1139,7 @@ public class LimiterNodeTests
         var totalDuration = TimeSpan.FromSeconds(1);
 
         using var node = CreateNode(thresholdDb: 0f, releaseMs: 1f);
-        node.Threshold.Animation = Ramp(0f, -20f, totalDuration);
+        node.Threshold.SetKeyFrameAnimation(Ramp(0f, -20f, totalDuration));
 
         var firstPeaks = new float[chunkCount];
         var lastPeaks = new float[chunkCount];
@@ -1199,7 +1199,7 @@ public class LimiterNodeTests
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
         using var node = CreateNode();
-        node.Threshold.Animation = Ramp(-1f, -1f, duration);
+        node.Threshold.SetKeyFrameAnimation(Ramp(-1f, -1f, duration));
         node.AddInput(new BufferReplayNode(hotInput));
 
         var firstCtx = CreateContext(firstSampleCount, start: TimeSpan.Zero);
@@ -1347,7 +1347,7 @@ public class LimiterNodeTests
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
         using var node = CreateNode(thresholdDb: thresholdDb, lookaheadMs: 0f);
-        node.Lookahead.Animation = Ramp(0f, MaxLookaheadMs, duration);
+        node.Lookahead.SetKeyFrameAnimation(Ramp(0f, MaxLookaheadMs, duration));
         node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
@@ -1488,7 +1488,7 @@ public class LimiterNodeTests
         using var dequeNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookA);
         // Scan oracle: animated step lookahead A -> B at the chunk boundary.
         using var scanNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookA);
-        scanNode.Lookahead.Animation = CreateAnimatedStep(lookA, lookB, dur1);
+        scanNode.Lookahead.SetKeyFrameAnimation(CreateAnimatedStep(lookA, lookB, dur1));
 
         // Chunk 1 (both nodes @ lookA).
         using (var inDeque1 = CreateBuffer(2, chunkSamples, (ch, i) => Gen(ch, i)))
@@ -1616,7 +1616,7 @@ public class LimiterNodeTests
 
         using var dequeNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookA);
         using var scanNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookA);
-        scanNode.Lookahead.Animation = CreateAnimatedStep(lookA, lookB, dur1);
+        scanNode.Lookahead.SetKeyFrameAnimation(CreateAnimatedStep(lookA, lookB, dur1));
 
         // Chunk 1: tiny history at lookA.
         using (var inDeque1 = CreateBuffer(2, chunk1, (ch, i) => Gen(ch, i)))
@@ -1684,7 +1684,7 @@ public class LimiterNodeTests
         for (int c = 0; c < 3; c++)
         {
             // Middle chunk runs the animated path on `node`, forcing _dequeLookahead = -1.
-            node.Lookahead.Animation = c == 1 ? constantAnim : null;
+            node.Lookahead.SetKeyFrameAnimation(c == 1 ? constantAnim : null);
 
             using var inNode = CreateBuffer(2, chunkSamples, (ch, i) => Gen(ch, c * chunkSamples + i));
             using var inRef = CreateBuffer(2, chunkSamples, (ch, i) => Gen(ch, c * chunkSamples + i));
@@ -1745,7 +1745,7 @@ public class LimiterNodeTests
 
         using var staticNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookaheadMs);
         using var animatedNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookaheadMs);
-        animatedNode.Lookahead.Animation = Ramp(lookaheadMs, lookaheadMs, TimeSpan.FromSeconds((double)total / SampleRate));
+        animatedNode.Lookahead.SetKeyFrameAnimation(Ramp(lookaheadMs, lookaheadMs, TimeSpan.FromSeconds((double)total / SampleRate)));
 
         TimeSpan start = TimeSpan.Zero;
         for (int c = 0; c < chunks; c++)
@@ -1798,7 +1798,7 @@ public class LimiterNodeTests
         }
 
         using var ramped = CreateNode(thresholdDb: thresholdDb, releaseMs: 50f, lookaheadMs: 0f, makeupGainDb: 0f);
-        ramped.Lookahead.Animation = Ramp(0f, MaxLookaheadMs, duration);
+        ramped.Lookahead.SetKeyFrameAnimation(Ramp(0f, MaxLookaheadMs, duration));
         using var fixed0 = CreateNode(thresholdDb: thresholdDb, releaseMs: 50f, lookaheadMs: 0f, makeupGainDb: 0f);
         using var fixedMax = CreateNode(thresholdDb: thresholdDb, releaseMs: 50f, lookaheadMs: MaxLookaheadMs, makeupGainDb: 0f);
 

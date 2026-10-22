@@ -38,11 +38,11 @@ public static class RecoveryBlockers
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 32 });
         var shape = new RectShape();
-        shape.Width.Animation = animation;
+        shape.Width.SetKeyFrameAnimation(animation);
         JsonObject animationJson = CoreSerializer.SerializeToJsonObject(shape)["Animations"]![nameof(RectShape.Width)]!
             .DeepClone()
             .AsObject();
-        animationJson[nameof(KeyFrameAnimation.KeyFrames)]![0]![nameof(KeyFrame.Easing)] = MissingEasingType;
+        animationJson[nameof(IKeyFrameAnimation.KeyFrames)]![0]![nameof(KeyFrame.Easing)] = MissingEasingType;
         shapeJson["Animations"]![nameof(RectShape.Width)] = animationJson;
     }
 

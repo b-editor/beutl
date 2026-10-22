@@ -18,7 +18,7 @@ public sealed class KeyFrameClipboardService : IKeyFrameClipboardService
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
     }
 
-    public KeyFrameAnimationPasteOutcome PasteAnimation(KeyFrameAnimation target, string json)
+    public KeyFrameAnimationPasteOutcome PasteAnimation(IKeyFrameAnimation target, string json)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(json);
@@ -66,7 +66,7 @@ public sealed class KeyFrameClipboardService : IKeyFrameClipboardService
         }
     }
 
-    public KeyFramePasteResult PasteKeyFrame(KeyFrameAnimation target, string json, TimeSpan keyTime)
+    public KeyFramePasteResult PasteKeyFrame(IKeyFrameAnimation target, string json, TimeSpan keyTime)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(json);

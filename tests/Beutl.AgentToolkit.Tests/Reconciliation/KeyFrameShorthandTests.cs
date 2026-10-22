@@ -31,8 +31,8 @@ public sealed class KeyFrameShorthandTests
 
         Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
 
-        IAnimation animation = RequireOpacityAnimation(scene);
-        var keyFrames = ((KeyFrameAnimation)animation).KeyFrames;
+        IKeyFrameAnimation animation = RequireOpacityAnimation(scene);
+        var keyFrames = ((IKeyFrameAnimation)animation).KeyFrames;
 
         Assert.Multiple(() =>
         {
@@ -58,7 +58,7 @@ public sealed class KeyFrameShorthandTests
 
         Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
 
-        var animation = (KeyFrameAnimation)RequireOpacityAnimation(scene);
+        var animation = (IKeyFrameAnimation)RequireOpacityAnimation(scene);
 
         Assert.Multiple(() =>
         {
@@ -139,7 +139,7 @@ public sealed class KeyFrameShorthandTests
             patch: OpacityPatch(element, new JsonArray(new JsonArray(0, 100), new JsonArray(0.5, 25))),
             schemaVersion: SchemaVersion.Current);
 
-        var animation = (KeyFrameAnimation)RequireOpacityAnimation(scene);
+        var animation = (IKeyFrameAnimation)RequireOpacityAnimation(scene);
         IReadOnlyList<ChangeSetEntry> changes = second.Value!.Changes!;
         JsonArray appliedChangeSet = second.Value.AppliedChangeSet!;
 
@@ -187,7 +187,7 @@ public sealed class KeyFrameShorthandTests
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(
-                ((KeyFrameAnimation)RequireOpacityAnimation(scene)).KeyFrames.Single().KeyTime,
+                ((IKeyFrameAnimation)RequireOpacityAnimation(scene)).KeyFrames.Single().KeyTime,
                 Is.EqualTo(TimeSpan.MaxValue));
         });
     }
@@ -206,7 +206,7 @@ public sealed class KeyFrameShorthandTests
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(
-                ((KeyFrameAnimation)RequireOpacityAnimation(scene)).KeyFrames.Single().KeyTime,
+                ((IKeyFrameAnimation)RequireOpacityAnimation(scene)).KeyFrames.Single().KeyTime,
                 Is.EqualTo(TimeSpan.MaxValue));
         });
     }
@@ -262,7 +262,7 @@ public sealed class KeyFrameShorthandTests
             : new JsonObject
             {
                 ["$type"] = IdentityHelper.WriteDiscriminator(typeof(KeyFrameAnimation<float>)),
-                [nameof(KeyFrameAnimation.KeyFrames)] = new JsonArray(
+                [nameof(IKeyFrameAnimation.KeyFrames)] = new JsonArray(
                     CreateLongFormKeyFrame(0, -25),
                     CreateLongFormKeyFrame(1, 125))
             };
@@ -272,15 +272,15 @@ public sealed class KeyFrameShorthandTests
             schemaVersion: SchemaVersion.Current);
 
         Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
-        var keyFrames = ((KeyFrameAnimation)RequireOpacityAnimation(scene)).KeyFrames;
+        var keyFrames = ((IKeyFrameAnimation)RequireOpacityAnimation(scene)).KeyFrames;
         ChangeSetEntry animationChange = apply.Value!.Changes!.Single(change =>
             change.Path.EndsWith("/Animations/Opacity", StringComparison.Ordinal));
-        JsonArray reportedKeyFrames = (JsonArray)animationChange.NewValue![nameof(KeyFrameAnimation.KeyFrames)]!;
+        JsonArray reportedKeyFrames = (JsonArray)animationChange.NewValue![nameof(IKeyFrameAnimation.KeyFrames)]!;
         JsonObject appliedAnimationChange = apply.Value.AppliedChangeSet!
             .OfType<JsonObject>()
             .Single(change => change["path"]!.GetValue<string>()
                 .EndsWith("/Animations/Opacity", StringComparison.Ordinal));
-        JsonArray appliedKeyFrames = (JsonArray)appliedAnimationChange["newValue"]![nameof(KeyFrameAnimation.KeyFrames)]!;
+        JsonArray appliedKeyFrames = (JsonArray)appliedAnimationChange["newValue"]![nameof(IKeyFrameAnimation.KeyFrames)]!;
 
         Assert.Multiple(() =>
         {
@@ -301,7 +301,7 @@ public sealed class KeyFrameShorthandTests
         var animation = new KeyFrameAnimation<float>();
         var keyFrame = new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = -25 };
         animation.KeyFrames.Add(keyFrame, out _);
-        rect.Opacity.Animation = animation;
+        rect.Opacity.SetKeyFrameAnimation(animation);
 
         ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
             patch: new JsonObject
@@ -322,7 +322,7 @@ public sealed class KeyFrameShorthandTests
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(rect.Name, Is.EqualTo("renamed"));
-            Assert.That(rect.Opacity.Animation, Is.SameAs(animation));
+            Assert.That(rect.Opacity.GetKeyFrameAnimation(), Is.SameAs(animation));
             Assert.That(keyFrame.Value, Is.EqualTo(-25));
             Assert.That(apply.Value!.Changes!.Select(change => change.Path), Has.None.Contains("Animations"));
             Assert.That(apply.Value.Validation, Has.None.Matches<ValidationOutcome>(outcome =>
@@ -338,7 +338,7 @@ public sealed class KeyFrameShorthandTests
         var animation = new KeyFrameAnimation<float>();
         var keyFrame = new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = -25 };
         animation.KeyFrames.Add(keyFrame, out _);
-        rect.Opacity.Animation = animation;
+        rect.Opacity.SetKeyFrameAnimation(animation);
 
         ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
             patch: OpacityAnimationPatch(
@@ -346,14 +346,14 @@ public sealed class KeyFrameShorthandTests
                 new JsonObject
                 {
                     [nameof(CoreObject.Id)] = animation.Id.ToString(),
-                    [nameof(KeyFrameAnimation.UseGlobalClock)] = true
+                    [nameof(IKeyFrameAnimation.UseGlobalClock)] = true
                 }),
             schemaVersion: SchemaVersion.Current);
 
         Assert.Multiple(() =>
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
-            Assert.That(rect.Opacity.Animation, Is.SameAs(animation));
+            Assert.That(rect.Opacity.GetKeyFrameAnimation(), Is.SameAs(animation));
             Assert.That(animation.UseGlobalClock, Is.True);
             Assert.That(keyFrame.Value, Is.EqualTo(-25));
             Assert.That(apply.Value!.Changes!.Select(change => change.Path), Has.None.EndsWith("/Value"));
@@ -460,7 +460,7 @@ public sealed class KeyFrameShorthandTests
             Assert.That(firstElement.Objects.Select(item => item.Name), Is.EqualTo(new[] { "second", "first" }));
             Assert.That(
                 firstElement.Objects.Cast<RectShape>()
-                    .Select(item => ((KeyFrameAnimation<float>)item.Opacity.Animation!).KeyFrames[0].Value),
+                    .Select(item => ((KeyFrameAnimation<float>)item.Opacity.GetKeyFrameAnimation()!).KeyFrames[0].Value),
                 Is.EqualTo(new[] { 75f, 25f }));
         });
     }
@@ -478,7 +478,7 @@ public sealed class KeyFrameShorthandTests
             : new JsonObject
             {
                 ["$type"] = IdentityHelper.WriteDiscriminator(typeof(KeyFrameAnimation<float>)),
-                [nameof(KeyFrameAnimation.KeyFrames)] = new JsonArray(CreateLongFormKeyFrame(3, 100))
+                [nameof(IKeyFrameAnimation.KeyFrames)] = new JsonArray(CreateLongFormKeyFrame(3, 100))
             };
 
         ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
@@ -515,12 +515,12 @@ public sealed class KeyFrameShorthandTests
             && outcome.Message!.Contains("00:00:03", StringComparison.Ordinal)));
     }
 
-    private static IAnimation RequireOpacityAnimation(Scene scene)
+    private static IKeyFrameAnimation RequireOpacityAnimation(Scene scene)
     {
         var shape = (RectShape)scene.Children.Single().Objects.Single();
         IProperty property = shape.Properties.Single(item => item.Name == nameof(RectShape.Opacity));
-        Assert.That(property.Animation, Is.Not.Null);
-        return property.Animation!;
+        Assert.That(property.GetKeyFrameAnimation(), Is.Not.Null);
+        return property.GetKeyFrameAnimation()!;
     }
 
     private static JsonObject OpacityPatch(Element element, JsonArray keyframes)
@@ -580,7 +580,7 @@ public sealed class KeyFrameShorthandTests
         var animation = new KeyFrameAnimation<float>();
         var keyFrame = new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = opacity };
         animation.KeyFrames.Add(keyFrame, out _);
-        rect.Opacity.Animation = animation;
+        rect.Opacity.SetKeyFrameAnimation(animation);
         element.AddObject(rect);
         scene.Children.Add(element);
         return (element, rect, keyFrame);

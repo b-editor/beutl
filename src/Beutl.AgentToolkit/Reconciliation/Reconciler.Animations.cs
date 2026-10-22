@@ -119,9 +119,9 @@ public sealed partial class Reconciler
         JsonObject normalized = KeyFrameShorthand.IsShorthand(animation)
             ? KeyFrameShorthand.Expand(animation, typeof(object))
             : animation;
-        if (!normalized.TryGetPropertyValue(nameof(KeyFrameAnimation.KeyFrames), out JsonNode? keyFramesNode)
+        if (!normalized.TryGetPropertyValue(nameof(IKeyFrameAnimation.KeyFrames), out JsonNode? keyFramesNode)
             || keyFramesNode is not JsonArray keyFrames
-            || ReadBool(normalized, nameof(KeyFrameAnimation.UseGlobalClock)) == true)
+            || ReadBool(normalized, nameof(IKeyFrameAnimation.UseGlobalClock)) == true)
         {
             return;
         }
@@ -339,7 +339,7 @@ public sealed partial class Reconciler
         JsonObject normalizedAnimation = KeyFrameShorthand.IsShorthand(animationJson)
             ? KeyFrameShorthand.Expand(animationJson, property.ValueType)
             : animationJson;
-        if (normalizedAnimation[nameof(KeyFrameAnimation.KeyFrames)] is not JsonArray keyFrames)
+        if (normalizedAnimation[nameof(IKeyFrameAnimation.KeyFrames)] is not JsonArray keyFrames)
         {
             return;
         }

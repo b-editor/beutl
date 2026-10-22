@@ -45,12 +45,12 @@ public sealed class GraphEditorTreeItemViewModel : IDisposable
 
     internal Type? ValueType => Property?.ValueType ?? Adapter?.PropertyType;
     internal object? Value => Property != null ? Property.CurrentValue : Adapter?.GetValue();
-    internal IAnimation? Animation
+    internal IKeyFrameAnimation? Animation
     {
-        get => Property != null ? Property.Animation : (Adapter as IAnimatablePropertyAdapter)?.Animation;
+        get => Property != null ? Property.GetKeyFrameAnimation() : (Adapter as IAnimatablePropertyAdapter)?.Animation;
         set
         {
-            if (Property != null) Property.Animation = value;
+            if (Property != null) Property.SetKeyFrameAnimation(value);
             else if (Adapter is IAnimatablePropertyAdapter adapter) adapter.Animation = value;
         }
     }

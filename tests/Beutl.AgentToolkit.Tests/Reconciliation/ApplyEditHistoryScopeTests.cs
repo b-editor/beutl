@@ -618,7 +618,7 @@ public sealed class ApplyEditHistoryScopeTests
         }
 
         var animated = new RectShape();
-        animated.Opacity.Animation = easings;
+        animated.Opacity.SetKeyFrameAnimation(easings);
         AddObjectElement(scene, animated);
         return scene;
     }

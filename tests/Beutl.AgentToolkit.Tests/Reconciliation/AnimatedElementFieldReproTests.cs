@@ -23,8 +23,8 @@ public sealed class AnimatedElementFieldReproTests
             Name = "hero mark",
             Width = { CurrentValue = 200 },
             Height = { CurrentValue = 120 },
-            Opacity = { Animation = TestWorkspace.CreateLinearFloatAnimation(0, 100) }
         };
+        rect.Opacity.SetKeyFrameAnimation(TestWorkspace.CreateLinearFloatAnimation(0, 100));
         element.AddObject(rect);
 
         using var session = new AgentToolkitTestSession(scene);
@@ -64,8 +64,8 @@ public sealed class AnimatedElementFieldReproTests
             Name = "fading rect",
             Width = { CurrentValue = 200 },
             Height = { CurrentValue = 120 },
-            Opacity = { Animation = TestWorkspace.CreateLinearFloatAnimation(0, 100) }
         };
+        rect.Opacity.SetKeyFrameAnimation(TestWorkspace.CreateLinearFloatAnimation(0, 100));
         element.AddObject(rect);
 
         using var session = new AgentToolkitTestSession(scene);
@@ -83,7 +83,7 @@ public sealed class AnimatedElementFieldReproTests
                     {
                         [nameof(Drawable.Opacity)] = new JsonObject
                         {
-                            [nameof(KeyFrameAnimation.KeyFrames)] = new JsonArray(
+                            [nameof(IKeyFrameAnimation.KeyFrames)] = new JsonArray(
                                 new JsonObject { ["$replace"] = true },
                                 CreateKeyFrameDocument(TimeSpan.FromSeconds(0.5), 25),
                                 CreateKeyFrameDocument(TimeSpan.FromSeconds(2), 90),
@@ -99,7 +99,7 @@ public sealed class AnimatedElementFieldReproTests
             schemaVersion: SchemaVersion.Current);
         Assert.That(applied.IsSuccess, Is.True, applied.Error?.Message);
 
-        var animation = (KeyFrameAnimation<float>)rect.Opacity.Animation!;
+        var animation = (KeyFrameAnimation<float>)rect.Opacity.GetKeyFrameAnimation()!;
         KeyFrame<float>[] frames = animation.KeyFrames.Cast<KeyFrame<float>>().ToArray();
 
         Assert.Multiple(() =>

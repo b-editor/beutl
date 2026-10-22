@@ -1,4 +1,5 @@
-﻿using Beutl.Audio.Effects.Equalizer;
+﻿using Beutl.Animation;
+using Beutl.Audio.Effects.Equalizer;
 
 namespace Beutl.Audio.Graph.Nodes;
 
@@ -51,9 +52,9 @@ public sealed class EqualizerNode : AudioNode
         _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
         bool hasAnimation = Bands.Any(band =>
-            band.Frequency.Animation != null ||
-            band.Gain.Animation != null ||
-            band.Q.Animation != null);
+            band.Frequency.GetKeyFrameAnimation() != null ||
+            band.Gain.GetKeyFrameAnimation() != null ||
+            band.Q.GetKeyFrameAnimation() != null);
 
         if (!hasAnimation)
         {

@@ -379,7 +379,7 @@ public sealed class ApplyEditLockTests
         var opacity = new KeyFrameAnimation<float>();
         opacity.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0, Easing = new LinearEasing() }, out _);
         opacity.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100, Easing = new SineEaseOut() }, out _);
-        text.Opacity.Animation = opacity;
+        text.Opacity.SetKeyFrameAnimation(opacity);
         locked.AddObject(text);
         var group = new TransformGroup();
         group.Children.Add(new RotationTransform { Rotation = { CurrentValue = 15 } });

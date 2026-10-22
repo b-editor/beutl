@@ -135,7 +135,7 @@ public static class TimelineBasicsTutorial
                         if (ellipseOp == null || element == null) return;
 
                         IProperty<float> widthProp = ellipseOp.Width;
-                        if (widthProp.Animation is not KeyFrameAnimation<float> animation) return;
+                        if (widthProp.GetKeyFrameAnimation() is not KeyFrameAnimation<float> animation) return;
 
                         // すでにキーフレームが2つ以上ある場合は現在時間を変更し、次のステップに進む
                         if (animation.KeyFrames.Count >= 2)
@@ -173,7 +173,7 @@ public static class TimelineBasicsTutorial
                         if (ellipseOp != null)
                         {
                             IProperty<float> widthProp = ellipseOp.Width;
-                            if (widthProp.Animation is KeyFrameAnimation<float> animation
+                            if (widthProp.GetKeyFrameAnimation() is KeyFrameAnimation<float> animation
                                 && animation.KeyFrames.LastOrDefault() is { Value: <= 100f } lastKeyFrame)
                             {
                                 lastKeyFrame.Value = 300f;

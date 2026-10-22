@@ -101,8 +101,8 @@ public sealed partial class SchemaGenerator
                                     ["Opacity"] = new JsonObject
                                     {
                                         ["$type"] = animationType,
-                                        [nameof(KeyFrameAnimation.UseGlobalClock)] = false,
-                                        [nameof(KeyFrameAnimation.KeyFrames)] = new JsonArray(
+                                        [nameof(IKeyFrameAnimation.UseGlobalClock)] = false,
+                                        [nameof(IKeyFrameAnimation.KeyFrames)] = new JsonArray(
                                             new JsonObject
                                             {
                                                 ["$type"] = keyFrameType,

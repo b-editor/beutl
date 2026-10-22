@@ -595,7 +595,7 @@ public sealed class MalformedElementRecoveryTests
             KeyTime = TimeSpan.Zero,
             Value = 32,
         });
-        shape.Width.Animation = animation;
+        shape.Width.SetKeyFrameAnimation(animation);
         CoreSerializer.StoreToUri(element, element.Uri!);
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
@@ -606,7 +606,7 @@ public sealed class MalformedElementRecoveryTests
 
         Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         var recoveredShape = (RectShape)recovered.Children.Single().Objects.Single();
-        var recoveredAnimation = (KeyFrameAnimation<float>)recoveredShape.Width.Animation!;
+        var recoveredAnimation = (KeyFrameAnimation<float>)recoveredShape.Width.GetKeyFrameAnimation()!;
         CoreSerializer.StoreToUri(recovered, sceneUri);
 
         Assert.Multiple(() =>
@@ -628,7 +628,7 @@ public sealed class MalformedElementRecoveryTests
             KeyTime = TimeSpan.Zero,
             Value = 32,
         });
-        shape.Width.Animation = animation;
+        shape.Width.SetKeyFrameAnimation(animation);
         element.AddObject(new RectShape());
         CoreSerializer.StoreToUri(element, element.Uri!);
 
@@ -643,7 +643,7 @@ public sealed class MalformedElementRecoveryTests
         Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         Element recoveredElement = recovered.Children.Single();
         var recoveredShape = (RectShape)recoveredElement.Objects[0];
-        var recoveredAnimation = (KeyFrameAnimation<float>)recoveredShape.Width.Animation!;
+        var recoveredAnimation = (KeyFrameAnimation<float>)recoveredShape.Width.GetKeyFrameAnimation()!;
         Assert.That(recoveredElement.Objects[1], Is.InstanceOf<IFallback>());
 
         recoveredElement.Objects[1] = new RectShape();
@@ -1824,7 +1824,7 @@ public sealed class MalformedElementRecoveryTests
             KeyTime = TimeSpan.Zero,
             Value = new Reference<Element>(originalId),
         });
-        holder.AnimatedTarget.Animation = animation;
+        holder.AnimatedTarget.SetKeyFrameAnimation(animation);
         var owner = new Element { Uri = new Uri(Path.Combine(_root, "owner.belm")) };
         owner.AddObject(holder);
         var scene = new Scene { Uri = new Uri(Path.Combine(_root, "migration.scene")) };
@@ -3120,7 +3120,7 @@ public sealed class MalformedElementRecoveryTests
             foreach (IProperty property in engineObject.Properties)
             {
                 CollectElementGraphObjects(property.CurrentValue, visited, objects);
-                if (property.Animation is IKeyFrameAnimation animation)
+                if (property.GetKeyFrameAnimation() is IKeyFrameAnimation animation)
                 {
                     foreach (IKeyFrame keyFrame in animation.KeyFrames)
                     {

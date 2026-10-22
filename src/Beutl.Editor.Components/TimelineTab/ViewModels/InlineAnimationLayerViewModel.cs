@@ -81,7 +81,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             .DisposeWith(_disposables);
     }
 
-    private void OnAnimationChanged((IAnimation? OldValue, IAnimation? NewValue) t)
+    private void OnAnimationChanged((IKeyFrameAnimation? OldValue, IKeyFrameAnimation? NewValue) t)
     {
         if (t.OldValue != null)
         {
@@ -109,7 +109,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
                     .Subscribe(_ => UpdateWidth()).DisposeWith(_innerDisposables);
             }
 
-            ((CoreObject)t.NewValue).GetObservable(KeyFrameAnimation.UseGlobalClockProperty)
+            t.NewValue.ObserveUseGlobalClock()
                 .Subscribe(v => _useGlobalClock.Value = v)
                 .DisposeWith(_innerDisposables);
 
@@ -164,7 +164,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
     public void DropEasing(Easing easing, TimeSpan keyTime)
     {
         if (!IsEditable) return;
-        if (Property.Animation is KeyFrameAnimation kfAnimation)
+        if (Property.Animation is IKeyFrameAnimation kfAnimation)
         {
             KeyFrameClipboardCommands.DropEasing(
                 kfAnimation, Timeline.Scene, Timeline.EditorContext.GetRequiredService<HistoryManager>(), easing,
@@ -175,7 +175,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
     public void InsertKeyFrame(Easing easing, TimeSpan keyTime)
     {
         if (!IsEditable) return;
-        if (Property.Animation is not KeyFrameAnimation animation) return;
+        if (Property.Animation is not IKeyFrameAnimation animation) return;
         HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
 
         AnimationOperations.InsertKeyFrame(
@@ -186,7 +186,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         history.Commit(CommandNames.InsertKeyFrame);
     }
 
-    public TimeSpan ConvertKeyTime(TimeSpan globalkeyTime, IAnimation animation)
+    public TimeSpan ConvertKeyTime(TimeSpan globalkeyTime, IKeyFrameAnimation animation)
     {
         return AnimationOperations.ConvertKeyTime(animation, globalkeyTime, Element.Model, Timeline.Scene);
     }
@@ -217,7 +217,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
     internal async Task PasteKeyFrameAtPositionAsync(TimeSpan pointerPosition, IClipboard? clipboard = null)
     {
         clipboard ??= ClipboardHelper.GetClipboard();
-        if (_disposed || !IsEditable || clipboard == null || Property.Animation is not KeyFrameAnimation animation) return;
+        if (_disposed || !IsEditable || clipboard == null || Property.Animation is not IKeyFrameAnimation animation) return;
 
         await KeyFrameClipboardCommands.PasteAtPositionAsync(
             clipboard,
@@ -231,7 +231,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
 
     internal void PasteSelection(string json, TimeSpan keyTime)
     {
-        if (_disposed || !IsEditable || Property.Animation is not KeyFrameAnimation animation) return;
+        if (_disposed || !IsEditable || Property.Animation is not IKeyFrameAnimation animation) return;
         if (KeyFrameSelectionClipboard.Read(json) is not { } source
             || source.Type != animation.GetType() || source.Keys.Length == 0)
         {

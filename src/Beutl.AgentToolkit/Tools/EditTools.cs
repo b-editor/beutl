@@ -217,7 +217,7 @@ public sealed partial class EditTools(AgentSessionManager sessions) : ToolBase
             {
                 // Animations and their keyframes carry Ids, but nothing addresses them by Id later —
                 // they are reached through the owning property — so listing them is pure payload.
-                if (pair.Key is "Animations" or nameof(KeyFrameAnimation.KeyFrames))
+                if (pair.Key is "Animations" or nameof(IKeyFrameAnimation.KeyFrames))
                 {
                     continue;
                 }

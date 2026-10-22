@@ -21,7 +21,7 @@ public class UpdateNodeMemberOperationTests
 
     private sealed class TestNodeMember<T> : NodeMember<T>
     {
-        public TestNodeMember(string name, T? value = default, IAnimation<T>? animation = null)
+        public TestNodeMember(string name, T? value = default, KeyFrameAnimation<T>? animation = null)
         {
             var adapter = new NodePropertyAdapter<T>(name, value, animation);
             Property = adapter;
@@ -106,7 +106,7 @@ public class UpdateNodeMemberOperationTests
     public void Apply_ShouldIgnoreNonAnimation_WhenPropertyPathEndsWithAnimation()
     {
         var nodeMember = new TestNodeMember<float>("TestProperty", 1.0f, null);
-        // Passing a non-animation value should result in null animation (due to "as IAnimation" cast)
+        // Passing a non-animation value should result in null animation (due to "as IKeyFrameAnimation" cast)
         var op = CreateOp(nodeMember, "Property.Animation", "not-an-animation", null);
 
         op.Apply();

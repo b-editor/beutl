@@ -11,7 +11,6 @@ using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
-using Beutl.Validation;
 using static Beutl.UnitTests.TestInfrastructure.TrimTestMedia;
 
 namespace Beutl.UnitTests.Editor.Services;
@@ -86,7 +85,7 @@ public class TrimTimeControllerTests
     {
         var video = CreateVideo(20);
         var controller = CreateController(video, speed: 50, offsetSeconds: 0.5);
-        controller.Speed.Animation = CreateSpeedRamp(useGlobalClock: true);
+        controller.Speed.SetKeyFrameAnimation(CreateSpeedRamp(useGlobalClock: true));
         Element element = AddElement(5, 2, controller);
         double beforeStart = ReadPosition(controller, 5);
         double beforeShiftedStart = ReadPosition(controller, 6);
@@ -256,7 +255,7 @@ public class TrimTimeControllerTests
             Value = 100,
             Easing = new LinearEasing()
         });
-        video.Speed.Animation = animation;
+        video.Speed.SetKeyFrameAnimation(animation);
         var controller = CreateController(video, offsetSeconds: -1.5);
         controller.TimeRange = new TimeRange(Seconds(5), Seconds(2));
         Element element = AddElement(5, 2, controller);
@@ -513,7 +512,7 @@ public class TrimTimeControllerTests
         var video = CreateVideo(6, offsetSeconds: 1);
         var controller = CreateController(video, speed: emptyAnimation ? 200 : 0, offsetSeconds: 0.5);
         if (emptyAnimation)
-            controller.Speed.Animation = new KeyFrameAnimation<float>();
+            controller.Speed.SetKeyFrameAnimation(new KeyFrameAnimation<float>());
         Element element = AddElement(5, 2, controller);
         int before = _harness.History.UndoCount;
 
@@ -677,7 +676,7 @@ public class TrimTimeControllerTests
         video.IsLoop.CurrentValue = true;
         var animation = new KeyFrameAnimation<bool>();
         animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.Zero, Value = false });
-        video.IsLoop.Animation = animation;
+        video.IsLoop.SetKeyFrameAnimation(animation);
         Element element = AddElement(0, 2, video);
 
         new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start, Seconds(10), 0)]);
@@ -692,7 +691,7 @@ public class TrimTimeControllerTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 20 });
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = Seconds(1), Value = 120, Easing = new BackEaseIn() });
-        video.Speed.Animation = animation;
+        video.Speed.SetKeyFrameAnimation(animation);
         Element element = AddElement(0, 1, video);
         int before = _harness.History.UndoCount;
 
@@ -755,7 +754,7 @@ public class TrimTimeControllerTests
         var animation = new KeyFrameAnimation<bool> { UseGlobalClock = globalClock };
         animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.Zero, Value = true });
         animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = Seconds(100), Value = false });
-        video.IsLoop.Animation = animation;
+        video.IsLoop.SetKeyFrameAnimation(animation);
         Element element = AddElement(5, 1, video);
 
         Assert.That(ReadPosition(video, 14.5), Is.EqualTo(0.5));
@@ -807,23 +806,9 @@ public class TrimTimeControllerTests
     {
         var video = CreateVideo(20);
         video.Speed.Expression = Expression.Create<float>("200");
-        video.Speed.Animation = new KeyFrameAnimation<float>();
+        video.Speed.SetKeyFrameAnimation(new KeyFrameAnimation<float>());
         Element element = AddElement(0, 2, video);
         Assert.That(ReadPosition(video, 1), Is.EqualTo(2));
-
-        Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(1)), Is.False);
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-    }
-
-    [TestCase(false)]
-    [TestCase(true)]
-    public void Slip_CustomVideoSpeed_RejectsMappingThatPlaybackDoesNotIntegrate(bool controllerSpeed)
-    {
-        var video = CreateVideo(20);
-        Drawable root = controllerSpeed ? CreateController(video) : video;
-        (root is DrawableTimeController controller ? controller.Speed : video.Speed).Animation = new RampSpeedAnimation();
-        Element element = AddElement(0, 2, root);
-        Assert.That(ReadPosition(root, 1), Is.EqualTo(1.1).Within(0.000001));
 
         Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(1)), Is.False);
         Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
@@ -837,7 +822,7 @@ public class TrimTimeControllerTests
         if (!baseSource) video.Source.CurrentValue = null;
         var animation = new KeyFrameAnimation<VideoSource?>();
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = CreateVideo(1).Source.CurrentValue });
-        video.Source.Animation = animation;
+        video.Source.SetKeyFrameAnimation(animation);
         Element element = AddElement(0, 0.5, video);
         using (var resource = (SourceVideo.Resource)video.ToResource(CompositionContext.Default))
             Assert.That(resource.Source!.Duration, Is.EqualTo(Seconds(1)));
@@ -849,17 +834,6 @@ public class TrimTimeControllerTests
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
             Assert.That(element.Length, Is.EqualTo(Seconds(0.5)));
         });
-    }
-
-    private sealed class RampSpeedAnimation : Hierarchical, IAnimation<float>
-    {
-        public TimeSpan Duration => Seconds(10);
-        public bool UseGlobalClock => false;
-        public Type ValueType => typeof(float);
-        public IValidator<float>? Validator { get; set; }
-        public event EventHandler? Edited { add { } remove { } }
-        public float GetAnimatedValue(TimeSpan time) => Interpolate(time);
-        public float Interpolate(TimeSpan timeSpan) => 100 + (float)Math.Clamp(timeSpan.TotalSeconds, 0, 10) * 10;
     }
 
     [TestCase("roll", false)]
@@ -916,7 +890,7 @@ public class TrimTimeControllerTests
         var animation = new KeyFrameAnimation<bool>();
         animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.Zero, Value = true });
         animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = Seconds(10), Value = false, Easing = new BackEaseOut() });
-        video.IsLoop.Animation = animation;
+        video.IsLoop.SetKeyFrameAnimation(animation);
         Element element = AddElement(0, 1, video);
         Assert.That(ReadPosition(video, 7), Is.EqualTo(7));
 
@@ -1399,12 +1373,13 @@ public class TrimTimeControllerTests
         var speed = new KeyFrameAnimation<float> { UseGlobalClock = true };
         speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 10 });
         speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = Seconds(20), Value = 50 });
-        element.Objects.Add(new DrawableTimeController
+        var controller = new DrawableTimeController
         {
-            Speed = { Animation = speed },
             OffsetPosition = { CurrentValue = Seconds(10) },
             Loop = { CurrentValue = true }
-        });
+        };
+        controller.Speed.SetKeyFrameAnimation(speed);
+        element.Objects.Add(controller);
         TimeSpan end = element.Range.End;
         using var playback = new SpeedIntegrator(60);
         playback.EnsureCache(speed);

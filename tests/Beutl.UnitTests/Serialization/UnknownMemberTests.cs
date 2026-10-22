@@ -56,7 +56,7 @@ public class UnknownMemberTests
     public void EngineObject_KeepsUnknownMembersAndTheAnimationsAndExpressionsOfPropertiesItDoesNotHave()
     {
         var shape = new RectShape();
-        shape.Width.Animation = CreateAnimation(10f);
+        shape.Width.SetKeyFrameAnimation(CreateAnimation(10f));
         JsonObject json = CoreSerializer.SerializeToJsonObject(shape);
         JsonObject futureAnimation = json["Animations"]![nameof(RectShape.Width)]!.DeepClone().AsObject();
         json["FutureAmount"] = 0.5;
@@ -69,7 +69,7 @@ public class UnknownMemberTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(restored.Width.Animation, Is.Not.Null);
+            Assert.That(restored.Width.GetKeyFrameAnimation(), Is.Not.Null);
             Assert.That(written[nameof(RectShape.Height)]!.GetValue<float>(), Is.EqualTo(42));
             Assert.That(written["FutureAmount"]!.GetValue<double>(), Is.EqualTo(0.5));
             Assert.That(JsonNode.DeepEquals(written["Animations"]!["FutureAmount"], futureAnimation), Is.True);
@@ -85,7 +85,7 @@ public class UnknownMemberTests
     public void EngineObject_KeepsTheAnimationOfAPropertyThatIsNotAnimatableHere()
     {
         var shape = new RectShape();
-        shape.Width.Animation = CreateAnimation(10f);
+        shape.Width.SetKeyFrameAnimation(CreateAnimation(10f));
         JsonNode animation = CoreSerializer.SerializeToJsonObject(shape)["Animations"]![nameof(RectShape.Width)]!
             .DeepClone();
         JsonObject json = CoreSerializer.SerializeToJsonObject(new SimpleHolder());
@@ -111,7 +111,7 @@ public class UnknownMemberTests
     {
         var source = new RenamedHolder { Title = "title" };
         source.Amount.CurrentValue = 3;
-        source.Amount.Animation = CreateAnimation(4f);
+        source.Amount.SetKeyFrameAnimation(CreateAnimation(4f));
         source.Amount.Expression = Expression.Create<float>("5");
         JsonObject json = CoreSerializer.SerializeToJsonObject(source);
         RenameKey(json, nameof(RenamedHolder.Amount), RenamedHolder.FormerAmount);
@@ -131,7 +131,7 @@ public class UnknownMemberTests
         Assert.Multiple(() =>
         {
             Assert.That(restored.Amount.CurrentValue, Is.EqualTo(3));
-            Assert.That(restored.Amount.Animation, Is.Not.Null);
+            Assert.That(restored.Amount.GetKeyFrameAnimation(), Is.Not.Null);
             Assert.That(restored.Amount.Expression?.ExpressionString, Is.EqualTo("5"));
             Assert.That(restored.Title, Is.EqualTo("title"));
             Assert.That(written.ContainsKey(RenamedHolder.FormerAmount), Is.False);

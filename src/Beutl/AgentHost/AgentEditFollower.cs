@@ -288,7 +288,7 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
     private static TimeSpan? KeyFrameTime(CoreObject obj, Element element)
     {
         if (obj is not IKeyFrame keyFrame
-            || keyFrame.EnumerateAncestors<IAnimation>().FirstOrDefault() is not { } animation)
+            || keyFrame.EnumerateAncestors<IKeyFrameAnimation>().FirstOrDefault() is not { } animation)
         {
             return null;
         }
