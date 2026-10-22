@@ -670,9 +670,6 @@
   <data name="Saturate" xml:space="preserve">
     <value>彩度調整</value>
   </data>
-  <data name="ScaleTransform" xml:space="preserve">
-    <value>スケール</value>
-  </data>
   <data name="ScaleTransform_ScaleX" xml:space="preserve">
     <value>X拡大率</value>
   </data>
