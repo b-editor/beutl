@@ -7,6 +7,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using SkiaSharp;
@@ -58,38 +59,76 @@ public class EditorWorkflowTests
         Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(1));
     }
 
+    // An added element takes only its Uri, and the next save writes its file, as for a duplicate.
     [AvaloniaTest]
-    public async Task AddElement_uses_temporary_storage_when_the_scene_is_unsaved()
+    public async Task AddElement_writes_the_element_file_at_the_next_save()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("addelem-next-save");
+        using IDisposable autoSave = SuppressAutoSave();
+        Element element = await AddRectangle(editor, TimeSpan.Zero, layer: 0);
+        bool writtenByTheAdd = File.Exists(element.Uri!.LocalPath);
+
+        Assert.That(await editor.SaveAsync(), Is.True);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(writtenByTheAdd, Is.False);
+            Assert.That(File.Exists(element.Uri!.LocalPath), Is.True);
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!).Children.Select(child => child.Id),
+                Is.EqualTo(new[] { element.Id }));
+        });
+    }
+
+    // A file written at the add stayed after an undo, and the scene read it back on the next open.
+    [AvaloniaTest]
+    public async Task Undoing_an_add_before_the_save_leaves_no_element_file()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("addelem-undo-before-save");
+        using IDisposable autoSave = SuppressAutoSave();
+        Element element = await AddRectangle(editor, TimeSpan.Zero, layer: 0);
+
+        Assert.That(editor.HistoryManager.Undo(), Is.True);
+        Assert.That(await editor.SaveAsync(), Is.True);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(element.Uri!.LocalPath), Is.False);
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!).Children, Is.Empty);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task AddElement_to_an_unsaved_scene_is_written_where_the_scene_is_saved()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("addelem-unsaved");
         Uri savedUri = editor.Scene.Uri!;
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        using IDisposable autoSave = SuppressAutoSave();
 
         try
         {
             editor.Scene.Uri = null;
+            Element element = await AddRectangle(editor, TimeSpan.Zero, layer: 0);
+            Uri temporary = element.Uri!;
+            bool inTemporaryStorage = FilePathComparison.IsSameOrDescendant(
+                UnsavedSceneStorage.GetDirectory(editor.Scene.Id),
+                temporary.LocalPath);
+            bool writtenByTheAdd = File.Exists(temporary.LocalPath);
 
-            ElementAddResult result = await adder.AddAsync([new ElementDescription(
-                Start: TimeSpan.Zero,
-                Length: TimeSpan.FromSeconds(2),
-                Layer: 0,
-                Source: new ElementSource.EngineObject(() => new RectShape()))],
-                CancellationToken.None);
-            HeadlessTestHelpers.Settle();
+            editor.Scene.Uri = savedUri;
+            Assert.That(await editor.SaveAsync(), Is.True);
 
-            Element element = result.Elements.Single();
             Assert.Multiple(() =>
             {
-                Assert.That(result.IsSuccess, Is.True);
-                Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
-                Assert.That(editor.HistoryManager.CanUndo, Is.True);
-                Assert.That(
-                    FilePathComparison.IsSameOrDescendant(
-                        UnsavedSceneStorage.GetDirectory(editor.Scene.Id),
-                        element.Uri!.LocalPath),
-                    Is.True);
-                Assert.That(File.Exists(element.Uri.LocalPath), Is.True);
+                Assert.That(inTemporaryStorage, Is.True);
+                Assert.That(writtenByTheAdd, Is.False);
+                Assert.That(Path.GetDirectoryName(element.Uri!.LocalPath),
+                    Is.EqualTo(Path.GetDirectoryName(savedUri.LocalPath)));
+                Assert.That(File.Exists(element.Uri!.LocalPath), Is.True);
+                Assert.That(CoreSerializer.RestoreFromUri<Scene>(savedUri).Children.Select(child => child.Id),
+                    Is.EqualTo(new[] { element.Id }));
             });
         }
         finally
@@ -97,6 +136,14 @@ public class EditorWorkflowTests
             editor.Scene.Uri = savedUri;
             UnsavedSceneStorage.Cleanup(editor.Scene.Id);
         }
+    }
+
+    // Auto-save writes an added element after the add, which would hide whether the add wrote it.
+    private static IDisposable SuppressAutoSave()
+    {
+        bool previous = EditViewModel.IsAutoSaveSuppressedForTesting;
+        EditViewModel.IsAutoSaveSuppressedForTesting = true;
+        return System.Reactive.Disposables.Disposable.Create(() => EditViewModel.IsAutoSaveSuppressedForTesting = previous);
     }
 
     [AvaloniaTest]

@@ -5,7 +5,6 @@ using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
 
@@ -115,32 +114,11 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         if (materializationFailure is not null)
             return materializationFailure;
 
-        string[] stagedFiles = preparedElements
-            .Select(element => element.Uri!.LocalPath)
-            .ToArray();
-
-        ElementAddResult? persistenceFailure = PersistStagedElements(scene, preparedElements, stagedFiles, cancellationToken);
-        if (persistenceFailure is not null)
-            return persistenceFailure;
-
         // A batch prepared while an edit session is open, such as an AI result, is added after the session ends.
         ElementAddResult? result = null;
-        bool committing = false;
-        try
-        {
-            await _context.HistoryManager.RunAfterEditAsync(
-                () =>
-                {
-                    committing = true;
-                    result = CommitBatch(scene, sceneId, plans, preparedElements, itemResults, groups, stagedFiles, cancellationToken);
-                },
-                cancellationToken);
-        }
-        catch (OperationCanceledException ex) when (!committing && cancellationToken.IsCancellationRequested)
-        {
-            CleanupStagedFiles(stagedFiles, ex);
-            throw;
-        }
+        await _context.HistoryManager.RunAfterEditAsync(
+            () => result = CommitBatch(scene, sceneId, plans, preparedElements, itemResults, groups, cancellationToken),
+            cancellationToken);
 
         return result!;
     }
@@ -221,8 +199,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         return null;
     }
 
-    // Materializes every plan into prepared elements with their staging URIs; returns the failure that rejects
-    // the batch, after deleting what was staged so far.
+    // Materializes every plan into prepared elements with their URIs; returns the failure that rejects the batch.
     private async ValueTask<ElementAddResult?> MaterializeAsync(
         Scene scene,
         List<ElementCreationPlan> plans,
@@ -250,14 +227,10 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                CleanupStagedFiles(
-                    preparedElements.Select(element => element.Uri?.LocalPath),
-                    new OperationCanceledException(cancellationToken));
                 throw;
             }
             catch (Exception ex)
             {
-                CleanupStagedFiles(preparedElements.Select(element => element.Uri?.LocalPath), ex);
                 return ElementAddResult.Failed(
                     new ElementMaterializationFailure(
                         $"Materialization failed for element source '{plan.Description.Source.GetType().FullName}'.",
@@ -266,17 +239,15 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
 
             if (result is null)
             {
-                return FailMaterialization(
-                    preparedElements,
+                return ElementAddResult.Failed(
                     new InvalidElementMaterializationFailure(
                         "The element source handler returned no materialization result."));
             }
             if (!result.IsSuccess)
-                return FailMaterialization(preparedElements, result.Failure!);
+                return ElementAddResult.Failed(result.Failure!);
             if (result.Materialization is not { } materialization)
             {
-                return FailMaterialization(
-                    preparedElements,
+                return ElementAddResult.Failed(
                     new InvalidElementMaterializationFailure(
                         "The element source handler returned an incomplete materialization result."));
             }
@@ -292,7 +263,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 elementIds);
             if (validationFailure is not null)
             {
-                return FailMaterialization(preparedElements, validationFailure);
+                return ElementAddResult.Failed(validationFailure);
             }
 
             try
@@ -301,7 +272,6 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
             }
             catch (Exception ex)
             {
-                CleanupStagedFiles(preparedElements.Select(element => element.Uri?.LocalPath), ex);
                 return ElementAddResult.Failed(
                     new InvalidElementMaterializationFailure(
                         $"The materialized elements could not apply their request metadata: {ex.Message}"));
@@ -317,6 +287,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         return null;
     }
 
+    // The elements take only their URIs: the next save writes their files, as it does for duplicates.
     private static void AssignElementUris(
         Scene scene, ElementMaterialization materialization, List<Element> preparedElements)
     {
@@ -324,7 +295,6 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         string elementDirectory = sceneUri is not null
             ? Path.GetDirectoryName(sceneUri.LocalPath)!
             : UnsavedSceneStorage.GetElementDirectory(scene.Id);
-        Directory.CreateDirectory(elementDirectory);
         foreach (Element element in materialization.Elements)
         {
             element.Uri = sceneUri is not null
@@ -336,32 +306,6 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         }
     }
 
-    private ElementAddResult? PersistStagedElements(
-        Scene scene, List<Element> preparedElements, string[] stagedFiles, CancellationToken cancellationToken)
-    {
-        try
-        {
-            foreach (Element element in preparedElements)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                CoreSerializer.StoreToUri(element, element.Uri!, owner: scene);
-            }
-            cancellationToken.ThrowIfCancellationRequested();
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            CleanupStagedFiles(stagedFiles, new OperationCanceledException(cancellationToken));
-            throw;
-        }
-        catch (Exception ex)
-        {
-            CleanupStagedFiles(stagedFiles, ex);
-            return ElementAddResult.Failed(new ElementPersistenceFailure(ex));
-        }
-
-        return null;
-    }
-
     private ElementAddResult CommitBatch(
         Scene scene,
         Guid sceneId,
@@ -369,7 +313,6 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         List<Element> preparedElements,
         List<ElementAddItemResult> itemResults,
         List<ImmutableHashSet<Guid>> groups,
-        string[] stagedFiles,
         CancellationToken cancellationToken)
     {
         CommitValidationFailure? commitValidation = RevalidateBeforeCommit(
@@ -379,7 +322,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
             itemResults);
         if (commitValidation is not null)
         {
-            return FailCommitValidation(stagedFiles, commitValidation);
+            return ElementAddResult.Failed(commitValidation.Failure);
         }
 
         CommitValidationFailure? gatedCommitValidation = null;
@@ -408,33 +351,22 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 }
             }, CommandNames.AddElement, cancellationToken: cancellationToken);
         }
-        catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            CleanupDetachedStagedFiles(scene, preparedElements, stagedFiles, ex);
             throw;
         }
         catch (Exception ex)
         {
-            CleanupDetachedStagedFiles(scene, preparedElements, stagedFiles, ex);
             return ElementAddResult.Failed(new ElementSceneMutationFailure(ex));
         }
 
         if (gatedCommitValidation is not null)
         {
-            return FailCommitValidation(stagedFiles, gatedCommitValidation);
+            return ElementAddResult.Failed(gatedCommitValidation.Failure);
         }
 
         _logger.LogInformation("Added {Count} elements successfully.", preparedElements.Count);
         return ElementAddResult.Succeeded(itemResults);
-    }
-
-    private ElementAddResult FailCommitValidation(string[] stagedFiles, CommitValidationFailure validation)
-    {
-        CleanupStagedFiles(
-            stagedFiles,
-            validation.Failure.Exception
-            ?? new InvalidOperationException(validation.Failure.Message));
-        return ElementAddResult.Failed(validation.Failure);
     }
 
     private CommitValidationFailure? RevalidateBeforeCommit(
@@ -486,16 +418,6 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         }
 
         return null;
-    }
-
-    private ElementAddResult FailMaterialization(
-        IReadOnlyCollection<Element> preparedElements,
-        ElementAddFailure failure)
-    {
-        CleanupStagedFiles(
-            preparedElements.Select(element => element.Uri?.LocalPath),
-            failure.Exception ?? new InvalidOperationException(failure.Message));
-        return ElementAddResult.Failed(failure);
     }
 
     private static ElementAddFailure? ValidateMaterialization(
@@ -588,48 +510,6 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         {
             handlerLeases[index].Dispose();
         }
-    }
-
-    private void CleanupStagedFiles(IEnumerable<string?> paths, Exception originalException)
-    {
-        foreach (string path in paths
-                     .Where(path => !string.IsNullOrWhiteSpace(path))
-                     .Select(path => path!)
-                     .Distinct(StringComparer.Ordinal))
-        {
-            try
-            {
-                if (File.Exists(path))
-                {
-                    File.Delete(path);
-                }
-            }
-            catch (Exception cleanupException)
-            {
-                _logger.LogWarning(
-                    cleanupException,
-                    "Failed to delete staged element file {Path} while handling {OriginalError}.",
-                    path,
-                    originalException.Message);
-            }
-        }
-    }
-
-    private void CleanupDetachedStagedFiles(
-        Scene scene,
-        IEnumerable<Element> preparedElements,
-        IEnumerable<string?> stagedFiles,
-        Exception originalException)
-    {
-        var retainedPaths = preparedElements
-            .Where(scene.Children.Contains)
-            .Select(element => element.Uri?.LocalPath)
-            .Where(path => !string.IsNullOrWhiteSpace(path))
-            .Select(path => path!)
-            .ToHashSet(System.OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
-        CleanupStagedFiles(
-            stagedFiles.Where(path => path is null || !retainedPaths.Contains(path)),
-            originalException);
     }
 
     private sealed record ElementCreationPlan(

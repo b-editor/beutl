@@ -221,7 +221,6 @@ public class ElementAdderTests
             Assert.That(created.Name, Is.EqualTo("Authored template"));
             Assert.That(created.Id, Is.Not.EqualTo(source.Id));
             Assert.That(createdShape.Id, Is.Not.EqualTo(sourceShape.Id));
-            Assert.That(File.Exists(created.Uri!.LocalPath), Is.True);
             Assert.That(zeroLengthDescription.Length, Is.EqualTo(TimeSpan.Zero));
             Assert.That(zeroLengthElement.Length, Is.EqualTo(TimeSpan.Zero));
         }
@@ -943,25 +942,16 @@ public class ElementAdderTests
             new TestElementSource(value));
 
     [AvaloniaTest]
-    public async Task AddAsync_WhenSceneMutationFails_RollsBackBatchAndCleansStagedFiles()
+    public async Task AddAsync_WhenSceneMutationFails_RollsBackBatchAndWritesNoFile()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("element-adder-mutation-failure");
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         string sceneDirectory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
         string[] filesBefore = Directory.GetFiles(sceneDirectory, "*.belm", SearchOption.AllDirectories);
-        bool allFilesWereStaged = false;
         bool shouldThrow = true;
         NotifyCollectionChangedEventHandler handler = (_, args) =>
         {
-            if (args.Action == NotifyCollectionChangedAction.Add && editor.Scene.Children.Count == 1)
-            {
-                allFilesWereStaged = Directory.GetFiles(
-                    sceneDirectory,
-                    "*.belm",
-                    SearchOption.AllDirectories).Length == filesBefore.Length + 2;
-            }
-
             if (args.Action == NotifyCollectionChangedAction.Add
                 && editor.Scene.Children.Count == 2
                 && shouldThrow)
@@ -1001,7 +991,6 @@ public class ElementAdderTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(allFilesWereStaged, Is.True);
             Assert.That(editor.Scene.Children, Is.Empty);
             Assert.That(editor.Scene.Groups, Is.Empty);
             Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
@@ -1013,7 +1002,7 @@ public class ElementAdderTests
     }
 
     [AvaloniaTest]
-    public async Task AddAsync_WhenRollbackLeavesAnElementAttached_PreservesItsStagedFile()
+    public async Task AddAsync_WhenRollbackLeavesAnElementAttached_KeepsItsUri()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("element-adder-partial-rollback");
@@ -1068,7 +1057,6 @@ public class ElementAdderTests
                 Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
                 Assert.That(editor.Scene.Children[0], Is.SameAs(retained));
                 Assert.That(retained.Uri, Is.Not.Null);
-                Assert.That(File.Exists(retained.Uri!.LocalPath), Is.True);
                 Assert.That(editor.HistoryManager.UndoCount, Is.Zero);
                 Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
             }
