@@ -167,9 +167,7 @@ public class ProjectConflictMarkerScannerTests
             maxBytesPerFile: 4096,
             maxBytesPerInvocation: totalBudget);
 
-        Assert.That(
-            result,
-            Is.EqualTo(FilePathComparison.ResolveCanonicalPath(conflictFile)));
+        Assert.That(result, Is.EqualTo(conflictFile));
     }
 
     [Test]
