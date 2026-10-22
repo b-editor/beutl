@@ -203,7 +203,7 @@ public abstract class GroupableEditorViewModel<T, TGroup, TFallback> : ValueEdit
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        NestedEditorContextHelper.ReadNestedJson(json, IsExpanded, Properties.Value, Group.Value);
+        NestedEditorContextHelper.ReadNestedJson(json, IsExpanded, () => Properties.Value, () => Group.Value);
     }
 
     public override void WriteToJson(JsonObject json)
