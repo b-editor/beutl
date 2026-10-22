@@ -77,7 +77,8 @@ public sealed class AudioProcessContext
         if (sampleCount == 0)
             return MediaTime.Zero;
 
-        var duration = MediaTime.FromSamples(sampleCount, sampleRate);
+        // Rounded down, as earlier versions took whole ticks, so a block that starts on a sample ends on its last one.
+        var duration = new MediaTime((long)((Int128)sampleCount * MediaTime.FlicksPerSecond / sampleRate));
         int roundTripped = GetSampleCount(new TimeRange(MediaTime.Zero, duration), sampleRate);
         if (roundTripped != sampleCount)
         {

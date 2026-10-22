@@ -93,6 +93,30 @@ public class AudioProcessContextTests
             Is.EqualTo(sampleCount));
     }
 
+    // Odd counts round-trip, and a block from a sample ends on its last one, though 384 kHz samples are not whole flicks.
+    [TestCase(384_000)]
+    [TestCase(44_100)]
+    [TestCase(48_000)]
+    public void GetDurationForSampleCount_OddCountsRoundTripAndEndOnTheirLastSample(int sampleRate)
+    {
+        var mismatches = new List<string>();
+        for (int count = 1; count < 4096; count += 2)
+        {
+            MediaTime duration = AudioProcessContext.GetDurationForSampleCount(count, sampleRate);
+            foreach (long first in (long[])[0, 1, 4095])
+            {
+                MediaTime start = MediaTime.FromSamples(first, sampleRate);
+                if (AudioProcessContext.GetSampleCount(new TimeRange(start, duration), sampleRate) != count
+                    || (start + duration).ToSamples(sampleRate, MidpointRounding.ToPositiveInfinity) != first + count)
+                {
+                    mismatches.Add($"{count} samples from sample {first}");
+                }
+            }
+        }
+
+        Assert.That(mismatches, Is.Empty);
+    }
+
     [Test]
     public void GetDurationForSampleCount_ZeroSamples_ReturnsZero()
     {

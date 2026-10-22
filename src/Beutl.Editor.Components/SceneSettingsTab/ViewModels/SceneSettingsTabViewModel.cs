@@ -179,8 +179,9 @@ public sealed class SceneSettingsTabViewModel : IToolContext
     private bool TryReadSceneSettings(out Media.PixelSize frameSize, out MediaTime start, out MediaTime duration)
     {
         frameSize = new Media.PixelSize(Width.Value, Height.Value);
-        bool hasStart = TimeText.TryParse(StartInput.Value, out start);
-        bool hasDuration = TimeText.TryParse(DurationInput.Value, out duration);
+        Rational rate = SceneTimeRangeService.GetFrameRate(_scene);
+        bool hasStart = TimeText.TryParse(StartInput.Value, _scene.Start, rate, out start);
+        bool hasDuration = TimeText.TryParse(DurationInput.Value, _scene.Duration, rate, out duration);
         return Width.Value > 0
             && Height.Value > 0
             && hasStart && start >= MediaTime.Zero

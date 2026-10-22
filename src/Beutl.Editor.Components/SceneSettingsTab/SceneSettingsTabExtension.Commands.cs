@@ -44,25 +44,29 @@ public sealed partial class SceneSettingsTabExtension
 
     private static async Task ChangeStartAsync(IEditorContext editorContext, Scene scene, IContextCommandInteraction interaction)
     {
+        MediaTime shown = scene.Start;
         string? input = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
             Placeholder = Strings.CommandPalette_TimeSpanHint,
-            Value = TimeText.Format(scene.Start),
+            Value = TimeText.Format(shown),
             Validate = SceneSettingsTabViewModel.StartValidator
         });
-        if (input is not null && TimeText.TryParse(input, out MediaTime start))
+        if (input is not null
+            && TimeText.TryParse(input, shown, SceneTimeRangeService.GetFrameRate(scene), out MediaTime start))
             await ApplyAsync(editorContext, scene, interaction.CancellationToken, start: start);
     }
 
     private static async Task ChangeDurationAsync(IEditorContext editorContext, Scene scene, IContextCommandInteraction interaction)
     {
+        MediaTime shown = scene.Duration;
         string? input = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
             Placeholder = Strings.CommandPalette_TimeSpanHint,
-            Value = TimeText.Format(scene.Duration),
+            Value = TimeText.Format(shown),
             Validate = SceneSettingsTabViewModel.DurationValidator
         });
-        if (input is not null && TimeText.TryParse(input, out MediaTime duration))
+        if (input is not null
+            && TimeText.TryParse(input, shown, SceneTimeRangeService.GetFrameRate(scene), out MediaTime duration))
             await ApplyAsync(editorContext, scene, interaction.CancellationToken, duration: duration);
     }
 

@@ -29,17 +29,21 @@ internal sealed class MediaTimeJsonConverter : JsonConverter<MediaTime>
 
     // Ticks from a file read as the frame of `rate` less than two ticks from them, or else rounded up to a flick.
     internal static MediaTime FromFileTicks(long ticks, Rational? rate)
+        => rate is { } grid && TryGetFrameNearTicks(ticks, grid, out MediaTime frame)
+            ? frame
+            : MediaTime.FromTicks(ticks, MidpointRounding.ToPositiveInfinity);
+
+    // The frame of `rate` less than two ticks from the ticks, as a time from a file or typed as TimeSpan text snaps to.
+    internal static bool TryGetFrameNearTicks(long ticks, Rational rate, out MediaTime frame)
     {
-        var time = MediaTime.FromTicks(ticks, MidpointRounding.ToPositiveInfinity);
-        if (rate is not { } grid || !TryRoundToFrame(time, grid, out MediaTime frame))
-            return time;
+        if (!TryRoundToFrame(MediaTime.FromTicks(ticks, MidpointRounding.ToPositiveInfinity), rate, out frame))
+            return false;
 
         long below = frame.ToTicks(MidpointRounding.ToNegativeInfinity);
         long above = frame.ToTicks(MidpointRounding.ToPositiveInfinity);
-        bool lessThanTwoTicks = below == above
+        return below == above
             ? Math.Abs(ticks - below) <= 1
             : ticks >= below - 1 && ticks <= above + 1;
-        return lessThanTwoTicks ? frame : time;
     }
 
     // Copies that stay in this process (snapshots, duplicates, the clipboard) write exact flicks instead.

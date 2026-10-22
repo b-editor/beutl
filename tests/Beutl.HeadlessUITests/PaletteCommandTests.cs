@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using System.Globalization;
+using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
@@ -476,6 +477,29 @@ public class PaletteCommandTests
             Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(7)));
             Assert.That(scene.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(LastHistoryName(editor), Is.EqualTo(CommandNames.ChangeSceneSettings));
+        });
+    }
+
+    // A scene time confirmed as the palette shows it stays exact, and a typed frame time lands on the frame (#2885).
+    [AvaloniaTest]
+    public async Task Scene_time_commands_keep_a_time_left_as_shown_and_snap_a_typed_one([Values("30", "30000/1001")] string rateText)
+    {
+        EditViewModel editor = await OpenEditorForNewScene("palette-scene-times");
+        Scene scene = editor.Scene;
+        scene.FindHierarchicalParent<Project>()!.Variables[ProjectVariableKeys.FrameRate] = rateText;
+        Rational rate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
+        scene.Start = MediaTime.FromFrames(1, rate);
+        scene.Duration = MediaTime.FromFrames(301, rate);
+        SceneSettingsTabExtension settings = SceneSettingsTabExtension.Instance;
+        string typed = TimeSpan.FromTicks(MediaTime.FromFrames(600, rate).ToTicks(MidpointRounding.ToNegativeInfinity)).ToString();
+
+        await RunAsync(settings, Execution("sceneSettings.changeSceneStart", editor, new ScriptedInteraction().Input(options => options.Value)));
+        await RunAsync(settings, Execution("sceneSettings.changeSceneDuration", editor, new ScriptedInteraction().Input(typed)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scene.Start, Is.EqualTo(MediaTime.FromFrames(1, rate)));
+            Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromFrames(600, rate)));
         });
     }
 
