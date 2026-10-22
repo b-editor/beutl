@@ -246,9 +246,8 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
     private static bool CanSplit(IEditorContext editorContext, Scene scene, Element element)
     {
         MediaTime time = GetSplitTime(editorContext, scene);
-        MediaTime frame = SceneTimeRangeService.GetFrameDuration(scene);
         return GetSplitTargets(editorContext, scene, element)
-            .Any(e => time - e.Start >= frame && e.Range.End - time >= frame);
+            .Any(e => ElementStructureService.LeavesAFrameOnEachSide(scene, e, time));
     }
 
     // The editable clips a split acts on. An open timeline uses the clip's own rule (its selection and

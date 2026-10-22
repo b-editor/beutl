@@ -1,4 +1,5 @@
-﻿using Beutl.Language;
+﻿using Beutl.JsonConverters;
+using Beutl.Language;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -42,6 +43,10 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
 
     internal static MediaTime GetFrameDuration(Scene scene) => MediaTime.FromFrames(1, GetFrameRate(scene));
 
+    // A time read from a file taken back to the frame it falls short of; other times are kept.
+    internal static MediaTime SnapToFrame(Scene scene, MediaTime time)
+        => MediaTimeJsonConverter.SnapToFrame(time, GetFrameRate(scene));
+
     /// <summary>
     /// One-shot start update (keyboard / menu path). Setting start past the
     /// current end shifts the end forward one frame and snaps start to the old
@@ -51,8 +56,9 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     {
         MediaTime frame = GetFrameDuration(scene);
         MediaTime sceneEnd = scene.Start + scene.Duration;
+        MediaTime gridEnd = SnapToFrame(scene, sceneEnd);
 
-        if (newStart > sceneEnd)
+        if (newStart > gridEnd)
         {
             // Start past end: shift end forward one frame, snap start to old end.
             MediaTime shift = newStart - sceneEnd + frame;
@@ -65,9 +71,9 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
         {
             newStart = MediaTime.Zero;
         }
-        else if (newStart > sceneEnd - frame)
+        else if (newStart > gridEnd - frame)
         {
-            newStart = sceneEnd - frame;
+            newStart = gridEnd - frame;
         }
 
         MediaTime newDuration = sceneEnd - newStart > frame ? sceneEnd - newStart : frame;

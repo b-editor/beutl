@@ -50,7 +50,7 @@ public partial class PlayerViewModel
             return false;
         }
 
-        MediaTime endTime = Scene.Start + Scene.Duration - MediaTime.FromFrames(1, rate);
+        MediaTime endTime = GetFirstAndLastFrames().Last;
         if (target < Scene.Start || target > endTime)
         {
             _logger.LogDebug(

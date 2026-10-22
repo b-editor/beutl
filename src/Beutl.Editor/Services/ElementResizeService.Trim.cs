@@ -247,12 +247,17 @@ public sealed partial class ElementResizeService
         IReadOnlyList<SlippableMedia.Target> backTargets)
     {
         MediaTime minDuration = SceneTimeRangeService.GetFrameDuration(scene);
+        // Times read from a file count from the frames they fall short of.
+        MediaTime frontLength = SceneTimeRangeService.SnapToFrame(scene, front.Range.End)
+                                - SceneTimeRangeService.SnapToFrame(scene, front.Start);
+        MediaTime backLength = SceneTimeRangeService.SnapToFrame(scene, back.Range.End)
+                               - SceneTimeRangeService.SnapToFrame(scene, back.Start);
 
-        if (front.Length < minDuration || back.Length < minDuration)
+        if (frontLength < minDuration || backLength < minDuration)
             return (MediaTime.Zero, MediaTime.Zero);
 
-        MediaTime min = minDuration - front.Length;
-        MediaTime max = back.Length - minDuration;
+        MediaTime min = minDuration - frontLength;
+        MediaTime max = backLength - minDuration;
 
         if (GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength
             && frontTargets.All(t => !t.HasVariableDuration))

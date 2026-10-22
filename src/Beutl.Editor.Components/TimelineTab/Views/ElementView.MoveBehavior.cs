@@ -7,6 +7,7 @@ using Avalonia.Xaml.Interactivity;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
+using Beutl.JsonConverters;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -144,7 +145,8 @@ public sealed partial class ElementView
                     Rational rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
                     MediaTime minFrame = SceneTimeRangeService.GetFrameDuration(viewModel.Scene);
                     MediaTime modelStart = viewModel.BorderMargin.Value.Left.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
-                    MediaTime deltaStart = modelStart - viewModel.Model.Start;
+                    // A start read from a file counts from the frame it falls short of.
+                    MediaTime deltaStart = modelStart - MediaTimeJsonConverter.SnapToFrame(viewModel.Model.Start, rate);
                     int modelIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
                     int deltaIndex = modelIndex - viewModel.Model.ZIndex;
                     if (Math.Abs(deltaStart.Flicks) >= minFrame.Flicks || deltaIndex != 0)

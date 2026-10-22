@@ -2,6 +2,7 @@
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.JsonConverters;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -84,7 +85,10 @@ public partial class EditViewModel : IContextCommandStateNotifier
     {
         MediaTime current = _editorClock.CurrentTime.Value;
         MediaTime? target = null;
-        foreach (MediaTime marker in Scene.Markers.Select(m => m.Time).Union([MediaTime.Zero, Scene.Start, Scene.Duration + Scene.Start]))
+        Rational rate = Player.GetFrameRate();
+        // A marker or scene bound read from a file counts as the frame it falls short of.
+        foreach (MediaTime marker in Scene.Markers.Select(m => m.Time).Union([MediaTime.Zero, Scene.Start, Scene.Duration + Scene.Start])
+                     .Select(time => MediaTimeJsonConverter.SnapToFrame(time, rate)))
         {
             if (forward)
             {

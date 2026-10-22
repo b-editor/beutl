@@ -22,6 +22,13 @@ internal sealed class MediaTimeJsonConverter : JsonConverter<MediaTime>
         return Disposable.Create(static () => t_flickScopes--);
     }
 
+    // A time read from a file falls less than a tick short of its frame; that frame is used, and other times are kept.
+    internal static MediaTime SnapToFrame(MediaTime time, Rational rate)
+    {
+        MediaTime frame = time.RoundToFrame(rate, MidpointRounding.ToPositiveInfinity);
+        return frame - time < MediaTime.FromTicks(1, MidpointRounding.ToPositiveInfinity) ? frame : time;
+    }
+
     // A length is written as the distance between its ends on the tick grid, so ends that met in ticks still meet.
     internal static MediaTime LengthToWrite(MediaTime start, MediaTime length)
     {

@@ -11,6 +11,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics3D.Gizmo;
+using Beutl.JsonConverters;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -121,14 +122,13 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         Start = new ReactiveCommand(_isEnabled)
             .WithSubscribe(() =>
             {
-                Rational rate = GetFrameRate();
-                var endTime = Scene.Start + Scene.Duration - MediaTime.FromFrames(1, rate);
+                (MediaTime startTime, MediaTime endTime) = GetFirstAndLastFrames();
                 // 現在の時間がスタートと同じ場合、0に移動
                 _editorClock.Seek(
                     _editorClock.CurrentTime.Value > endTime
                         ? endTime
-                        : _editorClock.CurrentTime.Value > Scene.Start
-                            ? Scene.Start
+                        : _editorClock.CurrentTime.Value > startTime
+                            ? startTime
                             : MediaTime.Zero);
             })
             .DisposeWith(_disposables);
@@ -138,10 +138,10 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             {
                 Rational rate = GetFrameRate();
                 MediaTime frame = MediaTime.FromFrames(1, rate);
-                var endTime = Scene.Start + Scene.Duration - frame;
+                (MediaTime startTime, MediaTime endTime) = GetFirstAndLastFrames();
                 _editorClock.Seek(
-                    _editorClock.CurrentTime.Value < Scene.Start
-                        ? Scene.Start
+                    _editorClock.CurrentTime.Value < startTime
+                        ? startTime
                         : _editorClock.CurrentTime.Value < endTime
                             ? endTime
                             : Scene.Children.Count > 0
@@ -645,6 +645,14 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     }
 
     public Rational GetFrameRate() => Project.GetFrameRate();
+
+    // The scene's first and last frames, where a start or end read from a file counts as the frame it falls short of.
+    private (MediaTime First, MediaTime Last) GetFirstAndLastFrames()
+    {
+        Rational rate = GetFrameRate();
+        MediaTime end = MediaTimeJsonConverter.SnapToFrame(Scene.Start + Scene.Duration, rate);
+        return (MediaTimeJsonConverter.SnapToFrame(Scene.Start, rate), end - MediaTime.FromFrames(1, rate));
+    }
 
     public void ToggleLoop()
     {

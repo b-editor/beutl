@@ -35,10 +35,7 @@ public sealed class ElementStructureService : IElementStructureService
         ArgumentNullException.ThrowIfNull(targets);
         if (targets.Count == 0 || scene.Uri is null) return;
 
-        MediaTime minDuration = SceneTimeRangeService.GetFrameDuration(scene);
-        if (!targets.Any(target => !scene.IsElementLocked(target)
-            && at - target.Start >= minDuration
-            && target.Start + target.Length - at >= minDuration))
+        if (!targets.Any(target => !scene.IsElementLocked(target) && LeavesAFrameOnEachSide(scene, target, at)))
             return;
         var groupUpdates = new Dictionary<int, List<Guid>>();
 
@@ -46,11 +43,10 @@ public sealed class ElementStructureService : IElementStructureService
         {
             foreach (Element target in targets)
             {
-                if (scene.IsElementLocked(target)) continue;
+                if (scene.IsElementLocked(target) || !LeavesAFrameOnEachSide(scene, target, at)) continue;
 
                 MediaTime forwardDuration = at - target.Start;
                 MediaTime backwardDuration = target.Length - forwardDuration;
-                if (forwardDuration < minDuration || backwardDuration < minDuration) continue;
 
                 ObjectRegenerator.Regenerate(target, out Element backward);
 
@@ -86,6 +82,15 @@ public sealed class ElementStructureService : IElementStructureService
 
             InsertSplitGroups(scene, groupUpdates);
         }, CommandNames.SplitElement);
+    }
+
+    // Whether a cut at `at` leaves a frame on each side, with times read from a file counted from their frames.
+    internal static bool LeavesAFrameOnEachSide(Scene scene, Element target, MediaTime at)
+    {
+        MediaTime frame = SceneTimeRangeService.GetFrameDuration(scene);
+        MediaTime cut = SceneTimeRangeService.SnapToFrame(scene, at);
+        return cut - SceneTimeRangeService.SnapToFrame(scene, target.Start) >= frame
+               && SceneTimeRangeService.SnapToFrame(scene, target.Range.End) - cut >= frame;
     }
 
     private static int FindGroupIndex(Scene scene, Guid id)

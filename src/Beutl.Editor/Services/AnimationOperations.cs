@@ -2,6 +2,7 @@
 using System.Reflection;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.JsonConverters;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
 
@@ -32,11 +33,11 @@ internal static class AnimationOperations
     // The frame rate key times snap to: the project's, or 30 fps outside a project.
     internal static Rational GetFrameRate(Scene? scene) => scene?.FindHierarchicalParent<Project>().GetFrameRate() ?? new Rational(30);
 
-    // The keyframe on keyTime's frame, matched by frame: a key time read from a file falls up to a tick short of it.
+    // The keyframe at keyTime, where a key time read from a file counts as the frame it falls short of.
     internal static IKeyFrame? FindKeyFrameOnFrame(IEnumerable<IKeyFrame> keyFrames, MediaTime keyTime, Rational rate)
     {
-        long frame = keyTime.ToFrame(rate, MidpointRounding.AwayFromZero);
-        return keyFrames.FirstOrDefault(k => k.KeyTime.ToFrame(rate, MidpointRounding.AwayFromZero) == frame);
+        MediaTime at = MediaTimeJsonConverter.SnapToFrame(keyTime, rate);
+        return keyFrames.FirstOrDefault(k => MediaTimeJsonConverter.SnapToFrame(k.KeyTime, rate) == at);
     }
 
     // InsertKeyFrame<T> for an animation whose value type is known only at run time.

@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.JsonConverters;
+using Beutl.Media;
 
 namespace Beutl.ProjectSystem;
 
@@ -160,9 +161,11 @@ public partial class Scene
     /// </param>
     public SceneGap? FindNextGap(MediaTime currentTime, TimeRange searchRange)
     {
+        // A gap start read from a file counts as the frame it falls short of.
+        Rational rate = this.FindHierarchicalParent<Project>().GetFrameRate();
         return EnumerateGaps()
             .Select(g => (Raw: g, Visible: ClampGap(g, searchRange)))
-            .Where(x => x.Visible is { } v && v.Range.Start >= currentTime)
+            .Where(x => x.Visible is { } v && MediaTimeJsonConverter.SnapToFrame(v.Range.Start, rate) >= currentTime)
             .OrderBy(x => x.Visible!.Value.Range.Start)
             .ThenBy(x => x.Visible!.Value.Range.End)
             .Select(x => (SceneGap?)x.Raw)

@@ -1,6 +1,7 @@
 ﻿using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Extensibility;
+using Beutl.JsonConverters;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 
@@ -71,11 +72,14 @@ public static class KeyFrameNavigationHelper
         MediaTime? target = null;
         foreach (Element el in roots)
         {
+            Rational rate = el.FindHierarchicalParent<Project>().GetFrameRate();
             foreach ((IKeyFrameAnimation anim, MediaTime offset) in EnumerateKeyFrameAnimations(el))
             {
                 foreach (IKeyFrame kf in anim.KeyFrames)
                 {
-                    MediaTime time = kf.KeyTime + offset;
+                    // Times read from a file count as the frames they fall short of.
+                    MediaTime time = MediaTimeJsonConverter.SnapToFrame(kf.KeyTime, rate)
+                                     + MediaTimeJsonConverter.SnapToFrame(offset, rate);
                     bool inDirection = forward ? time > current : time < current;
                     bool isCloser = target == null
                         || (forward ? time < target.Value : time > target.Value);
