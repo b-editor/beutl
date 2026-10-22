@@ -105,12 +105,14 @@ public class GraphicsContextResourceTests
                 : Is.EqualTo(new[] { ImmediateCanvasFlushKind.TextureRelease }));
         });
 
+        // The flush runs the release the texture deferred, which is where it waits for Skia.
         static void DrawAndRelease(IGraphicsContext context)
         {
             ITexture2D texture = context.CreateTexture2D(8, 8, TextureFormat.BGRA8Unorm);
             using (SKSurface surface = texture.CreateSkiaSurface())
                 surface.Canvas.Clear(SKColors.CornflowerBlue);
             texture.Dispose();
+            VulkanTestEnvironment.ResolveVulkan(context).FlushCommands(waitForCompletion: true);
         }
     }
 
