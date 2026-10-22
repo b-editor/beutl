@@ -2,7 +2,6 @@
 using System.ComponentModel;
 using System.Linq.Expressions;
 using System.Text.Json.Nodes;
-using Beutl.Collections;
 using Beutl.Serialization;
 using Beutl.Validation;
 
@@ -438,8 +437,8 @@ public abstract partial class CoreObject : ICoreObject
 
         foreach (IProperty property in RegisteredProperties)
         {
-            // A base field that holds a list keeps that list; its owner reads the items into it.
-            if (IsAutoSerialized(property) && !(IsBaseField(property) && typeof(ICoreList).IsAssignableFrom(property.ValueType)))
+            // A list its owner keeps is read by the owner into that list.
+            if (IsAutoSerialized(property) && !(IsBaseField(property) && property is IValueOnlyProperty { KeepsList: true }))
                 property.DeserializeValue(context);
         }
 
