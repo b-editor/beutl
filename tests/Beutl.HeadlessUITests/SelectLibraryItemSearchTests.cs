@@ -1,10 +1,14 @@
-﻿using Avalonia.Headless.NUnit;
+﻿using Avalonia.Controls;
+using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Services;
+using Beutl.Testing.Headless;
 
 namespace Beutl.HeadlessUITests;
 
@@ -127,6 +131,37 @@ public sealed class SelectLibraryItemSearchTests
         Assert.That(
             items.Select(i => i.UserData).OfType<SingleTypeLibraryItem>().Select(i => i.ImplementationType),
             Is.EquivalentTo(new[] { typeof(ConstructibleLibraryPickerProbe), typeof(ValueLibraryPickerProbe) }));
+    }
+
+    // A native popup placed at the pointer keeps the size it opened with, so the search box must not grow the picker.
+    [AvaloniaTest]
+    public async Task Showing_the_search_box_keeps_the_picker_height()
+    {
+        var host = new Button { Content = "Pick" };
+        var window = new Window { Content = host, Width = 320, Height = 480 };
+        var viewModel = new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect));
+        using var showAll = viewModel.ShowAll;
+        using var searchText = viewModel.SearchText;
+        var flyout = new LibraryItemPickerFlyout(viewModel);
+        try
+        {
+            window.Show();
+            flyout.ShowAt(host, true);
+            await viewModel.SearchTask;
+            HeadlessTestHelpers.Render(2);
+            var presenter = (LibraryItemPickerFlyoutPresenter)flyout.Popup.Child!;
+            double height = presenter.Bounds.Height;
+
+            presenter.ShowSearchBox = true;
+            HeadlessTestHelpers.Render(2);
+
+            Assert.That(presenter.Bounds.Height, Is.EqualTo(height));
+        }
+        finally
+        {
+            flyout.Hide();
+            window.Close();
+        }
     }
 
     private static SelectLibraryItemDialogViewModel CreateViewModel(
