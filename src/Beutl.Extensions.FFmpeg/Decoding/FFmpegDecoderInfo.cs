@@ -56,6 +56,13 @@ public sealed class FFmpegDecoderInfo : IDecoderInfo
         {
             var (connection, response) = OpenOnWorker(file, options);
 
+            // The worker opens a file without the requested streams too; returning null lets another decoder try.
+            if (!response.HasVideo && !response.HasAudio)
+            {
+                FFmpegWorkerRequests.CloseReader(connection, response.ReaderId, _requestTimeout);
+                return null;
+            }
+
             return new FFmpegReaderProxy(
                 connection, response.ReaderId, response,
                 () => OpenOnWorker(file, options),

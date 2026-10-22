@@ -235,6 +235,12 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
 
     public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
     {
+        if (!HasAudio)
+        {
+            sound = null;
+            return false;
+        }
+
         try
         {
             lock (_gate)
