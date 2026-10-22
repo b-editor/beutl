@@ -182,7 +182,8 @@ public class FFmpegWorkerProcessLifetimeTests
     private static async Task VerifyStartupReadinessAsync()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        string gateName = $"beutl-handshake-test-{Guid.NewGuid():N}";
+        // The pipe is the socket $TMPDIR/CoreFxPipe_<name>, and macOS limits that path to 104 characters.
+        string gateName = $"beutl-hs-{Guid.NewGuid():N}";
         using var gate = new NamedPipeServerStream(
             gateName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
         using var worker = CreateWorker(start =>
@@ -315,7 +316,7 @@ public class FFmpegWorkerProcessLifetimeTests
     private static async Task VerifyDisposalDuringHandshakeAsync()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        string gateName = $"beutl-dispose-handshake-{Guid.NewGuid():N}";
+        string gateName = $"beutl-dh-{Guid.NewGuid():N}";
         using var gate = new NamedPipeServerStream(
             gateName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
         var worker = CreateWorker(start =>
