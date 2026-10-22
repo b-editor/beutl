@@ -303,34 +303,46 @@ public sealed partial class Reconciler
         return null;
     }
 
+    // template is what a new instance of the owner writes in this place, such as a port that a new node creates.
     private static ToolError? ValidateEngineObjectProperties(
-        JsonNode? node, string path, Dictionary<Guid, JsonObject> current)
+        JsonNode? node, string path, Dictionary<Guid, JsonObject> current, JsonNode? template = null)
     {
         if (node is JsonObject obj)
         {
-            if (obj.TryGetDiscriminator(out Type? type)
-                && typeof(EngineObject).IsAssignableFrom(type)
-                && CreateAllowedEngineObjectPropertyNames(type, FindCurrentObject(obj, current)) is { } allowed)
+            JsonObject? created = template is JsonObject candidate && Discriminator(candidate) == Discriminator(obj)
+                ? candidate
+                : null;
+            if (obj.TryGetDiscriminator(out Type? type) && typeof(EngineObject).IsAssignableFrom(type))
             {
-                foreach (KeyValuePair<string, JsonNode?> pair in obj.ToArray())
+                (HashSet<string> Names, JsonObject Json)? instance = CreateNewInstanceMembers(type);
+                // Such as the value of a port, which a new port does not have.
+                JsonObject? same = FindCurrentObject(obj, current) ?? created;
+                if (instance is not null || same is not null)
                 {
-                    if (allowed.Contains(pair.Key))
+                    foreach (KeyValuePair<string, JsonNode?> pair in obj.ToArray())
                     {
-                        continue;
-                    }
+                        if (s_metadataPropertyNames.Contains(pair.Key)
+                            || instance?.Names.Contains(pair.Key) == true
+                            || same?.ContainsKey(pair.Key) == true)
+                        {
+                            continue;
+                        }
 
-                    string propertyPath = $"{path}/{pair.Key}";
-                    return new ToolError(
-                        ErrorCode.ValidationRejected,
-                        $"Property '{pair.Key}' is not supported by '{type.Name}'.",
-                        propertyPath,
-                        $"Call get_schema for '{type.Name}' and use only the returned PascalCase property names.");
+                        string propertyPath = $"{path}/{pair.Key}";
+                        return new ToolError(
+                            ErrorCode.ValidationRejected,
+                            $"Property '{pair.Key}' is not supported by '{type.Name}'.",
+                            propertyPath,
+                            $"Call get_schema for '{type.Name}' and use only the returned PascalCase property names.");
+                    }
                 }
+
+                created ??= instance?.Json;
             }
 
             foreach (KeyValuePair<string, JsonNode?> pair in obj.ToArray())
             {
-                if (ValidateEngineObjectProperties(pair.Value, $"{path}/{pair.Key}", current) is { } childError)
+                if (ValidateEngineObjectProperties(pair.Value, $"{path}/{pair.Key}", current, created?[pair.Key]) is { } childError)
                 {
                     return childError;
                 }
@@ -340,7 +352,8 @@ public sealed partial class Reconciler
         {
             for (int i = 0; i < array.Count; i++)
             {
-                if (ValidateEngineObjectProperties(array[i], $"{path}[{i}]", current) is { } childError)
+                if (ValidateEngineObjectProperties(array[i], $"{path}[{i}]", current, FindNamedItem(template as JsonArray, array[i]))
+                    is { } childError)
                 {
                     return childError;
                 }
@@ -350,40 +363,32 @@ public sealed partial class Reconciler
         return null;
     }
 
-    // A new instance's members and the ones the current document writes for the object; null if neither is known.
-    private static HashSet<string>? CreateAllowedEngineObjectPropertyNames(Type type, JsonObject? current)
+    // The members of a new instance, and its JSON; null for a type without a public parameterless constructor.
+    private static (HashSet<string> Names, JsonObject Json)? CreateNewInstanceMembers(Type type)
     {
-        bool creatable = type.GetConstructor(Type.EmptyTypes) is not null;
-        if (current is null && !creatable)
+        if (type.GetConstructor(Type.EmptyTypes) is null || Activator.CreateInstance(type) is not EngineObject engineObject)
         {
             return null;
         }
 
-        var allowed = new HashSet<string>(s_metadataPropertyNames, StringComparer.Ordinal);
-        if (current is not null)
+        JsonObject json = CoreSerializer.SerializeToJsonObject(
+            engineObject, new CoreSerializerOptions { Mode = CoreSerializationMode.EmbedReferencedObjects });
+        var names = new HashSet<string>(engineObject.Properties.Select(property => property.Name), StringComparer.Ordinal);
+        names.UnionWith(json.Select(pair => pair.Key));
+        return (names, json);
+    }
+
+    // The item of templates with the Name of item, as a node reads each of its ports by name.
+    private static JsonObject? FindNamedItem(JsonArray? templates, JsonNode? item)
+    {
+        if (templates is null || item is not JsonObject obj || Name(obj) is not { } name)
         {
-            // Such as the value of a port, which a new port does not have.
-            allowed.UnionWith(current.Select(pair => pair.Key));
+            return null;
         }
 
-        if (creatable && Activator.CreateInstance(type) is EngineObject engineObject)
-        {
-            foreach (IProperty property in engineObject.Properties)
-            {
-                allowed.Add(property.Name);
-            }
+        return templates.OfType<JsonObject>().FirstOrDefault(candidate => Name(candidate) == name);
 
-            var serializerOptions = new CoreSerializerOptions
-            {
-                Mode = CoreSerializationMode.EmbedReferencedObjects
-            };
-            foreach (KeyValuePair<string, JsonNode?> pair in CoreSerializer.SerializeToJsonObject(engineObject, serializerOptions))
-            {
-                allowed.Add(pair.Key);
-            }
-        }
-
-        return allowed;
+        static string? Name(JsonObject obj) => obj["Name"] is JsonValue value && value.TryGetValue(out string? text) ? text : null;
     }
 
     // The objects of the document by Id, the first one where an Id is written twice.
@@ -422,10 +427,13 @@ public sealed partial class Reconciler
     {
         return CollectionReconciler.TryGetId(obj, out Guid id)
                && current.TryGetValue(id, out JsonObject? found)
-               && found["$type"]?.GetValue<string>() == obj["$type"]?.GetValue<string>()
+               && Discriminator(found) == Discriminator(obj)
             ? found
             : null;
     }
+
+    private static string? Discriminator(JsonObject obj)
+        => obj["$type"] is JsonValue value && value.TryGetValue(out string? text) ? text : null;
 
     private static bool IsDeletionMarker(JsonObject obj)
     {
