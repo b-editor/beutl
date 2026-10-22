@@ -4,7 +4,11 @@ using Beutl.Serialization;
 
 namespace Beutl.Audio.Effects;
 
-public sealed partial class FallbackAudioEffect : AudioEffect, IFallback;
+public sealed partial class FallbackAudioEffect : AudioEffect, IFallback
+{
+    // An effect whose type did not load passes its input on unchanged.
+    public override AudioNode CreateNode(AudioContext context, AudioNode inputNode) => inputNode;
+}
 
 [FallbackType(typeof(FallbackAudioEffect))]
 public abstract partial class AudioEffect : EngineObject

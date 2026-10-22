@@ -9,7 +9,14 @@ using Beutl.Serialization;
 
 namespace Beutl.Audio;
 
-public sealed partial class FallbackSound : Sound, IFallback;
+public sealed partial class FallbackSound : Sound, IFallback
+{
+    public partial class Resource
+    {
+        // A sound whose type did not load is silent.
+        public override SoundSource.Resource? GetSoundSource() => null;
+    }
+}
 
 [FallbackType(typeof(FallbackSound))]
 public abstract partial class Sound : EngineObject
