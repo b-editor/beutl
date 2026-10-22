@@ -113,8 +113,8 @@
                                                                     Margin="0,2,2,0"
                                                                     HorizontalAlignment="Right"
                                                                     VerticalAlignment="Top"
-                                                                    Background="{DynamicResource FocusStrokeColorOuterBrush}">
-                                                                <!--  The marker sits on an accent shade, so the glyph takes the accent's derived foreground; the accent itself would be a neighbouring shade.  -->
+                                                                    Background="{DynamicResource AccentFillColorDefaultBrush}">
+                                                                <!--  The marker takes an accent button's fill and text colors, which every theme pairs.  -->
                                                                 <icons:FluentIcon FontSize="18"
                                                                                   Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
                                                                                   Icon="Checkmark" />

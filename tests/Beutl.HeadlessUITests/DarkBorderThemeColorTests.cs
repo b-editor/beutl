@@ -266,7 +266,7 @@ public class DarkBorderThemeColorTests
         }
     }
 
-    // ViewSettingsPage's accent marker paints FocusStrokeColorOuterBrush behind a
+    // ViewSettingsPage's accent marker paints AccentFillColorDefaultBrush behind a
     // TextOnAccentFillColorPrimaryBrush glyph; this pins that pairing, not the markup.
     [AvaloniaTest]
     public void Accent_picker_marker_glyph_contrasts_on_the_design_accent() =>
@@ -295,7 +295,7 @@ public class DarkBorderThemeColorTests
             AccentResolution.ApplyTextOnAccent(Application.Current.Resources, accent);
             HeadlessTestHelpers.Render(1);
 
-            Color background = ResolveColor(probe, "FocusStrokeColorOuterBrush", ThemeVariant.Dark);
+            Color background = ResolveColor(probe, "AccentFillColorDefaultBrush", ThemeVariant.Dark);
             Color glyph = ResolveColor(probe, "TextOnAccentFillColorPrimaryBrush", ThemeVariant.Dark);
 
             Assert.That(probe.TryFindResource("SystemAccentColor", ThemeVariant.Dark, out object? accentObj), Is.True);

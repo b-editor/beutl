@@ -229,6 +229,33 @@ public class ThemeServiceTests
         AssertAccentForeground(Color.FromRgb(0xFF, 0xB9, 0x00), Colors.Black);
     }
 
+    // FluentAvalonia's light aliases hold static brushes, so this goes through TextOnAccentColors.axaml.
+    [AvaloniaTest]
+    public void TextOnAccent_TurnsBlack_OnALightAccent_InTheLightTheme()
+    {
+        AssertAccentForeground(Color.FromRgb(0xFF, 0xB9, 0x00), Colors.Black, BuiltinThemeIds.Light, ThemeVariant.Light);
+    }
+
+    // High contrast inherits the light theme but keeps FluentAvalonia's own brushes for these aliases.
+    [AvaloniaTest]
+    public void HighContrast_KeepsFluentAvaloniasAccentForeground()
+    {
+        using var scope = new ThemeScope();
+        scope.Config.Theme = BuiltinThemeIds.HighContrast;
+        scope.Service.Start();
+        scope.Config.UseCustomAccentColor = true;
+        scope.Config.CustomAccentColor = Color.FromRgb(0x00, 0x37, 0xDA).ToString();
+        Dispatcher.UIThread.RunJobs();
+
+        ThemeVariant highContrast = FluentAvaloniaTheme.HighContrastTheme;
+        Assert.Multiple(() =>
+        {
+            Assert.That(scope.Theme.TryGetResource("AccentButtonForeground", highContrast, out object? fluent), Is.True);
+            Assert.That(Application.Current!.TryGetResource("AccentButtonForeground", highContrast, out object? resolved), Is.True);
+            Assert.That(resolved, Is.SameAs(fluent));
+        });
+    }
+
     // Settings written while the picker still offered an alpha slider can carry one. Applying it as-is
     // would paint a fill that lets the near-black surface through, under a foreground picked from the
     // RGB channels alone — black on black. The applied accent is opaque, so the two agree again.
@@ -256,9 +283,15 @@ public class ThemeServiceTests
         });
     }
 
-    private static void AssertAccentForeground(Color accent, Color expected)
+    private static void AssertAccentForeground(
+        Color accent, Color expected, string? theme = null, ThemeVariant? variant = null)
     {
         using var scope = new ThemeScope();
+        if (theme is not null)
+        {
+            scope.Config.Theme = theme;
+        }
+
         scope.Service.Start();
         Dispatcher.UIThread.RunJobs();
 
@@ -269,7 +302,7 @@ public class ThemeServiceTests
         // AccentButtonForeground rather than the color token: that alias is what a control actually
         // reads, and it only follows the token if the theme's brush takes its color dynamically.
         bool found = Application.Current!.TryGetResource(
-            "AccentButtonForeground", ThemeVariant.Dark, out object? foreground);
+            "AccentButtonForeground", variant ?? ThemeVariant.Dark, out object? foreground);
 
         Assert.Multiple(() =>
         {
