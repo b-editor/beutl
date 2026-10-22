@@ -1,5 +1,6 @@
 ﻿using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Engine.Animation;
 
@@ -65,5 +66,20 @@ public class SplineEasingHelperTests
         SplineEasingHelper.Move(animation, kf, TimeSpan.FromSeconds(2));
 
         Assert.That(kf.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(2)));
+    }
+
+    [Test]
+    public void MoveAndRemove_DoNotKeepAnUnloadedValueTypeAlive()
+    {
+        WeakReference type = CollectibleTypes.Use(static valueType =>
+        {
+            var animation = (IKeyFrameAnimation)Activator.CreateInstance(typeof(KeyFrameAnimation<>).MakeGenericType(valueType))!;
+            var keyFrame = (IKeyFrame)Activator.CreateInstance(typeof(KeyFrame<>).MakeGenericType(valueType))!;
+            animation.KeyFrames.Add(keyFrame);
+            SplineEasingHelper.Move(animation, keyFrame, keyFrame.KeyTime);
+            SplineEasingHelper.Remove(animation, 0);
+        });
+
+        Assert.That(CollectibleTypes.IsCollected(type), Is.True);
     }
 }

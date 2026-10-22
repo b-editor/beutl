@@ -1,6 +1,6 @@
-﻿using System.Collections.Concurrent;
-using System.Numerics;
+﻿using System.Numerics;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace Beutl.Animation.Easings;
 
@@ -204,8 +204,9 @@ public static class SplineEasingHelper
         }
     }
 
-    private static readonly ConcurrentDictionary<Type, Optional<MethodInfo>> s_cachedRemoveGenericMethods = new();
-    private static readonly ConcurrentDictionary<Type, Optional<MethodInfo>> s_cachedMoveGenericMethods = new();
+    // Weakly keyed, so that a package's value type does not outlive the package's unload.
+    private static readonly ConditionalWeakTable<Type, MethodInfo?> s_cachedRemoveGenericMethods = new();
+    private static readonly ConditionalWeakTable<Type, MethodInfo?> s_cachedMoveGenericMethods = new();
 
     public static void Remove(IKeyFrameAnimation animation, int index)
     {
@@ -239,11 +240,11 @@ public static class SplineEasingHelper
     // Resolves the INumber<T> instantiation of a generic helper once per value type. A non-numeric type
     // caches an empty result, so later calls go straight to the non-spline fallback.
     private static Optional<MethodInfo> GetNumericGenericMethod(
-        ConcurrentDictionary<Type, Optional<MethodInfo>> cache, Type type, string name)
+        ConditionalWeakTable<Type, MethodInfo?> cache, Type type, string name)
     {
-        if (!cache.TryGetValue(type, out var method))
+        if (!cache.TryGetValue(type, out MethodInfo? method))
         {
-            cache[type] = method = default;
+            cache.AddOrUpdate(type, null);
             Type[] interfaces = type.GetInterfaces();
             if (type.IsValueType &&
                 interfaces.Any(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(INumber<>)))
@@ -253,12 +254,12 @@ public static class SplineEasingHelper
                 if (methodInfo != null)
                 {
                     var genericMethod = methodInfo.MakeGenericMethod(type);
-                    cache[type] = method = genericMethod;
+                    cache.AddOrUpdate(type, method = genericMethod);
                 }
             }
         }
 
-        return method;
+        return method is null ? default(Optional<MethodInfo>) : method;
     }
 
     public static void RemoveGeneric<T>(KeyFrameAnimation<T> animation, int index)
