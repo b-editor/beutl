@@ -176,7 +176,7 @@ public sealed class ApplyEditHistoryScopeTests
     }
 
     [Test]
-    public void Apply_edit_replaces_only_the_nested_value_whose_json_changed()
+    public void Apply_edit_changes_only_the_nested_value_whose_json_changed()
     {
         Scene scene = TestWorkspace.CreateScene();
         RectShape firstRect = AddRectElement(scene, "first", MediaTime.Zero, zIndex: 0);
@@ -185,6 +185,7 @@ public sealed class ApplyEditHistoryScopeTests
         object?[] firstNested = CaptureNested(firstRect);
         Transform? secondTransform = secondRect.Transform.Value;
         FilterEffect? secondFilterEffect = secondRect.FilterEffect.Value;
+        var secondFill = (SolidColorBrush)secondRect.Fill.Value!;
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
@@ -203,9 +204,10 @@ public sealed class ApplyEditHistoryScopeTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(((SolidColorBrush)secondRect.Fill.Value!).Color.Value, Is.EqualTo(Colors.Blue));
-            Assert.That(operations, Has.Length.EqualTo(1));
-            Assert.That(operations[0], Does.StartWith($"{secondRect.Id}:Fill "));
+            // The brush is changed in place, as in the editor (#2987).
+            Assert.That(secondRect.Fill.Value, Is.SameAs(secondFill));
+            Assert.That(secondFill.Color.Value, Is.EqualTo(Colors.Blue));
+            Assert.That(operations, Is.EqualTo(new[] { $"{secondFill.Id}:Color {Colors.White} -> {Colors.Blue}" }));
             Assert.That(secondRect.Transform.Value, Is.SameAs(secondTransform));
             Assert.That(secondRect.FilterEffect.Value, Is.SameAs(secondFilterEffect));
             AssertSameNested(firstRect, firstNested);

@@ -6,6 +6,8 @@ using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Animation;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
@@ -93,6 +95,116 @@ public sealed class UnknownDataApplyTests
         {
             Assert.That(savedShape[nameof(RectShape.Width)]!.GetValue<float>(), Is.EqualTo(50));
             Assert.That(savedShape[nameof(Shape.Fill)]!["FutureBrush"]!.GetValue<int>(), Is.EqualTo(4));
+        });
+    }
+
+    // A nested value the document changes is applied in place, as in the editor, so it keeps its unknown members.
+    [Test]
+    public void Apply_edit_changes_a_nested_value_in_place_and_keeps_its_unknown_members()
+    {
+        (Scene scene, string elementPath, _) = CreateScene();
+        var shape = (RectShape)scene.Children.Single().Objects[0];
+        var brush = (SolidColorBrush)shape.Fill.Value!;
+        using var session = new AgentToolkitTestSession(scene);
+        JsonObject document = session.Documents.Read(scene);
+        document["Elements"]![0]![nameof(Element.Objects)]![0]![nameof(Shape.Fill)]![nameof(SolidColorBrush.Color)] =
+            CoreSerializer.SerializeToJsonNode(Colors.Red);
+
+        new Reconciler().Apply(session, document);
+        CoreSerializer.StoreToUri(scene, scene.Uri!);
+        JsonObject savedFill = ReadSavedFill(elementPath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shape.Fill.Value, Is.SameAs(brush));
+            Assert.That(brush.Color.Value, Is.EqualTo(Colors.Red));
+            Assert.That(savedFill["FutureBrush"]?.GetValue<int>(), Is.EqualTo(4));
+        });
+    }
+
+    // The same holds at every depth, whether the edit changes the brush's transform or only the brush.
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Apply_edit_keeps_the_unknown_members_inside_a_nested_value_it_changes(bool changeTransform)
+    {
+        (Scene scene, string elementPath) = CreateSceneWithABrushTransform();
+        var brush = (SolidColorBrush)((RectShape)scene.Children.Single().Objects[0]).Fill.Value!;
+        var transform = (TranslateTransform)brush.Transform.Value!;
+        using var session = new AgentToolkitTestSession(scene);
+        JsonObject document = session.Documents.Read(scene);
+        JsonNode fill = document["Elements"]![0]![nameof(Element.Objects)]![0]![nameof(Shape.Fill)]!;
+        fill[nameof(Brush.Opacity)] = 50;
+        if (changeTransform)
+        {
+            fill[nameof(Brush.Transform)]![nameof(TranslateTransform.X)] = 20;
+        }
+
+        new Reconciler().Apply(session, document);
+        CoreSerializer.StoreToUri(scene, scene.Uri!);
+        JsonObject savedFill = ReadSavedFill(elementPath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(brush.Opacity.Value, Is.EqualTo(50));
+            Assert.That(brush.Transform.Value, Is.SameAs(transform));
+            Assert.That(transform.X.Value, Is.EqualTo(changeTransform ? 20 : 10));
+            Assert.That(savedFill["FutureBrush"]?.GetValue<int>(), Is.EqualTo(4));
+            Assert.That(savedFill[nameof(Brush.Transform)]!["FutureTransform"]?.GetValue<int>(), Is.EqualTo(5));
+        });
+    }
+
+    // The applier's rules remove an animation the document drops from a nested value it keeps in place.
+    [Test]
+    public void Apply_edit_removes_an_animation_from_a_nested_value_it_keeps()
+    {
+        (Scene scene, string elementPath, _) = CreateScene();
+        var shape = (RectShape)scene.Children.Single().Objects[0];
+        Brush brush = shape.Fill.Value!;
+        var animation = new KeyFrameAnimation<float> { KeyFrames = { new KeyFrame<float> { Value = 20 } } };
+        brush.Opacity.SetKeyFrameAnimation(animation);
+        using var session = new AgentToolkitTestSession(scene);
+        JsonObject document = session.Documents.Read(scene);
+        document["Elements"]![0]![nameof(Element.Objects)]![0]![nameof(Shape.Fill)]!["Animations"]!.AsObject()
+            .Remove(nameof(Brush.Opacity));
+
+        new Reconciler().Apply(session, document);
+        CoreSerializer.StoreToUri(scene, scene.Uri!);
+        Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
+        Brush reloadedBrush = ((RectShape)reloaded.Children.Single().Objects[0]).Fill.Value!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shape.Fill.Value, Is.SameAs(brush));
+            Assert.That(brush.Opacity.GetKeyFrameAnimation(), Is.Null);
+            Assert.That(reloadedBrush.Opacity.GetKeyFrameAnimation(), Is.Null);
+            Assert.That(ReadSavedFill(elementPath)["FutureBrush"]?.GetValue<int>(), Is.EqualTo(4));
+        });
+    }
+
+    // Another type or Id still replaces the value. Written directly, as apply_edit refuses both documents.
+    [TestCase(true)]
+    [TestCase(false)]
+    public void Writing_a_nested_value_of_another_type_or_Id_replaces_it(bool otherType)
+    {
+        (Scene scene, string elementPath, _) = CreateScene();
+        var shape = (RectShape)scene.Children.Single().Objects[0];
+        Brush brush = shape.Fill.Value!;
+        using var session = new AgentToolkitTestSession(scene);
+        JsonObject document = session.Documents.Read(scene);
+        Brush replacement = otherType ? new LinearGradientBrush { Id = brush.Id } : new SolidColorBrush(Colors.Red);
+        document["Elements"]![0]![nameof(Element.Objects)]![0]![nameof(Shape.Fill)] =
+            CoreSerializer.SerializeToJsonObject(replacement);
+
+        session.Documents.Write(scene, document);
+        CoreSerializer.StoreToUri(scene, scene.Uri!);
+        JsonObject savedFill = ReadSavedFill(elementPath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shape.Fill.Value, Is.Not.SameAs(brush));
+            Assert.That(shape.Fill.Value, Is.InstanceOf(replacement.GetType()));
+            Assert.That(shape.Fill.Value!.Id, Is.EqualTo(replacement.Id));
+            Assert.That(savedFill.ContainsKey("FutureBrush"), Is.False);
         });
     }
 
@@ -224,4 +336,21 @@ public sealed class UnknownDataApplyTests
         File.WriteAllText(sidecarPath, sidecar.ToJsonString());
         return (CoreSerializer.RestoreFromUri<Scene>(sceneUri), elementPath, sidecarPath);
     }
+
+    // The scene of CreateScene, whose rectangle's brush also gets a transform with a member Beutl does not know.
+    private static (Scene Scene, string ElementPath) CreateSceneWithABrushTransform()
+    {
+        (Scene scene, string elementPath, _) = CreateScene();
+        ((RectShape)scene.Children.Single().Objects[0]).Fill.Value!.Transform.Value = new TranslateTransform(10, 0);
+        CoreSerializer.StoreToUri(scene, scene.Uri!);
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        json[nameof(Element.Objects)]![0]![nameof(Shape.Fill)]![nameof(Brush.Transform)]!["FutureTransform"] = 5;
+        File.WriteAllText(elementPath, json.ToJsonString());
+        return (CoreSerializer.RestoreFromUri<Scene>(scene.Uri!), elementPath);
+    }
+
+    // The rectangle's brush as the element file holds it.
+    private static JsonObject ReadSavedFill(string elementPath)
+        => JsonNode.Parse(File.ReadAllText(elementPath))![nameof(Element.Objects)]![0]![nameof(Shape.Fill)]!.AsObject();
 }
