@@ -292,7 +292,7 @@ public class BrowserMediaDownloadTests
             .Returns((IReadOnlyList<ElementDescription> descriptions, CancellationToken _) =>
                 ValueTask.FromResult(ElementAddResult.Succeeded([new ElementAddItemResult(descriptions[0], new Element(), [])])));
         var clock = new Mock<IEditorClock>();
-        using var time = new ReactivePropertySlim<TimeSpan>(TimeSpan.FromSeconds(12));
+        using var time = new ReactivePropertySlim<MediaTime>(MediaTime.FromSeconds(12));
         clock.SetupGet(x => x.CurrentTime).Returns(time);
         var context = new Mock<IEditorContext>();
         context.SetupGet(x => x.Object).Returns(scene);
@@ -304,7 +304,7 @@ public class BrowserMediaDownloadTests
         await vm.AddDownloadedMediaAsync("clip.mp4", cancellation.Token);
         adder.Verify(x => x.AddAsync(It.Is<IReadOnlyList<ElementDescription>>(items => items.Count == 1
             && ((ElementSource.File)items[0].Source).FileName == "clip.mp4"
-            && items[0].Start == TimeSpan.FromSeconds(12) && items[0].Layer == 0 && items[0].Length == TimeSpan.FromSeconds(5)),
+            && items[0].Start == MediaTime.FromSeconds(12) && items[0].Layer == 0 && items[0].Length == MediaTime.FromSeconds(5)),
             cancellation.Token), Times.Once);
     }
 

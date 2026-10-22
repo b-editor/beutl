@@ -10,7 +10,7 @@ public class KeyFrameDeltaHelperTests
         return new KeyFrame<float>
         {
             Value = value,
-            KeyTime = TimeSpan.FromSeconds(seconds),
+            KeyTime = MediaTime.FromSeconds(seconds),
             Easing = new LinearEasing(),
         };
     }

@@ -214,10 +214,10 @@ public sealed class AiCaptionHistoryResultParserTests
         var source = new AudioSourceItem(
             "source",
             "source.wav",
-            TimeSpan.FromSeconds(60),
-            elementStart: TimeSpan.FromSeconds(2),
-            elementLength: TimeSpan.FromSeconds(5),
-            sourceOffset: TimeSpan.FromSeconds(10));
+            MediaTime.FromSeconds(60),
+            elementStart: MediaTime.FromSeconds(2),
+            elementLength: MediaTime.FromSeconds(5),
+            sourceOffset: MediaTime.FromSeconds(10));
 
         AiTranscriptionSegment[] mapped = source.MapSegmentsToScene(
         [

@@ -63,7 +63,7 @@ public sealed class FrameProviderRenderTargetRetentionTests
             const int renderedFrameCount = 150;
             for (int frame = 0; frame < renderedFrameCount; frame++)
             {
-                renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.FromSeconds(frame / 30d)));
+                renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.FromSeconds(frame / 30d)));
             }
 
             using Bitmap before = renderer.Snapshot();
@@ -86,7 +86,7 @@ public sealed class FrameProviderRenderTargetRetentionTests
         Scene scene = CreateAnimatedBufferedEffectScene(frameRate, frameCount);
         using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
         renderer.CacheOptions = RenderCacheOptions.Disabled;
-        using var progress = new Subject<TimeSpan>();
+        using var progress = new Subject<MediaTime>();
         using var provider = new FrameProviderImpl(
             scene,
             new Rational(frameRate, 1),
@@ -110,11 +110,11 @@ public sealed class FrameProviderRenderTargetRetentionTests
 
     private static Scene CreateAnimatedBufferedEffectScene(int frameRate, int frameCount)
     {
-        TimeSpan duration = TimeSpan.FromSeconds((double)frameCount / frameRate);
+        MediaTime duration = MediaTime.FromSeconds((double)frameCount / frameRate);
         var width = new KeyFrameAnimation<float>();
         width.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.Zero,
+            KeyTime = MediaTime.Zero,
             Value = 24,
             Easing = new LinearEasing(),
         });
@@ -143,7 +143,7 @@ public sealed class FrameProviderRenderTargetRetentionTests
         shape.Width.SetKeyFrameAnimation(width);
         var element = new Element
         {
-            Start = TimeSpan.Zero,
+            Start = MediaTime.Zero,
             Length = duration,
             IsEnabled = true,
         };

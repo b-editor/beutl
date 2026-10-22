@@ -20,10 +20,10 @@ public class SourceSoundThumbnailTests
     [TestCase(1024, 48000)]
     public void GetWaveformChunkDuration_MapsBackToRequestedSampleCount(int sampleCount, int sampleRate)
     {
-        TimeSpan duration = SourceSound.GetWaveformChunkDuration(sampleCount, sampleRate);
+        MediaTime duration = SourceSound.GetWaveformChunkDuration(sampleCount, sampleRate);
 
         Assert.That(
-            AudioProcessContext.GetSampleCount(new TimeRange(TimeSpan.Zero, duration), sampleRate),
+            AudioProcessContext.GetSampleCount(new TimeRange(MediaTime.Zero, duration), sampleRate),
             Is.EqualTo(sampleCount));
     }
 
@@ -38,11 +38,11 @@ public class SourceSoundThumbnailTests
         {
             int startSample = (int)((long)chunkIndex * totalSamples / chunkCount);
             int endSample = (int)((long)(chunkIndex + 1) * totalSamples / chunkCount);
-            var start = TimeSpan.FromSeconds((double)startSample / sampleRate);
+            var start = MediaTime.FromSeconds((double)startSample / sampleRate);
             var duration = SourceSound.GetWaveformChunkDuration(endSample - startSample, sampleRate);
-            var nextStart = TimeSpan.FromSeconds((double)endSample / sampleRate);
+            var nextStart = MediaTime.FromSeconds((double)endSample / sampleRate);
 
-            Assert.That(Math.Abs((start + duration - nextStart).Ticks), Is.LessThanOrEqualTo(1));
+            Assert.That(Math.Abs((start + duration - nextStart).ToTimeSpan().Ticks), Is.LessThanOrEqualTo(1));
         }
     }
 
@@ -61,7 +61,7 @@ public class SourceSoundThumbnailTests
         var sound = new SourceSound
         {
             Source = { Value = soundSource },
-            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(2)),
+            TimeRange = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(2)),
         };
 
         // Cold run: empty cache. Every chunk is a miss, computed from audio and saved.
@@ -92,18 +92,18 @@ public class SourceSoundThumbnailTests
         const int sampleRate = 192000;
         const int chunkCount = 4;
         const int samplesPerChunk = 4096;
-        var duration = TimeSpan.FromHours(5);
+        var duration = MediaTime.FromSeconds(18000);
         string path = TestMediaHelper.CreateTestAudioFile(
             sampleRate: sampleRate,
             channels: 2,
-            durationSeconds: duration.TotalSeconds);
+            durationSeconds: duration.ToSeconds());
         var soundSource = new SoundSource();
         soundSource.ReadFrom(new Uri(path));
 
         var sound = new SourceSound
         {
             Source = { Value = soundSource },
-            TimeRange = new TimeRange(TimeSpan.Zero, duration),
+            TimeRange = new TimeRange(MediaTime.Zero, duration),
         };
 
         var chunks = await CollectAsync(sound, chunkCount, samplesPerChunk, new FakeWaveformCache());
@@ -147,11 +147,11 @@ public class SourceSoundThumbnailTests
             Source = { Value = soundSource }
         };
 
-        bool result = sound.TryGetOriginalDuration(out TimeSpan duration);
+        bool result = sound.TryGetOriginalDuration(out MediaTime duration);
 
         Assert.That(result, Is.False,
             "音声トラックのないソースは元の長さを持たない (#2183)");
-        Assert.That(duration, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(duration, Is.EqualTo(MediaTime.Zero));
     }
 
     private static async Task<List<WaveformChunk>> CollectAsync(
@@ -169,7 +169,7 @@ public class SourceSoundThumbnailTests
     {
         public int SaveCount { get; private set; }
 
-        public bool TryGetWaveform(string cacheKey, TimeSpan time, TimeSpan threshold, out float minValue, out float maxValue)
+        public bool TryGetWaveform(string cacheKey, MediaTime time, MediaTime threshold, out float minValue, out float maxValue)
         {
             if (hitMin is { } min && hitMax is { } max)
             {
@@ -183,15 +183,15 @@ public class SourceSoundThumbnailTests
             return false;
         }
 
-        public void SaveWaveform(string cacheKey, TimeSpan time, float minValue, float maxValue) => SaveCount++;
+        public void SaveWaveform(string cacheKey, MediaTime time, float minValue, float maxValue) => SaveCount++;
 
-        public bool TryGet(string cacheKey, TimeSpan time, TimeSpan threshold, out Bitmap? bitmap)
+        public bool TryGet(string cacheKey, MediaTime time, MediaTime threshold, out Bitmap? bitmap)
         {
             bitmap = null;
             return false;
         }
 
-        public void Save(string cacheKey, TimeSpan time, Bitmap bitmap) => throw new NotSupportedException();
+        public void Save(string cacheKey, MediaTime time, Bitmap bitmap) => throw new NotSupportedException();
 
         public void Invalidate(string cacheKey)
         {

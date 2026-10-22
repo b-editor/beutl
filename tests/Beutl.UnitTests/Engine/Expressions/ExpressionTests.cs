@@ -36,7 +36,7 @@ public class ExpressionTests
     public void TryParse_WithSupportedConversion_PreservesEvaluation(string source, float expected)
     {
         Assert.That(Expression.TryParse<float>(source, out var expression, out string? error), Is.True, error);
-        Assert.That(expression!.Evaluate(TestHelper.CreateExpressionContext(TimeSpan.Zero)), Is.EqualTo(expected));
+        Assert.That(expression!.Evaluate(TestHelper.CreateExpressionContext(MediaTime.Zero)), Is.EqualTo(expected));
     }
 
     [TestCase("(string)null")]
@@ -46,7 +46,7 @@ public class ExpressionTests
     public void TryParse_WithTypedNull_ReturnsDefaultValue(string source)
     {
         Assert.That(Expression.TryParse<float>(source, out var expression, out string? error), Is.True, error);
-        Assert.That(expression!.Evaluate(TestHelper.CreateExpressionContext(TimeSpan.Zero)), Is.Zero);
+        Assert.That(expression!.Evaluate(TestHelper.CreateExpressionContext(MediaTime.Zero)), Is.Zero);
     }
 
     [TestCase("0", false)]
@@ -54,14 +54,14 @@ public class ExpressionTests
     public void TryParse_NumericToBool_PreservesConversion(string source, bool expected)
     {
         Assert.That(Expression.TryParse<bool>(source, out var expression, out string? error), Is.True, error);
-        Assert.That(expression!.Evaluate(TestHelper.CreateExpressionContext(TimeSpan.Zero)), Is.EqualTo(expected));
+        Assert.That(expression!.Evaluate(TestHelper.CreateExpressionContext(MediaTime.Zero)), Is.EqualTo(expected));
     }
 
     [Test]
     public void TryParse_WithReferenceAndGenericResults_AcceptsAssignableValues()
     {
         Assert.That(Expression.TryParse<IEnumerable<int>>("new[] { 1, 2 }", out var expression, out string? error), Is.True, error);
-        Assert.That(expression!.Evaluate(TestHelper.CreateExpressionContext(TimeSpan.Zero)), Is.EqualTo(new[] { 1, 2 }));
+        Assert.That(expression!.Evaluate(TestHelper.CreateExpressionContext(MediaTime.Zero)), Is.EqualTo(new[] { 1, 2 }));
         Assert.That(Expression.TryParse<Beutl.Media.Brush>("new SolidColorBrush()", out _, out error), Is.True, error);
         Assert.That(Expression.TryParse<int?>("1", out _, out error), Is.True, error);
     }
@@ -135,7 +135,7 @@ public class ExpressionTests
 
         Assert.That(expression.Validate(out string? error), Is.False);
         Assert.That(error, Does.Contain("synchronous").And.Contain("await"));
-        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var context = TestHelper.CreateExpressionContext(MediaTime.Zero);
         Assert.That(() => expression.Evaluate(context),
             Throws.TypeOf<ExpressionException>().With.Message.Contains("synchronous"));
     }
@@ -151,7 +151,7 @@ public class ExpressionTests
             await dispatcher.InvokeAsync(() =>
             {
                 var expression = new StringExpression<int>($"await System.Threading.Tasks.Task.Delay({delay}); 42");
-                var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+                var context = TestHelper.CreateExpressionContext(MediaTime.Zero);
 
                 Assert.That(() => expression.Evaluate(context), Throws.TypeOf<ExpressionException>());
                 Assert.That(expression.Validate(out string? error), Is.False);
@@ -173,7 +173,7 @@ public class ExpressionTests
     {
         // Arrange
         var expression = new StringExpression<double>("1 + 2 * 3");
-        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var context = TestHelper.CreateExpressionContext(MediaTime.Zero);
 
         // Act
         double result = expression.Evaluate(context);
@@ -187,7 +187,7 @@ public class ExpressionTests
     {
         // Arrange
         var expression = new StringExpression<double>("Sin(0.0)");
-        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var context = TestHelper.CreateExpressionContext(MediaTime.Zero);
 
         // Act
         double result = expression.Evaluate(context);
@@ -201,7 +201,7 @@ public class ExpressionTests
     {
         // Arrange
         var expression = new StringExpression<double>("Time");
-        var context = TestHelper.CreateExpressionContext(TimeSpan.FromSeconds(5));
+        var context = TestHelper.CreateExpressionContext(MediaTime.FromSeconds(5));
 
         // Act
         double result = expression.Evaluate(context);
@@ -215,7 +215,7 @@ public class ExpressionTests
     {
         // Arrange
         var expression = new StringExpression<double>("invalid syntax ++");
-        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var context = TestHelper.CreateExpressionContext(MediaTime.Zero);
 
         // Act & Assert
         Assert.Throws<ExpressionException>(() => expression.Evaluate(context));
@@ -226,7 +226,7 @@ public class ExpressionTests
     {
         // Arrange
         var expression = new StringExpression<int>("1 + 2");
-        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var context = TestHelper.CreateExpressionContext(MediaTime.Zero);
 
         // Act
         int result = expression.Evaluate(context);
@@ -240,7 +240,7 @@ public class ExpressionTests
     {
         // Arrange
         var expression = new StringExpression<bool>("1 > 0");
-        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var context = TestHelper.CreateExpressionContext(MediaTime.Zero);
 
         // Act
         bool result = expression.Evaluate(context);
@@ -254,7 +254,7 @@ public class ExpressionTests
     {
         // Arrange
         var expression = new StringExpression<string>("\"Hello\"");
-        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var context = TestHelper.CreateExpressionContext(MediaTime.Zero);
 
         // Act
         string result = expression.Evaluate(context);

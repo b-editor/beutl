@@ -21,7 +21,7 @@ public class ElementStructureServiceTests
     [SetUp]
     public void Setup()
     {
-        _harness = new SceneHistoryHarness("beutl_life", start: TimeSpan.Zero, duration: TimeSpan.FromSeconds(60));
+        _harness = new SceneHistoryHarness("beutl_life", start: MediaTime.Zero, duration: MediaTime.FromSeconds(60));
         _scene = _harness.Scene;
         _history = _harness.History;
         _service = new ElementStructureService(_history);
@@ -33,18 +33,18 @@ public class ElementStructureServiceTests
         _harness.Dispose();
     }
 
-    private Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0)
+    private Element AddElement(MediaTime start, MediaTime length, int zIndex = 0)
         => _harness.AddElement(start, length, zIndex);
 
     [Test]
     public void Split_LaterFailureRollsBackEarlierClipsAndWritesNoFile()
     {
-        Element first = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
+        Element first = AddElement(MediaTime.Zero, MediaTime.FromSeconds(10));
         string directory = Path.GetDirectoryName(_scene.Uri!.LocalPath)!;
         var second = new FailingSplitElement
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(10),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(10),
             ZIndex = 1,
             Uri = new Uri(Path.Combine(directory, "second.belm")),
         };
@@ -53,10 +53,10 @@ public class ElementStructureServiceTests
         int before = _history.UndoCount;
         string[] files = Directory.GetFiles(directory, "*.belm", SearchOption.AllDirectories);
         second.FailSerialization = true;
-        Assert.That(() => _service.Split(_scene, [first, second], TimeSpan.FromSeconds(4)), Throws.InstanceOf<IOException>());
+        Assert.That(() => _service.Split(_scene, [first, second], MediaTime.FromSeconds(4)), Throws.InstanceOf<IOException>());
         Assert.Multiple(() =>
         {
-            Assert.That(first.Length, Is.EqualTo(TimeSpan.FromSeconds(10)));
+            Assert.That(first.Length, Is.EqualTo(MediaTime.FromSeconds(10)));
             Assert.That(_scene.Children, Has.Count.EqualTo(2));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
             Assert.That(_history.HasPendingOperations, Is.False);
@@ -83,8 +83,8 @@ public class ElementStructureServiceTests
     [Test]
     public void Delete_RemovesAllAndCommitsOnce()
     {
-        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        Element e1 = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element e2 = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
         int before = _history.UndoCount;
 
         _service.Delete(_scene, [e1, e2]);
@@ -100,8 +100,8 @@ public class ElementStructureServiceTests
     [Test]
     public void Delete_PrunesRemovedIdsFromGroups_AndDisbandsShrunkGroup()
     {
-        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        Element e1 = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element e2 = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
         _service.Group(_scene, [e1.Id, e2.Id]);
 
         _service.Delete(_scene, [e1]);
@@ -113,9 +113,9 @@ public class ElementStructureServiceTests
     [Test]
     public void Delete_KeepsGroupWithRemainingMembers()
     {
-        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
-        Element e3 = AddElement(TimeSpan.FromSeconds(9), TimeSpan.FromSeconds(2));
+        Element e1 = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element e2 = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
+        Element e3 = AddElement(MediaTime.FromSeconds(9), MediaTime.FromSeconds(2));
         _service.Group(_scene, [e1.Id, e2.Id, e3.Id]);
 
         _service.Delete(_scene, [e1]);
@@ -127,7 +127,7 @@ public class ElementStructureServiceTests
     [Test]
     public void Delete_Undo_PutsTheElementBackOnItsLayer()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 2);
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 2);
         _history.Commit("Setup");
 
         _service.Delete(_scene, [element]);
@@ -154,11 +154,11 @@ public class ElementStructureServiceTests
     public void Split_ShortBothSides_DoesNotCommit()
     {
         // Splitting a ~1-frame element leaves both halves under minDuration, so it must bail.
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromMilliseconds(20));
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(0.02));
         int before = _history.UndoCount;
         int childrenBefore = _scene.Children.Count;
 
-        _service.Split(_scene, [element], element.Start + TimeSpan.FromMilliseconds(10));
+        _service.Split(_scene, [element], element.Start + MediaTime.FromSeconds(0.01));
 
         Assert.Multiple(() =>
         {
@@ -170,11 +170,11 @@ public class ElementStructureServiceTests
     [Test]
     public void Split_AtMidPoint_ProducesBackwardClipAndCommits()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4));
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(4));
         _history.Commit("Add element");
         int before = _history.UndoCount;
         Element[] childrenBefore = [.. _scene.Children];
-        TimeSpan splitAt = TimeSpan.FromSeconds(3);
+        MediaTime splitAt = MediaTime.FromSeconds(3);
 
         _service.Split(_scene, [element], splitAt);
 
@@ -182,7 +182,7 @@ public class ElementStructureServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(added, Has.Length.EqualTo(1));
-            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(added[0].Start, Is.EqualTo(splitAt));
             Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore.Length + 1));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
@@ -195,27 +195,27 @@ public class ElementStructureServiceTests
     [Test]
     public void Split_ShiftsTheLocalKeyFramesOfNodePortsToo()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4));
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(4));
         var graph = new GraphModel();
         var drawable = new NodeGraphDrawable { Model = { Value = graph } };
         var port = NodeGraphTestHelpers.Source(graph, 0f, "Amount");
-        ((IAnimatablePropertyAdapter)port.Property!).Animation = TestAnimations.Linear(0f, 1f, TimeSpan.FromSeconds(4));
+        ((IAnimatablePropertyAdapter)port.Property!).Animation = TestAnimations.Linear(0f, 1f, MediaTime.FromSeconds(4));
         element.AddObject(drawable);
         _history.Commit("Add element");
         Element[] childrenBefore = [.. _scene.Children];
 
-        _service.Split(_scene, [element], TimeSpan.FromSeconds(3));
+        _service.Split(_scene, [element], MediaTime.FromSeconds(3));
         Element back = _scene.Children.Except(childrenBefore).Single();
         var keyFrames = (IKeyFrameAnimation)new ObjectSearcher(back, v => v is IKeyFrameAnimation).Search()!;
 
         Assert.That(keyFrames.KeyFrames.Select(k => k.KeyTime),
-            Is.EqualTo(new[] { TimeSpan.FromSeconds(-2), TimeSpan.FromSeconds(2) }));
+            Is.EqualTo(new[] { MediaTime.FromSeconds(-2), MediaTime.FromSeconds(2) }));
     }
 
     [Test]
     public void Split_LeavesTheNewCutWithoutATransition()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4));
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(4));
         var enter = new CrossDissolveTransition();
         var exit = new WipeTransition { Direction = { Value = ClipTransitionDirection.TopToBottom } };
         element.EnterTransition = enter;
@@ -223,7 +223,7 @@ public class ElementStructureServiceTests
         _history.Commit("Add element");
         Element[] childrenBefore = [.. _scene.Children];
 
-        _service.Split(_scene, [element], TimeSpan.FromSeconds(3));
+        _service.Split(_scene, [element], MediaTime.FromSeconds(3));
         Element back = _scene.Children.Except(childrenBefore).Single();
 
         Assert.Multiple(() =>
@@ -239,8 +239,8 @@ public class ElementStructureServiceTests
     [Test]
     public void Group_TwoIds_AddsGroupAndCommits()
     {
-        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        Element e1 = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element e2 = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
         int before = _history.UndoCount;
         int groupsBefore = _scene.Groups.Count;
 
@@ -257,7 +257,7 @@ public class ElementStructureServiceTests
     [Test]
     public void Group_SingleId_DoesNotCreateGroup()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         int beforeUndo = _history.UndoCount;
         int beforeGroups = _scene.Groups.Count;
 
@@ -274,8 +274,8 @@ public class ElementStructureServiceTests
     [Test]
     public void Group_SingleId_PullsOutOfExistingGroup()
     {
-        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        Element e1 = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element e2 = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
         _service.Group(_scene, [e1.Id, e2.Id]);
 
         _service.Group(_scene, [e1.Id]);
@@ -286,7 +286,7 @@ public class ElementStructureServiceTests
     [Test]
     public void Ungroup_IdsNotInAnyGroup_IsNoOp()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         int beforeUndo = _history.UndoCount;
         int beforeGroups = _scene.Groups.Count;
 
@@ -303,9 +303,9 @@ public class ElementStructureServiceTests
     [Test]
     public void Ungroup_RemovesIdsFromGroups_AndCommits()
     {
-        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
-        Element e3 = AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2));
+        Element e1 = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element e2 = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
+        Element e3 = AddElement(MediaTime.FromSeconds(10), MediaTime.FromSeconds(2));
         _service.Group(_scene, [e1.Id, e2.Id, e3.Id]);
         int before = _history.UndoCount;
 
@@ -321,10 +321,10 @@ public class ElementStructureServiceTests
     [Test]
     public void Group_LockedElementId_IsExcluded()
     {
-        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element locked = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         locked.IsLocked = true;
-        Element e1 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
-        Element e2 = AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2));
+        Element e1 = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
+        Element e2 = AddElement(MediaTime.FromSeconds(10), MediaTime.FromSeconds(2));
 
         _service.Group(_scene, [locked.Id, e1.Id, e2.Id]);
 
@@ -338,8 +338,8 @@ public class ElementStructureServiceTests
     [Test]
     public void Ungroup_LockedElementId_IsIgnored()
     {
-        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        Element e1 = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element e2 = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
         _service.Group(_scene, [e1.Id, e2.Id]);
         e1.IsLocked = true;
         int before = _history.UndoCount;
@@ -356,8 +356,8 @@ public class ElementStructureServiceTests
     [Test]
     public void Ungroup_EditableMember_KeepsGroupWhenOnlyLockedMemberWouldRemain()
     {
-        Element editable = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        Element locked = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        Element editable = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element locked = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
         _service.Group(_scene, [editable.Id, locked.Id]);
         locked.IsLocked = true;
         int before = _history.UndoCount;
@@ -377,8 +377,8 @@ public class ElementStructureServiceTests
     [Test]
     public void Group_SingleEditableMember_KeepsGroupWhenOnlyLockedMemberWouldRemain()
     {
-        Element editable = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        Element locked = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        Element editable = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element locked = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
         _service.Group(_scene, [editable.Id, locked.Id]);
         locked.IsLocked = true;
         int before = _history.UndoCount;
@@ -397,8 +397,8 @@ public class ElementStructureServiceTests
     [Test]
     public void Delete_EditableMember_PrunesIdFromLockedGroup_NoStaleId()
     {
-        Element editable = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        Element locked = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        Element editable = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element locked = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
         _service.Group(_scene, [editable.Id, locked.Id]);
         locked.IsLocked = true;
 
@@ -417,9 +417,9 @@ public class ElementStructureServiceTests
     [Test]
     public void Group_EditableMemberEntangledWithLock_RefusesWithoutOverlappingGroups()
     {
-        Element a = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        Element b = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
-        Element c = AddElement(TimeSpan.FromSeconds(9), TimeSpan.FromSeconds(2));
+        Element a = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element b = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
+        Element c = AddElement(MediaTime.FromSeconds(9), MediaTime.FromSeconds(2));
         _service.Group(_scene, [a.Id, b.Id]);
         a.IsLocked = true;
 
@@ -437,9 +437,9 @@ public class ElementStructureServiceTests
     [Test]
     public void Delete_LockedElement_IsSkipped()
     {
-        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element locked = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         locked.IsLocked = true;
-        Element free = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        Element free = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
         int before = _history.UndoCount;
 
         _service.Delete(_scene, [locked, free]);
@@ -455,7 +455,7 @@ public class ElementStructureServiceTests
     [Test]
     public void Delete_AllLocked_DoesNotCommit()
     {
-        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element locked = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         locked.IsLocked = true;
         int before = _history.UndoCount;
 
@@ -471,7 +471,7 @@ public class ElementStructureServiceTests
     [Test]
     public void Delete_LayerLockedElement_IsSkipped()
     {
-        Element onLockedLayer = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 3);
+        Element onLockedLayer = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 3);
         _scene.Layers.Add(new TimelineLayer { ZIndex = 3, IsLocked = true });
         int before = _history.UndoCount;
 
@@ -487,11 +487,11 @@ public class ElementStructureServiceTests
     [Test]
     public void Split_LockedElement_IsNotSplit()
     {
-        Element locked = AddElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(4));
+        Element locked = AddElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(4));
         locked.IsLocked = true;
         int beforeCount = _scene.Children.Count;
 
-        _service.Split(_scene, [locked], TimeSpan.FromSeconds(2));
+        _service.Split(_scene, [locked], MediaTime.FromSeconds(2));
 
         Assert.That(_scene.Children.Count, Is.EqualTo(beforeCount));
     }

@@ -18,7 +18,7 @@ public interface IRenderer : IDisposable
         (int)Math.Ceiling(FrameSize.Width * OutputScale),
         (int)Math.Ceiling(FrameSize.Height * OutputScale));
 
-    TimeSpan Time { get; }
+    MediaTime Time { get; }
 
     bool IsDisposed { get; }
 

@@ -14,5 +14,5 @@ public interface ISceneSettingsService
     /// and <paramref name="duration"/> to <paramref name="scene"/>. Returns true and
     /// commits one <c>ChangeSceneSettings</c> when at least one field differs;
     /// otherwise false and no commit.</summary>
-    bool Apply(Scene scene, PixelSize frameSize, TimeSpan start, TimeSpan duration);
+    bool Apply(Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration);
 }

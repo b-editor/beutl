@@ -15,7 +15,7 @@ namespace Beutl.Editor.Components.LibraryTab;
 public sealed partial class LibraryTabExtension
 {
     private static readonly ILogger s_logger = Log.CreateLogger<LibraryTabExtension>();
-    private static readonly TimeSpan s_defaultElementLength = TimeSpan.FromSeconds(5);
+    private static readonly MediaTime s_defaultElementLength = MediaTime.FromSeconds(5);
 
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
@@ -94,9 +94,9 @@ public sealed partial class LibraryTabExtension
     // The cancellation token stops the add when the user switches editors while it is being prepared.
     private static async Task AddAtPlayheadAsync(
         IEditorContext editorContext, Scene scene, CancellationToken cancellationToken,
-        Func<TimeSpan, int, ElementDescription> createDescription)
+        Func<MediaTime, int, ElementDescription> createDescription)
     {
-        (TimeSpan start, int layer) = PlayheadPlacement.Find(editorContext, scene);
+        (MediaTime start, int layer) = PlayheadPlacement.Find(editorContext, scene);
         ElementDescription description = createDescription(start, layer);
 
         // An open timeline also scrolls to the new clip and reports the failure itself.

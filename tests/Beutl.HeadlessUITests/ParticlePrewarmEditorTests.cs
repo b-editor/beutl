@@ -51,25 +51,25 @@ public sealed class ParticlePrewarmEditorTests
         {
             window.Show();
             HeadlessTestHelpers.Render(3);
-            var editor = view.GetVisualDescendants().OfType<TimeSpanEditor>().Single();
+            var editor = view.GetVisualDescendants().OfType<MediaTimeEditor>().Single();
             var input = editor.GetVisualDescendants().OfType<TextBox>().Single();
             Assert.That(editor.Header, Is.EqualTo(GraphicsStrings.ParticleEmitter_PrewarmDuration));
             Assert.That(editor.HoverInfo, Does.Contain("00:01:00"));
-            Assert.That(editor.Value, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(editor.Value, Is.EqualTo(MediaTime.Zero));
             Assert.That(input.Focus(), Is.True);
             input.Clear();
             window.KeyTextInput("00:00:02.2500000");
             Assert.That(done.Focus(), Is.True);
             HeadlessTestHelpers.Render(3);
 
-            Assert.That(emitter.PrewarmDuration.Value, Is.EqualTo(TimeSpan.FromSeconds(2.25)));
+            Assert.That(emitter.PrewarmDuration.Value, Is.EqualTo(MediaTime.FromSeconds(2.25)));
             Assert.That(history.UndoCount, Is.EqualTo(1));
             Assert.That(history.Undo(), Is.True);
             HeadlessTestHelpers.Render(3);
-            Assert.That(editor.Value, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(editor.Value, Is.EqualTo(MediaTime.Zero));
             Assert.That(history.Redo(), Is.True);
             HeadlessTestHelpers.Render(3);
-            Assert.That(editor.Value, Is.EqualTo(TimeSpan.FromSeconds(2.25)));
+            Assert.That(editor.Value, Is.EqualTo(MediaTime.FromSeconds(2.25)));
             Assert.That(input.Bounds.Width, Is.GreaterThan(0));
             Assert.That(input.TranslatePoint(default, view)!.Value.X + input.Bounds.Width,
                 Is.LessThanOrEqualTo(view.Bounds.Width + 1));
@@ -79,13 +79,13 @@ public sealed class ParticlePrewarmEditorTests
             window.KeyTextInput(unsupportedInput);
             Assert.That(done.Focus(), Is.True);
             HeadlessTestHelpers.Render(3);
-            Assert.That(emitter.PrewarmDuration.Value, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(editor.Value, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(input.Text, Is.EqualTo(editor.Value.ToString()));
+            Assert.That(emitter.PrewarmDuration.Value, Is.EqualTo(MediaTime.Zero));
+            Assert.That(editor.Value, Is.EqualTo(MediaTime.Zero));
+            Assert.That(input.Text, Is.EqualTo(editor.Value.ToTimeSpan().ToString()));
             Assert.That(history.Undo(), Is.True);
             HeadlessTestHelpers.Render(3);
-            Assert.That(editor.Value, Is.EqualTo(TimeSpan.FromSeconds(2.25)));
-            Assert.That(input.Text, Is.EqualTo(editor.Value.ToString()));
+            Assert.That(editor.Value, Is.EqualTo(MediaTime.FromSeconds(2.25)));
+            Assert.That(input.Text, Is.EqualTo(editor.Value.ToTimeSpan().ToString()));
         }
         finally
         {

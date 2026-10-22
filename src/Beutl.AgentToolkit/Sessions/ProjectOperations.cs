@@ -46,7 +46,7 @@ public static class ProjectOperations
         var scene = new Scene(options.Width, options.Height, projectName)
         {
             Uri = CreateFileUri(scenePath),
-            Duration = options.Duration
+            Duration = MediaTime.FromTimeSpan(options.Duration)
         };
 
 #pragma warning disable RS0030 // Writes a new project's rates until #2885 stores them as a rational rate.
@@ -82,8 +82,8 @@ public static class ProjectOperations
         var scene = new Scene(options.Width, options.Height, sceneName)
         {
             Uri = DeriveUniqueSceneUri(project, projectDirectory, sceneName, exclude: null),
-            Start = options.Start,
-            Duration = options.Duration
+            Start = MediaTime.FromTimeSpan(options.Start),
+            Duration = MediaTime.FromTimeSpan(options.Duration)
         };
 
         project.Items.Add(scene);

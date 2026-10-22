@@ -43,12 +43,12 @@ public class RecoveryProtectedElementTests
         byte[] original = File.ReadAllBytes(elementPath);
         Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         Element element = scene.Children.Single();
-        TimeSpan start = element.Start;
+        MediaTime start = element.Start;
         using var harness = new HistoryHarness(scene);
         var resize = new ElementResizeService(harness.History);
 
         resize.Resize(scene,
-            [new ElementResizeRequest(element, start + TimeSpan.FromSeconds(1), element.Length, element.ZIndex)],
+            [new ElementResizeRequest(element, start + MediaTime.FromSeconds(1), element.Length, element.ZIndex)],
             ripple: false);
         CoreSerializer.StoreToUri(scene, sceneUri);
         Element reopened = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
@@ -78,7 +78,7 @@ public class RecoveryProtectedElementTests
         Assert.That(SceneRecovery.HoldsRecoveryBlocker(unavailable), Is.True);
 
         bool removed = objects.Remove(element, unavailable);
-        TimeSpan moved = element.Start + TimeSpan.FromSeconds(1);
+        MediaTime moved = element.Start + MediaTime.FromSeconds(1);
         resize.Resize(scene, [new ElementResizeRequest(element, moved, element.Length, element.ZIndex)], ripple: false);
         CoreSerializer.StoreToUri(scene, sceneUri);
         Element reopened = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
@@ -248,7 +248,7 @@ public class RecoveryProtectedElementTests
     public void Observe_FollowsRepairUndoAndRedo()
     {
         using var harness = new SceneHistoryHarness("beutl_recovery_observe");
-        Element element = harness.AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        Element element = harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(1));
         FallbackEngineObject fallback = RecoveryBlockers.CreateUnmigratedObject();
         element.AddObject(fallback);
         element.SuppressedStorageSource = new SuppressedStorageSource([], element.Uri!);
@@ -270,7 +270,7 @@ public class RecoveryProtectedElementTests
     public void CanRepair_AllowsOnlyContentThatHoldsWhatCouldNotBeLoaded()
     {
         using var harness = new SceneHistoryHarness("beutl_recovery_repair");
-        Element element = harness.AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        Element element = harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(1));
         var holder = new RectShape();
         FallbackEngineObject unavailable = RecoveryBlockers.CreateUnmigratedObject();
         element.AddObject(unavailable);
@@ -294,7 +294,7 @@ public class RecoveryProtectedElementTests
         // The unreadable value was dropped while loading, so no object holds it any more. Replacing
         // content is then the only way to repair the element, as it was before it became read-only.
         using var harness = new SceneHistoryHarness("beutl_recovery_dropped");
-        Element element = harness.AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        Element element = harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(1));
         var shape = new RectShape();
         element.AddObject(shape);
         element.SuppressedStorageSource = new SuppressedStorageSource([], element.Uri!);
@@ -310,39 +310,39 @@ public class RecoveryProtectedElementTests
     [Test]
     public void ProtectedFollower_IsARippleAnchor()
     {
-        using var harness = new SceneHistoryHarness("beutl_recovery_ripple", start: TimeSpan.Zero, duration: TimeSpan.FromSeconds(60));
-        Element removed = harness.AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
-        Element follower = harness.AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2), zIndex: 0);
-        Element grown = harness.AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2), zIndex: 1);
-        Element secondFollower = harness.AddElement(TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(2), zIndex: 1);
+        using var harness = new SceneHistoryHarness("beutl_recovery_ripple", start: MediaTime.Zero, duration: MediaTime.FromSeconds(60));
+        Element removed = harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), zIndex: 0);
+        Element follower = harness.AddElement(MediaTime.FromSeconds(4), MediaTime.FromSeconds(2), zIndex: 0);
+        Element grown = harness.AddElement(MediaTime.FromSeconds(10), MediaTime.FromSeconds(2), zIndex: 1);
+        Element secondFollower = harness.AddElement(MediaTime.FromSeconds(12), MediaTime.FromSeconds(2), zIndex: 1);
         follower.SuppressedStorageSource = new SuppressedStorageSource([], follower.Uri!);
         secondFollower.SuppressedStorageSource = new SuppressedStorageSource([], secondFollower.Uri!);
 
         new ElementStructureService(harness.History).Delete(harness.Scene, [removed], ripple: true);
         // Growing the right edge from 12 to 15 would overlap the protected follower at [12,14].
         new ElementResizeService(harness.History).Resize(harness.Scene,
-            [new ElementResizeRequest(grown, grown.Start, TimeSpan.FromSeconds(5), grown.ZIndex)],
+            [new ElementResizeRequest(grown, grown.Start, MediaTime.FromSeconds(5), grown.ZIndex)],
             ripple: true);
 
         Assert.Multiple(() =>
         {
-            Assert.That(follower.Start, Is.EqualTo(TimeSpan.FromSeconds(4)), "Shifting it would not be saved.");
-            Assert.That(secondFollower.Start, Is.EqualTo(TimeSpan.FromSeconds(12)));
-            Assert.That(grown.Range.End, Is.EqualTo(TimeSpan.FromSeconds(12)), "The grow stops at the protected follower.");
+            Assert.That(follower.Start, Is.EqualTo(MediaTime.FromSeconds(4)), "Shifting it would not be saved.");
+            Assert.That(secondFollower.Start, Is.EqualTo(MediaTime.FromSeconds(12)));
+            Assert.That(grown.Range.End, Is.EqualTo(MediaTime.FromSeconds(12)), "The grow stops at the protected follower.");
         });
     }
 
     [Test]
     public void CloseAllGaps_DoesNotMoveAProtectedElement()
     {
-        using var harness = new SceneHistoryHarness("beutl_recovery_gaps", start: TimeSpan.Zero, duration: TimeSpan.FromSeconds(60));
-        harness.AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
-        Element protectedElement = harness.AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2));
+        using var harness = new SceneHistoryHarness("beutl_recovery_gaps", start: MediaTime.Zero, duration: MediaTime.FromSeconds(60));
+        harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(2));
+        Element protectedElement = harness.AddElement(MediaTime.FromSeconds(4), MediaTime.FromSeconds(2));
         protectedElement.SuppressedStorageSource = new SuppressedStorageSource([], protectedElement.Uri!);
 
         harness.Scene.CloseAllGaps();
 
-        Assert.That(protectedElement.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
+        Assert.That(protectedElement.Start, Is.EqualTo(MediaTime.FromSeconds(4)));
     }
 
     [Test]
@@ -383,7 +383,7 @@ public class RecoveryProtectedElementTests
             var element = new Element
             {
                 Name = $"Protected{i}",
-                Start = TimeSpan.FromSeconds(i),
+                Start = MediaTime.FromSeconds(i),
                 Uri = new Uri(Path.Combine(_root, $"protected{i}.belm")),
             };
             element.SuppressedStorageSource = new SuppressedStorageSource([], element.Uri);
@@ -418,8 +418,8 @@ public class RecoveryProtectedElementTests
             var element = new Element
             {
                 Name = $"element{i}",
-                Start = TimeSpan.FromSeconds(i * 2),
-                Length = TimeSpan.FromSeconds(1),
+                Start = MediaTime.FromSeconds(i * 2),
+                Length = MediaTime.FromSeconds(1),
                 Uri = new Uri(elementPaths[i]),
             };
             element.AddObject(new RectShape());

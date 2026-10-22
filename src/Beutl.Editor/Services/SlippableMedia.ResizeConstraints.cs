@@ -2,83 +2,83 @@
 
 internal static partial class SlippableMedia
 {
-    internal sealed class ResizeConstraints(TimeSpan elementStart, TimeSpan elementLength, List<Target> targets,
-        TimeSpan? providerDuration = null, Func<TimeSpan, TimeSpan, List<Target>>? targetsAt = null)
+    internal sealed class ResizeConstraints(MediaTime elementStart, MediaTime elementLength, List<Target> targets,
+        MediaTime? providerDuration = null, Func<MediaTime, MediaTime, List<Target>>? targetsAt = null)
     {
         public bool HasMonotonicDuration => targets.All(t => !t.HasVariableDuration);
 
         public bool HasSharedClock => targetsAt != null || targets.Any(t => t.HasSharedClock);
 
-        private List<Target> Targets(TimeSpan length, TimeSpan startDelta = default)
+        private List<Target> Targets(MediaTime length, MediaTime startDelta = default)
             => targetsAt?.Invoke(length, startDelta) ?? targets;
 
-        public TimeSpan ClampEdgeDelta(TimeSpan delta, bool leftEdge)
+        public MediaTime ClampEdgeDelta(MediaTime delta, bool leftEdge)
             => leftEdge ? ClampStart(elementStart + delta) - elementStart
                 : ClampLength(elementLength + delta) - elementLength;
 
-        public TimeSpan ClampStart(TimeSpan requestedStart)
+        public MediaTime ClampStart(MediaTime requestedStart)
         {
-            TimeSpan end = elementStart + elementLength;
+            MediaTime end = elementStart + elementLength;
             if (requestedStart > end) requestedStart = end;
-            TimeSpan delta = requestedStart - elementStart;
-            bool Fits(TimeSpan length) => FitsProvider(length, allowRecovery: true)
+            MediaTime delta = requestedStart - elementStart;
+            bool Fits(MediaTime length) => FitsProvider(length, allowRecovery: true)
                 && Targets(length, elementLength - length).All(t => t.Fits(length, elementLength - length, allowRecovery: true));
-            TimeSpan result = elementLength - ClampDelta(delta, d => Fits(elementLength - d));
+            MediaTime result = elementLength - ClampDelta(delta, d => Fits(elementLength - d));
             if (!HasMonotonicDuration)
                 result = SearchDurationPhases(result, end - requestedStart, delta, Fits, movingStart: true);
             return end - result;
         }
 
-        public TimeSpan ClampLength(TimeSpan requestedLength, TimeSpan? start = null)
+        public MediaTime ClampLength(MediaTime requestedLength, MediaTime? start = null)
         {
-            TimeSpan startDelta = (start ?? elementStart) - elementStart;
-            TimeSpan initialLength = startDelta == TimeSpan.Zero ? elementLength : TimeSpan.Zero;
+            MediaTime startDelta = (start ?? elementStart) - elementStart;
+            MediaTime initialLength = startDelta == MediaTime.Zero ? elementLength : MediaTime.Zero;
             // A loop period can depend on the new element length. Validate each
             // requested duration even if it is below a previously valid maximum.
-            bool Fits(TimeSpan length) => FitsProvider(length, allowRecovery: true)
+            bool Fits(MediaTime length) => FitsProvider(length, allowRecovery: true)
                 && Targets(length, startDelta).All(t => t.Fits(length, startDelta, allowRecovery: true));
-            TimeSpan result = initialLength + ClampDelta(requestedLength - initialLength, d => Fits(initialLength + d));
+            MediaTime result = initialLength + ClampDelta(requestedLength - initialLength, d => Fits(initialLength + d));
             return HasMonotonicDuration ? result : SearchDurationPhases(result, requestedLength, startDelta, Fits);
         }
 
         // Null means unbounded; zero means a known source is exhausted.
-        public TimeSpan? GetMaximumDuration(TimeSpan? start = null)
+        public MediaTime? GetMaximumDuration(MediaTime? start = null)
         {
-            if (Targets(elementLength).Any(t => !t.IsSupported)) return TimeSpan.Zero;
+            if (Targets(elementLength).Any(t => !t.IsSupported)) return MediaTime.Zero;
             if (targetsAt == null && providerDuration == null && targets.All(t => t.Total == null)) return null;
-            TimeSpan startDelta = (start ?? elementStart) - elementStart;
-            bool Fits(TimeSpan length) => FitsProvider(length, allowRecovery: false)
+            MediaTime startDelta = (start ?? elementStart) - elementStart;
+            bool Fits(MediaTime length) => FitsProvider(length, allowRecovery: false)
                 && Targets(length, startDelta).All(t => t.Fits(length, startDelta));
-            if (!Fits(TimeSpan.Zero)) return TimeSpan.Zero;
+            if (!Fits(MediaTime.Zero)) return MediaTime.Zero;
 
-            long maximum = long.MaxValue - Math.Max(0, (start ?? elementStart).Ticks);
-            long high = Math.Min(TimeSpan.TicksPerSecond, maximum);
-            while (Fits(TimeSpan.FromTicks(high)))
+            long maximum = long.MaxValue - Math.Max(0, (start ?? elementStart).Flicks);
+            long high = Math.Min(MediaTime.FlicksPerSecond, maximum);
+            while (Fits(new MediaTime(high)))
             {
                 if (high == maximum) return null;
                 high = high > maximum / 2 ? maximum : high * 2;
             }
-            TimeSpan result = ClampDelta(TimeSpan.FromTicks(high), Fits);
+            MediaTime result = ClampDelta(new MediaTime(high), Fits);
             if (HasMonotonicDuration) return result;
             // A failed probe is not an upper bound when the loop period grows
             // with the element. Also inspect the later start-phase boundaries.
-            TimeSpan searchEnd = TimeSpan.FromTicks(high);
+            MediaTime searchEnd = new MediaTime(high);
             foreach (Target target in targets)
                 foreach (MediaTimeMapping mapping in target.SampleMappings)
                 {
                     if (mapping.DurationLoopPhase(startDelta) is not { } phase) continue;
-                    long ticks = (long)Math.Clamp((decimal)phase.Phase - phase.DurationOffset, 0, maximum);
-                    if (ticks > searchEnd.Ticks) searchEnd = TimeSpan.FromTicks(ticks);
+                    long flicks = (long)Math.Clamp((decimal)phase.Phase - phase.DurationOffset, 0, maximum);
+                    if (flicks > searchEnd.Flicks) searchEnd = new MediaTime(flicks);
                 }
             return SearchDurationPhases(result, searchEnd, startDelta, Fits);
         }
 
-        internal TimeSpan SearchDurationPhases(TimeSpan baseline, TimeSpan requested, TimeSpan startDelta, Func<TimeSpan, bool> fits,
+        internal MediaTime SearchDurationPhases(MediaTime baseline, MediaTime requested, MediaTime startDelta, Func<MediaTime, bool> fits,
             bool movingStart = false)
         {
             if (baseline == requested || fits(requested)) return requested;
-            long low = Math.Min(baseline.Ticks, requested.Ticks);
-            long high = Math.Max(baseline.Ticks, requested.Ticks);
+            long low = Math.Min(baseline.Flicks, requested.Flicks);
+            long high = Math.Max(baseline.Flicks, requested.Flicks);
             var points = new SortedSet<long> { low, high };
             foreach (Target target in targets)
                 foreach (MediaTimeMapping mapping in target.SampleMappings)
@@ -99,9 +99,9 @@ internal static partial class SlippableMedia
                     for (long index = 0; index <= count; index++)
                     {
                         long cycle = count == 0 ? first : first + (long)((decimal)(last - first) * index / count);
-                        decimal tick = (decimal)(phase.Phase / cycle) - phase.DurationOffset;
+                        decimal flick = (decimal)(phase.Phase / cycle) - phase.DurationOffset;
                         for (int adjacent = -1; adjacent <= 1; adjacent++)
-                            if (tick + adjacent >= low && tick + adjacent <= high) points.Add((long)(tick + adjacent));
+                            if (flick + adjacent >= low && flick + adjacent <= high) points.Add((long)(flick + adjacent));
                     }
                 }
             long[] boundaries = points.ToArray();
@@ -112,10 +112,10 @@ internal static partial class SlippableMedia
                     points.Add(boundaries[i - 1] + (long)((decimal)width * part / 8));
             }
             IEnumerable<long> ordered = requested > baseline ? points.Reverse() : points;
-            TimeSpan previous = requested;
-            foreach (long tick in ordered)
+            MediaTime previous = requested;
+            foreach (long flick in ordered)
             {
-                TimeSpan candidate = TimeSpan.FromTicks(tick);
+                MediaTime candidate = new MediaTime(flick);
                 if (fits(candidate))
                     return candidate + ClampDelta(previous - candidate, d => fits(candidate + d));
                 previous = candidate;
@@ -130,7 +130,7 @@ internal static partial class SlippableMedia
             // phase equation, instead of reusing the requested start's phase.
             (decimal Phase, decimal Period)? Sample(long length)
             {
-                TimeSpan startDelta = elementLength - TimeSpan.FromTicks(length);
+                MediaTime startDelta = elementLength - new MediaTime(length);
                 if (mapping.DurationLoopPhase(startDelta) is not { } phase) return null;
                 decimal period = (decimal)length + phase.DurationOffset;
                 return period > 0 ? (phase.Phase, period) : null;
@@ -183,7 +183,7 @@ internal static partial class SlippableMedia
             }
         }
 
-        private bool FitsProvider(TimeSpan length, bool allowRecovery)
+        private bool FitsProvider(MediaTime length, bool allowRecovery)
             => providerDuration is not { } maximum
                 || length <= (allowRecovery && elementLength > maximum ? elementLength : maximum);
     }

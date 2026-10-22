@@ -56,7 +56,7 @@ public sealed partial class TimeStretchNode
 
         public AudioBuffer ProcessBuffer(AudioProcessContext context, float speed, int expectedOut, bool draining, bool forceReanchor)
         {
-            double outputStart = context.TimeRange.Start.TotalSeconds;
+            double outputStart = context.TimeRange.Start.ToSeconds();
             bool configurationChanged = _staticSpeed is null || Math.Abs(_staticSpeed.Value - speed) > 1e-4f;
             BeginStream(outputStart, outputStart * speed,
                 forceReanchor: _stream.IsInitialized && !draining && (configurationChanged || forceReanchor));
@@ -67,7 +67,7 @@ public sealed partial class TimeStretchNode
         public AudioBuffer ProcessBufferWithVariableSpeed(AudioProcessContext context, ReadOnlySpan<double> speeds,
             int expectedOut, double sourceStartSeconds, bool draining, bool forceReanchor)
         {
-            BeginStream(context.TimeRange.Start.TotalSeconds, sourceStartSeconds,
+            BeginStream(context.TimeRange.Start.ToSeconds(), sourceStartSeconds,
                 forceReanchor: _stream.IsInitialized && !draining && forceReanchor);
             _staticSpeed = null;
             return ProcessTimeStretch(context, speeds, 1f, expectedOut, draining);
@@ -83,7 +83,7 @@ public sealed partial class TimeStretchNode
             double? end = draining ? null : _node.Inputs[0].GetFiniteSourceEndSample(_sampleRate);
             if (!draining && context.ProcessEndTime is { } terminal)
             {
-                double terminalSample = _node._mapping.MapOutputTimeToSource(terminal).TotalSeconds * _sampleRate;
+                double terminalSample = _node._mapping.MapOutputTimeToSource(terminal).ToSeconds() * _sampleRate;
                 end = end is { } finite ? Math.Min(finite, terminalSample) : terminalSample;
             }
             if (draining && !_timeStretchDraining)
@@ -116,8 +116,8 @@ public sealed partial class TimeStretchNode
                 // Differential updates can change a downstream clip without replacing this processor.
                 // Re-anchor at the playback position to discard post-trim lookahead or reopen a
                 // finished stream, since lookahead or draining may have moved the read cursor ahead.
-                BeginStream(context.TimeRange.Start.TotalSeconds,
-                    _node._mapping.MapOutputTimeToSource(context.TimeRange.Start).TotalSeconds,
+                BeginStream(context.TimeRange.Start.ToSeconds(),
+                    _node._mapping.MapOutputTimeToSource(context.TimeRange.Start).ToSeconds(),
                     forceReanchor: true);
             }
             _timeStretchInputEnd = inputEnd;

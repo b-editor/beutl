@@ -90,20 +90,20 @@ public sealed partial class Reconciler
     private static void ValidateElementTimeline(Element element, List<ValidationOutcome> validation)
     {
         string identity = DescribeElement(element);
-        if (element.Start < TimeSpan.Zero)
+        if (element.Start < MediaTime.Zero)
         {
             validation.Add(ValidationOutcome.Rejected(
-                element.Start.ToString("c"),
-                $"Element {identity} Start '{element.Start:c}' must be non-negative.",
+                element.Start.ToTimeSpan().ToString("c"),
+                $"Element {identity} Start '{element.Start.ToTimeSpan():c}' must be non-negative.",
                 options: null,
                 $"Set a non-negative Start on element {element.Id}."));
         }
 
-        if (element.Length <= TimeSpan.Zero)
+        if (element.Length <= MediaTime.Zero)
         {
             validation.Add(ValidationOutcome.Rejected(
-                element.Length.ToString("c"),
-                $"Element {identity} Length '{element.Length:c}' must be positive.",
+                element.Length.ToTimeSpan().ToString("c"),
+                $"Element {identity} Length '{element.Length.ToTimeSpan():c}' must be positive.",
                 options: null,
                 $"Set a positive Length on element {element.Id}."));
         }
@@ -128,11 +128,11 @@ public sealed partial class Reconciler
                 "Set Width and Height to positive pixel values before applying."));
         }
 
-        if (scene.Duration <= TimeSpan.Zero)
+        if (scene.Duration <= MediaTime.Zero)
         {
             validation.Add(ValidationOutcome.Rejected(
-                scene.Duration.ToString("c"),
-                $"Scene duration '{scene.Duration:c}' must be positive.",
+                scene.Duration.ToTimeSpan().ToString("c"),
+                $"Scene duration '{scene.Duration.ToTimeSpan():c}' must be positive.",
                 options: null,
                 "Set a positive Duration before applying."));
         }

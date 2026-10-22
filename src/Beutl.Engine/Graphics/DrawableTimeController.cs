@@ -20,7 +20,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     public IExpressionProperty<Drawable?> Target { get; } = Property.CreateReference<Drawable?>();
 
     [Display(Name = nameof(GraphicsStrings.DrawableTimeController_OffsetPosition), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<TimeSpan> OffsetPosition { get; } = Property.CreateExpression<TimeSpan>();
+    public IExpressionProperty<MediaTime> OffsetPosition { get; } = Property.CreateExpression<MediaTime>();
 
     [Display(Name = nameof(GraphicsStrings.Speed), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
@@ -45,21 +45,21 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     [Display(Name = nameof(GraphicsStrings.DrawableTimeController_HoldLastFrame), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<bool> HoldLastFrame { get; } = Property.CreateExpression<bool>();
 
-    private TimeSpan CalculateTimeWithSpeed(TimeSpan timeSpan, Resource resource)
+    private MediaTime CalculateTimeWithSpeed(MediaTime timeSpan, Resource resource)
         => SpeedAdjustedTime.Map(Speed, resource.Speed, resource.SpeedIntegrator, timeSpan);
 
-    private TimeSpan CalculateTargetTime(TimeSpan currentTime, Resource resource, Drawable? targetDrawable)
+    private MediaTime CalculateTargetTime(MediaTime currentTime, Resource resource, Drawable? targetDrawable)
     {
         if (targetDrawable == null)
             return currentTime;
 
-        TimeSpan targetStart = targetDrawable.TimeRange.Start;
-        TimeSpan targetDuration = targetDrawable.TimeRange.Duration;
+        MediaTime targetStart = targetDrawable.TimeRange.Start;
+        MediaTime targetDuration = targetDrawable.TimeRange.Duration;
 
-        if (targetDuration <= TimeSpan.Zero)
+        if (targetDuration <= MediaTime.Zero)
             return currentTime;
 
-        TimeSpan baseTime = currentTime - TimeRange.Start;
+        MediaTime baseTime = currentTime - TimeRange.Start;
 
         // 1. AdjustTimeRange: baseTime = currentTime - Target's Start
         if (resource.AdjustTimeRange)
@@ -89,7 +89,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         }
         else
         {
-            baseTime = TimeSpan.FromTicks((long)(baseTime.Ticks * (resource.Speed / 100.0)));
+            baseTime = new MediaTime((long)(baseTime.Flicks * (resource.Speed / 100.0)));
         }
 
         // 4. Reverse: time = targetDuration - time
@@ -105,9 +105,9 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         }
 
         // 6. HoldFirstFrame/HoldLastFrame: clamp out-of-range time
-        if (resource.HoldFirstFrame && baseTime < TimeSpan.Zero)
+        if (resource.HoldFirstFrame && baseTime < MediaTime.Zero)
         {
-            baseTime = TimeSpan.Zero;
+            baseTime = MediaTime.Zero;
         }
 
         if (resource.HoldLastFrame && baseTime > targetDuration)
@@ -118,8 +118,8 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         // 7. FrameRate: quantize (0 = disabled)
         if (resource.FrameRate > 0)
         {
-            double frameNum = baseTime.TotalSeconds * resource.FrameRate;
-            baseTime = TimeSpan.FromSeconds(Math.Floor(frameNum) / resource.FrameRate);
+            double frameNum = baseTime.ToSeconds() * resource.FrameRate;
+            baseTime = MediaTime.FromSeconds(Math.Floor(frameNum) / resource.FrameRate);
         }
 
         // Convert to absolute time by adding Target's Start

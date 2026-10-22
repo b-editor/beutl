@@ -15,5 +15,5 @@ public interface IElementSlipService
     /// mapping rejects the whole slip before anything changes. Returns <see langword="false"/> without a commit when
     /// nothing moves.
     /// </summary>
-    bool Slip(Scene scene, IReadOnlyList<Element> elements, TimeSpan delta);
+    bool Slip(Scene scene, IReadOnlyList<Element> elements, MediaTime delta);
 }

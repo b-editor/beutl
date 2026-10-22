@@ -34,14 +34,14 @@ public static class EngineObjectHelper
     }
 
     public static IObservable<T> SubscribeEngineProperty<T>(
-        this IProperty<T> property, EngineObject obj, IObservable<TimeSpan> time)
+        this IProperty<T> property, EngineObject obj, IObservable<MediaTime> time)
     {
         return ObserveEdits(obj, time)
             .Select(t => new CompositionContext(t.Second).Get(property));
     }
 
     // Publishes on subscription and on every edit, each time with the latest time.
-    private static IObservable<(Unit First, TimeSpan Second)> ObserveEdits(EngineObject obj, IObservable<TimeSpan> time)
+    private static IObservable<(Unit First, MediaTime Second)> ObserveEdits(EngineObject obj, IObservable<MediaTime> time)
     {
         return Observable.FromEventPattern(
                 h => obj.Edited += h,
@@ -56,7 +56,7 @@ public static class EngineObjectHelper
     /// Disposing the subscription cancels work that has not started.
     /// </summary>
     public static IObservable<EngineResourceHandle<TResource>> SubscribeEngineVersionedResource<T, TResource>(
-        this T obj, IObservable<TimeSpan> time, Func<T, CompositionContext, TResource> createResource)
+        this T obj, IObservable<MediaTime> time, Func<T, CompositionContext, TResource> createResource)
         where T : EngineObject
         where TResource : EngineObject.Resource
     {
@@ -66,10 +66,10 @@ public static class EngineObjectHelper
     /// <param name="renderDispatcher">
     /// The dispatcher that owns the resource. Only tests pass a dispatcher other than the render thread's.
     /// </param>
-    /// <inheritdoc cref="SubscribeEngineVersionedResource{T, TResource}(T, IObservable{TimeSpan}, Func{T, CompositionContext, TResource})"/>
+    /// <inheritdoc cref="SubscribeEngineVersionedResource{T, TResource}(T, IObservable{MediaTime}, Func{T, CompositionContext, TResource})"/>
     internal static IObservable<EngineResourceHandle<TResource>> SubscribeEngineVersionedResource<T, TResource>(
         this T obj,
-        IObservable<TimeSpan> time,
+        IObservable<MediaTime> time,
         Func<T, CompositionContext, TResource> createResource,
         Dispatcher renderDispatcher)
         where T : EngineObject
@@ -77,7 +77,7 @@ public static class EngineObjectHelper
     {
         return Observable.Create<EngineResourceHandle<TResource>>(observer =>
             {
-                var renderContext = new CompositionContext(TimeSpan.Zero);
+                var renderContext = new CompositionContext(MediaTime.Zero);
                 var cts = new CancellationTokenSource();
                 CancellationToken token = cts.Token;
                 TResource? resource = null;
@@ -113,7 +113,7 @@ public static class EngineObjectHelper
                 });
 
                 // Runs on the render dispatcher, which owns the resource.
-                void UpdateAndPublish(TimeSpan currentTime)
+                void UpdateAndPublish(MediaTime currentTime)
                 {
                     lock (gate)
                     {
@@ -276,7 +276,7 @@ public static class EngineObjectHelper
     /// <remarks>Publishes null while the source holds no object.</remarks>
     public static IObservable<EngineResourceHandle<TResource>?> SwitchToEngineVersionedResource<T, TResource>(
         this IObservable<T?> source,
-        IObservable<TimeSpan> time,
+        IObservable<MediaTime> time,
         Func<T, CompositionContext, TResource> createResource)
         where T : EngineObject
         where TResource : EngineObject.Resource
@@ -284,11 +284,11 @@ public static class EngineObjectHelper
         return source.SwitchToEngineVersionedResource(time, createResource, RenderThread.Dispatcher);
     }
 
-    /// <inheritdoc cref="SubscribeEngineVersionedResource{T, TResource}(T, IObservable{TimeSpan}, Func{T, CompositionContext, TResource}, Dispatcher)" path="/param[@name='renderDispatcher']"/>
-    /// <inheritdoc cref="SwitchToEngineVersionedResource{T, TResource}(IObservable{T}, IObservable{TimeSpan}, Func{T, CompositionContext, TResource})"/>
+    /// <inheritdoc cref="SubscribeEngineVersionedResource{T, TResource}(T, IObservable{MediaTime}, Func{T, CompositionContext, TResource}, Dispatcher)" path="/param[@name='renderDispatcher']"/>
+    /// <inheritdoc cref="SwitchToEngineVersionedResource{T, TResource}(IObservable{T}, IObservable{MediaTime}, Func{T, CompositionContext, TResource})"/>
     internal static IObservable<EngineResourceHandle<TResource>?> SwitchToEngineVersionedResource<T, TResource>(
         this IObservable<T?> source,
-        IObservable<TimeSpan> time,
+        IObservable<MediaTime> time,
         Func<T, CompositionContext, TResource> createResource,
         Dispatcher renderDispatcher)
         where T : EngineObject

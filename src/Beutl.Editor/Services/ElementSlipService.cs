@@ -12,7 +12,7 @@ public sealed class ElementSlipService : IElementSlipService
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
     }
 
-    public bool Slip(Scene scene, IReadOnlyList<Element> elements, TimeSpan delta)
+    public bool Slip(Scene scene, IReadOnlyList<Element> elements, MediaTime delta)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(elements);
@@ -22,7 +22,7 @@ public sealed class ElementSlipService : IElementSlipService
                 throw new ArgumentNullException(nameof(elements), "elements must not contain null.");
         }
 
-        if (delta == TimeSpan.Zero) return false;
+        if (delta == MediaTime.Zero) return false;
 
         // Re-check membership and lock at the mutation boundary (matching Resize): a direct
         // caller may pass an off-scene element, and a clip or its layer may have been locked
@@ -44,11 +44,11 @@ public sealed class ElementSlipService : IElementSlipService
 
         if (applicable.Count == 0) return false;
 
-        TimeSpan effective = SlippableMedia.ClampSharedDelta(applicable, delta);
-        if (effective == TimeSpan.Zero) return false;
+        MediaTime effective = SlippableMedia.ClampSharedDelta(applicable, delta);
+        if (effective == MediaTime.Zero) return false;
 
         if (!SlippableMedia.TryGetOffsetChanges(applicable, effective, trim: false, out var changes)
-            || changes.Values.All(d => d == TimeSpan.Zero)) return false;
+            || changes.Values.All(d => d == MediaTime.Zero)) return false;
         SlippableMedia.ApplyOffsetChanges(changes);
 
         _historyManager.Commit(CommandNames.SlipElement);

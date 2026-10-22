@@ -41,7 +41,7 @@ public sealed class FrameDifferenceAnalyzer(StillRenderer stillRenderer)
 {
     public async ValueTask<FrameDifferenceResponse> AnalyzeAsync(
         Scene scene,
-        IReadOnlyList<TimeSpan> sampleTimes,
+        IReadOnlyList<MediaTime> sampleTimes,
         float renderScale,
         int pixelDeltaThreshold,
         int foregroundLumaThreshold,
@@ -54,10 +54,10 @@ public sealed class FrameDifferenceAnalyzer(StillRenderer stillRenderer)
             throw new ArgumentException("At least two sample times are required.", nameof(sampleTimes));
         }
 
-        var frames = new List<(TimeSpan Time, Bitmap Bitmap)>(sampleTimes.Count);
+        var frames = new List<(MediaTime Time, Bitmap Bitmap)>(sampleTimes.Count);
         try
         {
-            foreach (TimeSpan time in sampleTimes)
+            foreach (MediaTime time in sampleTimes)
             {
                 frames.Add((
                     time,
@@ -83,7 +83,7 @@ public sealed class FrameDifferenceAnalyzer(StillRenderer stillRenderer)
     }
 
     internal static FrameDifferenceResponse AnalyzeFrames(
-        IReadOnlyList<(TimeSpan Time, Bitmap Bitmap)> frames,
+        IReadOnlyList<(MediaTime Time, Bitmap Bitmap)> frames,
         int pixelDeltaThreshold,
         int foregroundLumaThreshold)
     {
@@ -98,7 +98,7 @@ public sealed class FrameDifferenceAnalyzer(StillRenderer stillRenderer)
 
         MotionVariationSample[] samples = frames
             .Select(frame => new MotionVariationSample(
-                frame.Time.ToString("c"),
+                frame.Time.ToTimeSpan().ToString("c"),
                 frame.Bitmap.Width,
                 frame.Bitmap.Height))
             .ToArray();
@@ -122,8 +122,8 @@ public sealed class FrameDifferenceAnalyzer(StillRenderer stillRenderer)
     }
 
     private static MotionVariationPair Compare(
-        (TimeSpan Time, Bitmap Bitmap) previous,
-        (TimeSpan Time, Bitmap Bitmap) next,
+        (MediaTime Time, Bitmap Bitmap) previous,
+        (MediaTime Time, Bitmap Bitmap) next,
         int pixelDeltaThreshold)
     {
         if (previous.Bitmap.Width != next.Bitmap.Width || previous.Bitmap.Height != next.Bitmap.Height)
@@ -162,8 +162,8 @@ public sealed class FrameDifferenceAnalyzer(StillRenderer stillRenderer)
         double meanDelta = totalPixels == 0 ? 0 : totalDelta / (totalPixels * 3d * byte.MaxValue);
 
         return new MotionVariationPair(
-            previous.Time.ToString("c"),
-            next.Time.ToString("c"),
+            previous.Time.ToTimeSpan().ToString("c"),
+            next.Time.ToTimeSpan().ToString("c"),
             changedPixels,
             totalPixels,
             changedRatio,
@@ -171,14 +171,14 @@ public sealed class FrameDifferenceAnalyzer(StillRenderer stillRenderer)
     }
 
     private static MotionFrameCoverage AnalyzeFrameCoverage(
-        (TimeSpan Time, Bitmap Bitmap) frame,
+        (MediaTime Time, Bitmap Bitmap) frame,
         int foregroundLumaThreshold)
     {
         StillRenderer.ForegroundCoverage coverage = StillRenderer.MeasureForeground(
             frame.Bitmap, (r, g, b) => Math.Max(r, Math.Max(g, b)) > foregroundLumaThreshold);
 
         return new MotionFrameCoverage(
-            frame.Time.ToString("c"),
+            frame.Time.ToTimeSpan().ToString("c"),
             coverage.ForegroundPixels,
             frame.Bitmap.Width * frame.Bitmap.Height,
             coverage.ForegroundPixelRatio,

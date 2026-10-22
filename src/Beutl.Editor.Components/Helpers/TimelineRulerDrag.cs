@@ -10,8 +10,8 @@ namespace Beutl.Editor.Components.Helpers;
 // ended runs when the drag's session closes, so the view stops treating the pointer as holding a bar.
 internal sealed class TimelineRulerDrag(Action ended)
 {
-    private TimeSpan _initialStart;
-    private TimeSpan _initialDuration;
+    private MediaTime _initialStart;
+    private MediaTime _initialDuration;
     private DragSession? _drag;
 
     // The bar under the point on the ruler, or SeekBarPressed when the point is on neither bar.
@@ -33,7 +33,7 @@ internal sealed class TimelineRulerDrag(Action ended)
     }
 
     // Moves the bar that flag holds inside the drag's session; false when it holds neither bar.
-    public bool Move(MouseFlags flag, IEditorContext editorContext, Control ruler, Scene scene, TimeSpan pointerFrame)
+    public bool Move(MouseFlags flag, IEditorContext editorContext, Control ruler, Scene scene, MediaTime pointerFrame)
     {
         bool endingBar = flag == MouseFlags.EndingBarMarkerPressed;
         if (!endingBar && flag != MouseFlags.StartingBarMarkerPressed)

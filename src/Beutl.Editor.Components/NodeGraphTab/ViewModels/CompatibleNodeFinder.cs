@@ -245,6 +245,7 @@ internal static class CompatibleNodeFinder
         if (s_numericTypes.Contains(outputType))
             return (s_numericTypes.Contains(inputType) && inputType != typeof(char))
                    || inputType == typeof(TimeSpan)
+                   || inputType == typeof(MediaTime)
                    || inputType == typeof(Thickness)
                    || inputType == typeof(Vector)
                    || inputType == typeof(Point)

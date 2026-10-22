@@ -1,10 +1,13 @@
 ﻿using System.Globalization;
 using System.Numerics;
+using System.Text.Json.Serialization;
+using Beutl.JsonConverters;
 
 namespace Beutl;
 
 // A time or a duration as a whole number of flicks (1/705,600,000 s). Frames at the common rates (23.976 to
 // 60 fps) and samples at 44.1, 48 and 96 kHz are whole numbers of flicks, so their conversions are exact.
+[JsonConverter(typeof(MediaTimeJsonConverter))]
 public readonly struct MediaTime(long flicks)
     : IEquatable<MediaTime>,
       IComparable<MediaTime>,
@@ -41,6 +44,9 @@ public readonly struct MediaTime(long flicks)
         return ToUnits(numerator, denominator, rounding);
     }
 
+    // The time of the frame that ToFrame picks.
+    public MediaTime RoundToFrame(Rational rate, MidpointRounding rounding) => FromFrames(ToFrame(rate, rounding), rate);
+
     public static MediaTime FromSamples(long sample, int sampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
@@ -66,6 +72,16 @@ public readonly struct MediaTime(long flicks)
             (Int128)Flicks * FlicksPerTickDenominator, FlicksPerTickNumerator, MidpointRounding.AwayFromZero);
         return TimeSpan.FromTicks((long)ticks);
     }
+
+    // Directed conversions for the TimeSpan strings of files; a tick outside the range of MediaTime is clamped.
+    internal static MediaTime FromTicks(long ticks, MidpointRounding rounding)
+    {
+        Int128 flicks = RoundDivide((Int128)ticks * FlicksPerTickNumerator, FlicksPerTickDenominator, rounding);
+        return new MediaTime((long)Int128.Clamp(flicks, long.MinValue, long.MaxValue));
+    }
+
+    internal long ToTicks(MidpointRounding rounding)
+        => (long)RoundDivide((Int128)Flicks * FlicksPerTickDenominator, FlicksPerTickNumerator, rounding);
 
     public static MediaTime FromSeconds(double seconds)
     {

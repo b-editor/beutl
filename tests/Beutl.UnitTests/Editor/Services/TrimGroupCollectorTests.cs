@@ -14,7 +14,7 @@ public class TrimGroupCollectorTests
     [SetUp]
     public void Setup()
     {
-        _harness = new SceneHistoryHarness("beutl_trimcollect", start: TimeSpan.Zero, duration: TimeSpan.FromSeconds(30));
+        _harness = new SceneHistoryHarness("beutl_trimcollect", start: MediaTime.Zero, duration: MediaTime.FromSeconds(30));
         _scene = _harness.Scene;
     }
 
@@ -24,7 +24,7 @@ public class TrimGroupCollectorTests
         _harness.Dispose();
     }
 
-    private Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0)
+    private Element AddElement(MediaTime start, MediaTime length, int zIndex = 0)
         => _harness.AddElement(start, length, zIndex);
 
     // --- CollectRollPairs ---
@@ -32,11 +32,11 @@ public class TrimGroupCollectorTests
     [Test]
     public void CollectRollPairs_MemberEndingAtBoundary_PairsWithAdjacentBack()
     {
-        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
-        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        Element front = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2));
+        Element back = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(3));
 
         IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
-            _scene, [front], TimeSpan.FromSeconds(2));
+            _scene, [front], MediaTime.FromSeconds(2));
 
         Assert.That(pairs, Is.EqualTo(new[] { new ElementTrimPair(front, back) }));
     }
@@ -44,11 +44,11 @@ public class TrimGroupCollectorTests
     [Test]
     public void CollectRollPairs_MemberStartingAtBoundary_PairsWithAdjacentFront()
     {
-        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
-        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        Element front = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2));
+        Element back = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(3));
 
         IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
-            _scene, [back], TimeSpan.FromSeconds(2));
+            _scene, [back], MediaTime.FromSeconds(2));
 
         Assert.That(pairs, Is.EqualTo(new[] { new ElementTrimPair(front, back) }));
     }
@@ -56,11 +56,11 @@ public class TrimGroupCollectorTests
     [Test]
     public void CollectRollPairs_BothSidesAreMembers_CollectsPairOnce()
     {
-        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
-        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        Element front = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2));
+        Element back = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(3));
 
         IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
-            _scene, [front, back], TimeSpan.FromSeconds(2));
+            _scene, [front, back], MediaTime.FromSeconds(2));
 
         Assert.That(pairs, Is.EqualTo(new[] { new ElementTrimPair(front, back) }));
     }
@@ -68,13 +68,13 @@ public class TrimGroupCollectorTests
     [Test]
     public void CollectRollPairs_GroupedCutsAcrossLayers_CollectsEveryAlignedPair()
     {
-        Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
-        Element backA = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 0);
-        Element frontB = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 1);
-        Element backB = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 1);
+        Element frontA = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), zIndex: 0);
+        Element backA = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(3), zIndex: 0);
+        Element frontB = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), zIndex: 1);
+        Element backB = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(3), zIndex: 1);
 
         IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
-            _scene, [frontA, frontB], TimeSpan.FromSeconds(2));
+            _scene, [frontA, frontB], MediaTime.FromSeconds(2));
 
         Assert.That(pairs, Is.EquivalentTo(new[]
         {
@@ -86,13 +86,13 @@ public class TrimGroupCollectorTests
     [Test]
     public void CollectRollPairs_MemberNotTouchingBoundary_IsExcluded()
     {
-        Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
-        Element backA = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 0);
-        Element offBoundary = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3), zIndex: 1);
-        AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2), zIndex: 1);
+        Element frontA = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), zIndex: 0);
+        Element backA = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(3), zIndex: 0);
+        Element offBoundary = AddElement(MediaTime.Zero, MediaTime.FromSeconds(3), zIndex: 1);
+        AddElement(MediaTime.FromSeconds(3), MediaTime.FromSeconds(2), zIndex: 1);
 
         IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
-            _scene, [frontA, offBoundary], TimeSpan.FromSeconds(2));
+            _scene, [frontA, offBoundary], MediaTime.FromSeconds(2));
 
         Assert.That(pairs, Is.EqualTo(new[] { new ElementTrimPair(frontA, backA) }));
     }
@@ -100,12 +100,12 @@ public class TrimGroupCollectorTests
     [Test]
     public void CollectRollPairs_MemberWithoutAdjacentPartner_IsExcluded()
     {
-        Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
-        Element backA = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 0);
-        Element lonely = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 1);
+        Element frontA = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), zIndex: 0);
+        Element backA = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(3), zIndex: 0);
+        Element lonely = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), zIndex: 1);
 
         IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
-            _scene, [frontA, lonely], TimeSpan.FromSeconds(2));
+            _scene, [frontA, lonely], MediaTime.FromSeconds(2));
 
         Assert.That(pairs, Is.EqualTo(new[] { new ElementTrimPair(frontA, backA) }));
     }
@@ -113,14 +113,14 @@ public class TrimGroupCollectorTests
     [Test]
     public void CollectRollPairs_LockedPartner_ReturnsNull()
     {
-        Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
-        AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 0);
-        Element frontB = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 1);
-        Element lockedBack = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 1);
+        Element frontA = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), zIndex: 0);
+        AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(3), zIndex: 0);
+        Element frontB = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), zIndex: 1);
+        Element lockedBack = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(3), zIndex: 1);
         lockedBack.IsLocked = true;
 
         IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
-            _scene, [frontA, frontB], TimeSpan.FromSeconds(2));
+            _scene, [frontA, frontB], MediaTime.FromSeconds(2));
 
         Assert.That(pairs, Is.Null);
     }
@@ -128,14 +128,14 @@ public class TrimGroupCollectorTests
     [Test]
     public void CollectRollPairs_LockedMemberAtBoundary_ReturnsNull()
     {
-        Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
-        AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 0);
-        Element lockedFront = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 1);
-        AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), zIndex: 1);
+        Element frontA = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), zIndex: 0);
+        AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(3), zIndex: 0);
+        Element lockedFront = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), zIndex: 1);
+        AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(3), zIndex: 1);
         lockedFront.IsLocked = true;
 
         IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
-            _scene, [frontA, lockedFront], TimeSpan.FromSeconds(2));
+            _scene, [frontA, lockedFront], MediaTime.FromSeconds(2));
 
         Assert.That(pairs, Is.Null);
     }
@@ -143,10 +143,10 @@ public class TrimGroupCollectorTests
     [Test]
     public void CollectRollPairs_OffSceneMember_IsExcluded()
     {
-        var offScene = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(2) };
+        var offScene = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(2) };
 
         IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
-            _scene, [offScene], TimeSpan.FromSeconds(2));
+            _scene, [offScene], MediaTime.FromSeconds(2));
 
         Assert.That(pairs, Is.Empty);
     }
@@ -156,9 +156,9 @@ public class TrimGroupCollectorTests
     [Test]
     public void CollectSlideLanes_SingleMemberWithNeighbours_BuildsLane()
     {
-        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
-        Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1));
-        Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
+        Element front = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2));
+        Element middle = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1));
+        Element back = AddElement(MediaTime.FromSeconds(3), MediaTime.FromSeconds(3));
 
         IReadOnlyList<ElementSlideLane>? lanes = TrimGroupCollector.CollectSlideLanes(_scene, [middle]);
 
@@ -175,10 +175,10 @@ public class TrimGroupCollectorTests
     [Test]
     public void CollectSlideLanes_ContiguousMembersOnOneLayer_FormOneLaneOrderedByStart()
     {
-        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
-        Element firstMiddle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1));
-        Element secondMiddle = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(1));
-        Element back = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(3));
+        Element front = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2));
+        Element firstMiddle = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1));
+        Element secondMiddle = AddElement(MediaTime.FromSeconds(3), MediaTime.FromSeconds(1));
+        Element back = AddElement(MediaTime.FromSeconds(4), MediaTime.FromSeconds(3));
 
         IReadOnlyList<ElementSlideLane>? lanes = TrimGroupCollector.CollectSlideLanes(
             _scene, [secondMiddle, firstMiddle]);
@@ -195,12 +195,12 @@ public class TrimGroupCollectorTests
     [Test]
     public void CollectSlideLanes_MembersAcrossLayers_BuildOneLanePerLayer()
     {
-        Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
-        Element middleA = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 0);
-        Element backA = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3), zIndex: 0);
-        Element frontB = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1), zIndex: 1);
-        Element middleB = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 1);
-        Element backB = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2), zIndex: 1);
+        Element frontA = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), zIndex: 0);
+        Element middleA = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1), zIndex: 0);
+        Element backA = AddElement(MediaTime.FromSeconds(3), MediaTime.FromSeconds(3), zIndex: 0);
+        Element frontB = AddElement(MediaTime.Zero, MediaTime.FromSeconds(1), zIndex: 1);
+        Element middleB = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 1);
+        Element backB = AddElement(MediaTime.FromSeconds(3), MediaTime.FromSeconds(2), zIndex: 1);
 
         IReadOnlyList<ElementSlideLane>? lanes = TrimGroupCollector.CollectSlideLanes(
             _scene, [middleA, middleB]);
@@ -219,10 +219,10 @@ public class TrimGroupCollectorTests
     [Test]
     public void CollectSlideLanes_NonContiguousMembers_ReturnsNull()
     {
-        AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
-        Element firstMiddle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1));
-        Element secondMiddle = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(1));
-        AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(3));
+        AddElement(MediaTime.Zero, MediaTime.FromSeconds(2));
+        Element firstMiddle = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1));
+        Element secondMiddle = AddElement(MediaTime.FromSeconds(4), MediaTime.FromSeconds(1));
+        AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(3));
 
         IReadOnlyList<ElementSlideLane>? lanes = TrimGroupCollector.CollectSlideLanes(
             _scene, [firstMiddle, secondMiddle]);
@@ -233,10 +233,10 @@ public class TrimGroupCollectorTests
     [Test]
     public void CollectSlideLanes_MissingNeighbourOnAnyLayer_ReturnsNull()
     {
-        AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
-        Element middleA = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 0);
-        AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3), zIndex: 0);
-        Element noNeighbours = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 1);
+        AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), zIndex: 0);
+        Element middleA = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1), zIndex: 0);
+        AddElement(MediaTime.FromSeconds(3), MediaTime.FromSeconds(3), zIndex: 0);
+        Element noNeighbours = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1), zIndex: 1);
 
         IReadOnlyList<ElementSlideLane>? lanes = TrimGroupCollector.CollectSlideLanes(
             _scene, [middleA, noNeighbours]);
@@ -247,9 +247,9 @@ public class TrimGroupCollectorTests
     [Test]
     public void CollectSlideLanes_LockedMember_ReturnsNull()
     {
-        AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
-        Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1));
-        AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
+        AddElement(MediaTime.Zero, MediaTime.FromSeconds(2));
+        Element middle = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1));
+        AddElement(MediaTime.FromSeconds(3), MediaTime.FromSeconds(3));
         middle.IsLocked = true;
 
         IReadOnlyList<ElementSlideLane>? lanes = TrimGroupCollector.CollectSlideLanes(_scene, [middle]);
@@ -260,9 +260,9 @@ public class TrimGroupCollectorTests
     [Test]
     public void CollectSlideLanes_LockedNeighbour_ReturnsNull()
     {
-        AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
-        Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1));
-        Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
+        AddElement(MediaTime.Zero, MediaTime.FromSeconds(2));
+        Element middle = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1));
+        Element back = AddElement(MediaTime.FromSeconds(3), MediaTime.FromSeconds(3));
         back.IsLocked = true;
 
         IReadOnlyList<ElementSlideLane>? lanes = TrimGroupCollector.CollectSlideLanes(_scene, [middle]);

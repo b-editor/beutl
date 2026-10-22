@@ -177,7 +177,7 @@ public class ShearedFilterLayerApronTests
             new PixelSize(640, 360),
             2f,
             4f,
-            TimeSpan.Zero);
+            MediaTime.Zero);
         return SceneRenderHarness.SumAlpha(bitmap);
     }
 }

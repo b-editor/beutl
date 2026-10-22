@@ -2,10 +2,10 @@
 
 public class ShiftNode : AudioNode
 {
-    public TimeSpan Shift { get; set; } = TimeSpan.Zero;
+    public MediaTime Shift { get; set; } = MediaTime.Zero;
 
     internal override double? GetFiniteSourceEndSample(int sampleRate)
-        => base.GetFiniteSourceEndSample(sampleRate) - Shift.TotalSeconds * sampleRate;
+        => base.GetFiniteSourceEndSample(sampleRate) - Shift.ToSeconds() * sampleRate;
 
     public override AudioBuffer Process(AudioProcessContext context)
     {

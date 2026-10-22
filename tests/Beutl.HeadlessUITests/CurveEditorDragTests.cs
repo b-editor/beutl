@@ -65,7 +65,7 @@ public sealed class CurveEditorDragTests
         var curves = new Curves();
         var shape = new RectShape();
         shape.FilterEffect.Value = curves;
-        await TestShell.AddElementAsync(editor, () => shape, TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        await TestShell.AddElementAsync(editor, () => shape, MediaTime.Zero, MediaTime.FromSeconds(2));
         Element element = scene.Children.Single();
         editor.HistoryManager.ExecuteInTransaction(() => element.Name = "earlier", "Earlier");
         int undoCount = editor.HistoryManager.UndoCount;

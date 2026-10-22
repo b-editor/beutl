@@ -31,7 +31,7 @@ public sealed class GraphEditorSpeedGraph : Control
         var state = new CurveState(easing,
             previous.Model.KeyTime.TimeToPixel(model.Options.Value.Scale) + model.Margin.Value.Left,
             item.Model.KeyTime.TimeToPixel(model.Options.Value.Scale) + model.Margin.Value.Left,
-            (item.Model.KeyTime - previous.Model.KeyTime).TotalSeconds,
+            (item.Model.KeyTime - previous.Model.KeyTime).ToSeconds(),
             item.Parent.ConvertToDouble(item.Model.Value) - item.Parent.ConvertToDouble(previous.Model.Value),
             model.Baseline.Value, model.ScaleY.Value,
             spline?.X1 ?? 0, spline?.Y1 ?? 0, spline?.X2 ?? 0, spline?.Y2 ?? 0);

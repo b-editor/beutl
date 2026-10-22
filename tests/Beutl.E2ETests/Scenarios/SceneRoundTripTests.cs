@@ -24,7 +24,7 @@ public class SceneRoundTripTests
         if (Directory.Exists(_baseDir)) Directory.Delete(_baseDir, recursive: true);
     }
 
-    private Element NewElement(string fileName, TimeSpan start, TimeSpan length, int zIndex, bool isEnabled, Color accent)
+    private Element NewElement(string fileName, MediaTime start, MediaTime length, int zIndex, bool isEnabled, Color accent)
     {
         return new Element
         {
@@ -43,13 +43,13 @@ public class SceneRoundTripTests
         var scene = new Scene(1280, 720, "round-trip")
         {
             Uri = new Uri(Path.Combine(_baseDir, "main.scene")),
-            Start = TimeSpan.FromSeconds(1),
-            Duration = TimeSpan.FromSeconds(42),
+            Start = MediaTime.FromSeconds(1),
+            Duration = MediaTime.FromSeconds(42),
         };
 
-        Element a = NewElement("a.belm", TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(3), 0, true, Color.FromArgb(255, 10, 20, 30));
-        Element b = NewElement("b.belm", TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2), 1, false, Color.FromArgb(255, 200, 100, 50));
-        Element c = NewElement("c.belm", TimeSpan.FromSeconds(7), TimeSpan.FromSeconds(5), 2, true, Color.FromArgb(128, 0, 255, 0));
+        Element a = NewElement("a.belm", MediaTime.FromSeconds(0), MediaTime.FromSeconds(3), 0, true, Color.FromArgb(255, 10, 20, 30));
+        Element b = NewElement("b.belm", MediaTime.FromSeconds(4), MediaTime.FromSeconds(2), 1, false, Color.FromArgb(255, 200, 100, 50));
+        Element c = NewElement("c.belm", MediaTime.FromSeconds(7), MediaTime.FromSeconds(5), 2, true, Color.FromArgb(128, 0, 255, 0));
         scene.Children.Add(a);
         scene.Children.Add(b);
         scene.Children.Add(c);
@@ -68,8 +68,8 @@ public class SceneRoundTripTests
         {
             Assert.That(restored.FrameSize, Is.EqualTo(new PixelSize(1280, 720)));
             Assert.That(restored.Name, Is.EqualTo("round-trip"));
-            Assert.That(restored.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(restored.Duration, Is.EqualTo(TimeSpan.FromSeconds(42)));
+            Assert.That(restored.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(restored.Duration, Is.EqualTo(MediaTime.FromSeconds(42)));
             Assert.That(restored.Children, Has.Count.EqualTo(3));
         });
 
@@ -90,7 +90,7 @@ public class SceneRoundTripTests
             Assert.That(rb.AccentColor, Is.EqualTo(b.AccentColor));
 
             Assert.That(rc.ZIndex, Is.EqualTo(2));
-            Assert.That(rc.Length, Is.EqualTo(TimeSpan.FromSeconds(5)));
+            Assert.That(rc.Length, Is.EqualTo(MediaTime.FromSeconds(5)));
         });
 
         RectShape restoredShape = rc.Objects.OfType<RectShape>().Single();
@@ -109,7 +109,7 @@ public class SceneRoundTripTests
         {
             Uri = new Uri(Path.Combine(_baseDir, "embedded.scene")),
         };
-        Element only = NewElement("only.belm", TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(6), 3, false, Color.FromArgb(255, 1, 2, 3));
+        Element only = NewElement("only.belm", MediaTime.FromSeconds(2), MediaTime.FromSeconds(6), 3, false, Color.FromArgb(255, 1, 2, 3));
         scene.Children.Add(only);
         var ellipse = new EllipseShape();
         ellipse.Width.Value = 64f;
@@ -141,8 +141,8 @@ public class SceneRoundTripTests
         Assert.Multiple(() =>
         {
             Assert.That(restoredElement.Id, Is.EqualTo(only.Id));
-            Assert.That(restoredElement.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(restoredElement.Length, Is.EqualTo(TimeSpan.FromSeconds(6)));
+            Assert.That(restoredElement.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(restoredElement.Length, Is.EqualTo(MediaTime.FromSeconds(6)));
             Assert.That(restoredElement.ZIndex, Is.EqualTo(3));
             Assert.That(restoredElement.IsEnabled, Is.False);
             Assert.That(restoredElement.Objects.OfType<EllipseShape>().Single().Width.Value, Is.EqualTo(64f));
@@ -152,7 +152,7 @@ public class SceneRoundTripTests
     [Test]
     public void Element_round_trips_standalone_through_disk()
     {
-        Element element = NewElement("solo.belm", TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(8), 4, false, Color.FromArgb(255, 9, 8, 7));
+        Element element = NewElement("solo.belm", MediaTime.FromSeconds(5), MediaTime.FromSeconds(8), 4, false, Color.FromArgb(255, 9, 8, 7));
         var shape = new RectShape();
         shape.Width.Value = 12f;
         element.Objects.Add(shape);
@@ -163,8 +163,8 @@ public class SceneRoundTripTests
         Assert.Multiple(() =>
         {
             Assert.That(restored.Id, Is.EqualTo(element.Id));
-            Assert.That(restored.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
-            Assert.That(restored.Length, Is.EqualTo(TimeSpan.FromSeconds(8)));
+            Assert.That(restored.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(restored.Length, Is.EqualTo(MediaTime.FromSeconds(8)));
             Assert.That(restored.ZIndex, Is.EqualTo(4));
             Assert.That(restored.IsEnabled, Is.False);
             Assert.That(restored.AccentColor, Is.EqualTo(element.AccentColor));

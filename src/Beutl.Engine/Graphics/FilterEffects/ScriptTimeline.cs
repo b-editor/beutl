@@ -15,8 +15,8 @@ internal struct ScriptTimeline
     /// <summary>Reads the clock of <paramref name="obj"/> at the context's time, and returns whether it moved.</summary>
     public bool Update(EngineObject obj, CompositionContext context)
     {
-        float duration = (float)obj.TimeRange.Duration.TotalSeconds;
-        float time = (float)(context.Time - obj.TimeRange.Start).TotalSeconds;
+        float duration = (float)obj.TimeRange.Duration.ToSeconds();
+        float time = (float)(context.Time - obj.TimeRange.Start).ToSeconds();
         float progress = duration > 0 ? time / duration : 0;
 
         // ReSharper disable CompareOfFloatsByEqualityOperator

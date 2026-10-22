@@ -143,7 +143,7 @@ public sealed partial class AudioContext : IDisposable
     /// </summary>
     /// <param name="shift">The time shift duration.</param>
     /// <returns>The created shift node.</returns>
-    public ShiftNode CreateShiftNode(TimeSpan shift)
+    public ShiftNode CreateShiftNode(MediaTime shift)
     {
         ThrowIfDisposed();
         ThrowIfTopologyMutation();
@@ -165,11 +165,11 @@ public sealed partial class AudioContext : IDisposable
     /// </summary>
     /// <param name="start">The start time of the clip.</param>
     /// <param name="duration">The duration of the clip.</param>
-    public ClipNode CreateClipNode(TimeSpan start, TimeSpan duration)
+    public ClipNode CreateClipNode(MediaTime start, MediaTime duration)
     {
         ThrowIfDisposed();
         ThrowIfTopologyMutation();
-        if (duration <= TimeSpan.Zero)
+        if (duration <= MediaTime.Zero)
             throw new ArgumentOutOfRangeException(nameof(duration), "Duration must be positive.");
 
         if (_previousNodes?.OfType<ClipNode>().FirstOrDefault(n => n.Duration == duration && n.Start == start) is { } existing)

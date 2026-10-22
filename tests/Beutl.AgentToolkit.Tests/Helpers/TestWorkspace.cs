@@ -24,7 +24,7 @@ internal static class TestWorkspace
     }
 
     // Adds an element whose file sits next to the scene file.
-    public static Element AddElement(Scene scene, TimeSpan start, TimeSpan length, string? fileName = null)
+    public static Element AddElement(Scene scene, MediaTime start, MediaTime length, string? fileName = null)
     {
         var element = new Element
         {
@@ -67,10 +67,10 @@ internal static class TestWorkspace
     {
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(
-            new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = firstValue, Easing = new LinearEasing() },
+            new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = firstValue, Easing = new LinearEasing() },
             out _);
         animation.KeyFrames.Add(
-            new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = secondValue, Easing = new LinearEasing() },
+            new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = secondValue, Easing = new LinearEasing() },
             out _);
         return animation;
     }

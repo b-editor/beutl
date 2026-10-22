@@ -31,7 +31,7 @@ public partial class MissingMediaTests
         editor.CaptureMediaFingerprints = (_, _) => { captures++; return Task.CompletedTask; };
         try
         {
-            element.Name = "Renamed clip"; element.Start = TimeSpan.FromSeconds(2);
+            element.Name = "Renamed clip"; element.Start = MediaTime.FromSeconds(2);
             editor.HistoryManager.Commit();
             await editor.WaitForMediaFingerprintsAsync(); await editor.WaitForMissingMediaAsync();
             Assert.That(captures, Is.Zero);

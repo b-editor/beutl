@@ -24,7 +24,7 @@ public sealed class ExportVideoRateTests
         var scene = new Scene(64, 64, "rates")
         {
             Uri = new Uri(Path.Combine(directory, "rates.scene")),
-            Duration = TimeSpan.FromSeconds(1)
+            Duration = MediaTime.FromSeconds(1)
         };
         if (frameRate.HasValue && sampleRate.HasValue)
         {

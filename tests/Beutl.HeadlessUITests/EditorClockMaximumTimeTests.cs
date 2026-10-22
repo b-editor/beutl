@@ -21,7 +21,7 @@ public sealed class EditorClockMaximumTimeTests
 
         scene.Children.Clear();
 
-        Assert.That(clock.MaximumTime.Value, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(clock.MaximumTime.Value, Is.EqualTo(MediaTime.Zero));
     }
 
     [Test]
@@ -30,11 +30,11 @@ public sealed class EditorClockMaximumTimeTests
         var scene = new Scene();
         using var clock = new EditorClockImpl(scene);
         scene.Children.AddRange([Clip(5), Clip(10), Clip(20)]);
-        Assert.That(clock.MaximumTime.Value, Is.EqualTo(TimeSpan.FromSeconds(20)));
+        Assert.That(clock.MaximumTime.Value, Is.EqualTo(MediaTime.FromSeconds(20)));
 
         scene.Children.RemoveRange(1, 2);
 
-        Assert.That(clock.MaximumTime.Value, Is.EqualTo(TimeSpan.FromSeconds(5)));
+        Assert.That(clock.MaximumTime.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
     }
 
     [Test]
@@ -47,7 +47,7 @@ public sealed class EditorClockMaximumTimeTests
 
         scene.Children.Remove(early);
 
-        Assert.That(clock.MaximumTime.Value, Is.EqualTo(TimeSpan.FromSeconds(20)));
+        Assert.That(clock.MaximumTime.Value, Is.EqualTo(MediaTime.FromSeconds(20)));
     }
 
     [Test]
@@ -60,7 +60,7 @@ public sealed class EditorClockMaximumTimeTests
 
         scene.Children.Remove(first);
 
-        Assert.That(clock.MaximumTime.Value, Is.EqualTo(TimeSpan.FromSeconds(20)));
+        Assert.That(clock.MaximumTime.Value, Is.EqualTo(MediaTime.FromSeconds(20)));
     }
 
     [Test]
@@ -71,13 +71,13 @@ public sealed class EditorClockMaximumTimeTests
         using var clock = new EditorClockImpl(scene);
 
         scene.Children.Add(Clip(10));
-        TimeSpan afterShorter = clock.MaximumTime.Value;
+        MediaTime afterShorter = clock.MaximumTime.Value;
         scene.Children.Add(Clip(30));
 
         Assert.Multiple(() =>
         {
-            Assert.That(afterShorter, Is.EqualTo(TimeSpan.FromSeconds(20)));
-            Assert.That(clock.MaximumTime.Value, Is.EqualTo(TimeSpan.FromSeconds(30)));
+            Assert.That(afterShorter, Is.EqualTo(MediaTime.FromSeconds(20)));
+            Assert.That(clock.MaximumTime.Value, Is.EqualTo(MediaTime.FromSeconds(30)));
         });
     }
 
@@ -89,11 +89,11 @@ public sealed class EditorClockMaximumTimeTests
         scene.Children.AddRange([Clip(10), last]);
         using var clock = new EditorClockImpl(scene);
 
-        last.Length = TimeSpan.FromSeconds(5);
+        last.Length = MediaTime.FromSeconds(5);
 
-        Assert.That(clock.MaximumTime.Value, Is.EqualTo(TimeSpan.FromSeconds(10)));
+        Assert.That(clock.MaximumTime.Value, Is.EqualTo(MediaTime.FromSeconds(10)));
     }
 
     private static Element Clip(int endSeconds)
-        => new() { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(endSeconds) };
+        => new() { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(endSeconds) };
 }

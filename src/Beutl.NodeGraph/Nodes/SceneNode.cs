@@ -69,7 +69,7 @@ public partial class SceneNode : GraphNode
     private void PinTimeToReferencedScene()
     {
         Object.IsTimeAnchor = true;
-        Object.TimeRange = new Media.TimeRange(TimeSpan.Zero, TimeSpan.FromDays(3650));
+        Object.TimeRange = new Media.TimeRange(MediaTime.Zero, MediaTime.FromSeconds(3650 * 86400));
     }
 
     public partial class Resource
@@ -84,7 +84,8 @@ public partial class SceneNode : GraphNode
             var node = RequireOriginal();
             // The referenced scene is evaluated at the absolute time Time names, with this
             // render's settings, whether Time is typed or comes from another node.
-            var sceneContext = new CompositionContext(Time)
+            // The port stays TimeSpan until #2885 step 4; a time past the range of MediaTime clamps.
+            var sceneContext = new CompositionContext(MediaTime.FromTicks(((TimeSpan)Time).Ticks, MidpointRounding.AwayFromZero))
             {
                 DisableResourceShare = context.DisableResourceShare,
                 PreferProxy = context.PreferProxy,

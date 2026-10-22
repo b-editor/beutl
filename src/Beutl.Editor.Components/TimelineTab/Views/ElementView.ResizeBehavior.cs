@@ -45,9 +45,9 @@ public sealed partial class ElementView
 
     // Smallest Start among same-layer elements that end at or before the target's start —
     // the set ripple pushes left. Its Start hitting 0 bounds how far the left edge can grow.
-    private static TimeSpan? GetLeftmostUpstreamStart(Scene scene, Element element)
+    private static MediaTime? GetLeftmostUpstreamStart(Scene scene, Element element)
     {
-        TimeSpan? leftmost = null;
+        MediaTime? leftmost = null;
         foreach (Element other in scene.Children)
         {
             if (other != element && other.ZIndex == element.ZIndex && other.Range.End <= element.Start)
@@ -88,10 +88,10 @@ public sealed partial class ElementView
             ElementViewModel ViewModel,
             Element? Before,
             Element? After,
-            TimeSpan RecordedStartTime,
-            TimeSpan RecordedEndTime,
-            TimeSpan? LeftmostUpstreamStart,
-            TimeSpan? OriginalDuration,
+            MediaTime RecordedStartTime,
+            MediaTime RecordedEndTime,
+            MediaTime? LeftmostUpstreamStart,
+            MediaTime? OriginalDuration,
             SlippableMedia.ResizeConstraints? MediaConstraints);
 
         private enum TrimDragKind { None, Roll, Slide }
@@ -109,7 +109,7 @@ public sealed partial class ElementView
             ElementTrimPair[] RollPairs,
             ElementSlideLane[] SlideLanes,
             double InitialPointerX,
-            Func<TimeSpan, TimeSpan> ClampDelta);
+            Func<MediaTime, MediaTime> ClampDelta);
 
         private bool _pressed;
         private AlignmentX _resizeType;
@@ -191,7 +191,7 @@ public sealed partial class ElementView
 
             Point point = e.GetPosition(view);
             float scale = viewModel.Timeline.Options.Value.Scale;
-            TimeSpan pointerFrame = point.X.PixelToTimeSpan(scale);
+            MediaTime pointerFrame = point.X.PixelToTime(scale);
 
             if (view._timeline is null || !_pressed) return;
 
@@ -207,7 +207,7 @@ public sealed partial class ElementView
             bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
             _lastPosition = point;
             _lastAlt = alt;
-            int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
+            Rational rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
 
             if (_trimDrag.Kind is not TrimDragKind.None)
             {
@@ -228,7 +228,7 @@ public sealed partial class ElementView
                     {
                         PreviewRightEdge(ctx, point.X, scale, minWidth, viewModel.Timeline.IsRippleEnabled.Value);
                     }
-                    else if (_resizeType == AlignmentX.Left && pointerFrame >= TimeSpan.Zero)
+                    else if (_resizeType == AlignmentX.Left && pointerFrame >= MediaTime.Zero)
                     {
                         PreviewLeftEdge(ctx, point.X, scale, minWidth, viewModel.Timeline.IsRippleEnabled.Value);
                     }
@@ -243,12 +243,12 @@ public sealed partial class ElementView
         // function, round to the frame rate, clamp to the bounds captured at drag
         // start. Snap the press point first so the snap guide (a RoundStartTime
         // side effect) ends up reflecting the pointer, not the press point.
-        private void PreviewTrimDrag(ElementView view, TimeSpan pointerFrame, float scale, bool alt, int rate)
+        private void PreviewTrimDrag(ElementView view, MediaTime pointerFrame, float scale, bool alt, Rational rate)
         {
-            TimeSpan pressTime = view.RoundStartTime(
-                _trimDrag.InitialPointerX.PixelToTimeSpan(scale), scale, alt);
+            MediaTime pressTime = view.RoundStartTime(
+                _trimDrag.InitialPointerX.PixelToTime(scale), scale, alt);
             pointerFrame = view.RoundStartTime(pointerFrame, scale, alt);
-            TimeSpan previewDelta = _trimDrag.ClampDelta((pointerFrame - pressTime).RoundToRate(rate));
+            MediaTime previewDelta = _trimDrag.ClampDelta((pointerFrame - pressTime).RoundToFrame(rate, MidpointRounding.AwayFromZero));
             ApplyTrimDragPreview(previewDelta.TimeToPixel(scale));
         }
 
@@ -264,7 +264,7 @@ public sealed partial class ElementView
 
             double width = Math.Max(x - left, minWidth);
             if (ctx.MediaConstraints is { } constraints)
-                width = Math.Max(constraints.ClampLength(width.PixelToTimeSpan(scale)).TimeToPixel(scale), minWidth);
+                width = Math.Max(constraints.ClampLength(width.PixelToTime(scale)).TimeToPixel(scale), minWidth);
             ctx.ViewModel.Width.Value = width;
         }
 
@@ -280,7 +280,7 @@ public sealed partial class ElementView
                 ripple);
             if (ctx.MediaConstraints is { } constraints)
             {
-                x = constraints.ClampStart(x.PixelToTimeSpan(scale)).TimeToPixel(scale);
+                x = constraints.ClampStart(x.PixelToTime(scale)).TimeToPixel(scale);
             }
 
             double endPos = ctx.RecordedEndTime.TimeToPixel(scale);
@@ -390,12 +390,12 @@ public sealed partial class ElementView
             IEnumerable<ElementViewModel> filteredElements;
             if (_resizeType == AlignmentX.Right)
             {
-                TimeSpan targetEndTime = viewModel.Model.Range.End;
+                MediaTime targetEndTime = viewModel.Model.Range.End;
                 filteredElements = relatedElements.Where(elem => elem.Model.Range.End == targetEndTime);
             }
             else if (_resizeType == AlignmentX.Left)
             {
-                TimeSpan targetStartTime = viewModel.Model.Start;
+                MediaTime targetStartTime = viewModel.Model.Start;
                 filteredElements = relatedElements.Where(elem => elem.Model.Start == targetStartTime);
             }
             else
@@ -410,7 +410,7 @@ public sealed partial class ElementView
             _resizeContexts = participants.Select(elem =>
             {
                 var constraints = clampToOriginal ? SlippableMedia.CreateResizeConstraints(elem.Model, timingPeers) : null;
-                TimeSpan? originalDuration = _resizeType == AlignmentX.Right && constraints?.HasMonotonicDuration == true
+                MediaTime? originalDuration = _resizeType == AlignmentX.Right && constraints?.HasMonotonicDuration == true
                     ? constraints.GetMaximumDuration()
                     : null;
 
@@ -432,15 +432,15 @@ public sealed partial class ElementView
                 .OfType<SlippableMedia.ResizeConstraints>().ToArray();
             if (!limits.Any(limit => limit.HasSharedClock)) return;
             bool leftEdge = _resizeType == AlignmentX.Left;
-            TimeSpan delta = _resizeContexts.Select(ctx => leftEdge
-                    ? ctx.ViewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale) - ctx.RecordedStartTime
-                    : ctx.ViewModel.Width.Value.PixelToTimeSpan(scale) - (ctx.RecordedEndTime - ctx.RecordedStartTime))
-                .MinBy(value => Math.Abs(value.Ticks));
+            MediaTime delta = _resizeContexts.Select(ctx => leftEdge
+                    ? ctx.ViewModel.BorderMargin.Value.Left.PixelToTime(scale) - ctx.RecordedStartTime
+                    : ctx.ViewModel.Width.Value.PixelToTime(scale) - (ctx.RecordedEndTime - ctx.RecordedStartTime))
+                .MinBy(value => Math.Abs(value.Flicks));
             delta = SlippableMedia.ClampSharedResizeDelta(limits, delta, leftEdge);
             foreach (ElementResizeContext ctx in _resizeContexts)
             {
-                TimeSpan start = ctx.RecordedStartTime + (leftEdge ? delta : TimeSpan.Zero);
-                TimeSpan end = ctx.RecordedEndTime + (leftEdge ? TimeSpan.Zero : delta);
+                MediaTime start = ctx.RecordedStartTime + (leftEdge ? delta : MediaTime.Zero);
+                MediaTime end = ctx.RecordedEndTime + (leftEdge ? MediaTime.Zero : delta);
                 ctx.ViewModel.BorderMargin.Value = new Thickness(start.TimeToPixel(scale), 0, 0, 0);
                 ctx.ViewModel.Width.Value = (end - start).TimeToPixel(scale);
             }
@@ -451,7 +451,7 @@ public sealed partial class ElementView
             if (_resizeType is not (AlignmentX.Left or AlignmentX.Right)) return false;
 
             Element model = viewModel.Model;
-            TimeSpan boundary = _resizeType == AlignmentX.Right ? model.Range.End : model.Start;
+            MediaTime boundary = _resizeType == AlignmentX.Right ? model.Range.End : model.Start;
 
             IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
                 viewModel.Scene, CollectTrimMembers(viewModel), boundary);
@@ -582,19 +582,19 @@ public sealed partial class ElementView
             _trimDrag = default;
 
             float scale = viewModel.Timeline.Options.Value.Scale;
-            int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
+            Rational rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
             bool alt = _lastAlt;
-            TimeSpan delta = TrimDeltaCalculator.SnappedDelta(
-                    ctx.InitialPointerX.PixelToTimeSpan(scale),
-                    _lastPosition.X.PixelToTimeSpan(scale),
+            MediaTime delta = TrimDeltaCalculator.SnappedDelta(
+                    ctx.InitialPointerX.PixelToTime(scale),
+                    _lastPosition.X.PixelToTime(scale),
                     t => view.RoundStartTime(t, scale, alt))
-                .RoundToRate(rate);
+                .RoundToFrame(rate, MidpointRounding.AwayFromZero);
             // RoundStartTime re-sets the snap guide line as a side effect; clear it.
             viewModel.Timeline.SnapBarPosition.Value = null;
 
             RestoreTrimDragVisuals(ctx);
 
-            if (delta != TimeSpan.Zero)
+            if (delta != MediaTime.Zero)
             {
                 IElementResizeService resizeService = viewModel.Timeline.EditorContext
                     .GetRequiredService<IElementResizeService>();
@@ -616,14 +616,14 @@ public sealed partial class ElementView
                 .ToArray();
 
             float scale = viewModel.Timeline.Options.Value.Scale;
-            int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
+            Rational rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
 
-            TimeSpan RoundEdge(ElementResizeContext ctx)
+            MediaTime RoundEdge(ElementResizeContext ctx)
             {
                 double edge = ctx.ViewModel.BorderMargin.Value.Left + (leftEdge ? 0 : ctx.ViewModel.Width.Value);
-                return edge.PixelToTimeSpan(scale).RoundToRate(rate);
+                return edge.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
             }
-            TimeSpan? sharedEdge = _resizeContexts.Any(ctx => ctx.MediaConstraints?.HasSharedClock == true)
+            MediaTime? sharedEdge = _resizeContexts.Any(ctx => ctx.MediaConstraints?.HasSharedClock == true)
                 ? RoundEdge(_resizeContexts[0]) : null;
             var requests = new ElementResizeRequest[_resizeContexts.Length];
             for (int i = 0; i < _resizeContexts.Length; i++)
@@ -632,8 +632,8 @@ public sealed partial class ElementView
                 // Round the moving edge once and retain the opposite edge.
                 // Rounding each start/length separately can split a shared
                 // edge when the clips have different sub-frame starts.
-                TimeSpan edge = sharedEdge ?? RoundEdge(ctx);
-                (TimeSpan newStart, TimeSpan newLength) = leftEdge
+                MediaTime edge = sharedEdge ?? RoundEdge(ctx);
+                (MediaTime newStart, MediaTime newLength) = leftEdge
                     ? (edge, ctx.RecordedEndTime - edge)
                     : (ctx.RecordedStartTime, edge - ctx.RecordedStartTime);
                 int zindex = viewModel.Timeline.ToLayerNumber(ctx.ViewModel.Margin.Value);

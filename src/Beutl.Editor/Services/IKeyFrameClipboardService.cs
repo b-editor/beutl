@@ -20,7 +20,7 @@ public interface IKeyFrameClipboardService
     /// <c>PasteKeyFrame</c>. On generic-type mismatch returns
     /// <see cref="KeyFramePasteOutcome.GenericTypeMismatch"/> with the parsed easing,
     /// so the caller can fall back to its own <c>InsertKeyFrame</c> using it.</summary>
-    KeyFramePasteResult PasteKeyFrame(IKeyFrameAnimation target, string json, TimeSpan keyTime);
+    KeyFramePasteResult PasteKeyFrame(IKeyFrameAnimation target, string json, MediaTime keyTime);
 }
 
 public enum KeyFrameAnimationPasteOutcome

@@ -43,7 +43,7 @@ public class ToolTabPinTests
     {
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         await adder.AddAsync(
-            [new ElementDescription(TimeSpan.Zero, TimeSpan.FromSeconds(2), layer, new ElementSource.EngineObject(create))],
+            [new ElementDescription(MediaTime.Zero, MediaTime.FromSeconds(2), layer, new ElementSource.EngineObject(create))],
             CancellationToken.None);
         HeadlessTestHelpers.Settle();
         return editor.Scene.Children.Single(e => e.ZIndex == layer);

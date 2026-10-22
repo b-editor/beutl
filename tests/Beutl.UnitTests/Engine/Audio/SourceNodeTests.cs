@@ -20,7 +20,7 @@ public class SourceNodeTests
         Assume.That(resource.SampleRate, Is.Zero, "precondition: an unloaded resource has SampleRate 0");
 
         var node = new SourceNode { Source = (resource, 0) };
-        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
         var context = new AudioProcessContext(range, 44100, new AnimationSampler(), null);
 
         AudioBuffer? buffer = null;

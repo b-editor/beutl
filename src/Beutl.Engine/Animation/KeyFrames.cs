@@ -41,7 +41,7 @@ public class KeyFrames : HierarchicalList<IKeyFrame>
         return (prev, next);
     }
 
-    public (IKeyFrame? Previous, IKeyFrame? Next) GetPreviousAndNextKeyFrame(TimeSpan timeSpan)
+    public (IKeyFrame? Previous, IKeyFrame? Next) GetPreviousAndNextKeyFrame(MediaTime timeSpan)
     {
         int index = IndexAtOrCount(timeSpan);
         IKeyFrame? prev = index > 0 ? this[index - 1] : null;
@@ -49,13 +49,13 @@ public class KeyFrames : HierarchicalList<IKeyFrame>
         return (prev, next);
     }
 
-    public int IndexAt(TimeSpan timeSpan)
+    public int IndexAt(MediaTime timeSpan)
     {
         // Past the last keyframe this is the last index, and -1 on an empty list.
         return Math.Min(IndexAtOrCount(timeSpan), Count - 1);
     }
 
-    public int IndexAtOrCount(TimeSpan timeSpan)
+    public int IndexAtOrCount(MediaTime timeSpan)
     {
         for (int i = 0; i < Count; i++)
         {

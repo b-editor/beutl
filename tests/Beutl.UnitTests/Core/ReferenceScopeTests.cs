@@ -42,8 +42,8 @@ public class ReferenceScopeTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(presenter.Target.Evaluate(new EvaluationContext(TimeSpan.Zero)), Is.SameAs(inSecond));
-            Assert.That(width.Width.Evaluate(new EvaluationContext(TimeSpan.Zero)), Is.EqualTo(20));
+            Assert.That(presenter.Target.Evaluate(new EvaluationContext(MediaTime.Zero)), Is.SameAs(inSecond));
+            Assert.That(width.Width.Evaluate(new EvaluationContext(MediaTime.Zero)), Is.EqualTo(20));
         });
     }
 
@@ -54,7 +54,7 @@ public class ReferenceScopeTests
         var presenter = new DrawablePresenter { Target = { Expression = new ReferenceExpression<Drawable?>(inFirst.Id) } };
         AddElement(_second, presenter);
 
-        Assert.That(presenter.Target.Evaluate(new EvaluationContext(TimeSpan.Zero)), Is.SameAs(inFirst));
+        Assert.That(presenter.Target.Evaluate(new EvaluationContext(MediaTime.Zero)), Is.SameAs(inFirst));
     }
 
     [Test]
@@ -80,7 +80,7 @@ public class ReferenceScopeTests
 
     private static void AddElement(Scene scene, params Drawable[] drawables)
     {
-        var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(1), ZIndex = scene.Children.Count };
+        var element = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(1), ZIndex = scene.Children.Count };
         foreach (Drawable drawable in drawables)
             element.AddObject(drawable);
         scene.Children.Add(element);

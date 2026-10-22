@@ -73,7 +73,7 @@ public sealed partial class RenderTools(
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
             RenderStillResponse response = await stillRenderer.RenderAsync(
                 scene,
-                TimeSpan.FromSeconds(Math.Max(0, timeSeconds)),
+                MediaTime.FromSeconds(Math.Max(0, timeSeconds)),
                 resolvedPath,
                 renderScale,
                 cancellationToken).ConfigureAwait(false);
@@ -183,7 +183,7 @@ public sealed partial class RenderTools(
             using OwnedOutputOperation outputOperation = BeginOutputOperation();
             Scene scene = RequireSceneSnapshot();
             renderScale = ValidateRenderScale(scene, renderScale, "measure_frame_differences");
-            IReadOnlyList<TimeSpan> sampleTimes = ResolveFrameSampleTimes(scene, timeSeconds, sampleCount);
+            IReadOnlyList<MediaTime> sampleTimes = ResolveFrameSampleTimes(scene, timeSeconds, sampleCount);
             return await frameDifferenceAnalyzer.AnalyzeAsync(
                 scene, sampleTimes, renderScale, pixelDeltaThreshold, foregroundLumaThreshold,
                 cancellationToken).ConfigureAwait(false);
@@ -269,9 +269,11 @@ public sealed partial class RenderTools(
             }
 
             Project? project = scene.FindHierarchicalParent<Project>();
-            int resolvedFrameRateNumerator = frameRateNumerator ?? project.GetFrameRate();
+            Rational frameRate = frameRateNumerator is { } numerator
+                ? new Rational(numerator, frameRateDenominator)
+                : project.GetFrameRate();
             int resolvedSampleRate = sampleRate ?? project.GetSampleRate();
-            ValidateExportOptions(resolvedFrameRateNumerator, frameRateDenominator, crf, bitrate);
+            ValidateExportOptions(frameRate, crf, bitrate);
 
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
 
@@ -283,7 +285,7 @@ public sealed partial class RenderTools(
                 ExportVideoResponse exported = await videoExporter.ExportAsync(
                     scene,
                     resolvedPath,
-                    new Rational(resolvedFrameRateNumerator, frameRateDenominator),
+                    frameRate,
                     resolvedSampleRate,
                     renderScale,
                     token,
@@ -340,9 +342,9 @@ public sealed partial class RenderTools(
                    jobId));
     }
 
-    private static void ValidateExportOptions(int frameRateNumerator, int frameRateDenominator, int? crf, int? bitrate)
+    private static void ValidateExportOptions(Rational frameRate, int? crf, int? bitrate)
     {
-        if (frameRateNumerator <= 0 || frameRateDenominator <= 0)
+        if (frameRate.Numerator <= 0 || frameRate.Denominator <= 0)
         {
             throw new ReconcileException(new ToolError(
                 ErrorCode.ValidationRejected,
@@ -385,7 +387,7 @@ public sealed partial class RenderTools(
         }
     }
 
-    private static IReadOnlyList<TimeSpan>? NormalizeFrameSampleTimesOrNull(double[]? timeSeconds)
+    private static IReadOnlyList<MediaTime>? NormalizeFrameSampleTimesOrNull(double[]? timeSeconds)
     {
         if (timeSeconds is not { Length: > 0 })
         {
@@ -394,15 +396,15 @@ public sealed partial class RenderTools(
 
         return timeSeconds
             .Where(double.IsFinite)
-            .Select(seconds => TimeSpan.FromSeconds(Math.Max(0, seconds)))
+            .Select(seconds => MediaTime.FromSeconds(Math.Max(0, seconds)))
             .Distinct()
             .OrderBy(time => time)
             .ToArray();
     }
 
-    internal static IReadOnlyList<TimeSpan> ResolveFrameSampleTimes(Scene scene, double[]? timeSeconds, int sampleCount)
+    internal static IReadOnlyList<MediaTime> ResolveFrameSampleTimes(Scene scene, double[]? timeSeconds, int sampleCount)
     {
-        IReadOnlyList<TimeSpan>? explicitTimes = NormalizeFrameSampleTimesOrNull(timeSeconds);
+        IReadOnlyList<MediaTime>? explicitTimes = NormalizeFrameSampleTimesOrNull(timeSeconds);
         if (explicitTimes is not null && explicitTimes.Count < 2)
         {
             // A caller-supplied list that collapses to fewer than two distinct finite times must be
@@ -416,17 +418,17 @@ public sealed partial class RenderTools(
 
         if (explicitTimes is { Count: >= 2 })
         {
-            TimeSpan duration = GetEffectiveSceneDuration(scene);
-            // TimeRange.Contains excludes the end, so clamp to the last renderable tick rather than the
+            MediaTime duration = GetEffectiveSceneDuration(scene);
+            // TimeRange.Contains excludes the end, so clamp to the last renderable flick rather than the
             // exclusive Duration, which would sample a blank frame with no active elements.
-            TimeSpan lastRenderable = duration - TimeSpan.FromTicks(1);
-            TimeSpan[] clamped = explicitTimes
+            MediaTime lastRenderable = duration - new MediaTime(1);
+            MediaTime[] clamped = explicitTimes
                 .Select(time => time > lastRenderable ? lastRenderable : time)
                 .Distinct()
                 .OrderBy(time => time)
                 .ToArray();
 
-            // Multiple out-of-range times can all clamp to the last tick and collapse to one sample,
+            // Multiple out-of-range times can all clamp to the last flick and collapse to one sample,
             // which FrameDifferenceAnalyzer would reject with an unmapped ArgumentException; surface a
             // typed validation error instead of leaking it.
             if (clamped.Length < 2)
@@ -435,22 +437,22 @@ public sealed partial class RenderTools(
                     ErrorCode.ValidationRejected,
                     "timeSeconds must contain at least two distinct times within the scene duration.",
                     "timeSeconds",
-                    $"Provide two or more sample times inside [0, {duration.TotalSeconds:0.###}] seconds."));
+                    $"Provide two or more sample times inside [0, {duration.ToSeconds():0.###}] seconds."));
             }
 
             return clamped;
         }
 
         int count = Math.Clamp(sampleCount, 2, 8);
-        double durationSeconds = GetEffectiveSceneDuration(scene).TotalSeconds;
+        double durationSeconds = GetEffectiveSceneDuration(scene).ToSeconds();
         return Enumerable
             .Range(0, count)
-            .Select(index => TimeSpan.FromSeconds(durationSeconds * (index + 0.5) / count))
+            .Select(index => MediaTime.FromSeconds(durationSeconds * (index + 0.5) / count))
             .ToArray();
     }
 
-    private static TimeSpan GetEffectiveSceneDuration(Scene scene)
-        => scene.Duration > TimeSpan.Zero ? scene.Duration : TimeSpan.FromSeconds(1);
+    private static MediaTime GetEffectiveSceneDuration(Scene scene)
+        => scene.Duration > MediaTime.Zero ? scene.Duration : MediaTime.FromSeconds(1);
 
     private OwnedOutputOperation BeginOutputOperation()
     {

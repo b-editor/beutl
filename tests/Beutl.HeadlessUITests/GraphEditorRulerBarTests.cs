@@ -131,20 +131,20 @@ public class GraphEditorRulerBarTests
         using GraphScope graph = await GraphScope.CreateAsync();
         Scene scene = graph.Model.Scene;
         TimelineScale horizontal = graph.View.FindControl<TimelineScale>("scale")!;
-        TimeSpan frame = TimeSpan.FromSeconds(1d / 30);
-        scene.Start = TimeSpan.Zero;
-        scene.Duration = TimeSpan.FromSeconds(2);
+        MediaTime frame = MediaTime.FromSeconds(1d / 30);
+        scene.Start = MediaTime.Zero;
+        scene.Duration = MediaTime.FromSeconds(2);
         HeadlessTestHelpers.Render();
 
         // The ending bar sits at 300 px (2 s at 150 px per second); drop it onto the start.
         graph.Drag(OnRuler(298), OnRuler(0));
         Assert.That(scene.Duration, Is.EqualTo(frame));
 
-        scene.Duration = TimeSpan.FromSeconds(2);
+        scene.Duration = MediaTime.FromSeconds(2);
         HeadlessTestHelpers.Render();
         // Drop the starting bar onto the end.
         graph.Drag(OnRuler(2), OnRuler(300));
-        Assert.That(scene.Start, Is.EqualTo(TimeSpan.FromSeconds(2) - frame));
+        Assert.That(scene.Start, Is.EqualTo(MediaTime.FromSeconds(2) - frame));
         Assert.That(scene.Duration, Is.EqualTo(frame));
 
         Point OnRuler(double x) => horizontal.TranslatePoint(new Point(x, 8), graph.Window)!.Value;
@@ -159,8 +159,8 @@ public class GraphEditorRulerBarTests
         Scene scene = graph.Model.Scene;
         HistoryManager history = graph.Model.EditorContext.GetRequiredService<HistoryManager>();
         TimelineScale horizontal = graph.View.FindControl<TimelineScale>("scale")!;
-        scene.Start = TimeSpan.Zero;
-        scene.Duration = TimeSpan.FromSeconds(2);
+        scene.Start = MediaTime.Zero;
+        scene.Duration = MediaTime.FromSeconds(2);
         history.Commit();
         HeadlessTestHelpers.Render();
         int undoCount = history.UndoCount;
@@ -174,7 +174,7 @@ public class GraphEditorRulerBarTests
         graph.Window.MouseDown(OnRuler(298), MouseButton.Left);
         graph.Window.MouseMove(OnRuler(270), RawInputModifiers.LeftMouseButton);
         HeadlessTestHelpers.Render();
-        Assert.That(scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(1.8)));
+        Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(1.8)));
 
         if (escape)
         {
@@ -194,7 +194,7 @@ public class GraphEditorRulerBarTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(escape ? 2 : 1.8)));
+            Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(escape ? 2 : 1.8)));
             Assert.That(history.UndoCount, Is.EqualTo(undoCount + (escape ? 0 : 1)));
             Assert.That(history.IsEditing, Is.False);
         });
@@ -209,7 +209,7 @@ public class GraphEditorRulerBarTests
     [TestCase(960, true)]
     public async Task Both_rulers_stay_aligned_during_seek_pan_zoom_and_keyframe_drag(int width, bool light)
     {
-        using var scope = await GraphScope.CreateAsync(light, elementStart: TimeSpan.FromSeconds(0.2));
+        using var scope = await GraphScope.CreateAsync(light, elementStart: MediaTime.FromSeconds(0.2));
         scope.View.DataContext = null;
         Scene scene = scope.Model.Scene;
         Element element = scope.Model.Element!;
@@ -232,7 +232,7 @@ public class GraphEditorRulerBarTests
             graph = model.SelectedAnimation.Value!;
             graph.Options.Value = graph.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };
             graph.ScrollOffset.Value = new Vector(0, 60);
-            scene.Duration = TimeSpan.FromSeconds(2);
+            scene.Duration = MediaTime.FromSeconds(2);
             HeadlessTestHelpers.Render();
             Assert.That(graphView.IsEffectivelyVisible, Is.True);
 
@@ -245,15 +245,15 @@ public class GraphEditorRulerBarTests
             CheckAlignment();
 
             scope.Click(horizontal.TranslatePoint(new Point(75, 24), window)!.Value);
-            Assert.That(graph.CurrentTime.Value, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
+            Assert.That(graph.CurrentTime.Value, Is.EqualTo(MediaTime.FromSeconds(0.5)));
             scope.Click(bar.TranslatePoint(new Point(90, 4), window)!.Value);
-            Assert.That(graph.CurrentTime.Value, Is.EqualTo(TimeSpan.FromSeconds(0.6)));
+            Assert.That(graph.CurrentTime.Value, Is.EqualTo(MediaTime.FromSeconds(0.6)));
 
             scope.Drag(horizontal.TranslatePoint(new Point(298, 8), window)!.Value, horizontal.TranslatePoint(new Point(270, 8), window)!.Value);
-            Assert.That(scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(1.8)));
+            Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(1.8)));
             scope.Drag(horizontal.TranslatePoint(new Point(2, 8), window)!.Value, horizontal.TranslatePoint(new Point(30, 8), window)!.Value);
-            Assert.That(scene.Start, Is.EqualTo(TimeSpan.FromSeconds(0.2)));
-            Assert.That(scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(1.6)));
+            Assert.That(scene.Start, Is.EqualTo(MediaTime.FromSeconds(0.2)));
+            Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(1.6)));
 
             // Grab the actual keyframe at the intersection of its time and value coordinates.
             Point keyframe = canvas.TranslatePoint(new Point(
@@ -265,7 +265,7 @@ public class GraphEditorRulerBarTests
             window.MouseMove(keyframe + new Vector(30, -20), RawInputModifiers.LeftMouseButton);
             window.MouseUp(keyframe + new Vector(30, -20), MouseButton.Left);
             HeadlessTestHelpers.Render();
-            Assert.That(first.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(0.7)));
+            Assert.That(first.KeyTime, Is.EqualTo(MediaTime.FromSeconds(0.7)));
             Assert.That(first.Value, Is.EqualTo(140).Within(0.001));
             CheckAlignment();
 
@@ -275,7 +275,7 @@ public class GraphEditorRulerBarTests
             Assert.That(scroll.Offset.Y, Is.EqualTo(60));
             CheckAlignment();
             scope.Click(bar.TranslatePoint(new Point(75, 4), window)!.Value);
-            Assert.That(graph.CurrentTime.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(graph.CurrentTime.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
 
             Point verticalPoint = vertical.TranslatePoint(new Point(10, 80), window)!.Value;
             double previousY = scroll.Offset.Y;

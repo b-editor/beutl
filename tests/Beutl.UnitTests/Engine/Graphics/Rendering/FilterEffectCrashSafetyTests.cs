@@ -88,7 +88,7 @@ public sealed class FilterEffectCrashSafetyTests
             StrengthX = { Value = float.NaN },
             StrengthY = { Value = float.MaxValue }
         };
-        effect.ApplyTo(feCtx, effect.ToResource(new CompositionContext(TimeSpan.Zero)));
+        effect.ApplyTo(feCtx, effect.ToResource(new CompositionContext(MediaTime.Zero)));
 
         using var builder = new SKImageFilterBuilder();
         using var executor = new FilterEffectExecutor(
@@ -138,7 +138,7 @@ public sealed class FilterEffectCrashSafetyTests
             };
             using var feCtx = new FilterEffectContext(new Rect(0, 0, 0, 0));
             var effect = new PixelSortEffect();
-            effect.ApplyTo(feCtx, effect.ToResource(new CompositionContext(TimeSpan.Zero)));
+            effect.ApplyTo(feCtx, effect.ToResource(new CompositionContext(MediaTime.Zero)));
 
             using var builder = new SKImageFilterBuilder();
             using var executor = new FilterEffectExecutor(

@@ -100,7 +100,7 @@ public class KeyFrameTests
     [Test]
     public void Serialize_ShouldCorrectlySerializeLinearEasing()
     {
-        var keyFrame = new KeyFrame<int> { Easing = new LinearEasing(), KeyTime = TimeSpan.FromSeconds(1) };
+        var keyFrame = new KeyFrame<int> { Easing = new LinearEasing(), KeyTime = MediaTime.FromSeconds(1) };
         var context = new Mock<ICoreSerializationContext>();
         var jsonObject = new JsonObject();
 
@@ -119,7 +119,7 @@ public class KeyFrameTests
         var keyFrame = new KeyFrame<int>
         {
             Easing = new SplineEasing(0.1f, 0.2f, 0.3f, 0.4f),
-            KeyTime = TimeSpan.FromSeconds(1)
+            KeyTime = MediaTime.FromSeconds(1)
         };
         var context = new Mock<ICoreSerializationContext>();
         var jsonObject = new JsonObject();

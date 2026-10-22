@@ -82,7 +82,7 @@ internal static class AgentHostTestHelpers
         {
             Name = name,
             Uri = new Uri(Path.Combine(directory, name + ".scene")),
-            Duration = TimeSpan.FromSeconds(1),
+            Duration = MediaTime.FromSeconds(1),
             FrameSize = new PixelSize(640, 480)
         };
         editor.ActivateTabItem(scene);

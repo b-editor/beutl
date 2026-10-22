@@ -103,8 +103,8 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
         AudioContext context,
         Sound original,
         Sound.Resource child,
-        TimeSpan start,
-        TimeSpan duration)
+        MediaTime start,
+        MediaTime duration)
     {
         foreach (var outputNode in ComposeChildInto(context, original, child))
         {

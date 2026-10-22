@@ -84,7 +84,7 @@ public class SceneDrawableScaleTests
         Scene inner,
         float outputScale)
     {
-        using Drawable.Resource resource = drawable.ToResource(new CompositionContext(TimeSpan.Zero));
+        using Drawable.Resource resource = drawable.ToResource(new CompositionContext(MediaTime.Zero));
         var root = new DrawableRenderNode(resource);
         using (var ctx = new GraphicsContext2D(root, inner.FrameSize.ToSize(1), outputScale))
         {
@@ -131,7 +131,7 @@ public class SceneDrawableScaleTests
             var drawable = new SceneDrawable();
             drawable.ReferencedScene.Value = inner;
 
-            using Drawable.Resource resource = drawable.ToResource(new CompositionContext(TimeSpan.Zero));
+            using Drawable.Resource resource = drawable.ToResource(new CompositionContext(MediaTime.Zero));
             using var root = new DrawableRenderNode(resource);
             using (var context = new GraphicsContext2D(root, inner.FrameSize.ToSize(1)))
             {
@@ -158,7 +158,7 @@ public class SceneDrawableScaleTests
         drawable.ReferencedScene.Value = inner;
 
         using var resource = (SceneDrawable.Resource)drawable.ToResource(
-            new CompositionContext(TimeSpan.Zero));
+            new CompositionContext(MediaTime.Zero));
         using var root = new DrawableRenderNode(resource);
         RenderDrawableTree(drawable, resource, root, inner.FrameSize.ToSize(1));
 
@@ -218,7 +218,7 @@ public class SceneDrawableScaleTests
         drawable.ReferencedScene.Value = inner;
 
         using var resource = (SceneDrawable.Resource)drawable.ToResource(
-            new CompositionContext(TimeSpan.Zero));
+            new CompositionContext(MediaTime.Zero));
         using var root = new DrawableRenderNode(resource);
         RenderDrawableTree(
             drawable,
@@ -272,7 +272,7 @@ public class SceneDrawableScaleTests
         drawable.ReferencedScene.Value = inner;
 
         using var resource = (SceneDrawable.Resource)drawable.ToResource(
-            new CompositionContext(TimeSpan.Zero));
+            new CompositionContext(MediaTime.Zero));
         using var root = new DrawableRenderNode(resource);
         RenderDrawableTree(
             drawable,

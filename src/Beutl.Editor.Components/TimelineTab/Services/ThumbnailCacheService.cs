@@ -18,16 +18,16 @@ public sealed class ThumbnailCacheService : IThumbnailCacheService
 
     public static ThumbnailCacheService Instance => s_instance.Value;
 
-    public bool TryGet(string cacheKey, TimeSpan time, TimeSpan threshold, out Bitmap? bitmap)
+    public bool TryGet(string cacheKey, MediaTime time, MediaTime threshold, out Bitmap? bitmap)
     {
         bitmap = null;
 
         var index = GetOrCreateIndex(cacheKey);
-        long targetTicks = time.Ticks;
+        long targetFlicks = time.Flicks;
 
         lock (index.Lock)
         {
-            if (TryFindNearest(index.Entries, targetTicks, threshold.Ticks, out Bitmap? cached))
+            if (TryFindNearest(index.Entries, targetFlicks, threshold.Flicks, out Bitmap? cached))
             {
                 bitmap = cached.Clone();
             }
@@ -40,7 +40,7 @@ public sealed class ThumbnailCacheService : IThumbnailCacheService
         return true;
     }
 
-    public void Save(string cacheKey, TimeSpan time, Bitmap bitmap)
+    public void Save(string cacheKey, MediaTime time, Bitmap bitmap)
     {
         try
         {
@@ -50,12 +50,12 @@ public sealed class ThumbnailCacheService : IThumbnailCacheService
             Bitmap? old = null;
             lock (index.Lock)
             {
-                if (index.Entries.TryGetValue(time.Ticks, out var existing))
+                if (index.Entries.TryGetValue(time.Flicks, out var existing))
                 {
                     old = existing;
                 }
 
-                index.Entries[time.Ticks] = clone;
+                index.Entries[time.Flicks] = clone;
             }
 
             old?.Dispose();
@@ -69,17 +69,17 @@ public sealed class ThumbnailCacheService : IThumbnailCacheService
         }
     }
 
-    public bool TryGetWaveform(string cacheKey, TimeSpan time, TimeSpan threshold, out float minValue, out float maxValue)
+    public bool TryGetWaveform(string cacheKey, MediaTime time, MediaTime threshold, out float minValue, out float maxValue)
     {
         minValue = 0;
         maxValue = 0;
 
         var index = GetOrCreateWaveformIndex(cacheKey);
-        long targetTicks = time.Ticks;
+        long targetFlicks = time.Flicks;
 
         lock (index.Lock)
         {
-            if (!TryFindNearest(index.Entries, targetTicks, threshold.Ticks, out (float Min, float Max) result))
+            if (!TryFindNearest(index.Entries, targetFlicks, threshold.Flicks, out (float Min, float Max) result))
                 return false;
 
             minValue = result.Min;
@@ -90,12 +90,12 @@ public sealed class ThumbnailCacheService : IThumbnailCacheService
         return true;
     }
 
-    public void SaveWaveform(string cacheKey, TimeSpan time, float minValue, float maxValue)
+    public void SaveWaveform(string cacheKey, MediaTime time, float minValue, float maxValue)
     {
         var index = GetOrCreateWaveformIndex(cacheKey);
         lock (index.Lock)
         {
-            index.Entries[time.Ticks] = (minValue, maxValue);
+            index.Entries[time.Flicks] = (minValue, maxValue);
         }
 
         index.LastAccessTime = DateTime.UtcNow;
@@ -138,7 +138,7 @@ public sealed class ThumbnailCacheService : IThumbnailCacheService
     }
 
     private static bool TryFindNearest<T>(
-        SortedList<long, T> entries, long targetTicks, long thresholdTicks, [MaybeNullWhen(false)] out T value)
+        SortedList<long, T> entries, long targetFlicks, long thresholdFlicks, [MaybeNullWhen(false)] out T value)
     {
         value = default;
         if (entries.Count == 0)
@@ -150,19 +150,19 @@ public sealed class ThumbnailCacheService : IThumbnailCacheService
         while (lo <= hi)
         {
             int mid = lo + (hi - lo) / 2;
-            if (keys[mid] < targetTicks)
+            if (keys[mid] < targetFlicks)
                 lo = mid + 1;
             else
                 hi = mid - 1;
         }
 
-        // lo は targetTicks 以上の最小インデックス
+        // lo は targetFlicks 以上の最小インデックス
         long bestDiff = long.MaxValue;
         int best = -1;
 
         for (int i = Math.Max(0, lo - 1); i <= Math.Min(keys.Count - 1, lo); i++)
         {
-            long diff = Math.Abs(keys[i] - targetTicks);
+            long diff = Math.Abs(keys[i] - targetFlicks);
             if (diff < bestDiff)
             {
                 bestDiff = diff;
@@ -170,7 +170,7 @@ public sealed class ThumbnailCacheService : IThumbnailCacheService
             }
         }
 
-        if (best < 0 || bestDiff > thresholdTicks)
+        if (best < 0 || bestDiff > thresholdFlicks)
             return false;
 
         value = entries[keys[best]];

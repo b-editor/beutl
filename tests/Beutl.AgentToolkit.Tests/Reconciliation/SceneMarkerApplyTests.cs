@@ -24,7 +24,7 @@ public sealed class SceneMarkerApplyTests
         var tools = new EditTools(manager);
 
         JsonObject markerJson = CoreSerializer.SerializeToJsonObject(
-            new SceneMarker(TimeSpan.FromSeconds(2), "beat", note: "drop"));
+            new SceneMarker(MediaTime.FromSeconds(2), "beat", note: "drop"));
         markerJson.Remove(nameof(CoreObject.Id));
         JsonObject patch = new()
         {
@@ -37,7 +37,7 @@ public sealed class SceneMarkerApplyTests
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(session.Scene.Markers, Has.Count.EqualTo(1));
-            Assert.That(session.Scene.Markers[0].Time, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(session.Scene.Markers[0].Time, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(session.Scene.Markers[0].Name, Is.EqualTo("beat"));
             Assert.That(session.Scene.Markers[0].Note, Is.EqualTo("drop"));
         });
@@ -75,7 +75,7 @@ public sealed class SceneMarkerApplyTests
     {
         using var source = new FileSessionSource();
         FileEditingSession session = CreateSession(source);
-        session.Scene.Markers.Add(new SceneMarker(TimeSpan.FromSeconds(1), "keep"));
+        session.Scene.Markers.Add(new SceneMarker(MediaTime.FromSeconds(1), "keep"));
         var manager = new AgentSessionManager();
         manager.UseSource(source);
         var tools = new EditTools(manager);
@@ -101,7 +101,7 @@ public sealed class SceneMarkerApplyTests
     {
         using var source = new FileSessionSource();
         FileEditingSession session = CreateSession(source);
-        session.Scene.Markers.Add(new SceneMarker(TimeSpan.FromSeconds(1), "keep"));
+        session.Scene.Markers.Add(new SceneMarker(MediaTime.FromSeconds(1), "keep"));
 
         JsonObject desired = session.Documents.Read(session.Scene);
         desired[nameof(Scene.Markers)] = null;
@@ -121,7 +121,7 @@ public sealed class SceneMarkerApplyTests
     {
         using var source = new FileSessionSource();
         FileEditingSession session = CreateSession(source);
-        session.Scene.Markers.Add(new SceneMarker(TimeSpan.FromSeconds(1), "stale"));
+        session.Scene.Markers.Add(new SceneMarker(MediaTime.FromSeconds(1), "stale"));
 
         JsonObject desired = session.Documents.Read(session.Scene);
         desired.Remove(nameof(Scene.Markers));
@@ -136,7 +136,7 @@ public sealed class SceneMarkerApplyTests
     {
         using var source = new FileSessionSource();
         FileEditingSession session = CreateSession(source);
-        var marker = new SceneMarker(TimeSpan.FromSeconds(3), "keep");
+        var marker = new SceneMarker(MediaTime.FromSeconds(3), "keep");
         session.Scene.Markers.Add(marker);
 
         JsonObject desired = session.Documents.Read(session.Scene);
@@ -146,7 +146,7 @@ public sealed class SceneMarkerApplyTests
         {
             Assert.That(session.Scene.Markers, Has.Count.EqualTo(1));
             Assert.That(session.Scene.Markers[0], Is.SameAs(marker));
-            Assert.That(session.Scene.Markers[0].Time, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(session.Scene.Markers[0].Time, Is.EqualTo(MediaTime.FromSeconds(3)));
             Assert.That(session.Scene.Markers[0].Name, Is.EqualTo("keep"));
         });
     }
@@ -158,7 +158,7 @@ public sealed class SceneMarkerApplyTests
     {
         using var source = new FileSessionSource();
         FileEditingSession session = CreateSession(source);
-        var marker = new SceneMarker(TimeSpan.FromSeconds(1), "keep");
+        var marker = new SceneMarker(MediaTime.FromSeconds(1), "keep");
         session.Scene.Markers.Add(marker);
         int originalWidth = session.Scene.FrameSize.Width;
         var manager = new AgentSessionManager();
@@ -184,7 +184,7 @@ public sealed class SceneMarkerApplyTests
             Assert.That(session.Scene.FrameSize.Width, Is.EqualTo(originalWidth));
             Assert.That(session.Scene.Markers, Has.Count.EqualTo(1));
             Assert.That(session.Scene.Markers[0], Is.SameAs(marker));
-            Assert.That(session.Scene.Markers[0].Time, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(session.Scene.Markers[0].Time, Is.EqualTo(MediaTime.FromSeconds(1)));
         });
     }
 
@@ -193,7 +193,7 @@ public sealed class SceneMarkerApplyTests
     {
         using var source = new FileSessionSource();
         FileEditingSession session = CreateSession(source);
-        session.Scene.Markers.Add(new SceneMarker(TimeSpan.FromSeconds(1), "keep"));
+        session.Scene.Markers.Add(new SceneMarker(MediaTime.FromSeconds(1), "keep"));
         int originalWidth = session.Scene.FrameSize.Width;
 
         JsonObject desired = session.Documents.Read(session.Scene);

@@ -19,7 +19,7 @@ public class ReplacedExpressionTests
         {
             Assert.That(over.Replaced, Is.SameAs(below));
             Assert.That(over.ExpressionString, Is.EqualTo(expression.ExpressionString));
-            Assert.That(over.Evaluate(TestHelper.CreateExpressionContext(TimeSpan.FromSeconds(1))), Is.EqualTo(3f));
+            Assert.That(over.Evaluate(TestHelper.CreateExpressionContext(MediaTime.FromSeconds(1))), Is.EqualTo(3f));
             Assert.That(((IExpression)over).Replaced, Is.SameAs(below));
         }
     }

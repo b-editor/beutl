@@ -47,7 +47,7 @@ public sealed class SoundSource : MediaSource
         private Counter<MediaReader>? _counter;
         private Uri? _loadedUri;
 
-        public TimeSpan Duration { get; private set; }
+        public MediaTime Duration { get; private set; }
 
         public int SampleRate { get; private set; }
 
@@ -66,7 +66,7 @@ public sealed class SoundSource : MediaSource
             return _counter.Value.ReadAudio(start, length, out sound);
         }
 
-        public bool Read(TimeSpan start, TimeSpan length, [NotNullWhen(true)] out AudioBuffer? sound)
+        public bool Read(MediaTime start, MediaTime length, [NotNullWhen(true)] out AudioBuffer? sound)
         {
             if (IsDisposed || _counter == null)
             {
@@ -77,7 +77,7 @@ public sealed class SoundSource : MediaSource
             return _counter.Value.ReadAudio(ToSamples(start), ToSamples(length), out sound);
         }
 
-        public bool Read(TimeSpan start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
+        public bool Read(MediaTime start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
         {
             if (IsDisposed || _counter == null)
             {
@@ -88,7 +88,7 @@ public sealed class SoundSource : MediaSource
             return _counter.Value.ReadAudio(ToSamples(start), length, out sound);
         }
 
-        public bool Read(int start, TimeSpan length, [NotNullWhen(true)] out AudioBuffer? sound)
+        public bool Read(int start, MediaTime length, [NotNullWhen(true)] out AudioBuffer? sound)
         {
             if (IsDisposed || _counter == null)
             {
@@ -99,11 +99,11 @@ public sealed class SoundSource : MediaSource
             return _counter.Value.ReadAudio(start, ToSamples(length), out sound);
         }
 
-        private int ToSamples(TimeSpan timeSpan)
+        private int ToSamples(MediaTime timeSpan)
         {
             // Compute in long and clamp to a valid int offset, so a time past int.MaxValue samples
             // does not wrap to a negative offset.
-            long samples = AudioMath.TimeToSampleIndex(timeSpan, SampleRate);
+            long samples = timeSpan.ToSamples(SampleRate, MidpointRounding.ToZero);
             return (int)Math.Clamp(samples, 0, int.MaxValue);
         }
 
@@ -151,7 +151,7 @@ public sealed class SoundSource : MediaSource
                 {
                     _counter.Release();
                     _counter = null;
-                    Duration = TimeSpan.Zero;
+                    Duration = MediaTime.Zero;
                     SampleRate = 0;
                     NumChannels = 0;
                     _loadedUri = soundSource.Uri;
@@ -166,7 +166,7 @@ public sealed class SoundSource : MediaSource
                     Volatile.Write(ref soundSource._mediaReaderRef, new WeakReference<Counter<MediaReader>>(_counter));
                 }
 
-                Duration = TimeSpan.FromSeconds(_counter.Value.AudioInfo.Duration.ToDouble());
+                Duration = MediaTime.FromSeconds(_counter.Value.AudioInfo.Duration.ToDouble());
                 SampleRate = _counter.Value.AudioInfo.SampleRate;
                 NumChannels = _counter.Value.AudioInfo.NumChannels;
                 _loadedUri = soundSource.Uri;

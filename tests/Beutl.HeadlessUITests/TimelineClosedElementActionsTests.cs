@@ -42,7 +42,7 @@ public class TimelineClosedElementActionsTests
         Element copied = await AddElementAsync(editor, () => new RectShape(), lengthSeconds: 4);
         CloseTimeline(editor);
         editor.GetRequiredService<IEditorSelection>().Select(copied);
-        editor.GetRequiredService<IEditorClock>().Seek(TimeSpan.FromSeconds(1));
+        editor.GetRequiredService<IEditorClock>().Seek(MediaTime.FromSeconds(1));
         MenuBarViewModel menuBar = TestShell.MainViewModel.MenuBar;
         var window = new Window();
         using var notifications = new NotificationCapture();
@@ -59,7 +59,7 @@ public class TimelineClosedElementActionsTests
             Element pasted = editor.Scene.Children.Single(e => e != copied);
             Assert.Multiple(() =>
             {
-                Assert.That(pasted.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+                Assert.That(pasted.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
                 Assert.That(pasted.Length, Is.EqualTo(copied.Length));
                 // The layer above the copied clip, which shows at the playhead.
                 Assert.That(pasted.ZIndex, Is.EqualTo(1));
@@ -98,8 +98,8 @@ public class TimelineClosedElementActionsTests
             Assert.Multiple(() =>
             {
                 Assert.That(video.Source.Value, Is.Not.Null);
-                Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero));
-                Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(37d / 25).FloorToRate(30)));
+                Assert.That(element.Start, Is.EqualTo(MediaTime.Zero));
+                Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(37d / 25).RoundToFrame(new Rational(30), MidpointRounding.ToNegativeInfinity)));
             });
         }
         finally
@@ -153,7 +153,7 @@ public class TimelineClosedElementActionsTests
     private static async Task<Element> AddElementAsync(EditViewModel editor, Func<EngineObject> create, double lengthSeconds)
     {
         ElementAddResult result = await TestShell.AddElementAsync(
-            editor, create, TimeSpan.Zero, TimeSpan.FromSeconds(lengthSeconds));
+            editor, create, MediaTime.Zero, MediaTime.FromSeconds(lengthSeconds));
         Assert.That(result.IsSuccess, Is.True);
         return result.Items.Single().PrimaryElement;
     }

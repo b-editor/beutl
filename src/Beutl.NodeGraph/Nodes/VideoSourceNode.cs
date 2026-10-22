@@ -57,10 +57,12 @@ public sealed partial class VideoSourceNode : GraphNode
                 _sourceResource!.Reconcile(source, context, ref versionBumped);
             }
 
-            TimeSpan time = Time;
+            // The port stays TimeSpan until #2885 step 4; a time past the range of MediaTime clamps.
+            var time = MediaTime.FromTicks(((TimeSpan)Time).Ticks, MidpointRounding.AwayFromZero);
             Rational rate = _sourceResource.FrameRate;
-            double frameNum = time.Ticks * rate.Numerator / (double)(TimeSpan.TicksPerSecond * rate.Denominator);
-            int frame = (int)Math.Round(frameNum, MidpointRounding.AwayFromZero);
+            int frame = rate.Numerator > 0 && rate.Denominator > 0
+                ? (int)time.ToFrame(rate, MidpointRounding.AwayFromZero)
+                : 0;
 
             if (_cachedOutput == null)
             {

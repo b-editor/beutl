@@ -191,7 +191,7 @@ public class ThemeCaptureTests
         for (int layer = 0; layer < 3; layer++)
         {
             await TestShell.AddElementAsync(
-                editor, () => new RectShape(), TimeSpan.FromSeconds(layer * 0.5), TimeSpan.FromSeconds(2), layer);
+                editor, () => new RectShape(), MediaTime.FromSeconds(layer * 0.5), MediaTime.FromSeconds(2), layer);
         }
 
         var window = new Window
@@ -265,8 +265,8 @@ public class ThemeCaptureTests
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(2),
+            Start: MediaTime.Zero,
+            Length: MediaTime.FromSeconds(2),
             Layer: 0,
             Source: new ElementSource.EngineObject(CreateDecoratedRect))],
             CancellationToken.None);

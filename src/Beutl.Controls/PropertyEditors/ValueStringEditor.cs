@@ -11,7 +11,7 @@ using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
-// The text box editing of NumberEditor, RationalEditor and TimeSpanEditor; they parse, format and step the value.
+// The text box editing of NumberEditor, RationalEditor and MediaTimeEditor; they parse, format and step the value.
 public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditorControl<TValue>
 {
     private readonly CompositeDisposable _disposables = [];

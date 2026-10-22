@@ -88,18 +88,18 @@ public class BpmGridOptionsTests
 
         Assert.That(options.Bpm, Is.EqualTo(120.0));
         Assert.That(options.Subdivisions, Is.EqualTo(4));
-        Assert.That(options.Offset, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(options.Offset, Is.EqualTo(MediaTime.Zero));
         Assert.That(options.IsEnabled, Is.False);
     }
 
     [Test]
     public void Constructor_AssignsAllValues()
     {
-        var options = new BpmGridOptions(140.0, 8, TimeSpan.FromSeconds(0.5), true);
+        var options = new BpmGridOptions(140.0, 8, MediaTime.FromSeconds(0.5), true);
 
         Assert.That(options.Bpm, Is.EqualTo(140.0));
         Assert.That(options.Subdivisions, Is.EqualTo(8));
-        Assert.That(options.Offset, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
+        Assert.That(options.Offset, Is.EqualTo(MediaTime.FromSeconds(0.5)));
         Assert.That(options.IsEnabled, Is.True);
     }
 }

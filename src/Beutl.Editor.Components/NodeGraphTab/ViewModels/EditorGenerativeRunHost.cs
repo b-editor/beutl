@@ -9,8 +9,8 @@ namespace Beutl.Editor.Components.NodeGraphTab.ViewModels;
 /// <summary>Connects the generative runner to the editor's clock, threads and history.</summary>
 internal sealed class EditorGenerativeRunHost(IEditorContext editorContext) : IGenerativeRunHost
 {
-    public TimeSpan CurrentTime
-        => editorContext.GetService<IEditorClock>()?.CurrentTime.Value ?? TimeSpan.Zero;
+    public MediaTime CurrentTime
+        => editorContext.GetService<IEditorClock>()?.CurrentTime.Value ?? MediaTime.Zero;
 
     public Task<T> InvokeOnRenderThreadAsync<T>(Func<T> func)
         => RenderThread.Dispatcher.InvokeAsync(func);

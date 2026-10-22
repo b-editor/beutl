@@ -11,9 +11,10 @@ public static class CommandPaletteInput
     /// <paramref name="time"/> is a timeline position (the playhead or a marker), never negative. No sign is
     /// written: <see cref="GotoTimecodeParser"/> reads a leading minus as a relative seek.
     /// </remarks>
-    public static string FormatTimecode(TimeSpan time)
+    public static string FormatTimecode(MediaTime time)
     {
-        return time.ToString(time.Days > 0 ? @"d\.hh\:mm\:ss\.fff" : @"hh\:mm\:ss\.fff", CultureInfo.InvariantCulture);
+        TimeSpan value = time.ToTimeSpan();
+        return value.ToString(value.Days > 0 ? @"d\.hh\:mm\:ss\.fff" : @"hh\:mm\:ss\.fff", CultureInfo.InvariantCulture);
     }
 
     public static string? Required(string value)

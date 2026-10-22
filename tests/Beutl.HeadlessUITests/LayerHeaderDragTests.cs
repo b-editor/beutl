@@ -30,7 +30,7 @@ public class LayerHeaderDragTests
     {
         (EditViewModel editor, TimelineTabViewModel timeline) = await TimelineTestHost.OpenTimelineAsync(
             $"layer-header-drag-{end}",
-            [new ElementDescription(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0,
+            [new ElementDescription(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0,
                 new ElementSource.EngineObject(() => new RectShape()))]);
         Element clip = editor.Scene.Children.Single();
         editor.HistoryManager.ExecuteInTransaction(() => clip.Name = "earlier", "Earlier");

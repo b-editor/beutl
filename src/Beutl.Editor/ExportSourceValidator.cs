@@ -16,9 +16,9 @@ public static class ExportSourceValidator
     /// <summary>
     /// Collects the sources of the graphics pass for the single frame at <paramref name="time"/>.
     /// </summary>
-    public static IReadOnlySet<string> CollectRenderableSources(Scene scene, TimeSpan time)
+    public static IReadOnlySet<string> CollectRenderableSources(Scene scene, MediaTime time)
         => CollectRenderableSources(
-            scene, new TimeRange(time, TimeSpan.Zero), element => element.Range.Contains(time),
+            scene, new TimeRange(time, MediaTime.Zero), element => element.Range.Contains(time),
             [CompositionTarget.Graphics]);
 
     /// <summary>
@@ -55,7 +55,7 @@ public static class ExportSourceValidator
 
             // The render window in element-local time; a range window is first clamped to the element's
             // interval. Global-clock keyframes are filtered by sceneWindow, which stays in scene time.
-            TimeRange elementLocalWindow = sceneWindow.Duration <= TimeSpan.Zero
+            TimeRange elementLocalWindow = sceneWindow.Duration <= MediaTime.Zero
                 ? sceneWindow
                 : ClampToElement(sceneWindow, element.Range);
             TimeRange localRange = elementLocalWindow.SubtractStart(element.Start);
@@ -101,8 +101,8 @@ public static class ExportSourceValidator
     // intersecting elements, so the overlap is non-empty.
     private static TimeRange ClampToElement(TimeRange sceneWindow, TimeRange elementRange)
     {
-        TimeSpan start = sceneWindow.Start > elementRange.Start ? sceneWindow.Start : elementRange.Start;
-        TimeSpan end = sceneWindow.End < elementRange.End ? sceneWindow.End : elementRange.End;
+        MediaTime start = sceneWindow.Start > elementRange.Start ? sceneWindow.Start : elementRange.Start;
+        MediaTime end = sceneWindow.End < elementRange.End ? sceneWindow.End : elementRange.End;
         return new TimeRange(start, end - start);
     }
 }

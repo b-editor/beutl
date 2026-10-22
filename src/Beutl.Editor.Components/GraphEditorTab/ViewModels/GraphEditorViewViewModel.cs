@@ -136,7 +136,7 @@ public sealed class GraphEditorViewViewModel : IDisposable
             double difference = ConvertToDouble(item.Model.Value) - start;
             if (Parent.IsSpeedGraph.Value)
             {
-                double duration = (item.Model.KeyTime - previous.KeyTime).TotalSeconds;
+                double duration = (item.Model.KeyTime - previous.KeyTime).ToSeconds();
                 for (int sample = 0; sample <= 128; sample++)
                 {
                     double velocity = GraphEditorCurveMath.Velocity(item.Model.Easing, sample / 128d, difference, duration);

@@ -354,8 +354,8 @@ public sealed class ElementViewModelProxyStateTests
 
         var element = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(1),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(1),
             IsEnabled = true,
             Uri = new Uri(Path.Combine(directory.Path, "element.layer")),
         };
@@ -474,24 +474,24 @@ public sealed class ElementViewModelProxyStateTests
     {
         public List<string> InvalidatedKeys { get; } = [];
 
-        public bool TryGet(string cacheKey, TimeSpan time, TimeSpan threshold, out Bitmap? bitmap)
+        public bool TryGet(string cacheKey, MediaTime time, MediaTime threshold, out Bitmap? bitmap)
         {
             bitmap = null;
             return false;
         }
 
-        public void Save(string cacheKey, TimeSpan time, Bitmap bitmap)
+        public void Save(string cacheKey, MediaTime time, Bitmap bitmap)
         {
         }
 
-        public bool TryGetWaveform(string cacheKey, TimeSpan time, TimeSpan threshold, out float minValue, out float maxValue)
+        public bool TryGetWaveform(string cacheKey, MediaTime time, MediaTime threshold, out float minValue, out float maxValue)
         {
             minValue = 0;
             maxValue = 0;
             return false;
         }
 
-        public void SaveWaveform(string cacheKey, TimeSpan time, float minValue, float maxValue)
+        public void SaveWaveform(string cacheKey, MediaTime time, float minValue, float maxValue)
         {
         }
 

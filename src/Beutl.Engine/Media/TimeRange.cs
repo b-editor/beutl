@@ -6,51 +6,51 @@ public readonly struct TimeRange : IEquatable<TimeRange>
 
     public TimeRange()
     {
-        Start = TimeSpan.Zero;
-        Duration = TimeSpan.Zero;
+        Start = MediaTime.Zero;
+        Duration = MediaTime.Zero;
     }
 
-    public TimeRange(TimeSpan start, TimeSpan duration)
+    public TimeRange(MediaTime start, MediaTime duration)
     {
         Start = start;
         Duration = duration;
     }
 
-    public TimeRange(TimeSpan duration)
+    public TimeRange(MediaTime duration)
     {
-        Start = TimeSpan.Zero;
+        Start = MediaTime.Zero;
         Duration = duration;
     }
 
-    public TimeSpan Start { get; }
+    public MediaTime Start { get; }
 
-    public TimeSpan Duration { get; }
+    public MediaTime Duration { get; }
 
-    public TimeSpan End => Start + Duration;
+    public MediaTime End => Start + Duration;
 
-    public bool IsEmpty => Duration <= TimeSpan.Zero;
+    public bool IsEmpty => Duration <= MediaTime.Zero;
 
     public static TimeRange FromSeconds(double start, double duration)
     {
-        return new TimeRange(TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(duration));
+        return new TimeRange(MediaTime.FromSeconds(start), MediaTime.FromSeconds(duration));
     }
 
     public static TimeRange FromSeconds(double duration)
     {
-        return new TimeRange(TimeSpan.FromSeconds(duration));
+        return new TimeRange(MediaTime.FromSeconds(duration));
     }
 
-    public static TimeRange FromRange(TimeSpan start, TimeSpan end)
+    public static TimeRange FromRange(MediaTime start, MediaTime end)
     {
         return new TimeRange(start, end - start);
     }
 
     public override string ToString()
     {
-        return $"{Start:hh\\:mm\\:ss\\.ff}, {Duration:hh\\:mm\\:ss\\.ff}";
+        return $"{Start.ToTimeSpan():hh\\:mm\\:ss\\.ff}, {Duration.ToTimeSpan():hh\\:mm\\:ss\\.ff}";
     }
 
-    public bool Contains(TimeSpan time)
+    public bool Contains(MediaTime time)
     {
         return time >= Start && time < End;
     }
@@ -62,8 +62,8 @@ public readonly struct TimeRange : IEquatable<TimeRange>
 
     public TimeRange Intersect(TimeRange time)
     {
-        TimeSpan newStart = time.Start > Start ? time.Start : Start;
-        TimeSpan newEnd = time.End < End ? time.End : End;
+        MediaTime newStart = time.Start > Start ? time.Start : Start;
+        MediaTime newEnd = time.End < End ? time.End : End;
 
         if (newStart < newEnd)
         {
@@ -97,29 +97,29 @@ public readonly struct TimeRange : IEquatable<TimeRange>
         }
         else
         {
-            long st = Math.Min(Start.Ticks, time.Start.Ticks);
-            long ed = Math.Max(End.Ticks, time.End.Ticks);
+            MediaTime st = time.Start < Start ? time.Start : Start;
+            MediaTime ed = time.End > End ? time.End : End;
 
-            return new TimeRange(TimeSpan.FromTicks(st), TimeSpan.FromTicks(ed - st));
+            return new TimeRange(st, ed - st);
         }
     }
 
-    public TimeRange WithStart(TimeSpan start)
+    public TimeRange WithStart(MediaTime start)
     {
         return new TimeRange(start, Duration);
     }
 
-    public TimeRange WithDuration(TimeSpan duration)
+    public TimeRange WithDuration(MediaTime duration)
     {
         return new TimeRange(Start, duration);
     }
 
-    public TimeRange AddStart(TimeSpan ts)
+    public TimeRange AddStart(MediaTime ts)
     {
         return new TimeRange(Start + ts, Duration);
     }
 
-    public TimeRange SubtractStart(TimeSpan ts)
+    public TimeRange SubtractStart(MediaTime ts)
     {
         return new TimeRange(Start - ts, Duration);
     }

@@ -36,7 +36,7 @@ public class ObjectTemplatePreviewRendererTests
         {
             Uri = new Uri(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.scene"))
         };
-        var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(2) };
+        var element = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(2) };
         element.Objects.Add(CreateRedRect());
         element.Uri = new Uri(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.belm"));
         scene.Children.Add(element);
@@ -61,7 +61,7 @@ public class ObjectTemplatePreviewRendererTests
     [Test]
     public async Task RenderPngAsync_Element_ProducesAPreviewOfItsDrawables()
     {
-        var element = new Element { Start = TimeSpan.FromSeconds(3), Length = TimeSpan.FromSeconds(2) };
+        var element = new Element { Start = MediaTime.FromSeconds(3), Length = MediaTime.FromSeconds(2) };
         element.Objects.Add(CreateRedRect());
 
         byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(element);
@@ -72,7 +72,7 @@ public class ObjectTemplatePreviewRendererTests
     [Test]
     public async Task RenderElementsPngAsync_AllowsHigherDensityOutputForCaptionPreviews()
     {
-        var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(1) };
+        var element = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(1) };
         element.Objects.Add(CreateRedRect());
 
         byte[]? png = await ObjectTemplatePreviewRenderer.RenderElementsPngAsync(
@@ -89,7 +89,7 @@ public class ObjectTemplatePreviewRendererTests
     [Test]
     public void RenderElementsPngAsync_RejectsUnboundedOutputSize()
     {
-        var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(1) };
+        var element = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(1) };
 
         Assert.That(
             async () => await ObjectTemplatePreviewRenderer.RenderElementsPngAsync(
@@ -152,7 +152,7 @@ public class ObjectTemplatePreviewRendererTests
     [Test]
     public async Task RenderPngAsync_ElementWithNothingVisible_HasNoPreview()
     {
-        var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(1) };
+        var element = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(1) };
 
         byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(element);
 

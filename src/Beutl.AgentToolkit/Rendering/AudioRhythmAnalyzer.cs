@@ -62,7 +62,7 @@ public sealed class AudioRhythmAnalyzer
 
         var source = new SoundSource();
         source.ReadFrom(new Uri(fullPath));
-        using var resource = (SoundSource.Resource)source.ToResource(new CompositionContext(TimeSpan.Zero)
+        using var resource = (SoundSource.Resource)source.ToResource(new CompositionContext(MediaTime.Zero)
         {
             DisableResourceShare = true
         });
@@ -73,8 +73,8 @@ public sealed class AudioRhythmAnalyzer
         }
 
         int sampleRate = resource.SampleRate;
-        double sourceDurationSeconds = resource.Duration > TimeSpan.Zero
-            ? resource.Duration.TotalSeconds
+        double sourceDurationSeconds = resource.Duration > MediaTime.Zero
+            ? resource.Duration.ToSeconds()
             : resource.MediaReader.AudioInfo.NumSamples.ToDouble() / Math.Max(1, sampleRate);
         if (sourceDurationSeconds <= 0)
         {

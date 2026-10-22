@@ -33,7 +33,7 @@ public class ProxySourceEnumeratorTests
         var animation = new KeyFrameAnimation<VideoSource?>();
         animation.KeyFrames.Add(new KeyFrame<VideoSource?>
         {
-            KeyTime = TimeSpan.FromSeconds(1),
+            KeyTime = MediaTime.FromSeconds(1),
             Value = CreateVideoSource("animated.mov"),
         });
         drawable.Source.SetKeyFrameAnimation(animation);
@@ -325,7 +325,7 @@ public class ProxySourceEnumeratorTests
         var animation = new KeyFrameAnimation<VideoSource?>();
         animation.KeyFrames.Add(new KeyFrame<VideoSource?>
         {
-            KeyTime = TimeSpan.FromSeconds(0.5),
+            KeyTime = MediaTime.FromSeconds(0.5),
             Value = CreateVideoSource("windowed-anim.mov"),
         });
         ((IAnimatablePropertyAdapter<VideoSource?>)node.Source.Property!).Animation = animation;
@@ -346,7 +346,7 @@ public class ProxySourceEnumeratorTests
         chain.Children.Add(delay);
         Element element = ElementWith(drawable);
 
-        var window = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var window = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
         IEnumerable<string> names = ProxySourceEnumerator
             .EnumerateFileSources(element, localRange: window)
             .OfType<VideoSource>()
@@ -367,7 +367,7 @@ public class ProxySourceEnumeratorTests
         var animation = new KeyFrameAnimation<VideoSource?>();
         animation.KeyFrames.Add(new KeyFrame<VideoSource?>
         {
-            KeyTime = TimeSpan.FromSeconds(0.5),
+            KeyTime = MediaTime.FromSeconds(0.5),
             Value = CreateVideoSource("group-windowed-anim.mov"),
         });
         ((IAnimatablePropertyAdapter<VideoSource?>)node.Source.Property!).Animation = animation;
@@ -388,7 +388,7 @@ public class ProxySourceEnumeratorTests
         chain.Children.Add(delay);
         Element element = ElementWith(drawable);
 
-        var window = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var window = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
         IEnumerable<string> names = ProxySourceEnumerator
             .EnumerateFileSources(element, localRange: window)
             .OfType<VideoSource>()
@@ -595,7 +595,7 @@ public class ProxySourceEnumeratorTests
         var layer = new LayerInputNode
         {
             IsTimeAnchor = true,
-            TimeRange = new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10))
+            TimeRange = new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(10))
         };
         var drawable = new NodeGraphDrawable();
         GraphModel graph = drawable.Model.Value!;
@@ -603,14 +603,14 @@ public class ProxySourceEnumeratorTests
         Assert.That(layer.AddNodePort(node.Source, out _), Is.True);
         var output = layer.Items.OfType<LayerInputNode.ILayerInputPort>().Single();
         var animation = new KeyFrameAnimation<VideoSource?> { UseGlobalClock = globalClock };
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(1), Value = CreateVideoSource("local-clock.mov") });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(6), Value = CreateVideoSource("global-clock.mov") });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(1), Value = CreateVideoSource("local-clock.mov") });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(6), Value = CreateVideoSource("global-clock.mov") });
         ((IAnimatablePropertyAdapter<VideoSource?>)output.Property!).Animation = animation;
         Element element = ElementWith(drawable);
-        element.Length = TimeSpan.FromSeconds(10);
+        element.Length = MediaTime.FromSeconds(10);
         Scene scene = CreateScene("layer-animation.scene");
         scene.Children.Add(element);
-        var window = new TimeRange(TimeSpan.FromSeconds(6), TimeSpan.Zero);
+        var window = new TimeRange(MediaTime.FromSeconds(6), MediaTime.Zero);
         string expected = globalClock ? "global-clock.mov" : "local-clock.mov";
 
         var files = ProxySourceEnumerator.EnumerateFileSources(element, localRange: window, sceneWindow: window)
@@ -642,7 +642,7 @@ public class ProxySourceEnumeratorTests
         scene.Children.Add(element);
 
         var files = Files(element);
-        var missing = Missing(scene, TimeSpan.Zero);
+        var missing = Missing(scene, MediaTime.Zero);
 
         Assert.That(files, Is.EqualTo(new[] { "layer-object.png" }));
         Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { "layer-object.png" }));
@@ -697,7 +697,7 @@ public class ProxySourceEnumeratorTests
         scene.Children.Add(element);
 
         var files = Files(element);
-        var missing = Missing(scene, TimeSpan.Zero);
+        var missing = Missing(scene, MediaTime.Zero);
 
         Assert.That(files, Is.EquivalentTo(new[] { "base-local.png", "animated-local.png" }));
         Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { "animated-local.png" }));
@@ -751,8 +751,8 @@ public class ProxySourceEnumeratorTests
         scene.Children.Add(element);
         string expected = video ? "layer-output.mov" : "layer-output.png";
 
-        var files = Files(element, windowed ? new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) : null);
-        var missing = Missing(scene, TimeSpan.Zero);
+        var files = Files(element, windowed ? new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)) : null);
+        var missing = Missing(scene, MediaTime.Zero);
 
         Assert.Multiple(() =>
         {
@@ -765,7 +765,7 @@ public class ProxySourceEnumeratorTests
         Assert.That(layer.Items.OfType<LayerInputNode.ILayerInputPort>().Count(), Is.EqualTo(1));
         string fallback = video ? "stale-destination.mov" : "stale-destination.png";
         files = Files(element);
-        missing = Missing(scene, TimeSpan.Zero);
+        missing = Missing(scene, MediaTime.Zero);
         Assert.That(files, Is.EqualTo(new[] { fallback }));
         Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { fallback }));
         Assert.That(ProxySourceEnumerator.EnumerateFileSources(scene).Select(Path.GetFileName), Does.Contain(expected));
@@ -812,8 +812,8 @@ public class ProxySourceEnumeratorTests
         // The graph still evaluates every upstream node, as well as the restored local source.
         string[] expected = ["restored-local.png", "upstream.png", "other-upstream.png"];
 
-        var files = Files(element, windowed ? new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) : null);
-        var missing = Missing(scene, TimeSpan.Zero);
+        var files = Files(element, windowed ? new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)) : null);
+        var missing = Missing(scene, MediaTime.Zero);
 
         Assert.Multiple(() =>
         {
@@ -854,7 +854,7 @@ public class ProxySourceEnumeratorTests
         graph.Connect(port, upstream.Output);
         Element element = ElementWith(drawable);
 
-        var files = Files(element, windowed ? new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) : null);
+        var files = Files(element, windowed ? new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)) : null);
 
         Assert.That(files, Is.EquivalentTo(new[] { "upstream.png", "sibling.png" }));
     }
@@ -947,8 +947,8 @@ public class ProxySourceEnumeratorTests
         Scene scene = CreateScene("outer-alias.scene");
         scene.Children.Add(element);
 
-        var files = Files(element, windowed ? new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) : null);
-        var missing = Missing(scene, TimeSpan.Zero);
+        var files = Files(element, windowed ? new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)) : null);
+        var missing = Missing(scene, MediaTime.Zero);
 
         Assert.Multiple(() =>
         {
@@ -1027,7 +1027,7 @@ public class ProxySourceEnumeratorTests
 
         Scene scene = CreateScene("drawable-list.scene");
         scene.Children.Add(element);
-        var missing = Missing(scene, TimeSpan.Zero);
+        var missing = Missing(scene, MediaTime.Zero);
         Assert.That(missing.Select(Path.GetFileName), Is.EquivalentTo(expected));
     }
 
@@ -1077,7 +1077,7 @@ public class ProxySourceEnumeratorTests
         var animation = new KeyFrameAnimation<VideoSource?>();
         animation.KeyFrames.Add(new KeyFrame<VideoSource?>
         {
-            KeyTime = TimeSpan.FromSeconds(1),
+            KeyTime = MediaTime.FromSeconds(1),
             Value = CreateVideoSource("animated.mov"),
         });
         drawable.Source.SetKeyFrameAnimation(animation);
@@ -1100,7 +1100,7 @@ public class ProxySourceEnumeratorTests
         => ProxySourceEnumerator.EnumerateFileSources(element, localRange: window)
             .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
 
-    private static IReadOnlyList<string> Missing(Scene scene, TimeSpan time)
+    private static IReadOnlyList<string> Missing(Scene scene, MediaTime time)
         => ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, time));
 
     private static INestedInputPort NestedPort(GraphNode node, IProperty property)
@@ -1131,8 +1131,8 @@ public class ProxySourceEnumeratorTests
     {
         var element = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(1),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(1),
             IsEnabled = true,
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.layer")),
         };

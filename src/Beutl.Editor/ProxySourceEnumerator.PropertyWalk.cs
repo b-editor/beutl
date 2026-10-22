@@ -305,9 +305,9 @@ public static partial class ProxySourceEnumerator
             // checked as a point.
             if (window is { } range)
             {
-                TimeSpan spanStart = i > 0 ? keyFrames[i - 1].KeyTime : TimeSpan.MinValue;
-                TimeSpan spanEnd = i < keyFrames.Count - 1 ? keyFrames[i].KeyTime : TimeSpan.MaxValue;
-                bool keep = range.Duration <= TimeSpan.Zero
+                MediaTime spanStart = i > 0 ? keyFrames[i - 1].KeyTime : MediaTime.MinValue;
+                MediaTime spanEnd = i < keyFrames.Count - 1 ? keyFrames[i].KeyTime : MediaTime.MaxValue;
+                bool keep = range.Duration <= MediaTime.Zero
                     ? spanStart < range.Start && range.Start <= spanEnd
                     : spanStart < range.End && range.Start <= spanEnd;
                 if (!keep)

@@ -84,7 +84,7 @@ public sealed class ApplyEditTests
     public void Apply_edit_rejects_new_fallback_inside_record_wrapper()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var holder = new WrappedTransformHolder();
         var group = new TransformGroup();
         group.Children.Add(new RotationTransform());
@@ -123,7 +123,7 @@ public sealed class ApplyEditTests
     public void Apply_edit_preserves_existing_fallback_inside_record_wrapper(bool variableMessage)
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var fallbackJson = new JsonObject
         {
             ["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform",
@@ -146,7 +146,7 @@ public sealed class ApplyEditTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(((TransformGroup)holder.Wrapped.Value![0].Transform).Children.Single(), Is.InstanceOf<IFallback>());
         });
     }
@@ -155,7 +155,7 @@ public sealed class ApplyEditTests
     public void Apply_edit_rejects_duplicate_hidden_fallback_when_animation_is_unchanged()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var holder = new WrappedTransformHolder();
         holder.Wrapped.Value = [];
         var animation = new KeyFrameAnimation<List<TransformWrapper>>();
@@ -179,7 +179,7 @@ public sealed class ApplyEditTests
     public void Apply_edit_rejects_lossy_easing_inside_record_wrapper()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var holder = new WrappedTransformHolder();
         holder.Wrapped.Value = [new(new KeyFrame<float>())];
         element.AddObject(holder);
@@ -226,7 +226,7 @@ public sealed class ApplyEditTests
     public void Apply_edit_applies_patch_directly()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
@@ -246,7 +246,7 @@ public sealed class ApplyEditTests
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(apply.Value!.Valid, Is.True);
             Assert.That(apply.Value.AppliedChangeSet, Has.Count.EqualTo(apply.Value.Changes!.Count));
-            Assert.That(scene.Children.Single().Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(scene.Children.Single().Start, Is.EqualTo(MediaTime.FromSeconds(3)));
         });
     }
 
@@ -254,7 +254,7 @@ public sealed class ApplyEditTests
     public void Apply_edit_rejects_an_inserted_element_with_a_negative_start_without_mutation()
     {
         Scene scene = TestWorkspace.CreateScene();
-        TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
         int originalCount = scene.Children.Count;
@@ -282,7 +282,7 @@ public sealed class ApplyEditTests
     public void Apply_edit_applies_desired_document_directly()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
         JsonObject desired = session.Documents.Read(session.Root);
@@ -295,7 +295,7 @@ public sealed class ApplyEditTests
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(apply.Value!.Valid, Is.True);
             Assert.That(scene.Children.Single().Id, Is.EqualTo(element.Id));
-            Assert.That(scene.Children.Single().Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
+            Assert.That(scene.Children.Single().Start, Is.EqualTo(MediaTime.FromSeconds(5)));
         });
     }
 
@@ -340,7 +340,7 @@ public sealed class ApplyEditTests
     public void Validate_no_new_fallback_objects_rejects_dictionary_values()
     {
         Scene current = TestWorkspace.CreateScene();
-        Element currentElement = TestWorkspace.AddElement(current, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element currentElement = TestWorkspace.AddElement(current, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var currentHolder = new DictionaryTransformHolder();
         var currentTransform = new TranslateTransform(10, 20);
         currentHolder.Transforms.Value = new Dictionary<string, Transform>
@@ -351,7 +351,7 @@ public sealed class ApplyEditTests
         using var session = new AgentToolkitTestSession(current);
 
         Scene sandbox = TestWorkspace.CreateScene();
-        Element sandboxElement = TestWorkspace.AddElement(sandbox, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element sandboxElement = TestWorkspace.AddElement(sandbox, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var sandboxHolder = new DictionaryTransformHolder();
         sandboxHolder.Transforms.Value = new Dictionary<string, Transform>
         {
@@ -374,14 +374,14 @@ public sealed class ApplyEditTests
     public void Validate_no_new_fallback_objects_rejects_optional_values()
     {
         Scene current = TestWorkspace.CreateScene();
-        Element currentElement = TestWorkspace.AddElement(current, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element currentElement = TestWorkspace.AddElement(current, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var currentHolder = new OptionalTransformHolder();
         currentHolder.Transform.Value = new Optional<Transform>(new RotationTransform());
         currentElement.AddObject(currentHolder);
         using var session = new AgentToolkitTestSession(current);
 
         Scene sandbox = TestWorkspace.CreateScene();
-        Element sandboxElement = TestWorkspace.AddElement(sandbox, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element sandboxElement = TestWorkspace.AddElement(sandbox, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var sandboxHolder = new OptionalTransformHolder();
         sandboxHolder.Transform.Value = new Optional<Transform>(new FallbackTransform());
         sandboxElement.AddObject(sandboxHolder);
@@ -399,10 +399,10 @@ public sealed class ApplyEditTests
     public void Validate_no_new_fallback_objects_rejects_element_hierarchy_children_outside_objects()
     {
         Scene current = TestWorkspace.CreateScene();
-        TestWorkspace.AddElement(current, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        TestWorkspace.AddElement(current, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         using var session = new AgentToolkitTestSession(current);
         Scene sandbox = TestWorkspace.CreateScene();
-        Element sandboxElement = TestWorkspace.AddElement(sandbox, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element sandboxElement = TestWorkspace.AddElement(sandbox, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         ((IModifiableHierarchical)sandboxElement).AddChild(new FallbackTransform());
         ReconcileException error = Assert.Throws<ReconcileException>(() =>
             Reconciler.ValidateNoNewFallbackObjects(session, sandbox))!;
@@ -422,7 +422,7 @@ public sealed class ApplyEditTests
         Scene current = TestWorkspace.CreateScene();
         current.Children.Add(new RegisteredTransformElement
         {
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(current.Uri!.LocalPath)!, "element.belm")),
             PluginTransform = new RotationTransform(),
         });
@@ -430,7 +430,7 @@ public sealed class ApplyEditTests
         Scene sandbox = TestWorkspace.CreateScene();
         sandbox.Children.Add(new RegisteredTransformElement
         {
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(sandbox.Uri!.LocalPath)!, "element.belm")),
             PluginTransform = new FallbackTransform(),
         });
@@ -448,10 +448,10 @@ public sealed class ApplyEditTests
     public void Validate_no_new_fallback_objects_rejects_non_core_fallbacks()
     {
         Scene current = TestWorkspace.CreateScene();
-        TestWorkspace.AddElement(current, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        TestWorkspace.AddElement(current, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         using var session = new AgentToolkitTestSession(current);
         Scene sandbox = TestWorkspace.CreateScene();
-        Element sandboxElement = TestWorkspace.AddElement(sandbox, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element sandboxElement = TestWorkspace.AddElement(sandbox, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var holder = new ArbitraryValueHolder();
         holder.Value.Value = new PlainFallback();
         sandboxElement.AddObject(holder);
@@ -469,13 +469,13 @@ public sealed class ApplyEditTests
     public void Validate_no_new_fallback_objects_allows_existing_non_core_fallbacks()
     {
         Scene current = TestWorkspace.CreateScene();
-        Element currentElement = TestWorkspace.AddElement(current, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element currentElement = TestWorkspace.AddElement(current, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var currentHolder = new ArbitraryValueHolder();
         currentHolder.Value.Value = new PlainFallback();
         currentElement.AddObject(currentHolder);
         using var session = new AgentToolkitTestSession(current);
         Scene sandbox = TestWorkspace.CreateScene();
-        Element sandboxElement = TestWorkspace.AddElement(sandbox, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element sandboxElement = TestWorkspace.AddElement(sandbox, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var sandboxHolder = new ArbitraryValueHolder();
         sandboxHolder.Value.Value = new PlainFallback();
         sandboxElement.AddObject(sandboxHolder);
@@ -486,13 +486,13 @@ public sealed class ApplyEditTests
     public void Validate_no_new_fallback_objects_rejects_additional_matching_non_core_fallbacks()
     {
         Scene current = TestWorkspace.CreateScene();
-        Element currentElement = TestWorkspace.AddElement(current, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element currentElement = TestWorkspace.AddElement(current, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var currentHolder = new ArbitraryValueHolder();
         currentHolder.Value.Value = new PlainFallback();
         currentElement.AddObject(currentHolder);
         using var session = new AgentToolkitTestSession(current);
         Scene sandbox = TestWorkspace.CreateScene();
-        Element sandboxElement = TestWorkspace.AddElement(sandbox, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element sandboxElement = TestWorkspace.AddElement(sandbox, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         for (int i = 0; i < 2; i++)
         {
             var holder = new ArbitraryValueHolder();
@@ -570,7 +570,7 @@ public sealed class ApplyEditTests
     public void Apply_edit_null_filter_effect_clears_then_replacing_does_not_append_children()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var rect = new RectShape
         {
             Name = "Filtered rect",
@@ -644,7 +644,7 @@ public sealed class ApplyEditTests
     public void Apply_edit_replace_sentinel_swaps_effect_children_and_keeps_group_id()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var group = new FilterEffectGroup
         {
             Children = { new Blur(), new Blur(), new Blur() }
@@ -702,7 +702,7 @@ public sealed class ApplyEditTests
     public void Apply_edit_accepts_enum_member_names()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var text = new TextBlock { Text = { Value = "Enum title" } };
         element.AddObject(text);
         using var session = new AgentToolkitTestSession(scene);
@@ -745,7 +745,7 @@ public sealed class ApplyEditTests
     public void Apply_edit_rejects_invalid_enum_values(string blendMode)
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var text = new TextBlock { Text = { Value = "Enum title" } };
         element.AddObject(text);
         using var session = new AgentToolkitTestSession(scene);
@@ -831,7 +831,7 @@ public sealed class ApplyEditTests
     public void Composition_patch_plans_and_applies_after_existing_elements()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element existingElement = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element existingElement = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
@@ -856,7 +856,7 @@ public sealed class ApplyEditTests
     public void Apply_edit_rejects_a_flow_operator_inserted_without_a_preceding_portal_object()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
@@ -916,7 +916,7 @@ public sealed class ApplyEditTests
     public void Apply_edit_rejects_a_non_object_identity_array_entry_instead_of_deleting_siblings()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         element.AddObject(new RectShape { Name = "keep" });
         Guid keptId = element.Objects[0].Id;
 
@@ -949,7 +949,7 @@ public sealed class ApplyEditTests
     public void Apply_edit_rejects_reordering_a_flow_operator_before_its_portal()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var portal = new PortalObject();
         var group = new DrawableGroup { Name = "group" };
         element.Objects.Add(portal);
@@ -987,7 +987,7 @@ public sealed class ApplyEditTests
     public void Apply_edit_rejects_a_desired_document_whose_schema_version_is_a_number()
     {
         Scene scene = TestWorkspace.CreateScene();
-        TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        TestWorkspace.AddElement(scene, MediaTime.Zero, MediaTime.FromSeconds(1));
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
         JsonObject desired = session.Documents.Read(scene);
@@ -1008,8 +1008,8 @@ public sealed class ApplyEditTests
         var element = new Element
         {
             Name = "Inserted element",
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(2)
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(2)
         };
         element.AddObject(new TextBlock
         {

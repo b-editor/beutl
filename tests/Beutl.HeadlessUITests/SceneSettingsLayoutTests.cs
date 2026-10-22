@@ -68,7 +68,7 @@ public class SceneSettingsLayoutTests
             HeadlessTestHelpers.Render();
             Assert.That(apply.IsEffectivelyEnabled, Is.False);
 
-            TimeSpan originalStart = scene.Start;
+            MediaTime originalStart = scene.Start;
             start.Text = "00:00:02";
             duration.Text = "00:00:12";
             layers.Value = 60;
@@ -83,8 +83,8 @@ public class SceneSettingsLayoutTests
             }
             Assert.Multiple(() =>
             {
-                Assert.That(scene.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
-                Assert.That(scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(12)));
+                Assert.That(scene.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
+                Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(12)));
                 Assert.That(options.Options.Value.MaxLayerCount, Is.EqualTo(60));
             });
 

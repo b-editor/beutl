@@ -34,17 +34,17 @@ public static class DuplicateHelper
     /// </summary>
     public static bool WouldOverlapSources(
         IReadOnlyList<Element> sourceElements,
-        TimeSpan anchorStart,
+        MediaTime anchorStart,
         int anchorZIndex)
     {
         ArgumentNullException.ThrowIfNull(sourceElements);
         if (sourceElements.Count == 0) return false;
 
-        (TimeSpan minStart, int minZIndex) = ComputeMinOrigin(sourceElements);
+        (MediaTime minStart, int minZIndex) = ComputeMinOrigin(sourceElements);
 
         foreach (Element src in sourceElements)
         {
-            TimeSpan newStart = src.Start - minStart + anchorStart;
+            MediaTime newStart = src.Start - minStart + anchorStart;
             int newZIndex = src.ZIndex - minZIndex + anchorZIndex;
             var newRange = new TimeRange(newStart, src.Length);
 
@@ -74,14 +74,14 @@ public static class DuplicateHelper
             throw new ArgumentException("Elements must not be empty.", nameof(elements));
         }
 
-        TimeSpan minStart = TimeSpan.MaxValue;
-        TimeSpan maxEnd = TimeSpan.MinValue;
+        MediaTime minStart = MediaTime.MaxValue;
+        MediaTime maxEnd = MediaTime.MinValue;
         int minZIndex = int.MaxValue;
         int maxZIndex = int.MinValue;
         foreach (Element e in elements)
         {
             if (e.Start < minStart) minStart = e.Start;
-            TimeSpan end = e.Range.End;
+            MediaTime end = e.Range.End;
             if (end > maxEnd) maxEnd = end;
             if (e.ZIndex < minZIndex) minZIndex = e.ZIndex;
             if (e.ZIndex > maxZIndex) maxZIndex = e.ZIndex;
@@ -90,9 +90,9 @@ public static class DuplicateHelper
         return (new TimeRange(minStart, maxEnd - minStart), minZIndex, maxZIndex);
     }
 
-    private static (TimeSpan MinStart, int MinZIndex) ComputeMinOrigin(IReadOnlyList<Element> elements)
+    private static (MediaTime MinStart, int MinZIndex) ComputeMinOrigin(IReadOnlyList<Element> elements)
     {
-        TimeSpan minStart = TimeSpan.MaxValue;
+        MediaTime minStart = MediaTime.MaxValue;
         int minZIndex = int.MaxValue;
         foreach (Element e in elements)
         {
@@ -117,7 +117,7 @@ public static class DuplicateHelper
         Scene scene,
         Element[] newElements,
         Element[] sourceElements,
-        TimeSpan anchorStart,
+        MediaTime anchorStart,
         int anchorZIndex)
     {
         ArgumentNullException.ThrowIfNull(scene);
@@ -138,7 +138,7 @@ public static class DuplicateHelper
                 "Cannot place duplicates: scene has no Uri. Save the project before duplicating.");
         }
 
-        (TimeSpan minStart, int minZIndex) = ComputeMinOrigin(newElements);
+        (MediaTime minStart, int minZIndex) = ComputeMinOrigin(newElements);
 
         foreach (Element newElement in newElements)
         {

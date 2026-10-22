@@ -269,7 +269,7 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
     private TimeSpan GetSceneStart()
     {
         IEditingSession? session = sessions.CurrentSession;
-        return session?.ReadOnSession(() => session.Root is Scene scene ? scene.Start : TimeSpan.Zero)
+        return session?.ReadOnSession(() => session.Root is Scene scene ? scene.Start.ToTimeSpan() : TimeSpan.Zero)
                ?? TimeSpan.Zero;
     }
 

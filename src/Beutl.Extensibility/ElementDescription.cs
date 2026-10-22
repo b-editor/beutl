@@ -70,8 +70,8 @@ public sealed record ElementDescription
     /// preflight. Any value, including zero, explicitly requests that length.
     /// </param>
     public ElementDescription(
-        TimeSpan Start,
-        TimeSpan? Length,
+        MediaTime Start,
+        MediaTime? Length,
         int Layer,
         ElementSource Source,
         string Name = "",
@@ -88,9 +88,9 @@ public sealed record ElementDescription
         this.Position = Position;
     }
 
-    public TimeSpan Start { get; }
+    public MediaTime Start { get; }
 
-    public TimeSpan? Length { get; }
+    public MediaTime? Length { get; }
 
     public int Layer { get; }
 

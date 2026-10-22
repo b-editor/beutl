@@ -24,7 +24,7 @@ public abstract partial class Sound : EngineObject
 
     [Display(Name = nameof(AudioStrings.Sound_OffsetPosition), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
-    public IExpressionProperty<TimeSpan> OffsetPosition { get; } = Property.CreateExpression<TimeSpan>();
+    public IExpressionProperty<MediaTime> OffsetPosition { get; } = Property.CreateExpression<MediaTime>();
 
     [Range(0, float.MaxValue)]
     [Display(Name = nameof(AudioStrings.Sound_Gain), ResourceType = typeof(AudioStrings))]

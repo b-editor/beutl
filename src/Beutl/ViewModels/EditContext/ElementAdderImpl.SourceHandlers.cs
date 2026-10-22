@@ -74,7 +74,7 @@ internal sealed partial class ElementAdderImpl
         drawable.Transform.Value = transform;
     }
 
-    private static T? TrySetDuration<T>(Element element, Func<T> initialize, Func<T, TimeSpan> getDuration)
+    private static T? TrySetDuration<T>(Element element, Func<T> initialize, Func<T, MediaTime> getDuration)
     {
         T? state = default;
         try
@@ -103,7 +103,7 @@ internal sealed partial class ElementAdderImpl
     private static void TrackDurationResource<TResource>(
         Element element,
         Func<TResource> initialize,
-        Func<TResource, TimeSpan> getDuration,
+        Func<TResource, MediaTime> getDuration,
         List<ElementMaterializationResource> resources)
         where TResource : class, IDisposable
     {

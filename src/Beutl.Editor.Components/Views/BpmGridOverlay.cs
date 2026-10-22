@@ -135,7 +135,7 @@ public sealed class BpmGridOverlay : Control
         double subdivisionIntervalPixels = beatIntervalPixels / subdivisions;
         bool drawSubdivisions = subdivisions > 1 && subdivisionIntervalPixels >= 3 && _subdivisionPen != null;
 
-        double offsetSeconds = _bpmOptions.Offset.TotalSeconds;
+        double offsetSeconds = _bpmOptions.Offset.ToSeconds();
         double offsetPixels = offsetSeconds * secondWidth * _scale;
 
         double viewLeft = _offset.X;

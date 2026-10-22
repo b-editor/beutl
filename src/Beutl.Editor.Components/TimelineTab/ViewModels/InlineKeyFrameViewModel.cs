@@ -157,10 +157,10 @@ public sealed class InlineKeyFrameViewModel : IDisposable
     {
         if (!Parent.IsEditable) return;
         float scale = Timeline.Options.Value.Scale;
-        int rate = SceneTimeRangeService.GetFrameRate(Timeline.Scene);
+        Rational rate = SceneTimeRangeService.GetFrameRate(Timeline.Scene);
         HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
 
-        TimeSpan time = Left.Value.PixelToTimeSpan(scale).RoundToRate(rate);
+        MediaTime time = Left.Value.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
         SplineEasingHelper.Move(Animation, Model, time);
         history.Commit(CommandNames.MoveKeyFrame);
 
@@ -177,9 +177,9 @@ public sealed class InlineKeyFrameViewModel : IDisposable
     public void ReflectModelKeyTime()
     {
         float scale = Timeline.Options.Value.Scale;
-        int rate = SceneTimeRangeService.GetFrameRate(Timeline.Scene);
+        Rational rate = SceneTimeRangeService.GetFrameRate(Timeline.Scene);
 
-        TimeSpan time = Left.Value.PixelToTimeSpan(scale).RoundToRate(rate);
+        MediaTime time = Left.Value.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
         Left.Value = time.TimeToPixel(scale);
 

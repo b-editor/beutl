@@ -23,7 +23,7 @@ public sealed class FrameCacheInvalidatorTests
     public void A_property_editor_invalidates_the_range_of_its_element()
     {
         var shape = new RectShape();
-        var element = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
+        var element = new Element { Start = MediaTime.FromSeconds(1), Length = MediaTime.FromSeconds(2) };
         element.AddObject(shape);
         var invalidator = new RecordingInvalidator();
         using var editor = new NumberEditorViewModel<float>(
@@ -42,18 +42,20 @@ public sealed class FrameCacheInvalidatorTests
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("frame-cache-invalidator");
         FrameCacheManager cache = editor.FrameCacheManager.Value;
         bool enabled = cache.IsEnabled;
-        int rate = editor.Player.GetFrameRate();
+        Rational rate = editor.Player.GetFrameRate();
+        int fiveSeconds = (int)MediaTime.FromSeconds(5).ToFrame(rate, MidpointRounding.AwayFromZero);
+        int tenSeconds = (int)MediaTime.FromSeconds(10).ToFrame(rate, MidpointRounding.AwayFromZero);
         cache.IsEnabled = true;
         try
         {
-            Add(cache, 5 * rate);
-            Add(cache, 10 * rate);
+            Add(cache, fiveSeconds);
+            Add(cache, tenSeconds);
 
             editor.GetRequiredService<IFrameCacheInvalidator>()
-                .Invalidate(new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1)));
+                .Invalidate(new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(1)));
 
-            await HeadlessTestHelpers.WaitUntilAsync(() => !Contains(cache, 5 * rate), TimeSpan.FromMinutes(1));
-            Assert.That(Contains(cache, 10 * rate), Is.True);
+            await HeadlessTestHelpers.WaitUntilAsync(() => !Contains(cache, fiveSeconds), TimeSpan.FromSeconds(60));
+            Assert.That(Contains(cache, tenSeconds), Is.True);
         }
         finally
         {

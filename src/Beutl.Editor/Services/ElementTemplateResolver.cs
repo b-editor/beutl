@@ -9,9 +9,9 @@ public static class ElementTemplateResolver
 {
     public static ElementDescription CreateDescription(
         ObjectTemplateItem template,
-        TimeSpan start,
+        MediaTime start,
         int layer,
-        TimeSpan? lengthOverride = null)
+        MediaTime? lengthOverride = null)
     {
         ArgumentNullException.ThrowIfNull(template);
 
@@ -28,7 +28,7 @@ public static class ElementTemplateResolver
         {
             return new ElementDescription(
                 start,
-                lengthOverride ?? TimeSpan.FromSeconds(5),
+                lengthOverride ?? MediaTime.FromSeconds(5),
                 layer,
                 new ElementSource.EngineObject(() => CreateEngineObject(template)),
                 template.Name.Value);

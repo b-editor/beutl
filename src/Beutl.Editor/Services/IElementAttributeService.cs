@@ -40,5 +40,5 @@ public interface IElementAttributeService
     /// Sets the duration <paramref name="element"/>'s side adds to the transition at <paramref name="edge"/>.
     /// The host commits the change as one history entry.
     /// </summary>
-    void SetTransitionDuration(Element element, ElementEdge edge, TimeSpan duration);
+    void SetTransitionDuration(Element element, ElementEdge edge, MediaTime duration);
 }

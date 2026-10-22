@@ -12,17 +12,18 @@ public sealed class ExportFrameCountTests
 {
     private static readonly int[] s_projectRates = [24, 25, 30, 50, 60];
 
-    // Dragging the scene end snaps it with RoundToRate
+    // Dragging the scene end snaps it with RoundToFrame
     [Test]
     public void Counts_every_frame_of_a_snapped_scene_length([ValueSource(nameof(s_projectRates))] int rate)
     {
         var mismatches = new List<string>();
         for (int frames = 1; frames <= 3000; frames++)
         {
-            TimeSpan duration = TimeSpan.FromSeconds((frames + 0.25) / rate).RoundToRate(rate);
+            MediaTime duration = MediaTime.FromSeconds((frames + 0.25) / rate)
+                .RoundToFrame(new Rational(rate), MidpointRounding.AwayFromZero);
             long count = FrameProviderImpl.ToFrameCount(duration, new Rational(rate));
             if (count != frames)
-                mismatches.Add($"{frames} frames ({duration.Ticks} ticks) counted as {count}");
+                mismatches.Add($"{frames} frames ({duration.Flicks} flicks) counted as {count}");
         }
 
         Assert.That(mismatches, Is.Empty);
@@ -35,22 +36,24 @@ public sealed class ExportFrameCountTests
         [ValueSource(nameof(s_projectRates))] int rate,
         [Values(0, 37)] int startFrame)
     {
-        TimeSpan start = TimeSpan.FromSeconds((double)startFrame / rate).RoundToRate(rate);
+        var frameRate = new Rational(rate);
+        MediaTime start = MediaTime.FromSeconds((double)startFrame / rate).RoundToFrame(frameRate, MidpointRounding.AwayFromZero);
         var mismatches = new List<string>();
         for (int frames = 1; frames <= 3000; frames++)
         {
-            TimeSpan lastFrame = TimeSpan.FromSeconds((double)(startFrame + frames - 1) / rate).RoundToRate(rate);
-            TimeSpan end = lastFrame + TimeSpan.FromSeconds(1d / rate);
-            TimeSpan duration = end - start;
-            long count = FrameProviderImpl.ToFrameCount(duration, new Rational(rate));
+            MediaTime lastFrame = MediaTime.FromSeconds((double)(startFrame + frames - 1) / rate)
+                .RoundToFrame(frameRate, MidpointRounding.AwayFromZero);
+            MediaTime end = lastFrame + MediaTime.FromFrames(1, frameRate);
+            MediaTime duration = end - start;
+            long count = FrameProviderImpl.ToFrameCount(duration, frameRate);
             if (count != frames)
-                mismatches.Add($"{frames} frames ({duration.Ticks} ticks) counted as {count}");
+                mismatches.Add($"{frames} frames ({duration.Flicks} flicks) counted as {count}");
         }
 
         Assert.That(mismatches, Is.Empty);
     }
 
-    // FrameProviderImpl places frame n at n * denominator / numerator seconds, truncated to ticks
+    // FrameProviderImpl places frame n at MediaTime.FromFrames(n, rate)
     [TestCase(30000, 1001)]
     [TestCase(24000, 1001)]
     [TestCase(60000, 1001)]
@@ -60,16 +63,16 @@ public sealed class ExportFrameCountTests
         var mismatches = new List<string>();
         for (long frames = 1; frames <= 3000; frames++)
         {
-            var duration = TimeSpan.FromTicks(frames * denominator * TimeSpan.TicksPerSecond / numerator);
+            MediaTime duration = MediaTime.FromFrames(frames, rate);
             long count = FrameProviderImpl.ToFrameCount(duration, rate);
             if (count != frames)
-                mismatches.Add($"{frames} frames ({duration.Ticks} ticks) counted as {count}");
+                mismatches.Add($"{frames} frames ({duration.Flicks} flicks) counted as {count}");
         }
 
         Assert.That(mismatches, Is.Empty);
     }
 
-    // MediaTime.ToTimeSpan puts an exact frame time on the nearest tick, which can be just past the frame
+    // A length that went through ticks, the nearest one or as a file writes and reads it, can be just off the frame
     [TestCase(24000, 1001)]
     [TestCase(24, 1)]
     [TestCase(25, 1)]
@@ -78,16 +81,22 @@ public sealed class ExportFrameCountTests
     [TestCase(50, 1)]
     [TestCase(60000, 1001)]
     [TestCase(60, 1)]
-    public void Counts_every_frame_of_a_length_converted_from_MediaTime(long numerator, long denominator)
+    public void Counts_every_frame_of_a_length_that_went_through_ticks(long numerator, long denominator)
     {
         var rate = new Rational(numerator, denominator);
         var mismatches = new List<string>();
         for (long frames = 1; frames <= 3000; frames++)
         {
-            TimeSpan duration = MediaTime.FromFrames(frames, rate).ToTimeSpan();
-            long count = FrameProviderImpl.ToFrameCount(duration, rate);
-            if (count != frames)
-                mismatches.Add($"{frames} frames ({duration.Ticks} ticks) counted as {count}");
+            MediaTime exact = MediaTime.FromFrames(frames, rate);
+            MediaTime nearest = MediaTime.FromTimeSpan(exact.ToTimeSpan());
+            MediaTime saved = MediaTime.FromTicks(
+                exact.ToTicks(MidpointRounding.ToNegativeInfinity), MidpointRounding.ToPositiveInfinity);
+            foreach (MediaTime duration in (MediaTime[])[nearest, saved])
+            {
+                long count = FrameProviderImpl.ToFrameCount(duration, rate);
+                if (count != frames)
+                    mismatches.Add($"{frames} frames ({duration.Flicks} flicks) counted as {count}");
+            }
         }
 
         Assert.That(mismatches, Is.Empty);
@@ -98,12 +107,12 @@ public sealed class ExportFrameCountTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(FrameProviderImpl.ToFrameCount(TimeSpan.Zero, new Rational(30)), Is.Zero);
-            Assert.That(FrameProviderImpl.ToFrameCount(TimeSpan.FromSeconds(-1), new Rational(30)), Is.Zero);
-            Assert.That(FrameProviderImpl.ToFrameCount(TimeSpan.FromSeconds(1), new Rational(0, 1)), Is.Zero);
-            Assert.That(FrameProviderImpl.ToFrameCount(TimeSpan.FromSeconds(1), new Rational(1, 0)), Is.Zero);
-            Assert.That(FrameProviderImpl.ToFrameCount(TimeSpan.FromSeconds(1), new Rational(0, 0)), Is.Zero);
-            Assert.That(FrameProviderImpl.ToFrameCount(TimeSpan.FromSeconds(1), new Rational(-30, -1)), Is.EqualTo(30));
+            Assert.That(FrameProviderImpl.ToFrameCount(MediaTime.Zero, new Rational(30)), Is.Zero);
+            Assert.That(FrameProviderImpl.ToFrameCount(MediaTime.FromSeconds(-1), new Rational(30)), Is.Zero);
+            Assert.That(FrameProviderImpl.ToFrameCount(MediaTime.FromSeconds(1), new Rational(0, 1)), Is.Zero);
+            Assert.That(FrameProviderImpl.ToFrameCount(MediaTime.FromSeconds(1), new Rational(1, 0)), Is.Zero);
+            Assert.That(FrameProviderImpl.ToFrameCount(MediaTime.FromSeconds(1), new Rational(0, 0)), Is.Zero);
+            Assert.That(FrameProviderImpl.ToFrameCount(MediaTime.FromSeconds(1), new Rational(-30, -1)), Is.EqualTo(30));
         });
     }
 
@@ -114,15 +123,17 @@ public sealed class ExportFrameCountTests
         const int rate = 30;
         const int frames = 10;
         const int sampleRate = 48000;
-        // Ten frames at 30 fps are 3,333,333 ticks, just short of a third of a second
+        // Ten frames at 30 fps, as a file stores them: rounded down to 3,333,333 ticks and read back just short
+        // of a third of a second
+        MediaTime exact = MediaTime.FromFrames(frames, new Rational(rate));
         var scene = new Scene(32, 32, "FrameCount")
         {
-            Duration = TimeSpan.FromSeconds((double)frames / rate).RoundToRate(rate),
+            Duration = MediaTime.FromTicks(exact.ToTicks(MidpointRounding.ToNegativeInfinity), MidpointRounding.ToPositiveInfinity),
         };
-        Assert.That(scene.Duration.Ticks, Is.EqualTo(3_333_333));
+        Assert.That(scene.Duration, Is.LessThan(exact));
 
         using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
-        using var frameProgress = new Subject<TimeSpan>();
+        using var frameProgress = new Subject<MediaTime>();
         using var frameProvider = new FrameProviderImpl(scene, new Rational(rate), renderer, frameProgress);
         Assert.That(frameProvider.FrameCount, Is.EqualTo(frames));
         for (long frame = 0; frame < frameProvider.FrameCount; frame++)
@@ -137,7 +148,7 @@ public sealed class ExportFrameCountTests
         {
             SampleRate = sampleRate,
         };
-        using var sampleProgress = new Subject<TimeSpan>();
+        using var sampleProgress = new Subject<MediaTime>();
         using var sampleProvider = new SampleProviderImpl(scene, composer, sampleRate, sampleProgress);
         Assert.That(sampleProvider.SampleCount, Is.EqualTo(sampleRate * frames / rate));
     }
@@ -147,11 +158,11 @@ public sealed class ExportFrameCountTests
     public async Task Frame_provider_keeps_its_count_when_the_scene_length_changes()
     {
         VulkanTestEnvironment.EnsureAvailable();
-        var scene = new Scene(32, 32, "FixedCount") { Duration = TimeSpan.FromSeconds(0.1) };
+        var scene = new Scene(32, 32, "FixedCount") { Duration = MediaTime.FromSeconds(0.1) };
         using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
-        using var frameProgress = new Subject<TimeSpan>();
+        using var frameProgress = new Subject<MediaTime>();
         using var frameProvider = new FrameProviderImpl(scene, new Rational(30), renderer, frameProgress);
-        scene.Duration = TimeSpan.FromSeconds(1);
+        scene.Duration = MediaTime.FromSeconds(1);
 
         int frames = 0;
         while (await frameProvider.ReadNextFrame() is { } bitmap)
@@ -168,14 +179,14 @@ public sealed class ExportFrameCountTests
     public async Task Sample_provider_reads_blocks_in_order_then_ends()
     {
         const int sampleRate = 8000;
-        var scene = new Scene(32, 32, "Samples") { Duration = TimeSpan.FromSeconds(1.5) };
+        var scene = new Scene(32, 32, "Samples") { Duration = MediaTime.FromSeconds(1.5) };
         using var composer = new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
         {
             SampleRate = sampleRate,
         };
-        using var progress = new Subject<TimeSpan>();
+        using var progress = new Subject<MediaTime>();
         using var provider = new SampleProviderImpl(scene, composer, sampleRate, progress);
-        scene.Duration = TimeSpan.FromSeconds(3);
+        scene.Duration = MediaTime.FromSeconds(3);
 
         long read = 0;
         while (await provider.ReadNextSamples(1024) is { } audio)

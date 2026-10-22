@@ -16,13 +16,13 @@ namespace Beutl.UnitTests.Helpers;
 public class EngineObjectHelperTests
 {
     private ProbeObject _probe = null!;
-    private BehaviorSubject<TimeSpan> _time = null!;
+    private BehaviorSubject<MediaTime> _time = null!;
 
     [SetUp]
     public void SetUp()
     {
         _probe = new ProbeObject();
-        _time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
+        _time = new BehaviorSubject<MediaTime>(MediaTime.Zero);
     }
 
     // The subscription creates and updates its resource inside a posted render-thread callback, and the
@@ -146,7 +146,7 @@ public class EngineObjectHelperTests
                        }))
         {
             Assert.That(published.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
-            _time.OnNext(TimeSpan.FromSeconds(1));
+            _time.OnNext(MediaTime.FromSeconds(1));
             Assert.That(reportedSignal.Wait(TimeSpan.FromSeconds(30)), Is.True, "the failed update was not reported");
         }
 
@@ -161,7 +161,7 @@ public class EngineObjectHelperTests
     [Test]
     public void A_failing_time_stream_reaches_the_observer()
     {
-        var time = new Subject<TimeSpan>();
+        var time = new Subject<MediaTime>();
         var failure = new InvalidOperationException("the clock faulted");
         Exception? reported = null;
 
@@ -264,7 +264,7 @@ public class EngineObjectHelperTests
 
             // The resource now exists, so this tick takes the Reconcile path, where the rebuild parks with the
             // item list emptied and waits for the reader below.
-            _time.OnNext(TimeSpan.FromSeconds(1));
+            _time.OnNext(MediaTime.FromSeconds(1));
             Assert.That(
                 resource!.RebuildEntered.Wait(TimeSpan.FromSeconds(30)), Is.True,
                 "the rebuild never started");
@@ -372,7 +372,7 @@ public class EngineObjectHelperTests
 
             // The resource now exists, so this tick takes the Reconcile path, which drops the child the
             // projection above points at and installs a fresh one in its place.
-            _time.OnNext(TimeSpan.FromSeconds(1));
+            _time.OnNext(MediaTime.FromSeconds(1));
             Assert.That(replaced.Wait(TimeSpan.FromSeconds(30)), Is.True, "the replacement was never published");
             Assert.That(firstChild!.IsDisposed, Is.True, "the rebuild kept the original child");
 
@@ -420,7 +420,7 @@ public class EngineObjectHelperTests
 
             Assert.That(projected.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
 
-            _time.OnNext(TimeSpan.FromSeconds(1));
+            _time.OnNext(MediaTime.FromSeconds(1));
             Assert.That(rebuilt.Wait(TimeSpan.FromSeconds(30)), Is.True, "the rebuild was never published");
 
             CountingResource? observed = null;

@@ -43,10 +43,10 @@ public sealed class ExternalReviewRegressionTests
         try
         {
             EditViewModel.IsAutoSaveSuppressedForTesting = true;
-            editor.Scene.Duration = TimeSpan.FromSeconds(73);
+            editor.Scene.Duration = MediaTime.FromSeconds(73);
             await TestShell.Project.OpenProject(project.Uri!.LocalPath);
             Assert.That(TestShell.Project.CurrentProject.Value!.Items.OfType<Scene>().First().Duration,
-                Is.EqualTo(TimeSpan.FromSeconds(73)));
+                Is.EqualTo(MediaTime.FromSeconds(73)));
         }
         finally
         {
@@ -64,7 +64,7 @@ public sealed class ExternalReviewRegressionTests
             new JsonObject { ["IsAutoSaveEnabled"] = false });
 
         ElementAddResult result = await TestShell.AddElementAsync(
-            editor, () => new Beutl.Graphics.Shapes.RectShape(), TimeSpan.Zero, TimeSpan.FromSeconds(1));
+            editor, () => new Beutl.Graphics.Shapes.RectShape(), MediaTime.Zero, MediaTime.FromSeconds(1));
         Assert.That(result.IsSuccess, Is.True, result.Failure?.Message);
         Element element = editor.Scene.Children.Single();
         // Let the save queued by the add land first, so only the rename's own save can write the name.

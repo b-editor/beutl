@@ -109,19 +109,19 @@ public class StorageWriteTransactionTests
         }
         string path = PathOf("private.belm");
         var scene = new Beutl.ProjectSystem.Scene(64, 64, "scene");
-        var element = new Beutl.ProjectSystem.Element { Uri = new Uri(path), Length = TimeSpan.FromSeconds(2) };
+        var element = new Beutl.ProjectSystem.Element { Uri = new Uri(path), Length = MediaTime.FromSeconds(2) };
         scene.Children.Add(element);
         CoreSerializer.StoreToUri(element, element.Uri);
         const UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
         File.SetUnixFileMode(path, mode);
-        element.Start = TimeSpan.FromSeconds(1);
+        element.Start = MediaTime.FromSeconds(1);
         using var autoSave = new Beutl.Editor.AutoSaveService();
 
         autoSave.SaveObjects([element]);
 
         Assert.That(File.GetUnixFileMode(path), Is.EqualTo(mode));
         Assert.That(CoreSerializer.RestoreFromUri<Beutl.ProjectSystem.Element>(element.Uri).Start,
-            Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Is.EqualTo(MediaTime.FromSeconds(1)));
     }
 
     [Test]

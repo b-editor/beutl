@@ -18,5 +18,5 @@ public interface IItemValue : IDisposable
 
     object? GetBoxed();
 
-    bool TryLoadFromAnimation(IKeyFrameAnimation animation, TimeSpan time);
+    bool TryLoadFromAnimation(IKeyFrameAnimation animation, MediaTime time);
 }

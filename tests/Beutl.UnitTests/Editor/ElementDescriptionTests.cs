@@ -12,7 +12,7 @@ public sealed class ElementDescriptionTests
     public void Constructor_RequiresExactlyOneDiscriminatedSource()
     {
         Assert.That(
-            () => new ElementDescription(TimeSpan.Zero, TimeSpan.Zero, 0, null!),
+            () => new ElementDescription(MediaTime.Zero, MediaTime.Zero, 0, null!),
             Throws.ArgumentNullException);
     }
 
@@ -20,8 +20,8 @@ public sealed class ElementDescriptionTests
     public void EngineObjectSource_ProducesConfiguredObject()
     {
         var description = new ElementDescription(
-            TimeSpan.Zero,
-            TimeSpan.FromSeconds(5),
+            MediaTime.Zero,
+            MediaTime.FromSeconds(5),
             0,
             new ElementSource.EngineObject(
                 () => new SourceBackdrop { Clear = { Value = true } }));
@@ -61,8 +61,8 @@ public sealed class ElementDescriptionTests
 
     private static ElementDescription CreateDescription(string name) =>
         new(
-            TimeSpan.Zero,
-            TimeSpan.FromSeconds(1),
+            MediaTime.Zero,
+            MediaTime.FromSeconds(1),
             0,
             new ElementSource.EngineObject(() => new SourceBackdrop()),
             name);

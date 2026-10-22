@@ -65,7 +65,7 @@ internal sealed class TimelineTestHost : IDisposable
 
     public static async Task<TimelineTestHost> CreateAsync(
         string name,
-        TimeSpan duration,
+        MediaTime duration,
         IReadOnlyList<ElementDescription>? clips = null,
         Func<PointerWheelEventArgs, bool>? scrollDetector = null,
         double width = 960,
@@ -99,7 +99,7 @@ internal sealed class TimelineTestHost : IDisposable
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync(name);
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         Assert.That((await adder.AddAsync(clips, CancellationToken.None)).IsSuccess, Is.True);
-        editor.Scene.Duration = TimeSpan.FromSeconds(10);
+        editor.Scene.Duration = MediaTime.FromSeconds(10);
         TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
         timeline.Options.Value = timeline.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };
         HeadlessTestHelpers.Settle();

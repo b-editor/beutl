@@ -21,7 +21,7 @@ public class ElementClipboardServiceTests
     [SetUp]
     public void Setup()
     {
-        _harness = new SceneHistoryHarness("beutl_clip", start: TimeSpan.Zero, duration: TimeSpan.FromSeconds(60));
+        _harness = new SceneHistoryHarness("beutl_clip", start: MediaTime.Zero, duration: MediaTime.FromSeconds(60));
         _scene = _harness.Scene;
         _history = _harness.History;
         _clipboard = new InMemoryClipboardGateway();
@@ -45,15 +45,15 @@ public class ElementClipboardServiceTests
         _harness.Dispose();
     }
 
-    private Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0)
+    private Element AddElement(MediaTime start, MediaTime length, int zIndex = 0)
         => _harness.AddElement(start, length, zIndex);
 
 
     [Test]
     public async Task CopyAsync_MultipleElements_WritesElementsFormat()
     {
-        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        Element e1 = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element e2 = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
 
         await _service.CopyAsync([e1, e2]);
 
@@ -77,7 +77,7 @@ public class ElementClipboardServiceTests
     [Test]
     public async Task CutAsync_RemovesElementAndCommitsOnce()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         int before = _history.UndoCount;
 
         bool result = await _service.CutAsync(_scene, [element]);
@@ -93,7 +93,7 @@ public class ElementClipboardServiceTests
     [Test]
     public async Task CutAsync_Undo_PutsTheElementBackOnItsLayer()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 2);
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 2);
         _history.Commit("Setup");
 
         await _service.CutAsync(_scene, [element]);
@@ -109,9 +109,9 @@ public class ElementClipboardServiceTests
     [Test]
     public async Task CutAsync_PrunesCutIdsFromGroups()
     {
-        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
-        Element e3 = AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2));
+        Element e1 = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element e2 = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
+        Element e3 = AddElement(MediaTime.FromSeconds(10), MediaTime.FromSeconds(2));
         _scene.Groups.Add([e1.Id, e2.Id, e3.Id]);
 
         bool result = await _service.CutAsync(_scene, [e1]);
@@ -128,7 +128,7 @@ public class ElementClipboardServiceTests
     [Test]
     public async Task CutAsync_LockedElement_IsPreserved()
     {
-        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element locked = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         locked.IsLocked = true;
         int before = _history.UndoCount;
 
@@ -145,7 +145,7 @@ public class ElementClipboardServiceTests
     [Test]
     public async Task CutAsync_LockDuringClipboardWrite_PreservesElement()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         int before = _history.UndoCount;
         // The clip is locked while the clipboard write is in-flight, after the pre-await filter.
         _clipboard.OnSetAsync = () => element.IsLocked = true;
@@ -163,14 +163,14 @@ public class ElementClipboardServiceTests
     [Test]
     public async Task PasteAsync_SingleElementFormat_LockDuringClipboardRead_IsRefused()
     {
-        Element original = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element original = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         string json = CoreSerializer.SerializeToJsonString(original);
         _clipboard.SetSingle(BeutlClipboardFormats.Element, json);
         int childrenBefore = _scene.Children.Count;
         // The destination row is locked while the clipboard read is in-flight, after the pre-await guard.
         _clipboard.OnTryGetString = () => _scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsLocked = true });
 
-        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.FromSeconds(10), 1);
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.FromSeconds(10), 1);
 
         Assert.Multiple(() =>
         {
@@ -187,7 +187,7 @@ public class ElementClipboardServiceTests
         // The destination row is locked while the clipboard read is in-flight, after the pre-await guard.
         _clipboard.OnTryGetBitmap = () => _scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
 
-        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.FromSeconds(5), 2);
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.FromSeconds(5), 2);
 
         Assert.Multiple(() =>
         {
@@ -199,7 +199,7 @@ public class ElementClipboardServiceTests
     [Test]
     public async Task PasteAsync_NoMatchingFormat_ReturnsEmpty()
     {
-        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.Zero, 0);
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.Zero, 0);
 
         Assert.That(outcome.Pasted, Is.False);
     }
@@ -213,7 +213,7 @@ public class ElementClipboardServiceTests
 
         ElementPasteOutcome outcome = await service.PasteAsync(
             _scene,
-            TimeSpan.FromSeconds(12),
+            MediaTime.FromSeconds(12),
             4);
 
         Assert.Multiple(() =>
@@ -223,8 +223,8 @@ public class ElementClipboardServiceTests
             Assert.That(elementAdder.CallCount, Is.EqualTo(1));
             Assert.That(elementAdder.Descriptions, Has.Count.EqualTo(2));
             Assert.That(elementAdder.Descriptions, Has.All.Matches<ElementDescription>(description =>
-                description.Start == TimeSpan.FromSeconds(12)
-                && description.Length == TimeSpan.FromSeconds(5)
+                description.Start == MediaTime.FromSeconds(12)
+                && description.Length == MediaTime.FromSeconds(5)
                 && description.Layer == 4
                 && description.Source is ElementSource.File));
         });
@@ -237,14 +237,14 @@ public class ElementClipboardServiceTests
         [
             new Element
             {
-                Start = TimeSpan.FromSeconds(12),
-                Length = TimeSpan.FromSeconds(5),
+                Start = MediaTime.FromSeconds(12),
+                Length = MediaTime.FromSeconds(5),
                 ZIndex = 4,
             },
             new Element
             {
-                Start = TimeSpan.FromSeconds(12),
-                Length = TimeSpan.FromSeconds(7),
+                Start = MediaTime.FromSeconds(12),
+                Length = MediaTime.FromSeconds(7),
                 ZIndex = 5,
             },
         ];
@@ -254,7 +254,7 @@ public class ElementClipboardServiceTests
 
         ElementPasteOutcome outcome = await service.PasteAsync(
             _scene,
-            TimeSpan.FromSeconds(12),
+            MediaTime.FromSeconds(12),
             4);
 
         Assert.Multiple(() =>
@@ -269,13 +269,13 @@ public class ElementClipboardServiceTests
     [Test]
     public async Task PasteAsync_SingleElementFormat_AddsClonedElement()
     {
-        Element original = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element original = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         string json = CoreSerializer.SerializeToJsonString(original);
         _clipboard.SetSingle(BeutlClipboardFormats.Element, json);
         Element[] childrenBefore = [.. _scene.Children];
         int historyBefore = _history.UndoCount;
 
-        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.FromSeconds(10), 1);
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.FromSeconds(10), 1);
 
         Element[] added = [.. _scene.Children.Except(childrenBefore)];
         Assert.Multiple(() =>
@@ -284,7 +284,7 @@ public class ElementClipboardServiceTests
             Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore.Length + 1));
             Assert.That(_history.UndoCount, Is.EqualTo(historyBefore + 1));
             Assert.That(added, Has.Length.EqualTo(1));
-            Assert.That(added[0].Start, Is.EqualTo(TimeSpan.FromSeconds(10)));
+            Assert.That(added[0].Start, Is.EqualTo(MediaTime.FromSeconds(10)));
             Assert.That(added[0].ZIndex, Is.EqualTo(1));
             // The next save of the scene writes the file.
             Assert.That(added[0].Uri, Is.EqualTo(ElementFileNaming.GetUri(_scene.Uri!, added[0].Id)));
@@ -295,13 +295,13 @@ public class ElementClipboardServiceTests
     [Test]
     public async Task PasteAsync_SingleElementFormat_LockedTargetLayer_IsRefused()
     {
-        Element original = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element original = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         string json = CoreSerializer.SerializeToJsonString(original);
         _clipboard.SetSingle(BeutlClipboardFormats.Element, json);
         _scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsLocked = true });
         int childrenBefore = _scene.Children.Count;
 
-        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.FromSeconds(10), 1);
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.FromSeconds(10), 1);
 
         Assert.Multiple(() =>
         {
@@ -313,7 +313,7 @@ public class ElementClipboardServiceTests
     [Test]
     public async Task CutAsync_ClipboardUnavailable_PreservesScene()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         int childrenBefore = _scene.Children.Count;
         int historyBefore = _history.UndoCount;
         _clipboard.SimulateUnavailable = true;
@@ -333,14 +333,14 @@ public class ElementClipboardServiceTests
     [Test]
     public async Task PasteAsync_ElementsFormat_RespectsClickedPosition()
     {
-        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0);
-        Element e2 = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2), 0);
+        Element e1 = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0);
+        Element e2 = AddElement(MediaTime.FromSeconds(3), MediaTime.FromSeconds(2), 0);
         var array = new System.Text.Json.Nodes.JsonArray(
             CoreSerializer.SerializeToJsonObject(e1),
             CoreSerializer.SerializeToJsonObject(e2));
         _clipboard.SetSingle(BeutlClipboardFormats.Elements, array.ToJsonString());
 
-        TimeSpan clicked = TimeSpan.FromSeconds(20);
+        MediaTime clicked = MediaTime.FromSeconds(20);
         int clickedLayer = 3;
 
         ElementPasteOutcome outcome = await _service.PasteAsync(_scene, clicked, clickedLayer);
@@ -358,8 +358,8 @@ public class ElementClipboardServiceTests
     [Test]
     public async Task PasteAsync_ElementsFormat_LockedTargetLayer_IsRefused()
     {
-        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0);
-        Element e2 = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2), 0);
+        Element e1 = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0);
+        Element e2 = AddElement(MediaTime.FromSeconds(3), MediaTime.FromSeconds(2), 0);
         var array = new System.Text.Json.Nodes.JsonArray(
             CoreSerializer.SerializeToJsonObject(e1),
             CoreSerializer.SerializeToJsonObject(e2));
@@ -367,7 +367,7 @@ public class ElementClipboardServiceTests
         _scene.Layers.Add(new TimelineLayer { ZIndex = 3, IsLocked = true });
         int childrenBefore = _scene.Children.Count;
 
-        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.FromSeconds(20), 3);
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.FromSeconds(20), 3);
 
         Assert.Multiple(() =>
         {
@@ -379,7 +379,7 @@ public class ElementClipboardServiceTests
     [Test]
     public async Task CopyAsync_ExposesPlainTextAlongsideElementJson()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
 
         await _service.CopyAsync([element]);
 

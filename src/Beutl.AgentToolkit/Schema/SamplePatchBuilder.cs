@@ -42,8 +42,8 @@ internal static class SamplePatchBuilder
         var element = new Element
         {
             Name = name,
-            Start = TimeSpan.Zero,
-            Length = length,
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromTimeSpan(length),
             ZIndex = zIndex
         };
         element.AddObject(obj);

@@ -81,7 +81,7 @@ public sealed partial class TimelineTabView
 
     private static async Task ImportStorageDropAsync(TimelineTabViewModel viewModel, Scene scene, StorageDragData storage)
     {
-        TimeSpan dropFrame = viewModel.ClickedFrame;
+        MediaTime dropFrame = viewModel.ClickedFrame;
         int dropLayer = viewModel.CalculateClickedLayer();
         using var fileWrite = HostProjectFileWriteAdmission.Resolve(viewModel.EditorContext)?.TryBeginProjectFileWrite();
         if (fileWrite == null)
@@ -163,7 +163,7 @@ public sealed partial class TimelineTabView
     private static (ElementViewModel Element, ElementEdge Edge)? FindTransitionDropTarget(
         TimelineTabViewModel viewModel, DragEventArgs e, Point position)
     {
-        TimeSpan time = position.X.PixelToTimeSpan(viewModel.Options.Value.Scale);
+        MediaTime time = position.X.PixelToTime(viewModel.Options.Value.Scale);
         ElementViewModel? element = (e.Source as Visual)?.FindAncestorOfType<ElementView>(includeSelf: true)?.DataContext
             as ElementViewModel;
         if (element == null)
@@ -176,7 +176,7 @@ public sealed partial class TimelineTabView
         if (element == null) return null;
 
         Element model = element.Model;
-        TimeSpan middle = model.Start + (model.Length / 2);
+        MediaTime middle = model.Start + new MediaTime(model.Length.Flicks / 2);
         return (element, time < middle ? ElementEdge.Start : ElementEdge.End);
     }
 }

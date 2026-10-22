@@ -21,7 +21,7 @@ public class ProjectPackageExportTests
         Task<ExportResult> export;
         try
         {
-            editor.Scene.Duration = TimeSpan.FromSeconds(73);
+            editor.Scene.Duration = MediaTime.FromSeconds(73);
             editor.HistoryManager.Commit();
             project.Name = "Current project name";
             export = TestShell.MainViewModel.ExportProjectAsync(project, output);
@@ -33,7 +33,7 @@ public class ProjectPackageExportTests
         Assert.That((await export.WaitAsync(TimeSpan.FromSeconds(15))).Success, Is.True);
         Project imported = await ImportAsync(output);
         Assert.That(imported.Name, Is.EqualTo("Current project name"));
-        Assert.That(imported.Items.OfType<Scene>().Single().Duration, Is.EqualTo(TimeSpan.FromSeconds(73)));
+        Assert.That(imported.Items.OfType<Scene>().Single().Duration, Is.EqualTo(MediaTime.FromSeconds(73)));
         Assert.That(editor.IsEnabled.Value, Is.True);
     }
 
@@ -43,18 +43,21 @@ public class ProjectPackageExportTests
         (Project project, EditViewModel editor, string output) = await OpenProjectAsync();
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.FromSeconds(1), Length: TimeSpan.FromSeconds(3), Layer: 0,
+            Start: MediaTime.FromSeconds(1), Length: MediaTime.FromSeconds(3), Layer: 0,
             Source: new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None);
         await editor.SaveAsync();
         Element element = editor.Scene.Children.Single();
         var nudge = (IElementNudgeService)editor.GetService(typeof(IElementNudgeService))!;
         nudge.Nudge(editor.Scene, [element], 1);
-        TimeSpan expected = element.Start;
+        MediaTime expected = element.Start;
 
         Assert.That((await TestShell.MainViewModel.ExportProjectAsync(project, output)).Success, Is.True);
 
         Project imported = await ImportAsync(output);
-        Assert.That(imported.Items.OfType<Scene>().Single().Children.Single().Start, Is.EqualTo(expected));
+        // The file keeps the start to a tick, which reads back onto the same frame.
+        Assert.That(
+            imported.Items.OfType<Scene>().Single().Children.Single().Start.RoundToFrame(new Rational(30), MidpointRounding.AwayFromZero),
+            Is.EqualTo(expected));
     }
 
     [AvaloniaTest]
@@ -62,7 +65,7 @@ public class ProjectPackageExportTests
     {
         (Project project, EditViewModel editor, string output) = await OpenProjectAsync();
         File.WriteAllText(output, "previous complete package");
-        editor.Scene.Duration = TimeSpan.FromSeconds(73);
+        editor.Scene.Duration = MediaTime.FromSeconds(73);
         using (StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
                {
                    if (step == StorageWriteStep.Replace && path == editor.Scene.Uri!.LocalPath)
@@ -75,7 +78,7 @@ public class ProjectPackageExportTests
         Assert.That(File.ReadAllText(output), Is.EqualTo("previous complete package"));
         Assert.That(editor.IsEnabled.Value, Is.True);
         Assert.That((await TestShell.MainViewModel.ExportProjectAsync(project, output).WaitAsync(TimeSpan.FromSeconds(15))).Success, Is.True);
-        Assert.That((await ImportAsync(output)).Items.OfType<Scene>().Single().Duration, Is.EqualTo(TimeSpan.FromSeconds(73)));
+        Assert.That((await ImportAsync(output)).Items.OfType<Scene>().Single().Duration, Is.EqualTo(MediaTime.FromSeconds(73)));
     }
 
     [AvaloniaTest]

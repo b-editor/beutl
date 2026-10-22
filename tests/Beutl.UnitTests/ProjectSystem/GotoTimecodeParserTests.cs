@@ -6,7 +6,7 @@ namespace Beutl.UnitTests.ProjectSystem;
 [TestFixture]
 public class GotoTimecodeParserTests
 {
-    private const int FrameRate = 30;
+    private static readonly Rational FrameRate = new(30);
 
     private static readonly IReadOnlyList<SceneMarker> EmptyMarkers = Array.Empty<SceneMarker>();
 
@@ -19,11 +19,11 @@ public class GotoTimecodeParserTests
     public void TryParse_Absolute_Succeeds(string input, int h, int m, int s, int ms)
     {
         bool ok = GotoTimecodeParser.TryParse(
-            input, FrameRate, TimeSpan.Zero, EmptyMarkers, out TimeSpan result, out GotoTimecodeError error);
+            input, FrameRate, MediaTime.Zero, EmptyMarkers, out MediaTime result, out GotoTimecodeError error);
 
         Assert.That(ok, Is.True);
         Assert.That(error, Is.EqualTo(GotoTimecodeError.None));
-        Assert.That(result, Is.EqualTo(new TimeSpan(0, h, m, s, ms)));
+        Assert.That(result, Is.EqualTo(MediaTime.FromTimeSpan(new TimeSpan(0, h, m, s, ms))));
     }
 
     [TestCase("1.00:00:05", 1, 0, 0, 5, 0)]
@@ -33,11 +33,11 @@ public class GotoTimecodeParserTests
         // Required so users can type a >=24h timecode that the current-time
         // display would render as a day-wrapped value otherwise.
         bool ok = GotoTimecodeParser.TryParse(
-            input, FrameRate, TimeSpan.Zero, EmptyMarkers, out TimeSpan result, out GotoTimecodeError error);
+            input, FrameRate, MediaTime.Zero, EmptyMarkers, out MediaTime result, out GotoTimecodeError error);
 
         Assert.That(ok, Is.True);
         Assert.That(error, Is.EqualTo(GotoTimecodeError.None));
-        Assert.That(result, Is.EqualTo(new TimeSpan(d, h, m, s, ms)));
+        Assert.That(result, Is.EqualTo(MediaTime.FromTimeSpan(new TimeSpan(d, h, m, s, ms))));
     }
 
     [TestCase("60f", 60)]
@@ -48,61 +48,61 @@ public class GotoTimecodeParserTests
     public void TryParse_Frame_ReturnsFrameDuration(string input, int frame)
     {
         bool ok = GotoTimecodeParser.TryParse(
-            input, FrameRate, TimeSpan.Zero, EmptyMarkers, out TimeSpan result, out GotoTimecodeError error);
+            input, FrameRate, MediaTime.Zero, EmptyMarkers, out MediaTime result, out GotoTimecodeError error);
 
         Assert.That(ok, Is.True);
         Assert.That(error, Is.EqualTo(GotoTimecodeError.None));
-        Assert.That(result, Is.EqualTo(frame.ToTimeSpan(FrameRate)));
+        Assert.That(result, Is.EqualTo(MediaTime.FromFrames(frame, FrameRate)));
     }
 
     [Test]
     public void TryParse_RelativeSeconds_AddsToCurrent()
     {
-        TimeSpan current = TimeSpan.FromSeconds(10);
+        MediaTime current = MediaTime.FromSeconds(10);
         bool ok = GotoTimecodeParser.TryParse(
-            "+5s", FrameRate, current, EmptyMarkers, out TimeSpan result, out _);
+            "+5s", FrameRate, current, EmptyMarkers, out MediaTime result, out _);
 
         Assert.That(ok, Is.True);
-        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(15)));
+        Assert.That(result, Is.EqualTo(MediaTime.FromSeconds(15)));
     }
 
     [Test]
     public void TryParse_RelativeNegativeSeconds_SubtractsFromCurrent()
     {
-        TimeSpan current = TimeSpan.FromSeconds(10);
+        MediaTime current = MediaTime.FromSeconds(10);
         bool ok = GotoTimecodeParser.TryParse(
-            "-3s", FrameRate, current, EmptyMarkers, out TimeSpan result, out _);
+            "-3s", FrameRate, current, EmptyMarkers, out MediaTime result, out _);
 
         Assert.That(ok, Is.True);
-        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(7)));
+        Assert.That(result, Is.EqualTo(MediaTime.FromSeconds(7)));
     }
 
     [Test]
     public void TryParse_RelativeMinutes_AddsToCurrent()
     {
-        TimeSpan current = TimeSpan.FromMinutes(1);
+        MediaTime current = MediaTime.FromSeconds(60);
         bool ok = GotoTimecodeParser.TryParse(
-            "+2m", FrameRate, current, EmptyMarkers, out TimeSpan result, out _);
+            "+2m", FrameRate, current, EmptyMarkers, out MediaTime result, out _);
 
         Assert.That(ok, Is.True);
-        Assert.That(result, Is.EqualTo(TimeSpan.FromMinutes(3)));
+        Assert.That(result, Is.EqualTo(MediaTime.FromSeconds(180)));
     }
 
     [Test]
     public void TryParse_RelativeFrames_AddsFramesToCurrent()
     {
-        TimeSpan current = 30.ToTimeSpan(FrameRate);
+        MediaTime current = MediaTime.FromFrames(30, FrameRate);
         bool ok = GotoTimecodeParser.TryParse(
-            "+15f", FrameRate, current, EmptyMarkers, out TimeSpan result, out _);
+            "+15f", FrameRate, current, EmptyMarkers, out MediaTime result, out _);
 
         Assert.That(ok, Is.True);
-        Assert.That(result, Is.EqualTo(45.ToTimeSpan(FrameRate)));
+        Assert.That(result, Is.EqualTo(MediaTime.FromFrames(45, FrameRate)));
     }
 
     [Test]
     public void TryParse_RelativeUnderflow_ReturnsOutOfRange()
     {
-        TimeSpan current = TimeSpan.FromSeconds(1);
+        MediaTime current = MediaTime.FromSeconds(1);
         bool ok = GotoTimecodeParser.TryParse(
             "-10s", FrameRate, current, EmptyMarkers, out _, out GotoTimecodeError error);
 
@@ -115,15 +115,15 @@ public class GotoTimecodeParserTests
     {
         var markers = new[]
         {
-            new SceneMarker(TimeSpan.FromSeconds(2), "Intro"),
-            new SceneMarker(TimeSpan.FromSeconds(10), "Outro"),
+            new SceneMarker(MediaTime.FromSeconds(2), "Intro"),
+            new SceneMarker(MediaTime.FromSeconds(10), "Outro"),
         };
 
         bool ok = GotoTimecodeParser.TryParse(
-            "@outro", FrameRate, TimeSpan.Zero, markers, out TimeSpan result, out _);
+            "@outro", FrameRate, MediaTime.Zero, markers, out MediaTime result, out _);
 
         Assert.That(ok, Is.True);
-        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(10)));
+        Assert.That(result, Is.EqualTo(MediaTime.FromSeconds(10)));
     }
 
     [Test]
@@ -131,15 +131,15 @@ public class GotoTimecodeParserTests
     {
         var markers = new[]
         {
-            new SceneMarker(TimeSpan.FromSeconds(2), "Intro"),
-            new SceneMarker(TimeSpan.FromSeconds(5), "Interlude"),
+            new SceneMarker(MediaTime.FromSeconds(2), "Intro"),
+            new SceneMarker(MediaTime.FromSeconds(5), "Interlude"),
         };
 
         bool ok = GotoTimecodeParser.TryParse(
-            "@in", FrameRate, TimeSpan.Zero, markers, out TimeSpan result, out _);
+            "@in", FrameRate, MediaTime.Zero, markers, out MediaTime result, out _);
 
         Assert.That(ok, Is.True);
-        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        Assert.That(result, Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 
     [Test]
@@ -147,11 +147,11 @@ public class GotoTimecodeParserTests
     {
         var markers = new[]
         {
-            new SceneMarker(TimeSpan.FromSeconds(2), "Intro"),
+            new SceneMarker(MediaTime.FromSeconds(2), "Intro"),
         };
 
         bool ok = GotoTimecodeParser.TryParse(
-            "@missing", FrameRate, TimeSpan.Zero, markers, out _, out GotoTimecodeError error);
+            "@missing", FrameRate, MediaTime.Zero, markers, out _, out GotoTimecodeError error);
 
         Assert.That(ok, Is.False);
         Assert.That(error, Is.EqualTo(GotoTimecodeError.MarkerNotFound));
@@ -164,15 +164,15 @@ public class GotoTimecodeParserTests
         // in declaration order wins regardless of which has the earlier Time.
         var markers = new[]
         {
-            new SceneMarker(TimeSpan.FromSeconds(10), "Interlude"),
-            new SceneMarker(TimeSpan.FromSeconds(2), "Intro"),
+            new SceneMarker(MediaTime.FromSeconds(10), "Interlude"),
+            new SceneMarker(MediaTime.FromSeconds(2), "Intro"),
         };
 
         bool ok = GotoTimecodeParser.TryParse(
-            "@in", FrameRate, TimeSpan.Zero, markers, out TimeSpan result, out _);
+            "@in", FrameRate, MediaTime.Zero, markers, out MediaTime result, out _);
 
         Assert.That(ok, Is.True);
-        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(10)));
+        Assert.That(result, Is.EqualTo(MediaTime.FromSeconds(10)));
     }
 
     [TestCase("@INTRO")]
@@ -180,13 +180,13 @@ public class GotoTimecodeParserTests
     [TestCase("@intro")]
     public void TryParse_MarkerName_IsCaseInsensitive(string input)
     {
-        var markers = new[] { new SceneMarker(TimeSpan.FromSeconds(2), "Intro") };
+        var markers = new[] { new SceneMarker(MediaTime.FromSeconds(2), "Intro") };
 
         bool ok = GotoTimecodeParser.TryParse(
-            input, FrameRate, TimeSpan.Zero, markers, out TimeSpan result, out _);
+            input, FrameRate, MediaTime.Zero, markers, out MediaTime result, out _);
 
         Assert.That(ok, Is.True);
-        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        Assert.That(result, Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 
     [Test]
@@ -194,15 +194,15 @@ public class GotoTimecodeParserTests
     {
         var markers = new[]
         {
-            new SceneMarker(TimeSpan.FromSeconds(1), ""),
-            new SceneMarker(TimeSpan.FromSeconds(5), "Outro"),
+            new SceneMarker(MediaTime.FromSeconds(1), ""),
+            new SceneMarker(MediaTime.FromSeconds(5), "Outro"),
         };
 
         bool ok = GotoTimecodeParser.TryParse(
-            "@outro", FrameRate, TimeSpan.Zero, markers, out TimeSpan result, out _);
+            "@outro", FrameRate, MediaTime.Zero, markers, out MediaTime result, out _);
 
         Assert.That(ok, Is.True);
-        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(5)));
+        Assert.That(result, Is.EqualTo(MediaTime.FromSeconds(5)));
     }
 
     [TestCase("")]
@@ -226,7 +226,7 @@ public class GotoTimecodeParserTests
     public void TryParse_InvalidInput_ReturnsError(string input)
     {
         bool ok = GotoTimecodeParser.TryParse(
-            input, FrameRate, TimeSpan.Zero, EmptyMarkers, out _, out GotoTimecodeError error);
+            input, FrameRate, MediaTime.Zero, EmptyMarkers, out _, out GotoTimecodeError error);
 
         Assert.That(ok, Is.False);
         Assert.That(error, Is.EqualTo(GotoTimecodeError.InvalidFormat));
@@ -236,7 +236,7 @@ public class GotoTimecodeParserTests
     public void TryParse_NullInput_ReturnsError()
     {
         bool ok = GotoTimecodeParser.TryParse(
-            null, FrameRate, TimeSpan.Zero, EmptyMarkers, out _, out GotoTimecodeError error);
+            null, FrameRate, MediaTime.Zero, EmptyMarkers, out _, out GotoTimecodeError error);
 
         Assert.That(ok, Is.False);
         Assert.That(error, Is.EqualTo(GotoTimecodeError.InvalidFormat));
@@ -247,7 +247,7 @@ public class GotoTimecodeParserTests
     public void TryParse_NegativeFrame_ReturnsOutOfRange(string input)
     {
         bool ok = GotoTimecodeParser.TryParse(
-            input, FrameRate, TimeSpan.Zero, EmptyMarkers, out _, out GotoTimecodeError error);
+            input, FrameRate, MediaTime.Zero, EmptyMarkers, out _, out GotoTimecodeError error);
 
         Assert.That(ok, Is.False);
         Assert.That(error, Is.EqualTo(GotoTimecodeError.OutOfRange));
@@ -261,7 +261,19 @@ public class GotoTimecodeParserTests
     public void TryParse_RelativeOutOfRange_ReturnsOutOfRangeWithoutThrowing(string input)
     {
         bool ok = GotoTimecodeParser.TryParse(
-            input, FrameRate, TimeSpan.Zero, EmptyMarkers, out _, out GotoTimecodeError error);
+            input, FrameRate, MediaTime.Zero, EmptyMarkers, out _, out GotoTimecodeError error);
+
+        Assert.That(ok, Is.False);
+        Assert.That(error, Is.EqualTo(GotoTimecodeError.OutOfRange));
+    }
+
+    // A TimeSpan reaches past the range of MediaTime (about 414 years).
+    [TestCase("200000.00:00:00")]
+    [TestCase("10675199.02:48:05")]
+    public void TryParse_AbsoluteBeyondTheRangeOfMediaTime_ReturnsOutOfRange(string input)
+    {
+        bool ok = GotoTimecodeParser.TryParse(
+            input, FrameRate, MediaTime.Zero, EmptyMarkers, out _, out GotoTimecodeError error);
 
         Assert.That(ok, Is.False);
         Assert.That(error, Is.EqualTo(GotoTimecodeError.OutOfRange));
@@ -270,11 +282,11 @@ public class GotoTimecodeParserTests
     [Test]
     public void TryParse_RelativeOverflowOnAddition_ReturnsOutOfRange()
     {
-        // The delta alone fits in a TimeSpan, but adding it to half of MaxValue overflows.
+        // The delta alone fits in a MediaTime, but adding it to half of MaxValue overflows.
         // This is a different path from the FromSeconds overflow.
-        TimeSpan current = TimeSpan.FromTicks(TimeSpan.MaxValue.Ticks / 2);
+        var current = new MediaTime(MediaTime.MaxValue.Flicks / 2);
         bool ok = GotoTimecodeParser.TryParse(
-            "+5e11s", FrameRate, current, EmptyMarkers, out _, out GotoTimecodeError error);
+            "+1e10s", FrameRate, current, EmptyMarkers, out _, out GotoTimecodeError error);
 
         Assert.That(ok, Is.False);
         Assert.That(error, Is.EqualTo(GotoTimecodeError.OutOfRange));
@@ -286,6 +298,6 @@ public class GotoTimecodeParserTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             GotoTimecodeParser.TryParse(
-                "30f", frameRate, TimeSpan.Zero, EmptyMarkers, out _, out _));
+                "30f", new Rational(frameRate), MediaTime.Zero, EmptyMarkers, out _, out _));
     }
 }

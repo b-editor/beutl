@@ -138,7 +138,7 @@ public sealed partial class AiSubtitleDialogViewModel
     {
         TimeSpan start = _editableCues.LastOrDefault()?.TryCreateCue(out CaptionCue? last) == true
             ? last!.End
-            : _editor?.CurrentTime ?? TimeSpan.Zero;
+            : _editor?.CurrentTime.ToTimeSpan() ?? TimeSpan.Zero;
         var cue = new CaptionCue(start, start + TimeSpan.FromSeconds(2), string.Empty);
         var item = new EditableCaptionCueViewModel(_editableCues.Count + 1, cue);
         AttachCue(item);

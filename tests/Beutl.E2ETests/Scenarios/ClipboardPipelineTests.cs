@@ -18,7 +18,7 @@ public class ClipboardPipelineTests
     [SetUp]
     public void SetUp()
     {
-        _harness = new SceneHistoryHarness("beutl-e2e-clip", start: TimeSpan.Zero, duration: TimeSpan.FromSeconds(120));
+        _harness = new SceneHistoryHarness("beutl-e2e-clip", start: MediaTime.Zero, duration: MediaTime.FromSeconds(120));
         _scene = _harness.Scene;
         _history = _harness.History;
         _clipboard = new FakeClipboardGateway();
@@ -35,14 +35,14 @@ public class ClipboardPipelineTests
     [Test]
     public async Task Copy_then_paste_adds_a_cloned_element_at_the_clicked_position()
     {
-        Element original = _harness.AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0);
+        Element original = _harness.AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0);
         original.AccentColor = Color.FromArgb(255, 5, 6, 7);
 
         bool copied = await _service.CopyAsync([original]);
         Assert.That(copied, Is.True);
 
         Element[] childrenBefore = [.. _scene.Children];
-        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.FromSeconds(30), 2);
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.FromSeconds(30), 2);
 
         Element[] added = [.. _scene.Children.Except(childrenBefore)];
         Assert.Multiple(() =>
@@ -50,7 +50,7 @@ public class ClipboardPipelineTests
             Assert.That(outcome.Pasted, Is.True);
             Assert.That(added, Has.Length.EqualTo(1));
             Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore.Length + 1));
-            Assert.That(added[0].Start, Is.EqualTo(TimeSpan.FromSeconds(30)));
+            Assert.That(added[0].Start, Is.EqualTo(MediaTime.FromSeconds(30)));
             Assert.That(added[0].ZIndex, Is.EqualTo(2));
             Assert.That(added[0].Id, Is.Not.EqualTo(original.Id));
         });
@@ -59,7 +59,7 @@ public class ClipboardPipelineTests
     [Test]
     public async Task Cut_removes_the_element_and_a_paste_restores_an_equivalent_clone()
     {
-        Element original = _harness.AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(3), 1);
+        Element original = _harness.AddElement(MediaTime.FromSeconds(4), MediaTime.FromSeconds(3), 1);
         int historyBefore = _history.UndoCount;
 
         bool cut = await _service.CutAsync(_scene, [original]);
@@ -70,13 +70,13 @@ public class ClipboardPipelineTests
             Assert.That(_history.UndoCount, Is.EqualTo(historyBefore + 1));
         });
 
-        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, TimeSpan.FromSeconds(40), 0);
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.FromSeconds(40), 0);
 
         Assert.Multiple(() =>
         {
             Assert.That(outcome.Pasted, Is.True);
             Assert.That(_scene.Children, Has.Count.EqualTo(1));
-            Assert.That(_scene.Children.Single().Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(_scene.Children.Single().Length, Is.EqualTo(MediaTime.FromSeconds(3)));
         });
     }
 

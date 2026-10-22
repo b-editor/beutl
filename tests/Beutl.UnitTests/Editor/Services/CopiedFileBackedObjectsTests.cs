@@ -15,7 +15,7 @@ public class CopiedFileBackedObjectsTests
 
     [SetUp]
     public void Setup()
-        => _harness = new SceneHistoryHarness("beutl_copied_files", duration: TimeSpan.FromSeconds(60));
+        => _harness = new SceneHistoryHarness("beutl_copied_files", duration: MediaTime.FromSeconds(60));
 
     [TearDown]
     public void TearDown() => _harness.Dispose();
@@ -24,7 +24,7 @@ public class CopiedFileBackedObjectsTests
     public void Regenerate_GivesTheCopyItsOwnFileBackedObject()
     {
         string file = Path.Combine(_harness.BasePath, "anim #1 ア.json");
-        Element source = _harness.AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
+        Element source = _harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(10));
         source.AddObject(ShapeWithKeyFrameAt(6, file));
 
         ObjectRegenerator.Regenerate(source, out Element copy);
@@ -33,7 +33,7 @@ public class CopiedFileBackedObjectsTests
         {
             Assert.That(Animation(copy).Uri, Is.Null);
             Assert.That(Animation(copy).Id, Is.Not.EqualTo(Animation(source).Id));
-            Assert.That(KeyTimes(copy), Is.EqualTo(new[] { TimeSpan.FromSeconds(6) }));
+            Assert.That(KeyTimes(copy), Is.EqualTo(new[] { MediaTime.FromSeconds(6) }));
             Assert.That(Animation(source).Uri, Is.EqualTo(new Uri(file)));
         });
     }
@@ -43,7 +43,7 @@ public class CopiedFileBackedObjectsTests
     public void Split_GivesTheBackHalfItsOwnCopyOfAnAnimationFile()
     {
         string file = Path.Combine(_harness.BasePath, "anim.json");
-        Element front = _harness.AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
+        Element front = _harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(10));
         front.AddObject(ShapeWithKeyFrameAt(6, file));
         _harness.History.Commit("Setup");
 
@@ -52,11 +52,11 @@ public class CopiedFileBackedObjectsTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(KeyTimes(Reload(front)), Is.EqualTo(new[] { TimeSpan.FromSeconds(6) }));
-            Assert.That(KeyTimes(Reload(back)), Is.EqualTo(new[] { TimeSpan.FromSeconds(2) }));
+            Assert.That(KeyTimes(Reload(front)), Is.EqualTo(new[] { MediaTime.FromSeconds(6) }));
+            Assert.That(KeyTimes(Reload(back)), Is.EqualTo(new[] { MediaTime.FromSeconds(2) }));
             Assert.That(Animation(Reload(back)).Uri, Is.Null);
             Assert.That(CoreSerializer.RestoreFromUri<KeyFrameAnimation<float>>(new Uri(file)).KeyFrames.Single().KeyTime,
-                Is.EqualTo(TimeSpan.FromSeconds(6)));
+                Is.EqualTo(MediaTime.FromSeconds(6)));
         });
     }
 
@@ -66,12 +66,12 @@ public class CopiedFileBackedObjectsTests
     {
         string folder = Path.Combine(_harness.BasePath, "scene #1 ア");
         var scene = new Scene(100, 100, "B") { Uri = new Uri(Path.Combine(folder, "B.scene")) };
-        var inner = new Element { Length = TimeSpan.FromSeconds(10), Uri = new Uri(Path.Combine(folder, "inner.belm")) };
+        var inner = new Element { Length = MediaTime.FromSeconds(10), Uri = new Uri(Path.Combine(folder, "inner.belm")) };
         inner.AddObject(ShapeWithKeyFrameAt(6));
         inner.AddObject(new CopyRenewalProbe());
         scene.Children.Add(inner);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
-        Element front = _harness.AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
+        Element front = _harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(10));
         var drawable = new SceneDrawable();
         drawable.ReferencedScene.Value = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
         front.AddObject(drawable);
@@ -87,18 +87,18 @@ public class CopiedFileBackedObjectsTests
             Assert.That(drawn.Uri, Is.EqualTo(scene.Uri));
             Assert.That(drawn.Id, Is.EqualTo(scene.Id));
             Assert.That(drawn.Children.Single().Id, Is.EqualTo(inner.Id));
-            Assert.That(KeyTimes(drawn.Children.Single()), Is.EqualTo(new[] { TimeSpan.FromSeconds(6) }));
+            Assert.That(KeyTimes(drawn.Children.Single()), Is.EqualTo(new[] { MediaTime.FromSeconds(6) }));
             Assert.That(drawn.Children.Single().Objects.OfType<CopyRenewalProbe>().Single().Renewals, Is.Zero);
             Assert.That(reloaded.Id, Is.EqualTo(scene.Id));
             Assert.That(reloaded.Children.Single().Id, Is.EqualTo(inner.Id));
-            Assert.That(KeyTimes(reloaded.Children.Single()), Is.EqualTo(new[] { TimeSpan.FromSeconds(6) }));
+            Assert.That(KeyTimes(reloaded.Children.Single()), Is.EqualTo(new[] { MediaTime.FromSeconds(6) }));
         });
     }
 
     private Element Split(Element target, double seconds)
     {
         Element[] before = [.. _harness.Scene.Children];
-        new ElementStructureService(_harness.History).Split(_harness.Scene, [target], TimeSpan.FromSeconds(seconds));
+        new ElementStructureService(_harness.History).Split(_harness.Scene, [target], MediaTime.FromSeconds(seconds));
         return _harness.Scene.Children.Except(before).Single();
     }
 
@@ -113,7 +113,7 @@ public class CopiedFileBackedObjectsTests
     {
         var shape = new RectShape();
         var animation = new KeyFrameAnimation<float> { Uri = file is null ? null : new Uri(file) };
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(seconds), Value = 50 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(seconds), Value = 50 });
         shape.Width.SetKeyFrameAnimation(animation);
         return shape;
     }
@@ -121,7 +121,7 @@ public class CopiedFileBackedObjectsTests
     private static KeyFrameAnimation<float> Animation(Element element)
         => element.Objects.OfType<RectShape>().Single().Width.GetKeyFrameAnimation()!;
 
-    private static TimeSpan[] KeyTimes(Element element) => [.. Animation(element).KeyFrames.Select(k => k.KeyTime)];
+    private static MediaTime[] KeyTimes(Element element) => [.. Animation(element).KeyFrames.Select(k => k.KeyTime)];
 
     private static Element Reload(Element element) => CoreSerializer.RestoreFromUri<Element>(element.Uri!);
 }

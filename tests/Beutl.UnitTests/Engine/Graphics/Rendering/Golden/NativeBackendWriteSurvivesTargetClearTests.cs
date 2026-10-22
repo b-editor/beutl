@@ -50,7 +50,7 @@ public class NativeBackendWriteSurvivesTargetClearTests
                 new PixelSize(256, 144),
                 outputScale,
                 outputScale * 2f,
-                TimeSpan.Zero);
+                MediaTime.Zero);
 
             Assert.That(
                 ImageMetrics.CountCoveredPixels(bitmap),

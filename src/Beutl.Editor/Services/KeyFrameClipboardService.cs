@@ -2,6 +2,7 @@
 using Beutl.Animation;
 using Beutl.Language;
 using Beutl.Logging;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 
@@ -66,7 +67,7 @@ public sealed class KeyFrameClipboardService : IKeyFrameClipboardService
         }
     }
 
-    public KeyFramePasteResult PasteKeyFrame(IKeyFrameAnimation target, string json, TimeSpan keyTime)
+    public KeyFramePasteResult PasteKeyFrame(IKeyFrameAnimation target, string json, MediaTime keyTime)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(json);
@@ -110,7 +111,8 @@ public sealed class KeyFrameClipboardService : IKeyFrameClipboardService
 
         try
         {
-            if (target.KeyFrames.FirstOrDefault(k => k.KeyTime == keyTime) is { } existing)
+            Rational rate = AnimationOperations.GetFrameRate(target.FindHierarchicalParent<Scene>());
+            if (AnimationOperations.FindKeyFrameOnFrame(target.KeyFrames, keyTime, rate) is { } existing)
             {
                 existing.Easing = newKeyFrame.Easing;
                 existing.Value = ((IKeyFrame)newKeyFrame).Value;

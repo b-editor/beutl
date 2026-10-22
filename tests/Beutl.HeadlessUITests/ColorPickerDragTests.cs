@@ -193,12 +193,12 @@ public sealed class ColorPickerDragTests
     {
         var brush = new SolidColorBrush(Colors.Red);
         var animation = new KeyFrameAnimation<Color>();
-        animation.KeyFrames.Add(new KeyFrame<Color> { KeyTime = TimeSpan.Zero, Value = Colors.Blue });
-        animation.KeyFrames.Add(new KeyFrame<Color> { KeyTime = TimeSpan.FromSeconds(1), Value = Colors.Lime });
+        animation.KeyFrames.Add(new KeyFrame<Color> { KeyTime = MediaTime.Zero, Value = Colors.Blue });
+        animation.KeyFrames.Add(new KeyFrame<Color> { KeyTime = MediaTime.FromSeconds(1), Value = Colors.Lime });
         brush.Color.SetKeyFrameAnimation(animation);
         var shape = new RectShape { Fill = { Value = brush } };
         using var history = new HistoryScope(shape);
-        var time = new ReactivePropertySlim<TimeSpan>(TimeSpan.Zero);
+        var time = new ReactivePropertySlim<MediaTime>(MediaTime.Zero);
         var clock = new Mock<IEditorClock>();
         clock.SetupGet(x => x.CurrentTime).Returns(time);
         using var viewModel = new BrushEditorViewModel(
@@ -216,7 +216,7 @@ public sealed class ColorPickerDragTests
             Color Shown() => Color.FromArgb(picker.Color.A, picker.Color.R, picker.Color.G, picker.Color.B);
             await HeadlessTestHelpers.WaitUntilAsync(() => Shown() == Colors.Blue, message: "The picker shows the color at 0s.");
 
-            time.Value = TimeSpan.FromSeconds(1);
+            time.Value = MediaTime.FromSeconds(1);
             await HeadlessTestHelpers.WaitUntilAsync(() => Shown() == Colors.Lime, message: "The picker follows the seek.");
             HeadlessTestHelpers.Render(3);
 

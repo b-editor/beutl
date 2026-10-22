@@ -27,14 +27,14 @@ internal sealed class EditorSpeedIntegral(KeyFrameAnimation<float> animation, in
 
     public bool HasCustomInterpolation => _customInterpolation;
 
-    public Estimate Integrate(TimeSpan time)
-        => Integrate(TimeSpan.Zero, time);
+    public Estimate Integrate(MediaTime time)
+        => Integrate(MediaTime.Zero, time);
 
-    public Estimate Integrate(TimeSpan start, TimeSpan end)
+    public Estimate Integrate(MediaTime start, MediaTime end)
     {
         if (start == end) return default;
-        double startSamples = start.TotalSeconds * sampleRate;
-        double endSamples = end.TotalSeconds * sampleRate;
+        double startSamples = start.ToSeconds() * sampleRate;
+        double endSamples = end.ToSeconds() * sampleRate;
         long startWhole = (long)startSamples;
         long endWhole = (long)endSamples;
         EnsureTable(startWhole);
@@ -61,7 +61,7 @@ internal sealed class EditorSpeedIntegral(KeyFrameAnimation<float> animation, in
             boundaries.Add(_end);
         }
         foreach (IKeyFrame key in animation.KeyFrames)
-            boundaries.Add((long)Math.Ceiling(key.KeyTime.TotalSeconds * sampleRate));
+            boundaries.Add((long)Math.Ceiling(key.KeyTime.ToSeconds() * sampleRate));
         boundaries.Add(0);
         _segments.Clear();
         _samples.Clear();
@@ -78,7 +78,7 @@ internal sealed class EditorSpeedIntegral(KeyFrameAnimation<float> animation, in
     {
         if (!_samples.TryGetValue(index, out float value))
         {
-            value = animation.Interpolate(TimeSpan.FromSeconds(index / (double)sampleRate));
+            value = animation.Interpolate(MediaTime.FromSeconds(index / (double)sampleRate));
             _samples[index] = value;
         }
         return value;

@@ -42,7 +42,7 @@ public sealed class FileEditingSessionTests
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 10 });
         var shape = new RectShape();
         shape.Width.SetKeyFrameAnimation(animation);
-        var element = new Element { Uri = new Uri(elementPath), Length = TimeSpan.FromSeconds(1) };
+        var element = new Element { Uri = new Uri(elementPath), Length = MediaTime.FromSeconds(1) };
         var holder = new WrappedKeyFrameHolder();
         holder.Frames.Value = [new KeyFrameWrapper(new KeyFrame<float> { Value = 10 })];
         element.AddObject(wrapped ? holder : shape);
@@ -140,7 +140,7 @@ public sealed class FileEditingSessionTests
         var element = new Element
         {
             Name = "clip",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "clip.belm")),
         };
         scene.Children.Add(element);
@@ -172,7 +172,7 @@ public sealed class FileEditingSessionTests
         var element = new Element
         {
             Name = "clip",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, relativePath)),
         };
         scene.Children.Add(element);
@@ -198,7 +198,7 @@ public sealed class FileEditingSessionTests
         var element = new Element
         {
             Name = "clip",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, relativePath)),
         };
         scene.Children.Add(element);
@@ -227,14 +227,14 @@ public sealed class FileEditingSessionTests
         scene.Children.Add(new Element
         {
             Name = "First",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(firstPath),
         });
         scene.Children.Add(new Element
         {
             Name = "Second",
-            Start = TimeSpan.FromSeconds(1),
-            Length = TimeSpan.FromSeconds(1),
+            Start = MediaTime.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(secondPath),
         });
         session.Save(skipConflictCheck: true);
@@ -307,7 +307,7 @@ public sealed class FileEditingSessionTests
         scene.Children.Add(new Element
         {
             Name = "clip",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(elementPath),
             Objects = { new RectShape() },
         });

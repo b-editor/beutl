@@ -60,16 +60,16 @@ public class NodeGraphPackageTests
                 if (kind == "animated")
                 {
                     var animation = new KeyFrameAnimation<ImageSource?>();
-                    animation.KeyFrames.Add(new KeyFrame<ImageSource?> { KeyTime = TimeSpan.Zero, Value = first });
-                    animation.KeyFrames.Add(new KeyFrame<ImageSource?> { KeyTime = TimeSpan.FromSeconds(1), Value = second });
+                    animation.KeyFrames.Add(new KeyFrame<ImageSource?> { KeyTime = MediaTime.Zero, Value = first });
+                    animation.KeyFrames.Add(new KeyFrame<ImageSource?> { KeyTime = MediaTime.FromSeconds(1), Value = second });
                     ((IAnimatablePropertyAdapter<ImageSource?>)node.Source.Property).Animation = animation;
                 }
                 graph.Nodes.Add(node); graph.Connect(output.InputPort, node.Output);
             }
 
-            var element = new Element { Uri = new Uri(Path.Combine(projectDirectory, "image.belm")), Length = TimeSpan.FromSeconds(2) };
+            var element = new Element { Uri = new Uri(Path.Combine(projectDirectory, "image.belm")), Length = MediaTime.FromSeconds(2) };
             element.Objects.Add(drawable);
-            var scene = new Scene(64, 64, "Nodes") { Uri = new Uri(Path.Combine(projectDirectory, "main.scene")), Duration = TimeSpan.FromSeconds(2) };
+            var scene = new Scene(64, 64, "Nodes") { Uri = new Uri(Path.Combine(projectDirectory, "main.scene")), Duration = MediaTime.FromSeconds(2) };
             scene.Children.Add(element);
             var project = new Project { Uri = new Uri(Path.Combine(projectDirectory, "main.bep")) };
             project.Items.Add(scene);
@@ -112,7 +112,7 @@ public class NodeGraphPackageTests
             foreach (ImageSource source in sources)
             {
                 Assert.That(source.Uri.LocalPath, Does.StartWith(importedDirectory + Path.DirectorySeparatorChar));
-                using var resource = source.ToResource(new CompositionContext(TimeSpan.Zero));
+                using var resource = source.ToResource(new CompositionContext(MediaTime.Zero));
                 Assert.That(resource.Bitmap, Is.Not.Null);
                 Assert.That((resource.Bitmap!.Width, resource.Bitmap.Height), Is.EqualTo((4, 4)));
             }

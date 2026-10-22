@@ -143,12 +143,12 @@ public class ExportTests
     private static async Task<EditViewModel> OpenEditorWithRectangle(string name)
     {
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync(name, 320, 240);
-        editor.Scene.Duration = TimeSpan.FromMilliseconds(200);
+        editor.Scene.Duration = MediaTime.FromSeconds(0.2);
         await TestShell.AddElementAsync(
             editor,
             () => new RectShape { Width = { Value = 200 }, Height = { Value = 150 } },
-            TimeSpan.Zero,
-            TimeSpan.FromMilliseconds(200));
+            MediaTime.Zero,
+            MediaTime.FromSeconds(0.2));
         return editor;
     }
 
@@ -335,7 +335,7 @@ public class ExportTests
         var source = new RectShape { Width = { Value = 200 } };
         var sourceElement = new Element
         {
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(folder, "source.belm"))
         };
         sourceElement.AddObject(source);

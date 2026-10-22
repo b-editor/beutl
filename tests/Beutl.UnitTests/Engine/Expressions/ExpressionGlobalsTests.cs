@@ -11,7 +11,7 @@ public class ExpressionGlobalsTests
     [SetUp]
     public void SetUp()
     {
-        _globals = new ExpressionGlobals(TestHelper.CreateExpressionContext(TimeSpan.Zero));
+        _globals = new ExpressionGlobals(TestHelper.CreateExpressionContext(MediaTime.Zero));
     }
 
     [Test]
@@ -25,7 +25,7 @@ public class ExpressionGlobalsTests
     public void Time_ShouldReturnContextTimeInSeconds()
     {
         // Arrange
-        var context = TestHelper.CreateExpressionContext(TimeSpan.FromSeconds(5));
+        var context = TestHelper.CreateExpressionContext(MediaTime.FromSeconds(5));
         var globals = new ExpressionGlobals(context);
 
         // Assert
@@ -170,7 +170,7 @@ public class ExpressionGlobalsTests
 
         var lookup = new PropertyLookup(root);
         var property = Property.CreateExpression(0.0);
-        var context = new ExpressionContext(TimeSpan.Zero, property, lookup);
+        var context = new ExpressionContext(MediaTime.Zero, property, lookup);
         var globals = new ExpressionGlobals(context);
 
         // Act
@@ -191,7 +191,7 @@ public class ExpressionGlobalsTests
 
         var lookup = new PropertyLookup(root);
         var property = Property.CreateExpression(0.0);
-        var context = new ExpressionContext(TimeSpan.Zero, property, lookup);
+        var context = new ExpressionContext(MediaTime.Zero, property, lookup);
         var globals = new ExpressionGlobals(context);
 
         // Act - Using GUID + property name overload

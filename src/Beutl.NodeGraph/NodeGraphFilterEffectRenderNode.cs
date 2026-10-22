@@ -10,7 +10,7 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
 {
     private static readonly IEqualityComparer<RenderNode> s_renderNodeReferenceComparer =
         ReferenceEqualityComparer.Instance;
-    private readonly CompositionContext _compositionContext = new(TimeSpan.Zero);
+    private readonly CompositionContext _compositionContext = new(MediaTime.Zero);
 
     private NodeGraphFilterEffect.Resource? GraphResource => FilterEffect?.Resource as NodeGraphFilterEffect.Resource;
 

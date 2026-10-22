@@ -84,15 +84,15 @@ public static class GenerativeShapeSuggestion
     /// it, or the longest when none does; otherwise <paramref name="preferredSeconds"/> when
     /// offered, or the first offered.
     /// </summary>
-    public static int SuggestDuration(IReadOnlyList<int> durations, TimeSpan? span, int preferredSeconds)
+    public static int SuggestDuration(IReadOnlyList<int> durations, MediaTime? span, int preferredSeconds)
     {
         ArgumentNullException.ThrowIfNull(durations);
         if (durations.Count == 0)
             throw new ArgumentException("At least one duration is required.", nameof(durations));
 
-        if (span is { } length && length > TimeSpan.Zero)
+        if (span is { } length && length > MediaTime.Zero)
         {
-            int[] covering = durations.Where(seconds => TimeSpan.FromSeconds(seconds) >= length).ToArray();
+            int[] covering = durations.Where(seconds => MediaTime.FromSeconds(seconds) >= length).ToArray();
             return covering.Length != 0 ? covering.Min() : durations.Max();
         }
 

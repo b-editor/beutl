@@ -37,13 +37,13 @@ public sealed partial class UnboundedSpeedTailSound : Sound
             {
                 new KeyFrame<float>
                 {
-                    KeyTime = TimeSpan.Zero,
+                    KeyTime = MediaTime.Zero,
                     Value = 100f,
                     Easing = new UnknownRangeEasing(),
                 },
                 new KeyFrame<float>
                 {
-                    KeyTime = TimeSpan.FromSeconds(1),
+                    KeyTime = MediaTime.FromSeconds(1),
                     Value = 100f,
                     Easing = new UnknownRangeEasing(),
                 },

@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics;
+using System.Globalization;
 using Beutl.Collections;
+using Beutl.JsonConverters;
 using Beutl.Serialization;
 
 namespace Beutl;
@@ -54,22 +56,34 @@ public sealed class Project : Hierarchical
 
     public Dictionary<string, string> Variables { get; } = [];
 
+    // The rate GetFrameRate gives, read here so that the project's own read can use it.
+    internal static Rational ReadFrameRate(Project? project)
+        => project?.Variables.TryGetValue(ProjectVariableKeys.FrameRate, out string? value) == true
+           && Rational.TryParse(value, CultureInfo.InvariantCulture, out Rational rate)
+           && rate.Numerator > 0 && rate.Denominator > 0
+            ? rate
+            : new Rational(30);
+
     public override void Deserialize(ICoreSerializationContext context)
     {
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Deserialize");
         base.Deserialize(context);
 
-        if (context.GetValue<ProjectItem[]>("items") is { } items)
-        {
-            Items.Replace(items);
-        }
-
+        // The variables come first: the items are read on the project's frame grid.
         if (context.GetValue<Dictionary<string, string>>("variables") is { } vars)
         {
             Variables.Clear();
             foreach (KeyValuePair<string, string> item in vars)
             {
                 Variables.Add(item.Key, item.Value);
+            }
+        }
+
+        using (MediaTimeJsonConverter.ReadOnFrameGrid(ReadFrameRate(this)))
+        {
+            if (context.GetValue<ProjectItem[]>("items") is { } items)
+            {
+                Items.Replace(items);
             }
         }
 

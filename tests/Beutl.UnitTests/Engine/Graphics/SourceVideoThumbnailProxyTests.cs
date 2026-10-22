@@ -70,7 +70,7 @@ public class SourceVideoThumbnailProxyTests
 
         var source = new VideoSource();
         source.ReadFrom(new Uri(scope.OriginalPath));
-        var context = new CompositionContext(TimeSpan.Zero) { PreferProxy = true };
+        var context = new CompositionContext(MediaTime.Zero) { PreferProxy = true };
 
         using var first = source.ToResource(context);
         int resolvesAfterFirst = resolver.ResolveCallCount;
@@ -135,7 +135,7 @@ public class SourceVideoThumbnailProxyTests
         media.ReadFrom(new Uri(originalPath));
         var drawable = new SourceVideo
         {
-            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+            TimeRange = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)),
         };
         drawable.Source.Value = media;
 
@@ -172,24 +172,24 @@ public class SourceVideoThumbnailProxyTests
     {
         public List<string> Invalidated { get; } = [];
 
-        public bool TryGet(string cacheKey, TimeSpan time, TimeSpan threshold, out Bitmap? bitmap)
+        public bool TryGet(string cacheKey, MediaTime time, MediaTime threshold, out Bitmap? bitmap)
         {
             bitmap = null;
             return false;
         }
 
-        public void Save(string cacheKey, TimeSpan time, Bitmap bitmap)
+        public void Save(string cacheKey, MediaTime time, Bitmap bitmap)
         {
         }
 
-        public bool TryGetWaveform(string cacheKey, TimeSpan time, TimeSpan threshold, out float minValue, out float maxValue)
+        public bool TryGetWaveform(string cacheKey, MediaTime time, MediaTime threshold, out float minValue, out float maxValue)
         {
             minValue = 0;
             maxValue = 0;
             return false;
         }
 
-        public void SaveWaveform(string cacheKey, TimeSpan time, float minValue, float maxValue)
+        public void SaveWaveform(string cacheKey, MediaTime time, float minValue, float maxValue)
         {
         }
 

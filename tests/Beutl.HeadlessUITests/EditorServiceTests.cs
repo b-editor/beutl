@@ -188,7 +188,7 @@ public sealed class EditorServiceTests
         var clipboard = new ProjectFileWriteClipboardService(editorService, inner);
         var scene = new Scene { Uri = new Uri("file:///project/main.scene") };
 
-        Task<ElementPasteOutcome> paste = clipboard.PasteAsync(scene, TimeSpan.Zero, 0);
+        Task<ElementPasteOutcome> paste = clipboard.PasteAsync(scene, MediaTime.Zero, 0);
         await pasteStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.That(editorService.TryBeginWorktreeMutation(), Is.Null);
@@ -212,7 +212,7 @@ public sealed class EditorServiceTests
         var scene = new Scene { Uri = new Uri("file:///project/main.scene") };
 
         using IDisposable mutation = editorService.TryBeginWorktreeMutation()!;
-        ElementPasteOutcome outcome = await clipboard.PasteAsync(scene, TimeSpan.Zero, 0);
+        ElementPasteOutcome outcome = await clipboard.PasteAsync(scene, MediaTime.Zero, 0);
 
         Assert.Multiple(() =>
         {
@@ -529,7 +529,7 @@ public sealed class EditorServiceTests
 
         public async Task<ElementPasteOutcome> PasteAsync(
             Scene scene,
-            TimeSpan clickedFrame,
+            MediaTime clickedFrame,
             int clickedLayer)
         {
             PasteCalls++;

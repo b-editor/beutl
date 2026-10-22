@@ -131,12 +131,12 @@ public sealed class Scene3DCoordinateRenderTests
         {
             var scene = new Scene(1920, 1080, "coordinates")
             {
-                Duration = TimeSpan.FromSeconds(1),
+                Duration = MediaTime.FromSeconds(1),
                 Uri = new Uri(Path.Combine(dir, "Scene.scene"))
             };
             var element = new Element
             {
-                Length = TimeSpan.FromSeconds(1),
+                Length = MediaTime.FromSeconds(1),
                 Uri = new Uri(Path.Combine(dir, "element.belm"))
             };
             foreach (EngineObject obj in objects)
@@ -146,7 +146,7 @@ public sealed class Scene3DCoordinateRenderTests
 
             scene.Children.Add(element);
             using Bitmap bitmap = await new StillRenderer().RenderBitmapAsync(
-                scene, TimeSpan.Zero, RenderScale, CancellationToken.None);
+                scene, MediaTime.Zero, RenderScale, CancellationToken.None);
             Assert.That(bitmap.ColorType, Is.EqualTo(BitmapColorType.RgbaF16));
             return bitmap.GetPixelSpan<Half>().ToArray().Select(static v => (float)v).ToArray();
         }

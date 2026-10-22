@@ -219,7 +219,7 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
         public IReadOnlyList<ElementDescription> CreateElements(
             CaptionCue cue,
             CaptionElementContext context)
-            => [new ElementDescription(cue.Start, cue.End - cue.Start, context.Layer, Source)];
+            => [new ElementDescription(MediaTime.FromTimeSpan(cue.Start), MediaTime.FromTimeSpan(cue.End - cue.Start), context.Layer, Source)];
     }
 
     private sealed class CustomCaptionPlacement : ICaptionPlacementPolicy

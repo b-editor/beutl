@@ -983,7 +983,7 @@ public sealed class DeviceBufferBudgetTests
             ParticleColor = { Value = Colors.OrangeRed },
         };
         using ParticleEmitter.Resource resource = emitter.ToResource(
-            new CompositionContext(TimeSpan.FromSeconds(1)));
+            new CompositionContext(MediaTime.FromSeconds(1)));
 
         // The simulator owns the buffer the render node reads, so poking it here is how a fixture reaches a
         // single distant particle the emitter's own properties can only produce for all of them.

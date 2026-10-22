@@ -52,28 +52,29 @@ public static class GotoTimecodeParser
     ];
 
     /// <summary>
-    /// Resolves a goto-timecode expression to a non-negative <see cref="TimeSpan"/> relative to the timeline origin.
+    /// Resolves a goto-timecode expression to a non-negative <see cref="MediaTime"/> relative to the timeline origin.
     /// </summary>
     /// <param name="input">The user-entered expression (see class remarks for accepted forms).</param>
     /// <param name="frameRate">Frame rate used for frame-based and relative-frame inputs; must be positive.</param>
     /// <param name="currentTime">Current playhead time used as the base for relative expressions.</param>
     /// <param name="markers">Markers searched for <c>@</c>-prefixed inputs.</param>
-    /// <param name="result">On success, the resolved time (clamped to <see cref="TimeSpan.Zero"/>).</param>
+    /// <param name="result">On success, the resolved time (clamped to <see cref="MediaTime.Zero"/>).</param>
     /// <param name="error">On failure, the reason for the failure.</param>
     /// <returns><see langword="true"/> if <paramref name="input"/> resolved successfully.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="frameRate"/> is zero or negative.</exception>
     public static bool TryParse(
         string? input,
-        int frameRate,
-        TimeSpan currentTime,
+        Rational frameRate,
+        MediaTime currentTime,
         IReadOnlyList<SceneMarker> markers,
-        out TimeSpan result,
+        out MediaTime result,
         out GotoTimecodeError error)
     {
-        result = TimeSpan.Zero;
+        result = MediaTime.Zero;
         error = GotoTimecodeError.None;
 
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(frameRate);
+        if (frameRate.Numerator <= 0 || frameRate.Denominator <= 0)
+            throw new ArgumentOutOfRangeException(nameof(frameRate), frameRate, "The frame rate must be positive.");
 
         if (string.IsNullOrWhiteSpace(input))
         {
@@ -103,23 +104,34 @@ public static class GotoTimecodeParser
             return true;
         }
 
-        if (TryParseAbsolute(text, out result))
+        return TryParseAbsolute(text, out result, out error);
+    }
+
+    private static bool TryParseAbsolute(string text, out MediaTime result, out GotoTimecodeError error)
+    {
+        result = MediaTime.Zero;
+        error = GotoTimecodeError.InvalidFormat;
+        if (!TimeSpan.TryParseExact(text, s_absoluteFormats, CultureInfo.InvariantCulture, out TimeSpan span))
+            return false;
+
+        // A TimeSpan reaches past the range of MediaTime (about 414 years).
+        try
         {
-            return true;
+            result = MediaTime.FromTimeSpan(span);
+        }
+        catch (OverflowException)
+        {
+            error = GotoTimecodeError.OutOfRange;
+            return false;
         }
 
-        error = GotoTimecodeError.InvalidFormat;
-        return false;
+        error = GotoTimecodeError.None;
+        return true;
     }
 
-    private static bool TryParseAbsolute(string text, out TimeSpan result)
+    private static bool TryParseFrameSuffix(string text, Rational frameRate, out MediaTime result)
     {
-        return TimeSpan.TryParseExact(text, s_absoluteFormats, CultureInfo.InvariantCulture, out result);
-    }
-
-    private static bool TryParseFrameSuffix(string text, int frameRate, out TimeSpan result)
-    {
-        result = TimeSpan.Zero;
+        result = MediaTime.Zero;
         if (text.Length < 2) return false;
         char last = text[^1];
         if (last != 'f' && last != 'F') return false;
@@ -130,13 +142,13 @@ public static class GotoTimecodeParser
             return false;
         }
 
-        result = frame.ToTimeSpan(frameRate);
+        result = MediaTime.FromFrames(frame, frameRate);
         return true;
     }
 
-    private static bool TryParseFrame(string text, int frameRate, out TimeSpan result, out GotoTimecodeError error)
+    private static bool TryParseFrame(string text, Rational frameRate, out MediaTime result, out GotoTimecodeError error)
     {
-        result = TimeSpan.Zero;
+        result = MediaTime.Zero;
         error = GotoTimecodeError.None;
         if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int frame))
         {
@@ -150,18 +162,18 @@ public static class GotoTimecodeParser
             return false;
         }
 
-        result = frame.ToTimeSpan(frameRate);
+        result = MediaTime.FromFrames(frame, frameRate);
         return true;
     }
 
     private static bool TryParseRelative(
         string text,
-        int frameRate,
-        TimeSpan currentTime,
-        out TimeSpan result,
+        Rational frameRate,
+        MediaTime currentTime,
+        out MediaTime result,
         out GotoTimecodeError error)
     {
-        result = TimeSpan.Zero;
+        result = MediaTime.Zero;
         error = GotoTimecodeError.None;
 
         if (text.Length < 3)
@@ -198,25 +210,27 @@ public static class GotoTimecodeParser
 
         try
         {
-            TimeSpan delta = unit switch
+            MediaTime delta = unit switch
             {
-                's' or 'S' => TimeSpan.FromSeconds(value),
-                'm' or 'M' => TimeSpan.FromMinutes(value),
-                _ /* 'f' or 'F' */ => value.ToTimeSpan(frameRate),
+                's' or 'S' => MediaTime.FromSeconds(value),
+                'm' or 'M' => MediaTime.FromSeconds(value * 60),
+                _ /* 'f' or 'F' */ => double.IsInteger(value) && Math.Abs(value) < 1e15
+                    ? MediaTime.FromFrames((long)value, frameRate)
+                    : MediaTime.FromSeconds(value / frameRate.ToDouble()),
             };
 
             result = currentTime + (sign == -1 ? -delta : delta);
         }
         catch (OverflowException)
         {
-            // The numeric value parsed but cannot be expressed as a TimeSpan
-            // (either FromSeconds/FromMinutes overflowed, or the addition to
-            // currentTime exceeded TimeSpan.MaxValue/MinValue).
+            // The numeric value parsed but cannot be expressed as a MediaTime
+            // (either FromSeconds/FromFrames overflowed, or the addition to
+            // currentTime exceeded MediaTime.MaxValue/MinValue).
             error = GotoTimecodeError.OutOfRange;
             return false;
         }
 
-        if (result < TimeSpan.Zero)
+        if (result < MediaTime.Zero)
         {
             error = GotoTimecodeError.OutOfRange;
             return false;
@@ -228,10 +242,10 @@ public static class GotoTimecodeParser
     private static bool TryParseMarker(
         string name,
         IReadOnlyList<SceneMarker> markers,
-        out TimeSpan result,
+        out MediaTime result,
         out GotoTimecodeError error)
     {
-        result = TimeSpan.Zero;
+        result = MediaTime.Zero;
         error = GotoTimecodeError.None;
 
         if (name.Length == 0)

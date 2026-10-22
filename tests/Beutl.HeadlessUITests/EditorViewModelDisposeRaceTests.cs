@@ -33,24 +33,24 @@ public class EditorViewModelDisposeRaceTests
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dispose-race");
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
-        var adapter = new EnginePropertyAdapter<TimeSpan>(editor.Scene.DurationProperty, editor.Scene);
-        var viewModel = new ValueEditorViewModel<TimeSpan>(adapter);
+        var adapter = new EnginePropertyAdapter<MediaTime>(editor.Scene.DurationProperty, editor.Scene);
+        var viewModel = new ValueEditorViewModel<MediaTime>(adapter);
         viewModel.Accept(new ServiceVisitor(editor, clock));
-        var bridged = new List<(TimeSpan Time, bool OnUIThread)>();
+        var bridged = new List<(MediaTime Time, bool OnUIThread)>();
         using IDisposable subscription = viewModel.CurrentTime.Subscribe(
             time => bridged.Add((time, Dispatcher.UIThread.CheckAccess())));
 
-        await Task.Run(() => clock.Seek(TimeSpan.FromSeconds(1)));
+        await Task.Run(() => clock.Seek(MediaTime.FromSeconds(1)));
         HeadlessTestHelpers.Settle();
         viewModel.Dispose();
-        await Task.Run(() => clock.Seek(TimeSpan.FromSeconds(2)));
+        await Task.Run(() => clock.Seek(MediaTime.FromSeconds(2)));
         HeadlessTestHelpers.Settle();
 
         Assert.Multiple(() =>
         {
-            Assert.That(clock.CurrentTime.Value, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(clock.CurrentTime.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(bridged.Select(b => b.Time),
-                Does.Contain(TimeSpan.FromSeconds(1)).And.Not.Contain(TimeSpan.FromSeconds(2)));
+                Does.Contain(MediaTime.FromSeconds(1)).And.Not.Contain(MediaTime.FromSeconds(2)));
             Assert.That(bridged.Select(b => b.OnUIThread), Is.All.True);
         });
     }

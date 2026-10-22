@@ -145,7 +145,7 @@ public sealed class VideoExporterQualityTests
 
             string? warning = VideoExporter.CreateAvFoundationBitrateWarning(
                 outputPath,
-                TimeSpan.FromSeconds(2),
+                MediaTime.FromSeconds(2),
                 requestedBitrate: 4_000_000);
 
             Assert.That(
@@ -180,7 +180,7 @@ public sealed class VideoExporterQualityTests
 
             string? warning = VideoExporter.CreateAvFoundationBitrateWarning(
                 outputPath,
-                TimeSpan.FromSeconds(2),
+                MediaTime.FromSeconds(2),
                 requestedBitrate: 4_000_000,
                 configuredAudioBitrate: 400_000);
 

@@ -120,7 +120,7 @@ public class V1ProjectFixtureTests
         Line($"Project variables: {string.Join(", ", project.Variables.OrderBy(v => v.Key).Select(v => $"{v.Key}={v.Value}"))}");
         foreach (Scene scene in project.Items.OfType<Scene>())
         {
-            Line($"Scene \"{scene.Name}\": {scene.FrameSize.Width}x{scene.FrameSize.Height}, duration {scene.Duration}, {scene.Children.Count} elements");
+            Line($"Scene \"{scene.Name}\": {scene.FrameSize.Width}x{scene.FrameSize.Height}, duration {scene.Duration.ToTimeSpan()}, {scene.Children.Count} elements");
         }
 
         Line();
@@ -161,7 +161,7 @@ public class V1ProjectFixtureTests
     {
         string file = Path.GetFileName(element.Uri!.LocalPath);
         line($"Layer {element.ZIndex}: \"{element.Name}\" ({file})");
-        line($"  start {element.Start}, length {element.Length}, enabled {element.IsEnabled}, accent color {element.AccentColor}");
+        line($"  start {element.Start.ToTimeSpan()}, length {element.Length.ToTimeSpan()}, enabled {element.IsEnabled}, accent color {element.AccentColor}");
 
         // What 1.1.0 wrote for the element, read from its file.
         JsonObject written = JsonNode.Parse(File.ReadAllText(element.Uri.LocalPath))!.AsObject();

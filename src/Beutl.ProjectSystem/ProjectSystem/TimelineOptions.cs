@@ -4,9 +4,9 @@ namespace Beutl.ProjectSystem;
 
 public readonly record struct BpmGridOptions
 {
-    public BpmGridOptions() : this(120.0, 4, TimeSpan.Zero, false) { }
+    public BpmGridOptions() : this(120.0, 4, MediaTime.Zero, false) { }
 
-    public BpmGridOptions(double bpm, int subdivisions, TimeSpan offset, bool isEnabled)
+    public BpmGridOptions(double bpm, int subdivisions, MediaTime offset, bool isEnabled)
     {
         Bpm = bpm;
         Subdivisions = subdivisions;
@@ -16,7 +16,7 @@ public readonly record struct BpmGridOptions
 
     public double Bpm { get; init; }
     public int Subdivisions { get; init; }
-    public TimeSpan Offset { get; init; }
+    public MediaTime Offset { get; init; }
     public bool IsEnabled { get; init; }
 }
 

@@ -98,17 +98,17 @@ public class TimelineResizePreviewTests
     {
         // Off-frame model start (0.02s); the rounded start (0s) must not leak onto the untouched
         // left edge — a right-edge resize keeps the exact model start and takes only the new length.
-        (TimeSpan start, TimeSpan length) = ElementViewModel.ResolveRippleResizeBounds(
+        (MediaTime start, MediaTime length) = ElementViewModel.ResolveRippleResizeBounds(
             leftEdge: false,
-            roundedStart: TimeSpan.Zero,
-            roundedLength: TimeSpan.FromSeconds(5),
-            modelStart: TimeSpan.FromSeconds(0.02),
-            modelEnd: TimeSpan.FromSeconds(2));
+            roundedStart: MediaTime.Zero,
+            roundedLength: MediaTime.FromSeconds(5),
+            modelStart: MediaTime.FromSeconds(0.02),
+            modelEnd: MediaTime.FromSeconds(2));
 
         Assert.Multiple(() =>
         {
-            Assert.That(start, Is.EqualTo(TimeSpan.FromSeconds(0.02)), "exact model start preserved");
-            Assert.That(length, Is.EqualTo(TimeSpan.FromSeconds(5)), "dragged length applied");
+            Assert.That(start, Is.EqualTo(MediaTime.FromSeconds(0.02)), "exact model start preserved");
+            Assert.That(length, Is.EqualTo(MediaTime.FromSeconds(5)), "dragged length applied");
         });
     }
 
@@ -117,17 +117,17 @@ public class TimelineResizePreviewTests
     {
         // Off-frame model end (2.02s); the left-edge resize takes the rounded start and derives the
         // length from the exact model end, so the untouched right edge carries no rounding delta.
-        (TimeSpan start, TimeSpan length) = ElementViewModel.ResolveRippleResizeBounds(
+        (MediaTime start, MediaTime length) = ElementViewModel.ResolveRippleResizeBounds(
             leftEdge: true,
-            roundedStart: TimeSpan.FromSeconds(1),
-            roundedLength: TimeSpan.FromSeconds(1.5),
-            modelStart: TimeSpan.Zero,
-            modelEnd: TimeSpan.FromSeconds(2.02));
+            roundedStart: MediaTime.FromSeconds(1),
+            roundedLength: MediaTime.FromSeconds(1.5),
+            modelStart: MediaTime.Zero,
+            modelEnd: MediaTime.FromSeconds(2.02));
 
         Assert.Multiple(() =>
         {
-            Assert.That(start, Is.EqualTo(TimeSpan.FromSeconds(1)), "dragged start applied");
-            Assert.That(start + length, Is.EqualTo(TimeSpan.FromSeconds(2.02)), "exact model end preserved");
+            Assert.That(start, Is.EqualTo(MediaTime.FromSeconds(1)), "dragged start applied");
+            Assert.That(start + length, Is.EqualTo(MediaTime.FromSeconds(2.02)), "exact model end preserved");
         });
     }
 }

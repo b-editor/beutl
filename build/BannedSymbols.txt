@@ -1,2 +1,0 @@
-M:Beutl.Graphics.Rendering.GraphicsContext2D.DrawVideoSource(Beutl.Media.Source.VideoSource.Resource,System.TimeSpan,Beutl.Media.Brush.Resource,Beutl.Media.Pen.Resource);Truncates the time to a frame; pass the frame number
-M:Beutl.Graphics.ImmediateCanvas.DrawVideoSource(Beutl.Media.Source.VideoSource.Resource,System.TimeSpan,Beutl.Media.Brush.Resource,Beutl.Media.Pen.Resource);Truncates the time to a frame; pass the frame number

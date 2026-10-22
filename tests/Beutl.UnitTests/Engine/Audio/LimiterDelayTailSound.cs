@@ -16,7 +16,7 @@ public sealed partial class LimiterDelayTailSound : Sound
     public float LookaheadMs { get; set; } = 5f;
 
     // When set, the lookahead falls from LookaheadMs to 0 one sample before this time.
-    public TimeSpan? LookaheadRampEnd { get; set; }
+    public MediaTime? LookaheadRampEnd { get; set; }
 
     public override void Compose(AudioContext context, Sound.Resource resource)
     {
@@ -37,7 +37,7 @@ public sealed partial class LimiterDelayTailSound : Sound
                 {
                     new KeyFrame<float>
                     {
-                        KeyTime = TimeSpan.Zero,
+                        KeyTime = MediaTime.Zero,
                         Value = LookaheadMs,
                         Easing = new LinearEasing(),
                     },

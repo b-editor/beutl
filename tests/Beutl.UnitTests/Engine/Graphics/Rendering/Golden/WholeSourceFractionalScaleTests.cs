@@ -69,7 +69,7 @@ public sealed class WholeSourceFractionalScaleTests
             new PixelSize(256, 144),
             outputScale,
             outputScale * 2f,
-            TimeSpan.Zero);
+            MediaTime.Zero);
     }
 
     private static long CountNonTransparentPixels(Bitmap bitmap)

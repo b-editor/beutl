@@ -13,9 +13,9 @@ public partial class PlayerViewModel
         BeginEditTimecodeRequested.OnNext(Unit.Default);
     }
 
-    public bool TryParseTimecode(string input, out TimeSpan target, out GotoTimecodeError error)
+    public bool TryParseTimecode(string input, out MediaTime target, out GotoTimecodeError error)
     {
-        target = TimeSpan.Zero;
+        target = MediaTime.Zero;
         if (Scene == null)
         {
             // The view should not raise the event without a scene; surface the
@@ -27,8 +27,8 @@ public partial class PlayerViewModel
             return false;
         }
 
-        int rate = GetFrameRate();
-        if (!GotoTimecodeParser.TryParse(input, rate, _editorClock.CurrentTime.Value, Scene.Markers, out TimeSpan parsed, out error))
+        Rational rate = GetFrameRate();
+        if (!GotoTimecodeParser.TryParse(input, rate, _editorClock.CurrentTime.Value, Scene.Markers, out MediaTime parsed, out error))
         {
             _logger.LogDebug(
                 "Goto-timecode parse failed. ({SceneId}, Input={Input}, Error={Error})",
@@ -36,21 +36,21 @@ public partial class PlayerViewModel
             return false;
         }
 
-        // Snap here so a RoundToRate overflow is reported now, not as a silent no-op seek after the editor closes.
+        // Snap here so a RoundToFrame overflow is reported now, not as a silent no-op seek after the editor closes.
         try
         {
-            target = parsed.RoundToRate(rate);
+            target = parsed.RoundToFrame(rate, MidpointRounding.AwayFromZero);
         }
         catch (OverflowException ex)
         {
             _logger.LogWarning(ex,
-                "RoundToRate overflowed for goto-timecode target. ({SceneId}, Parsed={Parsed}, Rate={Rate})",
+                "RoundToFrame overflowed for goto-timecode target. ({SceneId}, Parsed={Parsed}, Rate={Rate})",
                 _editViewModel.SceneId, parsed, rate);
             error = GotoTimecodeError.OutOfRange;
             return false;
         }
 
-        TimeSpan endTime = Scene.Start + Scene.Duration - TimeSpan.FromSeconds(1d / rate);
+        MediaTime endTime = GetFirstAndLastFrames().Last;
         if (target < Scene.Start || target > endTime)
         {
             _logger.LogDebug(
@@ -72,7 +72,7 @@ public partial class PlayerViewModel
         _ => Strings.GotoTimecode_InvalidFormat,
     };
 
-    public void ApplyTimecodeSeek(TimeSpan target)
+    public void ApplyTimecodeSeek(MediaTime target)
     {
         // target is already frame-snapped by TryParseTimecode.
         // 再生ヘッドがビューポート外へ飛ぶ場合に追従する。

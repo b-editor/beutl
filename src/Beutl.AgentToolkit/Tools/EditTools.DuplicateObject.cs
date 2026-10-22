@@ -7,6 +7,7 @@ using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.JsonConverters;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using ModelContextProtocol.Server;
@@ -86,7 +87,10 @@ public sealed partial class EditTools
 
         // Only the source is serialized, against the scene Uri that CloneDrawable reads the copy back with,
         // so its relative media paths resolve to the same files wherever the element's file sits.
-        JsonObject sourceJson = CoreSerializer.SerializeToJsonObject(source, DocumentAdapter.CreateOptions(session.Root));
+        JsonObject sourceJson;
+        // The copy keeps exact times, as the editor's duplicates do.
+        using (MediaTimeJsonConverter.WriteFlicks())
+            sourceJson = CoreSerializer.SerializeToJsonObject(source, DocumentAdapter.CreateOptions(session.Root));
         var newId = Guid.NewGuid();
         Drawable clone = CloneDrawable(sourceJson, newId, session.Root);
         DrawableGroup group;

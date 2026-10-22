@@ -460,7 +460,7 @@ public class PackageManagerExtensionLifecycleTests
         {
             var scene = new Scene(640, 480, "rollback");
             var description = new ElementDescription(
-                TimeSpan.Zero,
+                MediaTime.Zero,
                 null,
                 0,
                 new MaterializedSource());
@@ -623,7 +623,7 @@ public class PackageManagerExtensionLifecycleTests
             var element = new Element
             {
                 Start = context.Description.Start,
-                Length = TimeSpan.FromSeconds(3),
+                Length = MediaTime.FromSeconds(3),
                 ZIndex = context.Description.Layer,
             };
             element.AddObject(new MaterializedPackageObject());

@@ -33,8 +33,8 @@ public class CaptionTemplateTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(template.Descriptor.Name, Is.EqualTo("Default"));
-            Assert.That(description.Start, Is.EqualTo(cue.Start));
-            Assert.That(description.Length, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
+            Assert.That(description.Start, Is.EqualTo(MediaTime.FromTimeSpan(cue.Start)));
+            Assert.That(description.Length, Is.EqualTo(MediaTime.FromSeconds(0.5)));
             Assert.That(description.Layer, Is.EqualTo(3));
             Assert.That(description.Name, Is.EqualTo("Caption"));
             Assert.That(description.Position, Is.EqualTo(new Point(0, 240)));

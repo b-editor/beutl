@@ -46,7 +46,7 @@ public sealed class PathPointDragState
 
     public BtlPoint OldValue { get; }
 
-    public BtlPoint GetInterpolatedValue(TimeSpan currentTime)
+    public BtlPoint GetInterpolatedValue(MediaTime currentTime)
     {
         var ctx = new CompositionContext(currentTime);
         return Property.Evaluate(ctx);

@@ -6,7 +6,7 @@ namespace Beutl.Audio.Graph.Nodes;
 public sealed class MixerNode : AudioNode
 {
     private float[] _gains = Array.Empty<float>();
-    private readonly Dictionary<AudioNode, TimeSpan> _branchEndTimes =
+    private readonly Dictionary<AudioNode, MediaTime> _branchEndTimes =
         new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<AudioNode> _processedBranches =
         new(ReferenceEqualityComparer.Instance);
@@ -14,7 +14,7 @@ public sealed class MixerNode : AudioNode
         new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<AudioNode, BranchTailBudget> _branchTailBudgets =
         new(ReferenceEqualityComparer.Instance);
-    private TimeSpan? _lastTimeRangeEnd;
+    private MediaTime? _lastTimeRangeEnd;
 
     private sealed class BranchTailBudget
     {
@@ -25,13 +25,13 @@ public sealed class MixerNode : AudioNode
     private sealed record InputState(
         float[] Gains,
         bool HasBranchEndTime,
-        TimeSpan BranchEndTime,
+        MediaTime BranchEndTime,
         bool WasProcessed,
         bool UnknownDrainAttempted,
         bool HasTailBudget,
         int RemainingTailSamples,
         int TailBudgetSampleRate,
-        TimeSpan? LastTimeRangeEnd);
+        MediaTime? LastTimeRangeEnd);
 
     public float[] Gains
     {
@@ -44,7 +44,7 @@ public sealed class MixerNode : AudioNode
     /// considered live, so dynamically added inputs keep draining until explicitly configured.
     /// </summary>
     /// <exception cref="ArgumentException"><paramref name="input"/> is not connected to this mixer.</exception>
-    public void SetBranchEndTime(AudioNode input, TimeSpan endTime)
+    public void SetBranchEndTime(AudioNode input, MediaTime endTime)
     {
         EnsureConnectedInput(input);
 
@@ -123,9 +123,9 @@ public sealed class MixerNode : AudioNode
             AudioLatency.ThrowIfNegative(input, branchLatency, "drain latency");
 
             if (branchLatency != int.MaxValue
-                && _branchEndTimes.TryGetValue(input, out TimeSpan branchEndTime)
+                && _branchEndTimes.TryGetValue(input, out MediaTime branchEndTime)
                 && _lastTimeRangeEnd is { } processedEnd
-                && GetTailEndTicks(branchEndTime, branchLatency, sampleRate) <= processedEnd.Ticks)
+                && GetTailEnd(branchEndTime, branchLatency, sampleRate) <= processedEnd)
             {
                 continue;
             }
@@ -161,7 +161,7 @@ public sealed class MixerNode : AudioNode
                 if (!drainBranch && !branchEnded)
                     _processedBranches.Add(Inputs[i]);
                 if (!drainBranch
-                    && _branchEndTimes.TryGetValue(Inputs[i], out TimeSpan branchEndTime)
+                    && _branchEndTimes.TryGetValue(Inputs[i], out MediaTime branchEndTime)
                     && !branchEnded
                     && context.TimeRange.End >= branchEndTime)
                 {
@@ -239,7 +239,7 @@ public sealed class MixerNode : AudioNode
     private bool IsBranchDead(int index, AudioProcessContext context)
     {
         AudioNode branch = Inputs[index];
-        if (!_branchEndTimes.TryGetValue(branch, out TimeSpan branchEndTime))
+        if (!_branchEndTimes.TryGetValue(branch, out MediaTime branchEndTime))
             return false;
 
         if (_branchTailBudgets.TryGetValue(branch, out BranchTailBudget? budget)
@@ -254,19 +254,17 @@ public sealed class MixerNode : AudioNode
 
         // A branch is dead once its retained tail ends at or just before this block. A one-tick
         // tolerance absorbs the same timestamp quantization used by contiguous audio ranges.
-        long blockStartTicks = context.TimeRange.Start.Ticks;
-        long deadAfterTicks = blockStartTicks > TimeSpan.MaxValue.Ticks - AudioProcessContext.TimestampQuantizationToleranceTicks
-            ? TimeSpan.MaxValue.Ticks
-            : blockStartTicks + AudioProcessContext.TimestampQuantizationToleranceTicks;
+        MediaTime blockStart = context.TimeRange.Start;
+        MediaTime tolerance = AudioProcessContext.TimestampQuantizationTolerance;
+        MediaTime deadAfter = blockStart > MediaTime.MaxValue - tolerance ? MediaTime.MaxValue : blockStart + tolerance;
 
-        long tailEndTicks = GetTailEndTicks(branchEndTime, branchLatency, context.SampleRate);
-        return tailEndTicks <= deadAfterTicks;
+        return GetTailEnd(branchEndTime, branchLatency, context.SampleRate) <= deadAfter;
     }
 
     private AudioBuffer FlushBranch(int index, AudioProcessContext context)
     {
         AudioNode branch = Inputs[index];
-        if (!_branchEndTimes.TryGetValue(branch, out TimeSpan branchEndTime)
+        if (!_branchEndTimes.TryGetValue(branch, out MediaTime branchEndTime)
             || context.TimeRange.Start < branchEndTime)
         {
             return branch.Flush(context);
@@ -285,15 +283,12 @@ public sealed class MixerNode : AudioNode
         }
         else
         {
-            long tailEndTicks = GetTailEndTicks(branchEndTime, branchLatency, context.SampleRate);
-            long remainingTicks = tailEndTicks - context.TimeRange.Start.Ticks;
-            remainingSamples = remainingTicks <= 0
+            MediaTime remaining = GetTailEnd(branchEndTime, branchLatency, context.SampleRate) - context.TimeRange.Start;
+            remainingSamples = remaining <= MediaTime.Zero
                 ? 0
                 : Math.Min(
                     branchLatency,
-                    AudioProcessContext.GetSampleCount(
-                        new TimeRange(context.TimeRange.Start, TimeSpan.FromTicks(remainingTicks)),
-                        context.SampleRate));
+                    AudioProcessContext.GetSampleCount(new TimeRange(context.TimeRange.Start, remaining), context.SampleRate));
             budget = new BranchTailBudget
             {
                 RemainingSamples = remainingSamples,
@@ -318,19 +313,16 @@ public sealed class MixerNode : AudioNode
         return output;
     }
 
-    private static long GetTailEndTicks(TimeSpan branchEndTime, int branchLatency, int sampleRate)
+    private static MediaTime GetTailEnd(MediaTime branchEndTime, int branchLatency, int sampleRate)
     {
-        long latencyTicks = (long)Math.Ceiling(
-            branchLatency * (double)TimeSpan.TicksPerSecond / sampleRate);
-        return branchEndTime.Ticks > TimeSpan.MaxValue.Ticks - latencyTicks
-            ? TimeSpan.MaxValue.Ticks
-            : branchEndTime.Ticks + latencyTicks;
+        var latency = MediaTime.FromSamples(branchLatency, sampleRate);
+        return branchEndTime > MediaTime.MaxValue - latency ? MediaTime.MaxValue : branchEndTime + latency;
     }
 
     private void RecordProcessedTailBudget(
         AudioNode branch,
-        TimeSpan branchEndTime,
-        TimeSpan processedEnd,
+        MediaTime branchEndTime,
+        MediaTime processedEnd,
         int sampleRate)
     {
         int branchLatency = branch.GetDrainLatencySamples(sampleRate);
@@ -339,12 +331,10 @@ public sealed class MixerNode : AudioNode
         if (branchLatency == int.MaxValue)
             return;
 
-        long tailEndTicks = GetTailEndTicks(branchEndTime, branchLatency, sampleRate);
-        long remainingTicks = tailEndTicks - processedEnd.Ticks;
-        int remainingSamples = remainingTicks <= 0
+        MediaTime remaining = GetTailEnd(branchEndTime, branchLatency, sampleRate) - processedEnd;
+        int remainingSamples = remaining <= MediaTime.Zero
             ? 0
-            : Math.Min(branchLatency, (int)Math.Ceiling(
-                remainingTicks * (double)sampleRate / TimeSpan.TicksPerSecond));
+            : (int)Math.Min(branchLatency, remaining.ToSamples(sampleRate, MidpointRounding.ToPositiveInfinity));
         _branchTailBudgets[branch] = new BranchTailBudget
         {
             RemainingSamples = remainingSamples,
@@ -356,7 +346,7 @@ public sealed class MixerNode : AudioNode
         => IsBranchEndedByTime(index, context) && _processedBranches.Contains(Inputs[index]);
 
     private bool IsBranchEndedByTime(int index, AudioProcessContext context)
-        => _branchEndTimes.TryGetValue(Inputs[index], out TimeSpan branchEndTime)
+        => _branchEndTimes.TryGetValue(Inputs[index], out MediaTime branchEndTime)
             && context.TimeRange.Start >= branchEndTime;
 
     protected override void OnInputAdded(AudioNode input, int index)
@@ -368,7 +358,7 @@ public sealed class MixerNode : AudioNode
     {
         return new InputState(
             (float[])_gains.Clone(),
-            _branchEndTimes.TryGetValue(input, out TimeSpan branchEndTime),
+            _branchEndTimes.TryGetValue(input, out MediaTime branchEndTime),
             branchEndTime,
             _processedBranches.Contains(input),
             _unknownDrainAttempts.Contains(input),

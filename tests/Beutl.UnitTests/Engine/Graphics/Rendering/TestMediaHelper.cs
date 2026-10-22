@@ -110,7 +110,7 @@ internal sealed class TestDecoderInfo : IDecoderInfo
         if (Path.GetExtension(file).Equals(".testaudio", StringComparison.OrdinalIgnoreCase))
         {
             var (rate, channels, ms) = TestMediaHelper.ParseTestAudioPath(file);
-            return new TestAudioReader(rate, channels, TimeSpan.FromMilliseconds(ms));
+            return new TestAudioReader(rate, channels, MediaTime.FromSeconds(ms / 1000d));
         }
 
         if (!IsSupported(file))
@@ -192,12 +192,12 @@ internal sealed class TestAudioReader : MediaReader
     private readonly VideoStreamInfo _videoInfo;
     private readonly AudioStreamInfo _audioInfo;
 
-    public TestAudioReader(int sampleRate, int channels, TimeSpan duration)
+    public TestAudioReader(int sampleRate, int channels, MediaTime duration)
     {
         _videoInfo = new VideoStreamInfo("test", 0, default, new Rational(1, 1));
         _audioInfo = new AudioStreamInfo(
             "test",
-            new Rational(duration.Ticks, TimeSpan.TicksPerSecond),
+            new Rational(duration.Flicks, MediaTime.FlicksPerSecond),
             sampleRate,
             channels);
     }

@@ -27,8 +27,8 @@ public sealed class ReferencedSceneApplyTests
         var drawable = new SceneDrawable();
         var element = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(dir, "element.belm")),
         };
         element.AddObject(drawable);

@@ -234,8 +234,8 @@ public sealed partial class GraphEditorTabViewModel
     {
         if (_disposed) return;
         var element = Element.Value;
-        int rate = (element?.FindHierarchicalParent<Project>()).GetFrameRate();
-        TimeSpan globalTime = _clock.CurrentTime.Value;
+        Rational rate = (element?.FindHierarchicalParent<Project>()).GetFrameRate();
+        MediaTime globalTime = _clock.CurrentTime.Value;
         foreach (var item in _treeCache.Values)
         {
             var property = item.PropertyItem ?? item;
@@ -244,8 +244,8 @@ public sealed partial class GraphEditorTabViewModel
                 item.HasKeyFrame.Value = false;
                 continue;
             }
-            TimeSpan keyTime = (animation.UseGlobalClock ? globalTime : globalTime - (element?.Start ?? TimeSpan.Zero)).RoundToRate(rate);
-            item.HasKeyFrame.Value = animation.KeyFrames.Any(key => key.KeyTime == keyTime);
+            MediaTime keyTime = (animation.UseGlobalClock ? globalTime : globalTime - (element?.Start ?? MediaTime.Zero)).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+            item.HasKeyFrame.Value = AnimationOperations.FindKeyFrameOnFrame(animation.KeyFrames, keyTime, rate) != null;
         }
     }
 
@@ -262,9 +262,9 @@ public sealed partial class GraphEditorTabViewModel
         SelectedTreeItem.Value = item;
         SelectTreeItem(item);
         if (SelectedAnimation.Value is not { } graph) return;
-        TimeSpan globalTime = _clock.CurrentTime.Value;
-        TimeSpan keyTime = graph.ConvertKeyTime(globalTime);
-        var keyFrame = animation.KeyFrames.FirstOrDefault(key => key.KeyTime == keyTime);
+        MediaTime globalTime = _clock.CurrentTime.Value;
+        MediaTime keyTime = graph.ConvertKeyTime(globalTime);
+        IKeyFrame? keyFrame = AnimationOperations.FindKeyFrameOnFrame(animation.KeyFrames, keyTime, AnimationOperations.GetFrameRate(graph.Scene));
         if (keyFrame != null) graph.DeleteKeyFrames([keyFrame]);
         else graph.InsertKeyFrame(new SplineEasing(), globalTime);
         UpdateKeyFrameStates();
@@ -290,7 +290,7 @@ public sealed partial class GraphEditorTabViewModel
             var key = (IKeyFrame)Activator.CreateInstance(typeof(KeyFrame<>).MakeGenericType(type))!;
             key.Value = property.Value;
             key.Easing = new SplineEasing();
-            key.KeyTime = TimeSpan.Zero;
+            key.KeyTime = MediaTime.Zero;
             animation.KeyFrames.Add(key);
             _editorContext.GetRequiredService<HistoryManager>().ExecuteInTransaction(() =>
             {

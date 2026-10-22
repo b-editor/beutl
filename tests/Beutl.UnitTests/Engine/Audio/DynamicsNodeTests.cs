@@ -16,7 +16,7 @@ public class DynamicsNodeTests
     private const int SampleRate = 48000;
     private const int ChunkSamples = SampleRate / 10;
 
-    private static readonly TimeSpan s_chunk = TimeSpan.FromSeconds(ChunkSamples / (double)SampleRate);
+    private static readonly MediaTime s_chunk = MediaTime.FromSeconds(ChunkSamples / (double)SampleRate);
 
     private sealed class RecordingDynamicsNode : DynamicsNode
     {
@@ -46,7 +46,7 @@ public class DynamicsNodeTests
         protected override void ResetDspState() => ResetCount++;
     }
 
-    private static AudioProcessContext CreateContext(TimeSpan start) =>
+    private static AudioProcessContext CreateContext(MediaTime start) =>
         AudioTestContexts.CreateContext(start, s_chunk, SampleRate);
 
     // The production nodes, for the base-class behavior none of them overrides.
@@ -77,7 +77,7 @@ public class DynamicsNodeTests
         node.AddInput(new BufferReplayNode(input));
 
         // Compare the delta because the opening chunk resets for two independent reasons.
-        node.Process(CreateContext(TimeSpan.Zero)).Dispose();
+        node.Process(CreateContext(MediaTime.Zero)).Dispose();
         int afterFirstChunk = node.ResetCount;
 
         node.ThrowFromHook = true;
@@ -97,7 +97,7 @@ public class DynamicsNodeTests
         using var node = new RecordingDynamicsNode();
         node.AddInput(new BufferReplayNode(input));
 
-        node.Process(CreateContext(TimeSpan.Zero)).Dispose();
+        node.Process(CreateContext(MediaTime.Zero)).Dispose();
         int afterFirstChunk = node.ResetCount;
 
         node.ThrowFromHook = true;
@@ -117,7 +117,7 @@ public class DynamicsNodeTests
         using var node = new RecordingDynamicsNode();
         node.AddInput(new BufferReplayNode(input));
 
-        node.Process(CreateContext(TimeSpan.Zero)).Dispose();
+        node.Process(CreateContext(MediaTime.Zero)).Dispose();
         int afterFirstChunk = node.ResetCount;
 
         node.Process(CreateContext(s_chunk)).Dispose();
@@ -131,7 +131,7 @@ public class DynamicsNodeTests
     public void Process_NoInputs_Throws(Func<DynamicsNode> create)
     {
         using var node = create();
-        Assert.Throws<InvalidOperationException>(() => node.Process(CreateContext(TimeSpan.Zero)));
+        Assert.Throws<InvalidOperationException>(() => node.Process(CreateContext(MediaTime.Zero)));
     }
 
     [TestCaseSource(nameof(ProductionNodes))]
@@ -142,7 +142,7 @@ public class DynamicsNodeTests
         using var node = create();
         node.AddInput(new BufferReplayNode(bufA));
         node.AddInput(new BufferReplayNode(bufB));
-        Assert.Throws<InvalidOperationException>(() => node.Process(CreateContext(TimeSpan.Zero)));
+        Assert.Throws<InvalidOperationException>(() => node.Process(CreateContext(MediaTime.Zero)));
     }
 
     [TestCaseSource(nameof(ProductionNodes))]
@@ -154,7 +154,7 @@ public class DynamicsNodeTests
         node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(new AudioProcessContext(
-            new TimeRange(TimeSpan.Zero, TimeSpan.Zero), SampleRate, new AnimationSampler(), null));
+            new TimeRange(MediaTime.Zero, MediaTime.Zero), SampleRate, new AnimationSampler(), null));
 
         Assert.That(output.SampleCount, Is.EqualTo(0));
         Assert.That(output.ChannelCount, Is.EqualTo(2));
@@ -169,14 +169,14 @@ public class DynamicsNodeTests
 
         using var first = MakeInfinityHeadBuffer(ChunkSamples);
         node.AddInput(new BufferReplayNode(first));
-        using var firstOut = node.Process(CreateContext(TimeSpan.Zero));
+        using var firstOut = node.Process(CreateContext(MediaTime.Zero));
         Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(1),
             "The first non-finite sample must emit exactly one warning.");
 
         node.ClearInputs();
         using var second = MakeInfinityHeadBuffer(ChunkSamples);
         node.AddInput(new BufferReplayNode(second));
-        using var seekedOut = node.Process(CreateContext(TimeSpan.FromSeconds(5.0)));
+        using var seekedOut = node.Process(CreateContext(MediaTime.FromSeconds(5.0)));
         Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(1),
             "A seek discontinuity must not re-arm the latch, so no second warning should be emitted.");
     }
@@ -189,7 +189,7 @@ public class DynamicsNodeTests
 
         using var first = MakeInfinityHeadBuffer(ChunkSamples);
         node.AddInput(new BufferReplayNode(first));
-        using var firstOut = node.Process(CreateContext(TimeSpan.Zero));
+        using var firstOut = node.Process(CreateContext(MediaTime.Zero));
         Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(1));
 
         node.ClearInputs();
@@ -197,7 +197,7 @@ public class DynamicsNodeTests
         using var second = MakeInfinityHeadBuffer(altSampleRate / 10, altSampleRate);
         node.AddInput(new BufferReplayNode(second));
         using var secondOut = node.Process(new AudioProcessContext(
-            new TimeRange(s_chunk, TimeSpan.FromSeconds(0.1)),
+            new TimeRange(s_chunk, MediaTime.FromSeconds(0.1)),
             altSampleRate, new AnimationSampler(), null));
         Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(2),
             "A sample-rate change is a session boundary, so the recurring fault must warn again.");
@@ -211,7 +211,7 @@ public class DynamicsNodeTests
 
         using var first = MakeInfinityHeadBuffer(ChunkSamples);
         node.AddInput(new BufferReplayNode(first));
-        using var firstOut = node.Process(CreateContext(TimeSpan.Zero));
+        using var firstOut = node.Process(CreateContext(MediaTime.Zero));
         Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(1));
 
         node.Reset();
@@ -229,7 +229,7 @@ public class DynamicsNodeTests
         using var node = create();
         using var warmupInput = CreateConstantBuffer(0.9f, ChunkSamples);
         node.AddInput(new BufferReplayNode(warmupInput));
-        using var warmup = node.Process(CreateContext(TimeSpan.Zero));
+        using var warmup = node.Process(CreateContext(MediaTime.Zero));
 
         node.ClearInputs();
         using var emptyInput = new AudioBuffer(SampleRate, 2, 0);
@@ -245,7 +245,7 @@ public class DynamicsNodeTests
         using var nodeFresh = create();
         using var freshInput = CreateConstantBuffer(0.9f, ChunkSamples);
         nodeFresh.AddInput(new BufferReplayNode(freshInput));
-        using var freshOutput = nodeFresh.Process(CreateContext(TimeSpan.Zero));
+        using var freshOutput = nodeFresh.Process(CreateContext(MediaTime.Zero));
 
         Assert.That(
             MathF.Abs(afterHoleOutput.GetChannelData(0)[0]),
@@ -262,6 +262,6 @@ public class DynamicsNodeTests
         using var node = create();
         node.AddInput(new BufferReplayNode(input));
 
-        Assert.Throws<InvalidOperationException>(() => node.Process(CreateContext(TimeSpan.Zero)));
+        Assert.Throws<InvalidOperationException>(() => node.Process(CreateContext(MediaTime.Zero)));
     }
 }

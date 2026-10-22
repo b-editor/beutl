@@ -84,7 +84,7 @@ public sealed class EqualizerBandItemViewModel : IDisposable
         _services?.GetService<HistoryManager>()?.Commit();
     }
 
-    public float GetEffectiveValue(IProperty<float> property, TimeSpan globalTime)
+    public float GetEffectiveValue(IProperty<float> property, MediaTime globalTime)
     {
         if (GetEditingKeyFrame(property, globalTime) is { } kf)
             return kf.Value;
@@ -93,7 +93,7 @@ public sealed class EqualizerBandItemViewModel : IDisposable
         return property.Value;
     }
 
-    public void SetPropertyValue(IProperty<float> property, TimeSpan globalTime, float value)
+    public void SetPropertyValue(IProperty<float> property, MediaTime globalTime, float value)
     {
         if (GetEditingKeyFrame(property, globalTime) is { } kf)
             kf.Value = value;
@@ -101,14 +101,14 @@ public sealed class EqualizerBandItemViewModel : IDisposable
             property.Value = value;
     }
 
-    public bool CanEditProperty(IProperty<float> property, TimeSpan globalTime)
+    public bool CanEditProperty(IProperty<float> property, MediaTime globalTime)
     {
         if (property is IExpressionProperty { HasExpression: true }) return false;
         if (property.GetKeyFrameAnimation() is null) return true;
         return GetEditingKeyFrame(property, globalTime) is not null;
     }
 
-    public KeyFrame<float>? GetEditingKeyFrame(IProperty<float> property, TimeSpan globalTime)
+    public KeyFrame<float>? GetEditingKeyFrame(IProperty<float> property, MediaTime globalTime)
     {
         var adapter = ReferenceEquals(property, Band.Frequency) ? FrequencyAdapter
             : ReferenceEquals(property, Band.Gain) ? GainAdapter
@@ -118,13 +118,13 @@ public sealed class EqualizerBandItemViewModel : IDisposable
         return FindEditingKeyFrame(adapter, globalTime);
     }
 
-    private KeyFrame<float>? FindEditingKeyFrame(AnimatablePropertyAdapter<float> adapter, TimeSpan globalTime)
+    private KeyFrame<float>? FindEditingKeyFrame(AnimatablePropertyAdapter<float> adapter, MediaTime globalTime)
     {
         if (adapter.Expression != null) return null;
         if (adapter.Animation is not IKeyFrameAnimation { KeyFrames: { Count: > 0 } keyFrames })
             return null;
 
-        TimeSpan time = globalTime;
+        MediaTime time = globalTime;
         if (adapter.Animation is { UseGlobalClock: false } && _element != null)
             time -= _element.Start;
 

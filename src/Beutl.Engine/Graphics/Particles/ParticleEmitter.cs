@@ -47,7 +47,7 @@ public partial class ParticleEmitter : Drawable
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_PrewarmDuration), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_EmissionGroup))]
     [Range(typeof(TimeSpan), "00:00:00", "00:01:00", ParseLimitsInInvariantCulture = true)]
-    public IExpressionProperty<TimeSpan> PrewarmDuration { get; } = Property.CreateExpression<TimeSpan>();
+    public IExpressionProperty<MediaTime> PrewarmDuration { get; } = Property.CreateExpression<MediaTime>();
 
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_EmissionRate), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_EmissionGroup))]
@@ -252,11 +252,11 @@ public partial class ParticleEmitter : Drawable
             ResourceReconciler.ReconcileChild(this, context, emitter.ParticleDrawable, ref _particleDrawable, ref versionBumped);
 
             double oldTime = _time;
-            _time = (context.Time - obj.TimeRange.Start).TotalSeconds;
+            _time = (context.Time - obj.TimeRange.Start).ToSeconds();
             if (_time >= 0)
             {
                 // Keep the original composition clock for animated properties and the particle drawable.
-                _time += Math.Max(0, _settings.PrewarmDuration.TotalSeconds);
+                _time += Math.Max(0, _settings.PrewarmDuration.ToSeconds());
             }
 
             _simulator.Simulate(_time, in _settings);

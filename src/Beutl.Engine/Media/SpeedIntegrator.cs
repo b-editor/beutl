@@ -117,9 +117,9 @@ public sealed class SpeedIntegrator : IDisposable
     /// <summary>
     /// Integrates the speed animation and returns the transformed time corresponding to the specified time.
     /// </summary>
-    public TimeSpan Integrate(TimeSpan timeSpan, KeyFrameAnimation<float> animation)
+    public MediaTime Integrate(MediaTime timeSpan, KeyFrameAnimation<float> animation)
     {
-        int targetSec = (int)timeSpan.TotalSeconds;
+        int targetSec = (int)timeSpan.ToSeconds();
         (int cachedSec, double cachedSum) = TryGetCache(targetSec);
 
         double sum = cachedSum;
@@ -132,12 +132,12 @@ public sealed class SpeedIntegrator : IDisposable
             {
                 var first = (KeyFrame<float>)keyframes.KeyFrames[0];
                 var last = (KeyFrame<float>)keyframes.KeyFrames[^1];
-                int constantEnd = sec >= Math.Ceiling(last.KeyTime.TotalSeconds)
+                int constantEnd = sec >= Math.Ceiling(last.KeyTime.ToSeconds())
                     ? targetSec
-                    : Math.Min(targetSec, (int)Math.Floor(first.KeyTime.TotalSeconds));
+                    : Math.Min(targetSec, (int)Math.Floor(first.KeyTime.ToSeconds()));
                 if (constantEnd > sec)
                 {
-                    float constant = sec >= Math.Ceiling(last.KeyTime.TotalSeconds) ? last.Value : first.Value;
+                    float constant = sec >= Math.Ceiling(last.KeyTime.ToSeconds()) ? last.Value : first.Value;
                     constant = _speedTransform?.Invoke(constant) ?? constant;
                     sum += constant / 100d * (constantEnd - sec);
                     _integralCache![constantEnd] = sum;
@@ -149,7 +149,7 @@ public sealed class SpeedIntegrator : IDisposable
             for (int i = 0; i < _sampleRate; i++)
             {
                 double t = sec + (i / (double)_sampleRate);
-                float speed = SampleSpeed(animation, TimeSpan.FromSeconds(t));
+                float speed = SampleSpeed(animation, MediaTime.FromSeconds(t));
                 sum += (speed / 100.0) / _sampleRate;
             }
             _integralCache![sec + 1] = sum;
@@ -158,28 +158,28 @@ public sealed class SpeedIntegrator : IDisposable
 
         // Integrate the remainder from the target second to the exact target time. Sample-domain math
         // uses long to avoid Int32 overflow on long timelines; targetSec stays int (seconds).
-        long targetInSamples = (long)(timeSpan.TotalSeconds * _sampleRate);
+        long targetInSamples = (long)(timeSpan.ToSeconds() * _sampleRate);
         long secStartInSamples = (long)targetSec * _sampleRate;
 
         for (long i = secStartInSamples; i < targetInSamples; i++)
         {
             double t = i / (double)_sampleRate;
-            float speed = SampleSpeed(animation, TimeSpan.FromSeconds(t));
+            float speed = SampleSpeed(animation, MediaTime.FromSeconds(t));
             sum += (speed / 100.0) / _sampleRate;
         }
 
         // Interpolate from the last sample to the exact time (fractional sample handling)
-        double fractionalSamples = (timeSpan.TotalSeconds * _sampleRate) - targetInSamples;
+        double fractionalSamples = (timeSpan.ToSeconds() * _sampleRate) - targetInSamples;
         if (fractionalSamples > 0)
         {
             float speed = SampleSpeed(animation, timeSpan);
             sum += (speed / 100.0) * fractionalSamples / _sampleRate;
         }
 
-        return TimeSpan.FromSeconds(sum);
+        return MediaTime.FromSeconds(sum);
     }
 
-    private float SampleSpeed(KeyFrameAnimation<float> animation, TimeSpan time)
+    private float SampleSpeed(KeyFrameAnimation<float> animation, MediaTime time)
     {
         float speed = animation.Interpolate(time);
         return _speedTransform?.Invoke(speed) ?? speed;

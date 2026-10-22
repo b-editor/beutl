@@ -167,7 +167,7 @@ public class GraphEditorTreeTests
         HeadlessTestHelpers.Render(3);
         var old = scope.Model.SelectedAnimation.Value!;
         old.SelectedView.Value!.SetSelection(old.Animation.KeyFrames);
-        old.Seek(TimeSpan.FromSeconds(3));
+        old.Seek(MediaTime.FromSeconds(3));
         // Keep the displayed control bound to the old graph to exercise the interval
         // before the tab's new binding and posted disposal reach the view.
         var view = new GraphEditorView();
@@ -198,7 +198,7 @@ public class GraphEditorTreeTests
                 "cut" => view.CutSelectionAsync(clipboard.Object),
                 "key" => old.SelectedView.Value!.KeyFrames[0].PasteAsync(clipboard.Object),
                 "selection" => old.PasteSelectionAsync(clipboard.Object),
-                _ => old.PasteKeyFrameAtPositionAsync(TimeSpan.FromSeconds(3), clipboard.Object)
+                _ => old.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(3), clipboard.Object)
             };
             Assert.That(operation.IsCompleted, Is.True, "The continuation must run before dispatching the queued disposal.");
             await operation;
@@ -231,7 +231,7 @@ public class GraphEditorTreeTests
         var animation = (KeyFrameAnimation<float>)scope.Shape.Width.GetKeyFrameAnimation()!;
         Assert.That(animation.KeyFrames, Has.Count.EqualTo(1));
         Assert.That(animation.KeyFrames[0].Value, Is.EqualTo(240));
-        Assert.That(animation.KeyFrames[0].KeyTime, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(animation.KeyFrames[0].KeyTime, Is.EqualTo(MediaTime.Zero));
         Assert.That(scope.Model.SelectedAnimation.Value!.Animation, Is.SameAs(animation));
         Assert.That(scope.Model.SelectedTreeItem.Value, Is.SameAs(item));
         Assert.That(scope.Base.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
@@ -266,42 +266,42 @@ public class GraphEditorTreeTests
         var icon = button.GetVisualDescendants().OfType<FluentIcon>().Single();
         Assert.That(ToolTip.GetTip(button), Is.EqualTo(Strings.EnableAnimation));
         Assert.That(icon.Icon, Is.EqualTo(Icon.Timer));
-        scope.Base.Model.Element!.Start = TimeSpan.FromSeconds(2);
+        scope.Base.Model.Element!.Start = MediaTime.FromSeconds(2);
         double origin = globalClock ? 2 : 0;
         var animation = new KeyFrameAnimation<float> { UseGlobalClock = globalClock };
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(origin), Value = 100 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(origin), Value = 100 });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.FromSeconds(origin + 2),
+            KeyTime = MediaTime.FromSeconds(origin + 2),
             Value = 500,
             Easing = new SplineEasing(1f / 3, 0, 2f / 3, 1)
         });
         scope.Shape.Width.SetKeyFrameAnimation(animation);
-        scope.Base.Model.Seek(TimeSpan.FromSeconds(3.007));
+        scope.Base.Model.Seek(MediaTime.FromSeconds(3.007));
         scope.Base.Model.HistoryManager.Commit();
         HeadlessTestHelpers.Render(3);
         Assert.That(icon.Icon, Is.EqualTo(Icon.Diamond));
         Assert.That(icon.IconVariant, Is.EqualTo(IconVariant.Regular));
         Assert.That((string)ToolTip.GetTip(button)!, Does.StartWith(CommandNames.InsertKeyFrame));
-        TimeSpan keyTime = TimeSpan.FromSeconds(origin + 1);
-        float[] samples = [animation.Interpolate(TimeSpan.FromSeconds(origin + 0.5)), animation.Interpolate(keyTime),
-            animation.Interpolate(TimeSpan.FromSeconds(origin + 1.5))];
+        MediaTime keyTime = MediaTime.FromSeconds(origin + 1);
+        float[] samples = [animation.Interpolate(MediaTime.FromSeconds(origin + 0.5)), animation.Interpolate(keyTime),
+            animation.Interpolate(MediaTime.FromSeconds(origin + 1.5))];
         int undo = scope.Base.Model.HistoryManager.UndoCount;
         button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         HeadlessTestHelpers.Render(3);
         Assert.That(animation.KeyFrames, Has.Count.EqualTo(3));
         Assert.That(animation.KeyFrames[1].KeyTime, Is.EqualTo(keyTime));
         Assert.That(animation.KeyFrames[1].Value, Is.EqualTo(samples[1]).Within(0.001));
-        Assert.That(animation.Interpolate(TimeSpan.FromSeconds(origin + 0.5)), Is.EqualTo(samples[0]).Within(0.001));
-        Assert.That(animation.Interpolate(TimeSpan.FromSeconds(origin + 1.5)), Is.EqualTo(samples[2]).Within(0.001));
+        Assert.That(animation.Interpolate(MediaTime.FromSeconds(origin + 0.5)), Is.EqualTo(samples[0]).Within(0.001));
+        Assert.That(animation.Interpolate(MediaTime.FromSeconds(origin + 1.5)), Is.EqualTo(samples[2]).Within(0.001));
         Assert.That(icon.IconVariant, Is.EqualTo(IconVariant.Filled));
         Assert.That((string)ToolTip.GetTip(button)!, Does.StartWith(CommandNames.RemoveKeyFrame));
         Assert.That(scope.Base.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
 
-        scope.Base.Model.Seek(TimeSpan.FromSeconds(3.08));
+        scope.Base.Model.Seek(MediaTime.FromSeconds(3.08));
         HeadlessTestHelpers.Render();
         Assert.That(icon.IconVariant, Is.EqualTo(IconVariant.Regular));
-        scope.Base.Model.Seek(TimeSpan.FromSeconds(3.015));
+        scope.Base.Model.Seek(MediaTime.FromSeconds(3.015));
         HeadlessTestHelpers.Render();
         Assert.That(icon.IconVariant, Is.EqualTo(IconVariant.Filled), "The indicator must use the same frame rounding as key insertion.");
         button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -368,8 +368,8 @@ public class GraphEditorTreeTests
         var item = scope.Find(scope.Shape.Width);
         scope.Model.EnableAnimation(item);
         var animation = (KeyFrameAnimation<float>)scope.Shape.Width.GetKeyFrameAnimation()!;
-        scope.Base.Model.Element!.Start = TimeSpan.FromSeconds(1);
-        scope.Base.Model.Seek(TimeSpan.FromSeconds(1));
+        scope.Base.Model.Element!.Start = MediaTime.FromSeconds(1);
+        scope.Base.Model.Seek(MediaTime.FromSeconds(1));
         HeadlessTestHelpers.Render(3);
         Assert.That(item.HasKeyFrame.Value, Is.True);
         animation.UseGlobalClock = true;

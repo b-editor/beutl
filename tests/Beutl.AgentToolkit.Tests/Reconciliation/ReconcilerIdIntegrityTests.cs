@@ -35,7 +35,7 @@ public sealed class ReconcilerIdIntegrityTests
     public void Apply_repair_of_last_unreadable_easing_resumes_persistence_in_same_transaction()
     {
         Scene source = TestWorkspace.CreateScene();
-        Element sourceElement = TestWorkspace.AddElement(source, TimeSpan.Zero, TimeSpan.FromSeconds(4));
+        Element sourceElement = TestWorkspace.AddElement(source, MediaTime.Zero, MediaTime.FromSeconds(4));
         sourceElement.AddObject(new RectShape());
         CoreSerializer.StoreToUri(source, source.Uri!);
         string elementPath = sourceElement.Uri!.LocalPath;
@@ -102,7 +102,7 @@ public sealed class ReconcilerIdIntegrityTests
     public void Apply_edit_rejects_desired_document_with_duplicate_ids()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.Zero, MediaTime.FromSeconds(4));
         var rect = new RectShape { Name = "mark", Width = { Value = 100 }, Height = { Value = 100 } };
         element.AddObject(rect);
 
@@ -130,11 +130,11 @@ public sealed class ReconcilerIdIntegrityTests
     public void Apply_edit_rejects_desired_document_with_duplicate_ids_across_arrays()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element firstElement = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
+        Element firstElement = TestWorkspace.AddElement(scene, MediaTime.Zero, MediaTime.FromSeconds(4));
         var secondElement = new Element
         {
-            Start = TimeSpan.FromSeconds(4),
-            Length = TimeSpan.FromSeconds(4),
+            Start = MediaTime.FromSeconds(4),
+            Length = MediaTime.FromSeconds(4),
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "second.belm"))
         };
         scene.Children.Add(secondElement);
@@ -170,7 +170,7 @@ public sealed class ReconcilerIdIntegrityTests
     public void Apply_edit_rejects_an_element_reusing_the_scene_root_id()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.Zero, MediaTime.FromSeconds(4));
 
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
@@ -195,7 +195,7 @@ public sealed class ReconcilerIdIntegrityTests
     public void Apply_edit_still_works_on_document_with_preexisting_duplicate_ids()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.Zero, MediaTime.FromSeconds(4));
         var rotationA = new RotationTransform { Rotation = { Value = -18 } };
         var rotationB = new RotationTransform { Rotation = { Value = -18 } };
         rotationB.Id = rotationA.Id;
@@ -239,12 +239,12 @@ public sealed class ReconcilerIdIntegrityTests
     public void Apply_edit_allows_preexisting_fallback_in_nonhierarchical_property_value()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element healthy = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
+        Element healthy = TestWorkspace.AddElement(scene, MediaTime.Zero, MediaTime.FromSeconds(4));
         string directory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
         var carrier = new Element
         {
-            Start = TimeSpan.FromSeconds(4),
-            Length = TimeSpan.FromSeconds(4),
+            Start = MediaTime.FromSeconds(4),
+            Length = MediaTime.FromSeconds(4),
             Uri = new Uri(Path.Combine(directory, "carrier.belm")),
         };
         var holder = new NonHierarchicalValueHolder();
