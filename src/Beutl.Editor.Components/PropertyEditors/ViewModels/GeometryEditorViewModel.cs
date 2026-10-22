@@ -153,7 +153,7 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        NestedEditorContextHelper.ReadNestedJson(json, IsExpanded, Properties.Value, Group.Value);
+        NestedEditorContextHelper.ReadNestedJson(json, IsExpanded, () => Properties.Value, () => Group.Value);
     }
 
     public override void WriteToJson(JsonObject json)

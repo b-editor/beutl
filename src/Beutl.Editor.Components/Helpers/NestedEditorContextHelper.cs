@@ -63,6 +63,16 @@ public static class NestedEditorContextHelper
         IPropertiesEditorViewModel? properties,
         IJsonSerializable? group = null)
     {
+        ReadNestedJson(json, isExpanded, () => properties, () => group);
+    }
+
+    // For editors that create their children on the first expansion: they are read after it.
+    internal static void ReadNestedJson(
+        JsonObject json,
+        ReactivePropertySlim<bool> isExpanded,
+        Func<IPropertiesEditorViewModel?> properties,
+        Func<IJsonSerializable?> group)
+    {
         try
         {
             if (json.TryGetPropertyValue("IsExpanded", out JsonNode? isExpandedNode)
@@ -71,13 +81,13 @@ public static class NestedEditorContextHelper
                 isExpanded.Value = (bool)isExpandedValue;
             }
 
-            properties?.ReadFromJson(json);
+            properties()?.ReadFromJson(json);
 
-            if (group != null
+            if (group() is { } groupContext
                 && json.TryGetPropertyValue("Group", out JsonNode? groupNode)
                 && groupNode is JsonObject groupJson)
             {
-                group.ReadFromJson(groupJson);
+                groupContext.ReadFromJson(groupJson);
             }
         }
         catch
