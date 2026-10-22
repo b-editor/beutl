@@ -16,7 +16,7 @@ public sealed class ElementPropertyTabExtension : ToolTabExtension
 
     public override string Name => "Element Property";
 
-    public override string DisplayName => "Element Property";
+    public override string DisplayName => Strings.ElementProperty;
 
     // Left out of the tool pickers: selecting an element opens this tool, so a picked tab would only sit empty.
     public override string? Header => null;
