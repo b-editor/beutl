@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
+using Beutl.AgentToolkit.Schema;
 using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Editor;
@@ -346,7 +347,8 @@ internal sealed partial class DeclarativeDocumentApplier
         JsonObject desired,
         JsonObject serializedPayload)
     {
-        foreach (IProperty property in target.Properties)
+        // Base fields stay as their owners keep them: each is unsaved or a list, which the CoreProperty pass skips too.
+        foreach (IProperty property in target.Properties.Where(property => !SchemaGenerator.IsBaseField(target, property)))
         {
             if (property is IListProperty
                 || property.ValueType.IsValueType

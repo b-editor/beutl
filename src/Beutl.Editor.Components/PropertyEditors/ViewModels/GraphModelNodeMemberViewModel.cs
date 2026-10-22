@@ -40,7 +40,7 @@ public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditor
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables)!;
 
-        IsExpanded = node.GetObservable(Beutl.NodeGraph.GraphNode.IsExpandedProperty)
+        IsExpanded = node.IsExpandedProperty.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
         IsExpanded

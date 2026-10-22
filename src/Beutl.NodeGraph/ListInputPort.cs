@@ -5,19 +5,10 @@ namespace Beutl.NodeGraph;
 
 public class ListInputPort<T> : NodePort<T>, IListInputPort
 {
-    public static readonly CoreProperty<CoreList<Reference<Connection>>> ConnectionsProperty;
-    private readonly CoreList<Reference<Connection>> _connections = [];
-
-    static ListInputPort()
-    {
-        ConnectionsProperty =
-            ConfigureProperty<CoreList<Reference<Connection>>, ListInputPort<T>>(nameof(Connections))
-                .Accessor(o => o.Connections, (o, v) => o.Connections = v)
-                .Register();
-    }
-
     public ListInputPort()
     {
+        ScanProperties<ListInputPort<T>>();
+        HideProperty(ConnectionsProperty);
         Connections.CollectionChanged += (_, _) =>
         {
             RaiseTopologyChanged();
@@ -27,12 +18,14 @@ public class ListInputPort<T> : NodePort<T>, IListInputPort
 
     public Reference<Connection> Connection => default;
 
-    // IListPort
     [NotAutoSerialized]
+    public IProperty<CoreList<Reference<Connection>>> ConnectionsProperty { get; } = new ValueOnlyProperty<CoreList<Reference<Connection>>>([]) { AffectsRender = false, KeepsList = true };
+
+    // IListPort
     public CoreList<Reference<Connection>> Connections
     {
-        get => _connections;
-        set => _connections.Replace(value);
+        get => ConnectionsProperty.Value;
+        set => ConnectionsProperty.Value.Replace(value);
     }
 
     public override void NotifyConnected(Connection connection)

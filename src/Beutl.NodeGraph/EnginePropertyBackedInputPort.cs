@@ -132,8 +132,7 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args is CorePropertyChangedEventArgs coreArgs &&
-            coreArgs.Property.Id == ConnectionProperty.Id)
+        if (args.PropertyName == nameof(Connection))
         {
             UpdateExpression();
         }

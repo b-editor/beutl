@@ -31,7 +31,7 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
         CanToggleEnabled = model is IFallback fallback && !fallback.SavesItsMembers()
             ? new ReactivePropertySlim<bool>(false)
             : CanEdit;
-        IsEnabled = model.GetObservable(EngineObject.IsEnabledProperty)
+        IsEnabled = model.IsEnabledProperty.GetObservable()
             .ToReactiveProperty();
         _enabledSubscription = IsEnabled.Skip(1).Subscribe(v =>
         {

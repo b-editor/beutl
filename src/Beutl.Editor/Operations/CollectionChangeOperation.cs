@@ -178,19 +178,21 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
         return list2;
     }
 
-    private IListProperty<T> FindListProperty(EngineObject engineObj, string name)
+    private IProperty FindListProperty(EngineObject engineObj, string name)
     {
         var engineProperty = engineObj.Properties.FirstOrDefault(p => p.Name == name)
                              ?? throw new InvalidOperationException(
                                  $"Engine property {PropertyPath} not found on type {engineObj.GetType().FullName}.");
 
-        if (engineProperty is not IListProperty<T> listProperty)
+        // A value-only property that holds its object's list, like GraphModel.Nodes, changes that list.
+        if (engineProperty is not IListProperty<T>
+            && (engineProperty is IExpressionProperty || engineProperty.Value is not IList<T>))
         {
             throw new InvalidOperationException(
                 $"Engine property {PropertyPath} is not a list on type {engineObj.GetType().FullName}.");
         }
 
-        return listProperty;
+        return engineProperty;
     }
 
     private void Execute(bool revert)
@@ -216,10 +218,17 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
 
         if (Object is EngineObject engineObj)
         {
-            var listProperty = FindListProperty(engineObj, name);
-            ExecuteWithFailureState(listProperty, revert, revert
-                ? () => RevertToEngineProperty(listProperty)
-                : () => ApplyToEngineProperty(listProperty));
+            IProperty engineProperty = FindListProperty(engineObj, name);
+            if (engineProperty is IListProperty<T> listProperty)
+            {
+                ExecuteWithFailureState(listProperty, revert, revert
+                    ? () => RevertToEngineProperty(listProperty)
+                    : () => ApplyToEngineProperty(listProperty));
+                return;
+            }
+
+            IList<T> list = (IList<T>)engineProperty.Value!;
+            ExecuteWithFailureState(list, revert, revert ? () => RevertTo(list) : () => ApplyTo(list));
         }
     }
 

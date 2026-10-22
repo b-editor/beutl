@@ -22,6 +22,14 @@ public static class CoreObjectExtensions
         return new CoreObjectSubject<T>(obj, property);
     }
 
+    // The property's value now and then each new one, as GetObservable gives a CoreProperty's.
+    public static IObservable<T> GetObservable<T>(this IProperty<T> property)
+    {
+        ArgumentNullException.ThrowIfNull(property);
+
+        return new PropertyValueObservable<T>(property);
+    }
+
     public static ICoreObject? FindById(this ICoreObject obj, Guid id, bool includeSelf = true)
     {
         return obj.Find(o => (o as ICoreObject)?.Id == id, includeSelf) as ICoreObject;

@@ -16,15 +16,6 @@ public sealed partial class FallbackEngineObject : EngineObject, IFallback;
 [FallbackType(typeof(FallbackEngineObject))]
 public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
 {
-    // CoreProperty rather than IProperty: these change only through edits and are not evaluated per frame.
-    public static readonly CoreProperty<bool> IsTimeAnchorProperty;
-    public static readonly CoreProperty<bool> IsEnabledProperty;
-    public static readonly CoreProperty<int> ZIndexProperty;
-    public static readonly CoreProperty<TimeRange> TimeRangeProperty;
-    private bool _isTimeAnchor;
-    private bool _isEnabled = true;
-    private int _zIndex;
-    private TimeRange _timeRange;
     private IDisposable? _timeAnchorSubscription;
     private List<IProperty>? _displayProperties;
     // The entries of Animations and Expressions that Deserialize does not read, usually for properties this type
@@ -35,27 +26,25 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
 
     public event EventHandler? Edited;
 
-    static EngineObject()
+    public EngineObject()
     {
-        IsTimeAnchorProperty = ConfigureProperty<bool, EngineObject>(nameof(IsTimeAnchor))
-            .Accessor(o => o.IsTimeAnchor, (o, v) => o.IsTimeAnchor = v)
-            .DefaultValue(false)
-            .Register();
-
-        IsEnabledProperty = ConfigureProperty<bool, EngineObject>(nameof(IsEnabled))
-            .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
-            .DefaultValue(true)
-            .Register();
-
-        ZIndexProperty = ConfigureProperty<int, EngineObject>(nameof(ZIndex))
-            .Accessor(o => o.ZIndex, (o, v) => o.ZIndex = v)
-            .Register();
-
-        TimeRangeProperty = ConfigureProperty<TimeRange, EngineObject>(nameof(TimeRange))
-            .Accessor(o => o.TimeRange, (o, v) => o.TimeRange = v)
-            .Register();
-
-        AffectsRender<EngineObject>(IsEnabledProperty, IsTimeAnchorProperty, ZIndexProperty, TimeRangeProperty);
+        ScanProperties<EngineObject>();
+        HideProperties(IsTimeAnchorProperty, IsEnabledProperty, ZIndexProperty, TimeRangeProperty);
+        IsTimeAnchorProperty.ValueChanged += (_, e) =>
+        {
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsTimeAnchor)));
+            if (e.NewValue)
+            {
+                RevokeTimeAnchorSubscription();
+            }
+            else
+            {
+                SubscribeTimeAnchor();
+            }
+        };
+        IsEnabledProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsEnabled)));
+        ZIndexProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(ZIndex)));
+        TimeRangeProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(TimeRange)));
     }
 
     IExpression<T>? IExpressionJsonCodec.Read<T>(JsonNode node) => Expressions.Expression.CreateFromNode<T>(node);
@@ -63,57 +52,46 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
     JsonNode IExpressionJsonCodec.Write<T>(IExpression<T> expression) => Expressions.Expression.ToNode(expression);
 
     [NotAutoSerialized]
-    public bool IsTimeAnchor
-    {
-        get => _isTimeAnchor;
-        set => SetAndRaise(IsTimeAnchorProperty, ref _isTimeAnchor, value);
-    }
+    public IProperty<bool> IsTimeAnchorProperty { get; } = Property.CreateValue(false);
 
-    public bool IsEnabled
-    {
-        get => _isEnabled;
-        set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
-    }
+    public IProperty<bool> IsEnabledProperty { get; } = Property.CreateValue(true);
 
     // ZIndex and TimeRange follow the element or parent object, so replaying its edits restores them.
     [NotAutoSerialized]
     [NotTracked]
-    public int ZIndex
-    {
-        get => _zIndex;
-        set => SetAndRaise(ZIndexProperty, ref _zIndex, value);
-    }
+    public IProperty<int> ZIndexProperty { get; } = Property.CreateValue(0);
 
     [NotAutoSerialized]
     [NotTracked]
+    public IProperty<TimeRange> TimeRangeProperty { get; } = Property.CreateValue(default(TimeRange));
+
+    public bool IsTimeAnchor
+    {
+        get => IsTimeAnchorProperty.Value;
+        set => IsTimeAnchorProperty.Value = value;
+    }
+
+    public bool IsEnabled
+    {
+        get => IsEnabledProperty.Value;
+        set => IsEnabledProperty.Value = value;
+    }
+
+    public int ZIndex
+    {
+        get => ZIndexProperty.Value;
+        set => ZIndexProperty.Value = value;
+    }
+
     public TimeRange TimeRange
     {
-        get => _timeRange;
-        set => SetAndRaise(TimeRangeProperty, ref _timeRange, value);
+        get => TimeRangeProperty.Value;
+        set => TimeRangeProperty.Value = value;
     }
 
     public TimeSpan Start => TimeRange.Start;
 
     public TimeSpan Duration => TimeRange.Duration;
-
-    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
-    {
-        base.OnPropertyChanged(args);
-        if (args is CorePropertyChangedEventArgs<bool> boolArgs)
-        {
-            if (boolArgs.Property.Id == IsTimeAnchorProperty.Id)
-            {
-                if (boolArgs.NewValue)
-                {
-                    RevokeTimeAnchorSubscription();
-                }
-                else
-                {
-                    SubscribeTimeAnchor();
-                }
-            }
-        }
-    }
 
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
@@ -142,10 +120,10 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
         var parent = this.FindHierarchicalParent<EngineObject>();
         if (parent == null) return;
 
-        var d1 = parent.GetObservable(TimeRangeProperty)
+        var d1 = parent.TimeRangeProperty.GetObservable()
             .Subscribe(t => TimeRange = t);
 
-        var d2 = parent.GetObservable(ZIndexProperty)
+        var d2 = parent.ZIndexProperty.GetObservable()
             .Subscribe(z => ZIndex = z);
 
         _timeAnchorSubscription = Disposable.Create((d1, d2), t => t.DisposeAll());
@@ -171,7 +149,8 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
 
         foreach (IProperty property in RegisteredProperties)
         {
-            if (!IsAutoSerialized(property))
+            // A base field that keeps its list is filled by its owner, which reads the items into it.
+            if (!IsAutoSerialized(property) || (IsBaseField(property) && property is IValueOnlyProperty { KeepsList: true }))
                 continue;
 
             // A property renamed with a FormerPersistedNameAttribute reads its value, animation and expression
@@ -198,7 +177,7 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
         {
             KeepUnknownEntries(
                 jsonContext, "Animations", static property => property is IExpressionProperty { IsAnimatable: true }, ref _unknownAnimations);
-            KeepUnknownEntries(jsonContext, "Expressions", static _ => true, ref _unknownExpressions);
+            KeepUnknownEntries(jsonContext, "Expressions", static property => property is IExpressionProperty, ref _unknownExpressions);
         }
     }
 
@@ -248,6 +227,13 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
 
     public override void Serialize(ICoreSerializationContext context)
     {
+        IProperty[] serialized = [.. RegisteredProperties.Where(IsAutoSerialized)];
+        // Base fields come before the CoreObject members, where the CoreProperty fields they replace were written.
+        foreach (IProperty property in serialized.Where(IsBaseField))
+        {
+            property.SerializeValue(context);
+        }
+
         base.Serialize(context);
         if (IsTimeAnchor)
         {
@@ -255,8 +241,6 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
             context.SetValue(nameof(TimeRange.Duration), TimeRange.Duration);
             context.SetValue(nameof(ZIndex), ZIndex);
         }
-
-        IProperty[] serialized = [.. RegisteredProperties.Where(IsAutoSerialized)];
 
         Dictionary<string, IKeyFrameAnimation> animations = serialized
             .Where(p => p is IExpressionProperty { IsAnimatable: true })
@@ -277,7 +261,8 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
 
         foreach (IProperty property in serialized)
         {
-            property.SerializeValue(context);
+            if (!IsBaseField(property))
+                property.SerializeValue(context);
         }
     }
 
@@ -286,8 +271,12 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
     /// <see cref="NotAutoSerializedAttribute"/> means here what it means on a <see cref="CoreProperty"/>: the value
     /// is state outside the document, such as an editor's, so it is neither written nor read back.
     /// </remarks>
-    private static bool IsAutoSerialized(IProperty property)
+    internal static bool IsAutoSerialized(IProperty property)
         => property.GetAttributes()?.Any(static attribute => attribute is NotAutoSerializedAttribute) != true;
+
+    // A value-only property hidden from the panels stands for a CoreProperty field: it is saved, walked and described as one.
+    internal bool IsBaseField(IProperty property)
+        => property is not IExpressionProperty && _displayProperties?.Contains(property) == false;
 
     protected static void AffectsRender<T>(params CoreProperty[] properties)
         where T : EngineObject

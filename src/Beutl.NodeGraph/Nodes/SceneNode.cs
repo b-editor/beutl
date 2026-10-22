@@ -1,4 +1,6 @@
-﻿using Beutl.Composition;
+﻿using System.ComponentModel;
+using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
@@ -14,19 +16,11 @@ namespace Beutl.NodeGraph.Nodes;
 /// </summary>
 public partial class SceneNode : GraphNode
 {
-    public static readonly CoreProperty<SceneDrawable> ObjectProperty;
-
-    static SceneNode()
-    {
-        ObjectProperty = ConfigureProperty<SceneDrawable, SceneNode>(nameof(Object))
-            .Accessor(o => o.Object, (o, v) => o.Object = v)
-            .Register();
-
-        Hierarchy(ObjectProperty);
-    }
-
     public SceneNode()
     {
+        ScanProperties<SceneNode>();
+        HideProperty(ObjectProperty);
+        ObjectProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Object)));
         Output = AddOutput<DrawableRenderNode?>("Output", NodePortDisplays.Output);
         Object = new SceneDrawable();
         Object.AlignmentX.Value = Media.AlignmentX.Left;
@@ -45,10 +39,13 @@ public partial class SceneNode : GraphNode
     public NodeMonitor<string?> ErrorMonitor { get; }
 
     [NotAutoSerialized]
+    [SuppressResourceClassGeneration]
+    public IProperty<SceneDrawable> ObjectProperty { get; } = new ValueOnlyProperty<SceneDrawable>(null!) { AffectsRender = false };
+
     public SceneDrawable Object
     {
-        get;
-        set => SetAndRaise(ObjectProperty, ref field, value);
+        get => ObjectProperty.Value;
+        set => ObjectProperty.Value = value;
     }
 
     public override void Serialize(ICoreSerializationContext context)

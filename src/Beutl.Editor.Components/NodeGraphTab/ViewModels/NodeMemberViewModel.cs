@@ -12,9 +12,9 @@ public class NodeMemberViewModel : IDisposable
     {
         if (nodeMember is NodeMember nodeMemberObj)
         {
-            Name = nodeMemberObj.GetPropertyChangedObservable(NodeMember.DisplayProperty)
-                .Select(e => ((NodeMember)e.Sender).Display?.GetName()
-                    ?? ((NodeMember)e.Sender).Name
+            Name = nodeMemberObj.DisplayProperty.GetObservable().Skip(1)
+                .Select(_ => nodeMemberObj.Display?.GetName()
+                    ?? nodeMemberObj.Name
                     ?? string.Empty)
                 .ToReadOnlyReactiveProperty(
                     nodeMemberObj.Display?.GetName() ?? nodeMemberObj.Name ?? string.Empty)!;

@@ -1,8 +1,10 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
 using System.Reactive.Disposables;
+using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 using Beutl.Editor;
+using Beutl.Engine;
 using Beutl.NodeGraph.Composition;
 using Beutl.Reactive;
 using Beutl.Serialization;
@@ -11,22 +13,15 @@ namespace Beutl.NodeGraph.Nodes.Group;
 
 public partial class GroupNode : GraphNode
 {
-    public static readonly CoreProperty<GraphGroup> GroupProperty;
     private readonly CompositeDisposable _disposables = [];
     private readonly Dictionary<INodeMember, IDisposable> _outputPortSubscriptions = [];
     private readonly Dictionary<INodeMember, IDisposable> _inputPortSubscriptions = [];
 
-    static GroupNode()
-    {
-        GroupProperty = ConfigureProperty<GraphGroup, GroupNode>(nameof(Group))
-            .Accessor(o => o.Group)
-            .Register();
-    }
-
     public GroupNode()
     {
-        Group = new GraphGroup() { Name = "Group" };
-        HierarchicalChildren.Add(Group);
+        ScanProperties<GroupNode>();
+        HideProperty(GroupProperty);
+        GroupProperty.Value = new GraphGroup() { Name = "Group" };
         Group.Edited += OnGroupEdited;
 
         this.GetObservable(NameProperty).Subscribe(v => Group.Name = string.IsNullOrWhiteSpace(v) ? "Group" : v);
@@ -63,10 +58,10 @@ public partial class GroupNode : GraphNode
             {
                 if (FindMirror(source, outputSide) is { } mirror) mirror.Name = source.Name;
             }).DisposeWith(subscriptions);
-        ((NodeMember)source).GetPropertyChangedObservable(NodeMember.DisplayProperty)
-            .Subscribe(e =>
+        ((NodeMember)source).DisplayProperty.GetObservable().Skip(1)
+            .Subscribe(display =>
             {
-                if (FindMirror(source, outputSide) is NodeMember mirror) mirror.Display = e.NewValue;
+                if (FindMirror(source, outputSide) is NodeMember mirror) mirror.Display = display;
             }).DisposeWith(subscriptions);
         return subscriptions;
     }
@@ -86,17 +81,23 @@ public partial class GroupNode : GraphNode
         RaiseEdited();
     }
 
-    public GraphGroup Group { get; }
+    [NotAutoSerialized]
+    [SuppressResourceClassGeneration]
+    public IProperty<GraphGroup> GroupProperty { get; } = new ValueOnlyProperty<GraphGroup>(null!) { AffectsRender = false };
+
+    public GraphGroup Group => GroupProperty.Value;
 
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnAttachedToHierarchy(args);
-        Group.GetPropertyChangedObservable(GraphGroup.OutputProperty)
-            .Subscribe(e => OnOutputChanged(e.NewValue, e.OldValue))
+        Observable.FromEventPattern<PropertyValueChangedEventArgs<GroupOutput?>>(
+                h => Group.OutputProperty.ValueChanged += h, h => Group.OutputProperty.ValueChanged -= h)
+            .Subscribe(e => OnOutputChanged(e.EventArgs.NewValue, e.EventArgs.OldValue))
             .DisposeWith(_disposables);
 
-        Group.GetPropertyChangedObservable(GraphGroup.InputProperty)
-            .Subscribe(e => OnInputChanged(e.NewValue, e.OldValue))
+        Observable.FromEventPattern<PropertyValueChangedEventArgs<GroupInput?>>(
+                h => Group.InputProperty.ValueChanged += h, h => Group.InputProperty.ValueChanged -= h)
+            .Subscribe(e => OnInputChanged(e.EventArgs.NewValue, e.EventArgs.OldValue))
             .DisposeWith(_disposables);
     }
 

@@ -5,52 +5,38 @@ namespace Beutl.NodeGraph;
 
 public class GraphGroup : GraphModel
 {
-    public static readonly CoreProperty<GroupInput?> InputProperty;
-    public static readonly CoreProperty<GroupOutput?> OutputProperty;
-
-    private GroupInput? _input;
-    private GroupOutput? _output;
-
-    static GraphGroup()
-    {
-        InputProperty = ConfigureProperty<GroupInput?, GraphGroup>(o => o.Input)
-            .Register();
-
-        OutputProperty = ConfigureProperty<GroupOutput?, GraphGroup>(o => o.Output)
-            .Register();
-    }
-
     public GraphGroup()
     {
+        ScanProperties<GraphGroup>();
+        HideProperties(InputProperty, OutputProperty);
+        InputProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Input)));
+        OutputProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Output)));
         Nodes.Attached += OnNodeAttached;
         Nodes.Detached += OnNodeDetached;
     }
 
+    // Input and Output name nodes that Nodes holds, so they do not take them as children.
     [NotAutoSerialized]
     [NotTracked]
-    public GroupInput? Input
-    {
-        get => _input;
-        private set => SetAndRaise(InputProperty, ref _input, value);
-    }
+    public IProperty<GroupInput?> InputProperty { get; } = new ValueOnlyProperty<GroupInput?>(null) { OwnsValue = false, AffectsRender = false };
 
     [NotAutoSerialized]
     [NotTracked]
-    public GroupOutput? Output
-    {
-        get => _output;
-        private set => SetAndRaise(OutputProperty, ref _output, value);
-    }
+    public IProperty<GroupOutput?> OutputProperty { get; } = new ValueOnlyProperty<GroupOutput?>(null) { OwnsValue = false, AffectsRender = false };
+
+    public GroupInput? Input => InputProperty.Value;
+
+    public GroupOutput? Output => OutputProperty.Value;
 
     private void OnNodeAttached(GraphNode obj)
     {
         if (obj is GroupInput groupInput)
         {
-            Input = groupInput;
+            TakePlace(InputProperty, groupInput);
         }
         if (obj is GroupOutput groupOutput)
         {
-            Output = groupOutput;
+            TakePlace(OutputProperty, groupOutput);
         }
     }
 
@@ -58,24 +44,23 @@ public class GraphGroup : GraphModel
     {
         if (obj == Input)
         {
-            Input = null;
+            InputProperty.Value = null;
         }
         if (obj == Output)
         {
-            Output = null;
+            OutputProperty.Value = null;
         }
     }
 
-    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    // A second GroupInput or GroupOutput takes the place of the first, which leaves Nodes.
+    private void TakePlace<TNode>(IProperty<TNode?> property, TNode node)
+        where TNode : GraphNode
     {
-        base.OnPropertyChanged(args);
-        // Input and Output are set as a node is attached, when it is already in Nodes, so a
-        // second GroupInput or GroupOutput only has to take the place of the first.
-        if (args is CorePropertyChangedEventArgs e
-            && (e.Property == InputProperty || e.Property == OutputProperty)
-            && e.OldValue is GraphNode oldNode)
+        TNode? previous = property.Value;
+        property.Value = node;
+        if (previous != null && previous != node)
         {
-            Nodes.Remove(oldNode);
+            Nodes.Remove(previous);
         }
     }
 }

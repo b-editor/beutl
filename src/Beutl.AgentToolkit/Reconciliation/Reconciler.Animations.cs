@@ -2,6 +2,7 @@
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
+using Beutl.AgentToolkit.Schema;
 using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
@@ -187,6 +188,11 @@ public sealed partial class Reconciler
             : null;
     }
 
+    // A base field stands for a CoreProperty field, which takes no animation.
+    private static IProperty? FindAnimationTarget(EngineObject engineObject, string propertyName)
+        => engineObject.Properties.FirstOrDefault(
+            property => property.Name == propertyName && !SchemaGenerator.IsBaseField(engineObject, property));
+
     private static bool ExpandAnimationShorthand(CoreObject sandboxRoot, JsonNode? node)
     {
         bool expanded = false;
@@ -200,7 +206,7 @@ public sealed partial class Reconciler
                 {
                     if (animationNode is JsonObject animationJson
                         && KeyFrameShorthand.IsShorthand(animationJson)
-                        && engineObject.Properties.FirstOrDefault(property => property.Name == propertyName) is { } property)
+                        && FindAnimationTarget(engineObject, propertyName) is { } property)
                     {
                         animations[propertyName] = KeyFrameShorthand.Expand(animationJson, property.ValueType);
                         expanded = true;
@@ -313,7 +319,7 @@ public sealed partial class Reconciler
             currentAnimations?.TryGetPropertyValue(propertyName, out currentAnimationNode);
             if (JsonEquals(currentAnimationNode, animationNode)
                 || animationNode is not JsonObject animationJson
-                || engineObject.Properties.FirstOrDefault(property => property.Name == propertyName) is not { } property)
+                || FindAnimationTarget(engineObject, propertyName) is not { } property)
             {
                 continue;
             }

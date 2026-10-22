@@ -146,6 +146,20 @@ internal sealed partial class SceneRecovery(Scene scene)
         CoreObject coreObject,
         RecoveredReferenceRewriter rewriter)
     {
+        // A saved base field is migrated where the CoreProperty field it replaces was.
+        if (coreObject is EngineObject owner)
+        {
+            foreach (IProperty field in owner.Properties.Where(property => owner.IsBaseField(property) && EngineObject.IsAutoSerialized(property)))
+            {
+                object? currentFieldValue = field.Value;
+                object? migratedFieldValue = rewriter.Rewrite(currentFieldValue);
+                if (RecoveredReferenceRewriter.HasReferenceRewrite(currentFieldValue, migratedFieldValue))
+                {
+                    field.SetValueEvenIfEqual(migratedFieldValue);
+                }
+            }
+        }
+
         foreach (CoreProperty property in PropertyRegistry.GetRegistered(coreObject.GetType()))
         {
             if (!property.GetMetadata<CorePropertyMetadata>(coreObject.GetType()).ShouldSerialize)
@@ -167,7 +181,7 @@ internal sealed partial class SceneRecovery(Scene scene)
         EngineObject engineObject,
         RecoveredReferenceRewriter rewriter)
     {
-        foreach (IProperty property in engineObject.Properties)
+        foreach (IProperty property in engineObject.Properties.Where(property => !engineObject.IsBaseField(property)))
         {
             object? currentValue = property.Value;
             object? migratedValue = rewriter.Rewrite(currentValue);

@@ -56,6 +56,7 @@ public class EngineObjectResourceGeneratorTests
             Assert.That(derived2, Does.Contain("yield return Z;"));
             Assert.That(derived2, Does.Contain("public float W"));
             Assert.That(derived2, Does.Contain("yield return W;"));
+            Assert.That(derived2, Does.Contain("VProperty.SetAttributes(\"V\", __attrs_VProperty);"));
 
             Assert.That(derived3, Does.Contain("Child"));
             Assert.That(derived3, Does.Contain("ResourceReconciler.ReconcileChild(this, context"));

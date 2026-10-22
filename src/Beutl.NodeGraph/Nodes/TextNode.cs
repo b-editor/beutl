@@ -1,4 +1,6 @@
-﻿using Beutl.Graphics;
+﻿using System.ComponentModel;
+using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -9,19 +11,11 @@ namespace Beutl.NodeGraph.Nodes;
 
 public partial class TextNode : GraphNode
 {
-    public static readonly CoreProperty<TextBlock> ObjectProperty;
-
-    static TextNode()
-    {
-        ObjectProperty = ConfigureProperty<TextBlock, TextNode>(nameof(Object))
-            .Accessor(o => o.Object, (o, v) => o.Object = v)
-            .Register();
-
-        Hierarchy(ObjectProperty);
-    }
-
     public TextNode()
     {
+        ScanProperties<TextNode>();
+        HideProperty(ObjectProperty);
+        ObjectProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Object)));
         Output = AddOutput<DrawableRenderNode?>("Output", NodePortDisplays.Output);
         Object = new TextBlock();
         Object.AlignmentX.Value = AlignmentX.Left;
@@ -41,10 +35,13 @@ public partial class TextNode : GraphNode
     public OutputPort<DrawableRenderNode?> Output { get; }
 
     [NotAutoSerialized]
+    [SuppressResourceClassGeneration]
+    public IProperty<TextBlock> ObjectProperty { get; } = new ValueOnlyProperty<TextBlock>(null!) { AffectsRender = false };
+
     public TextBlock Object
     {
-        get;
-        set => SetAndRaise(ObjectProperty, ref field, value);
+        get => ObjectProperty.Value;
+        set => ObjectProperty.Value = value;
     }
 
     public override void Serialize(ICoreSerializationContext context)

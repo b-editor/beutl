@@ -70,6 +70,6 @@ public class GraphTraversalTests
     }
 
     private static void SetGroup(GroupNode node, GraphGroup group)
-        => typeof(GroupNode).GetField("<Group>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(node, group);
+        => typeof(ValueOnlyProperty<GraphGroup>).GetField("_currentValue", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(node.GroupProperty, group);
 }

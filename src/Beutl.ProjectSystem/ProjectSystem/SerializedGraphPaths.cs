@@ -97,7 +97,7 @@ internal static class SerializedGraphPaths
         ISet<object> visited,
         ICollection<(CoreObject Object, SerializedGraphPath Path)> objects)
     {
-        foreach (IProperty property in engineObject.Properties)
+        foreach (IProperty property in engineObject.Properties.Where(property => !engineObject.IsBaseField(property)))
         {
             SerializedGraphPath propertyPath = AppendSerializedGraphPath(path, "property", property.Name);
             CollectSerializedGraphObjectPaths(property.Value, propertyPath, visited, objects);
@@ -133,6 +133,19 @@ internal static class SerializedGraphPaths
         ISet<object> visited,
         ICollection<(CoreObject Object, SerializedGraphPath Path)> objects)
     {
+        // A saved base field is walked where the CoreProperty field it replaces was.
+        if (registeredObject is EngineObject owner)
+        {
+            foreach (IProperty field in owner.Properties.Where(property => owner.IsBaseField(property) && EngineObject.IsAutoSerialized(property)))
+            {
+                CollectSerializedGraphObjectPaths(
+                    field.Value,
+                    AppendSerializedGraphPath(path, "property", field.Name),
+                    visited,
+                    objects);
+            }
+        }
+
         foreach (CoreProperty property in PropertyRegistry.GetRegistered(registeredObject.GetType()))
         {
             if (!property.GetMetadata<CorePropertyMetadata>(registeredObject.GetType()).ShouldSerialize)

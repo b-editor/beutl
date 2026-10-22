@@ -58,14 +58,14 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables)!;
 
-        IsExpanded = node.GetObservable(GraphNode.IsExpandedProperty)
+        IsExpanded = node.IsExpandedProperty.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
         IsExpanded.Where(_ => !IsReadOnly).Subscribe(v => GraphNode.IsExpanded = v)
             .DisposeWith(_disposables);
 
-        Position = node.GetObservable(GraphNode.PositionProperty)
+        Position = node.PositionProperty.GetObservable()
             .Select(x => new Point(x.X, x.Y))
             .ToReactiveProperty()
             .DisposeWith(_disposables);

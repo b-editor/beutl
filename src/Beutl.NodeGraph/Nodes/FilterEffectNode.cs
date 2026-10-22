@@ -1,4 +1,5 @@
-﻿using Beutl.Engine;
+﻿using System.ComponentModel;
+using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.NodeGraph.Composition;
@@ -9,31 +10,27 @@ namespace Beutl.NodeGraph.Nodes;
 public partial class FilterEffectNode<T> : ConfigureNode
     where T : FilterEffect, new()
 {
-    public static readonly CoreProperty<T> ObjectProperty;
-
-    static FilterEffectNode()
-    {
-        ObjectProperty = ConfigureProperty<T, FilterEffectNode<T>>(nameof(Object))
-            .Accessor(o => o.Object, (o, v) => o.Object = v)
-            .Register();
-
-        Hierarchy(ObjectProperty);
-    }
-
     public FilterEffectNode()
     {
+        ScanProperties<FilterEffectNode<T>>();
+        HideProperty(ObjectProperty);
+        ObjectProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Object)));
         Object = new T();
-        foreach (IProperty property in Object.Properties)
+        // The object's base fields, such as IsEnabled, are not inputs.
+        foreach (IProperty property in Object.Properties.Where(property => !Object.IsBaseField(property)))
         {
             AddInput(Object, property);
         }
     }
 
     [NotAutoSerialized]
+    [SuppressResourceClassGeneration]
+    public IProperty<T> ObjectProperty { get; } = new ValueOnlyProperty<T>(null!) { AffectsRender = false };
+
     public T Object
     {
-        get;
-        set => SetAndRaise(ObjectProperty, ref field, value);
+        get => ObjectProperty.Value;
+        set => ObjectProperty.Value = value;
     }
 
     public override void Serialize(ICoreSerializationContext context)

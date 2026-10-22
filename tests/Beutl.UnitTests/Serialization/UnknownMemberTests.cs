@@ -103,6 +103,21 @@ public class UnknownMemberTests
             written.ToJsonString());
     }
 
+    // So is the expression of a property that takes none, such as a value-only one or a base field.
+    [Test]
+    public void EngineObject_KeepsTheExpressionOfAPropertyThatTakesNone()
+    {
+        JsonObject json = CoreSerializer.SerializeToJsonObject(new ValueHolder());
+        var expression = new JsonObject { ["Source"] = "1 + 2" };
+        json["Expressions"]![nameof(ValueHolder.Count)] = expression.DeepClone();
+
+        var restored = (ValueHolder)CoreSerializer.DeserializeFromJsonObject(json, typeof(ValueHolder));
+        JsonObject written = CoreSerializer.SerializeToJsonObject(restored);
+
+        Assert.That(JsonNode.DeepEquals(written["Expressions"]?[nameof(ValueHolder.Count)], expression), Is.True,
+            written.ToJsonString());
+    }
+
     // What a property reads under a former name (FormerPersistedNameAttribute) is not unknown: its value, animation
     // and expression, and a CoreProperty value, are written under the current names only, and reading them keeps no
     // data this build does not know.
@@ -375,6 +390,15 @@ public class UnknownMemberTests
         public SimpleHolder() => ScanProperties<SimpleHolder>();
 
         public IExpressionProperty<float> Size { get; } = Property.CreateExpression(1f);
+    }
+
+    // An engine object with a value-only property.
+    [SuppressResourceClassGeneration]
+    private sealed class ValueHolder : EngineObject
+    {
+        public ValueHolder() => ScanProperties<ValueHolder>();
+
+        public IProperty<int> Count { get; } = Property.CreateValue(1);
     }
 
     // An engine object whose properties were renamed: an IProperty and a CoreProperty, each with a former name.

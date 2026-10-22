@@ -6,6 +6,12 @@ namespace Beutl.Engine.SourceGenerators.Emit;
 
 public static class EmitHelpers
 {
+    // A property exposed as XxxProperty is registered, saved and recorded as Xxx, as CoreObject.ScanPropertiesCore does.
+    public static string ToPropertyName(string memberName)
+        => memberName.Length > "Property".Length && memberName.EndsWith("Property", StringComparison.Ordinal)
+            ? memberName.Substring(0, memberName.Length - "Property".Length)
+            : memberName;
+
     public static readonly SymbolDisplayFormat TypeDisplayFormat = new(
         globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
         typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
