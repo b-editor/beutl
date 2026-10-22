@@ -1,0 +1,42 @@
+{
+  "Video": {
+    "Codec": 1,
+    "JPEGQuality": 0.5,
+    "ProfileLevelH264": 0,
+    "ColorTransfer": 0,
+    "ColorPrimaries": 0,
+    "YCbCrMatrix": 0,
+    "SourceSize": "0, 0",
+    "DestinationSize": "0, 0",
+    "FrameRate": "30",
+    "Bitrate": -1,
+    "KeyframeRate": -1,
+    "CodecOptions": null,
+    "Id": "00000000-0000-0000-0000-000000000001",
+    "Name": "",
+    "$type": "[Beutl.Extensions.AVFoundation].Encoding:AVFVideoEncoderSettings"
+  },
+  "Audio": {
+    "Format": 1633772320,
+    "LinearPcmBitDepth": 16,
+    "LinearPcmBigEndian": false,
+    "LinearPcmFloat": true,
+    "LinearPcmNonInterleaved": false,
+    "Quality": -1,
+    "SampleRateConverterQuality": -1,
+    "SampleRate": 48000,
+    "Channels": 2,
+    "Bitrate": -1,
+    "CodecOptions": null,
+    "Id": "00000000-0000-0000-0000-000000000002",
+    "Name": "",
+    "$type": "[Beutl.Extensions.AVFoundation].Encoding:AVFAudioEncoderSettings"
+  },
+  "Decoding": {
+    "ThresholdFrameCount": 30,
+    "ThresholdSampleCount": 30000,
+    "MaxVideoBufferSize": 8,
+    "MaxAudioBufferSize": 20,
+    "$type": "[Beutl.Extensions.AVFoundation].Decoding:AVFDecodingSettings"
+  }
+}

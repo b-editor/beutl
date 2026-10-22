@@ -1,0 +1,31 @@
+{
+  "Video": {
+    "Codec": 2,
+    "UseHardwareAcceleration": false,
+    "SourceSize": "0, 0",
+    "DestinationSize": "0, 0",
+    "FrameRate": "30",
+    "Bitrate": 6000000,
+    "KeyframeRate": 12,
+    "CodecOptions": null,
+    "Id": "00000000-0000-0000-0000-000000000001",
+    "Name": "",
+    "$type": "[Beutl.Embedding.MediaFoundation].Encoding:MFVideoEncoderSettings"
+  },
+  "Audio": {
+    "Codec": 2,
+    "BitDepth": 16,
+    "SampleRate": 48000,
+    "Channels": 2,
+    "Bitrate": 128000,
+    "CodecOptions": null,
+    "Id": "00000000-0000-0000-0000-000000000002",
+    "Name": "",
+    "$type": "[Beutl.Embedding.MediaFoundation].Encoding:MFAudioEncoderSettings"
+  },
+  "Decoding": {
+    "ThresholdFrameCount": 60,
+    "MaxVideoBufferSize": 4,
+    "$type": "[Beutl.Embedding.MediaFoundation].Decoding:MFDecodingSettings"
+  }
+}
