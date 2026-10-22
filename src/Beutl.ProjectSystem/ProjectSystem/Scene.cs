@@ -84,10 +84,10 @@ public partial class Scene : ProjectItem, INotifyEdited
     public IProperty<Elements> ChildrenProperty { get; } = new ValueOnlyProperty<Elements>(null!);
 
     [Display(Name = nameof(Strings.StartTime), ResourceType = typeof(Strings))]
-    public IProperty<TimeSpan> StartProperty { get; } = new ValueOnlyProperty<TimeSpan>(TimeSpan.Zero) { Coerce = NotNegative };
+    public IProperty<TimeSpan> StartProperty { get; } = new ValueOnlyProperty<TimeSpan>(TimeSpan.Zero) { Coerce = static (_, value) => NotNegative(value) };
 
     [Display(Name = nameof(Strings.DurationTime), ResourceType = typeof(Strings))]
-    public IProperty<TimeSpan> DurationProperty { get; } = new ValueOnlyProperty<TimeSpan>(TimeSpan.Zero) { Coerce = NotNegative };
+    public IProperty<TimeSpan> DurationProperty { get; } = new ValueOnlyProperty<TimeSpan>(TimeSpan.Zero) { Coerce = static (_, value) => NotNegative(value) };
 
     [NotAutoSerialized]
     public IProperty<CoreList<ImmutableHashSet<Guid>>> GroupsProperty { get; } = new ValueOnlyProperty<CoreList<ImmutableHashSet<Guid>>>(null!);

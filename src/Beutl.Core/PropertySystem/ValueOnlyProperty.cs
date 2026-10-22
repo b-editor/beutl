@@ -16,7 +16,7 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
 
     public string Name => _name ?? throw new InvalidOperationException("Property is not initialized.");
 
-    public Type ValueType { get; } = typeof(T);
+    public Type ValueType => typeof(T);
 
     public T DefaultValue { get; } = defaultValue;
 
@@ -40,7 +40,7 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
     internal Action? BeforeRead { get; set; }
 
     // Adjusts each value before it is validated, like KeyFrame<T>.Value with its animation's validator.
-    internal Func<T, T>? Coerce { get; init; }
+    internal Func<IProperty<T>, T, T>? Coerce { get; init; }
 
     public bool IsValueSet { get; private set; }
 
@@ -51,7 +51,7 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
     private void SetCurrentValue(T value, bool replaceEquivalent)
     {
         DocumentWriteCheck.Verify(_owner, _name);
-        var validatedValue = ValidateAndCoerce(Coerce is { } coerce ? coerce(value) : value);
+        var validatedValue = ValidateAndCoerce(Coerce is { } coerce ? coerce(this, value) : value);
         if (ValueReplacement.RequiresReplacement(_currentValue, validatedValue, replaceEquivalent))
         {
             var oldValue = _currentValue;

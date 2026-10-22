@@ -8,18 +8,17 @@ namespace Beutl.Animation;
 public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
 {
     internal static readonly Animator<T> s_animator = AnimatorRegistry.CreateAnimator<T>();
+    // Shared by every key frame of T, so that none allocates handlers of its own.
+    private static readonly EventHandler<PropertyValueChangedEventArgs<T?>> s_valueChanged =
+        static (_, e) => ((KeyFrame<T>)e.Property.GetOwnerObject()!).OnValueChanged(e);
+    private static readonly Func<IProperty<T?>, T?, T?> s_coerceValue =
+        static (property, value) => property.GetOwnerObject() is KeyFrame<T> keyFrame ? keyFrame.CoerceValue(value) : value;
 
     public KeyFrame()
     {
-        ValueProperty = new ValueOnlyProperty<T?>(s_animator.DefaultValue()) { Coerce = CoerceValue };
+        ValueProperty = new ValueOnlyProperty<T?>(s_animator.DefaultValue()) { Coerce = s_coerceValue };
         ScanProperties<KeyFrame<T>>();
-        ValueProperty.ValueChanged += OnValueChanged;
-        EasingProperty.ValueChanged += (_, _) => Edited?.Invoke(this, EventArgs.Empty);
-        KeyTimeProperty.ValueChanged += (_, _) =>
-        {
-            Edited?.Invoke(this, EventArgs.Empty);
-            KeyTimeChanged?.Invoke(this, EventArgs.Empty);
-        };
+        ValueProperty.ValueChanged += s_valueChanged;
     }
 
     public IProperty<T?> ValueProperty { get; }
@@ -88,7 +87,20 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
 
     public event EventHandler? Edited;
 
-    private void OnValueChanged(object? sender, PropertyValueChangedEventArgs<T?> e)
+    private protected override void OnEasingChanged()
+    {
+        base.OnEasingChanged();
+        Edited?.Invoke(this, EventArgs.Empty);
+    }
+
+    private protected override void OnKeyTimeChanged()
+    {
+        base.OnKeyTimeChanged();
+        Edited?.Invoke(this, EventArgs.Empty);
+        KeyTimeChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnValueChanged(PropertyValueChangedEventArgs<T?> e)
     {
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(Value)));
         Edited?.Invoke(this, EventArgs.Empty);

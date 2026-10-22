@@ -18,14 +18,19 @@ public class KeyFrame : Hierarchical
 {
     // Every key frame starts with this one easing, as the CoreProperty's default value was shared.
     private static readonly LinearEasing s_defaultEasing = new();
+    // Shared by every key frame, so that none allocates handlers of its own.
+    private static readonly EventHandler<PropertyValueChangedEventArgs<Easing>> s_easingChanged =
+        static (_, e) => ((KeyFrame)e.Property.GetOwnerObject()!).OnEasingChanged();
+    private static readonly EventHandler<PropertyValueChangedEventArgs<TimeSpan>> s_keyTimeChanged =
+        static (_, e) => ((KeyFrame)e.Property.GetOwnerObject()!).OnKeyTimeChanged();
     private Easing? _lossyFallbackEasing;
     private JsonNode? _lossyFallbackEasingJson;
 
     protected KeyFrame()
     {
         ScanProperties<KeyFrame>();
-        EasingProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Easing)));
-        KeyTimeProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(KeyTime)));
+        EasingProperty.ValueChanged += s_easingChanged;
+        KeyTimeProperty.ValueChanged += s_keyTimeChanged;
     }
 
     // Serialize and Deserialize write and read the easing themselves.
@@ -42,6 +47,10 @@ public class KeyFrame : Hierarchical
 
     [NotAutoSerialized]
     internal bool HasLossyEasing => ReferenceEquals(Easing, _lossyFallbackEasing);
+
+    private protected virtual void OnEasingChanged() => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Easing)));
+
+    private protected virtual void OnKeyTimeChanged() => OnPropertyChanged(new PropertyChangedEventArgs(nameof(KeyTime)));
 
     public TimeSpan KeyTime
     {

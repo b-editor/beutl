@@ -439,7 +439,7 @@ public abstract partial class CoreObject : ICoreObject
         foreach (IProperty property in RegisteredProperties)
         {
             // A base field that holds a list keeps that list; its owner reads the items into it.
-            if (IsAutoSerialized(property) && !(IsBaseField(property) && property.Value is ICoreList))
+            if (IsAutoSerialized(property) && !(IsBaseField(property) && typeof(ICoreList).IsAssignableFrom(property.ValueType)))
                 property.DeserializeValue(context);
         }
 

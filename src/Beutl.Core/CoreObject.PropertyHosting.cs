@@ -6,8 +6,8 @@ namespace Beutl;
 // The IProperty members of a type, which ScanProperties<T>() registers in the order the type declares them.
 public abstract partial class CoreObject : IChildObjectSource
 {
-    // The members ScanPropertiesCore reads and their names, found once per type rather than for each object.
-    private static readonly ConditionalWeakTable<Type, (PropertyInfo Info, string Name)[]> s_scannedMembers = [];
+    // The members ScanPropertiesCore reads, found once per type rather than for each object.
+    private static readonly ConditionalWeakTable<Type, ScannedMember[]> s_scannedMembers = [];
     private List<IProperty>? _properties;
 
     public virtual IReadOnlyList<IProperty> Properties => RegisteredProperties;
@@ -21,29 +21,44 @@ public abstract partial class CoreObject : IChildObjectSource
     protected virtual IEnumerable<IProperty> ScanPropertiesCore<T>() where T : CoreObject
     {
         var type = typeof(T);
-        (PropertyInfo Info, string Name)[] members = s_scannedMembers.GetValue(type, static type =>
+        ScannedMember[] members = s_scannedMembers.GetValue(type, static type =>
         [
             .. type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
                 .Where(info => typeof(IProperty).IsAssignableFrom(info.PropertyType))
-                .Select(info => (info, ToPropertyName(info.Name))),
+                .Select(info => new ScannedMember(
+                    info.Name,
+                    ToPropertyName(info.Name),
+                    PropertyReflectionCache.GetOrCreateAccessor(type, info),
+                    PropertyReflectionCache.GetOrCreateAttributes(type, info.Name, () => [.. info.GetCustomAttributes()]))),
         ]);
 
-        foreach ((PropertyInfo propertyInfo, string name) in members)
+        foreach (ScannedMember member in members)
         {
-            var func = PropertyReflectionCache.GetOrCreateAccessor(type, propertyInfo);
-            var property = func(this);
+            var property = member.Accessor(this);
             if (property == null) continue;
 
-            var attrs = PropertyReflectionCache.GetOrCreateAttributes(type, propertyInfo.Name,
-                () => [.. propertyInfo.GetCustomAttributes()]);
-            var validator = PropertyReflectionCache.GetOrCreateValidator(type, propertyInfo.Name,
-                () => property.CreateValidator(attrs));
+            member.Validator ??= PropertyReflectionCache.GetOrCreateValidator(type, member.MemberName,
+                () => property.CreateValidator(member.Attributes));
 
-            property.SetAttributes(name, attrs);
-            property.SetValidator(validator);
+            property.SetAttributes(member.Name, member.Attributes);
+            property.SetValidator(member.Validator);
             property.SetOwnerObject(this);
             yield return property;
         }
+    }
+
+    // The validator is made from the first object's property: every object of the type gets the same one.
+    private sealed class ScannedMember(string memberName, string name, Func<object, IProperty?> accessor, Attribute[] attributes)
+    {
+        public string MemberName { get; } = memberName;
+
+        public string Name { get; } = name;
+
+        public Func<object, IProperty?> Accessor { get; } = accessor;
+
+        public Attribute[] Attributes { get; } = attributes;
+
+        public Validation.IValidator? Validator { get; set; }
     }
 
     // A property exposed as XxxProperty, beside a value accessor Xxx, is registered, saved and recorded as Xxx.

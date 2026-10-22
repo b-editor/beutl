@@ -27,14 +27,14 @@ public class SceneMarker : Hierarchical
     [Display(Name = nameof(Strings.StartTime), ResourceType = typeof(Strings))]
     public IProperty<TimeSpan> TimeProperty { get; } = new ValueOnlyProperty<TimeSpan>(TimeSpan.Zero)
     {
-        Coerce = value => value < TimeSpan.Zero ? TimeSpan.Zero : value
+        Coerce = static (_, value) => value < TimeSpan.Zero ? TimeSpan.Zero : value
     };
 
     public IProperty<Color> ColorProperty { get; } = new ValueOnlyProperty<Color>(Colors.Yellow);
 
     public IProperty<string> NoteProperty { get; } = new ValueOnlyProperty<string>(string.Empty)
     {
-        Coerce = value => value ?? string.Empty
+        Coerce = static (_, value) => value ?? string.Empty
     };
 
     public TimeSpan Time
