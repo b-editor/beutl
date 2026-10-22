@@ -1,10 +1,13 @@
 ﻿using System.Reactive.Disposables;
+using System.Reactive.Linq;
 
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+
+using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -106,6 +109,12 @@ public abstract class VectorEditorBase : PropertyEditor
         }
 
         UpdateErrors();
+    }
+
+    // Shows one component of the context's value in property.
+    private protected void BindComponent<T>(AvaloniaProperty<T> property, IObservable<T> values, CompositeDisposable connection)
+    {
+        Bind(property, values.DistinctUntilChanged().ToBinding()).DisposeWith(connection);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)

@@ -19,12 +19,6 @@ public sealed class NumberEditorViewModel<T>(IPropertyAdapter<T> property) : Val
                     editor.SmallChange = small;
                 },
                 format => editor.NumberFormat = format);
-
-            AttachValueBindings(
-                editor,
-                NumberEditor<T>.ValueProperty,
-                static ed => ed.Value,
-                static (ed, v) => ed.Value = v);
         }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Media;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -8,7 +9,7 @@ using AM = Avalonia.Media;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
-public class GradientStopsEditorViewModel : BaseEditorViewModel<ICoreList<GradientStop>>
+public class GradientStopsEditorViewModel : PropertyEditorViewModel<ICoreList<GradientStop>>
 {
     private IDisposable? _disposable;
 

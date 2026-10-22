@@ -11,6 +11,7 @@ using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics.Shapes;
@@ -44,7 +45,7 @@ public sealed class GradientStopDragTests
         var playing = new ReactivePropertySlim<bool>(false);
         var player = new Mock<IPreviewPlayer>();
         player.SetupGet(x => x.IsPlaying).Returns(playing);
-        (BaseEditorViewModel viewModel, Control editor) = CreateControl(
+        (PropertyEditorViewModel viewModel, Control editor) = CreateControl(
             new EnginePropertyAdapter<ICoreList<GradientStop>>(brush.GradientStops, brush));
         viewModel.Accept(new ServiceVisitor((typeof(HistoryManager), history.History), (typeof(IPreviewPlayer), player.Object)));
         var window = new Window { Content = editor, Width = 400, Height = 200 };

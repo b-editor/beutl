@@ -1,9 +1,16 @@
-﻿using Avalonia;
+﻿using System.Reactive.Disposables;
+using System.Reactive.Linq;
+
+using Avalonia;
 using Avalonia.Data;
+using Avalonia.Interactivity;
+
+using Beutl.Extensibility;
+using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class RelativePointEditor : Vector2Editor
+public class RelativePointEditor : Vector2Editor, IValueEditorControl<Graphics.RelativePoint>
 {
     public static readonly DirectProperty<RelativePointEditor, float> FirstValueProperty =
         Vector4Editor<float>.FirstValueProperty.AddOwner<RelativePointEditor>(
@@ -52,5 +59,25 @@ public class RelativePointEditor : Vector2Editor
     {
         get => _values.Unit;
         set => _values.SetUnit(value);
+    }
+
+    public void Connect(IValueEditorContext<Graphics.RelativePoint> context)
+    {
+        CompositeDisposable connection = StartConnection();
+        BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Point.X), connection);
+        BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Point.Y), connection);
+        BindComponent(UnitProperty, context.EditValue.Select(v => v.Unit), connection);
+        this.AddDisposableHandler(ValueChangedEvent, (_, e) =>
+            {
+                if (e is PropertyEditorValueChangedEventArgs<Graphics.RelativePoint> args)
+                {
+                    Graphics.RelativePoint coerced = context.PreviewEdit(args.NewValue);
+                    FirstValue = coerced.Point.X;
+                    SecondValue = coerced.Point.Y;
+                    Unit = coerced.Unit;
+                }
+            })
+            .DisposeWith(connection);
+        ConfirmEdits(context, connection);
     }
 }

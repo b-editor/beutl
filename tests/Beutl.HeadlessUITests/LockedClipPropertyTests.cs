@@ -8,6 +8,7 @@ using Beutl.Audio.Effects;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.ElementPropertyTab.Views;
+using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Services;
@@ -53,7 +54,7 @@ public class LockedClipPropertyTests
 
         var property = WidthEditor(tab, shape);
         var number = new NumberEditor<float>();
-        property.Accept(number);
+        PropertyEditorControls.Attach(property, number);
         editor.HistoryManager.Commit("test setup");
         int before = editor.HistoryManager.UndoCount;
         Assert.Multiple(() =>

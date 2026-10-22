@@ -21,7 +21,7 @@ public partial class PropertiesEditor : UserControl
         {
             if (value is IPropertyEditorContext viewModel)
             {
-                if (viewModel.Extension.TryCreateControlForSettings(viewModel, out var control))
+                if (PropertyEditorHost.TryCreateControl(viewModel, PropertyEditorSurface.Settings, out var control))
                 {
                     return control;
                 }

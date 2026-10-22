@@ -7,6 +7,8 @@ using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Collections;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.PropertyEditors.Services;
+using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.Extensions.FFmpeg.Properties;
 using Beutl.Extensions.FFmpeg.PropertyEditors;
@@ -69,7 +71,7 @@ public sealed class EncoderOptionsEditorTests
 
             Assert.That(settings.Options.Single().Name, Is.EqualTo(editName ? text : "crf"));
             Assert.That(settings.Options.Single().Value, Is.EqualTo(editName ? "22" : text));
-            Assert.That(view.GetVisualDescendants().OfType<StringEditor>().Any(c => c.Text == text), Is.True);
+            Assert.That(view.GetVisualDescendants().OfType<StringEditorBase>().Any(c => c.Text == text), Is.True);
         }
         finally
         {
@@ -300,9 +302,9 @@ public sealed class EncoderOptionsEditorTests
         await PrimeSchema(settings, schema);
         var extension = new FFmpegEncoderSpecializedPropertyExtension();
         var adapter = new EnginePropertyAdapter<CoreList<AdditionalOption>>(settings.OptionsProperty, settings);
-        Assert.That(extension.TryCreateContext([adapter], out var context), Is.True);
+        IPropertyEditorContext? context = PropertyEditorResolver.CreateContext(adapter, [extension], PropertyEditorSurface.Panel);
         using var model = (EncoderOptionsEditorViewModel)context!;
-        Assert.That(extension.TryCreateControl(model, out var control), Is.True);
+        Assert.That(PropertyEditorHost.TryCreateControl(model, PropertyEditorSurface.Panel, out var control), Is.True);
         Control view = control!;
         var window = new Window
         {

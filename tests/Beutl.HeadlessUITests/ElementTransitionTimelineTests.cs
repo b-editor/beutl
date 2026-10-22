@@ -14,6 +14,7 @@ using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Components.TransitionTab.ViewModels;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics.Transitions;
@@ -95,7 +96,7 @@ public class ElementTransitionTimelineTests
             HeadlessTestHelpers.Settle(3);
             string? typeName = transitionEditor.TypeName.Value;
             bool showsDirection = transitionEditor.Properties.Value?.Properties
-                .OfType<BaseEditorViewModel>()
+                .OfType<PropertyEditorViewModel>()
                 .Any(item => item.Header == GraphicsStrings.Direction) == true;
             Type? exitAfterChange = outgoing.Model.ExitTransition?.GetType();
             int undoAfterChange = editor.HistoryManager.UndoCount;
@@ -286,7 +287,7 @@ public class ElementTransitionTimelineTests
             HeadlessTestHelpers.Settle(3);
 
             incoming.EditTransition(ElementEdge.Start);
-            BaseEditorViewModel unlocked = EditorOf(editor);
+            PropertyEditorViewModel unlocked = EditorOf(editor);
             bool readOnlyWhileUnlocked = !unlocked.CanEdit.Value;
             bool typeEditableWhileUnlocked = TransitionTabOf(editor).CanEdit.Value;
             incoming.Model.IsLocked = true;
@@ -311,7 +312,7 @@ public class ElementTransitionTimelineTests
             TimelineTestHost.Close(view, window);
         }
 
-        static BaseEditorViewModel EditorOf(EditViewModel editor)
+        static PropertyEditorViewModel EditorOf(EditViewModel editor)
             => TransitionTabOf(editor).Properties.Value!.Properties
                 .OfType<EasingEditorViewModel<Easing>>()
                 .Single();

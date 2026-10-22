@@ -3,6 +3,7 @@ using Beutl.Api.Services;
 using Beutl.Audio;
 using Beutl.Audio.Effects;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Extensibility;
 using Beutl.PropertyAdapters;
 
@@ -17,7 +18,7 @@ public class AudioEffectEditorViewModelTests
         var sound = new SourceSound();
         sound.Effect.Value = new DelayEffect();
         AudioEffectEditorViewModel viewModel = CreateExpanded(sound);
-        BaseEditorViewModel[] children = [.. viewModel.Properties.Value!.Properties.OfType<BaseEditorViewModel>()];
+        PropertyEditorViewModel[] children = [.. viewModel.Properties.Value!.Properties.OfType<PropertyEditorViewModel>()];
         Assert.That(children, Is.Not.Empty);
 
         viewModel.Dispose();

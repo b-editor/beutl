@@ -4,7 +4,7 @@
                     xmlns:pe="using:Beutl.Controls.PropertyEditors">
     <ControlTheme x:Key="MinimalNumberEditor"
                   BasedOn="{StaticResource {x:Type pe:StringEditor}}"
-                  TargetType="pe:StringEditor">
+                  TargetType="pe:StringEditorBase">
         <Setter Property="MinWidth" Value="0" />
         <Setter Property="Margin" Value="0" />
         <Setter Property="Template">

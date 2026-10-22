@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
+using Beutl.Extensibility;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -15,7 +16,7 @@ public class EnumItem(string? displayName, string? description, object value)
     public object Value { get; } = value;
 }
 
-public class EnumEditor : PropertyEditor
+public class EnumEditor : PropertyEditor, IValueEditorControl<int>
 {
     public static readonly StyledProperty<IReadOnlyList<EnumItem>?> ItemsProperty =
         AvaloniaProperty.Register<EnumEditor, IReadOnlyList<EnumItem>?>(nameof(Items));
@@ -40,6 +41,8 @@ public class EnumEditor : PropertyEditor
     }
 
     private ComboBox InnerComboBox { get; set; } = null!;
+
+    public void Connect(IValueEditorContext<int> context) => ConnectConfirmedValue(context, SelectedIndexProperty);
 
     private int PrevSelectedIndex { get; set; }
 

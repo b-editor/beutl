@@ -15,7 +15,7 @@ public enum DispMapTransformType
     Scale
 }
 
-public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewModel<DisplacementMapTransform?>
+public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewModel<DisplacementMapTransform?>, IObjectEditorCommands
 {
     private static DispMapTransformType GetTransformType(DisplacementMapTransform? obj)
     {
@@ -82,9 +82,11 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
 
     }
 
-    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
+    public IReadOnlyReactiveProperty<bool> CanCopy { get; }
 
-    protected override DataFormat<string>? PasteFormat => BeutlDataFormats.EngineObject;
+    public ReactivePropertySlim<bool> CanPaste { get; } = new();
+
+    DataFormat<string>? IObjectEditorCommands.PasteFormat => BeutlDataFormats.EngineObject;
 
     private ReadOnlyReactivePropertySlim<DispMapTransformType> TransformType { get; }
 
@@ -115,9 +117,9 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
         SetValue(Value.Value, obj);
     }
 
-    protected override ICoreSerializable? GetCopyTarget() => Value.Value;
+    public ICoreSerializable? GetCopyTarget() => Value.Value;
 
-    public override bool TryPasteJson(string json)
+    public bool TryPasteJson(string json)
     {
         if (!IsElementEditable) return false;
         if (!CoreObjectClipboard.TryDeserializeJson<DisplacementMapTransform>(json, out var pasted)) return false;

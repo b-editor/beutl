@@ -1,7 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-
-using Avalonia.Controls;
-using Beutl.Editor.Components.PropertyEditors.ViewModels;
+﻿using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
@@ -12,47 +9,21 @@ public sealed class ScriptEditorExtension : PropertyEditorExtension
 {
     public static new readonly ScriptEditorExtension Instance = new();
 
-    public override IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
+    // Without a node control, a node shows the built-in multiline string editor.
+    protected internal override void RegisterEditors(PropertyEditorRegistry registry)
     {
-        return [.. properties.Where(MatchProperty)];
+        registry.Register<string?, ScriptEditorViewModel>(
+            p => new ScriptEditorViewModel(p),
+            _ => new ScriptEditor(),
+            new PropertyEditorOptions { Match = IsScriptProperty });
     }
 
-    private static bool MatchProperty(IPropertyAdapter p)
+    private static bool IsScriptProperty(IPropertyAdapter p)
     {
         IProperty? engineProperty = p.GetEngineProperty();
         return p.PropertyType == typeof(string)
             && ((p.ImplementedType == typeof(GLSLScriptEffect) && engineProperty?.Name == nameof(GLSLScriptEffect.FragmentShader))
             || (p.ImplementedType == typeof(SKSLScriptEffect) && engineProperty?.Name == nameof(SKSLScriptEffect.Script))
             || (p.ImplementedType == typeof(CSharpScriptEffect) && engineProperty?.Name == nameof(CSharpScriptEffect.Script)));
-    }
-
-    public override bool TryCreateContext(IReadOnlyList<IPropertyAdapter> properties,
-        [NotNullWhen(true)] out IPropertyEditorContext? context)
-    {
-        if (properties.Count == 1
-            && properties[0] is IPropertyAdapter<string?> stringProp
-            && MatchProperty(stringProp))
-        {
-            context = new ScriptEditorViewModel(stringProp)
-            {
-                Extension = this
-            };
-            return true;
-        }
-
-        context = null;
-        return false;
-    }
-
-    public override bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
-    {
-        if (context is ScriptEditorViewModel)
-        {
-            control = new ScriptEditor();
-            return true;
-        }
-
-        control = null;
-        return false;
     }
 }

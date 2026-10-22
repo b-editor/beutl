@@ -2,6 +2,7 @@
 using Avalonia.Input;
 using Beutl.Animation;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -13,7 +14,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
-public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectViewModel
+public sealed class BrushEditorViewModel : PropertyEditorViewModel, IFallbackObjectViewModel, IObjectEditorCommands
 {
     private IDisposable? _revoker;
     private Action? _update;
@@ -85,13 +86,15 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public ReadOnlyReactivePropertySlim<PropertiesEditorViewModel?> ChildContext { get; }
 
-    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
+    public IReadOnlyReactiveProperty<bool> CanCopy { get; }
 
-    public override IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => CanCopy;
+    public ReactivePropertySlim<bool> CanPaste { get; } = new();
 
-    protected override Type? TemplateBaseType => typeof(Brush);
+    public IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => CanCopy;
 
-    protected override DataFormat<string>? PasteFormat => BeutlDataFormats.Brush;
+    Type? IObjectEditorCommands.TemplateBaseType => typeof(Brush);
+
+    DataFormat<string>? IObjectEditorCommands.PasteFormat => BeutlDataFormats.Brush;
 
     public ReadOnlyReactivePropertySlim<bool> IsSolid { get; }
 
@@ -169,12 +172,12 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
             : (Brush?)PropertyAdapter.GetValue();
     }
 
-    protected override ICoreSerializable? GetCopyTarget()
+    public ICoreSerializable? GetCopyTarget()
         => Value.Value is Brush brush and not FallbackBrush ? brush : null;
 
-    protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
+    public ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
 
-    public override bool ApplyTemplate(ObjectTemplateItem template)
+    public bool ApplyTemplate(ObjectTemplateItem template)
     {
         // SetValue checks the value it replaces.
         if (!CanReplaceContent) return false;
@@ -184,7 +187,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         return true;
     }
 
-    public override bool TryPasteJson(string json)
+    public bool TryPasteJson(string json)
     {
         // SetValue checks the value it replaces.
         if (!CanReplaceContent) return false;

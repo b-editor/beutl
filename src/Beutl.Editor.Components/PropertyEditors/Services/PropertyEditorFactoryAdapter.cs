@@ -7,17 +7,13 @@ namespace Beutl.Editor.Components.PropertyEditors.Services;
 internal sealed class PropertyEditorFactoryAdapter(ExtensionProvider extensionProvider) : IPropertyEditorFactory
 {
     public IPropertyEditorContext? CreateEditor(IPropertyAdapter property)
-    {
-        var (props, ext) = CoreObjectPropertyEditorBuilder.MatchProperty([property], extensionProvider);
-        return props != null && ext != null
-            ? ExtensionGuard.Call(ext, () => ext.TryCreateContext(props, out IPropertyEditorContext? ctx) ? ctx : null)
-            : null;
-    }
+        => PropertyEditorResolver.CreateContext(property, Extensions, PropertyEditorSurface.Panel);
 
-    public (IPropertyAdapter[]? Properties, PropertyEditorExtension? Extension) MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
-    {
-        return CoreObjectPropertyEditorBuilder.MatchProperty(properties, extensionProvider);
-    }
+    public IPropertyEditorContext? CreateNodeEditor(IPropertyAdapter property)
+        => PropertyEditorResolver.CreateContext(property, Extensions, PropertyEditorSurface.Node);
+
+    public IPropertyEditorContext? CreateListItemEditor(IPropertyAdapter property)
+        => PropertyEditorResolver.CreateContext(property, Extensions, PropertyEditorSurface.ListItem);
 
     public IReadOnlyList<IPropertyEditorContext?> CreatePropertyEditorContexts(
         IReadOnlyList<IPropertyAdapter> properties,
@@ -35,4 +31,6 @@ internal sealed class PropertyEditorFactoryAdapter(ExtensionProvider extensionPr
         CoreObjectPropertyEditorBuilder.GroupByDisplayGroupName(tempItems);
         return tempItems;
     }
+
+    private PropertyEditorExtension[] Extensions => extensionProvider.GetExtensions<PropertyEditorExtension>();
 }

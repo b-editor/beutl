@@ -19,6 +19,7 @@ using Beutl.Editor.Components.PathEditorTab.Views;
 using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics.Shapes;
@@ -206,7 +207,7 @@ public class PathEditorInteractionTests
         Assert.That(view.GetSelectedAnchors(), Has.Length.EqualTo(2));
         Assert.That(Active(), Is.SameAs(editor.Figure.Segments[0]));
         if (!preview)
-            Assert.That(((BaseEditorViewModel)editor.Model.PointProperties.Value[0]).PropertyAdapter.GetEngineProperty(),
+            Assert.That(((PropertyEditorViewModel)editor.Model.PointProperties.Value[0]).PropertyAdapter.GetEngineProperty(),
                 Is.SameAs(editor.Figure.Segments[0].GetEndPoint()));
         ClickAnchor(1, modifiers);
         Assert.That(Active(), Is.SameAs(editor.Figure.Segments[1]));
@@ -1179,7 +1180,7 @@ public class PathEditorInteractionTests
         var properties = editor.Model.PointProperties.Value;
         var controls = list.GetVisualDescendants().OfType<Vector2Editor<float>>().ToArray();
         var next = (CubicBezierSegment)editor.Figure.Segments[2];
-        Assert.That(controls.Select(c => ((BaseEditorViewModel)c.DataContext!).PropertyAdapter.GetEngineProperty()),
+        Assert.That(controls.Select(c => ((PropertyEditorViewModel)c.DataContext!).PropertyAdapter.GetEngineProperty()),
             Is.EqualTo(new Beutl.IProperty[] { curve.EndPoint, curve.ControlPoint2, next.ControlPoint1 }));
         Assert.That(controls.Select(c => c.Header), Is.EqualTo(new[]
         {
@@ -1190,15 +1191,15 @@ public class PathEditorInteractionTests
             Assert.That(control.EditorStyle, Is.EqualTo(PropertyEditorStyle.Normal));
             Assert.That(control.MenuContent, Is.TypeOf<PropertyEditorMenu>());
             Assert.That(control.Margin, Is.EqualTo(new Thickness(4, 0)));
-            Assert.That(((BaseEditorViewModel)control.DataContext!).GetService(typeof(Element)),
+            Assert.That(((PropertyEditorViewModel)control.DataContext!).GetService(typeof(Element)),
                 Is.SameAs(editor.Model.Element.Value));
         }
         Assert.That(editor.View.FindControl<Border>("PointProperties")!.Padding.Left, Is.Zero);
         Assert.That(editor.View.FindControl<Vector2Editor<float>>("PointPosition")!.IsVisible, Is.False);
 
         var controlPoint = controls.Single(c => ReferenceEquals(
-            ((BaseEditorViewModel)c.DataContext!).PropertyAdapter.GetEngineProperty(), curve.ControlPoint2));
-        var context = (BaseEditorViewModel)controlPoint.DataContext!;
+            ((PropertyEditorViewModel)c.DataContext!).PropertyAdapter.GetEngineProperty(), curve.ControlPoint2));
+        var context = (PropertyEditorViewModel)controlPoint.DataContext!;
         var input = controlPoint.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "PART_InnerFirstTextBox");
         int undo = editor.Editor.HistoryManager.UndoCount;
         BtlPoint previous = curve.ControlPoint2.Value;
@@ -1237,7 +1238,7 @@ public class PathEditorInteractionTests
         Assert.That(controlPoint.MenuContent, Is.SameAs(menu));
         editor.Click(80, 100);
         Assert.That(context.IsDisposed, Is.True);
-        Assert.That(((BaseEditorViewModel)editor.Model.PointProperties.Value[0]).PropertyAdapter.GetEngineProperty(),
+        Assert.That(((PropertyEditorViewModel)editor.Model.PointProperties.Value[0]).PropertyAdapter.GetEngineProperty(),
             Is.SameAs(editor.Figure.Segments[0].GetEndPoint()));
     }
 
@@ -1255,8 +1256,8 @@ public class PathEditorInteractionTests
         editor.Click(point.X, point.Y);
         Assert.That(editor.Model.SelectedOperation.Value, Is.SameAs(anchor));
         Assert.That(editor.Model.PointProperties.Value, Is.SameAs(properties));
-        Assert.That(((BaseEditorViewModel)properties[0]).PropertyAdapter.GetEngineProperty(), Is.SameAs(anchor.GetEndPoint()));
-        Assert.That(((BaseEditorViewModel)properties[2]).PropertyAdapter.GetEngineProperty(), Is.SameAs(outgoing.ControlPoint1));
+        Assert.That(((PropertyEditorViewModel)properties[0]).PropertyAdapter.GetEngineProperty(), Is.SameAs(anchor.GetEndPoint()));
+        Assert.That(((PropertyEditorViewModel)properties[2]).PropertyAdapter.GetEngineProperty(), Is.SameAs(outgoing.ControlPoint1));
     }
 
     [AvaloniaTest]
@@ -1303,7 +1304,7 @@ public class PathEditorInteractionTests
         Assert.That(editor.View.GetSelectedAnchors(), Has.Length.EqualTo(2));
         Assert.That(editor.Model.SelectedOperation.Value, Is.SameAs(editor.Figure.Segments[0]));
         Assert.That(editor.Model.PointProperties.Value, Has.Count.EqualTo(2));
-        Assert.That(((BaseEditorViewModel)editor.Model.PointProperties.Value[1]).PropertyAdapter.GetEngineProperty(),
+        Assert.That(((PropertyEditorViewModel)editor.Model.PointProperties.Value[1]).PropertyAdapter.GetEngineProperty(),
             Is.SameAs(next.ControlPoint1));
     }
 
@@ -1316,7 +1317,7 @@ public class PathEditorInteractionTests
         editor.Key(Key.V);
         var anchor = (CubicBezierSegment)editor.Figure.Segments[1];
         var next = (CubicBezierSegment)editor.Figure.Segments[2];
-        var outgoingEditor = (BaseEditorViewModel)editor.Model.PointProperties.Value[2];
+        var outgoingEditor = (PropertyEditorViewModel)editor.Model.PointProperties.Value[2];
         editor.Editor.HistoryManager.ExecuteInTransaction(() =>
             editor.Figure.Segments[2] = new LineSegment(280, 180));
         HeadlessTestHelpers.Render(3);
@@ -1326,7 +1327,7 @@ public class PathEditorInteractionTests
         editor.Editor.HistoryManager.Undo();
         HeadlessTestHelpers.Render(3);
         Assert.That(editor.Model.PointProperties.Value, Has.Count.EqualTo(3));
-        Assert.That(((BaseEditorViewModel)editor.Model.PointProperties.Value[2]).PropertyAdapter.GetEngineProperty(),
+        Assert.That(((PropertyEditorViewModel)editor.Model.PointProperties.Value[2]).PropertyAdapter.GetEngineProperty(),
             Is.SameAs(next.ControlPoint1));
     }
 
@@ -1649,7 +1650,7 @@ public class PathEditorInteractionTests
         editor.Figure.IsClosed.Value = true;
         HeadlessTestHelpers.Render(3);
         Assert.That(editor.Model.PointProperties.Value, Has.Count.EqualTo(3));
-        Assert.That(((BaseEditorViewModel)editor.Model.PointProperties.Value[2]).PropertyAdapter.GetEngineProperty(),
+        Assert.That(((PropertyEditorViewModel)editor.Model.PointProperties.Value[2]).PropertyAdapter.GetEngineProperty(),
             Is.SameAs(first.ControlPoint1));
         Assert.That(editor.View.FindThumb(first, first.ControlPoint1)!.IsVisible, Is.True);
         editor.Figure.IsClosed.Value = false;

@@ -1,94 +1,28 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿namespace Beutl.Extensibility;
 
-using Avalonia.Controls;
-
-namespace Beutl.Extensibility;
-
-internal interface IPropertyEditorExtensionImpl
-{
-    IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties);
-
-    bool TryCreateContext(PropertyEditorExtension extension, IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context);
-
-    bool TryCreateContextForNode(PropertyEditorExtension extension, IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context);
-
-    bool TryCreateContextForListItem(PropertyEditorExtension extension, IPropertyAdapter property, [NotNullWhen(true)] out IPropertyEditorContext? context);
-
-    bool TryCreateContextForSettings(PropertyEditorExtension extension, IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context);
-
-    bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control);
-
-    bool TryCreateControlForNode(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control);
-
-    bool TryCreateControlForListItem(IPropertyEditorContext context, [NotNullWhen(true)] out IListItemEditor? control);
-
-    bool TryCreateControlForSettings(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control);
-}
-
+// Adds property editors: RegisterEditors registers them, and Beutl chooses among the editors of all extensions.
 public class PropertyEditorExtension : Extension
 {
+    // Holds the built-in editors.
     public static readonly PropertyEditorExtension Instance = new();
 
-    private static IPropertyEditorExtensionImpl? s_defaultHandler;
-
-    internal static IPropertyEditorExtensionImpl DefaultHandler
-    {
-        get => s_defaultHandler!;
-        set => s_defaultHandler ??= value;
-    }
+    private PropertyEditorRegistry? _registry;
 
     public override string Name => "";
 
     public override string DisplayName => "";
 
-    public virtual IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
+    // Registers this extension's editors; called once, before the host first uses them.
+    protected internal virtual void RegisterEditors(PropertyEditorRegistry registry)
     {
-        return DefaultHandler.MatchProperty(properties);
     }
 
-    public virtual bool TryCreateContext(IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
+    internal PropertyEditorRegistry Registry => LazyInitializer.EnsureInitialized(ref _registry, () =>
     {
-        return DefaultHandler.TryCreateContext(this, properties, out context);
-    }
-
-    public virtual bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
-    {
-        return DefaultHandler.TryCreateControl(context, out control);
-    }
-
-    public virtual bool TryCreateContextForNode(IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
-    {
-        return DefaultHandler.TryCreateContextForNode(this, properties, out context);
-    }
-
-    public virtual bool TryCreateControlForNode(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
-    {
-        return DefaultHandler.TryCreateControlForNode(context, out control);
-    }
-
-    public virtual bool TryCreateContextForListItem(
-        IPropertyAdapter property,
-        [NotNullWhen(true)] out IPropertyEditorContext? context)
-    {
-        return DefaultHandler.TryCreateContextForListItem(this, property, out context);
-    }
-
-    public virtual bool TryCreateControlForListItem(
-        IPropertyEditorContext context,
-        [NotNullWhen(true)] out IListItemEditor? control)
-    {
-        return DefaultHandler.TryCreateControlForListItem(context, out control);
-    }
-
-    public virtual bool TryCreateContextForSettings(IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
-    {
-        return DefaultHandler.TryCreateContextForSettings(this, properties, out context);
-    }
-
-    public virtual bool TryCreateControlForSettings(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
-    {
-        return DefaultHandler.TryCreateControlForSettings(context, out control);
-    }
+        var registry = new PropertyEditorRegistry(this);
+        RegisterEditors(registry);
+        return registry;
+    });
 }
 
 public interface IPropertyEditorContextVisitor

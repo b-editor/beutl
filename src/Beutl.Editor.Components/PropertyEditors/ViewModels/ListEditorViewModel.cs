@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -99,11 +100,7 @@ public sealed class ListItemEditorViewModel<TItem> : IDisposable, IListItemEdito
         Parent = parent;
         ItemAccessor = itemAccessor;
 
-        var tmp = new IPropertyAdapter[] { itemAccessor };
-        (_, PropertyEditorExtension? ext) = factory.MatchProperty(tmp);
-        if (ext != null
-            && ExtensionGuard.Call(ext, () => ext.TryCreateContextForListItem(itemAccessor, out IPropertyEditorContext? created) ? created : null)
-                is { } context)
+        if (factory.CreateListItemEditor(itemAccessor) is { } context)
         {
             Context = context;
         }
@@ -136,7 +133,7 @@ public sealed class ListItemEditorViewModel<TItem> : IDisposable, IListItemEdito
     }
 }
 
-public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEditorViewModel
+public sealed class ListEditorViewModel<TItem> : PropertyEditorViewModel, IListEditorViewModel
 {
     private static readonly NotifyCollectionChangedEventArgs s_resetCollectionChanged =
         new(NotifyCollectionChangedAction.Reset);

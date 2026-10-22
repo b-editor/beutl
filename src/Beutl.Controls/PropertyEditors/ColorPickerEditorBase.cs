@@ -4,11 +4,12 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Beutl.Extensibility;
 
 namespace Beutl.Controls.PropertyEditors;
 
 // The value, picker button, flyout and live-preview wiring that ColorEditor and GradingColorEditor share.
-public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : PropertyEditor
+public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : PropertyEditor, IValueEditorControl<TColor>
     where TPicker : Control, new()
     where TFlyout : DraggablePickerFlyout<TPicker>, new()
 {
@@ -64,6 +65,8 @@ public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : Property
     }
 
     private protected TFlyout? Flyout => _flyout;
+
+    public void Connect(IValueEditorContext<TColor> context) => ConnectValue(context, ValueProperty);
 
     private protected abstract IBrush CreatePreviewBrush(TColor value);
 

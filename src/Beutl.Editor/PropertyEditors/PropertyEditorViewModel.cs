@@ -1,33 +1,32 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Reactive.Disposables;
+using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
-using Avalonia;
-using Avalonia.Data;
-using Avalonia.Input;
-using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
-using Beutl.Controls.PropertyEditors;
-using Beutl.Editor;
-using Beutl.Editor.Components.Helpers;
+using Beutl.Api.Services;
 using Beutl.Editor.Services;
-using Beutl.Engine.Expressions;
+using Beutl.Extensibility;
+using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
-using Beutl.Serialization;
+using Beutl.Reactive;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
+namespace Beutl.Editor.PropertyEditors;
 
-public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProvider
+// The view model of a property editor, without Avalonia: the host binds its control and adds the menu.
+public abstract class PropertyEditorViewModel : IPropertyEditorContext, IServiceProvider
 {
     protected readonly ILogger Logger;
-    private readonly Subject<TimeSpan> _currentTime;
+    private readonly BehaviorSubject<TimeSpan> _currentTime;
+    private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
     protected CompositeDisposable Disposables = [];
     private IDisposable? _currentFrameRevoker;
     private bool _skipKeyFrameIndexSubscription;
@@ -41,9 +40,9 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     private IServiceProvider? _parentServices;
     private IPropertyEditorControlHost? _propertyEditorControlHost;
     // The ExtensionProvider Accept injects; editors that build child contexts wait for it.
-    private readonly ReactivePropertySlim<Beutl.Api.Services.ExtensionProvider?> _extensionProvider = new();
+    private readonly ReactivePropertySlim<ExtensionProvider?> _extensionProvider = new();
 
-    protected BaseEditorViewModel(IPropertyAdapter property)
+    protected PropertyEditorViewModel(IPropertyAdapter property)
     {
         Logger = Log.CreateLogger(GetType());
         PropertyAdapter = property;
@@ -58,9 +57,10 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             .Subscribe(value => HoverInfo.Value = value)
             .DisposeWith(Disposables);
 
-        // Complete during disposal so stale clock writes are ignored.
-        _currentTime = new Subject<TimeSpan>();
-        CurrentTime = _currentTime.Publish(TimeSpan.Zero).RefCount();
+        // Keeps the clock's last time for a value subscribed after Accept; completes during disposal so stale clock
+        // writes are ignored.
+        _currentTime = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
+        CurrentTime = _currentTime.AsObservable();
 
         IObservable<bool> hasAnimation = property is IAnimatablePropertyAdapter anm
             ? anm.ObserveAnimation.Select(x => x != null)
@@ -121,16 +121,17 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         }
     }
 
-    ~BaseEditorViewModel()
+    ~PropertyEditorViewModel()
     {
         if (IsDisposed) return;
 
         Logger.LogWarning("Finalizer called on {TypeName}", GetType().Name);
-        Dispatcher.UIThread.Post(() =>
+        // Disposed on the thread that created it, as its subscriptions expect.
+        _synchronizationContext?.Post(_ =>
         {
             Dispose(false);
             IsDisposed = true;
-        });
+        }, null);
     }
 
     public bool IsDisposed { get; private set; }
@@ -185,7 +186,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public ReadOnlyReactiveProperty<bool> HasExpression { get; }
 
-    public ReactivePropertySlim<FluentIcons.Common.IconVariant> SymbolIconVariant { get; } = new(FluentIcons.Common.IconVariant.Regular);
+    // True while the playhead sits on a keyframe; the menu fills its keyframe icon.
+    public ReactivePropertySlim<bool> IsAtKeyFrame { get; } = new();
 
     public ReactivePropertySlim<IKeyFrame?> EditingKeyFrame { get; } = new();
 
@@ -201,8 +203,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     {
         if (_element is not null)
         {
-            Beutl.Editor.Services.ElementRecoveryService.TryCompleteRepair(
-                _element, this.GetRequiredService<HistoryManager>());
+            ElementRecoveryService.TryCompleteRepair(_element, this.GetRequiredService<HistoryManager>());
         }
     }
 
@@ -266,7 +267,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         }
     }
 
-    // Fills the keyframe icon when the playhead sits on a keyframe, and moves the index slider to it.
+    // Marks the playhead sitting on a keyframe, and moves the index slider to it.
     private void UpdateKeyFrameIndicator((TimeSpan First, KeyFrames? Second) t)
     {
         if (GetAnimation() is { } animation)
@@ -279,13 +280,11 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
             keyTime = keyTime.RoundToRate(rate);
 
-            SymbolIconVariant.Value = t.Second?.Any(obj => obj.KeyTime == keyTime) ?? false
-                ? FluentIcons.Common.IconVariant.Filled
-                : FluentIcons.Common.IconVariant.Regular;
+            IsAtKeyFrame.Value = t.Second?.Any(obj => obj.KeyTime == keyTime) ?? false;
             if (t.Second != null)
             {
                 float kfIndex = t.Second.IndexAtOrCount(keyTime);
-                if (SymbolIconVariant.Value != FluentIcons.Common.IconVariant.Filled)
+                if (!IsAtKeyFrame.Value)
                     kfIndex -= 0.5f;
 
                 _skipKeyFrameIndexSubscription = KeyFrameIndex.Value != kfIndex;
@@ -314,7 +313,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                     .Subscribe(canReplace => _canReplaceAnimation.Value = canReplace)
                 : null;
             _clock = serviceProvider.GetService<IEditorClock>();
-            _extensionProvider.Value = serviceProvider.GetService<Beutl.Api.Services.ExtensionProvider>();
+            _extensionProvider.Value = serviceProvider.GetService<ExtensionProvider>();
 
             if (_clock != null)
             {
@@ -342,18 +341,6 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                 }
             }
         }
-        else if (visitor is PropertyEditor editor)
-        {
-            editor[!PropertyEditor.IsReadOnlyProperty] = CanEdit.Inverse().ToBinding();
-            editor.Header = Header;
-            editor[!PropertyEditor.DescriptionProperty] = Description.ToBinding();
-            editor[!PropertyEditor.HoverInfoProperty] = HoverInfo.ToBinding();
-            if (PropertyAdapter is IAnimatablePropertyAdapter animatableProperty)
-            {
-                editor[!PropertyEditor.KeyFrameCountProperty] = KeyFrameCount.ToBinding();
-                editor[!PropertyEditor.KeyFrameIndexProperty] = KeyFrameIndex.ToPropertyBinding(BindingMode.TwoWay);
-            }
-        }
     }
 
     public void Commit(string? name = null)
@@ -378,10 +365,10 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         _currentTime.OnCompleted();
 
         Disposables.Dispose();
-        _canPaste.Dispose();
         _extensionProvider.Dispose();
         _isElementEditable.Dispose();
         _canReplaceAnimation.Dispose();
+        IsAtKeyFrame.Dispose();
         _parentServices = null;
         _propertyEditorControlHost = null;
         _element = null;
@@ -420,105 +407,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         return null;
     }
 
-    private static readonly IReadOnlyReactiveProperty<bool> s_alwaysFalse
-        = new ReactivePropertySlim<bool>(false);
-
-    private readonly ReactivePropertySlim<bool> _canPaste = new(false);
-
-    public virtual IReadOnlyReactiveProperty<bool> CanCopy => s_alwaysFalse;
-
-    public IReadOnlyReactiveProperty<bool> CanPaste => _canPaste;
-
-    protected virtual DataFormat<string>? PasteFormat => null;
-
-    protected virtual ICoreSerializable? GetCopyTarget() => null;
-
-    public virtual bool TryPasteJson(string json) => false;
-
-    public virtual async ValueTask<bool> CopyAsync()
-    {
-        if (PasteFormat is not { } format) return false;
-        if (GetCopyTarget() is not { } obj) return false;
-        return await CoreObjectClipboard.CopyAsync(obj, format);
-    }
-
-    public virtual async ValueTask<bool> PasteAsync()
-    {
-        // TryPasteJson checks the edit it makes; a paste over content that could not be loaded repairs it.
-        if (!CanReplaceContent) return false;
-        if (PasteFormat is not { } format) return false;
-        var clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return false;
-        string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, format);
-        return json != null && TryPasteJson(json);
-    }
-
-    public virtual IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => s_alwaysFalse;
-
-    protected virtual Type? TemplateBaseType => null;
-
-    protected virtual ICoreSerializable? GetTemplateTarget() => null;
-
-    public virtual bool ApplyTemplate(ObjectTemplateItem template) => false;
-
-    public bool IsListItemAdapter => PropertyAdapter is IListItemAccessor;
-
-    public virtual bool IsTemplateGroup => false;
-
-    public virtual bool AddTemplateAsListItem(ObjectTemplateItem template)
-    {
-        if (!IsElementEditable) return false;
-        if (PropertyAdapter is not IListItemAccessor accessor) return false;
-        if (template.CreateInstance() is not { } instance) return false;
-
-        try
-        {
-            int insertIndex = Math.Clamp(accessor.Index, 0, accessor.List.Count);
-            accessor.List.Insert(insertIndex, instance);
-            Commit(CommandNames.ApplyTemplate);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    public virtual IEnumerable<ObjectTemplateItem> GetApplicableTemplates()
-        => TemplateBaseType is { } t ? ObjectTemplateService.Instance.FindByBaseType(t) : [];
-
-    public virtual string GetTemplateDefaultName()
-    {
-        if (GetTemplateTarget() is { } target)
-            return TypeDisplayHelpers.GetLocalizedName(target.GetType());
-        return string.Empty;
-    }
-
-    internal ICoreSerializable? TemplateTarget => GetTemplateTarget();
-
-    public async ValueTask RefreshCanPasteAsync()
-    {
-        if (PasteFormat is not { } format)
-        {
-            _canPaste.Value = false;
-            return;
-        }
-        var clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null)
-        {
-            _canPaste.Value = false;
-            return;
-        }
-        try
-        {
-            string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, format);
-            _canPaste.Value = json != null;
-        }
-        catch
-        {
-            _canPaste.Value = false;
-        }
-    }
+    // Connects a control that edits this view model's values; false for any other control.
+    internal virtual bool TryConnect(object control) => false;
 
     public virtual object? GetService(Type serviceType)
     {
@@ -532,13 +422,13 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     // For editors that build child contexts after Accept. Resolves the ExtensionProvider itself so
     // hosts without an EditViewModel work too.
-    protected Beutl.Api.Services.ExtensionProvider GetExtensionProvider()
+    protected ExtensionProvider GetExtensionProvider()
     {
-        return this.GetRequiredService<Beutl.Api.Services.ExtensionProvider>();
+        return this.GetRequiredService<ExtensionProvider>();
     }
 
     // Fires once Accept has injected the ExtensionProvider.
-    protected IObservable<Beutl.Api.Services.ExtensionProvider> ObserveExtensionProvider()
+    protected IObservable<ExtensionProvider> ObserveExtensionProvider()
     {
         return _extensionProvider.Where(x => x != null)!;
     }
@@ -549,249 +439,5 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         {
             this.GetService<IFrameCacheInvalidator>()?.Invalidate(element.Range);
         }
-    }
-}
-
-public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
-{
-    protected BaseEditorViewModel(IPropertyAdapter<T> property)
-        : base(property)
-    {
-        EditingKeyFrame = base.EditingKeyFrame
-            .Select(x => x as KeyFrame<T>)
-            .ToReadOnlyReactiveProperty()
-            .DisposeWith(Disposables);
-
-        if (typeof(T).IsAssignableTo(typeof(CoreObject)))
-        {
-            PropertyAdapter.GetObservable()
-                .Subscribe(value =>
-                {
-                    if (value is CoreObject obj)
-                    {
-                        var desc = PropertyAdapter.Description;
-                        var typeDesc = TypeDisplayHelpers.GetLocalizedDescription(obj.GetType());
-                        if (!string.IsNullOrEmpty(desc) && !string.IsNullOrEmpty(typeDesc))
-                        {
-                            Description.Value = $"{desc}\n{typeDesc}";
-                        }
-                        else if (!string.IsNullOrEmpty(typeDesc))
-                        {
-                            Description.Value = typeDesc;
-                        }
-                        else
-                        {
-                            Description.Value = desc;
-                        }
-                    }
-                    else
-                    {
-                        Description.Value = PropertyAdapter.Description;
-                    }
-                })
-                .DisposeWith(Disposables);
-        }
-    }
-
-    public new IPropertyAdapter<T> PropertyAdapter => (IPropertyAdapter<T>)base.PropertyAdapter;
-
-    public new ReadOnlyReactiveProperty<KeyFrame<T>?> EditingKeyFrame { get; }
-
-    public sealed override void Reset()
-    {
-        if (!IsElementEditable) return;
-        if (GetDefaultValue() is { } defaultValue)
-        {
-            SetValue(PropertyAdapter.GetValue(), (T?)defaultValue);
-        }
-    }
-
-    public void SetValue(T? oldValue, T? newValue)
-    {
-        SetValue(oldValue, newValue, null);
-    }
-
-    internal void SetValue(T? oldValue, T? newValue, string? commandName)
-    {
-        if (!CanReplace(oldValue, newValue)) return;
-        if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
-        {
-            WriteValue(newValue);
-
-            CompleteElementRepair();
-            Commit(commandName);
-        }
-    }
-
-    public void SetValue(T? newValue)
-    {
-        // Like SetValue(oldValue, newValue): replacing the current value can repair the element, as when a
-        // file-backed editor puts a valid file in place of a source that loading dropped.
-        if (IsDisposed || !CanReplace(GetEditingValue(), newValue)) return;
-        WriteValue(newValue);
-
-        CompleteElementRepair();
-        Commit();
-    }
-
-    // The value of the keyframe being edited, or of the property itself when no keyframe is.
-    protected internal T? GetEditingValue()
-        => EditingKeyFrame.Value is { } keyFrame ? keyFrame.Value : PropertyAdapter.GetValue();
-
-    // Writes to the keyframe being edited, or to the property itself when no keyframe is.
-    private void WriteValue(T? newValue)
-    {
-        if (EditingKeyFrame.Value is { } kf)
-        {
-            kf.Value = newValue!;
-        }
-        else
-        {
-            IPropertyAdapter<T> prop = PropertyAdapter;
-            prop.SetValue(newValue);
-        }
-    }
-
-    public T? SetCurrentValueAndGetCoerced(T? value)
-    {
-        if (IsDisposed) return default;
-        if (!IsElementEditable)
-            return GetEditingValue();
-        if (EditingKeyFrame.Value != null)
-        {
-            EditingKeyFrame.Value.Value = value!;
-            InvalidateFrameCache();
-            return EditingKeyFrame.Value.Value;
-        }
-        else
-        {
-            PropertyAdapter.SetValue(value);
-            InvalidateFrameCache();
-            return PropertyAdapter.GetValue();
-        }
-    }
-
-    public override void InsertKeyFrame(TimeSpan keyTime)
-    {
-        if (!IsElementEditable) return;
-        if (GetAnimation() is not KeyFrameAnimation<T> kfAnimation) return;
-
-        var keyframe = AnimationOperations.InsertKeyFrame(
-            animation: kfAnimation,
-            easing: null,
-            keyTime: keyTime,
-            logger: Logger);
-        Commit();
-
-        if (keyframe == null) return;
-
-        int index = kfAnimation.KeyFrames.IndexOf(keyframe);
-        if (index >= 0)
-        {
-            KeyFrameIndex.Value = index;
-        }
-    }
-
-    public override void RemoveKeyFrame(TimeSpan keyTime)
-    {
-        if (IsDisposed || GetAnimation() is not KeyFrameAnimation<T> kfAnimation) return;
-        // Check the keyframe itself: removing another one while it holds an easing that could not be
-        // read leaves the element protected, so that removal would not be saved.
-        if (AnimationOperations.FindKeyFrame(kfAnimation, keyTime, Logger) is not { } keyframe
-            || !CanReplace(keyframe)) return;
-
-        AnimationOperations.RemoveKeyFrame(
-            animation: kfAnimation,
-            keyframe: keyframe,
-            logger: Logger);
-        CompleteElementRepair();
-        Commit();
-    }
-
-    public override void PrepareToEditAnimation()
-    {
-        if (!IsElementEditable) return;
-        if (PropertyAdapter is IAnimatablePropertyAdapter<T> animatableProperty
-            && animatableProperty.Animation is not KeyFrameAnimation<T>)
-        {
-            var newAnimation = new KeyFrameAnimation<T>();
-            T initialValue = animatableProperty.GetValue()!;
-            newAnimation.KeyFrames.Add(new KeyFrame<T>
-            {
-                Value = initialValue,
-                Easing = new SplineEasing(),
-                KeyTime = TimeSpan.Zero
-            });
-
-            animatableProperty.Animation = newAnimation;
-            if (PropertyAdapter is IExpressionPropertyAdapter<T> ep)
-            {
-                ep.Expression = null;
-            }
-
-            Commit();
-        }
-    }
-
-    public override void RemoveAnimation()
-    {
-        if (!CanReplace(GetAnimation())) return;
-        if (PropertyAdapter is IAnimatablePropertyAdapter<T> animatableProperty)
-        {
-            animatableProperty.Animation = null;
-            CompleteElementRepair();
-            Commit();
-        }
-    }
-
-    public override bool SetExpression(string expressionString, [NotNullWhen(false)] out string? error)
-    {
-        // Setting an expression drops the animation, so it can discard an easing that could not be read.
-        if (!CanReplace(GetAnimation()))
-        {
-            error = MessageStrings.OperationFailed;
-            return false;
-        }
-        if (PropertyAdapter is IExpressionPropertyAdapter<T> expressionProperty)
-        {
-            if (!Expression.TryParse<T>(expressionString, out var newExpression, out error))
-            {
-                return false;
-            }
-
-            expressionProperty.Expression = newExpression;
-            if (PropertyAdapter is IAnimatablePropertyAdapter<T> ap)
-            {
-                ap.Animation = null;
-            }
-
-            // Also after a non-animatable property: when loading dropped what could not be read,
-            // any replacement repairs the element.
-            CompleteElementRepair();
-            Commit();
-        }
-
-        error = null;
-        return true;
-    }
-
-    public override void RemoveExpression()
-    {
-        if (!IsElementEditable) return;
-        if (PropertyAdapter is IExpressionPropertyAdapter<T> expressionProperty)
-        {
-            expressionProperty.Expression = null;
-            Commit();
-        }
-    }
-
-    public override string? GetExpressionString()
-    {
-        if (PropertyAdapter is IExpressionPropertyAdapter<T> expressionProperty)
-        {
-            return expressionProperty.Expression?.ExpressionString;
-        }
-
-        return null;
     }
 }

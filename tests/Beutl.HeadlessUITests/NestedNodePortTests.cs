@@ -14,6 +14,7 @@ using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
@@ -293,7 +294,7 @@ public class NestedNodePortTests
             await FinishTransition();
             NodePortView Row(BrushEditorViewModel brush)
             {
-                var context = brush.ChildContext.Value!.Properties.OfType<BaseEditorViewModel>()
+                var context = brush.ChildContext.Value!.Properties.OfType<PropertyEditorViewModel>()
                     .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), shared.Color));
                 return view.GetVisualDescendants().OfType<NodePortView>()
                     .Single(row => ReferenceEquals(row.ProvidedEditor?.DataContext, context));
@@ -358,7 +359,7 @@ public class NestedNodePortTests
             await FinishTransition();
             async Task<INestedInputPort[]> ReadPorts()
             {
-                var expected = new List<(BaseEditorViewModel Color, string[] Path)>();
+                var expected = new List<(PropertyEditorViewModel Color, string[] Path)>();
                 foreach (var item in list.Items)
                 {
                     var obj = (ICoreObjectEditorViewModel)item.Context!;
@@ -367,7 +368,7 @@ public class NestedNodePortTests
                     foreach (var brush in obj.Properties.Value!.Properties.OfType<BrushEditorViewModel>())
                     {
                         brush.IsExpanded.Value = true;
-                        var color = brush.ChildContext.Value!.Properties.OfType<BaseEditorViewModel>()
+                        var color = brush.ChildContext.Value!.Properties.OfType<PropertyEditorViewModel>()
                             .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), shared.Color));
                         expected.Add((color, ["i:" + pair.Id, "p:" + brush.PropertyAdapter.GetEngineProperty()!.Name, "p:Color"]));
                     }
@@ -515,7 +516,7 @@ public class NestedNodePortTests
         foreach (string name in new[] { "FontFamily", "Size", "Spacing", "Text" })
         {
             var context = nodeVm.Items.Single(item => item.Model!.Name == name).PropertyEditorContext!;
-            Assert.That(context.Extension.TryCreateControlForNode(context, out Control? control), Is.True);
+            Assert.That(PropertyEditorHost.TryCreateControl(context, PropertyEditorSurface.Node, out Control? control), Is.True);
             var baselineEditor = (PropertyEditor)control!;
             baselineEditor.EditorStyle = PropertyEditorStyle.Compact;
             baselineEditor.DataContext = context;

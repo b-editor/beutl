@@ -1,13 +1,17 @@
-﻿using Avalonia;
+﻿using System.Reactive.Disposables;
+
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
+using Beutl.Extensibility;
 using Beutl.Media;
+using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class FontFamilyEditor : PropertyEditor
+public class FontFamilyEditor : PropertyEditor, IValueEditorControl<Media.FontFamily?>
 {
     public static readonly StyledProperty<Media.FontFamily> ValueProperty =
         AvaloniaProperty.Register<FontFamilyEditor, Media.FontFamily>(
@@ -22,6 +26,18 @@ public class FontFamilyEditor : PropertyEditor
     {
         get => GetValue(ValueProperty);
         set => SetValue(ValueProperty, value);
+    }
+
+    public void Connect(IValueEditorContext<Media.FontFamily?> context)
+    {
+        CompositeDisposable connection = ConnectConfirmedValue<Media.FontFamily?>(context, ValueProperty!);
+        // The picker keeps showing the font it highlights, whichever value the context keeps.
+        this.AddDisposableHandler(ValueChangedEvent, (_, e) =>
+            {
+                if (e is PropertyEditorValueChangedEventArgs<Media.FontFamily?> args)
+                    context.PreviewEdit(args.NewValue);
+            })
+            .DisposeWith(connection);
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)

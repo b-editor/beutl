@@ -12,7 +12,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
-public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, IGeometryEditorContext, IFallbackObjectViewModel
+public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, IGeometryEditorContext, IFallbackObjectViewModel, IObjectEditorCommands
 {
     public GeometryEditorViewModel(IPropertyAdapter<Geometry?> property)
         : base(property)
@@ -70,13 +70,15 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
 
-    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
+    public IReadOnlyReactiveProperty<bool> CanCopy { get; }
 
-    public override IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => CanCopy;
+    public ReactivePropertySlim<bool> CanPaste { get; } = new();
 
-    protected override Type? TemplateBaseType => typeof(Geometry);
+    public IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => CanCopy;
 
-    protected override DataFormat<string>? PasteFormat => BeutlDataFormats.Geometry;
+    Type? IObjectEditorCommands.TemplateBaseType => typeof(Geometry);
+
+    DataFormat<string>? IObjectEditorCommands.PasteFormat => BeutlDataFormats.Geometry;
 
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
 
@@ -115,12 +117,12 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
         }
     }
 
-    protected override ICoreSerializable? GetCopyTarget()
+    public ICoreSerializable? GetCopyTarget()
         => Value.Value is Geometry geom and not FallbackGeometry ? geom : null;
 
-    protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
+    public ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
 
-    public override bool ApplyTemplate(ObjectTemplateItem template)
+    public bool ApplyTemplate(ObjectTemplateItem template)
     {
         // SetValue checks the value it replaces.
         if (!CanReplaceContent) return false;
@@ -130,7 +132,7 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
         return true;
     }
 
-    public override bool TryPasteJson(string json)
+    public bool TryPasteJson(string json)
         => GroupedEditorHelper.TryPasteJson(json, this, IsExpanded, null);
 
     public void AddItem()

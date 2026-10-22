@@ -1,60 +1,48 @@
-﻿using Avalonia;
-using Avalonia.Interactivity;
-using Beutl.Animation.Easings;
+﻿using Beutl.Animation.Easings;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Logging;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
-public sealed class EasingEditorViewModel<T>(IPropertyAdapter<T?> property) : ValueEditorViewModel<T?>(property)
+public sealed class EasingEditorViewModel<T>(IPropertyAdapter<T?> property) : PropertyEditorViewModel<T?, Easing?>(property)
     where T : Easing
 {
+    protected override Easing? ToEdit(T? value) => value;
+
+    protected override T? FromEdit(Easing? edit) => edit as T;
+
+    public override Easing? PreviewEdit(Easing? value)
+    {
+        // A validator may keep the current value, which raises no change to refresh the graph.
+        return !IsDisposed && value is T newValue ? SetCurrentValueAndGetCoerced(newValue) : value;
+    }
+
+    public override void ConfirmEdit(Easing? oldValue, Easing? newValue)
+    {
+        if (IsDisposed || newValue is not T value) return;
+
+        if (ReferenceEquals(oldValue, value))
+        {
+            // A drag that ended where it began: write the original back without committing. The
+            // drag's merged operation then changes nothing. Rolling the pending transaction back
+            // instead would also discard other features' uncommitted edits, such as a timeline nudge.
+            SetCurrentValueAndGetCoerced(value);
+        }
+        else
+        {
+            SetValue(oldValue as T, value);
+        }
+    }
+
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
         if (visitor is EasingEditor editor && !Disposables.IsDisposed)
         {
             editor.Items = EasingEditorItems.Create(typeof(T));
-            editor.Bind(EasingEditor.ValueProperty, Value.Select(value => (Easing?)value).ToBinding())
-                .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
-                .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
-                .DisposeWith(Disposables);
-        }
-    }
-
-    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
-    {
-        if (e is PropertyEditorValueChangedEventArgs<Easing?> { NewValue: T newValue } && sender is EasingEditor editor)
-        {
-            // A validator may keep the current value, which raises no change to refresh the graph.
-            editor.Value = SetCurrentValueAndGetCoerced(newValue);
-        }
-    }
-
-    private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
-    {
-        if (e.Expect<Easing?>(sender) is not { NewValue: T newValue } args) return;
-
-        if (ReferenceEquals(args.OldValue, newValue))
-        {
-            // A drag that ended where it began: write the original back without committing. The
-            // drag's merged operation then changes nothing. Rolling the pending transaction back
-            // instead would also discard other features' uncommitted edits, such as a timeline nudge.
-            SetCurrentValueAndGetCoerced(newValue);
-        }
-        else
-        {
-            SetValue(args.OldValue as T, newValue);
-        }
-
-        if (sender is EasingEditor editor)
-        {
-            // A validator may keep the current value, which raises no change to refresh the editor.
-            editor.Value = GetEditingValue();
         }
     }
 }

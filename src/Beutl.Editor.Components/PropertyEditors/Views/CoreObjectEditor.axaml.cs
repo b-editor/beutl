@@ -30,7 +30,7 @@ public partial class CoreObjectEditor : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (DataContext is not BaseEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not IObjectEditorCommands { IsDisposed: false } viewModel) return;
 
         if (EditorDragDropHelper.TryApplyDroppedTemplate(e, viewModel))
         {

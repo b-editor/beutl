@@ -7,6 +7,7 @@ using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,7 +20,7 @@ public sealed partial class PropertyEditorMenu : UserControl
     {
         InitializeComponent();
         Bind(ToolTip.TipProperty, this.GetObservable(DataContextProperty)
-            .Select(v => v is BaseEditorViewModel viewModel
+            .Select(v => v is PropertyEditorViewModel viewModel
                 ? viewModel.HasAnimation
                     .CombineLatest(viewModel.HasExpression)
                     .Select(t => t switch
@@ -39,17 +40,17 @@ public sealed partial class PropertyEditorMenu : UserControl
         toggleLivePreview.IsVisible = DataContext is IConfigureLivePreview;
         uniformEditorToggle.IsVisible = DataContext is IConfigureUniformEditor;
 
-        bool supportsAnimation = DataContext is BaseEditorViewModel { PropertyAdapter: IAnimatablePropertyAdapter };
+        bool supportsAnimation = DataContext is PropertyEditorViewModel { PropertyAdapter: IAnimatablePropertyAdapter };
         editAnimationItem.IsVisible = supportsAnimation;
         editInlineAnimationItem.IsVisible = supportsAnimation;
         removeAnimationItem.IsVisible = supportsAnimation;
 
-        bool supportsExpression = DataContext is BaseEditorViewModel { PropertyAdapter: IExpressionPropertyAdapter };
+        bool supportsExpression = DataContext is PropertyEditorViewModel { PropertyAdapter: IExpressionPropertyAdapter };
         expressionSeparator.IsVisible = supportsExpression;
         editExpressionItem.IsVisible = supportsExpression;
         removeExpressionItem.IsVisible = supportsExpression;
 
-        bool isEngineProperty = (DataContext as BaseEditorViewModel)?.PropertyAdapter.GetEngineProperty() != null;
+        bool isEngineProperty = (DataContext as PropertyEditorViewModel)?.PropertyAdapter.GetEngineProperty() != null;
         copyPropertyPathSeparator.IsVisible = isEngineProperty;
         copyPropertyPathItem.IsVisible = isEngineProperty;
         copyGetPropertyCodeItem.IsVisible = isEngineProperty;
@@ -57,7 +58,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void Button_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel)
+        if (DataContext is PropertyEditorViewModel { IsDisposed: false } viewModel)
         {
             if (!viewModel.CanEditProperty.Value)
             {
@@ -92,7 +93,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void EditAnimation_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } viewModel
+        if (DataContext is PropertyEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } viewModel
             && viewModel.PropertyAdapter is IAnimatablePropertyAdapter animatableProperty
             && viewModel.GetService<IEditorContext>() is { } editorContext)
         {
@@ -113,7 +114,7 @@ public sealed partial class PropertyEditorMenu : UserControl
     private void RemoveAnimation_Click(object? sender, RoutedEventArgs e)
     {
         // Also a repair on a recovery-protected element, so it follows CanRemoveAnimation.
-        if (DataContext is BaseEditorViewModel { IsDisposed: false, CanRemoveAnimation.Value: true } viewModel)
+        if (DataContext is PropertyEditorViewModel { IsDisposed: false, CanRemoveAnimation.Value: true } viewModel)
         {
             viewModel.RemoveAnimation();
         }
@@ -121,7 +122,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void EditInlineAnimation_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } viewModel
+        if (DataContext is PropertyEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } viewModel
             && viewModel.PropertyAdapter is IAnimatablePropertyAdapter animatableProperty
             && viewModel.GetService<IEditorContext>() is { } editorContext
             && viewModel.GetService<Element>() is { } element)
@@ -153,7 +154,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void EditExpression_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } viewModel)
+        if (DataContext is PropertyEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } viewModel)
         {
             string? currentExpression = viewModel.GetExpressionString();
 
@@ -174,7 +175,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void RemoveExpression_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } viewModel)
+        if (DataContext is PropertyEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } viewModel)
         {
             viewModel.RemoveExpression();
         }
@@ -182,7 +183,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private async void CopyPropertyPath_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
+        if (DataContext is PropertyEditorViewModel { IsDisposed: false } viewModel
             && viewModel.PropertyAdapter.GetEngineProperty() is { } engineProperty
             && engineProperty.GetOwnerObject() is { } engineObject
             && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
@@ -194,7 +195,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private async void CopyGetPropertyCode_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
+        if (DataContext is PropertyEditorViewModel { IsDisposed: false } viewModel
             && viewModel.PropertyAdapter.GetEngineProperty() is { } engineProperty
             && engineProperty.GetOwnerObject() is { } engineObject
             && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)

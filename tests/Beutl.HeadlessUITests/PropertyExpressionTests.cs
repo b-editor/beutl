@@ -10,18 +10,41 @@ using Beutl.Composition;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
+using Beutl.Editor.PropertyEditors;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
+using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
 using FluentAvalonia.UI.Controls;
+using Moq;
+using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
 [TestFixture]
 public class PropertyExpressionTests
 {
+    // A control connects after the panel has handed the editor its clock, so the editor must keep the paused time.
+    [AvaloniaTest]
+    public void An_expression_connected_after_Accept_shows_its_value_at_the_paused_time()
+    {
+        var shape = new RectShape();
+        var property = (AnimatableProperty<float>)shape.Opacity;
+        property.Expression = new StringExpression<float>("(float)Time * 10");
+        var clock = new Mock<IEditorClock>();
+        clock.SetupGet(x => x.CurrentTime).Returns(new ReactivePropertySlim<TimeSpan>(TimeSpan.FromSeconds(2)));
+        using var model = new FloatEditorViewModel((IPropertyAdapter<float>)PropertyAdapterFactory.CreateAdapter(property, shape));
+        model.Accept(new PropertyEditorTestHost.ServiceVisitor((typeof(IEditorClock), clock.Object)));
+
+        float shown = float.NaN;
+        using IDisposable subscription = model.EditValue.Subscribe(value => shown = value);
+
+        Assert.That(shown, Is.EqualTo(20f));
+    }
+
     [AvaloniaTest]
     [TestCase(false, false)]
     [TestCase(true, false)]
@@ -112,5 +135,13 @@ public class PropertyExpressionTests
                 popup.Close();
             window.Close();
         }
+    }
+
+    // Derives from the typed base directly, as an extension's view model can, so its value is made when a control connects.
+    private sealed class FloatEditorViewModel(IPropertyAdapter<float> property) : PropertyEditorViewModel<float, float>(property)
+    {
+        protected override float ToEdit(float value) => value;
+
+        protected override float FromEdit(float edit) => edit;
     }
 }

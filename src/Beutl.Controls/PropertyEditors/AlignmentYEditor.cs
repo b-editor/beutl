@@ -1,11 +1,12 @@
 ﻿using Avalonia;
 using Avalonia.Data;
 
+using Beutl.Extensibility;
 using Beutl.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class AlignmentYEditor : ThreeOptionRadioEditor<AlignmentY>
+public class AlignmentYEditor : ThreeOptionRadioEditor<AlignmentY>, IValueEditorControl<AlignmentY>
 {
     public static readonly DirectProperty<AlignmentYEditor, AlignmentY> ValueProperty =
         AvaloniaProperty.RegisterDirect<AlignmentYEditor, AlignmentY>(
@@ -25,6 +26,8 @@ public class AlignmentYEditor : ThreeOptionRadioEditor<AlignmentY>
             }
         }
     }
+
+    public void Connect(IValueEditorContext<AlignmentY> context) => ConnectConfirmedValue(context, ValueProperty);
 
     protected override AlignmentY ButtonAValue => AlignmentY.Top;
     protected override AlignmentY ButtonBValue => AlignmentY.Center;

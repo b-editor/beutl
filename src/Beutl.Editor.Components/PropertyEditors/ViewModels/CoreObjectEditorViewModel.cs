@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Serialization;
@@ -41,7 +42,7 @@ public interface ICoreObjectEditorViewModel : IServiceProvider, IPresenterEditor
     void SetNull();
 }
 
-public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICoreObjectEditorViewModel, IFallbackObjectViewModel
+public sealed class CoreObjectEditorViewModel<T> : PropertyEditorViewModel<T>, ICoreObjectEditorViewModel, IFallbackObjectViewModel, IObjectEditorCommands
     where T : CoreObject
 {
     public CoreObjectEditorViewModel(IPropertyAdapter<T> property)
@@ -85,9 +86,13 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
     public ReadOnlyReactivePropertySlim<T?> Value { get; }
 
-    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
+    public IReadOnlyReactiveProperty<bool> CanCopy { get; }
 
-    protected override DataFormat<string>? PasteFormat => BeutlDataFormats.EngineObject;
+    public ReactivePropertySlim<bool> CanPaste { get; } = new();
+
+    IReadOnlyReactiveProperty<bool> ICoreObjectEditorViewModel.CanPaste => CanPaste;
+
+    DataFormat<string>? IObjectEditorCommands.PasteFormat => BeutlDataFormats.EngineObject;
 
     public ReadOnlyReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; }
 
@@ -128,16 +133,16 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
         }
     }
 
-    protected override ICoreSerializable? GetCopyTarget()
+    public ICoreSerializable? GetCopyTarget()
         => Value.Value is T obj and not IFallback ? obj : null;
 
-    public override IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => CanCopy;
+    public IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => CanCopy;
 
-    protected override Type? TemplateBaseType => typeof(T);
+    Type? IObjectEditorCommands.TemplateBaseType => typeof(T);
 
-    protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
+    public ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
 
-    public override bool ApplyTemplate(ObjectTemplateItem template)
+    public bool ApplyTemplate(ObjectTemplateItem template)
     {
         // SetValue checks the value it replaces.
         if (!CanReplaceContent) return false;
@@ -147,7 +152,7 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
         return true;
     }
 
-    public override bool TryPasteJson(string json)
+    public bool TryPasteJson(string json)
         => GroupedEditorHelper.TryPasteJson(json, this!, IsExpanded, null);
 
     public void SetTarget(CoreObject? target)

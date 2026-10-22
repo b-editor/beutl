@@ -105,10 +105,9 @@ public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditor
 
     private void InitializeProperties()
     {
-        var atmp = new IPropertyAdapter[1];
         foreach (INodeMember item in GraphNode.Items)
         {
-            Properties.Add(CreatePropertyContext(atmp, item));
+            Properties.Add(CreatePropertyContext(item));
         }
 
         GraphNode.Items.CollectionChanged += OnItemsCollectionChanged;
@@ -118,10 +117,9 @@ public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditor
     {
         void Add(int index, IList items)
         {
-            var atmp = new IPropertyAdapter[1];
             foreach (INodeMember item in items)
             {
-                Properties.Insert(index++, CreatePropertyContext(atmp, item));
+                Properties.Insert(index++, CreatePropertyContext(item));
             }
         }
 
@@ -167,21 +165,13 @@ public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditor
         Properties.Clear();
     }
 
-    private IPropertyEditorContext? CreatePropertyContext(IPropertyAdapter[] atmp, INodeMember item)
+    private IPropertyEditorContext? CreatePropertyContext(INodeMember item)
     {
         IPropertyEditorContext? context = null;
-        if (item is LayerInputNode.ILayerInputPort port)
+        if (item is LayerInputNode.ILayerInputPort { Property: { } aproperty })
         {
-            IPropertyAdapter? aproperty = port.Property;
-            if (aproperty != null)
-            {
-                atmp[0] = aproperty;
-                (_, PropertyEditorExtension? ext) = this.GetRequiredService<IPropertyEditorFactory>().MatchProperty(atmp);
-                if (ext != null)
-                    context = ExtensionGuard.Call(ext, () => ext.TryCreateContext(atmp, out IPropertyEditorContext? created) ? created : null);
-
-                context?.Accept(this);
-            }
+            context = this.GetRequiredService<IPropertyEditorFactory>().CreateEditor(aproperty);
+            context?.Accept(this);
         }
 
         return context;

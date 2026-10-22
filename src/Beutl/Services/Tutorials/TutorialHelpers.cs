@@ -6,6 +6,7 @@ using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics;
@@ -263,7 +264,7 @@ public static class TutorialHelpers
         return topLevel?.GetVisualDescendants()
             .OfType<NumberEditor<float>>()
             .FirstOrDefault(c =>
-                c.DataContext is BaseEditorViewModel vm &&
+                c.DataContext is PropertyEditorViewModel vm &&
                 vm.PropertyAdapter.GetEngineProperty() is IProperty prop &&
                 prop.GetOwnerObject() is TOwner &&
                 prop.Name == propertyName);

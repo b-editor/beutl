@@ -6,6 +6,7 @@ using Beutl.Api.Services;
 using Beutl.Collections;
 using Beutl.Editor;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -691,7 +692,7 @@ public sealed class FallbackEditorPersistenceTests
             Assert.That(GetPresenterTarget(recoveredShape, kind), Is.InstanceOf<IFallback>());
             Assert.That(recoveredElement.SuppressedStorageSource, Is.Null);
             using var history = new HistoryScope(recoveredElement);
-            using BaseEditorViewModel viewModel = genericEditor
+            using PropertyEditorViewModel viewModel = genericEditor
                 ? new CoreObjectEditorViewModel<Transform>(
                     new SimplePropertyAdapter<Transform>((SimpleProperty<Transform>)recoveredShape.Transform, recoveredShape))
                 : CreatePresenterEditor(recoveredShape, kind);
@@ -796,7 +797,7 @@ public sealed class FallbackEditorPersistenceTests
         }
     }
 
-    private static BaseEditorViewModel CreatePresenterEditor(RectShape shape, PresenterKind kind)
+    private static PropertyEditorViewModel CreatePresenterEditor(RectShape shape, PresenterKind kind)
     {
         return kind switch
         {
@@ -821,7 +822,7 @@ public sealed class FallbackEditorPersistenceTests
         };
     }
 
-    private static void ClearPresenterTarget(BaseEditorViewModel viewModel, PresenterKind kind)
+    private static void ClearPresenterTarget(PropertyEditorViewModel viewModel, PresenterKind kind)
     {
         switch (kind)
         {
@@ -844,7 +845,7 @@ public sealed class FallbackEditorPersistenceTests
         Func<EditorValueHolder, IProperty<T>> select,
         T currentValue,
         T keyFrameValue,
-        Func<AnimatablePropertyAdapter<T>, BaseEditorViewModel> createEditor,
+        Func<AnimatablePropertyAdapter<T>, PropertyEditorViewModel> createEditor,
         ICoreSerializable template,
         string templateName)
         where T : class?
@@ -859,11 +860,11 @@ public sealed class FallbackEditorPersistenceTests
         var element = new Element { Uri = new Uri("file:///editor-test.belm") };
         element.AddObject(holder);
         using var history = new HistoryScope(element);
-        using BaseEditorViewModel viewModel = createEditor(new AnimatablePropertyAdapter<T>(property, holder));
+        using PropertyEditorViewModel viewModel = createEditor(new AnimatablePropertyAdapter<T>(property, holder));
         viewModel.Accept(Services(element, history.History));
         viewModel.EditingKeyFrame.Value = keyFrame;
 
-        bool applied = viewModel.ApplyTemplate(ObjectTemplateItem.CreateFromInstance(template, templateName));
+        bool applied = ((IObjectEditorCommands)viewModel).ApplyTemplate(ObjectTemplateItem.CreateFromInstance(template, templateName));
 
         Assert.Multiple(() =>
         {

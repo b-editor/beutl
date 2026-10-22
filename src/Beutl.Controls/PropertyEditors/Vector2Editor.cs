@@ -1,12 +1,18 @@
 ﻿using System.Numerics;
+using System.Reactive.Disposables;
+using System.Reactive.Linq;
 
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
+using Avalonia.Interactivity;
+
+using Beutl.Extensibility;
+using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class Vector2Editor<TElement> : Vector2Editor
+public class Vector2Editor<TElement> : Vector2Editor, IValueEditorControl<(TElement, TElement)>
     where TElement : INumber<TElement>
 {
     public static readonly DirectProperty<Vector2Editor<TElement>, TElement> FirstValueProperty =
@@ -60,6 +66,19 @@ public class Vector2Editor<TElement> : Vector2Editor
     {
         get => GetValue(SmallChangeProperty);
         set => SetValue(SmallChangeProperty, value);
+    }
+
+    public void Connect(IValueEditorContext<(TElement, TElement)> context)
+    {
+        CompositeDisposable connection = StartConnection();
+        BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Item1), connection);
+        BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Item2), connection);
+        this.AddDisposableHandler(ValueChangedEvent, (_, _) =>
+            {
+                (FirstValue, SecondValue) = context.PreviewEdit((FirstValue, SecondValue));
+            })
+            .DisposeWith(connection);
+        ConfirmEdits(context, connection);
     }
 }
 

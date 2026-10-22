@@ -8,6 +8,7 @@ using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
+using Beutl.Editor.PropertyEditors;
 using Beutl.NodeGraph;
 using FluentAvalonia.UI.Controls;
 using FluentIcons.Avalonia.Fluent;
@@ -327,8 +328,7 @@ public partial class NodePortView : UserControl
         }
         else if (obj.PropertyEditorContext is { } propContext)
         {
-            PropertyEditorExtension extension = obj.PropertyEditorContext.Extension;
-            extension.TryCreateControlForNode(obj.PropertyEditorContext, out Control? control1);
+            PropertyEditorHost.TryCreateControl(propContext, PropertyEditorSurface.Node, out Control? control1);
             if (control1 is PropertyEditor pe)
             {
                 pe.EditorStyle = PropertyEditorStyle.Compact;
@@ -339,8 +339,10 @@ public partial class NodePortView : UserControl
                 control1.DataContext = obj.PropertyEditorContext;
             }
 
+            // Without a control, as when the extension's code failed, the port shows its label.
             _editor = control1;
-            Grid.SetColumn(_editor!, 1);
+            if (_editor != null)
+                Grid.SetColumn(_editor, 1);
         }
 
         if (obj.Model != null)

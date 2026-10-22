@@ -15,7 +15,7 @@ public static class TemplateMenuHelper
     public static void AddMenus(FAMenuFlyout menuFlyout, Control control)
     {
         var dataContext = control.GetObservable(StyledElement.DataContextProperty)
-            .Select(obj => obj as BaseEditorViewModel);
+            .Select(obj => obj as IObjectEditorCommands);
 
         var saveMenu = new FAMenuFlyoutItem { Text = Strings.SaveAsTemplate };
         saveMenu.Bind(
@@ -23,7 +23,7 @@ public static class TemplateMenuHelper
             dataContext.Select(d => d?.CanSaveAsTemplate ?? Observable.ReturnThenNever(false)).Switch());
         saveMenu.Click += (_, _) =>
         {
-            if (control.DataContext is not BaseEditorViewModel { IsDisposed: false, TemplateTarget: { } target } vm) return;
+            if (control.DataContext is not IObjectEditorCommands { IsDisposed: false } vm || vm.GetTemplateTarget() is not { } target) return;
 
             TemplateSaving.ShowSaveFlyout(
                 control, target, ObjectTemplateService.Instance.GetUniqueName(vm.GetTemplateDefaultName()), showAtPointer: true,
@@ -53,7 +53,7 @@ public static class TemplateMenuHelper
         applySubMenu.Items.Clear();
         addSubMenu.Items.Clear();
 
-        if (control.DataContext is not BaseEditorViewModel { IsDisposed: false } vm)
+        if (control.DataContext is not IObjectEditorCommands { IsDisposed: false } vm)
         {
             applySubMenu.IsVisible = true;
             addSubMenu.IsVisible = false;
@@ -61,7 +61,7 @@ public static class TemplateMenuHelper
             return;
         }
 
-        bool isListItem = vm.IsListItemAdapter;
+        bool isListItem = vm.IsListItemAdapter();
         bool isGroup = vm.IsTemplateGroup;
         var templates = vm.GetApplicableTemplates().ToList();
 
@@ -103,14 +103,14 @@ public static class TemplateMenuHelper
         addSubMenu.IsEnabled = addSubMenu.Items.Count > 0;
     }
 
-    private static FAMenuFlyoutItem CreateApplyMenuItem(ObjectTemplateItem template, BaseEditorViewModel vm)
+    private static FAMenuFlyoutItem CreateApplyMenuItem(ObjectTemplateItem template, IObjectEditorCommands vm)
     {
         var mi = new FAMenuFlyoutItem { Text = template.Name.Value, Tag = template };
         mi.Click += (_, _) => vm.ApplyTemplate(template);
         return mi;
     }
 
-    private static FAMenuFlyoutItem CreateAddMenuItem(ObjectTemplateItem template, BaseEditorViewModel vm)
+    private static FAMenuFlyoutItem CreateAddMenuItem(ObjectTemplateItem template, IObjectEditorCommands vm)
     {
         var mi = new FAMenuFlyoutItem { Text = template.Name.Value, Tag = template };
         mi.Click += (_, _) => vm.AddTemplateAsListItem(template);

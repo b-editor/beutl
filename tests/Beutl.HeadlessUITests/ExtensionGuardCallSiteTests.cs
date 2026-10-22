@@ -4,14 +4,18 @@ using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 using Beutl.Api.Services;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.OutputTab.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.PropertyAdapters;
 using Beutl.Services;
+using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
 using Beutl.Views;
@@ -92,9 +96,40 @@ public sealed class ExtensionGuardCallSiteTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(CoreObjectPropertyEditorBuilder.MatchProperty([adapter], matching), Is.EqualTo(default((IPropertyAdapter[]?, PropertyEditorExtension?))));
+            Assert.That(new PropertyEditorFactoryAdapter(matching).CreateEditor(adapter), Is.Null);
             Assert.That(new PropertyEditorFactoryAdapter(creating).CreateEditor(adapter), Is.Null);
             Assert.That(notifications.All, Has.Count.EqualTo(2));
+        }
+    }
+
+    [AvaloniaTest]
+    public void A_value_editor_whose_view_model_throws_in_Accept_leaves_the_page_up_and_turns_its_package_off()
+    {
+        var extension = new ThrowingAcceptEditor();
+        ExtensionGuard.SetPackage(extension, "Throwing.Package");
+        var provider = new ExtensionProvider();
+        provider.AddExtensions(new LocalPackage().LocalId, [extension]);
+        using var notifications = new NotificationCapture();
+        using var model = new PropertiesEditorViewModel(new TestObject(), provider);
+        var page = new Beutl.Editor.Components.PropertyEditors.Views.Settings.PropertiesEditor { DataContext = model };
+        var window = new Window { Content = page, Width = 400, Height = 300 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(model.Properties.Single(), Is.TypeOf<ThrowingAcceptViewModel>());
+                Assert.That(page.GetVisualDescendants().OfType<StringEditor>(), Is.Empty);
+                Assert.That(page.GetVisualDescendants().OfType<Label>().Select(label => label.Content), Does.Contain("Throwing editor"));
+                Assert.That(notifications.All, Has.Count.EqualTo(1));
+                Assert.That(ExtensionGuard.IsTurnedOff(extension), Is.True);
+            }
+        }
+        finally
+        {
+            window.Close();
         }
     }
 
@@ -234,12 +269,32 @@ public sealed class ExtensionGuardCallSiteTests
 
     private sealed class ThrowingPropertyEditor(bool throwOnMatch) : PropertyEditorExtension
     {
-        public override IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
-            => throwOnMatch ? throw new InvalidOperationException("match") : properties;
+        protected internal override void RegisterEditors(PropertyEditorRegistry registry)
+        {
+            registry.RegisterGroup<IPropertyEditorContext>(
+                properties => throwOnMatch ? throw new InvalidOperationException("match") : properties,
+                _ => throw new InvalidOperationException("context"),
+                _ => throw new InvalidOperationException("control"));
+        }
+    }
 
-        public override bool TryCreateContext(
-            IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
-            => throw new InvalidOperationException("context");
+    private sealed class ThrowingAcceptEditor : PropertyEditorExtension
+    {
+        public override string Name => "Throwing editor";
+
+        public override string DisplayName => "Throwing editor";
+
+        protected internal override void RegisterEditors(PropertyEditorRegistry registry)
+            => registry.RegisterValue<string?, string>(p => new ThrowingAcceptViewModel(p), () => new StringEditor());
+    }
+
+    private sealed class ThrowingAcceptViewModel(IPropertyAdapter<string?> property) : PropertyEditorViewModel<string?, string>(property)
+    {
+        public override void Accept(IPropertyEditorContextVisitor visitor) => throw new InvalidOperationException("accept");
+
+        protected override string ToEdit(string? value) => value ?? string.Empty;
+
+        protected override string? FromEdit(string edit) => edit;
     }
 
     private sealed class CommandExtension : ViewExtension

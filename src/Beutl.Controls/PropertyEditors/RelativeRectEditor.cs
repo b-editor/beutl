@@ -1,10 +1,16 @@
-﻿using Avalonia;
+﻿using System.Reactive.Disposables;
+using System.Reactive.Linq;
+
+using Avalonia;
 using Avalonia.Data;
+using Avalonia.Interactivity;
+using Beutl.Extensibility;
 using Beutl.Language;
+using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class RelativeRectEditor : Vector4Editor
+public class RelativeRectEditor : Vector4Editor, IValueEditorControl<Graphics.RelativeRect>
 {
     public static readonly DirectProperty<RelativeRectEditor, float> FirstValueProperty =
         Vector4Editor<float>.FirstValueProperty.AddOwner<RelativeRectEditor>(
@@ -77,5 +83,29 @@ public class RelativeRectEditor : Vector4Editor
     {
         get => _values.Unit;
         set => _values.SetUnit(value);
+    }
+
+    public void Connect(IValueEditorContext<Graphics.RelativeRect> context)
+    {
+        CompositeDisposable connection = StartConnection();
+        BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Rect.X), connection);
+        BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Rect.Y), connection);
+        BindComponent(ThirdValueProperty, context.EditValue.Select(v => v.Rect.Width), connection);
+        BindComponent(FourthValueProperty, context.EditValue.Select(v => v.Rect.Height), connection);
+        BindComponent(UnitProperty, context.EditValue.Select(v => v.Unit), connection);
+        this.AddDisposableHandler(ValueChangedEvent, (_, e) =>
+            {
+                if (e is PropertyEditorValueChangedEventArgs<Graphics.RelativeRect> args)
+                {
+                    Graphics.RelativeRect coerced = context.PreviewEdit(args.NewValue);
+                    FirstValue = coerced.Rect.X;
+                    SecondValue = coerced.Rect.Y;
+                    ThirdValue = coerced.Rect.Width;
+                    FourthValue = coerced.Rect.Height;
+                    Unit = coerced.Unit;
+                }
+            })
+            .DisposeWith(connection);
+        ConfirmEdits(context, connection);
     }
 }

@@ -37,6 +37,7 @@ Add new edit-pipeline services here, not in `Beutl.Editor.Components`. The View 
 2. **State derived from values is recomputed, not recorded.** The `TimeRange` and `ZIndex` that engine objects get from their element and `Connection.Status` are `[NotTracked]`, and an input port writes its connection-driven expression inside the internal `HistoryReplay` scope.
 3. **Children with IDs are recorded in the same transaction as the change that creates them.** Model3D meshes, equalizer bands and GroupNode mirror ports are created by their owner's change handler, which skips rebuilding them while `HistoryReplay.IsActive`, because replay restores the recorded children.
 4. **No Avalonia / view types here.** ViewModels live in `Beutl.Editor.Components`, or in the app when only the app uses them; this project is consumed by them, not the other way around.
+   The exception is `PropertyEditors/`: the Avalonia-free bases of the property editor view models, which extensions derive from.
 5. **`AutoSaveService` runs on the UI thread.** The editor calls it through the dispatcher after each history commit.
 
 ## Tests

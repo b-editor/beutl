@@ -1,7 +1,7 @@
 ﻿using Avalonia.Controls;
 
-using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.ColorGradingTab.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Services;
 
 namespace Beutl.Editor.Components.ColorGradingTab.Views;
 
@@ -42,11 +42,11 @@ public partial class ColorGradingTabView : UserControl
         }
     }
 
-    private static void BindEditor(IPropertyEditorContextVisitor editor, IPropertyEditorContext? context)
+    private static void BindEditor(Control editor, IPropertyEditorContext? context)
     {
         if (context != null)
         {
-            context.Accept(editor);
+            PropertyEditorControls.Attach(context, editor);
         }
     }
 }

@@ -1,5 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Beutl.Collections;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
@@ -34,77 +33,30 @@ public sealed class FFmpegEncoderSpecializedPropertyExtension : PropertyEditorEx
                && adapter.Property == settings.FormatProperty;
     }
 
-    public override IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
+    protected override void RegisterEditors(PropertyEditorRegistry registry)
     {
-        foreach (var prop in properties)
-        {
-            if (IsVideoOptionsProperty(prop) || IsAudioFormatProperty(prop) || IsPixelFormatProperty(prop) || IsSampleRateProperty(prop))
-            {
-                return [prop];
-            }
-        }
-
-        return [];
+        registry.Register<CoreList<AdditionalOption>, EncoderOptionsEditorViewModel>(
+            p => new EncoderOptionsEditorViewModel((EnginePropertyAdapter<CoreList<AdditionalOption>>)p, this),
+            context => new EncoderOptionsEditor(context),
+            new PropertyEditorOptions { Match = IsVideoOptionsProperty });
+        registry.Register<int, SampleRateEditorViewModel>(
+            p => new SampleRateEditorViewModel(p, this),
+            context => Accept(context, new AutoCompleteStringEditor()),
+            new PropertyEditorOptions { Match = IsSampleRateProperty });
+        registry.Register<AudioFormat, AudioFormatEditorViewModel>(
+            p => new AudioFormatEditorViewModel(p, this),
+            context => Accept(context, new EnumEditor()),
+            new PropertyEditorOptions { Match = IsAudioFormatProperty });
+        registry.Register<int, PixelFormatEditorViewModel>(
+            p => new PixelFormatEditorViewModel(p, this),
+            context => Accept(context, new EnumEditor()),
+            new PropertyEditorOptions { Match = IsPixelFormatProperty });
     }
 
-    public override bool TryCreateContext(
-        IReadOnlyList<IPropertyAdapter> properties,
-        [NotNullWhen(true)] out IPropertyEditorContext? context)
+    // These view models bind the editor themselves when it visits them.
+    private static Control Accept(IPropertyEditorContext context, PropertyEditor editor)
     {
-        context = null;
-        if (properties.Count != 1)
-        {
-            return false;
-        }
-
-        var prop = properties[0];
-        if (IsVideoOptionsProperty(prop))
-        {
-            context = new EncoderOptionsEditorViewModel((EnginePropertyAdapter<CoreList<AdditionalOption>>)prop, this);
-        }
-        else if (IsSampleRateProperty(prop))
-        {
-            context = new SampleRateEditorViewModel((IPropertyAdapter<int>)prop, this);
-        }
-        else if (IsAudioFormatProperty(prop))
-        {
-            context = new AudioFormatEditorViewModel(
-                (IPropertyAdapter<FFmpegAudioEncoderSettings.AudioFormat>)prop, this);
-        }
-        else if (IsPixelFormatProperty(prop))
-        {
-            context = new PixelFormatEditorViewModel((IPropertyAdapter<int>)prop, this);
-        }
-
-        return context != null;
-    }
-
-    public override bool TryCreateControl(
-        IPropertyEditorContext context,
-        [NotNullWhen(true)] out Control? control)
-    {
-        if (context is EncoderOptionsEditorViewModel options)
-        {
-            control = new EncoderOptionsEditor(options);
-            return true;
-        }
-
-        if (context is SampleRateEditorViewModel)
-        {
-            var editor = new AutoCompleteStringEditor();
-            context.Accept(editor);
-            control = editor;
-            return true;
-        }
-
-        if (context is AudioFormatEditorViewModel or PixelFormatEditorViewModel)
-        {
-            var editor = new EnumEditor();
-            context.Accept(editor);
-            control = editor;
-            return true;
-        }
-
-        return base.TryCreateControl(context, out control);
+        context.Accept(editor);
+        return editor;
     }
 }

@@ -1,4 +1,4 @@
-﻿using Beutl.Controls.PropertyEditors;
+﻿using Beutl.Editor.PropertyEditors;
 using Beutl.Language;
 using RangeAttribute = System.ComponentModel.DataAnnotations.RangeAttribute;
 

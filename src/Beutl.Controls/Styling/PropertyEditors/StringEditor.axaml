@@ -25,7 +25,7 @@
         </Border>
     </Design.PreviewWith>
 
-    <ControlTheme x:Key="{x:Type local:StringEditor}" TargetType="local:StringEditor">
+    <ControlTheme x:Key="{x:Type local:StringEditor}" TargetType="local:StringEditorBase">
         <Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />
         <Setter Property="Template">
             <ControlTemplate>
@@ -220,8 +220,8 @@
                         <OptionsDisplayItem.ActionButton>
                             <TextBox Name="PART_InnerTextBox"
                                      Width="188"
-                                     IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:StringEditor}}}"
-                                     Text="{Binding Text, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:StringEditor}}}" />
+                                     IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:StringEditorBase}}}"
+                                     Text="{Binding Text, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:StringEditorBase}}}" />
                         </OptionsDisplayItem.ActionButton>
                     </OptionsDisplayItem>
                 </ControlTemplate>
@@ -243,8 +243,8 @@
                                          Margin="44,0"
                                          AcceptsReturn="True"
                                          AcceptsTab="True"
-                                         IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:StringEditor}}}"
-                                         Text="{Binding Text, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:StringEditor}}}" />
+                                         IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:StringEditorBase}}}"
+                                         Text="{Binding Text, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:StringEditorBase}}}" />
                             </OptionsDisplayItem.Content>
                         </OptionsDisplayItem>
                     </ControlTemplate>

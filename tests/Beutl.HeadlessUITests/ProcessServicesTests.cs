@@ -20,7 +20,7 @@ public sealed class ProcessServicesTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(PropertyEditorExtension.DefaultHandler, Is.InstanceOf<PropertyEditorService.PropertyEditorExtensionImpl>());
+            Assert.That(PropertyEditorHost.Current, Is.SameAs(PropertyEditorControls.Instance));
             Assert.That(NotificationService.Handler, Is.InstanceOf<NotificationServiceHandler>());
             Assert.That(TutorialService.Current, Is.InstanceOf<TutorialServiceHandler>());
             Assert.That(AppHelper.GetContextCommandManager?.Invoke(), Is.SameAs(TestShell.MainViewModel.ContextCommandManager));
