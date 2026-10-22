@@ -16,26 +16,26 @@ public sealed partial class EqualizerBand : EngineObject
     }
 
     [Display(Name = nameof(AudioStrings.Equalizer_FilterType), ResourceType = typeof(AudioStrings))]
-    public IProperty<BiQuadFilterType> FilterType { get; } = Property.Create(BiQuadFilterType.Peak);
+    public IExpressionProperty<BiQuadFilterType> FilterType { get; } = Property.Create(BiQuadFilterType.Peak);
 
     /// <summary>
     /// Center frequency in Hz.
     /// </summary>
     [Range(20, 20000)]
     [Display(Name = nameof(AudioStrings.Equalizer_Frequency), ResourceType = typeof(AudioStrings))]
-    public IProperty<float> Frequency { get; } = Property.CreateAnimatable(1000f);
+    public IExpressionProperty<float> Frequency { get; } = Property.CreateAnimatable(1000f);
 
     /// <summary>
     /// Gain in dB.
     /// </summary>
     [Range(-24, 24)]
     [Display(Name = nameof(AudioStrings.Equalizer_Gain), ResourceType = typeof(AudioStrings))]
-    public IProperty<float> Gain { get; } = Property.CreateAnimatable(0f);
+    public IExpressionProperty<float> Gain { get; } = Property.CreateAnimatable(0f);
 
     /// <summary>
     /// Q factor (determines bandwidth).
     /// </summary>
     [Range(0.1, 18)]
     [Display(Name = nameof(AudioStrings.Equalizer_Q), ResourceType = typeof(AudioStrings))]
-    public IProperty<float> Q { get; } = Property.CreateAnimatable(1f);
+    public IExpressionProperty<float> Q { get; } = Property.CreateAnimatable(1f);
 }

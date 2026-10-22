@@ -19,7 +19,7 @@ public sealed partial class MatrixTransform : Transform
     }
 
     [Display(Name = nameof(GraphicsStrings.MatrixTransform_Matrix), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Matrix> Matrix { get; } = Property.CreateAnimatable(Graphics.Matrix.Identity);
+    public IExpressionProperty<Matrix> Matrix { get; } = Property.CreateAnimatable(Graphics.Matrix.Identity);
 
     public override Matrix CreateMatrix(CompositionContext context)
     {

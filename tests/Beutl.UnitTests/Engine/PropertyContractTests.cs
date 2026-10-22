@@ -16,19 +16,19 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
         Animatable,
     }
 
-    private IProperty<T> Create<T>(T defaultValue, IValidator<T>? validator = null)
+    private IExpressionProperty<T> Create<T>(T defaultValue, IValidator<T>? validator = null)
         => kind == PropertyKind.Simple
             ? new SimpleProperty<T>(defaultValue, validator)
             : new AnimatableProperty<T>(defaultValue, validator);
 
-    private IProperty<T> Make<T>(T defaultValue)
+    private IExpressionProperty<T> Make<T>(T defaultValue)
     {
-        IProperty<T> property = Create(defaultValue);
+        IExpressionProperty<T> property = Create(defaultValue);
         property.SetAttributes("Value", []);
         return property;
     }
 
-    private static void ResetToDefault<T>(IProperty<T> property)
+    private static void ResetToDefault<T>(IExpressionProperty<T> property)
     {
         switch (property)
         {
@@ -44,7 +44,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
     [Test]
     public void Name_BeforeInitialization_Throws()
     {
-        IProperty<int> property = Create(0);
+        IExpressionProperty<int> property = Create(0);
 
         Assert.Throws<InvalidOperationException>(() => _ = property.Name);
     }
@@ -52,7 +52,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
     [Test]
     public void CurrentValue_NewValue_RaisesValueChangedAndEdited()
     {
-        IProperty<int> property = Make(0);
+        IExpressionProperty<int> property = Make(0);
         PropertyValueChangedEventArgs<int>? args = null;
         int edited = 0;
         property.ValueChanged += (_, e) => args = e;
@@ -71,7 +71,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
     [Test]
     public void CurrentValue_SameValue_DoesNotRaiseEvents()
     {
-        IProperty<int> property = Make(10);
+        IExpressionProperty<int> property = Make(10);
         int valueChanged = 0;
         int edited = 0;
         property.ValueChanged += (_, _) => valueChanged++;
@@ -90,7 +90,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
         var current = new EqualityValue("same", "old");
         var replacement = new EqualityValue("same", "new");
         var validator = new CountingValidator();
-        IProperty<EqualityValue> property = Create(current, validator);
+        IExpressionProperty<EqualityValue> property = Create(current, validator);
         property.SetAttributes("Value", []);
         PropertyValueChangedEventArgs<EqualityValue>? args = null;
         int edited = 0;
@@ -114,7 +114,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
     [Test]
     public void Expression_AssigningRaisesExpressionChangedAndEdited()
     {
-        IProperty<double> property = Make(0.0);
+        IExpressionProperty<double> property = Make(0.0);
         IExpression<double>? captured = null;
         int edited = 0;
         property.ExpressionChanged += e => captured = e;
@@ -131,7 +131,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
     [Test]
     public void GetOwnerObject_AfterSet_ReturnsAssignedOwner()
     {
-        IProperty<int> property = Make(0);
+        IExpressionProperty<int> property = Make(0);
         var owner = new TestEngineObjectForProperty();
 
         property.SetOwnerObject(owner);
@@ -143,7 +143,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
     public void GetValidator_ReturnsTheAttachedValidator()
     {
         var validator = new MultipleValidator<int>([]);
-        IProperty<int> property = Create(0, validator);
+        IExpressionProperty<int> property = Create(0, validator);
 
         Assert.That(property.GetValidator(), Is.SameAs(validator));
     }
@@ -151,7 +151,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
     [Test]
     public void GetValue_WithoutAnimationOrExpression_ReturnsCurrentValue()
     {
-        IProperty<int> property = Make(0);
+        IExpressionProperty<int> property = Make(0);
         property.CurrentValue = 99;
 
         int value = property.GetValue(CompositionContext.Default);
@@ -162,7 +162,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
     [Test]
     public void ResetToDefault_RestoresDefaultsAndClearsState()
     {
-        IProperty<int> property = Make(7);
+        IExpressionProperty<int> property = Make(7);
         property.CurrentValue = 100;
         property.Expression = Expression.Create<int>("1+2");
 

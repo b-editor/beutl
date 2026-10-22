@@ -28,13 +28,13 @@ public sealed partial class ScaleTransform : Transform
     }
 
     [Display(Name = nameof(GraphicsStrings.Scale), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Scale { get; } = Property.CreateAnimatable(100f);
+    public IExpressionProperty<float> Scale { get; } = Property.CreateAnimatable(100f);
 
     [Display(Name = nameof(GraphicsStrings.ScaleTransform_ScaleX), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> ScaleX { get; } = Property.CreateAnimatable(100f);
+    public IExpressionProperty<float> ScaleX { get; } = Property.CreateAnimatable(100f);
 
     [Display(Name = nameof(GraphicsStrings.ScaleTransform_ScaleY), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> ScaleY { get; } = Property.CreateAnimatable(100f);
+    public IExpressionProperty<float> ScaleY { get; } = Property.CreateAnimatable(100f);
 
     public override Matrix CreateMatrix(CompositionContext context)
     {

@@ -8,7 +8,7 @@ public interface IPresenter
 public interface IPresenter<T> : IPresenter
     where T : CoreObject
 {
-    IProperty<T?> Target { get; }
+    IExpressionProperty<T?> Target { get; }
 
     Type IPresenter.TargetType => typeof(T);
 }

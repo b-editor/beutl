@@ -35,7 +35,7 @@ internal sealed partial class MediaTimeMapping
             {
                 // Video/controller playback integrates only nonempty keyframe curves.
                 // An expression over no keyframes multiplies time by its evaluated value instead.
-                IsSupported &= !speed.HasExpression || _animation is { KeyFrames.Count: > 0 };
+                IsSupported &= speed is not IExpressionProperty { HasExpression: true } || _animation is { KeyFrames.Count: > 0 };
             }
             _integrator = new SpeedIntegrator(sampleRate);
             if (sampleRate > 60 && _animation != null)

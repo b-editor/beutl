@@ -30,7 +30,7 @@ public partial class Scene3D : Drawable, IFlowOperator
     /// Gets the camera for this scene.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Scene3D_Camera), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Camera3D?> Camera { get; } = Property.Create<Camera3D?>();
+    public IExpressionProperty<Camera3D?> Camera { get; } = Property.Create<Camera3D?>();
 
     /// <summary>
     /// Gets the 3D objects in this scene.
@@ -50,34 +50,34 @@ public partial class Scene3D : Drawable, IFlowOperator
     /// Gets the ambient color of the scene.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Scene3D_AmbientColor), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Color> AmbientColor { get; } = Property.CreateAnimatable(Colors.White);
+    public IExpressionProperty<Color> AmbientColor { get; } = Property.CreateAnimatable(Colors.White);
 
     /// <summary>
     /// Gets the ambient light intensity.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Scene3D_AmbientIntensity), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 1f), NumberStep(0.1, 0.01)]
-    public IProperty<float> AmbientIntensity { get; } = Property.CreateAnimatable(0.2f);
+    public IExpressionProperty<float> AmbientIntensity { get; } = Property.CreateAnimatable(0.2f);
 
     /// <summary>
     /// Gets the width of the 3D render target.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Scene3D_RenderWidth), ResourceType = typeof(GraphicsStrings))]
     [Range(1f, 8192f)]
-    public IProperty<float> RenderWidth { get; } = Property.CreateAnimatable(1920f);
+    public IExpressionProperty<float> RenderWidth { get; } = Property.CreateAnimatable(1920f);
 
     /// <summary>
     /// Gets the height of the 3D render target.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Scene3D_RenderHeight), ResourceType = typeof(GraphicsStrings))]
     [Range(1f, 8192f)]
-    public IProperty<float> RenderHeight { get; } = Property.CreateAnimatable(1080f);
+    public IExpressionProperty<float> RenderHeight { get; } = Property.CreateAnimatable(1080f);
 
     /// <summary>
     /// Gets the background color of the 3D scene.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Scene3D_BackgroundColor), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Color> BackgroundColor { get; } = Property.CreateAnimatable(Colors.Transparent);
+    public IExpressionProperty<Color> BackgroundColor { get; } = Property.CreateAnimatable(Colors.Transparent);
 
     /// <summary>
     /// Gets the target object ID for gizmo visualization.
@@ -88,7 +88,7 @@ public partial class Scene3D : Drawable, IFlowOperator
     /// </remarks>
     [NotAutoSerialized]
     [NotTracked]
-    public IProperty<Guid?> GizmoTarget { get; } = Property.Create<Guid?>();
+    public IExpressionProperty<Guid?> GizmoTarget { get; } = Property.Create<Guid?>();
 
     /// <summary>
     /// Gets the gizmo visualization mode.
@@ -96,7 +96,7 @@ public partial class Scene3D : Drawable, IFlowOperator
     /// <remarks>Editor state, like <see cref="GizmoTarget"/>.</remarks>
     [NotAutoSerialized]
     [NotTracked]
-    public IProperty<GizmoMode> GizmoMode { get; } = Property.Create(Gizmo.GizmoMode.None);
+    public IExpressionProperty<GizmoMode> GizmoMode { get; } = Property.Create(Gizmo.GizmoMode.None);
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {

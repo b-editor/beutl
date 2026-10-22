@@ -15,7 +15,7 @@ public sealed partial class MirroredBarsSpectrumShape : SpectrumShape
 
     [Display(Name = nameof(GraphicsStrings.SpectrumShape_BarWidth), ResourceType = typeof(GraphicsStrings))]
     [Range(0.5f, 10000f)]
-    public IProperty<float> BarWidth { get; } = Property.CreateAnimatable(6f);
+    public IExpressionProperty<float> BarWidth { get; } = Property.CreateAnimatable(6f);
 
     public new partial class Resource
     {

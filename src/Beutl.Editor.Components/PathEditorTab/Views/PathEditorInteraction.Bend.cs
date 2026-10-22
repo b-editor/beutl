@@ -80,7 +80,7 @@ internal sealed partial class PathEditorInteraction
         {
             if (figure.Segments[edge] is CubicBezierSegment cubic)
             {
-                IProperty<BtlPoint> property = incoming ? cubic.ControlPoint2 : cubic.ControlPoint1;
+                IExpressionProperty<BtlPoint> property = incoming ? cubic.ControlPoint2 : cubic.ControlPoint1;
                 return !property.HasExpression;
             }
             return figure.Segments[edge] is LineSegment or Beutl.Media.QuadraticBezierSegment
@@ -90,7 +90,7 @@ internal sealed partial class PathEditorInteraction
         CubicBezierSegment? GetCubic(int edge) => figure.Segments[edge] as CubicBezierSegment
             ?? PathEditingOperations.ToCubic(figure, edge, composition);
 
-        void SetHandle(CubicBezierSegment segment, IProperty<BtlPoint> property, BtlPoint value)
+        void SetHandle(CubicBezierSegment segment, IExpressionProperty<BtlPoint> property, BtlPoint value)
         {
             // Editing existing handles does not replace segments or bake their animation.
             var state = PathPointDragBehavior.CreateThumbDragState(Context!, segment, property);

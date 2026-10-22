@@ -58,19 +58,19 @@ public sealed partial class RadialBlur : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.RadialBlur_Mode), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<RadialBlurMode> Mode { get; } = Property.Create(RadialBlurMode.Zoom);
+    public IExpressionProperty<RadialBlurMode> Mode { get; } = Property.Create(RadialBlurMode.Zoom);
 
     [Display(Name = nameof(GraphicsStrings.RadialBlur_Center), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<RelativePoint> Center { get; } = Property.CreateAnimatable(RelativePoint.Center);
+    public IExpressionProperty<RelativePoint> Center { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
     [Display(Name = nameof(GraphicsStrings.RadialBlur_Amount),
         Description = nameof(GraphicsStrings.RadialBlur_Amount_Description), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
-    public IProperty<float> Amount { get; } = Property.CreateAnimatable(10f);
+    public IExpressionProperty<float> Amount { get; } = Property.CreateAnimatable(10f);
 
     [Display(Name = nameof(GraphicsStrings.RadialBlur_Samples), ResourceType = typeof(GraphicsStrings))]
     [Range(2, MaxSamples)]
-    public IProperty<int> Samples { get; } = Property.CreateAnimatable(32);
+    public IExpressionProperty<int> Samples { get; } = Property.CreateAnimatable(32);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

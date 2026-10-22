@@ -1081,7 +1081,7 @@ public sealed class SessionToolsTests
             ScanProperties<AnimatedValueHolder>();
         }
 
-        public IProperty<EngineObject?> AnimatedValue { get; } = Property.CreateAnimatable<EngineObject?>();
+        public IExpressionProperty<EngineObject?> AnimatedValue { get; } = Property.CreateAnimatable<EngineObject?>();
     }
 
     private sealed record RecoveredProjectFixture(

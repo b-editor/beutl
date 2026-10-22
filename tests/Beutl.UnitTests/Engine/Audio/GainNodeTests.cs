@@ -64,7 +64,7 @@ public class GainNodeTests
     [Test]
     public void Process_GainWithAnimation_MatchesThePropertyValue()
     {
-        IProperty<float> gain = Ramp("Gain", 0f, 100f, 1.0);
+        IExpressionProperty<float> gain = Ramp("Gain", 0f, 100f, 1.0);
         using var node = new GainNode { Gain = gain };
         node.AddInput(new ConstantInputNode(SampleRate, 1, SampleRate, 1.0f));
 

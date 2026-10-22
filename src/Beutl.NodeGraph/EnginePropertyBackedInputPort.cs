@@ -67,10 +67,12 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
         if (_property != null)
         {
             _property.Edited -= OnTargetEdited;
-            if (!Connection.IsNull && _property.Expression is NodePortExpression<T> expression && !HasOtherConnectedInput())
+            if (!Connection.IsNull
+                && _property is IExpressionProperty<T> { Expression: NodePortExpression<T> expression } property
+                && !HasOtherConnectedInput())
             {
                 using var suppression = HistoryReplay.Enter();
-                _property.Expression = expression.Replaced;
+                property.Expression = expression.Replaced;
             }
         }
 
@@ -93,15 +95,15 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
 
     private void UpdateExpression()
     {
-        if (_property == null || !_property.SupportsExpression) return;
+        if (_property is not IExpressionProperty<T> property) return;
         // Observers must update their previous-expression state, but this derived change must not
         // be recorded separately from the connection (or replayed on a replaced object). The user's
         // expression rides along in the port expression, so undoing the connection gives it back.
         using var suppression = HistoryReplay.Enter();
-        if (!Connection.IsNull && _property.Expression is not NodePortExpression<T>)
-            _property.Expression = new NodePortExpression<T> { Replaced = _property.Expression };
-        else if (Connection.IsNull && _property.Expression is NodePortExpression<T> expression && !HasOtherConnectedInput())
-            _property.Expression = expression.Replaced;
+        if (!Connection.IsNull && property.Expression is not NodePortExpression<T>)
+            property.Expression = new NodePortExpression<T> { Replaced = property.Expression };
+        else if (Connection.IsNull && property.Expression is NodePortExpression<T> expression && !HasOtherConnectedInput())
+            property.Expression = expression.Replaced;
     }
 
     void IConnectionExpressionController.UpdateExpression(bool enabled)
@@ -110,17 +112,18 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
         {
             UpdateExpression();
         }
-        else if (_property?.Expression is NodePortExpression<T> expression && !HasOtherConnectedInput(acceptedOnly: true))
+        else if (_property is IExpressionProperty<T> { Expression: NodePortExpression<T> expression } property
+                 && !HasOtherConnectedInput(acceptedOnly: true))
         {
             using var suppression = HistoryReplay.Enter();
-            _property.Expression = expression.Replaced;
+            property.Expression = expression.Replaced;
         }
     }
 
     public void CopyFrom(IItemValue itemValue)
     {
         if (itemValue is not ItemValue<T> typed) return;
-        if (!Connection.IsNull && _property?.Expression is NodePortExpression<T> exp)
+        if (!Connection.IsNull && _property is IExpressionProperty<T> { Expression: NodePortExpression<T> exp })
         {
             exp.Value = typed.Value;
         }

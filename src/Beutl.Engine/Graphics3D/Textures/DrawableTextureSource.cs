@@ -18,15 +18,15 @@ public sealed partial class DrawableTextureSource : TextureSource
     }
 
     [Display(Name = nameof(GraphicsStrings.Drawable), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Drawable?> Drawable { get; } = Property.Create<Drawable?>(null);
+    public IExpressionProperty<Drawable?> Drawable { get; } = Property.Create<Drawable?>(null);
 
     [Display(Name = nameof(GraphicsStrings.DrawableTextureSource_TextureWidth), ResourceType = typeof(GraphicsStrings))]
     [Range(1, 8192)]
-    public IProperty<int> TextureWidth { get; } = Property.CreateAnimatable(256);
+    public IExpressionProperty<int> TextureWidth { get; } = Property.CreateAnimatable(256);
 
     [Display(Name = nameof(GraphicsStrings.DrawableTextureSource_TextureHeight), ResourceType = typeof(GraphicsStrings))]
     [Range(1, 8192)]
-    public IProperty<int> TextureHeight { get; } = Property.CreateAnimatable(256);
+    public IExpressionProperty<int> TextureHeight { get; } = Property.CreateAnimatable(256);
 
     public partial class Resource : IRecordedTextureSource
     {

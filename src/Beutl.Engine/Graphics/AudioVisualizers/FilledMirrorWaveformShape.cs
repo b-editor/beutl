@@ -17,10 +17,10 @@ public sealed partial class FilledMirrorWaveformShape : WaveformShape
     // 0 にすると slotWidth から自動決定
     [Display(Name = nameof(GraphicsStrings.SpectrumShape_BarWidth), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 10000f)]
-    public IProperty<float> BarWidth { get; } = Property.CreateAnimatable(0f);
+    public IExpressionProperty<float> BarWidth { get; } = Property.CreateAnimatable(0f);
 
     [Display(Name = nameof(GraphicsStrings.SpectrumShape_CornerRadius), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<CornerRadius> CornerRadius { get; } =
+    public IExpressionProperty<CornerRadius> CornerRadius { get; } =
         Property.CreateAnimatable<CornerRadius>(new CornerRadius(0f));
 
     public new partial class Resource

@@ -22,7 +22,7 @@ public partial class PerspectiveCamera : Camera3D
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PerspectiveCamera_FieldOfView), ResourceType = typeof(GraphicsStrings))]
     [Range(1f, 179f), NumberStep(1, 0.1)]
-    public IProperty<float> FieldOfView { get; } = Property.CreateAnimatable(60f);
+    public IExpressionProperty<float> FieldOfView { get; } = Property.CreateAnimatable(60f);
 
     /// <inheritdoc />
     public override Matrix4x4 GetProjectionMatrix(Camera3D.Resource resource, float aspectRatio)

@@ -34,15 +34,15 @@ public sealed class FallbackEditorPersistenceTests
             ScanProperties<EditorValueHolder>();
         }
 
-        public IProperty<EngineObject> CoreValue { get; } = Property.CreateAnimatable<EngineObject>();
+        public IExpressionProperty<EngineObject> CoreValue { get; } = Property.CreateAnimatable<EngineObject>();
 
-        public IProperty<Geometry?> GeometryValue { get; } = Property.CreateAnimatable<Geometry?>();
+        public IExpressionProperty<Geometry?> GeometryValue { get; } = Property.CreateAnimatable<Geometry?>();
 
-        public IProperty<Brush?> BrushValue { get; } = Property.CreateAnimatable<Brush?>();
+        public IExpressionProperty<Brush?> BrushValue { get; } = Property.CreateAnimatable<Brush?>();
 
-        public IProperty<Pen?> PenValue { get; } = Property.Create<Pen?>();
+        public IExpressionProperty<Pen?> PenValue { get; } = Property.Create<Pen?>();
 
-        public IProperty<TextureSource?> TextureValue { get; } = Property.Create<TextureSource?>();
+        public IExpressionProperty<TextureSource?> TextureValue { get; } = Property.Create<TextureSource?>();
     }
 
     [SuppressResourceClassGeneration]
@@ -50,9 +50,9 @@ public sealed class FallbackEditorPersistenceTests
     {
         public NullableRecoveryHolder() => ScanProperties<NullableRecoveryHolder>();
 
-        public IProperty<DisplacementMapTransform?> Transform { get; } = Property.Create<DisplacementMapTransform?>();
+        public IExpressionProperty<DisplacementMapTransform?> Transform { get; } = Property.Create<DisplacementMapTransform?>();
 
-        public IProperty<float> Amount { get; } = Property.Create<float>();
+        public IExpressionProperty<float> Amount { get; } = Property.Create<float>();
 
         public override void Deserialize(ICoreSerializationContext context)
         {

@@ -23,13 +23,13 @@ public partial class StrokeEffect : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.Stroke), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
+    public IExpressionProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
 
     [Display(Name = nameof(GraphicsStrings.Offset), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Point> Offset { get; } = Property.CreateAnimatable(default(Point));
+    public IExpressionProperty<Point> Offset { get; } = Property.CreateAnimatable(default(Point));
 
     [Display(Name = nameof(GraphicsStrings.StrokeEffect_Style), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<StrokeStyles> Style { get; } = Property.CreateAnimatable(StrokeStyles.Background);
+    public IExpressionProperty<StrokeStyles> Style { get; } = Property.CreateAnimatable(StrokeStyles.Background);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

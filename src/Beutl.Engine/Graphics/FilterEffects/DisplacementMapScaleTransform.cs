@@ -15,19 +15,19 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
     }
 
     [Display(Name = nameof(GraphicsStrings.Scale), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Scale { get; } = Property.CreateAnimatable<float>(100);
+    public IExpressionProperty<float> Scale { get; } = Property.CreateAnimatable<float>(100);
 
     [Display(Name = nameof(GraphicsStrings.ScaleTransform_ScaleX), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> ScaleX { get; } = Property.CreateAnimatable<float>(100);
+    public IExpressionProperty<float> ScaleX { get; } = Property.CreateAnimatable<float>(100);
 
     [Display(Name = nameof(GraphicsStrings.ScaleTransform_ScaleY), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> ScaleY { get; } = Property.CreateAnimatable<float>(100);
+    public IExpressionProperty<float> ScaleY { get; } = Property.CreateAnimatable<float>(100);
 
     [Display(Name = nameof(GraphicsStrings.CenterX), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> CenterX { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> CenterX { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.CenterY), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> CenterY { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> CenterY { get; } = Property.CreateAnimatable<float>();
 
     public partial class Resource
     {

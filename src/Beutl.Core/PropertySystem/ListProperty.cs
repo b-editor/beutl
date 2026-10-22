@@ -1,7 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Text.Json.Nodes;
 using Beutl.Collections;
 using Beutl.Serialization;
 using Beutl.Validation;
@@ -51,10 +50,6 @@ public class ListProperty<T> : IListProperty<T>
 
     public Type ElementType { get; } = typeof(T);
 
-    public bool IsAnimatable => false;
-
-    public bool SupportsExpression => false;
-
     public ICoreList<T> DefaultValue => null!;
 
     public ICoreList<T> CurrentValue
@@ -66,23 +61,9 @@ public class ListProperty<T> : IListProperty<T>
     public void ReplaceCurrentValue(ICoreList<T> value)
         => _items.Replace(value);
 
-    public IExpression<ICoreList<T>>? Expression
-    {
-        get => null;
-        set { }
-    }
-
     public bool HasLocalValue => true;
 
-    public bool HasExpression => false;
-
     public event EventHandler<PropertyValueChangedEventArgs<ICoreList<T>>>? ValueChanged
-    {
-        add { }
-        remove { }
-    }
-
-    public event Action<IExpression<ICoreList<T>>?>? ExpressionChanged
     {
         add { }
         remove { }
@@ -98,11 +79,6 @@ public class ListProperty<T> : IListProperty<T>
     private void OnChildEdited(object? sender, EventArgs e)
     {
         Edited?.Invoke(sender, e);
-    }
-
-    public ICoreList<T> GetValue(EvaluationContext context)
-    {
-        return CurrentValue;
     }
 
     public void SetAttributes(string name, Attribute[] attributes)
@@ -150,15 +126,6 @@ public class ListProperty<T> : IListProperty<T>
     public void SerializeValue(ICoreSerializationContext context)
     {
         context.SetValue(Name, CurrentValue);
-    }
-
-    public void DeserializeExpression(JsonNode expressionNode)
-    {
-    }
-
-    public JsonNode? SerializeExpression()
-    {
-        return null;
     }
 
     public CoreObject? GetOwnerObject()

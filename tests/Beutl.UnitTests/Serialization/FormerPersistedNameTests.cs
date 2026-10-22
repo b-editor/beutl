@@ -249,7 +249,7 @@ public class FormerPersistedNameTests
     {
         public RenamedLeaf() => ScanProperties<RenamedLeaf>();
 
-        public IProperty<float> Width { get; } = Property.Create(1f);
+        public IExpressionProperty<float> Width { get; } = Property.Create(1f);
     }
 
     [FormerPersistedName(FormerBoxName)]
@@ -281,7 +281,7 @@ public class FormerPersistedNameTests
         public MemberHolder() => ScanProperties<MemberHolder>();
 
         [FormerPersistedName("FormerWidth")]
-        public IProperty<float> Width { get; } = Property.CreateAnimatable(1f);
+        public IExpressionProperty<float> Width { get; } = Property.CreateAnimatable(1f);
 
         [FormerPersistedName("FormerTags")]
         public IListProperty<string> Tags { get; } = Property.CreateList<string>();

@@ -36,7 +36,7 @@ public sealed partial class LimiterEffect : AudioEffect
     [Display(Name = nameof(AudioStrings.LimiterEffect_Threshold), Description = nameof(AudioStrings.LimiterEffect_Threshold_Description), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     [NumberStep(10, 1)]
-    public IProperty<float> Threshold { get; } = Property.CreateAnimatable(DefaultThresholdDb);
+    public IExpressionProperty<float> Threshold { get; } = Property.CreateAnimatable(DefaultThresholdDb);
 
     /// <summary>
     /// Time constant of the gain recovery (one-pole IIR) in milliseconds.
@@ -45,7 +45,7 @@ public sealed partial class LimiterEffect : AudioEffect
     [Display(Name = nameof(AudioStrings.LimiterEffect_Release), Description = nameof(AudioStrings.LimiterEffect_Release_Description), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     [NumberStep(100, 10)]
-    public IProperty<float> Release { get; } = Property.CreateAnimatable(DefaultReleaseMs);
+    public IExpressionProperty<float> Release { get; } = Property.CreateAnimatable(DefaultReleaseMs);
 
     /// <summary>
     /// Lookahead window in milliseconds. The output is delayed by this amount
@@ -57,7 +57,7 @@ public sealed partial class LimiterEffect : AudioEffect
     [Display(Name = nameof(AudioStrings.LimiterEffect_Lookahead), Description = nameof(AudioStrings.LimiterEffect_Lookahead_Description), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     [NumberStep(5, 0.5)]
-    public IProperty<float> Lookahead { get; } = Property.CreateAnimatable(DefaultLookaheadMs);
+    public IExpressionProperty<float> Lookahead { get; } = Property.CreateAnimatable(DefaultLookaheadMs);
 
     /// <summary>
     /// Gain applied to the output after the limiter stage, in decibels. The
@@ -67,7 +67,7 @@ public sealed partial class LimiterEffect : AudioEffect
     [Display(Name = nameof(AudioStrings.LimiterEffect_MakeupGain), Description = nameof(AudioStrings.LimiterEffect_MakeupGain_Description), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     [NumberStep(1, 0.1)]
-    public IProperty<float> MakeupGain { get; } = Property.CreateAnimatable(DefaultMakeupGainDb);
+    public IExpressionProperty<float> MakeupGain { get; } = Property.CreateAnimatable(DefaultMakeupGainDb);
 
     public override AudioNode CreateNode(AudioContext context, AudioNode inputNode)
     {

@@ -719,13 +719,13 @@ public sealed class EasingEditorTests
     {
         public EasingHolder() => ScanProperties<EasingHolder>();
 
-        public IProperty<Easing> Curve { get; } = Property.Create<Easing>(new LinearEasing());
+        public IExpressionProperty<Easing> Curve { get; } = Property.Create<Easing>(new LinearEasing());
 
-        public IProperty<SplineEasing> Spline { get; } = Property.Create(new SplineEasing());
+        public IExpressionProperty<SplineEasing> Spline { get; } = Property.Create(new SplineEasing());
 
         // ScanProperties builds the validator from the property's attributes.
         [NoOvershoot]
-        public IProperty<Easing> Bounded { get; } = Property.Create<Easing>(new SplineEasing(0.25f, 0.1f, 0.25f, 1f));
+        public IExpressionProperty<Easing> Bounded { get; } = Property.Create<Easing>(new SplineEasing(0.25f, 0.1f, 0.25f, 1f));
     }
 
     public sealed class NoOvershootAttribute : ValidationAttribute

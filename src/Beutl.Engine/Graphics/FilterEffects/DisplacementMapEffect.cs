@@ -28,22 +28,22 @@ public partial class DisplacementMapEffect : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_DisplacementMap), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Brush?> DisplacementMap { get; } = Property.Create<Brush?>();
+    public IExpressionProperty<Brush?> DisplacementMap { get; } = Property.Create<Brush?>();
 
     [Display(Name = nameof(GraphicsStrings.Transform), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<DisplacementMapTransform?> Transform { get; } = Property.Create<DisplacementMapTransform?>();
+    public IExpressionProperty<DisplacementMapTransform?> Transform { get; } = Property.Create<DisplacementMapTransform?>();
 
     [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_SpreadMethod), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<GradientSpreadMethod> SpreadMethod { get; } = Property.CreateAnimatable(GradientSpreadMethod.Pad);
+    public IExpressionProperty<GradientSpreadMethod> SpreadMethod { get; } = Property.CreateAnimatable(GradientSpreadMethod.Pad);
 
     [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_Channel), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<DisplacementMapChannel> Channel { get; } = Property.Create(DisplacementMapChannel.Alpha);
+    public IExpressionProperty<DisplacementMapChannel> Channel { get; } = Property.Create(DisplacementMapChannel.Alpha);
 
     [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_Signed), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> Signed { get; } = Property.Create(false);
+    public IExpressionProperty<bool> Signed { get; } = Property.Create(false);
 
     [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_ShowDisplacementMap), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> ShowDisplacementMap { get; } = Property.CreateAnimatable(false);
+    public IExpressionProperty<bool> ShowDisplacementMap { get; } = Property.CreateAnimatable(false);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

@@ -20,31 +20,31 @@ public sealed partial class GateEffect : AudioEffect
     [Display(Name = nameof(AudioStrings.GateEffect_Threshold), Description = nameof(AudioStrings.GateEffect_Threshold_Description), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     [NumberStep(10, 1)]
-    public IProperty<float> Threshold { get; } = Property.CreateAnimatable(DefaultThresholdDb);
+    public IExpressionProperty<float> Threshold { get; } = Property.CreateAnimatable(DefaultThresholdDb);
 
     [Range(MinAttackMs, MaxAttackMs)]
     [Display(Name = nameof(AudioStrings.GateEffect_Attack), Description = nameof(AudioStrings.GateEffect_Attack_Description), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     [NumberStep(10, 1)]
-    public IProperty<float> Attack { get; } = Property.CreateAnimatable(DefaultAttackMs);
+    public IExpressionProperty<float> Attack { get; } = Property.CreateAnimatable(DefaultAttackMs);
 
     [Range(MinHoldMs, MaxHoldMs)]
     [Display(Name = nameof(AudioStrings.GateEffect_Hold), Description = nameof(AudioStrings.GateEffect_Hold_Description), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     [NumberStep(100, 10)]
-    public IProperty<float> Hold { get; } = Property.CreateAnimatable(DefaultHoldMs);
+    public IExpressionProperty<float> Hold { get; } = Property.CreateAnimatable(DefaultHoldMs);
 
     [Range(MinReleaseMs, MaxReleaseMs)]
     [Display(Name = nameof(AudioStrings.GateEffect_Release), Description = nameof(AudioStrings.GateEffect_Release_Description), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     [NumberStep(100, 10)]
-    public IProperty<float> Release { get; } = Property.CreateAnimatable(DefaultReleaseMs);
+    public IExpressionProperty<float> Release { get; } = Property.CreateAnimatable(DefaultReleaseMs);
 
     [Range(MinRangeDb, MaxRangeDb)]
     [Display(Name = nameof(AudioStrings.GateEffect_Range), Description = nameof(AudioStrings.GateEffect_Range_Description), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     [NumberStep(10, 1)]
-    public IProperty<float> Range { get; } = Property.CreateAnimatable(DefaultRangeDb);
+    public IExpressionProperty<float> Range { get; } = Property.CreateAnimatable(DefaultRangeDb);
 
     public override AudioNode CreateNode(AudioContext context, AudioNode inputNode)
     {

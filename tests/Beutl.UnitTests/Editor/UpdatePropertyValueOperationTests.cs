@@ -468,7 +468,7 @@ public class UpdatePropertyValueOperationTests
             ScanProperties<TestEngineObject>();
         }
 
-        public IProperty<float> FloatValue { get; }
+        public IExpressionProperty<float> FloatValue { get; }
     }
 
     [SuppressResourceClassGeneration]
@@ -480,7 +480,7 @@ public class UpdatePropertyValueOperationTests
             ScanProperties<TestAnimatableEngineObject>();
         }
 
-        public IProperty<float> FloatValue { get; }
+        public IExpressionProperty<float> FloatValue { get; }
     }
 
     private class TestChangeOperation : ChangeOperation

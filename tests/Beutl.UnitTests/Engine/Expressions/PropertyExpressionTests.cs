@@ -21,7 +21,7 @@ public class PropertyExpressionTests
     [TestCase(true, "object value = \"abc\"; value")]
     public void FailedExpression_UsesCurrentValue(bool animated, string source)
     {
-        IProperty<float> property = animated ? new AnimatableProperty<float>(0) : new SimpleProperty<float>(0);
+        IExpressionProperty<float> property = animated ? new AnimatableProperty<float>(0) : new SimpleProperty<float>(0);
         property.SetAttributes("Opacity", []);
         property.CurrentValue = 75;
         property.Expression = new StringExpression<float>(source);
@@ -50,7 +50,7 @@ public class PropertyExpressionTests
             Log.LoggerFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Warning));
         using var logs = new CapturingLoggerProvider(category => category == "PropertyExpression");
         Log.LoggerFactory.AddProvider(logs);
-        IProperty<float> property = animated ? new AnimatableProperty<float>(7) : new SimpleProperty<float>(7);
+        IExpressionProperty<float> property = animated ? new AnimatableProperty<float>(7) : new SimpleProperty<float>(7);
         property.SetAttributes("Value", []);
         property.Expression = new StringExpression<float>("10 / (int)Time");
         var failingContext = new CompositionContext(TimeSpan.Zero);
@@ -78,7 +78,7 @@ public class PropertyExpressionTests
             Log.LoggerFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Warning));
         using var logs = new CapturingLoggerProvider(category => category == "PropertyExpression");
         Log.LoggerFactory.AddProvider(logs);
-        IProperty<float> property = animated ? new AnimatableProperty<float>(7) : new SimpleProperty<float>(7);
+        IExpressionProperty<float> property = animated ? new AnimatableProperty<float>(7) : new SimpleProperty<float>(7);
         property.SetAttributes("Value", []);
         using var started = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
@@ -122,7 +122,7 @@ public class PropertyExpressionTests
             Log.LoggerFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Warning));
         using var logs = new CapturingLoggerProvider(category => category == "PropertyExpression", throwOnLog: true);
         Log.LoggerFactory.AddProvider(logs);
-        IProperty<float> property = animated ? new AnimatableProperty<float>(7) : new SimpleProperty<float>(7);
+        IExpressionProperty<float> property = animated ? new AnimatableProperty<float>(7) : new SimpleProperty<float>(7);
         property.Expression = new TestExpression(() => throw new ExpressionException("Evaluation failed"));
         var context = TestHelper.CreateExpressionContext(TimeSpan.Zero, property);
 

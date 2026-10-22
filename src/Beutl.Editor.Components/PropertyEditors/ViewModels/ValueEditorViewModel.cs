@@ -19,7 +19,7 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
         Value = HasExpression
             .Select(hasExpression =>
                 hasExpression && PropertyAdapter is EnginePropertyAdapter<T> { Property: var engineProperty }
-                    ? CurrentTime.Select(t => engineProperty.GetValue(new CompositionContext(t)))
+                    ? CurrentTime.Select(t => new CompositionContext(t).Get(engineProperty))
                     : EditingKeyFrame
                         .Select(x => x?.GetObservable(KeyFrame<T>.ValueProperty))
                         .Select(x => x ?? PropertyAdapter.GetObservable())

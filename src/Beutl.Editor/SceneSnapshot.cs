@@ -83,7 +83,7 @@ internal static partial class SceneSnapshot
             {
                 foreach (IProperty property in engineObject.Properties)
                 {
-                    if (property.Expression is not { } expression)
+                    if (property is not IExpressionProperty { Expression: { } expression })
                         continue;
 
                     foreach (Match match in GuidPattern().Matches(expression.ExpressionString))

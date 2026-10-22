@@ -21,15 +21,15 @@ public sealed partial class CubicBezierSegment : PathSegment
     }
 
     [Display(Name = nameof(GraphicsStrings.CubicBezierSegment_ControlPoint1), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Point> ControlPoint1 { get; } = Property.CreateAnimatable<Point>();
+    public IExpressionProperty<Point> ControlPoint1 { get; } = Property.CreateAnimatable<Point>();
 
     [Display(Name = nameof(GraphicsStrings.CubicBezierSegment_ControlPoint2), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Point> ControlPoint2 { get; } = Property.CreateAnimatable<Point>();
+    public IExpressionProperty<Point> ControlPoint2 { get; } = Property.CreateAnimatable<Point>();
 
     [Display(Name = nameof(GraphicsStrings.EndPoint), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Point> EndPoint { get; } = Property.CreateAnimatable<Point>();
+    public IExpressionProperty<Point> EndPoint { get; } = Property.CreateAnimatable<Point>();
 
-    public override IProperty<Point> GetEndPoint()
+    public override IExpressionProperty<Point> GetEndPoint()
     {
         return EndPoint;
     }

@@ -29,28 +29,28 @@ public sealed partial class NoiseReductionEffect : AudioEffect
     [Display(Name = nameof(AudioStrings.NoiseReductionEffect_Reduction), Description = nameof(AudioStrings.NoiseReductionEffect_Reduction_Description), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     [NumberStep(1, 0.1)]
-    public IProperty<float> Reduction { get; } = Property.CreateAnimatable(DefaultReductionDb);
+    public IExpressionProperty<float> Reduction { get; } = Property.CreateAnimatable(DefaultReductionDb);
 
     /// <summary>How far the estimated noise floor is raised before audio is compared with it, in decibels.</summary>
     [Range(MinSensitivityDb, MaxSensitivityDb)]
     [Display(Name = nameof(AudioStrings.NoiseReductionEffect_Sensitivity), Description = nameof(AudioStrings.NoiseReductionEffect_Sensitivity_Description), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     [NumberStep(1, 0.1)]
-    public IProperty<float> Sensitivity { get; } = Property.CreateAnimatable(DefaultSensitivityDb);
+    public IExpressionProperty<float> Sensitivity { get; } = Property.CreateAnimatable(DefaultSensitivityDb);
 
     /// <summary>How smoothly the reduction follows the audio over time, in percent.</summary>
     [Range(MinSmoothing, MaxSmoothing)]
     [Display(Name = nameof(AudioStrings.NoiseReductionEffect_Smoothing), Description = nameof(AudioStrings.NoiseReductionEffect_Smoothing_Description), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     [NumberStep(10, 1)]
-    public IProperty<float> Smoothing { get; } = Property.CreateAnimatable(DefaultSmoothing);
+    public IExpressionProperty<float> Smoothing { get; } = Property.CreateAnimatable(DefaultSmoothing);
 
     /// <summary>How much past audio the noise floor is learned from, in seconds.</summary>
     [Range(MinAdaptationSeconds, MaxAdaptationSeconds)]
     [Display(Name = nameof(AudioStrings.NoiseReductionEffect_Adaptation), Description = nameof(AudioStrings.NoiseReductionEffect_Adaptation_Description), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     [NumberStep(1, 0.1)]
-    public IProperty<float> Adaptation { get; } = Property.CreateAnimatable(DefaultAdaptationSeconds);
+    public IExpressionProperty<float> Adaptation { get; } = Property.CreateAnimatable(DefaultAdaptationSeconds);
 
     public override AudioNode CreateNode(AudioContext context, AudioNode inputNode)
     {

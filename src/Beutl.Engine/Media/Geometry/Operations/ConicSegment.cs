@@ -21,15 +21,15 @@ public sealed partial class ConicSegment : PathSegment
     }
 
     [Display(Name = nameof(GraphicsStrings.ConicSegment_ControlPoint), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Point> ControlPoint { get; } = Property.CreateAnimatable<Point>();
+    public IExpressionProperty<Point> ControlPoint { get; } = Property.CreateAnimatable<Point>();
 
     [Display(Name = nameof(GraphicsStrings.EndPoint), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Point> EndPoint { get; } = Property.CreateAnimatable<Point>();
+    public IExpressionProperty<Point> EndPoint { get; } = Property.CreateAnimatable<Point>();
 
     [Display(Name = nameof(GraphicsStrings.ConicSegment_Weight), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Weight { get; } = Property.CreateAnimatable<float>(1);
+    public IExpressionProperty<float> Weight { get; } = Property.CreateAnimatable<float>(1);
 
-    public override IProperty<Point> GetEndPoint()
+    public override IExpressionProperty<Point> GetEndPoint()
     {
         return EndPoint;
     }

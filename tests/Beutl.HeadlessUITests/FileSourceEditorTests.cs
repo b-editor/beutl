@@ -421,20 +421,20 @@ public sealed class FileSourceEditorTests
         public FilePropertyHolder() => ScanProperties<FilePropertyHolder>();
 
         [FileFilter("Photoshop documents", "*.psd", "*.psb")]
-        public IProperty<TestMediaSource?> Source { get; } = Property.CreateAnimatable<TestMediaSource?>();
+        public IExpressionProperty<TestMediaSource?> Source { get; } = Property.CreateAnimatable<TestMediaSource?>();
 
-        public IProperty<TestFileSource?> PlainSource { get; } = Property.Create<TestFileSource?>();
+        public IExpressionProperty<TestFileSource?> PlainSource { get; } = Property.Create<TestFileSource?>();
 
         [FileFilter("Subtitles", "*.srt", MimeTypes = new[] { "application/x-subrip" })]
         [FileFilter("Text files", "*.txt", AppleUniformTypeIdentifiers = new[] { "public.plain-text" })]
-        public IProperty<FileInfo?> File { get; } = Property.Create<FileInfo?>();
+        public IExpressionProperty<FileInfo?> File { get; } = Property.Create<FileInfo?>();
 
         [FileFilter("PNG images", "*.png")]
-        public IProperty<ImageSource?> Image { get; } = Property.Create<ImageSource?>();
+        public IExpressionProperty<ImageSource?> Image { get; } = Property.Create<ImageSource?>();
 
-        public IProperty<CubeSource?> Cube { get; } = Property.Create<CubeSource?>();
+        public IExpressionProperty<CubeSource?> Cube { get; } = Property.Create<CubeSource?>();
 
-        public IProperty<MediaSource?> AbstractSource { get; } = Property.Create<MediaSource?>();
+        public IExpressionProperty<MediaSource?> AbstractSource { get; } = Property.Create<MediaSource?>();
 
         [FileFilter("Photoshop documents", "*.psd", "*.psb")]
         public IListProperty<TestMediaSource?> Sources { get; } = Property.CreateList<TestMediaSource?>();

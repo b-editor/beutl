@@ -20,7 +20,7 @@ public sealed partial class TimeStretchEffect : AudioEffect
     [Display(Name = nameof(AudioStrings.TimeStretchEffect_Speed),
         Description = nameof(AudioStrings.TimeStretchEffect_Speed_Description), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
-    public IProperty<float> Speed { get; } = Property.CreateAnimatable(DefaultSpeed);
+    public IExpressionProperty<float> Speed { get; } = Property.CreateAnimatable(DefaultSpeed);
 
     public override AudioNode CreateNode(AudioContext context, AudioNode inputNode)
     {

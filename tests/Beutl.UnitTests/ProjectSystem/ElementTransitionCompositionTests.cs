@@ -631,10 +631,8 @@ public class ElementTransitionCompositionTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(transition.Duration.SupportsExpression, Is.False);
-            Assert.Throws<InvalidOperationException>(
-                () => transition.Duration.Expression = new ConstantExpression<TimeSpan>(Seconds(2)));
-            Assert.That(transition.Easing.SupportsExpression, Is.True);
+            Assert.That(transition.Duration, Is.Not.InstanceOf<IExpressionProperty>());
+            Assert.That(transition.Easing, Is.InstanceOf<IExpressionProperty>());
         });
     }
 

@@ -17,33 +17,33 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
 
     [Display(Name = nameof(GraphicsStrings.Target), ResourceType = typeof(GraphicsStrings))]
     [SuppressResourceClassGeneration]
-    public IProperty<Drawable?> Target { get; } = Property.Create<Drawable?>();
+    public IExpressionProperty<Drawable?> Target { get; } = Property.CreateReference<Drawable?>();
 
     [Display(Name = nameof(GraphicsStrings.DrawableTimeController_OffsetPosition), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
+    public IExpressionProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
 
     [Display(Name = nameof(GraphicsStrings.Speed), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
-    public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
+    public IExpressionProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
     [Display(Name = nameof(GraphicsStrings.DrawableTimeController_AdjustTimeRange), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> AdjustTimeRange { get; } = Property.Create<bool>();
+    public IExpressionProperty<bool> AdjustTimeRange { get; } = Property.Create<bool>();
 
     [Display(Name = nameof(GraphicsStrings.DrawableTimeController_FrameRate), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
-    public IProperty<float> FrameRate { get; } = Property.Create<float>();
+    public IExpressionProperty<float> FrameRate { get; } = Property.Create<float>();
 
     [Display(Name = nameof(GraphicsStrings.DrawableTimeController_Loop), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> Loop { get; } = Property.Create<bool>();
+    public IExpressionProperty<bool> Loop { get; } = Property.Create<bool>();
 
     [Display(Name = nameof(GraphicsStrings.DrawableTimeController_Reverse), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> Reverse { get; } = Property.Create<bool>();
+    public IExpressionProperty<bool> Reverse { get; } = Property.Create<bool>();
 
     [Display(Name = nameof(GraphicsStrings.DrawableTimeController_HoldFirstFrame), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> HoldFirstFrame { get; } = Property.Create<bool>();
+    public IExpressionProperty<bool> HoldFirstFrame { get; } = Property.Create<bool>();
 
     [Display(Name = nameof(GraphicsStrings.DrawableTimeController_HoldLastFrame), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> HoldLastFrame { get; } = Property.Create<bool>();
+    public IExpressionProperty<bool> HoldLastFrame { get; } = Property.Create<bool>();
 
     private TimeSpan CalculateTimeWithSpeed(TimeSpan timeSpan, Resource resource)
         => SpeedAdjustedTime.Map(Speed, resource.Speed, resource.SpeedIntegrator, timeSpan);

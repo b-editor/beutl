@@ -27,15 +27,15 @@ public sealed partial class AudioWaveformDrawable : AudioVisualizerDrawable
     }
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_Shape), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<WaveformShape?> Shape { get; } = Property.Create<WaveformShape?>();
+    public IExpressionProperty<WaveformShape?> Shape { get; } = Property.Create<WaveformShape?>();
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_BarCount), ResourceType = typeof(GraphicsStrings))]
     [Range(1, 10000)]
-    public IProperty<int> BarCount { get; } = Property.Create(256);
+    public IExpressionProperty<int> BarCount { get; } = Property.Create(256);
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_WindowSeconds), ResourceType = typeof(GraphicsStrings))]
     [Range(0.01f, 3600f)]
-    public IProperty<float> WindowSeconds { get; } = Property.CreateAnimatable(0.1f);
+    public IExpressionProperty<float> WindowSeconds { get; } = Property.CreateAnimatable(0.1f);
 
     public new partial class Resource
     {

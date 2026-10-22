@@ -54,7 +54,7 @@ public sealed partial class RenamedPluginObject : EngineObject
     public RenamedPluginObject() => ScanProperties<RenamedPluginObject>();
 
     [FormerPersistedName(FormerSizeKey)]
-    public IProperty<float> Size { get; } = Property.Create(0f);
+    public IExpressionProperty<float> Size { get; } = Property.Create(0f);
 }
 
 public sealed class RenamedPluginSettings : ExtensionSettings

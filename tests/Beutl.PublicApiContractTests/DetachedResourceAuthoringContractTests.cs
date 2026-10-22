@@ -420,7 +420,7 @@ public sealed partial class PluginGeometry : Geometry
         ScanProperties<PluginGeometry>();
     }
 
-    public IProperty<float> Side { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Side { get; } = Property.CreateAnimatable<float>();
 
     public partial class Resource
     {
@@ -443,9 +443,9 @@ public sealed partial class PluginSegment : PathSegment
         ScanProperties<PluginSegment>();
     }
 
-    public IProperty<Point> To { get; } = Property.CreateAnimatable<Point>();
+    public IExpressionProperty<Point> To { get; } = Property.CreateAnimatable<Point>();
 
-    public override IProperty<Point> GetEndPoint() => To;
+    public override IExpressionProperty<Point> GetEndPoint() => To;
 
     public partial class Resource
     {
@@ -465,7 +465,7 @@ public sealed partial class PluginMesh : Mesh
         ScanProperties<PluginMesh>();
     }
 
-    public IProperty<float> Extent { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Extent { get; } = Property.CreateAnimatable<float>();
 
     public partial class Resource
     {
@@ -493,5 +493,5 @@ public sealed partial class PluginObjectDefaultOwner : EngineObject
         ScanProperties<PluginObjectDefaultOwner>();
     }
 
-    public IProperty<PluginObjectDefault?> Child { get; } = Property.Create<PluginObjectDefault?>();
+    public IExpressionProperty<PluginObjectDefault?> Child { get; } = Property.Create<PluginObjectDefault?>();
 }

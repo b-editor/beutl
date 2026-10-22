@@ -18,10 +18,10 @@ public abstract partial class Geometry : EngineObject
     }
 
     [Display(Name = nameof(GraphicsStrings.Geometry_FillType), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<PathFillType> FillType { get; } = Property.Create<PathFillType>();
+    public IExpressionProperty<PathFillType> FillType { get; } = Property.Create<PathFillType>();
 
     [Display(Name = nameof(GraphicsStrings.Transform), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Transform?> Transform { get; } = Property.Create<Transform?>(null);
+    public IExpressionProperty<Transform?> Transform { get; } = Property.Create<Transform?>(null);
 
     public partial class Resource
     {

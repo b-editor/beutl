@@ -50,8 +50,8 @@ public class OverriddenAliasInputTests
             acceptedGraph.Nodes.Add(acceptedNode);
             rejectedGraph.Nodes.Add(rejectedNode);
         }
-        IProperty<Brush?> acceptedParent = acceptedNode.Object.First;
-        IProperty<Brush?> rejectedParent = rejectedNode.Object.Second;
+        IExpressionProperty<Brush?> acceptedParent = acceptedNode.Object.First;
+        IExpressionProperty<Brush?> rejectedParent = rejectedNode.Object.Second;
         if (layout == "same" && rejectedFirst)
             (acceptedParent, rejectedParent) = (rejectedParent, acceptedParent);
         var shared = new SolidColorBrush(Colors.White, 35f);
@@ -122,6 +122,6 @@ internal sealed partial class OverridableBrushPair : EngineObject
 {
     public OverridableBrushPair() => ScanProperties<OverridableBrushPair>();
 
-    public IProperty<Brush?> First { get; } = Property.CreateAnimatable<Brush?>();
-    public IProperty<Brush?> Second { get; } = Property.CreateAnimatable<Brush?>();
+    public IExpressionProperty<Brush?> First { get; } = Property.CreateAnimatable<Brush?>();
+    public IExpressionProperty<Brush?> Second { get; } = Property.CreateAnimatable<Brush?>();
 }

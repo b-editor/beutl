@@ -135,7 +135,7 @@ public abstract partial class GraphNode : EngineObject
         _nestedPortManager.EnsureSynchronized();
         if (input is INestedInputPort nestedInput
             && (nestedInput.Property == null || _nestedPortManager.HasOverridingAncestor(nestedInput))) return false;
-        return input.Property?.GetEngineProperty()?.SupportsExpression != false;
+        return input.Property?.GetEngineProperty() is null or IExpressionProperty;
     }
 
     /// <summary>Object inputs and their descendant inputs cannot both supply a value.</summary>

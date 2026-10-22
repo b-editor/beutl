@@ -64,7 +64,7 @@ public class ValidationEvaluatorTests
     [Test]
     public void EvaluateAnimationValue_UsesTheAttachedValidatorInsteadOfRebuildingAttributes()
     {
-        IProperty<int> property = Property.CreateAnimatable(0, new RejectingValidator());
+        IExpressionProperty<int> property = Property.CreateAnimatable(0, new RejectingValidator());
 
         ValidationOutcome outcome = ValidationEvaluator.Evaluate(
             property,
@@ -82,7 +82,7 @@ public class ValidationEvaluatorTests
     public void EvaluateEngineProperty_RunsCustomValidatorBeforeMissingFontWarning()
     {
         var validator = new RejectingFontValidator();
-        IProperty<FontFamily> property = Property.Create(new FontFamily("default"), validator);
+        IExpressionProperty<FontFamily> property = Property.Create(new FontFamily("default"), validator);
 
         ValidationOutcome outcome = ValidationEvaluator.Evaluate(
             property,
@@ -119,7 +119,7 @@ public class ValidationEvaluatorTests
         }
 
         [System.ComponentModel.DataAnnotations.Range(0, 10)]
-        public IProperty<int> Amount { get; } = Property.Create(0);
+        public IExpressionProperty<int> Amount { get; } = Property.Create(0);
     }
 
     private sealed class TypedEngineObject : EngineObject
@@ -129,9 +129,9 @@ public class ValidationEvaluatorTests
             ScanProperties<TypedEngineObject>();
         }
 
-        public IProperty<Color> Color { get; } = Property.Create(Colors.White);
+        public IExpressionProperty<Color> Color { get; } = Property.Create(Colors.White);
 
-        public IProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
+        public IExpressionProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
     }
 
     private sealed class RejectingValidator : IValidator<int>

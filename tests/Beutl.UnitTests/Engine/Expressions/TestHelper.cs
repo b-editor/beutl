@@ -27,7 +27,7 @@ public partial class TestEngineObject : EngineObject
         ScanProperties<TestEngineObject>();
     }
 
-    public IProperty<double> Value { get; } = Property.Create(0.0);
+    public IExpressionProperty<double> Value { get; } = Property.Create(0.0);
 
     public void AddChild(IHierarchical child)
     {

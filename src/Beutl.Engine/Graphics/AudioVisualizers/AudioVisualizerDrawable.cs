@@ -20,22 +20,22 @@ public abstract partial class AudioVisualizerDrawable : Drawable
 
     [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
     [SuppressResourceClassGeneration]
-    public IProperty<Sound?> Source { get; } = Property.Create<Sound?>();
+    public IExpressionProperty<Sound?> Source { get; } = Property.Create<Sound?>();
 
     [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
     [Range(1, float.MaxValue)]
-    public IProperty<float> Width { get; } = Property.CreateAnimatable(640f);
+    public IExpressionProperty<float> Width { get; } = Property.CreateAnimatable(640f);
 
     [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
     [Range(1, float.MaxValue)]
-    public IProperty<float> Height { get; } = Property.CreateAnimatable(120f);
+    public IExpressionProperty<float> Height { get; } = Property.CreateAnimatable(120f);
 
     [Display(Name = nameof(GraphicsStrings.Fill), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Brush?> Fill { get; } = Property.Create<Brush?>();
+    public IExpressionProperty<Brush?> Fill { get; } = Property.Create<Brush?>();
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_Gain), ResourceType = typeof(GraphicsStrings))]
     [Range(0.01f, 1000f)]
-    public IProperty<float> Gain { get; } = Property.CreateAnimatable(1f);
+    public IExpressionProperty<float> Gain { get; } = Property.CreateAnimatable(1f);
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {

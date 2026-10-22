@@ -25,6 +25,6 @@ public class EnumJsonValueNormalizerTests
     {
         public UnsealedAlignedObject() => ScanProperties<UnsealedAlignedObject>();
 
-        public IProperty<AlignmentX> Alignment { get; } = Property.Create(AlignmentX.Left);
+        public IExpressionProperty<AlignmentX> Alignment { get; } = Property.Create(AlignmentX.Left);
     }
 }

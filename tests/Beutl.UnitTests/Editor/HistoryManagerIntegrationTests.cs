@@ -938,7 +938,7 @@ public class HistoryManagerIntegrationTests
             ScanProperties<TestEngineModel>();
         }
 
-        public IProperty<float> Value { get; }
+        public IExpressionProperty<float> Value { get; }
     }
 
     private sealed record EquatableExpression(float Value) : IExpression<float>

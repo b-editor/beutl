@@ -14,18 +14,18 @@ public sealed partial class PerlinNoiseBrush : Brush
 
     [Range(0, 100)]
     [Display(Name = nameof(GraphicsStrings.PerlinNoiseBrush_BaseFrequencyX), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> BaseFrequencyX { get; } = Property.CreateAnimatable(0f);
+    public IExpressionProperty<float> BaseFrequencyX { get; } = Property.CreateAnimatable(0f);
 
     [Range(0, 100)]
     [Display(Name = nameof(GraphicsStrings.PerlinNoiseBrush_BaseFrequencyY), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> BaseFrequencyY { get; } = Property.CreateAnimatable(0f);
+    public IExpressionProperty<float> BaseFrequencyY { get; } = Property.CreateAnimatable(0f);
 
     [Display(Name = nameof(GraphicsStrings.PerlinNoiseBrush_Octaves), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<int> Octaves { get; } = Property.CreateAnimatable(1);
+    public IExpressionProperty<int> Octaves { get; } = Property.CreateAnimatable(1);
 
     [Display(Name = nameof(GraphicsStrings.PerlinNoiseBrush_Seed), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Seed { get; } = Property.CreateAnimatable(0f);
+    public IExpressionProperty<float> Seed { get; } = Property.CreateAnimatable(0f);
 
     [Display(Name = nameof(GraphicsStrings.PerlinNoiseBrush_PerlinNoiseType), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<PerlinNoiseType> PerlinNoiseType { get; } = Property.CreateAnimatable(Media.PerlinNoiseType.Turbulence);
+    public IExpressionProperty<PerlinNoiseType> PerlinNoiseType { get; } = Property.CreateAnimatable(Media.PerlinNoiseType.Turbulence);
 }

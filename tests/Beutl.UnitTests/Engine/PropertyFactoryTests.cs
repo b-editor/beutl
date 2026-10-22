@@ -1,4 +1,10 @@
-﻿using Beutl.Engine;
+﻿using Beutl.Animation;
+using Beutl.Engine;
+using Beutl.Graphics;
+using Beutl.Graphics.Effects;
+using Beutl.Graphics.Transformation;
+using Beutl.Media;
+using Beutl.ProjectSystem;
 using DisplayAttribute = System.ComponentModel.DataAnnotations.DisplayAttribute;
 using RangeAttribute = System.ComponentModel.DataAnnotations.RangeAttribute;
 using ValidationAttribute = System.ComponentModel.DataAnnotations.ValidationAttribute;
@@ -11,11 +17,10 @@ public class PropertyFactoryTests
     [Test]
     public void Create_ReturnsSimpleProperty_NotAnimatable()
     {
-        IProperty<double> property = Property.Create(1.5);
+        IExpressionProperty<double> property = Property.Create(1.5);
 
         Assert.That(property, Is.InstanceOf<SimpleProperty<double>>());
         Assert.That(property.IsAnimatable, Is.False);
-        Assert.That(property.SupportsExpression, Is.True);
         Assert.That(property.DefaultValue, Is.EqualTo(1.5));
         Assert.That(property.CurrentValue, Is.EqualTo(1.5));
         Assert.That(property.HasLocalValue, Is.False);
@@ -24,7 +29,7 @@ public class PropertyFactoryTests
     [Test]
     public void Create_WithDefaultedGeneric_UsesTypeDefault()
     {
-        IProperty<int> property = Property.Create<int>();
+        IExpressionProperty<int> property = Property.Create<int>();
 
         Assert.That(property.DefaultValue, Is.EqualTo(0));
         Assert.That(property.CurrentValue, Is.EqualTo(0));
@@ -33,7 +38,7 @@ public class PropertyFactoryTests
     [Test]
     public void Create_WithValidationAttributes_AppliesValidatorOnSet()
     {
-        IProperty<int> property = Property.Create(0, new RangeAttribute(0, 10));
+        IExpressionProperty<int> property = Property.Create(0, new RangeAttribute(0, 10));
         property.SetAttributes("Test", []);
 
         property.CurrentValue = 100;
@@ -60,7 +65,7 @@ public class PropertyFactoryTests
     [Test]
     public void CreateAnimatable_ReturnsAnimatableProperty()
     {
-        IProperty<float> property = Property.CreateAnimatable(2.0f);
+        IExpressionProperty<float> property = Property.CreateAnimatable(2.0f);
 
         Assert.That(property, Is.InstanceOf<AnimatableProperty<float>>());
         Assert.That(property.IsAnimatable, Is.True);
@@ -70,12 +75,43 @@ public class PropertyFactoryTests
     [Test]
     public void CreateAnimatable_WithValidationAttributes_AppliesValidator()
     {
-        IProperty<int> property = Property.CreateAnimatable(0, new RangeAttribute(-5, 5));
+        IExpressionProperty<int> property = Property.CreateAnimatable(0, new RangeAttribute(-5, 5));
         property.SetAttributes("Test", []);
 
         property.CurrentValue = -100;
 
         Assert.That(property.CurrentValue, Is.EqualTo(-5));
+    }
+
+    [Test]
+    public void CreateReference_DeclaresAReferenceThatTakesNoKeyFrames()
+    {
+        IExpressionProperty<Drawable?> property = Property.CreateReference<Drawable?>();
+        property.SetAttributes("Target", []);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(property.IsReference, Is.True);
+            Assert.That(property.IsAnimatable, Is.False);
+            Assert.That(property.CurrentValue, Is.Null);
+            Assert.Throws<InvalidOperationException>(
+                () => property.SetKeyFrameAnimation(new KeyFrameAnimation<Drawable?>()));
+        }
+    }
+
+    [TestCase(typeof(DrawablePresenter), "Target")]
+    [TestCase(typeof(DrawableTimeController), "Target")]
+    [TestCase(typeof(FilterEffectPresenter), "Target")]
+    [TestCase(typeof(TransformPresenter), "Target")]
+    [TestCase(typeof(BrushPresenter), "Target")]
+    [TestCase(typeof(SceneDrawable), "ReferencedScene")]
+    [TestCase(typeof(SceneSound), "ReferencedScene")]
+    public void ThePropertiesThatPointAtAnotherObject_AreDeclaredAsReferences(Type ownerType, string name)
+    {
+        var owner = (EngineObject)Activator.CreateInstance(ownerType)!;
+        IProperty property = owner.Properties.Single(p => p.Name == name);
+
+        Assert.That(property is IExpressionProperty { IsReference: true }, Is.True);
     }
 
     [Test]
@@ -91,7 +127,7 @@ public class PropertyFactoryTests
     [Test]
     public void GetLocalizedName_ReturnsDisplayNameWhenAttributeSet()
     {
-        IProperty<int> property = Property.Create(0);
+        IExpressionProperty<int> property = Property.Create(0);
         property.SetAttributes(
             "RawName",
             new Attribute[] { new DisplayAttribute { Name = "Friendly" } });
@@ -102,7 +138,7 @@ public class PropertyFactoryTests
     [Test]
     public void GetLocalizedName_FallsBackToPropertyName()
     {
-        IProperty<int> property = Property.Create(0);
+        IExpressionProperty<int> property = Property.Create(0);
         property.SetAttributes("RawName", []);
 
         Assert.That(Property.GetLocalizedName(property), Is.EqualTo("RawName"));

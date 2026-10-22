@@ -227,7 +227,7 @@ internal static partial class FormatManifest
 
         foreach (IProperty property in engineObject.Properties)
         {
-            if (!property.IsAnimatable
+            if (property is not IExpressionProperty { IsAnimatable: true }
                 || property.GetAttributes()?.Any(attribute => attribute is NotAutoSerializedAttribute) == true)
             {
                 continue;

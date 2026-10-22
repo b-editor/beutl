@@ -19,7 +19,7 @@ public sealed partial class WipeTransition : ClipTransition
     }
 
     [Display(Name = nameof(GraphicsStrings.Direction), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<ClipTransitionDirection> Direction { get; } = Property.Create(ClipTransitionDirection.LeftToRight);
+    public IExpressionProperty<ClipTransitionDirection> Direction { get; } = Property.Create(ClipTransitionDirection.LeftToRight);
 
     public new partial class Resource
     {

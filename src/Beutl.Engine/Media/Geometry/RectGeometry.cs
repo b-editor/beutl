@@ -14,10 +14,10 @@ public sealed partial class RectGeometry : Geometry
     }
 
     [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Width { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Width { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Height { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Height { get; } = Property.CreateAnimatable<float>();
 
     public partial class Resource
     {

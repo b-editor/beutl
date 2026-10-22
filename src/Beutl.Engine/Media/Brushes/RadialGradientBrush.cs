@@ -20,18 +20,18 @@ public sealed partial class RadialGradientBrush : GradientBrush
     /// Gets or sets the center of the outermost circle of the gradient.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.RadialGradientBrush_Center), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<RelativePoint> Center { get; } = Property.CreateAnimatable(RelativePoint.Center);
+    public IExpressionProperty<RelativePoint> Center { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
     /// <summary>
     /// Gets or sets the location of the two-dimensional focal point that defines the beginning
     /// of the gradient.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.RadialGradientBrush_GradientOrigin), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<RelativePoint> GradientOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
+    public IExpressionProperty<RelativePoint> GradientOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
     /// <summary>
     /// Gets or sets the radius of the outermost circle of the radial gradient.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Radius), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Radius { get; } = Property.CreateAnimatable(50f);
+    public IExpressionProperty<float> Radius { get; } = Property.CreateAnimatable(50f);
 }

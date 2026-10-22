@@ -181,7 +181,7 @@ internal sealed class NestedInputPortManager(GraphNode node)
             && !typeof(EngineObject).IsAssignableFrom(adapter.PropertyType)
             && !typeof(IEnumerable).IsAssignableFrom(adapter.PropertyType)) return;
         adapter.GetObservable().Skip(1).Subscribe(_ => Synchronize()).DisposeWith(_subscriptions);
-        if (adapter.GetEngineProperty() is { } property)
+        if (adapter.GetEngineProperty() is IExpressionProperty property)
         {
             // Keyframes are part of the expression chain, so a change to either changes Expression.
             IExpression? previousExpression = property.Expression;
@@ -206,7 +206,7 @@ internal sealed class NestedInputPortManager(GraphNode node)
     private static bool IsValueOverridden(IPropertyAdapter adapter)
         => (adapter as IAnimatablePropertyAdapter)?.Animation != null
            || (adapter as IExpressionPropertyAdapter)?.Expression != null
-           || adapter.GetEngineProperty() is { Expression: not null };
+           || adapter.GetEngineProperty() is IExpressionProperty { Expression: not null };
 
     private void Visit(object? value, NodeMember root, string[] path,
         HashSet<EngineObject> ancestors, List<Target> targets, List<UnresolvedSubtree> unresolved, bool hasOverridingAncestor)
@@ -221,13 +221,13 @@ internal sealed class NestedInputPortManager(GraphNode node)
             foreach (IProperty property in obj.GetDisplayProperties())
             {
                 string[] childPath = [.. path, "p:" + property.Name];
-                if (property.SupportsExpression)
+                if (property is IExpressionProperty)
                     targets.Add(new Target(root, childPath, obj, property, hasOverridingAncestor));
                 var adapter = (IPropertyAdapter)Activator.CreateInstance(
                     typeof(EnginePropertyAdapter<>).MakeGenericType(property.ValueType), property, obj)!;
                 Watch(adapter);
                 Visit(property.CurrentValue, root, childPath, ancestors, targets, unresolved,
-                    hasOverridingAncestor || property.Expression != null);
+                    hasOverridingAncestor || property is IExpressionProperty { Expression: not null });
             }
             ancestors.Remove(obj);
         }

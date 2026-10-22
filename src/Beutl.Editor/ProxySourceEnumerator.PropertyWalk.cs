@@ -29,7 +29,7 @@ public static partial class ProxySourceEnumerator
             // reference-expression pointing at a file source is what the render opens. Resolve it (no
             // evaluation — just id/path lookup) and report its sources. StringExpressions are arbitrary
             // C# and are not evaluated here.
-            foreach (IFileSource source in EnumerateExpressionFileSources(obj, property.Expression, localRange, skipDisabledElements, visitedValues, sceneWindow, walkContext: walkContext))
+            foreach (IFileSource source in EnumerateExpressionFileSources(obj, (property as IExpressionProperty)?.Expression, localRange, skipDisabledElements, visitedValues, sceneWindow, walkContext: walkContext))
                 yield return source;
 
             // When an expression is present, GetValue takes the expression branch and never samples the
@@ -71,7 +71,7 @@ public static partial class ProxySourceEnumerator
     private static bool HasActiveExpression(IProperty property, ObjectWalkContext? context)
         // Discovery may run before GraphSnapshot removes a rejected connection's generated
         // expression. Its stored value/animation is already the effective fallback in that case.
-        => property.Expression is { } expression and not IKeyFrameAnimation
+        => property is IExpressionProperty { Expression: { } expression and not IKeyFrameAnimation }
            && (expression is not INodePortExpression
                || context?.ConnectedNodeInputs?.Contains(property) != false);
 
@@ -220,7 +220,7 @@ public static partial class ProxySourceEnumerator
             if (!visitedExpressionProps.Add(property))
                 yield break;
 
-            foreach (IFileSource source in EnumerateExpressionFileSources(target, property.Expression, localRange, skipDisabledElements, visitedValues, sceneWindow, visitedExpressionProps, walkContext))
+            foreach (IFileSource source in EnumerateExpressionFileSources(target, (property as IExpressionProperty)?.Expression, localRange, skipDisabledElements, visitedValues, sceneWindow, visitedExpressionProps, walkContext))
                 yield return source;
 
             bool targetExpressionOverrides = localRange is not null && HasActiveExpression(property, walkContext);
@@ -274,7 +274,7 @@ public static partial class ProxySourceEnumerator
         if (!visited.Add(property))
             return property.DefaultValue as T;
 
-        if (property.Expression is IReferenceExpression reference)
+        if (property is IExpressionProperty { Expression: IReferenceExpression reference })
         {
             if (owner.FindHierarchicalRoot() is ICoreObject root
                 && root.FindById(reference.ObjectId) is { } resolved)

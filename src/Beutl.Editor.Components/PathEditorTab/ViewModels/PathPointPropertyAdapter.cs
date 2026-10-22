@@ -8,7 +8,7 @@ namespace Beutl.Editor.Components.PathEditorTab.ViewModels;
 
 // Change only the visible label. The owner, property identity, expressions, animation,
 // defaults and notifications remain those of the real property, including across segments.
-internal class PathPointPropertyAdapter(IProperty<Point> property, EngineObject owner, string label)
+internal class PathPointPropertyAdapter(IExpressionProperty<Point> property, EngineObject owner, string label)
     : EnginePropertyAdapter<Point>(property, owner), IPropertyAdapter<Point>
 {
     protected string Label { get; } = label;

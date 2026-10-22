@@ -14,21 +14,21 @@ public sealed partial class ArcSegment : PathSegment
     }
 
     [Display(Name = nameof(GraphicsStrings.Radius), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Size> Radius { get; } = Property.CreateAnimatable<Size>();
+    public IExpressionProperty<Size> Radius { get; } = Property.CreateAnimatable<Size>();
 
     [Display(Name = nameof(GraphicsStrings.ArcSegment_RotationAngle), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> RotationAngle { get; } = Property.CreateAnimatable<float>(0);
+    public IExpressionProperty<float> RotationAngle { get; } = Property.CreateAnimatable<float>(0);
 
     [Display(Name = nameof(GraphicsStrings.ArcSegment_IsLargeArc), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> IsLargeArc { get; } = Property.CreateAnimatable<bool>(false);
+    public IExpressionProperty<bool> IsLargeArc { get; } = Property.CreateAnimatable<bool>(false);
 
     [Display(Name = nameof(GraphicsStrings.ArcSegment_SweepClockwise), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> SweepClockwise { get; } = Property.CreateAnimatable<bool>(true);
+    public IExpressionProperty<bool> SweepClockwise { get; } = Property.CreateAnimatable<bool>(true);
 
     [Display(Name = nameof(GraphicsStrings.ArcSegment_Point), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Point> Point { get; } = Property.CreateAnimatable<Point>();
+    public IExpressionProperty<Point> Point { get; } = Property.CreateAnimatable<Point>();
 
-    public override IProperty<Point> GetEndPoint()
+    public override IExpressionProperty<Point> GetEndPoint()
     {
         return Point;
     }

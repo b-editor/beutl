@@ -14,7 +14,7 @@ public sealed partial class DrawablePresenter : Drawable, IPresenter<Drawable>
     }
 
     [Display(Name = nameof(GraphicsStrings.Target), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Drawable?> Target { get; } = Property.Create<Drawable?>();
+    public IExpressionProperty<Drawable?> Target { get; } = Property.CreateReference<Drawable?>();
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {

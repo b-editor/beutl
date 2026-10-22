@@ -16,7 +16,7 @@ public static class EngineObjectHelper
 {
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(EngineObjectHelper));
 
-    public static IObservable<IExpression<T>?> SubscribeExpressionChange<T>(this IProperty<T> property)
+    public static IObservable<IExpression<T>?> SubscribeExpressionChange<T>(this IExpressionProperty<T> property)
     {
         return Observable.FromEvent<IExpression<T>?>(
                 h => property.ExpressionChanged += h,
@@ -37,7 +37,7 @@ public static class EngineObjectHelper
         this IProperty<T> property, EngineObject obj, IObservable<TimeSpan> time)
     {
         return ObserveEdits(obj, time)
-            .Select(t => property.GetValue(new CompositionContext(t.Second)));
+            .Select(t => new CompositionContext(t.Second).Get(property));
     }
 
     // Publishes on subscription and on every edit, each time with the latest time.

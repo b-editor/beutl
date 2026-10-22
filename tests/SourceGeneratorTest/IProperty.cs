@@ -20,6 +20,10 @@ public interface IProperty<T> : IProperty
 {
 }
 
+public interface IExpressionProperty<T> : IProperty<T>
+{
+}
+
 public class CoreObject
 {
     public virtual IReadOnlyList<IProperty> Properties => throw null!;

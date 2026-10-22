@@ -7,7 +7,7 @@ namespace Beutl.Engine;
 
 public static class Property
 {
-    public static IProperty<T> CreateAnimatable<T>(
+    public static IExpressionProperty<T> CreateAnimatable<T>(
         T defaultValue = default(T)!,
         IValidator<T>? validator = null)
     {
@@ -16,7 +16,7 @@ public static class Property
         return property;
     }
 
-    public static IProperty<T> CreateAnimatable<T>(
+    public static IExpressionProperty<T> CreateAnimatable<T>(
         T defaultValue,
         params ValidationAttribute[] validationAttributes)
     {
@@ -27,7 +27,7 @@ public static class Property
         return CreateAnimatable(defaultValue, validator);
     }
 
-    public static IProperty<T> Create<T>(
+    public static IExpressionProperty<T> Create<T>(
         T defaultValue = default(T)!,
         IValidator<T>? validator = null)
     {
@@ -36,7 +36,7 @@ public static class Property
         return property;
     }
 
-    public static IProperty<T> Create<T>(
+    public static IExpressionProperty<T> Create<T>(
         T defaultValue,
         params ValidationAttribute[] validationAttributes)
     {
@@ -55,7 +55,7 @@ public static class Property
         T defaultValue = default(T)!,
         IValidator<T>? validator = null)
     {
-        return new SimpleProperty<T>(defaultValue, validator) { SupportsExpression = false };
+        return new ValueOnlyProperty<T>(defaultValue, validator);
     }
 
     /// <inheritdoc cref="CreateWithoutExpression{T}(T, IValidator{T})"/>
@@ -68,6 +68,12 @@ public static class Property
             : null;
 
         return CreateWithoutExpression(defaultValue, validator);
+    }
+
+    // A property whose expression slot holds a reference to another object; it takes no keyframes.
+    public static IExpressionProperty<T> CreateReference<T>()
+    {
+        return new SimpleProperty<T>(default!) { IsReference = true };
     }
 
     public static IListProperty<T> CreateList<T>()

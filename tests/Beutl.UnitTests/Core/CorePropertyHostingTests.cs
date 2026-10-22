@@ -10,7 +10,7 @@ public class CorePropertyHostingTests
     {
         public Host() => ScanProperties<Host>();
 
-        public IProperty<double> Value { get; } = new SimpleProperty<double>(1);
+        public IExpressionProperty<double> Value { get; } = new SimpleProperty<double>(1);
 
         public IListProperty<string> Items { get; } = new ListProperty<string>();
     }

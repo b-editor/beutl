@@ -16,16 +16,16 @@ public sealed partial class TransformEffect : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.Transform), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Transform?> Transform { get; } = Property.Create<Transform?>();
+    public IExpressionProperty<Transform?> Transform { get; } = Property.Create<Transform?>();
 
     [Display(Name = nameof(GraphicsStrings.TransformOrigin), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<RelativePoint> TransformOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
+    public IExpressionProperty<RelativePoint> TransformOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
     [Display(Name = nameof(GraphicsStrings.TransformEffect_BitmapInterpolationMode), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<BitmapInterpolationMode> BitmapInterpolationMode { get; } = Property.CreateAnimatable(Media.BitmapInterpolationMode.Default);
+    public IExpressionProperty<BitmapInterpolationMode> BitmapInterpolationMode { get; } = Property.CreateAnimatable(Media.BitmapInterpolationMode.Default);
 
     [Display(Name = nameof(GraphicsStrings.TransformEffect_ApplyToTarget), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> ApplyToTarget { get; } = Property.CreateAnimatable(true);
+    public IExpressionProperty<bool> ApplyToTarget { get; } = Property.CreateAnimatable(true);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

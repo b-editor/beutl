@@ -46,15 +46,15 @@ public sealed partial class Threshold : FilterEffect
 
     [Display(Name = nameof(GraphicsStrings.Amount), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
-    public IProperty<float> Value { get; } = Property.CreateAnimatable(50f);
+    public IExpressionProperty<float> Value { get; } = Property.CreateAnimatable(50f);
 
     [Display(Name = nameof(GraphicsStrings.Smoothing), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
-    public IProperty<float> Smoothness { get; } = Property.CreateAnimatable(0f);
+    public IExpressionProperty<float> Smoothness { get; } = Property.CreateAnimatable(0f);
 
     [Display(Name = nameof(GraphicsStrings.Strength), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
-    public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
+    public IExpressionProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

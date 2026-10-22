@@ -105,7 +105,7 @@ public sealed partial class QueryTools
             obj.GetType().FullName ?? obj.GetType().Name,
             IdentityHelper.WriteDiscriminator(obj.GetType()),
             properties.Where(property => property.GetKeyFrameAnimation() is not null).Select(property => property.Name).ToArray(),
-            properties.Where(property => property.HasExpression).Select(property => property.Name).ToArray(),
+            properties.Where(property => property is IExpressionProperty { HasExpression: true }).Select(property => property.Name).ToArray(),
             properties.Where(IsBrushProperty).Select(property => property.Name).ToArray(),
             properties.Where(IsEffectProperty).Select(property => property.Name).ToArray(),
             properties.SelectMany(property => CreateNestedAnimatedPropertySummaries(

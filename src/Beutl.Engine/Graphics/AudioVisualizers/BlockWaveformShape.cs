@@ -15,19 +15,19 @@ public sealed partial class BlockWaveformShape : WaveformShape
 
     [Display(Name = nameof(GraphicsStrings.WaveformShape_BlockCount), ResourceType = typeof(GraphicsStrings))]
     [Range(1, 128)]
-    public IProperty<int> BlockCount { get; } = Property.Create(16);
+    public IExpressionProperty<int> BlockCount { get; } = Property.Create(16);
 
     [Display(Name = nameof(GraphicsStrings.WaveformShape_BlockGap), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 50f)]
-    public IProperty<float> BlockGap { get; } = Property.CreateAnimatable(1f);
+    public IExpressionProperty<float> BlockGap { get; } = Property.CreateAnimatable(1f);
 
     // 0 にすると slotWidth から自動決定
     [Display(Name = nameof(GraphicsStrings.SpectrumShape_BarWidth), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 10000f)]
-    public IProperty<float> BarWidth { get; } = Property.CreateAnimatable(0f);
+    public IExpressionProperty<float> BarWidth { get; } = Property.CreateAnimatable(0f);
 
     [Display(Name = nameof(GraphicsStrings.WaveformShape_Mirrored), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> Mirrored { get; } = Property.Create(false);
+    public IExpressionProperty<bool> Mirrored { get; } = Property.Create(false);
 
     public new partial class Resource
     {

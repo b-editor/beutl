@@ -15,17 +15,17 @@ public partial class SplitEffect : FilterEffect
 
     [Range(1, int.MaxValue)]
     [Display(Name = nameof(GraphicsStrings.SplitEffect_HorizontalDivisions), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<int> HorizontalDivisions { get; } = Property.CreateAnimatable(2);
+    public IExpressionProperty<int> HorizontalDivisions { get; } = Property.CreateAnimatable(2);
 
     [Range(1, int.MaxValue)]
     [Display(Name = nameof(GraphicsStrings.SplitEffect_VerticalDivisions), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<int> VerticalDivisions { get; } = Property.CreateAnimatable(2);
+    public IExpressionProperty<int> VerticalDivisions { get; } = Property.CreateAnimatable(2);
 
     [Display(Name = nameof(GraphicsStrings.SplitEffect_HorizontalSpacing), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> HorizontalSpacing { get; } = Property.CreateAnimatable(0f);
+    public IExpressionProperty<float> HorizontalSpacing { get; } = Property.CreateAnimatable(0f);
 
     [Display(Name = nameof(GraphicsStrings.SplitEffect_VerticalSpacing), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> VerticalSpacing { get; } = Property.CreateAnimatable(0f);
+    public IExpressionProperty<float> VerticalSpacing { get; } = Property.CreateAnimatable(0f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

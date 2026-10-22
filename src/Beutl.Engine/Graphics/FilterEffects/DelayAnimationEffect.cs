@@ -17,10 +17,10 @@ public partial class DelayAnimationEffect : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.DelayAnimationEffect_Delay), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Delay { get; } = Property.CreateAnimatable(0f);
+    public IExpressionProperty<float> Delay { get; } = Property.CreateAnimatable(0f);
 
     [Display(Name = nameof(GraphicsStrings.DelayAnimationEffect_Effect), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<FilterEffect?> Effect { get; } = Property.Create<FilterEffect?>();
+    public IExpressionProperty<FilterEffect?> Effect { get; } = Property.Create<FilterEffect?>();
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

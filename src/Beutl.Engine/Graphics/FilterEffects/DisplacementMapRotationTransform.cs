@@ -16,13 +16,13 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
     }
 
     [Display(Name = nameof(GraphicsStrings.Rotation), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Rotation { get; } = Property.CreateAnimatable<float>(0);
+    public IExpressionProperty<float> Rotation { get; } = Property.CreateAnimatable<float>(0);
 
     [Display(Name = nameof(GraphicsStrings.CenterX), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> CenterX { get; } = Property.CreateAnimatable<float>(0);
+    public IExpressionProperty<float> CenterX { get; } = Property.CreateAnimatable<float>(0);
 
     [Display(Name = nameof(GraphicsStrings.CenterY), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> CenterY { get; } = Property.CreateAnimatable<float>(0);
+    public IExpressionProperty<float> CenterY { get; } = Property.CreateAnimatable<float>(0);
 
     public partial class Resource
     {

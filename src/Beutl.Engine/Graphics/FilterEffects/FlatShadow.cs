@@ -17,16 +17,16 @@ public partial class FlatShadow : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.Angle), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Angle { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Angle { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.FlatShadow_Length), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Length { get; } = Property.CreateAnimatable<float>();
+    public IExpressionProperty<float> Length { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.Brush), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Brush?> Brush { get; } = Property.Create<Brush?>();
+    public IExpressionProperty<Brush?> Brush { get; } = Property.Create<Brush?>();
 
     [Display(Name = nameof(GraphicsStrings.ShadowOnly), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> ShadowOnly { get; } = Property.CreateAnimatable(false);
+    public IExpressionProperty<bool> ShadowOnly { get; } = Property.CreateAnimatable(false);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

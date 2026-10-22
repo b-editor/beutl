@@ -66,14 +66,14 @@ public sealed partial class DiagonalClipping : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.Angle), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Angle { get; } = Property.CreateAnimatable(45f);
+    public IExpressionProperty<float> Angle { get; } = Property.CreateAnimatable(45f);
 
     [Display(Name = nameof(GraphicsStrings.Position), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Position { get; } = Property.CreateAnimatable(0f);
+    public IExpressionProperty<float> Position { get; } = Property.CreateAnimatable(0f);
 
     [Display(Name = nameof(GraphicsStrings.Width),
         Description = nameof(GraphicsStrings.DiagonalClipping_Width_Description), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Width { get; } = Property.CreateAnimatable(0f);
+    public IExpressionProperty<float> Width { get; } = Property.CreateAnimatable(0f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

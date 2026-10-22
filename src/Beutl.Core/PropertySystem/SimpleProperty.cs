@@ -7,7 +7,7 @@ using ValidationContext = Beutl.Validation.ValidationContext;
 namespace Beutl;
 
 public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
-    : IProperty<T>, IExpressionChainHost, IChildObjectSource
+    : IExpressionProperty<T>, IExpressionChainHost, IChildObjectSource
 {
     private IValidator<T>? _validator = validator;
     private T _currentValue = defaultValue;
@@ -23,11 +23,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
 
     public bool IsAnimatable { get; } = false;
 
-    /// <summary>
-    /// Gets whether the property takes an expression. A property whose value has no meaning that varies
-    /// with time, such as one that shapes a structure, sets this to <see langword="false"/>.
-    /// </summary>
-    public bool SupportsExpression { get; init; } = true;
+    public bool IsReference { get; init; }
 
     public T DefaultValue { get; } = defaultValue;
 
@@ -74,11 +70,6 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
             {
                 throw new InvalidOperationException(
                     $"Property '{Name}' does not support animations. Use Property.CreateAnimatable<T>() to create animatable properties.");
-            }
-
-            if (value != null && !SupportsExpression)
-            {
-                throw new InvalidOperationException($"Property '{Name}' does not support expressions.");
             }
 
             if (Expression != value)
@@ -270,7 +261,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
 
     public void DeserializeExpression(JsonNode expressionNode)
     {
-        if (!SupportsExpression || _owner is not IExpressionJsonCodec codec) return;
+        if (_owner is not IExpressionJsonCodec codec) return;
 
         Expression = codec.Read<T>(expressionNode);
     }

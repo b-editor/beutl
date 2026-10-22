@@ -176,11 +176,11 @@ internal sealed partial class SceneRecovery(Scene scene)
                 property.ReplaceCurrentValue(migratedValue);
             }
 
-            if (property.Expression is IReferenceExpression referenceExpression
+            if (property is IExpressionProperty { Expression: IReferenceExpression referenceExpression } expressionProperty
                 && rewriter.TryGetMigratedId(referenceExpression.ObjectId, out Guid migratedExpressionId)
                 && referenceExpression.Rebind(migratedExpressionId) is { } reboundExpression)
             {
-                property.Expression = (IExpression)reboundExpression;
+                expressionProperty.Expression = (IExpression)reboundExpression;
             }
 
             if (property.GetKeyFrameAnimation() is { } animation)

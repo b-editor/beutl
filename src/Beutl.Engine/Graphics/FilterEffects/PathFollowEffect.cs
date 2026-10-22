@@ -16,13 +16,13 @@ public sealed partial class PathFollowEffect : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.PathFollowEffect_Geometry), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Geometry?> Geometry { get; } = Property.Create<Geometry?>();
+    public IExpressionProperty<Geometry?> Geometry { get; } = Property.Create<Geometry?>();
 
     [Display(Name = nameof(GraphicsStrings.PathFollowEffect_Progress), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Progress { get; } = Property.CreateAnimatable(0f);
+    public IExpressionProperty<float> Progress { get; } = Property.CreateAnimatable(0f);
 
     [Display(Name = nameof(GraphicsStrings.PathFollowEffect_FollowRotation), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> FollowRotation { get; } = Property.CreateAnimatable(false);
+    public IExpressionProperty<bool> FollowRotation { get; } = Property.CreateAnimatable(false);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

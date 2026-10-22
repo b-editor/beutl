@@ -16,11 +16,11 @@ public sealed partial class FilledEnvelopeWaveformShape : WaveformShape
 
     [Display(Name = nameof(GraphicsStrings.SpectrumShape_Smoothness), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 100f)]
-    public IProperty<float> Smoothness { get; } = Property.CreateAnimatable(0f);
+    public IExpressionProperty<float> Smoothness { get; } = Property.CreateAnimatable(0f);
 
     // true なら max(|min|, |max|) の ±絶対値 を用いて完全上下対称の形状になる
     [Display(Name = nameof(GraphicsStrings.WaveformShape_Symmetric), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> Symmetric { get; } = Property.Create(false);
+    public IExpressionProperty<bool> Symmetric { get; } = Property.Create(false);
 
     public new partial class Resource
     {
