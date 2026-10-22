@@ -20,7 +20,7 @@ public partial class DelayAnimationEffect : FilterEffect
     public IExpressionProperty<float> Delay { get; } = Property.CreateAnimatable(0f);
 
     [Display(Name = nameof(GraphicsStrings.DelayAnimationEffect_Effect), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<FilterEffect?> Effect { get; } = Property.CreateWithExpression<FilterEffect?>();
+    public IExpressionProperty<FilterEffect?> Effect { get; } = Property.CreateExpression<FilterEffect?>();
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

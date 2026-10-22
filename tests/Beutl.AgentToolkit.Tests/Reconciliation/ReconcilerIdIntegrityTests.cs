@@ -312,6 +312,6 @@ public sealed class ReconcilerIdIntegrityTests
             RegisterProperty(Value);
         }
 
-        public IExpressionProperty<EngineObject?> Value { get; } = Property.CreateWithExpression<EngineObject?>();
+        public IExpressionProperty<EngineObject?> Value { get; } = Property.CreateExpression<EngineObject?>();
     }
 }

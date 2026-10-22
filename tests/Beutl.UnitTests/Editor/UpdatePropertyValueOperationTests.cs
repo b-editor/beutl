@@ -452,7 +452,7 @@ public class UpdatePropertyValueOperationTests
     {
         public TestEngineObject()
         {
-            FloatValue = Property.CreateWithExpression(0f);
+            FloatValue = Property.CreateExpression(0f);
             ScanProperties<TestEngineObject>();
         }
 

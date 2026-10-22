@@ -27,7 +27,7 @@ public abstract partial class Brush : EngineObject
     public IExpressionProperty<float> Opacity { get; } = Property.CreateAnimatable(100f);
 
     [Display(Name = nameof(GraphicsStrings.Transform), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Transform?> Transform { get; } = Property.CreateWithExpression<Transform?>();
+    public IExpressionProperty<Transform?> Transform { get; } = Property.CreateExpression<Transform?>();
 
     [Display(Name = nameof(GraphicsStrings.TransformOrigin), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<RelativePoint> TransformOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);

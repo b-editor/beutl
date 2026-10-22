@@ -12,7 +12,7 @@ public sealed partial class ChoicesProviderTest : FilterEffect
     }
 
     [ChoicesProvider(typeof(WellKnownSizesProvider))]
-    public IExpressionProperty<WellKnownSize?> Size { get; } = Property.CreateWithExpression<WellKnownSize?>();
+    public IExpressionProperty<WellKnownSize?> Size { get; } = Property.CreateExpression<WellKnownSize?>();
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

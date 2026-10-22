@@ -389,7 +389,7 @@ public class UnknownMemberTests
     {
         public SimpleHolder() => ScanProperties<SimpleHolder>();
 
-        public IExpressionProperty<float> Size { get; } = Property.CreateWithExpression(1f);
+        public IExpressionProperty<float> Size { get; } = Property.CreateExpression(1f);
     }
 
     // An engine object with a value-only property.

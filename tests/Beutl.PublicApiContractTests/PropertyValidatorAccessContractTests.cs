@@ -11,7 +11,7 @@ public sealed class PropertyValidatorAccessContractTests
     public void PublicPropertiesExposeTheValidatorTheyActuallyUse()
     {
         var validator = new PassthroughValidator();
-        IExpressionProperty<int> simple = Property.CreateWithExpression(0, validator);
+        IExpressionProperty<int> simple = Property.CreateExpression(0, validator);
         IExpressionProperty<int> animatable = Property.CreateAnimatable(0, validator);
         IListProperty<int> list = Property.CreateList<int>();
 

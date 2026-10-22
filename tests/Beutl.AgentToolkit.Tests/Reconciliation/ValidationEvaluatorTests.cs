@@ -82,7 +82,7 @@ public class ValidationEvaluatorTests
     public void EvaluateEngineProperty_RunsCustomValidatorBeforeMissingFontWarning()
     {
         var validator = new RejectingFontValidator();
-        IExpressionProperty<FontFamily> property = Property.CreateWithExpression(new FontFamily("default"), validator);
+        IExpressionProperty<FontFamily> property = Property.CreateExpression(new FontFamily("default"), validator);
 
         ValidationOutcome outcome = ValidationEvaluator.Evaluate(
             property,
@@ -121,7 +121,7 @@ public class ValidationEvaluatorTests
         }
 
         [System.ComponentModel.DataAnnotations.Range(0, 10)]
-        public IExpressionProperty<int> Amount { get; } = Property.CreateWithExpression(0);
+        public IExpressionProperty<int> Amount { get; } = Property.CreateExpression(0);
     }
 
     private sealed class TypedEngineObject : EngineObject
@@ -131,9 +131,9 @@ public class ValidationEvaluatorTests
             ScanProperties<TypedEngineObject>();
         }
 
-        public IExpressionProperty<Color> Color { get; } = Property.CreateWithExpression(Colors.White);
+        public IExpressionProperty<Color> Color { get; } = Property.CreateExpression(Colors.White);
 
-        public IExpressionProperty<Pen?> Pen { get; } = Property.CreateWithExpression<Pen?>();
+        public IExpressionProperty<Pen?> Pen { get; } = Property.CreateExpression<Pen?>();
     }
 
     private sealed class RejectingValidator : IValidator<int>

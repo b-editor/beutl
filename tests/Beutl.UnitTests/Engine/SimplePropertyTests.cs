@@ -11,7 +11,7 @@ public class SimplePropertyTests
     [TestCase(true)]
     public void UntypedNullableValueAcceptsNull(bool replace)
     {
-        IExpressionProperty<Guid?> typed = Property.CreateWithExpression<Guid?>();
+        IExpressionProperty<Guid?> typed = Property.CreateExpression<Guid?>();
         typed.Value = Guid.NewGuid();
         IProperty property = typed;
         if (replace) property.SetValueEvenIfEqual(null);

@@ -27,7 +27,7 @@ public static class Property
         return CreateAnimatable(defaultValue, validator);
     }
 
-    public static IExpressionProperty<T> CreateWithExpression<T>(
+    public static IExpressionProperty<T> CreateExpression<T>(
         T defaultValue = default(T)!,
         IValidator<T>? validator = null)
     {
@@ -36,7 +36,7 @@ public static class Property
         return property;
     }
 
-    public static IExpressionProperty<T> CreateWithExpression<T>(
+    public static IExpressionProperty<T> CreateExpression<T>(
         T defaultValue,
         params ValidationAttribute[] validationAttributes)
     {
@@ -44,7 +44,7 @@ public static class Property
             ? new MultipleValidator<T>(PropertyValidators.FromAttributes<T>(validationAttributes))
             : null;
 
-        return CreateWithExpression(defaultValue, validator);
+        return CreateExpression(defaultValue, validator);
     }
 
     /// <summary>

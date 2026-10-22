@@ -748,7 +748,7 @@ public class CollectionChangeOperationTests
     {
         public TestEngineObjectWithScalarProperty()
         {
-            Title = Property.CreateWithExpression("");
+            Title = Property.CreateExpression("");
             ScanProperties<TestEngineObjectWithScalarProperty>();
         }
 

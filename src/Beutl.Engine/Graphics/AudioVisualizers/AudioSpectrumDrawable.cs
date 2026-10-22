@@ -29,18 +29,18 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
     }
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_Shape), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<SpectrumShape?> Shape { get; } = Property.CreateWithExpression<SpectrumShape?>();
+    public IExpressionProperty<SpectrumShape?> Shape { get; } = Property.CreateExpression<SpectrumShape?>();
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_BarCount), ResourceType = typeof(GraphicsStrings))]
     [Range(1, 10000)]
-    public IExpressionProperty<int> BarCount { get; } = Property.CreateWithExpression(128);
+    public IExpressionProperty<int> BarCount { get; } = Property.CreateExpression(128);
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_FftSize), ResourceType = typeof(GraphicsStrings))]
     [Range(64, 16384)]
-    public IExpressionProperty<int> FftSize { get; } = Property.CreateWithExpression(1024);
+    public IExpressionProperty<int> FftSize { get; } = Property.CreateExpression(1024);
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_FrequencyScale), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<FrequencyScale> FrequencyScale { get; } = Property.CreateWithExpression(AudioVisualizers.FrequencyScale.Logarithmic);
+    public IExpressionProperty<FrequencyScale> FrequencyScale { get; } = Property.CreateExpression(AudioVisualizers.FrequencyScale.Logarithmic);
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_FloorDb), ResourceType = typeof(GraphicsStrings))]
     [Range(-200f, 0f)]

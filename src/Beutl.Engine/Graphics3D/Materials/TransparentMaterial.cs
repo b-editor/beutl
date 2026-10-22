@@ -38,7 +38,7 @@ public sealed partial class TransparentMaterial : Material3D
     /// Gets the color map texture.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.TransparentMaterial_ColorMap), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<TextureSource?> ColorMap { get; } = Property.CreateWithExpression<TextureSource?>(null);
+    public IExpressionProperty<TextureSource?> ColorMap { get; } = Property.CreateExpression<TextureSource?>(null);
 
     /// <summary>
     /// Gets the index of refraction for fresnel effect (1.0-2.5).

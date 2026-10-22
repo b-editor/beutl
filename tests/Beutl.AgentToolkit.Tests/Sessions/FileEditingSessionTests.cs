@@ -21,7 +21,7 @@ public sealed class FileEditingSessionTests
     public sealed class WrappedKeyFrameHolder : EngineObject
     {
         public WrappedKeyFrameHolder() => ScanProperties<WrappedKeyFrameHolder>();
-        public IExpressionProperty<List<KeyFrameWrapper>> Frames { get; } = Property.CreateWithExpression<List<KeyFrameWrapper>>();
+        public IExpressionProperty<List<KeyFrameWrapper>> Frames { get; } = Property.CreateExpression<List<KeyFrameWrapper>>();
     }
 
     [TestCase("\"[Missing.Plugin]Missing.Namespace:MissingEasing\"", false)]

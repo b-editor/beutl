@@ -249,7 +249,7 @@ public class FormerPersistedNameTests
     {
         public RenamedLeaf() => ScanProperties<RenamedLeaf>();
 
-        public IExpressionProperty<float> Width { get; } = Property.CreateWithExpression(1f);
+        public IExpressionProperty<float> Width { get; } = Property.CreateExpression(1f);
     }
 
     [FormerPersistedName(FormerBoxName)]
