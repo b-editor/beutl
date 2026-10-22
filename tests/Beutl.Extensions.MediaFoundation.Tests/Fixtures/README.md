@@ -49,3 +49,21 @@ ffmpeg -y -i marker-bframes.mp4 -c copy -use_editlist 0 marker-bframes-no-edit.m
 ```
 
 These fixtures also contain only generated test signals.
+
+## `late-video.mp4`
+
+A 2.5-second H.264 + AAC clip (16×16, 10 fps, 8000 Hz mono) whose video starts
+0.5 s after its audio, through an MP4 empty edit. The picture changes from red
+to blue and the tone from 440 to 880 Hz together at 1.5 s.
+`FFmpegReaderFrameOriginTests` in Beutl.FFmpegWorker.Tests links this file and
+`marker-bframes-no-edit.mp4`.
+
+Regenerate with ffmpeg:
+
+```sh
+ffmpeg -y -itsoffset 0.5 \
+  -f lavfi -i "color=red:s=16x16:r=10:d=2,drawbox=c=blue:t=fill:enable='gte(t,1)'" \
+  -f lavfi -i "aevalsrc=0.3*sin(2*PI*440*(1+gte(t\,1.5))*t):s=8000:d=2.5" \
+  -c:v libx264 -pix_fmt yuv420p -bf 0 -g 10 \
+  -c:a aac -b:a 32k -ac 1 -movflags +faststart late-video.mp4
+```
