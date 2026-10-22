@@ -7,6 +7,7 @@ using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
+using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
@@ -32,8 +33,8 @@ public class PropertyHoverInfoTests
         model.Description.Value = "Opacity of the shape";
         var normal = new StringEditor();
         var settings = new StringEditor { EditorStyle = PropertyEditorStyle.Settings };
-        model.Accept(normal);
-        model.Accept(settings);
+        PropertyEditorControls.Attach(model, normal);
+        PropertyEditorControls.Attach(model, settings);
         var boolean = new BooleanEditor
         {
             Header = "Enabled",

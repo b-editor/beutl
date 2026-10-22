@@ -11,6 +11,7 @@ using Beutl.Audio.Effects;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
@@ -32,23 +33,23 @@ public static class PropertyEditorService
         return (IPropertyAdapter<T>)pi;
     }
 
-    private static BaseEditorViewModel? CreateEnumViewModel(IPropertyAdapter s)
+    private static PropertyEditorViewModel? CreateEnumViewModel(IPropertyAdapter s)
     {
         Type type = typeof(EnumEditorViewModel<>).MakeGenericType(s.PropertyType);
-        return Activator.CreateInstance(type, s) as BaseEditorViewModel;
+        return Activator.CreateInstance(type, s) as PropertyEditorViewModel;
     }
 
-    private static BaseEditorViewModel? CreateEasingViewModel(IPropertyAdapter s)
+    private static PropertyEditorViewModel? CreateEasingViewModel(IPropertyAdapter s)
     {
         Type type = typeof(EasingEditorViewModel<>).MakeGenericType(s.PropertyType);
-        return Activator.CreateInstance(type, s) as BaseEditorViewModel;
+        return Activator.CreateInstance(type, s) as PropertyEditorViewModel;
     }
 
-    private static BaseEditorViewModel? CreateCoreObjectEditorViewModel(IPropertyAdapter s)
+    private static PropertyEditorViewModel? CreateCoreObjectEditorViewModel(IPropertyAdapter s)
     {
         Type viewModelType = typeof(CoreObjectEditorViewModel<>);
         viewModelType = viewModelType.MakeGenericType(s.PropertyType);
-        return Activator.CreateInstance(viewModelType, s) as BaseEditorViewModel;
+        return Activator.CreateInstance(viewModelType, s) as PropertyEditorViewModel;
     }
 
     private static bool CanCreateFileSource(Type type)
@@ -57,29 +58,29 @@ public static class PropertyEditorService
             && type.IsAssignableTo(typeof(IFileSource)) && type.GetConstructor(Type.EmptyTypes) != null;
     }
 
-    private static BaseEditorViewModel? CreateFileSourceEditorViewModel(IPropertyAdapter property)
+    private static PropertyEditorViewModel? CreateFileSourceEditorViewModel(IPropertyAdapter property)
     {
         if (!CanCreateFileSource(property.PropertyType)) return null;
 
         Type type = typeof(FileSourceEditorViewModel<>).MakeGenericType(property.PropertyType);
-        return Activator.CreateInstance(type, property) as BaseEditorViewModel;
+        return Activator.CreateInstance(type, property) as PropertyEditorViewModel;
     }
 
-    private static BaseEditorViewModel? CreateParsableEditorViewModel(IPropertyAdapter s)
+    private static PropertyEditorViewModel? CreateParsableEditorViewModel(IPropertyAdapter s)
     {
         Type viewModelType = typeof(ParsableEditorViewModel<>);
         viewModelType = viewModelType.MakeGenericType(s.PropertyType);
-        return Activator.CreateInstance(viewModelType, s) as BaseEditorViewModel;
+        return Activator.CreateInstance(viewModelType, s) as PropertyEditorViewModel;
     }
 
-    private static BaseEditorViewModel? CreateListEditorViewModel(IPropertyAdapter s)
+    private static PropertyEditorViewModel? CreateListEditorViewModel(IPropertyAdapter s)
     {
         Type? itemtype = GetItemTypeFromListType(s.PropertyType);
         if (itemtype != null)
         {
             Type viewModelType = typeof(ListEditorViewModel<>);
             viewModelType = viewModelType.MakeGenericType(itemtype);
-            return Activator.CreateInstance(viewModelType, s) as BaseEditorViewModel;
+            return Activator.CreateInstance(viewModelType, s) as PropertyEditorViewModel;
         }
         else
         {
@@ -93,17 +94,17 @@ public static class PropertyEditorService
         return interfaceType?.GenericTypeArguments?.FirstOrDefault();
     }
 
-    private static BaseEditorViewModel? CreateChoiceViewModel(IPropertyAdapter s, Type providerType)
+    private static PropertyEditorViewModel? CreateChoiceViewModel(IPropertyAdapter s, Type providerType)
     {
         Type type = typeof(ProvidedChoiceEditorViewModel<,>).MakeGenericType(s.PropertyType, providerType);
-        return Activator.CreateInstance(type, s) as BaseEditorViewModel;
+        return Activator.CreateInstance(type, s) as PropertyEditorViewModel;
     }
 
     internal sealed class PropertyEditorExtensionImpl : IPropertyEditorExtensionImpl
     {
-        private record struct Editor(Func<IPropertyAdapter, Control?> CreateEditor, Func<IPropertyAdapter, BaseEditorViewModel?> CreateViewModel);
+        private record struct Editor(Func<IPropertyAdapter, Control?> CreateEditor, Func<IPropertyAdapter, PropertyEditorViewModel?> CreateViewModel);
 
-        private record struct ListItemEditor(Func<IPropertyAdapter, IListItemEditor?> CreateEditor, Func<IPropertyAdapter, BaseEditorViewModel?> CreateViewModel);
+        private record struct ListItemEditor(Func<IPropertyAdapter, IListItemEditor?> CreateEditor, Func<IPropertyAdapter, PropertyEditorViewModel?> CreateViewModel);
 
         private static readonly Dictionary<Type, ListItemEditor> s_listItemEditorsOverride = new()
         {
@@ -146,20 +147,20 @@ public static class PropertyEditorService
             new(typeof(Color), new(_ => new ColorEditor(), s => new ColorEditorViewModel(s.ToTyped<Color>()))),
             new(typeof(GradingColor), new(_ => new GradingColorEditor(), s => new GradingColorEditorViewModel(s.ToTyped<GradingColor>()))),
 
-            new(typeof(Point), new(_ => new Vector2Editor<float>(), s => new PointEditorViewModel(s.ToTyped<Point>()))),
-            new(typeof(Size), new(_ => new Vector2Editor<float>(), s => new SizeEditorViewModel(s.ToTyped<Size>()))),
-            new(typeof(Vector2), new(_ => new Vector2Editor<float>(), s => new Vector2EditorViewModel(s.ToTyped<Vector2>()))),
-            new(typeof(Graphics.Vector), new(_ => new Vector2Editor<float>(), s => new VectorEditorViewModel(s.ToTyped<Graphics.Vector>()))),
-            new(typeof(PixelPoint), new(_ => new Vector2Editor<int>(), s => new PixelPointEditorViewModel(s.ToTyped<PixelPoint>()))),
-            new(typeof(PixelSize), new(_ => new Vector2Editor<int>(), s => new PixelSizeEditorViewModel(s.ToTyped<PixelSize>()))),
+            new(typeof(Point), new(_ => new Vector2Editor<float>(), s => VectorEditors.Point(s.ToTyped<Point>()))),
+            new(typeof(Size), new(_ => new Vector2Editor<float>(), s => VectorEditors.Size(s.ToTyped<Size>()))),
+            new(typeof(Vector2), new(_ => new Vector2Editor<float>(), s => VectorEditors.Vector2(s.ToTyped<Vector2>()))),
+            new(typeof(Graphics.Vector), new(_ => new Vector2Editor<float>(), s => VectorEditors.Vector(s.ToTyped<Graphics.Vector>()))),
+            new(typeof(PixelPoint), new(_ => new Vector2Editor<int>(), s => VectorEditors.PixelPoint(s.ToTyped<PixelPoint>()))),
+            new(typeof(PixelSize), new(_ => new Vector2Editor<int>(), s => VectorEditors.PixelSize(s.ToTyped<PixelSize>()))),
             new(typeof(RelativePoint), new(_ => new RelativePointEditor(), s => new RelativePointEditorViewModel(s.ToTyped<RelativePoint>()))),
             new(typeof(RelativeRect), new(_ => new RelativeRectEditor(), s => new RelativeRectEditorViewModel(s.ToTyped<RelativeRect>()))),
-            new(typeof(Vector3), new(_ => new Vector3Editor<float>(), s => new Vector3EditorViewModel(s.ToTyped<Vector3>()))),
-            new(typeof(Vector4), new(_ => new Vector4Editor<float>(), s => new Vector4EditorViewModel(s.ToTyped<Vector4>()))),
-            new(typeof(Thickness), new(_ => new Vector4Editor<float>() { Theme = (ControlTheme)Avalonia.Application.Current!.FindResource("ThicknessEditorStyle")! }, s => new ThicknessEditorViewModel(s.ToTyped<Thickness>()))),
-            new(typeof(Rect), new(_ => new Vector4Editor<float>(), s => new RectEditorViewModel(s.ToTyped<Rect>()))),
-            new(typeof(PixelRect), new(_ => new Vector4Editor<int>(), s => new PixelRectEditorViewModel(s.ToTyped<PixelRect>()))),
-            new(typeof(CornerRadius), new(_ => new Vector4Editor<float>() { Theme = (ControlTheme)Avalonia.Application.Current!.FindResource("CornerRadiusEditorStyle")! }, s => new CornerRadiusEditorViewModel(s.ToTyped<CornerRadius>()))),
+            new(typeof(Vector3), new(_ => new Vector3Editor<float>(), s => VectorEditors.Vector3(s.ToTyped<Vector3>()))),
+            new(typeof(Vector4), new(_ => new Vector4Editor<float>(), s => VectorEditors.Vector4(s.ToTyped<Vector4>()))),
+            new(typeof(Thickness), new(_ => new Vector4Editor<float>() { Theme = (ControlTheme)Avalonia.Application.Current!.FindResource("ThicknessEditorStyle")! }, s => VectorEditors.Thickness(s.ToTyped<Thickness>()))),
+            new(typeof(Rect), new(_ => new Vector4Editor<float>(), s => VectorEditors.Rect(s.ToTyped<Rect>()))),
+            new(typeof(PixelRect), new(_ => new Vector4Editor<int>(), s => VectorEditors.PixelRect(s.ToTyped<PixelRect>()))),
+            new(typeof(CornerRadius), new(_ => new Vector4Editor<float>() { Theme = (ControlTheme)Avalonia.Application.Current!.FindResource("CornerRadiusEditorStyle")! }, s => VectorEditors.CornerRadius(s.ToTyped<CornerRadius>()))),
 
             new(typeof(TimeSpan), new(_ => new TimeSpanEditor(), s => new TimeSpanEditorViewModel(s.ToTyped<TimeSpan>()))),
             new(typeof(Easing), new(_ => new EasingEditor(), CreateEasingViewModel)),
@@ -272,7 +273,7 @@ public static class PropertyEditorService
 
         public bool TryCreateContextForListItem(PropertyEditorExtension extension, IPropertyAdapter property, [NotNullWhen(true)] out IPropertyEditorContext? context)
         {
-            BaseEditorViewModel? viewModel = CreateFromTypeMap(
+            PropertyEditorViewModel? viewModel = CreateFromTypeMap(
                 s_listItemEditorsOverride,
                 property,
                 static (editor, p) => editor.CreateViewModel(p));
@@ -300,7 +301,7 @@ public static class PropertyEditorService
 
         private static bool TryCreateContextCore(PropertyEditorExtension extension, IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
         {
-            BaseEditorViewModel? viewModel = null;
+            PropertyEditorViewModel? viewModel = null;
 
             if (properties.Count > 0 && properties[0] is { } property)
             {
@@ -360,7 +361,7 @@ public static class PropertyEditorService
             control = null;
             try
             {
-                if (context is BaseEditorViewModel { PropertyAdapter: { } property })
+                if (context is PropertyEditorViewModel { PropertyAdapter: { } property })
                 {
                     control = CreateFromTypeMap(
                         s_listItemEditorsOverride,
@@ -371,9 +372,9 @@ public static class PropertyEditorService
                         // TryCreateControlCore prepares the editors it creates, so only these need it here.
                         ApplyFileFilters(context, control as Control);
 
-                        if (control is IPropertyEditorContextVisitor visitor)
+                        if (control is Control created)
                         {
-                            context.Accept(visitor);
+                            PropertyEditorControls.Attach(context, created);
                         }
 
                         return true;
@@ -443,7 +444,7 @@ public static class PropertyEditorService
             control = null;
             try
             {
-                if (context is BaseEditorViewModel { PropertyAdapter: { } property })
+                if (context is PropertyEditorViewModel { PropertyAdapter: { } property })
                 {
                     var attrs = property.GetAttributes();
                     // 特殊処理
@@ -466,16 +467,16 @@ public static class PropertyEditorService
             {
                 ApplyFileFilters(context, control);
 
-                if (control is IPropertyEditorContextVisitor visitor)
+                if (control != null)
                 {
-                    context.Accept(visitor);
+                    PropertyEditorControls.Attach(context, control);
                 }
             }
         }
 
         private static void ApplyFileFilters(IPropertyEditorContext context, Control? control)
         {
-            if (context is not BaseEditorViewModel viewModel) return;
+            if (context is not PropertyEditorViewModel viewModel) return;
 
             StorageFileEditor? editor = control as StorageFileEditor
                 ?? (control as UserControl)?.FindControl<StorageFileEditor>("FileEditor");

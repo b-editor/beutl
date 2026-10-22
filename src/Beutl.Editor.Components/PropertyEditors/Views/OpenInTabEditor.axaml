@@ -4,9 +4,9 @@
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:local="using:Beutl.Editor.Components.PropertyEditors.Views"
              xmlns:pe="using:Beutl.Controls.PropertyEditors"
-             xmlns:vm="using:Beutl.Editor.Components.PropertyEditors.ViewModels"
+             xmlns:vm="using:Beutl.Editor.PropertyEditors"
              x:CompileBindings="True"
-             x:DataType="vm:BaseEditorViewModel">
+             x:DataType="vm:PropertyEditorViewModel">
     <pe:PropertyEditorGrid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />

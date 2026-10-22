@@ -2,6 +2,7 @@
 using Avalonia.Input;
 using Beutl.Collections.Pooled;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Media;
@@ -12,7 +13,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
-public sealed class PenEditorViewModel : BaseEditorViewModel
+public sealed class PenEditorViewModel : PropertyEditorViewModel, IObjectEditorCommands
 {
     public PenEditorViewModel(IPropertyAdapter<Pen?> property)
         : base(property)
@@ -82,13 +83,15 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     public ReadOnlyReactiveProperty<Pen?> Value { get; }
 
-    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
+    public IReadOnlyReactiveProperty<bool> CanCopy { get; }
 
-    public override IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => CanCopy;
+    public ReactivePropertySlim<bool> CanPaste { get; } = new();
 
-    protected override Type? TemplateBaseType => typeof(Pen);
+    public IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => CanCopy;
 
-    protected override DataFormat<string>? PasteFormat => BeutlDataFormats.Pen;
+    Type? IObjectEditorCommands.TemplateBaseType => typeof(Pen);
+
+    DataFormat<string>? IObjectEditorCommands.PasteFormat => BeutlDataFormats.Pen;
 
     public CoreList<IPropertyEditorContext> MajorProperties { get; } = [];
 
@@ -118,11 +121,11 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
         }
     }
 
-    protected override ICoreSerializable? GetCopyTarget() => Value.Value;
+    public ICoreSerializable? GetCopyTarget() => Value.Value;
 
-    protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
+    public ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
 
-    public override bool ApplyTemplate(ObjectTemplateItem template)
+    public bool ApplyTemplate(ObjectTemplateItem template)
     {
         if (!CanReplace(Value.Value)) return false;
         if (template.CreateInstance() is not Pen instance || !CanReplace(Value.Value, instance)) return false;
@@ -132,7 +135,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
         return true;
     }
 
-    public override bool TryPasteJson(string json)
+    public bool TryPasteJson(string json)
     {
         if (!CanReplace(Value.Value)) return false;
         if (!CoreObjectClipboard.TryDeserializeJson<Pen>(json, out var pasted)

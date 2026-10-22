@@ -1,4 +1,5 @@
-﻿using Reactive.Bindings;
+﻿using Beutl.Editor.PropertyEditors;
+using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
@@ -21,7 +22,7 @@ public interface IParsableEditorViewModel
     void SetCurrentValueString(string? s);
 }
 
-public sealed class ParsableEditorViewModel<T> : BaseEditorViewModel<T>, IParsableEditorViewModel
+public sealed class ParsableEditorViewModel<T> : PropertyEditorViewModel<T>, IParsableEditorViewModel
     where T : IParsable<T>
 {
     public ParsableEditorViewModel(IPropertyAdapter<T> property)

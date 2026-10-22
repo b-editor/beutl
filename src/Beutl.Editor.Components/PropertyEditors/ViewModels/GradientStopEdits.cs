@@ -1,4 +1,5 @@
 ﻿using Beutl.Controls;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Media;
 using AM = Avalonia.Media;
 
@@ -8,7 +9,7 @@ namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 // the edited value holds no stops.
 internal static class GradientStopEdits
 {
-    public static void Insert(BaseEditorViewModel editor, ICoreList<GradientStop>? list, int index, GradientStop item)
+    public static void Insert(PropertyEditorViewModel editor, ICoreList<GradientStop>? list, int index, GradientStop item)
     {
         if (!editor.IsElementEditable) return;
         if (list != null)
@@ -18,7 +19,7 @@ internal static class GradientStopEdits
         }
     }
 
-    public static void Remove(BaseEditorViewModel editor, ICoreList<GradientStop>? list, int index)
+    public static void Remove(PropertyEditorViewModel editor, ICoreList<GradientStop>? list, int index)
     {
         if (!editor.IsElementEditable) return;
         if (list != null)
@@ -28,7 +29,7 @@ internal static class GradientStopEdits
         }
     }
 
-    public static void Confirm(BaseEditorViewModel editor, ICoreList<GradientStop>? list, int oldIndex, int newIndex)
+    public static void Confirm(PropertyEditorViewModel editor, ICoreList<GradientStop>? list, int oldIndex, int newIndex)
     {
         if (!editor.IsElementEditable) return;
         if (list != null)
@@ -41,7 +42,7 @@ internal static class GradientStopEdits
     }
 
     // A drag on a gradient slider: moves the stop without recording it, and refreshes the cached frames.
-    public static void Drag(BaseEditorViewModel editor, ICoreList<GradientStop> list, int oldIndex, int newIndex, AM.GradientStop stop)
+    public static void Drag(PropertyEditorViewModel editor, ICoreList<GradientStop> list, int oldIndex, int newIndex, AM.GradientStop stop)
     {
         if (!Contains(list, oldIndex) || !Contains(list, newIndex)) return;
 
@@ -55,7 +56,7 @@ internal static class GradientStopEdits
     }
 
     // The end of the drag: moves the stop back first, so that Confirm records the whole move.
-    public static void Release(BaseEditorViewModel editor, ICoreList<GradientStop> list, int oldIndex, int newIndex)
+    public static void Release(PropertyEditorViewModel editor, ICoreList<GradientStop> list, int oldIndex, int newIndex)
     {
         if (!Contains(list, oldIndex) || !Contains(list, newIndex)) return;
 

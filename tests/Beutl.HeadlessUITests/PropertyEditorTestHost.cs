@@ -2,6 +2,7 @@
 using Beutl.Editor;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Observers;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 
@@ -13,7 +14,7 @@ public enum EditorSurface { Property, Node, Settings, ListItem }
 internal static class PropertyEditorTestHost
 {
     // Creates the editor the way the surface does.
-    public static (BaseEditorViewModel Vm, Control Control) CreateControl(IPropertyAdapter adapter, EditorSurface surface = EditorSurface.Property)
+    public static (PropertyEditorViewModel Vm, Control Control) CreateControl(IPropertyAdapter adapter, EditorSurface surface = EditorSurface.Property)
     {
         PropertyEditorExtension extension = PropertyEditorExtension.Instance;
         Assert.That(extension.MatchProperty([adapter]), Is.EqualTo(new[] { adapter }));
@@ -44,7 +45,7 @@ internal static class PropertyEditorTestHost
         }
         Assert.That(createdControl, Is.True);
         control!.DataContext = context;
-        return ((BaseEditorViewModel)context!, control);
+        return ((PropertyEditorViewModel)context!, control);
     }
 
     // The contexts and those nested in their groups, depth first, with the groups themselves when includeGroups is true.

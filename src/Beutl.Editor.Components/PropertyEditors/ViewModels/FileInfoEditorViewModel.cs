@@ -1,41 +1,17 @@
-﻿using Avalonia;
-using Avalonia.Interactivity;
-
-using Beutl.Controls.PropertyEditors;
-
-using Reactive.Bindings;
+﻿using Beutl.Editor.PropertyEditors;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
-public sealed class StorageFileEditorViewModel : BaseEditorViewModel<FileInfo>
+public sealed class StorageFileEditorViewModel(IPropertyAdapter<FileInfo> property)
+    : PropertyEditorViewModel<FileInfo, FileInfo?>(property)
 {
-    public StorageFileEditorViewModel(IPropertyAdapter<FileInfo> property)
-        : base(property)
-    {
-        Value = property.GetObservable()
-            .ToReadOnlyReactiveProperty()
-            .DisposeWith(Disposables);
-    }
+    protected override FileInfo? ToEdit(FileInfo value) => value;
 
-    public ReadOnlyReactiveProperty<FileInfo?> Value { get; }
+    protected override FileInfo FromEdit(FileInfo? edit) => edit!;
 
-    public override void Accept(IPropertyEditorContextVisitor visitor)
+    public override void ConfirmEdit(FileInfo? oldValue, FileInfo? newValue)
     {
-        base.Accept(visitor);
-        if (visitor is StorageFileEditor editor && !Disposables.IsDisposed)
-        {
-            editor.Bind(StorageFileEditor.ValueProperty, Value.ToBinding())
-                .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
-                .DisposeWith(Disposables);
-        }
-    }
-
-    private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
-    {
-        if (e.Expect<FileInfo>(sender) is { } args)
-        {
-            SetValue(Value.Value, args.NewValue);
-        }
+        if (IsDisposed) return;
+        SetValue(ShownValue.Value, newValue);
     }
 }

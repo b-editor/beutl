@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Avalonia.Input;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -10,7 +11,7 @@ namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
 // What the audio effect, filter effect and transform editors share: a value that may be a group of
 // values of its own kind, edited as a nested list, or a fallback for one that could not be read.
-public abstract class GroupableEditorViewModel<T, TGroup, TFallback> : ValueEditorViewModel<T?>, IFallbackObjectViewModel
+public abstract class GroupableEditorViewModel<T, TGroup, TFallback> : ValueEditorViewModel<T?>, IFallbackObjectViewModel, IObjectEditorCommands
     where T : EngineObject
     where TGroup : T
     where TFallback : T
@@ -83,11 +84,17 @@ public abstract class GroupableEditorViewModel<T, TGroup, TFallback> : ValueEdit
             .DisposeWith(Disposables);
     }
 
-    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
+    public IReadOnlyReactiveProperty<bool> CanCopy { get; }
 
-    public override IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => CanCopy;
+    public ReactivePropertySlim<bool> CanPaste { get; } = new();
 
-    protected override Type? TemplateBaseType => typeof(T);
+    public IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => CanCopy;
+
+    Type? IObjectEditorCommands.TemplateBaseType => typeof(T);
+
+    protected abstract DataFormat<string>? PasteFormat { get; }
+
+    DataFormat<string>? IObjectEditorCommands.PasteFormat => PasteFormat;
 
     public ReadOnlyReactivePropertySlim<bool> IsGroup { get; }
 
@@ -132,21 +139,21 @@ public abstract class GroupableEditorViewModel<T, TGroup, TFallback> : ValueEdit
         SetValue(Value.Value, instance, commandName);
     }
 
-    protected override ICoreSerializable? GetCopyTarget()
+    public ICoreSerializable? GetCopyTarget()
         => Value.Value is T value and not TFallback ? value : null;
 
-    protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
+    public ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
 
-    public override bool TryPasteJson(string json)
+    public bool TryPasteJson(string json)
     {
         return GroupedEditorHelper.TryPasteJson(
             json, this, IsExpanded,
             Value.Value is TGroup group ? ChildrenOf(group) : null);
     }
 
-    public override bool IsTemplateGroup => Value.Value is TGroup;
+    public bool IsTemplateGroup => Value.Value is TGroup;
 
-    public override bool ApplyTemplate(ObjectTemplateItem template)
+    public bool ApplyTemplate(ObjectTemplateItem template)
     {
         return GroupedEditorHelper.ApplyTemplate(
             template, this, IsExpanded,

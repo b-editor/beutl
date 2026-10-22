@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Graphics3D.Textures;
 using Beutl.Services;
 using Reactive.Bindings;
@@ -7,7 +8,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
-public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
+public sealed class TextureSourceEditorViewModel : PropertyEditorViewModel
 {
     public TextureSourceEditorViewModel(IPropertyAdapter<TextureSource?> property)
         : base(property)

@@ -12,14 +12,14 @@ public static class CopyPasteMenuHelper
     public static void AddMenus(FAMenuFlyout menuFlyout, Control control)
     {
         var dataContext = control.GetObservable(StyledElement.DataContextProperty)
-            .Select(obj => obj as BaseEditorViewModel);
+            .Select(obj => obj as IObjectEditorCommands);
         var copyMenu = new FAMenuFlyoutItem { Text = Strings.Copy };
         copyMenu.Bind(
             InputElement.IsEnabledProperty,
             dataContext.Select(d => d?.CanCopy ?? Observable.ReturnThenNever(false)).Switch());
         copyMenu.Click += async (_, _) =>
         {
-            if (control.DataContext is not BaseEditorViewModel { IsDisposed: false } vm) return;
+            if (control.DataContext is not IObjectEditorCommands { IsDisposed: false } vm) return;
             try
             {
                 await vm.CopyAsync();
@@ -35,7 +35,7 @@ public static class CopyPasteMenuHelper
             dataContext.Select(d => d?.CanPaste ?? Observable.ReturnThenNever(false)).Switch());
         pasteMenu.Click += async (_, _) =>
         {
-            if (control.DataContext is not BaseEditorViewModel { IsDisposed: false } vm) return;
+            if (control.DataContext is not IObjectEditorCommands { IsDisposed: false } vm) return;
             try
             {
                 if (!await vm.PasteAsync())
@@ -51,7 +51,7 @@ public static class CopyPasteMenuHelper
 
         menuFlyout.Opening += async (sender, args) =>
         {
-            if (control.DataContext is BaseEditorViewModel { IsDisposed: false } vm)
+            if (control.DataContext is IObjectEditorCommands { IsDisposed: false } vm)
             {
                 await vm.RefreshCanPasteAsync();
             }

@@ -1,19 +1,3 @@
-﻿using Beutl.Controls.PropertyEditors;
+﻿namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
-namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
-
-public sealed class TimeSpanEditorViewModel(IPropertyAdapter<TimeSpan> property) : ValueEditorViewModel<TimeSpan>(property)
-{
-    public override void Accept(IPropertyEditorContextVisitor visitor)
-    {
-        base.Accept(visitor);
-        if (visitor is TimeSpanEditor editor && !Disposables.IsDisposed)
-        {
-            AttachValueBindings(
-                editor,
-                TimeSpanEditor.ValueProperty,
-                static ed => ed.Value,
-                static (ed, v) => ed.Value = v);
-        }
-    }
-}
+public sealed class TimeSpanEditorViewModel(IPropertyAdapter<TimeSpan> property) : ValueEditorViewModel<TimeSpan>(property);

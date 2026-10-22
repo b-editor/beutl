@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using Beutl.Api.Services;
+using Beutl.Editor.PropertyEditors;
 using Beutl.PropertyAdapters;
 using DynamicData;
 
@@ -100,7 +101,7 @@ internal static class CoreObjectPropertyEditorBuilder
 
     public static DisplayAttribute? GetDisplayAttribute(IPropertyEditorContext? context)
     {
-        if (context is BaseEditorViewModel { PropertyAdapter: { } adapter })
+        if (context is PropertyEditorViewModel { PropertyAdapter: { } adapter })
         {
             return adapter.GetAttributes().FirstOrDefault(i => i is DisplayAttribute) as DisplayAttribute;
         }

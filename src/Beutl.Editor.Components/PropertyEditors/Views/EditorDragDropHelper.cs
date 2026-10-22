@@ -55,7 +55,7 @@ internal static class EditorDragDropHelper
         return false;
     }
 
-    public static bool TryApplyDroppedTemplate(DragEventArgs e, BaseEditorViewModel viewModel)
+    public static bool TryApplyDroppedTemplate(DragEventArgs e, IObjectEditorCommands viewModel)
     {
         return TryLoadDroppedTemplate(e, out ObjectTemplateItem? template)
             && viewModel.ApplyTemplate(template);

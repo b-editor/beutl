@@ -3,6 +3,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Extensibility;
 using Beutl.Media;
 using Reactive.Bindings;
@@ -53,8 +54,8 @@ public sealed class ListItemEditorConfirmTests
     private static int WritesForOneConfirmation<T>(T initial, RoutedEventArgs confirmation)
     {
         var adapter = new CountingAdapter<T>(initial);
-        (BaseEditorViewModel vm, Control control) = CreateControl(adapter, EditorSurface.ListItem);
-        using BaseEditorViewModel viewModel = vm;
+        (PropertyEditorViewModel vm, Control control) = CreateControl(adapter, EditorSurface.ListItem);
+        using PropertyEditorViewModel viewModel = vm;
         using var history = new HistoryScope(new Beutl.ProjectSystem.Element());
         viewModel.Accept(ServiceVisitor.For(history.History));
 

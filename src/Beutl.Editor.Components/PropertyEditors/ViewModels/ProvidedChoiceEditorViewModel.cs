@@ -1,10 +1,8 @@
 ﻿using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 
-using Avalonia;
-using Avalonia.Interactivity;
-
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.PropertyEditors;
 
 using DynamicData;
 using DynamicData.Binding;
@@ -14,7 +12,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
-public sealed class ProvidedChoiceEditorViewModel<T, TProvider> : ValueEditorViewModel<T?>
+public sealed class ProvidedChoiceEditorViewModel<T, TProvider> : PropertyEditorViewModel<T?, int>
     where TProvider : IChoicesProvider
 {
     private readonly ReadOnlyObservableCollection<EnumItem> _choices;
@@ -40,13 +38,21 @@ public sealed class ProvidedChoiceEditorViewModel<T, TProvider> : ValueEditorVie
             .Bind(out _choices)
             .Subscribe()
             .DisposeWith(Disposables);
-
-        SelectedIndex = Value.Select(v => _originalChoices.IndexOf(v))
-            .ToReactiveProperty()
-            .DisposeWith(Disposables);
     }
 
-    public ReactiveProperty<int> SelectedIndex { get; }
+    protected override int ToEdit(T? value) => _originalChoices.IndexOf(value);
+
+    protected override T? FromEdit(int edit)
+    {
+        object? value = 0 <= edit && edit < _originalChoices.Count ? _originalChoices[edit] : null;
+        return (T?)value ?? default;
+    }
+
+    public override void ConfirmEdit(int oldValue, int newValue)
+    {
+        if (IsDisposed) return;
+        SetValue(ShownValue.Value, FromEdit(newValue));
+    }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
@@ -54,23 +60,6 @@ public sealed class ProvidedChoiceEditorViewModel<T, TProvider> : ValueEditorVie
         if (visitor is EnumEditor editor && !Disposables.IsDisposed)
         {
             editor.Items = _choices;
-            editor.Bind(EnumEditor.SelectedIndexProperty, SelectedIndex.ToBinding())
-                .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
-                .DisposeWith(Disposables);
-        }
-    }
-
-    private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
-    {
-        if (e.Expect<int>(sender) is { } args)
-        {
-            int newIndex = args.NewValue;
-            object? newValue = 0 <= newIndex && newIndex < _originalChoices.Count
-                ? _originalChoices[newIndex]
-                : null;
-
-            SetValue(Value.Value, (T?)newValue ?? default);
         }
     }
 }

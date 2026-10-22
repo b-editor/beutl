@@ -1,6 +1,4 @@
-﻿using Avalonia;
-using Avalonia.Interactivity;
-using Beutl.Controls.PropertyEditors;
+﻿using Beutl.Editor.PropertyEditors;
 using Beutl.IO;
 using Beutl.Media.Source;
 using Beutl.Services;
@@ -8,59 +6,47 @@ using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
-public sealed class FileSourceEditorViewModel<T> : ValueEditorViewModel<T?>
+public sealed class FileSourceEditorViewModel<T> : PropertyEditorViewModel<T?, FileInfo?>
     where T : class, IFileSource, new()
 {
-    private readonly HashSet<StorageFileEditor> _editors = [];
-
     public FileSourceEditorViewModel(IPropertyAdapter<T?> property)
         : base(property)
     {
-        FileInfo = Value.Select(GetFileInfo)
+        FileInfo = ShownValue.Select(GetFileInfo)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<FileInfo?> FileInfo { get; }
 
-    public override void Accept(IPropertyEditorContextVisitor visitor)
-    {
-        base.Accept(visitor);
-        if (visitor is not StorageFileEditor editor || IsDisposed || !_editors.Add(editor)) return;
+    protected override FileInfo? ToEdit(T? value) => GetFileInfo(value);
 
-        editor.Bind(StorageFileEditor.ValueProperty, FileInfo.ToBinding())
-            .DisposeWith(Disposables);
-        editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, (_, e) => OnValueConfirmed(editor, e))
-            .DisposeWith(Disposables);
+    // Reading the file can throw; ConfirmEdit reports that.
+    protected override T? FromEdit(FileInfo? edit)
+    {
+        if (edit is null) return null;
+
+        var source = new T();
+        source.ReadFrom(new Uri(edit.FullName));
+        return source;
     }
 
-    private void OnValueConfirmed(StorageFileEditor editor, PropertyEditorValueChangedEventArgs e)
+    public override void ConfirmEdit(FileInfo? oldValue, FileInfo? newValue)
     {
-        if (e.Expect<FileInfo?>(editor) is not { } args) return;
-        if (!CanEdit.Value)
-        {
-            editor.Value = FileInfo.Value;
-            return;
-        }
+        if (IsDisposed || !CanEdit.Value) return;
 
-        T? source = null;
+        T? source;
         try
         {
-            if (args.NewValue is { } file)
-            {
-                source = new T();
-                source.ReadFrom(new Uri(file.FullName));
-            }
+            source = FromEdit(newValue);
         }
         catch (Exception ex)
         {
-            editor.Value = FileInfo.Value;
             NotificationService.ShowError(MessageStrings.OperationFailed, ex.Message);
             return;
         }
 
-        SetValue(Value.Value, source);
-        editor.Value = FileInfo.Value;
+        SetValue(ShownValue.Value, source);
     }
 
     private static FileInfo? GetFileInfo(T? source)

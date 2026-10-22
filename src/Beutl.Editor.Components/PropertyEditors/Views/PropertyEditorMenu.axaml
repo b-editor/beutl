@@ -6,14 +6,14 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             xmlns:vm="using:Beutl.Editor.Components.PropertyEditors.ViewModels"
+             xmlns:vm="using:Beutl.Editor.PropertyEditors"
              Margin="0,0,4,0"
              Classes="property-editor-menu"
              VerticalAlignment="Center"
              d:DesignHeight="500"
              d:DesignWidth="500"
              x:CompileBindings="True"
-             x:DataType="vm:BaseEditorViewModel"
+             x:DataType="vm:PropertyEditorViewModel"
              mc:Ignorable="d">
     <Button Width="24"
             Height="24"
@@ -86,10 +86,13 @@
         <icons:FluentIcon x:Name="symbolIcon"
                           Classes.hasAnimation="{Binding HasAnimation.Value}"
                           Classes.hasExpression="{Binding HasExpression.Value}"
-                          IconVariant="{Binding SymbolIconVariant.Value}">
+                          Classes.atKeyFrame="{Binding IsAtKeyFrame.Value}">
             <icons:FluentIcon.Styles>
                 <Style Selector="icons|FluentIcon">
                     <Setter Property="Icon" Value="MoreVertical" />
+                </Style>
+                <Style Selector="icons|FluentIcon.atKeyFrame">
+                    <Setter Property="IconVariant" Value="Filled" />
                 </Style>
                 <Style Selector="icons|FluentIcon.hasAnimation">
                     <Setter Property="Icon" Value="Diamond" />

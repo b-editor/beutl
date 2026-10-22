@@ -9,7 +9,7 @@ namespace Beutl.Editor.PropertyEditors;
 // RegisterValue pairs it with a control that implements IValueEditorControl<TEdit>.
 public abstract class PropertyEditorViewModel<TValue, TEdit> : PropertyEditorViewModel<TValue>, IValueEditorContext<TEdit>
 {
-    private ReadOnlyReactiveProperty<TEdit>? _editValue;
+    private ReadOnlyReactivePropertySlim<TEdit>? _editValue;
 
     protected PropertyEditorViewModel(IPropertyAdapter<TValue> property)
         : base(property)
@@ -18,7 +18,7 @@ public abstract class PropertyEditorViewModel<TValue, TEdit> : PropertyEditorVie
 
     public IObservable<TEdit> EditValue => _editValue ??= ShownValue
         .Select(value => ToEdit(value))
-        .ToReadOnlyReactiveProperty()
+        .ToReadOnlyReactivePropertySlim()
         .AddTo(Disposables)!;
 
     // The value the control edits for a value of the property.
@@ -35,6 +35,7 @@ public abstract class PropertyEditorViewModel<TValue, TEdit> : PropertyEditorVie
 
     public virtual void ConfirmEdit(TEdit oldValue, TEdit newValue)
     {
+        if (IsDisposed) return;
         SetValue(FromEdit(oldValue), FromEdit(newValue));
     }
 

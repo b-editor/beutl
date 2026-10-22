@@ -1,4 +1,5 @@
 ﻿using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.PropertyAdapters;
 using Reactive.Bindings;
@@ -9,7 +10,7 @@ internal static class GroupedEditorHelper
 {
     public static bool TryPasteJson<TItem>(
         string json,
-        BaseEditorViewModel<TItem?> vm,
+        PropertyEditorViewModel<TItem?> vm,
         ReactivePropertySlim<bool> isExpanded,
         IList<TItem>? groupChildren)
         where TItem : class, ICoreObject
@@ -42,7 +43,7 @@ internal static class GroupedEditorHelper
 
     public static bool ApplyTemplate<TItem>(
         ObjectTemplateItem template,
-        BaseEditorViewModel<TItem?> vm,
+        PropertyEditorViewModel<TItem?> vm,
         ReactivePropertySlim<bool> isExpanded,
         bool isGroup,
         Action<TItem, string?> addItem,

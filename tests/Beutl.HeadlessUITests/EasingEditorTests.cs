@@ -9,6 +9,7 @@ using Beutl.Animation.Easings;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.PropertyEditors;
 using Beutl.Engine;
 using Beutl.PropertyAdapters;
 using Beutl.Services;
@@ -689,7 +690,7 @@ public sealed class EasingEditorTests
     // An EasingEditor for the property in a window that is not shown yet, with History recording its edits.
     private sealed class CurveEditorScope : IDisposable
     {
-        private readonly BaseEditorViewModel _vm;
+        private readonly PropertyEditorViewModel _vm;
         private readonly HistoryScope _history;
 
         public CurveEditorScope(EasingHolder holder, IProperty<Easing> property, double height)

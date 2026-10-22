@@ -1,12 +1,9 @@
-﻿using Avalonia;
-using Avalonia.Interactivity;
-
-using Beutl.Controls.PropertyEditors;
-using Reactive.Bindings;
+﻿using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.PropertyEditors;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
-public sealed class EnumEditorViewModel<T> : ValueEditorViewModel<T>
+public sealed class EnumEditorViewModel<T> : PropertyEditorViewModel<T, int>
     where T : struct, Enum
 {
     private readonly T[] _enumValues;
@@ -23,12 +20,17 @@ public sealed class EnumEditorViewModel<T> : ValueEditorViewModel<T>
                 TypeDisplayHelpers.GetLocalizedDescription(t.First),
                 t.Second))
             .ToArray();
-        SelectedIndex = Value.Select(v => _enumValues.IndexOf(v))
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
     }
 
-    public ReadOnlyReactivePropertySlim<int> SelectedIndex { get; }
+    protected override int ToEdit(T value) => _enumValues.IndexOf(value);
+
+    protected override T FromEdit(int edit) => _enumValues[Math.Clamp(edit, 0, _enumValues.Length - 1)];
+
+    public override void ConfirmEdit(int oldValue, int newValue)
+    {
+        if (IsDisposed) return;
+        SetValue(ShownValue.Value, FromEdit(newValue));
+    }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
@@ -36,19 +38,6 @@ public sealed class EnumEditorViewModel<T> : ValueEditorViewModel<T>
         if (visitor is EnumEditor editor && !Disposables.IsDisposed)
         {
             editor.Items = _enumItems;
-            editor.Bind(EnumEditor.SelectedIndexProperty, SelectedIndex.ToBinding())
-                .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
-                .DisposeWith(Disposables);
-        }
-    }
-
-    private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
-    {
-        if (e.Expect<int>(sender) is { } args)
-        {
-            var newValue = _enumValues[Math.Clamp(args.NewValue, 0, _enumValues.Length - 1)];
-            SetValue(Value.Value, newValue);
         }
     }
 }
