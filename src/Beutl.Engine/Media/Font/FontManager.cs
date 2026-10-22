@@ -124,6 +124,9 @@ public sealed class FontManager
 
     public Typeface DefaultTypeface { get; }
 
+    // The folders the installed fonts were read from at startup; a later change to the settings applies after restart.
+    internal IReadOnlyList<string> FontDirectories => _fontDirs;
+
     internal void SetFallbackFonts(IEnumerable<FontFamily> families, FontFamily? emojiFamily)
     {
         FontFamily[] fallbackFamilies = families.Distinct().ToArray();

@@ -370,6 +370,9 @@
   <data name="Font" xml:space="preserve">
     <value>字体</value>
   </data>
+  <data name="FontDirectories_Description" xml:space="preserve">
+    <value>从这些文件夹加载字体。更改在重新启动后生效。</value>
+  </data>
   <data name="ToneMapping" xml:space="preserve">
     <value>色调映射</value>
     <comment />
