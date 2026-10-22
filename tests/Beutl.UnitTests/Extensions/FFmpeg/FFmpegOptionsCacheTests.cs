@@ -167,6 +167,28 @@ public class FFmpegOptionsCacheTests
         Assert.That(cache.TryGetCached("aac", out _), Is.False);
     }
 
+    // A query can finish before GetOrQueryAsync registers it. That is rare, so busy loops repeat the case.
+    [Test]
+    public async Task GetOrQueryAsync_DegradedResultThatFinishedInline_IsQueriedAgain()
+    {
+        var cache = new FFmpegOptionsCache<int>();
+        int replays = 0;
+
+        await Task.WhenAll(Enumerable.Range(0, 4).Select(loop => Task.Run(async () =>
+        {
+            for (int i = 0; i < 10_000; i++)
+            {
+                string key = $"{loop}:{i}";
+                await cache.GetOrQueryAsync(key, () => Degraded());
+                bool queried = false;
+                await cache.GetOrQueryAsync(key, () => { queried = true; return Ok(); });
+                if (!queried) Interlocked.Increment(ref replays);
+            }
+        })));
+
+        Assert.That(replays, Is.Zero, "A finished query stayed in flight and replayed its degraded result.");
+    }
+
     [Test]
     public async Task Cache_EvictsLeastRecentlyUsed_WhenOverCapacity()
     {
