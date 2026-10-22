@@ -13,7 +13,7 @@ namespace Beutl.Composition;
 /// It and <see cref="DisableResourceShare"/> are <c>set</c>, not <c>init</c>, because node-graph render nodes reuse a cached context.
 /// <see cref="PreferredProxyPreset"/> is the resolve-time density cap passed to <see cref="ProxyResolver.Resolve(Uri, ProxyPreset)"/>.
 /// </remarks>
-public class CompositionContext(TimeSpan time)
+public class CompositionContext(TimeSpan time) : EvaluationContext(time)
 {
     // A fresh instance per access, not a shared singleton: Time / DisableResourceShare / PreferProxy /
     // PreferredProxyPreset are all mutable, so a caller that writes to a context it received must not be
@@ -23,8 +23,6 @@ public class CompositionContext(TimeSpan time)
     public IList<EngineObject.Resource>? Flow { get; set; }
 
     internal FlowNode? ReplayedFlow { get; set; }
-
-    public TimeSpan Time { get; set; } = time;
 
     public bool DisableResourceShare { get; set; }
 

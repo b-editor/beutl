@@ -56,12 +56,17 @@ internal static class GeneratorDriverHarness
     /// EngineObjectResourceGenerator bails out early and emits nothing.
     /// </summary>
     private const string SupplementaryStubs = """
-        namespace Beutl.Engine
+        global using Beutl;
+
+        namespace Beutl
         {
             // The generated list path treats an IListProperty<T> member as both an IProperty (scanned,
             // validated) and an IList<T> (passed to ResourceReconciler.ReconcileChildren), mirroring the real interface.
             public interface IListProperty<T> : IProperty, System.Collections.Generic.IList<T> { }
+        }
 
+        namespace Beutl.Engine
+        {
             [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Property)]
             public sealed class SuppressResourceClassGenerationAttribute : System.Attribute { }
         }

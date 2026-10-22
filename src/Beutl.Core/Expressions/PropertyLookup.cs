@@ -1,4 +1,4 @@
-﻿namespace Beutl.Engine.Expressions;
+﻿namespace Beutl;
 
 public class PropertyLookup(ICoreObject root)
 {
@@ -33,18 +33,14 @@ public class PropertyLookup(ICoreObject root)
         if (_root.FindById(id) is not CoreObject coreObject)
             return false;
 
-        if (coreObject is EngineObject engineObject)
+        IProperty? property = coreObject.Properties.FirstOrDefault(p =>
+            string.Equals(p.Name, propertyName, StringComparison.OrdinalIgnoreCase));
+
+        if (property is IProperty<T> typedProperty)
         {
-            IProperty? property = engineObject.Properties.FirstOrDefault(p =>
-                string.Equals(p.Name, propertyName, StringComparison.OrdinalIgnoreCase));
-
-            if (property is IProperty<T> typedProperty)
-            {
-                value = typedProperty.GetValue(context);
-                return true;
-            }
+            value = typedProperty.GetValue(context);
+            return true;
         }
-
 
         Type type = coreObject.GetType();
         CoreProperty? coreProperty = PropertyRegistry.GetRegistered(type)

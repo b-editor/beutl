@@ -3,19 +3,17 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Text.Json.Nodes;
 using Beutl.Collections;
-using Beutl.Composition;
-using Beutl.Engine.Expressions;
 using Beutl.Serialization;
 using Beutl.Validation;
 
-namespace Beutl.Engine;
+namespace Beutl;
 
 public class ListProperty<T> : IListProperty<T>
 {
     private readonly CoreList<T> _items = [];
     private Attribute[]? _attributes;
     private string? _name;
-    private EngineObject? _owner;
+    private CoreObject? _owner;
 
     public ListProperty()
     {
@@ -102,7 +100,7 @@ public class ListProperty<T> : IListProperty<T>
         Edited?.Invoke(sender, e);
     }
 
-    public ICoreList<T> GetValue(CompositionContext context)
+    public ICoreList<T> GetValue(EvaluationContext context)
     {
         return CurrentValue;
     }
@@ -115,7 +113,7 @@ public class ListProperty<T> : IListProperty<T>
 
     public Attribute[]? GetAttributes() => _attributes;
 
-    public void SetOwnerObject(EngineObject? owner)
+    public void SetOwnerObject(CoreObject? owner)
     {
         if (_owner == owner) return;
 
@@ -137,7 +135,7 @@ public class ListProperty<T> : IListProperty<T>
         }
 
         _owner = owner;
-        _items.WriteOwner = owner;
+        _items.WriteOwner = owner as IHierarchical;
     }
 
     public void DeserializeValue(ICoreSerializationContext context)
@@ -163,7 +161,7 @@ public class ListProperty<T> : IListProperty<T>
         return null;
     }
 
-    public EngineObject? GetOwnerObject()
+    public CoreObject? GetOwnerObject()
     {
         return _owner;
     }

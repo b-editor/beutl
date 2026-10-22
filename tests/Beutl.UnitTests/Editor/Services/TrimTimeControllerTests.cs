@@ -976,7 +976,9 @@ public class TrimTimeControllerTests
         Element element = AddElement(0, 0.5, controller);
         var linkedVideo = CreateVideo(20);
         Element linked = AddElement(3, 0.5, linkedVideo);
-        var context = new ExpressionContext(TimeSpan.Zero, controller.Target, new PropertyLookup(_harness.Scene));
+        // Reference expressions resolve below the scene's hierarchy root.
+        ((IModifiableHierarchical)new TestHierarchicalRoot()).AddChild(_harness.Scene);
+        var context = CompositionContext.Default;
         using (var resource = (DrawableTimeController.Resource)controller.ToResource(context))
             Assert.That(resource.Target!.GetOriginal(), Is.SameAs(evaluated));
         int history = _harness.History.UndoCount;
@@ -1441,7 +1443,9 @@ public class TrimTimeControllerTests
         var presenter = new DrawablePresenter { Target = { CurrentValue = emptyStoredTarget ? null : stored } };
         presenter.Target.Expression = new ReferenceExpression<Drawable?>(evaluated.Id);
         Element element = AddElement(0, 0.5, presenter);
-        var context = new ExpressionContext(TimeSpan.Zero, presenter.Target, new PropertyLookup(_harness.Scene));
+        // Reference expressions resolve below the scene's hierarchy root.
+        ((IModifiableHierarchical)new TestHierarchicalRoot()).AddChild(_harness.Scene);
+        var context = CompositionContext.Default;
         using (var resource = (DrawablePresenter.Resource)presenter.ToResource(context))
             Assert.That(resource.Target!.GetOriginal(), Is.SameAs(evaluated));
         var linkedVideo = CreateVideo(20);

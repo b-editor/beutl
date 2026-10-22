@@ -8,7 +8,7 @@ using Beutl.Validation;
 namespace Beutl.Animation;
 
 // Keyframe animation is the expression at the bottom of a property's expression chain (see IExpression<T>.Replaced).
-public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpression<T>
+public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpression<T>, IKeyFrameExpression
 {
     public static readonly CoreProperty<KeyFrames> KeyFramesProperty;
     public static readonly CoreProperty<bool> UseGlobalClockProperty;

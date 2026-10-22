@@ -1,13 +1,10 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Nodes;
-using Beutl.Animation;
-using Beutl.Composition;
-using Beutl.Engine.Expressions;
 using Beutl.Serialization;
 using Beutl.Validation;
 using ValidationContext = Beutl.Validation.ValidationContext;
 
-namespace Beutl.Engine;
+namespace Beutl;
 
 public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
     : IProperty<T>, IExpressionChainHost, IChildObjectSource
@@ -16,7 +13,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
     private T _currentValue = defaultValue;
     private Attribute[]? _attributes;
     private string? _name;
-    private EngineObject? _owner;
+    private CoreObject? _owner;
     private ExpressionEvaluationState<T>? _expressionState;
     private PropertyLookup? _propertyLookup;
 
@@ -98,7 +95,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
     IEnumerable<object?> IChildObjectSource.GetChildObjects()
         => ChildObjects.MayHoldObjects(typeof(T)) ? [_currentValue] : [];
 
-    void IExpressionChainHost.SetKeyFrames(IKeyFrameAnimation? keyFrames)
+    void IExpressionChainHost.SetKeyFrames(IExpression? keyFrames)
     {
         if (keyFrames != null) Expression = (IExpression<T>)keyFrames;
     }
@@ -125,12 +122,12 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
         Edited?.Invoke(sender, e);
     }
 
-    public T GetValue(CompositionContext context)
+    public T GetValue(EvaluationContext context)
     {
         if (Volatile.Read(ref _expressionState) is { } expressionState)
         {
             _propertyLookup ??= new PropertyLookup(
-                _owner?.FindHierarchicalRoot() as ICoreObject ?? BeutlApplication.Current);
+                (_owner as IHierarchical)?.FindHierarchicalRoot() as ICoreObject ?? BeutlApplication.Current);
 
             ExpressionContext expressionContext;
             if (context is ExpressionContext ec)
@@ -174,7 +171,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
 
     public IValidator CreateValidator(Attribute[] attributes)
     {
-        IValidator<T>[] validations = Property.ConvertValidators<T>(attributes.OfType<ValidationAttribute>());
+        IValidator<T>[] validations = PropertyValidators.FromAttributes<T>(attributes.OfType<ValidationAttribute>());
 
         return new MultipleValidator<T>(validations);
     }
@@ -186,7 +183,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
 
     public IValidator? GetValidator() => _validator;
 
-    public void SetOwnerObject(EngineObject? owner)
+    public void SetOwnerObject(CoreObject? owner)
     {
         if (_owner == owner) return;
         _propertyLookup = null;
@@ -205,7 +202,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
         _owner = owner;
     }
 
-    public EngineObject? GetOwnerObject()
+    public CoreObject? GetOwnerObject()
     {
         return _owner;
     }
@@ -273,29 +270,13 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
 
     public void DeserializeExpression(JsonNode expressionNode)
     {
-        if (!SupportsExpression) return;
+        if (!SupportsExpression || _owner is not IExpressionJsonCodec codec) return;
 
-        Expression = Expressions.Expression.CreateFromNode<T>(expressionNode);
+        Expression = codec.Read<T>(expressionNode);
     }
 
     public JsonNode? SerializeExpression()
     {
-        return Expression == null ? null : Expressions.Expression.ToNode(Expression);
-    }
-}
-
-public static class SimplePropertyExtensions
-{
-    public static IProperty<T> ToAnimatable<T>(this SimpleProperty<T> simpleProperty)
-    {
-        var animatableProperty = Property.CreateAnimatable(
-            simpleProperty.DefaultValue);
-
-        if (simpleProperty.HasLocalValue)
-        {
-            animatableProperty.CurrentValue = simpleProperty.CurrentValue;
-        }
-
-        return animatableProperty;
+        return Expression is { } expression && _owner is IExpressionJsonCodec codec ? codec.Write(expression) : null;
     }
 }

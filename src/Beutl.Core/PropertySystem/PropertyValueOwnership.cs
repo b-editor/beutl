@@ -1,10 +1,10 @@
-﻿namespace Beutl.Engine;
+﻿namespace Beutl;
 
 internal static class PropertyValueOwnership
 {
     // A replaced value leaves the owner's hierarchy and its replacement joins it; values that are not
     // hierarchical, and owners that cannot be modified, are left alone.
-    public static void Reparent<TValue>(EngineObject? owner, TValue oldValue, TValue newValue)
+    public static void Reparent<TValue>(CoreObject? owner, TValue oldValue, TValue newValue)
     {
         if (owner is IModifiableHierarchical ownerHierarchical)
         {

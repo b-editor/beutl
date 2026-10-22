@@ -30,7 +30,7 @@ public static class ScanPropertiesCoreEmitter
 
         EmitFields(sb, indent, info);
 
-        sb.Append(indent).AppendLine($"protected override global::System.Collections.Generic.IEnumerable<global::Beutl.Engine.IProperty> ScanPropertiesCore<{genericTypeParam}>()");
+        sb.Append(indent).AppendLine($"protected override global::System.Collections.Generic.IEnumerable<global::Beutl.IProperty> ScanPropertiesCore<{genericTypeParam}>()");
         sb.Append(indent).AppendLine("{");
 
         string innerIndent = indent + "    ";
@@ -59,7 +59,7 @@ public static class ScanPropertiesCoreEmitter
         sb.Append(innerIndent).AppendLine("}");
         sb.Append(innerIndent).AppendLine("else");
         sb.Append(innerIndent).AppendLine("{");
-        sb.Append(bodyIndent).AppendLine($"foreach (global::Beutl.Engine.IProperty __prop in base.ScanPropertiesCore<{genericTypeParam}>())");
+        sb.Append(bodyIndent).AppendLine($"foreach (global::Beutl.IProperty __prop in base.ScanPropertiesCore<{genericTypeParam}>())");
         sb.Append(bodyIndent).AppendLine("    yield return __prop;");
         sb.Append(innerIndent).AppendLine("}");
 

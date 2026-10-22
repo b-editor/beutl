@@ -1,11 +1,9 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Collections;
-using Beutl.Composition;
-using Beutl.Engine.Expressions;
 using Beutl.Serialization;
 using Beutl.Validation;
 
-namespace Beutl.Engine;
+namespace Beutl;
 
 public interface IListProperty : IProperty, ICoreList
 {
@@ -55,9 +53,9 @@ public interface IProperty : INotifyEdited
 
     Attribute[]? GetAttributes();
 
-    void SetOwnerObject(EngineObject? owner);
+    void SetOwnerObject(CoreObject? owner);
 
-    EngineObject? GetOwnerObject();
+    CoreObject? GetOwnerObject();
 
     void DeserializeValue(ICoreSerializationContext context);
 
@@ -134,7 +132,7 @@ public interface IProperty<T> : IProperty
         }
     }
 
-    T GetValue(CompositionContext context);
+    T GetValue(EvaluationContext context);
 
     event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
 

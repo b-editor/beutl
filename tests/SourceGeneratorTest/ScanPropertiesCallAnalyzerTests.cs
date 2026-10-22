@@ -10,21 +10,30 @@ namespace SourceGeneratorTest;
 public sealed class ScanPropertiesCallAnalyzerTests
 {
     private const string Stubs = """
-        namespace Beutl.Engine
+        global using Beutl;
+
+        namespace Beutl
         {
             public interface IProperty { }
             public interface IProperty<T> : IProperty { }
             public interface IListProperty<T> : IProperty<System.Collections.Generic.IList<T>> { }
 
+            public class CoreObject
+            {
+                protected void ScanProperties<T>() where T : CoreObject { }
+            }
+        }
+
+        namespace Beutl.Engine
+        {
             public static class Property
             {
                 public static IProperty<T> Create<T>() => null!;
                 public static IListProperty<T> CreateList<T>() => null!;
             }
 
-            public class EngineObject
+            public class EngineObject : CoreObject
             {
-                protected void ScanProperties<T>() where T : EngineObject { }
             }
         }
         """;

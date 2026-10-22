@@ -1,4 +1,4 @@
-﻿namespace Beutl.Engine.Expressions;
+﻿namespace Beutl;
 
 public interface IExpression<out T> : IExpression
 {

@@ -202,8 +202,8 @@ public static class ClassInfoExtractor
         public static KnownTypes? Resolve(Compilation compilation)
         {
             INamedTypeSymbol? engineObjectSymbol = compilation.GetTypeByMetadataName("Beutl.Engine.EngineObject");
-            INamedTypeSymbol? iPropertySymbol = compilation.GetTypeByMetadataName("Beutl.Engine.IProperty`1");
-            INamedTypeSymbol? iListPropertySymbol = compilation.GetTypeByMetadataName("Beutl.Engine.IListProperty`1");
+            INamedTypeSymbol? iPropertySymbol = compilation.GetTypeByMetadataName("Beutl.IProperty`1");
+            INamedTypeSymbol? iListPropertySymbol = compilation.GetTypeByMetadataName("Beutl.IListProperty`1");
             INamedTypeSymbol? suppressAttribute = compilation.GetTypeByMetadataName("Beutl.Engine.SuppressResourceClassGenerationAttribute");
             if (engineObjectSymbol is null || iPropertySymbol is null || iListPropertySymbol is null || suppressAttribute is null)
             {

@@ -1,7 +1,7 @@
 ﻿using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
-namespace Beutl.Engine.Expressions;
+namespace Beutl;
 
 // Keep the expression and its diagnostics together so in-flight evaluations cannot
 // change the error or logging state of a later assignment.
@@ -16,7 +16,7 @@ internal sealed class ExpressionEvaluationState<T>(IExpression<T> expression)
 
     public void ClearError() => Volatile.Write(ref _error, null);
 
-    public void ReportFailure(string? propertyName, EngineObject? owner, ExpressionException exception)
+    public void ReportFailure(string? propertyName, CoreObject? owner, ExpressionException exception)
     {
         Volatile.Write(ref _error, exception.Message);
         if (Interlocked.Exchange(ref _reported, 1) == 0)

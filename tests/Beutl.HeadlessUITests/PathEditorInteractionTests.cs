@@ -1180,7 +1180,7 @@ public class PathEditorInteractionTests
         var controls = list.GetVisualDescendants().OfType<Vector2Editor<float>>().ToArray();
         var next = (CubicBezierSegment)editor.Figure.Segments[2];
         Assert.That(controls.Select(c => ((BaseEditorViewModel)c.DataContext!).PropertyAdapter.GetEngineProperty()),
-            Is.EqualTo(new Beutl.Engine.IProperty[] { curve.EndPoint, curve.ControlPoint2, next.ControlPoint1 }));
+            Is.EqualTo(new Beutl.IProperty[] { curve.EndPoint, curve.ControlPoint2, next.ControlPoint1 }));
         Assert.That(controls.Select(c => c.Header), Is.EqualTo(new[]
         {
             GraphicsStrings.Position, Strings.PathEditor_IncomingControlPoint, Strings.PathEditor_OutgoingControlPoint
@@ -1351,7 +1351,7 @@ public class PathEditorInteractionTests
         figure.IsClosed.CurrentValue = false;
         Check(first, first.EndPoint, first.ControlPoint2, middle.ControlPoint1);
 
-        void Check(PathSegment anchor, params Beutl.Engine.IProperty<BtlPoint>[] expected)
+        void Check(PathSegment anchor, params Beutl.IProperty<BtlPoint>[] expected)
         {
             var actual = PathPointProperties.Get(figure, anchor, new CompositionContext(TimeSpan.Zero));
             Assert.That(actual.Select(p => p.Property), Is.EqualTo(expected));

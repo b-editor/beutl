@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Disposables;
-using System.Reflection;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Composition;
@@ -15,7 +14,7 @@ namespace Beutl.Engine;
 public sealed partial class FallbackEngineObject : EngineObject, IFallback;
 
 [FallbackType(typeof(FallbackEngineObject))]
-public class EngineObject : Hierarchical, INotifyEdited, IChildObjectSource
+public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
 {
     // CoreProperty rather than IProperty: these change only through edits and are not evaluated per frame.
     public static readonly CoreProperty<bool> IsTimeAnchorProperty;
@@ -27,7 +26,6 @@ public class EngineObject : Hierarchical, INotifyEdited, IChildObjectSource
     private int _zIndex;
     private TimeRange _timeRange;
     private IDisposable? _timeAnchorSubscription;
-    private readonly List<IProperty> _properties = new();
     private List<IProperty>? _displayProperties;
     // The entries of Animations and Expressions that Deserialize does not read, usually for properties this type
     // does not have, kept as unknown members are (see CoreObject.UnknownMembers), so the animation or expression a
@@ -60,10 +58,9 @@ public class EngineObject : Hierarchical, INotifyEdited, IChildObjectSource
         AffectsRender<EngineObject>(IsEnabledProperty, IsTimeAnchorProperty, ZIndexProperty, TimeRangeProperty);
     }
 
-    public virtual IReadOnlyList<IProperty> Properties => _properties;
+    IExpression<T>? IExpressionJsonCodec.Read<T>(JsonNode node) => Expressions.Expression.CreateFromNode<T>(node);
 
-    // ChildObjects goes on from each property to its value and keyframes.
-    IEnumerable<object?> IChildObjectSource.GetChildObjects() => Properties;
+    JsonNode IExpressionJsonCodec.Write<T>(IExpression<T> expression) => Expressions.Expression.ToNode(expression);
 
     [NotAutoSerialized]
     public bool IsTimeAnchor
@@ -172,7 +169,7 @@ public class EngineObject : Hierarchical, INotifyEdited, IChildObjectSource
         Dictionary<string, JsonNode>? expressions
             = context.GetValue<Dictionary<string, JsonNode>>("Expressions");
 
-        foreach (IProperty property in _properties)
+        foreach (IProperty property in RegisteredProperties)
         {
             if (!IsAutoSerialized(property))
                 continue;
@@ -214,7 +211,7 @@ public class EngineObject : Hierarchical, INotifyEdited, IChildObjectSource
 
         foreach ((string key, JsonNode? node) in entries)
         {
-            if (_properties.Exists(property => IsAutoSerialized(property)
+            if (RegisteredProperties.Any(property => IsAutoSerialized(property)
                                                && takes(property)
                                                && FormerPersistedNames.IsMemberKey(
                                                    key, property.Name, property.GetAttributes())))
@@ -256,7 +253,7 @@ public class EngineObject : Hierarchical, INotifyEdited, IChildObjectSource
             context.SetValue(nameof(ZIndex), ZIndex);
         }
 
-        IProperty[] serialized = [.. _properties.Where(IsAutoSerialized)];
+        IProperty[] serialized = [.. RegisteredProperties.Where(IsAutoSerialized)];
 
         Dictionary<string, IKeyFrameAnimation> animations = serialized
             .Where(p => p.IsAnimatable)
@@ -314,61 +311,12 @@ public class EngineObject : Hierarchical, INotifyEdited, IChildObjectSource
         }
     }
 
-    protected virtual IEnumerable<IProperty> ScanPropertiesCore<T>() where T : EngineObject
+    protected override void RegisterProperty(IProperty property, int index)
     {
-        var type = typeof(T);
-        var propertyInfos = type.GetProperties(
-            BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
-
-        for (int index = 0; index < propertyInfos.Length; index++)
+        bool added = !RegisteredProperties.Contains(property);
+        base.RegisterProperty(property, index);
+        if (added)
         {
-            PropertyInfo propertyInfo = propertyInfos[index];
-            if (!typeof(IProperty).IsAssignableFrom(propertyInfo.PropertyType)) continue;
-
-            var func = PropertyReflectionCache.GetOrCreateAccessor(type, propertyInfo);
-            var property = func(this);
-            if (property == null) continue;
-
-            var attrs = PropertyReflectionCache.GetOrCreateAttributes(type, propertyInfo.Name,
-                () => [.. propertyInfo.GetCustomAttributes()]);
-            var validator = PropertyReflectionCache.GetOrCreateValidator(type, propertyInfo.Name,
-                () => property.CreateValidator(attrs));
-
-            property.SetAttributes(propertyInfo.Name, attrs);
-            property.SetValidator(validator);
-            property.SetOwnerObject(this);
-            yield return property;
-        }
-    }
-
-    protected void ScanProperties<T>() where T : EngineObject
-    {
-        int index = 0;
-        foreach (IProperty property in ScanPropertiesCore<T>())
-        {
-            RegisterProperty(property, index++);
-        }
-    }
-
-    protected void RegisterProperty(IProperty property)
-    {
-        if (!_properties.Contains(property))
-        {
-            _properties.Add(property);
-            property.Edited += OnPropertyEdited;
-        }
-
-        if (_displayProperties?.Contains(property) == false)
-        {
-            _displayProperties.Add(property);
-        }
-    }
-
-    protected void RegisterProperty(IProperty property, int index)
-    {
-        if (!_properties.Contains(property))
-        {
-            _properties.Insert(Math.Min(index, _properties.Count), property);
             property.Edited += OnPropertyEdited;
         }
 
@@ -378,7 +326,7 @@ public class EngineObject : Hierarchical, INotifyEdited, IChildObjectSource
         }
     }
 
-    public IReadOnlyList<IProperty> GetDisplayProperties() => _displayProperties ?? _properties;
+    public IReadOnlyList<IProperty> GetDisplayProperties() => _displayProperties ?? RegisteredProperties;
 
     protected void HideProperty(IProperty property)
     {
@@ -426,7 +374,7 @@ public class EngineObject : Hierarchical, INotifyEdited, IChildObjectSource
     [MemberNotNull(nameof(_displayProperties))]
     private void EnsureDisplayProperties()
     {
-        _displayProperties ??= [.. _properties];
+        _displayProperties ??= [.. RegisteredProperties];
     }
 
     private void OnPropertyEdited(object? sender, EventArgs e)
