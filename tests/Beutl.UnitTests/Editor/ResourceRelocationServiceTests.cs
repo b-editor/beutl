@@ -1,4 +1,6 @@
-﻿using Beutl.Editor;
+﻿using System.Collections.ObjectModel;
+using Beutl.Configuration;
+using Beutl.Editor;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 
@@ -29,6 +31,27 @@ public class ResourceRelocationServiceTests
             catch
             {
             }
+        }
+    }
+
+    // Export finds a font where the editor loaded it, so a folder added in Settings waits for the restart too.
+    [Test]
+    public void FontSearchDirectories_AreTheFoldersTheFontManagerLoaded()
+    {
+        string projectFonts = Path.Combine(_projectDir, "resources", "fonts");
+        IReadOnlyList<string> loaded = FontManager.Instance.FontDirectories;
+        ObservableCollection<string> configured = GlobalConfiguration.Instance.FontConfig.FontDirectories;
+        string added = Path.Combine(_testDir, "added-fonts");
+        configured.Add(added);
+        try
+        {
+            Assert.That(
+                ResourceRelocationService.FontSearchDirectories(projectFonts),
+                Is.EqualTo(new[] { projectFonts }.Concat(loaded)));
+        }
+        finally
+        {
+            configured.Remove(added);
         }
     }
 

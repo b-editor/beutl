@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using Beutl.Configuration;
 using Beutl.Engine;
 using Beutl.Graphics3D.Models;
 using Beutl.IO;
@@ -323,25 +322,22 @@ public class ResourceRelocationService
         return new RelocationResult(count, failedResources);
     }
 
+    // The folders FontManager registered fonts from, so export finds a font where the editor does.
+    internal static IReadOnlyList<string> FontSearchDirectories(string projectFontsDirectory)
+        => [projectFontsDirectory, .. FontManager.Instance.FontDirectories];
+
     /// <summary>
     /// Searches for font files matching the specified font family name.
     /// </summary>
     /// <remarks>
-    /// This method reads font files and GlobalConfiguration, so most tests bypass it via
+    /// This method reads font files, so most tests bypass it via
     /// <see cref="_fontFileFinder"/>.
     /// </remarks>
     [ExcludeFromCodeCoverage]
     private static IEnumerable<string> FindFontFiles(string fontFamilyName, string projectFontsDirectory)
     {
-        // The folders FontManager registers fonts from; a font found nowhere here is reported as not bundled.
-        // A material package installs its fonts under the home directory, which is not one of the OS font
-        // directories the user configures.
-        IReadOnlyList<string> fontDirs =
-        [
-            projectFontsDirectory,
-            .. GlobalConfiguration.Instance.FontConfig.FontDirectories,
-            BeutlEnvironment.GetMaterialsDirectoryPath()
-        ];
+        // A font found in none of these folders is reported as not bundled.
+        IReadOnlyList<string> fontDirs = FontSearchDirectories(projectFontsDirectory);
         List<string> foundFiles = [];
 
         foreach (string fontDir in fontDirs)

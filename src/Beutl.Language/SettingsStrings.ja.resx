@@ -366,6 +366,9 @@
   <data name="Font" xml:space="preserve">
     <value>フォント</value>
   </data>
+  <data name="FontDirectories_Description" xml:space="preserve">
+    <value>これらのフォルダーからフォントを読み込みます。変更は再起動後に反映されます。</value>
+  </data>
   <data name="ToneMapping" xml:space="preserve">
     <value>トーンマッピング</value>
     <comment/>
