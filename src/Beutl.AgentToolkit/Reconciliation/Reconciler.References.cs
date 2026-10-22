@@ -128,17 +128,18 @@ public sealed partial class Reconciler
         return $"Read the project document for the target {typeName} Id, then set Expressions.{propertyName} = {{\"ObjectId\": \"<guid>\"}}.";
     }
 
+    // A type that cannot be created takes its reference properties from the live object with the same Id, or has none.
     private static IReadOnlyList<ReferencePropertyDescriptor> ResolveReferenceProperties(CoreObject liveRoot, JsonObject obj)
     {
-        if (obj.TryGetDiscriminator(out Type? type))
+        if (obj.TryGetDiscriminator(out Type? type) && ReferenceProperties.ForOwner(type) is { } declared)
         {
-            return ReferenceProperties.ForOwner(type);
+            return declared;
         }
 
         if (CollectionReconciler.TryGetId(obj, out Guid id)
             && liveRoot.FindById(id) is EngineObject live)
         {
-            return ReferenceProperties.ForOwner(live.GetType());
+            return ReferenceProperties.ForOwner(live.GetType()) ?? ReferenceProperties.Of(live);
         }
 
         return [];

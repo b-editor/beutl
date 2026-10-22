@@ -39,7 +39,7 @@ public sealed partial class Reconciler
     private static ReconcilePlan PlanPrepared(IEditingSession session, JsonObject desiredDocument, IReadOnlySet<Guid>? knownNewIds)
     {
         JsonObject currentDocument = session.Documents.Read(session.Root);
-        ThrowIfMalformedTypedObjects(desiredDocument);
+        ThrowIfMalformedTypedObjects(desiredDocument, currentDocument);
 
         HashSet<Guid> newIds = CollectionReconciler.MintMissingIds(
             desiredDocument,
@@ -58,7 +58,7 @@ public sealed partial class Reconciler
             newIds.UnionWith(CollectionReconciler.MintMissingIds(
                 desiredDocument,
                 CollectionReconciler.CollectIds(currentDocument)));
-            ThrowIfMalformedTypedObjects(desiredDocument);
+            ThrowIfMalformedTypedObjects(desiredDocument, currentDocument);
             ThrowIfIdentityConflicts(currentDocument, desiredDocument, newIds);
 
             // Use the same expanded, Id-complete document for validation, change reporting, and
@@ -88,14 +88,14 @@ public sealed partial class Reconciler
         return new ReconcilePlan(changes, validation);
     }
 
-    private static void ThrowIfMalformedTypedObjects(JsonObject desiredDocument)
+    private static void ThrowIfMalformedTypedObjects(JsonObject desiredDocument, JsonObject currentDocument)
     {
         if (ValidateNewTypedObjectDiscriminators(desiredDocument, "$") is { } discriminatorError)
         {
             throw new ReconcileException(discriminatorError);
         }
 
-        if (ValidateEngineObjectProperties(desiredDocument, "$") is { } propertyError)
+        if (ValidateEngineObjectProperties(desiredDocument, "$", IndexObjectsById(currentDocument)) is { } propertyError)
         {
             throw new ReconcileException(propertyError);
         }
@@ -303,13 +303,15 @@ public sealed partial class Reconciler
         return null;
     }
 
-    private static ToolError? ValidateEngineObjectProperties(JsonNode? node, string path)
+    private static ToolError? ValidateEngineObjectProperties(
+        JsonNode? node, string path, Dictionary<Guid, JsonObject> current)
     {
         if (node is JsonObject obj)
         {
-            if (obj.TryGetDiscriminator(out Type? type) && typeof(EngineObject).IsAssignableFrom(type))
+            if (obj.TryGetDiscriminator(out Type? type)
+                && typeof(EngineObject).IsAssignableFrom(type)
+                && CreateAllowedEngineObjectPropertyNames(type, FindCurrentObject(obj, current)) is { } allowed)
             {
-                HashSet<string> allowed = CreateAllowedEngineObjectPropertyNames(type);
                 foreach (KeyValuePair<string, JsonNode?> pair in obj.ToArray())
                 {
                     if (allowed.Contains(pair.Key))
@@ -328,7 +330,7 @@ public sealed partial class Reconciler
 
             foreach (KeyValuePair<string, JsonNode?> pair in obj.ToArray())
             {
-                if (ValidateEngineObjectProperties(pair.Value, $"{path}/{pair.Key}") is { } childError)
+                if (ValidateEngineObjectProperties(pair.Value, $"{path}/{pair.Key}", current) is { } childError)
                 {
                     return childError;
                 }
@@ -338,7 +340,7 @@ public sealed partial class Reconciler
         {
             for (int i = 0; i < array.Count; i++)
             {
-                if (ValidateEngineObjectProperties(array[i], $"{path}[{i}]") is { } childError)
+                if (ValidateEngineObjectProperties(array[i], $"{path}[{i}]", current) is { } childError)
                 {
                     return childError;
                 }
@@ -348,10 +350,23 @@ public sealed partial class Reconciler
         return null;
     }
 
-    private static HashSet<string> CreateAllowedEngineObjectPropertyNames(Type type)
+    // A new instance's members and the ones the current document writes for the object; null if neither is known.
+    private static HashSet<string>? CreateAllowedEngineObjectPropertyNames(Type type, JsonObject? current)
     {
+        bool creatable = type.GetConstructor(Type.EmptyTypes) is not null;
+        if (current is null && !creatable)
+        {
+            return null;
+        }
+
         var allowed = new HashSet<string>(s_metadataPropertyNames, StringComparer.Ordinal);
-        if (Activator.CreateInstance(type) is EngineObject engineObject)
+        if (current is not null)
+        {
+            // Such as the value of a port, which a new port does not have.
+            allowed.UnionWith(current.Select(pair => pair.Key));
+        }
+
+        if (creatable && Activator.CreateInstance(type) is EngineObject engineObject)
         {
             foreach (IProperty property in engineObject.Properties)
             {
@@ -369,6 +384,47 @@ public sealed partial class Reconciler
         }
 
         return allowed;
+    }
+
+    // The objects of the document by Id, the first one where an Id is written twice.
+    private static Dictionary<Guid, JsonObject> IndexObjectsById(JsonObject document)
+    {
+        var objects = new Dictionary<Guid, JsonObject>();
+        Index(document);
+        return objects;
+
+        void Index(JsonNode? node)
+        {
+            if (node is JsonObject obj)
+            {
+                if (CollectionReconciler.TryGetId(obj, out Guid id))
+                {
+                    objects.TryAdd(id, obj);
+                }
+
+                foreach (KeyValuePair<string, JsonNode?> pair in obj)
+                {
+                    Index(pair.Value);
+                }
+            }
+            else if (node is JsonArray array)
+            {
+                foreach (JsonNode? item in array)
+                {
+                    Index(item);
+                }
+            }
+        }
+    }
+
+    // The object of the current document with the Id and type of obj.
+    private static JsonObject? FindCurrentObject(JsonObject obj, Dictionary<Guid, JsonObject> current)
+    {
+        return CollectionReconciler.TryGetId(obj, out Guid id)
+               && current.TryGetValue(id, out JsonObject? found)
+               && found["$type"]?.GetValue<string>() == obj["$type"]?.GetValue<string>()
+            ? found
+            : null;
     }
 
     private static bool IsDeletionMarker(JsonObject obj)
