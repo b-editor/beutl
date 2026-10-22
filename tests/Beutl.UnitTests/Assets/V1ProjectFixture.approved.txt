@@ -168,7 +168,7 @@ Layer 8: "photo.png" (bdw5eHw0.belm)
   editable: recovery does not keep the file
   [0] SourceImage
       1.1.0 values not read: Fill, OpacityMask, IsVisible, TimeRange
-      Source = "file:///C:/Users/beutl/Pictures/素材/photo.png"
+      Source = "file:///C:/Users/beutl/Pictures/%E7%B4%A0%E6%9D%90/photo.png"
       Opacity = 80
 
 Layer 9: "Backdrop" (tAQPWWCV.belm)
@@ -186,7 +186,7 @@ Layer 10: "Opening theme.wav" (wIPiDfws.belm)
   editable: recovery does not keep the file
   [0] SourceSound
       1.1.0 values not read: IsVisible, TimeRange
-      Source = "file:///C:/Users/beutl/Music/Opening theme.wav"
+      Source = "file:///C:/Users/beutl/Music/Opening%20theme.wav"
       OffsetPosition = "00:00:01"
       Gain = 50
       Speed = 120
