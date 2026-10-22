@@ -82,7 +82,7 @@ internal static class AiAtomicFileWriter
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            UnixFileMode destinationMode = default;
+            UnixFileMode? destinationMode = null;
             var options = new FileStreamOptions
             {
                 Mode = FileMode.CreateNew,
@@ -91,11 +91,10 @@ internal static class AiAtomicFileWriter
                 BufferSize = 64 * 1024,
                 Options = FileOptions.WriteThrough,
             };
-            if (!OperatingSystem.IsWindows())
+            // An overwrite keeps the destination's mode; a new file gets the default one, as a saved video does.
+            if (!OperatingSystem.IsWindows() && File.Exists(fullDestinationPath))
             {
-                destinationMode = File.Exists(fullDestinationPath)
-                    ? File.GetUnixFileMode(fullDestinationPath)
-                    : UnixFileMode.UserRead | UnixFileMode.UserWrite;
+                destinationMode = File.GetUnixFileMode(fullDestinationPath);
                 options.UnixCreateMode = destinationMode;
             }
 
@@ -109,8 +108,8 @@ internal static class AiAtomicFileWriter
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            if (!OperatingSystem.IsWindows())
-                File.SetUnixFileMode(temporaryPath, destinationMode);
+            if (!OperatingSystem.IsWindows() && destinationMode is { } mode)
+                File.SetUnixFileMode(temporaryPath, mode);
             File.Move(temporaryPath, fullDestinationPath, overwrite: true);
         }
         finally
