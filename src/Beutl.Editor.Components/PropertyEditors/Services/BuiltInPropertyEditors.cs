@@ -72,6 +72,8 @@ internal static class BuiltInPropertyEditors
             VectorEditors.CornerRadius, () => new Vector4Editor<float> { Theme = FindTheme("CornerRadiusEditorStyle") });
 
         registry.RegisterValue<MediaTime, MediaTime>(p => new MediaTimeEditorViewModel(p), () => new MediaTimeEditor());
+        // The node time ports stay TimeSpan until #2885 step 4; remove this when they move to MediaTime.
+        registry.RegisterValue<TimeSpan, MediaTime>(p => new TimeSpanValueEditorViewModel(p), () => new MediaTimeEditor());
         Add(registry, typeof(Easing), p => Create(typeof(EasingEditorViewModel<>), p.PropertyType, p), _ => new EasingEditor());
 
         Add<ImageSource?>(registry, p => new ImageSourceEditorViewModel(p), () => new ImageSourceEditor());
