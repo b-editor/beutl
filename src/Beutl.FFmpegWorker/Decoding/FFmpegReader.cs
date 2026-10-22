@@ -51,6 +51,8 @@ public sealed class FFmpegReader : MediaReader
     private long _audioNowTimestamp;
     private long _audioNextTimestamp;
     private long _videoNowFrame;
+    // Frames before the first video frame show it, as AVFoundation does.
+    private long _firstVideoFrame;
     private int _samplesReturn;
     private bool _audioSeek;
     private double _videoTimeBaseDouble;
@@ -115,12 +117,14 @@ public sealed class FFmpegReader : MediaReader
             if (HasVideo)
             {
                 GrabVideo();
+                _firstVideoFrame = _videoNowFrame;
                 GetPacketColorSpace();
 
                 var codec = _videoDecoder!.GetCodec();
                 VideoInfo = new VideoStreamInfo(
                     codec?.LongName ?? "Unknown",
-                    _videoStream!.NbFrames,
+                    // Counted from the container start; an unknown count stays 0 so callers use the duration.
+                    _videoStream!.NbFrames > 0 ? _firstVideoFrame + _videoStream.NbFrames : 0,
                     new PixelSize(_videoDecoder.Width, _videoDecoder.Height),
                     new Rational(_videoStream.AvgFrameRate.num, _videoStream.AvgFrameRate.den))
                 {
@@ -378,6 +382,8 @@ public sealed class FFmpegReader : MediaReader
         if (_videoStream == null || _videoDecoder == null || videoFrame == null)
             return null;
 
+        // Leading frames map to the first frame, so reading them again does not seek.
+        frame = (int)Math.Max(frame, _firstVideoFrame);
         long skip = frame - _videoNowFrame;
 
         // If the previous grab left the active frame unreferenced (a seek/grab that could not
@@ -735,12 +741,13 @@ public sealed class FFmpegReader : MediaReader
         }
     }
 
+    // Counts from the container start, like the seek target in SeekVideo.
     private long GetNowFrame()
     {
         var frame = ActiveVideoFrame;
-        if (frame == null || _videoStream == null) return 0;
-        double f = (frame.Pts - _videoStream.StartTime) * _videoTimeBaseDouble * _videoAvgFrameRateDouble + 0.5;
-        return (long)f;
+        if (frame == null || _demuxer == null) return 0;
+        double seconds = frame.Pts * _videoTimeBaseDouble - _demuxer.StartTime / (double)ffmpeg.AV_TIME_BASE;
+        return (long)(seconds * _videoAvgFrameRateDouble + 0.5);
     }
 
     private void ConfigureVideoStream()
