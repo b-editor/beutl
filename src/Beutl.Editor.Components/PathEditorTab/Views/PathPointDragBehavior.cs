@@ -497,10 +497,10 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
             MediaTime keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
             keyTime = keyTime.RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
-            (IKeyFrame? prev, IKeyFrame? next) = animation.KeyFrames.GetPreviousAndNextKeyFrame(keyTime);
+            if (AnimationOperations.FindKeyFrameOnFrame(animation.KeyFrames, keyTime, rate) is KeyFrame<BtlPoint> atFrame)
+                return new(property, segment, atFrame, null);
 
-            if (next?.KeyTime == keyTime)
-                return new(property, segment, next as KeyFrame<BtlPoint>, null);
+            (IKeyFrame? prev, IKeyFrame? next) = animation.KeyFrames.GetPreviousAndNextKeyFrame(keyTime);
 
             return new(property, segment, prev as KeyFrame<BtlPoint>, next as KeyFrame<BtlPoint>);
         }

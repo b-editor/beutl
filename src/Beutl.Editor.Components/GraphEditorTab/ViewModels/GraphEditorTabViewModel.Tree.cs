@@ -245,7 +245,7 @@ public sealed partial class GraphEditorTabViewModel
                 continue;
             }
             MediaTime keyTime = (animation.UseGlobalClock ? globalTime : globalTime - (element?.Start ?? MediaTime.Zero)).RoundToFrame(rate, MidpointRounding.AwayFromZero);
-            item.HasKeyFrame.Value = animation.KeyFrames.Any(key => key.KeyTime == keyTime);
+            item.HasKeyFrame.Value = AnimationOperations.FindKeyFrameOnFrame(animation.KeyFrames, keyTime, rate) != null;
         }
     }
 
@@ -264,7 +264,7 @@ public sealed partial class GraphEditorTabViewModel
         if (SelectedAnimation.Value is not { } graph) return;
         MediaTime globalTime = _clock.CurrentTime.Value;
         MediaTime keyTime = graph.ConvertKeyTime(globalTime);
-        var keyFrame = animation.KeyFrames.FirstOrDefault(key => key.KeyTime == keyTime);
+        IKeyFrame? keyFrame = AnimationOperations.FindKeyFrameOnFrame(animation.KeyFrames, keyTime, AnimationOperations.GetFrameRate(graph.Scene));
         if (keyFrame != null) graph.DeleteKeyFrames([keyFrame]);
         else graph.InsertKeyFrame(new SplineEasing(), globalTime);
         UpdateKeyFrameStates();

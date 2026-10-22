@@ -280,12 +280,11 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
             MediaTime keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
             keyTime = keyTime.RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
-            IsAtKeyFrame.Value = t.Second?.Any(obj => obj.KeyTime == keyTime) ?? false;
+            IKeyFrame? atFrame = t.Second != null ? AnimationOperations.FindKeyFrameOnFrame(t.Second, keyTime, rate) : null;
+            IsAtKeyFrame.Value = atFrame != null;
             if (t.Second != null)
             {
-                float kfIndex = t.Second.IndexAtOrCount(keyTime);
-                if (!IsAtKeyFrame.Value)
-                    kfIndex -= 0.5f;
+                float kfIndex = atFrame != null ? t.Second.IndexOf(atFrame) : t.Second.IndexAtOrCount(keyTime) - 0.5f;
 
                 _skipKeyFrameIndexSubscription = KeyFrameIndex.Value != kfIndex;
                 KeyFrameIndex.Value = kfIndex;

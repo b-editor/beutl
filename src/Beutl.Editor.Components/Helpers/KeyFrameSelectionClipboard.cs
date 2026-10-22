@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Editor.Services;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
 namespace Beutl.Editor.Components.Helpers;
@@ -23,6 +24,7 @@ internal static class KeyFrameSelectionClipboard
         if (copied.Length == 0) return [];
         if (start < MediaTime.Zero) start = MediaTime.Zero;
         double first = copied.Min(x => x.KeyTime.ToSeconds());
+        Rational rate = AnimationOperations.GetFrameRate(animation.FindHierarchicalParent<Scene>());
         var pasted = new List<IKeyFrame>();
         history.ExecuteInTransaction(() =>
         {
@@ -31,7 +33,7 @@ internal static class KeyFrameSelectionClipboard
                 ObjectRegenerator.Regenerate(key, key.GetType(), out var cloned);
                 var clone = (IKeyFrame)cloned;
                 clone.KeyTime = start + MediaTime.FromSeconds(key.KeyTime.ToSeconds() - first);
-                var existing = animation.KeyFrames.FirstOrDefault(x => x.KeyTime == clone.KeyTime);
+                IKeyFrame? existing = AnimationOperations.FindKeyFrameOnFrame(animation.KeyFrames, clone.KeyTime, rate);
                 if (existing != null)
                 {
                     existing.Value = clone.Value;

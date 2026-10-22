@@ -26,10 +26,17 @@ internal static class AnimationOperations
         MediaTime localKeyTime = element != null ? globalkeyTime - element.Start : globalkeyTime;
         MediaTime keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
 
-        Project? proj = scene?.FindHierarchicalParent<Project>();
-        Rational rate = proj?.GetFrameRate() ?? new Rational(30);
+        return keyTime.RoundToFrame(GetFrameRate(scene), MidpointRounding.AwayFromZero);
+    }
 
-        return keyTime.RoundToFrame(rate, MidpointRounding.AwayFromZero);
+    // The frame rate key times snap to: the project's, or 30 fps outside a project.
+    internal static Rational GetFrameRate(Scene? scene) => scene?.FindHierarchicalParent<Project>().GetFrameRate() ?? new Rational(30);
+
+    // The keyframe on keyTime's frame, matched by frame: a key time read from a file falls up to a tick short of it.
+    internal static IKeyFrame? FindKeyFrameOnFrame(IEnumerable<IKeyFrame> keyFrames, MediaTime keyTime, Rational rate)
+    {
+        long frame = keyTime.ToFrame(rate, MidpointRounding.AwayFromZero);
+        return keyFrames.FirstOrDefault(k => k.KeyTime.ToFrame(rate, MidpointRounding.AwayFromZero) == frame);
     }
 
     // InsertKeyFrame<T> for an animation whose value type is known only at run time.
@@ -46,7 +53,7 @@ internal static class AnimationOperations
         KeyFrame<T>? createdKeyFrame = null;
         keyTime = ConvertKeyTime(animation, keyTime, logger);
 
-        if (animation.KeyFrames.All(x => x.KeyTime != keyTime))
+        if (FindKeyFrameOnFrame(animation.KeyFrames, keyTime, GetFrameRate(animation.FindHierarchicalParent<Scene>())) == null)
         {
             (IKeyFrame? prevIKeyFrame, IKeyFrame? nextIKeyFrame) = animation.GetPreviousAndNextKeyFrame(keyTime);
 
@@ -85,7 +92,7 @@ internal static class AnimationOperations
     internal static IKeyFrame? FindKeyFrame(IKeyFrameAnimation animation, MediaTime keyTime, ILogger logger)
     {
         keyTime = ConvertKeyTime(animation, keyTime, logger);
-        return animation.KeyFrames.FirstOrDefault(x => x.KeyTime == keyTime);
+        return FindKeyFrameOnFrame(animation.KeyFrames, keyTime, GetFrameRate(animation.FindHierarchicalParent<Scene>()));
     }
 
     public static void RemoveKeyFrame(IKeyFrameAnimation animation, IKeyFrame keyframe, ILogger logger)

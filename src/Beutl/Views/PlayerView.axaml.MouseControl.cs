@@ -2,6 +2,7 @@
 using Beutl.Animation;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.ProjectSystem;
@@ -34,10 +35,10 @@ public partial class PlayerView
             MediaTime keyTime = animation.UseGlobalClock ? globalKeyTime : localKeyTime;
             keyTime = keyTime.RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
-            (IKeyFrame? prev, IKeyFrame? next) = animation.KeyFrames.GetPreviousAndNextKeyFrame(keyTime);
+            if (AnimationOperations.FindKeyFrameOnFrame(animation.KeyFrames, keyTime, rate) is KeyFrame<T> atFrame)
+                return new(atFrame, null);
 
-            if (next?.KeyTime == keyTime)
-                return new(next as KeyFrame<T>, null);
+            (IKeyFrame? prev, IKeyFrame? next) = animation.KeyFrames.GetPreviousAndNextKeyFrame(keyTime);
 
             return new(prev as KeyFrame<T>, next as KeyFrame<T>);
         }
