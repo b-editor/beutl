@@ -1,9 +1,16 @@
-﻿namespace Beutl;
+﻿using System.Globalization;
+
+namespace Beutl;
 
 public static class ProjectRateExtensions
 {
-    public static int GetFrameRate(this Project? project)
-        => GetPositiveRate(project, ProjectVariableKeys.FrameRate, 30);
+    // A whole number such as "30" or a fraction such as "30000/1001"; anything that is not a positive rate reads as 30.
+    public static Rational GetFrameRate(this Project? project)
+        => project?.Variables.TryGetValue(ProjectVariableKeys.FrameRate, out string? value) == true
+            && Rational.TryParse(value, CultureInfo.InvariantCulture, out Rational rate)
+            && rate.Numerator > 0 && rate.Denominator > 0
+            ? rate
+            : new Rational(30);
 
     public static int GetSampleRate(this Project? project)
         => GetPositiveRate(project, ProjectVariableKeys.SampleRate, 44100);

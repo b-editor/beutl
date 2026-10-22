@@ -15,7 +15,7 @@ public class SceneMarker : Hierarchical
         NoteProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Note)));
     }
 
-    public SceneMarker(TimeSpan time, string? name = null, Color? color = null, string? note = null)
+    public SceneMarker(MediaTime time, string? name = null, Color? color = null, string? note = null)
         : this()
     {
         Time = time;
@@ -25,9 +25,9 @@ public class SceneMarker : Hierarchical
     }
 
     [Display(Name = nameof(Strings.StartTime), ResourceType = typeof(Strings))]
-    public IProperty<TimeSpan> TimeProperty { get; } = new ValueOnlyProperty<TimeSpan>(TimeSpan.Zero)
+    public IProperty<MediaTime> TimeProperty { get; } = new ValueOnlyProperty<MediaTime>(MediaTime.Zero)
     {
-        Coerce = static (_, value) => value < TimeSpan.Zero ? TimeSpan.Zero : value
+        Coerce = static (_, value) => value < MediaTime.Zero ? MediaTime.Zero : value
     };
 
     public IProperty<Color> ColorProperty { get; } = new ValueOnlyProperty<Color>(Colors.Yellow);
@@ -37,7 +37,7 @@ public class SceneMarker : Hierarchical
         Coerce = static (_, value) => value ?? string.Empty
     };
 
-    public TimeSpan Time
+    public MediaTime Time
     {
         get => TimeProperty.Value;
         set => TimeProperty.Value = value;

@@ -436,7 +436,7 @@ public sealed class GraphSnapshot : IDisposable
         }
     }
 
-    private void LoadAnimatedValues(GraphNode.Resource resource, TimeSpan time)
+    private void LoadAnimatedValues(GraphNode.Resource resource, MediaTime time)
     {
         GraphNode node = resource.RequireOriginal();
         for (int i = 0; i < resource.Members.Length; i++)

@@ -73,7 +73,7 @@ public sealed partial class SceneDrawable : Drawable
     {
         private static readonly SceneEvaluationGuard s_evaluatingScenes = new();
         private SceneCompositor? _compositor;
-        private TimeSpan _start;
+        private MediaTime _start;
 
         public CompositionFrame? Frame { get; set; }
 

@@ -10,7 +10,7 @@ namespace Beutl.NodeGraph.Generative;
 public interface IGenerativeRunHost
 {
     /// <summary>The time the graph is evaluated at when inputs are captured.</summary>
-    TimeSpan CurrentTime { get; }
+    MediaTime CurrentTime { get; }
 
     /// <summary>Runs graph evaluation where rendering is allowed to happen.</summary>
     Task<T> InvokeOnRenderThreadAsync<T>(Func<T> func);
