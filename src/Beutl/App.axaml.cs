@@ -17,6 +17,7 @@ using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Graphics.Backend;
 using Beutl.Helpers;
 using Beutl.Logging;
+using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.Pages;
 using Beutl.Services;
@@ -159,6 +160,13 @@ public sealed class App : Application
         NotificationService.Handler = new NotificationServiceHandler();
         TutorialService.Current = new TutorialServiceHandler();
         AppHelper.GetContextCommandManager = commands;
+        GraphSnapshot.PostToDocumentThread = static write =>
+        {
+            if (Dispatcher.UIThread.CheckAccess())
+                write();
+            else
+                Dispatcher.UIThread.Post(write);
+        };
 
         // They are slow, so alongside runs with them, first: Parallel.Invoke runs that one on the calling thread.
         Action[] actions = alongside is null

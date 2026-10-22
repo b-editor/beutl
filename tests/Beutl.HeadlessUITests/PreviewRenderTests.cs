@@ -5,6 +5,8 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Media.Pixel;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
@@ -75,6 +77,29 @@ public class PreviewRenderTests
             Assert.That(snapshot.Height, Is.GreaterThan(0));
             AssertContainsRedPixel(snapshot);
         }
+    }
+
+    // Evaluation runs on the render thread, and OffUiThreadWriteCheck fails the test if it writes Connection.Status there.
+    [AvaloniaTest]
+    public async Task Previewing_a_node_graph_sets_its_connection_statuses_on_the_UI_thread()
+    {
+        TestGpu.RequireAnyDevice();
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("nodegraphpreview", 320, 240);
+        var drawable = new NodeGraphDrawable();
+        GraphModel graph = drawable.Model.Value!;
+        var rect = new RectGeometryNode();
+        var shape = new GeometryShapeNode();
+        var output = new OutputNode();
+        graph.Nodes.AddRange([rect, shape, output]);
+        Connection[] connections = [graph.Connect(shape.Geometry, rect.OutputPort), graph.Connect(output.InputPort, shape.Output)];
+        await TestShell.AddElementAsync(editor, () => drawable, TimeSpan.Zero, TimeSpan.FromSeconds(2));
+
+        editor.FrameCacheManager.Value.Clear();
+        editor.Player.QueuePreviewRender();
+        RenderThreadDrain.Drain(TimeSpan.FromSeconds(10));
+
+        Assert.That(connections.Select(connection => connection.Status), Is.All.EqualTo(ConnectionStatus.Success));
     }
 
     // The scene holds only an opaque red rectangle, so a red pixel proves the frame was drawn.
