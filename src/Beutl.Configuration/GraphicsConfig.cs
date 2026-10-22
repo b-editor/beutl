@@ -4,19 +4,17 @@ namespace Beutl.Configuration;
 
 public sealed class GraphicsConfig : ConfigurationBase
 {
-    public static readonly CoreProperty<string?> SelectedGpuNameProperty;
-
-    static GraphicsConfig()
+    public GraphicsConfig()
     {
-        SelectedGpuNameProperty = ConfigureProperty<string?, GraphicsConfig>(nameof(SelectedGpuName))
-            .DefaultValue(null)
-            .Register();
+        ScanProperties<GraphicsConfig>();
     }
+
+    public IProperty<string?> SelectedGpuNameProperty { get; } = new ValueOnlyProperty<string?>(null);
 
     public string? SelectedGpuName
     {
-        get => GetValue(SelectedGpuNameProperty);
-        set => SetValue(SelectedGpuNameProperty, value);
+        get => SelectedGpuNameProperty.Value;
+        set => SelectedGpuNameProperty.Value = value;
     }
 
     // Read once at startup, so a change has to reach settings.json before Beutl next starts.

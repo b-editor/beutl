@@ -23,31 +23,27 @@ public sealed class MFEncodingExtension : ControllableEncodingExtension
 
 public sealed class MFVideoEncoderSettings : VideoEncoderSettings
 {
-    public static readonly CoreProperty<MFVideoCodec> CodecProperty;
-    public static readonly CoreProperty<bool> UseHardwareAccelerationProperty;
-
-    static MFVideoEncoderSettings()
+    public MFVideoEncoderSettings()
     {
-        CodecProperty = ConfigureProperty<MFVideoCodec, MFVideoEncoderSettings>(nameof(Codec))
-            .DefaultValue(MFVideoCodec.Auto)
-            .Register();
-        UseHardwareAccelerationProperty = ConfigureProperty<bool, MFVideoEncoderSettings>(nameof(UseHardwareAcceleration))
-            .DefaultValue(true)
-            .Register();
+        ScanProperties<MFVideoEncoderSettings>();
     }
 
     [Display(Name = nameof(Strings.Codec), Description = nameof(Strings.VideoCodecDescription), ResourceType = typeof(Strings))]
-    public MFVideoCodec Codec
-    {
-        get => GetValue(CodecProperty);
-        set => SetValue(CodecProperty, value);
-    }
+    public IProperty<MFVideoCodec> CodecProperty { get; } = new ValueOnlyProperty<MFVideoCodec>(MFVideoCodec.Auto);
 
     [Display(Name = nameof(Strings.UseHardwareAcceleration), ResourceType = typeof(Strings))]
+    public IProperty<bool> UseHardwareAccelerationProperty { get; } = new ValueOnlyProperty<bool>(true);
+
+    public MFVideoCodec Codec
+    {
+        get => CodecProperty.Value;
+        set => CodecProperty.Value = value;
+    }
+
     public bool UseHardwareAcceleration
     {
-        get => GetValue(UseHardwareAccelerationProperty);
-        set => SetValue(UseHardwareAccelerationProperty, value);
+        get => UseHardwareAccelerationProperty.Value;
+        set => UseHardwareAccelerationProperty.Value = value;
     }
 }
 
@@ -66,31 +62,27 @@ public enum MFVideoCodec
 
 public sealed class MFAudioEncoderSettings : AudioEncoderSettings
 {
-    public static readonly CoreProperty<MFAudioCodec> CodecProperty;
-    public static readonly CoreProperty<MFAudioBitDepth> BitDepthProperty;
-
-    static MFAudioEncoderSettings()
+    public MFAudioEncoderSettings()
     {
-        CodecProperty = ConfigureProperty<MFAudioCodec, MFAudioEncoderSettings>(nameof(Codec))
-            .DefaultValue(MFAudioCodec.Auto)
-            .Register();
-        BitDepthProperty = ConfigureProperty<MFAudioBitDepth, MFAudioEncoderSettings>(nameof(BitDepth))
-            .DefaultValue(MFAudioBitDepth.Bit16)
-            .Register();
+        ScanProperties<MFAudioEncoderSettings>();
     }
 
     [Display(Name = nameof(Strings.Codec), Description = nameof(Strings.AudioCodecDescription), ResourceType = typeof(Strings))]
-    public MFAudioCodec Codec
-    {
-        get => GetValue(CodecProperty);
-        set => SetValue(CodecProperty, value);
-    }
+    public IProperty<MFAudioCodec> CodecProperty { get; } = new ValueOnlyProperty<MFAudioCodec>(MFAudioCodec.Auto);
 
     [Display(Name = nameof(Strings.BitDepth), Description = nameof(Strings.BitDepthDescription), ResourceType = typeof(Strings))]
+    public IProperty<MFAudioBitDepth> BitDepthProperty { get; } = new ValueOnlyProperty<MFAudioBitDepth>(MFAudioBitDepth.Bit16);
+
+    public MFAudioCodec Codec
+    {
+        get => CodecProperty.Value;
+        set => CodecProperty.Value = value;
+    }
+
     public MFAudioBitDepth BitDepth
     {
-        get => GetValue(BitDepthProperty);
-        set => SetValue(BitDepthProperty, value);
+        get => BitDepthProperty.Value;
+        set => BitDepthProperty.Value = value;
     }
 }
 

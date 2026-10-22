@@ -30,7 +30,8 @@ public interface ICoreObject : INotifyPropertyChanged, INotifyDataErrorInfo, ICo
 public abstract partial class CoreObject : ICoreObject
 {
     private Dictionary<int, IEntry>? _values;
-    private Dictionary<int, string>? _errors;
+    // Validation errors by property name.
+    private Dictionary<string, string>? _errors;
     private CoreProperty? _forcedReplacementProperty;
 
     internal interface IEntry
@@ -122,7 +123,7 @@ public abstract partial class CoreObject : ICoreObject
 
     private Dictionary<int, IEntry> Values => _values ??= [];
 
-    private Dictionary<int, string> Errors => _errors ??= [];
+    private Dictionary<string, string> Errors => _errors ??= [];
 
     public bool HasErrors => _errors?.Count > 0;
 
@@ -151,18 +152,46 @@ public abstract partial class CoreObject : ICoreObject
         {
             return _errors.Values;
         }
+        else if (_errors.TryGetValue(propertyName, out string? message))
+        {
+            return Enumerable.Repeat(message, 1);
+        }
         else
         {
-            CoreProperty? property = PropertyRegistry.FindRegistered(this, propertyName);
-            if (property != null && _errors.TryGetValue(property.Id, out string? message))
-            {
-                return Enumerable.Repeat(message, 1);
-            }
-            else
-            {
-                return Enumerable.Empty<string>();
-            }
+            return Enumerable.Empty<string>();
         }
+    }
+
+    // Records the validation error of the property named name, or clears it when message is null.
+    internal void SetPropertyError(string name, string? message)
+    {
+        if (message == null && _errors == null) return;
+
+        bool oldHasErrors = HasErrors;
+        string? oldError = _errors != null && _errors.TryGetValue(name, out string? v) ? v : null;
+        if (message != null)
+        {
+            Errors[name] = message;
+        }
+        else
+        {
+            _errors!.Remove(name);
+        }
+
+        if (ErrorsChanged != null && oldError != message)
+        {
+            ErrorsChanged.Invoke(this, new DataErrorsChangedEventArgs(name));
+        }
+
+        if (oldHasErrors != HasErrors)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasErrors)));
+        }
+    }
+
+    // Called after a value-only property this object registered changed its value.
+    internal virtual void OnPropertyValueChanged(IProperty property)
+    {
     }
 
     public TValue GetValue<TValue>(CoreProperty<TValue> property)
@@ -199,33 +228,10 @@ public abstract partial class CoreObject : ICoreObject
     {
         if (metadata.Validator is IValidator<TValue> validator)
         {
-            bool oldHasErrors = HasErrors;
-            string? oldError = _errors != null && _errors.TryGetValue(property.Id, out string? v) ? v : null;
-            string? newError;
-
             var vcontext = new ValidationContext(this, property);
-            if (!validator.TryCoerce(vcontext, ref value)
-                && validator.Validate(vcontext, value) is string message)
-            {
-                // 値の強制が失敗、検証に失敗した場合、エラーメッセージを設定
-                Errors[property.Id] = message;
-                newError = message;
-            }
-            else
-            {
-                Errors.Remove(property.Id);
-                newError = null;
-            }
-
-            if (ErrorsChanged != null && oldError != newError)
-            {
-                ErrorsChanged.Invoke(this, new DataErrorsChangedEventArgs(property.Name));
-            }
-
-            if (oldHasErrors != HasErrors)
-            {
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasErrors)));
-            }
+            // 値の強制が失敗、検証に失敗した場合、エラーメッセージを設定
+            string? message = !validator.TryCoerce(vcontext, ref value) ? validator.Validate(vcontext, value) : null;
+            SetPropertyError(property.Name, message);
         }
     }
 
@@ -438,8 +444,8 @@ public abstract partial class CoreObject : ICoreObject
 
         foreach (IProperty property in RegisteredProperties)
         {
-            // A base field that holds a list keeps that list; its owner reads the items into it.
-            if (IsAutoSerialized(property) && !(IsBaseField(property) && typeof(ICoreList).IsAssignableFrom(property.ValueType)))
+            // A list its owner keeps is read by the owner into that list.
+            if (IsAutoSerialized(property) && !(IsBaseField(property) && property is IValueOnlyProperty { KeepsList: true }))
                 property.DeserializeValue(context);
         }
 

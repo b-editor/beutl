@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using Beutl.Api.Services;
 using Beutl.PropertyAdapters;
 using DynamicData;
@@ -22,6 +23,22 @@ internal static class CoreObjectPropertyEditorBuilder
             return (IPropertyAdapter)Activator.CreateInstance(adapterGType, x, obj)!;
         });
     }
+
+    // A settings object's properties as its page shows them: without Id, Name and those marked [Browsable(false)].
+    public static List<IPropertyAdapter> CreateSettingsAdapters(CoreObject obj)
+    {
+        return
+        [
+            .. obj.Properties
+                .Where(p => !obj.IsOwnField(p)
+                            && p.GetAttributes()?.OfType<BrowsableAttribute>().FirstOrDefault()?.Browsable != false)
+                .Select(p => CreateAdapter(p, obj)),
+        ];
+    }
+
+    public static IPropertyAdapter CreateAdapter(IProperty property, CoreObject obj)
+        => (IPropertyAdapter)Activator.CreateInstance(
+            typeof(EnginePropertyAdapter<>).MakeGenericType(property.ValueType), property, obj)!;
 
     public static (IPropertyAdapter[]? Properties, PropertyEditorExtension? Extension) MatchProperty(
         IReadOnlyList<IPropertyAdapter> properties, ExtensionProvider extensionProvider)

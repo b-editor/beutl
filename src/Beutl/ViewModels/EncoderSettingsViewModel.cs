@@ -19,7 +19,7 @@ public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IS
         _extensionProvider = extensionProvider;
         var sequenceGenerator = new OperationSequenceGenerator();
         _services = new PropertyEditorHostServices(new HistoryManager(sequenceGenerator), extensionProvider);
-        InitializeCoreObject(settings, (_, m) => m.Browsable);
+        InitializeCoreObject(settings);
     }
 
     public MediaEncoderSettings Settings { get; }
@@ -35,10 +35,9 @@ public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IS
     {
     }
 
-    private void InitializeCoreObject(MediaEncoderSettings obj,
-        Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null)
+    private void InitializeCoreObject(MediaEncoderSettings obj)
     {
-        List<IPropertyAdapter> props = CoreObjectPropertyEditorBuilder.CreateAdapters(obj, predicate);
+        List<IPropertyAdapter> props = CoreObjectPropertyEditorBuilder.CreateSettingsAdapters(obj);
 
         var tempItems = new List<IPropertyEditorContext?>(props.Count);
         CoreObjectPropertyEditorBuilder.CreateContexts(props, _extensionProvider, context =>

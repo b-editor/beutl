@@ -1,5 +1,4 @@
 ﻿using System.Collections.Specialized;
-using System.ComponentModel;
 using Avalonia.Threading;
 using Beutl.Composition;
 using Beutl.Configuration;
@@ -33,23 +32,13 @@ public sealed partial class ProxiesTabViewModel
         _sceneEditedSubscriptions.Disposable = subscriptions;
     }
 
-    private void OnProxyConfigPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e is CorePropertyChangedEventArgs<int> presetArgs
-            && presetArgs.Property == ProxyStoreConfig.DefaultPresetProperty)
-        {
-            RunOnUIIfLive(() => ApplyDefaultPresetChange(presetArgs.OldValue, presetArgs.NewValue));
-            return;
-        }
+    private void OnDefaultPresetChanged(object? sender, PropertyValueChangedEventArgs<int> e)
+        => RunOnUIIfLive(() => ApplyDefaultPresetChange(e.OldValue, e.NewValue));
 
-        // A cap-only change shifts the store summary (StoreCapText / usage), which no other signal on
-        // this tab reflects until an unrelated store / job / scene refresh; refresh it here.
-        if (e is CorePropertyChangedEventArgs<long> capArgs
-            && capArgs.Property == ProxyStoreConfig.MaxTotalBytesProperty)
-        {
-            RunOnUIIfLive(UpdateStoreSummary);
-        }
-    }
+    // A cap-only change shifts the store summary (StoreCapText / usage), which no other signal on
+    // this tab reflects until an unrelated store / job / scene refresh; refresh it here.
+    private void OnMaxTotalBytesChanged(object? sender, PropertyValueChangedEventArgs<long> e)
+        => RunOnUIIfLive(UpdateStoreSummary);
 
     // Rows that merely showed the previous default follow a Settings change, so Generate honors the
     // setting the UI now shows; rows the user explicitly set to another preset keep their choice.

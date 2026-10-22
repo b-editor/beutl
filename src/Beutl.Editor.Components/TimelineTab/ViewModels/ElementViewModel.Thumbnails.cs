@@ -53,14 +53,14 @@ public sealed partial class ElementViewModel
 
         // Switching PreviewSourceMode changes the decode path (proxy vs original), so an already
         // rendered filmstrip is stale until an unrelated invalidation; drop its cache and re-render.
-        GlobalConfiguration.Instance.EditorConfig.GetObservable(EditorConfig.PreviewSourceModeProperty)
+        GlobalConfiguration.Instance.EditorConfig.PreviewSourceModeProperty.GetObservable()
             .Skip(1)
             .DistinctUntilChanged()
             .ObserveOnUIDispatcher()
             .Subscribe(_ => InvalidateAndUpdateThumbnails())
             .AddTo(_disposables);
 
-        GlobalConfiguration.Instance.ProxyStoreConfig.GetObservable(ProxyStoreConfig.DefaultPresetProperty)
+        GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPresetProperty.GetObservable()
             .Skip(1)
             .DistinctUntilChanged()
             .Where(_ => ShouldRefreshThumbnailsForDefaultPresetChange(GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode))

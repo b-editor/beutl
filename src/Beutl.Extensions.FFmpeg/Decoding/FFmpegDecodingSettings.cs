@@ -8,43 +8,36 @@ namespace Beutl.Extensions.FFmpeg.Decoding;
 
 public sealed class FFmpegDecodingSettings : ExtensionSettings
 {
-    public static readonly CoreProperty<int> ThreadCountProperty;
-    public static readonly CoreProperty<AccelerationOptions> AccelerationProperty;
-    public static readonly CoreProperty<bool> ForceSrgbGammaProperty;
-
-    static FFmpegDecodingSettings()
+    public FFmpegDecodingSettings()
     {
-        ThreadCountProperty = ConfigureProperty<int, FFmpegDecodingSettings>(nameof(ThreadCount))
-            .DefaultValue(-1)
-            .Register();
-
-        AccelerationProperty = ConfigureProperty<AccelerationOptions, FFmpegDecodingSettings>(nameof(Acceleration))
-            .DefaultValue(AccelerationOptions.Software)
-            .Register();
-
-        ForceSrgbGammaProperty = ConfigureProperty<bool, FFmpegDecodingSettings>(nameof(ForceSrgbGamma))
-            .DefaultValue(true)
-            .Register();
-
-        AffectsConfig<FFmpegDecodingSettings>(ThreadCountProperty, AccelerationProperty, ForceSrgbGammaProperty);
+        ScanProperties<FFmpegDecodingSettings>();
+        ThreadCountProperty.ValueChanged += (_, _) => OnChanged();
+        AccelerationProperty.ValueChanged += (_, _) => OnChanged();
+        ForceSrgbGammaProperty.ValueChanged += (_, _) => OnChanged();
     }
+
+    public IProperty<int> ThreadCountProperty { get; } = new ValueOnlyProperty<int>(-1);
+
+    public IProperty<AccelerationOptions> AccelerationProperty { get; } = new ValueOnlyProperty<AccelerationOptions>(AccelerationOptions.Software);
+
+    public IProperty<bool> ForceSrgbGammaProperty { get; } = new ValueOnlyProperty<bool>(true);
 
     public int ThreadCount
     {
-        get => GetValue(ThreadCountProperty);
-        set => SetValue(ThreadCountProperty, value);
+        get => ThreadCountProperty.Value;
+        set => ThreadCountProperty.Value = value;
     }
 
     public AccelerationOptions Acceleration
     {
-        get => GetValue(AccelerationProperty);
-        set => SetValue(AccelerationProperty, value);
+        get => AccelerationProperty.Value;
+        set => AccelerationProperty.Value = value;
     }
 
     public bool ForceSrgbGamma
     {
-        get => GetValue(ForceSrgbGammaProperty);
-        set => SetValue(ForceSrgbGammaProperty, value);
+        get => ForceSrgbGammaProperty.Value;
+        set => ForceSrgbGammaProperty.Value = value;
     }
 
     public enum AccelerationOptions

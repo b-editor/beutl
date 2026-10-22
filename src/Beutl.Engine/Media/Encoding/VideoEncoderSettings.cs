@@ -6,66 +6,62 @@ namespace Beutl.Media.Encoding;
 
 public class VideoEncoderSettings : MediaEncoderSettings
 {
-    public static readonly CoreProperty<PixelSize> SourceSizeProperty;
-    public static readonly CoreProperty<PixelSize> DestinationSizeProperty;
-    public static readonly CoreProperty<Rational> FrameRateProperty;
-    public static readonly CoreProperty<int> BitrateProperty;
-    public static readonly CoreProperty<int> KeyframeRateProperty;
-
-    static VideoEncoderSettings()
+    public VideoEncoderSettings()
+        : this(5_000_000, 12)
     {
-        SourceSizeProperty = ConfigureProperty<PixelSize, VideoEncoderSettings>(nameof(SourceSize))
-            .Register();
+    }
 
-        DestinationSizeProperty = ConfigureProperty<PixelSize, VideoEncoderSettings>(nameof(DestinationSize))
-            .Register();
-
-        FrameRateProperty = ConfigureProperty<Rational, VideoEncoderSettings>(nameof(FrameRate))
-            .DefaultValue(new(30, 1))
-            .Register();
-
-        BitrateProperty = ConfigureProperty<int, VideoEncoderSettings>(nameof(Bitrate))
-            .DefaultValue(5_000_000)
-            .Register();
-
-        KeyframeRateProperty = ConfigureProperty<int, VideoEncoderSettings>(nameof(KeyframeRate))
-            .DefaultValue(12)
-            .Register();
+    // A derived type passes its own defaults for the bit rate and the key frame rate.
+    protected VideoEncoderSettings(int defaultBitrate, int defaultKeyframeRate)
+    {
+        BitrateProperty = new ValueOnlyProperty<int>(defaultBitrate);
+        KeyframeRateProperty = new ValueOnlyProperty<int>(defaultKeyframeRate);
+        ScanProperties<VideoEncoderSettings>();
     }
 
     [Browsable(false)]
-    public PixelSize SourceSize
-    {
-        get => GetValue(SourceSizeProperty);
-        set => SetValue(SourceSizeProperty, value);
-    }
+    public IProperty<PixelSize> SourceSizeProperty { get; } = new ValueOnlyProperty<PixelSize>(default);
 
     [Display(Name = nameof(Strings.FrameSize), Description = nameof(Strings.FrameSize_Tip), ResourceType = typeof(Strings), Order = int.MinValue)]
-    public PixelSize DestinationSize
-    {
-        get => GetValue(DestinationSizeProperty);
-        set => SetValue(DestinationSizeProperty, value);
-    }
+    public IProperty<PixelSize> DestinationSizeProperty { get; } = new ValueOnlyProperty<PixelSize>(default);
 
     [Display(Name = nameof(Strings.FrameRate), Description = nameof(Strings.FrameRate_Tip), ResourceType = typeof(Strings), Order = int.MinValue + 1)]
-    public Rational FrameRate
-    {
-        get => GetValue(FrameRateProperty);
-        set => SetValue(FrameRateProperty, value);
-    }
+    public IProperty<Rational> FrameRateProperty { get; } = new ValueOnlyProperty<Rational>(new(30, 1));
 
     [Display(Name = nameof(Strings.Bitrate), Description = nameof(Strings.Bitrate_Tip), ResourceType = typeof(Strings), Order = int.MinValue + 2)]
-    public int Bitrate
-    {
-        get => GetValue(BitrateProperty);
-        set => SetValue(BitrateProperty, value);
-    }
+    public IProperty<int> BitrateProperty { get; }
 
     [Display(Name = nameof(Strings.KeyframeRate), Description = nameof(Strings.KeyframeRate_Tip), ResourceType = typeof(Strings), Order = int.MinValue + 3)]
+    public IProperty<int> KeyframeRateProperty { get; }
+
+    public PixelSize SourceSize
+    {
+        get => SourceSizeProperty.Value;
+        set => SourceSizeProperty.Value = value;
+    }
+
+    public PixelSize DestinationSize
+    {
+        get => DestinationSizeProperty.Value;
+        set => DestinationSizeProperty.Value = value;
+    }
+
+    public Rational FrameRate
+    {
+        get => FrameRateProperty.Value;
+        set => FrameRateProperty.Value = value;
+    }
+
+    public int Bitrate
+    {
+        get => BitrateProperty.Value;
+        set => BitrateProperty.Value = value;
+    }
+
     public int KeyframeRate
     {
-        get => GetValue(KeyframeRateProperty);
-        set => SetValue(KeyframeRateProperty, value);
+        get => KeyframeRateProperty.Value;
+        set => KeyframeRateProperty.Value = value;
     }
 }
 

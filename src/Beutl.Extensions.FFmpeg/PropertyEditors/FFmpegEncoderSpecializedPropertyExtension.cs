@@ -13,29 +13,25 @@ namespace Beutl.Extensions.FFmpeg.PropertyEditors;
 public sealed class FFmpegEncoderSpecializedPropertyExtension : PropertyEditorExtension
 {
     private static bool IsVideoOptionsProperty(IPropertyAdapter prop)
-        => prop is CorePropertyAdapter<CoreList<AdditionalOption>> cpa
-            && cpa.Property.Id == FFmpegVideoEncoderSettings.OptionsProperty.Id
-            && cpa.Object is FFmpegVideoEncoderSettings;
+        => prop is EnginePropertyAdapter<CoreList<AdditionalOption>> { Object: FFmpegVideoEncoderSettings settings } adapter
+            && adapter.Property == settings.OptionsProperty;
 
     private static bool IsSampleRateProperty(IPropertyAdapter prop)
     {
-        return prop is CorePropertyAdapter<int> cpa
-               && cpa.Property.Id == AudioEncoderSettings.SampleRateProperty.Id
-               && cpa.Object is FFmpegAudioEncoderSettings;
+        return prop is EnginePropertyAdapter<int> { Object: FFmpegAudioEncoderSettings settings } adapter
+               && adapter.Property == settings.SampleRateProperty;
     }
 
     private static bool IsPixelFormatProperty(IPropertyAdapter prop)
     {
-        return prop is CorePropertyAdapter<int> cpa
-               && cpa.Property.Id == FFmpegVideoEncoderSettings.FormatProperty.Id
-               && cpa.Object is FFmpegVideoEncoderSettings;
+        return prop is EnginePropertyAdapter<int> { Object: FFmpegVideoEncoderSettings settings } adapter
+               && adapter.Property == settings.FormatProperty;
     }
 
     private static bool IsAudioFormatProperty(IPropertyAdapter prop)
     {
-        return prop is CorePropertyAdapter<AudioFormat> cpa
-               && cpa.Property.Id == FFmpegAudioEncoderSettings.FormatProperty.Id
-               && cpa.Object is FFmpegAudioEncoderSettings;
+        return prop is EnginePropertyAdapter<AudioFormat> { Object: FFmpegAudioEncoderSettings settings } adapter
+               && adapter.Property == settings.FormatProperty;
     }
 
     public override IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
@@ -64,7 +60,7 @@ public sealed class FFmpegEncoderSpecializedPropertyExtension : PropertyEditorEx
         var prop = properties[0];
         if (IsVideoOptionsProperty(prop))
         {
-            context = new EncoderOptionsEditorViewModel((CorePropertyAdapter<CoreList<AdditionalOption>>)prop, this);
+            context = new EncoderOptionsEditorViewModel((EnginePropertyAdapter<CoreList<AdditionalOption>>)prop, this);
         }
         else if (IsSampleRateProperty(prop))
         {

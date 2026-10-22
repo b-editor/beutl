@@ -6,7 +6,7 @@ using ValidationContext = Beutl.Validation.ValidationContext;
 namespace Beutl;
 
 // A property that holds only a value: it takes no expression, reference, node connection or keyframes.
-public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = null) : IProperty<T>, IChildObjectSource
+public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = null) : IProperty<T>, IChildObjectSource, IValueOnlyProperty
 {
     private IValidator<T>? _validator = validator;
     private T _currentValue = defaultValue;
@@ -42,6 +42,12 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
     // Adjusts each value before it is validated, like KeyFrame<T>.Value with its animation's validator.
     internal Func<IProperty<T>, T, T>? Coerce { get; init; }
 
+    // True for a list its owner keeps and changes item by item, like Element.Objects: a panel cannot replace it,
+    // and the owner reads the saved items into it.
+    internal bool KeepsList { get; init; }
+
+    bool IValueOnlyProperty.KeepsList => KeepsList;
+
     public bool IsValueSet { get; private set; }
 
     public event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
@@ -59,6 +65,7 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
             IsValueSet = true;
 
             ValueChanged?.Invoke(this, new PropertyValueChangedEventArgs<T>(this, oldValue, validatedValue));
+            _owner?.OnPropertyValueChanged(this);
             if (AffectsRender)
                 Edited?.Invoke(this, EventArgs.Empty);
             if (OwnsValue)
@@ -134,10 +141,12 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
             return value;
 
         var context = new ValidationContext(this, null);
-        if (_validator.TryCoerce(context, ref value!))
-            return value;
+        string? error = _validator.TryCoerce(context, ref value!) ? null : _validator.Validate(context, value);
+        // The owner keeps the error by name, as it kept a CoreProperty's.
+        if (_owner != null && _name != null)
+            _owner.SetPropertyError(_name, error);
 
-        return _validator.Validate(context, value) == null ? value : DefaultValue;
+        return error == null ? value : DefaultValue;
     }
 
     public void DeserializeValue(ICoreSerializationContext context)

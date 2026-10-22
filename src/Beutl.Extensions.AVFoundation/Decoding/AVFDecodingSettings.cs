@@ -5,61 +5,48 @@ namespace Beutl.Extensions.AVFoundation.Decoding;
 
 public sealed class AVFDecodingSettings : ExtensionSettings
 {
-    public static readonly CoreProperty<int> ThresholdFrameCountProperty;
-    public static readonly CoreProperty<int> ThresholdSampleCountProperty;
-    public static readonly CoreProperty<int> MaxVideoBufferSizeProperty;
-    public static readonly CoreProperty<int> MaxAudioBufferSizeProperty;
-
-    static AVFDecodingSettings()
+    public AVFDecodingSettings()
     {
-        ThresholdFrameCountProperty = ConfigureProperty<int, AVFDecodingSettings>(nameof(ThresholdFrameCount))
-            .DefaultValue(30)
-            .Register();
-
-        ThresholdSampleCountProperty = ConfigureProperty<int, AVFDecodingSettings>(nameof(ThresholdSampleCount))
-            .DefaultValue(30000)
-            .Register();
-
-        MaxVideoBufferSizeProperty = ConfigureProperty<int, AVFDecodingSettings>(nameof(MaxVideoBufferSize))
-            .DefaultValue(4)
-            .Register();
-
-        MaxAudioBufferSizeProperty = ConfigureProperty<int, AVFDecodingSettings>(nameof(MaxAudioBufferSize))
-            .DefaultValue(20)
-            .Register();
-
-        AffectsConfig<AVFDecodingSettings>(
-            ThresholdFrameCountProperty,
-            ThresholdSampleCountProperty,
-            MaxVideoBufferSizeProperty,
-            MaxAudioBufferSizeProperty);
+        ScanProperties<AVFDecodingSettings>();
+        ThresholdFrameCountProperty.ValueChanged += (_, _) => OnChanged();
+        ThresholdSampleCountProperty.ValueChanged += (_, _) => OnChanged();
+        MaxVideoBufferSizeProperty.ValueChanged += (_, _) => OnChanged();
+        MaxAudioBufferSizeProperty.ValueChanged += (_, _) => OnChanged();
     }
 
     [Range(1, int.MaxValue)]
+    public IProperty<int> ThresholdFrameCountProperty { get; } = new ValueOnlyProperty<int>(30);
+
+    [Range(1, int.MaxValue)]
+    public IProperty<int> ThresholdSampleCountProperty { get; } = new ValueOnlyProperty<int>(30000);
+
+    [Range(1, int.MaxValue)]
+    public IProperty<int> MaxVideoBufferSizeProperty { get; } = new ValueOnlyProperty<int>(4);
+
+    [Range(1, int.MaxValue)]
+    public IProperty<int> MaxAudioBufferSizeProperty { get; } = new ValueOnlyProperty<int>(20);
+
     public int ThresholdFrameCount
     {
-        get => GetValue(ThresholdFrameCountProperty);
-        set => SetValue(ThresholdFrameCountProperty, value);
+        get => ThresholdFrameCountProperty.Value;
+        set => ThresholdFrameCountProperty.Value = value;
     }
 
-    [Range(1, int.MaxValue)]
     public int ThresholdSampleCount
     {
-        get => GetValue(ThresholdSampleCountProperty);
-        set => SetValue(ThresholdSampleCountProperty, value);
+        get => ThresholdSampleCountProperty.Value;
+        set => ThresholdSampleCountProperty.Value = value;
     }
 
-    [Range(1, int.MaxValue)]
     public int MaxVideoBufferSize
     {
-        get => GetValue(MaxVideoBufferSizeProperty);
-        set => SetValue(MaxVideoBufferSizeProperty, value);
+        get => MaxVideoBufferSizeProperty.Value;
+        set => MaxVideoBufferSizeProperty.Value = value;
     }
 
-    [Range(1, int.MaxValue)]
     public int MaxAudioBufferSize
     {
-        get => GetValue(MaxAudioBufferSizeProperty);
-        set => SetValue(MaxAudioBufferSizeProperty, value);
+        get => MaxAudioBufferSizeProperty.Value;
+        set => MaxAudioBufferSizeProperty.Value = value;
     }
 }

@@ -10,170 +10,129 @@ namespace Beutl.Configuration;
 [DroppedMembers("WorkspaceRoot")]
 public sealed class AiAgentConfig : ConfigurationBase
 {
-    public static readonly CoreProperty<string> AgentIdProperty;
-    public static readonly CoreProperty<string> InstallScopeProperty;
-    public static readonly CoreProperty<string> ProjectRootProperty;
-    public static readonly CoreProperty<string> SkillsDirectoryProperty;
-    public static readonly CoreProperty<string> SubagentsDirectoryProperty;
-    public static readonly CoreProperty<bool> InstallSkillsProperty;
-    public static readonly CoreProperty<bool> InstallSubagentsProperty;
-    public static readonly CoreProperty<bool> InstallMcpProperty;
-    public static readonly CoreProperty<string> McpConfigFileNameProperty;
-    public static readonly CoreProperty<string> McpServersPropertyNameProperty;
-    public static readonly CoreProperty<string> LiveMcpTokenProperty;
-    public static readonly CoreProperty<string> StdioCommandProperty;
-    public static readonly CoreProperty<string> StdioArgumentsProperty;
-    public static readonly CoreProperty<bool> FollowLiveMcpEditsProperty;
-
-    static AiAgentConfig()
+    public AiAgentConfig()
     {
-        AgentIdProperty = ConfigureProperty<string, AiAgentConfig>(nameof(AgentId))
-            .DefaultValue("")
-            .Register();
-
-        InstallScopeProperty = ConfigureProperty<string, AiAgentConfig>(nameof(InstallScope))
-            .DefaultValue("")
-            .Register();
-
-        ProjectRootProperty = ConfigureProperty<string, AiAgentConfig>(nameof(ProjectRoot))
-            .DefaultValue("")
-            .Register();
-
-        SkillsDirectoryProperty = ConfigureProperty<string, AiAgentConfig>(nameof(SkillsDirectory))
-            .DefaultValue("")
-            .Register();
-
-        SubagentsDirectoryProperty = ConfigureProperty<string, AiAgentConfig>(nameof(SubagentsDirectory))
-            .DefaultValue("")
-            .Register();
-
-        InstallSkillsProperty = ConfigureProperty<bool, AiAgentConfig>(nameof(InstallSkills))
-            .DefaultValue(true)
-            .Register();
-
-        InstallSubagentsProperty = ConfigureProperty<bool, AiAgentConfig>(nameof(InstallSubagents))
-            .DefaultValue(true)
-            .Register();
-
-        // One MCP server covers live editing of running editors and headless file editing.
-        InstallMcpProperty = ConfigureProperty<bool, AiAgentConfig>(nameof(InstallMcp))
-            .DefaultValue(true)
-            .Register();
-
-        McpConfigFileNameProperty = ConfigureProperty<string, AiAgentConfig>(nameof(McpConfigFileName))
-            .DefaultValue("")
-            .Register();
-
-        McpServersPropertyNameProperty = ConfigureProperty<string, AiAgentConfig>(nameof(McpServersPropertyName))
-            .DefaultValue("")
-            .Register();
-
-        // Keep legacy settings until migration succeeds, then omit this property from new saves.
-        LiveMcpTokenProperty = ConfigureProperty<string, AiAgentConfig>(nameof(LiveMcpToken))
-            .DefaultValue("")
-            .Register();
-
-        // Empty means "use the detected stdio launcher"; a non-empty value is the user's override,
-        // which must survive reopening the settings page.
-        StdioCommandProperty = ConfigureProperty<string, AiAgentConfig>(nameof(StdioCommand))
-            .DefaultValue("")
-            .Register();
-
-        StdioArgumentsProperty = ConfigureProperty<string, AiAgentConfig>(nameof(StdioArguments))
-            .DefaultValue("")
-            .Register();
-
-        // Experimental: move the editor to each live MCP edit and rendered frame. Off by default
-        // because it takes over the selection, playhead and scroll position.
-        FollowLiveMcpEditsProperty = ConfigureProperty<bool, AiAgentConfig>(nameof(FollowLiveMcpEdits))
-            .DefaultValue(false)
-            .Register();
+        ScanProperties<AiAgentConfig>();
     }
+
+    public IProperty<string> AgentIdProperty { get; } = new ValueOnlyProperty<string>("");
+
+    public IProperty<string> InstallScopeProperty { get; } = new ValueOnlyProperty<string>("");
+
+    public IProperty<string> ProjectRootProperty { get; } = new ValueOnlyProperty<string>("");
+
+    public IProperty<string> SkillsDirectoryProperty { get; } = new ValueOnlyProperty<string>("");
+
+    public IProperty<string> SubagentsDirectoryProperty { get; } = new ValueOnlyProperty<string>("");
+
+    public IProperty<bool> InstallSkillsProperty { get; } = new ValueOnlyProperty<bool>(true);
+
+    public IProperty<bool> InstallSubagentsProperty { get; } = new ValueOnlyProperty<bool>(true);
+
+    // One MCP server covers live editing of running editors and headless file editing.
+    public IProperty<bool> InstallMcpProperty { get; } = new ValueOnlyProperty<bool>(true);
+
+    public IProperty<string> McpConfigFileNameProperty { get; } = new ValueOnlyProperty<string>("");
+
+    public IProperty<string> McpServersPropertyNameProperty { get; } = new ValueOnlyProperty<string>("");
+
+    // Keep legacy settings until migration succeeds, then omit this property from new saves.
+    public IProperty<string> LiveMcpTokenProperty { get; } = new ValueOnlyProperty<string>("");
+
+    // Empty means "use the detected stdio launcher"; a non-empty value is the user's override, which must
+    // survive reopening the settings page.
+    public IProperty<string> StdioCommandProperty { get; } = new ValueOnlyProperty<string>("");
+
+    public IProperty<string> StdioArgumentsProperty { get; } = new ValueOnlyProperty<string>("");
+
+    // Experimental: move the editor to each live MCP edit and rendered frame. Off by default because it
+    // takes over the selection, playhead and scroll position.
+    public IProperty<bool> FollowLiveMcpEditsProperty { get; } = new ValueOnlyProperty<bool>(false);
 
     // Empty means "use the host-computed default" (first catalog agent, project
     // scope, or the selected agent's own conventions).
     public string AgentId
     {
-        get => GetValue(AgentIdProperty);
-        set => SetValue(AgentIdProperty, value);
+        get => AgentIdProperty.Value;
+        set => AgentIdProperty.Value = value;
     }
 
     public string InstallScope
     {
-        get => GetValue(InstallScopeProperty);
-        set => SetValue(InstallScopeProperty, value);
+        get => InstallScopeProperty.Value;
+        set => InstallScopeProperty.Value = value;
     }
 
     public string ProjectRoot
     {
-        get => GetValue(ProjectRootProperty);
-        set => SetValue(ProjectRootProperty, value);
+        get => ProjectRootProperty.Value;
+        set => ProjectRootProperty.Value = value;
     }
 
     public string SkillsDirectory
     {
-        get => GetValue(SkillsDirectoryProperty);
-        set => SetValue(SkillsDirectoryProperty, value);
+        get => SkillsDirectoryProperty.Value;
+        set => SkillsDirectoryProperty.Value = value;
     }
 
     public string SubagentsDirectory
     {
-        get => GetValue(SubagentsDirectoryProperty);
-        set => SetValue(SubagentsDirectoryProperty, value);
+        get => SubagentsDirectoryProperty.Value;
+        set => SubagentsDirectoryProperty.Value = value;
     }
 
     public bool InstallSkills
     {
-        get => GetValue(InstallSkillsProperty);
-        set => SetValue(InstallSkillsProperty, value);
+        get => InstallSkillsProperty.Value;
+        set => InstallSkillsProperty.Value = value;
     }
 
     public bool InstallSubagents
     {
-        get => GetValue(InstallSubagentsProperty);
-        set => SetValue(InstallSubagentsProperty, value);
+        get => InstallSubagentsProperty.Value;
+        set => InstallSubagentsProperty.Value = value;
     }
 
     public bool InstallMcp
     {
-        get => GetValue(InstallMcpProperty);
-        set => SetValue(InstallMcpProperty, value);
+        get => InstallMcpProperty.Value;
+        set => InstallMcpProperty.Value = value;
     }
 
     public string McpConfigFileName
     {
-        get => GetValue(McpConfigFileNameProperty);
-        set => SetValue(McpConfigFileNameProperty, value);
+        get => McpConfigFileNameProperty.Value;
+        set => McpConfigFileNameProperty.Value = value;
     }
 
     public string McpServersPropertyName
     {
-        get => GetValue(McpServersPropertyNameProperty);
-        set => SetValue(McpServersPropertyNameProperty, value);
+        get => McpServersPropertyNameProperty.Value;
+        set => McpServersPropertyNameProperty.Value = value;
     }
 
     public string LiveMcpToken
     {
-        get => GetValue(LiveMcpTokenProperty);
-        set => SetValue(LiveMcpTokenProperty, value);
+        get => LiveMcpTokenProperty.Value;
+        set => LiveMcpTokenProperty.Value = value;
     }
 
     public string StdioCommand
     {
-        get => GetValue(StdioCommandProperty);
-        set => SetValue(StdioCommandProperty, value);
+        get => StdioCommandProperty.Value;
+        set => StdioCommandProperty.Value = value;
     }
 
     public string StdioArguments
     {
-        get => GetValue(StdioArgumentsProperty);
-        set => SetValue(StdioArgumentsProperty, value);
+        get => StdioArgumentsProperty.Value;
+        set => StdioArgumentsProperty.Value = value;
     }
 
     public bool FollowLiveMcpEdits
     {
-        get => GetValue(FollowLiveMcpEditsProperty);
-        set => SetValue(FollowLiveMcpEditsProperty, value);
+        get => FollowLiveMcpEditsProperty.Value;
+        set => FollowLiveMcpEditsProperty.Value = value;
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)

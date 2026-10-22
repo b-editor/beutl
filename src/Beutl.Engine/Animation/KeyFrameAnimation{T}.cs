@@ -39,7 +39,7 @@ public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpressio
 
     // Serialize and Deserialize write and read the key frames themselves.
     [NotAutoSerialized]
-    public IProperty<KeyFrames> KeyFramesProperty { get; } = Property.CreateValue<KeyFrames>(null!);
+    public IProperty<KeyFrames> KeyFramesProperty { get; } = new ValueOnlyProperty<KeyFrames>(null!) { KeepsList = true };
 
     public bool UseGlobalClock
     {

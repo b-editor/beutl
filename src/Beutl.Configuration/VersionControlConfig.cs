@@ -4,75 +4,57 @@ namespace Beutl.Configuration;
 
 public sealed class VersionControlConfig : ConfigurationBase
 {
-    public static readonly CoreProperty<bool> EnableForNewProjectsProperty;
-    public static readonly CoreProperty<bool> AutoCommitOnSaveProperty;
-    public static readonly CoreProperty<bool> AutoCommitOnCloseProperty;
-    public static readonly CoreProperty<string?> GitExecutablePathProperty;
-    public static readonly CoreProperty<bool> UseLfsWhenAvailableProperty;
-    public static readonly CoreProperty<int> LargeMediaWarningThresholdMbProperty;
-
-    static VersionControlConfig()
+    public VersionControlConfig()
     {
-        EnableForNewProjectsProperty = ConfigureProperty<bool, VersionControlConfig>(nameof(EnableForNewProjects))
-            .DefaultValue(true)
-            .Register();
-
-        AutoCommitOnSaveProperty = ConfigureProperty<bool, VersionControlConfig>(nameof(AutoCommitOnSave))
-            .DefaultValue(true)
-            .Register();
-
-        AutoCommitOnCloseProperty = ConfigureProperty<bool, VersionControlConfig>(nameof(AutoCommitOnClose))
-            .DefaultValue(true)
-            .Register();
-
-        GitExecutablePathProperty = ConfigureProperty<string?, VersionControlConfig>(nameof(GitExecutablePath))
-            .DefaultValue(null)
-            .Register();
-
-        UseLfsWhenAvailableProperty = ConfigureProperty<bool, VersionControlConfig>(nameof(UseLfsWhenAvailable))
-            .DefaultValue(true)
-            .Register();
-
-        LargeMediaWarningThresholdMbProperty
-            = ConfigureProperty<int, VersionControlConfig>(nameof(LargeMediaWarningThresholdMb))
-                .DefaultValue(50)
-                .Register();
+        ScanProperties<VersionControlConfig>();
     }
+
+    public IProperty<bool> EnableForNewProjectsProperty { get; } = new ValueOnlyProperty<bool>(true);
+
+    public IProperty<bool> AutoCommitOnSaveProperty { get; } = new ValueOnlyProperty<bool>(true);
+
+    public IProperty<bool> AutoCommitOnCloseProperty { get; } = new ValueOnlyProperty<bool>(true);
+
+    public IProperty<string?> GitExecutablePathProperty { get; } = new ValueOnlyProperty<string?>(null);
+
+    public IProperty<bool> UseLfsWhenAvailableProperty { get; } = new ValueOnlyProperty<bool>(true);
+
+    public IProperty<int> LargeMediaWarningThresholdMbProperty { get; } = new ValueOnlyProperty<int>(50);
 
     public bool EnableForNewProjects
     {
-        get => GetValue(EnableForNewProjectsProperty);
-        set => SetValue(EnableForNewProjectsProperty, value);
+        get => EnableForNewProjectsProperty.Value;
+        set => EnableForNewProjectsProperty.Value = value;
     }
 
     public bool AutoCommitOnSave
     {
-        get => GetValue(AutoCommitOnSaveProperty);
-        set => SetValue(AutoCommitOnSaveProperty, value);
+        get => AutoCommitOnSaveProperty.Value;
+        set => AutoCommitOnSaveProperty.Value = value;
     }
 
     public bool AutoCommitOnClose
     {
-        get => GetValue(AutoCommitOnCloseProperty);
-        set => SetValue(AutoCommitOnCloseProperty, value);
+        get => AutoCommitOnCloseProperty.Value;
+        set => AutoCommitOnCloseProperty.Value = value;
     }
 
     public string? GitExecutablePath
     {
-        get => GetValue(GitExecutablePathProperty);
-        set => SetValue(GitExecutablePathProperty, value);
+        get => GitExecutablePathProperty.Value;
+        set => GitExecutablePathProperty.Value = value;
     }
 
     public bool UseLfsWhenAvailable
     {
-        get => GetValue(UseLfsWhenAvailableProperty);
-        set => SetValue(UseLfsWhenAvailableProperty, value);
+        get => UseLfsWhenAvailableProperty.Value;
+        set => UseLfsWhenAvailableProperty.Value = value;
     }
 
     public int LargeMediaWarningThresholdMb
     {
-        get => GetValue(LargeMediaWarningThresholdMbProperty);
-        set => SetValue(LargeMediaWarningThresholdMbProperty, value);
+        get => LargeMediaWarningThresholdMbProperty.Value;
+        set => LargeMediaWarningThresholdMbProperty.Value = value;
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)

@@ -28,7 +28,7 @@ public sealed class EncoderOptionsEditorViewModelTests
         var loaded = manager.LoadPackageExtensions([typeof(FFmpegEncoderSpecializedPropertyExtension)]);
         var extension = (PropertyEditorExtension)loaded.Single();
         var settings = CreateSettings();
-        var adapter = new CorePropertyAdapter<CoreList<AdditionalOption>>(FFmpegVideoEncoderSettings.OptionsProperty, settings);
+        var adapter = new EnginePropertyAdapter<CoreList<AdditionalOption>>(settings.OptionsProperty, settings);
         Assert.That(extension.MatchProperty([adapter]), Is.EqualTo(new[] { adapter }));
         extension.Unload();
     }
@@ -227,7 +227,7 @@ public sealed class EncoderOptionsEditorViewModelTests
     }
 
     private static EncoderOptionsEditorViewModel CreateModel(FFmpegVideoEncoderSettings settings)
-        => new(new CorePropertyAdapter<CoreList<AdditionalOption>>(FFmpegVideoEncoderSettings.OptionsProperty, settings),
+        => new(new EnginePropertyAdapter<CoreList<AdditionalOption>>(settings.OptionsProperty, settings),
             new FFmpegEncoderSpecializedPropertyExtension());
 
     private static Task<OptionsQueryResult<EncoderOptionInfo>> Cache(FFmpegVideoEncoderSettings settings, EncoderOptionInfo[] schema)

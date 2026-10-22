@@ -140,7 +140,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         GoToPreviousGap = new ReactiveCommandSlim().WithSubscribe(() => GoToGap(forward: false)).DisposeWith(_disposables);
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
 
-        AutoAdjustSceneDuration = editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty)
+        AutoAdjustSceneDuration = editorConfig.AutoAdjustSceneDurationProperty.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
         AutoAdjustSceneDuration.Subscribe(b =>
@@ -149,13 +149,13 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             editorConfig.AutoAdjustSceneDuration = b;
         });
 
-        IsSnapEnabled = editorConfig.GetObservable(EditorConfig.IsTimelineSnapEnabledProperty)
+        IsSnapEnabled = editorConfig.IsTimelineSnapEnabledProperty.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
         IsSnapEnabled.Subscribe(b => editorConfig.IsTimelineSnapEnabled = b)
             .DisposeWith(_disposables);
 
-        IsRippleEnabled = editorConfig.GetObservable(EditorConfig.IsRippleEnabledProperty)
+        IsRippleEnabled = editorConfig.IsRippleEnabledProperty.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
         IsRippleEnabled.Subscribe(b => editorConfig.IsRippleEnabled = b)

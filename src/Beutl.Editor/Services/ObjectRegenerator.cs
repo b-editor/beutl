@@ -195,7 +195,7 @@ public static class ObjectRegenerator
             ScanProperties<ListWrapper<T>>();
         }
 
-        public IProperty<CoreList<T>> ItemsProperty { get; } = new ValueOnlyProperty<CoreList<T>>(null!);
+        public IProperty<CoreList<T>> ItemsProperty { get; } = new ValueOnlyProperty<CoreList<T>>(null!) { KeepsList = true };
 
         public CoreList<T> Items
         {

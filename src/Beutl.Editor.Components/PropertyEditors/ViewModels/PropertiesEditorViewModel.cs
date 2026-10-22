@@ -88,8 +88,7 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
         props.AddRange(coreObject.Properties.Where(coreObject.IsOwnField).Select(CreateAdapter));
         AddContexts(props);
 
-        IPropertyAdapter CreateAdapter(IProperty property) => (IPropertyAdapter)Activator.CreateInstance(
-            typeof(EnginePropertyAdapter<>).MakeGenericType(property.ValueType), property, coreObject)!;
+        IPropertyAdapter CreateAdapter(IProperty property) => CoreObjectPropertyEditorBuilder.CreateAdapter(property, coreObject);
     }
 
     private void AddContexts(List<IPropertyAdapter> props)

@@ -104,9 +104,9 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         // would cancel in-flight generation. Both apply synchronously on the UI thread, so Current is
         // never torn, and Skip(1) drops the replay of the current value.
         services._configSubscription = new CompositeDisposable(
-            config.GetObservable(ProxyStoreConfig.StoreRootPathProperty).Skip(1)
+            config.StoreRootPathProperty.GetObservable().Skip(1)
                 .Subscribe(_ => services.ReinitializeStore(config.StoreRootPath, config.MaxTotalBytes)),
-            config.GetObservable(ProxyStoreConfig.MaxTotalBytesProperty).Skip(1)
+            config.MaxTotalBytesProperty.GetObservable().Skip(1)
                 .Subscribe(_ => services.UpdateEvictionCap(config.MaxTotalBytes)));
 
         _ = Task.Run(() => ReconcileAndSweepAsync(store, eviction));

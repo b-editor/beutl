@@ -16,7 +16,7 @@ public abstract partial class GraphNode : EngineObject
 {
     private readonly HierarchicalList<INodeMember> _items;
     private readonly HierarchicalList<INestedInputPort> _nestedInputPorts;
-    private readonly ValueOnlyProperty<ICoreList<INestedInputPort>> _nestedInputPortsProperty = new(null!) { AffectsRender = false };
+    private readonly ValueOnlyProperty<ICoreList<INestedInputPort>> _nestedInputPortsProperty = new(null!) { AffectsRender = false, KeepsList = true };
     private readonly NestedInputPortManager _nestedPortManager;
     private IInputPort[]? _connectedInputs;
 
@@ -86,7 +86,7 @@ public abstract partial class GraphNode : EngineObject
 
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]
-    public IProperty<ICoreList<INodeMember>> ItemsProperty { get; } = new ValueOnlyProperty<ICoreList<INodeMember>>(null!) { AffectsRender = false };
+    public IProperty<ICoreList<INodeMember>> ItemsProperty { get; } = new ValueOnlyProperty<ICoreList<INodeMember>>(null!) { AffectsRender = false, KeepsList = true };
 
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]

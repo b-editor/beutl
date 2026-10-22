@@ -200,23 +200,23 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             })
             .DisposeWith(_disposables);
 
-        ToneMappingMode = GlobalConfiguration.Instance.EditorConfig.GetObservable(EditorConfig.ToneMappingModeProperty)
+        ToneMappingMode = GlobalConfiguration.Instance.EditorConfig.ToneMappingModeProperty.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        ToneMappingExposure = GlobalConfiguration.Instance.EditorConfig.GetObservable(EditorConfig.ToneMappingExposureProperty)
+        ToneMappingExposure = GlobalConfiguration.Instance.EditorConfig.ToneMappingExposureProperty.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
 
         // Re-render when an onion-skin setting changes.
-        editorConfig.GetObservable(EditorConfig.IsOnionSkinEnabledProperty)
+        editorConfig.IsOnionSkinEnabledProperty.GetObservable()
             .CombineLatest(
-                editorConfig.GetObservable(EditorConfig.OnionSkinPrevCountProperty),
-                editorConfig.GetObservable(EditorConfig.OnionSkinNextCountProperty),
-                editorConfig.GetObservable(EditorConfig.OnionSkinPrevOpacityProperty),
-                editorConfig.GetObservable(EditorConfig.OnionSkinNextOpacityProperty))
+                editorConfig.OnionSkinPrevCountProperty.GetObservable(),
+                editorConfig.OnionSkinNextCountProperty.GetObservable(),
+                editorConfig.OnionSkinPrevOpacityProperty.GetObservable(),
+                editorConfig.OnionSkinNextOpacityProperty.GetObservable())
             .Skip(1)
             .Subscribe(_ =>
             {

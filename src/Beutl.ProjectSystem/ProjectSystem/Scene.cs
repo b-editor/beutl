@@ -81,7 +81,7 @@ public partial class Scene : ProjectItem, INotifyEdited
 
     // Serialize and Deserialize write and read the elements, groups and markers themselves.
     [NotAutoSerialized]
-    public IProperty<Elements> ChildrenProperty { get; } = new ValueOnlyProperty<Elements>(null!);
+    public IProperty<Elements> ChildrenProperty { get; } = new ValueOnlyProperty<Elements>(null!) { KeepsList = true };
 
     [Display(Name = nameof(Strings.StartTime), ResourceType = typeof(Strings))]
     public IProperty<TimeSpan> StartProperty { get; } = new ValueOnlyProperty<TimeSpan>(TimeSpan.Zero) { Coerce = static (_, value) => NotNegative(value) };
@@ -90,12 +90,12 @@ public partial class Scene : ProjectItem, INotifyEdited
     public IProperty<TimeSpan> DurationProperty { get; } = new ValueOnlyProperty<TimeSpan>(TimeSpan.Zero) { Coerce = static (_, value) => NotNegative(value) };
 
     [NotAutoSerialized]
-    public IProperty<CoreList<ImmutableHashSet<Guid>>> GroupsProperty { get; } = new ValueOnlyProperty<CoreList<ImmutableHashSet<Guid>>>(null!);
+    public IProperty<CoreList<ImmutableHashSet<Guid>>> GroupsProperty { get; } = new ValueOnlyProperty<CoreList<ImmutableHashSet<Guid>>>(null!) { KeepsList = true };
 
-    public IProperty<CoreList<TimelineLayer>> LayersProperty { get; } = new ValueOnlyProperty<CoreList<TimelineLayer>>(null!);
+    public IProperty<CoreList<TimelineLayer>> LayersProperty { get; } = new ValueOnlyProperty<CoreList<TimelineLayer>>(null!) { KeepsList = true };
 
     [NotAutoSerialized]
-    public IProperty<CoreList<SceneMarker>> MarkersProperty { get; } = new ValueOnlyProperty<CoreList<SceneMarker>>(null!);
+    public IProperty<CoreList<SceneMarker>> MarkersProperty { get; } = new ValueOnlyProperty<CoreList<SceneMarker>>(null!) { KeepsList = true };
 
     public PixelSize FrameSize
     {

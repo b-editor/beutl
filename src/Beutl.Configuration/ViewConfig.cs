@@ -11,144 +11,110 @@ namespace Beutl.Configuration;
 [DroppedMembers("ShowStorageServices")]
 public sealed class ViewConfig : ConfigurationBase
 {
-    public static readonly CoreProperty<string> ThemeProperty;
-    public static readonly CoreProperty<CultureInfo> UICultureProperty;
-    public static readonly CoreProperty<(int X, int Y)?> WindowPositionProperty;
-    public static readonly CoreProperty<(int Width, int Height)?> WindowSizeProperty;
-    public static readonly CoreProperty<bool?> IsWindowMaximizedProperty;
-    public static readonly CoreProperty<bool> UseCustomAccentColorProperty;
-    public static readonly CoreProperty<string?> CustomAccentColorProperty;
-    public static readonly CoreProperty<bool> ShowExactBoundariesProperty;
-    public static readonly CoreProperty<CoreList<string>> RecentFilesProperty;
-    public static readonly CoreProperty<CoreList<string>> RecentProjectsProperty;
-    public static readonly CoreProperty<CoreList<string>> PinnedToolTabsProperty;
-    public static readonly CoreProperty<string?> LastOpenedProjectFileProperty;
     private readonly CoreList<string> _recentFiles = [];
     private readonly CoreList<string> _recentProjects = [];
     private readonly CoreList<string> _pinnedToolTabs = [];
-    private bool _showExactBoundaries = false;
 
     // Extension ids must remain outside BuiltinThemeIds, whose normalization defines reserved ids.
     private const string DefaultThemeId = FirstPartyThemeIds.DarkBorder;
 
-    static ViewConfig()
-    {
-        ThemeProperty = ConfigureProperty<string, ViewConfig>(nameof(Theme))
-            .DefaultValue(DefaultThemeId)
-            .Register();
-
-        UICultureProperty = ConfigureProperty<CultureInfo, ViewConfig>(nameof(UICulture))
-            .DefaultValue(CultureInfo.InstalledUICulture)
-            .Register();
-
-        WindowPositionProperty = ConfigureProperty<(int X, int Y)?, ViewConfig>(nameof(WindowPosition))
-            .DefaultValue(null)
-            .Register();
-
-        WindowSizeProperty = ConfigureProperty<(int Width, int Height)?, ViewConfig>(nameof(WindowSize))
-            .DefaultValue(null)
-            .Register();
-
-        IsWindowMaximizedProperty = ConfigureProperty<bool?, ViewConfig>(nameof(IsWindowMaximized))
-            .DefaultValue(null)
-            .Register();
-
-        UseCustomAccentColorProperty = ConfigureProperty<bool, ViewConfig>(nameof(UseCustomAccentColor))
-            .DefaultValue(false)
-            .Register();
-
-        CustomAccentColorProperty = ConfigureProperty<string?, ViewConfig>(nameof(CustomAccentColor))
-            .DefaultValue(null)
-            .Register();
-
-        ShowExactBoundariesProperty = ConfigureProperty<bool, ViewConfig>(nameof(ShowExactBoundaries))
-            .Accessor(o => o.ShowExactBoundaries, (o, v) => o.ShowExactBoundaries = v)
-            .DefaultValue(false)
-            .Register();
-
-        RecentFilesProperty = ConfigureProperty<CoreList<string>, ViewConfig>(nameof(RecentFiles))
-            .Accessor(o => o.RecentFiles, (o, v) => o.RecentFiles = v)
-            .Register();
-
-        RecentProjectsProperty = ConfigureProperty<CoreList<string>, ViewConfig>(nameof(RecentProjects))
-            .Accessor(o => o.RecentProjects, (o, v) => o.RecentProjects = v)
-            .Register();
-
-        PinnedToolTabsProperty = ConfigureProperty<CoreList<string>, ViewConfig>(nameof(PinnedToolTabs))
-            .Accessor(o => o.PinnedToolTabs, (o, v) => o.PinnedToolTabs = v)
-            .Register();
-
-        LastOpenedProjectFileProperty = ConfigureProperty<string?, ViewConfig>(nameof(LastOpenedProjectFile))
-            .DefaultValue(null)
-            .Register();
-    }
-
     public ViewConfig()
     {
+        // The lists are values rather than defaults, as their CoreProperty forms had no default.
+        RecentFilesProperty.Value = _recentFiles;
+        RecentProjectsProperty.Value = _recentProjects;
+        PinnedToolTabsProperty.Value = _pinnedToolTabs;
+        ScanProperties<ViewConfig>();
         _recentFiles.CollectionChanged += (_, _) => OnChanged();
         _recentProjects.CollectionChanged += (_, _) => OnChanged();
         _pinnedToolTabs.CollectionChanged += (_, _) => OnChanged();
     }
 
+    // Serialize and Deserialize write and read the theme, the window bounds and the lists themselves.
     [NotAutoSerialized]
+    public IProperty<string> ThemeProperty { get; } = new ValueOnlyProperty<string>(DefaultThemeId);
+
+    public IProperty<CultureInfo> UICultureProperty { get; } = new ValueOnlyProperty<CultureInfo>(CultureInfo.InstalledUICulture);
+
+    [NotAutoSerialized]
+    public IProperty<(int X, int Y)?> WindowPositionProperty { get; } = new ValueOnlyProperty<(int X, int Y)?>(null);
+
+    [NotAutoSerialized]
+    public IProperty<(int Width, int Height)?> WindowSizeProperty { get; } = new ValueOnlyProperty<(int Width, int Height)?>(null);
+
+    public IProperty<bool?> IsWindowMaximizedProperty { get; } = new ValueOnlyProperty<bool?>(null);
+
+    public IProperty<bool> UseCustomAccentColorProperty { get; } = new ValueOnlyProperty<bool>(false);
+
+    public IProperty<string?> CustomAccentColorProperty { get; } = new ValueOnlyProperty<string?>(null);
+
+    public IProperty<bool> ShowExactBoundariesProperty { get; } = new ValueOnlyProperty<bool>(false);
+
+    [NotAutoSerialized]
+    public IProperty<CoreList<string>> RecentFilesProperty { get; } = new ValueOnlyProperty<CoreList<string>>(null!) { KeepsList = true };
+
+    [NotAutoSerialized]
+    public IProperty<CoreList<string>> RecentProjectsProperty { get; } = new ValueOnlyProperty<CoreList<string>>(null!) { KeepsList = true };
+
+    [NotAutoSerialized]
+    public IProperty<CoreList<string>> PinnedToolTabsProperty { get; } = new ValueOnlyProperty<CoreList<string>>(null!) { KeepsList = true };
+
+    public IProperty<string?> LastOpenedProjectFileProperty { get; } = new ValueOnlyProperty<string?>(null);
+
     public string Theme
     {
-        get => GetValue(ThemeProperty);
-        set => SetValue(ThemeProperty, value);
+        get => ThemeProperty.Value;
+        set => ThemeProperty.Value = value;
     }
 
     public CultureInfo UICulture
     {
-        get => GetValue(UICultureProperty);
-        set => SetValue(UICultureProperty, value);
+        get => UICultureProperty.Value;
+        set => UICultureProperty.Value = value;
     }
 
-    [NotAutoSerialized]
     public (int X, int Y)? WindowPosition
     {
-        get => GetValue(WindowPositionProperty);
-        set => SetValue(WindowPositionProperty, value);
+        get => WindowPositionProperty.Value;
+        set => WindowPositionProperty.Value = value;
     }
 
-    [NotAutoSerialized]
     public (int Width, int Height)? WindowSize
     {
-        get => GetValue(WindowSizeProperty);
-        set => SetValue(WindowSizeProperty, value);
+        get => WindowSizeProperty.Value;
+        set => WindowSizeProperty.Value = value;
     }
 
     public bool? IsWindowMaximized
     {
-        get => GetValue(IsWindowMaximizedProperty);
-        set => SetValue(IsWindowMaximizedProperty, value);
+        get => IsWindowMaximizedProperty.Value;
+        set => IsWindowMaximizedProperty.Value = value;
     }
 
     public bool UseCustomAccentColor
     {
-        get => GetValue(UseCustomAccentColorProperty);
-        set => SetValue(UseCustomAccentColorProperty, value);
+        get => UseCustomAccentColorProperty.Value;
+        set => UseCustomAccentColorProperty.Value = value;
     }
 
     public string? CustomAccentColor
     {
-        get => GetValue(CustomAccentColorProperty);
-        set => SetValue(CustomAccentColorProperty, value);
+        get => CustomAccentColorProperty.Value;
+        set => CustomAccentColorProperty.Value = value;
     }
 
     public bool ShowExactBoundaries
     {
-        get => _showExactBoundaries;
-        set => SetAndRaise(ShowExactBoundariesProperty, ref _showExactBoundaries, value);
+        get => ShowExactBoundariesProperty.Value;
+        set => ShowExactBoundariesProperty.Value = value;
     }
 
-    [NotAutoSerialized]
     public CoreList<string> RecentFiles
     {
         get => _recentFiles;
         set => _recentFiles.Replace(value);
     }
 
-    [NotAutoSerialized]
     public CoreList<string> RecentProjects
     {
         get => _recentProjects;
@@ -159,7 +125,6 @@ public sealed class ViewConfig : ConfigurationBase
     /// Gets or sets the tool tabs pinned to the top of the new-tab page, as extension type names in
     /// the order they were pinned.
     /// </summary>
-    [NotAutoSerialized]
     public CoreList<string> PinnedToolTabs
     {
         get => _pinnedToolTabs;
@@ -168,8 +133,8 @@ public sealed class ViewConfig : ConfigurationBase
 
     public string? LastOpenedProjectFile
     {
-        get => GetValue(LastOpenedProjectFileProperty);
-        set => SetValue(LastOpenedProjectFileProperty, value);
+        get => LastOpenedProjectFileProperty.Value;
+        set => LastOpenedProjectFileProperty.Value = value;
     }
 
     public override void Deserialize(ICoreSerializationContext context)

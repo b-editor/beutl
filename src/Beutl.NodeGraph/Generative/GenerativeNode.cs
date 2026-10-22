@@ -62,7 +62,7 @@ public abstract partial class GenerativeNode : GraphNode
 
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]
-    public IProperty<HierarchicalList<GenerationRecord>> GenerationsProperty { get; } = new ValueOnlyProperty<HierarchicalList<GenerationRecord>>(null!) { AffectsRender = false };
+    public IProperty<HierarchicalList<GenerationRecord>> GenerationsProperty { get; } = new ValueOnlyProperty<HierarchicalList<GenerationRecord>>(null!) { AffectsRender = false, KeepsList = true };
 
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]
