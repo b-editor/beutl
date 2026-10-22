@@ -19,7 +19,7 @@ internal sealed class MediaTimeJsonConverter : JsonConverter<MediaTime>
 
     internal static bool ReadsOnFrameGrid => s_frameGrid.Value is not null;
 
-    // While a project's files are read, a time within a tick of one of its frames reads as that frame.
+    // While a project's files are read, a time less than two ticks from one of its frames reads as that frame.
     internal static IDisposable ReadOnFrameGrid(Rational rate)
     {
         Rational? previous = s_frameGrid.Value;
@@ -27,7 +27,7 @@ internal sealed class MediaTimeJsonConverter : JsonConverter<MediaTime>
         return Disposable.Create(() => s_frameGrid.Value = previous);
     }
 
-    // Ticks from a file read as the frame of `rate` within a tick of them, or else rounded up to a flick.
+    // Ticks from a file read as the frame of `rate` less than two ticks from them, or else rounded up to a flick.
     internal static MediaTime FromFileTicks(long ticks, Rational? rate)
     {
         var time = MediaTime.FromTicks(ticks, MidpointRounding.ToPositiveInfinity);
@@ -36,8 +36,10 @@ internal sealed class MediaTimeJsonConverter : JsonConverter<MediaTime>
 
         long below = frame.ToTicks(MidpointRounding.ToNegativeInfinity);
         long above = frame.ToTicks(MidpointRounding.ToPositiveInfinity);
-        bool withinATick = below == above ? Math.Abs(ticks - below) <= 1 : ticks == below || ticks == above;
-        return withinATick ? frame : time;
+        bool lessThanTwoTicks = below == above
+            ? Math.Abs(ticks - below) <= 1
+            : ticks >= below - 1 && ticks <= above + 1;
+        return lessThanTwoTicks ? frame : time;
     }
 
     // Copies that stay in this process (snapshots, duplicates, the clipboard) write exact flicks instead.

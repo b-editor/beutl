@@ -1,14 +1,16 @@
 ﻿using System.Globalization;
 using System.Text.Json;
+using Beutl.Editor.Services;
 using Beutl.JsonConverters;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.ProjectSystem;
 
-// A project's files keep TimeSpan strings, which fall up to a tick short of most frames. Read into the project, a time
-// within a tick of one of its frames reads as that frame, so reopened clips meet clips made in the session (#2885).
+// A project's files keep TimeSpan strings, which fall short of most frames. Read into the project, a time less than two
+// ticks from one of its frames reads as that frame, so reopened clips meet clips made in the session (#2885).
 [TestFixture]
 public sealed class ProjectFrameGridReadTests
 {
@@ -77,15 +79,11 @@ public sealed class ProjectFrameGridReadTests
     public void A_reopened_project_saves_its_strings_and_a_frame_written_a_tick_early_on_its_tick(string rateText)
     {
         Rational rate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
-        Uri uri = Save(rateText, rate, out Element first);
+        Element first = NewElement(0, 30, rate);
+        Uri uri = Save(rateText, first, NewElement(61, 9, rate));
         Dictionary<string, byte[]> saved = ReadFiles();
         long frameTicks = MediaTime.FromFrames(30, rate).ToTicks(MidpointRounding.ToNegativeInfinity);
-        string file = first.Uri!.LocalPath;
-        string text = File.ReadAllText(file);
-        string early = text.Replace(
-            $"\"Length\": \"{TimeSpan.FromTicks(frameTicks):c}\"", $"\"Length\": \"{TimeSpan.FromTicks(frameTicks - 1):c}\"");
-        Assert.That(early, Is.Not.EqualTo(text));
-        File.WriteAllText(file, early);
+        WriteAsEarlier(first, "Length", frameTicks, frameTicks - 1);
 
         Project reopened = CoreSerializer.RestoreFromUri<Project>(uri);
         Element read = ((Scene)reopened.Items.Single()).Children.Single(element => element.Id == first.Id);
@@ -98,11 +96,36 @@ public sealed class ProjectFrameGridReadTests
         });
     }
 
-    // A whole-tick frame takes a tick either side, as earlier versions wrote some a tick early; others take both ticks.
+    // An earlier version rounded a moved clip's start and length down apart: frames 2 to 4 ended at 1,333,332 ticks.
+    [Test]
+    public void A_clip_an_earlier_version_moved_splits_at_its_last_frame_and_touches_the_next()
+    {
+        var rate = new Rational(30);
+        Element moved = NewElement(2, 2, rate);
+        Element next = NewElement(4, 3, rate);
+        Uri uri = Save("30", moved, next);
+        WriteAsEarlier(moved, "Length", 666_667, 666_666);
+
+        var scene = (Scene)CoreSerializer.RestoreFromUri<Project>(uri).Items.Single();
+        Element front = scene.Children.Single(element => element.Id == moved.Id);
+        Element after = scene.Children.Single(element => element.Id == next.Id);
+        using var history = new HistoryHarness(scene);
+        new ElementStructureService(history.History).Split(scene, [front], MediaTime.FromFrames(3, rate));
+
+        Assert.That(scene.Children, Has.Count.EqualTo(3));
+        Element back = scene.Children.Single(element => element != front && element != after);
+        Assert.Multiple(() =>
+        {
+            Assert.That(front.Range, Is.EqualTo(new TimeRange(MediaTime.FromFrames(2, rate), MediaTime.FromFrames(1, rate))));
+            Assert.That(back.Range.End, Is.EqualTo(MediaTime.FromFrames(4, rate)).And.EqualTo(after.Start));
+        });
+    }
+
+    // A frame takes the ticks less than two ticks from it; ticks two away from a whole-tick frame keep their time.
     [TestCase(30, 1)]
     [TestCase(30000, 1001)]
     [TestCase(24000, 1001)]
-    public void Ticks_within_a_tick_of_a_frame_read_as_that_frame(long numerator, long denominator)
+    public void Ticks_less_than_two_ticks_from_a_frame_read_as_that_frame(long numerator, long denominator)
     {
         var rate = new Rational(numerator, denominator);
         var mismatches = new List<string>();
@@ -111,8 +134,8 @@ public sealed class ProjectFrameGridReadTests
             MediaTime time = MediaTime.FromFrames(frame, rate);
             long below = time.ToTicks(MidpointRounding.ToNegativeInfinity);
             long above = time.ToTicks(MidpointRounding.ToPositiveInfinity);
-            long[] inside = below == above ? [below - 1, below, below + 1] : [below, above];
-            long[] outside = below == above ? [below - 2, below + 2] : [below - 1, above + 1];
+            long[] inside = below == above ? [below - 1, below, below + 1] : [below - 1, below, above, above + 1];
+            long[] outside = below == above ? [below - 2, below + 2] : [below - 2, above + 2];
             mismatches.AddRange(inside.Where(ticks => MediaTimeJsonConverter.FromFileTicks(ticks, rate) != time)
                 .Select(ticks => $"frame {frame}: {ticks} ticks kept"));
             mismatches.AddRange(outside.Where(ticks => MediaTimeJsonConverter.FromFileTicks(ticks, rate) == time)
@@ -149,22 +172,32 @@ public sealed class ProjectFrameGridReadTests
     private (Scene Scene, Rational Rate) Reopen(string rateText)
     {
         Rational rate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
-        Uri uri = Save(rateText, rate, out _);
+        Uri uri = Save(rateText, NewElement(0, 30, rate), NewElement(61, 9, rate));
         return ((Scene)CoreSerializer.RestoreFromUri<Project>(uri).Items.Single(), rate);
     }
 
-    private Uri Save(string rateText, Rational rate, out Element first)
+    private Uri Save(string rateText, params Element[] elements)
     {
         var uri = new Uri(Path.Combine(_directory, "project.bep"));
         var project = new Project { Uri = uri };
         project.Variables[ProjectVariableKeys.FrameRate] = rateText;
         var scene = new Scene { Uri = new Uri(Path.Combine(_directory, "scene", "scene.scene")) };
-        first = NewElement(0, 30, rate);
-        scene.AddChild(first);
-        scene.AddChild(NewElement(61, 9, rate));
+        foreach (Element element in elements)
+            scene.AddChild(element);
         project.Items.Add(scene);
         CoreSerializer.StoreToUri(project, uri);
         return uri;
+    }
+
+    // Replaces the ticks this version wrote for a time of the element's file with those an earlier version wrote.
+    private static void WriteAsEarlier(Element element, string name, long ticks, long earlierTicks)
+    {
+        string file = element.Uri!.LocalPath;
+        string text = File.ReadAllText(file);
+        string earlier = text.Replace(
+            $"\"{name}\": \"{TimeSpan.FromTicks(ticks):c}\"", $"\"{name}\": \"{TimeSpan.FromTicks(earlierTicks):c}\"");
+        Assert.That(earlier, Is.Not.EqualTo(text));
+        File.WriteAllText(file, earlier);
     }
 
     private Element NewElement(int frame, int count, Rational rate) => new()
