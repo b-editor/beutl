@@ -3,6 +3,7 @@ using System.Runtime.Versioning;
 
 using Beutl.Audio;
 using Beutl.Embedding.MediaFoundation.Decoding;
+using Beutl.Media;
 using Beutl.Media.Decoding;
 
 namespace Beutl.Extensions.MediaFoundation.Tests;
@@ -66,6 +67,23 @@ public class MFAudioVideoSyncTests
         }
     }
 
+    // An MP4 empty edit starts the video of late-video.mp4 0.5 s after its audio; picture and tone switch at 1.5 s.
+    [TestCase(MediaMode.Audio)]
+    [TestCase(MediaMode.AudioVideo)]
+    public void LateVideo_KeepsTheAudioBeforeItAndSwitchesWithIt(MediaMode mode)
+    {
+        using var audio = Open("late-video.mp4", mode);
+        using var video = Open("late-video.mp4", MediaMode.Video);
+
+        Assert.That(audio.AudioInfo.Duration.ToDouble(), Is.EqualTo(2.5).Within(1d / 8000));
+        AssertTone(audio, 0.25, 440);
+        // 20 then 14 seeks back across the keyframe at 1 s into the video.
+        foreach ((int frame, bool red) in new[] { (2, true), (14, true), (15, false), (20, false), (14, true) })
+            AssertCenterColor(video, frame, red);
+        AssertTone(audio, 1.35, 440);
+        AssertTone(audio, 1.65, 880);
+    }
+
     [TestCase("marker-bframes.mp4", MediaMode.Audio, 0.0)]
     [TestCase("marker-bframes.mp4", MediaMode.AudioVideo, 0.0)]
     [TestCase("marker-bframes-no-edit.mp4", MediaMode.Audio, 0.2)]
@@ -120,6 +138,19 @@ public class MFAudioVideoSyncTests
         var reader = new MFDecoderInfo(new MFDecodingExtension()).Open(path, new MediaOptions(mode));
         Assert.That(reader, Is.TypeOf<MFReader>(), $"MF must open {fixture} in {mode} mode");
         return reader!;
+    }
+
+    private static void AssertCenterColor(MediaReader video, int frame, bool red)
+    {
+        Assert.That(video.ReadVideo(frame, out var image), Is.True);
+        using (image)
+        {
+            Bitmap bitmap = image!.Value;
+            nint pixel = bitmap.Data + bitmap.RowBytes * (bitmap.Height / 2) + bitmap.Width / 2 * 4;
+            int dominantChannel = red ? 2 : 0; // BGRA
+            Assert.That(Marshal.ReadByte(pixel, dominantChannel), Is.GreaterThan(240), $"frame {frame}");
+            Assert.That(Marshal.ReadByte(pixel, 2 - dominantChannel), Is.LessThan(10), $"frame {frame}");
+        }
     }
 
     private static void AssertTone(MediaReader reader, double seconds, double expectedFrequency)

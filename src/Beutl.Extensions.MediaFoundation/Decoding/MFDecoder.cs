@@ -135,7 +135,9 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
 
         if (frame < currentFrame || (currentFrame + _thresholdFrameCount) < frame)
         {
-            long destTimePosition = TimestampUtilities.ConvertTimeStampFromFrame(frame, _mediaInfo.Fps);
+            // After an MP4 empty edit, MF's timestamps lag the frame times, and seeking by a frame time would pass it.
+            long destTimePosition = Math.Max(
+                0, TimestampUtilities.ConvertTimeStampFromFrame(frame, _mediaInfo.Fps) + Math.Min(_originTimeStamp, 0));
             try
             {
                 SeekVideo(destTimePosition);
