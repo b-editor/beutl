@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using Beutl.Configuration;
 using Beutl.Extensions.FFmpeg.Decoding;
@@ -144,4 +145,30 @@ public partial class PropertyConversionGoldenTests
 
         AssertGolden(json, "encoder-settings");
     }
+
+    // Each saved section reads back into new settings that write the same JSON.
+    [TestCase("settings", "View", typeof(ViewConfig))]
+    [TestCase("settings", "Telemetry", typeof(TelemetryConfig))]
+    [TestCase("settings", "Editor", typeof(EditorConfig))]
+    [TestCase("settings", "Graphics", typeof(GraphicsConfig))]
+    [TestCase("settings", "Tutorial", typeof(TutorialConfig))]
+    [TestCase("settings", "AiAgent", typeof(AiAgentConfig))]
+    [TestCase("settings", "ProxyStore", typeof(ProxyStoreConfig))]
+    [TestCase("settings", "VersionControl", typeof(VersionControlConfig))]
+    [TestCase("encoder-settings", "Video", typeof(FFmpegVideoEncoderSettings))]
+    [TestCase("encoder-settings", "Audio", typeof(FFmpegAudioEncoderSettings))]
+    [TestCase("encoder-settings", "Encoding", typeof(FFmpegEncodingSettings))]
+    [TestCase("encoder-settings", "Decoding", typeof(FFmpegDecodingSettings))]
+    public void EachSettingsSectionReadsBack(string name, string section, Type type)
+    {
+        var expected = (JsonObject)ReadGolden(name)[section]!;
+        var settings = (ICoreSerializable)Activator.CreateInstance(type)!;
+
+        CoreSerializer.PopulateFromJsonObject(settings, type, (JsonObject)expected.DeepClone());
+
+        Assert.That(CoreSerializer.SerializeToJsonObject(settings).ToJsonString(), Is.EqualTo(expected.ToJsonString()));
+    }
+
+    private static JsonObject ReadGolden(string name, [CallerFilePath] string source = "")
+        => (JsonObject)JsonNode.Parse(File.ReadAllText(Path.Combine(Path.GetDirectoryName(source)!, "Golden", $"{name}.json")))!;
 }

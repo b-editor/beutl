@@ -28,6 +28,36 @@ public class AVFSettingsGoldenTests
         AssertGolden(json, "avf-settings");
     }
 
+    // Each section reads back into new settings that write the same JSON, and a section without values keeps the defaults.
+    [TestCase("Video", typeof(AVFVideoEncoderSettings))]
+    [TestCase("Audio", typeof(AVFAudioEncoderSettings))]
+    [TestCase("Decoding", typeof(AVFDecodingSettings))]
+    public void EachSectionReadsBack(string section, Type type)
+    {
+        var expected = (JsonObject)ReadGolden("avf-settings")[section]!;
+        var settings = (ICoreSerializable)Activator.CreateInstance(type)!;
+        var fromEmpty = (ICoreSerializable)Activator.CreateInstance(type)!;
+
+        CoreSerializer.PopulateFromJsonObject(settings, type, (JsonObject)expected.DeepClone());
+        CoreSerializer.PopulateFromJsonObject(fromEmpty, type, new JsonObject());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CoreSerializer.SerializeToJsonObject(settings).ToJsonString(), Is.EqualTo(expected.ToJsonString()));
+            Assert.That(WithoutId(CoreSerializer.SerializeToJsonObject(fromEmpty)),
+                Is.EqualTo(WithoutId(CoreSerializer.SerializeToJsonObject((ICoreSerializable)Activator.CreateInstance(type)!))));
+        });
+    }
+
+    private static string WithoutId(JsonObject json)
+    {
+        json.Remove("Id");
+        return json.ToJsonString();
+    }
+
+    private static JsonObject ReadGolden(string name, [CallerFilePath] string source = "")
+        => (JsonObject)JsonNode.Parse(File.ReadAllText(Path.Combine(Path.GetDirectoryName(source)!, "Golden", $"{name}.json")))!;
+
     private static void AssertGolden(JsonObject json, string name, [CallerFilePath] string source = "")
     {
         // Ids are random, so each is numbered in order of first appearance. BEUTL_UPDATE_GOLDEN_JSON=1 rewrites the file.
