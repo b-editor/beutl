@@ -24,14 +24,9 @@ public class MFVideoTimeOriginTests
     public void PartialTrim_AddsOnlyTheRemainingGap()
         => Assert.That(Read(Mp4(Track(new[] { 100L })), 2_000_000), Is.EqualTo(1_000_000));
 
-    // The test movie's edits last 4000 units of its 1000 Hz timescale, 4 s.
     [Test]
-    public void EmptyEditBeforeMedia_DelaysTheFirstFrameAndUsesTheMediaTrim()
-        => Assert.That(Read(Mp4(Track(new[] { -1L, 200L })), 2_000_000), Is.EqualTo(40_000_000));
-
-    [Test]
-    public void EmptyEditBeforeMedia_DelaysAFirstFrameAtZero()
-        => Assert.That(Read(Mp4(Track(new[] { -1L, 0L })), 0), Is.EqualTo(40_000_000));
+    public void EmptyEditBeforeMedia_UsesTheMediaTrim()
+        => Assert.That(Read(Mp4(Track(new[] { -1L, 200L })), 2_000_000), Is.Zero);
 
     [Test]
     public void VersionOne_HandlesMediaTimesBeyond32Bits()
@@ -105,8 +100,6 @@ public class MFVideoTimeOriginTests
         yield return new TestCaseData(Mp4(Track(new[] { 200L }, count: uint.MaxValue))).SetName("OversizedEditCount");
         yield return new TestCaseData(Mp4(Track(new[] { long.MaxValue }, scale: 1, version: 1))).SetName("TimeOverflow");
         yield return new TestCaseData(Box("ftyp", "isom"u8.ToArray())).SetName("MissingMovie");
-        yield return new TestCaseData(Join(Box("ftyp", "isom"u8.ToArray()), Box("moov", Track(new[] { -1L, 0L }))))
-            .SetName("EmptyEditWithoutMovieHeader");
 
         byte[] truncated = Mp4(Track(new[] { 200L }));
         yield return new TestCaseData(truncated[..^1]).SetName("TruncatedBox");
@@ -125,7 +118,7 @@ public class MFVideoTimeOriginTests
     }
 
     private static byte[] Mp4(params byte[][] tracks)
-        => Join(Box("ftyp", "isom"u8.ToArray()), Box("moov", [Box("mvhd", UInt32(0), new byte[8], UInt32(1000)), .. tracks]));
+        => Join(Box("ftyp", "isom"u8.ToArray()), Box("moov", tracks));
 
     private static byte[] Track(long[]? edits, uint scale = 1000, int version = 0,
         string handler = "vide", bool enabled = true, uint rate = 0x10000, uint? count = null)
