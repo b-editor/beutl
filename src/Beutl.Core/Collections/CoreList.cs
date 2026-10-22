@@ -74,6 +74,7 @@ public class CoreList<T> : ICoreList<T>, IReplaceableList
 
             if (!EqualityComparer<T>.Default.Equals(old, value))
             {
+                VerifyInsert(value);
                 Detached?.Invoke(old);
                 Attached?.Invoke(value);
                 Inner[index] = value;
@@ -103,6 +104,7 @@ public class CoreList<T> : ICoreList<T>, IReplaceableList
     public virtual void Add(T item)
     {
         VerifyWriter();
+        VerifyInsert(item);
         int index = Inner.Count;
         Inner.Add(item);
         NotifyAdd(item, index);
@@ -177,6 +179,7 @@ public class CoreList<T> : ICoreList<T>, IReplaceableList
             return;
         }
 
+        foreach (T item in newItems) VerifyInsert(item);
         T[] oldItems = [.. Inner];
         bool reset = ResetBehavior == ResetBehavior.Reset;
         // Each handler is called on its own and the first failure is rethrown once the swap is done.
@@ -255,6 +258,7 @@ public class CoreList<T> : ICoreList<T>, IReplaceableList
     public virtual void Insert(int index, T item)
     {
         VerifyWriter();
+        VerifyInsert(item);
         Inner.Insert(index, item);
         NotifyAdd(item, index);
     }
@@ -274,6 +278,7 @@ public class CoreList<T> : ICoreList<T>, IReplaceableList
         {
             if (list.Count > 0)
             {
+                foreach (T item in collection) VerifyInsert(item);
                 Inner.InsertRange(index, collection);
                 NotifyAdd(list, index);
             }
@@ -291,6 +296,7 @@ public class CoreList<T> : ICoreList<T>, IReplaceableList
                 while (en.MoveNext())
                 {
                     T item = en.Current;
+                    VerifyInsert(item);
                     Inner.Insert(insertIndex++, item);
                     notificationItems?.Add(item);
                 }
@@ -316,6 +322,7 @@ public class CoreList<T> : ICoreList<T>, IReplaceableList
         VerifyWriter();
         if (items.Length > 0)
         {
+            foreach (T item in items) VerifyInsert(item);
             EnsureCapacity(Inner.Count + items.Length);
 
             ReadOnlySpan<T>.Enumerator en = items.GetEnumerator();
@@ -335,6 +342,7 @@ public class CoreList<T> : ICoreList<T>, IReplaceableList
         VerifyWriter();
         if (items.Length > 0)
         {
+            foreach (T item in items) VerifyInsert(item);
             EnsureCapacity(Inner.Count + items.Length);
 
             int insertIndex = index;
@@ -463,6 +471,11 @@ public class CoreList<T> : ICoreList<T>, IReplaceableList
 
     [Conditional("DEBUG")]
     private void VerifyWriter() => DocumentWriteCheck.Verify(WriteOwner, "Items");
+
+    // Lets a derived list reject an item before the list changes.
+    private protected virtual void VerifyInsert(T item)
+    {
+    }
 
     // For in-repo loops: unlike the enumerator, the span does not throw when the list changes.
     internal Span<T> AsSpan()

@@ -125,4 +125,39 @@ public class HierarchicalListTests
 
         Assert.That(((IHierarchical)child).HierarchicalParent, Is.Null);
     }
+
+    [Test]
+    public void InsertingTheParentOrItsAncestor_ThrowsAndLeavesTheListUnchanged()
+    {
+        var root = new TestNode();
+        var parent = new TestNode();
+        new HierarchicalList<IHierarchical>(root).Add(parent);
+        var list = new HierarchicalList<IHierarchical>(parent);
+        var child = new TestNode();
+        list.Add(child);
+
+        foreach (IHierarchical item in new IHierarchical[] { parent, root })
+        {
+            Assert.Throws<InvalidOperationException>(() => list.Add(item));
+            Assert.Throws<InvalidOperationException>(() => list.Insert(0, item));
+            Assert.Throws<InvalidOperationException>(() => list.InsertRange(0, new List<IHierarchical> { item }));
+            Assert.Throws<InvalidOperationException>(() => list.InsertRange(0, Enumerate(item)));
+            Assert.Throws<InvalidOperationException>(() => list.InsertRange(0, new[] { item }));
+            Assert.Throws<InvalidOperationException>(() => list.InsertRange(0, (ReadOnlySpan<IHierarchical>)[item]));
+            Assert.Throws<InvalidOperationException>(() => list.Replace([item]));
+            Assert.Throws<InvalidOperationException>(() => list[0] = item);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(list, Is.EqualTo(new IHierarchical[] { child }));
+            Assert.That(((IHierarchical)parent).HierarchicalParent, Is.SameAs(root));
+            Assert.That(((IHierarchical)root).HierarchicalParent, Is.Null);
+        });
+
+        static IEnumerable<IHierarchical> Enumerate(IHierarchical item)
+        {
+            yield return item;
+        }
+    }
 }

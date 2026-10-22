@@ -36,6 +36,24 @@ public class GraphTraversalTests
             : new GraphModel[] { graph, outer.Group }));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AddingAGroupNodeInsideItselfThrowsAndLeavesTheGraphUnchanged(bool nested)
+    {
+        var outer = new GroupNode();
+        var inner = new GroupNode();
+        outer.Group.Nodes.Add(inner);
+        GraphModel target = nested ? inner.Group : outer.Group;
+        GraphNode[] nodes = [.. target.Nodes];
+
+        Assert.Throws<InvalidOperationException>(() => target.Nodes.Add(outer));
+        Assert.Multiple(() =>
+        {
+            Assert.That(target.Nodes, Is.EqualTo(nodes));
+            Assert.That(((IHierarchical)outer).HierarchicalParent, Is.Null);
+        });
+    }
+
     [Test]
     public void SharedGroupCountsItsConnectedWriterAndTopologyNotificationOnce()
     {
