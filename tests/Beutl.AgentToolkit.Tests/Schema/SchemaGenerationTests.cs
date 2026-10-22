@@ -26,6 +26,21 @@ namespace Beutl.AgentToolkit.Tests.Schema;
 
 public sealed class SchemaGenerationTests
 {
+    // #2885 step 3: a time property names Beutl.MediaTime, and its default still writes as TimeSpan text.
+    [Test]
+    public void A_time_property_names_MediaTime_and_writes_its_default_as_text()
+    {
+        CapabilitySchema schema = new SchemaGenerator().Generate(typeFilter: nameof(SourceVideo));
+        PropertyDescriptor offset = schema.Types.Single(type => type.Type == typeof(SourceVideo).FullName)
+            .Properties.Single(property => property.Name == nameof(SourceVideo.OffsetPosition));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(offset.ValueType, Is.EqualTo(typeof(MediaTime).FullName));
+            Assert.That(System.Text.Json.JsonSerializer.Serialize(offset.Default), Is.EqualTo("\"00:00:00\""));
+        });
+    }
+
     [Test]
     public void DiagonalClipping_ExposesSignedWidthAndAnimatedParametersWithoutMode()
     {

@@ -267,6 +267,18 @@ public class GotoTimecodeParserTests
         Assert.That(error, Is.EqualTo(GotoTimecodeError.OutOfRange));
     }
 
+    // A TimeSpan reaches past the range of MediaTime (about 414 years).
+    [TestCase("200000.00:00:00")]
+    [TestCase("10675199.02:48:05")]
+    public void TryParse_AbsoluteBeyondTheRangeOfMediaTime_ReturnsOutOfRange(string input)
+    {
+        bool ok = GotoTimecodeParser.TryParse(
+            input, FrameRate, MediaTime.Zero, EmptyMarkers, out _, out GotoTimecodeError error);
+
+        Assert.That(ok, Is.False);
+        Assert.That(error, Is.EqualTo(GotoTimecodeError.OutOfRange));
+    }
+
     [Test]
     public void TryParse_RelativeOverflowOnAddition_ReturnsOutOfRange()
     {
