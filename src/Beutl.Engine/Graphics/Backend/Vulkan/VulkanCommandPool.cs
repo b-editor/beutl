@@ -1,4 +1,5 @@
-﻿using Silk.NET.Vulkan;
+﻿using System.Collections.Concurrent;
+using Silk.NET.Vulkan;
 
 namespace Beutl.Graphics.Backend.Vulkan;
 
@@ -16,6 +17,9 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     private readonly CommandPool _commandPool;
     private readonly List<InFlightSubmission> _inFlightSubmissions = [];
     private readonly List<Action> _recordingReleases = [];
+    // Only the creating thread touches the lists; a release from another thread, such as a finalizer, waits here.
+    private readonly ConcurrentQueue<Action> _foreignReleases = new();
+    private readonly int _ownerThreadId = Environment.CurrentManagedThreadId;
     private CommandBuffer _recordingCommandBuffer;
     private Semaphore _submissionSemaphore;
     private bool _isRecording;
@@ -371,7 +375,18 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
             return;
         }
 
+        if (Environment.CurrentManagedThreadId != _ownerThreadId)
+        {
+            _foreignReleases.Enqueue(release);
+            return;
+        }
+
         CollectCompletedSubmissions();
+        Retire(release);
+    }
+
+    private void Retire(Action release)
+    {
         if (_isRecording)
         {
             _recordingReleases.Add(release);
@@ -384,6 +399,12 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         {
             release();
         }
+    }
+
+    private void AdoptForeignReleases()
+    {
+        while (_foreignReleases.TryDequeue(out Action? release))
+            Retire(release);
     }
 
     private void SubmitRecordingCommandBuffer(TimelineSignal? timelineSignal = null)
@@ -514,7 +535,10 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     private void WaitForInFlightSubmissions()
     {
         if (_inFlightSubmissions.Count == 0)
+        {
+            AdoptForeignReleases();
             return;
+        }
 
         var fences = new Fence[_inFlightSubmissions.Count];
         for (int i = 0; i < fences.Length; i++)
@@ -537,6 +561,7 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
             CompleteSubmission();
         }
         ResetSubmissionSemaphore();
+        AdoptForeignReleases();
     }
 
     private void CollectCompletedSubmissions()
@@ -554,6 +579,8 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         {
             ResetSubmissionSemaphore();
         }
+
+        AdoptForeignReleases();
     }
 
     private void CompleteSubmission()
@@ -730,6 +757,7 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
                 // The pool is going away, so reclaim the buffer and retire the releases a submission
                 // would have run rather than dropping them.
                 ReclaimUnsubmittedRecording();
+                AdoptForeignReleases();
             }
             finally
             {
