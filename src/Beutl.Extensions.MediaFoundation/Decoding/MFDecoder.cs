@@ -24,6 +24,7 @@ namespace Beutl.Extensions.MediaFoundation.Decoding;
 internal sealed class MFDecoder : IMediaFoundationVideoDecoder
 {
     private const int UnsupportedByteStreamType = unchecked((int)0xC00D36C4);
+    private const int InvalidPosition = unchecked((int)0xC00D36E5);
 
     private readonly ILogger _logger;
     private readonly IMFSourceReader? _videoSourceReader;
@@ -131,7 +132,16 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         if (frame < currentFrame || (currentFrame + _thresholdFrameCount) < frame)
         {
             long destTimePosition = TimestampUtilities.ConvertTimeStampFromFrame(frame, _mediaInfo.Fps);
-            SeekVideo(destTimePosition);
+            try
+            {
+                SeekVideo(destTimePosition);
+            }
+            catch (SharpGenException ex) when (ex.ResultCode.Code == InvalidPosition)
+            {
+                // The frame is past the end of the stream.
+                return 0;
+            }
+
             _logger.LogDebug(
                 "ReadFrame Seek currentFrame: {currentFrame}, destFrame: {destFrame} - destTimePos: {destTimePos} relativeFrame: {relativeFrame}",
                 currentFrame, frame, TimestampUtilities.ConvertSecFrom100ns(destTimePosition), frame - currentFrame);
@@ -234,10 +244,11 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         return sample;
     }
 
+    // Resets the cache only once the seek succeeded, so a rejected seek keeps the frames decoded so far.
     private void SeekVideo(long destTimePosition)
     {
-        _sampleCache.ResetVideo();
         _videoSourceReader!.SetCurrentPosition(destTimePosition);
+        _sampleCache.ResetVideo();
     }
 
     private static void SelectStream(IMFSourceReader sourceReader, Guid selectMajorType)
