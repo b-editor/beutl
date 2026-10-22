@@ -136,10 +136,9 @@ public partial class PlayerView
             if (sceneResource?.Renderer == null)
                 return;
 
-            Scene scene = EditViewModel.Scene;
-            double scaleX = Image.Bounds.Size.Width / scene.FrameSize.Width;
-            var scaledPos = _lastPosition / scaleX;
-            var screenPoint = new Point((float)scaledPos.X, (float)scaledPos.Y);
+            Scene3D scene3D = _scene3D;
+            Point framePoint = ToFramePoint(_lastPosition);
+            Point screenPoint = RenderThread.Dispatcher.Invoke(() => ToScenePoint(scene3D, framePoint), RenderThreadWait);
 
             var currentGizmoTarget = _scene3D.GizmoTarget.Value;
             var currentGizmoMode = _scene3D.GizmoMode.Value;
@@ -741,16 +740,12 @@ public partial class PlayerView
                 }
             }
 
-            Scene scene = EditViewModel.Scene;
-            AvaPoint pos = _lastPosition;
-            double scaleX = Image.Bounds.Size.Width / scene.FrameSize.Width;
-            var scaledPos = pos / scaleX;
+            Point point = ToFramePoint(_lastPosition);
 
             var drawable = QueryRenderThread<Drawable?>(() =>
             {
                 var renderer = EditViewModel.Renderer.Value;
                 var compositionFrame = renderer.Compositor.EvaluateGraphics(Clock.CurrentTime.Value);
-                var point = new Point((float)scaledPos.X, (float)scaledPos.Y);
                 Drawable? hit = renderer.HitTest(compositionFrame, point);
                 if (hit is Scene3D)
                     return hit;
@@ -780,6 +775,22 @@ public partial class PlayerView
                 _scene3D = scene3D;
                 _camera = scene3D.Camera.Value;
             }
+        }
+
+        private Point ToFramePoint(AvaPoint viewPoint)
+        {
+            double scale = Image.Bounds.Size.Width / EditViewModel.Scene.FrameSize.Width;
+            return new Point((float)(viewPoint.X / scale), (float)(viewPoint.Y / scale));
+        }
+
+        // Renderer3D hit-tests in RenderWidth x RenderHeight space, which the scene's 2D transform places in the frame.
+        private Point ToScenePoint(Scene3D scene3D, Point framePoint)
+        {
+            SceneRenderer renderer = EditViewModel.Renderer.Value;
+            renderer.UpdateFrame(renderer.Compositor.EvaluateGraphics(Clock.CurrentTime.Value));
+            return renderer.GetLocalBoundary(scene3D) is { } drawn && drawn.Transform.TryInvert(out Matrix inverse)
+                ? inverse.Transform(framePoint)
+                : framePoint;
         }
 
         private Scene3D.Resource? FindScene3DResource()

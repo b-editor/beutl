@@ -520,6 +520,47 @@ public partial class PlayerViewPlaybackInputTests
     }
 
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task A_3D_press_selects_the_object_where_a_moved_or_scaled_scene_draws_it(bool scaled)
+    {
+        EditViewModel editor = await OpenEditor();
+        Scene3D scene = await Add3DScene(editor);
+        Object3D cube = scene.Objects.Single();
+        // The cube is drawn at the middle of the 640x480 render: at (480, 240) in the frame once moved, (160, 120) once halved.
+        if (scaled)
+        {
+            scene.TransformOrigin.Value = Beutl.Graphics.RelativePoint.TopLeft;
+            scene.Transform.Value = new ScaleTransform(100, 100, 50);
+        }
+        else
+        {
+            scene.Transform.Value = new TranslateTransform(160, 0);
+        }
+
+        editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+        try
+        {
+            await PreparePreview(view, window);
+            editor.Player.IsMoveMode.Value = false;
+            editor.Player.IsCameraMode.Value = true;
+            Point drawn = scaled ? new Point(160, 120) : new Point(480, 240);
+            Point point = view.image.TranslatePoint(drawn * (view.image.Bounds.Width / 640), window)!.Value;
+
+            window.MouseDown(point, MouseButton.Left);
+            window.MouseUp(point, MouseButton.Left);
+
+            Assert.That(scene.GizmoTarget.Value, Is.EqualTo(cube.Id));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task A_press_keeps_the_handles_on_their_drawable_while_the_render_thread_does_not_answer()
     {
         EditViewModel editor = await OpenEditor();
