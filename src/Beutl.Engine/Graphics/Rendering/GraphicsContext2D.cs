@@ -298,19 +298,6 @@ public sealed class GraphicsContext2D(
                 return node.Update(p.Source, p.Fill, p.Pen);
             });
 
-    public void DrawVideoSource(VideoSource.Resource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen)
-    {
-        bool wasFaulted = BeginRecordingOperation();
-        ThrowIfDisposed(fill, pen);
-        ArgumentNullException.ThrowIfNull(source);
-        ObjectDisposedException.ThrowIf(source.IsDisposed, source);
-
-        Rational rate = source.FrameRate;
-        double frameNum = frame.TotalSeconds * (rate.Numerator / (double)rate.Denominator);
-        DrawVideoSource(source, (int)frameNum, fill, pen);
-        CompleteRecordingOperation(wasFaulted);
-    }
-
     public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
         => DrawNode(
             (Source: source, Frame: frame, Fill: fill, Pen: pen),

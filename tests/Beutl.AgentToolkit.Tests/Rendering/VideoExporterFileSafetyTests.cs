@@ -178,7 +178,7 @@ public class VideoExporterFileSafetyTests
         AssertPreviousOutputAndNoStaging();
     }
 
-    private static Scene CreateScene() => new(64, 64, "export") { Duration = TimeSpan.FromSeconds(0.2) };
+    private static Scene CreateScene() => new(64, 64, "export") { Duration = MediaTime.FromSeconds(0.2) };
 
     private ValueTask<ExportVideoResponse> ExportAsync(VideoExporter exporter, CancellationToken token = default)
         => exporter.ExportAsync(CreateScene(), _destination, new Rational(30, 1), 44100, 1, token);

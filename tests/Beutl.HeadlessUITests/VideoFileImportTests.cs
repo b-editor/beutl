@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using Avalonia.Headless.NUnit;
 using Beutl.Audio;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
@@ -6,6 +7,7 @@ using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
@@ -15,6 +17,8 @@ using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.Threading;
 using Beutl.ViewModels;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Beutl.HeadlessUITests;
 
@@ -56,7 +60,7 @@ public class VideoFileImportTests
         {
             Assert.That(editor.Scene.Children, Has.Count.EqualTo(2));
             Assert.That(editor.Scene.Children.Select(element => element.Length),
-                Is.All.EqualTo(TimeSpan.FromSeconds(2)));
+                Is.All.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(editor.Scene.Groups, Has.Count.EqualTo(1));
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
         }
@@ -67,14 +71,20 @@ public class VideoFileImportTests
     [AvaloniaTest]
     public async Task ImportVideoWithoutAudioTrack_AddsOnlyVideoElement()
     {
+        // A video without audio is not a failed open, so the audio-track check logs nothing.
+        if (!Log.IsLoggerFactoryConfigured)
+            Log.LoggerFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Warning));
+        using var warnings = new WarningRecorder(typeof(ElementAdderImpl).FullName!);
+        Log.LoggerFactory.AddProvider(warnings);
+
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("videoonly");
         RegisterImportDecoder();
         string path = CreateImportFile("sample", withAudio: false);
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(5),
+            Start: MediaTime.Zero,
+            Length: MediaTime.FromSeconds(5),
             Layer: 0,
             Source: new ElementSource.File(path))],
             CancellationToken.None);
@@ -91,6 +101,7 @@ public class VideoFileImportTests
         });
         Assert.That(editor.Scene.Groups, Is.Empty,
             "音声要素がないのでグループ化も発生しない (#2183)");
+        Assert.That(warnings.Messages, Is.Empty);
     }
 
     [AvaloniaTest]
@@ -102,8 +113,8 @@ public class VideoFileImportTests
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         ElementAddResult result = await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(5),
+            Start: MediaTime.Zero,
+            Length: MediaTime.FromSeconds(5),
             Layer: 0,
             Source: new ElementSource.File(path))],
             CancellationToken.None);
@@ -142,8 +153,8 @@ public class VideoFileImportTests
             ElementAddResult result = await adder.AddAsync(
             [
                 new ElementDescription(
-                    TimeSpan.Zero,
-                    TimeSpan.FromSeconds(5),
+                    MediaTime.Zero,
+                    MediaTime.FromSeconds(5),
                     0,
                     new ElementSource.File(path)),
             ], CancellationToken.None);
@@ -179,8 +190,8 @@ public class VideoFileImportTests
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         ElementAddResult result = await adder.AddAsync([
             new ElementDescription(
-                TimeSpan.Zero,
-                TimeSpan.FromSeconds(5),
+                MediaTime.Zero,
+                MediaTime.FromSeconds(5),
                 Layer: 0,
                 Source: new ElementSource.File(path)),
         ], CancellationToken.None);
@@ -224,15 +235,16 @@ public class VideoFileImportTests
     {
         public string Name => "Import Test Decoder";
 
+        // Like the real decoders, a reader has only the requested streams, and a file with none of them gets none.
         public MediaReader? Open(string file, MediaOptions options)
         {
             string ext = Path.GetExtension(file);
-            return ext switch
-            {
-                ".vonly" => new ImportTestReader(hasVideo: true, hasAudio: false),
-                ".vaudio" => new ImportTestReader(hasVideo: true, hasAudio: true),
-                _ => null,
-            };
+            if (ext is not (".vonly" or ".vaudio"))
+                return null;
+
+            bool video = options.StreamsToLoad.HasFlag(MediaMode.Video);
+            bool audio = ext == ".vaudio" && options.StreamsToLoad.HasFlag(MediaMode.Audio);
+            return video || audio ? new ImportTestReader(video, audio) : null;
         }
 
         public IEnumerable<string> VideoExtensions() => [".vonly", ".vaudio"];
@@ -299,5 +311,28 @@ public class VideoFileImportTests
                 Interlocked.Decrement(ref ActiveCount);
             base.Dispose(disposing);
         }
+    }
+
+    // Records the warnings logged under one category until disposed.
+    private sealed class WarningRecorder(string category) : ILoggerProvider, ILogger
+    {
+        private volatile bool _disposed;
+
+        public ConcurrentQueue<string> Messages { get; } = new();
+
+        public ILogger CreateLogger(string categoryName) => categoryName == category ? this : NullLogger.Instance;
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => !_disposed && logLevel >= LogLevel.Warning;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (IsEnabled(logLevel))
+                Messages.Enqueue(formatter(state, exception));
+        }
+
+        public void Dispose() => _disposed = true;
     }
 }

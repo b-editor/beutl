@@ -13,8 +13,8 @@ public class EqualizerNodeTests
     private const int SampleRate = 48000;
     private const int ChunkSamples = SampleRate / 10;
 
-    private static readonly TimeSpan s_chunkDuration =
-        TimeSpan.FromSeconds(ChunkSamples / (double)SampleRate);
+    private static readonly MediaTime s_chunkDuration =
+        MediaTime.FromSeconds(ChunkSamples / (double)SampleRate);
 
     private static EqualizerNode CreateNode()
     {
@@ -25,14 +25,14 @@ public class EqualizerNodeTests
         return new EqualizerNode { Bands = [band] };
     }
 
-    private static AudioProcessContext CreateContext(TimeSpan start) =>
+    private static AudioProcessContext CreateContext(MediaTime start) =>
         AudioTestContexts.CreateContext(start, s_chunkDuration, SampleRate);
 
-    private static float FirstSampleAfterWarmup(EqualizerNode node, TimeSpan followStart)
+    private static float FirstSampleAfterWarmup(EqualizerNode node, MediaTime followStart)
     {
         using var warmupInput = CreateConstantBuffer(0.9f, ChunkSamples);
         node.AddInput(new BufferReplayNode(warmupInput));
-        node.Process(CreateContext(TimeSpan.Zero)).Dispose();
+        node.Process(CreateContext(MediaTime.Zero)).Dispose();
 
         node.ClearInputs();
         using var followInput = CreateConstantBuffer(0.9f, ChunkSamples);
@@ -46,7 +46,7 @@ public class EqualizerNodeTests
         using var node = CreateNode();
         using var input = CreateConstantBuffer(0.9f, ChunkSamples);
         node.AddInput(new BufferReplayNode(input));
-        using var output = node.Process(CreateContext(TimeSpan.Zero));
+        using var output = node.Process(CreateContext(MediaTime.Zero));
         return output.GetChannelData(0)[0];
     }
 
@@ -56,7 +56,7 @@ public class EqualizerNodeTests
     public void Process_OneTickBoundaryRounding_PreservesFilterState(long tickOffset)
     {
         using var node = CreateNode();
-        float continuing = FirstSampleAfterWarmup(node, s_chunkDuration + TimeSpan.FromTicks(tickOffset));
+        float continuing = FirstSampleAfterWarmup(node, s_chunkDuration + MediaTime.FromTimeSpan(TimeSpan.FromTicks(tickOffset)));
 
         Assert.That(continuing, Is.Not.EqualTo(FirstSampleFromFreshNode()).Within(1e-6f),
             "A one-tick boundary rounding must not reset the filter state.");
@@ -66,7 +66,7 @@ public class EqualizerNodeTests
     public void Process_Seek_ResetsFilterState()
     {
         using var node = CreateNode();
-        float afterSeek = FirstSampleAfterWarmup(node, TimeSpan.FromSeconds(5));
+        float afterSeek = FirstSampleAfterWarmup(node, MediaTime.FromSeconds(5));
 
         Assert.That(afterSeek, Is.EqualTo(FirstSampleFromFreshNode()).Within(1e-6f),
             "A seek must reset the filter state, so the first sample matches a fresh node's.");

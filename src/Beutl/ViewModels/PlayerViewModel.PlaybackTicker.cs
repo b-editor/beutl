@@ -17,11 +17,10 @@ public partial class PlayerViewModel
         private readonly int _generation;
         private readonly BufferedPlayer _playerImpl;
         private readonly AudioPlaybackClock _clock;
-        private readonly int _rate;
-        private readonly TimeSpan _tick;
+        private readonly Rational _rate;
         private readonly int _startFrame;
         private readonly int _endFrame;
-        private readonly TimeSpan _startTime;
+        private readonly MediaTime _startTime;
         private readonly DateTime _startDateTime;
         // Completed from the timer and the UI thread; PlayInternal must not continue inline on either.
         private readonly TaskCompletionSource<bool> _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -39,11 +38,10 @@ public partial class PlayerViewModel
             int generation,
             BufferedPlayer playerImpl,
             AudioPlaybackClock clock,
-            int rate,
-            TimeSpan tick,
+            Rational rate,
             int startFrame,
             int endFrame,
-            TimeSpan startTime,
+            MediaTime startTime,
             DateTime startDateTime)
         {
             _owner = owner;
@@ -51,7 +49,6 @@ public partial class PlayerViewModel
             _playerImpl = playerImpl;
             _clock = clock;
             _rate = rate;
-            _tick = tick;
             _startFrame = startFrame;
             _endFrame = endFrame;
             _startTime = startTime;
@@ -74,11 +71,11 @@ public partial class PlayerViewModel
 
         private int ComputeExpectFrame()
         {
-            TimeSpan elapsed = _clock.GetTime() is { } audioTime
+            MediaTime elapsed = _clock.GetTime() is { } audioTime
                 ? audioTime - _startTime
-                : DateTime.UtcNow - _startDateTime;
-            if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
-            return (int)(elapsed.Ticks / _tick.Ticks) + _startFrame;
+                : MediaTime.FromTimeSpan(DateTime.UtcNow - _startDateTime);
+            if (elapsed < MediaTime.Zero) elapsed = MediaTime.Zero;
+            return (int)elapsed.ToFrame(_rate, MidpointRounding.ToNegativeInfinity) + _startFrame;
         }
 
         private bool StopForRenderFailure()
@@ -255,7 +252,7 @@ public partial class PlayerViewModel
 
                     if (_owner.Scene != null)
                     {
-                        _owner._editorClock.Seek(frame.Time.ToTimeSpan(_rate));
+                        _owner._editorClock.Seek(MediaTime.FromFrames(frame.Time, _rate));
                         _owner.EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
                     }
                 });

@@ -12,11 +12,11 @@ public class EditorSpeedIntegralTests
     public void GlobalWindow_ExcludesTheCommonPrefixFromItsErrorAllowance()
     {
         var animation = new KeyFrameAnimation<float> { UseGlobalClock = true };
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(60000), Value = 300, Easing = new LinearEasing() });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(60000), Value = 300, Easing = new LinearEasing() });
         var editor = new EditorSpeedIntegral(animation, 48000);
 
-        EditorSpeedIntegral.Estimate estimate = editor.Integrate(TimeSpan.FromSeconds(30000), TimeSpan.FromSeconds(30002));
+        EditorSpeedIntegral.Estimate estimate = editor.Integrate(MediaTime.FromSeconds(30000), MediaTime.FromSeconds(30002));
 
         Assert.Multiple(() =>
         {
@@ -45,17 +45,17 @@ public class EditorSpeedIntegralTests
             _ => new LinearEasing()
         };
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(-0.75), Value = 175 });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(0.4), Value = 50, Easing = easing });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1.75), Value = 300, Easing = easing });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(4.2), Value = 100, Easing = easing });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(-0.75), Value = 175 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(0.4), Value = 50, Easing = easing });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1.75), Value = 300, Easing = easing });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(4.2), Value = 100, Easing = easing });
         var editor = new EditorSpeedIntegral(animation, 44100);
         using var playback = new SpeedIntegrator(44100);
         playback.EnsureCache(animation);
-        TimeSpan time = TimeSpan.FromSeconds(seconds);
+        MediaTime time = MediaTime.FromSeconds(seconds);
 
         EditorSpeedIntegral.Estimate estimate = editor.Integrate(time);
-        double actual = playback.Integrate(time, animation).TotalSeconds;
+        double actual = playback.Integrate(time, animation).ToSeconds();
 
         Assert.Multiple(() =>
         {

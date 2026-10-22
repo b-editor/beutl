@@ -36,7 +36,7 @@ public class ScenePackageTests
                 Directory.CreateDirectory(elementsDirectory);
                 string imagePath = Path.Combine(directory, "image.png");
                 ImageSource image = TestImages.WriteImage(imagePath);
-                var element = new Element { Name = "Clip-" + name, Uri = new Uri(Path.Combine(elementsDirectory, "shared.belm")), Length = TimeSpan.FromSeconds(1) };
+                var element = new Element { Name = "Clip-" + name, Uri = new Uri(Path.Combine(elementsDirectory, "shared.belm")), Length = MediaTime.FromSeconds(1) };
                 element.Objects.Add(new SourceImage { Source = { Value = image } });
                 expected.Add(name, element.Id);
                 var scene = new Scene(64, 64, name) { Uri = new Uri(Path.Combine(directory, "shared.scene")) };
@@ -53,7 +53,7 @@ public class ScenePackageTests
                 }
                 else
                 {
-                    var parent = new Element { Uri = new Uri(Path.Combine(mainDirectory, name + ".belm")), Length = TimeSpan.FromSeconds(1) };
+                    var parent = new Element { Uri = new Uri(Path.Combine(mainDirectory, name + ".belm")), Length = MediaTime.FromSeconds(1) };
                     parent.Objects.Add(new SceneDrawable { ReferencedScene = { Value = scene } });
                     main.Children.Add(parent);
                 }
@@ -93,7 +93,7 @@ public class ScenePackageTests
                     Is.EqualTo(nestedElements ? Path.Combine("clips", "shared.belm") : "shared.belm"));
                 ImageSource source = element.Objects.OfType<SourceImage>().Single().Source.Value!;
                 Assert.That(source.Uri.LocalPath, Does.StartWith(importedRoot + Path.DirectorySeparatorChar));
-                using var resource = source.ToResource(new CompositionContext(TimeSpan.Zero));
+                using var resource = source.ToResource(new CompositionContext(MediaTime.Zero));
                 Assert.That(resource.Bitmap, Is.Not.Null);
                 Assert.That((resource.Bitmap!.Width, resource.Bitmap.Height), Is.EqualTo((4, 4)));
             }

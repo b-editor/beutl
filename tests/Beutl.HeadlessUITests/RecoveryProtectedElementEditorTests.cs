@@ -415,17 +415,17 @@ public sealed class RecoveryProtectedElementEditorTests
     // not loaded, as when the plugin that provides it is not installed.
     private static async Task<(string ProjectPath, string ElementPath)> CreateProjectWithUnreadableEasing(string name)
     {
-        var unreadable = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 200 };
+        var unreadable = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 200 };
         (string projectPath, string elementPath) = await CreateSavedProjectAsync(name, () => new RectShape(), element =>
         {
             var shape = (RectShape)element.Objects.Single();
             var widthAnimation = new KeyFrameAnimation<float>();
-            widthAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
+            widthAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100 });
             widthAnimation.KeyFrames.Add(unreadable);
             shape.Width.SetKeyFrameAnimation(widthAnimation);
             var heightAnimation = new KeyFrameAnimation<float>();
-            heightAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 50 });
-            heightAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 80 });
+            heightAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 50 });
+            heightAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 80 });
             shape.Height.SetKeyFrameAnimation(heightAnimation);
         });
 
@@ -529,7 +529,7 @@ public sealed class RecoveryProtectedElementEditorTests
         string name, Func<EngineObject> create, Action<Element> configure)
     {
         (Project project, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync(name);
-        await TestShell.AddElementAsync(editor, create, TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        await TestShell.AddElementAsync(editor, create, MediaTime.Zero, MediaTime.FromSeconds(2));
         Element element = scene.Children.Single();
         element.Name = ElementName;
         configure(element);
@@ -543,7 +543,7 @@ public sealed class RecoveryProtectedElementEditorTests
     private static KeyFrameAnimation<float> CreateAnimation(float value)
     {
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = value });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = value });
         return animation;
     }
 

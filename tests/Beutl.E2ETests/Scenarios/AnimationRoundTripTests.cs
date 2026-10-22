@@ -30,13 +30,13 @@ public class AnimationRoundTripTests
         var animation = new KeyFrameAnimation<float> { UseGlobalClock = true };
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.Zero,
+            KeyTime = MediaTime.Zero,
             Value = 0f,
             Easing = new LinearEasing(),
         });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.FromSeconds(2),
+            KeyTime = MediaTime.FromSeconds(2),
             Value = 100f,
             Easing = new SplineEasing(0.1f, 0.2f, 0.3f, 0.4f),
         });
@@ -48,8 +48,8 @@ public class AnimationRoundTripTests
     {
         var element = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(5),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(5),
             Uri = new Uri(Path.Combine(_baseDir, "animated.belm")),
         };
         var shape = new RectShape();
@@ -74,11 +74,11 @@ public class AnimationRoundTripTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(first.KeyTime, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(first.KeyTime, Is.EqualTo(MediaTime.Zero));
             Assert.That(first.Value, Is.EqualTo(0f));
             Assert.That(first.Easing, Is.InstanceOf<LinearEasing>());
 
-            Assert.That(second.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(second.Value, Is.EqualTo(100f));
         });
 
@@ -90,8 +90,8 @@ public class AnimationRoundTripTests
             Assert.That(spline.Y1, Is.EqualTo(0.2f));
             Assert.That(spline.X2, Is.EqualTo(0.3f));
             Assert.That(spline.Y2, Is.EqualTo(0.4f));
-            Assert.That(restoredAnimation.Interpolate(TimeSpan.Zero), Is.EqualTo(0f));
-            Assert.That(restoredAnimation.Interpolate(TimeSpan.FromSeconds(2)), Is.EqualTo(100f));
+            Assert.That(restoredAnimation.Interpolate(MediaTime.Zero), Is.EqualTo(0f));
+            Assert.That(restoredAnimation.Interpolate(MediaTime.FromSeconds(2)), Is.EqualTo(100f));
         });
     }
 

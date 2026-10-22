@@ -17,7 +17,7 @@ public sealed class AnimatedElementFieldReproTests
     public void Rename_element_succeeds_after_wrap_in_group_duplicate_of_animated_drawable()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.Zero, MediaTime.FromSeconds(4));
         var rect = new RectShape
         {
             Name = "hero mark",
@@ -58,7 +58,7 @@ public sealed class AnimatedElementFieldReproTests
     public void Replace_sentinel_rebuilds_nested_keyframe_array()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.Zero, MediaTime.FromSeconds(4));
         var rect = new RectShape
         {
             Name = "fading rect",
@@ -85,9 +85,9 @@ public sealed class AnimatedElementFieldReproTests
                         {
                             [nameof(IKeyFrameAnimation.KeyFrames)] = new JsonArray(
                                 new JsonObject { ["$replace"] = true },
-                                CreateKeyFrameDocument(TimeSpan.FromSeconds(0.5), 25),
-                                CreateKeyFrameDocument(TimeSpan.FromSeconds(2), 90),
-                                CreateKeyFrameDocument(TimeSpan.FromSeconds(3), 40))
+                                CreateKeyFrameDocument(MediaTime.FromSeconds(0.5), 25),
+                                CreateKeyFrameDocument(MediaTime.FromSeconds(2), 90),
+                                CreateKeyFrameDocument(MediaTime.FromSeconds(3), 40))
                         }
                     }
                 })
@@ -107,15 +107,15 @@ public sealed class AnimatedElementFieldReproTests
             Assert.That(frames, Has.Length.EqualTo(3));
             Assert.That(frames.Select(frame => frame.KeyTime), Is.EqualTo(new[]
             {
-                TimeSpan.FromSeconds(0.5),
-                TimeSpan.FromSeconds(2),
-                TimeSpan.FromSeconds(3)
+                MediaTime.FromSeconds(0.5),
+                MediaTime.FromSeconds(2),
+                MediaTime.FromSeconds(3)
             }));
             Assert.That(frames.Select(frame => frame.Value), Is.EqualTo(new[] { 25f, 90f, 40f }));
         });
     }
 
-    private static JsonObject CreateKeyFrameDocument(TimeSpan keyTime, float value)
+    private static JsonObject CreateKeyFrameDocument(MediaTime keyTime, float value)
     {
         JsonObject json = CoreSerializer.SerializeToJsonObject(new KeyFrame<float>
         {

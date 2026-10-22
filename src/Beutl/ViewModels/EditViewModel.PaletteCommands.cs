@@ -24,7 +24,7 @@ public partial class EditViewModel
         if (input is null || string.Equals(input, initial, StringComparison.Ordinal)) return;
 
         // Relative input resolves against the playhead when it is confirmed, not when it was last validated.
-        if (!Player.TryParseTimecode(input, out TimeSpan target, out _)) return;
+        if (!Player.TryParseTimecode(input, out MediaTime target, out _)) return;
 
         await SeekFromPaletteAsync(target, interaction.CancellationToken);
     }
@@ -40,11 +40,11 @@ public partial class EditViewModel
     internal async Task AddMarkerAsync(IContextCommandInteraction interaction)
     {
         // The marker goes where the playhead was when the command ran, not where playback has moved it to since.
-        (int rate, TimeSpan time, string defaultName) = GetMarkerPlacement();
+        (Rational rate, MediaTime time, string defaultName) = GetMarkerPlacement();
 
         // A frame keeps one marker: Toggle marker removes only one of two markers sharing a frame,
         // so an existing one is renamed instead of duplicated.
-        SceneMarker? FindMarkerOnFrame() => Scene.Markers.FirstOrDefault(m => m.Time.RoundToRate(rate) == time);
+        SceneMarker? FindMarkerOnFrame() => Scene.Markers.FirstOrDefault(m => m.Time.RoundToFrame(rate, MidpointRounding.AwayFromZero) == time);
         string? name = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
             Value = FindMarkerOnFrame()?.Name ?? defaultName,
@@ -105,7 +105,7 @@ public partial class EditViewModel
     // The playback ticker would overwrite a seek made while playing, so playback stops first. Pause runs even
     // when IsPlaying is already false: at a loop boundary the session can re-arm, and Pause is what stops it.
     // Switching editors cancels the command meanwhile, and then this editor must not move.
-    private async Task SeekFromPaletteAsync(TimeSpan time, CancellationToken cancellationToken)
+    private async Task SeekFromPaletteAsync(MediaTime time, CancellationToken cancellationToken)
     {
         await Player.Pause();
 

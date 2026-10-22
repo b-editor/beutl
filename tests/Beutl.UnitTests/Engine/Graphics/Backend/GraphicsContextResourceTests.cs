@@ -52,6 +52,75 @@ public class GraphicsContextResourceTests
         });
     }
 
+    // A finalizer releases from its own thread, while the render thread may be completing submissions.
+    [Test]
+    public void DeferredRelease_FromAnotherThread_RunsOnTheThreadThatOwnsThePool()
+    {
+        VulkanContext vulkanContext = VulkanTestEnvironment.EnsureVulkanContext();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            vulkanContext.WaitIdle();
+            int? releasedOn = null;
+            var other = new Thread(() => vulkanContext.DeferRelease(() => releasedOn = Environment.CurrentManagedThreadId));
+            other.Start();
+            other.Join();
+
+            Assert.That(releasedOn, Is.Null, "The other thread must not run the release or touch the pool's lists.");
+
+            vulkanContext.FlushCommands(waitForCompletion: true);
+
+            Assert.That(releasedOn, Is.EqualTo(Environment.CurrentManagedThreadId));
+        });
+    }
+
+    // Without the handover this lost releases in most runs, as both threads changed the lists.
+    [Test]
+    public void DeferredRelease_FromAnotherThread_LosesNoReleaseWhileSubmissionsComplete()
+    {
+        VulkanContext vulkanContext = VulkanTestEnvironment.EnsureVulkanContext();
+        const int Count = 20000;
+        int released = 0;
+        Exception? failure = null;
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            vulkanContext.WaitIdle();
+            using var done = new ManualResetEventSlim();
+            var other = new Thread(() =>
+            {
+                try
+                {
+                    for (int i = 0; i < Count; i++)
+                        vulkanContext.DeferRelease(() => Interlocked.Increment(ref released));
+                }
+                catch (Exception ex)
+                {
+                    failure = ex;
+                }
+                finally
+                {
+                    done.Set();
+                }
+            });
+            other.Start();
+            while (!done.IsSet)
+            {
+                vulkanContext.RecordCommands(static _ => { });
+                vulkanContext.FlushCommands(waitForCompletion: false);
+            }
+
+            other.Join();
+            vulkanContext.FlushCommands(waitForCompletion: true);
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure, Is.Null);
+            Assert.That(released, Is.EqualTo(Count));
+        });
+    }
+
     [Test]
     public void DeferredRelease_CanReenterCommandPoolWithoutDoubleCompletion()
     {

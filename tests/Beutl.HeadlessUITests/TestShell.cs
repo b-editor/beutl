@@ -53,7 +53,7 @@ internal static class TestShell
     // its scene, after giving the scene the duration when one is given.
     public static async Task<(Project Project, Scene Scene, EditViewModel Editor)> OpenNewSceneAsync(
         string name, int width = 640, int height = 480, int frameRate = 30, int sampleRate = 44100,
-        TimeSpan? duration = null, bool reset = true)
+        MediaTime? duration = null, bool reset = true)
     {
         if (reset)
             await TestReset.ResetShellAsync();
@@ -82,7 +82,7 @@ internal static class TestShell
 
     // Adds an element that holds what create returns to the editor's scene.
     public static async Task<ElementAddResult> AddElementAsync(
-        EditViewModel editor, Func<EngineObject> create, TimeSpan start, TimeSpan length, int layer = 0)
+        EditViewModel editor, Func<EngineObject> create, MediaTime start, MediaTime length, int layer = 0)
     {
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         ElementAddResult result = await adder.AddAsync(

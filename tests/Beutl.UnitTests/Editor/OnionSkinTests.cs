@@ -7,9 +7,8 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public class OnionSkinTests
 {
-    // Same frame grid as int.ToTimeSpan(rate).
-    private static TimeSpan FrameTime(int frame, int rate) =>
-        TimeSpan.FromTicks(TimeSpan.TicksPerSecond * frame / rate);
+    // Same frame grid as MediaTime.FromFrames.
+    private static MediaTime FrameTime(int frame, int rate) => MediaTime.FromFrames(frame, new Rational(rate));
 
     [Test]
     public void EditorConfig_DefaultValues_AreSafe()
@@ -47,9 +46,9 @@ public class OnionSkinTests
     {
         var result = OnionSkinHelper.EnumerateOnionSkinTimes(
             currentFrame: 300,
-            sceneStart: TimeSpan.Zero,
-            sceneDuration: TimeSpan.FromMinutes(1),
-            frameRate: 30,
+            sceneStart: MediaTime.Zero,
+            sceneDuration: MediaTime.FromSeconds(60),
+            frameRate: new Rational(30),
             prevCount: 0,
             nextCount: 0,
             prevBaseOpacity: 0.5f,
@@ -63,9 +62,9 @@ public class OnionSkinTests
     {
         var result = OnionSkinHelper.EnumerateOnionSkinTimes(
             currentFrame: 300,
-            sceneStart: TimeSpan.Zero,
-            sceneDuration: TimeSpan.FromMinutes(1),
-            frameRate: 0,
+            sceneStart: MediaTime.Zero,
+            sceneDuration: MediaTime.FromSeconds(60),
+            frameRate: new Rational(0),
             prevCount: 2,
             nextCount: 2,
             prevBaseOpacity: 0.5f,
@@ -79,9 +78,9 @@ public class OnionSkinTests
     {
         var result = OnionSkinHelper.EnumerateOnionSkinTimes(
             currentFrame: 300,
-            sceneStart: TimeSpan.Zero,
-            sceneDuration: TimeSpan.FromMinutes(1),
-            frameRate: 30,
+            sceneStart: MediaTime.Zero,
+            sceneDuration: MediaTime.FromSeconds(60),
+            frameRate: new Rational(30),
             prevCount: -2,
             nextCount: -1,
             prevBaseOpacity: 0.5f,
@@ -98,9 +97,9 @@ public class OnionSkinTests
 
         var samples = OnionSkinHelper.EnumerateOnionSkinTimes(
             currentFrame: currentFrame,
-            sceneStart: TimeSpan.Zero,
-            sceneDuration: TimeSpan.FromMinutes(1),
-            frameRate: rate,
+            sceneStart: MediaTime.Zero,
+            sceneDuration: MediaTime.FromSeconds(60),
+            frameRate: new Rational(rate),
             prevCount: 2,
             nextCount: 1,
             prevBaseOpacity: 0.4f,
@@ -129,9 +128,9 @@ public class OnionSkinTests
     {
         var samples = OnionSkinHelper.EnumerateOnionSkinTimes(
             currentFrame: 300,
-            sceneStart: TimeSpan.Zero,
-            sceneDuration: TimeSpan.FromMinutes(1),
-            frameRate: 30,
+            sceneStart: MediaTime.Zero,
+            sceneDuration: MediaTime.FromSeconds(60),
+            frameRate: new Rational(30),
             prevCount: 1,
             nextCount: 0,
             prevBaseOpacity: 0.7f,
@@ -148,9 +147,9 @@ public class OnionSkinTests
 
         var samples = OnionSkinHelper.EnumerateOnionSkinTimes(
             currentFrame: 1, // only one frame after start; prev=2 would underflow
-            sceneStart: TimeSpan.Zero,
-            sceneDuration: TimeSpan.FromMinutes(1),
-            frameRate: rate,
+            sceneStart: MediaTime.Zero,
+            sceneDuration: MediaTime.FromSeconds(60),
+            frameRate: new Rational(rate),
             prevCount: 2,
             nextCount: 0,
             prevBaseOpacity: 0.5f,
@@ -159,7 +158,7 @@ public class OnionSkinTests
         // Only the i=1 prev sample (frame 0, at sceneStart) survives the clamp.
         Assert.That(samples, Has.Count.EqualTo(1));
         Assert.That(samples[0].IsPrev, Is.True);
-        Assert.That(samples[0].Time, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(samples[0].Time, Is.EqualTo(MediaTime.Zero));
         // Re-normalized: with only one emitted sample, alpha == baseOpacity (no falloff jump).
         Assert.That(samples[0].Alpha, Is.EqualTo(0.5f).Within(0.0001f));
     }
@@ -172,9 +171,9 @@ public class OnionSkinTests
         // currentFrame = 2, prevCount=3 → i=3 underflows (frame -1), i=1 and i=2 survive.
         var samples = OnionSkinHelper.EnumerateOnionSkinTimes(
             currentFrame: 2,
-            sceneStart: TimeSpan.Zero,
-            sceneDuration: TimeSpan.FromMinutes(1),
-            frameRate: rate,
+            sceneStart: MediaTime.Zero,
+            sceneDuration: MediaTime.FromSeconds(60),
+            frameRate: new Rational(rate),
             prevCount: 3,
             nextCount: 0,
             prevBaseOpacity: 0.8f,
@@ -194,9 +193,9 @@ public class OnionSkinTests
 
         var samples = OnionSkinHelper.EnumerateOnionSkinTimes(
             currentFrame: 0, // exactly sceneStart
-            sceneStart: TimeSpan.Zero,
-            sceneDuration: TimeSpan.FromSeconds(1),
-            frameRate: rate,
+            sceneStart: MediaTime.Zero,
+            sceneDuration: MediaTime.FromSeconds(1),
+            frameRate: new Rational(rate),
             prevCount: 2,
             nextCount: 1,
             prevBaseOpacity: 0.5f,
@@ -216,9 +215,9 @@ public class OnionSkinTests
         // current sits before sceneStart; the single next sample (frame -1) is also before start.
         var samples = OnionSkinHelper.EnumerateOnionSkinTimes(
             currentFrame: -2,
-            sceneStart: TimeSpan.Zero,
-            sceneDuration: TimeSpan.FromSeconds(1),
-            frameRate: rate,
+            sceneStart: MediaTime.Zero,
+            sceneDuration: MediaTime.FromSeconds(1),
+            frameRate: new Rational(rate),
             prevCount: 1,
             nextCount: 1,
             prevBaseOpacity: 0.5f,
@@ -232,15 +231,15 @@ public class OnionSkinTests
     public void EnumerateOnionSkinTimes_NearSceneEnd_ClampsNext()
     {
         int rate = 30;
-        TimeSpan duration = TimeSpan.FromSeconds(2); // exactly 60 frames at 30 fps
+        MediaTime duration = MediaTime.FromSeconds(2); // exactly 60 frames at 30 fps
         // currentFrame = 58 → next=3 means frame 59 (ok), frame 60 (== duration, excluded), frame 61 (over)
         int currentFrame = 58;
 
         var samples = OnionSkinHelper.EnumerateOnionSkinTimes(
             currentFrame: currentFrame,
-            sceneStart: TimeSpan.Zero,
+            sceneStart: MediaTime.Zero,
             sceneDuration: duration,
-            frameRate: rate,
+            frameRate: new Rational(rate),
             prevCount: 0,
             nextCount: 3,
             prevBaseOpacity: 0.5f,
@@ -256,9 +255,9 @@ public class OnionSkinTests
     {
         var samples = OnionSkinHelper.EnumerateOnionSkinTimes(
             currentFrame: 300,
-            sceneStart: TimeSpan.Zero,
-            sceneDuration: TimeSpan.FromMinutes(1),
-            frameRate: 30,
+            sceneStart: MediaTime.Zero,
+            sceneDuration: MediaTime.FromSeconds(60),
+            frameRate: new Rational(30),
             prevCount: 4,
             nextCount: 0,
             prevBaseOpacity: 0.8f,
@@ -283,9 +282,9 @@ public class OnionSkinTests
 
         var samples = OnionSkinHelper.EnumerateOnionSkinTimes(
             currentFrame: currentFrame,
-            sceneStart: TimeSpan.Zero,
-            sceneDuration: TimeSpan.FromMinutes(1),
-            frameRate: rate,
+            sceneStart: MediaTime.Zero,
+            sceneDuration: MediaTime.FromSeconds(60),
+            frameRate: new Rational(rate),
             prevCount: 0,
             nextCount: 2,
             prevBaseOpacity: 0f,
@@ -310,16 +309,16 @@ public class OnionSkinTests
     public void EnumerateOnionSkinTimes_PartialNextClamp_RenormalizesAlpha()
     {
         int rate = 30;
-        TimeSpan duration = TimeSpan.FromSeconds(2); // exactly 60 frames at 30 fps
+        MediaTime duration = MediaTime.FromSeconds(2); // exactly 60 frames at 30 fps
         // currentFrame = 57, nextCount=3 → frame 58 and 59 fall inside [0, duration), while
         // frame 60 lands exactly on duration (excluded by the exclusive end), so 2 next samples emit.
         int currentFrame = 57;
 
         var samples = OnionSkinHelper.EnumerateOnionSkinTimes(
             currentFrame: currentFrame,
-            sceneStart: TimeSpan.Zero,
+            sceneStart: MediaTime.Zero,
             sceneDuration: duration,
-            frameRate: rate,
+            frameRate: new Rational(rate),
             prevCount: 0,
             nextCount: 3,
             prevBaseOpacity: 0f,
@@ -338,16 +337,16 @@ public class OnionSkinTests
     public void EnumerateOnionSkinTimes_FractionalRate_SamplesLandOnFrameGrid()
     {
         // At 24/60 fps a frame is fractional in ticks. Sample times must align with the shared
-        // frame<->time grid (frame.ToTimeSpan(rate)); stepping by a single rounded per-frame tick
+        // frame<->time grid (MediaTime.FromFrames); stepping by a single rounded per-frame tick
         // would drift sub-frame and could even drop a valid neighbor near the scene start.
         int rate = 24;
         int currentFrame = 100;
 
         var samples = OnionSkinHelper.EnumerateOnionSkinTimes(
             currentFrame: currentFrame,
-            sceneStart: TimeSpan.Zero,
-            sceneDuration: TimeSpan.FromMinutes(1),
-            frameRate: rate,
+            sceneStart: MediaTime.Zero,
+            sceneDuration: MediaTime.FromSeconds(60),
+            frameRate: new Rational(rate),
             prevCount: 3,
             nextCount: 3,
             prevBaseOpacity: 0.6f,
@@ -374,9 +373,9 @@ public class OnionSkinTests
 
         var samples = OnionSkinHelper.EnumerateOnionSkinTimes(
             currentFrame: 1,
-            sceneStart: TimeSpan.Zero,
-            sceneDuration: TimeSpan.FromMinutes(1),
-            frameRate: rate,
+            sceneStart: MediaTime.Zero,
+            sceneDuration: MediaTime.FromSeconds(60),
+            frameRate: new Rational(rate),
             prevCount: 1,
             nextCount: 0,
             prevBaseOpacity: 0.5f,
@@ -384,7 +383,7 @@ public class OnionSkinTests
 
         Assert.That(samples, Has.Count.EqualTo(1));
         Assert.That(samples[0].IsPrev, Is.True);
-        Assert.That(samples[0].Time, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(samples[0].Time, Is.EqualTo(MediaTime.Zero));
     }
 
     [Test]
@@ -429,7 +428,7 @@ public class OnionSkinTests
 
     // A TimeRange that contains the given frame's time (Contains is [Start, End)).
     private static TimeRange RangeAtFrame(int frame, int rate) =>
-        new(FrameTime(frame, rate), TimeSpan.FromMilliseconds(1));
+        new(FrameTime(frame, rate), MediaTime.FromSeconds(0.001));
 
     [Test]
     public void IsEditAffectingPreview_EditOnPlayhead_ReturnsTrue_EvenWhenOnionDisabled()
@@ -442,7 +441,7 @@ public class OnionSkinTests
             onionSkinEnabled: false,
             prevCount: 0, prevOpacity: 0f,
             nextCount: 0, nextOpacity: 0f,
-            frameRate: rate, sceneStart: TimeSpan.Zero, sceneDuration: TimeSpan.FromMinutes(1));
+            frameRate: new Rational(rate), sceneStart: MediaTime.Zero, sceneDuration: MediaTime.FromSeconds(60));
 
         Assert.That(result, Is.True);
     }
@@ -458,7 +457,7 @@ public class OnionSkinTests
             onionSkinEnabled: false,
             prevCount: 3, prevOpacity: 0.5f,
             nextCount: 3, nextOpacity: 0.5f,
-            frameRate: rate, sceneStart: TimeSpan.Zero, sceneDuration: TimeSpan.FromMinutes(1));
+            frameRate: new Rational(rate), sceneStart: MediaTime.Zero, sceneDuration: MediaTime.FromSeconds(60));
 
         Assert.That(result, Is.False);
     }
@@ -474,7 +473,7 @@ public class OnionSkinTests
             onionSkinEnabled: true,
             prevCount: 2, prevOpacity: 0.5f,
             nextCount: 0, nextOpacity: 0f,
-            frameRate: rate, sceneStart: TimeSpan.Zero, sceneDuration: TimeSpan.FromMinutes(1));
+            frameRate: new Rational(rate), sceneStart: MediaTime.Zero, sceneDuration: MediaTime.FromSeconds(60));
 
         Assert.That(result, Is.True);
     }
@@ -490,7 +489,7 @@ public class OnionSkinTests
             onionSkinEnabled: true,
             prevCount: 0, prevOpacity: 0f,
             nextCount: 2, nextOpacity: 0.5f,
-            frameRate: rate, sceneStart: TimeSpan.Zero, sceneDuration: TimeSpan.FromMinutes(1));
+            frameRate: new Rational(rate), sceneStart: MediaTime.Zero, sceneDuration: MediaTime.FromSeconds(60));
 
         Assert.That(result, Is.True);
     }
@@ -507,7 +506,7 @@ public class OnionSkinTests
             onionSkinEnabled: true,
             prevCount: 2, prevOpacity: 0f,
             nextCount: 2, nextOpacity: 0.5f,
-            frameRate: rate, sceneStart: TimeSpan.Zero, sceneDuration: TimeSpan.FromMinutes(1));
+            frameRate: new Rational(rate), sceneStart: MediaTime.Zero, sceneDuration: MediaTime.FromSeconds(60));
 
         Assert.That(result, Is.False);
     }
@@ -524,7 +523,7 @@ public class OnionSkinTests
             onionSkinEnabled: true,
             prevCount: 1, prevOpacity: 0.5f,
             nextCount: 1, nextOpacity: 0.5f,
-            frameRate: rate, sceneStart: TimeSpan.Zero, sceneDuration: TimeSpan.FromMinutes(1));
+            frameRate: new Rational(rate), sceneStart: MediaTime.Zero, sceneDuration: MediaTime.FromSeconds(60));
 
         Assert.That(result, Is.False);
     }

@@ -19,7 +19,7 @@ public class ParticleRenderNodeScaleTests
     private static ParticleEmitter.Resource BuildResourceWithAliveParticles()
     {
         var emitter = new ParticleEmitter();
-        var ctx = new CompositionContext(TimeSpan.FromSeconds(1.0));
+        var ctx = new CompositionContext(MediaTime.FromSeconds(1.0));
         return (ParticleEmitter.Resource)emitter.ToResource(ctx);
     }
 
@@ -36,7 +36,7 @@ public class ParticleRenderNodeScaleTests
         emitter.Speed.Value = 0;
         emitter.Gravity.Value = 0;
 
-        var ctx = new CompositionContext(TimeSpan.FromSeconds(1.0));
+        var ctx = new CompositionContext(MediaTime.FromSeconds(1.0));
         return (ParticleEmitter.Resource)emitter.ToResource(ctx);
     }
 
@@ -55,7 +55,7 @@ public class ParticleRenderNodeScaleTests
         emitter.Speed.Value = 0;
         emitter.Gravity.Value = 0;
         return (ParticleEmitter.Resource)emitter.ToResource(
-            new CompositionContext(TimeSpan.FromSeconds(1)));
+            new CompositionContext(MediaTime.FromSeconds(1)));
     }
 
     [TestCase(1.0f)]

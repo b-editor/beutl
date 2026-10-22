@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Globalization;
+using System.Numerics;
 using System.Reactive;
 using System.Reactive.Linq;
 
@@ -28,12 +29,12 @@ public class SceneSettingsTabViewModelTests
         await previewPlayer.PauseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         var latestFrameSize = new PixelSize(1280, 720);
-        TimeSpan latestStart = TimeSpan.FromSeconds(3);
-        TimeSpan latestDuration = TimeSpan.FromSeconds(12);
+        MediaTime latestStart = MediaTime.FromSeconds(3);
+        MediaTime latestDuration = MediaTime.FromSeconds(12);
         viewModel.Width.Value = latestFrameSize.Width;
         viewModel.Height.Value = latestFrameSize.Height;
-        viewModel.StartInput.Value = latestStart.ToString();
-        viewModel.DurationInput.Value = latestDuration.ToString();
+        viewModel.StartInput.Value = latestStart.ToTimeSpan().ToString();
+        viewModel.DurationInput.Value = latestDuration.ToTimeSpan().ToString();
 
         previewPlayer.CompletePause();
         await applyTask.WaitAsync(TimeSpan.FromSeconds(5));
@@ -99,6 +100,42 @@ public class SceneSettingsTabViewModelTests
         Assert.That(sceneSettingsService.CallCount, Is.EqualTo(1));
     }
 
+    // A scene on frames keeps its times when another setting changes, and typed frame times land on its frames (#2885).
+    [TestCase("30")]
+    [TestCase("30000/1001")]
+    public async Task Apply_keeps_the_times_left_as_shown_and_takes_typed_times_on_the_frame_grid(string rateText)
+    {
+        Rational rate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
+        var scene = new Scene(640, 480, string.Empty)
+        {
+            Start = MediaTime.FromFrames(1, rate),
+            Duration = MediaTime.FromFrames(301, rate),
+        };
+        var project = new Project();
+        project.Variables[ProjectVariableKeys.FrameRate] = rateText;
+        project.Items.Add(scene);
+        using SceneSettingsTabViewModel viewModel = CreateViewModel(
+            scene, out CaptureSceneSettingsService sceneSettingsService, out BlockingPreviewPlayer previewPlayer);
+        previewPlayer.CompletePause();
+
+        viewModel.Width.Value = 800;
+        await viewModel.Apply.ExecuteAsync();
+        (MediaTime Start, MediaTime Duration) kept = (sceneSettingsService.Start, sceneSettingsService.Duration);
+        viewModel.StartInput.Value = Truncated(MediaTime.FromFrames(2, rate));
+        viewModel.DurationInput.Value = Truncated(MediaTime.FromFrames(600, rate));
+        await viewModel.Apply.ExecuteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(kept, Is.EqualTo((MediaTime.FromFrames(1, rate), MediaTime.FromFrames(301, rate))));
+            Assert.That(sceneSettingsService.Start, Is.EqualTo(MediaTime.FromFrames(2, rate)));
+            Assert.That(sceneSettingsService.Duration, Is.EqualTo(MediaTime.FromFrames(600, rate)));
+        });
+
+        // A frame time as earlier versions showed it, rounded down to a tick.
+        static string Truncated(MediaTime time) => TimeSpan.FromTicks(time.ToTicks(MidpointRounding.ToNegativeInfinity)).ToString();
+    }
+
     private static SceneSettingsTabViewModel CreateViewModel(
         out CaptureSceneSettingsService sceneSettingsService,
         out BlockingPreviewPlayer previewPlayer,
@@ -106,9 +143,23 @@ public class SceneSettingsTabViewModelTests
     {
         var scene = new Scene(640, 480, string.Empty)
         {
-            Start = TimeSpan.FromSeconds(1),
-            Duration = TimeSpan.FromSeconds(5),
+            Start = MediaTime.FromSeconds(1),
+            Duration = MediaTime.FromSeconds(5),
         };
+        SceneSettingsTabViewModel viewModel = CreateViewModel(scene, out sceneSettingsService, out previewPlayer, isPlaying);
+        viewModel.Width.Value = 800;
+        viewModel.Height.Value = 600;
+        viewModel.StartInput.Value = TimeSpan.FromSeconds(2).ToString();
+        viewModel.DurationInput.Value = TimeSpan.FromSeconds(10).ToString();
+        return viewModel;
+    }
+
+    private static SceneSettingsTabViewModel CreateViewModel(
+        Scene scene,
+        out CaptureSceneSettingsService sceneSettingsService,
+        out BlockingPreviewPlayer previewPlayer,
+        bool isPlaying = true)
+    {
         sceneSettingsService = new CaptureSceneSettingsService();
         previewPlayer = new BlockingPreviewPlayer(isPlaying);
         var editorContext = new TestEditorContext(scene);
@@ -116,26 +167,7 @@ public class SceneSettingsTabViewModelTests
         editorContext.AddService<ISceneSettingsService>(sceneSettingsService);
         editorContext.AddService<ITimelineOptionsProvider>(new TestTimelineOptionsProvider(scene));
         editorContext.AddService<IPreviewPlayer>(previewPlayer);
-
-        return new SceneSettingsTabViewModel(editorContext)
-        {
-            Width =
-            {
-                Value = 800
-            },
-            Height =
-            {
-                Value = 600
-            },
-            StartInput =
-            {
-                Value = TimeSpan.FromSeconds(2).ToString()
-            },
-            DurationInput =
-            {
-                Value = TimeSpan.FromSeconds(10).ToString()
-            },
-        };
+        return new SceneSettingsTabViewModel(editorContext);
     }
 
     private sealed class TestTimelineOptionsProvider(Scene scene) : ITimelineOptionsProvider
@@ -165,7 +197,7 @@ public class SceneSettingsTabViewModelTests
 
         public async Task Pause()
         {
-            PauseStarted.SetResult();
+            PauseStarted.TrySetResult();
             await _pauseCompletion.Task;
         }
 
@@ -181,15 +213,15 @@ public class SceneSettingsTabViewModelTests
 
         public PixelSize FrameSize { get; private set; }
 
-        public TimeSpan Start { get; private set; }
+        public MediaTime Start { get; private set; }
 
-        public TimeSpan Duration { get; private set; }
+        public MediaTime Duration { get; private set; }
 
         public bool Apply(
             Scene scene,
             PixelSize frameSize,
-            TimeSpan start,
-            TimeSpan duration)
+            MediaTime start,
+            MediaTime duration)
         {
             CallCount++;
             FrameSize = frameSize;

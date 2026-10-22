@@ -14,7 +14,7 @@ public sealed class DelayAnimationEffectProxyContextTests
     public void Resource_CapturesProxyPreferencesFromContext()
     {
         var effect = new DelayAnimationEffect();
-        var context = new CompositionContext(TimeSpan.Zero)
+        var context = new CompositionContext(MediaTime.Zero)
         {
             PreferProxy = true,
             PreferredProxyPreset = ProxyPreset.Half,
@@ -34,7 +34,7 @@ public sealed class DelayAnimationEffectProxyContextTests
     {
         var effect = new DelayAnimationEffect();
 
-        var resource = (DelayAnimationEffect.Resource)effect.ToResource(new CompositionContext(TimeSpan.Zero));
+        var resource = (DelayAnimationEffect.Resource)effect.ToResource(new CompositionContext(MediaTime.Zero));
 
         Assert.That(resource.PreferProxy, Is.False);
     }
@@ -46,11 +46,11 @@ public sealed class DelayAnimationEffectProxyContextTests
     {
         var effect = new DelayAnimationEffect();
         var resource = (DelayAnimationEffect.Resource)effect.ToResource(
-            new CompositionContext(TimeSpan.Zero) { PreferProxy = false });
+            new CompositionContext(MediaTime.Zero) { PreferProxy = false });
         int before = resource.Version;
 
         bool versionBumped = false;
-        resource.Reconcile(effect, new CompositionContext(TimeSpan.Zero) { PreferProxy = true }, ref versionBumped);
+        resource.Reconcile(effect, new CompositionContext(MediaTime.Zero) { PreferProxy = true }, ref versionBumped);
 
         Assert.That(resource.Version, Is.GreaterThan(before));
     }

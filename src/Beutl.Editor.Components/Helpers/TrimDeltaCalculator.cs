@@ -8,7 +8,7 @@ public static class TrimDeltaCalculator
     /// both endpoints identically is what makes a no-move click near a cut resolve to a zero delta —
     /// otherwise only the release endpoint snaps and the operation commits a spurious one-frame trim.
     /// </summary>
-    public static TimeSpan SnappedDelta(TimeSpan pressTime, TimeSpan releaseTime, Func<TimeSpan, TimeSpan> snap)
+    public static MediaTime SnappedDelta(MediaTime pressTime, MediaTime releaseTime, Func<MediaTime, MediaTime> snap)
     {
         ArgumentNullException.ThrowIfNull(snap);
         return snap(releaseTime) - snap(pressTime);

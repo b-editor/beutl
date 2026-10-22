@@ -41,7 +41,7 @@ public class AutoSaveServiceTests
         var element = new Element
         {
             Uri = CreateUri("elements/restored.belm"),
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
         };
         CoreSerializer.StoreToUri(scene, scene.Uri);
         CoreSerializer.StoreToUri(element, element.Uri);
@@ -104,7 +104,7 @@ public class AutoSaveServiceTests
     public void AutoSave_WritesTheNewHalfOfASplitBeforeTheScene_SoTheSceneNeedsNoIncludeEntry()
     {
         var scene = new Scene { Uri = CreateUri("main.scene") };
-        var element = new Element { Uri = CreateUri("clip.belm"), Length = TimeSpan.FromSeconds(10) };
+        var element = new Element { Uri = CreateUri("clip.belm"), Length = MediaTime.FromSeconds(10) };
         scene.Children.Add(element);
         CoreSerializer.StoreToUri(scene, scene.Uri);
         using var harness = new HistoryHarness(scene);
@@ -115,7 +115,7 @@ public class AutoSaveServiceTests
             .Buffer(harness.History.StateChanged)
             .Subscribe(operations => service.AutoSave(operations));
 
-        new ElementStructureService(harness.History).Split(scene, [element], TimeSpan.FromSeconds(4));
+        new ElementStructureService(harness.History).Split(scene, [element], MediaTime.FromSeconds(4));
 
         Element back = scene.Children.Single(child => child != element);
         JsonNode patterns = JsonNode.Parse(File.ReadAllText(scene.Uri.LocalPath))!["Elements"]!;

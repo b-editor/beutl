@@ -100,7 +100,7 @@ public class PreviewFrameOrderIndependenceTests
                 {
                     if (!rendered.Add(frame))
                     {
-                        renderer.UpdateFrame(renderer.Compositor.EvaluateGraphics(frame.ToTimeSpan(Rate)));
+                        renderer.UpdateFrame(renderer.Compositor.EvaluateGraphics(MediaTime.FromFrames(frame, new Rational(Rate))));
                         continue;
                     }
 
@@ -144,7 +144,7 @@ public class PreviewFrameOrderIndependenceTests
 
             Scene scene = media.NewSceneWith(group);
             using var renderer = new SceneRenderer(scene, RenderIntent.Preview) { CacheOptions = RenderCacheOptions.Default };
-            renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.Zero));
+            renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.Zero));
 
             using Bitmap snapshot = renderer.Snapshot();
             using Bitmap srgb = snapshot.Convert(
@@ -170,7 +170,7 @@ public class PreviewFrameOrderIndependenceTests
 
     private static string RenderAndHash(SceneRenderer renderer, int frame)
     {
-        renderer.Render(renderer.Compositor.EvaluateGraphics(frame.ToTimeSpan(Rate)));
+        renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.FromFrames(frame, new Rational(Rate))));
         using Bitmap snapshot = renderer.Snapshot();
         using Bitmap srgb = snapshot.Convert(
             BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
@@ -216,10 +216,10 @@ public class PreviewFrameOrderIndependenceTests
             backdrop.Width.Value = 160;
             backdrop.Height.Value = 120;
             backdrop.Fill.Value = new SolidColorBrush(Colors.DarkSlateBlue);
-            scene.Children.Add(NewElement(backdrop, TimeSpan.Zero, TimeSpan.FromSeconds(4), zIndex: 0));
+            scene.Children.Add(NewElement(backdrop, MediaTime.Zero, MediaTime.FromSeconds(4), zIndex: 0));
 
             scene.Children.Add(NewElement(
-                NewClip(new PixelSize(160, 120)), TimeSpan.Zero, TimeSpan.FromSeconds(4), zIndex: 1));
+                NewClip(new PixelSize(160, 120)), MediaTime.Zero, MediaTime.FromSeconds(4), zIndex: 1));
 
             if (_withBackdrops)
             {
@@ -234,7 +234,7 @@ public class PreviewFrameOrderIndependenceTests
                     }
 
                     scene.Children.Add(NewElement(
-                        glass, TimeSpan.Zero, TimeSpan.FromSeconds(4), zIndex: 2 + i));
+                        glass, MediaTime.Zero, MediaTime.FromSeconds(4), zIndex: 2 + i));
                 }
 
                 return scene;
@@ -242,13 +242,13 @@ public class PreviewFrameOrderIndependenceTests
 
             if (extra != null)
             {
-                scene.Children.Add(NewElement(extra, TimeSpan.Zero, TimeSpan.FromSeconds(4), zIndex: 3));
+                scene.Children.Add(NewElement(extra, MediaTime.Zero, MediaTime.FromSeconds(4), zIndex: 3));
             }
 
             var overlay = NewClip(new PixelSize(80, 60));
             overlay.Opacity.Value = 60f;
             scene.Children.Add(NewElement(
-                overlay, TimeSpan.FromSeconds(5d / Rate), TimeSpan.FromSeconds(6d / Rate), zIndex: 2));
+                overlay, MediaTime.FromSeconds(5d / Rate), MediaTime.FromSeconds(6d / Rate), zIndex: 2));
 
             return scene;
         }
@@ -291,7 +291,7 @@ public class PreviewFrameOrderIndependenceTests
                 ProxyPreset.Quarter);
         }
 
-        private Element NewElement(Drawable drawable, TimeSpan start, TimeSpan length, int zIndex)
+        private Element NewElement(Drawable drawable, MediaTime start, MediaTime length, int zIndex)
         {
             var element = new Element
             {

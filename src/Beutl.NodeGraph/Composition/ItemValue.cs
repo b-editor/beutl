@@ -64,7 +64,7 @@ public sealed class ItemValue<T> : IReadOnlyItemValue<T>
 
     public object? GetBoxed() => Value;
 
-    public bool TryLoadFromAnimation(IKeyFrameAnimation animation, TimeSpan time)
+    public bool TryLoadFromAnimation(IKeyFrameAnimation animation, MediaTime time)
     {
         if (animation is KeyFrameAnimation<T> typed)
         {

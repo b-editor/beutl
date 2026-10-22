@@ -22,7 +22,7 @@ public sealed class ElementDuplicateService : IElementDuplicateService
     public DuplicateOutcome DuplicateAtClickedPosition(
         Scene scene,
         IReadOnlyList<Element> sources,
-        TimeSpan clickedFrame,
+        MediaTime clickedFrame,
         int clickedLayer)
     {
         ArgumentNullException.ThrowIfNull(scene);
@@ -41,7 +41,7 @@ public sealed class ElementDuplicateService : IElementDuplicateService
         Element[] regenerated;
         TimeRange seedRange;
         int minZIndex;
-        TimeSpan anchorStart;
+        MediaTime anchorStart;
         int anchorZIndex;
         try
         {
@@ -80,7 +80,7 @@ public sealed class ElementDuplicateService : IElementDuplicateService
     public bool DuplicateAtPosition(
         Scene scene,
         IReadOnlyList<Element> sources,
-        TimeSpan anchorStart,
+        MediaTime anchorStart,
         int anchorZIndex)
     {
         ArgumentNullException.ThrowIfNull(scene);
@@ -104,7 +104,7 @@ public sealed class ElementDuplicateService : IElementDuplicateService
         return true;
     }
 
-    public bool WouldOverlap(IReadOnlyList<Element> sources, TimeSpan anchorStart, int anchorZIndex)
+    public bool WouldOverlap(IReadOnlyList<Element> sources, MediaTime anchorStart, int anchorZIndex)
     {
         ArgumentNullException.ThrowIfNull(sources);
         return DuplicateHelper.WouldOverlapSources(sources, anchorStart, anchorZIndex);
@@ -114,18 +114,18 @@ public sealed class ElementDuplicateService : IElementDuplicateService
     /// Spiral search around the clicked position for a non-overlapping slot,
     /// bounded by <see cref="MaxSearchSteps"/> so a packed timeline can't hang.
     /// </summary>
-    private static (TimeSpan Start, int ZIndex) CorrectPosition(
+    private static (MediaTime Start, int ZIndex) CorrectPosition(
         Scene scene,
         TimeRange range,
         HashSet<int> rowOffsets,
         HashSet<int> lockedRows,
-        TimeSpan clickedFrame,
+        MediaTime clickedFrame,
         int clickedLayer)
     {
-        TimeSpan step = SceneTimeRangeService.GetFrameDuration(scene);
-        TimeSpan length = range.Duration;
+        MediaTime step = SceneTimeRangeService.GetFrameDuration(scene);
+        MediaTime length = range.Duration;
 
-        TimeSpan newStart = clickedFrame;
+        MediaTime newStart = clickedFrame;
         int newZIndex = clickedLayer;
 
         if (IsPlacementFree(scene, new TimeRange(newStart, length), newZIndex, rowOffsets, lockedRows))
@@ -145,10 +145,10 @@ public sealed class ElementDuplicateService : IElementDuplicateService
 
         while (true)
         {
-            newStart += TimeSpan.FromTicks(step.Ticks * dx[dir]);
+            newStart += new MediaTime(step.Flicks * dx[dir]);
             newZIndex += dz[dir];
 
-            if (newStart < TimeSpan.Zero) newStart = TimeSpan.Zero;
+            if (newStart < MediaTime.Zero) newStart = MediaTime.Zero;
             if (newZIndex < 0) newZIndex = 0;
 
             if (IsPlacementFree(scene, new TimeRange(newStart, length), newZIndex, rowOffsets, lockedRows))

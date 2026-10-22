@@ -164,7 +164,7 @@ public class FormerPersistedNameTests
         var source = new MemberHolder();
         source.Width.Value = 3;
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 32 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 32 });
         source.Width.SetKeyFrameAnimation(animation);
         source.Width.Expression = Expression.Create<float>("5");
         source.Tags.Add("a");

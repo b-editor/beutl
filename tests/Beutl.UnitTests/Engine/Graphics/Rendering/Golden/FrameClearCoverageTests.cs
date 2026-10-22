@@ -41,7 +41,7 @@ public class FrameClearCoverageTests
                 target);
             var frame = new CompositionFrame(
                 ImmutableArray<EngineObject.Resource>.Empty,
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)),
                 new PixelSize(width, height),
                 null);
 

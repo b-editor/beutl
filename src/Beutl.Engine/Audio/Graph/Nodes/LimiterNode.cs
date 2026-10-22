@@ -20,7 +20,7 @@ public sealed class LimiterNode : AudioNode
     private CircularBuffer<float>[]? _delayLines;
     private CircularBuffer<float>? _peakBuffer;
     private int _lastSampleRate;
-    private TimeSpan? _lastTimeRangeEnd;
+    private MediaTime? _lastTimeRangeEnd;
     private float _currentGain = 1f;
 
     // Monotonic-decreasing deque (ring buffer over peak positions) giving the static path an

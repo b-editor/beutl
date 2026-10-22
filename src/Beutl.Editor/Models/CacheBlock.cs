@@ -1,10 +1,10 @@
 ﻿namespace Beutl.Editor.Models;
 
-public sealed class CacheBlock(int rate, int start, int length, bool isLocked)
+public sealed class CacheBlock(Rational rate, int start, int length, bool isLocked)
 {
-    public TimeSpan Start { get; } = TimeSpanExtensions.ToTimeSpan(start, rate);
+    public MediaTime Start { get; } = MediaTime.FromFrames(start, rate);
 
-    public TimeSpan Length { get; } = TimeSpanExtensions.ToTimeSpan(length, rate);
+    public MediaTime Length { get; } = MediaTime.FromFrames(length, rate);
 
     public int StartFrame { get; } = start;
 

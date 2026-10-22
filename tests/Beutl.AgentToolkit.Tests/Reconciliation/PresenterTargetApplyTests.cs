@@ -34,8 +34,8 @@ public sealed class PresenterTargetApplyTests
         {
             Name = name,
             ZIndex = zIndex,
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(dir, $"{name}.belm")),
         };
         element.AddObject(drawable);

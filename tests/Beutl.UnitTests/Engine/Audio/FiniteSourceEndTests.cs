@@ -17,7 +17,7 @@ public class FiniteSourceEndTests
     public void ShiftResampleGainAndSpeed_MapTheFiniteEndThroughTheGraph()
     {
         using var source = new FiniteSource(1);
-        using var shift = new ShiftNode { Shift = TimeSpan.FromSeconds(0.25) };
+        using var shift = new ShiftNode { Shift = MediaTime.FromSeconds(0.25) };
         using var resample = new ResampleNode { SourceSampleRate = 44100 };
         using var gain = new GainNode { Gain = Property.CreateAnimatable(75f) };
         using var speed = new SpeedNode { Speed = Property.CreateAnimatable(200f) };
@@ -47,7 +47,7 @@ public class FiniteSourceEndTests
     [Test]
     public void Clip_ReportsItsOutputTimelineEnd()
     {
-        using var clip = new ClipNode { Start = TimeSpan.FromSeconds(2), Duration = TimeSpan.FromSeconds(1) };
+        using var clip = new ClipNode { Start = MediaTime.FromSeconds(2), Duration = MediaTime.FromSeconds(1) };
         using var source = new FiniteSource(0.5);
         clip.AddInput(source);
 
@@ -74,10 +74,10 @@ public class FiniteSourceEndTests
     {
         var effect = new TimeStretchEffect();
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100f });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.FromSeconds(1),
+            KeyTime = MediaTime.FromSeconds(1),
             Value = 200f,
             Easing = new LinearEasing()
         });
@@ -97,7 +97,7 @@ public class FiniteSourceEndTests
     {
         var easing = new CountingEasing();
         var start = new KeyFrame<float> { Value = 100 };
-        var end = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100, Easing = easing };
+        var end = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 100, Easing = easing };
         var property = Property.CreateAnimatable(100f);
         property.SetKeyFrameAnimation(new KeyFrameAnimation<float> { KeyFrames = { start, end } });
         using var source = new MutableFiniteSource { Seconds = 0.125 };
@@ -130,7 +130,7 @@ public class FiniteSourceEndTests
         using var context = new AudioContext(SampleRate, 2);
         var source = context.AddNode(new FiniteSource(2));
         AudioNode limiter = limiterEffect.CreateNode(context, source);
-        var clip = context.AddNode(new ClipNode { Duration = TimeSpan.FromSeconds(1) });
+        var clip = context.AddNode(new ClipNode { Duration = MediaTime.FromSeconds(1) });
         clip.AddInput(limiter);
 
         Assert.That(clip.GetFiniteSourceEndSample(SampleRate), Is.EqualTo(48480));

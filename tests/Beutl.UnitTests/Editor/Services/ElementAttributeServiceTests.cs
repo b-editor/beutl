@@ -19,7 +19,7 @@ public class ElementAttributeServiceTests
     [SetUp]
     public void Setup()
     {
-        _harness = new SceneHistoryHarness("beutl_attr", start: TimeSpan.Zero, duration: TimeSpan.FromSeconds(60));
+        _harness = new SceneHistoryHarness("beutl_attr", start: MediaTime.Zero, duration: MediaTime.FromSeconds(60));
         _history = _harness.History;
         _service = new ElementAttributeService(_history);
     }
@@ -152,8 +152,8 @@ public class ElementAttributeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(incoming.EnterTransition?.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
-            Assert.That(outgoing.ExitTransition?.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
+            Assert.That(incoming.EnterTransition?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
+            Assert.That(outgoing.ExitTransition?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
             Assert.That(incoming.EnterTransition, Is.TypeOf<CrossDissolveTransition>());
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
@@ -187,7 +187,7 @@ public class ElementAttributeServiceTests
         _service.ApplyTransition(incoming, ElementEdge.Start, typeof(CrossDissolveTransition));
         ClipTransition enter = incoming.EnterTransition!;
         var easing = new CubicEaseInOut();
-        enter.Duration.Value = TimeSpan.FromSeconds(1);
+        enter.Duration.Value = MediaTime.FromSeconds(1);
         enter.Easing.Value = easing;
         _history.Commit("duration");
         int before = _history.UndoCount;
@@ -198,8 +198,8 @@ public class ElementAttributeServiceTests
         {
             Assert.That(incoming.EnterTransition, Is.TypeOf<WipeTransition>());
             Assert.That(outgoing.ExitTransition, Is.TypeOf<WipeTransition>());
-            Assert.That(incoming.EnterTransition?.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(outgoing.ExitTransition?.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
+            Assert.That(incoming.EnterTransition?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(outgoing.ExitTransition?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
             Assert.That(incoming.EnterTransition?.Easing.Value, Is.SameAs(easing));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
@@ -367,21 +367,21 @@ public class ElementAttributeServiceTests
         _service.ApplyTransition(incoming, ElementEdge.Start, typeof(CrossDissolveTransition));
         int before = _history.UndoCount;
 
-        _service.SetTransitionDuration(incoming, ElementEdge.Start, TimeSpan.FromSeconds(1));
-        _service.SetTransitionDuration(incoming, ElementEdge.Start, TimeSpan.FromSeconds(1));
+        _service.SetTransitionDuration(incoming, ElementEdge.Start, MediaTime.FromSeconds(1));
+        _service.SetTransitionDuration(incoming, ElementEdge.Start, MediaTime.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
-            Assert.That(incoming.EnterTransition?.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(outgoing.ExitTransition?.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
+            Assert.That(incoming.EnterTransition?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(outgoing.ExitTransition?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1), "an unchanged duration must not commit");
         });
     }
 
     private (Element Outgoing, Element Incoming) AddCut()
     {
-        Element outgoing = _harness.AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        Element incoming = _harness.AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2));
+        Element outgoing = _harness.AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element incoming = _harness.AddElement(MediaTime.FromSeconds(3), MediaTime.FromSeconds(2));
         _history.Commit("cut");
         return (outgoing, incoming);
     }

@@ -26,13 +26,13 @@ public class ElementAdderTests
         ElementAddResult result = await adder.AddAsync(
         [
             new ElementDescription(
-                TimeSpan.Zero,
-                TimeSpan.FromSeconds(2),
+                MediaTime.Zero,
+                MediaTime.FromSeconds(2),
                 Layer: 0,
                 Source: new ElementSource.EngineObject(() => new RectShape())),
             new ElementDescription(
-                TimeSpan.FromSeconds(3),
-                TimeSpan.FromSeconds(2),
+                MediaTime.FromSeconds(3),
+                MediaTime.FromSeconds(2),
                 Layer: 0,
                 Source: new ElementSource.EngineObject(() => new EllipseShape())),
         ], CancellationToken.None);
@@ -80,13 +80,13 @@ public class ElementAdderTests
         ElementAddResult result = await adder.AddAsync(
         [
             new ElementDescription(
-                TimeSpan.Zero,
-                TimeSpan.FromSeconds(2),
+                MediaTime.Zero,
+                MediaTime.FromSeconds(2),
                 Layer: 0,
                 Source: new ElementSource.EngineObject(() => new RectShape())),
             new ElementDescription(
-                TimeSpan.FromSeconds(3),
-                TimeSpan.FromSeconds(2),
+                MediaTime.FromSeconds(3),
+                MediaTime.FromSeconds(2),
                 Layer: 0,
                 Source: new ElementSource.EngineObject(
                     static () => throw new InvalidOperationException("Factory failure"))),
@@ -119,8 +119,8 @@ public class ElementAdderTests
         ElementAddResult unsupported = await adder.AddAsync(
         [
             new ElementDescription(
-                TimeSpan.Zero,
-                TimeSpan.FromSeconds(1),
+                MediaTime.Zero,
+                MediaTime.FromSeconds(1),
                 0,
                 new ElementSource.File("/tmp/unsupported.beutl-test")),
         ], CancellationToken.None);
@@ -149,13 +149,13 @@ public class ElementAdderTests
         ElementAddResult result = await adder.AddAsync(
         [
             new ElementDescription(
-                TimeSpan.Zero,
-                TimeSpan.FromSeconds(2),
+                MediaTime.Zero,
+                MediaTime.FromSeconds(2),
                 Layer: 0,
                 Source: new ElementSource.EngineObject(() => new RectShape())),
             new ElementDescription(
-                TimeSpan.FromSeconds(3),
-                TimeSpan.FromSeconds(2),
+                MediaTime.FromSeconds(3),
+                MediaTime.FromSeconds(2),
                 Layer: 2,
                 Source: new ElementSource.EngineObject(() =>
                 {
@@ -185,8 +185,8 @@ public class ElementAdderTests
         var sourceShape = new RectShape();
         var source = new Element
         {
-            Start = TimeSpan.FromSeconds(20),
-            Length = TimeSpan.FromSeconds(7),
+            Start = MediaTime.FromSeconds(20),
+            Length = MediaTime.FromSeconds(7),
             ZIndex = 9,
             Name = "Authored template",
         };
@@ -194,13 +194,13 @@ public class ElementAdderTests
         ObjectTemplateItem template = ObjectTemplateItem.CreateFromInstance(source, "Template");
         ElementDescription description = ElementTemplateResolver.CreateDescription(
             template,
-            TimeSpan.FromSeconds(3),
+            MediaTime.FromSeconds(3),
             4);
         ElementDescription zeroLengthDescription = ElementTemplateResolver.CreateDescription(
             template,
-            TimeSpan.FromSeconds(11),
+            MediaTime.FromSeconds(11),
             5,
-            lengthOverride: TimeSpan.Zero);
+            lengthOverride: MediaTime.Zero);
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
 
         ElementAddResult result = await adder.AddAsync(
@@ -215,14 +215,14 @@ public class ElementAdderTests
         {
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(description.Length, Is.Null);
-            Assert.That(created.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
-            Assert.That(created.Length, Is.EqualTo(TimeSpan.FromSeconds(7)));
+            Assert.That(created.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(created.Length, Is.EqualTo(MediaTime.FromSeconds(7)));
             Assert.That(created.ZIndex, Is.EqualTo(4));
             Assert.That(created.Name, Is.EqualTo("Authored template"));
             Assert.That(created.Id, Is.Not.EqualTo(source.Id));
             Assert.That(createdShape.Id, Is.Not.EqualTo(sourceShape.Id));
-            Assert.That(zeroLengthDescription.Length, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(zeroLengthElement.Length, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(zeroLengthDescription.Length, Is.EqualTo(MediaTime.Zero));
+            Assert.That(zeroLengthElement.Length, Is.EqualTo(MediaTime.Zero));
         }
     }
 
@@ -235,8 +235,8 @@ public class ElementAdderTests
         var handler = new GroupedTestSourceHandler();
         int initialUndoCount = editor.HistoryManager.UndoCount;
         var description = new ElementDescription(
-            TimeSpan.FromSeconds(2),
-            TimeSpan.FromSeconds(3),
+            MediaTime.FromSeconds(2),
+            MediaTime.FromSeconds(3),
             4,
             new TestElementSource("plugin"));
 
@@ -273,7 +273,7 @@ public class ElementAdderTests
         ElementAddResult result = await adder.AddAsync(
         [
             new ElementDescription(
-                TimeSpan.FromSeconds(2),
+                MediaTime.FromSeconds(2),
                 null,
                 4,
                 new TestElementSource("handler-defined-length")),
@@ -283,7 +283,7 @@ public class ElementAdderTests
         {
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Elements, Has.Count.EqualTo(1));
-            Assert.That(result.Elements[0].Length, Is.EqualTo(TimeSpan.FromSeconds(7)));
+            Assert.That(result.Elements[0].Length, Is.EqualTo(MediaTime.FromSeconds(7)));
         }
     }
 
@@ -297,7 +297,7 @@ public class ElementAdderTests
         ElementAddResult engineObject = await adder.AddAsync(
         [
             new ElementDescription(
-                TimeSpan.Zero,
+                MediaTime.Zero,
                 null,
                 0,
                 new ElementSource.EngineObject(() => new RectShape())),
@@ -305,7 +305,7 @@ public class ElementAdderTests
         ElementAddResult file = await adder.AddAsync(
         [
             new ElementDescription(
-                TimeSpan.Zero,
+                MediaTime.Zero,
                 null,
                 0,
                 new ElementSource.File("/tmp/unused.beutl-test")),
@@ -334,8 +334,8 @@ public class ElementAdderTests
         ElementAddResult result = await adder.AddAsync(
         [
             new ElementDescription(
-                TimeSpan.Zero,
-                TimeSpan.FromSeconds(1),
+                MediaTime.Zero,
+                MediaTime.FromSeconds(1),
                 0,
                 new TestElementSource("rejected")),
         ], CancellationToken.None);
@@ -362,8 +362,8 @@ public class ElementAdderTests
         ValueTask<ElementAddResult> operation = adder.AddAsync(
         [
             new ElementDescription(
-                TimeSpan.Zero,
-                TimeSpan.FromSeconds(1),
+                MediaTime.Zero,
+                MediaTime.FromSeconds(1),
                 0,
                 new TestElementSource("cancel")),
         ], cancellationTokenSource.Token);
@@ -523,8 +523,8 @@ public class ElementAdderTests
             thrown = await Assert.CatchAsync<OperationCanceledException>(async () => await adder.AddAsync(
             [
                 new ElementDescription(
-                    TimeSpan.Zero,
-                    TimeSpan.FromSeconds(1),
+                    MediaTime.Zero,
+                    MediaTime.FromSeconds(1),
                     0,
                     new ElementSource.EngineObject(() => new RectShape())),
             ], cancellation.Token));
@@ -578,8 +578,8 @@ public class ElementAdderTests
             result = await adder.AddAsync(
             [
                 new ElementDescription(
-                    TimeSpan.Zero,
-                    TimeSpan.FromSeconds(1),
+                    MediaTime.Zero,
+                    MediaTime.FromSeconds(1),
                     0,
                     new ElementSource.EngineObject(() => new RectShape())),
             ], CancellationToken.None);
@@ -656,8 +656,8 @@ public class ElementAdderTests
         ElementAddResult result = await adder.AddAsync(
         [
             new ElementDescription(
-                TimeSpan.Zero,
-                TimeSpan.FromSeconds(1),
+                MediaTime.Zero,
+                MediaTime.FromSeconds(1),
                 4,
                 new TestElementSource("locked")),
         ], CancellationToken.None);
@@ -684,8 +684,8 @@ public class ElementAdderTests
             ElementAddResult success = await adder.AddAsync(
             [
                 new ElementDescription(
-                    TimeSpan.Zero,
-                    TimeSpan.FromSeconds(1),
+                    MediaTime.Zero,
+                    MediaTime.FromSeconds(1),
                     0,
                     new TestElementSource("commit")),
             ], CancellationToken.None);
@@ -712,8 +712,8 @@ public class ElementAdderTests
             rollback = await adder.AddAsync(
             [
                 new ElementDescription(
-                    TimeSpan.FromSeconds(2),
-                    TimeSpan.FromSeconds(1),
+                    MediaTime.FromSeconds(2),
+                    MediaTime.FromSeconds(1),
                     1,
                     new TestElementSource("rollback")),
             ], CancellationToken.None);
@@ -746,8 +746,8 @@ public class ElementAdderTests
             ElementAddResult result = await adder.AddAsync(
             [
                 new ElementDescription(
-                    TimeSpan.Zero,
-                    TimeSpan.FromSeconds(1),
+                    MediaTime.Zero,
+                    MediaTime.FromSeconds(1),
                     0,
                     new TestElementSource("extension")),
             ], CancellationToken.None);
@@ -762,8 +762,8 @@ public class ElementAdderTests
         ElementAddResult afterRemoval = await adder.AddAsync(
         [
             new ElementDescription(
-                TimeSpan.FromSeconds(2),
-                TimeSpan.FromSeconds(1),
+                MediaTime.FromSeconds(2),
+                MediaTime.FromSeconds(1),
                 0,
                 new TestElementSource("extension-removed")),
         ], CancellationToken.None);
@@ -884,8 +884,8 @@ public class ElementAdderTests
         {
             competing = new Element
             {
-                Start = TimeSpan.FromSeconds(10),
-                Length = TimeSpan.FromSeconds(1),
+                Start = MediaTime.FromSeconds(10),
+                Length = MediaTime.FromSeconds(1),
                 ZIndex = 10,
                 Uri = new Uri(Path.Combine(
                     Path.GetDirectoryName(context.Scene.Uri!.LocalPath)!,
@@ -936,8 +936,8 @@ public class ElementAdderTests
 
     private static ElementDescription CreateTestDescription(string value, int layer)
         => new(
-            TimeSpan.Zero,
-            TimeSpan.FromSeconds(1),
+            MediaTime.Zero,
+            MediaTime.FromSeconds(1),
             layer,
             new TestElementSource(value));
 
@@ -967,13 +967,13 @@ public class ElementAdderTests
             ElementAddResult result = await adder.AddAsync(
             [
                 new ElementDescription(
-                    TimeSpan.Zero,
-                    TimeSpan.FromSeconds(2),
+                    MediaTime.Zero,
+                    MediaTime.FromSeconds(2),
                     Layer: 0,
                     Source: new ElementSource.EngineObject(() => new RectShape())),
                 new ElementDescription(
-                    TimeSpan.FromSeconds(3),
-                    TimeSpan.FromSeconds(2),
+                    MediaTime.FromSeconds(3),
+                    MediaTime.FromSeconds(2),
                     Layer: 0,
                     Source: new ElementSource.EngineObject(() => new EllipseShape())),
             ], CancellationToken.None);
@@ -1196,7 +1196,7 @@ public class ElementAdderTests
         protected override Element CreateElement(ElementSourceMaterializationContext context) => new()
         {
             Start = context.Description.Start,
-            Length = TimeSpan.FromSeconds(7),
+            Length = MediaTime.FromSeconds(7),
             ZIndex = context.Description.Layer,
         };
     }

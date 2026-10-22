@@ -57,9 +57,9 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
         private int[] _rowBinHi = [];
         private SKPaint? _paint;
 
-        protected override (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(TimeSpan currentTime)
+        protected override (MediaTime Start, MediaTime Duration) ComputeSampleWindow(MediaTime currentTime)
         {
-            TimeSpan window = TimeSpan.FromSeconds(Math.Max(0.01, WindowSeconds));
+            MediaTime window = MediaTime.FromSeconds(Math.Max(0.01, WindowSeconds));
             return (currentTime - window, window);
         }
 

@@ -263,7 +263,7 @@ public class Renderer : IRenderer
         }
     }
 
-    public TimeSpan Time { get; internal set; }
+    public MediaTime Time { get; internal set; }
 
     public PixelSize FrameSize { get; }
 
@@ -859,6 +859,7 @@ public class Renderer : IRenderer
 
     public DrawableRenderNode? FindRenderNode(Drawable drawable)
     {
+        _dispatcher.VerifyAccess();
         if (_nodeCache.TryGetValue(drawable, out Entry? entry))
         {
             return entry.Node;

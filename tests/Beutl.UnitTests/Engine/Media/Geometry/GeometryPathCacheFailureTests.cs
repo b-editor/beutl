@@ -57,7 +57,7 @@ public sealed class GeometryPathCacheFailureTests
     }
 
     [Test]
-    public void AFallbackSegment_MakesTheEnclosingGeometryKeepThrowing()
+    public void AThrowingSegment_MakesTheEnclosingGeometryKeepThrowing()
     {
         using var resource = new PathGeometry.Resource
         {
@@ -66,7 +66,7 @@ public sealed class GeometryPathCacheFailureTests
                 new PathFigure.Resource
                 {
                     StartPoint = new Point(0, 0),
-                    Segments = { new FallbackPathSegment.Resource() },
+                    Segments = { new ThrowingSegmentResource() },
                 },
             },
         };
@@ -76,6 +76,11 @@ public sealed class GeometryPathCacheFailureTests
             Assert.Throws<InvalidOperationException>(() => _ = resource.Bounds);
             Assert.Throws<InvalidOperationException>(() => _ = resource.Bounds);
         }
+    }
+
+    private sealed class ThrowingSegmentResource : PathSegment.Resource
+    {
+        public override void ApplyTo(IGeometryContext context) => throw new InvalidOperationException("author failure");
     }
 
     private sealed class ThrowingGeometryResource : Geometry.Resource

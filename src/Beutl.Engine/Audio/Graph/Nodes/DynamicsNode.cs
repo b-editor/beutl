@@ -19,7 +19,7 @@ public abstract class DynamicsNode : AudioNode
     private Memory<float>[]? _outputChannelCache;
 
     private int _lastSampleRate;
-    private TimeSpan? _lastTimeRangeEnd;
+    private MediaTime? _lastTimeRangeEnd;
 
     private bool _loggedNonFiniteSample;
     private readonly HashSet<string> _loggedNonFiniteParameters = new();

@@ -36,7 +36,7 @@ public class BufferedPlayerReadAheadTests
         try
         {
             player.Start(PlaybackRange.From(
-                TimeSpan.Zero, editor.Scene.Start, editor.Scene.Duration, editor.Player.GetFrameRate()));
+                MediaTime.Zero, editor.Scene.Start, editor.Scene.Duration, editor.Player.GetFrameRate()));
             await WaitUntilAsync(() => player.QueuedFrames >= BudgetFrames, TimeSpan.FromSeconds(20));
 
             // Nothing consumes the queue, so a producer that ignored the budget would keep rendering.

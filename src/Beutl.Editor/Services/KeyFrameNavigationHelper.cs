@@ -1,6 +1,7 @@
 ﻿using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Extensibility;
+using Beutl.JsonConverters;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 
@@ -14,7 +15,7 @@ public static class KeyFrameNavigationHelper
     //   Pass 2 (INodeMember.Property): offset = parent GraphNode.Start (local clock),
     //     matching GraphSnapshot.LoadAnimatedValues. IEnginePropertyBackedInputPort is
     //     excluded to avoid double-counting with pass 1.
-    public static IEnumerable<(IKeyFrameAnimation Animation, TimeSpan Offset)>
+    public static IEnumerable<(IKeyFrameAnimation Animation, MediaTime Offset)>
         EnumerateKeyFrameAnimations(Element root)
     {
         ArgumentNullException.ThrowIfNull(root);
@@ -28,8 +29,8 @@ public static class KeyFrameNavigationHelper
             {
                 if (property.GetKeyFrameAnimation() is { } kfa && visited.Add(kfa))
                 {
-                    TimeSpan offset = kfa.UseGlobalClock
-                        ? TimeSpan.Zero
+                    MediaTime offset = kfa.UseGlobalClock
+                        ? MediaTime.Zero
                         : obj.TimeRange.Start;
                     yield return (kfa, offset);
                 }
@@ -45,10 +46,10 @@ public static class KeyFrameNavigationHelper
             if (member.Property is IAnimatablePropertyAdapter { Animation: { } kfa }
                 && visited.Add(kfa))
             {
-                TimeSpan offset;
+                MediaTime offset;
                 if (kfa.UseGlobalClock)
                 {
-                    offset = TimeSpan.Zero;
+                    offset = MediaTime.Zero;
                 }
                 else
                 {
@@ -63,19 +64,22 @@ public static class KeyFrameNavigationHelper
         }
     }
 
-    public static TimeSpan? FindAdjacentKeyFrame(
-        IEnumerable<Element> roots, TimeSpan current, bool forward)
+    public static MediaTime? FindAdjacentKeyFrame(
+        IEnumerable<Element> roots, MediaTime current, bool forward)
     {
         ArgumentNullException.ThrowIfNull(roots);
 
-        TimeSpan? target = null;
+        MediaTime? target = null;
         foreach (Element el in roots)
         {
-            foreach ((IKeyFrameAnimation anim, TimeSpan offset) in EnumerateKeyFrameAnimations(el))
+            Rational rate = el.FindHierarchicalParent<Project>().GetFrameRate();
+            foreach ((IKeyFrameAnimation anim, MediaTime offset) in EnumerateKeyFrameAnimations(el))
             {
                 foreach (IKeyFrame kf in anim.KeyFrames)
                 {
-                    TimeSpan time = kf.KeyTime + offset;
+                    // Times within a tick of a frame, as a template's key times can be, count as that frame.
+                    MediaTime time = MediaTimeJsonConverter.SnapToFrame(kf.KeyTime, rate)
+                                     + MediaTimeJsonConverter.SnapToFrame(offset, rate);
                     bool inDirection = forward ? time > current : time < current;
                     bool isCloser = target == null
                         || (forward ? time < target.Value : time > target.Value);

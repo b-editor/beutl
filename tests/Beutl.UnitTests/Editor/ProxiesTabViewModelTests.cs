@@ -451,7 +451,7 @@ public sealed class ProxiesTabViewModelTests
         var animation = new KeyFrameAnimation<VideoSource?>();
         animation.KeyFrames.Add(new KeyFrame<VideoSource?>
         {
-            KeyTime = TimeSpan.FromSeconds(1),
+            KeyTime = MediaTime.FromSeconds(1),
             Value = CreateVideoSource(secondPath),
         });
         drawable.Source.SetKeyFrameAnimation(animation);
@@ -1328,8 +1328,8 @@ public sealed class ProxiesTabViewModelTests
     {
         var element = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(1),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
         };
         element.AddObject(obj);

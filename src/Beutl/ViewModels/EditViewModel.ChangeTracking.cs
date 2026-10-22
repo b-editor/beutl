@@ -163,13 +163,13 @@ public partial class EditViewModel
             return;
         }
 
-        int rate = Player.GetFrameRate();
+        Rational rate = Player.GetFrameRate();
         cache.DeleteAndUpdateBlocks(affectedRanges
             .Select(range => FrameCacheRanges.ToFrameRange(range, rate)));
 
         // While paused, the shown bitmap is cloned into PlayerViewModel and does not observe the
         // deletion above, so re-render when the playhead sits in a changed range.
-        TimeSpan playhead = Player.CurrentFrame.Value;
+        MediaTime playhead = Player.CurrentFrame.Value;
         foreach (TimeRange range in affectedRanges)
         {
             if (range.Start <= playhead && playhead < range.End)
@@ -231,7 +231,7 @@ public partial class EditViewModel
         {
             Task.Run(() =>
             {
-                int rate = Player.GetFrameRate();
+                Rational rate = Player.GetFrameRate();
                 FrameCacheManager.Value.DeleteAndUpdateBlocks(affectedRanges
                     .Select(item => FrameCacheRanges.ToFrameRange(item, rate)));
             });
@@ -333,11 +333,11 @@ public partial class EditViewModel
             {
                 TimeRange currentRange = element.Range;
 
-                if (updateOp.OldValue is TimeSpan oldTimeSpan)
+                if (updateOp.OldValue is MediaTime oldTime)
                 {
                     TimeRange oldRange = propertyName == nameof(Element.Start)
-                        ? currentRange.WithStart(oldTimeSpan)
-                        : currentRange.WithDuration(oldTimeSpan);
+                        ? currentRange.WithStart(oldTime)
+                        : currentRange.WithDuration(oldTime);
                     return currentRange.Union(oldRange);
                 }
 

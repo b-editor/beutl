@@ -4,8 +4,10 @@ using System.Text.Json.Serialization;
 using Beutl.Engine;
 using Beutl.Graphics3D.Meshes;
 using Beutl.IO;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Serialization;
+using Microsoft.Extensions.Logging;
 using Silk.NET.Assimp;
 
 namespace Beutl.Graphics3D.Models;
@@ -41,6 +43,7 @@ internal readonly record struct MaterialData(
 [SuppressResourceClassGeneration]
 public class ModelSource : EngineObject, IFileSource
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<ModelSource>();
     private Uri? _uri;
     private string? _basePath;
     private readonly List<MeshData> _meshDataList = [];
@@ -48,6 +51,8 @@ public class ModelSource : EngineObject, IFileSource
     private Matrix4x4 _toYUp = Matrix4x4.Identity;
     private readonly HashSet<string> _dependencies = new(StringComparer.Ordinal);
     private readonly Dictionary<nint, string> _embeddedTextures = [];
+    // Several maps and materials can name one file, so a load logs each missing file once.
+    private readonly HashSet<string> _missingTextures = new(StringComparer.Ordinal);
 
     internal IReadOnlyCollection<string> Dependencies => _dependencies;
 
@@ -94,6 +99,7 @@ public class ModelSource : EngineObject, IFileSource
         _materialDataList.Clear();
         _dependencies.Clear();
         _embeddedTextures.Clear();
+        _missingTextures.Clear();
 
         string path = uri.LocalPath;
         if (!System.IO.File.Exists(path))
@@ -329,7 +335,11 @@ public class ModelSource : EngineObject, IFileSource
         }
 
         if (!System.IO.File.Exists(texturePath))
+        {
+            if (_missingTextures.Add(texturePath))
+                s_logger.LogWarning("Texture {Texture} of model {Model} was not found.", texturePath, Uri.LocalPath);
             return null;
+        }
 
         texturePath = Path.GetFullPath(texturePath);
         _dependencies.Add(texturePath);

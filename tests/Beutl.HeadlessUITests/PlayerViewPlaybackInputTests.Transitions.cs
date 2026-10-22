@@ -170,7 +170,7 @@ public partial class PlayerViewPlaybackInputTests
         EditViewModel editor = await OpenEditor();
         var shape = new RectShape();
         await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
-            TimeSpan.Zero, TimeSpan.FromSeconds(4), 0, new ElementSource.EngineObject(() => shape))], CancellationToken.None);
+            MediaTime.Zero, MediaTime.FromSeconds(4), 0, new ElementSource.EngineObject(() => shape))], CancellationToken.None);
         editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
         var originalTransform = shape.Transform.Value;
         var view = new PlayerView { DataContext = editor.Player };

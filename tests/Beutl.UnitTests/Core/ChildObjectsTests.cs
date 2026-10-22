@@ -42,10 +42,10 @@ public class ChildObjectsTests
         var graph = new GraphModel();
         var pen = new Pen();
         Source(graph, pen);
-        var portKeyFrames = TestAnimations.Linear(0f, 1f, TimeSpan.FromSeconds(1));
+        var portKeyFrames = TestAnimations.Linear(0f, 1f, MediaTime.FromSeconds(1));
         ((IAnimatablePropertyAdapter)Source(graph, 0f, "Amount").Property!).Animation = portKeyFrames;
         var shape = new RectShape();
-        var keyFrames = TestAnimations.Linear(0f, 1f, TimeSpan.FromSeconds(1));
+        var keyFrames = TestAnimations.Linear(0f, 1f, MediaTime.FromSeconds(1));
         shape.Width.SetKeyFrameAnimation(keyFrames);
         var element = new Element();
         element.AddObject(shape);

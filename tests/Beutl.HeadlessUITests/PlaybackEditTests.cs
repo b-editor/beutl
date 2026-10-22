@@ -39,12 +39,12 @@ public class PlaybackEditTests
     public async Task Frames_taken_after_each_edit_show_it_whole_and_in_order()
     {
         TestGpu.RequireAnyDevice();
-        (EditViewModel editor, SolidColorBrush fill) = await OpenEditor(TimeSpan.FromSeconds(30));
+        (EditViewModel editor, SolidColorBrush fill) = await OpenEditor(MediaTime.FromSeconds(30));
         using var isPlaying = new ReactivePropertySlim<bool>(true);
-        using var player = new BufferedPlayer(editor, isPlaying, Rate, CancellationToken.None);
-        player.Start(PlaybackRange.From(TimeSpan.Zero, editor.Scene.Start, editor.Scene.Duration, Rate));
+        using var player = new BufferedPlayer(editor, isPlaying, new Rational(Rate), CancellationToken.None);
+        player.Start(PlaybackRange.From(MediaTime.Zero, editor.Scene.Start, editor.Scene.Duration, new Rational(Rate)));
         // The edits below have read-ahead frames to drop.
-        await HeadlessTestHelpers.WaitUntilAsync(() => player.QueuedFrames >= 10, TimeSpan.FromMinutes(1), pump: false);
+        await HeadlessTestHelpers.WaitUntilAsync(() => player.QueuedFrames >= 10, TimeSpan.FromSeconds(60), pump: false);
 
         int lastFrame = -1;
         for (int step = 1; step <= 40; step++)
@@ -84,14 +84,14 @@ public class PlaybackEditTests
     public async Task An_edit_after_the_last_frame_was_rendered_draws_the_queued_frames_again()
     {
         TestGpu.RequireAnyDevice();
-        (EditViewModel editor, SolidColorBrush fill) = await OpenEditor(TimeSpan.FromSeconds(4d / Rate));
+        (EditViewModel editor, SolidColorBrush fill) = await OpenEditor(MediaTime.FromSeconds(4d / Rate));
         using var isPlaying = new ReactivePropertySlim<bool>(true);
-        using var player = new BufferedPlayer(editor, isPlaying, Rate, CancellationToken.None);
-        PlaybackRange range = PlaybackRange.From(TimeSpan.Zero, editor.Scene.Start, editor.Scene.Duration, Rate);
+        using var player = new BufferedPlayer(editor, isPlaying, new Rational(Rate), CancellationToken.None);
+        PlaybackRange range = PlaybackRange.From(MediaTime.Zero, editor.Scene.Start, editor.Scene.Duration, new Rational(Rate));
         int[] expected = [.. Enumerable.Range(range.StartFrame, range.EndFrame - range.StartFrame)];
         player.Start(range);
         await HeadlessTestHelpers.WaitUntilAsync(
-            () => player.QueuedFrames == expected.Length, TimeSpan.FromMinutes(1), pump: false);
+            () => player.QueuedFrames == expected.Length, TimeSpan.FromSeconds(60), pump: false);
 
         fill.Color.Value = s_palette[1];
 
@@ -116,15 +116,15 @@ public class PlaybackEditTests
     {
         TestGpu.RequireAnyDevice();
         const int BudgetFrames = 10;
-        (EditViewModel editor, _) = await OpenEditor(TimeSpan.FromSeconds(30));
+        (EditViewModel editor, _) = await OpenEditor(MediaTime.FromSeconds(30));
         using var isPlaying = new ReactivePropertySlim<bool>(true);
-        using var player = new BufferedPlayer(editor, isPlaying, Rate, CancellationToken.None)
+        using var player = new BufferedPlayer(editor, isPlaying, new Rational(Rate), CancellationToken.None)
         {
             ReadAheadBytes = ReadAheadBudget.SnapshotBytes(editor.Renderer.Value.DeviceSize) * BudgetFrames,
         };
-        player.Start(PlaybackRange.From(TimeSpan.Zero, editor.Scene.Start, editor.Scene.Duration, Rate));
+        player.Start(PlaybackRange.From(MediaTime.Zero, editor.Scene.Start, editor.Scene.Duration, new Rational(Rate)));
         await HeadlessTestHelpers.WaitUntilAsync(
-            () => player.QueuedFrames == BudgetFrames, TimeSpan.FromMinutes(1), pump: false);
+            () => player.QueuedFrames == BudgetFrames, TimeSpan.FromSeconds(60), pump: false);
         await Task.Delay(TimeSpan.FromMilliseconds(100));
 
         (Element replacement, _) = CreateRectangle(s_palette[2], editor.Scene.Duration);
@@ -144,19 +144,19 @@ public class PlaybackEditTests
     {
         TestGpu.RequireAnyDevice();
         (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync(
-            "playback-edits-transition", 320, 240, frameRate: Rate, duration: TimeSpan.FromSeconds(4));
-        (Element outgoing, _) = CreateRectangle(Colors.Red, TimeSpan.FromSeconds(2));
-        outgoing.ExitTransition = new CrossDissolveTransition { Duration = { Value = TimeSpan.FromSeconds(1) } };
+            "playback-edits-transition", 320, 240, frameRate: Rate, duration: MediaTime.FromSeconds(4));
+        (Element outgoing, _) = CreateRectangle(Colors.Red, MediaTime.FromSeconds(2));
+        outgoing.ExitTransition = new CrossDissolveTransition { Duration = { Value = MediaTime.FromSeconds(1) } };
         scene.Children.Add(outgoing);
-        RenderThreadDrain.Drain(TimeSpan.FromMinutes(2));
+        RenderThreadDrain.Drain(TimeSpan.FromSeconds(120));
         using var isPlaying = new ReactivePropertySlim<bool>(true);
-        using var player = new BufferedPlayer(editor, isPlaying, Rate, CancellationToken.None);
-        player.Start(PlaybackRange.From(TimeSpan.Zero, scene.Start, scene.Duration, Rate));
+        using var player = new BufferedPlayer(editor, isPlaying, new Rational(Rate), CancellationToken.None);
+        player.Start(PlaybackRange.From(MediaTime.Zero, scene.Start, scene.Duration, new Rational(Rate)));
         // The fade's frames, 30 to 59, are queued before the clip after the cut arrives.
-        await HeadlessTestHelpers.WaitUntilAsync(() => player.QueuedFrames >= 70, TimeSpan.FromMinutes(1), pump: false);
+        await HeadlessTestHelpers.WaitUntilAsync(() => player.QueuedFrames >= 70, TimeSpan.FromSeconds(60), pump: false);
 
-        (Element incoming, _) = CreateRectangle(Colors.Blue, TimeSpan.FromSeconds(2));
-        incoming.Start = TimeSpan.FromSeconds(2);
+        (Element incoming, _) = CreateRectangle(Colors.Blue, MediaTime.FromSeconds(2));
+        incoming.Start = MediaTime.FromSeconds(2);
         scene.Children.Add(incoming);
 
         BufferedPlayer.Frame frame = await TakeAsync(player);
@@ -180,17 +180,17 @@ public class PlaybackEditTests
     public async Task Edits_that_come_faster_than_frames_draw_do_not_hold_playback()
     {
         TestGpu.RequireAnyDevice();
-        (EditViewModel editor, _) = await OpenEditor(TimeSpan.FromSeconds(30));
+        (EditViewModel editor, _) = await OpenEditor(MediaTime.FromSeconds(30));
         var slow = new SlowPlaybackDrawable();
         var element = new Element { Length = editor.Scene.Duration, ZIndex = 1 };
         element.AddObject(slow);
         editor.Scene.Children.Add(element);
-        RenderThreadDrain.Drain(TimeSpan.FromMinutes(2));
+        RenderThreadDrain.Drain(TimeSpan.FromSeconds(120));
         using var isPlaying = new ReactivePropertySlim<bool>(true);
-        using var player = new BufferedPlayer(editor, isPlaying, Rate, CancellationToken.None);
+        using var player = new BufferedPlayer(editor, isPlaying, new Rational(Rate), CancellationToken.None);
         var frames = new ConcurrentQueue<int>();
         using var stop = new CancellationTokenSource();
-        player.Start(PlaybackRange.From(TimeSpan.Zero, editor.Scene.Start, editor.Scene.Duration, Rate));
+        player.Start(PlaybackRange.From(MediaTime.Zero, editor.Scene.Start, editor.Scene.Duration, new Rational(Rate)));
         Task consumer = Task.Run(() =>
         {
             while (!stop.IsCancellationRequested)
@@ -264,7 +264,7 @@ public class PlaybackEditTests
         return filled[0];
     }
 
-    private static (Element Element, SolidColorBrush Fill) CreateRectangle(Color color, TimeSpan length)
+    private static (Element Element, SolidColorBrush Fill) CreateRectangle(Color color, MediaTime length)
     {
         var fill = new SolidColorBrush(color);
         var element = new Element { Length = length };
@@ -277,7 +277,7 @@ public class PlaybackEditTests
         return (element, fill);
     }
 
-    private static async Task<(EditViewModel Editor, SolidColorBrush Fill)> OpenEditor(TimeSpan duration)
+    private static async Task<(EditViewModel Editor, SolidColorBrush Fill)> OpenEditor(MediaTime duration)
     {
         (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync(
             "playback-edits", 320, 240, frameRate: Rate, duration: duration);
@@ -285,7 +285,7 @@ public class PlaybackEditTests
         scene.Children.Add(element);
 
         // Let the preview render queued by the edit above finish first.
-        RenderThreadDrain.Drain(TimeSpan.FromMinutes(2));
+        RenderThreadDrain.Drain(TimeSpan.FromSeconds(120));
         return (editor, fill);
     }
 }

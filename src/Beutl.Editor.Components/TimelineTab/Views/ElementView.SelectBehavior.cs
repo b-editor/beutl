@@ -130,7 +130,7 @@ public sealed partial class ElementView
             {
                 PointerPoint pt = e.GetCurrentPoint(obj.border);
                 float scale = timelineVm.Options.Value.Scale;
-                TimeSpan clickedTime = elementVm.Model.Start + pt.Position.X.PixelToTimeSpan(scale);
+                MediaTime clickedTime = elementVm.Model.Start + pt.Position.X.PixelToTime(scale);
                 elementVm.SplitAt(clickedTime);
             }
         }

@@ -23,5 +23,5 @@ public sealed class AgentHostTools(
             (editors.SelectedTabItem.Value?.Context.Value as EditViewModel)?.Scene?.Id.ToString(),
             gateway.GetScenes().Select(scene => new SceneSummary(
                 scene.Id.ToString(), scene.Name, scene.FrameSize.Width, scene.FrameSize.Height,
-                scene.Start.ToString("c"), scene.Duration.ToString("c"), scene.Children.Count)).ToArray())));
+                scene.Start.ToTimeSpan().ToString("c"), scene.Duration.ToTimeSpan().ToString("c"), scene.Children.Count)).ToArray())));
 }

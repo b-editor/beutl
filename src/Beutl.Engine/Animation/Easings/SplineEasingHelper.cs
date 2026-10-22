@@ -106,7 +106,7 @@ public static class SplineEasingHelper
         {
             Decrease = keyframe.Value < prevKeyFrame.Value;
             Height = float.CreateChecked(T.Abs(keyframe.Value - prevKeyFrame.Value));
-            Width = (float)(keyframe.KeyTime - prevKeyFrame.KeyTime).TotalSeconds;
+            Width = (float)(keyframe.KeyTime - prevKeyFrame.KeyTime).ToSeconds();
             P1 = (X: 0f, Y: Decrease ? Height : 0f);
             P2 = (X: Width, Y: Decrease ? 0f : Height);
         }
@@ -223,7 +223,7 @@ public static class SplineEasingHelper
     }
 
     public static void Move(
-        IKeyFrameAnimation animation, IKeyFrame keyFrame, TimeSpan keyTime)
+        IKeyFrameAnimation animation, IKeyFrame keyFrame, MediaTime keyTime)
     {
         var method = GetNumericGenericMethod(
             s_cachedMoveGenericMethods, animation.ValueType, nameof(MoveGeneric));
@@ -304,7 +304,7 @@ public static class SplineEasingHelper
 
 
     public static void MoveGeneric<T>(
-        KeyFrameAnimation<T> animation, KeyFrame<T> keyFrame, TimeSpan keyTime)
+        KeyFrameAnimation<T> animation, KeyFrame<T> keyFrame, MediaTime keyTime)
         where T : struct, INumber<T>
     {
         int oldIndex = animation.KeyFrames.IndexOf(keyFrame);

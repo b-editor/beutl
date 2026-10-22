@@ -26,6 +26,8 @@ internal interface IConnectionExpressionController
 public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBackedInputPort, IConnectionExpressionController
 {
     private IProperty<T>? _property;
+    // Until #2885 step 4, a TimeSpan port drives a MediaTime property, as files name its port TimeSpan.
+    private IExpressionProperty<MediaTime>? _timeProperty;
 
     protected EnginePropertyBackedInputPort()
     {
@@ -62,21 +64,35 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
         if (!Connection.IsNull) UpdateExpression();
     }
 
+    private protected void BindTimeProperty(EngineObject obj, IExpressionProperty<MediaTime> property)
+    {
+        if (ReferenceEquals(_timeProperty, property)) return;
+        UnbindProperty();
+        Name = property.Name;
+        Display = property.GetAttributes()?.OfType<DisplayAttribute>().FirstOrDefault();
+        _timeProperty = property;
+        property.Edited += OnTargetEdited;
+        Property = (IPropertyAdapter<T>)(object)new TimeSpanPropertyAdapter(property, obj);
+        if (!Connection.IsNull) UpdateExpression();
+    }
+
     protected void UnbindProperty()
     {
         if (_property != null)
         {
             _property.Edited -= OnTargetEdited;
-            if (!Connection.IsNull
-                && _property is IExpressionProperty<T> { Expression: NodePortExpression<T> expression } property
-                && !HasOtherConnectedInput())
-            {
-                using var suppression = HistoryReplay.Enter();
-                property.Expression = expression.Replaced;
-            }
+            if (!Connection.IsNull && _property is IExpressionProperty<T> property)
+                RestoreReplaced(property);
+        }
+        else if (_timeProperty != null)
+        {
+            _timeProperty.Edited -= OnTargetEdited;
+            if (!Connection.IsNull)
+                RestoreReplaced(_timeProperty);
         }
 
         _property = null;
+        _timeProperty = null;
         Property = null;
     }
 
@@ -87,43 +103,62 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
         GraphNode? node = this.FindHierarchicalParent<GraphNode>();
         IEnumerable<IInputPort>? inputs = node?.FindHierarchicalParent<GraphModel>() is { } graph
             ? graph.EnumerateConnectedInputs() : node?.GetConnectedInputs();
+        IProperty? target = (IProperty?)_property ?? _timeProperty;
         // Rebinding can be in progress, so compare live targets rather than the topology cache.
         return inputs?.Any(input => input != this
-            && ReferenceEquals(input.Property?.GetEngineProperty(), _property)
+            && ReferenceEquals(input.Property?.GetEngineProperty(), target)
             && (!acceptedOnly || input.FindHierarchicalParent<GraphNode>()?.CanConnectInput(input) == true)) == true;
     }
 
     private void UpdateExpression()
     {
-        if (_property is not IExpressionProperty<T> property) return;
+        if (_timeProperty != null)
+            UpdateExpression(_timeProperty);
+        else if (_property is IExpressionProperty<T> property)
+            UpdateExpression(property);
+    }
+
+    private void UpdateExpression<TValue>(IExpressionProperty<TValue> property)
+    {
         // Observers must update their previous-expression state, but this derived change must not
         // be recorded separately from the connection (or replayed on a replaced object). The user's
         // expression rides along in the port expression, so undoing the connection gives it back.
         using var suppression = HistoryReplay.Enter();
-        if (!Connection.IsNull && property.Expression is not NodePortExpression<T>)
-            property.Expression = new NodePortExpression<T> { Replaced = property.Expression };
-        else if (Connection.IsNull && property.Expression is NodePortExpression<T> expression && !HasOtherConnectedInput())
+        if (!Connection.IsNull && property.Expression is not NodePortExpression<TValue>)
+            property.Expression = new NodePortExpression<TValue> { Replaced = property.Expression };
+        else if (Connection.IsNull && property.Expression is NodePortExpression<TValue> expression && !HasOtherConnectedInput())
             property.Expression = expression.Replaced;
     }
 
-    void IConnectionExpressionController.UpdateExpression(bool enabled)
+    // Gives the property back the expression the connection replaced, unless another input still drives it.
+    private void RestoreReplaced<TValue>(IExpressionProperty<TValue> property, bool acceptedOnly = false)
     {
-        if (enabled)
-        {
-            UpdateExpression();
-        }
-        else if (_property is IExpressionProperty<T> { Expression: NodePortExpression<T> expression } property
-                 && !HasOtherConnectedInput(acceptedOnly: true))
+        if (property.Expression is NodePortExpression<TValue> expression && !HasOtherConnectedInput(acceptedOnly))
         {
             using var suppression = HistoryReplay.Enter();
             property.Expression = expression.Replaced;
         }
     }
 
+    void IConnectionExpressionController.UpdateExpression(bool enabled)
+    {
+        if (enabled)
+            UpdateExpression();
+        else if (_timeProperty != null)
+            RestoreReplaced(_timeProperty, acceptedOnly: true);
+        else if (_property is IExpressionProperty<T> property)
+            RestoreReplaced(property, acceptedOnly: true);
+    }
+
     public void CopyFrom(IItemValue itemValue)
     {
-        if (itemValue is not ItemValue<T> typed) return;
-        if (!Connection.IsNull && _property is IExpressionProperty<T> { Expression: NodePortExpression<T> exp })
+        if (itemValue is not ItemValue<T> typed || Connection.IsNull) return;
+        if (_timeProperty is { Expression: NodePortExpression<MediaTime> time } && typed.Value is TimeSpan span)
+        {
+            // A time past the range of MediaTime clamps.
+            time.Value = MediaTime.FromTicks(span.Ticks, MidpointRounding.AwayFromZero);
+        }
+        else if (_property is IExpressionProperty<T> { Expression: NodePortExpression<T> exp })
         {
             exp.Value = typed.Value;
         }

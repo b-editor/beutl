@@ -11,11 +11,11 @@ public class SceneMoveChildrenTests
     {
         using var harness = new SceneHistoryHarness("beutl_scene_movechildren");
         Scene scene = harness.Scene;
-        Element element = harness.AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1));
+        Element element = harness.AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1));
 
-        scene.MoveChildren(0, TimeSpan.FromSeconds(1), [element]);
+        scene.MoveChildren(0, MediaTime.FromSeconds(1), [element]);
 
-        Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+        Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
         Assert.That(element.ZIndex, Is.EqualTo(0));
     }
 
@@ -26,7 +26,7 @@ public class SceneMoveChildrenTests
         Scene scene = harness.Scene;
 
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => scene.MoveChildren(0, TimeSpan.FromSeconds(1), []));
+            () => scene.MoveChildren(0, MediaTime.FromSeconds(1), []));
     }
 
     [Test]
@@ -34,12 +34,12 @@ public class SceneMoveChildrenTests
     {
         using var harness = new SceneHistoryHarness("beutl_scene_movechildren");
         Scene scene = harness.Scene;
-        Element element = harness.AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 1);
+        Element element = harness.AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1), zIndex: 1);
 
-        scene.MoveChildren(+2, TimeSpan.Zero, [element]);
+        scene.MoveChildren(+2, MediaTime.Zero, [element]);
 
         Assert.That(element.ZIndex, Is.EqualTo(3));
-        Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 
     [Test]
@@ -47,15 +47,15 @@ public class SceneMoveChildrenTests
     {
         using var harness = new SceneHistoryHarness("beutl_scene_movechildren");
         Scene scene = harness.Scene;
-        Element movable = harness.AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 0);
-        Element obstacle = harness.AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 1);
+        Element movable = harness.AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1), zIndex: 0);
+        Element obstacle = harness.AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1), zIndex: 1);
 
         // movable を obstacle の ZIndex に重ねようとすると衝突する。
         // 時間方向の自動補正は効かないので no-op になる契約。
-        scene.MoveChildren(+1, TimeSpan.Zero, [movable]);
+        scene.MoveChildren(+1, MediaTime.Zero, [movable]);
 
         Assert.That(movable.ZIndex, Is.EqualTo(0));
-        Assert.That(movable.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        Assert.That(movable.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 
     [Test]
@@ -63,12 +63,12 @@ public class SceneMoveChildrenTests
     {
         using var harness = new SceneHistoryHarness("beutl_scene_movechildren");
         Scene scene = harness.Scene;
-        Element a = harness.AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 0);
-        Element b = harness.AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(1), zIndex: 1);
+        Element a = harness.AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1), zIndex: 0);
+        Element b = harness.AddElement(MediaTime.FromSeconds(4), MediaTime.FromSeconds(1), zIndex: 1);
 
-        scene.MoveChildren(0, TimeSpan.FromSeconds(1), [a, b]);
+        scene.MoveChildren(0, MediaTime.FromSeconds(1), [a, b]);
 
-        Assert.That(a.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
-        Assert.That(b.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
+        Assert.That(a.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
+        Assert.That(b.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
     }
 }

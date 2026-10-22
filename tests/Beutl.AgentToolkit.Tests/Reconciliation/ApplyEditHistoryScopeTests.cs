@@ -145,8 +145,8 @@ public sealed class ApplyEditHistoryScopeTests
     public void Apply_edit_records_only_the_patched_property_and_undo_redo_keep_unpatched_instances()
     {
         Scene scene = TestWorkspace.CreateScene();
-        RectShape firstRect = AddRectElement(scene, "first", TimeSpan.Zero, zIndex: 0);
-        RectShape secondRect = AddRectElement(scene, "second", TimeSpan.FromSeconds(2), zIndex: 1);
+        RectShape firstRect = AddRectElement(scene, "first", MediaTime.Zero, zIndex: 0);
+        RectShape secondRect = AddRectElement(scene, "second", MediaTime.FromSeconds(2), zIndex: 1);
         Element second = scene.Children[1];
         object?[] firstNested = CaptureNested(firstRect);
         object?[] secondNested = CaptureNested(secondRect);
@@ -179,8 +179,8 @@ public sealed class ApplyEditHistoryScopeTests
     public void Apply_edit_replaces_only_the_nested_value_whose_json_changed()
     {
         Scene scene = TestWorkspace.CreateScene();
-        RectShape firstRect = AddRectElement(scene, "first", TimeSpan.Zero, zIndex: 0);
-        RectShape secondRect = AddRectElement(scene, "second", TimeSpan.FromSeconds(2), zIndex: 1);
+        RectShape firstRect = AddRectElement(scene, "first", MediaTime.Zero, zIndex: 0);
+        RectShape secondRect = AddRectElement(scene, "second", MediaTime.FromSeconds(2), zIndex: 1);
         Element second = scene.Children[1];
         object?[] firstNested = CaptureNested(firstRect);
         Transform? secondTransform = secondRect.Transform.Value;
@@ -251,7 +251,7 @@ public sealed class ApplyEditHistoryScopeTests
     {
         Scene scene = TestWorkspace.CreateScene();
         CustomSerializedTransformElement element = AddCustomElement(scene);
-        RectShape otherRect = AddRectElement(scene, "other", TimeSpan.FromSeconds(2), zIndex: 1);
+        RectShape otherRect = AddRectElement(scene, "other", MediaTime.FromSeconds(2), zIndex: 1);
         Element otherElement = scene.Children[1];
         Transform? transform = element.CustomTransform;
         ClipTransition? enter = element.EnterTransition;
@@ -325,7 +325,7 @@ public sealed class ApplyEditHistoryScopeTests
             }
             else
             {
-                value[nameof(ClipTransition.Duration)] = CoreSerializer.SerializeToJsonNode(TimeSpan.FromSeconds(1));
+                value[nameof(ClipTransition.Duration)] = CoreSerializer.SerializeToJsonNode(MediaTime.FromSeconds(1));
             }
         }
 
@@ -376,7 +376,7 @@ public sealed class ApplyEditHistoryScopeTests
     {
         var element = new CustomSerializedTransformElement
         {
-            Length = TimeSpan.FromSeconds(2),
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "custom.belm")),
             CustomTransform = new TranslateTransform(10, 20),
             EnterTransition = new CrossDissolveTransition(),
@@ -412,7 +412,7 @@ public sealed class ApplyEditHistoryScopeTests
         Scene scene = TestWorkspace.CreateScene();
         var element = new ConvertedPropertyElement
         {
-            Length = TimeSpan.FromSeconds(2),
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "converted.belm")),
             Dimensions = new Dimensions(3, 4)
         };
@@ -443,7 +443,7 @@ public sealed class ApplyEditHistoryScopeTests
     public void Apply_edit_keeps_the_full_json_of_an_untouched_fallback()
     {
         Scene scene = TestWorkspace.CreateScene();
-        RectShape rect = AddRectElement(scene, "edited", TimeSpan.Zero, zIndex: 0);
+        RectShape rect = AddRectElement(scene, "edited", MediaTime.Zero, zIndex: 0);
         Element edited = scene.Children[0];
         var transform = new TranslateTransform(10, 20);
         var fallbackJson = new JsonObject
@@ -456,8 +456,8 @@ public sealed class ApplyEditHistoryScopeTests
         var holder = new Element
         {
             Name = "holder",
-            Start = TimeSpan.FromSeconds(2),
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.FromSeconds(2),
+            Length = MediaTime.FromSeconds(2),
             ZIndex = 1,
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "holder.belm"))
         };
@@ -589,7 +589,7 @@ public sealed class ApplyEditHistoryScopeTests
         foreach (Easing easing in instances.OfType<Easing>())
         {
             easings.KeyFrames.Add(
-                new KeyFrame<float> { KeyTime = TimeSpan.FromMilliseconds(50 * easings.KeyFrames.Count), Easing = easing },
+                new KeyFrame<float> { KeyTime = MediaTime.FromSeconds((50 * easings.KeyFrames.Count) / 1000d), Easing = easing },
                 out _);
         }
 
@@ -637,7 +637,7 @@ public sealed class ApplyEditHistoryScopeTests
     {
         var element = new Element
         {
-            Length = TimeSpan.FromSeconds(2),
+            Length = MediaTime.FromSeconds(2),
             ZIndex = scene.Children.Count,
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, $"{scene.Children.Count}.belm"))
         };
@@ -646,13 +646,13 @@ public sealed class ApplyEditHistoryScopeTests
         return element;
     }
 
-    private static RectShape AddRectElement(Scene scene, string name, TimeSpan start, int zIndex)
+    private static RectShape AddRectElement(Scene scene, string name, MediaTime start, int zIndex)
     {
         var element = new Element
         {
             Name = name,
             Start = start,
-            Length = TimeSpan.FromSeconds(2),
+            Length = MediaTime.FromSeconds(2),
             ZIndex = zIndex,
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, $"{name}.belm"))
         };

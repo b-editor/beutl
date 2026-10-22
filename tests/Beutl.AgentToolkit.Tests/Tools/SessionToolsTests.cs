@@ -52,7 +52,7 @@ public sealed class SessionToolsTests
         var element = new Element
         {
             Name = "Corrupt element",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(
                 Path.GetDirectoryName(scene.Uri!.LocalPath)!,
                 "corrupt-element.belm"))
@@ -158,7 +158,7 @@ public sealed class SessionToolsTests
         var element = new Element
         {
             Name = "Clip",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "clip.belm")),
         };
         element.AddObject(new RectShape());
@@ -195,14 +195,14 @@ public sealed class SessionToolsTests
         var animation = new KeyFrameAnimation<EngineObject?>();
         animation.KeyFrames.Add(new KeyFrame<EngineObject?>
         {
-            KeyTime = TimeSpan.Zero,
+            KeyTime = MediaTime.Zero,
             Value = new RectShape(),
         }, out _);
         holder.AnimatedValue.SetKeyFrameAnimation(animation);
         var element = new Element
         {
             Name = "Animated fallback",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(
                 Path.GetDirectoryName(scene.Uri!.LocalPath)!,
                 "animation-fallback.belm")),
@@ -264,14 +264,14 @@ public sealed class SessionToolsTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.Zero,
+            KeyTime = MediaTime.Zero,
             Value = 32,
         });
         shape.Width.SetKeyFrameAnimation(animation);
         var element = new Element
         {
             Name = "Easing replacement",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(
                 Path.GetDirectoryName(scene.Uri!.LocalPath)!,
                 "easing-replacement.belm")),
@@ -329,7 +329,7 @@ public sealed class SessionToolsTests
         var healthy = new Element
         {
             Name = "Healthy element",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(sceneDirectory, "healthy-element.belm")),
         };
         healthy.AddObject(new RectShape
@@ -341,7 +341,7 @@ public sealed class SessionToolsTests
         var malformed = new Element
         {
             Name = "Malformed element",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(sceneDirectory, "malformed-element.belm")),
         };
         malformed.AddObject(new RectShape
@@ -449,13 +449,13 @@ public sealed class SessionToolsTests
         scene.Children.Add(new Element
         {
             Name = "First clip",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(firstPath),
         });
         scene.Children.Add(new Element
         {
             Name = "Second clip",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(secondPath),
         });
         ProjectOperations.Save(project);
@@ -502,7 +502,7 @@ public sealed class SessionToolsTests
             scene.Children.Add(new Element
             {
                 Name = "Clip",
-                Length = TimeSpan.FromSeconds(1),
+                Length = MediaTime.FromSeconds(1),
                 Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "clip.belm")),
             });
         }
@@ -1035,7 +1035,7 @@ public sealed class SessionToolsTests
         var healthy = new Element
         {
             Name = "Healthy element",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(sceneDirectory, "healthy-element.belm")),
         };
         healthy.AddObject(new RectShape
@@ -1047,7 +1047,7 @@ public sealed class SessionToolsTests
         var malformed = new Element
         {
             Name = "Malformed element",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(sceneDirectory, "malformed-element.belm")),
         };
         malformed.AddObject(new RectShape

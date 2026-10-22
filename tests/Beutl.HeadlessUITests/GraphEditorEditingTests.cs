@@ -110,7 +110,7 @@ public class GraphEditorEditingTests
                     break;
                 case "value": graph.First.Value = 120; break;
                 case "value-back": graph.First.Value = 120; graph.First.Value = 100; break;
-                case "time": graph.First.KeyTime = TimeSpan.FromSeconds(0.7); break;
+                case "time": graph.First.KeyTime = MediaTime.FromSeconds(0.7); break;
                 case "easing": graph.Second.Easing = new CubicEaseIn(); break;
                 case "tangent": ((SplineEasing)graph.Second.Easing).Y1 = 0.1f; break;
                 case "selection": graph.Model.SelectedView.Value!.SetSelection([graph.First]); break;
@@ -145,7 +145,7 @@ public class GraphEditorEditingTests
         using var graph = await GraphScope.CreateAsync();
         var animation = new KeyFrameAnimation<Beutl.Media.Color>();
         animation.KeyFrames.Add(new KeyFrame<Beutl.Media.Color> { Value = Beutl.Media.Color.FromArgb(255, 10, 20, 30) });
-        animation.KeyFrames.Add(new KeyFrame<Beutl.Media.Color> { KeyTime = TimeSpan.FromSeconds(1), Value = Beutl.Media.Color.FromArgb(255, 30, 40, 50) });
+        animation.KeyFrames.Add(new KeyFrame<Beutl.Media.Color> { KeyTime = MediaTime.FromSeconds(1), Value = Beutl.Media.Color.FromArgb(255, 30, 40, 50) });
         var shape = graph.Model.Element!.Objects.OfType<Beutl.Graphics.Shapes.RectShape>().Single();
         var brush = new Beutl.Media.SolidColorBrush();
         brush.Color.SetKeyFrameAnimation(animation);
@@ -191,13 +191,13 @@ public class GraphEditorEditingTests
         var clipboard = new Mock<IClipboard>();
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         clipboard.Setup(x => x.TryGetDataAsync()).Returns(Read);
-        graph.Model.Seek(TimeSpan.FromSeconds(3));
+        graph.Model.Seek(MediaTime.FromSeconds(3));
         string before = GraphScope.Snapshot(graph.Animation);
         int undo = graph.Model.HistoryManager.UndoCount;
         Task paste = entry switch
         {
             "key" => ((GraphEditorKeyFrameViewModel)graph.KeyFrame(graph.Second).DataContext!).PasteAsync(clipboard.Object),
-            "background" => graph.Model.PasteKeyFrameAtPositionAsync(TimeSpan.FromSeconds(3), clipboard.Object),
+            "background" => graph.Model.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(3), clipboard.Object),
             _ => graph.Model.PasteSelectionAsync(clipboard.Object)
         };
         Assert.That(paste.IsCompleted, Is.False);
@@ -236,7 +236,7 @@ public class GraphEditorEditingTests
 
     internal static IAsyncDataTransfer CreatePasteData(string format)
     {
-        var key = new KeyFrame<float> { Value = 77, KeyTime = TimeSpan.FromSeconds(1) };
+        var key = new KeyFrame<float> { Value = 77, KeyTime = MediaTime.FromSeconds(1) };
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(key);
         ICoreSerializable value = format == "key" ? key : animation;
@@ -292,9 +292,9 @@ public class GraphEditorEditingTests
         var target = new KeyFrameAnimation<float> { UseGlobalClock = globalClock };
         target.KeyFrames.Add(new KeyFrame<float> { Value = 20 });
         double start = globalClock ? 5 : 3;
-        if (occupied) target.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(start), Value = 900 });
+        if (occupied) target.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(start), Value = 900 });
         shape.Height.SetKeyFrameAnimation(target);
-        graph.Model.Element.Start = TimeSpan.FromSeconds(2);
+        graph.Model.Element.Start = MediaTime.FromSeconds(2);
         graph.Model.Element.IsLocked = locked;
         graph.Model.HistoryManager.Commit();
         var timeline = ((EditViewModel)graph.Model.EditorContext).FindToolTab<TimelineTabViewModel>()!;
@@ -302,15 +302,15 @@ public class GraphEditorEditingTests
         using var inline = new InlineAnimationLayerViewModel(property, timeline, timeline.Elements.Single());
         string before = GraphScope.Snapshot(target);
         int undo = graph.Model.HistoryManager.UndoCount;
-        if (keyMenu) await inline.Items.Single(item => item.Model.KeyTime.TotalSeconds == start).PasteAsync(graph.Window.Clipboard);
-        else await inline.PasteKeyFrameAtPositionAsync(TimeSpan.FromSeconds(5), graph.Window.Clipboard);
+        if (keyMenu) await inline.Items.Single(item => item.Model.KeyTime.ToSeconds() == start).PasteAsync(graph.Window.Clipboard);
+        else await inline.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(5), graph.Window.Clipboard);
         if (locked)
         {
             Assert.That(GraphScope.Snapshot(target), Is.EqualTo(before));
             Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
             return;
         }
-        Assert.That(target.KeyFrames.Select(key => key.KeyTime.TotalSeconds), Is.EqualTo(new[] { 0, start, start + 1 }));
+        Assert.That(target.KeyFrames.Select(key => key.KeyTime.ToSeconds()), Is.EqualTo(new[] { 0, start, start + 1 }));
         Assert.That(target.KeyFrames.Select(key => key.Value), Is.EqualTo(new[] { 20f, 100f, 500f }));
         Assert.That(target.UseGlobalClock, Is.EqualTo(globalClock));
         Assert.That(graph.Animation.KeyFrames, Has.Count.EqualTo(2));
@@ -344,7 +344,7 @@ public class GraphEditorEditingTests
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var clipboard = new Mock<IClipboard>();
         clipboard.Setup(x => x.TryGetDataAsync()).Returns(Read);
-        Task paste = inline.PasteKeyFrameAtPositionAsync(TimeSpan.FromSeconds(3), clipboard.Object);
+        Task paste = inline.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(3), clipboard.Object);
         Assert.That(paste.IsCompleted, Is.False);
         if (change == "lock") graph.Model.Element.IsLocked = true;
         else if (change == "replace") shape.Height.SetKeyFrameAnimation(new KeyFrameAnimation<float>());
@@ -375,7 +375,7 @@ public class GraphEditorEditingTests
         await graph.Model.CopySelectionAsync(graph.Window.Clipboard);
         var shape = graph.Model.Element!.Objects.OfType<Beutl.Graphics.Shapes.RectShape>().Single();
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(0.5), Value = 20 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(0.5), Value = 20 });
         shape.Height.SetKeyFrameAnimation(animation);
         var timeline = ((EditViewModel)graph.Model.EditorContext).FindToolTab<TimelineTabViewModel>()!;
         var property = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)shape.Height, shape);
@@ -386,7 +386,7 @@ public class GraphEditorEditingTests
         graph.Window.Width = 960;
         try
         {
-            await inline.PasteKeyFrameAtPositionAsync(TimeSpan.FromSeconds(3), graph.Window.Clipboard);
+            await inline.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(3), graph.Window.Clipboard);
             HeadlessTestHelpers.Render(3);
             var layer = view.GetVisualDescendants().OfType<InlineAnimationLayer>().Single(item => ReferenceEquals(item.DataContext, inline));
             var keys = layer.GetVisualDescendants().OfType<AvaloniaPath>().Where(item => item.DataContext is InlineKeyFrameViewModel).ToArray();
@@ -402,11 +402,11 @@ public class GraphEditorEditingTests
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
         Assert.That(await graph.Model.CopySelectionAsync(graph.Window.Clipboard), Is.True);
-        graph.Model.Seek(TimeSpan.FromSeconds(3));
+        graph.Model.Seek(MediaTime.FromSeconds(3));
         int undo = graph.Model.HistoryManager.UndoCount;
         await graph.Model.PasteSelectionAsync(graph.Window.Clipboard);
         HeadlessTestHelpers.Render();
-        Assert.That(graph.Animation.KeyFrames.Select(x => x.KeyTime.TotalSeconds), Is.EqualTo(new[] { 0.5, 1.5, 3, 4 }));
+        Assert.That(graph.Animation.KeyFrames.Select(x => x.KeyTime.ToSeconds()), Is.EqualTo(new[] { 0.5, 1.5, 3, 4 }));
         Assert.That(graph.Animation.KeyFrames.Select(x => x.Id).Distinct().Count(), Is.EqualTo(4));
         Assert.That(graph.Animation.KeyFrames[2].Value, Is.EqualTo(100f));
         Assert.That(graph.Animation.KeyFrames[3].Value, Is.EqualTo(500f));
@@ -425,7 +425,7 @@ public class GraphEditorEditingTests
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
         IKeyFrame source = crossType ? new KeyFrame<int> { Value = 42 } : new KeyFrame<float> { Value = 42 };
-        source.KeyTime = TimeSpan.FromSeconds(8);
+        source.KeyTime = MediaTime.FromSeconds(8);
         source.Easing = new SplineEasing(0.2f, 0.1f, 0.6f, 0.9f);
         ICoreSerializable payload = source;
         if (animationFormat)
@@ -438,7 +438,7 @@ public class GraphEditorEditingTests
         var data = new DataTransfer();
         data.Add(DataTransferItem.Create(animationFormat ? BeutlDataFormats.KeyFrameAnimation : BeutlDataFormats.KeyFrame, json));
         await graph.Window.Clipboard!.SetDataAsync(data);
-        graph.Model.Seek(TimeSpan.FromSeconds(0.5));
+        graph.Model.Seek(MediaTime.FromSeconds(0.5));
         var original = graph.Second.Easing;
         int undo = graph.Model.HistoryManager.UndoCount;
         var key = graph.KeyFrame(graph.Second);
@@ -448,7 +448,7 @@ public class GraphEditorEditingTests
         Assert.That(menuItem.Command, Is.SameAs(keyModel.PasteCommand));
         await keyModel.PasteAsync(graph.Window.Clipboard);
         Assert.That(graph.Animation.KeyFrames, Has.Count.EqualTo(2));
-        Assert.That(graph.Second.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
+        Assert.That(graph.Second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1.5)));
         Assert.That(graph.Second.Value, Is.EqualTo(crossType ? 500f : 42f));
         Assert.That(graph.First.Value, Is.EqualTo(100f));
         Assert.That(graph.Second.Easing.Ease(0.4f), Is.EqualTo(source.Easing.Ease(0.4f)).Within(0.0001));
@@ -464,7 +464,7 @@ public class GraphEditorEditingTests
     public async Task Background_paste_keeps_pointer_position_and_full_animation_replacement(bool fullAnimation)
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
-        var source = new KeyFrame<float> { Value = 42, KeyTime = TimeSpan.FromSeconds(8) };
+        var source = new KeyFrame<float> { Value = 42, KeyTime = MediaTime.FromSeconds(8) };
         ICoreSerializable payload = source;
         if (fullAnimation)
         {
@@ -476,9 +476,9 @@ public class GraphEditorEditingTests
         var data = new DataTransfer();
         data.Add(DataTransferItem.Create(fullAnimation ? BeutlDataFormats.KeyFrameAnimation : BeutlDataFormats.KeyFrame, json));
         await graph.Window.Clipboard!.SetDataAsync(data);
-        graph.Model.Seek(TimeSpan.Zero);
-        await graph.Model.PasteKeyFrameAtPositionAsync(TimeSpan.FromSeconds(3), graph.Window.Clipboard);
-        Assert.That(graph.Animation.KeyFrames.Select(x => x.KeyTime.TotalSeconds),
+        graph.Model.Seek(MediaTime.Zero);
+        await graph.Model.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(3), graph.Window.Clipboard);
+        Assert.That(graph.Animation.KeyFrames.Select(x => x.KeyTime.ToSeconds()),
             Is.EqualTo(fullAnimation ? new[] { 8d } : new[] { 0.5, 1.5, 3 }));
         Assert.That(graph.Animation.KeyFrames[^1].Value, Is.EqualTo(42f));
     }
@@ -495,29 +495,29 @@ public class GraphEditorEditingTests
     public async Task Selected_keys_pasted_from_background_preserve_other_keys_and_use_the_pointer(bool multiple, bool globalClock, bool occupied)
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
-        graph.Model.Element!.Start = TimeSpan.FromSeconds(2);
+        graph.Model.Element!.Start = MediaTime.FromSeconds(2);
         graph.Animation.UseGlobalClock = globalClock;
-        var third = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2.5), Value = 200 };
+        var third = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(2.5), Value = 200 };
         graph.Animation.KeyFrames.Add(third);
         double pasteTime = globalClock ? 5 : 3;
         KeyFrame<float>? existing = null;
         if (occupied)
         {
-            existing = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(pasteTime), Value = 900 };
+            existing = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(pasteTime), Value = 900 };
             graph.Animation.KeyFrames.Add(existing);
         }
         graph.Model.HistoryManager.Commit();
         graph.Model.SelectedView.Value!.SetSelection(multiple ? [graph.First, third] : [graph.First]);
         string before = GraphScope.Snapshot(graph.Animation);
         Assert.That(await graph.Model.CopySelectionAsync(graph.Window.Clipboard), Is.True);
-        graph.Model.Seek(TimeSpan.Zero);
+        graph.Model.Seek(MediaTime.Zero);
         int undo = graph.Model.HistoryManager.UndoCount;
-        await graph.Model.PasteKeyFrameAtPositionAsync(TimeSpan.FromSeconds(5), graph.Window.Clipboard);
+        await graph.Model.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(5), graph.Window.Clipboard);
         Assert.That(graph.Animation.KeyFrames, Does.Contain(graph.Second));
         Assert.That(graph.Second.Value, Is.EqualTo(500));
-        Assert.That(graph.Animation.KeyFrames.Select(key => key.KeyTime.TotalSeconds),
+        Assert.That(graph.Animation.KeyFrames.Select(key => key.KeyTime.ToSeconds()),
             Is.EqualTo(multiple ? new[] { 0.5, 1.5, 2.5, pasteTime, pasteTime + 2 } : new[] { 0.5, 1.5, 2.5, pasteTime }));
-        var pasted = graph.Animation.KeyFrames.Single(key => key.KeyTime.TotalSeconds == pasteTime);
+        var pasted = graph.Animation.KeyFrames.Single(key => key.KeyTime.ToSeconds() == pasteTime);
         Assert.That(pasted.Value, Is.EqualTo(100f));
         if (existing != null) Assert.That(pasted, Is.SameAs(existing));
         if (multiple) Assert.That(graph.Animation.KeyFrames[^1].Value, Is.EqualTo(200f));
@@ -567,7 +567,7 @@ public class GraphEditorEditingTests
     public async Task Removing_unselected_keys_does_not_report_a_selection_change()
     {
         using var graph = await GraphScope.CreateAsync();
-        var third = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(3), Value = 100 };
+        var third = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(3), Value = 100 };
         graph.Animation.KeyFrames.Add(third);
         int notifications = 0;
         graph.Model.SelectedView.Value!.SelectionChanged += (_, _) => notifications++;
@@ -632,7 +632,7 @@ public class GraphEditorEditingTests
         foreach (Action edit in new Action[]
         {
             () => graph.Second.Value += 50,
-            () => graph.First.KeyTime += TimeSpan.FromSeconds(0.1),
+            () => graph.First.KeyTime += MediaTime.FromSeconds(0.1),
             () => ((SplineEasing)graph.Second.Easing).Y1 = -0.3f,
             () => ((SplineEasing)graph.Second.Easing).X2 = 0.9f,
             () => graph.Model.ScaleY.Value *= 1.2,
@@ -1030,7 +1030,7 @@ public class GraphEditorEditingTests
         graph.Second.Easing = original;
         var third = new KeyFrame<float>
         {
-            KeyTime = TimeSpan.FromSeconds(2.5),
+            KeyTime = MediaTime.FromSeconds(2.5),
             Value = 200,
             Easing = new SplineEasing(0.25f, 0.2f, 0.75f, 0.8f)
         };
@@ -1041,19 +1041,19 @@ public class GraphEditorEditingTests
         string before = GraphScope.Snapshot(graph.Animation);
         int undo = graph.Model.HistoryManager.UndoCount;
         graph.Model.HistoryManager.ExecuteInTransaction(() => snapshot.Apply(
-            entry => (3 - entry.Time.TotalSeconds, entry.Number * 2), -1, 2, transformHandles: true));
+            entry => (3 - entry.Time.ToSeconds(), entry.Number * 2), -1, 2, transformHandles: true));
         Assert.That(GraphScope.Snapshot(graph.Animation), Is.EqualTo(before));
         Assert.That(graph.Second.Easing, Is.SameAs(original));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
         Assert.That(graph.Model.HistoryManager.HasPendingOperations, Is.False);
         Assert.That(graph.Model.SelectedView.Value.SelectionCount.Value, Is.EqualTo(3));
 
-        graph.Model.HistoryManager.ExecuteInTransaction(() => snapshot.Apply(entry => (entry.Time.TotalSeconds + 0.2, entry.Number + 10)));
-        Assert.That(graph.First.KeyTime.TotalSeconds, Is.EqualTo(0.7).Within(0.00001));
+        graph.Model.HistoryManager.ExecuteInTransaction(() => snapshot.Apply(entry => (entry.Time.ToSeconds() + 0.2, entry.Number + 10)));
+        Assert.That(graph.First.KeyTime.ToSeconds(), Is.EqualTo(0.7).Within(0.00001));
         Assert.That(graph.First.Value, Is.EqualTo(110));
         string moved = GraphScope.Snapshot(graph.Animation);
         graph.Model.HistoryManager.ExecuteInTransaction(() => snapshot.Apply(
-            entry => (3 - entry.Time.TotalSeconds, entry.Number * 2), -1, 2, transformHandles: true));
+            entry => (3 - entry.Time.ToSeconds(), entry.Number * 2), -1, 2, transformHandles: true));
         Assert.That(GraphScope.Snapshot(graph.Animation), Is.EqualTo(moved));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
         graph.Model.HistoryManager.Undo();
@@ -1095,16 +1095,16 @@ public class GraphEditorEditingTests
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
         graph.Second.Easing = new CubicEaseIn();
-        var third = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2.5), Value = 200, Easing = new CustomQuadraticEasing() };
+        var third = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(2.5), Value = 200, Easing = new CustomQuadraticEasing() };
         graph.Animation.KeyFrames.Add(third);
         graph.Model.HistoryManager.Commit();
         var original = third.Easing;
         var snapshot = new GraphEditorDragSnapshot(graph.Model.SelectedView.Value!);
-        snapshot.Apply(entry => (2 - entry.Time.TotalSeconds, entry.Number), -1, transformHandles: true);
+        snapshot.Apply(entry => (2 - entry.Time.ToSeconds(), entry.Number), -1, transformHandles: true);
         Assert.That(graph.Animation.KeyFrames[0], Is.SameAs(graph.Second));
         Assert.That(graph.First.Easing, Is.TypeOf<CubicEaseOut>());
         Assert.That(third.Easing, Is.SameAs(original));
-        Assert.That(third.KeyTime.TotalSeconds, Is.EqualTo(2.5));
+        Assert.That(third.KeyTime.ToSeconds(), Is.EqualTo(2.5));
     }
 
     public sealed class CustomQuadraticEasing : Easing
@@ -1174,8 +1174,8 @@ public class GraphEditorEditingTests
         graph.Model.HistoryManager.Undo();
         Assert.That(graph.Second.Easing, Is.SameAs(original));
         Assert.That(graph.First.Easing, Is.SameAs(firstEasing));
-        Assert.That(graph.First.KeyTime.TotalSeconds, Is.EqualTo(0.5));
-        Assert.That(graph.Second.KeyTime.TotalSeconds, Is.EqualTo(1.5));
+        Assert.That(graph.First.KeyTime.ToSeconds(), Is.EqualTo(0.5));
+        Assert.That(graph.Second.KeyTime.ToSeconds(), Is.EqualTo(1.5));
         graph.Model.HistoryManager.Redo();
         Assert.That(graph.First.Easing.GetType(), Is.EqualTo(reversedType));
     }

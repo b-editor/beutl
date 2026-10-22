@@ -24,8 +24,8 @@ public class ObjectRegeneratorTests
         // reference and hide child Ids. Embed mode expands them so Ids get rewritten.
         var src = new Element
         {
-            Start = TimeSpan.FromSeconds(0),
-            Length = TimeSpan.FromSeconds(1),
+            Start = MediaTime.FromSeconds(0),
+            Length = MediaTime.FromSeconds(1),
             ZIndex = 0,
             Uri = new Uri(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.belm")),
         };
@@ -50,20 +50,20 @@ public class ObjectRegeneratorTests
         // If Regenerate reorders the array, group remap silently corrupts.
         var a = new Element
         {
-            Start = TimeSpan.FromSeconds(0),
-            Length = TimeSpan.FromSeconds(1),
+            Start = MediaTime.FromSeconds(0),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.belm")),
         };
         var b = new Element
         {
-            Start = TimeSpan.FromSeconds(5),
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.FromSeconds(5),
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.belm")),
         };
         var c = new Element
         {
-            Start = TimeSpan.FromSeconds(10),
-            Length = TimeSpan.FromSeconds(3),
+            Start = MediaTime.FromSeconds(10),
+            Length = MediaTime.FromSeconds(3),
             Uri = new Uri(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.belm")),
         };
         Guid[] originalIds = [a.Id, b.Id, c.Id];
@@ -88,7 +88,7 @@ public class ObjectRegeneratorTests
     [Test]
     public void Regenerate_GivesAnIdInAScriptTheIdOfTheCopiedObject()
     {
-        var element = new Element { Length = TimeSpan.FromSeconds(1) };
+        var element = new Element { Length = MediaTime.FromSeconds(1) };
         var source = new RectShape();
         var follower = new RectShape();
         follower.Width.Expression = new StringExpression<float>($"GetProperty<float>(\"{source.Id}.Width\") * 2");
@@ -110,7 +110,7 @@ public class ObjectRegeneratorTests
     public void Regenerate_KeepsTheIdOfAReferenceToAnObjectOutsideTheCopy()
     {
         var outside = new RectShape();
-        var element = new Element { Length = TimeSpan.FromSeconds(1) };
+        var element = new Element { Length = MediaTime.FromSeconds(1) };
         element.AddObject(new DrawablePresenter { Target = { Expression = new ReferenceExpression<Drawable?>(outside.Id) } });
 
         ObjectRegenerator.Regenerate(element, out Element copy);
@@ -126,7 +126,7 @@ public class ObjectRegeneratorTests
         var outer = new CopyRenewalProbe();
         var inner = new CopyRenewalProbe();
         outer.Inner.Value = inner;
-        var element = new Element { Length = TimeSpan.FromSeconds(1) };
+        var element = new Element { Length = MediaTime.FromSeconds(1) };
         element.AddObject(outer);
 
         ObjectRegenerator.Regenerate(element, out Element copy);
@@ -200,14 +200,14 @@ public class ObjectRegeneratorTests
     [Test]
     public void Split_GivesTheAiNodesOfTheBackHalfRequestKeysOfTheirOwn()
     {
-        using var harness = new SceneHistoryHarness("beutl_regenerate_split", duration: TimeSpan.FromSeconds(60));
-        Element front = harness.AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
+        using var harness = new SceneHistoryHarness("beutl_regenerate_split", duration: MediaTime.FromSeconds(60));
+        Element front = harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(10));
         var (_, image, nested) = AddAiNodes(front);
         harness.History.Commit("Setup");
         Element[] childrenBefore = [.. harness.Scene.Children];
 
         new ElementStructureService(harness.History)
-            .Split(harness.Scene, [front], TimeSpan.FromSeconds(4));
+            .Split(harness.Scene, [front], MediaTime.FromSeconds(4));
 
         var (backImage, backNested) = FindAiNodes(harness.Scene.Children.Except(childrenBefore).Single());
         Assert.Multiple(() =>
@@ -228,7 +228,7 @@ public class ObjectRegeneratorTests
             null);
 
         string[] seeds = Enumerable.Range(0, 2)
-            .Select(_ => ElementTemplateResolver.CreateDescription(template, TimeSpan.Zero, 0).Source)
+            .Select(_ => ElementTemplateResolver.CreateDescription(template, MediaTime.Zero, 0).Source)
             .Cast<ElementSource.ElementTemplate>()
             .Select(source => FindAiNodes(source.Factory()))
             .SelectMany(nodes => new[] { nodes.Image.RequestKeySeed, nodes.Nested.RequestKeySeed })
@@ -320,8 +320,8 @@ public class ObjectRegeneratorTests
     {
         var element = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(5),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(5),
             Uri = new Uri(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.belm")),
         };
         var (_, image, nested) = AddAiNodes(element);

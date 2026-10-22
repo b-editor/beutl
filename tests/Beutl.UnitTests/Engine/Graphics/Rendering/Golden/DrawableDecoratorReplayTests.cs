@@ -28,12 +28,12 @@ public sealed class DrawableDecoratorReplayTests
         {
             Scene scene = CreateScene(scaleTransform);
             using var sequential = CreateRenderer(scene, outputScale);
-            sequential.Render(sequential.Compositor.EvaluateGraphics(TimeSpan.Zero));
+            sequential.Render(sequential.Compositor.EvaluateGraphics(MediaTime.Zero));
             using Bitmap first = sequential.Snapshot();
 
             foreach (int seconds in new[] { 1, 2 })
             {
-                var time = TimeSpan.FromSeconds(seconds);
+                var time = MediaTime.FromSeconds(seconds);
                 sequential.Render(sequential.Compositor.EvaluateGraphics(time));
                 using Bitmap actual = sequential.Snapshot();
 
@@ -80,17 +80,17 @@ public sealed class DrawableDecoratorReplayTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = scaleTransform ? 100 : 0 },
-                new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = scaleTransform ? 150 : 30 },
-                new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = scaleTransform ? 75 : -20 },
+                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = scaleTransform ? 100 : 0 },
+                new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = scaleTransform ? 150 : 30 },
+                new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(2), Value = scaleTransform ? 75 : -20 },
             },
         });
 
         var scene = new Scene(256, 144, "decorator") { Uri = new Uri("file:///decorator/scene") };
         var element = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(4),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(4),
             ZIndex = 0,
             Uri = new Uri("file:///decorator/element"),
         };

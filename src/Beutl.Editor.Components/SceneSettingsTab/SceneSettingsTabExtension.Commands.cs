@@ -1,4 +1,5 @@
 ﻿using System.Text.RegularExpressions;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Media;
@@ -43,25 +44,31 @@ public sealed partial class SceneSettingsTabExtension
 
     private static async Task ChangeStartAsync(IEditorContext editorContext, Scene scene, IContextCommandInteraction interaction)
     {
+        MediaTime shown = scene.Start;
         string? input = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
             Placeholder = Strings.CommandPalette_TimeSpanHint,
-            Value = scene.Start.ToString(),
+            Value = TimeText.Format(shown),
             Validate = SceneSettingsTabViewModel.StartValidator
         });
-        if (input is not null && TimeSpan.TryParse(input, out TimeSpan start))
+        if (input is not null
+            && TimeText.TryParse(input, shown, SceneTimeRangeService.GetFrameRate(scene), out MediaTime start))
             await ApplyAsync(editorContext, scene, interaction.CancellationToken, start: start);
     }
 
     private static async Task ChangeDurationAsync(IEditorContext editorContext, Scene scene, IContextCommandInteraction interaction)
     {
+        MediaTime shown = scene.Duration;
         string? input = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
             Placeholder = Strings.CommandPalette_TimeSpanHint,
-            Value = scene.Duration.ToString(),
+            Value = TimeText.Format(shown),
             Validate = SceneSettingsTabViewModel.DurationValidator
         });
-        if (input is not null && TimeSpan.TryParse(input, out TimeSpan duration))
+        // A time under two ticks snaps to frame zero, which is no duration, as the scene settings tab refuses it.
+        if (input is not null
+            && TimeText.TryParse(input, shown, SceneTimeRangeService.GetFrameRate(scene), out MediaTime duration)
+            && duration > MediaTime.Zero)
             await ApplyAsync(editorContext, scene, interaction.CancellationToken, duration: duration);
     }
 
@@ -84,7 +91,7 @@ public sealed partial class SceneSettingsTabExtension
     // The settings left out keep the scene's values as of the change, not as of the prompt.
     private static async Task ApplyAsync(
         IEditorContext editorContext, Scene scene, CancellationToken cancellationToken,
-        PixelSize? frameSize = null, TimeSpan? start = null, TimeSpan? duration = null)
+        PixelSize? frameSize = null, MediaTime? start = null, MediaTime? duration = null)
     {
         bool changes = frameSize is { } f && f != scene.FrameSize
             || start is { } s && s != scene.Start

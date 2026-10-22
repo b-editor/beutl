@@ -72,7 +72,7 @@ public class AudioNodeTests
         context.Connect(source, destination);
         context.Connect(suffix, destination);
         context.Connect(source, throwing);
-        destination.SetBranchEndTime(source, TimeSpan.FromSeconds(1));
+        destination.SetBranchEndTime(source, MediaTime.FromSeconds(1));
 
         Assert.Throws<InvalidOperationException>(() => context.RemoveNode(source));
         Assert.That(context.Nodes, Has.Count.EqualTo(5));
@@ -278,7 +278,7 @@ public class AudioNodeTests
         context.Connect(source, resample);
         context.Connect(resample, failing);
 
-        AudioProcessContext firstContext = Exact(TimeSpan.Zero, blockSamples, outputSampleRate);
+        AudioProcessContext firstContext = Exact(MediaTime.Zero, blockSamples, outputSampleRate);
         AudioProcessContext secondContext = Exact(
             ExactDuration(blockSamples, outputSampleRate),
             blockSamples,
@@ -404,7 +404,7 @@ public class AudioNodeTests
         context.Connect(source, resample);
         context.Connect(source, failing);
 
-        AudioProcessContext firstContext = Exact(TimeSpan.Zero, blockSamples, outputSampleRate);
+        AudioProcessContext firstContext = Exact(MediaTime.Zero, blockSamples, outputSampleRate);
         AudioProcessContext secondContext = Exact(
             ExactDuration(blockSamples, outputSampleRate),
             blockSamples,
@@ -440,7 +440,7 @@ public class AudioNodeTests
         using var gain = new GainNode { Gain = Property.CreateExpression(50f) };
         gain.AddInput(input);
 
-        using var processed = gain.Process(Exact(TimeSpan.Zero, sampleCount, sampleRate));
+        using var processed = gain.Process(Exact(MediaTime.Zero, sampleCount, sampleRate));
         gain.RemoveInput(input);
         using var flushed = gain.Flush(Exact(ExactDuration(sampleCount, sampleRate), sampleCount, sampleRate));
 

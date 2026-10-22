@@ -296,17 +296,17 @@ public class TransformHandlesOverlayTests
         try
         {
             Element outgoing = editor.Scene.Children.Single();
-            outgoing.Length = TimeSpan.FromSeconds(1);
+            outgoing.Length = MediaTime.FromSeconds(1);
             var incomingDrawable = new RectShape();
             incomingDrawable.Width.Value = 160;
             incomingDrawable.Height.Value = 100;
             await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
-                TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0,
+                MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0,
                 new ElementSource.EngineObject(() => incomingDrawable))], CancellationToken.None);
             Element incoming = editor.Scene.Children.Single(e => e != outgoing);
             Assert.That(incoming.ZIndex, Is.EqualTo(outgoing.ZIndex), "The transition joins two clips on one layer.");
-            incoming.EnterTransition = new ZoomTransition { Duration = { Value = TimeSpan.FromSeconds(1) } };
-            editor.GetRequiredService<IEditorClock>().Seek(TimeSpan.FromSeconds(1.5));
+            incoming.EnterTransition = new ZoomTransition { Duration = { Value = MediaTime.FromSeconds(1) } };
+            editor.GetRequiredService<IEditorClock>().Seek(MediaTime.FromSeconds(1.5));
             editor.GetRequiredService<IEditorSelection>().Select(incoming);
             await RenderPreview(editor);
 
@@ -464,7 +464,7 @@ public class TransformHandlesOverlayTests
 
         Drawable drawable = Create(content);
         await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
-            TimeSpan.Zero, TimeSpan.FromSeconds(4), 0, new ElementSource.EngineObject(() => drawable))],
+            MediaTime.Zero, MediaTime.FromSeconds(4), 0, new ElementSource.EngineObject(() => drawable))],
             CancellationToken.None);
         editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
 

@@ -13,9 +13,9 @@ public class PlayerViewModelAudioTailTests
         using AudioBuffer before = OneSecondOfOnes(8);
         using AudioBuffer after = OneSecondOfOnes(8);
 
-        PlayerViewModel.SilenceTailBeyondSceneEnd(straddling, TimeSpan.Zero, TimeSpan.FromSeconds(0.5));
-        PlayerViewModel.SilenceTailBeyondSceneEnd(before, TimeSpan.Zero, TimeSpan.FromSeconds(2));
-        PlayerViewModel.SilenceTailBeyondSceneEnd(after, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        PlayerViewModel.SilenceTailBeyondSceneEnd(straddling, MediaTime.Zero, MediaTime.FromSeconds(0.5));
+        PlayerViewModel.SilenceTailBeyondSceneEnd(before, MediaTime.Zero, MediaTime.FromSeconds(2));
+        PlayerViewModel.SilenceTailBeyondSceneEnd(after, MediaTime.FromSeconds(1), MediaTime.FromSeconds(1));
 
         Assert.Multiple(() =>
         {

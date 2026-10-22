@@ -77,6 +77,32 @@ public sealed partial class AiSubtitleDialogViewModel
             operationLifetime);
     }
 
+    // Audio alone: an FFmpeg reader that also decodes video starts its audio after the first frame.
+    // A file that opens only as video gets the no-audio message.
+    private async Task<MediaReader> OpenSourceAudioAsync(string filePath)
+    {
+        try
+        {
+            return await Task.Run(
+                () => MediaReader.Open(
+                    filePath,
+                    new MediaOptions(MediaMode.Audio) { PreferProxy = false, IsBackground = true }),
+                RequestToken);
+        }
+        catch (UnsupportedMediaException)
+        {
+            bool opensAsVideo = await Task.Run(() =>
+            {
+                using MediaReader? video = DecoderRegistry.OpenMediaFile(
+                    filePath, new MediaOptions(MediaMode.Video) { IsBackground = true });
+                return video != null;
+            }, RequestToken);
+            if (opensAsVideo)
+                throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+            throw;
+        }
+    }
+
     private async Task TranscribeSourceFileAsync(
         AudioSourceItem source,
         string filePath,
@@ -89,11 +115,7 @@ public sealed partial class AiSubtitleDialogViewModel
         // Opening and decoding are the editor's own work, not the server's, and
         // both run for as long as the audio is: off the UI thread, or the window
         // stops answering for the length of the file.
-        using MediaReader reader = await Task.Run(
-            () => MediaReader.Open(
-                filePath,
-                new MediaOptions(MediaMode.Audio) { PreferProxy = false, IsBackground = true }),
-            RequestToken);
+        using MediaReader reader = await OpenSourceAudioAsync(filePath);
         if (!reader.HasAudio)
             throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
 
@@ -248,7 +270,7 @@ public sealed partial class AiSubtitleDialogViewModel
 
         long sourceStartSamples = checked((long)Math.Max(
             0,
-            Math.Floor(source.SourceOffset.TotalSeconds * sampleRate)));
+            Math.Floor(source.SourceOffset.ToSeconds() * sampleRate)));
         double selectedDurationSeconds = source.GetSourceElapsedSeconds();
         if (!double.IsFinite(selectedDurationSeconds) || selectedDurationSeconds <= 0)
             throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
@@ -595,8 +617,8 @@ public sealed partial class AiSubtitleDialogViewModel
                 Math.Min(SceneMixComposeSlice.Ticks, (duration - offset).Ticks));
             AudioFrameSnapshot? snapshot = SceneMixAudioComposer is { } composer
                 ? await composer(start + offset, sliceDuration, cancellationToken)
-                : await _editor!.GetRequiredService<IPreviewPlayer>()
-                    .ComposeAudioAsync(start + offset, sliceDuration, cancellationToken);
+                : await _editor!.GetRequiredService<IPreviewPlayer>().ComposeAudioAsync(
+                    MediaTime.FromTimeSpan(start + offset), MediaTime.FromTimeSpan(sliceDuration), cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             if (snapshot is null || snapshot.SampleCount == 0)
                 throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
@@ -926,7 +948,7 @@ public sealed partial class AiSubtitleDialogViewModel
     {
         if (source is null)
             return null;
-        TimeSpan duration = source.Duration;
+        TimeSpan duration = source.Duration.ToTimeSpan();
         TimeSpan rangeStart = TimeSpan.Zero;
         if (source.IsSceneMix
             && !TryGetSceneRange(out rangeStart, out duration))
@@ -956,7 +978,7 @@ public sealed partial class AiSubtitleDialogViewModel
         {
             // The run sends the element's span of the file from its offset (PlanSourceChunks), so the estimate
             // prices that audio rather than the whole file.
-            TimeSpan offset = source.SourceOffset > TimeSpan.Zero ? source.SourceOffset : TimeSpan.Zero;
+            TimeSpan offset = source.SourceOffset > MediaTime.Zero ? source.SourceOffset.ToTimeSpan() : TimeSpan.Zero;
             double seconds = Math.Min(source.GetSourceElapsedSeconds(), (duration - offset).TotalSeconds);
             if (!double.IsFinite(seconds) || seconds <= 0)
                 return null;
@@ -972,10 +994,11 @@ public sealed partial class AiSubtitleDialogViewModel
 
     // The transcribed range is the scene's own: the tab has nothing to add to
     // what the timeline already says about where the work starts and ends.
+    // Ranges, chunks and drafts of a run are request times and stay TimeSpan.
     private bool TryGetSceneRange(out TimeSpan start, out TimeSpan duration)
     {
-        start = _editor?.Scene.Start ?? TimeSpan.Zero;
-        duration = _editor?.Scene.Duration ?? TimeSpan.Zero;
+        start = _editor?.Scene.Start.ToTimeSpan() ?? TimeSpan.Zero;
+        duration = _editor?.Scene.Duration.ToTimeSpan() ?? TimeSpan.Zero;
         return _editor is not null && start >= TimeSpan.Zero && duration > TimeSpan.Zero;
     }
 
@@ -984,7 +1007,7 @@ public sealed partial class AiSubtitleDialogViewModel
             ? editor.Scene.StartProperty.GetObservable()
                 .CombineLatest(
                     editor.Scene.DurationProperty.GetObservable(),
-                    (start, duration) => start < TimeSpan.Zero ? TimeSpan.Zero : duration)
+                    (start, duration) => start < MediaTime.Zero ? TimeSpan.Zero : duration.ToTimeSpan())
             : Observable.Return(TimeSpan.Zero);
 
     private sealed class SceneTranscriptionOperation(

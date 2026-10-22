@@ -122,7 +122,7 @@ public class PropertyLookupTests
         root.AddChild(child);
 
         var lookup = new PropertyLookup(root);
-        var context = CreateContext(lookup, TimeSpan.Zero);
+        var context = CreateContext(lookup, MediaTime.Zero);
 
         // Act - Get the property value using the child's GUID
         bool result = lookup.TryGetPropertyValue<double>($"{child.Id}.Value", context, out var value);
@@ -142,7 +142,7 @@ public class PropertyLookupTests
         root.AddChild(child);
 
         var lookup = new PropertyLookup(root);
-        var context = CreateContext(lookup, TimeSpan.Zero);
+        var context = CreateContext(lookup, MediaTime.Zero);
 
         // Act - Get the property value using the GUID overload
         bool result = lookup.TryGetPropertyValue<double>(child.Id, "Value", context, out var value);
@@ -162,7 +162,7 @@ public class PropertyLookupTests
         root.AddChild(child);
 
         var lookup = new PropertyLookup(root);
-        var context = CreateContext(lookup, TimeSpan.Zero);
+        var context = CreateContext(lookup, MediaTime.Zero);
 
         // Act - Get the property with different casing (lowercase)
         bool result = lookup.TryGetPropertyValue<double>($"{child.Id}.value", context, out var value);
@@ -182,7 +182,7 @@ public class PropertyLookupTests
         root.AddChild(child);
 
         var lookup = new PropertyLookup(root);
-        var context = CreateContext(lookup, TimeSpan.Zero);
+        var context = CreateContext(lookup, MediaTime.Zero);
 
         // Act - Try to get a non-existent property
         bool result = lookup.TryGetPropertyValue<double>($"{child.Id}.NonExistent", context, out var value);
@@ -200,7 +200,7 @@ public class PropertyLookupTests
         root.Value.Value = 77.7;
 
         var lookup = new PropertyLookup(root);
-        var context = CreateContext(lookup, TimeSpan.Zero);
+        var context = CreateContext(lookup, MediaTime.Zero);
 
         // Act - Get property from root itself
         bool result = lookup.TryGetPropertyValue<double>($"{root.Id}.Value", context, out var value);
@@ -223,7 +223,7 @@ public class PropertyLookupTests
         child.AddChild(grandchild);
 
         var lookup = new PropertyLookup(root);
-        var context = CreateContext(lookup, TimeSpan.Zero);
+        var context = CreateContext(lookup, MediaTime.Zero);
 
         // Act - Get property from deeply nested object
         bool result = lookup.TryGetPropertyValue<double>($"{grandchild.Id}.Value", context, out var value);
@@ -235,10 +235,10 @@ public class PropertyLookupTests
 
     private ExpressionContext CreateContext(PropertyLookup lookup)
     {
-        return CreateContext(lookup, TimeSpan.Zero);
+        return CreateContext(lookup, MediaTime.Zero);
     }
 
-    private ExpressionContext CreateContext(PropertyLookup lookup, TimeSpan time)
+    private ExpressionContext CreateContext(PropertyLookup lookup, MediaTime time)
     {
         var property = Property.CreateExpression(0.0);
         return new ExpressionContext(time, property, lookup);

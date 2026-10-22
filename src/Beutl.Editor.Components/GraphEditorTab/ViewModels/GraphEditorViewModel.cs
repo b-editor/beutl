@@ -28,7 +28,7 @@ public sealed partial class GraphEditorViewModel : IDisposable
     private bool _editting;
     private bool _rangeUpdatePending;
     private bool _disposed;
-    private TimeSpan _pointerPosition;
+    private MediaTime _pointerPosition;
 
     public GraphEditorViewModel(IEditorContext editorContext, IKeyFrameAnimation animation, Element? element)
     {
@@ -47,13 +47,13 @@ public sealed partial class GraphEditorViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        ElementMargin = (Element?.StartProperty.GetObservable() ?? Observable.ReturnThenNever<TimeSpan>(default))
+        ElementMargin = (Element?.StartProperty.GetObservable() ?? Observable.ReturnThenNever<MediaTime>(default))
             .CombineLatest(timelineOptions.Scale)
             .Select(t => new Thickness(t.First.TimeToPixel(t.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        ElementWidth = (Element?.LengthProperty.GetObservable() ?? Observable.ReturnThenNever<TimeSpan>(default))
+        ElementWidth = (Element?.LengthProperty.GetObservable() ?? Observable.ReturnThenNever<MediaTime>(default))
             .CombineLatest(timelineOptions.Scale)
             .Select(t => t.First.TimeToPixel(t.Second))
             .ToReadOnlyReactivePropertySlim()
@@ -166,7 +166,7 @@ public sealed partial class GraphEditorViewModel : IDisposable
 
     public HistoryManager HistoryManager { get; }
 
-    public IReadOnlyReactiveProperty<TimeSpan> CurrentTime => _editorClock.CurrentTime;
+    public IReadOnlyReactiveProperty<MediaTime> CurrentTime => _editorClock.CurrentTime;
 
     public ReactivePropertySlim<bool> IsSpeedGraph { get; } = new();
 
@@ -190,12 +190,12 @@ public sealed partial class GraphEditorViewModel : IDisposable
 
     public AsyncReactiveCommand PasteKeyFrameAtCurrentPositionCommand { get; }
 
-    public void Seek(TimeSpan time) => _editorClock.Seek(time);
+    public void Seek(MediaTime time) => _editorClock.Seek(time);
 
     public void UpdatePointerPosition(double positionX)
     {
         float scale = Options.Value.Scale;
-        _pointerPosition = positionX.PixelToTimeSpan(scale);
+        _pointerPosition = positionX.PixelToTime(scale);
     }
 
     internal void DeleteKeyFrames(IEnumerable<IKeyFrame> keyFrames)
@@ -286,20 +286,20 @@ public sealed partial class GraphEditorViewModel : IDisposable
         }
     }
 
-    public TimeSpan ConvertKeyTime(TimeSpan globalkeyTime)
+    public MediaTime ConvertKeyTime(MediaTime globalkeyTime)
     {
         _logger.LogInformation("Converting key time {GlobalKeyTime}", globalkeyTime);
         return AnimationOperations.ConvertKeyTime(Animation, globalkeyTime, Element, Scene);
     }
 
-    public void DropEasing(Easing easing, TimeSpan keyTime)
+    public void DropEasing(Easing easing, MediaTime keyTime)
     {
         _logger.LogInformation("Dropping easing at key time {KeyTime}", keyTime);
         KeyFrameClipboardCommands.DropEasing(
             Animation, Scene, HistoryManager, easing, keyTime, ConvertKeyTime(keyTime), InsertKeyFrame, _logger);
     }
 
-    public void InsertKeyFrame(Easing easing, TimeSpan keyTime)
+    public void InsertKeyFrame(Easing easing, MediaTime keyTime)
     {
         AnimationOperations.InsertKeyFrame(
             animation: Animation,
@@ -327,7 +327,7 @@ public sealed partial class GraphEditorViewModel : IDisposable
 
     private Task CopyAllKeyFramesAsync() => KeyFrameClipboardCommands.CopyAnimationAsync(Animation, _logger);
 
-    internal async Task PasteKeyFrameAtPositionAsync(TimeSpan pointerPosition, IClipboard? clipboard = null)
+    internal async Task PasteKeyFrameAtPositionAsync(MediaTime pointerPosition, IClipboard? clipboard = null)
     {
         clipboard ??= ClipboardHelper.GetClipboard();
         if (!IsClipboardContextActive || clipboard == null || SelectedView.Value == null) return;
@@ -348,7 +348,7 @@ public sealed partial class GraphEditorViewModel : IDisposable
         KeyFrameClipboardCommands.PasteAnimation(EditorContext, Animation, json, _logger);
     }
 
-    private void PasteKeyFrame(string json, TimeSpan pointerPosition)
+    private void PasteKeyFrame(string json, MediaTime pointerPosition)
     {
         KeyFrameClipboardCommands.PasteKeyFrame(
             EditorContext, Animation, json, _ => ConvertKeyTime(pointerPosition),

@@ -9,7 +9,7 @@ internal readonly record struct ParticleSettings(
     float EmitterWidth,
     float EmitterHeight,
     int MaxParticles,
-    TimeSpan PrewarmDuration,
+    MediaTime PrewarmDuration,
     float EmissionRate,
     float Lifetime,
     float LifetimeRandom,

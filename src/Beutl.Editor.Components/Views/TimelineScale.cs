@@ -300,14 +300,14 @@ public sealed class TimelineScale : TimelineBarsControl
         double wf = FrameNumberHelper.SecondWidth / FramesPerTick;
         for (double x = originX; x < viewportRight; x += inc)
         {
-            var time = x.PixelToTimeSpan(Scale);
+            var time = x.PixelToTime(Scale);
 
             if (viewport.Contains(new Point(x, height)))
             {
                 context.DrawLine(pen, new(x, 5), new(x, height));
             }
 
-            using var text = new TextLayout(time.ToString("hh\\:mm\\:ss\\.ff"), s_typeface, 13, ScaleBrush);
+            using var text = new TextLayout(time.ToTimeSpan().ToString("hh\\:mm\\:ss\\.ff"), s_typeface, 13, ScaleBrush);
             var textbounds = new Rect(x + 8, 0, text.Width, text.Height);
 
             if (viewport.Intersects(textbounds) && (recentPix == 0d || (x + 8) > recentPix))
@@ -337,12 +337,12 @@ public sealed class TimelineScale : TimelineBarsControl
 
         if (CacheBlocks != null)
         {
-            TimeSpan left = originX.PixelToTimeSpan(Scale);
-            TimeSpan right = viewportRight.PixelToTimeSpan(Scale);
+            MediaTime left = originX.PixelToTime(Scale);
+            MediaTime right = viewportRight.PixelToTime(Scale);
 
             foreach (CacheBlock item in CacheBlocks)
             {
-                TimeSpan end = item.Start + item.Length;
+                MediaTime end = item.Start + item.Length;
                 if (end < left || item.Start > right)
                 {
                     continue;

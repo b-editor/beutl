@@ -26,7 +26,7 @@ public class DrawableTimeControllerFlowTests
     {
         using var harness = new SceneHistoryHarness("beutl_controller_flow", duration: Seconds(10));
         var video = CreateVideo();
-        Element element = harness.AddElement(TimeSpan.Zero, Seconds(4));
+        Element element = harness.AddElement(MediaTime.Zero, Seconds(4));
         element.Objects.Add(video);
         Drawable preceding = kind switch
         {
@@ -41,7 +41,7 @@ public class DrawableTimeControllerFlowTests
 
         var first = (DrawableTimeController.Resource)compositor.EvaluateGraphics(Seconds(0.5)).Objects.Single();
         var firstVideo = Videos(first).Single();
-        double firstPosition = firstVideo.RequestedPosition.TotalSeconds;
+        double firstPosition = firstVideo.RequestedPosition.ToSeconds();
         var second = (DrawableTimeController.Resource)compositor.EvaluateGraphics(Seconds(1)).Objects.Single();
         var secondVideo = Videos(second).Single();
 
@@ -50,7 +50,7 @@ public class DrawableTimeControllerFlowTests
             Assert.That(firstVideo.RequireOriginal(), Is.SameAs(video));
             Assert.That(firstPosition, Is.EqualTo(kind == "controller" ? 3 : 1.5).Within(0.000001));
             Assert.That(secondVideo.RequireOriginal(), Is.SameAs(video));
-            Assert.That(secondVideo.RequestedPosition.TotalSeconds, Is.EqualTo(kind == "controller" ? 4 : 2).Within(0.000001));
+            Assert.That(secondVideo.RequestedPosition.ToSeconds(), Is.EqualTo(kind == "controller" ? 4 : 2).Within(0.000001));
         });
     }
 
@@ -60,7 +60,7 @@ public class DrawableTimeControllerFlowTests
         using var harness = new SceneHistoryHarness("beutl_controller_flow_ownership", duration: Seconds(10));
         var first = CreateVideo();
         var second = CreateVideo();
-        Element element = harness.AddElement(TimeSpan.Zero, Seconds(4));
+        Element element = harness.AddElement(MediaTime.Zero, Seconds(4));
         element.Objects.Add(first);
         element.Objects.Add(second);
         element.Objects.Add(new DrawableGroup());
@@ -71,7 +71,7 @@ public class DrawableTimeControllerFlowTests
         var producer = Videos(producerGroup).First();
         controller.IsEnabled = true;
         var firstReplay = Videos(compositor.EvaluateGraphics(Seconds(0.5)).Objects.Single()).First();
-        double producerPosition = producer.RequestedPosition.TotalSeconds;
+        double producerPosition = producer.RequestedPosition.ToSeconds();
         first.IsEnabled = false;
         var replacement = Videos(compositor.EvaluateGraphics(Seconds(0.5)).Objects.Single()).Single();
 
@@ -82,7 +82,7 @@ public class DrawableTimeControllerFlowTests
             Assert.That(firstReplay.IsDisposed, Is.True);
             Assert.That(producer.IsDisposed, Is.False);
             Assert.That(replacement.RequireOriginal(), Is.SameAs(second));
-            Assert.That(replacement.RequestedPosition.TotalSeconds, Is.EqualTo(1.5).Within(0.000001));
+            Assert.That(replacement.RequestedPosition.ToSeconds(), Is.EqualTo(1.5).Within(0.000001));
         });
         compositor.Dispose();
         Assert.Multiple(() =>
@@ -98,7 +98,7 @@ public class DrawableTimeControllerFlowTests
         using var harness = new SceneHistoryHarness("beutl_controller_flow_sibling", duration: Seconds(10));
         var first = CreateVideo();
         var sibling = CreateVideo();
-        Element element = harness.AddElement(TimeSpan.Zero, Seconds(4));
+        Element element = harness.AddElement(MediaTime.Zero, Seconds(4));
         element.Objects.Add(first);
         element.Objects.Add(new DrawableGroup());
         element.Objects.Add(sibling);
@@ -109,9 +109,9 @@ public class DrawableTimeControllerFlowTests
         Assert.Multiple(() =>
         {
             Assert.That(resources, Has.Length.EqualTo(2));
-            Assert.That(resources.Single(resource => ReferenceEquals(resource.RequireOriginal(), first)).RequestedPosition.TotalSeconds,
+            Assert.That(resources.Single(resource => ReferenceEquals(resource.RequireOriginal(), first)).RequestedPosition.ToSeconds(),
                 Is.EqualTo(1.5).Within(0.000001));
-            Assert.That(resources.Single(resource => ReferenceEquals(resource.RequireOriginal(), sibling)).RequestedPosition.TotalSeconds,
+            Assert.That(resources.Single(resource => ReferenceEquals(resource.RequireOriginal(), sibling)).RequestedPosition.ToSeconds(),
                 Is.EqualTo(0.5).Within(0.000001));
         });
     }
@@ -122,7 +122,7 @@ public class DrawableTimeControllerFlowTests
     public void FlowSnapshots_UnchangedProvenanceIsReusedAcrossFrames(string kind)
     {
         using var harness = new SceneHistoryHarness("beutl_flow_snapshot_reuse", duration: Seconds(10));
-        Element element = harness.AddElement(TimeSpan.Zero, Seconds(4));
+        Element element = harness.AddElement(MediaTime.Zero, Seconds(4));
         var video = CreateVideo();
         element.Objects.Add(video);
         element.Objects.Add(kind switch
@@ -140,7 +140,7 @@ public class DrawableTimeControllerFlowTests
         {
             Assert.That(first, Is.Not.Null);
             Assert.That(second, Is.SameAs(first), "Changing playback time must not rebuild unchanged Flow provenance.");
-            Assert.That(Videos(secondResource).Single().RequestedPosition.TotalSeconds,
+            Assert.That(Videos(secondResource).Single().RequestedPosition.ToSeconds(),
                 Is.EqualTo(kind == "controller" ? 2 : 1).Within(0.000001));
         });
     }
@@ -151,7 +151,7 @@ public class DrawableTimeControllerFlowTests
         using var harness = new SceneHistoryHarness("beutl_flow_snapshot_invalidation", duration: Seconds(10));
         var first = CreateVideo();
         var second = CreateVideo();
-        Element element = harness.AddElement(TimeSpan.Zero, Seconds(4));
+        Element element = harness.AddElement(MediaTime.Zero, Seconds(4));
         element.Objects.Add(first);
         element.Objects.Add(second);
         element.Objects.Add(new DrawableGroup());
@@ -176,7 +176,7 @@ public class DrawableTimeControllerFlowTests
         using var first = new EngineObject().ToResource(CompositionContext.Default);
         using var second = new EngineObject().ToResource(CompositionContext.Default);
         var flow = new List<EngineObject.Resource>(2);
-        var context = new CompositionContext(TimeSpan.Zero) { Flow = flow };
+        var context = new CompositionContext(MediaTime.Zero) { Flow = flow };
         using var state = new FlowInputState();
         using var consumed = new PooledList<EngineObject.Resource>();
         for (int i = 0; i < 16; i++)
@@ -224,5 +224,5 @@ public class DrawableTimeControllerFlowTests
                 foreach (var target in Videos(child)) yield return target;
     }
 
-    private static TimeSpan Seconds(double seconds) => TimeSpan.FromSeconds(seconds);
+    private static MediaTime Seconds(double seconds) => MediaTime.FromSeconds(seconds);
 }

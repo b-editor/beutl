@@ -12,3 +12,4 @@
 [assembly: InternalsVisibleTo("Beutl.NodeGraph")]
 [assembly: InternalsVisibleTo("Beutl.Embedding.FFmpeg")]
 [assembly: InternalsVisibleTo("Beutl.Extensions.FFmpeg")]
+[assembly: InternalsVisibleTo("Beutl.Extensions.FFmpeg.Core")]

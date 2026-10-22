@@ -22,22 +22,22 @@ public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ISpl
         return Source.Value != null;
     }
 
-    public bool TryGetOriginalDuration(out TimeSpan timeSpan)
+    public bool TryGetOriginalDuration(out MediaTime timeSpan)
     {
         using var resource = Source.Value?.ToResource(CompositionContext.Default);
-        if (resource != null && resource.Duration > TimeSpan.Zero)
+        if (resource != null && resource.Duration > MediaTime.Zero)
         {
             timeSpan = resource.Duration;
             return true;
         }
         else
         {
-            timeSpan = TimeSpan.Zero;
+            timeSpan = MediaTime.Zero;
             return false;
         }
     }
 
-    public void NotifySplitted(bool backward, TimeSpan startDelta, TimeSpan durationDelta)
+    public void NotifySplitted(bool backward, MediaTime startDelta, MediaTime durationDelta)
     {
         if (backward)
         {

@@ -39,8 +39,8 @@ public class UnknownTypeElementTests
     {
         var sceneUri = new Uri(Path.Combine(_root, "scene.scene"));
         string elementPath = Path.Combine(_root, "element.belm");
-        var scene = new Scene(64, 64, "Scene") { Uri = sceneUri, Duration = TimeSpan.FromSeconds(10) };
-        var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(elementPath) };
+        var scene = new Scene(64, 64, "Scene") { Uri = sceneUri, Duration = MediaTime.FromSeconds(10) };
+        var element = new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(elementPath) };
         element.AddObject(new RectShape { Width = { Value = 10 } });
         element.AddObject(new RectShape());
         scene.Children.Add(element);
@@ -60,7 +60,7 @@ public class UnknownTypeElementTests
         using var harness = new HistoryHarness(restored);
         var resize = new ElementResizeService(harness.History);
         resize.Resize(restored,
-            [new ElementResizeRequest(restoredElement, TimeSpan.FromSeconds(2), restoredElement.Length, restoredElement.ZIndex)],
+            [new ElementResizeRequest(restoredElement, MediaTime.FromSeconds(2), restoredElement.Length, restoredElement.ZIndex)],
             ripple: false);
         shape.Width.Value = 20;
         harness.History.Commit("Edit around the unavailable object");
@@ -77,7 +77,7 @@ public class UnknownTypeElementTests
             Assert.That(restoredElement.Objects[1], Is.InstanceOf<IFallback>());
             Assert.That(restoredElement.SuppressedStorageSource, Is.Null);
             Assert.That(ElementEditability.IsEditable(restoredElement), Is.True);
-            Assert.That(reopened.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(reopened.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(((RectShape)reopened.Objects[0]).Width.Value, Is.EqualTo(20));
             Assert.That(JsonNode.DeepEquals(savedObjects[1], unavailableJson), Is.True,
                 "The rest of the object whose type is missing is saved as it was read.");
@@ -99,7 +99,7 @@ public class UnknownTypeElementTests
             var element = new Element
             {
                 Name = name,
-                Length = TimeSpan.FromSeconds(1),
+                Length = MediaTime.FromSeconds(1),
                 Uri = new Uri(Path.Combine(_root, $"{name}.belm")),
             };
             element.AddObject(name == "dropped-fallback" ? new DroppingHolder() : new RectShape());
@@ -152,7 +152,7 @@ public class UnknownTypeElementTests
         var sceneUri = new Uri(Path.Combine(_root, "scene.scene"));
         string elementPath = Path.Combine(_root, "element.belm");
         var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
-        var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(elementPath) };
+        var element = new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(elementPath) };
         element.AddObject(new RectShape());
         scene.Children.Add(element);
         CoreSerializer.StoreToUri(scene, sceneUri);

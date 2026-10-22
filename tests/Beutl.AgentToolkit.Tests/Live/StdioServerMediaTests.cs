@@ -2,6 +2,7 @@
 using System.Text.Json;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.Extensions.AVFoundation.Decoding;
+using Beutl.Extensions.FFmpeg.Decoding;
 using Beutl.Media.Decoding;
 using ModelContextProtocol.Protocol;
 
@@ -53,12 +54,14 @@ public sealed class StdioServerMediaTests
     }
 
     [Test]
-    public async Task Headless_server_registers_each_built_in_decoder_once()
+    public async Task Headless_server_registers_each_decoder_once_in_the_apps_order()
     {
         await using (await InProcessAgentToolkitServer.StartAsync(Path.Combine(_directory, "first")))
         await using (await InProcessAgentToolkitServer.StartAsync(Path.Combine(_directory, "second")))
         {
             IDecoderInfo[] registered = DecoderRegistry.EnumerateDecoder().ToArray();
+            int ffmpeg = Array.FindIndex(registered, item => item is FFmpegDecoderInfo);
+            int avf = Array.FindIndex(registered, item => item is AVFDecoderInfo);
             Assert.Multiple(() =>
             {
                 foreach (IDecoderInfo decoder in BuiltInDecoders.All)
@@ -66,9 +69,12 @@ public sealed class StdioServerMediaTests
                     Assert.That(registered.Count(item => ReferenceEquals(item, decoder)), Is.EqualTo(1), decoder.Name);
                 }
 
+                Assert.That(registered.OfType<FFmpegDecoderInfo>().Count(), Is.EqualTo(1));
                 Assert.That(
                     registered.OfType<AVFDecoderInfo>().Count(),
                     Is.EqualTo(OperatingSystem.IsMacOS() ? 1 : 0));
+                if (avf >= 0)
+                    Assert.That(ffmpeg, Is.LessThan(avf), "FFmpeg comes before AVFoundation, as in the app");
                 Assert.That(DecoderRegistry.GuessDecoder("clip.gif"), Is.Not.Empty);
                 Assert.That(DecoderRegistry.GuessDecoder("clip.apng"), Is.Not.Empty);
             });

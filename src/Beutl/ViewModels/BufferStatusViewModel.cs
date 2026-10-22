@@ -47,9 +47,9 @@ public sealed class BufferStatusViewModel : IBufferStatus, IDisposable
             _cts.Token);
     }
 
-    public ReactivePropertySlim<TimeSpan> StartTime { get; } = new();
+    public ReactivePropertySlim<MediaTime> StartTime { get; } = new();
 
-    public ReactivePropertySlim<TimeSpan> EndTime { get; } = new();
+    public ReactivePropertySlim<MediaTime> EndTime { get; } = new();
 
     public ReadOnlyReactivePropertySlim<double> Start { get; }
 

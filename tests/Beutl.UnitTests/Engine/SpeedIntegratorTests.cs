@@ -12,7 +12,7 @@ public class SpeedIntegratorTests
     public void ConstantTail_OnLongTimelineDoesNotSampleEveryAudioFrame()
     {
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100f });
         int samples = 0;
         using var integrator = new SpeedIntegrator(48000)
         {
@@ -20,31 +20,31 @@ public class SpeedIntegratorTests
         };
         integrator.EnsureCache(animation);
 
-        Assert.That(integrator.Integrate(TimeSpan.FromHours(1), animation), Is.EqualTo(TimeSpan.FromHours(1)));
+        Assert.That(integrator.Integrate(MediaTime.FromSeconds(3600), animation), Is.EqualTo(MediaTime.FromSeconds(3600)));
         Assert.That(samples, Is.LessThan(10));
     }
 
     private static KeyFrameAnimation<float> ConstantSpeed(float value)
-        => TestAnimations.Linear(value, value, TimeSpan.FromSeconds(10));
+        => TestAnimations.Linear(value, value, MediaTime.FromSeconds(10));
 
     private static KeyFrameAnimation<float> RampedSpeedForLongTimeline()
     {
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.Zero,
+            KeyTime = MediaTime.Zero,
             Value = 100f,
             Easing = new LinearEasing()
         });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.FromHours(7),
+            KeyTime = MediaTime.FromSeconds(25200),
             Value = 200f,
             Easing = new LinearEasing()
         });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.FromHours(8),
+            KeyTime = MediaTime.FromSeconds(28800),
             Value = 200f,
             Easing = new LinearEasing()
         });
@@ -99,9 +99,9 @@ public class SpeedIntegratorTests
         var animation = ConstantSpeed(100f);
         integrator.EnsureCache(animation);
 
-        var result = integrator.Integrate(TimeSpan.FromSeconds(2), animation);
+        var result = integrator.Integrate(MediaTime.FromSeconds(2), animation);
 
-        Assert.That(result.TotalSeconds, Is.EqualTo(2.0).Within(0.05));
+        Assert.That(result.ToSeconds(), Is.EqualTo(2.0).Within(0.05));
     }
 
     [Test]
@@ -111,9 +111,9 @@ public class SpeedIntegratorTests
         var animation = ConstantSpeed(200f);
         integrator.EnsureCache(animation);
 
-        var result = integrator.Integrate(TimeSpan.FromSeconds(1), animation);
+        var result = integrator.Integrate(MediaTime.FromSeconds(1), animation);
 
-        Assert.That(result.TotalSeconds, Is.EqualTo(2.0).Within(0.05));
+        Assert.That(result.ToSeconds(), Is.EqualTo(2.0).Within(0.05));
     }
 
     [Test]
@@ -123,31 +123,31 @@ public class SpeedIntegratorTests
         var animation = ConstantSpeed(0f);
         integrator.EnsureCache(animation);
 
-        var result = integrator.Integrate(TimeSpan.FromSeconds(2), animation);
+        var result = integrator.Integrate(MediaTime.FromSeconds(2), animation);
 
-        Assert.That(result.TotalSeconds, Is.EqualTo(0).Within(0.05));
+        Assert.That(result.ToSeconds(), Is.EqualTo(0).Within(0.05));
     }
 
     [Test]
     public void Integrate_LongTimelineRemainderUsesLongSampleIndex()
     {
         const int sampleRate = 100000;
-        TimeSpan start = TimeSpan.FromHours(7);
-        TimeSpan oneSample = TimeSpan.FromTicks(TimeSpan.TicksPerSecond / sampleRate);
+        MediaTime start = MediaTime.FromSeconds(25200);
+        MediaTime oneSample = MediaTime.FromTimeSpan(TimeSpan.FromTicks(TimeSpan.TicksPerSecond / sampleRate));
         long startSampleIndex = 7L * 60 * 60 * sampleRate;
         double cachedIntegralSeconds = 12345.0;
 
         using var integrator = new SpeedIntegrator(sampleRate);
         var animation = RampedSpeedForLongTimeline();
         integrator.EnsureCache(animation);
-        SeedIntegralCache(integrator, (int)start.TotalSeconds, cachedIntegralSeconds);
+        SeedIntegralCache(integrator, (int)start.ToSeconds(), cachedIntegralSeconds);
 
-        TimeSpan result = integrator.Integrate(start + oneSample, animation);
+        MediaTime result = integrator.Integrate(start + oneSample, animation);
 
         Assert.Multiple(() =>
         {
             Assert.That(startSampleIndex, Is.GreaterThan((long)int.MaxValue));
-            Assert.That(result.TotalSeconds, Is.EqualTo(cachedIntegralSeconds + (2.0 / sampleRate)).Within(1e-9));
+            Assert.That(result.ToSeconds(), Is.EqualTo(cachedIntegralSeconds + (2.0 / sampleRate)).Within(1e-9));
         });
     }
 

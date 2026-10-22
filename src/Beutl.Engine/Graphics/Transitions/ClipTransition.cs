@@ -25,7 +25,7 @@ namespace Beutl.Graphics.Transitions;
 [FallbackType(typeof(FallbackClipTransition))]
 public abstract partial class ClipTransition : EngineObject
 {
-    public static readonly TimeSpan DefaultDuration = TimeSpan.FromSeconds(0.5);
+    public static readonly MediaTime DefaultDuration = MediaTime.FromSeconds(0.5);
 
     protected ClipTransition()
     {
@@ -51,7 +51,7 @@ public abstract partial class ClipTransition : EngineObject
     // frame, so the duration takes no expression.
     [Display(Name = nameof(GraphicsStrings.ClipTransition_Duration), ResourceType = typeof(GraphicsStrings))]
     [Range(typeof(TimeSpan), "00:00:00", "01:00:00", ParseLimitsInInvariantCulture = true)]
-    public new IProperty<TimeSpan> Duration { get; } = Property.CreateValue(DefaultDuration);
+    public new IProperty<MediaTime> Duration { get; } = Property.CreateValue(DefaultDuration);
 
     [Display(Name = nameof(GraphicsStrings.ClipTransition_Easing), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<Easing> Easing { get; } = Property.CreateExpression<Easing>(new LinearEasing());

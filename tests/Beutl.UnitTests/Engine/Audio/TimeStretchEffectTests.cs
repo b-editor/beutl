@@ -186,11 +186,11 @@ public class TimeStretchEffectTests
     [TestCase(true)]
     public void Process_AnimatedSpeedPreservesPitchAndSeekMapping(bool useGlobalClock)
     {
-        var effect = new TimeStretchEffect { TimeRange = new TimeRange(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2)) };
+        var effect = new TimeStretchEffect { TimeRange = new TimeRange(MediaTime.FromSeconds(3), MediaTime.FromSeconds(2)) };
         var animation = new KeyFrameAnimation<float> { UseGlobalClock = useGlobalClock };
-        TimeSpan offset = useGlobalClock ? effect.TimeRange.Start : TimeSpan.Zero;
+        MediaTime offset = useGlobalClock ? effect.TimeRange.Start : MediaTime.Zero;
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = offset, Value = 50f, Easing = new LinearEasing() });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = offset + TimeSpan.FromSeconds(2), Value = 200f, Easing = new LinearEasing() });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = offset + MediaTime.FromSeconds(2), Value = 200f, Easing = new LinearEasing() });
         effect.Speed.SetKeyFrameAnimation(animation);
         var source = ToneSource();
         using var node = new TimeStretchNode { Speed = effect.Speed };
@@ -214,13 +214,13 @@ public class TimeStretchEffectTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.Zero,
+            KeyTime = MediaTime.Zero,
             Value = 50f,
             Easing = new LinearEasing()
         });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.FromSeconds(1),
+            KeyTime = MediaTime.FromSeconds(1),
             Value = 200f,
             Easing = new LinearEasing()
         });
@@ -235,7 +235,7 @@ public class TimeStretchEffectTests
 
         double expected = 0;
         for (int i = 0; i < SampleRate; i++)
-            expected += animation.Interpolate(TimeSpan.FromSeconds(i / (double)SampleRate)) / 100d;
+            expected += animation.Interpolate(MediaTime.FromSeconds(i / (double)SampleRate)) / 100d;
         double position = StretcherSourcePosition(node);
         Assert.That(position, Is.EqualTo(expected).Within(1e-5),
             "Continuous playback must use the same integrated mapping as seeking.");
@@ -254,14 +254,14 @@ public class TimeStretchEffectTests
         const int frames = 1024;
         var effect = new TimeStretchEffect
         {
-            TimeRange = new TimeRange(globalClock ? TimeSpan.FromSeconds(3) : TimeSpan.Zero, TimeSpan.FromSeconds(1))
+            TimeRange = new TimeRange(globalClock ? MediaTime.FromSeconds(3) : MediaTime.Zero, MediaTime.FromSeconds(1))
         };
         var animation = new KeyFrameAnimation<float> { UseGlobalClock = globalClock };
-        TimeSpan offset = globalClock ? effect.TimeRange.Start : TimeSpan.Zero;
+        MediaTime offset = globalClock ? effect.TimeRange.Start : MediaTime.Zero;
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = offset, Value = 50f, Easing = new LinearEasing() });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = offset + TimeSpan.FromSeconds(frames / (double)sampleRate),
+            KeyTime = offset + MediaTime.FromSeconds(frames / (double)sampleRate),
             Value = 200f,
             Easing = new LinearEasing()
         });
@@ -278,7 +278,7 @@ public class TimeStretchEffectTests
             int count = Math.Min(chunkFrames, frames - start);
             // Real playback timestamps can round down to the nearest representable tick.
             var context = new AudioProcessContext(new TimeRange(
-                    TimeSpan.FromTicks((long)((Int128)start * TimeSpan.TicksPerSecond / sampleRate)),
+                    MediaTime.FromTimeSpan(TimeSpan.FromTicks((long)((Int128)start * TimeSpan.TicksPerSecond / sampleRate))),
                     AudioProcessContext.GetDurationForSampleCount(count, sampleRate)),
                 sampleRate, new AnimationSampler(), null);
             using AudioBuffer part = chunkedNode.Process(context);
@@ -287,7 +287,7 @@ public class TimeStretchEffectTests
 
         double expected = 0;
         for (int i = 0; i < frames; i++)
-            expected += animation.GetAnimatedValue(effect.TimeRange.Start + TimeSpan.FromSeconds(i / (double)sampleRate)) / 100d;
+            expected += animation.GetAnimatedValue(effect.TimeRange.Start + MediaTime.FromSeconds(i / (double)sampleRate)) / 100d;
         double position = StretcherSourcePosition(chunkedNode);
         Assert.That(position, Is.EqualTo(expected).Within(1e-8),
             "Tick quantization must not repeat the previous output sample's speed.");
@@ -312,15 +312,15 @@ public class TimeStretchEffectTests
     {
         var effect = new TimeStretchEffect();
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 25f });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 25f });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.FromSeconds(1),
+            KeyTime = MediaTime.FromSeconds(1),
             Value = 400f,
             Easing = new BackEaseIn()
         });
         effect.Speed.SetKeyFrameAnimation(animation);
-        Assert.That(animation.Interpolate(TimeSpan.FromSeconds(0.4)), Is.LessThan(0),
+        Assert.That(animation.Interpolate(MediaTime.FromSeconds(0.4)), Is.LessThan(0),
             "This case must exercise an easing that would otherwise reverse the source mapping.");
         var source = ToneSource();
         using var node = new TimeStretchNode { Speed = effect.Speed };
@@ -331,7 +331,7 @@ public class TimeStretchEffectTests
         double expectedSourceFrames = 0;
         for (int i = 0; i < SampleRate / 2; i++)
         {
-            float raw = animation.Interpolate(TimeSpan.FromSeconds(i / (double)SampleRate));
+            float raw = animation.Interpolate(MediaTime.FromSeconds(i / (double)SampleRate));
             expectedSourceFrames += Math.Clamp(raw, 25f, 400f) / 100d;
         }
         Assert.That(source.Requests[0].Start, Is.EqualTo(expectedSourceFrames).Within(1));
@@ -364,13 +364,13 @@ public class TimeStretchEffectTests
             effect.Speed.Value = speed;
             var sound = new SourceSound
             {
-                TimeRange = new TimeRange(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(1)),
+                TimeRange = new TimeRange(MediaTime.FromSeconds(3), MediaTime.FromSeconds(1)),
                 Source = { Value = source },
                 Effect = { Value = effect }
             };
             using var resource = sound.ToResource(CompositionContext.Default);
             using var composer = new Composer { SampleRate = outputRate };
-            var range = new TimeRange(sound.Start, TimeSpan.FromSeconds(1));
+            var range = new TimeRange(sound.Start, MediaTime.FromSeconds(1));
             var frame = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource),
                 range, default, new CompositionEligibility([sound]));
 
@@ -397,7 +397,7 @@ public class TimeStretchEffectTests
             effect.Speed.Value = speed;
             var sound = new SourceSound
             {
-                TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                TimeRange = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)),
                 Source = { Value = source },
                 Effect = { Value = effect },
                 Gain = { Value = 75f }
@@ -478,10 +478,10 @@ public class TimeStretchEffectTests
         var effect = new TimeStretchEffect();
         effect.Speed.Value = 200f;
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 50f });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 50f });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.FromSeconds(1),
+            KeyTime = MediaTime.FromSeconds(1),
             Value = 200f,
             Easing = unknownRange ? new UnknownRangeEasing() : new LinearEasing()
         });
@@ -597,8 +597,8 @@ public class TimeStretchEffectTests
         var effect = new TimeStretchEffect();
         effect.Speed.Value = 150f;
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 50f });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 200f });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 50f });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 200f });
         effect.Speed.SetKeyFrameAnimation(animation);
         var group = new AudioEffectGroup();
         group.Children.Add(effect);
@@ -609,8 +609,8 @@ public class TimeStretchEffectTests
         Assert.That(restored.Children.Single(), Is.TypeOf<TimeStretchEffect>());
         var restoredEffect = (TimeStretchEffect)restored.Children.Single();
         Assert.That(restoredEffect.Speed.Value, Is.EqualTo(150f));
-        Assert.That(restoredEffect.Speed.GetKeyFrameAnimation()!.Interpolate(TimeSpan.Zero), Is.EqualTo(50f));
-        Assert.That(restoredEffect.Speed.GetKeyFrameAnimation()!.Interpolate(TimeSpan.FromSeconds(1)), Is.EqualTo(200f));
+        Assert.That(restoredEffect.Speed.GetKeyFrameAnimation()!.Interpolate(MediaTime.Zero), Is.EqualTo(50f));
+        Assert.That(restoredEffect.Speed.GetKeyFrameAnimation()!.Interpolate(MediaTime.FromSeconds(1)), Is.EqualTo(200f));
     }
 
     private static TimeStretchNode CreateNode(float speed, AudioNode source)
@@ -682,7 +682,7 @@ public class TimeStretchEffectTests
 
         public override AudioBuffer Process(AudioProcessContext context)
         {
-            long start = AudioMath.TimeToSampleIndex(context.TimeRange.Start, sampleRate);
+            long start = context.TimeRange.Start.ToSamples(sampleRate, MidpointRounding.ToZero);
             int count = (int)Math.Min(context.GetSampleCount(), Math.Max(0, length - start));
             Requests.Add((start, count));
             var buffer = new AudioBuffer(sampleRate, channels, count);

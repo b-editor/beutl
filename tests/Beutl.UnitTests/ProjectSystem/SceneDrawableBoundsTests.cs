@@ -81,7 +81,7 @@ public class SceneDrawableBoundsTests
         var drawable = new SceneDrawable();
         drawable.ReferencedScene.Value = inner;
 
-        using Drawable.Resource resource = drawable.ToResource(new CompositionContext(TimeSpan.Zero));
+        using Drawable.Resource resource = drawable.ToResource(new CompositionContext(MediaTime.Zero));
         using var root = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(root, inner.FrameSize.ToSize(1)))
         {

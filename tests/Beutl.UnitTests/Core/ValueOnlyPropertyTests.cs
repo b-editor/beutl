@@ -57,7 +57,7 @@ public class ValueOnlyPropertyTests
         var owner = new Owner();
         owner.Count.Value = 3;
 
-        Assert.That(new CompositionContext(TimeSpan.FromSeconds(1)).Get(owner.Count), Is.EqualTo(3));
+        Assert.That(new CompositionContext(MediaTime.FromSeconds(1)).Get(owner.Count), Is.EqualTo(3));
     }
 
     [Test]

@@ -61,7 +61,7 @@ public sealed class VideoSource : MediaSource
         // versions and reopens when a proxy is registered for its path.
         private string? _proxyVersionSource;
 
-        public TimeSpan Duration { get; private set; }
+        public MediaTime Duration { get; private set; }
 
         public Rational FrameRate { get; private set; }
 
@@ -76,24 +76,6 @@ public sealed class VideoSource : MediaSource
         public MediaReader? MediaReader => _counter?.Value;
 
         public bool IsOffline => _offlineBitmap != null;
-
-        public bool Read(TimeSpan frame, [NotNullWhen(true)] out Ref<Bitmap>? bitmap)
-        {
-            if (!IsDisposed && _offlineBitmap is { } offline)
-            {
-                bitmap = offline.Clone();
-                return true;
-            }
-            if (IsDisposed || _counter == null)
-            {
-                bitmap = null;
-                return false;
-            }
-
-            double frameRate = FrameRate.ToDouble();
-            double frameNum = frame.TotalSeconds * frameRate;
-            return _counter.Value.ReadVideo((int)frameNum, out bitmap);
-        }
 
         public bool Read(int frame, [NotNullWhen(true)] out Ref<Bitmap>? bitmap)
         {
@@ -170,7 +152,7 @@ public sealed class VideoSource : MediaSource
                     Volatile.Write(ref videoSource._sharedReaderProxyVersion, proxyResolverVersion);
                 }
 
-                Duration = TimeSpan.FromSeconds(reader.VideoInfo.Duration.ToDouble());
+                Duration = MediaTime.FromSeconds(reader.VideoInfo.Duration.ToDouble());
                 FrameRate = reader.VideoInfo.FrameRate;
                 FrameSize = reader.VideoInfo.FrameSize;
                 LogicalFrameSize = ProxyResolution?.OriginalLogicalFrameSize ?? FrameSize;
@@ -278,7 +260,7 @@ public sealed class VideoSource : MediaSource
             _counter = null;
             _offlineBitmap = Ref<Bitmap>.Create(OfflineMediaPlaceholder.CreateBitmap());
             FrameSize = LogicalFrameSize = OfflineMediaPlaceholder.Size;
-            Duration = TimeSpan.Zero;
+            Duration = MediaTime.Zero;
             FrameRate = new Rational(30, 1);
             Version++;
             RecordLoadedState(videoSource, context, proxyResolverVersion);

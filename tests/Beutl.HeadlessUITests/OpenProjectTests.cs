@@ -47,7 +47,7 @@ public class OpenProjectTests
             string target = Path.Combine(Path.GetDirectoryName(original.Uri!.LocalPath)!, "target.bep");
             File.Copy(original.Uri.LocalPath, target);
             EditViewModel.IsAutoSaveSuppressedForTesting = true;
-            scene.Duration = TimeSpan.FromSeconds(73);
+            scene.Duration = MediaTime.FromSeconds(73);
 
             bool failedAtExpectedStage = false;
             if (failActivation)
@@ -85,12 +85,12 @@ public class OpenProjectTests
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(original));
                 Assert.That(TestShell.Editor.TabItems, Has.Count.EqualTo(2));
                 Assert.That(TestShell.Editor.SelectedTabItem.Value?.Context.Value?.Object, Is.SameAs(scene));
-                Assert.That(scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(73)));
+                Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(73)));
                 Assert.That(published.LastOrDefault(), Is.SameAs(original));
                 Assert.That(GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile, Is.EqualTo(original.Uri.LocalPath));
             });
             Assert.That(await ((ISavableEditorContext)TestShell.Editor.SelectedTabItem.Value!.Context.Value).SaveAsync(), Is.True);
-            Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration, Is.EqualTo(TimeSpan.FromSeconds(73)));
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration, Is.EqualTo(MediaTime.FromSeconds(73)));
         }
         finally
         {

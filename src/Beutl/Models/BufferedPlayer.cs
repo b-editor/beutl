@@ -28,7 +28,7 @@ internal sealed class BufferedPlayer : IDisposable
     private readonly Scene _scene;
     private readonly IReadOnlyReactiveProperty<bool> _isPlaying;
     private readonly CancellationToken _playbackToken;
-    private readonly int _rate;
+    private readonly Rational _rate;
     // The consumer waits at most one frame for the producer, so a stalled render cannot hold the timer thread.
     private readonly TimeSpan _renderWait;
     private readonly BufferedPlayerWaitGate _waitRenderGate;
@@ -71,13 +71,13 @@ internal sealed class BufferedPlayer : IDisposable
 
     public BufferedPlayer(
         EditViewModel editViewModel,
-        IReactiveProperty<bool> isPlaying, int rate,
+        IReactiveProperty<bool> isPlaying, Rational rate,
         CancellationToken playbackToken)
     {
         _editViewModel = editViewModel;
         _isPlaying = isPlaying;
         _rate = rate;
-        _renderWait = TimeSpan.FromSeconds(1d / rate);
+        _renderWait = TimeSpan.FromSeconds(1d / rate.ToDouble());
         _playbackToken = playbackToken;
         _waitRenderGate = new(() => _isDisposed || _producerStopped || _playbackToken.IsCancellationRequested || !_isPlaying.Value);
 
@@ -164,7 +164,7 @@ internal sealed class BufferedPlayer : IDisposable
                 return;
             }
 
-            TimeSpan time = TimeSpanExtensions.ToTimeSpan(frame, _rate);
+            MediaTime time = MediaTime.FromFrames(frame, _rate);
 
             EnqueueResult result = TryEnqueueFrame(activeRenderer, activeCacheManager, frame, time, editVersion);
             if (result == EnqueueResult.Canceled)
@@ -318,7 +318,7 @@ internal sealed class BufferedPlayer : IDisposable
     // Queues the frame from the cache, or renders, queues and caches it. A frame rendered across an edit is shown
     // but not cached, so edits that come faster than frames render cannot hold playback.
     private EnqueueResult TryEnqueueFrame(
-        SceneRenderer renderer, FrameCacheManager cacheManager, int frame, TimeSpan time, int editVersion)
+        SceneRenderer renderer, FrameCacheManager cacheManager, int frame, MediaTime time, int editVersion)
     {
         // cacheは参照を既に追加されている
         if (cacheManager.TryGet(frame, out Ref<Bitmap>? cache))

@@ -56,7 +56,7 @@ public partial class Scene : ProjectItem, INotifyEdited
         GroupsProperty.Value = Groups;
         LayersProperty.Value = _layers;
         MarkersProperty.Value = _markers;
-        DurationProperty.Value = TimeSpan.FromMinutes(5);
+        DurationProperty.Value = MediaTime.FromSeconds(300);
         ScanProperties<Scene>();
         FrameSizeProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(FrameSize)));
         StartProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Start)));
@@ -84,10 +84,10 @@ public partial class Scene : ProjectItem, INotifyEdited
     public IProperty<Elements> ChildrenProperty { get; } = new ValueOnlyProperty<Elements>(null!) { KeepsList = true };
 
     [Display(Name = nameof(Strings.StartTime), ResourceType = typeof(Strings))]
-    public IProperty<TimeSpan> StartProperty { get; } = new ValueOnlyProperty<TimeSpan>(TimeSpan.Zero) { Coerce = static (_, value) => NotNegative(value) };
+    public IProperty<MediaTime> StartProperty { get; } = new ValueOnlyProperty<MediaTime>(MediaTime.Zero) { Coerce = static (_, value) => NotNegative(value) };
 
     [Display(Name = nameof(Strings.DurationTime), ResourceType = typeof(Strings))]
-    public IProperty<TimeSpan> DurationProperty { get; } = new ValueOnlyProperty<TimeSpan>(TimeSpan.Zero) { Coerce = static (_, value) => NotNegative(value) };
+    public IProperty<MediaTime> DurationProperty { get; } = new ValueOnlyProperty<MediaTime>(MediaTime.Zero) { Coerce = static (_, value) => NotNegative(value) };
 
     [NotAutoSerialized]
     public IProperty<CoreList<ImmutableHashSet<Guid>>> GroupsProperty { get; } = new ValueOnlyProperty<CoreList<ImmutableHashSet<Guid>>>(null!) { KeepsList = true };
@@ -103,13 +103,13 @@ public partial class Scene : ProjectItem, INotifyEdited
         set => FrameSizeProperty.Value = value;
     }
 
-    public TimeSpan Start
+    public MediaTime Start
     {
         get => StartProperty.Value;
         set => StartProperty.Value = value;
     }
 
-    public TimeSpan Duration
+    public MediaTime Duration
     {
         get => DurationProperty.Value;
         set => DurationProperty.Value = value;
@@ -139,7 +139,7 @@ public partial class Scene : ProjectItem, INotifyEdited
         set => _markers.Replace(value);
     }
 
-    private static TimeSpan NotNegative(TimeSpan value) => value < TimeSpan.Zero ? TimeSpan.Zero : value;
+    private static MediaTime NotNegative(MediaTime value) => value < MediaTime.Zero ? MediaTime.Zero : value;
 
     public bool IsLayerLocked(int zIndex)
     {
@@ -213,20 +213,20 @@ public partial class Scene : ProjectItem, INotifyEdited
         Children.Remove(element);
     }
 
-    public void MoveChild(int zIndex, TimeSpan start, TimeSpan length, Element element)
+    public void MoveChild(int zIndex, MediaTime start, MediaTime length, Element element)
     {
         ArgumentNullException.ThrowIfNull(element);
 
-        if (start < TimeSpan.Zero)
+        if (start < MediaTime.Zero)
             throw new ArgumentOutOfRangeException(nameof(start));
 
-        if (length <= TimeSpan.Zero)
+        if (length <= MediaTime.Zero)
             throw new ArgumentOutOfRangeException(nameof(length));
 
         MoveChildCore(zIndex, start, length, element);
     }
 
-    public void MoveChildren(int deltaIndex, TimeSpan deltaStart, Element[] elements)
+    public void MoveChildren(int deltaIndex, MediaTime deltaStart, Element[] elements)
     {
         if (elements.Length < 1)
         {

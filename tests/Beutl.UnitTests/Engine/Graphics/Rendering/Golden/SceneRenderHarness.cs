@@ -18,14 +18,14 @@ internal static class SceneRenderHarness
         PixelSize frame,
         float outputScale,
         float maxWorkingScale,
-        TimeSpan time)
+        MediaTime time)
     {
         string id = Guid.NewGuid().ToString("N");
         var scene = new Scene(frame.Width, frame.Height, id) { Uri = new Uri($"file:///{id}/scene") };
         var element = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(60),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(60),
             ZIndex = 0,
             IsEnabled = true,
             Uri = new Uri($"file:///{id}/element"),

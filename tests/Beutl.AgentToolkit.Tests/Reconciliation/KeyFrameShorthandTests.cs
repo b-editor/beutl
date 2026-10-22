@@ -38,9 +38,9 @@ public sealed class KeyFrameShorthandTests
         {
             Assert.That(animation.ValueType, Is.EqualTo(typeof(float)));
             Assert.That(keyFrames, Has.Count.EqualTo(2));
-            Assert.That(keyFrames[0].KeyTime, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(keyFrames[0].KeyTime, Is.EqualTo(MediaTime.Zero));
             Assert.That(keyFrames[0].Easing, Is.TypeOf<CubicEaseOut>());
-            Assert.That(keyFrames[1].KeyTime, Is.EqualTo(TimeSpan.FromSeconds(0.4)));
+            Assert.That(keyFrames[1].KeyTime, Is.EqualTo(MediaTime.FromSeconds(0.4)));
         });
     }
 
@@ -64,7 +64,7 @@ public sealed class KeyFrameShorthandTests
         {
             Assert.That(animation.UseGlobalClock, Is.True);
             Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
-            Assert.That(animation.KeyFrames[1].KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(animation.KeyFrames[1].KeyTime, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(animation.KeyFrames[1].Easing, Is.TypeOf<BackEaseOut>());
         });
     }
@@ -147,7 +147,7 @@ public sealed class KeyFrameShorthandTests
         {
             Assert.That(second.IsSuccess, Is.True, second.Error?.Message);
             Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
-            Assert.That(animation.KeyFrames[^1].KeyTime, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
+            Assert.That(animation.KeyFrames[^1].KeyTime, Is.EqualTo(MediaTime.FromSeconds(0.5)));
             Assert.That(changes.Select(change => change.Path), Has.Some.Contains("KeyFrames"));
             Assert.That(changes.Select(change => change.Path), Has.None.Contains(KeyFrameShorthand.PropertyName));
             Assert.That(appliedChangeSet.ToJsonString(), Does.Contain("KeyFrames"));
@@ -188,7 +188,7 @@ public sealed class KeyFrameShorthandTests
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(
                 ((IKeyFrameAnimation)RequireOpacityAnimation(scene)).KeyFrames.Single().KeyTime,
-                Is.EqualTo(TimeSpan.MaxValue));
+                Is.EqualTo(MediaTime.MaxValue));
         });
     }
 
@@ -207,7 +207,7 @@ public sealed class KeyFrameShorthandTests
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(
                 ((IKeyFrameAnimation)RequireOpacityAnimation(scene)).KeyFrames.Single().KeyTime,
-                Is.EqualTo(TimeSpan.MaxValue));
+                Is.EqualTo(MediaTime.MaxValue));
         });
     }
 
@@ -299,7 +299,7 @@ public sealed class KeyFrameShorthandTests
         (EditTools tools, _, Element element) = CreateSceneWithRect();
         var rect = (RectShape)element.Objects.Single();
         var animation = new KeyFrameAnimation<float>();
-        var keyFrame = new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = -25 };
+        var keyFrame = new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = -25 };
         animation.KeyFrames.Add(keyFrame, out _);
         rect.Opacity.SetKeyFrameAnimation(animation);
 
@@ -336,7 +336,7 @@ public sealed class KeyFrameShorthandTests
         (EditTools tools, Scene scene, Element element) = CreateSceneWithRect();
         var rect = (RectShape)element.Objects.Single();
         var animation = new KeyFrameAnimation<float>();
-        var keyFrame = new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = -25 };
+        var keyFrame = new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = -25 };
         animation.KeyFrames.Add(keyFrame, out _);
         rect.Opacity.SetKeyFrameAnimation(animation);
 
@@ -572,13 +572,13 @@ public sealed class KeyFrameShorthandTests
         var element = new Element
         {
             Name = name,
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(directory, $"{name}.belm"))
         };
         var rect = new RectShape { Name = name };
         var animation = new KeyFrameAnimation<float>();
-        var keyFrame = new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = opacity };
+        var keyFrame = new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = opacity };
         animation.KeyFrames.Add(keyFrame, out _);
         rect.Opacity.SetKeyFrameAnimation(animation);
         element.AddObject(rect);
@@ -589,7 +589,7 @@ public sealed class KeyFrameShorthandTests
     private static (EditTools Tools, Scene Scene, Element Element) CreateSceneWithRect()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.Zero, MediaTime.FromSeconds(2));
         element.AddObject(new RectShape { Name = "plate" });
 
         var session = new AgentToolkitTestSession(scene);

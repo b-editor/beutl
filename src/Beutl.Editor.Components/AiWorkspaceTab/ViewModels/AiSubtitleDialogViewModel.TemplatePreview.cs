@@ -247,7 +247,7 @@ public sealed partial class AiSubtitleDialogViewModel
                     element = new Element
                     {
                         Start = description.Start,
-                        Length = description.Length ?? TimeSpan.FromSeconds(2),
+                        Length = description.Length ?? MediaTime.FromSeconds(2),
                         ZIndex = description.Layer,
                     };
                     element.AddObject(source.Factory());

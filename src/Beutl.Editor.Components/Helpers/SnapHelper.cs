@@ -2,21 +2,21 @@
 
 namespace Beutl.Editor.Components.Helpers;
 
-public readonly record struct SnapResult(TimeSpan Time, bool DidSnap);
+public readonly record struct SnapResult(MediaTime Time, bool DidSnap);
 
 public static class SnapHelper
 {
     private const double ThresholdPixel = 8;
 
-    public static SnapResult Snap(TimeSpan time, IEnumerable<TimeSpan> candidates, float scale)
+    public static SnapResult Snap(MediaTime time, IEnumerable<MediaTime> candidates, float scale)
     {
-        TimeSpan threshold = ThresholdPixel.PixelToTimeSpan(scale);
-        TimeSpan bestDelta = TimeSpan.MaxValue;
-        TimeSpan? best = null;
+        MediaTime threshold = ThresholdPixel.PixelToTime(scale);
+        MediaTime bestDelta = MediaTime.MaxValue;
+        MediaTime? best = null;
 
-        foreach (TimeSpan candidate in candidates)
+        foreach (MediaTime candidate in candidates)
         {
-            TimeSpan delta = (candidate - time).Duration();
+            MediaTime delta = candidate >= time ? candidate - time : time - candidate;
             if (delta <= threshold && delta < bestDelta)
             {
                 bestDelta = delta;
@@ -27,7 +27,7 @@ public static class SnapHelper
         return best.HasValue ? new SnapResult(best.Value, true) : new SnapResult(time, false);
     }
 
-    public static IEnumerable<TimeSpan> CollectElementCandidates(
+    public static IEnumerable<MediaTime> CollectElementCandidates(
         IEnumerable<Element> elements,
         Element? exclude,
         int? sameZIndex = null)
@@ -42,11 +42,11 @@ public static class SnapHelper
         }
     }
 
-    public static IEnumerable<TimeSpan> CollectSceneCandidates(Scene scene, TimeSpan currentTime)
+    public static IEnumerable<MediaTime> CollectSceneCandidates(Scene scene, MediaTime currentTime)
     {
         yield return scene.Start;
         yield return scene.Start + scene.Duration;
         yield return currentTime;
-        if (currentTime != TimeSpan.Zero) yield return TimeSpan.Zero;
+        if (currentTime != MediaTime.Zero) yield return MediaTime.Zero;
     }
 }

@@ -248,7 +248,7 @@ public class FileBrowserAutoSaveTests
         {
             Uri = new Uri(Path.Combine(root, "clip.belm")),
             Name = "Clip",
-            Length = TimeSpan.FromSeconds(3)
+            Length = MediaTime.FromSeconds(3)
         };
         scene.Children.Add(element);
         using var autoSave = new AutoSaveService();

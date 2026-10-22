@@ -38,7 +38,7 @@ public class AudioNodeBufferDisposalTests
     }
 
     private static AudioProcessContext CreateContext(int sampleRate = SampleRate) =>
-        AudioTestContexts.CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1), sampleRate);
+        AudioTestContexts.CreateContext(MediaTime.Zero, MediaTime.FromSeconds(1), sampleRate);
 
     private static bool IsDisposed(AudioBuffer buffer)
     {

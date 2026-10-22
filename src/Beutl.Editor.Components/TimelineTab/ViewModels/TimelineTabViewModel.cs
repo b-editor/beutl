@@ -261,9 +261,9 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public IReactiveProperty<TimelineOptions> Options { get; }
 
-    public IReadOnlyReactiveProperty<TimeSpan> CurrentTime { get; }
+    public IReadOnlyReactiveProperty<MediaTime> CurrentTime { get; }
 
-    public IReadOnlyReactiveProperty<TimeSpan> MaximumTime { get; }
+    public IReadOnlyReactiveProperty<MediaTime> MaximumTime { get; }
 
     public IBufferStatus BufferStatus { get; }
 
@@ -334,7 +334,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public ReactivePropertySlim<CacheBlock?> HoveredCacheBlock { get; } = new();
 
-    public TimeSpan ClickedFrame { get; set; }
+    public MediaTime ClickedFrame { get; set; }
 
     public Point ClickedPosition { get; set; }
 
@@ -358,7 +358,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.Timeline);
 
-    public void Seek(TimeSpan time) => _editorClock.Seek(time);
+    public void Seek(MediaTime time) => _editorClock.Seek(time);
 
     public void Dispose()
     {
@@ -467,7 +467,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             ElementPasteOutcome outcome = await EditorContext.GetRequiredService<IElementClipboardService>()
                 .PasteAsync(Scene, ClickedFrame, CalculateClickedLayer());
 
-            if (outcome.Pasted && outcome.ScrollTo.Duration > TimeSpan.Zero)
+            if (outcome.Pasted && outcome.ScrollTo.Duration > MediaTime.Zero)
             {
                 ScrollTo.Execute((outcome.ScrollTo, outcome.ScrollToZIndex));
             }

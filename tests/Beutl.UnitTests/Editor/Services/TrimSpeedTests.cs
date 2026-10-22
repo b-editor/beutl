@@ -32,7 +32,7 @@ public class TrimSpeedTests
     [SetUp]
     public void Setup()
     {
-        _harness = new SceneHistoryHarness("beutl_trim_speed", start: TimeSpan.Zero, duration: TimeSpan.FromSeconds(30));
+        _harness = new SceneHistoryHarness("beutl_trim_speed", start: MediaTime.Zero, duration: MediaTime.FromSeconds(30));
         _scene = _harness.Scene;
         _history = _harness.History;
         _slip = new ElementSlipService(_history);
@@ -64,18 +64,18 @@ public class TrimSpeedTests
 
         // The slow clip has 2 - 0.75 - (2 * 0.5) = 0.25s source headroom:
         // every selected element must take +0.5s, even though the source deltas differ.
-        bool applied = _slip.Slip(_scene, elements, TimeSpan.FromSeconds(3));
+        bool applied = _slip.Slip(_scene, elements, MediaTime.FromSeconds(3));
 
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(fast.Offset.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(slow.Offset.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(normal.Offset.Value, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
+            Assert.That(fast.Offset.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(slow.Offset.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(normal.Offset.Value, Is.EqualTo(MediaTime.FromSeconds(2.5)));
             foreach (Element element in elements)
             {
-                Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
-                Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+                Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
+                Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
             }
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
@@ -95,15 +95,15 @@ public class TrimSpeedTests
         media.Speed.SetKeyFrameAnimation(CreateSpeedRamp(useGlobalClock));
 
         // speed(t) / 100 = 1 + t/10: integral 0..1 = 1.05 (local), 5..6 = 1.55 (global).
-        bool applied = _slip.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+        bool applied = _slip.Slip(_scene, [element], MediaTime.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(media.Offset.Value.TotalSeconds,
+            Assert.That(media.Offset.Value.ToSeconds(),
                 Is.EqualTo(1 + expectedSourceDelta).Within(0.005));
-            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
-            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
         });
     }
 
@@ -123,18 +123,18 @@ public class TrimSpeedTests
 
         // Use the original start at 5s for global 5..6, not the updated start at 6s.
         // The local curve always uses 0..1, whose integral is 1.05s.
-        bool applied = _resize.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(1));
+        bool applied = _resize.Roll(_scene, [new ElementTrimPair(front, back)], MediaTime.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(media.Offset.Value.TotalSeconds,
+            Assert.That(media.Offset.Value.ToSeconds(),
                 Is.EqualTo(1 + expectedSourceDelta).Within(0.005));
-            Assert.That(front.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
-            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
-            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(6)));
-            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(back.Range.End, Is.EqualTo(TimeSpan.FromSeconds(8)));
+            Assert.That(front.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(6)));
+            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(back.Range.End, Is.EqualTo(MediaTime.FromSeconds(8)));
         });
     }
 
@@ -148,21 +148,21 @@ public class TrimSpeedTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.FromSeconds(-1),
+            KeyTime = MediaTime.FromSeconds(-1),
             Value = 100,
             Easing = new LinearEasing()
         });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.FromSeconds(1),
+            KeyTime = MediaTime.FromSeconds(1),
             Value = 200,
             Easing = new LinearEasing()
         });
         media.Speed.SetKeyFrameAnimation(animation);
 
-        Assert.That(_slip.Slip(_scene, [element], TimeSpan.FromSeconds(-0.5)), Is.True);
+        Assert.That(_slip.Slip(_scene, [element], MediaTime.FromSeconds(-0.5)), Is.True);
         // Integral of 1.5 + 0.5t over -0.5..0 is 0.6875 seconds of source.
-        Assert.That(media.Offset.Value.TotalSeconds, Is.EqualTo(1.3125).Within(0.005));
+        Assert.That(media.Offset.Value.ToSeconds(), Is.EqualTo(1.3125).Within(0.005));
     }
 
     [TestCase(nameof(SourceVideo), false)]
@@ -176,22 +176,22 @@ public class TrimSpeedTests
         Element front = AddElement(0, 4);
         Element? middle = slide ? AddElement(4, 1) : null;
         Element back = AddElement(slide ? 5 : 4, 4);
-        TimeSpan originalStart = back.Start;
-        TimeSpan originalEnd = back.Range.End;
+        MediaTime originalStart = back.Start;
+        MediaTime originalEnd = back.Range.End;
         var media = AddMedia(back, mediaType, 300, durationSeconds: 9);
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 300, Easing = new LinearEasing() });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(4), Value = 100, Easing = new LinearEasing() });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 300, Easing = new LinearEasing() });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(4), Value = 100, Easing = new LinearEasing() });
         media.Speed.SetKeyFrameAnimation(animation);
-        TimeSpan requested = TimeSpan.FromSeconds(2);
+        MediaTime requested = MediaTime.FromSeconds(2);
         var constraints = ElementResizeService.CreateTrimConstraints(_scene, [new ElementTrimPair(front, back)]);
-        TimeSpan preview = constraints.Clamp(requested);
+        MediaTime preview = constraints.Clamp(requested);
 
         bool applied = slide
             ? _resize.Slide(_scene, [new ElementSlideLane(front, [middle!], back)], requested)
             : _resize.Roll(_scene, [new ElementTrimPair(front, back)], requested);
 
-        TimeSpan sourceEnd;
+        MediaTime sourceEnd;
         if (back.Objects[0] is SourceVideo video)
         {
             using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(back.Range.End));
@@ -207,11 +207,11 @@ public class TrimSpeedTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(preview.TotalSeconds, Is.InRange(0.5, 0.6),
+            Assert.That(preview.ToSeconds(), Is.InRange(0.5, 0.6),
                 "Safe endpoint deltas must not hide the unsafe 2s interior request.");
             Assert.That(back.Start - originalStart, Is.EqualTo(preview));
             Assert.That(back.Range.End, Is.EqualTo(originalEnd));
-            Assert.That(sourceEnd, Is.LessThanOrEqualTo(TimeSpan.FromSeconds(9)));
+            Assert.That(sourceEnd, Is.LessThanOrEqualTo(MediaTime.FromSeconds(9)));
         });
     }
 
@@ -230,16 +230,16 @@ public class TrimSpeedTests
         ElementTrimPair[] pairs = [new(frontA, backA), new(frontB, backB)];
         int before = _history.UndoCount;
 
-        TimeSpan preview = ElementResizeService.CreateTrimConstraints(_scene, pairs).Clamp(TimeSpan.FromSeconds(1));
-        bool applied = _resize.Roll(_scene, pairs, TimeSpan.FromSeconds(1));
+        MediaTime preview = ElementResizeService.CreateTrimConstraints(_scene, pairs).Clamp(MediaTime.FromSeconds(1));
+        bool applied = _resize.Roll(_scene, pairs, MediaTime.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
-            Assert.That(preview, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(preview, Is.EqualTo(MediaTime.Zero));
             Assert.That(applied, Is.False);
-            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(backA.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(backB.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
+            Assert.That(backA.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(backB.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -254,16 +254,16 @@ public class TrimSpeedTests
         Element back = AddElement(7, 4);
         var media = AddMedia(middle, mediaType, 100, durationSeconds: 5);
         var animation = new KeyFrameAnimation<float> { UseGlobalClock = true };
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100, Easing = new LinearEasing() });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(10), Value = 300, Easing = new LinearEasing() });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100, Easing = new LinearEasing() });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(10), Value = 300, Easing = new LinearEasing() });
         media.Speed.SetKeyFrameAnimation(animation);
-        TimeSpan requested = TimeSpan.FromSeconds(2);
-        TimeSpan preview = ElementResizeService.CreateTrimConstraints(_scene,
+        MediaTime requested = MediaTime.FromSeconds(2);
+        MediaTime preview = ElementResizeService.CreateTrimConstraints(_scene,
             [new ElementTrimPair(front, back)], [middle]).Clamp(requested);
 
         Assert.That(_resize.Slide(_scene, [new ElementSlideLane(front, [middle], back)], requested), Is.True);
 
-        TimeSpan sourceEnd;
+        MediaTime sourceEnd;
         if (middle.Objects[0] is SourceVideo video)
         {
             using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(middle.Range.End));
@@ -278,12 +278,12 @@ public class TrimSpeedTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(preview.TotalSeconds, Is.InRange(1.49, 1.52));
-            Assert.That(middle.Start - TimeSpan.FromSeconds(5), Is.EqualTo(preview));
-            Assert.That(middle.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(media.Offset.Value, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(sourceEnd, Is.LessThanOrEqualTo(TimeSpan.FromSeconds(5)));
-            Assert.That(back.Range.End, Is.EqualTo(TimeSpan.FromSeconds(11)));
+            Assert.That(preview.ToSeconds(), Is.InRange(1.49, 1.52));
+            Assert.That(middle.Start - MediaTime.FromSeconds(5), Is.EqualTo(preview));
+            Assert.That(middle.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(media.Offset.Value, Is.EqualTo(MediaTime.Zero));
+            Assert.That(sourceEnd, Is.LessThanOrEqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(back.Range.End, Is.EqualTo(MediaTime.FromSeconds(11)));
         });
     }
 
@@ -292,25 +292,25 @@ public class TrimSpeedTests
     public void OriginalDuration_LongGlobalAudioCurve_BoundsInterpolationWork(bool customEasing)
     {
         Element element = AddElement(600, 2);
-        var sound = new SceneSound { ReferencedScene = { Value = new Scene { Duration = TimeSpan.FromSeconds(900) } } };
+        var sound = new SceneSound { ReferencedScene = { Value = new Scene { Duration = MediaTime.FromSeconds(900) } } };
         var easing = new CountingEasing();
         var animation = new KeyFrameAnimation<float> { UseGlobalClock = true };
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100 });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.FromSeconds(1200),
+            KeyTime = MediaTime.FromSeconds(1200),
             Value = 300,
             Easing = customEasing ? easing : new LinearEasing()
         });
         sound.Speed.SetKeyFrameAnimation(animation);
         element.Objects.Add(sound);
-        TimeSpan? maximum = null;
+        MediaTime? maximum = null;
 
         Assert.DoesNotThrow(() => maximum = SlippableMedia.CreateResizeConstraints(element).GetMaximumDuration());
         Assert.Multiple(() =>
         {
             Assert.That(easing.Calls, Is.LessThan(20000));
-            Assert.That(maximum?.TotalSeconds, Is.EqualTo(customEasing ? 300 : Math.Sqrt(2520000) - 1200).Within(0.002));
+            Assert.That(maximum?.ToSeconds(), Is.EqualTo(customEasing ? 300 : Math.Sqrt(2520000) - 1200).Within(0.002));
         });
     }
 
@@ -318,16 +318,16 @@ public class TrimSpeedTests
     public void Resize_CustomNarrowSpeedPeak_UsesDeclaredBounds()
     {
         Element element = AddElement(0, 2);
-        var sound = new SceneSound { ReferencedScene = { Value = new Scene { Duration = TimeSpan.FromSeconds(300) } } };
+        var sound = new SceneSound { ReferencedScene = { Value = new Scene { Duration = MediaTime.FromSeconds(300) } } };
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1000), Value = 200, Easing = new NarrowPeakEasing() });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1000), Value = 200, Easing = new NarrowPeakEasing() });
         sound.Speed.SetKeyFrameAnimation(animation);
         element.Objects.Add(sound);
-        _resize.Resize(_scene, [new(element, element.Start, TimeSpan.FromSeconds(250), 0)]);
+        _resize.Resize(_scene, [new(element, element.Start, MediaTime.FromSeconds(250), 0)]);
         using var playback = new SpeedIntegrator(44100);
         playback.EnsureCache(animation);
-        Assert.That(playback.Integrate(element.Length, animation), Is.LessThanOrEqualTo(TimeSpan.FromSeconds(300)));
+        Assert.That(playback.Integrate(element.Length, animation), Is.LessThanOrEqualTo(MediaTime.FromSeconds(300)));
     }
 
     [Test]
@@ -338,13 +338,13 @@ public class TrimSpeedTests
         var animation = CreateSpeedRamp(useGlobalClock: true);
         using var playback = new SpeedIntegrator(44100);
         playback.EnsureCache(animation);
-        TimeSpan duration = playback.Integrate(back.Range.End, animation) - playback.Integrate(back.Start, animation);
+        MediaTime duration = playback.Integrate(back.Range.End, animation) - playback.Integrate(back.Start, animation);
         var sound = new SceneSound { ReferencedScene = { Value = new Scene { Duration = duration } } };
         sound.Speed.SetKeyFrameAnimation(animation);
         back.Objects.Add(sound);
-        Assert.That(_resize.Roll(_scene, [new(front, back)], TimeSpan.FromSeconds(0.5)), Is.True);
-        Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
-        Assert.That(back.Range.End, Is.EqualTo(TimeSpan.FromSeconds(4)));
+        Assert.That(_resize.Roll(_scene, [new(front, back)], MediaTime.FromSeconds(0.5)), Is.True);
+        Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(2.5)));
+        Assert.That(back.Range.End, Is.EqualTo(MediaTime.FromSeconds(4)));
     }
 
     [TestCase("slip")]
@@ -355,30 +355,30 @@ public class TrimSpeedTests
         Element front = AddElement(0, 1);
         Element middle = AddElement(1, 1);
         Element back = AddElement(2, 300);
-        var sound = new SceneSound { ReferencedScene = { Value = new Scene { Duration = TimeSpan.FromSeconds(100000) } } };
+        var sound = new SceneSound { ReferencedScene = { Value = new Scene { Duration = MediaTime.FromSeconds(100000) } } };
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1000), Value = 200, Easing = new NarrowPeakEasing() });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1000), Value = 200, Easing = new NarrowPeakEasing() });
         sound.Speed.SetKeyFrameAnimation(animation);
         back.Objects.Add(sound);
         using var playback = new SpeedIntegrator(44100);
         playback.EnsureCache(animation);
-        Assert.That(playback.Integrate(TimeSpan.FromSeconds(250), animation).TotalSeconds, Is.GreaterThan(340));
+        Assert.That(playback.Integrate(MediaTime.FromSeconds(250), animation).ToSeconds(), Is.GreaterThan(340));
         int history = _history.UndoCount;
 
         bool applied = mode switch
         {
-            "slip" => _slip.Slip(_scene, [back], TimeSpan.FromSeconds(250)),
-            "roll" => _resize.Roll(_scene, [new(middle, back)], TimeSpan.FromSeconds(250)),
-            _ => _resize.Slide(_scene, [new(front, [middle], back)], TimeSpan.FromSeconds(250))
+            "slip" => _slip.Slip(_scene, [back], MediaTime.FromSeconds(250)),
+            "roll" => _resize.Roll(_scene, [new(middle, back)], MediaTime.FromSeconds(250)),
+            _ => _resize.Slide(_scene, [new(front, [middle], back)], MediaTime.FromSeconds(250))
         };
 
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(300)));
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
+            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(300)));
             Assert.That(_history.UndoCount, Is.EqualTo(history));
         });
     }
@@ -387,17 +387,17 @@ public class TrimSpeedTests
     public void Resize_PureMoveWithGlobalSpeed_PreservesDuration()
     {
         Element element = AddElement(0, 2);
-        var sound = new SceneSound { ReferencedScene = { Value = new Scene { Duration = TimeSpan.FromSeconds(3) } } };
+        var sound = new SceneSound { ReferencedScene = { Value = new Scene { Duration = MediaTime.FromSeconds(3) } } };
         sound.Speed.SetKeyFrameAnimation(CreateSpeedRamp(useGlobalClock: true));
         element.Objects.Add(sound);
 
-        _resize.Resize(_scene, [new(element, TimeSpan.FromSeconds(8), element.Length, 0)]);
+        _resize.Resize(_scene, [new(element, MediaTime.FromSeconds(8), element.Length, 0)]);
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(8)));
-            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(8)));
+            Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
         });
     }
 
@@ -428,28 +428,28 @@ public class TrimSpeedTests
             source.Source.Expression = new ReferenceExpression<SoundSource?>(provider.Id, nameof(SourceSound.Source));
             element.Objects.Add(source);
             using var resource = (SourceSound.Resource)source.ToResource(CompositionContext.Default);
-            Assert.That(resource.Source!.Duration, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(resource.Source!.Duration, Is.EqualTo(MediaTime.FromSeconds(1)));
             sound = source;
         }
         else
         {
-            var provider = new SceneSound { ReferencedScene = { Value = new Scene { Duration = TimeSpan.FromSeconds(1) } } };
+            var provider = new SceneSound { ReferencedScene = { Value = new Scene { Duration = MediaTime.FromSeconds(1) } } };
             providerElement.Objects.Add(provider);
             var source = new SceneSound();
-            if (hasStoredSource) source.ReferencedScene.Value = new Scene { Duration = TimeSpan.FromSeconds(10) };
+            if (hasStoredSource) source.ReferencedScene.Value = new Scene { Duration = MediaTime.FromSeconds(10) };
             source.ReferencedScene.Expression = new ReferenceExpression<Scene?>(provider.Id, nameof(SceneSound.ReferencedScene));
             element.Objects.Add(source);
             using var resource = (SceneSound.Resource)source.ToResource(CompositionContext.Default);
-            Assert.That(resource.ReferencedScene!.Duration, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(resource.ReferencedScene!.Duration, Is.EqualTo(MediaTime.FromSeconds(1)));
             sound = source;
         }
 
-        Assert.That(_slip.Slip(_scene, [element], TimeSpan.FromSeconds(2)), Is.False);
-        _resize.Resize(_scene, [new(element, element.Start, TimeSpan.FromSeconds(2), 0)]);
+        Assert.That(_slip.Slip(_scene, [element], MediaTime.FromSeconds(2)), Is.False);
+        _resize.Resize(_scene, [new(element, element.Start, MediaTime.FromSeconds(2), 0)]);
         Assert.Multiple(() =>
         {
-            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
-            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(0.5)));
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
         });
     }
 
@@ -478,5 +478,5 @@ public class TrimSpeedTests
     }
 
     private Element AddElement(double startSeconds, double lengthSeconds, int zIndex = 0)
-        => _harness.AddElement(TimeSpan.FromSeconds(startSeconds), TimeSpan.FromSeconds(lengthSeconds), zIndex);
+        => _harness.AddElement(MediaTime.FromSeconds(startSeconds), MediaTime.FromSeconds(lengthSeconds), zIndex);
 }

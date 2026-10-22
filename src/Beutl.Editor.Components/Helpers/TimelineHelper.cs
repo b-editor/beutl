@@ -36,10 +36,10 @@ public static class TimelineHelper
                 scene.DurationProperty.GetObservable(),
                 scene.StartProperty.GetObservable(),
                 clock.CurrentTime)
-            .Select(i => TimeSpan.FromTicks(
+            .Select(i => new MediaTime(
                 Math.Max(
-                    Math.Max(i.First.Ticks, i.Second.Ticks + i.Third.Ticks),
-                    i.Fourth.Ticks)))
+                    Math.Max(i.First.Flicks, i.Second.Flicks + i.Third.Flicks),
+                    i.Fourth.Flicks)))
             .CombineLatest(scale)
             .Select(i => i.First.TimeToPixel(i.Second) + 500)
             .ToReadOnlyReactivePropertySlim()
@@ -51,7 +51,7 @@ public static class TimelineHelper
     // Keeps the playhead in view while the preview plays, as the auto-scroll setting asks.
     internal static void AutoScrollToPlayhead(
         ScrollViewer scrollViewer, IEditorContext editorContext, IReactiveProperty<TimelineOptions> options,
-        TimeSpan currentTime)
+        MediaTime currentTime)
     {
         var mode = GlobalConfiguration.Instance.EditorConfig.TimelineAutoScrollMode;
         if (mode == TimelineAutoScrollMode.None) return;
@@ -86,7 +86,7 @@ public static class TimelineHelper
             IsEnabledChecked = bpmGrid.IsEnabled,
             Bpm = (decimal)bpmGrid.Bpm,
             Subdivisions = bpmGrid.Subdivisions,
-            OffsetSeconds = (decimal)bpmGrid.Offset.TotalSeconds,
+            OffsetSeconds = (decimal)bpmGrid.Offset.ToSeconds(),
         };
         flyout.OptionsChanged += (_, bpmGridOptions) =>
         {

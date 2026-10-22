@@ -16,7 +16,7 @@ public sealed class DuplicateObjectTests
     public void Duplicate_object_appends_copy_with_fresh_ids()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var blur = new Blur();
         var group = new FilterEffectGroup { Children = { blur } };
         var rect = new RectShape
@@ -60,7 +60,7 @@ public sealed class DuplicateObjectTests
     public void Duplicate_object_is_undoable()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var rect = new RectShape { Name = "Original rect", Width = { Value = 120 } };
         element.AddObject(rect);
 
@@ -86,7 +86,7 @@ public sealed class DuplicateObjectTests
     public void Duplicate_object_wrap_in_group_rejects_a_direct_flow_operator()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var group = new DrawableGroup { Name = "Direct group" };
         group.Children.Add(new RectShape { Name = "inner" });
         element.AddObject(group);
@@ -112,7 +112,7 @@ public sealed class DuplicateObjectTests
     public void Duplicate_object_wrap_in_group_moves_original_and_copy_into_drawable_group()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var rect = new RectShape { Name = "Original rect", Width = { Value = 120 } };
         element.AddObject(rect);
         Guid originalId = rect.Id;
@@ -150,7 +150,7 @@ public sealed class DuplicateObjectTests
     public void Duplicate_object_wrap_in_group_appends_copy_to_existing_group_child()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var rect = new RectShape { Name = "Original rect", Width = { Value = 120 } };
         var group = new DrawableGroup { Name = "Existing group" };
         group.Children.Add(rect);
@@ -185,7 +185,7 @@ public sealed class DuplicateObjectTests
     public void Duplicate_object_wrap_in_group_is_undoable()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var rect = new RectShape { Name = "Original rect", Width = { Value = 120 } };
         element.AddObject(rect);
         Guid originalId = rect.Id;
@@ -214,7 +214,7 @@ public sealed class DuplicateObjectTests
     public void Duplicate_object_wrap_in_group_mints_fresh_ids_on_nested_nodes()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var blur = new Blur();
         var effect = new FilterEffectGroup { Children = { blur } };
         var rect = new RectShape
@@ -257,7 +257,7 @@ public sealed class DuplicateObjectTests
         string subDir = Directory.CreateDirectory(
             Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "sub")).FullName;
         Element element = TestWorkspace.AddElement(
-            scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), Path.Combine("sub", "media.belm"));
+            scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), Path.Combine("sub", "media.belm"));
         string imagePath = Path.Combine(subDir, "source.png");
         using (var bitmap = new Bitmap(8, 8))
         {
@@ -285,7 +285,7 @@ public sealed class DuplicateObjectTests
     {
         // The editor follows each dispatch that commits a transaction, so a second one would navigate twice.
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var rect = new RectShape { Name = "Original rect", Width = { Value = 120 } };
         element.AddObject(rect);
 
@@ -306,7 +306,7 @@ public sealed class DuplicateObjectTests
     public void Duplicate_object_unknown_id_is_stale_handle()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         element.AddObject(new RectShape { Name = "Original rect" });
 
         using var session = new AgentToolkitTestSession(scene);
@@ -325,7 +325,7 @@ public sealed class DuplicateObjectTests
     public void Duplicate_object_wrong_element_scope_is_stale_handle()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var rect = new RectShape { Name = "Original rect" };
         element.AddObject(rect);
 

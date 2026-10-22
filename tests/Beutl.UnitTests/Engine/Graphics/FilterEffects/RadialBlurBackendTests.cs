@@ -232,13 +232,13 @@ public sealed class RadialBlurBackendTests
                 using RenderNodeRasterization full = fullRenderer.Rasterize();
                 PixelPoint offset = PixelRect.FromRect(output.Bounds, scale).Position
                                     - PixelRect.FromRect(full.Bounds, scale).Position;
-                // Compare interior pixels, excluding antialiasing introduced at the crop boundary.
+                // Interior pixels only (the crop edge antialiases); compositing can round them one half-float step apart.
                 for (int y = 1; y < output.Bitmap.Height - 1; y++)
                 {
                     ReadOnlySpan<ushort> actual = output.Bitmap.GetRow<ushort>(y).Slice(4, (output.Bitmap.Width - 2) * 4);
                     ReadOnlySpan<ushort> expected = full.Bitmap!.GetRow<ushort>(y + offset.Y)
                         .Slice((offset.X + 1) * 4, actual.Length);
-                    Assert.That(actual.ToArray(), Is.EqualTo(expected.ToArray()),
+                    Assert.That(actual.ToArray(), Is.EqualTo(expected.ToArray()).Within(1),
                         "Cropping must preserve the blur center and sampling positions.");
                 }
             }

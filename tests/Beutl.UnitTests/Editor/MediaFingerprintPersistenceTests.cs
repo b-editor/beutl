@@ -546,7 +546,7 @@ public class MediaFingerprintPersistenceTests
     {
         (Scene scene, string media) = CreateSceneWithImage(_root);
         string other = Path.Combine(_root, "other.png");
-        var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(_root, "other.belm")) };
+        var element = new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(Path.Combine(_root, "other.belm")) };
         element.Objects.Add(new SourceImage { Source = { Value = TestImages.WriteImage(other) } });
         scene.Children.Add(element);
         var service = new MissingMediaService();
@@ -621,7 +621,7 @@ public class MediaFingerprintPersistenceTests
         var scene = new Scene(64, 64, "Scene") { Uri = new Uri(Path.Combine(directory, "scene.scene")) };
         var element = new Element
         {
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(directory, "image.belm")),
         };
         element.Objects.Add(new SourceImage { Source = { Value = source } });

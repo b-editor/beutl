@@ -14,7 +14,7 @@ internal sealed class GraphEditorDragSnapshot
     private readonly Dictionary<IKeyFrame, (Point? Incoming, Point? Outgoing)> _handles = [];
     private readonly Dictionary<IKeyFrame, Easing> _originalEasings = [];
     private readonly Dictionary<(IKeyFrame Start, IKeyFrame End), Easing?> _reversedSegments = [];
-    internal readonly record struct Entry(IKeyFrame Model, TimeSpan Time, object? Value, double Number);
+    internal readonly record struct Entry(IKeyFrame Model, MediaTime Time, object? Value, double Number);
     public Entry[] Entries { get; }
     public double InitialBaseline { get; }
     public Dictionary<IKeyFrame, (double Incoming, double Outgoing)> Velocities { get; } = [];
@@ -37,7 +37,7 @@ internal sealed class GraphEditorDragSnapshot
             Easing original = item.Model.Easing;
             _reversedSegments[(item.Model, previous.Model)] = ReverseEasing(original);
             if (original is not SplineEasing spline) continue;
-            double duration = (item.Model.KeyTime - previous.Model.KeyTime).TotalSeconds;
+            double duration = (item.Model.KeyTime - previous.Model.KeyTime).ToSeconds();
             double difference = channel.ConvertToDouble(item.Model.Value) - channel.ConvertToDouble(previous.Model.Value);
             var incoming = new Point((spline.X2 - 1) * duration, (spline.Y2 - 1) * difference);
             var outgoing = new Point(spline.X1 * duration, spline.Y1 * difference);
@@ -50,7 +50,7 @@ internal sealed class GraphEditorDragSnapshot
     {
         if (Entries.Length == 0 || !double.IsFinite(factor)) return false;
         var changes = Entries.Select(entry =>
-            (Entry: entry, Result: (Time: entry.Time.TotalSeconds, Value: entry.Number * factor))).ToArray();
+            (Entry: entry, Result: (Time: entry.Time.ToSeconds(), Value: entry.Number * factor))).ToArray();
         if (changes.Any(change => !double.IsFinite(change.Result.Value))) return false;
         // Vector channels share easing; scaling a value must not rewrite their segment curves.
         WriteValues(_channel.Parent, changes);
@@ -62,12 +62,12 @@ internal sealed class GraphEditorDragSnapshot
     {
         if (Entries.Length == 0) return false;
         var editor = _channel.Parent;
-        int rate = SceneTimeRangeService.GetFrameRate(editor.Scene);
+        Rational rate = SceneTimeRangeService.GetFrameRate(editor.Scene);
         var changes = Entries.Select(entry => (Entry: entry, Result: transform(entry))).ToArray();
         if (changes.Any(change => !double.IsFinite(change.Result.Time))) return false;
         // Clamp the group as a whole so its spacing is preserved at time zero.
         double correction = Math.Max(0, -changes.Min(x => x.Result.Time));
-        var times = changes.Select(change => TimeSpan.FromSeconds(change.Result.Time + correction).RoundToRate(rate)).ToArray();
+        var times = changes.Select(change => MediaTime.FromSeconds(change.Result.Time + correction).RoundToFrame(rate, MidpointRounding.AwayFromZero)).ToArray();
         var selected = Entries.Select(x => x.Model).ToHashSet();
         // Only selected segments are mirrored. Reject unsupported interpolation before any
         // part of the transform changes the animation, retaining the last valid preview.
@@ -103,7 +103,7 @@ internal sealed class GraphEditorDragSnapshot
         }
     }
 
-    private static void WriteKeyTimes((Entry Entry, (double Time, double Value) Result)[] changes, TimeSpan[] times)
+    private static void WriteKeyTimes((Entry Entry, (double Time, double Value) Result)[] changes, MediaTime[] times)
     {
         foreach (var (entry, time) in changes.Select((change, index) => (change.Entry, Time: times[index])).OrderByDescending(x => x.Time))
         {
@@ -165,7 +165,7 @@ internal sealed class GraphEditorDragSnapshot
             else if (_originalEasings.TryGetValue(item.Model, out var original))
                 item.Model.Easing = original;
             if (item.Model.Easing is not SplineEasing spline) continue;
-            double duration = (item.Model.KeyTime - previous.Model.KeyTime).TotalSeconds;
+            double duration = (item.Model.KeyTime - previous.Model.KeyTime).ToSeconds();
             double difference = _channel.ConvertToDouble(item.Model.Value) - _channel.ConvertToDouble(previous.Model.Value);
             if (handles.GetValueOrDefault(previous.Model).Outgoing is { } first)
                 SetHandle(spline, false, first, duration, difference);

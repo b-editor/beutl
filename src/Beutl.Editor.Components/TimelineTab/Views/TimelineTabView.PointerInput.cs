@@ -17,12 +17,12 @@ public sealed partial class TimelineTabView
         if (ViewModel == null) return;
         TimelineTabViewModel viewModel = ViewModel;
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
-        int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
-        _pointerFrame = pointerPt.Position.X.PixelToTimeSpan(viewModel.Options.Value.Scale).RoundToRate(rate);
+        Rational rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
+        _pointerFrame = pointerPt.Position.X.PixelToTime(viewModel.Options.Value.Scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
-        if (_pointerFrame < TimeSpan.Zero)
+        if (_pointerFrame < MediaTime.Zero)
         {
-            _pointerFrame = TimeSpan.Zero;
+            _pointerFrame = MediaTime.Zero;
         }
 
         if (_mouseFlag == MouseFlags.SeekBarPressed)
@@ -174,8 +174,8 @@ public sealed partial class TimelineTabView
         Rect rect = overlay.SelectionRange.Normalize().Intersect(bounds).Intersect(viewport);
         if (rect == default) return;
 
-        var startTime = rect.Left.PixelToTimeSpan(viewModel.Options.Value.Scale);
-        var endTime = rect.Right.PixelToTimeSpan(viewModel.Options.Value.Scale);
+        var startTime = rect.Left.PixelToTime(viewModel.Options.Value.Scale);
+        var endTime = rect.Right.PixelToTime(viewModel.Options.Value.Scale);
         var timeRange = TimeRange.FromRange(startTime, endTime);
 
         // Layer lookup includes a row's bottom edge; start strictly inside the selection.
@@ -256,8 +256,8 @@ public sealed partial class TimelineTabView
 
     private static void SetClickedPosition(TimelineTabViewModel viewModel, Point position)
     {
-        viewModel.ClickedFrame = position.X.PixelToTimeSpan(viewModel.Options.Value.Scale)
-            .RoundToRate(SceneTimeRangeService.GetFrameRate(viewModel.Scene));
+        viewModel.ClickedFrame = position.X.PixelToTime(viewModel.Options.Value.Scale)
+            .RoundToFrame(SceneTimeRangeService.GetFrameRate(viewModel.Scene), MidpointRounding.AwayFromZero);
         viewModel.ClickedPosition = position;
     }
 

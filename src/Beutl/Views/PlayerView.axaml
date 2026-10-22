@@ -18,17 +18,17 @@
              mc:Ignorable="d">
     <Player x:Name="Player"
             Margin="4"
-            CurrentTime="{Binding CurrentFrame.Value, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
+            CurrentTime="{Binding CurrentFrame.Value, Converter={x:Static converters:MediaTimeToTimeSpanConverter.Instance}, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
             EndButtonCommand="{Binding End}"
             IsPlaying="{Binding IsPlaying.Value, Mode=OneWay}"
             IsLoopEnabled="{Binding IsLoopEnabled.Value, Mode=TwoWay}"
-            Maximum="{Binding Duration.Value, Converter={x:Static converters:TimeSpanToDoubleConverter.Instance}}"
+            Maximum="{Binding Duration.Value, Converter={x:Static converters:MediaTimeToSecondsConverter.Instance}}"
             NextButtonCommand="{Binding Next}"
             PlayButtonCommand="{Binding PlayPause}"
             PreviousButtonCommand="{Binding Previous}"
             StartButtonCommand="{Binding Start}"
-            Value="{Binding CurrentFrame.Value, Converter={x:Static converters:TimeSpanToDoubleConverter.Instance}}"
-            Duration="{Binding Duration.Value, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}">
+            Value="{Binding CurrentFrame.Value, Converter={x:Static converters:MediaTimeToSecondsConverter.Instance}}"
+            Duration="{Binding Duration.Value, Converter={x:Static converters:MediaTimeToTimeSpanConverter.Instance}, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}">
         <Player.InnerLeftContent>
             <StackPanel>
                 <StackPanel.Styles>

@@ -1,13 +1,13 @@
 ﻿using Beutl.Extensions.AVFoundation.Decoding;
+using Beutl.Extensions.FFmpeg.Decoding;
 using Beutl.Media.Decoding;
 
 namespace Beutl.AgentToolkit.Rendering;
 
 /// <summary>
 /// Registers the media decoders of the headless MCP server, which loads no extensions: the engine's
-/// built-in decoders (WAV, animated GIF and WebP, APNG) and AVFoundation on macOS, as the app does at
-/// startup. FFmpeg's decoder is not among them yet: it still lives in Beutl.Extensions.FFmpeg, next to
-/// the app's install dialog.
+/// built-in decoders (WAV, animated GIF and WebP, APNG), FFmpeg, and AVFoundation on macOS, in the
+/// order the app registers them at startup.
 /// </summary>
 public static class DecoderRegistration
 {
@@ -26,6 +26,11 @@ public static class DecoderRegistration
 
             BuiltInDecoders.Register();
             // A process that also loaded the app's extensions (such as a test host) has its own.
+            if (!DecoderRegistry.EnumerateDecoder().OfType<FFmpegDecoderInfo>().Any())
+            {
+                DecoderRegistry.Register(new FFmpegDecoderInfo(new FFmpegDecodingSettings()));
+            }
+
             if (OperatingSystem.IsMacOS() && !DecoderRegistry.EnumerateDecoder().OfType<AVFDecoderInfo>().Any())
             {
                 new AVFDecodingExtension().Load();

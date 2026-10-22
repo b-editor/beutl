@@ -10,7 +10,15 @@ using Beutl.Serialization;
 
 namespace Beutl.Graphics;
 
-public sealed partial class FallbackDrawable : Drawable, IFallback;
+public sealed partial class FallbackDrawable : Drawable, IFallback
+{
+    // A drawable whose type did not load takes no space and draws nothing.
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => Size.Empty;
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    {
+    }
+}
 
 [FallbackType(typeof(FallbackDrawable))]
 [PresenterType(typeof(DrawablePresenter))]

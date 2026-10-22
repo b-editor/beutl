@@ -18,13 +18,13 @@ public static class FrameNumberHelper
     private static double ResolveDouble(string key, double fallback)
         => Application.Current?.FindResource(key) is double value ? value : fallback;
 
-    public static double TimeToPixel(this TimeSpan time, float scale)
+    public static double TimeToPixel(this MediaTime time, float scale)
     {
-        return time.TotalSeconds * SecondWidth * scale;
+        return time.ToSeconds() * SecondWidth * scale;
     }
 
-    public static TimeSpan PixelToTimeSpan(this double pixel, float scale)
+    public static MediaTime PixelToTime(this double pixel, float scale)
     {
-        return TimeSpan.FromSeconds(pixel / (SecondWidth * scale));
+        return MediaTime.FromSeconds(pixel / (SecondWidth * scale));
     }
 }

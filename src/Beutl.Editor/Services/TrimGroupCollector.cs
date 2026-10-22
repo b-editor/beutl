@@ -24,7 +24,7 @@ public static class TrimGroupCollector
     /// <see cref="IElementResizeService.Slide"/>'s lanes apply the same all-or-nothing rule.
     /// </summary>
     public static IReadOnlyList<ElementTrimPair>? CollectRollPairs(
-        Scene scene, IReadOnlyList<Element> members, TimeSpan boundary)
+        Scene scene, IReadOnlyList<Element> members, MediaTime boundary)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(members);
@@ -101,7 +101,7 @@ public static class TrimGroupCollector
         return lanes.Count == 0 ? null : lanes;
     }
 
-    private static Element? FindStartingAt(Scene scene, int zIndex, TimeSpan start, Element exclude)
+    private static Element? FindStartingAt(Scene scene, int zIndex, MediaTime start, Element exclude)
     {
         foreach (Element item in scene.Children)
         {
@@ -111,7 +111,7 @@ public static class TrimGroupCollector
         return null;
     }
 
-    private static Element? FindEndingAt(Scene scene, int zIndex, TimeSpan end, Element exclude)
+    private static Element? FindEndingAt(Scene scene, int zIndex, MediaTime end, Element exclude)
     {
         foreach (Element item in scene.Children)
         {

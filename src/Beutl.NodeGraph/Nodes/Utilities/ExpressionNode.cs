@@ -59,7 +59,7 @@ public partial class ExpressionNode : GraphNode
             try
             {
                 List<object?> inputs = context.CollectListInputValues<object?>(node.InputPort);
-                double time = context.Time.TotalSeconds;
+                double time = context.Time.ToSeconds();
                 var globals = new ExpressionNodeGlobals(inputs, time);
                 object? result = state.Runner!(globals).GetAwaiter().GetResult();
                 Output = result;

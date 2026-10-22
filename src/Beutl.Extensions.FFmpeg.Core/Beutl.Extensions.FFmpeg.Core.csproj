@@ -3,8 +3,8 @@
   <PropertyGroup>
     <BeutlHostLibrary>true</BeutlHostLibrary>
     <RepositoryUrl>https://github.com/b-editor/beutl</RepositoryUrl>
-    <Description>Headless FFmpeg encoding core for Beutl</Description>
-    <PackageTags>ffmpeg;encoder;encoding;video;audio</PackageTags>
+    <Description>Headless FFmpeg encoding and decoding core for Beutl</Description>
+    <PackageTags>ffmpeg;decoder;decoding;encoder;encoding;video;audio</PackageTags>
     <Authors>b-editor</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>

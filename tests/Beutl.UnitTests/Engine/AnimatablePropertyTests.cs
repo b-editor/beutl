@@ -39,7 +39,7 @@ public class AnimatablePropertyTests
         property.ExpressionChanged += e => captured = e;
         property.Edited += (_, _) => edited++;
 
-        var animation = TestAnimations.Linear(0, 10, TimeSpan.FromSeconds(1));
+        var animation = TestAnimations.Linear(0, 10, MediaTime.FromSeconds(1));
         property.SetKeyFrameAnimation(animation);
 
         Assert.That(captured, Is.SameAs(animation));
@@ -50,7 +50,7 @@ public class AnimatablePropertyTests
     public void Animation_AssigningSameValue_NoEvent()
     {
         var property = Make(0);
-        var animation = TestAnimations.Linear(0, 10, TimeSpan.FromSeconds(1));
+        var animation = TestAnimations.Linear(0, 10, MediaTime.FromSeconds(1));
         property.SetKeyFrameAnimation(animation);
         int edited = 0;
         property.Edited += (_, _) => edited++;
@@ -64,7 +64,7 @@ public class AnimatablePropertyTests
     public void Animation_ClearingToNull_RaisesEdited()
     {
         var property = Make(0);
-        property.SetKeyFrameAnimation(TestAnimations.Linear(0, 10, TimeSpan.FromSeconds(1)));
+        property.SetKeyFrameAnimation(TestAnimations.Linear(0, 10, MediaTime.FromSeconds(1)));
         int edited = 0;
         property.Edited += (_, _) => edited++;
 
@@ -78,9 +78,9 @@ public class AnimatablePropertyTests
     public void GetValue_WithAnimation_ReturnsInterpolatedValue()
     {
         var property = Make(0);
-        property.SetKeyFrameAnimation(TestAnimations.Linear(0, 100, TimeSpan.FromSeconds(1.0)));
+        property.SetKeyFrameAnimation(TestAnimations.Linear(0, 100, MediaTime.FromSeconds(1.0)));
 
-        var midpoint = property.Evaluate(new CompositionContext(TimeSpan.FromSeconds(0.5)));
+        var midpoint = property.Evaluate(new CompositionContext(MediaTime.FromSeconds(0.5)));
 
         Assert.That(midpoint, Is.InRange(40, 60));
     }
@@ -91,18 +91,18 @@ public class AnimatablePropertyTests
         var owner = new TestEngineObjectForProperty();
         var property = Make(0);
         property.SetOwnerObject(owner);
-        property.SetKeyFrameAnimation(TestAnimations.Linear(100, 0, TimeSpan.FromSeconds(1.0)));
+        property.SetKeyFrameAnimation(TestAnimations.Linear(100, 0, MediaTime.FromSeconds(1.0)));
         var element = new Element
         {
-            Start = TimeSpan.FromSeconds(5),
-            Length = TimeSpan.FromSeconds(2)
+            Start = MediaTime.FromSeconds(5),
+            Length = MediaTime.FromSeconds(2)
         };
         element.AddObject(owner);
         // Attaching to a root caches the parent reference the local clock anchors to.
         var root = new TestHierarchicalRoot();
         ((IModifiableHierarchical)root).AddChild(element);
 
-        int midpoint = property.Evaluate(new CompositionContext(TimeSpan.FromSeconds(5.5)));
+        int midpoint = property.Evaluate(new CompositionContext(MediaTime.FromSeconds(5.5)));
 
         Assert.That(midpoint, Is.EqualTo(50));
     }
@@ -111,7 +111,7 @@ public class AnimatablePropertyTests
     public void ResetToDefault_ClearsTheAnimation()
     {
         var property = Make(7);
-        property.SetKeyFrameAnimation(TestAnimations.Linear(0, 10, TimeSpan.FromSeconds(1)));
+        property.SetKeyFrameAnimation(TestAnimations.Linear(0, 10, MediaTime.FromSeconds(1)));
 
         property.ResetToDefault();
 

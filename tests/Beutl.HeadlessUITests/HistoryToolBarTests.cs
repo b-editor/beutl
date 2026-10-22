@@ -27,7 +27,7 @@ public class HistoryToolBarTests
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("history-bar");
         var shape = new RectShape();
-        await TestShell.AddElementAsync(editor, () => shape, TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        await TestShell.AddElementAsync(editor, () => shape, MediaTime.Zero, MediaTime.FromSeconds(2));
         using var history = new HistoryViewModel(editor);
         var historyView = new HistoryView { DataContext = history };
         var window = new Window

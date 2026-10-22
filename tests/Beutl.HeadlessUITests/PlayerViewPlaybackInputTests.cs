@@ -440,10 +440,10 @@ public partial class PlayerViewPlaybackInputTests
         EditViewModel editor = await OpenEditor();
         var shape = new RectShape();
         await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
-            TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4), 0, new ElementSource.EngineObject(() => shape))], CancellationToken.None);
+            MediaTime.FromSeconds(1), MediaTime.FromSeconds(4), 0, new ElementSource.EngineObject(() => shape))], CancellationToken.None);
         Element element = editor.Scene.Children.Single();
         editor.GetRequiredService<IEditorSelection>().Select(element);
-        editor.GetRequiredService<IEditorClock>().Seek(TimeSpan.FromSeconds(2));
+        editor.GetRequiredService<IEditorClock>().Seek(MediaTime.FromSeconds(2));
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
         IPointer? captured = null;
@@ -457,7 +457,7 @@ public partial class PlayerViewPlaybackInputTests
             point = PreviewCenter(view, window);
 
             editor.GetRequiredService<IElementNudgeService>().Nudge(editor.Scene, [element], 1);
-            TimeSpan nudged = element.Start;
+            MediaTime nudged = element.Start;
             window.MouseDown(point, MouseButton.Left);
             window.MouseMove(point + new Vector(20, 10), RawInputModifiers.LeftMouseButton);
             Assert.That(editor.HistoryManager.CurrentIndex, Is.EqualTo(index + 1), "The move commits the nudge before it writes.");
@@ -572,7 +572,7 @@ public partial class PlayerViewPlaybackInputTests
         clicked.Width.Value = 400;
         clicked.Height.Value = 300;
         await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
-            TimeSpan.Zero, TimeSpan.FromSeconds(4), 0, new ElementSource.EngineObject(() => aside))], CancellationToken.None);
+            MediaTime.Zero, MediaTime.FromSeconds(4), 0, new ElementSource.EngineObject(() => aside))], CancellationToken.None);
         Element element = editor.Scene.Children.Single();
         element.Objects.Add(clicked);
         var selection = editor.GetRequiredService<IEditorSelection>();
@@ -667,7 +667,7 @@ public partial class PlayerViewPlaybackInputTests
         scene.RenderHeight.Value = 480;
         scene.Objects.Add(new Cube3D());
         await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
-            TimeSpan.Zero, TimeSpan.FromSeconds(4), 0, new ElementSource.EngineObject(() => scene))], CancellationToken.None);
+            MediaTime.Zero, MediaTime.FromSeconds(4), 0, new ElementSource.EngineObject(() => scene))], CancellationToken.None);
         return scene;
     }
 
@@ -701,8 +701,8 @@ public partial class PlayerViewPlaybackInputTests
     {
         EditViewModel editor = await OpenEditor();
         await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(4),
+            Start: MediaTime.Zero,
+            Length: MediaTime.FromSeconds(4),
             Layer: 0,
             Source: new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None);
         var selection = editor.GetRequiredService<IEditorSelection>();

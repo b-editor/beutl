@@ -87,7 +87,7 @@ public sealed class AiJobVideoDurationReviewTests
                 await capability.ApplyAsync(job, context.Object, CancellationToken.None);
                 Assert.That(imported, Is.Not.Null);
                 double expectedSeconds = mode is not null && durationTenths is > 0 ? durationTenths.Value / 10d : requestedSeconds ?? 6;
-                Assert.That(imported!.Length, Is.EqualTo(TimeSpan.FromSeconds(expectedSeconds)));
+                Assert.That(imported!.Length, Is.EqualTo(MediaTime.FromSeconds(expectedSeconds)));
                 Assert.That(((ElementSource.File)imported.Source).FileName, Does.EndWith(extension));
             }
             string[] probes = decoder.OpenedPaths.Where(path => Path.GetFileName(path).StartsWith("job-video-", StringComparison.Ordinal)).ToArray();

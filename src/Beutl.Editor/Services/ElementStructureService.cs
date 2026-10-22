@@ -29,16 +29,13 @@ public sealed class ElementStructureService : IElementStructureService
         _historyManager.Commit(CommandNames.DeleteElement);
     }
 
-    public void Split(Scene scene, IReadOnlyList<Element> targets, TimeSpan at)
+    public void Split(Scene scene, IReadOnlyList<Element> targets, MediaTime at)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(targets);
         if (targets.Count == 0 || scene.Uri is null) return;
 
-        TimeSpan minDuration = SceneTimeRangeService.GetFrameDuration(scene);
-        if (!targets.Any(target => !scene.IsElementLocked(target)
-            && at - target.Start >= minDuration
-            && target.Start + target.Length - at >= minDuration))
+        if (!targets.Any(target => !scene.IsElementLocked(target) && LeavesAFrameOnEachSide(scene, target, at)))
             return;
         var groupUpdates = new Dictionary<int, List<Guid>>();
 
@@ -46,11 +43,10 @@ public sealed class ElementStructureService : IElementStructureService
         {
             foreach (Element target in targets)
             {
-                if (scene.IsElementLocked(target)) continue;
+                if (scene.IsElementLocked(target) || !LeavesAFrameOnEachSide(scene, target, at)) continue;
 
-                TimeSpan forwardDuration = at - target.Start;
-                TimeSpan backwardDuration = target.Length - forwardDuration;
-                if (forwardDuration < minDuration || backwardDuration < minDuration) continue;
+                MediaTime forwardDuration = at - target.Start;
+                MediaTime backwardDuration = target.Length - forwardDuration;
 
                 ObjectRegenerator.Regenerate(target, out Element backward);
 
@@ -68,7 +64,7 @@ public sealed class ElementStructureService : IElementStructureService
                 scene.MoveChild(target.ZIndex, target.Start, forwardDuration, target);
                 scene.AddChild(backward);
                 backward.NotifySplitted(true, forwardDuration, -forwardDuration);
-                target.NotifySplitted(false, TimeSpan.Zero, -backwardDuration);
+                target.NotifySplitted(false, MediaTime.Zero, -backwardDuration);
 
                 // Track group membership so back-clips stay in their source's group.
                 int groupIndex = FindGroupIndex(scene, target.Id);
@@ -86,6 +82,14 @@ public sealed class ElementStructureService : IElementStructureService
 
             InsertSplitGroups(scene, groupUpdates);
         }, CommandNames.SplitElement);
+    }
+
+    // Whether a cut at the frame `at` leaves a frame on each side; a clip end within a tick of a frame counts as that frame.
+    internal static bool LeavesAFrameOnEachSide(Scene scene, Element target, MediaTime at)
+    {
+        MediaTime frame = SceneTimeRangeService.GetFrameDuration(scene);
+        return at - SceneTimeRangeService.SnapToFrame(scene, target.Start) >= frame
+               && SceneTimeRangeService.SnapToFrame(scene, target.Range.End) - at >= frame;
     }
 
     private static int FindGroupIndex(Scene scene, Guid id)
@@ -221,7 +225,7 @@ public sealed class ElementStructureService : IElementStructureService
         return lockedIds;
     }
 
-    private static void ShiftLocalKeyFrames(Element element, TimeSpan delta)
+    private static void ShiftLocalKeyFrames(Element element, MediaTime delta)
     {
         // A scene the element draws keeps its own time.
         foreach (IKeyFrameAnimation anim in ChildObjects.Walk(element, static obj => obj is ProjectItem)

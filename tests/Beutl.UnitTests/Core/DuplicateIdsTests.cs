@@ -38,9 +38,9 @@ public class DuplicateIdsTests
         var first = new RectShape();
         var second = new RectShape { Id = first.Id };
         var width = new KeyFrameAnimation<float>();
-        var key = new KeyFrame<float> { KeyTime = TimeSpan.Zero };
+        var key = new KeyFrame<float> { KeyTime = MediaTime.Zero };
         width.KeyFrames.Add(key);
-        width.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Id = key.Id });
+        width.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Id = key.Id });
         second.Width.SetKeyFrameAnimation(width);
         element.AddObject(first);
         element.AddObject(second);
@@ -91,8 +91,8 @@ public class DuplicateIdsTests
         scene.Children.Add(new Element
         {
             Id = element.Id,
-            Start = TimeSpan.FromSeconds(1),
-            Length = TimeSpan.FromSeconds(1),
+            Start = MediaTime.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(_root, "scene", "second.belm")),
         });
 
@@ -120,7 +120,7 @@ public class DuplicateIdsTests
     {
         var project = new Project { Uri = new Uri(Path.Combine(_root, "project.bep")) };
         var scene = new Scene(64, 64, "Scene") { Uri = new Uri(Path.Combine(_root, "scene", "scene.scene")) };
-        element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(_root, "scene", "element.belm")) };
+        element = new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(Path.Combine(_root, "scene", "element.belm")) };
         element.AddObject(new PortalObject());
         scene.Children.Add(element);
         project.Items.Add(scene);

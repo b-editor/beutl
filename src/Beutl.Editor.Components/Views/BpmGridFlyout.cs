@@ -154,7 +154,7 @@ public sealed class BpmGridFlyout : FAPickerFlyoutBase
         IsEnabledChecked = _initialOptions.IsEnabled;
         Bpm = (decimal)_initialOptions.Bpm;
         Subdivisions = _initialOptions.Subdivisions;
-        OffsetSeconds = (decimal)_initialOptions.Offset.TotalSeconds;
+        OffsetSeconds = (decimal)_initialOptions.Offset.ToSeconds();
         OptionsChanged?.Invoke(this, _initialOptions);
         Hide();
     }
@@ -183,7 +183,7 @@ public sealed class BpmGridFlyout : FAPickerFlyoutBase
         return new BpmGridOptions(
             (double)Bpm,
             Subdivisions,
-            TimeSpan.FromSeconds((double)OffsetSeconds),
+            MediaTime.FromSeconds((double)OffsetSeconds),
             IsEnabledChecked);
     }
 }

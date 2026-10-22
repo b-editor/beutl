@@ -1,6 +1,6 @@
 ﻿namespace Beutl;
 
-public class ExpressionContext(TimeSpan time, IProperty currentProperty, PropertyLookup propertyLookup) : EvaluationContext(time)
+public class ExpressionContext(MediaTime time, IProperty currentProperty, PropertyLookup propertyLookup) : EvaluationContext(time)
 {
     private readonly HashSet<IProperty> _evaluationStack = [];
 

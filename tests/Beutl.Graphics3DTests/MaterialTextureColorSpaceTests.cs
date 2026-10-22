@@ -114,7 +114,7 @@ public class MaterialTextureColorSpaceTests
         {
             using var renderer = new Renderer3D(_context);
             renderer.Initialize(Size, Size);
-            var composition = new CompositionContext(TimeSpan.Zero);
+            var composition = new CompositionContext(MediaTime.Zero);
 
             var camera = new PerspectiveCamera();
             camera.Position.Value = new Vector3(0, 0, 3);

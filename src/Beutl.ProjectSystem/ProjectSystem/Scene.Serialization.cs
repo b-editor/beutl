@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Collections;
+using Beutl.JsonConverters;
 using Beutl.Media;
 using Beutl.Serialization;
 using Microsoft.Extensions.FileSystemGlobbing;
@@ -61,6 +62,7 @@ public partial class Scene
     {
         base.Serialize(context);
 
+        context.SetValue(nameof(Duration), MediaTimeJsonConverter.LengthToWrite(Start, Duration));
         context.SetValue("Width", FrameSize.Width);
         context.SetValue("Height", FrameSize.Height);
         context.SetValue("Groups", Groups.Select(ids => string.Join(':', ids)).ToArray());
@@ -121,6 +123,7 @@ public partial class Scene
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
+        Duration = MediaTimeJsonConverter.LengthRead(context, nameof(Start), nameof(Duration), Start, Duration);
         // Layers keeps its list, as its CoreProperty accessor did.
         KeptListReader.ReadInto<CoreList<TimelineLayer>, TimelineLayer>(context, nameof(Layers), _layers);
 

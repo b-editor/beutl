@@ -41,7 +41,7 @@ public class ElementViewLayoutTests
             try
             {
                 (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync(name);
-                await TestShell.AddElementAsync(editor, () => new RectShape(), TimeSpan.Zero, TimeSpan.FromSeconds(2));
+                await TestShell.AddElementAsync(editor, () => new RectShape(), MediaTime.Zero, MediaTime.FromSeconds(2));
 
                 var window = new Window { Content = new EditView { DataContext = editor }, Width = 1200, Height = 800 };
                 window.Show();

@@ -152,7 +152,7 @@ public sealed class CaptionTemplateRegistryTests
         public IReadOnlyList<ElementDescription> CreateElements(
             CaptionCue cue,
             CaptionElementContext context)
-            => [new ElementDescription(cue.Start, cue.End - cue.Start, context.Layer, source)];
+            => [new ElementDescription(MediaTime.FromTimeSpan(cue.Start), MediaTime.FromTimeSpan(cue.End - cue.Start), context.Layer, source)];
     }
 
     private sealed class FixedPlacementPolicy(Point position, int layer) : ICaptionPlacementPolicy

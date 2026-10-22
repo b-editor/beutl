@@ -2192,11 +2192,12 @@ public sealed partial class AiCapabilityServiceTests
             TransportContext? context)
             => BlockReadAsync(readCancellation);
 
-        protected override async Task SerializeToStreamAsync(
-            Stream stream,
-            TransportContext? context,
-            CancellationToken cancellationToken)
-            => await BlockReadAsync(readCancellation);
+        // Blocks on ReadAsStreamAsync's token, the request token, which HttpContent drops before serializing.
+        protected override async Task<Stream> CreateContentReadStreamAsync(CancellationToken cancellationToken)
+        {
+            await BlockReadAsync(cancellationToken);
+            throw new System.Diagnostics.UnreachableException();
+        }
 
         private async Task BlockReadAsync(CancellationToken cancellationToken)
         {

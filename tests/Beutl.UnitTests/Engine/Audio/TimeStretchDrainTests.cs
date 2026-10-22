@@ -23,7 +23,7 @@ public class TimeStretchDrainTests
         var effect = new TimeStretchEffect();
         effect.Speed.Value = 50;
         AudioNode stretched = effect.CreateNode(context, limiter);
-        var clip = context.AddNode(new ClipNode { Duration = TimeSpan.FromSeconds(1) });
+        var clip = context.AddNode(new ClipNode { Duration = MediaTime.FromSeconds(1) });
         clip.AddInput(stretched);
 
         using (clip.Process(Context(0, SampleRate))) { }
@@ -43,11 +43,11 @@ public class TimeStretchDrainTests
         using var context = new AudioContext(SampleRate, 2);
         var source = context.AddNode(new EndMarkerSource());
         AudioNode limiter = CreateLimiter(context, source, 10);
-        var clip = context.AddNode(new ClipNode { Duration = TimeSpan.FromSeconds(1) });
+        var clip = context.AddNode(new ClipNode { Duration = MediaTime.FromSeconds(1) });
         clip.AddInput(limiter);
         var mixer = context.AddNode(new MixerNode());
         mixer.AddInput(clip);
-        mixer.SetBranchEndTime(clip, TimeSpan.FromSeconds(1));
+        mixer.SetBranchEndTime(clip, MediaTime.FromSeconds(1));
         var effect = new TimeStretchEffect();
         effect.Speed.Value = 50;
         AudioNode stretched = effect.CreateNode(context, mixer);
@@ -67,15 +67,15 @@ public class TimeStretchDrainTests
     {
         var effect = new TimeStretchEffect
         {
-            TimeRange = new TimeRange(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2))
+            TimeRange = new TimeRange(MediaTime.FromSeconds(3), MediaTime.FromSeconds(2))
         };
         effect.Speed.Value = speed;
         if (animated)
         {
             var animation = new KeyFrameAnimation<float> { UseGlobalClock = globalClock };
-            TimeSpan offset = globalClock ? effect.TimeRange.Start : TimeSpan.Zero;
+            MediaTime offset = globalClock ? effect.TimeRange.Start : MediaTime.Zero;
             animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = offset, Value = speed, Easing = new LinearEasing() });
-            animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = offset + TimeSpan.FromSeconds(2), Value = 200f, Easing = new LinearEasing() });
+            animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = offset + MediaTime.FromSeconds(2), Value = 200f, Easing = new LinearEasing() });
             effect.Speed.SetKeyFrameAnimation(animation);
         }
         // The linear curve reaches its second keyframe at two seconds; integrate its first second.
@@ -84,7 +84,7 @@ public class TimeStretchDrainTests
         using var context = new AudioContext(SampleRate, 2);
         var source = context.AddNode(new StepSource(sourceBoundary));
         AudioNode stretched = effect.CreateNode(context, source);
-        ClipNode clip = context.CreateClipNode(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        ClipNode clip = context.CreateClipNode(MediaTime.Zero, MediaTime.FromSeconds(1));
         context.Connect(stretched, clip);
         using (clip.Process(Context(0, SampleRate))) { }
         int reads = source.ReadStarts.Count;
@@ -92,7 +92,7 @@ public class TimeStretchDrainTests
         context.BeginUpdate(context.Nodes.ToArray());
         context.AddNode(source);
         AudioNode reused = effect.CreateNode(context, source);
-        ClipNode extended = context.CreateClipNode(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        ClipNode extended = context.CreateClipNode(MediaTime.Zero, MediaTime.FromSeconds(2));
         context.Connect(reused, extended);
         context.EndUpdate();
         using AudioBuffer output = extended.Process(Context(SampleRate, SampleRate / 2));
@@ -113,7 +113,7 @@ public class TimeStretchDrainTests
         using var context = new AudioContext(SampleRate, 2);
         var source = context.AddNode(new StepSource(240));
         AudioNode stretched = effect.CreateNode(context, source);
-        ClipNode clip = context.CreateClipNode(TimeSpan.Zero, AudioProcessContext.GetDurationForSampleCount(480, SampleRate));
+        ClipNode clip = context.CreateClipNode(MediaTime.Zero, AudioProcessContext.GetDurationForSampleCount(480, SampleRate));
         context.Connect(stretched, clip);
         using (clip.Process(Context(0, 128))) { }
         Assert.That(source.LastReadEnd, Is.EqualTo(240));
@@ -122,7 +122,7 @@ public class TimeStretchDrainTests
         context.BeginUpdate(context.Nodes.ToArray());
         context.AddNode(source);
         AudioNode reused = effect.CreateNode(context, source);
-        ClipNode extended = context.CreateClipNode(TimeSpan.Zero, AudioProcessContext.GetDurationForSampleCount(960, SampleRate));
+        ClipNode extended = context.CreateClipNode(MediaTime.Zero, AudioProcessContext.GetDurationForSampleCount(960, SampleRate));
         context.Connect(reused, extended);
         context.EndUpdate();
         using AudioBuffer output = extended.Process(Context(128, 512));
@@ -130,7 +130,7 @@ public class TimeStretchDrainTests
         using var freshContext = new AudioContext(SampleRate, 2);
         var freshSource = freshContext.AddNode(new StepSource(240));
         AudioNode fresh = effect.CreateNode(freshContext, freshSource);
-        ClipNode freshClip = freshContext.CreateClipNode(TimeSpan.Zero, extended.Duration);
+        ClipNode freshClip = freshContext.CreateClipNode(MediaTime.Zero, extended.Duration);
         freshContext.Connect(fresh, freshClip);
         using AudioBuffer expected = freshClip.Process(Context(128, 512));
 
@@ -149,7 +149,7 @@ public class TimeStretchDrainTests
         using var context = new AudioContext(SampleRate, 2);
         var source = context.AddNode(new StepSource(24000));
         AudioNode stretched = effect.CreateNode(context, source);
-        ClipNode clip = context.CreateClipNode(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        ClipNode clip = context.CreateClipNode(MediaTime.Zero, MediaTime.FromSeconds(1));
         context.Connect(stretched, clip);
         using (clip.Process(Context(0, SampleRate))) { }
         int reads = source.ReadStarts.Count;
@@ -175,7 +175,7 @@ public class TimeStretchDrainTests
         var source = context.AddNode(new StepSource(24000));
         AudioNode limiter = CreateLimiter(context, source, 10);
         AudioNode stretched = effect.CreateNode(context, limiter);
-        ClipNode clip = context.CreateClipNode(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        ClipNode clip = context.CreateClipNode(MediaTime.Zero, MediaTime.FromSeconds(1));
         context.Connect(stretched, clip);
         using (clip.Process(Context(0, SampleRate))) { }
         using AudioBuffer tail = clip.Flush(Context(SampleRate, 128));
@@ -187,7 +187,7 @@ public class TimeStretchDrainTests
         context.AddNode(limiter);
         context.Connect(source, limiter);
         AudioNode reused = effect.CreateNode(context, limiter);
-        ClipNode extended = context.CreateClipNode(TimeSpan.Zero,
+        ClipNode extended = context.CreateClipNode(MediaTime.Zero,
             AudioProcessContext.GetDurationForSampleCount(SampleRate + 400, SampleRate));
         context.Connect(reused, extended);
         context.EndUpdate();
@@ -215,7 +215,7 @@ public class TimeStretchDrainTests
         AudioNode initial = stretched;
         if (oldClipFrames > 0)
         {
-            ClipNode clip = context.CreateClipNode(TimeSpan.Zero,
+            ClipNode clip = context.CreateClipNode(MediaTime.Zero,
                 AudioProcessContext.GetDurationForSampleCount(oldClipFrames, SampleRate));
             context.Connect(stretched, clip);
             initial = clip;
@@ -227,7 +227,7 @@ public class TimeStretchDrainTests
         context.BeginUpdate(context.Nodes.ToArray());
         context.AddNode(source);
         AudioNode reused = effect.CreateNode(context, source);
-        ClipNode shortened = context.CreateClipNode(TimeSpan.Zero,
+        ClipNode shortened = context.CreateClipNode(MediaTime.Zero,
             AudioProcessContext.GetDurationForSampleCount(1200, SampleRate));
         context.Connect(reused, shortened);
         context.EndUpdate();
@@ -250,7 +250,7 @@ public class TimeStretchDrainTests
     }
 
     private static AudioProcessContext Context(int start, int count)
-        => AudioTestContexts.Exact(TimeSpan.FromSeconds(start / (double)SampleRate), count, SampleRate);
+        => AudioTestContexts.Exact(MediaTime.FromSeconds(start / (double)SampleRate), count, SampleRate);
 
     private sealed class StepSource(long boundary) : AudioNode
     {
@@ -258,7 +258,7 @@ public class TimeStretchDrainTests
         public List<long> ReadStarts { get; } = [];
         public override AudioBuffer Process(AudioProcessContext context)
         {
-            long start = AudioMath.TimeToSampleIndex(context.TimeRange.Start, SampleRate);
+            long start = context.TimeRange.Start.ToSamples(SampleRate, MidpointRounding.ToZero);
             int count = context.GetSampleCount();
             LastReadEnd = start + count;
             ReadStarts.Add(start);
@@ -278,7 +278,7 @@ public class TimeStretchDrainTests
         internal override double? GetFiniteSourceEndSample(int sampleRate) => sampleRate;
         public override AudioBuffer Process(AudioProcessContext context)
         {
-            long start = AudioMath.TimeToSampleIndex(context.TimeRange.Start, SampleRate);
+            long start = context.TimeRange.Start.ToSamples(SampleRate, MidpointRounding.ToZero);
             var output = new AudioBuffer(SampleRate, 2, context.GetSampleCount());
             for (int channel = 0; channel < 2; channel++)
             {

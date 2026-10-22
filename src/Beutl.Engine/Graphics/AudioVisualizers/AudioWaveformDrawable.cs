@@ -42,10 +42,10 @@ public sealed partial class AudioWaveformDrawable : AudioVisualizerDrawable
         private float[] _minBuf = [];
         private float[] _maxBuf = [];
 
-        protected override (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(TimeSpan currentTime)
+        protected override (MediaTime Start, MediaTime Duration) ComputeSampleWindow(MediaTime currentTime)
         {
-            TimeSpan window = TimeSpan.FromSeconds(Math.Max(0.01, WindowSeconds));
-            return (currentTime - TimeSpan.FromTicks(window.Ticks / 2), window);
+            MediaTime window = MediaTime.FromSeconds(Math.Max(0.01, WindowSeconds));
+            return (currentTime - new MediaTime(window.Flicks / 2), window);
         }
 
         protected override void RenderForeground(ImmediateCanvas canvas, Rect bounds)

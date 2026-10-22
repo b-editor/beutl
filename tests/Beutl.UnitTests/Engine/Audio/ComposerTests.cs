@@ -15,7 +15,7 @@ public class ComposerTests
     [Test]
     public void Compose_EligibilityNotCaptured_Throws()
     {
-        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
         var frame = new CompositionFrame(
             ImmutableArray<EngineObject.Resource>.Empty,
             range,
@@ -35,7 +35,7 @@ public class ComposerTests
         // Regression test: the silence fallback allocates the same rounded-up sample count as GetSampleCount.
         const int sampleRate = 44100;
         var oneSampleTicksFloor = TimeSpan.TicksPerSecond / sampleRate;
-        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromTicks(oneSampleTicksFloor + 1));
+        var range = new TimeRange(MediaTime.Zero, MediaTime.FromTimeSpan(TimeSpan.FromTicks(oneSampleTicksFloor + 1)));
         var frame = new CompositionFrame(
             ImmutableArray<EngineObject.Resource>.Empty,
             range,
@@ -56,7 +56,7 @@ public class ComposerTests
     public void Compose_EmptyFrame_IntegerSecondDuration_MatchesGetSampleCount()
     {
         const int sampleRate = 48000;
-        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
         var frame = new CompositionFrame(
             ImmutableArray<EngineObject.Resource>.Empty,
             range,
@@ -86,7 +86,7 @@ public class ComposerTests
         sound.Source.Value = source;
 
         using var resource = (SourceSound.Resource)sound.ToResource(CompositionContext.Default);
-        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
         var frame = new CompositionFrame(
             ImmutableArray.Create((EngineObject.Resource)resource),
             range,

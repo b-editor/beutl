@@ -25,8 +25,8 @@ public class ElementObjectServiceTests
 
         _element = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(2),
             ZIndex = 0,
             Uri = new Uri(Path.Combine(_basePath, $"{Guid.NewGuid():N}.belm")),
         };

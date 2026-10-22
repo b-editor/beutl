@@ -10,11 +10,11 @@ internal static class RippleHelper
     public static void ShiftAfter(
         Scene scene,
         int zIndex,
-        TimeSpan anchorEnd,
-        TimeSpan delta,
+        MediaTime anchorEnd,
+        MediaTime delta,
         IReadOnlyCollection<Element> except)
     {
-        if (delta == TimeSpan.Zero) return;
+        if (delta == MediaTime.Zero) return;
 
         // A locked follower stays anchored — shifting it would bypass the lock.
         if (scene.IsLayerLocked(zIndex)) return;
@@ -32,11 +32,11 @@ internal static class RippleHelper
     public static void ShiftBefore(
         Scene scene,
         int zIndex,
-        TimeSpan anchorStart,
-        TimeSpan delta,
+        MediaTime anchorStart,
+        MediaTime delta,
         IReadOnlyCollection<Element> except)
     {
-        if (delta == TimeSpan.Zero) return;
+        if (delta == MediaTime.Zero) return;
 
         // A locked neighbor stays anchored — shifting it would bypass the lock.
         if (scene.IsLayerLocked(zIndex)) return;
@@ -51,7 +51,7 @@ internal static class RippleHelper
         // clip lands on it. Process in travel order — rightmost first for a right pull (delta > 0),
         // leftmost first for a left push (delta < 0) — so a block also halts the clips behind it.
         // The timeline floor for a left push is enforced by the caller's ClampRippleStart.
-        toShift = delta > TimeSpan.Zero
+        toShift = delta > MediaTime.Zero
             ? toShift.OrderByDescending(e => e.Start)
             : toShift.OrderBy(e => e.Start);
 
@@ -64,7 +64,7 @@ internal static class RippleHelper
             .Where(e => e.ZIndex == zIndex && scene.IsElementLocked(e))
             .ToArray();
 
-    private static void ShiftUntilBlocked(IEnumerable<Element> candidates, TimeSpan delta, Element[] lockedOnLayer)
+    private static void ShiftUntilBlocked(IEnumerable<Element> candidates, MediaTime delta, Element[] lockedOnLayer)
     {
         foreach (Element e in candidates)
         {
@@ -80,7 +80,7 @@ internal static class RippleHelper
     // non-contiguous multi-element ripple correct.
     public static void ShiftAfterRemoved(
         Scene scene,
-        IReadOnlyList<(int ZIndex, TimeSpan End, TimeSpan Length)> removed)
+        IReadOnlyList<(int ZIndex, MediaTime End, MediaTime Length)> removed)
     {
         foreach (var r in removed.OrderByDescending(r => r.End))
         {
@@ -98,7 +98,7 @@ internal static class RippleHelper
         ArgumentNullException.ThrowIfNull(elements);
         ArgumentNullException.ThrowIfNull(removeElement);
 
-        (int ZIndex, TimeSpan End, TimeSpan Length)[] removed = ripple
+        (int ZIndex, MediaTime End, MediaTime Length)[] removed = ripple
             ? elements.Select(e => (e.ZIndex, e.Range.End, e.Length)).ToArray()
             : [];
 

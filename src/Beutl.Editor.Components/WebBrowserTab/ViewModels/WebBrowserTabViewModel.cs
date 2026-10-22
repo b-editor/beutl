@@ -98,9 +98,9 @@ internal sealed class WebBrowserTabViewModel : IToolContext
         int layer = scene.Children.Select(element => element.ZIndex).DefaultIfEmpty(-1).Max() + 1;
         while (layer < 10_000 && (scene.IsLayerLocked(layer) || scene.IsLayerLocked(layer + 1))) layer++;
         if (layer >= 10_000) throw new InvalidOperationException(Strings.WebBrowserActionFailed);
-        TimeSpan start = (_editorContext.GetService(typeof(IEditorClock)) as IEditorClock)?.CurrentTime.Value ?? TimeSpan.Zero;
+        MediaTime start = (_editorContext.GetService(typeof(IEditorClock)) as IEditorClock)?.CurrentTime.Value ?? MediaTime.Zero;
         ElementAddResult result = await ((IElementAdder)_editorContext.GetService(typeof(IElementAdder))!).AddAsync(
-            [new ElementDescription(start, TimeSpan.FromSeconds(5), layer, new ElementSource.File(fileName))], cancellationToken);
+            [new ElementDescription(start, MediaTime.FromSeconds(5), layer, new ElementSource.File(fileName))], cancellationToken);
         if (!result.IsSuccess)
             throw new InvalidOperationException(result.Failure!.Message, result.Failure.Exception);
     }

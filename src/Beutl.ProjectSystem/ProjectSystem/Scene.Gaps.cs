@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.JsonConverters;
+using Beutl.Media;
 
 namespace Beutl.ProjectSystem;
 
@@ -21,7 +22,7 @@ public partial class Scene
 
             // The anchor is the run's furthest-ending element, so it ends exactly at the gap start.
             Element coveredEndElement = sorted[0];
-            TimeSpan coveredEnd = coveredEndElement.Range.End;
+            MediaTime coveredEnd = coveredEndElement.Range.End;
             for (int i = 1; i < sorted.Count; i++)
             {
                 Element next = sorted[i];
@@ -111,12 +112,12 @@ public partial class Scene
     // the first locked start-group, so nothing at or beyond it shifts across the lock (elements before
     // it only move further left, never onto a lock).
     // Grouping by Start keeps same-start elements atomic, independent of Children enumeration order.
-    private Element[] ShiftableAfter(int zIndex, TimeSpan fromStart)
+    private Element[] ShiftableAfter(int zIndex, MediaTime fromStart)
     {
         if (IsLayerLocked(zIndex)) return [];
 
         var result = new List<Element>();
-        foreach (IGrouping<TimeSpan, Element> startGroup in Children
+        foreach (IGrouping<MediaTime, Element> startGroup in Children
             .Where(e => e.ZIndex == zIndex && e.Start >= fromStart)
             .GroupBy(e => e.Start)
             .OrderBy(g => g.Key))
@@ -129,9 +130,9 @@ public partial class Scene
         return [.. result];
     }
 
-    private bool MoveChildrenAndDetectChange(Element[] elements, TimeSpan deltaStart)
+    private bool MoveChildrenAndDetectChange(Element[] elements, MediaTime deltaStart)
     {
-        TimeSpan[] originalStarts = elements.Select(e => e.Start).ToArray();
+        MediaTime[] originalStarts = elements.Select(e => e.Start).ToArray();
 
         MoveChildren(0, deltaStart, elements);
 
@@ -158,11 +159,13 @@ public partial class Scene
     /// a shortened or offset scene) is still reachable through its visible portion. The returned gap is
     /// the raw gap, unclamped — the caller decides how to clamp it for display.
     /// </param>
-    public SceneGap? FindNextGap(TimeSpan currentTime, TimeRange searchRange)
+    public SceneGap? FindNextGap(MediaTime currentTime, TimeRange searchRange)
     {
+        // A gap start within a tick of a frame, as after a clip from a template, counts as that frame.
+        Rational rate = this.FindHierarchicalParent<Project>().GetFrameRate();
         return EnumerateGaps()
             .Select(g => (Raw: g, Visible: ClampGap(g, searchRange)))
-            .Where(x => x.Visible is { } v && v.Range.Start >= currentTime)
+            .Where(x => x.Visible is { } v && MediaTimeJsonConverter.SnapToFrame(v.Range.Start, rate) >= currentTime)
             .OrderBy(x => x.Visible!.Value.Range.Start)
             .ThenBy(x => x.Visible!.Value.Range.End)
             .Select(x => (SceneGap?)x.Raw)
@@ -180,7 +183,7 @@ public partial class Scene
     /// gap's intersection with the range, so a gap straddling the range stays reachable through its
     /// visible portion. The returned gap is the raw gap, unclamped.
     /// </param>
-    public SceneGap? FindPreviousGap(TimeSpan currentTime, TimeRange searchRange)
+    public SceneGap? FindPreviousGap(MediaTime currentTime, TimeRange searchRange)
     {
         return EnumerateGaps()
             .Select(g => (Raw: g, Visible: ClampGap(g, searchRange)))
@@ -193,10 +196,10 @@ public partial class Scene
 
     /// <summary>
     /// Returns the gap on <paramref name="zIndex"/> that contains <paramref name="time"/> (half-open,
-    /// like <see cref="TimeRange.Contains(TimeSpan)"/>), or <see langword="null"/> when the point is
+    /// like <see cref="TimeRange.Contains(MediaTime)"/>), or <see langword="null"/> when the point is
     /// not inside a gap on that layer. Used to close the gap under a right-click position.
     /// </summary>
-    public SceneGap? FindGapAt(TimeSpan time, int zIndex)
+    public SceneGap? FindGapAt(MediaTime time, int zIndex)
     {
         return EnumerateGaps()
             .Where(g => g.ZIndex == zIndex && g.Range.Contains(time))
@@ -209,8 +212,8 @@ public partial class Scene
     // edge yields no gap. A straddling gap contributes its in-range slice instead of being dropped.
     private static SceneGap? ClampGap(SceneGap gap, TimeRange range)
     {
-        TimeSpan start = gap.Range.Start > range.Start ? gap.Range.Start : range.Start;
-        TimeSpan end = gap.Range.End < range.End ? gap.Range.End : range.End;
+        MediaTime start = gap.Range.Start > range.Start ? gap.Range.Start : range.Start;
+        MediaTime end = gap.Range.End < range.End ? gap.Range.End : range.End;
         return end > start ? gap with { Range = new TimeRange(start, end - start) } : null;
     }
 }

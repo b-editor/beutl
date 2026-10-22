@@ -38,7 +38,7 @@ public sealed partial class QueryTools
         Scene scene = RequireSceneRoot(session);
         Guid? objectGuid = ParseOptionalGuid(objectId, nameof(objectId));
         Guid? elementGuid = ParseOptionalGuid(elementId, nameof(elementId));
-        TimeSpan time = ParseMeasurementTime(timeSeconds);
+        MediaTime time = ParseMeasurementTime(timeSeconds);
         bool timeFiltered = timeSeconds.HasValue;
 
         Element? selectedElement = ResolveSelectedElement(scene, elementGuid, elementId);
@@ -47,7 +47,7 @@ public sealed partial class QueryTools
         Size canvasSize = new(scene.FrameSize.Width, scene.FrameSize.Height);
         // timeSeconds is scene-relative like every other tool, but Element.Range and the engine's
         // composition clock live on the absolute timeline axis (renderers evaluate time + scene.Start).
-        TimeSpan absoluteTime = time + scene.Start;
+        MediaTime absoluteTime = time + scene.Start;
         // Auxiliary graph nodes (Measure / Preview) evaluate their own subtree during ToResource, before any
         // render request exists, and a bounds-unknown effect leaves them nothing finite to resolve against.
         // The frame is the domain the measurement itself composes into, so seed it the way SceneCompositor does.
@@ -86,7 +86,7 @@ public sealed partial class QueryTools
             scene.FrameSize.Width,
             scene.FrameSize.Height,
             new ObjectBoundsPoint(scene.FrameSize.Width / 2d, scene.FrameSize.Height / 2d),
-            time.ToString("c"),
+            time.ToTimeSpan().ToString("c"),
             timeFiltered,
             "Scene pixel coordinates. TransformedBounds are authoritative axis-aligned scene-space RenderNodeMeasurement.QueryBounds from contributing query fragments. LocalBounds are normalized from the query extents for size only and are not Drawable.MeasureCore results.",
             "Default Drawable AlignmentX/AlignmentY is Center, so a pure TranslateTransform(x, y) moves the object relative to the alignment-resolved position. For a centered object in a 1920x1080 scene, TranslateTransform(0, 0) centers it at (960, 540). Bounds are measured through DrawableRenderNode and RenderNodeRenderer.Measure().QueryBounds rather than per-type Drawable.Measure/FilterEffect.TransformBounds estimates.",
@@ -140,7 +140,7 @@ public sealed partial class QueryTools
         return drawable;
     }
 
-    private static bool ShouldSkipElement(Element element, Element? selectedElement, bool timeFiltered, TimeSpan absoluteTime)
+    private static bool ShouldSkipElement(Element element, Element? selectedElement, bool timeFiltered, MediaTime absoluteTime)
     {
         return (selectedElement is not null && element != selectedElement)
                || (timeFiltered && (!element.IsEnabled || !element.Range.Contains(absoluteTime)));
@@ -202,11 +202,11 @@ public sealed partial class QueryTools
             value));
     }
 
-    private static TimeSpan ParseMeasurementTime(double? timeSeconds)
+    private static MediaTime ParseMeasurementTime(double? timeSeconds)
     {
         if (timeSeconds is not { } seconds)
         {
-            return TimeSpan.Zero;
+            return MediaTime.Zero;
         }
 
         if (!double.IsFinite(seconds) || seconds < 0)
@@ -217,7 +217,7 @@ public sealed partial class QueryTools
                 seconds.ToString("R")));
         }
 
-        return TimeSpan.FromSeconds(seconds);
+        return MediaTime.FromSeconds(seconds);
     }
 
     private static ObjectBoundsMeasurement MeasureDrawable(
@@ -258,8 +258,8 @@ public sealed partial class QueryTools
         return new ObjectBoundsMeasurement(
             element.Id.ToString(),
             element.Name,
-            element.Start.ToString("c"),
-            element.Length.ToString("c"),
+            element.Start.ToTimeSpan().ToString("c"),
+            element.Length.ToTimeSpan().ToString("c"),
             element.ZIndex,
             drawable.Id.ToString(),
             drawable.Name,

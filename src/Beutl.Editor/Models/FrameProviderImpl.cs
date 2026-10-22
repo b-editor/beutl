@@ -19,7 +19,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     private readonly Scene _scene;
     private readonly Rational _rate;
     private readonly SceneRenderer _renderer;
-    private readonly Subject<TimeSpan> _progress;
+    private readonly Subject<MediaTime> _progress;
     private readonly long _frameCount;
     private readonly Channel<Bitmap> _channel;
     private readonly CancellationTokenSource _cts = new();
@@ -28,7 +28,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     private long _nextFrame;
     private bool _disposed;
 
-    public FrameProviderImpl(Scene scene, Rational rate, SceneRenderer renderer, Subject<TimeSpan> progress)
+    public FrameProviderImpl(Scene scene, Rational rate, SceneRenderer renderer, Subject<MediaTime> progress)
         : this(scene, rate, renderer, progress, RetainedRenderTargetCheckpoint.DefaultReleaseInterval)
     {
     }
@@ -37,7 +37,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         Scene scene,
         Rational rate,
         SceneRenderer renderer,
-        Subject<TimeSpan> progress,
+        Subject<MediaTime> progress,
         int retainedRenderTargetReleaseInterval)
     {
         _scene = scene;
@@ -68,7 +68,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
 
     public Rational FrameRate => _rate;
 
-    private Bitmap RenderCore(TimeSpan time)
+    private Bitmap RenderCore(MediaTime time)
     {
         var frame = _renderer.Compositor.EvaluateGraphics(time + _scene.Start);
         _renderer.Render(frame);
@@ -97,22 +97,18 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         return normalized;
     }
 
-    // rate.Numerator, rate.Denominatorを使ってできるだけ正確に
-    // (frame / (rate.Numerator / rate.Denominator)) * TimeSpan.TicksPerSecond
-    private TimeSpan FrameToTime(long frame)
-        => TimeSpan.FromTicks(frame * _rate.Denominator * TimeSpan.TicksPerSecond / _rate.Numerator);
+    private MediaTime FrameToTime(long frame) => MediaTime.FromFrames(frame, _rate);
 
-    // The number of frames in duration, rounded to the nearest frame. Frame-aligned scene lengths are
-    // truncated to whole ticks and fall just short of their frame count, so truncating here would drop
-    // the last frame
-    internal static long ToFrameCount(TimeSpan duration, Rational rate)
+    // The number of frames in duration, rounded to the nearest frame. A scene length written by hand can fall
+    // just short of its frame count, so truncating here would drop the last frame
+    internal static long ToFrameCount(MediaTime duration, Rational rate)
     {
         bool positiveRate = rate.Numerator != 0 && rate.Denominator != 0
             && long.IsNegative(rate.Numerator) == long.IsNegative(rate.Denominator);
-        if (duration <= TimeSpan.Zero || !positiveRate)
+        if (duration <= MediaTime.Zero || !positiveRate)
             return 0;
 
-        return MediaTime.FromTimeSpan(duration).ToFrame(rate, MidpointRounding.AwayFromZero);
+        return duration.ToFrame(rate, MidpointRounding.AwayFromZero);
     }
 
     private async ValueTask<Bitmap> RenderFrameCore(long frame, CancellationToken cancellationToken)

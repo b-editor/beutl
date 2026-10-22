@@ -9,7 +9,7 @@ public class ExpressionContextTests
     public void Constructor_ShouldSetProperties()
     {
         // Arrange
-        var time = TimeSpan.FromSeconds(5);
+        var time = MediaTime.FromSeconds(5);
         var context = TestHelper.CreateExpressionContext(time);
 
         // Assert
@@ -22,7 +22,7 @@ public class ExpressionContextTests
     public void CurrentProperty_CanBeChanged()
     {
         // Arrange
-        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var context = TestHelper.CreateExpressionContext(MediaTime.Zero);
         var newProperty = Property.CreateExpression(0.0);
 
         // Act
@@ -36,7 +36,7 @@ public class ExpressionContextTests
     public void IsEvaluating_WithoutBeginEvaluation_ShouldReturnFalse()
     {
         // Arrange
-        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var context = TestHelper.CreateExpressionContext(MediaTime.Zero);
         var property = Property.CreateExpression(0.0);
 
         // Act
@@ -52,7 +52,7 @@ public class ExpressionContextTests
         // Arrange
         var property1 = Property.CreateExpression(0.0);
         var property2 = Property.CreateExpression(0.0);
-        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var context = TestHelper.CreateExpressionContext(MediaTime.Zero);
 
         // Act
         context.BeginEvaluation(property1);

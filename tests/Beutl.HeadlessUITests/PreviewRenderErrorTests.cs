@@ -37,8 +37,8 @@ public class PreviewRenderErrorTests
     {
         var adder = (IElementAdder)editor.GetRequiredService<IElementAdder>();
         await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(2),
+            Start: MediaTime.Zero,
+            Length: MediaTime.FromSeconds(2),
             Layer: 0,
             Source: new ElementSource.EngineObject(() => drawable))],
             CancellationToken.None);
@@ -248,7 +248,7 @@ public class PreviewRenderErrorTests
 
         bool applied = editor.Player.ApplyPlaybackRenderFailure(
             new BufferedPlayer.RenderFailure(new InvalidOperationException(PreviewFaultDrawable.ErrorMessage), frame),
-            rate,
+            new Rational(rate),
             static () => true);
         // Check the synchronous failure state before pumping queued work: updating the clock
         // schedules a preview, and a successful recovery render may clear the error again.
@@ -257,7 +257,7 @@ public class PreviewRenderErrorTests
         {
             Assert.That(applied, Is.True);
             Assert.That(editor.Player.IsPlaying.Value, Is.False);
-            Assert.That(clock.CurrentTime.Value, Is.EqualTo(TimeSpan.FromSeconds((double)frame / rate)));
+            Assert.That(clock.CurrentTime.Value, Is.EqualTo(MediaTime.FromSeconds((double)frame / rate)));
             Assert.That(editor.FrameCacheManager.Value.CurrentFrame, Is.EqualTo(frame));
             Assert.That(
                 editor.Player.PreviewRenderError.Value,
@@ -357,7 +357,7 @@ public class PreviewRenderErrorTests
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("preview-error-order");
-        int rate = editor.Player.GetFrameRate();
+        Rational rate = editor.Player.GetFrameRate();
 
         bool applied = await Task.Run(() => editor.Player.ApplyPlaybackRenderFailure(
             new BufferedPlayer.RenderFailure(new InvalidOperationException(PreviewFaultDrawable.ErrorMessage), 0),

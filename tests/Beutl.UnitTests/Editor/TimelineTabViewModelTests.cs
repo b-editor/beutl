@@ -246,14 +246,14 @@ public class TimelineTabViewModelTests
 
     private sealed class TestEditorClock : IEditorClock
     {
-        private readonly ReactivePropertySlim<TimeSpan> _currentTime = new(TimeSpan.Zero);
+        private readonly ReactivePropertySlim<MediaTime> _currentTime = new(MediaTime.Zero);
 
-        public IReadOnlyReactiveProperty<TimeSpan> CurrentTime => _currentTime;
+        public IReadOnlyReactiveProperty<MediaTime> CurrentTime => _currentTime;
 
-        public IReadOnlyReactiveProperty<TimeSpan> MaximumTime { get; } =
-            new ReactivePropertySlim<TimeSpan>(TimeSpan.FromSeconds(30));
+        public IReadOnlyReactiveProperty<MediaTime> MaximumTime { get; } =
+            new ReactivePropertySlim<MediaTime>(MediaTime.FromSeconds(30));
 
-        public void Seek(TimeSpan time) => _currentTime.Value = time;
+        public void Seek(MediaTime time) => _currentTime.Value = time;
     }
 
     private sealed class TestEditorSelection : IEditorSelection

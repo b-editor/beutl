@@ -4,7 +4,7 @@ namespace Beutl.NodeGraph.Composition;
 
 public sealed class GraphCompositionContext : CompositionContext
 {
-    public GraphCompositionContext(TimeSpan time) : base(time)
+    public GraphCompositionContext(MediaTime time) : base(time)
     {
     }
 

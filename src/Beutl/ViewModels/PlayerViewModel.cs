@@ -11,6 +11,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics3D.Gizmo;
+using Beutl.JsonConverters;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -31,7 +32,7 @@ public enum PlaybackDirection
 
 public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, IFullScaleFrameRenderer
 {
-    private static readonly TimeSpan s_second = TimeSpan.FromSeconds(1);
+    private static readonly MediaTime s_second = MediaTime.FromSeconds(1);
     // Bound the native audio/backend wait. Scene composition and rendering are drained separately
     // before Pause completes: abandoning a backend task does not mean it has stopped reading the scene.
     private static readonly TimeSpan s_pauseTimeout = TimeSpan.FromSeconds(5);
@@ -105,47 +106,47 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         Next = new ReactiveCommand(_isEnabled)
             .WithSubscribe(() =>
             {
-                int rate = GetFrameRate();
-                UpdateCurrentFrame(_editorClock.CurrentTime.Value + TimeSpan.FromSeconds(1d / rate));
+                Rational rate = GetFrameRate();
+                UpdateCurrentFrame(_editorClock.CurrentTime.Value + MediaTime.FromFrames(1, rate));
             })
             .DisposeWith(_disposables);
 
         Previous = new ReactiveCommand(_isEnabled)
             .WithSubscribe(() =>
             {
-                int rate = GetFrameRate();
-                UpdateCurrentFrame(_editorClock.CurrentTime.Value - TimeSpan.FromSeconds(1d / rate));
+                Rational rate = GetFrameRate();
+                UpdateCurrentFrame(_editorClock.CurrentTime.Value - MediaTime.FromFrames(1, rate));
             })
             .DisposeWith(_disposables);
 
         Start = new ReactiveCommand(_isEnabled)
             .WithSubscribe(() =>
             {
-                int rate = GetFrameRate();
-                var endTime = Scene.Start + Scene.Duration - TimeSpan.FromSeconds(1d / rate);
+                (MediaTime startTime, MediaTime endTime) = GetFirstAndLastFrames();
                 // 現在の時間がスタートと同じ場合、0に移動
                 _editorClock.Seek(
                     _editorClock.CurrentTime.Value > endTime
                         ? endTime
-                        : _editorClock.CurrentTime.Value > Scene.Start
-                            ? Scene.Start
-                            : TimeSpan.Zero);
+                        : _editorClock.CurrentTime.Value > startTime
+                            ? startTime
+                            : MediaTime.Zero);
             })
             .DisposeWith(_disposables);
 
         End = new ReactiveCommand(_isEnabled)
             .WithSubscribe(() =>
             {
-                int rate = GetFrameRate();
-                var endTime = Scene.Start + Scene.Duration - TimeSpan.FromSeconds(1d / rate);
+                Rational rate = GetFrameRate();
+                MediaTime frame = MediaTime.FromFrames(1, rate);
+                (MediaTime startTime, MediaTime endTime) = GetFirstAndLastFrames();
                 _editorClock.Seek(
-                    _editorClock.CurrentTime.Value < Scene.Start
-                        ? Scene.Start
+                    _editorClock.CurrentTime.Value < startTime
+                        ? startTime
                         : _editorClock.CurrentTime.Value < endTime
                             ? endTime
                             : Scene.Children.Count > 0
-                                ? Scene.Children.Max(i => i.Start + i.Length) - TimeSpan.FromSeconds(1d / rate)
-                                : TimeSpan.Zero);
+                                ? Scene.Children.Max(i => i.Start + i.Length) - frame
+                                : MediaTime.Zero);
             })
             .DisposeWith(_disposables);
 
@@ -171,10 +172,10 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             .Select(i =>
             {
                 // このDurationはSliderの最大値に使うので、一フレーム分を引く
-                var frame = TimeSpan.FromSeconds(1.0 / GetFrameRate());
-                return TimeSpan.FromTicks(Math.Max(
-                    Math.Max(i.First.Ticks - frame.Ticks, i.Second.Ticks + i.Third.Ticks - frame.Ticks),
-                    i.Fourth.Ticks));
+                var frame = MediaTime.FromFrames(1, GetFrameRate());
+                return new MediaTime(Math.Max(
+                    Math.Max(i.First.Flicks - frame.Flicks, i.Second.Flicks + i.Third.Flicks - frame.Flicks),
+                    i.Fourth.Flicks));
             })
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
@@ -356,9 +357,9 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
 
     public ReactivePropertySlim<bool> IsLoopEnabled { get; } = new(false);
 
-    public ReactiveProperty<TimeSpan> CurrentFrame { get; }
+    public ReactiveProperty<MediaTime> CurrentFrame { get; }
 
-    public ReadOnlyReactiveProperty<TimeSpan> Duration { get; }
+    public ReadOnlyReactiveProperty<MediaTime> Duration { get; }
 
     public AsyncReactiveCommand PlayPause { get; }
 
@@ -500,9 +501,10 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     {
         Scene scene = null!;
         FrameCacheManager frameCacheManager = null!;
-        int rate = 0, sampleRate = 0;
+        Rational rate = default;
+        int sampleRate = 0;
         PlaybackRange range = default;
-        TimeSpan startTime = default;
+        MediaTime startTime = default;
         bool ready = false;
         // Startup can resume after a timeout or disposal. Capture editor state while the session
         // still owns it; no native calls or composition run inside this short ownership lock.
@@ -539,7 +541,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             return false;
         }
 
-        TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
+        TimeSpan tick = TimeSpan.FromSeconds(1d / rate.ToDouble());
         PlaybackTicker? ticker = null;
         try
         {
@@ -563,7 +565,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             await clock.StartedTask;
 
             ticker = new PlaybackTicker(
-                this, generation, playerImpl, clock, rate, tick, range.StartFrame, range.EndFrame, startTime,
+                this, generation, playerImpl, clock, rate, range.StartFrame, range.EndFrame, startTime,
                 DateTime.UtcNow);
 
             await using var timer = new Timer(ticker.OnTick, null, tick, tick);
@@ -617,8 +619,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             {
                 // Runs even when an IsPlaying subscriber throws, so the preview follows the playhead and edits again.
                 BufferStatusViewModel bufferStatus = EditViewModel.BufferStatus;
-                bufferStatus.StartTime.Value = TimeSpan.Zero;
-                bufferStatus.EndTime.Value = TimeSpan.Zero;
+                bufferStatus.StartTime.Value = MediaTime.Zero;
+                bufferStatus.EndTime.Value = MediaTime.Zero;
                 FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
                 frameCacheManager.Options = frameCacheManager.Options with
                 {
@@ -642,15 +644,15 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         }
     }
 
-    public int GetFrameRate()
-    {
-        int rate = Project?.GetFrameRate() ?? 30;
-        if (rate <= 0)
-        {
-            rate = 30;
-        }
+    public Rational GetFrameRate() => Project.GetFrameRate();
 
-        return rate;
+    // The scene's first and last frames, where a start or end within a tick of a frame counts as that frame.
+    private (MediaTime First, MediaTime Last) GetFirstAndLastFrames()
+    {
+        Rational rate = GetFrameRate();
+        Scene scene = Scene!;
+        MediaTime end = MediaTimeJsonConverter.SnapToFrame(scene.Start + scene.Duration, rate);
+        return (MediaTimeJsonConverter.SnapToFrame(scene.Start, rate), end - MediaTime.FromFrames(1, rate));
     }
 
     public void ToggleLoop()

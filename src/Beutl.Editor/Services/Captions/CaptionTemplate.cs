@@ -14,11 +14,11 @@ public sealed record CaptionElementContext
         int layer,
         string elementName,
         Point defaultPosition = default,
-        TimeSpan? minimumLength = null)
+        MediaTime? minimumLength = null)
     {
         ArgumentNullException.ThrowIfNull(elementName);
-        TimeSpan resolvedMinimumLength = minimumLength ?? TimeSpan.FromSeconds(0.5);
-        if (resolvedMinimumLength <= TimeSpan.Zero)
+        MediaTime resolvedMinimumLength = minimumLength ?? MediaTime.FromSeconds(0.5);
+        if (resolvedMinimumLength <= MediaTime.Zero)
             throw new ArgumentOutOfRangeException(nameof(minimumLength));
 
         Layer = layer;
@@ -33,7 +33,7 @@ public sealed record CaptionElementContext
 
     public Point DefaultPosition { get; }
 
-    public TimeSpan MinimumLength { get; }
+    public MediaTime MinimumLength { get; }
 
     public ElementDescription CreateDescription(
         CaptionCue cue,
@@ -45,9 +45,9 @@ public sealed record CaptionElementContext
         ArgumentNullException.ThrowIfNull(cue);
         ArgumentNullException.ThrowIfNull(engineObjectFactory);
 
-        TimeSpan cueLength = cue.End > cue.Start ? cue.End - cue.Start : TimeSpan.Zero;
+        MediaTime cueLength = cue.End > cue.Start ? MediaTime.FromTimeSpan(cue.End - cue.Start) : MediaTime.Zero;
         return new ElementDescription(
-            Start: cue.Start,
+            Start: MediaTime.FromTimeSpan(cue.Start),
             Length: cueLength < MinimumLength ? MinimumLength : cueLength,
             Layer: checked(Layer + layerOffset),
             Source: new ElementSource.EngineObject(engineObjectFactory),
@@ -71,8 +71,8 @@ public interface ICaptionElementFactory
 public sealed record CaptionElementPlacement
 {
     public CaptionElementPlacement(
-        TimeSpan start,
-        TimeSpan? length,
+        MediaTime start,
+        MediaTime? length,
         int layer,
         string name,
         Point? position)
@@ -85,9 +85,9 @@ public sealed record CaptionElementPlacement
         Position = position;
     }
 
-    public TimeSpan Start { get; init; }
+    public MediaTime Start { get; init; }
 
-    public TimeSpan? Length { get; init; }
+    public MediaTime? Length { get; init; }
 
     public int Layer { get; init; }
 

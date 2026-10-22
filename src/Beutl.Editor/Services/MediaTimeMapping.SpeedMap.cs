@@ -51,23 +51,23 @@ internal sealed partial class MediaTimeMapping
             _integrator.EnsureCache(null);
         }
 
-        public Interval Map(Interval time, TimeSpan ownerStart, bool extrapolate = false, bool conservative = false)
+        public Interval Map(Interval time, MediaTime ownerStart, bool extrapolate = false, bool conservative = false)
         {
             if (conservative && _animation == null)
             {
-                TimeSpan Bound(TimeSpan value, bool upper)
+                MediaTime Bound(MediaTime value, bool upper)
                 {
-                    double ticks = value.Ticks * (_constant / 100d);
-                    return TimeSpan.FromTicks((long)Math.Clamp(upper ? Math.Ceiling(ticks) : Math.Floor(ticks),
+                    double flicks = value.Flicks * (_constant / 100d);
+                    return new MediaTime((long)Math.Clamp(upper ? Math.Ceiling(flicks) : Math.Floor(flicks),
                         long.MinValue + 1d, long.MaxValue - 1024d));
                 }
                 return new Interval(Bound(time.Min, false), Bound(time.Max, true));
             }
-            TimeSpan a = At(time.Min, ownerStart, extrapolate, out TimeSpan errorA);
-            TimeSpan b = At(time.Max, ownerStart, extrapolate, out TimeSpan errorB);
+            MediaTime a = At(time.Min, ownerStart, extrapolate, out MediaTime errorA);
+            MediaTime b = At(time.Max, ownerStart, extrapolate, out MediaTime errorB);
             if (!conservative) return Interval.Between(a, b);
-            TimeSpan lower = Add(a, -errorA);
-            TimeSpan upper = Add(b, errorB);
+            MediaTime lower = Add(a, -errorA);
+            MediaTime upper = Add(b, errorB);
             if (_editorIntegral != null && IsSupported)
             {
                 Interval startBounds = DeclaredBounds(time.Min, ownerStart, extrapolate);
@@ -78,98 +78,98 @@ internal sealed partial class MediaTimeMapping
             return new Interval(lower, upper);
         }
 
-        private Interval DeclaredBounds(TimeSpan localTime, TimeSpan ownerStart, bool extrapolate)
+        private Interval DeclaredBounds(MediaTime localTime, MediaTime ownerStart, bool extrapolate)
         {
-            TimeSpan from = _animation!.UseGlobalClock ? ownerStart : TimeSpan.Zero;
-            TimeSpan to = from + localTime;
-            if (!extrapolate) { from = Max(from, TimeSpan.Zero); to = Max(to, TimeSpan.Zero); }
-            TimeSpan duration = to - from;
-            if (duration == TimeSpan.Zero) return new Interval(TimeSpan.Zero, TimeSpan.Zero);
+            MediaTime from = _animation!.UseGlobalClock ? ownerStart : MediaTime.Zero;
+            MediaTime to = from + localTime;
+            if (!extrapolate) { from = Max(from, MediaTime.Zero); to = Max(to, MediaTime.Zero); }
+            MediaTime duration = to - from;
+            if (duration == MediaTime.Zero) return new Interval(MediaTime.Zero, MediaTime.Zero);
             Interval bounds = Interval.Between(Scale(duration, _minimum), Scale(duration, _maximum));
-            TimeSpan lower = Add(bounds.Min, -TimeSpan.FromTicks(1));
-            TimeSpan upper = Add(bounds.Max, TimeSpan.FromTicks(1));
-            if (duration > TimeSpan.Zero) lower = Max(lower, TimeSpan.Zero);
-            else upper = Min(upper, TimeSpan.Zero);
+            MediaTime lower = Add(bounds.Min, -new MediaTime(1));
+            MediaTime upper = Add(bounds.Max, new MediaTime(1));
+            if (duration > MediaTime.Zero) lower = Max(lower, MediaTime.Zero);
+            else upper = Min(upper, MediaTime.Zero);
             return new Interval(lower, upper);
         }
 
-        private TimeSpan At(TimeSpan localTime, TimeSpan ownerStart, bool extrapolate, out TimeSpan error)
+        private MediaTime At(MediaTime localTime, MediaTime ownerStart, bool extrapolate, out MediaTime error)
         {
-            error = TimeSpan.Zero;
+            error = MediaTime.Zero;
             if (_animation == null) return Scale(localTime, _constant);
-            if (localTime == TimeSpan.Zero) return TimeSpan.Zero;
+            if (localTime == MediaTime.Zero) return MediaTime.Zero;
             if (!_animation.UseGlobalClock) return Integrate(localTime, extrapolate, out error);
             if (_editorIntegral != null && _animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 } keys)
             {
-                TimeSpan from = extrapolate ? ownerStart : Max(ownerStart, TimeSpan.Zero);
-                TimeSpan to = extrapolate ? localTime + ownerStart : Max(localTime + ownerStart, TimeSpan.Zero);
-                TimeSpan first = Min(TimeSpan.Zero, keys.KeyFrames[0].KeyTime);
-                TimeSpan last = Max(TimeSpan.Zero, keys.KeyFrames[^1].KeyTime);
+                MediaTime from = extrapolate ? ownerStart : Max(ownerStart, MediaTime.Zero);
+                MediaTime to = extrapolate ? localTime + ownerStart : Max(localTime + ownerStart, MediaTime.Zero);
+                MediaTime first = Min(MediaTime.Zero, keys.KeyFrames[0].KeyTime);
+                MediaTime last = Max(MediaTime.Zero, keys.KeyFrames[^1].KeyTime);
                 if (from >= first && from <= last && to >= first && to <= last)
                 {
                     EditorSpeedIntegral.Estimate estimate = _editorIntegral.Integrate(from, to);
-                    error = TimeSpan.FromTicks((long)Math.Ceiling(estimate.Error * TimeSpan.TicksPerSecond));
-                    return TimeSpan.FromSeconds(estimate.Seconds);
+                    error = new MediaTime((long)Math.Ceiling(estimate.Error * MediaTime.FlicksPerSecond));
+                    return MediaTime.FromSeconds(estimate.Seconds);
                 }
             }
-            TimeSpan end = Integrate(localTime + ownerStart, extrapolate, out TimeSpan endError);
-            TimeSpan start = Integrate(ownerStart, extrapolate, out TimeSpan startError);
+            MediaTime end = Integrate(localTime + ownerStart, extrapolate, out MediaTime endError);
+            MediaTime start = Integrate(ownerStart, extrapolate, out MediaTime startError);
             error = Add(endError, startError);
             return end - start;
         }
 
-        private TimeSpan Integrate(TimeSpan time, bool extrapolate, out TimeSpan error)
+        private MediaTime Integrate(MediaTime time, bool extrapolate, out MediaTime error)
         {
-            error = TimeSpan.Zero;
-            if (!extrapolate && time < TimeSpan.Zero) return TimeSpan.Zero;
+            error = MediaTime.Zero;
+            if (!extrapolate && time < MediaTime.Zero) return MediaTime.Zero;
             if (_constantAnimation is { } constant) return Scale(time, constant);
             // Keyframe animations hold their endpoint values. Avoid sampling hours of
             // constant tail when finding an inverse, especially at audio sample rates.
             if (_animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 } keys)
             {
-                TimeSpan last = Max(TimeSpan.Zero, keys.KeyFrames[^1].KeyTime);
+                MediaTime last = Max(MediaTime.Zero, keys.KeyFrames[^1].KeyTime);
                 if (time > last)
                     return Add(Integrate(last, extrapolate, out error), Scale(time - last, keys.Interpolate(last)));
-                TimeSpan first = Min(TimeSpan.Zero, keys.KeyFrames[0].KeyTime);
+                MediaTime first = Min(MediaTime.Zero, keys.KeyFrames[0].KeyTime);
                 if (time < first)
                     return Add(Integrate(first, extrapolate, out error), Scale(time - first, keys.Interpolate(first)));
             }
             if (_editorIntegral != null)
             {
                 EditorSpeedIntegral.Estimate estimate = _editorIntegral.Integrate(time);
-                error = TimeSpan.FromTicks((long)Math.Ceiling(estimate.Error * TimeSpan.TicksPerSecond));
-                return TimeSpan.FromSeconds(estimate.Seconds);
+                error = new MediaTime((long)Math.Ceiling(estimate.Error * MediaTime.FlicksPerSecond));
+                return MediaTime.FromSeconds(estimate.Seconds);
             }
-            if (time < TimeSpan.Zero) return IntegrateNegative(time);
+            if (time < MediaTime.Zero) return IntegrateNegative(time);
             return _integrator.Integrate(time, _animation!);
         }
 
-        private TimeSpan IntegrateNegative(TimeSpan time)
+        private MediaTime IntegrateNegative(MediaTime time)
         {
             // Trimming earlier needs signed pre-roll, including curves whose keys
             // already lie before zero after a split. Playback's integrator only
             // samples nonnegative times, so accumulate this side on the same grid.
             int rate = _integrator.SampleRate;
-            int seconds = (int)Math.Floor(-time.TotalSeconds);
+            int seconds = (int)Math.Floor(-time.ToSeconds());
             while (_negativeSeconds.Count <= seconds)
             {
                 int second = _negativeSeconds.Count - 1;
                 double value = _negativeSeconds[^1];
                 for (int i = 1; i <= rate; i++)
-                    value -= _animation!.Interpolate(TimeSpan.FromSeconds(-second - i / (double)rate)) / (100d * rate);
+                    value -= _animation!.Interpolate(MediaTime.FromSeconds(-second - i / (double)rate)) / (100d * rate);
                 _negativeSeconds.Add(value);
             }
-            double samples = -time.TotalSeconds * rate;
+            double samples = -time.ToSeconds() * rate;
             long wholeSamples = (long)samples;
             double sum = _negativeSeconds[seconds];
             for (long i = (long)seconds * rate + 1; i <= wholeSamples; i++)
-                sum -= _animation!.Interpolate(TimeSpan.FromSeconds(-i / (double)rate)) / (100d * rate);
+                sum -= _animation!.Interpolate(MediaTime.FromSeconds(-i / (double)rate)) / (100d * rate);
             sum -= _animation!.Interpolate(time) * (samples - wholeSamples) / (100d * rate);
-            return TimeSpan.FromSeconds(sum);
+            return MediaTime.FromSeconds(sum);
         }
 
-        private static TimeSpan Scale(TimeSpan time, float percent)
-            => TimeSpan.FromTicks((long)Math.Clamp(Math.Round(time.Ticks * (percent / 100d), MidpointRounding.AwayFromZero),
+        private static MediaTime Scale(MediaTime time, float percent)
+            => new MediaTime((long)Math.Clamp(Math.Round(time.Flicks * (percent / 100d), MidpointRounding.AwayFromZero),
                 long.MinValue + 1d, long.MaxValue - 1024d));
     }
 }

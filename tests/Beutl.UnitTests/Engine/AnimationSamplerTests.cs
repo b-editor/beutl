@@ -25,7 +25,7 @@ public class AnimationSamplerTests
     {
         var property = Property.CreateAnimatable(from);
         property.SetAttributes("Value", []);
-        property.SetKeyFrameAnimation(TestAnimations.Linear(from, to, TimeSpan.FromSeconds(durationSeconds)));
+        property.SetKeyFrameAnimation(TestAnimations.Linear(from, to, MediaTime.FromSeconds(durationSeconds)));
         return property;
     }
 
@@ -36,7 +36,7 @@ public class AnimationSamplerTests
 
         var property = Property.CreateAnimatable(from);
         property.SetAttributes("Value", []);
-        property.SetKeyFrameAnimation(TestAnimations.Linear(from, to, TimeSpan.FromSeconds(durationSeconds), useGlobalClock));
+        property.SetKeyFrameAnimation(TestAnimations.Linear(from, to, MediaTime.FromSeconds(durationSeconds), useGlobalClock));
         property.SetOwnerObject(owner);
         return (property, owner);
     }
@@ -52,7 +52,7 @@ public class AnimationSamplerTests
         static void Invoke(AnimationSampler sampler)
         {
             Span<float> b = stackalloc float[8];
-            sampler.SampleBuffer<float>(null!, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 8, b);
+            sampler.SampleBuffer<float>(null!, new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)), 8, b);
         }
     }
 
@@ -65,7 +65,7 @@ public class AnimationSamplerTests
         property.Value = 9.5f;
 
         Span<float> buffer = stackalloc float[4];
-        sampler.SampleBuffer(property, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 4, buffer);
+        sampler.SampleBuffer(property, new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)), 4, buffer);
 
         for (int i = 0; i < buffer.Length; i++)
         {
@@ -80,7 +80,7 @@ public class AnimationSamplerTests
         var property = AnimatedFloat(0f, 10f, 1.0);
 
         Span<float> buffer = stackalloc float[10];
-        sampler.SampleBuffer(property, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 10, buffer);
+        sampler.SampleBuffer(property, new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)), 10, buffer);
 
         Assert.That(buffer[0], Is.EqualTo(0f).Within(1e-3));
         for (int i = 1; i < buffer.Length; i++)
@@ -96,7 +96,7 @@ public class AnimationSamplerTests
         var property = AnimatedFloat(0f, 100f, 1.0);
 
         Span<float> buffer = stackalloc float[1];
-        sampler.SampleBuffer(property, new TimeRange(TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(0.5)), 4, buffer);
+        sampler.SampleBuffer(property, new TimeRange(MediaTime.FromSeconds(0.5), MediaTime.FromSeconds(0.5)), 4, buffer);
 
         Assert.That(buffer[0], Is.EqualTo(50f).Within(1f));
     }
@@ -108,7 +108,7 @@ public class AnimationSamplerTests
         var property = AnimatedFloat(0f, 10f, 1.0);
 
         Assert.DoesNotThrow(() => sampler.SampleBuffer(
-            property, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 4, Span<float>.Empty));
+            property, new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)), 4, Span<float>.Empty));
     }
 
     // 音声グラフでは ClipNode が要素ローカル時刻に変換した context を下流に流すため、
@@ -121,14 +121,14 @@ public class AnimationSamplerTests
             from: 0f,
             to: 100f,
             durationSeconds: 1.0,
-            ownerTimeRange: new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1)),
+            ownerTimeRange: new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(1)),
             useGlobalClock: false);
 
         Span<float> buffer = stackalloc float[10];
         // production と同じく ClipNode 通過後のローカル range (0..1s) を渡す。
         sampler.SampleBuffer(
             property,
-            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+            new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)),
             10,
             buffer);
 
@@ -151,15 +151,15 @@ public class AnimationSamplerTests
             from: 0f,
             to: 100f,
             durationSeconds: 6.0,
-            ownerTimeRange: new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1)),
+            ownerTimeRange: new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(1)),
             useGlobalClock: useGlobalClock);
 
         Span<float> buffer = stackalloc float[10];
-        sampler.SampleBuffer(property, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 10, buffer);
+        sampler.SampleBuffer(property, new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)), 10, buffer);
 
         for (int i = 0; i < buffer.Length; i++)
         {
-            var time = owner.TimeRange.Start + TimeSpan.FromSeconds(i / 10.0);
+            var time = owner.TimeRange.Start + MediaTime.FromSeconds(i / 10.0);
             Assert.That(buffer[i], Is.EqualTo(property.Evaluate(new CompositionContext(time))), $"sample {i}");
         }
     }
@@ -172,7 +172,7 @@ public class AnimationSamplerTests
             from: 0f,
             to: 100f,
             durationSeconds: 1.0,
-            ownerTimeRange: new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1)),
+            ownerTimeRange: new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(1)),
             useGlobalClock: true);
 
         Span<float> buffer = stackalloc float[10];
@@ -181,7 +181,7 @@ public class AnimationSamplerTests
         // 最後の値 (100) で保持されることを期待する。
         sampler.SampleBuffer(
             property,
-            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+            new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)),
             10,
             buffer);
 

@@ -16,7 +16,7 @@ public class UndoRedoTests
     [SetUp]
     public void SetUp()
     {
-        _harness = new SceneHistoryHarness("beutl-e2e-history", start: TimeSpan.Zero, duration: TimeSpan.FromSeconds(120));
+        _harness = new SceneHistoryHarness("beutl-e2e-history", start: MediaTime.Zero, duration: MediaTime.FromSeconds(120));
         _scene = _harness.Scene;
         _history = _harness.History;
     }
@@ -29,17 +29,17 @@ public class UndoRedoTests
     {
         var attributes = new ElementAttributeService(_history);
         var move = new ElementMoveService(_history, new ElementDuplicateService(_history));
-        Element element = _harness.AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0);
+        Element element = _harness.AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0);
 
         bool originalEnabled = element.IsEnabled;
         Color originalColor = element.AccentColor;
-        TimeSpan originalStart = element.Start;
+        MediaTime originalStart = element.Start;
         int originalZ = element.ZIndex;
 
         var newColor = Color.FromArgb(255, 11, 22, 33);
         attributes.SetEnabled(element, false);
         attributes.SetAccentColor(element, newColor);
-        move.Move(_scene, [element], TimeSpan.FromSeconds(3), 2);
+        move.Move(_scene, [element], MediaTime.FromSeconds(3), 2);
 
         Assert.Multiple(() =>
         {
@@ -48,7 +48,7 @@ public class UndoRedoTests
             Assert.That(_history.CanRedo, Is.False);
             Assert.That(element.IsEnabled, Is.False);
             Assert.That(element.AccentColor, Is.EqualTo(newColor));
-            Assert.That(element.Start, Is.EqualTo(originalStart + TimeSpan.FromSeconds(3)));
+            Assert.That(element.Start, Is.EqualTo(originalStart + MediaTime.FromSeconds(3)));
             Assert.That(element.ZIndex, Is.EqualTo(2));
         });
 
@@ -82,7 +82,7 @@ public class UndoRedoTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(originalStart + TimeSpan.FromSeconds(3)));
+            Assert.That(element.Start, Is.EqualTo(originalStart + MediaTime.FromSeconds(3)));
             Assert.That(element.ZIndex, Is.EqualTo(2));
             Assert.That(_history.UndoCount, Is.EqualTo(3));
             Assert.That(_history.CanRedo, Is.False);
@@ -94,7 +94,7 @@ public class UndoRedoTests
     public void New_edit_after_undo_truncates_the_redo_branch()
     {
         var attributes = new ElementAttributeService(_history);
-        Element element = _harness.AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0);
+        Element element = _harness.AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0);
 
         attributes.SetEnabled(element, false);
         attributes.SetAccentColor(element, Color.FromArgb(255, 1, 1, 1));
@@ -119,11 +119,11 @@ public class UndoRedoTests
     {
         var attributes = new ElementAttributeService(_history);
         var resize = new ElementResizeService(_history);
-        Element element = _harness.AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0);
-        TimeSpan originalLength = element.Length;
+        Element element = _harness.AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0);
+        MediaTime originalLength = element.Length;
 
         attributes.SetEnabled(element, false);
-        resize.Resize(_scene, [new ElementResizeRequest(element, element.Start, TimeSpan.FromSeconds(5), element.ZIndex)]);
+        resize.Resize(_scene, [new ElementResizeRequest(element, element.Start, MediaTime.FromSeconds(5), element.ZIndex)]);
         attributes.SetAccentColor(element, Color.FromArgb(255, 7, 7, 7));
 
         // Commits push entries onto the initial one, so there are 4 entries (index 0 = initial)
@@ -144,7 +144,7 @@ public class UndoRedoTests
         {
             Assert.That(_history.CurrentIndex, Is.EqualTo(2));
             Assert.That(element.IsEnabled, Is.False);
-            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(5)));
+            Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(5)));
         });
 
         Assert.That(_history.JumpTo(3), Is.True);

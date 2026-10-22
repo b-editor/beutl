@@ -3,7 +3,7 @@
 namespace Beutl.Audio.Graph;
 
 // Continuous source cursor and timestamp conversion shared by independent audio processors.
-internal sealed class AudioSourceStream(int sampleRate, int channels, Func<TimeSpan, TimeSpan> mapTime)
+internal sealed class AudioSourceStream(int sampleRate, int channels, Func<MediaTime, MediaTime> mapTime)
 {
     // Allow only sample-boundary quantization, not a short seek.
     private const double SeekToleranceSamples = 2;
@@ -27,7 +27,7 @@ internal sealed class AudioSourceStream(int sampleRate, int channels, Func<TimeS
 
     public void TrackPassthrough(AudioProcessContext context, int sampleCount)
     {
-        double start = context.TimeRange.Start.TotalSeconds;
+        double start = context.TimeRange.Start.ToSeconds();
         Position = (long)Math.Round(start * sampleRate) + sampleCount;
         _nextOutputStart = start + (double)sampleCount / sampleRate;
         IsInitialized = true;
@@ -36,7 +36,7 @@ internal sealed class AudioSourceStream(int sampleRate, int channels, Func<TimeS
 
     public void Complete(AudioProcessContext context, int sampleCount)
     {
-        _nextOutputStart = context.TimeRange.Start.TotalSeconds + (double)sampleCount / sampleRate;
+        _nextOutputStart = context.TimeRange.Start.ToSeconds() + (double)sampleCount / sampleRate;
         _sourceCursorMatchesOutputTimeline = false;
     }
 
@@ -53,11 +53,7 @@ internal sealed class AudioSourceStream(int sampleRate, int channels, Func<TimeS
             if (requestedFrames == 0)
                 return 0;
         }
-        // Quantize from the integer cursor and bias only timestamps that would repeat a sample upstream.
-        long ticks = checked((long)Math.Ceiling(Position * (double)TimeSpan.TicksPerSecond / sampleRate));
-        if (AudioMath.TimeToSampleIndex(TimeSpan.FromTicks(ticks), sampleRate) < Position)
-            ticks = checked(ticks + 1);
-        var range = new TimeRange(TimeSpan.FromTicks(ticks),
+        var range = new TimeRange(MediaTime.FromSamples(Position, sampleRate),
             AudioProcessContext.GetDurationForSampleCount(requestedFrames, sampleRate));
         var subContext = new AudioProcessContext(range, sampleRate, context.AnimationSampler, context.OriginalTimeRange)
         {

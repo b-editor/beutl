@@ -71,14 +71,14 @@ public sealed class ApplierReviewFollowupTests
             var element = new Element
             {
                 Name = "Recovered",
-                Length = TimeSpan.FromSeconds(2),
+                Length = MediaTime.FromSeconds(2),
                 Uri = new Uri(elementPath),
             };
             var text = new TextBlock { Text = { Value = "Title" } };
             var animation = new KeyFrameAnimation<float>();
             var keyFrame = new KeyFrame<float>
             {
-                KeyTime = TimeSpan.Zero,
+                KeyTime = MediaTime.Zero,
                 Value = 100,
                 Easing = new LinearEasing(),
             };
@@ -106,10 +106,12 @@ public sealed class ApplierReviewFollowupTests
                 schemaVersion: SchemaVersion.Current);
             CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
 
+            // Saving would not write the rename, so it is refused instead of reported as applied (#2968).
             Assert.Multiple(() =>
             {
-                Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
-                Assert.That(recoveredElement.Name, Is.EqualTo("Changed"));
+                Assert.That(apply.IsSuccess, Is.False);
+                Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+                Assert.That(recoveredElement.Name, Is.EqualTo("Recovered"));
                 Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
             });
         }
@@ -125,8 +127,8 @@ public sealed class ApplierReviewFollowupTests
         Scene scene = CreateSceneWithElement(out Element first);
         var second = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(4),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(4),
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "second.belm"))
         };
         second.AddObject(new TextBlock { Text = { Value = "Second" } });
@@ -137,7 +139,7 @@ public sealed class ApplierReviewFollowupTests
         JsonObject document = session.Documents.Read(session.Root);
         JsonArray elements = (JsonArray)document["Elements"]!;
         JsonObject firstJson = FindById(document, first.Id)!;
-        var third = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
+        var third = new Element { Start = MediaTime.FromSeconds(1), Length = MediaTime.FromSeconds(2) };
         third.AddObject(new TextBlock { Text = { Value = "Third" } });
         JsonObject thirdJson = CoreSerializer.SerializeToJsonObject(third);
         elements.Clear();
@@ -158,7 +160,7 @@ public sealed class ApplierReviewFollowupTests
     private static Scene CreateSceneWithElement(out Element element)
     {
         Scene scene = TestWorkspace.CreateScene();
-        element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
+        element = TestWorkspace.AddElement(scene, MediaTime.Zero, MediaTime.FromSeconds(4));
         element.AddObject(new TextBlock { Text = { Value = "Launch" } });
         return scene;
     }
@@ -168,8 +170,8 @@ public sealed class ApplierReviewFollowupTests
         Scene scene = CreateSceneWithElement(out element);
         text = element.Objects.OfType<TextBlock>().Single();
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0, Easing = new LinearEasing() }, out _);
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100, Easing = new LinearEasing() }, out _);
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 0, Easing = new LinearEasing() }, out _);
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 100, Easing = new LinearEasing() }, out _);
         text.Opacity.SetKeyFrameAnimation(animation);
         return scene;
     }

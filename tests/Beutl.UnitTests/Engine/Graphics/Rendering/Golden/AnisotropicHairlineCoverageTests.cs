@@ -130,8 +130,8 @@ public class AnisotropicHairlineCoverageTests
         var scene = new Scene(640, 360, "hairline") { Uri = new Uri("file:///hairline/scene") };
         var element = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(4),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(4),
             ZIndex = 0,
             IsEnabled = true,
             Uri = new Uri("file:///hairline/element"),
@@ -143,7 +143,7 @@ public class AnisotropicHairlineCoverageTests
         {
             CacheOptions = RenderCacheOptions.Disabled,
         };
-        renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.Zero));
+        renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.Zero));
         using Bitmap bitmap = renderer.Snapshot();
 
         double ink = 0;

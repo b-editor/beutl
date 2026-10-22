@@ -200,10 +200,10 @@ public sealed class GradientStopPreviewLifetimeTests
     {
         public int SubscriberCount { get; private set; }
 
-        public IObservable<TimeSpan> Time => Observable.Create<TimeSpan>(observer =>
+        public IObservable<MediaTime> Time => Observable.Create<MediaTime>(observer =>
         {
             SubscriberCount++;
-            observer.OnNext(TimeSpan.Zero);
+            observer.OnNext(MediaTime.Zero);
             return Disposable.Create(() => SubscriberCount--);
         });
     }

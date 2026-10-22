@@ -70,7 +70,7 @@ internal sealed class SpeedMappedProcessing<TProcessor>(
 
     private AudioBuffer ProcessAnimatedSpeed(TProcessor processor, AudioProcessContext context, int expectedOut, bool draining, bool forceReanchor)
     {
-        double sourceStart = mapping.MapOutputTimeToSource(context.TimeRange.Start).TotalSeconds;
+        double sourceStart = mapping.MapOutputTimeToSource(context.TimeRange.Start).ToSeconds();
         double[] rented = ArrayPool<double>.Shared.Rent(expectedOut);
         try
         {

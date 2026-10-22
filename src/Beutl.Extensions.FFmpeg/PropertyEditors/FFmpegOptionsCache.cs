@@ -75,7 +75,8 @@ internal sealed class FFmpegOptionsCache<T>
                 return running;
 
             Task<OptionsQueryResult<T>> task = RunAsync(key, factory);
-            _inflight[key] = task;
+            // A query that finished inline has already run its cleanup, so it must not be registered.
+            if (!task.IsCompleted) _inflight[key] = task;
             return task;
         }
     }

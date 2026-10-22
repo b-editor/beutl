@@ -60,10 +60,10 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
         private int? _renderedSpectrumVersion;
         private int _renderedBarCount;
 
-        protected override (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(TimeSpan currentTime)
+        protected override (MediaTime Start, MediaTime Duration) ComputeSampleWindow(MediaTime currentTime)
         {
             int effectiveFftSize = Fft.ClampToPowerOfTwo(FftSize);
-            TimeSpan duration = TimeSpan.FromSeconds((double)effectiveFftSize / ComposerSampleRate);
+            MediaTime duration = MediaTime.FromSeconds((double)effectiveFftSize / ComposerSampleRate);
             return (currentTime - duration, duration);
         }
 

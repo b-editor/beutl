@@ -8,10 +8,10 @@ namespace Beutl.Editor.Components.Helpers;
 // the layer above everything showing there, like a drop on the player.
 internal static class PlayheadPlacement
 {
-    public static (TimeSpan Start, int Layer) Find(IEditorContext editorContext, Scene scene)
+    public static (MediaTime Start, int Layer) Find(IEditorContext editorContext, Scene scene)
     {
-        TimeSpan time = editorContext.GetService<IEditorClock>()?.CurrentTime.Value ?? TimeSpan.Zero;
-        TimeSpan start = time.RoundToRate(scene.FindHierarchicalParent<Project>().GetFrameRate());
+        MediaTime time = editorContext.GetService<IEditorClock>()?.CurrentTime.Value ?? MediaTime.Zero;
+        MediaTime start = time.RoundToFrame(scene.FindHierarchicalParent<Project>().GetFrameRate(), MidpointRounding.AwayFromZero);
         int layer = scene.Children
             .Where(e => e.Start <= start && start < e.Range.End)
             .Select(e => e.ZIndex + 1)

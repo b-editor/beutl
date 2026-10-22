@@ -137,7 +137,7 @@ public sealed class DeclarativeAnimationTests
             Assert.That(createdValues, Is.EqualTo(new[] { 0f, 100f }));
             Assert.That(updateApply.Value!.Changes!.Select(change => change.Operation), Does.Contain(ChangeOperations.RemoveChild));
             Assert.That(remaining.Id, Is.EqualTo(createdFrames[1].Id));
-            Assert.That(remaining.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
+            Assert.That(remaining.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1.5)));
             Assert.That(remaining.Value, Is.EqualTo(80f));
             Assert.That(remaining.Easing, Is.InstanceOf<HoldEasing>());
         });
@@ -154,7 +154,7 @@ public sealed class DeclarativeAnimationTests
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
-        JsonObject animationDocument = CreateOpacityAnimationDocument(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        JsonObject animationDocument = CreateOpacityAnimationDocument(MediaTime.Zero, MediaTime.FromSeconds(1));
         var frames = (JsonArray)animationDocument[nameof(IKeyFrameAnimation.KeyFrames)]!;
         // Present the keyframes in descending KeyTime order; CoreSerializer preserves array order.
         animationDocument[nameof(IKeyFrameAnimation.KeyFrames)] = new JsonArray(
@@ -183,7 +183,7 @@ public sealed class DeclarativeAnimationTests
         Assert.Multiple(() =>
         {
             Assert.That(resultFrames.Select(frame => frame.KeyTime),
-                Is.EqualTo(new[] { TimeSpan.Zero, TimeSpan.FromSeconds(1) }));
+                Is.EqualTo(new[] { MediaTime.Zero, MediaTime.FromSeconds(1) }));
             Assert.That(resultFrames[0].Value, Is.EqualTo(0f));
             Assert.That(resultFrames[1].Value, Is.EqualTo(100f));
         });
@@ -297,7 +297,7 @@ public sealed class DeclarativeAnimationTests
             {
                 ["Animations"] = new JsonObject
                 {
-                    ["Opacity"] = CreateOpacityAnimationDocument(TimeSpan.Zero, TimeSpan.FromSeconds(3.5))
+                    ["Opacity"] = CreateOpacityAnimationDocument(MediaTime.Zero, MediaTime.FromSeconds(3.5))
                 }
             });
         ToolResult<ApplyEditResponse> createApply = tools.ApplyEdit(
@@ -323,7 +323,7 @@ public sealed class DeclarativeAnimationTests
             Assert.That(retimeApply.IsSuccess, Is.True, retimeApply.Error?.Message);
             Assert.That(retimeApply.Value!.Valid, Is.True);
             Assert.That(retimeApply.Value.Validation!.Select(item => item.Status), Does.Contain(ValidationStatus.Warning));
-            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
         });
     }
 
@@ -374,14 +374,14 @@ public sealed class DeclarativeAnimationTests
         Element element = ((FileEditingSession)source.CurrentSession!).Scene.Children.Single();
         var rect = (RectShape)element.Objects.Single();
         var animation = (KeyFrameAnimation<float>)rect.Opacity.GetKeyFrameAnimation()!;
-        float actual = rect.Opacity.Evaluate(new CompositionContext(TimeSpan.FromSeconds(5.5)));
+        float actual = rect.Opacity.Evaluate(new CompositionContext(MediaTime.FromSeconds(5.5)));
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
+            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
             Assert.That(animation.UseGlobalClock, Is.False);
             Assert.That(animation.KeyFrames.Cast<KeyFrame<float>>().Select(frame => frame.KeyTime),
-                Is.EqualTo(new[] { TimeSpan.Zero, TimeSpan.FromSeconds(1) }));
+                Is.EqualTo(new[] { MediaTime.Zero, MediaTime.FromSeconds(1) }));
             Assert.That(actual, Is.EqualTo(50f).Within(0.001f));
         });
     }
@@ -441,17 +441,17 @@ public sealed class DeclarativeAnimationTests
 
         RenderStillResponse render = await renderer.RenderAsync(
             scene,
-            TimeSpan.FromSeconds(2.5),
+            MediaTime.FromSeconds(2.5),
             outputPath,
             renderScale: 1,
             CancellationToken.None);
-        float opacity = rect.Opacity.Evaluate(new CompositionContext(TimeSpan.FromSeconds(2.5)));
-        float translateY = translate.Y.Evaluate(new CompositionContext(TimeSpan.FromSeconds(2.5)));
+        float opacity = rect.Opacity.Evaluate(new CompositionContext(MediaTime.FromSeconds(2.5)));
+        float translateY = translate.Y.Evaluate(new CompositionContext(MediaTime.FromSeconds(2.5)));
 
         Assert.Multiple(() =>
         {
             Assert.That(render.VisibilityAnalysis!.VisiblePixelRatio, Is.GreaterThan(0));
-            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(((KeyFrameAnimation<float>)rect.Opacity.GetKeyFrameAnimation()!).UseGlobalClock, Is.False);
             Assert.That(((KeyFrameAnimation<float>)translate.Y.GetKeyFrameAnimation()!).UseGlobalClock, Is.False);
             Assert.That(opacity, Is.EqualTo(50f).Within(0.001f));
@@ -473,9 +473,9 @@ public sealed class DeclarativeAnimationTests
     }
 
     private static JsonObject CreateOpacityAnimationDocument()
-        => CreateOpacityAnimationDocument(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        => CreateOpacityAnimationDocument(MediaTime.Zero, MediaTime.FromSeconds(1));
 
-    private static JsonObject CreateOpacityAnimationDocument(TimeSpan firstKeyTime, TimeSpan secondKeyTime)
+    private static JsonObject CreateOpacityAnimationDocument(MediaTime firstKeyTime, MediaTime secondKeyTime)
     {
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(
@@ -515,7 +515,7 @@ public sealed class DeclarativeAnimationTests
     private static Scene CreateSceneWithText(out Element element, out TextBlock text)
     {
         Scene scene = TestWorkspace.CreateScene();
-        element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
+        element = TestWorkspace.AddElement(scene, MediaTime.Zero, MediaTime.FromSeconds(4));
         text = new TextBlock { Text = { Value = "Launch" } };
         element.AddObject(text);
         return scene;

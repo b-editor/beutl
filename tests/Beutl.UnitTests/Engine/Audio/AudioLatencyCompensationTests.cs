@@ -32,7 +32,7 @@ public class AudioLatencyCompensationTests
             MakeupGain = Property.CreateAnimatable(0f),
         };
 
-    private static AudioProcessContext Context(TimeSpan start, int sampleCount, int sampleRate = SampleRate)
+    private static AudioProcessContext Context(MediaTime start, int sampleCount, int sampleRate = SampleRate)
         => Seconds(start, sampleCount, sampleRate);
 
     [Test]
@@ -44,11 +44,11 @@ public class AudioLatencyCompensationTests
         {
             LimiterAfterClip = true,
             LookaheadMs = 5f,
-            TimeRange = new TimeRange(TimeSpan.Zero, duration),
+            TimeRange = new TimeRange(MediaTime.Zero, duration),
         };
         using var resource = Setup(sound, out var eligibility);
         using var composer = new Composer { SampleRate = SampleRate };
-        var range = new TimeRange(TimeSpan.Zero, duration + padding);
+        var range = new TimeRange(MediaTime.Zero, duration + padding);
         using var first = ComposeWindow(composer, range, eligibility, resource);
         Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(360));
         var nextRange = new TimeRange(range.End, ExactDuration(360, SampleRate));
@@ -68,8 +68,8 @@ public class AudioLatencyCompensationTests
         using var node = CreateTransparentLimiter(lookaheadMs);
         node.AddInput(new BufferReplayNode(input));
 
-        using var processed = node.Process(Context(TimeSpan.Zero, sampleCount));
-        using var tail = node.Flush(Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
+        using var processed = node.Process(Context(MediaTime.Zero, sampleCount));
+        using var tail = node.Flush(Context(MediaTime.FromSeconds((double)sampleCount / SampleRate), sampleCount));
 
         var inData = input.GetChannelData(0);
         var procData = processed.GetChannelData(0);
@@ -91,7 +91,7 @@ public class AudioLatencyCompensationTests
         using var buffer = CreateConstantBuffer(0.3f, 64);
         gain.AddInput(new BufferReplayNode(buffer));
 
-        using var tail = gain.Flush(Context(TimeSpan.FromSeconds(64.0 / SampleRate), 32));
+        using var tail = gain.Flush(Context(MediaTime.FromSeconds(64.0 / SampleRate), 32));
 
         var data = tail.GetChannelData(0);
         for (int i = 0; i < tail.SampleCount; i++)
@@ -131,9 +131,9 @@ public class AudioLatencyCompensationTests
         using var resample = new ResampleNode { SourceSampleRate = sourceSampleRate };
         resample.AddInput(limiter);
 
-        using var processed = resample.Process(Context(TimeSpan.Zero, processSamples, outputSampleRate));
+        using var processed = resample.Process(Context(MediaTime.Zero, processSamples, outputSampleRate));
         using var tail = resample.Flush(Context(
-            TimeSpan.FromSeconds((double)processSamples / outputSampleRate),
+            MediaTime.FromSeconds((double)processSamples / outputSampleRate),
             flushSamples,
             outputSampleRate));
 
@@ -156,13 +156,13 @@ public class AudioLatencyCompensationTests
         using var resample = new ResampleNode { SourceSampleRate = sourceSampleRate };
         resample.AddInput(source);
 
-        using var processed = resample.Process(Context(TimeSpan.Zero, 1, outputSampleRate));
+        using var processed = resample.Process(Context(MediaTime.Zero, 1, outputSampleRate));
         using var firstTail = resample.Flush(Context(
-            TimeSpan.FromSeconds(1.0 / outputSampleRate),
+            MediaTime.FromSeconds(1.0 / outputSampleRate),
             1,
             outputSampleRate));
         using var secondTail = resample.Flush(Context(
-            TimeSpan.FromSeconds(2.0 / outputSampleRate),
+            MediaTime.FromSeconds(2.0 / outputSampleRate),
             1,
             outputSampleRate));
 
@@ -213,7 +213,7 @@ public class AudioLatencyCompensationTests
         using var resample = new ResampleNode { SourceSampleRate = sourceSampleRate };
         resample.AddInput(sourceA);
 
-        using var first = resample.Process(Exact(TimeSpan.Zero, blockSamples, outputSampleRate));
+        using var first = resample.Process(Exact(MediaTime.Zero, blockSamples, outputSampleRate));
 
         resample.ClearInputs();
         resample.AddInput(sourceB);
@@ -235,8 +235,8 @@ public class AudioLatencyCompensationTests
         using var resample = new ResampleNode { SourceSampleRate = sourceSampleRate };
         resample.AddInput(source);
 
-        TimeSpan start = TimeSpan.Zero;
-        TimeSpan blockDuration = ExactDuration(1, outputSampleRate);
+        MediaTime start = MediaTime.Zero;
+        MediaTime blockDuration = ExactDuration(1, outputSampleRate);
         for (int i = 0; i < blockCount; i++)
         {
             using var output = resample.Process(Exact(start, 1, outputSampleRate));
@@ -269,8 +269,8 @@ public class AudioLatencyCompensationTests
         long position = 23808;
         foreach (int count in new[] { 16384, 16384, 15232, 1024, 1024 })
         {
-            var start = TimeSpan.FromTicks(
-                (long)Math.Ceiling(position * (double)TimeSpan.TicksPerSecond / sampleRate));
+            var start = MediaTime.FromTimeSpan(TimeSpan.FromTicks(
+                (long)Math.Ceiling(position * (double)TimeSpan.TicksPerSecond / sampleRate)));
             using var output = resample.Process(Exact(start, count, sampleRate));
 
             Assert.That(output.SampleCount, Is.EqualTo(count), $"block at {position}");
@@ -285,16 +285,16 @@ public class AudioLatencyCompensationTests
         const float lookaheadMs = 5f;
         int L = LookaheadSamples(lookaheadMs);
         const int clipSamples = 4096;
-        var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
+        var clipDuration = MediaTime.FromSeconds((double)clipSamples / SampleRate);
 
         var source = new AbsoluteSineNode(SampleRate);
         using var limiter = CreateTransparentLimiter(lookaheadMs);
         limiter.AddInput(source);
 
-        using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
+        using var clip = new ClipNode { Start = MediaTime.Zero, Duration = clipDuration };
         clip.AddInput(limiter);
 
-        using var output = clip.Process(Context(TimeSpan.Zero, clipSamples + L));
+        using var output = clip.Process(Context(MediaTime.Zero, clipSamples + L));
 
         Assert.That(HasNonZero(output.GetChannelData(0)[clipSamples..(clipSamples + L)], 1e-5f), Is.True,
             "The limiter's held tail, normally lost in the delay line, is recovered into the trailing L samples.");
@@ -305,17 +305,17 @@ public class AudioLatencyCompensationTests
     {
         const int clipSamples = 2048;
         const int refOffset = 256;
-        var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
+        var clipDuration = MediaTime.FromSeconds((double)clipSamples / SampleRate);
 
         var sourceA = new AbsoluteSineNode(SampleRate);
-        using var clipA = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
+        using var clipA = new ClipNode { Start = MediaTime.Zero, Duration = clipDuration };
         clipA.AddInput(sourceA);
-        using var withDrain = clipA.Process(Context(TimeSpan.Zero, clipSamples));
+        using var withDrain = clipA.Process(Context(MediaTime.Zero, clipSamples));
 
         var sourceB = new AbsoluteSineNode(SampleRate);
-        using var clipB = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
+        using var clipB = new ClipNode { Start = MediaTime.Zero, Duration = clipDuration };
         clipB.AddInput(sourceB);
-        using var reference = clipB.Process(Context(TimeSpan.Zero, clipSamples - refOffset));
+        using var reference = clipB.Process(Context(MediaTime.Zero, clipSamples - refOffset));
 
         var a = withDrain.GetChannelData(0);
         var b = reference.GetChannelData(0);
@@ -338,8 +338,8 @@ public class AudioLatencyCompensationTests
         using var gain = new GainNode { Gain = Property.CreateAnimatable(50f) };
         gain.AddInput(limiter);
 
-        using var processed = gain.Process(Context(TimeSpan.Zero, sampleCount));
-        using var tail = gain.Flush(Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
+        using var processed = gain.Process(Context(MediaTime.Zero, sampleCount));
+        using var tail = gain.Flush(Context(MediaTime.FromSeconds((double)sampleCount / SampleRate), sampleCount));
 
         var inData = input.GetChannelData(0);
         var tailData = tail.GetChannelData(0);
@@ -370,13 +370,13 @@ public class AudioLatencyCompensationTests
                 {
                     new KeyFrame<float>
                     {
-                        KeyTime = TimeSpan.Zero,
+                        KeyTime = MediaTime.Zero,
                         Value = 50f,
                         Easing = new LinearEasing(),
                     },
                     new KeyFrame<float>
                     {
-                        KeyTime = TimeSpan.FromSeconds(10),
+                        KeyTime = MediaTime.FromSeconds(10),
                         Value = 50f,
                         Easing = new LinearEasing(),
                     },
@@ -387,9 +387,9 @@ public class AudioLatencyCompensationTests
         using var speed = new SpeedNode { Speed = speedProperty };
         speed.AddInput(limiter);
 
-        using var processed = speed.Process(Context(TimeSpan.Zero, sampleCount));
+        using var processed = speed.Process(Context(MediaTime.Zero, sampleCount));
         using var tail = speed.Flush(
-            Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
+            Context(MediaTime.FromSeconds((double)sampleCount / SampleRate), sampleCount));
 
         Assert.That(HasNonZero(tail.GetChannelData(0)[..(L * 2)]), Is.True,
             "A non-unity SpeedNode must drain the upstream limiter at the resampler's source cursor, "
@@ -410,10 +410,10 @@ public class AudioLatencyCompensationTests
         using var speed = new SpeedNode { Speed = speedProperty };
         speed.AddInput(limiter);
 
-        using var processed = speed.Process(Context(TimeSpan.Zero, sampleCount));
+        using var processed = speed.Process(Context(MediaTime.Zero, sampleCount));
         speedProperty.Value = drainSpeed;
         using var tail = speed.Flush(
-            Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
+            Context(MediaTime.FromSeconds((double)sampleCount / SampleRate), sampleCount));
 
         Assert.That(HasNonZero(tail.GetChannelData(0)), Is.True,
             "A SpeedNode that processed at unity must retain the upstream source cursor when the "
@@ -434,10 +434,10 @@ public class AudioLatencyCompensationTests
         using var speed = new SpeedNode { Speed = speedProperty };
         speed.AddInput(limiter);
 
-        using var processed = speed.Process(Context(TimeSpan.Zero, sampleCount));
+        using var processed = speed.Process(Context(MediaTime.Zero, sampleCount));
         speedProperty.Value = 100f;
         using var tail = speed.Flush(
-            Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
+            Context(MediaTime.FromSeconds((double)sampleCount / SampleRate), sampleCount));
 
         Assert.That(HasNonZero(tail.GetChannelData(0)), Is.True,
             "Switching to unity for the drain must not bypass the resampler's retained source cursor.");
@@ -456,11 +456,11 @@ public class AudioLatencyCompensationTests
         using var speed = new SpeedNode { Speed = speedProperty };
         speed.AddInput(input);
 
-        using var processed = speed.Process(Context(TimeSpan.Zero, sampleCount));
+        using var processed = speed.Process(Context(MediaTime.Zero, sampleCount));
         speedProperty.SetKeyFrameAnimation(null);
         speedProperty.Value = 100f;
         using var tail = speed.Flush(
-            Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
+            Context(MediaTime.FromSeconds((double)sampleCount / SampleRate), sampleCount));
 
         Assert.That(input.TotalFlushedSamples, Is.InRange(sampleCount - 256, sampleCount + 256),
             "Switching from animated speed to static unity must reconfigure the resampler to a "
@@ -468,7 +468,7 @@ public class AudioLatencyCompensationTests
         Assert.That(input.FirstFlushStart, Is.Not.Null);
         Assert.That(input.LastProcessedEnd, Is.Not.Null);
         Assert.That(
-            Math.Abs((input.FirstFlushStart!.Value - input.LastProcessedEnd!.Value).Ticks),
+            Math.Abs((input.FirstFlushStart!.Value - input.LastProcessedEnd!.Value).ToTimeSpan().Ticks),
             Is.LessThanOrEqualTo(1),
             "The animated-to-static transition must preserve the exact upstream source cursor; "
             + "forwarding the output-domain start would reset a stateful upstream node.");
@@ -478,14 +478,14 @@ public class AudioLatencyCompensationTests
     public void SpeedNode_Flush_WhenReturningToPreviousStaticSpeed_ReconfiguresAfterAnimation()
     {
         const int sampleCount = 4096;
-        var chunkDuration = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
+        var chunkDuration = MediaTime.FromSeconds((double)sampleCount / SampleRate);
 
         using var input = new RecordingFlushRequestNode();
         var speedProperty = Property.CreateAnimatable(50f);
         using var speed = new SpeedNode { Speed = speedProperty };
         speed.AddInput(input);
 
-        using var staticChunk = speed.Process(Context(TimeSpan.Zero, sampleCount));
+        using var staticChunk = speed.Process(Context(MediaTime.Zero, sampleCount));
         speedProperty.SetKeyFrameAnimation(ConstantSpeedAnimation(200f));
         using var animatedChunk = speed.Process(Context(chunkDuration, sampleCount));
         speedProperty.SetKeyFrameAnimation(null);
@@ -518,8 +518,8 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(limiterA);
         mixer.AddInput(silentB);
 
-        using var processed = mixer.Process(Context(TimeSpan.Zero, sampleCount));
-        using var tail = mixer.Flush(Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
+        using var processed = mixer.Process(Context(MediaTime.Zero, sampleCount));
+        using var tail = mixer.Flush(Context(MediaTime.FromSeconds((double)sampleCount / SampleRate), sampleCount));
 
         Assert.That(HasNonZero(tail.GetChannelData(0)[..L]), Is.True,
             "The mixer flush merged branch A's drained tail instead of returning silence.");
@@ -538,14 +538,14 @@ public class AudioLatencyCompensationTests
             0.25f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
         using var limiter = CreateTransparentLimiter(lookaheadMs);
         limiter.AddInput(new BufferReplayNode(input));
-        using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = branchEnd };
+        using var clip = new ClipNode { Start = MediaTime.Zero, Duration = branchEnd };
         clip.AddInput(limiter);
 
         using var mixer = new MixerNode();
         mixer.AddInput(clip);
         mixer.SetBranchEndTime(clip, branchEnd);
 
-        using var processed = mixer.Process(Exact(TimeSpan.Zero, processSamples, SampleRate));
+        using var processed = mixer.Process(Exact(MediaTime.Zero, processSamples, SampleRate));
         using var tail = mixer.Process(Exact(branchEnd, drainSamples, SampleRate));
 
         Assert.That(HasNonZero(tail.GetChannelData(0)[..L]), Is.True,
@@ -572,7 +572,7 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(delay);
         mixer.SetBranchEndTime(delay, branchEnd);
 
-        using var processed = mixer.Process(Exact(TimeSpan.Zero, sampleCount, SampleRate));
+        using var processed = mixer.Process(Exact(MediaTime.Zero, sampleCount, SampleRate));
         using var tail = mixer.Process(Exact(branchEnd, sampleCount, SampleRate));
 
         Assert.That(tail.GetChannelData(0).ToArray(), Has.All.EqualTo(0f),
@@ -592,7 +592,7 @@ public class AudioLatencyCompensationTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 20f, Easing = new LinearEasing() },
+                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 20f, Easing = new LinearEasing() },
                 new KeyFrame<float> { KeyTime = branchEnd - oneSample, Value = 0f, Easing = new LinearEasing() },
             },
         });
@@ -610,7 +610,7 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(delay);
         mixer.SetBranchEndTime(delay, branchEnd);
 
-        using var processed = mixer.Process(Exact(TimeSpan.Zero, sampleCount, SampleRate));
+        using var processed = mixer.Process(Exact(MediaTime.Zero, sampleCount, SampleRate));
         using var tail = mixer.Process(Exact(branchEnd, sampleCount, SampleRate));
 
         Assert.That(tail.GetChannelData(0).ToArray(), Has.All.EqualTo(0f),
@@ -630,15 +630,15 @@ public class AudioLatencyCompensationTests
             0.25f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
         using var limiter = CreateTransparentLimiter(lookaheadMs);
         limiter.AddInput(new BufferReplayNode(input));
-        using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = branchEnd };
+        using var clip = new ClipNode { Start = MediaTime.Zero, Duration = branchEnd };
         clip.AddInput(limiter);
 
         using var mixer = new MixerNode();
         mixer.AddInput(clip);
         mixer.SetBranchEndTime(clip, branchEnd);
 
-        using var processed = mixer.Process(Exact(TimeSpan.Zero, processSamples, SampleRate));
-        var seekStart = branchEnd + TimeSpan.FromMilliseconds(1);
+        using var processed = mixer.Process(Exact(MediaTime.Zero, processSamples, SampleRate));
+        var seekStart = branchEnd + MediaTime.FromSeconds(0.001);
         using var seekOutput = mixer.Process(Exact(seekStart, seekSamples, SampleRate));
         using var nextOutput = mixer.Process(
             Exact(seekStart + ExactDuration(seekSamples, SampleRate), seekSamples, SampleRate));
@@ -658,8 +658,8 @@ public class AudioLatencyCompensationTests
         const float lookaheadMs = 5f;
         const int sampleCount = 1024;
         int L = LookaheadSamples(lookaheadMs);
-        var groupEnd = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
-        var earlyEnd = TimeSpan.FromSeconds((double)(sampleCount / 2) / SampleRate);
+        var groupEnd = MediaTime.FromSeconds((double)sampleCount / SampleRate);
+        var earlyEnd = MediaTime.FromSeconds((double)(sampleCount / 2) / SampleRate);
 
         using var inputA = CreateBuffer(2, sampleCount, (_, i) => 0.25f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
         using var limiterA = CreateTransparentLimiter(lookaheadMs);
@@ -674,7 +674,7 @@ public class AudioLatencyCompensationTests
         mixer.SetBranchEndTime(limiterA, earlyEnd);
         mixer.SetBranchEndTime(limiterB, groupEnd);
 
-        using var processed = mixer.Process(Context(TimeSpan.Zero, sampleCount));
+        using var processed = mixer.Process(Context(MediaTime.Zero, sampleCount));
         using var tail = mixer.Flush(Context(groupEnd, sampleCount));
 
         var tailData = tail.GetChannelData(0);
@@ -692,7 +692,7 @@ public class AudioLatencyCompensationTests
         const int sampleCount = 4096;
         int L = LookaheadSamples(lookaheadMs);
         var groupEnd = ExactDuration(sampleCount, SampleRate);
-        var branchEnd = groupEnd - TimeSpan.FromMilliseconds(5);
+        var branchEnd = groupEnd - MediaTime.FromSeconds(0.005);
 
         using var input = CreateBuffer(2, sampleCount, (_, i) =>
             0.25f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
@@ -703,7 +703,7 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(limiter);
         mixer.SetBranchEndTime(limiter, branchEnd);
 
-        using var processed = mixer.Process(Exact(TimeSpan.Zero, sampleCount, SampleRate));
+        using var processed = mixer.Process(Exact(MediaTime.Zero, sampleCount, SampleRate));
         using var tail = mixer.Flush(Exact(groupEnd, sampleCount, SampleRate));
 
         Assert.That(HasNonZero(tail.GetChannelData(0)[..L]), Is.True,
@@ -724,7 +724,7 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(branch);
         mixer.SetBranchEndTime(branch, branchEnd);
 
-        using var processed = mixer.Process(Exact(TimeSpan.Zero, processSamples, sampleRate));
+        using var processed = mixer.Process(Exact(MediaTime.Zero, processSamples, sampleRate));
         using var firstDrain = mixer.Process(Exact(branchEnd, firstDrainSamples, sampleRate));
         using var finalDrain = mixer.Process(
             Exact(branchEnd + ExactDuration(firstDrainSamples, sampleRate), finalBlockSamples, sampleRate));
@@ -750,7 +750,7 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(branch);
         mixer.SetBranchEndTime(branch, branchEnd);
 
-        using var processed = mixer.Process(Exact(TimeSpan.Zero, processSamples, SampleRate));
+        using var processed = mixer.Process(Exact(MediaTime.Zero, processSamples, SampleRate));
         using var firstDrain = mixer.Process(Exact(branchEnd, drainSamples, SampleRate));
         using var secondDrain = mixer.Process(
             Exact(branchEnd + ExactDuration(drainSamples, SampleRate), drainSamples, SampleRate));
@@ -776,7 +776,7 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(branch);
         mixer.SetBranchEndTime(branch, branchEnd);
 
-        using var processed = mixer.Process(Exact(TimeSpan.Zero, processSamples, SampleRate));
+        using var processed = mixer.Process(Exact(MediaTime.Zero, processSamples, SampleRate));
         using var firstDrain = mixer.Process(Exact(branchEnd, drainSamples, SampleRate));
 
         var replayStart = ExactDuration(processSamples / 2, SampleRate);
@@ -800,7 +800,7 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(branch);
         mixer.SetBranchEndTime(branch, branchEnd);
 
-        using var processed = mixer.Process(Exact(TimeSpan.Zero, processSamples, SampleRate));
+        using var processed = mixer.Process(Exact(MediaTime.Zero, processSamples, SampleRate));
         using var replay = mixer.Process(
             Exact(branchEnd + ExactDuration(replaySamples, SampleRate), replaySamples, SampleRate));
 
@@ -824,7 +824,7 @@ public class AudioLatencyCompensationTests
         mixer.SetBranchEndTime(earlyBranch, earlyEnd);
         mixer.SetBranchEndTime(activeBranch, groupEnd);
 
-        using var processed = mixer.Process(Exact(TimeSpan.Zero, sampleCount, SampleRate));
+        using var processed = mixer.Process(Exact(MediaTime.Zero, sampleCount, SampleRate));
 
         Assert.That(mixer.GetDrainLatencySamples(SampleRate), Is.EqualTo(activeLatencySamples),
             "A branch whose tail ended inside the processed block must not keep the mixer drain budget alive.");
@@ -838,8 +838,7 @@ public class AudioLatencyCompensationTests
         const int branchLatency = 240;
         var branchEnd = ExactDuration(branchEndSamples, SampleRate);
         var processEnd = ExactDuration(processSamples, SampleRate);
-        var tailEnd = branchEnd + TimeSpan.FromTicks((long)Math.Ceiling(
-            branchLatency * (double)TimeSpan.TicksPerSecond / SampleRate));
+        var tailEnd = branchEnd + MediaTime.FromSamples(branchLatency, SampleRate);
         int expectedRemaining = AudioProcessContext.GetSampleCount(
             new TimeRange(processEnd, tailEnd - processEnd),
             SampleRate);
@@ -849,7 +848,7 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(branch);
         mixer.SetBranchEndTime(branch, branchEnd);
 
-        using var processed = mixer.Process(Exact(TimeSpan.Zero, processSamples, SampleRate));
+        using var processed = mixer.Process(Exact(MediaTime.Zero, processSamples, SampleRate));
 
         Assert.That(mixer.GetDrainLatencySamples(SampleRate), Is.EqualTo(expectedRemaining),
             "A branch that ends inside the last process block must report only the tail after that block.");
@@ -860,15 +859,15 @@ public class AudioLatencyCompensationTests
     {
         const int sampleRate = 44100;
         const int branchLatency = 240;
-        TimeSpan processedEnd = ExactDuration(1, sampleRate);
-        TimeSpan branchEnd = processedEnd - TimeSpan.FromTicks(114);
+        MediaTime processedEnd = ExactDuration(1, sampleRate);
+        MediaTime branchEnd = processedEnd - MediaTime.FromTimeSpan(TimeSpan.FromTicks(114));
 
         using var branch = new RecordingLatencyNode(branchLatency);
         using var mixer = new MixerNode();
         mixer.AddInput(branch);
         mixer.SetBranchEndTime(branch, branchEnd);
 
-        using var processed = mixer.Process(Exact(TimeSpan.Zero, 1, sampleRate));
+        using var processed = mixer.Process(Exact(MediaTime.Zero, 1, sampleRate));
 
         Assert.That(mixer.GetDrainLatencySamples(sampleRate), Is.EqualTo(branchLatency),
             "A fractional remaining tail still occupies the final sample and must use ceiling coverage.");
@@ -886,7 +885,7 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(branch);
         mixer.SetBranchEndTime(branch, branchEnd);
 
-        using var processed = mixer.Process(Exact(TimeSpan.Zero, processSamples, SampleRate));
+        using var processed = mixer.Process(Exact(MediaTime.Zero, processSamples, SampleRate));
         using var drain = mixer.Process(Exact(branchEnd, drainSamples, SampleRate));
         Assert.That(mixer.ClearBranchEndTime(branch), Is.True);
 
@@ -903,8 +902,8 @@ public class AudioLatencyCompensationTests
         const float lookaheadMs = 5f;
         const int sampleCount = 1024;
         int L = LookaheadSamples(lookaheadMs);
-        var groupEnd = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
-        var earlyEnd = TimeSpan.FromSeconds((double)(sampleCount / 2) / SampleRate);
+        var groupEnd = MediaTime.FromSeconds((double)sampleCount / SampleRate);
+        var earlyEnd = MediaTime.FromSeconds((double)(sampleCount / 2) / SampleRate);
 
         using var inputA = CreateConstantBuffer(0f, sampleCount);
         using var limiterA = CreateTransparentLimiter(lookaheadMs);
@@ -920,7 +919,7 @@ public class AudioLatencyCompensationTests
         mixer.SetBranchEndTime(limiterA, earlyEnd);
         mixer.SetBranchEndTime(limiterB, groupEnd);
 
-        using var processed = mixer.Process(Context(TimeSpan.Zero, sampleCount));
+        using var processed = mixer.Process(Context(MediaTime.Zero, sampleCount));
         mixer.RemoveInput(limiterA);
         using var tail = mixer.Flush(Context(groupEnd, sampleCount));
 
@@ -934,8 +933,8 @@ public class AudioLatencyCompensationTests
         const float lookaheadMs = 5f;
         const int sampleCount = 1024;
         int L = LookaheadSamples(lookaheadMs);
-        var groupEnd = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
-        var earlyEnd = TimeSpan.FromSeconds((double)(sampleCount / 2) / SampleRate);
+        var groupEnd = MediaTime.FromSeconds((double)sampleCount / SampleRate);
+        var earlyEnd = MediaTime.FromSeconds((double)(sampleCount / 2) / SampleRate);
 
         using var staleInput = CreateConstantBuffer(0f, sampleCount);
         using var staleLimiter = CreateTransparentLimiter(lookaheadMs);
@@ -952,7 +951,7 @@ public class AudioLatencyCompensationTests
         mixer.ClearInputs();
         mixer.AddInput(liveLimiter);
 
-        using var processed = mixer.Process(Context(TimeSpan.Zero, sampleCount));
+        using var processed = mixer.Process(Context(MediaTime.Zero, sampleCount));
         using var tail = mixer.Flush(Context(groupEnd, sampleCount));
 
         Assert.That(tail.GetChannelData(0)[..L].ToArray(), Has.Some.Not.EqualTo(0f),
@@ -965,7 +964,7 @@ public class AudioLatencyCompensationTests
         const float lookaheadMs = 5f;
         const int sampleCount = 1024;
         int L = LookaheadSamples(lookaheadMs);
-        var groupEnd = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
+        var groupEnd = MediaTime.FromSeconds((double)sampleCount / SampleRate);
 
         using var staleInput = CreateConstantBuffer(0f, sampleCount);
         using var staleLimiter = CreateTransparentLimiter(lookaheadMs);
@@ -978,10 +977,10 @@ public class AudioLatencyCompensationTests
 
         using var mixer = new MixerNode();
         mixer.AddInput(staleLimiter);
-        mixer.SetBranchEndTime(staleLimiter, TimeSpan.Zero);
+        mixer.SetBranchEndTime(staleLimiter, MediaTime.Zero);
         mixer.AddInput(liveLimiter);
 
-        using var processed = mixer.Process(Context(TimeSpan.Zero, sampleCount));
+        using var processed = mixer.Process(Context(MediaTime.Zero, sampleCount));
         using var tail = mixer.Flush(Context(groupEnd, sampleCount));
 
         Assert.That(tail.GetChannelData(0)[..L].ToArray(), Has.Some.Not.EqualTo(0f),
@@ -994,7 +993,7 @@ public class AudioLatencyCompensationTests
         const float lookaheadMs = 5f;
         const int sampleCount = 1024;
         int L = LookaheadSamples(lookaheadMs);
-        var groupEnd = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
+        var groupEnd = MediaTime.FromSeconds((double)sampleCount / SampleRate);
 
         using var input = CreateBuffer(2, sampleCount, (_, i) =>
             0.25f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
@@ -1003,11 +1002,11 @@ public class AudioLatencyCompensationTests
 
         using var mixer = new MixerNode();
         mixer.AddInput(limiter);
-        mixer.SetBranchEndTime(limiter, TimeSpan.Zero);
+        mixer.SetBranchEndTime(limiter, MediaTime.Zero);
 
         Assert.That(mixer.ClearBranchEndTime(limiter), Is.True);
 
-        using var processed = mixer.Process(Context(TimeSpan.Zero, sampleCount));
+        using var processed = mixer.Process(Context(MediaTime.Zero, sampleCount));
         using var tail = mixer.Flush(Context(groupEnd, sampleCount));
 
         Assert.That(tail.GetChannelData(0)[..L].ToArray(), Has.Some.Not.EqualTo(0f),
@@ -1026,7 +1025,7 @@ public class AudioLatencyCompensationTests
         mixer.ClearInputs();
         mixer.AddInput(inputNode);
 
-        using var processed = mixer.Process(Context(TimeSpan.Zero, sampleCount));
+        using var processed = mixer.Process(Context(MediaTime.Zero, sampleCount));
 
         Assert.That(processed.GetChannelData(0)[0], Is.EqualTo(0.25f).Within(1e-6f),
             "ClearInputs must clear connection metadata even when the mixer is already empty.");
@@ -1040,7 +1039,7 @@ public class AudioLatencyCompensationTests
         using var mixer = new MixerNode();
 
         Assert.That(
-            () => mixer.SetBranchEndTime(input, TimeSpan.Zero),
+            () => mixer.SetBranchEndTime(input, MediaTime.Zero),
             Throws.ArgumentException.With.Property(nameof(ArgumentException.ParamName)).EqualTo("input"));
     }
 
@@ -1088,19 +1087,19 @@ public class AudioLatencyCompensationTests
         const float lookaheadMs = 5f;
         const int sampleCount = 1024;
         int L = LookaheadSamples(lookaheadMs);
-        var groupEnd = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
+        var groupEnd = MediaTime.FromSeconds((double)sampleCount / SampleRate);
 
         using var input = CreateBuffer(1, sampleCount, (_, i) =>
             0.25f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
         using var inputNode = new BufferReplayNode(input);
         using var mixer = new MixerNode();
         mixer.AddInput(inputNode);
-        mixer.SetBranchEndTime(inputNode, TimeSpan.Zero);
+        mixer.SetBranchEndTime(inputNode, MediaTime.Zero);
 
         using var limiter = CreateTransparentLimiter(lookaheadMs);
         limiter.AddInput(mixer);
 
-        using var processed = limiter.Process(Context(TimeSpan.Zero, sampleCount));
+        using var processed = limiter.Process(Context(MediaTime.Zero, sampleCount));
         using var tail = limiter.Flush(Context(groupEnd, sampleCount));
 
         Assert.That(processed.ChannelCount, Is.EqualTo(1));
@@ -1116,18 +1115,18 @@ public class AudioLatencyCompensationTests
         const float lookaheadMs = 5f;
         int L = LookaheadSamples(lookaheadMs);
         const int clipSamples = 4096;
-        var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
+        var clipDuration = MediaTime.FromSeconds((double)clipSamples / SampleRate);
 
         var source = new AbsoluteSineNode(SampleRate);
         using var limiter = CreateTransparentLimiter(lookaheadMs);
         limiter.AddInput(source);
 
-        using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
+        using var clip = new ClipNode { Start = MediaTime.Zero, Duration = clipDuration };
         clip.AddInput(limiter);
 
-        using var processed = clip.Process(Context(TimeSpan.Zero, clipSamples));
+        using var processed = clip.Process(Context(MediaTime.Zero, clipSamples));
 
-        using var tail = clip.Flush(Context(TimeSpan.FromSeconds(123.0), L));
+        using var tail = clip.Flush(Context(MediaTime.FromSeconds(123.0), L));
 
         Assert.That(HasNonZero(tail.GetChannelData(0)[..L]), Is.True,
             "A nested ClipNode flushed in a parent's time domain must remap to clip-local time so the "
@@ -1140,19 +1139,19 @@ public class AudioLatencyCompensationTests
         const float lookaheadMs = 5f;
         int L = LookaheadSamples(lookaheadMs);
         const int clipSamples = 4096;
-        var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
+        var clipDuration = MediaTime.FromSeconds((double)clipSamples / SampleRate);
 
         var source = new AbsoluteSineNode(SampleRate);
         using var limiter = CreateTransparentLimiter(lookaheadMs);
         limiter.AddInput(source);
 
-        using var shift = new ShiftNode { Shift = TimeSpan.FromSeconds(1) };
+        using var shift = new ShiftNode { Shift = MediaTime.FromSeconds(1) };
         shift.AddInput(limiter);
-        using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
+        using var clip = new ClipNode { Start = MediaTime.Zero, Duration = clipDuration };
         clip.AddInput(shift);
 
-        using var processed = clip.Process(Context(TimeSpan.Zero, clipSamples));
-        using var tail = clip.Flush(Context(TimeSpan.FromSeconds(123.0), L));
+        using var processed = clip.Process(Context(MediaTime.Zero, clipSamples));
+        using var tail = clip.Flush(Context(MediaTime.FromSeconds(123.0), L));
 
         Assert.That(tail.GetChannelData(0)[..L].ToArray(), Has.Some.Not.EqualTo(0f),
             "A shifted latency chain must preserve upstream continuity during flush.");
@@ -1166,17 +1165,17 @@ public class AudioLatencyCompensationTests
         const int clipSamples = 8192;
         const int processedSamples = 4096;
 
-        var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
+        var clipDuration = MediaTime.FromSeconds((double)clipSamples / SampleRate);
         var source = new AbsoluteSineNode(SampleRate);
         using var limiter = CreateTransparentLimiter(lookaheadMs);
         limiter.AddInput(source);
 
-        using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
+        using var clip = new ClipNode { Start = MediaTime.Zero, Duration = clipDuration };
         clip.AddInput(limiter);
 
-        using var processed = clip.Process(Context(TimeSpan.Zero, processedSamples));
+        using var processed = clip.Process(Context(MediaTime.Zero, processedSamples));
 
-        using var tail = clip.Flush(Context(TimeSpan.FromSeconds(99.0), L));
+        using var tail = clip.Flush(Context(MediaTime.FromSeconds(99.0), L));
 
         Assert.That(HasNonZero(tail.GetChannelData(0)[..L]), Is.True,
             "A clip trimmed by its parent must flush from its last processed local time so the cached "
@@ -1190,18 +1189,18 @@ public class AudioLatencyCompensationTests
         int L = LookaheadSamples(lookaheadMs);
         int pad = L / 2;
         const int clipSamples = 4096;
-        var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
+        var clipDuration = MediaTime.FromSeconds((double)clipSamples / SampleRate);
 
         var source = new AbsoluteSineNode(SampleRate);
         using var limiter = CreateTransparentLimiter(lookaheadMs);
         limiter.AddInput(source);
 
-        using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
+        using var clip = new ClipNode { Start = MediaTime.Zero, Duration = clipDuration };
         clip.AddInput(limiter);
 
-        using var processed = clip.Process(Context(TimeSpan.Zero, clipSamples + pad));
+        using var processed = clip.Process(Context(MediaTime.Zero, clipSamples + pad));
 
-        using var tail = clip.Flush(Context(TimeSpan.FromSeconds(77.0), L));
+        using var tail = clip.Flush(Context(MediaTime.FromSeconds(77.0), L));
 
         Assert.That(HasNonZero(tail.GetChannelData(0)[..(L - pad)]), Is.True,
             "After a partial tail append, the parent flush must continue from the advanced drain position "
@@ -1218,10 +1217,10 @@ public class AudioLatencyCompensationTests
         var clipDuration = ExactDuration(clipSamples, sampleRate);
 
         using var input = new RecordingLatencyNode(latency);
-        using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
+        using var clip = new ClipNode { Start = MediaTime.Zero, Duration = clipDuration };
         clip.AddInput(input);
 
-        using var processed = clip.Process(Exact(TimeSpan.Zero, clipSamples + pad, sampleRate));
+        using var processed = clip.Process(Exact(MediaTime.Zero, clipSamples + pad, sampleRate));
 
         Assert.That(input.LastFlushSampleCount, Is.EqualTo(pad),
             "The partial drain must request exactly 3087 samples; a rounded-up 3088th sample would be "
@@ -1237,7 +1236,7 @@ public class AudioLatencyCompensationTests
         node.AddInput(new BufferReplayNode(a));
         node.AddInput(new BufferReplayNode(b));
 
-        Assert.Throws<InvalidOperationException>(() => node.Flush(Context(TimeSpan.Zero, 16)));
+        Assert.Throws<InvalidOperationException>(() => node.Flush(Context(MediaTime.Zero, 16)));
     }
 
     [Test]
@@ -1247,8 +1246,8 @@ public class AudioLatencyCompensationTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0f, Easing = new LinearEasing() },
-                new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 20f, Easing = new LinearEasing() },
+                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 0f, Easing = new LinearEasing() },
+                new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 20f, Easing = new LinearEasing() },
             },
         };
         var lookahead = Property.CreateAnimatable(0f);
@@ -1280,8 +1279,8 @@ public class AudioLatencyCompensationTests
         const float lookaheadMs = 5f;
         const int sampleCount = 4096;
         int L = LookaheadSamples(lookaheadMs);
-        var clipDuration = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
-        var oneSample = TimeSpan.FromSeconds(1.0 / SampleRate);
+        var clipDuration = MediaTime.FromSeconds((double)sampleCount / SampleRate);
+        var oneSample = MediaTime.FromSeconds(1.0 / SampleRate);
 
         using var input = CreateBuffer(2, sampleCount, (_, i) => 0.25f * MathF.Sin(2f * MathF.PI * 220f * i / SampleRate));
 
@@ -1289,7 +1288,7 @@ public class AudioLatencyCompensationTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = lookaheadMs, Easing = new LinearEasing() },
+                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = lookaheadMs, Easing = new LinearEasing() },
                 new KeyFrame<float> { KeyTime = clipDuration, Value = lookaheadMs, Easing = new LinearEasing() },
                 new KeyFrame<float> { KeyTime = clipDuration + oneSample, Value = 0f, Easing = new LinearEasing() },
             },
@@ -1306,7 +1305,7 @@ public class AudioLatencyCompensationTests
         };
         node.AddInput(new BufferReplayNode(input));
 
-        using var processed = node.Process(Context(TimeSpan.Zero, sampleCount));
+        using var processed = node.Process(Context(MediaTime.Zero, sampleCount));
         using var tail = node.Flush(Context(clipDuration, sampleCount));
 
         var inData = input.GetChannelData(0);
@@ -1325,8 +1324,8 @@ public class AudioLatencyCompensationTests
         const float makeupDb = 6f;
         const int sampleCount = 4096;
         int L = LookaheadSamples(lookaheadMs);
-        var clipDuration = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
-        var oneSample = TimeSpan.FromSeconds(1.0 / SampleRate);
+        var clipDuration = MediaTime.FromSeconds((double)sampleCount / SampleRate);
+        var oneSample = MediaTime.FromSeconds(1.0 / SampleRate);
 
         using var input = CreateConstantBuffer(0.1f, sampleCount);
 
@@ -1334,7 +1333,7 @@ public class AudioLatencyCompensationTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0f, Easing = new LinearEasing() },
+                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 0f, Easing = new LinearEasing() },
                 new KeyFrame<float> { KeyTime = clipDuration - oneSample, Value = 0f, Easing = new LinearEasing() },
                 new KeyFrame<float> { KeyTime = clipDuration, Value = makeupDb, Easing = new LinearEasing() },
             },
@@ -1351,7 +1350,7 @@ public class AudioLatencyCompensationTests
         };
         node.AddInput(new BufferReplayNode(input));
 
-        using var processed = node.Process(Context(TimeSpan.Zero, sampleCount));
+        using var processed = node.Process(Context(MediaTime.Zero, sampleCount));
         using var tail = node.Flush(Context(clipDuration, sampleCount));
 
         float expected = 0.1f * AudioMath.ConvertDbToLinear(makeupDb);
@@ -1368,18 +1367,18 @@ public class AudioLatencyCompensationTests
     {
         const float lookaheadMs = 5f;
         int L = LookaheadSamples(lookaheadMs);
-        var oneSecond = TimeSpan.FromSeconds(1);
+        var oneSecond = MediaTime.FromSeconds(1);
 
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+            TimeRange = new TimeRange(MediaTime.Zero, oneSecond),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
 
-        var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
+        var window1 = new TimeRange(MediaTime.Zero, oneSecond);
         using var buffer1 = ComposeWindow(composer, window1, eligibility, resource);
 
         var window2 = new TimeRange(oneSecond, oneSecond);
@@ -1403,13 +1402,13 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
 
-        var window1 = new TimeRange(TimeSpan.Zero, window1Duration);
+        var window1 = new TimeRange(MediaTime.Zero, window1Duration);
         using var buffer1 = ComposeWindow(composer, window1, eligibility, resource);
 
         var window2 = new TimeRange(window1Duration, window1Duration);
@@ -1438,12 +1437,12 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterDelayTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, windowDuration);
+        var firstRange = new TimeRange(MediaTime.Zero, windowDuration);
         using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(0),
@@ -1469,12 +1468,12 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterDelayTailSound
         {
             LookaheadMs = 5f,
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration);
+        var firstRange = new TimeRange(MediaTime.Zero, clipDuration);
         using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(tailSamples));
@@ -1500,12 +1499,12 @@ public class AudioLatencyCompensationTests
             LimiterBeforeClip = false,
             LimiterAfterClip = true,
             LookaheadMs = 5f,
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
-        using var first = ComposeWindow(composer, new TimeRange(TimeSpan.Zero, clipDuration), eligibility, resource);
+        using var first = ComposeWindow(composer, new TimeRange(MediaTime.Zero, clipDuration), eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(tailSamples),
             "Inline drain accounting must retain latency introduced after the descendant clip.");
@@ -1532,12 +1531,12 @@ public class AudioLatencyCompensationTests
             LimiterBeforeClip = false,
             LimiterAfterClip = true,
             LookaheadMs = 5f,
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, firstDuration);
+        var firstRange = new TimeRange(MediaTime.Zero, firstDuration);
         using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(tailSamples - paddingSamples),
@@ -1560,13 +1559,13 @@ public class AudioLatencyCompensationTests
 
         var sound = new MixedInlineUnknownTailSound
         {
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
         MixedInlineUnknownTailSound.ResetFlushCount();
 
         using var composer = new Composer { SampleRate = SampleRate };
-        using var first = ComposeWindow(composer, new TimeRange(TimeSpan.Zero, clipDuration), eligibility, resource);
+        using var first = ComposeWindow(composer, new TimeRange(MediaTime.Zero, clipDuration), eligibility, resource);
 
         var secondRange = new TimeRange(clipDuration, drainDuration);
         using var second = ComposeWindow(composer, secondRange, eligibility);
@@ -1585,13 +1584,13 @@ public class AudioLatencyCompensationTests
 
         var sound = new HeterogeneousOutputTailSound
         {
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
         HeterogeneousOutputTailSound.ResetFlushCounts();
 
         using var composer = new Composer { SampleRate = SampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration);
+        var firstRange = new TimeRange(MediaTime.Zero, clipDuration);
         using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         var secondRange = new TimeRange(clipDuration, drainDuration);
@@ -1624,13 +1623,13 @@ public class AudioLatencyCompensationTests
 
         var sound = new UnboundedSpeedTailSound
         {
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
         UnboundedSpeedTailSound.ResetFlushCount();
 
         using var composer = new Composer { SampleRate = sampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration);
+        var firstRange = new TimeRange(MediaTime.Zero, clipDuration);
         using var first = ComposeWindow(composer, firstRange, eligibility, resource);
         Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(int.MaxValue),
             "An unknown speed-animation range must report an unbounded drain budget before a drain attempt.");
@@ -1665,12 +1664,12 @@ public class AudioLatencyCompensationTests
         {
             LookaheadMs = 20f,
             LookaheadRampEnd = clipDuration,
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = sampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + ExactDuration(trailingSamples, sampleRate));
+        var firstRange = new TimeRange(MediaTime.Zero, clipDuration + ExactDuration(trailingSamples, sampleRate));
         using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(0),
@@ -1693,13 +1692,13 @@ public class AudioLatencyCompensationTests
 
         var sound = new UnboundedSpeedTailSound
         {
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
         UnboundedSpeedTailSound.ResetFlushCount();
 
         using var composer = new Composer { SampleRate = sampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
+        var firstRange = new TimeRange(MediaTime.Zero, clipDuration + oneSample);
         using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(int.MaxValue),
@@ -1726,15 +1725,15 @@ public class AudioLatencyCompensationTests
 
         var sound = new UnboundedSpeedTailSound
         {
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
         UnboundedSpeedTailSound.ResetFlushCount();
 
         using var composer = new Composer { SampleRate = sampleRate };
-        using var first = ComposeWindow(composer, new TimeRange(TimeSpan.Zero, clipDuration), eligibility, resource);
+        using var first = ComposeWindow(composer, new TimeRange(MediaTime.Zero, clipDuration), eligibility, resource);
 
-        using var emptyFlush = composer.Flush(new TimeRange(clipDuration, TimeSpan.Zero), eligibility);
+        using var emptyFlush = composer.Flush(new TimeRange(clipDuration, MediaTime.Zero), eligibility);
         Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(int.MaxValue),
             "A zero-sample flush must not consume the pending unknown follow-up attempt.");
 
@@ -1762,13 +1761,13 @@ public class AudioLatencyCompensationTests
         {
             WrapOutput = true,
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
         LimiterTailSound.ResetFlushState();
 
         using var composer = new Composer { SampleRate = sampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
+        var firstRange = new TimeRange(MediaTime.Zero, clipDuration + oneSample);
         using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(latencySamples - 1),
@@ -1792,13 +1791,13 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
         IComposer composerContract = composer;
-        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
+        var firstRange = new TimeRange(MediaTime.Zero, clipDuration + oneSample);
         using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composerContract.GetDrainLatencySamples(SampleRate), Is.EqualTo(latencySamples - 1),
@@ -1815,13 +1814,13 @@ public class AudioLatencyCompensationTests
 
         var sound = new HeterogeneousWrappedOutputTailSound
         {
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
         HeterogeneousWrappedOutputTailSound.ResetFlushState();
 
         using var composer = new Composer { SampleRate = sampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
+        var firstRange = new TimeRange(MediaTime.Zero, clipDuration + oneSample);
         using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(longLatency - 1),
@@ -1844,12 +1843,12 @@ public class AudioLatencyCompensationTests
 
         var sound = new HeterogeneousDownstreamTailSound
         {
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = sampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
+        var firstRange = new TimeRange(MediaTime.Zero, clipDuration + oneSample);
         using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(downstreamLatency - 1),
@@ -1866,12 +1865,12 @@ public class AudioLatencyCompensationTests
 
         var sound = new SharedClipFanOutTailSound
         {
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = sampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
+        var firstRange = new TimeRange(MediaTime.Zero, clipDuration + oneSample);
         using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(downstreamLatency - 1),
@@ -1885,12 +1884,12 @@ public class AudioLatencyCompensationTests
         const int clipSamples = ResampledInlineTailSound.SourceSampleRate;
         var clipDuration = ExactDuration(clipSamples, ResampledInlineTailSound.SourceSampleRate);
         var firstRange = new TimeRange(
-            TimeSpan.Zero,
+            MediaTime.Zero,
             clipDuration + ExactDuration(1, outputSampleRate));
 
         var sound = new ResampledInlineTailSound
         {
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -1908,11 +1907,11 @@ public class AudioLatencyCompensationTests
         int clipSamples = sampleRate;
         var clipDuration = ExactDuration(clipSamples, sampleRate);
         int outputSamples = clipSamples * 2 + 1;
-        var firstRange = new TimeRange(TimeSpan.Zero, ExactDuration(outputSamples, sampleRate));
+        var firstRange = new TimeRange(MediaTime.Zero, ExactDuration(outputSamples, sampleRate));
 
         var sound = new SpeedInlineTailSound
         {
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -1935,17 +1934,17 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration);
+        var firstRange = new TimeRange(MediaTime.Zero, clipDuration);
         using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         for (int i = 0; i < 2; i++)
         {
-            var range = new TimeRange(clipDuration + (chunkDuration * i), chunkDuration);
+            var range = new TimeRange(clipDuration + new MediaTime(chunkDuration.Flicks * i), chunkDuration);
             using var tail = ComposeWindow(composer, range, eligibility);
 
             Assert.That(tail, Is.Not.Null);
@@ -1967,12 +1966,12 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
-        using var first = ComposeWindow(composer, new TimeRange(TimeSpan.Zero, clipDuration), eligibility, resource);
+        using var first = ComposeWindow(composer, new TimeRange(MediaTime.Zero, clipDuration), eligibility, resource);
 
         var partialRange = new TimeRange(clipDuration, chunkDuration);
         using var partial = ComposeWindow(composer, partialRange, eligibility);
@@ -1994,10 +1993,10 @@ public class AudioLatencyCompensationTests
     {
         var sound = new NegativeLatencySound
         {
-            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+            TimeRange = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)),
         };
         using var resource = Setup(sound, out var eligibility);
-        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
 
         using var composer = new Composer { SampleRate = SampleRate };
         using var output = ComposeWindow(composer, range, eligibility, resource);
@@ -2019,12 +2018,12 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration);
+        var firstRange = new TimeRange(MediaTime.Zero, clipDuration);
         using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         var partialRange = new TimeRange(clipDuration, chunkDuration);
@@ -2035,7 +2034,7 @@ public class AudioLatencyCompensationTests
         var mutedRange = new TimeRange(clipDuration + chunkDuration, chunkDuration);
         using var muted = ComposeWindow(composer, mutedRange, CompositionEligibility.Empty);
 
-        var reenabledRange = new TimeRange(clipDuration + (chunkDuration * 2), chunkDuration);
+        var reenabledRange = new TimeRange(clipDuration + new MediaTime(chunkDuration.Flicks * 2), chunkDuration);
         using var reenabled = ComposeWindow(composer, reenabledRange, eligibility);
 
         Assert.Multiple(() =>
@@ -2061,12 +2060,12 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
-        var composeRange = new TimeRange(TimeSpan.Zero, clipDuration);
+        var composeRange = new TimeRange(MediaTime.Zero, clipDuration);
         using var processed = ComposeWindow(composer, composeRange, eligibility, resource);
 
         var firstRange = new TimeRange(clipDuration, chunkDuration);
@@ -2087,17 +2086,17 @@ public class AudioLatencyCompensationTests
     {
         const float lookaheadMs = 5f;
         int L = LookaheadSamples(lookaheadMs);
-        var oneSecond = TimeSpan.FromSeconds(1);
+        var oneSecond = MediaTime.FromSeconds(1);
 
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+            TimeRange = new TimeRange(MediaTime.Zero, oneSecond),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, oneSecond);
+        var firstRange = new TimeRange(MediaTime.Zero, oneSecond);
         using var processed = ComposeWindow(composer, firstRange, eligibility, resource);
 
         using var tail = composer.Flush(new TimeRange(oneSecond, oneSecond));
@@ -2117,20 +2116,20 @@ public class AudioLatencyCompensationTests
     {
         const float lookaheadMs = 5f;
         int L = LookaheadSamples(lookaheadMs);
-        var oneSecond = TimeSpan.FromSeconds(1);
+        var oneSecond = MediaTime.FromSeconds(1);
 
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+            TimeRange = new TimeRange(MediaTime.Zero, oneSecond),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, oneSecond);
+        var firstRange = new TimeRange(MediaTime.Zero, oneSecond);
         using var processed = ComposeWindow(composer, firstRange, eligibility, resource);
 
-        var seekRange = new TimeRange(TimeSpan.FromTicks(seekStartTicks), oneSecond);
+        var seekRange = new TimeRange(MediaTime.FromTimeSpan(TimeSpan.FromTicks(seekStartTicks)), oneSecond);
         using var tail = composer.Flush(seekRange, eligibility);
 
         Assert.That(tail, Is.Not.Null);
@@ -2144,17 +2143,17 @@ public class AudioLatencyCompensationTests
     {
         const float lookaheadMs = 5f;
         int L = LookaheadSamples(lookaheadMs);
-        var oneSecond = TimeSpan.FromSeconds(1);
+        var oneSecond = MediaTime.FromSeconds(1);
 
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+            TimeRange = new TimeRange(MediaTime.Zero, oneSecond),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, oneSecond);
+        var firstRange = new TimeRange(MediaTime.Zero, oneSecond);
         using var processed = ComposeWindow(composer, firstRange, eligibility, resource);
 
         sound.Gain.Value = 50f;
@@ -2170,17 +2169,17 @@ public class AudioLatencyCompensationTests
     public void Composer_Flush_AfterInvalidationDoesNotUseDisposedCurrentEntries()
     {
         const float lookaheadMs = 5f;
-        var oneSecond = TimeSpan.FromSeconds(1);
+        var oneSecond = MediaTime.FromSeconds(1);
 
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+            TimeRange = new TimeRange(MediaTime.Zero, oneSecond),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, oneSecond);
+        var firstRange = new TimeRange(MediaTime.Zero, oneSecond);
         using var processed = ComposeWindow(composer, firstRange, eligibility, resource);
 
         composer.InvalidateCache();
@@ -2198,18 +2197,18 @@ public class AudioLatencyCompensationTests
     {
         const float lookaheadMs = 5f;
         int L = LookaheadSamples(lookaheadMs);
-        var oneSecond = TimeSpan.FromSeconds(1);
+        var oneSecond = MediaTime.FromSeconds(1);
 
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+            TimeRange = new TimeRange(MediaTime.Zero, oneSecond),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
 
-        var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
+        var window1 = new TimeRange(MediaTime.Zero, oneSecond);
         using var buffer1 = ComposeWindow(composer, window1, eligibility, resource);
 
         var window2 = new TimeRange(oneSecond, oneSecond);
@@ -2225,21 +2224,21 @@ public class AudioLatencyCompensationTests
     {
         const float lookaheadMs = 5f;
         int L = LookaheadSamples(lookaheadMs);
-        var oneSecond = TimeSpan.FromSeconds(1);
+        var oneSecond = MediaTime.FromSeconds(1);
 
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+            TimeRange = new TimeRange(MediaTime.Zero, oneSecond),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
 
-        var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
+        var window1 = new TimeRange(MediaTime.Zero, oneSecond);
         using var buffer1 = ComposeWindow(composer, window1, eligibility, resource);
 
-        sound.TimeRange = new TimeRange(TimeSpan.FromSeconds(10), oneSecond);
+        sound.TimeRange = new TimeRange(MediaTime.FromSeconds(10), oneSecond);
 
         var window2 = new TimeRange(oneSecond, oneSecond);
         using var buffer2 = ComposeWindow(composer, window2, eligibility);
@@ -2254,18 +2253,18 @@ public class AudioLatencyCompensationTests
     {
         const float lookaheadMs = 5f;
         int L = LookaheadSamples(lookaheadMs);
-        var oneSecond = TimeSpan.FromSeconds(1);
+        var oneSecond = MediaTime.FromSeconds(1);
 
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+            TimeRange = new TimeRange(MediaTime.Zero, oneSecond),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
 
-        var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
+        var window1 = new TimeRange(MediaTime.Zero, oneSecond);
         using var buffer1 = ComposeWindow(composer, window1, eligibility, resource);
 
         sound.Gain.Value = 50f;
@@ -2283,19 +2282,19 @@ public class AudioLatencyCompensationTests
     {
         const float lookaheadMs = 5f;
         int L = LookaheadSamples(lookaheadMs);
-        var oneSecond = TimeSpan.FromSeconds(1);
-        var twoSeconds = TimeSpan.FromSeconds(2);
+        var oneSecond = MediaTime.FromSeconds(1);
+        var twoSeconds = MediaTime.FromSeconds(2);
 
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, twoSeconds),
+            TimeRange = new TimeRange(MediaTime.Zero, twoSeconds),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
 
-        var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
+        var window1 = new TimeRange(MediaTime.Zero, oneSecond);
         using var buffer1 = ComposeWindow(composer, window1, eligibility, resource);
 
         var window2 = new TimeRange(oneSecond, oneSecond);
@@ -2311,21 +2310,21 @@ public class AudioLatencyCompensationTests
     {
         const float lookaheadMs = 5f;
         int L = LookaheadSamples(lookaheadMs);
-        var oneSecond = TimeSpan.FromSeconds(1);
+        var oneSecond = MediaTime.FromSeconds(1);
 
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+            TimeRange = new TimeRange(MediaTime.Zero, oneSecond),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
 
-        var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
+        var window1 = new TimeRange(MediaTime.Zero, oneSecond);
         using var buffer1 = ComposeWindow(composer, window1, eligibility, resource);
 
-        var window2 = new TimeRange(TimeSpan.FromSeconds(3), oneSecond);
+        var window2 = new TimeRange(MediaTime.FromSeconds(3), oneSecond);
         using var buffer2 = ComposeWindow(composer, window2, eligibility);
 
         Assert.That(buffer2, Is.Not.Null);
@@ -2338,18 +2337,18 @@ public class AudioLatencyCompensationTests
     {
         const float lookaheadMs = 5f;
         int L = LookaheadSamples(lookaheadMs);
-        var oneSecond = TimeSpan.FromSeconds(1);
+        var oneSecond = MediaTime.FromSeconds(1);
 
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+            TimeRange = new TimeRange(MediaTime.Zero, oneSecond),
         };
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
 
-        var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
+        var window1 = new TimeRange(MediaTime.Zero, oneSecond);
         using var buffer1 = ComposeWindow(composer, window1, eligibility, resource);
 
         composer.InvalidateCache();
@@ -2392,8 +2391,8 @@ public class AudioLatencyCompensationTests
         using var node = create();
         node.AddInput(new BufferReplayNode(input));
 
-        using var processed = node.Process(Context(TimeSpan.Zero, sampleCount));
-        using var tail = node.Flush(Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
+        using var processed = node.Process(Context(MediaTime.Zero, sampleCount));
+        using var tail = node.Flush(Context(MediaTime.FromSeconds((double)sampleCount / SampleRate), sampleCount));
 
         Assert.That(tail.ChannelCount, Is.EqualTo(processed.ChannelCount));
         Assert.That(tail.SampleCount, Is.EqualTo(sampleCount));
@@ -2451,13 +2450,13 @@ public class AudioLatencyCompensationTests
             {
                 new KeyFrame<float>
                 {
-                    KeyTime = TimeSpan.Zero,
+                    KeyTime = MediaTime.Zero,
                     Value = speed,
                     Easing = new LinearEasing(),
                 },
                 new KeyFrame<float>
                 {
-                    KeyTime = TimeSpan.FromSeconds(10),
+                    KeyTime = MediaTime.FromSeconds(10),
                     Value = speed,
                     Easing = new LinearEasing(),
                 },
@@ -2468,9 +2467,9 @@ public class AudioLatencyCompensationTests
     {
         public int TotalFlushedSamples { get; private set; }
 
-        public TimeSpan? LastProcessedEnd { get; private set; }
+        public MediaTime? LastProcessedEnd { get; private set; }
 
-        public TimeSpan? FirstFlushStart { get; private set; }
+        public MediaTime? FirstFlushStart { get; private set; }
 
         public override AudioBuffer Process(AudioProcessContext context)
         {
@@ -2516,7 +2515,7 @@ public class AudioLatencyCompensationTests
         var input = new ValueEqualAudioNode();
         var mixer = new MixerNode();
         mixer.AddInput(input);
-        mixer.SetBranchEndTime(input, TimeSpan.Zero);
+        mixer.SetBranchEndTime(input, MediaTime.Zero);
         mixer.Dispose();
         return (mixer, new WeakReference(input));
     }

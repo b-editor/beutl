@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.Engine;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Reconciliation;
@@ -13,7 +14,7 @@ public sealed partial class Reconciler
 
     // Agent edits follow the editor's locks (Scene.IsElementLockedByUser): a locked element, or one on a
     // locked layer, cannot change, and nothing may be placed on a locked layer; locking is allowed, unlocking
-    // is not. Elements that could not be fully loaded are exempt so an edit may repair or delete them.
+    // is not. An element that could not be fully loaded may only be deleted or repaired, as in the editor.
     // Elements and layers are matched by Id, not by change path, because the diff keeps the caller's key spelling.
     private static void ThrowIfLockedChanges(IEditingSession session, CoreObject sandboxRoot, JsonObject currentDocument)
     {
@@ -24,13 +25,17 @@ public sealed partial class Reconciler
 
         Element[] lockedElements = scene.Children.Where(scene.IsElementLockedByUser).ToArray();
         TimelineLayer[] lockedLayers = scene.Layers.Where(layer => layer.IsLocked).ToArray();
-        if (lockedElements.Length == 0 && lockedLayers.Length == 0)
+        Element[] protectedElements = scene.Children
+            .Where(element => element.IsRecoveryProtected && !scene.IsElementLockedByUser(element))
+            .ToArray();
+        if (lockedElements.Length == 0 && lockedLayers.Length == 0 && protectedElements.Length == 0)
         {
             return;
         }
 
         ToolError? error = FindDuplicatedLockedElement(scene, sandbox, lockedElements)
                            ?? FindChangedLockedElement(session, scene, sandbox, lockedElements, currentDocument)
+                           ?? FindUnrepairedProtectedElement(session, scene, sandbox, protectedElements, currentDocument)
                            ?? FindRegroupedLockedElement(scene, sandbox, lockedElements)
                            ?? FindUnlockedLayer(scene, sandbox, lockedLayers)
                            ?? FindElementPlacedOnLockedLayer(scene, sandbox);
@@ -148,7 +153,48 @@ public sealed partial class Reconciler
             ErrorCode.ValidationRejected,
             $"Element {identity} could not be fully loaded, so it is read-only in the editor until it is repaired.",
             target,
-            "Leave this element out of the edit.");
+            "Leave this element out of the edit, delete it, or repair it first by removing or replacing what could not be loaded.");
+    }
+
+    // Recovery keeps the file of an element that could not be fully loaded until nothing unloadable is left in it,
+    // so saving would drop any other edit. The edit may delete the element or leave it repaired.
+    private static ToolError? FindUnrepairedProtectedElement(
+        IEditingSession session,
+        Scene scene,
+        Scene sandbox,
+        Element[] protectedElements,
+        JsonObject currentDocument)
+    {
+        if (protectedElements.Length == 0)
+        {
+            return null;
+        }
+
+        Dictionary<Guid, JsonObject> current = IndexSerializedElements(currentDocument);
+        Dictionary<Guid, JsonObject> applied = IndexSerializedElements(session.Documents.Read(sandbox));
+        foreach (Element element in protectedElements)
+        {
+            if (!applied.TryGetValue(element.Id, out JsonObject? after)
+                || (current.TryGetValue(element.Id, out JsonObject? before) && JsonNode.DeepEquals(before, after)))
+            {
+                continue;
+            }
+
+            // The sandbox is a copy, which keeps no object marked as a blocker by identity, so those are found by Id.
+            HashSet<Guid> blockers = SerializedGraphTraversal.Enumerate(element)
+                .Where(SceneRecovery.IsRecoveryBlocker)
+                .OfType<EngineObject>()
+                .Select(blocker => blocker.Id)
+                .ToHashSet();
+            if (sandbox.Children.FirstOrDefault(child => child.Id == element.Id) is not { } repaired
+                || SceneRecovery.HoldsUnresolvedRecoveryBlocker(repaired)
+                || SerializedGraphTraversal.Enumerate(repaired).OfType<EngineObject>().Any(item => blockers.Contains(item.Id)))
+            {
+                return CreateLockedElementError(scene, element, ElementTarget(element));
+            }
+        }
+
+        return null;
     }
 
     // An element locked before the edit is still there and serializes the same, apart from its own

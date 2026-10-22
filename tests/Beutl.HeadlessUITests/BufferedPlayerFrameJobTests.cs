@@ -69,20 +69,20 @@ public class BufferedPlayerFrameJobTests
     }
 
     private static BufferedPlayer CreatePlayer(EditViewModel editor, ReactivePropertySlim<bool> isPlaying)
-        => new(editor, isPlaying, Rate, CancellationToken.None)
+        => new(editor, isPlaying, new Rational(Rate), CancellationToken.None)
         {
             ReadAheadBytes = ReadAheadBudget.SnapshotBytes(editor.Renderer.Value.DeviceSize) * BudgetFrames,
         };
 
     private static PlaybackRange RangeOf(EditViewModel editor)
-        => PlaybackRange.From(TimeSpan.Zero, editor.Scene.Start, editor.Scene.Duration, Rate);
+        => PlaybackRange.From(MediaTime.Zero, editor.Scene.Start, editor.Scene.Duration, new Rational(Rate));
 
     private static async Task<EditViewModel> OpenEditor()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("frame-jobs", 320, 240, frameRate: Rate);
 
         // Let the preview render queued by opening the scene finish first.
-        RenderThreadDrain.Drain(TimeSpan.FromMinutes(2));
+        RenderThreadDrain.Drain(TimeSpan.FromSeconds(120));
         return editor;
     }
 }

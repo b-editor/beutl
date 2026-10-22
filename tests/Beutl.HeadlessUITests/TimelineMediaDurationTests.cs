@@ -32,7 +32,7 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class TimelineMediaDurationTests
 {
-    private static readonly TimeSpan OneFrameAt30 = TimeSpan.FromTicks(333334);
+    private static readonly MediaTime OneFrameAt30 = MediaTime.FromFrames(1, new Rational(30));
 
     [AvaloniaTest]
     [TestCase(5d, 1d, 200f, 2d)]
@@ -56,9 +56,9 @@ public class TimelineMediaDurationTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(model.Model.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(model.Model.Length, Is.EqualTo(ExpectedLength(expectedSeconds)));
-            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(offsetSeconds)),
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(offsetSeconds)),
                 "Changing the duration must not trim the source in-point.");
             if (!sourceSeconds.HasValue)
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
@@ -82,9 +82,9 @@ public class TimelineMediaDurationTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(slower.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(faster.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(model.Model.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(slower.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
+            Assert.That(faster.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
         });
     }
 
@@ -109,7 +109,7 @@ public class TimelineMediaDurationTests
         float scale = view.Scale;
         double y = border.Bounds.Height / 2;
         Point press = border.TranslatePoint(new Point(border.Bounds.Width - 2, y), view.Window)!.Value;
-        Point release = border.TranslatePoint(new Point(TimeSpan.FromSeconds(4).TimeToPixel(scale), y), view.Window)!.Value;
+        Point release = border.TranslatePoint(new Point(MediaTime.FromSeconds(4).TimeToPixel(scale), y), view.Window)!.Value;
 
         view.Drag(press, release, RawInputModifiers.Alt, () =>
         {
@@ -119,17 +119,17 @@ public class TimelineMediaDurationTests
             {
                 Assert.That(model.Width.Value,
                     Is.EqualTo(ExpectedLength(expectedSeconds).TimeToPixel(scale)).Within(0.0001));
-                Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(1)),
+                Assert.That(model.Model.Length, Is.EqualTo(MediaTime.FromSeconds(1)),
                     "Dragging previews geometry without writing the element.");
-                Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(offsetSeconds)));
+                Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(offsetSeconds)));
             });
         });
 
         Assert.Multiple(() =>
         {
-            Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(model.Model.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(model.Model.Length, Is.EqualTo(ExpectedLength(expectedSeconds)));
-            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(offsetSeconds)),
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(offsetSeconds)),
                 "Normal edge resize remains geometry-only.");
         });
     }
@@ -153,9 +153,9 @@ public class TimelineMediaDurationTests
         float scale = view.Scale;
         Point press = border.TranslatePoint(new Point(2, border.Bounds.Height / 2), view.Window)!.Value;
         Point release = element.TranslatePoint(new Point(
-            TimeSpan.FromSeconds(requestedStartSeconds).TimeToPixel(scale), element.Bounds.Height / 2), view.Window)!.Value;
-        TimeSpan expectedStart = TimeSpan.FromSeconds(expectedStartSeconds);
-        TimeSpan end = TimeSpan.FromSeconds(7);
+            MediaTime.FromSeconds(requestedStartSeconds).TimeToPixel(scale), element.Bounds.Height / 2), view.Window)!.Value;
+        MediaTime expectedStart = MediaTime.FromSeconds(expectedStartSeconds);
+        MediaTime end = MediaTime.FromSeconds(7);
 
         view.Drag(press, release, RawInputModifiers.Alt, () =>
         {
@@ -166,9 +166,9 @@ public class TimelineMediaDurationTests
                 Assert.That(model.BorderMargin.Value.Left, Is.EqualTo(expectedStart.TimeToPixel(scale)).Within(0.0001));
                 Assert.That(model.Width.Value, Is.EqualTo((end - expectedStart).TimeToPixel(scale)).Within(0.0001));
                 Assert.That(model.BorderMargin.Value.Left + model.Width.Value, Is.EqualTo(end.TimeToPixel(scale)).Within(0.0001));
-                Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
-                Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-                Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
+                Assert.That(model.Model.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
+                Assert.That(model.Model.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+                Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
             });
         });
 
@@ -176,7 +176,7 @@ public class TimelineMediaDurationTests
         {
             Assert.That(model.Model.Start, Is.EqualTo(expectedStart));
             Assert.That(model.Model.Range.End, Is.EqualTo(end), "The untouched right edge must not move on commit.");
-            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)),
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)),
                 "Normal left-edge resize remains geometry-only.");
         });
     }
@@ -189,13 +189,13 @@ public class TimelineMediaDurationTests
         var speed = new KeyFrameAnimation<float> { UseGlobalClock = false };
         speed.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.Zero,
+            KeyTime = MediaTime.Zero,
             Value = 300,
             Easing = new LinearEasing()
         });
         speed.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.FromSeconds(4),
+            KeyTime = MediaTime.FromSeconds(4),
             Value = 100,
             Easing = new LinearEasing()
         });
@@ -204,7 +204,7 @@ public class TimelineMediaDurationTests
         TimelineTabViewModel timeline = back.Timeline;
         var adder = (IElementAdder)timeline.EditorContext.GetService(typeof(IElementAdder))!;
         ElementAddResult added = await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero, Length: TimeSpan.FromSeconds(4), Layer: 0,
+            Start: MediaTime.Zero, Length: MediaTime.FromSeconds(4), Layer: 0,
             Source: new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None);
         Assert.That(added.IsSuccess, Is.True);
         HeadlessTestHelpers.Settle();
@@ -221,13 +221,13 @@ public class TimelineMediaDurationTests
             float scale = view.Scale;
             Point press = border.TranslatePoint(
                 new Point(border.Bounds.Width - 2, border.Bounds.Height / 2), view.Window)!.Value;
-            Point release = press.WithX(press.X + TimeSpan.FromSeconds(2).TimeToPixel(scale));
+            Point release = press.WithX(press.X + MediaTime.FromSeconds(2).TimeToPixel(scale));
             double previewDeltaSeconds = 0;
 
             view.Drag(press, release, RawInputModifiers.Alt, () =>
             {
                 CapturePreview(view.Window, "roll-local-decelerating-back");
-                previewDeltaSeconds = back.BorderMargin.Value.Left.PixelToTimeSpan(scale).TotalSeconds - 4;
+                previewDeltaSeconds = back.BorderMargin.Value.Left.PixelToTime(scale).ToSeconds() - 4;
 
                 // F(t) = 3t - t²/4. After rolling by d the local clock restarts, so
                 // F(d) + F(4-d) = 8 + 2d - d²/2 must stay <= 9: d <= 2-sqrt(2).
@@ -236,24 +236,24 @@ public class TimelineMediaDurationTests
                     Assert.That(previewDeltaSeconds, Is.EqualTo(2 - Math.Sqrt(2)).Within(0.001));
                     Assert.That(front.Width.Value, Is.EqualTo(back.BorderMargin.Value.Left).Within(0.0001));
                     Assert.That(back.BorderMargin.Value.Left + back.Width.Value,
-                        Is.EqualTo(TimeSpan.FromSeconds(8).TimeToPixel(scale)).Within(0.0001));
-                    Assert.That(front.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(4)));
-                    Assert.That(back.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
-                    Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
+                        Is.EqualTo(MediaTime.FromSeconds(8).TimeToPixel(scale)).Within(0.0001));
+                    Assert.That(front.Model.Length, Is.EqualTo(MediaTime.FromSeconds(4)));
+                    Assert.That(back.Model.Start, Is.EqualTo(MediaTime.FromSeconds(4)));
+                    Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
                 });
             });
 
             using var integrator = new SpeedIntegrator(44100);
             integrator.EnsureCache(speed);
-            TimeSpan sourceEnd = sound.OffsetPosition.Value + integrator.Integrate(back.Model.Length, speed);
+            MediaTime sourceEnd = sound.OffsetPosition.Value + integrator.Integrate(back.Model.Length, speed);
             Assert.Multiple(() =>
             {
-                Assert.That((back.Model.Start - TimeSpan.FromSeconds(4)).TotalSeconds,
+                Assert.That((back.Model.Start - MediaTime.FromSeconds(4)).ToSeconds(),
                     Is.EqualTo(previewDeltaSeconds).Within(0.000001), "The committed cut must match the drag preview.");
                 Assert.That(front.Model.Range.End, Is.EqualTo(back.Model.Start));
-                Assert.That(back.Model.Range.End, Is.EqualTo(TimeSpan.FromSeconds(8)));
-                Assert.That(sound.OffsetPosition.Value, Is.GreaterThan(TimeSpan.Zero));
-                Assert.That(sourceEnd, Is.LessThanOrEqualTo(TimeSpan.FromSeconds(9)),
+                Assert.That(back.Model.Range.End, Is.EqualTo(MediaTime.FromSeconds(8)));
+                Assert.That(sound.OffsetPosition.Value, Is.GreaterThan(MediaTime.Zero));
+                Assert.That(sourceEnd, Is.LessThanOrEqualTo(MediaTime.FromSeconds(9)),
                     "The applied offset plus the restarted local speed integral must fit the source.");
             });
         }
@@ -271,7 +271,7 @@ public class TimelineMediaDurationTests
         Assert.That(model.HasOriginalDuration(), Is.True);
         model.ChangeToOriginalDuration.Execute();
         HeadlessTestHelpers.Settle(4);
-        Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(5)));
+        Assert.That(model.Model.Length, Is.EqualTo(MediaTime.FromSeconds(5)));
     }
 
     [AvaloniaTest]
@@ -282,7 +282,7 @@ public class TimelineMediaDurationTests
         Assert.That(model.HasOriginalDuration(), Is.True);
         model.ChangeToOriginalDuration.Execute();
         HeadlessTestHelpers.Settle(4);
-        Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+        Assert.That(model.Model.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
     }
 
     [SuppressResourceClassGeneration]
@@ -290,9 +290,9 @@ public class TimelineMediaDurationTests
     {
         public bool HasOriginalDuration() => true;
 
-        public bool TryGetOriginalDuration(out TimeSpan duration)
+        public bool TryGetOriginalDuration(out MediaTime duration)
         {
-            duration = TimeSpan.FromSeconds(3);
+            duration = MediaTime.FromSeconds(3);
             return true;
         }
     }
@@ -305,17 +305,17 @@ public class TimelineMediaDurationTests
         model.Model.Objects.Add(new DrawableTimeController
         {
             Speed = { Value = 50 },
-            OffsetPosition = { Value = TimeSpan.FromSeconds(4) },
+            OffsetPosition = { Value = MediaTime.FromSeconds(4) },
             Loop = { Value = true }
         });
         var adder = (IElementAdder)model.Timeline.EditorContext.GetService(typeof(IElementAdder))!;
         Assert.That((await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.FromSeconds(6.5), Length: TimeSpan.FromSeconds(1), Layer: 0,
+            Start: MediaTime.FromSeconds(6.5), Length: MediaTime.FromSeconds(1), Layer: 0,
             Source: new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None)).IsSuccess, Is.True);
         HeadlessTestHelpers.Settle();
         model.ChangeToOriginalDuration.Execute();
         HeadlessTestHelpers.Settle(4);
-        Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(1)),
+        Assert.That(model.Model.Length, Is.EqualTo(MediaTime.FromSeconds(1)),
             "The neighbour's 1.5s limit is an unsafe loop period and must be revalidated.");
     }
 
@@ -329,7 +329,7 @@ public class TimelineMediaDurationTests
         model.Model.Objects.Add(new DrawableTimeController
         {
             Speed = { Value = 50 },
-            OffsetPosition = { Value = TimeSpan.FromSeconds(leftEdge ? 4 : 10) },
+            OffsetPosition = { Value = MediaTime.FromSeconds(leftEdge ? 4 : 10) },
             Loop = { Value = true }
         });
         var timeline = model.Timeline;
@@ -340,14 +340,14 @@ public class TimelineMediaDurationTests
         float scale = view.Scale;
         double y = border.Bounds.Height / 2;
         Point press = border.TranslatePoint(new Point(leftEdge ? 2 : border.Bounds.Width - 2, y), view.Window)!.Value;
-        Point release = border.TranslatePoint(new Point(TimeSpan.FromSeconds(leftEdge ? -1.8 : 1.6).TimeToPixel(scale), y), view.Window)!.Value;
+        Point release = border.TranslatePoint(new Point(MediaTime.FromSeconds(leftEdge ? -1.8 : 1.6).TimeToPixel(scale), y), view.Window)!.Value;
         view.Drag(press, release, RawInputModifiers.Alt, () =>
         {
             CapturePreview(view.Window, leftEdge ? "later-safe-left-loop-phase" : "later-safe-loop-phase");
-            Assert.That(model.Width.Value, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 2 : 1.6).TimeToPixel(scale)).Within(0.0001));
+            Assert.That(model.Width.Value, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 2 : 1.6).TimeToPixel(scale)).Within(0.0001));
         });
-        Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 2 : 1.6)));
-        Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 4 : 5)));
+        Assert.That(model.Model.Length, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 2 : 1.6)));
+        Assert.That(model.Model.Start, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 4 : 5)));
     }
 
     [AvaloniaTest]
@@ -362,7 +362,7 @@ public class TimelineMediaDurationTests
         var timeline = model.Timeline;
         var adder = (IElementAdder)timeline.EditorContext.GetService(typeof(IElementAdder))!;
         Assert.That((await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.FromSeconds(leftEdge ? 0 : 2), Length: TimeSpan.FromSeconds(leftEdge ? 3 : 4), Layer: 1,
+            Start: MediaTime.FromSeconds(leftEdge ? 0 : 2), Length: MediaTime.FromSeconds(leftEdge ? 3 : 4), Layer: 1,
             Source: new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None)).IsSuccess, Is.True);
         Element owner = model.Scene.Children.Single(e => e != model.Model);
         owner.Objects.Clear();
@@ -377,14 +377,14 @@ public class TimelineMediaDurationTests
         float scale = view.Scale;
         double y = border.Bounds.Height / 2;
         Point press = border.TranslatePoint(new Point(leftEdge ? 2 : border.Bounds.Width - 2, y), view.Window)!.Value;
-        Point release = border.TranslatePoint(new Point(TimeSpan.FromSeconds(leftEdge ? -4 : 3).TimeToPixel(scale), y), view.Window)!.Value;
+        Point release = border.TranslatePoint(new Point(MediaTime.FromSeconds(leftEdge ? -4 : 3).TimeToPixel(scale), y), view.Window)!.Value;
         view.Drag(press, release, RawInputModifiers.Alt, () =>
         {
             CapturePreview(view.Window, $"portal-new-overlap-left-{leftEdge}");
-            Assert.That(model.Width.Value, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 4 : 2).TimeToPixel(scale)).Within(0.0001));
+            Assert.That(model.Width.Value, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 4 : 2).TimeToPixel(scale)).Within(0.0001));
         });
-        Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
-        Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 4 : 2)));
+        Assert.That(model.Model.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
+        Assert.That(model.Model.Length, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 4 : 2)));
     }
 
     [AvaloniaTest]
@@ -394,7 +394,7 @@ public class TimelineMediaDurationTests
     {
         using var configuration = new EditorConfigScope(clamp: true, snap: false);
         ElementViewModel model = await OpenElement(CreateDurationVideo(), startSeconds: leftEdge ? 2 : 1, lengthSeconds: 0.5);
-        var controller = new DrawableTimeController { IsEnabled = false, OffsetPosition = { Value = TimeSpan.FromSeconds(0.2) } };
+        var controller = new DrawableTimeController { IsEnabled = false, OffsetPosition = { Value = MediaTime.FromSeconds(0.2) } };
         model.Model.Objects.Add(controller);
         var timeline = model.Timeline;
         timeline.ClearSelected();
@@ -404,14 +404,14 @@ public class TimelineMediaDurationTests
         float scale = view.Scale;
         double y = border.Bounds.Height / 2;
         Point press = border.TranslatePoint(new Point(leftEdge ? 2 : border.Bounds.Width - 2, y), view.Window)!.Value;
-        Point release = border.TranslatePoint(new Point(TimeSpan.FromSeconds(leftEdge ? -1 : 1.5).TimeToPixel(scale), y), view.Window)!.Value;
+        Point release = border.TranslatePoint(new Point(MediaTime.FromSeconds(leftEdge ? -1 : 1.5).TimeToPixel(scale), y), view.Window)!.Value;
         view.Drag(press, release, RawInputModifiers.Alt, () =>
         {
             CapturePreview(view.Window, $"disabled-flow-controller-left-{leftEdge}");
             Assert.Multiple(() =>
             {
-                Assert.That(model.Width.Value, Is.EqualTo(TimeSpan.FromSeconds(0.8).TimeToPixel(scale)).Within(0.0001));
-                Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(0.5)), "Preview must not mutate the element.");
+                Assert.That(model.Width.Value, Is.EqualTo(MediaTime.FromSeconds(0.8).TimeToPixel(scale)).Within(0.0001));
+                Assert.That(model.Model.Length, Is.EqualTo(MediaTime.FromSeconds(0.5)), "Preview must not mutate the element.");
             });
         });
         controller.IsEnabled = true;
@@ -420,9 +420,9 @@ public class TimelineMediaDurationTests
         var video = (SourceVideo.Resource)resource.Target!;
         Assert.Multiple(() =>
         {
-            Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 1.7 : 1)));
-            Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(0.8)));
-            Assert.That(video.RequestedPosition + video.OffsetPosition, Is.LessThanOrEqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(model.Model.Start, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 1.7 : 1)));
+            Assert.That(model.Model.Length, Is.EqualTo(MediaTime.FromSeconds(0.8)));
+            Assert.That(video.RequestedPosition + video.OffsetPosition, Is.LessThanOrEqualTo(MediaTime.FromSeconds(1)));
         });
     }
 
@@ -455,17 +455,17 @@ public class TimelineMediaDurationTests
         public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound) { sound = null; return false; }
     }
 
-    private static TimeSpan ExpectedLength(double seconds)
-        => seconds == 0 ? OneFrameAt30 : TimeSpan.FromSeconds(seconds);
+    private static MediaTime ExpectedLength(double seconds)
+        => seconds == 0 ? OneFrameAt30 : MediaTime.FromSeconds(seconds);
 
     private static SceneSound CreateSound(double? sourceSeconds, double offsetSeconds, float speed)
         => new()
         {
             ReferencedScene =
             {
-                Value = sourceSeconds is { } seconds ? new Scene { Duration = TimeSpan.FromSeconds(seconds) } : null
+                Value = sourceSeconds is { } seconds ? new Scene { Duration = MediaTime.FromSeconds(seconds) } : null
             },
-            OffsetPosition = { Value = TimeSpan.FromSeconds(offsetSeconds) },
+            OffsetPosition = { Value = MediaTime.FromSeconds(offsetSeconds) },
             Speed = { Value = speed }
         };
 
@@ -475,8 +475,8 @@ public class TimelineMediaDurationTests
         using var configuration = new EditorConfigScope(clamp: true, snap: false);
         SceneSound sound = CreateSound(3, 0, 100);
         var animation = new KeyFrameAnimation<float> { UseGlobalClock = true };
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(10), Value = 200 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(10), Value = 200 });
         sound.Speed.SetKeyFrameAnimation(animation);
         ElementViewModel model = await OpenElement(sound, lengthSeconds: 2);
         TimelineTabViewModel timeline = model.Timeline;
@@ -488,7 +488,7 @@ public class TimelineMediaDurationTests
         float scale = view.Scale;
         double width = model.Width.Value;
         Point press = border.TranslatePoint(new Point(border.Bounds.Width / 2, border.Bounds.Height / 2), view.Window)!.Value;
-        Point release = press + new Avalonia.Vector(TimeSpan.FromSeconds(6).TimeToPixel(scale), 0);
+        Point release = press + new Avalonia.Vector(MediaTime.FromSeconds(6).TimeToPixel(scale), 0);
         view.Drag(press, release, RawInputModifiers.None, () =>
         {
             CapturePreview(view.Window, "move-global-speed");
@@ -496,9 +496,9 @@ public class TimelineMediaDurationTests
         });
         Assert.Multiple(() =>
         {
-            Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(7)));
-            Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(model.Model.Start, Is.EqualTo(MediaTime.FromSeconds(7)));
+            Assert.That(model.Model.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
         });
         HeadlessTestHelpers.Render(5);
         CapturePreview(view.Window, "move-global-speed-committed");
@@ -524,10 +524,10 @@ public class TimelineMediaDurationTests
         Assert.That(peer.Range, Is.EqualTo(owner.Model.Range));
         if (subFrameStarts)
         {
-            TimeSpan end = owner.Model.Range.End;
-            owner.Model.Start = TimeSpan.FromTicks(10050000);
+            MediaTime end = owner.Model.Range.End;
+            owner.Model.Start = MediaTime.FromTimeSpan(TimeSpan.FromTicks(10050000));
             owner.Model.Length = end - owner.Model.Start;
-            peer.Start = TimeSpan.FromTicks(10200000);
+            peer.Start = MediaTime.FromTimeSpan(TimeSpan.FromTicks(10200000));
             peer.Length = end - peer.Start;
         }
         peer.Objects.Clear();
@@ -546,23 +546,23 @@ public class TimelineMediaDurationTests
         Border border = view.Border;
         float scale = view.Scale;
         Point press = border.TranslatePoint(new Point(leftEdge ? 2 : border.Bounds.Width - 2, border.Bounds.Height / 2), view.Window)!.Value;
-        double releaseX = TimeSpan.FromSeconds(leftEdge ? -0.35 : 0.75).TimeToPixel(scale);
+        double releaseX = MediaTime.FromSeconds(leftEdge ? -0.35 : 0.75).TimeToPixel(scale);
         Point release = border.TranslatePoint(new Point(releaseX, border.Bounds.Height / 2), view.Window)!.Value;
         view.Drag(press, release, RawInputModifiers.Alt, () =>
         {
             CapturePreview(view.Window, $"grouped-shared-clock-left-{leftEdge}-subframe-{subFrameStarts}");
             Assert.Multiple(() =>
             {
-                Assert.That(owner.Width.Value, Is.EqualTo(TimeSpan.FromSeconds(0.5).TimeToPixel(scale)).Within(0.0001));
+                Assert.That(owner.Width.Value, Is.EqualTo(MediaTime.FromSeconds(0.5).TimeToPixel(scale)).Within(0.0001));
                 Assert.That(presented.BorderMargin.Value.Left + presented.Width.Value,
                     Is.EqualTo(owner.BorderMargin.Value.Left + owner.Width.Value).Within(0.0001));
             });
         });
         Assert.Multiple(() =>
         {
-            Assert.That(owner.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(subFrameStarts ? 0.495 : 0.5)));
-            Assert.That(owner.Model.Start, Is.EqualTo(subFrameStarts ? TimeSpan.FromTicks(10050000) : TimeSpan.FromSeconds(leftEdge ? 0.9 : 1)));
-            Assert.That(peer.Start, Is.EqualTo(subFrameStarts ? TimeSpan.FromTicks(10200000) : TimeSpan.FromSeconds(leftEdge ? 0.9 : 1)));
+            Assert.That(owner.Model.Length, Is.EqualTo(MediaTime.FromSeconds(subFrameStarts ? 0.495 : 0.5)));
+            Assert.That(owner.Model.Start, Is.EqualTo(subFrameStarts ? MediaTime.FromTimeSpan(TimeSpan.FromTicks(10050000)) : MediaTime.FromSeconds(leftEdge ? 0.9 : 1)));
+            Assert.That(peer.Start, Is.EqualTo(subFrameStarts ? MediaTime.FromTimeSpan(TimeSpan.FromTicks(10200000)) : MediaTime.FromSeconds(leftEdge ? 0.9 : 1)));
             Assert.That(peer.Range.End, Is.EqualTo(owner.Model.Range.End));
         });
         HeadlessTestHelpers.Render(5);
@@ -610,7 +610,7 @@ public class TimelineMediaDurationTests
         (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("timeline-media-duration");
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         ElementAddResult added = await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.FromSeconds(startSeconds), Length: TimeSpan.FromSeconds(lengthSeconds), Layer: 0,
+            Start: MediaTime.FromSeconds(startSeconds), Length: MediaTime.FromSeconds(lengthSeconds), Layer: 0,
             Source: new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None);
         Assert.That(added.IsSuccess, Is.True);
 
@@ -619,7 +619,7 @@ public class TimelineMediaDurationTests
         element.Objects.Clear();
         element.Objects.Add(media);
         element.Name = "Speed-aware media duration";
-        scene.Duration = TimeSpan.FromSeconds(10);
+        scene.Duration = MediaTime.FromSeconds(10);
         var timeline = editor.FindToolTab<TimelineTabViewModel>()!;
         timeline.Options.Value = timeline.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };
         HeadlessTestHelpers.Settle();

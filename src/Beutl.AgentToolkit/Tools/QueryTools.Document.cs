@@ -35,7 +35,7 @@ public sealed partial class QueryTools
                     scene.Name,
                     scene.FrameSize.Width,
                     scene.FrameSize.Height,
-                    scene.Duration.ToString("c"),
+                    scene.Duration.ToTimeSpan().ToString("c"),
                     scene.Children.Count,
                     scene.Children.Select(CreateElementSummary).ToArray());
             });
@@ -79,8 +79,8 @@ public sealed partial class QueryTools
         return new ElementSummary(
             element.Id.ToString(),
             element.Name,
-            element.Start.ToString("c"),
-            element.Length.ToString("c"),
+            element.Start.ToTimeSpan().ToString("c"),
+            element.Length.ToTimeSpan().ToString("c"),
             element.ZIndex,
             element.Objects.Select(CreateObjectSummary).ToArray());
     }

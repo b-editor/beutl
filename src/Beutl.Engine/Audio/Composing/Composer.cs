@@ -293,7 +293,7 @@ public partial class Composer : IComposer
             if (entry.OutputNodes is not { } outputNodes)
                 continue;
             // Entries ending at or before the previous boundary may still hold a partially drained tail.
-            if (entry.SoundRange.End.Ticks - previous.End.Ticks > 1)
+            if (entry.SoundRange.End - previous.End > AudioProcessContext.TimestampQuantizationTolerance)
                 continue;
             if (entry.Sound.TimeRange != entry.SoundRange)
                 continue;
@@ -355,9 +355,12 @@ public partial class Composer : IComposer
         return entries;
     }
 
-    private static bool IsContiguous(TimeSpan previousEnd, TimeSpan nextStart)
-        => Math.Abs((nextStart - previousEnd).Ticks)
-            <= AudioProcessContext.TimestampQuantizationToleranceTicks;
+    private static bool IsContiguous(MediaTime previousEnd, MediaTime nextStart)
+    {
+        MediaTime difference = nextStart - previousEnd;
+        return difference >= -AudioProcessContext.TimestampQuantizationTolerance
+               && difference <= AudioProcessContext.TimestampQuantizationTolerance;
+    }
 
     private bool CanFlushEntry(AudioNodeEntry entry)
     {

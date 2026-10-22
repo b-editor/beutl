@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Extensibility;
 using Beutl.Graphics;
+using Beutl.JsonConverters;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
@@ -44,18 +45,20 @@ public sealed class ElementClipboardService : IElementClipboardService
         ArgumentNullException.ThrowIfNull(elements);
         if (elements.Count == 0) return false;
 
-        string singleJson = CoreSerializer.SerializeToJsonString(elements[0]);
-        var entries = new List<ClipboardEntry>(3)
+        var entries = new List<ClipboardEntry>(3);
+        // The clipboard keeps exact times, which an earlier version cannot paste.
+        using (MediaTimeJsonConverter.WriteFlicks())
         {
-            new(BeutlClipboardFormats.Element, singleJson),
-            new(BeutlClipboardFormats.Text, singleJson),
-        };
+            string singleJson = CoreSerializer.SerializeToJsonString(elements[0]);
+            entries.Add(new(BeutlClipboardFormats.Element, singleJson));
+            entries.Add(new(BeutlClipboardFormats.Text, singleJson));
 
-        if (elements.Count > 1)
-        {
-            JsonNode multiNode = new JsonArray(
-                elements.Select(JsonNode (e) => CoreSerializer.SerializeToJsonObject(e)).ToArray());
-            entries.Add(new ClipboardEntry(BeutlClipboardFormats.Elements, multiNode.ToJsonString()));
+            if (elements.Count > 1)
+            {
+                JsonNode multiNode = new JsonArray(
+                    elements.Select(JsonNode (e) => CoreSerializer.SerializeToJsonObject(e)).ToArray());
+                entries.Add(new ClipboardEntry(BeutlClipboardFormats.Elements, multiNode.ToJsonString()));
+            }
         }
 
         return await _clipboard.SetAsync(entries);
@@ -91,7 +94,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         return true;
     }
 
-    public async Task<ElementPasteOutcome> PasteAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer)
+    public async Task<ElementPasteOutcome> PasteAsync(Scene scene, MediaTime clickedFrame, int clickedLayer)
     {
         ArgumentNullException.ThrowIfNull(scene);
 
@@ -120,7 +123,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         return ElementPasteOutcome.Empty;
     }
 
-    private async Task<ElementPasteOutcome> PasteElementsAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer)
+    private async Task<ElementPasteOutcome> PasteElementsAsync(Scene scene, MediaTime clickedFrame, int clickedLayer)
     {
         if (scene.IsLayerLocked(clickedLayer))
         {
@@ -170,7 +173,7 @@ public sealed class ElementClipboardService : IElementClipboardService
             AddFailure: null);
     }
 
-    private async Task<ElementPasteOutcome> PasteSingleElementAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer)
+    private async Task<ElementPasteOutcome> PasteSingleElementAsync(Scene scene, MediaTime clickedFrame, int clickedLayer)
     {
         if (scene.Uri is null)
         {
@@ -205,7 +208,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         return AddPastedElement(scene, newElement);
     }
 
-    private async Task<ElementPasteOutcome> PasteFilesAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer)
+    private async Task<ElementPasteOutcome> PasteFilesAsync(Scene scene, MediaTime clickedFrame, int clickedLayer)
     {
         if (_elementAdder is null) return ElementPasteOutcome.Empty;
 
@@ -215,7 +218,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         ElementAddResult result = await _elementAdder.AddAsync(files
             .Select(file => new ElementDescription(
                 clickedFrame,
-                TimeSpan.FromSeconds(5),
+                MediaTime.FromSeconds(5),
                 clickedLayer,
                 new ElementSource.File(file)))
             .ToArray(), CancellationToken.None);
@@ -236,7 +239,7 @@ public sealed class ElementClipboardService : IElementClipboardService
             AddFailure: null);
     }
 
-    private async Task<ElementPasteOutcome> PasteBitmapAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer)
+    private async Task<ElementPasteOutcome> PasteBitmapAsync(Scene scene, MediaTime clickedFrame, int clickedLayer)
     {
         if (scene.Uri is null)
         {
@@ -290,7 +293,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         var newElement = new Element
         {
             Start = clickedFrame,
-            Length = TimeSpan.FromSeconds(5),
+            Length = MediaTime.FromSeconds(5),
             ZIndex = clickedLayer,
             AccentColor = _imageAccentColorFactory(),
             Name = Path.GetFileName(imageFile),

@@ -38,7 +38,7 @@ public sealed partial class TimelineTabViewModel
         // Hit-test with the raw pointer time, not the frame-rounded ClickedFrame: rounding can push a
         // click in the latter half of a one-frame gap onto the next clip's start, which the half-open
         // gap range then reports as no gap.
-        TimeSpan clickedTime = ClickedPosition.X.PixelToTimeSpan(Options.Value.Scale);
+        MediaTime clickedTime = ClickedPosition.X.PixelToTime(Options.Value.Scale);
         if (ResolvePointerGapToClose(Scene, clickedTime, CalculateClickedLayer()) is { } gap
             && EditorContext.GetRequiredService<IElementGapService>().CloseGapAfter(Scene, gap.Anchor))
         {
@@ -51,9 +51,9 @@ public sealed partial class TimelineTabViewModel
     // The gap under a right-click, but only when it lies wholly inside the active scene. ClickedFrame
     // is not clamped to the scene, so a click past either edge can land in a gap that straddles the
     // boundary; closing that raw gap would shift clips by off-scene space the user cannot see.
-    internal static SceneGap? ResolvePointerGapToClose(Scene scene, TimeSpan clickedTime, int layer)
+    internal static SceneGap? ResolvePointerGapToClose(Scene scene, MediaTime clickedTime, int layer)
     {
-        TimeSpan sceneEnd = scene.Start + scene.Duration;
+        MediaTime sceneEnd = scene.Start + scene.Duration;
         return scene.FindGapAt(clickedTime, layer) is { } gap
                && gap.Range.Start >= scene.Start && gap.Range.End <= sceneEnd
             ? gap
@@ -74,9 +74,9 @@ public sealed partial class TimelineTabViewModel
         if (FindGapNavigationTarget(Scene, CurrentTime.Value, forward) is { } target)
         {
             Seek(target.Target);
-            // Moving the playhead does not scroll while stopped, so scroll to a 1-tick range around the target:
+            // Moving the playhead does not scroll while stopped, so scroll to a 1-flick range around the target:
             // a gap wider than the viewport would always intersect it and skip the scroll.
-            ScrollTo.Execute((new TimeRange(target.Target, TimeSpan.FromTicks(1)), target.ZIndex));
+            ScrollTo.Execute((new TimeRange(target.Target, new MediaTime(1)), target.ZIndex));
             // A null anchor (start-clipped gap) has no element to select; clear any prior selection so
             // the selection-based Close Gap cannot act on a stale, unrelated gap after the jump.
             if (target.Anchor is { } anchor)
@@ -113,20 +113,20 @@ public sealed partial class TimelineTabViewModel
     // The search is bounded to the scene by searchRange, and currentTime is not clamped, so a gap touching the
     // scene's ends is not skipped. The anchor is null unless the gap is wholly inside the scene: Close Gap on a
     // clipped gap would move a clip the user cannot see.
-    internal static (TimeSpan Target, int ZIndex, Element? Anchor)? FindGapNavigationTarget(
-        Scene scene, TimeSpan currentTime, bool forward)
+    internal static (MediaTime Target, int ZIndex, Element? Anchor)? FindGapNavigationTarget(
+        Scene scene, MediaTime currentTime, bool forward)
     {
-        TimeSpan sceneStart = scene.Start;
-        TimeSpan sceneEnd = scene.Start + scene.Duration;
+        MediaTime sceneStart = scene.Start;
+        MediaTime sceneEnd = scene.Start + scene.Duration;
         var range = new TimeRange(sceneStart, scene.Duration);
         SceneGap? gap = forward
             ? scene.FindNextGap(currentTime, range)
             : scene.FindPreviousGap(currentTime, range);
         if (gap is not { } g) return null;
 
-        TimeSpan visibleStart = g.Range.Start > sceneStart ? g.Range.Start : sceneStart;
-        TimeSpan visibleEnd = g.Range.End < sceneEnd ? g.Range.End : sceneEnd;
-        TimeSpan target = visibleStart + new TimeSpan((visibleEnd - visibleStart).Ticks / 2);
+        MediaTime visibleStart = g.Range.Start > sceneStart ? g.Range.Start : sceneStart;
+        MediaTime visibleEnd = g.Range.End < sceneEnd ? g.Range.End : sceneEnd;
+        MediaTime target = visibleStart + new MediaTime((visibleEnd - visibleStart).Flicks / 2);
         bool whollyInside = g.Range.Start >= sceneStart && g.Range.End <= sceneEnd;
         return (target, g.ZIndex, whollyInside ? g.Anchor : null);
     }

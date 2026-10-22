@@ -7,9 +7,9 @@ namespace Beutl.ProjectSystem;
 // they have played at a given time.
 internal static class ElementTransitions
 {
-    // Clip boundaries snap to frames, but a start and a length rounded separately can leave one element's
-    // end a tick off the next element's start. Anything closer than this is one boundary.
-    internal static readonly TimeSpan AdjacencyTolerance = TimeSpan.FromMilliseconds(1);
+    // Clip boundaries snap to frames, but a time typed by hand or read outside a project can leave one element's
+    // end just off the next element's start. Anything closer than this is one boundary.
+    internal static readonly MediaTime AdjacencyTolerance = MediaTime.FromSeconds(0.001);
 
     // Whether outgoing and incoming meet at a boundary: enabled, on the same layer, incoming starting
     // after outgoing and no later than its end, and outgoing not reaching past incoming's end.
@@ -91,7 +91,7 @@ internal static class ElementTransitions
 
     // The boundary transition element takes part in at time, if any. Spans never overlap within an
     // element, so there is at most one.
-    public static bool TryGetActive(Element element, TimeSpan time, out TransitionBoundary boundary)
+    public static bool TryGetActive(Element element, MediaTime time, out TransitionBoundary boundary)
     {
         if (GetBoundaryAtStart(element) is { } start && start.Region.Contains(time))
         {
@@ -171,10 +171,9 @@ internal static class ElementTransitions
 
     // The time of the last frame the timeline shows inside element, so a held frame matches the one the
     // viewer saw right before the boundary instead of the one past the out point.
-    public static TimeSpan GetLastFrameTime(Element element)
+    public static MediaTime GetLastFrameTime(Element element)
     {
-        TimeSpan frame = TimeSpan.FromTicks(TimeSpan.TicksPerSecond / GetFrameRate(element));
-        TimeSpan time = element.Range.End - frame;
+        MediaTime time = element.Range.End - MediaTime.FromFrames(1, GetFrameRate(element));
         return time < element.Start ? element.Start : time;
     }
 
@@ -184,7 +183,7 @@ internal static class ElementTransitions
     }
 
     // Whether range reaches time, as a neighbour that meets an element's end there does.
-    private static bool Reaches(TimeRange range, TimeSpan time)
+    private static bool Reaches(TimeRange range, MediaTime time)
     {
         return range.Start <= time + AdjacencyTolerance && time - AdjacencyTolerance <= range.End;
     }
@@ -215,19 +214,19 @@ internal static class ElementTransitions
     {
         if (!IsActive(exit) && !IsActive(enter)) return false;
 
-        return GetDuration(exit, durationOverride) > TimeSpan.Zero
-               || GetDuration(enter, durationOverride) > TimeSpan.Zero
+        return GetDuration(exit, durationOverride) > MediaTime.Zero
+               || GetDuration(enter, durationOverride) > MediaTime.Zero
                || (outgoing != null && incoming != null && incoming.Start < outgoing.Range.End);
     }
 
-    private static TimeSpan GetDuration(ClipTransition? transition, TransitionDurationOverride? durationOverride)
+    private static MediaTime GetDuration(ClipTransition? transition, TransitionDurationOverride? durationOverride)
     {
-        if (!IsActive(transition)) return TimeSpan.Zero;
+        if (!IsActive(transition)) return MediaTime.Zero;
 
-        TimeSpan duration = durationOverride is { } value && ReferenceEquals(value.Transition, transition)
+        MediaTime duration = durationOverride is { } value && ReferenceEquals(value.Transition, transition)
             ? value.Duration
             : transition!.Duration.Value;
-        return duration < TimeSpan.Zero ? TimeSpan.Zero : duration;
+        return duration < MediaTime.Zero ? MediaTime.Zero : duration;
     }
 
     private static TransitionBoundary? CreateBoundary(
@@ -239,8 +238,8 @@ internal static class ElementTransitions
         ClipTransition? transition = IsActive(enter) ? enter : IsActive(exit) ? exit : null;
         if (transition == null) return null;
 
-        TimeSpan start;
-        TimeSpan end;
+        MediaTime start;
+        MediaTime end;
         if (outgoing != null && incoming != null)
         {
             // Centred on the cut when both sides add the same duration, ahead of or behind it when only
@@ -266,7 +265,7 @@ internal static class ElementTransitions
             start = Max(start, outgoing.Start);
             if (HasStartTransition(outgoing, durationOverride))
             {
-                start = Max(start, outgoing.Start + (outgoing.Length / 2));
+                start = Max(start, outgoing.Start + new MediaTime(outgoing.Length.Flicks / 2));
             }
         }
 
@@ -275,7 +274,7 @@ internal static class ElementTransitions
             end = Min(end, incoming.Range.End);
             if (HasEndTransition(incoming, durationOverride))
             {
-                end = Min(end, incoming.Start + (incoming.Length / 2));
+                end = Min(end, incoming.Start + new MediaTime(incoming.Length.Flicks / 2));
             }
         }
 
@@ -284,16 +283,16 @@ internal static class ElementTransitions
         return new TransitionBoundary(outgoing, incoming, transition, TimeRange.FromRange(start, end));
     }
 
-    private static TimeSpan Min(TimeSpan a, TimeSpan b) => a < b ? a : b;
+    private static MediaTime Min(MediaTime a, MediaTime b) => a < b ? a : b;
 
-    private static TimeSpan Max(TimeSpan a, TimeSpan b) => a > b ? a : b;
+    private static MediaTime Max(MediaTime a, MediaTime b) => a > b ? a : b;
 
-    private static int GetFrameRate(Element element) => element.FindHierarchicalParent<Project>().GetFrameRate();
+    private static Rational GetFrameRate(Element element) => element.FindHierarchicalParent<Project>().GetFrameRate();
 }
 
 // A duration that stands in for one transition side's own, so an edit can be previewed before it is
 // committed.
-internal readonly record struct TransitionDurationOverride(ClipTransition Transition, TimeSpan Duration);
+internal readonly record struct TransitionDurationOverride(ClipTransition Transition, MediaTime Duration);
 
 // The transition at one clip boundary. Outgoing is null for an enter transition with nothing before it,
 // and Incoming is null for an exit transition with nothing after it.
@@ -305,25 +304,25 @@ internal readonly record struct TransitionBoundary(
 {
     // How far the transition has played at time, before its easing, which the compositor applies as
     // evaluated for that time.
-    public float GetLinearProgress(TimeSpan time)
+    public float GetLinearProgress(MediaTime time)
     {
-        float linear = (float)((time - Region.Start).Ticks / (double)Region.Duration.Ticks);
+        float linear = (float)((time - Region.Start).Flicks / (double)Region.Duration.Flicks);
         return Math.Clamp(linear, 0, 1);
     }
 
     // Where the outgoing element is evaluated: its own time, or its last frame once the transition plays
     // past its end.
-    public TimeSpan GetOutgoingTime(TimeSpan time)
+    public MediaTime GetOutgoingTime(MediaTime time)
     {
         if (Outgoing == null) return time;
 
-        TimeSpan last = ElementTransitions.GetLastFrameTime(Outgoing);
+        MediaTime last = ElementTransitions.GetLastFrameTime(Outgoing);
         return time > last ? last : time;
     }
 
     // Where the incoming element is evaluated: its own time, or its first frame while the transition plays
     // ahead of its start.
-    public TimeSpan GetIncomingTime(TimeSpan time)
+    public MediaTime GetIncomingTime(MediaTime time)
     {
         if (Incoming == null || time >= Incoming.Start) return time;
 

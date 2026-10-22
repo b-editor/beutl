@@ -42,11 +42,11 @@ public sealed class MFEncoderSettingsTests
         await TestReset.ResetShellAsync();
         TestGpu.RequireAnyDevice();
         var editor = await TestShell.OpenNewSceneEditorAsync("mf-preflight", 64, 48);
-        editor.Scene.Duration = TimeSpan.FromMilliseconds(200);
+        editor.Scene.Duration = MediaTime.FromSeconds(0.2);
         var videoProbe = new ExportPassProbe { Target = CompositionTarget.Graphics };
         var audioProbe = new ExportPassProbe { Target = CompositionTarget.Audio };
-        await TestShell.AddElementAsync(editor, () => videoProbe, TimeSpan.Zero, editor.Scene.Duration);
-        await TestShell.AddElementAsync(editor, () => audioProbe, TimeSpan.Zero, editor.Scene.Duration);
+        await TestShell.AddElementAsync(editor, () => videoProbe, MediaTime.Zero, editor.Scene.Duration);
+        await TestShell.AddElementAsync(editor, () => audioProbe, MediaTime.Zero, editor.Scene.Duration);
         string missingPath = Path.Combine(TestShell.ProjectRoot(editor), missingVideo == true ? "missing.mov" : "missing.wav");
         if (missingVideo.HasValue)
         {
@@ -61,7 +61,7 @@ public sealed class MFEncoderSettingsTests
                 var sound = new SoundSource();
                 sound.ReadFrom(new Uri(missingPath));
                 return new SourceSound { Source = { Value = sound } };
-            }, TimeSpan.Zero, editor.Scene.Duration);
+            }, MediaTime.Zero, editor.Scene.Duration);
         }
 
         using var output = new OutputViewModel(editor);
@@ -93,7 +93,7 @@ public sealed class MFEncoderSettingsTests
                 Assert.That(videoProbe.EvaluationCount > 0, Is.EqualTo(controller.IsVideoEnabled));
                 Assert.That(audioProbe.EvaluationCount > 0, Is.EqualTo(controller.IsAudioEnabled));
                 Assert.That(hadIntermediateProgress, Is.True, "Progress must advance before completion.");
-                Assert.That(output.ProgressMax.Value, Is.EqualTo(editor.Scene.Duration.TotalSeconds
+                Assert.That(output.ProgressMax.Value, Is.EqualTo(editor.Scene.Duration.ToSeconds()
                     * ((controller.IsVideoEnabled ? 1 : 0) + (controller.IsAudioEnabled ? 1 : 0))));
             });
         }

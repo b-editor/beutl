@@ -100,8 +100,8 @@ public class InlineKeyFrameDragTests
             var firstModel = (InlineKeyFrameViewModel)key.DataContext!;
             Assert.Multiple(() =>
             {
-                Assert.That(graph.First.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(kept ? 0.9 : 0.5)));
-                Assert.That(graph.Second.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(kept && shift ? 1.9 : 1.5)));
+                Assert.That(graph.First.KeyTime, Is.EqualTo(MediaTime.FromSeconds(kept ? 0.9 : 0.5)));
+                Assert.That(graph.Second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(kept && shift ? 1.9 : 1.5)));
                 Assert.That(firstModel.Left.Value, Is.EqualTo(graph.First.KeyTime.TimeToPixel(1)).Within(0.0001));
                 Assert.That(element.Name, Is.EqualTo("earlier"), "Undo during the drag leaves earlier history alone.");
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + (kept ? 1 : 0)));

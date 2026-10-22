@@ -52,8 +52,8 @@ public static class AnimationEditTutorial
 
                 // 楕円要素を追加
                 ElementAddResult addResult = await adder.AddAsync([new ElementDescription(
-                    Start: TimeSpan.Zero,
-                    Length: TimeSpan.FromSeconds(5),
+                    Start: MediaTime.Zero,
+                    Length: MediaTime.FromSeconds(5),
                     Layer: 0,
                     Source: new ElementSource.EngineObject(() => new EllipseShape()))],
                     CancellationToken.None);
@@ -196,7 +196,7 @@ public static class AnimationEditTutorial
                         }
                         else
                         {
-                            editorClock.Seek(element.Start + TimeSpan.FromSeconds(2));
+                            editorClock.Seek(element.Start + MediaTime.FromSeconds(2));
                             step4Subscription.Current = TutorialHelpers.SubscribeToKeyFrameAdded(
                                 animation,
                                 2,

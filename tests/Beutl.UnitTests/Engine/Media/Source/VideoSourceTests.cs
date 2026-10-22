@@ -49,7 +49,7 @@ public class VideoSourceTests
     public void AudioOnlyMedia_YieldsOfflinePlaceholderAndReleasesReader(bool disableResourceShare)
     {
         VideoSource source = CreateSource();
-        var context = new CompositionContext(TimeSpan.Zero) { DisableResourceShare = disableResourceShare };
+        var context = new CompositionContext(MediaTime.Zero) { DisableResourceShare = disableResourceShare };
         using var resource = source.ToResource(context);
 
         AssertOffline(resource);
@@ -105,7 +105,7 @@ public class VideoSourceTests
         VideoSource source = CreateSource();
         using var resource = source.ToResource(CompositionContext.Default);
         Assert.That(resource.IsOffline, Is.False);
-        Assert.That(resource.Duration, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        Assert.That(resource.Duration, Is.EqualTo(MediaTime.FromSeconds(2)));
 
         _hasVideo = false;
         source.InvalidateResourceCache();
@@ -124,7 +124,7 @@ public class VideoSourceTests
         {
             Assert.That(resource.IsOffline, Is.False);
             Assert.That(resource.MediaReader, Is.SameAs(_readers.Last().Object));
-            Assert.That(resource.Duration, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(resource.Duration, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(resource.FrameSize, Is.EqualTo(new PixelSize(80, 60)));
             Assert.That(resource.FrameRate, Is.EqualTo(new Rational(24, 1)));
         });
@@ -138,8 +138,8 @@ public class VideoSourceTests
         video.Source.Value = CreateSource();
         var element = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(1),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(_root, "clip.belm")),
         };
         element.AddObject(video);
@@ -153,15 +153,15 @@ public class VideoSourceTests
             ForceOriginalSource = true,
         };
 
-        CompositionFrame first = compositor.EvaluateGraphics(TimeSpan.Zero);
-        CompositionFrame next = compositor.EvaluateGraphics(TimeSpan.FromSeconds(0.5));
+        CompositionFrame first = compositor.EvaluateGraphics(MediaTime.Zero);
+        CompositionFrame next = compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5));
 
         var resource = (SourceVideo.Resource)first.Objects.Single();
         AssertOffline(resource.Source!);
         Assert.That(next.Objects.Single(), Is.SameAs(resource));
         Assert.That(_readers, Has.Count.EqualTo(1));
-        Assert.That(video.TryGetOriginalDuration(out TimeSpan duration), Is.False);
-        Assert.That(duration, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(video.TryGetOriginalDuration(out MediaTime duration), Is.False);
+        Assert.That(duration, Is.EqualTo(MediaTime.Zero));
     }
 
     private VideoSource CreateSource()
@@ -191,13 +191,13 @@ public class VideoSourceTests
         {
             Assert.That(resource.IsOffline, Is.True);
             Assert.That(resource.MediaReader, Is.Null);
-            Assert.That(resource.Duration, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(resource.Duration, Is.EqualTo(MediaTime.Zero));
             Assert.That(resource.FrameRate, Is.EqualTo(new Rational(30, 1)));
             Assert.That(resource.FrameSize, Is.EqualTo(OfflineMediaPlaceholder.Size));
             Assert.That(resource.LogicalFrameSize, Is.EqualTo(OfflineMediaPlaceholder.Size));
             Assert.That(resource.ProxyResolution, Is.Null);
         });
-        Assert.That(resource.Read(TimeSpan.Zero, out Ref<Bitmap>? bitmap), Is.True);
+        Assert.That(resource.Read(0, out Ref<Bitmap>? bitmap), Is.True);
         using (bitmap)
             Assert.That(new PixelSize(bitmap!.Value.Width, bitmap.Value.Height), Is.EqualTo(OfflineMediaPlaceholder.Size));
         Assert.That(resource.Read(10, out bitmap), Is.True);
