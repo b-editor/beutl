@@ -174,6 +174,10 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         return layout;
     }
 
+    // New settings start with these H.264 options, which most other encoders reject (#2898).
+    private static bool IsH264OnlyDefault(AdditionalOption option) =>
+        (option.Name, option.Value) is ("profile", "high") or ("preset", "medium");
+
     private unsafe void ConfigureVideoStream(
         OutputFormat outFormat, MediaMuxer muxer,
         MediaFrame videoFrame, out MediaEncoder encoder, out MediaStream stream)
@@ -186,8 +190,10 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         var fps = VideoSettings.FrameRate;
         var format = (AVPixelFormat)VideoSettings.Format;
         int bitRate = VideoSettings.Bitrate;
+        bool isH264 = codec.Id == AVCodecID.AV_CODEC_ID_H264;
         var options = new MediaDictionary(VideoSettings.Options
             .Where(item => !string.IsNullOrWhiteSpace(item.Name))
+            .Where(item => isH264 || !IsH264OnlyDefault(item))
             .Select(item => new KeyValuePair<string, string>(item.Name, item.Value)));
 
         encoder = MediaEncoder.Create(codec, codecContext =>

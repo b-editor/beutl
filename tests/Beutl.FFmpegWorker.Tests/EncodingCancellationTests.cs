@@ -184,8 +184,6 @@ public class EncodingCancellationTests
         var controller = FFmpegTestHelpers.CreateController(
             outputPath, new PixelSize(64, 64), new Rational(30, 1), sampleRate, channels: 2);
         controller.AudioSettings.Format = FFmpegAudioEncoderSettings.AudioFormat.Default;
-        // libvpx-vp9 cannot parse the default H.264 option profile=high (#2898)
-        controller.VideoSettings.Options.Remove(controller.VideoSettings.Options.Single(o => o.Name == "profile"));
         using var frames = new GradientFrameProvider(3, new Rational(30, 1), 64, 64);
         using var samples = new SineSampleProvider(sampleCount, sampleRate);
 
