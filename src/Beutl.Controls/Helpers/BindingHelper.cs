@@ -1,4 +1,6 @@
-﻿using Avalonia.Data;
+﻿using System.Runtime.CompilerServices;
+
+using Avalonia.Data;
 using Avalonia.Data.Core;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Markup.Xaml.MarkupExtensions.CompiledBindings;
@@ -9,7 +11,8 @@ namespace Beutl;
 
 public static class BindingHelper
 {
-    private static readonly Dictionary<Type, CompiledBindingPath> s_cache = [];
+    // Weakly keyed, so that a package's value type does not outlive the package's unload.
+    private static readonly ConditionalWeakTable<Type, CompiledBindingPath> s_cache = [];
 
     public static BindingBase ToPropertyBinding<T>(this IReactiveProperty<T> property, BindingMode bindingMode = BindingMode.Default)
     {
@@ -41,7 +44,7 @@ public static class BindingHelper
             b.Property(propInfo, PropertyInfoAccessorFactory.CreateInpcPropertyAccessor);
 
             path = b.Build();
-            s_cache.Add(typeof(T), path);
+            s_cache.AddOrUpdate(typeof(T), path);
         }
 
         return new CompiledBindingExtension(path)
