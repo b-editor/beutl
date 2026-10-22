@@ -5,7 +5,7 @@ using Beutl.Editor.PropertyEditors;
 namespace Beutl.Editor.Components.PropertyEditors.Services;
 
 // Chooses each property's editor among the extensions' registrations: Match editors, then [ChoicesProvider], the exact
-// type, the nearest base class, interfaces and open generic types, and CoreObject; later-loaded extensions first.
+// type, the nearest base class, interfaces, and CoreObject; later-loaded extensions first.
 internal static class PropertyEditorResolver
 {
     private static readonly ConditionalWeakTable<IPropertyEditorContext, PropertyEditorRegistration> s_registrations = [];
@@ -75,7 +75,7 @@ internal static class PropertyEditorResolver
 
         foreach (PropertyEditorRegistration r in Ordered(extensions, filter))
         {
-            if (IsType(r) && r.ValueType is { IsInterface: true } i && Implements(type, i)) yield return r;
+            if (IsType(r) && r.ValueType is { IsInterface: true } i && type.IsAssignableTo(i)) yield return r;
         }
 
         if (type != typeof(CoreObject) && type.IsAssignableTo(typeof(CoreObject)))
@@ -183,13 +183,6 @@ internal static class PropertyEditorResolver
                 if (filter(r)) yield return r;
             }
         }
-    }
-
-    private static bool Implements(Type type, Type interfaceType)
-    {
-        if (!interfaceType.IsGenericTypeDefinition) return type.IsAssignableTo(interfaceType);
-
-        return type.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == interfaceType);
     }
 
     private static void Remove(IList<IPropertyAdapter> adapters, IEnumerable<IPropertyAdapter> taken)

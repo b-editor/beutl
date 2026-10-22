@@ -5,7 +5,7 @@ namespace Beutl.Extensibility;
 // One editor an extension registered; the host chooses among them by Tier, then by value type.
 internal sealed class PropertyEditorRegistration
 {
-    // The value type the editor takes, a class or an interface, which may be open generic; null for the other tiers.
+    // The value type the editor takes, a class or an interface; null for the other tiers.
     public Type? ValueType { get; init; }
 
     public PropertyEditorTier Tier { get; init; } = PropertyEditorTier.Type;

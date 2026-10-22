@@ -64,10 +64,9 @@ registrations belong to the extension and go away when its package unloads.
 
 Beutl chooses each property's editor in this order: a registration whose `Match`
 accepts the property or a group, `[ChoicesProvider]`, the exact value type, the
-nearest base class, interfaces and open generic types, and the `CoreObject`
-editor. Within each step a package loaded later goes first, so an extension can
-replace a built-in editor; within one package, the registration made first goes
-first. A `createContext` that returns `null` passes the property on to the next
+nearest base class, interfaces, and the `CoreObject` editor. Within each step a
+package loaded later goes first, so an extension can replace a built-in editor;
+within one package, the registration made first goes first. A `createContext` that returns `null` passes the property on to the next
 registration. In the property panel, editors that match particular properties
 come first and the others follow the order of the properties; an editor chosen
 by its value type is no longer moved to the top.

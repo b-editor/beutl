@@ -94,7 +94,6 @@ internal static class BuiltInPropertyEditors
         Add(registry, typeof(IList), CreateListEditor, _ => new ListEditor());
         Add<GraphModel?>(registry, p => new GraphModelEditorViewModel(p), () => new GraphModelEditor());
         Add(registry, typeof(CoreObject), p => Create(typeof(CoreObjectEditorViewModel<>), p.PropertyType, p), _ => new CoreObjectEditor());
-        Add(registry, typeof(IParsable<>), p => Create(typeof(ParsableEditorViewModel<>), p.PropertyType, p), _ => new ParsableEditor());
 
         registry.Add(new PropertyEditorRegistration
         {
