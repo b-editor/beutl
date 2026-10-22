@@ -69,6 +69,30 @@ public sealed class ExportFrameCountTests
         Assert.That(mismatches, Is.Empty);
     }
 
+    // MediaTime.ToTimeSpan puts an exact frame time on the nearest tick, which can be just past the frame
+    [TestCase(24000, 1001)]
+    [TestCase(24, 1)]
+    [TestCase(25, 1)]
+    [TestCase(30000, 1001)]
+    [TestCase(30, 1)]
+    [TestCase(50, 1)]
+    [TestCase(60000, 1001)]
+    [TestCase(60, 1)]
+    public void Counts_every_frame_of_a_length_converted_from_MediaTime(long numerator, long denominator)
+    {
+        var rate = new Rational(numerator, denominator);
+        var mismatches = new List<string>();
+        for (long frames = 1; frames <= 3000; frames++)
+        {
+            TimeSpan duration = MediaTime.FromFrames(frames, rate).ToTimeSpan();
+            long count = FrameProviderImpl.ToFrameCount(duration, rate);
+            if (count != frames)
+                mismatches.Add($"{frames} frames ({duration.Ticks} ticks) counted as {count}");
+        }
+
+        Assert.That(mismatches, Is.Empty);
+    }
+
     [Test]
     public void Counts_no_frames_for_an_empty_duration_or_an_unusable_rate()
     {
