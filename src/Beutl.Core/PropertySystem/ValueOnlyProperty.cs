@@ -7,7 +7,7 @@ using ValidationContext = Beutl.Validation.ValidationContext;
 namespace Beutl;
 
 // A property that holds only a value: it takes no expression, reference, node connection or keyframes.
-public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = null) : IProperty<T>, IChildObjectSource
+public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = null) : IProperty<T>, IChildObjectSource, IValueOnlyProperty
 {
     private IValidator<T>? _validator = validator;
     private T _currentValue = defaultValue;
@@ -40,8 +40,11 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
     // Brings a value its owner updates lazily up to date before it is read, like GraphNode.NestedInputPorts.
     internal Action? BeforeRead { get; set; }
 
-    // True for a list its owner keeps, like GraphModel.Nodes: setting another list replaces the kept list's items.
+    // True for a list its owner keeps, like GraphModel.Nodes: setting another list replaces the kept list's items,
+    // and the owner reads the saved items into it.
     internal bool KeepsList { get; init; }
+
+    bool IValueOnlyProperty.KeepsList => KeepsList;
 
     public bool IsValueSet { get; private set; }
 

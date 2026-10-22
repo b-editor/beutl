@@ -3,7 +3,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
-using Beutl.Collections;
 using Beutl.Composition;
 using Beutl.Media;
 using Beutl.Reactive;
@@ -150,8 +149,8 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
 
         foreach (IProperty property in RegisteredProperties)
         {
-            // A base field that holds a list keeps that list; its owner reads the items into it.
-            if (!IsAutoSerialized(property) || (IsBaseField(property) && property.Value is ICoreList))
+            // A base field that keeps its list is filled by its owner, which reads the items into it.
+            if (!IsAutoSerialized(property) || (IsBaseField(property) && property is IValueOnlyProperty { KeepsList: true }))
                 continue;
 
             // A property renamed with a FormerPersistedNameAttribute reads its value, animation and expression
