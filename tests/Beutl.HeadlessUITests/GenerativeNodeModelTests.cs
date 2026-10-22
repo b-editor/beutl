@@ -4,6 +4,7 @@ using Beutl.Api.Services;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Components.NodeGraphTab.PropertyEditors;
+using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Editor.Services.AI;
 using Beutl.Extensibility;
 using Beutl.Graphics;
@@ -710,9 +711,9 @@ public sealed class GenerativeNodeModelTests
 
     private static GenerativeChoiceEditorViewModel CreateEditor(IPropertyAdapter property)
     {
-        Assert.That(
-            GenerativeChoicePropertyExtension.Instance.TryCreateContextForNode([property], out IPropertyEditorContext? context),
-            Is.True);
+        IPropertyEditorContext? context = PropertyEditorResolver.CreateContext(
+            property, [GenerativeChoicePropertyExtension.Instance], PropertyEditorSurface.Node);
+        Assert.That(context, Is.Not.Null);
         return (GenerativeChoiceEditorViewModel)context!;
     }
 
@@ -723,7 +724,7 @@ public sealed class GenerativeNodeModelTests
     {
         ready ??= editor => editor.Items.Count > 1;
         vm.Accept(new PropertyEditorTestHost.ServiceVisitor((typeof(IGenerativeModelCatalog), catalog)));
-        Assert.That(GenerativeChoicePropertyExtension.Instance.TryCreateControlForNode(vm, out var control), Is.True);
+        Assert.That(PropertyEditorHost.TryCreateControl(vm, PropertyEditorSurface.Node, out var control), Is.True);
         var editor = (EnumEditor)control!;
         await HeadlessTestHelpers.WaitUntilAsync(() => ready(editor));
 

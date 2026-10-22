@@ -39,6 +39,7 @@ public sealed class PropertyEditorRegistry
             },
             IsStandard = true,
             HasListItemControl = options?.CreateListItemControl is not null,
+            IsPanelOnly = options?.PanelOnly == true,
             Owner = Owner,
         });
     }
@@ -60,6 +61,7 @@ public sealed class PropertyEditorRegistry
             CreateContext = properties => properties[0] is IPropertyAdapter<TValue> property ? createContext(property) : null,
             CreateControl = (context, surface) => CreateSurfaceControl(options, context, surface) ?? createControl((TContext)context),
             HasListItemControl = options?.CreateListItemControl is not null,
+            IsPanelOnly = options?.PanelOnly == true,
             Owner = Owner,
         });
     }

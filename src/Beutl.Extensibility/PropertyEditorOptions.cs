@@ -16,4 +16,7 @@ public sealed class PropertyEditorOptions
 
     // The control on a settings page, when it differs from the panel's.
     public Func<IPropertyEditorContext, Control>? CreateSettingsControl { get; init; }
+
+    // Only in the property panel; in nodes, lists and settings pages the next editor, such as the built-in one, takes it.
+    internal bool PanelOnly { get; init; }
 }

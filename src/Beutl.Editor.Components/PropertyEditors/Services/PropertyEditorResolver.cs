@@ -40,10 +40,10 @@ internal static class PropertyEditorResolver
         IPropertyAdapter property, IReadOnlyList<PropertyEditorExtension> extensions, PropertyEditorSurface surface)
     {
         if (surface != PropertyEditorSurface.ListItem)
-            return Candidates(property, extensions, r => !r.IsListItemOnly);
+            return Candidates(property, extensions, r => Applies(r, surface));
 
-        return Candidates(property, extensions, r => r.HasListItemControl)
-            .Concat(Candidates(property, extensions, r => !r.HasListItemControl));
+        return Candidates(property, extensions, r => r.HasListItemControl && Applies(r, surface))
+            .Concat(Candidates(property, extensions, r => !r.HasListItemControl && Applies(r, surface)));
     }
 
     private static IEnumerable<PropertyEditorRegistration> Candidates(
@@ -176,7 +176,8 @@ internal static class PropertyEditorResolver
     private static bool IsType(PropertyEditorRegistration registration) => registration.Tier == PropertyEditorTier.Type;
 
     private static bool Applies(PropertyEditorRegistration registration, PropertyEditorSurface surface)
-        => surface == PropertyEditorSurface.ListItem || !registration.IsListItemOnly;
+        => (surface == PropertyEditorSurface.ListItem || !registration.IsListItemOnly)
+           && (surface == PropertyEditorSurface.Panel || !registration.IsPanelOnly);
 
     // Later-loaded extensions first; each one's registrations in the order it made them.
     private static IEnumerable<PropertyEditorRegistration> Ordered(

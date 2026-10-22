@@ -1,5 +1,6 @@
 ﻿using Beutl.Api.Services;
 using Beutl.Collections;
+using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.Extensions.FFmpeg.PropertyEditors;
@@ -27,9 +28,11 @@ public sealed class EncoderOptionsEditorViewModelTests
         var manager = new PackageManager(new InstalledPackageRepository(), provider, commands, apiApplication: null!);
         var loaded = manager.LoadPackageExtensions([typeof(FFmpegEncoderSpecializedPropertyExtension)]);
         var extension = (PropertyEditorExtension)loaded.Single();
+        provider.AddExtensions(1, loaded);
         var settings = CreateSettings();
         var adapter = new EnginePropertyAdapter<CoreList<AdditionalOption>>(settings.OptionsProperty, settings);
-        Assert.That(extension.MatchProperty([adapter]), Is.EqualTo(new[] { adapter }));
+        using IPropertyEditorContext? context = new PropertyEditorFactoryAdapter(provider).CreateEditor(adapter);
+        Assert.That(context, Is.InstanceOf<EncoderOptionsEditorViewModel>());
         extension.Unload();
     }
 

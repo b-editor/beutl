@@ -1,6 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using Avalonia.Controls;
-using Beutl.Controls.PropertyEditors;
+﻿using Beutl.Controls.PropertyEditors;
 using Beutl.NodeGraph.Generative;
 
 namespace Beutl.Editor.Components.NodeGraphTab.PropertyEditors;
@@ -10,50 +8,20 @@ public sealed class GenerativeChoicePropertyExtension : PropertyEditorExtension
 {
     public static new readonly GenerativeChoicePropertyExtension Instance = new();
 
-    public override IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
+    protected internal override void RegisterEditors(PropertyEditorRegistry registry)
     {
-        foreach (IPropertyAdapter property in properties)
-        {
-            if (GenerativeChoices.TryGet(property, out _))
-                return [property];
-        }
-
-        return [];
+        registry.RegisterGroup(
+            properties => properties.FirstOrDefault(p => GenerativeChoices.TryGet(p, out _)) is { } property ? [property] : [],
+            properties =>
+            {
+                GenerativeChoices.TryGet(properties[0], out GenerativeChoice? choice);
+                return new GenerativeChoiceEditorViewModel(properties[0], choice!, this);
+            },
+            context =>
+            {
+                var editor = new EnumEditor();
+                context.Accept(editor);
+                return editor;
+            });
     }
-
-    public override bool TryCreateContext(
-        IReadOnlyList<IPropertyAdapter> properties,
-        [NotNullWhen(true)] out IPropertyEditorContext? context)
-    {
-        context = null;
-        if (properties.Count == 1
-            && properties[0] is { } property
-            && GenerativeChoices.TryGet(property, out GenerativeChoice? choice))
-        {
-            context = new GenerativeChoiceEditorViewModel(property, choice, this);
-        }
-
-        return context is not null;
-    }
-
-    public override bool TryCreateContextForNode(
-        IReadOnlyList<IPropertyAdapter> properties,
-        [NotNullWhen(true)] out IPropertyEditorContext? context)
-        => TryCreateContext(properties, out context);
-
-    public override bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
-    {
-        if (context is GenerativeChoiceEditorViewModel)
-        {
-            var editor = new EnumEditor();
-            context.Accept(editor);
-            control = editor;
-            return true;
-        }
-
-        return base.TryCreateControl(context, out control);
-    }
-
-    public override bool TryCreateControlForNode(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
-        => TryCreateControl(context, out control);
 }

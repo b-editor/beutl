@@ -30,6 +30,9 @@ internal sealed class PropertyEditorRegistration
     // Set for a built-in editor used only in lists, such as a path segment's.
     public bool IsListItemOnly { get; init; }
 
+    // Set for an editor used only in the property panel, from PropertyEditorOptions.PanelOnly.
+    public bool IsPanelOnly { get; init; }
+
     public required PropertyEditorExtension Owner { get; init; }
 }
 
