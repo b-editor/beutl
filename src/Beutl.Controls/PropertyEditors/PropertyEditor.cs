@@ -69,6 +69,7 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
 
     private const double AutoCompactMaxWidth = 224;
     private readonly CompositeDisposable _eventRevokers = new(3);
+    private readonly SerialDisposable _connection = new();
     private string? _headerTooltip;
 
     static PropertyEditor()
@@ -154,6 +155,65 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
 
     public virtual void Visit(IPropertyEditorContext context)
     {
+    }
+
+    // Shows the context's value in valueProperty and confirms the edits this editor raises; an earlier connection ends.
+    private protected CompositeDisposable ConnectConfirmedValue<TEdit>(
+        IValueEditorContext<TEdit> context, AvaloniaProperty<TEdit> valueProperty)
+    {
+        CompositeDisposable connection = StartConnection();
+        Bind(valueProperty, context.EditValue.ToBinding()).DisposeWith(connection);
+        ConfirmEdits(context, connection);
+        return connection;
+    }
+
+    // Also previews the value while the user changes it and shows the value the context kept.
+    private protected CompositeDisposable ConnectValue<TEdit>(
+        IValueEditorContext<TEdit> context, AvaloniaProperty<TEdit> valueProperty)
+    {
+        CompositeDisposable connection = ConnectConfirmedValue(context, valueProperty);
+        this.AddDisposableHandler(
+                ValueChangedEvent,
+                (_, _) => SetValue(valueProperty, context.PreviewEdit(AvaloniaObjectExtensions.GetValue(this, valueProperty))))
+            .DisposeWith(connection);
+        return connection;
+    }
+
+    // Like ConnectConfirmedValue, and shows the context's value again after each edit, as one it turned down changes nothing.
+    private protected CompositeDisposable ConnectRefreshedValue<TEdit>(
+        IValueEditorContext<TEdit> context, AvaloniaProperty<TEdit> valueProperty)
+    {
+        CompositeDisposable connection = StartConnection();
+        TEdit shown = default!;
+        context.EditValue.Subscribe(value => shown = value).DisposeWith(connection);
+        Bind(valueProperty, context.EditValue.ToBinding()).DisposeWith(connection);
+        ConfirmEdits(context, connection, () => SetValue(valueProperty, shown));
+        return connection;
+    }
+
+    // Ends the earlier connection and returns the one that holds the new connection's subscriptions.
+    private protected CompositeDisposable StartConnection()
+    {
+        var connection = new CompositeDisposable();
+        _connection.Disposable = connection;
+        return connection;
+    }
+
+    // Hands the edits this editor confirms to the context, then runs afterConfirm.
+    private protected void ConfirmEdits<TEdit>(
+        IValueEditorContext<TEdit> context, CompositeDisposable connection, Action? afterConfirm = null)
+    {
+        this.AddDisposableHandler(
+                ValueConfirmedEvent,
+                (s, e) =>
+                {
+                    if (e.Expect<TEdit>(s) is { } args)
+                    {
+                        context.ConfirmEdit(args.OldValue, args.NewValue);
+                        afterConfirm?.Invoke();
+                    }
+                })
+            .DisposeWith(connection);
     }
 
     private void UpdateStyle()

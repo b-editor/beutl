@@ -69,7 +69,7 @@ public sealed class EncoderOptionsEditorTests
 
             Assert.That(settings.Options.Single().Name, Is.EqualTo(editName ? text : "crf"));
             Assert.That(settings.Options.Single().Value, Is.EqualTo(editName ? "22" : text));
-            Assert.That(view.GetVisualDescendants().OfType<StringEditor>().Any(c => c.Text == text), Is.True);
+            Assert.That(view.GetVisualDescendants().OfType<StringEditorBase>().Any(c => c.Text == text), Is.True);
         }
         finally
         {

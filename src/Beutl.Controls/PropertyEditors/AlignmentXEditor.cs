@@ -1,11 +1,12 @@
 ﻿using Avalonia;
 using Avalonia.Data;
 
+using Beutl.Extensibility;
 using Beutl.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class AlignmentXEditor : ThreeOptionRadioEditor<AlignmentX>
+public class AlignmentXEditor : ThreeOptionRadioEditor<AlignmentX>, IValueEditorControl<AlignmentX>
 {
     public static readonly DirectProperty<AlignmentXEditor, AlignmentX> ValueProperty =
         AvaloniaProperty.RegisterDirect<AlignmentXEditor, AlignmentX>(
@@ -26,6 +27,8 @@ public class AlignmentXEditor : ThreeOptionRadioEditor<AlignmentX>
         }
     }
 
+    public void Connect(IValueEditorContext<AlignmentX> context) => ConnectConfirmedValue(context, ValueProperty);
+
     protected override AlignmentX ButtonAValue => AlignmentX.Left;
     protected override AlignmentX ButtonBValue => AlignmentX.Center;
     protected override AlignmentX ButtonCValue => AlignmentX.Right;
@@ -33,7 +36,7 @@ public class AlignmentXEditor : ThreeOptionRadioEditor<AlignmentX>
     protected override void SetValue(AlignmentX value) => Value = value;
 }
 
-public class TextAlignmentEditor : ThreeOptionRadioEditor<TextAlignment>
+public class TextAlignmentEditor : ThreeOptionRadioEditor<TextAlignment>, IValueEditorControl<TextAlignment>
 {
     public static readonly DirectProperty<TextAlignmentEditor, TextAlignment> ValueProperty =
         AvaloniaProperty.RegisterDirect<TextAlignmentEditor, TextAlignment>(
@@ -53,6 +56,8 @@ public class TextAlignmentEditor : ThreeOptionRadioEditor<TextAlignment>
             }
         }
     }
+
+    public void Connect(IValueEditorContext<TextAlignment> context) => ConnectConfirmedValue(context, ValueProperty);
 
     protected override TextAlignment ButtonAValue => TextAlignment.Start;
     protected override TextAlignment ButtonBValue => TextAlignment.Center;

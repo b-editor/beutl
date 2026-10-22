@@ -6,6 +6,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
 using Beutl.Animation.Easings;
+using Beutl.Extensibility;
 using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -39,7 +40,7 @@ public sealed class EasingItem
     public Easing CreateInstance() => (Easing)Activator.CreateInstance(Type)!;
 }
 
-public class EasingEditor : PropertyEditor
+public class EasingEditor : PropertyEditor, IValueEditorControl<Easing?>
 {
     public static readonly StyledProperty<Easing?> ValueProperty =
         AvaloniaProperty.Register<EasingEditor, Easing?>(nameof(Value), defaultBindingMode: BindingMode.TwoWay);
@@ -61,6 +62,17 @@ public class EasingEditor : PropertyEditor
     {
         get => GetValue(ItemsProperty);
         set => SetValue(ItemsProperty, value);
+    }
+
+    public void Connect(IValueEditorContext<Easing?> context)
+    {
+        CompositeDisposable connection = ConnectRefreshedValue(context, ValueProperty);
+        this.AddDisposableHandler(ValueChangedEvent, (_, e) =>
+            {
+                if (e is PropertyEditorValueChangedEventArgs<Easing?> args)
+                    Value = context.PreviewEdit(args.NewValue);
+            })
+            .DisposeWith(connection);
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)

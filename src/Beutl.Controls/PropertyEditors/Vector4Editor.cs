@@ -1,14 +1,20 @@
 ﻿using System.Numerics;
+using System.Reactive.Disposables;
+using System.Reactive.Linq;
 
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
+using Avalonia.Interactivity;
+
+using Beutl.Extensibility;
+using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class Vector4Editor<TElement> : Vector4Editor
+public class Vector4Editor<TElement> : Vector4Editor, IValueEditorControl<(TElement, TElement, TElement, TElement)>
     where TElement : INumber<TElement>
 {
     public static readonly DirectProperty<Vector4Editor<TElement>, TElement> FirstValueProperty =
@@ -98,6 +104,22 @@ public class Vector4Editor<TElement> : Vector4Editor
     {
         get => GetValue(SmallChangeProperty);
         set => SetValue(SmallChangeProperty, value);
+    }
+
+    public void Connect(IValueEditorContext<(TElement, TElement, TElement, TElement)> context)
+    {
+        CompositeDisposable connection = StartConnection();
+        BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Item1), connection);
+        BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Item2), connection);
+        BindComponent(ThirdValueProperty, context.EditValue.Select(v => v.Item3), connection);
+        BindComponent(FourthValueProperty, context.EditValue.Select(v => v.Item4), connection);
+        this.AddDisposableHandler(ValueChangedEvent, (_, _) =>
+            {
+                (FirstValue, SecondValue, ThirdValue, FourthValue) =
+                    context.PreviewEdit((FirstValue, SecondValue, ThirdValue, FourthValue));
+            })
+            .DisposeWith(connection);
+        ConfirmEdits(context, connection);
     }
 }
 

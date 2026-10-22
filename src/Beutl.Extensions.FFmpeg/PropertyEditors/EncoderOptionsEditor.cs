@@ -301,7 +301,7 @@ internal sealed class EncoderOptionsEditor : UserControl
             refreshers.Add(() => { if (!editor.IsKeyboardFocusWithin) editor.Text = read() ?? ""; });
             result = editor;
         }
-        if (result is StringEditor textEditor)
+        if (result is StringEditorBase textEditor)
         {
             TrackPendingEdit(textEditor, read, value =>
             {
@@ -319,12 +319,12 @@ internal sealed class EncoderOptionsEditor : UserControl
         return result;
     }
 
-    private void TrackPendingEdit(StringEditor editor, Func<string?> read, Action<string> write, List<Action> pendingEdits)
+    private void TrackPendingEdit(StringEditorBase editor, Func<string?> read, Action<string> write, List<Action> pendingEdits)
     {
         bool edited = false;
         editor.PropertyChanged += (_, e) =>
         {
-            if (!_updating && editor.IsKeyboardFocusWithin && e.Property == StringEditor.TextProperty) edited = true;
+            if (!_updating && editor.IsKeyboardFocusWithin && e.Property == StringEditorBase.TextProperty) edited = true;
         };
         editor.ValueConfirmed += (_, _) => edited = false;
         pendingEdits.Add(() =>

@@ -6,12 +6,13 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Extensibility;
 using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
 // The text box editing of NumberEditor, RationalEditor and TimeSpanEditor; they parse, format and step the value.
-public abstract class ValueStringEditor<TValue> : StringEditor
+public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditorControl<TValue>
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly bool _canScrub;
@@ -43,6 +44,8 @@ public abstract class ValueStringEditor<TValue> : StringEditor
     }
 
     private protected abstract DirectPropertyBase<TValue> ValuePropertyCore { get; }
+
+    public void Connect(IValueEditorContext<TValue> context) => ConnectValue(context, ValuePropertyCore);
 
     private protected abstract string Format(TValue value);
 

@@ -5,10 +5,11 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Beutl.Extensibility;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class StorageFileEditor : StringEditor
+public class StorageFileEditor : StringEditorBase, IValueEditorControl<FileInfo?>
 {
     public static readonly StyledProperty<FilePickerOpenOptions> OpenOptionsProperty =
         AvaloniaProperty.Register<StorageFileEditor, FilePickerOpenOptions>(nameof(OpenOptions));
@@ -53,6 +54,8 @@ public class StorageFileEditor : StringEditor
     }
 
     protected override Type StyleKeyOverride => typeof(StorageFileEditor);
+
+    public void Connect(IValueEditorContext<FileInfo?> context) => ConnectRefreshedValue(context, ValueProperty);
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
